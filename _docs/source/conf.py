@@ -41,9 +41,9 @@ author = 'Tim Schupp'
 # ones.
 
 # You can only build these docks from inside the container!
-sys.path.insert(0, os.path.abspath('/docs/backend'))
-sys.path.insert(0, os.path.abspath('/docs/extra_mods'))
-sys.path.insert(0, os.path.abspath('/docs'))
+sys.path.insert(0, os.path.abspath('/docs_source/backend'))
+sys.path.insert(0, os.path.abspath('/docs_source/extra_mods'))
+sys.path.insert(0, os.path.abspath('/docs_source'))
 os.environ['DJANGO_SETTINGS_MODULE'] = 'back.settings'
 django.setup()
 

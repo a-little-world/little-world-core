@@ -95,6 +95,11 @@ CELERY_TIMEZONE = os.environ['DJ_CELERY_TIMEZONE']
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 
+
+if BUILD_TYPE in ['staging', 'development']:
+    # autmaticly renders index.html when entering an absolute static path
+    WHITENOISE_INDEX_FILE = True
+
 if BUILD_TYPE in ['staging', 'development']:
 
     REST_FRAMEWORK = {

@@ -41,7 +41,7 @@ class c:
 
     # For making the spinix docs
     vmount_spinix = ["-v", f"{os.getcwd()}/_docs:/docs",
-                     "-v", f"{os.getcwd()}/back:/docs/backend"]
+                     "-v", f"{os.getcwd()}/back:/docs_source/backend"]
     file_spinix = ["-f", "Dockerfile.docs"]
     tag_spinix = "docs.spinix"
 
@@ -117,6 +117,16 @@ def _is_dev(a):
     return "dev" in a.btype
 
 
+@register_action(name="list_running", alias=["ps"])
+def _list_running_instances(args):
+    all_running = []
+    for tag in [c.ptag, c.dtag, c.front_tag, c.staging_tag]:
+        ps = _running_instances(tag)
+        all_running += ps if isinstance(ps, list) else [ps]
+    print(all_running)
+    return all_running
+
+
 def _running_instances(tag=TAG):
     """ Get a list of running instance for docker 'tag' """
     _cmd = ["docker", "ps", "--format",
@@ -140,17 +150,24 @@ def _docker_images(repo=TAG, tag=None):
     return _filtered_images
 
 
+@register_action(alias=["fg"])
+def attach(args):
+    """ Attach to running container instances """
+    ps = _list_running_instances(args)
+    assert len(ps) == 1, "where to attach? please specify -i " + \
+        "\"{'ID':'...'}\""
+    subprocess.run(["docker", "container", "attach", ps[0]["ID"]
+                   if len(ps) == 1 else eval(args.input)["ID"]])
+
+
 @register_action(cont=True, alias=["k"])
 def kill(args, front=True, back=True):
     """ Kills all the running container instances (back & front)"""
-    ps = [*(_running_instances() if back else []),
-          *(_running_instances(tag=FRONT_TAG) if front else [])]
-    _cmd = ["docker", "kill"]
-    for p in ps:
-        _c = _cmd + [p["ID"]]
-        print(' '.join(_c))
-        subprocess.run(_c)
-    # TODO: make use of the _kill_tag function below
+    for tag in [c.front_tag if front else None,
+                c.dtag if back else None,
+                c.ptag if not _is_dev(args) else None]:
+        if tag:
+            _kill_tag(tag)
 
 
 def _kill_tag(tag):
@@ -261,11 +278,17 @@ def deploy_staging(args):
     e.g.: -i "{'HEROKU_REGISTRY_URL':'...','HEROKU_APP_NAME':'...'}"
     optional 'ROOT_USER_PASSWORD' if passed will create a root user
     optional 'ROOT_USER_EMAIL', 'ROOT_USER_USERNAME'
+    optional 'DOCS', default: False
     """
     assert args.input, " '-i' required, e.g.: \"{'HEROKU_REGISTRY_URL':'...','HEROKU_APP_NAME':'...'}\""
     heroku_env = eval(args.input)
     if not 'HEROKU_REGISTRY_URL' in heroku_env:  # The registry url can componly be infered from the app name
         heroku_env['HEROKU_REGISTRY_URL'] = f"registry.heroku.com/{heroku_env['HEROKU_APP_NAME']}/web"
+    if 'DOCS' in heroku_env and heroku_env['DOCS'].lower() in ('true', '1', 't'):
+        # Also build the documentation and move it to /static
+        build_docs(args)
+        # Copy the build files to
+        shutil.copytree("./docs", "./back/static/docs")
     # Build the frontends
     build_front(args)
     # Collect the statics ( also contains the files for open api specifications )
@@ -480,10 +503,10 @@ def build_docs(args):
     print(" ".join(_cmd))
     subprocess.run(_cmd)
     _run_in_running_tag(["make", "html"], tag=c.tag_spinix, work_dir="/docs")
-    # _run_in_running_tag(["sh"], tag=c.tag_spinix)
-    _kill_tag(c.tag_spinix)
+    #_run_in_running_tag(["sh"], tag=c.tag_spinix)
     # copy the output files
     shutil.copytree("./_docs/build/html", "./docs")
+    _kill_tag(c.tag_spinix)
 
 
 @register_action(name="help", alias=["h", "?"])
