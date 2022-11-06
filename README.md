@@ -1,4 +1,4 @@
-### Little World Backend V2
+## Little World Backend V2
 
 The awesome clean an refurbished version of `little-world-dev-backend`
 
@@ -6,14 +6,25 @@ The awesome clean an refurbished version of `little-world-dev-backend`
 
 ### Gettings started
 
-**All** the build are handled by `./run.py`.
-Check `./run.py ?` for help text on possible commands ( don't forget to `chmod u+x run.py` ).
+Only requirement for the backend are `docker` & `python > 3.8`
 
-> Only requirement for the backend are `docker` & `python > 3.8`
+**All** the build are handled by `./run.py`. To get started:
 
-Simply running `./run.py` will install all required packages, clone all required submodules, build the required images ( here `Dockerfile.front ( all frontneds )` and `Dockerfile.dev ( the backend )` ) and run the images.
+```shell
+chmod u+x run.py
+./run.py ?
+```
 
-For documentation check the doc-page of [`./run.py`](TODO).
+Simply running `./run.py` will install all required packages, clone all required submodules, build the required images ( here `Dockerfile.front` builds all frontends and `Dockerfile.dev` builds the backend ) and run the images.
+
+For more check the doc-page of [`./run.py`](TODO).
+
+### Documentation
+
+API's and docs are currently served at `staging.littleworld-test.com`. ( Status: )
+
+- Repo code documentation [`static/docs`](TODO)
+- Backend API documentation [`api/shema/swagger-ui`](TODO)
 
 ### Backend Development
 
@@ -68,6 +79,6 @@ All frontend should be linked in `./front/apps/`.
 Want to see you change in a deployed status with limited key / security access? No problem!
 First ask @tbscode for development deployment credentials, then run:
 
-```python
+```shell
 ./run.py staging -i "{'...'}" TODO
 ```
