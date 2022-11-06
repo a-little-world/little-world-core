@@ -1,6 +1,4 @@
-from ast import operator
 import django.contrib.auth.password_validation as pw_validation
-# TODO: only allowed on development
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 from drf_spectacular.types import OpenApiTypes
 from datetime import datetime
@@ -15,37 +13,9 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.views.decorators.vary import vary_on_cookie, vary_on_headers
 from rest_framework import serializers
-from rest_framework.throttling import UserRateThrottle
 from rest_framework.permissions import IsAuthenticated
-from .models import ProfileSerializer, UserSerializer
+from ..models import ProfileSerializer, UserSerializer
 from django.contrib.auth import get_user_model
-
-
-class Throttle200TimesPerDay(UserRateThrottle):
-    rate = '200/day'
-
-
-class user_app_data(APIView):
-    authentication_classes = [authentication.TokenAuthentication]
-    permission_classes = [permissions.IsAdminUser]
-    """
-    Returns the main application data for a given user.
-    Basicly this is the data the main frontend app receives
-    """
-    # Waithin on 'async' support for DRF: https://github.com/encode/django-rest-framework/discussions/7774
-
-    def get(self, request, format=None):
-        return Response({
-            "self": {
-                "info": "self info",
-                "profile": "profile",
-                "state": "state"
-            },
-            "matches": [{
-                "info": "some info placeholder",
-                "profile": "some profile placeholder"
-            }],
-        })
 
 
 class RegistrationData:
@@ -88,7 +58,7 @@ class RegistrationSerializer(serializers.Serializer):
         return super(RegistrationSerializer, self).validate(data)
 
 
-class register(APIView):
+class Register(APIView):
     """
     Register a user by post request
     """
@@ -102,21 +72,16 @@ class register(APIView):
                 name=param, description=f'User Profile input {param} for Registration', required=True, type=str)
             for param in ['email', 'first_name', 'second_name', 'password1', 'password2']
         ],
-        # override default docstring extraction
-        description='More descriptive text',
-        # provide Authentication class that deviates from the views default
+        description='Little World Registration API',
         auth=None,
-        # change the auto-generated operation name
         operation_id=None,
-        # or even completely override what AutoSchema would generate. Provide raw Open API spec as Dict.
-        #operation={"operationId": "post"},
         operation=None,
         methods=["POST"]
     )
     @extend_schema(request=RegistrationSerializer(many=False))
     def post(self, request):
         serializer = RegistrationSerializer(data=request.data)
-        if serializer.is_valid():
+        if serializer.is_valid():  # TODO just make this trow Response automaticly no need for the if
             # Perform registration, send email etc...
             # The types are secure, we checked that using the 'Registration Serializer'
             registration_data = serializer.save()
