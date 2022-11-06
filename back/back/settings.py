@@ -16,13 +16,16 @@ management: for user management and general api usage
 """
 
 INSTALLED_APPS = [
-    'management',
+    'management',  # Main backend application
+
     'corsheaders',
     'rest_framework',
-    *([  # API docs not required in deployment
-        'drf_spectacular',  # for api shema generation
-        'drf_spectacular_sidecar'  # statics for redoc and swagger
-    ] if BUILD_TYPE in ['staging', 'development'] else []),
+
+    # API docs not required in deployment, so we disable to routes
+    # Though we keep the backages so we don't have to split the code
+    'drf_spectacular',  # for api shema generation
+    'drf_spectacular_sidecar',  # statics for redoc and swagger
+
     'webpack_loader',  # Load bundled webpack files, check `./run.py front`
     'django.contrib.admin',
     'django.contrib.auth',
@@ -53,12 +56,12 @@ ROOT_URLCONF = 'back.urls'
 CORS_ALLOWED_ORIGINS = []
 if BUILD_TYPE == 'staging':
     CORS_ALLOWED_ORIGINS = [
-        'https://django-clean-slate-staging.herokuapp.com',  # For staging heroku page
+        # TODO: setup
     ]
 
 if BUILD_TYPE == 'staging':
     CSRF_TRUSTED_ORIGINS = [
-        'https://django-clean-slate-staging.herokuapp.com',  # For staging heroku page
+        # TODO: setup
     ]
 
 TEMPLATES = [
