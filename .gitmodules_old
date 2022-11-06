@@ -1,0 +1,21 @@
+# little-world frontends:
+[submodule "front/apps/main_frontend"]
+	path = front/apps/little-world-frontend
+	url = https://github.com/a-little-world/little-world-frontend.git
+	branch = deploy-5
+[submodule "front/apps/cookie_banner_frontend"]
+	path = frontend/apps/little-world-cookie-banner
+	url = https://github.com/a-little-world/little-world-cookie-banner.git
+[submodule "front/apps/user_form_frontend"]
+	path = frontend/apps/little-world-user-form-react
+	url = https://github.com/a-little-world/little-world-user-form.git
+	branch = main
+# little-world djano apps:
+# git submoudle add https://github.com/a-little-world/little-world-cookie-consent back/cookie_consent --name little-world-cookie-consent
+[submodule "back/cookie_consent"]
+	path = lw_backend/little_world_cookie_consent
+	url = https://github.com/a-little-world/little-world-cookie-consent
+[submodule "back/chat"]
+	path = lw_backend/little_world_private_chat
+	url = https://github.com/a-little-world/little-world-private-chat
+	branch = master
