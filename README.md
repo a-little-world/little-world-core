@@ -27,9 +27,9 @@ Frontend are can be developed fron inside the backend but this is not recommende
 We recommend to start a backend instance in the background (`./run.py -bg`, `./run.py kill` to kill).
 Then run you frontend instance from a seperate directory ( you cloned from `a-little-world` git before ), just like you'd do normally `npm start`.
 
-Then start `schroedingers-nginx.sh` ( configure to you needs ), this will route all api and media routes ( e.g.: `/api/`, `/api2/`, `/media/`, `/admin/`) **and** you npm dev server ( expected at `localhost:3000` ) to the url `localhost:3333`.
+Configure (see `frotend/example` ), then start [`schroedingers-nginx.sh`](https://github.com/tbscode/schroedingers-nginx), this will route all api and media routes ( e.g.: `/api/`, `/api2/`, `/media/`, `/admin/`) **and** you npm dev server ( expected at `localhost:3000` ) to the url `localhost:3333`.
 
-Be sure to be on `localhost:3333` from here you'll be able to authenticate you session with test users and make api calls just as if you where running from within the backend.
+Be sure to be on `localhost:3333` from here you'll be able to authenticate your session with test users and make api calls just as if you where running from within the backend.
 
 ### Test users and test data
 
@@ -62,3 +62,12 @@ All frontend should be linked in `./front/apps/`.
 - Main Frontend [`front/apps/main_frontend`](https://github.com/a-little-world/little-world-frontend.git)
 - User Form [`front/apps/user_form_frontend`](https://github.com/a-little-world/little-world-user-form.git)
 - Cookie Banner [`front/apps/cookie_banner_frontend`](https://github.com/a-little-world/little-world-cookie-banner.git)
+
+### Staging
+
+Want to see you change in a deployed status with limited key / security access? No problem!
+First ask @tbscode for development deployment credentials, then run:
+
+```python
+./run.py staging -i "{'...'}" TODO
+```
