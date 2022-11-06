@@ -117,6 +117,15 @@ def _is_dev(a):
     return "dev" in a.btype
 
 
+def _setup(args):
+    """ 
+    # If you clone this repo with: `git clone --recurse-submodules -j8 git://github.com/foo/bar.git` there is no need to install submodules
+    setups up the whole installation:
+    - clone all submodules
+    """
+    _cmd = ["git", "submodule", "init"]
+
+
 @register_action(name="list_running", alias=["ps"])
 def _list_running_instances(args):
     all_running = []
