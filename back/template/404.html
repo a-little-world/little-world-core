@@ -1,20 +1,12 @@
-{% load render_bundle from webpack_loader %}
 <!DOCTYPE html>
 <head>
-    {% include "react_app_head_base.html" with app_name='example_app' title='Clean Slate' %}    
-</head>
-
-{% render_bundle 'staticfiles' 'css' 'example_app' %}
-
 <body>
-    <h1> 404 Page of Django Clean Slate </h1>
+    <h1> 404 Page not found </h1>
+    Are you looking for some help, maybe check some docs?
     <ol>
-        <li><a href="https://tbscode.github.io/django-clean-slate">Click here for the docks</a></li>
-        <li><a href="/api/schema/swagger-ui/">Click here for the api docs ( swagger )</a></li>
-        <li><a href="/api/schema/redoc/">Click here for the api docs ( redoc )</a></li>
+        <li><a href="/static/docs"> Repo and written docs (Only available with staing or `./run.py docs`) </a></li>
+        <li><a href="/api/schema/swagger-ui/"> swagger interactive api docs </a></li>
+        <li><a href="/api/schema/redoc/"> redoc docs style api docs </a></li>
     </ol>
-    ... and thats it :)
-    Ah also here you can see an example for a packaged and loaded react app:
     <div id="root"></div>
 </body>
-{% render_bundle 'staticfiles' 'js' 'example_app' %}
