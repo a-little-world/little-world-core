@@ -21,7 +21,7 @@ from django.contrib.auth import get_user_model
 
 class UserData(APIView):
     authentication_classes = [authentication.TokenAuthentication]
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [permissions.IsAuthenticated]
     """
     Returns the main application data for a given user.
     Basicly this is the data the main frontend app receives
