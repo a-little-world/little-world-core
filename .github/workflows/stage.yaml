@@ -1,0 +1,27 @@
+name: Deploy Staging
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    secrets:
+      HEROKU_API_KEY:
+        required: true
+      HEROKU_APP_NAME:
+        required: true
+      HEROKU_EMAIL:
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: akhileshns/heroku-deploy@v3.12.12
+        with:
+          heroku_api_key: ${{secrets.HEROKU_API_KEY}}
+          heroku_app_name: '${{secrets.HEROKU_APP_NAME}}'
+          heroku_email: '${{secrets.HEROKU_EMAIL}}'
+          justlogin: true
+      - run: heroku auth:whoami
+      - run: ./run.py stage -i "{'HEROKU_APP_NAME':'${{secrets.HEROKU_APP_NAME}}','ROOT_USER_PASSWORD':'${{secrets.STAGING_ROOT_USER_PASSWORD}}','ROOT_USER_USERNAME':'${{secrets.STAGING_ROOT_USER_USERNAME}}'}"
+        shell: 'script -q -e -c "bash {0}"'

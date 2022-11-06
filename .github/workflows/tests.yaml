@@ -1,0 +1,31 @@
+name: Run tests
+
+on:
+  push:
+    branches: ['main']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'pages'
+  cancel-in-progress: true
+
+jobs:
+  make_docs:
+    runs-on: ubuntu-latest
+    name: Build & Run tests
+    steps:
+      - uses: actions/checkout@master
+      - name: Build Image
+        shell: 'script -q -e -c "bash {0}"'
+        # We use '-b' to run the container in background
+        run: python3 run.py -bg
+      - name: Run Tests
+        shell: 'script -q -e -c "bash {0}"'
+        # Runns 'manage.py' test in the container
+        run: python3 run.py ma -c test

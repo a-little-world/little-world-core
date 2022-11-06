@@ -1,0 +1,12 @@
+FROM python:3.10
+
+WORKDIR /back
+
+COPY /back/requirements.txt ./
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+EXPOSE 8000
+
+# Would have went with daphne but no hot reloading (https://github.com/django/daphne/issues/9) is quire problematic
+CMD ["uvicorn", "back.asgi:application" ,"--reload", "--port", "8000","--host", "0.0.0.0"]

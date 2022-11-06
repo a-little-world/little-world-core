@@ -1,0 +1,13 @@
+BUILD_TYPE=development
+DJ_DEBUG=1
+DJ_SECRET_KEY=0i*%m&-$!be0%2_8_g$7o!$#(2nw)p51l^$$j38!q&t9)h!-$t
+DJ_ALLOWED_HOSTS=*
+DJ_CELERY_TIMEZONE=Australia/Tasmania
+DJ_LANGUAGE_CODE=en-us
+DJ_TIME_ZONE=UTC
+FR_FRONTENDS=example_app
+# Put static bucked url here in production
+WEBPACK_PUBLIC_PATH=
+# Set to 'none' for production
+WEBPACK_DEV_TOOL=eval-cheap-module-source-map
+WEBPACK_DEBUG=1

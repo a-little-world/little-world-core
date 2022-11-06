@@ -1,0 +1,43 @@
+name: Build Docs
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'pages'
+  cancel-in-progress: true
+
+jobs:
+  make_docs:
+    runs-on: ubuntu-latest
+    name: Build, checkut gh actions
+    steps:
+      - uses: actions/checkout@master
+      - name: Build docs
+        # use script ... to workaround (https://github.com/actions/runner/issues/241)
+        shell: 'script -q -e -c "bash {0}"'
+        run: python3 run.py docs
+      - name: Check out the gh-pages branch
+        uses: actions/checkout@master
+        with:
+          path: ./gh-pages
+          ref: gh-pages
+          submodules: recursive
+          token: ${{ github.token }}
+      - name: Copy generated docs and push to 'gh-pages' branch
+        shell: 'script -q -e -c "bash {0}"'
+        run: |
+          cp -r docs/* ./gh-pages/
+          cd gh-pages
+          git status .
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add .
+          git commit -m "generated docs"
+          git push
