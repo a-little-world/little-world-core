@@ -75,7 +75,7 @@ class RegisterTests(TestCase):
         pass  # TODO
 
     def test_password_missmatch(self):
-        """ Registring a user that alredy has an account """
+        """ Register with password missmatch """
         _data = self.valid_request_data.copy()
         _data["password2"] = str(reversed(_data["password1"]))
         response = self._some_register_call(_data)
