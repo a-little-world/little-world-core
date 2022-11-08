@@ -23,11 +23,12 @@ from .. import validators
 
 
 class RegistrationData:
-    def __init__(self, email, first_name, second_name, password):
+    def __init__(self, email, first_name, second_name, password, birth_year):
         self.email = email
         self.first_name = first_name
         self.second_name = second_name
         self.password = password
+        self.birth_year = birth_year
 
 
 class RegistrationSerializer(serializers.Serializer):
@@ -38,6 +39,7 @@ class RegistrationSerializer(serializers.Serializer):
         max_length=150, required=True, validators=[validators.validate_name])
     password1 = serializers.CharField(max_length=100, required=True)
     password2 = serializers.CharField(max_length=100, required=True)
+    birth_year = serializers.IntegerField(min_value=1900, max_value=2040)
 
     def create(self, validated_data):
         # Password same validation happens in 'validate()' we need only one password now
@@ -61,7 +63,9 @@ class RegistrationSerializer(serializers.Serializer):
 
         if data['password1'] != data['password2']:
             raise serializers.ValidationError(
-                {"password1": _("Passwords must match")})  # TODO: make this a translation
+                {"password1": _("Passwords must match")})
+
+        # TODO: validate birth_year, maybe enforce min-age
         return super(RegistrationSerializer, self).validate(data)
 
 
@@ -70,13 +74,15 @@ class Register(APIView):
     Register a user by post request
     """
     permission_classes = []  # Everyone can acess this api
+    required_args = ['email', 'first_name',
+                     'second_name', 'password1', 'password2', 'birth_year']
 
     @extend_schema(
         # extra parameters added to the schema
         parameters=[
             OpenApiParameter(
                 name=param, description=f'User Profile input {param} for Registration', required=True, type=str)
-            for param in ['email', 'first_name', 'second_name', 'password1', 'password2']
+            for param in required_args
         ],
         description='Little World Registration API',
         auth=None,
