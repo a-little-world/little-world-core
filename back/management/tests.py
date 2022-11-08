@@ -81,6 +81,16 @@ class RegisterTests(TestCase):
         response = self._some_register_call(_data)
         assert response.status_code == 400
 
+    def test_unallowed_chars_in_name(self):
+        false_names = ["with space", "with!",
+                       "chat_what", "no.name", "any@body"]
+        for field in ["first_name", "second_name"]:
+            for n in false_names:
+                _data = self.valid_request_data.copy()
+                _data[field] = n
+                response = self._some_register_call(_data)
+                assert response.status_code == 400
+
     def test_register_existing_user(self):
         """ Registring a user that alredy has an account """
         # Not we have to register him sucessfull first, cause tests always reset the DB

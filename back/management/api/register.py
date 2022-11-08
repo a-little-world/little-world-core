@@ -1,6 +1,7 @@
 import django.contrib.auth.password_validation as pw_validation
 from typing import Optional
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+from django.utils.translation import gettext as _
 from drf_spectacular.types import OpenApiTypes
 from datetime import datetime
 from django.conf import settings
@@ -18,6 +19,7 @@ from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
 from ..models import ProfileSerializer, UserSerializer
 from django.contrib.auth import get_user_model
+from .. import validators
 
 
 class RegistrationData:
@@ -30,8 +32,10 @@ class RegistrationData:
 
 class RegistrationSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
-    first_name = serializers.CharField(max_length=150, required=True)
-    second_name = serializers.CharField(max_length=150, required=True)
+    first_name = serializers.CharField(
+        max_length=150, required=True, validators=[validators.validate_name])
+    second_name = serializers.CharField(
+        max_length=150, required=True, validators=[validators.validate_name])
     password1 = serializers.CharField(max_length=100, required=True)
     password2 = serializers.CharField(max_length=100, required=True)
 
@@ -57,7 +61,7 @@ class RegistrationSerializer(serializers.Serializer):
 
         if data['password1'] != data['password2']:
             raise serializers.ValidationError(
-                {"password1": "Passwords must match"})  # TODO: make this a translation
+                {"password1": _("Passwords must match")})  # TODO: make this a translation
         return super(RegistrationSerializer, self).validate(data)
 
 
@@ -65,8 +69,7 @@ class Register(APIView):
     """
     Register a user by post request
     """
-    authentication_classes = [authentication.BasicAuthentication]
-    permission_classes = []
+    permission_classes = []  # Everyone can acess this api
 
     @extend_schema(
         # extra parameters added to the schema
