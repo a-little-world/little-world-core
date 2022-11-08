@@ -7,15 +7,15 @@ from . import api
 
 class RegisterTests(TestCase):
 
-    required_params = ['email', 'first_name',
-                       'second_name', 'password1', 'password2']
+    required_params = api.register.Register.required_args
 
     valid_request_data = dict(
         email='benjamin.tim@gmx.de',
         first_name='Tim',
         second_name='Schupp',
         password1='Test123!',
-        password2='Test123!'
+        password2='Test123!',
+        birth_year=1984
     )
 
     def _some_register_call(self, data: dict) -> Response:
