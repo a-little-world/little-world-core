@@ -3,11 +3,13 @@ from rest_framework import serializers
 
 
 def validate_name(value: str):
-    """
-    Check that value is a valid name.
-    """
-
+    """ Check that value is a valid name """
     if not value.isalpha():
         raise serializers.ValidationError(
             _("Name contains invalid characters"))
     return value
+
+
+def validate_year(value: int):
+    """ validates a valid year """
+    pass  # TODO
