@@ -19,16 +19,17 @@ from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
 from ..models import ProfileSerializer, UserSerializer
 from django.contrib.auth import get_user_model
+from dataclasses import dataclass
 from .. import validators
 
 
+@dataclass
 class RegistrationData:
-    def __init__(self, email, first_name, second_name, password, birth_year):
-        self.email = email
-        self.first_name = first_name
-        self.second_name = second_name
-        self.password = password
-        self.birth_year = birth_year
+    email: str
+    first_name: str
+    second_name: str
+    password: str
+    birth_year: str
 
 
 class RegistrationSerializer(serializers.Serializer):
