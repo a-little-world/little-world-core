@@ -103,11 +103,20 @@ if BUILD_TYPE in ['staging', 'development']:
     # autmaticly renders index.html when entering an absolute static path
     WHITENOISE_INDEX_FILE = True
 
+
+# We enforce these authentication classes
+# By that we force a crsf token to be present on **every** POST request
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.BasicAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
+    ]
+}
+
 if BUILD_TYPE in ['staging', 'development']:
 
-    REST_FRAMEWORK = {
-        'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
-    }
+    # pylint doesn't like it not sure why
+    REST_FRAMEWORK['DEFAULT_SCHEMA_CLASS'] = 'drf_spectacular.openapi.AutoSchema'
 
     SPECTACULAR_SETTINGS = {
         'TITLE': 'API DOC django clean clate',
@@ -124,6 +133,7 @@ if BUILD_TYPE in ['staging', 'development']:
             "displayOperationId": True,
         },
     }
+
 
 """
 Development database is simply sq-lite, 
