@@ -1,10 +1,12 @@
 import django.contrib.auth.password_validation as pw_validation
+from typing import Optional
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 from drf_spectacular.types import OpenApiTypes
 from datetime import datetime
 from django.conf import settings
 from django.core import exceptions
 from django.utils.module_loading import import_string
+from rest_framework import status
 from rest_framework.decorators import api_view, schema, throttle_classes, permission_classes
 from rest_framework import authentication, permissions
 from rest_framework.views import APIView
@@ -28,10 +30,10 @@ class RegistrationData:
 
 class RegistrationSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
-    first_name = serializers.CharField(max_length=150)
-    second_name = serializers.CharField(max_length=150)
-    password1 = serializers.CharField(max_length=100)
-    password2 = serializers.CharField(max_length=100)
+    first_name = serializers.CharField(max_length=150, required=True)
+    second_name = serializers.CharField(max_length=150, required=True)
+    password1 = serializers.CharField(max_length=100, required=True)
+    password2 = serializers.CharField(max_length=100, required=True)
 
     def create(self, validated_data):
         # Password same validation happens in 'validate()' we need only one password now
@@ -45,16 +47,17 @@ class RegistrationSerializer(serializers.Serializer):
             email=data['email'],
             first_name=data['first_name']
         )
-        extra_errors = dict()
         try:
             pw_validation.validate_password(
                 password=data['password1'], user=user)
         # the exception raised here is different than serializers.ValidationError
         except exceptions.ValidationError as e:
-            extra_errors['password1'] = list(e.messages)
+            raise serializers.ValidationError(
+                {"password1": list(e.messages)})
+
         if data['password1'] != data['password2']:
-            extra_errors.setdefault("password1", []).append(
-                "Passwords not matching")
+            raise serializers.ValidationError(
+                {"password1": "Passwords must match"})  # TODO: make this a translation
         return super(RegistrationSerializer, self).validate(data)
 
 
@@ -79,9 +82,9 @@ class Register(APIView):
         methods=["POST"]
     )
     @extend_schema(request=RegistrationSerializer(many=False))
-    def post(self, request):
+    def post(self, request) -> Optional[Response]:
         serializer = RegistrationSerializer(data=request.data)
-        if serializer.is_valid():  # TODO just make this trow Response automaticly no need for the if
+        if serializer.is_valid(raise_exception=True):
             # Perform registration, send email etc...
             # The types are secure, we checked that using the 'Registration Serializer'
             registration_data = serializer.save()
@@ -98,7 +101,11 @@ class Register(APIView):
                     **user_data_serializer.data
                 )
             else:
-                return Response(user_data_serializer.errors)
+                # In this case we don't raise and execption!
+                # because we wan't to rename the validated fields first!
+                # e.g.: rename username -> email ( we use username as email but the user doesn't know that )
+                # TODO: we should maybe also overwrite some of the messages
+                _errors = user_data_serializer.errors
+                _errors["email"] = _errors.pop("username")
+                return Response(_errors, status=status.HTTP_400_BAD_REQUEST)
             return Response("Sucessfully Created User")
-        else:
-            return Response(serializer.errors)
