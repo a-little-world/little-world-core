@@ -15,28 +15,109 @@ from django.views.decorators.vary import vary_on_cookie, vary_on_headers
 from rest_framework import serializers
 from rest_framework.throttling import UserRateThrottle
 from rest_framework.permissions import IsAuthenticated
-from ..models import ProfileSerializer, UserSerializer
 from django.contrib.auth import get_user_model
+from django.core.paginator import Paginator
+from ..models import (
+    ProfileSerializer,
+    UserSerializer,
+    StateSerializer,
+    CensoredUserSerializer,
+    CensoredProfileSerializer
+)
+
+# For the current user
+"""
+Serializers to be used by the current user or an admin
+user -> models.user.User
+profile -> models.profile.Profile
+state -> models.state.State
+settings -> models.settings.Settings
+"""
+self_serializers = {
+    "user": UserSerializer,
+    "profile": ProfileSerializer,
+    "state": StateSerializer,
+    # "settings" # TODO create
+}
+
+# For 'other' users
+other_serializers = {
+    "user": CensoredUserSerializer,
+    "profile": CensoredProfileSerializer
+    # They do not get the user state at all!
+}
+
+
+class UserDataApiParams:
+    page: int = 1
+    paginate_by: int = 20
+
+
+class UserDataApiSerializer(serializers.Serializer):
+    page = serializers.IntegerField(min_value=1, required=False)
+    paginate_by = serializers.IntegerField(min_value=1, required=False)
+
+    def create(self, validated_data):
+        return UserDataApiParams(**validated_data)  # type: ignore
+
+
+def get_user_data(user, is_self=False):
+    """ 
+    user: some user
+    is_self: if the user is asking for himself ( or an admin is asking )
+    This contains all data from all acessible user models
+    if the request user is not the same user we censor the profile data by usin another serializer
+    """
+    _serializers = self_serializers if is_self else other_serializers
+    return {k: _serializers[k](user).data for k in _serializers}
+
+
+def get_matches_paginated(user, admin=False,
+                          page=UserDataApiParams.page,
+                          paginate_by=UserDataApiParams.paginate_by):
+    """
+    This returns a list of matches for a user, 
+    this will always the censored *except* if accessed by an admin
+    """
+    user_querry = ""  # Get the queryset ...
+    pages = Paginator(user_querry, paginate_by).page(page)
+    return [get_user_data(user, is_self=admin) for p in pages]
+
+
+class SelfInfo(APIView):
+    authentication_classes = [authentication.SessionAuthentication,
+                              authentication.BaseAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+    """ simple api to fetch your own user info """
+
+    def get(self, request, format=None):
+        """ Admins can use params user, hash, email """
+        return Response(get_user_data(request.user, is_self=True))
 
 
 class UserData(APIView):
-    authentication_classes = [authentication.TokenAuthentication]
-    permission_classes = [permissions.IsAuthenticated]
     """
     Returns the main application data for a given user.
     Basicly this is the data the main frontend app receives
+    optional params for paginating the matches:
+        page: what page to return, default 1
+        paginate_by: what number of users per page ( realy only relevant for admins )
     """
-    # Waithin on 'async' support for DRF: https://github.com/encode/django-rest-framework/discussions/7774
+    authentication_classes = [authentication.SessionAuthentication,
+                              authentication.BaseAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, format=None):
+        serializer = UserDataApiSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        params = serializer.save()
+
         return Response({
-            "self": {
-                "info": "self info",
-                "profile": "profile",
-                "state": "state"
-            },
-            "matches": [{
-                "info": "some info placeholder",
-                "profile": "some profile placeholder"
-            }],
+            "self": get_user_data(request.user, is_self=True),
+            "matches": get_matches_paginated(
+                request.user,
+                admin=request.user.is_staff,
+                page=params.page,
+                paginate_by=params.paginate_by
+            ),
         })
