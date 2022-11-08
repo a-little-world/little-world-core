@@ -104,6 +104,7 @@ class Profile(ProfileBase):
 
 
 def _date_string():
+    # TODO maybe we should add seconds since were using this in combination with unique together
     return datetime.now.strftime("%m/%d/%Y, %H:%M:%S")
 
 
@@ -133,3 +134,9 @@ class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
         fields = '__all__'
+
+
+class CensoredProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profile
+        fields = ["first_name"]
