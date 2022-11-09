@@ -1,7 +1,7 @@
 import django.contrib.auth.password_validation as pw_validation
 from typing import Optional
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 from django.utils.translation import gettext as _
+from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
 from datetime import datetime
 from django.conf import settings
@@ -21,6 +21,7 @@ from ..models import ProfileSerializer, UserSerializer
 from django.contrib.auth import get_user_model
 from dataclasses import dataclass
 from .. import validators
+from . import schemas
 
 
 @dataclass
@@ -34,10 +35,10 @@ class RegistrationData:
 
 class RegistrationSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
-    first_name = serializers.CharField(
-        max_length=150, required=True, validators=[validators.validate_name])
-    second_name = serializers.CharField(
-        max_length=150, required=True, validators=[validators.validate_name])
+    first_name = serializers.CharField(max_length=150, required=True,
+                                       validators=[validators.validate_name])
+    second_name = serializers.CharField(max_length=150, required=True,
+                                        validators=[validators.validate_name])
     password1 = serializers.CharField(max_length=100, required=True)
     password2 = serializers.CharField(max_length=100, required=True)
     birth_year = serializers.IntegerField(min_value=1900, max_value=2040)
@@ -75,23 +76,10 @@ class Register(APIView):
     Register a user by post request
     """
     permission_classes = []  # Everyone can acess this api
-    required_args = ['email', 'first_name',
-                     'second_name', 'password1', 'password2', 'birth_year']
+    required_args = ['email', 'first_name', 'second_name',
+                     'password1', 'password2', 'birth_year']
 
-    @extend_schema(
-        # extra parameters added to the schema
-        parameters=[
-            OpenApiParameter(
-                name=param, description=f'User Profile input {param} for Registration', required=True, type=str)
-            for param in required_args
-        ],
-        description='Little World Registration API',
-        auth=None,
-        operation_id=None,
-        operation=None,
-        methods=["POST"]
-    )
-    @extend_schema(request=RegistrationSerializer(many=False))
+    @extend_schema(**schemas.registration)
     def post(self, request) -> Optional[Response]:
         serializer = RegistrationSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
