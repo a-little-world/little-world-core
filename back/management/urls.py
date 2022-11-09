@@ -1,14 +1,38 @@
 from . import views, api
 from django.urls import path
 from django.conf import settings
+from rest_framework import routers
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
 VERSION = 1
 
+
+def _api_url(slug, v=VERSION, admin=False):
+    return f"api/admin/v{v}/{slug}/" if admin else f"api/v{v}/{slug}/"
+
+
+router = routers.SimpleRouter()
+# Register possible viewsets here ... TODO
+api_routes = [
+    path(_api_url('user_data'), api.user_data.UserData.as_view()),
+    path(_api_url('register'), api.register.Register.as_view()),
+    path(_api_url('self'), api.user_data.SelfInfo.as_view()),
+
+    path(_api_url('user/get', admin=True), api.admin.GetUser.as_view()),
+    path(_api_url('user/list', admin=True), api.admin.UserList.as_view()),
+    path(_api_url('user/match', admin=True), api.admin.MakeMatch.as_view()),
+    path(_api_url('user/suggest_match', admin=True),
+         api.admin.MatchingSuggestion.as_view()),
+    *router.urls
+]
+
 urlpatterns = [
-    path(f"api/v{VERSION}/user_data/", api.user_data.UserData.as_view()),
-    path(f"api/v{VERSION}/register/", api.register.Register.as_view()),
-    path(f"app/", views.example_frontend),
+    # Frontends:
+    path(f"app/", views.example_frontend),  # Main app
+    path(f"userform/", views.example_frontend),
+
+    *api_routes,  # Add all API routes from above
+
     *([  # Don't expose the api shemas in production!
         path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
         path('api/schema/swagger-ui/',
