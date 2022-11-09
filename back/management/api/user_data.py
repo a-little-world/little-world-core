@@ -15,7 +15,6 @@ from django.views.decorators.vary import vary_on_cookie, vary_on_headers
 from rest_framework import serializers
 from rest_framework.throttling import UserRateThrottle
 from rest_framework.permissions import IsAuthenticated
-from django.contrib.auth import get_user_model
 from django.core.paginator import Paginator
 from ..models import (
     ProfileSerializer,
@@ -79,19 +78,17 @@ def get_matches_paginated(user, admin=False,
     This returns a list of matches for a user, 
     this will always the censored *except* if accessed by an admin
     """
-    user_querry = ""  # Get the queryset ...
+    user_querry = ""  # Get the queryset ... TODO
     pages = Paginator(user_querry, paginate_by).page(page)
     return [get_user_data(user, is_self=admin) for p in pages]
 
 
 class SelfInfo(APIView):
-    authentication_classes = [authentication.SessionAuthentication,
-                              authentication.BaseAuthentication]
+    authentication_classes = [authentication.SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
     """ simple api to fetch your own user info """
 
     def get(self, request, format=None):
-        """ Admins can use params user, hash, email """
         return Response(get_user_data(request.user, is_self=True))
 
 
@@ -104,7 +101,7 @@ class UserData(APIView):
         paginate_by: what number of users per page ( realy only relevant for admins )
     """
     authentication_classes = [authentication.SessionAuthentication,
-                              authentication.BaseAuthentication]
+                              authentication.BasicAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, format=None):
