@@ -2,7 +2,7 @@ from django.db import models
 from django.utils.translation import gettext as _
 from datetime import datetime
 from rest_framework import serializers
-from django.contrib.auth import get_user_model
+from .user import User
 
 # This can be used to handle changes in the api from the frontend
 PROFILE_MODEL_VERSION = "1"
@@ -99,8 +99,7 @@ class ProfileBase(models.Model):
 
 class Profile(ProfileBase):
 
-    user = models.OneToOneField(
-        get_user_model(), on_delete=models.CASCADE)  # Key...
+    user = models.OneToOneField(User, on_delete=models.CASCADE)  # Key...
 
 
 def _date_string():
@@ -113,7 +112,7 @@ class ProfileAtMatchRequest(ProfileBase):
     This model is created everytime a users request a match 
     It basicly stores a full copy of the profile when the user asks for a match
     """
-    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
     # Sadly we cant use a date field here cause it is not json serializable
     # See https://stackoverflow.com/questions/11875770/how-to-overcome-datetime-datetime-not-json-serializable
     sdate = models.CharField(default=_date_string, max_length=255)
