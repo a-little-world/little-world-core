@@ -1,2 +1,2 @@
-from . import user_data, register
-__all__ = ["user_data", "register"]
+from . import user_data, register, admin
+__all__ = ["user_data", "register", "admin"]
