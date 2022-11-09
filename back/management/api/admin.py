@@ -40,6 +40,8 @@ class GetUser(APIView):
         serializer = GetUserSerialier(data=request.querry_params)
         serializer.is_valid(raise_exception=True)
         params = serializer.save()
+        # So we can check == "",  also get_user_by_pk accepts string and auto converts to int
+        params.pk = str(params.pk)
 
         empty_params = [getattr(params, n) == "" for n in self.param_names]
         if all(empty_params):
