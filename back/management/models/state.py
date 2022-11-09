@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth import get_user_model
+from .user import User
 from rest_framework import serializers
 
 
@@ -11,7 +11,7 @@ class State(models.Model):
     """
 
     # Key...
-    user = models.OneToOneField(get_user_model(), on_delete=models.CASCADE)
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
 
     # We love additional Information
     created_at = models.DateTimeField(auto_now_add=True)
