@@ -8,9 +8,12 @@ from rest_framework import authentication, permissions
 from rest_framework.response import Response
 from rest_framework import serializers
 from .user_data import get_user_data
+from dataclasses import dataclass
+from django.core.paginator import Paginator
 from .. import controller
 
 
+@dataclass
 class GetUserParams:
     hash: str = ""
     email: str = ""
@@ -23,7 +26,7 @@ class GetUserSerialier(serializers.Serializer):
     email = serializers.EmailField(required=False)
 
     def create(self, validated_data):
-        return GetUserParams(**validated_data)  # type: ignore
+        return GetUserParams(**validated_data)
 
 
 class GetUser(APIView):
@@ -59,19 +62,45 @@ class GetUser(APIView):
         ))
 
 
+@dataclass
+class UserListParams:
+    filters: 'list[str]' = []
+    paginate_by: int = 50
+    # TODO: what is default order when not applyin any order to queryset?
+    # Prob by key ?
+    order_by: str = ""
+    page: int = 1
+
+
+class UserListApiSerializer(serializers.Serializer):
+    filters = serializers.ListField(required=False)
+    paginate_by = serializers.IntegerField(required=False)
+    page = serializers.IntegerField(required=False)
+    order_by = serializers.CharField(required=False)
+
+    def create(self, validated_data):
+        return UserListParams(**validated_data)
+
+
 class UserList(APIView):  # TODO:
     """
     Fetches an arbitrary user list, args:
     - filters = []
     - paginate_by = 50
     - order_by = TODO some default
-    - page = 0
+    - page = 1
     """
 
     permission_classes = [permissions.IsAdminUser]
 
     def post(self, request):
-        pass
+        serializer = UserListApiSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        params = serializer.save()
+
+        user_querry = ""  # Get the queryset ... TODO
+        pages = Paginator(user_querry, params.paginate_by).page(params.page)
+        return [get_user_data(p, is_self=True) for p in pages]
 
 
 class MatchingSuggestion(APIView):  # TODO
