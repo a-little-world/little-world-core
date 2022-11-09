@@ -70,7 +70,7 @@ class RegisterTests(TestCase):
         """
         Most api functions should be blocked untill the users email was verified
         They should return 401 unauthorized, 
-        with a message saing in order to access this API the email has to be verified
+        with a message saying in order to access this API the email has to be verified
         """
         pass  # TODO
 
@@ -102,3 +102,8 @@ class RegisterTests(TestCase):
     def test_email_verification_enforced(self):
         """ Test that user has to verify email before being able to render the app """
         pass  # TODO
+
+
+class AdminApiTests(TestCase):
+    def test_user_list():
+        pass
