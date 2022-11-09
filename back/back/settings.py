@@ -52,6 +52,10 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'back.urls'
+"""
+We overwirte the default user model, and add an 'hash' parmameter
+"""
+AUTH_USER_MODEL = 'management.User'
 
 CORS_ALLOWED_ORIGINS = []
 if BUILD_TYPE == 'staging':
@@ -119,11 +123,11 @@ if BUILD_TYPE in ['staging', 'development']:
     REST_FRAMEWORK['DEFAULT_SCHEMA_CLASS'] = 'drf_spectacular.openapi.AutoSchema'
 
     SPECTACULAR_SETTINGS = {
-        'TITLE': 'API DOC django clean clate',
-        'DESCRIPTION': 'Django Clean Slate by tbscode',
+        'TITLE': 'Little Worlds Api Documentation',
+        'DESCRIPTION': 'by tbscode',
         'VERSION': '1.0.0',
         'SERVE_INCLUDE_SCHEMA': False,
-        # The following are for using
+        # The following are for using sidecar
         'SWAGGER_UI_DIST': 'SIDECAR',
         'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
         'REDOC_DIST': 'SIDECAR',
