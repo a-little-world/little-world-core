@@ -127,7 +127,7 @@ class MakeMatchData:
 
 
 class MakeMatchSerializer(serializers.Serializer):
-    user1 = serializers.CharField(required=True).run_validation()
+    user1 = serializers.CharField(required=True)
     user2 = serializers.CharField(required=True)
     lookup = serializers.CharField(required=False)
 
@@ -144,6 +144,29 @@ class UserModificationAction(APIView):  # TODO:
     This is to be used if an admin user wan't to berfor a modification to one or more users
     """
     pass
+
+
+class GetMetrics(APIView):
+    """
+    Returns some general metrics 
+    """
+
+    def get(self, request):
+        return {
+            # Calculeted by looking up the
+            "user_loggedin_today": {
+                "type": "count",
+                "data": 1
+            },
+            "messages_send_today": {
+                "type": "count",
+                "data": 1
+            },
+            "registrations_today": {
+                "type": "count",
+                "data": 1
+            }
+        }
 
 # UserStateViewSet
 
