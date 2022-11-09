@@ -1,8 +1,6 @@
 from django.db import models
 from uuid import uuid4
 from rest_framework import serializers
-from django.contrib.auth import get_user_model
-
 from django.contrib.auth.models import AbstractUser
 
 
@@ -19,11 +17,11 @@ class User(AbstractUser):
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
-        model = get_user_model()
+        model = User
         fields = '__all__'
 
 
 class CensoredUserSerializer(serializers.ModelSerializer):
     class Meta:
-        model = get_user_model()
+        model = User
         fields = ["hash"]
