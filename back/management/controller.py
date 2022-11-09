@@ -2,7 +2,7 @@
 This is a controller for any userform related actions
 e.g.: Creating a new user, sending a notification to a users etc...
 """
-from django.contrib.auth import get_user_model
+from .models import User
 from django.conf import settings
 from .models import UserSerializer
 
@@ -24,19 +24,19 @@ def get_user(user, lookup="email"):
 
 
 def get_user_by_email(email):
-    return get_user_model().objects.get(email=email)
+    return User.objects.get(email=email)
 
 
 def get_user_by_hash(hash):
     # TODO: here i'm assuming that .get return only one object and throws an error if there are multiple
-    return get_user_model().objects.get(hash=hash)
+    return User.objects.get(hash=hash)
 
 
 # We accept string input, but this will error if its not convertable to int
 def get_user_by_pk(pk):
     pk = int(pk)
     # we use .get with primary key so we will always get only one user
-    return get_user_model().objects.get(id=pk)
+    return User.objects.get(id=pk)
 
 
 def create_user(
