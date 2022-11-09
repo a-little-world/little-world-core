@@ -98,7 +98,7 @@ class Register(APIView):
                 first_name=registration_data.first_name,
                 second_name=registration_data.second_name,
                 password=registration_data.password
-            ))
+            ))  # type: ignore
             if user_data_serializer.is_valid():
                 User.objects.create(
                     **user_data_serializer.data
