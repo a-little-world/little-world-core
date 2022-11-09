@@ -99,7 +99,7 @@ html_theme_options = {
 autodoc_member_order = 'bysource'
 autodoc_inherit_docstrings = False
 
-apidoc_module_dir = '/docs'
+apidoc_module_dir = '/docs_source/backend'
 apidoc_output_dir = 'apidoc'
 apidoc_excluded_paths = ['/docs/migrations']
 apidoc_separate_modules = True
