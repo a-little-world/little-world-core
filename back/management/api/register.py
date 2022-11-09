@@ -1,3 +1,4 @@
+from drf_spectacular.utils import OpenApiParameter, OpenApiExample
 import django.contrib.auth.password_validation as pw_validation
 from typing import Optional
 from django.utils.translation import gettext as _
@@ -18,9 +19,9 @@ from django.views.decorators.vary import vary_on_cookie, vary_on_headers
 from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
 from ..models import ProfileSerializer, UserSerializer
-from django.contrib.auth import get_user_model
 from dataclasses import dataclass
 from .. import validators
+from ..models.user import User
 from . import schemas
 
 
@@ -50,7 +51,7 @@ class RegistrationSerializer(serializers.Serializer):
             password=validated_data['password1'])
 
     def validate(self, data):
-        user = get_user_model()(
+        user = User(
             username=data['email'],
             email=data['email'],
             first_name=data['first_name']
@@ -79,7 +80,11 @@ class Register(APIView):
     required_args = ['email', 'first_name', 'second_name',
                      'password1', 'password2', 'birth_year']
 
-    @extend_schema(**schemas.registration)
+    @extend_schema(
+        description='Little World Registration API called with data from the registration form',
+        methods=["POST"],
+        request=RegistrationSerializer(many=False)
+    )
     def post(self, request) -> Optional[Response]:
         serializer = RegistrationSerializer(data=request.data)
         if serializer.is_valid(raise_exception=True):
@@ -93,9 +98,9 @@ class Register(APIView):
                 first_name=registration_data.first_name,
                 second_name=registration_data.second_name,
                 password=registration_data.password
-            ))  # type: ignore
+            ))
             if user_data_serializer.is_valid():
-                get_user_model().objects.create(
+                User.objects.create(
                     **user_data_serializer.data
                 )
             else:
