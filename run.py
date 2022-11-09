@@ -2,6 +2,7 @@
 """ General entry point for backend build and deployment processes """
 import shutil
 from functools import partial, wraps
+import contextlib
 import os
 import sys
 import subprocess
@@ -244,14 +245,18 @@ def loaddata(args):
 
 
 @register_action(alias=["m"], cont=True)
-def migrate(args):
-    """ Migrate db inside docker container """
-    _run(_is_dev(args), background=True)
-    _run_in_running(_is_dev(args), ["python3", "manage.py",
-                    "makemigrations"])
-    _run_in_running(_is_dev(args), ["python3", "manage.py",
-                    "migrate"])
-    kill(args, front=False)
+def migrate(args, running=False):
+    """ 
+    Migrate db inside docker container 
+    you can call this in code with running=True and it will not start and kill the container
+    """
+    with _conditional_wrap(not running,  # If the containers isn't running we will have to start it
+                           before=lambda: _run(_is_dev(args), background=True),
+                           after=lambda: kill(args, front=False)):
+        _run_in_running(_is_dev(args), ["python3", "manage.py",
+                        "makemigrations"])
+        _run_in_running(_is_dev(args), ["python3", "manage.py",
+                        "migrate"])
 
 
 def _build_file_tag(file, tag):
@@ -361,15 +366,13 @@ def build(args):
 
 
 @register_action(alias=["static", "collectstatic"], cont=True)
-def extract_static(args):
-    # TODO: here and in the migrate command the '_run' and 'kill' should be conditional,
-    # they should only be used when this is run as a 'singular' command!
-    # Otherwise this causes unnecessary app restarts
-    _run(_is_dev(args), background=True)
-    # '--noinput' why ask for overwrite permission we are in container anyways
-    _run_in_running(_is_dev(args), ["python3", "manage.py",
-                    "collectstatic", "--noinput"])
-    kill(args, front=False)
+def extract_static(args, running=False):
+    with _conditional_wrap(not running,  # If the containers isn't running we will have to start it
+                           before=lambda: _run(_is_dev(args), background=True),
+                           after=lambda: kill(args, front=False)):
+        # '--noinput' why ask for overwrite permission we are in container anyways
+        _run_in_running(_is_dev(args), ["python3", "manage.py",
+                        "collectstatic", "--noinput"])
 
 
 def _make_webpack_command(env, config, debug: bool, watch: bool):
@@ -511,8 +514,8 @@ def build_docs(args):
     _cmd = [*c.drun, *c.denv, *c.vmount_spinix, *c.port, "-d", c.tag_spinix]
     print(" ".join(_cmd))
     subprocess.run(_cmd)
-    _run_in_running_tag(["make", "html"], tag=c.tag_spinix, work_dir="/docs")
-    #_run_in_running_tag(["sh"], tag=c.tag_spinix)
+    #_run_in_running_tag(["make", "html"], tag=c.tag_spinix, work_dir="/docs")
+    _run_in_running_tag(["sh"], tag=c.tag_spinix)
     # copy the output files
     shutil.copytree("./_docs/build/html", "./docs")
     _kill_tag(c.tag_spinix)
@@ -542,7 +545,21 @@ def _action_by_alias(alias):
         raise Exception(f"Action or alias '{alias}' not found")
 
 
+@contextlib.contextmanager
+def _conditional_wrap(cond, before, after):
+    """ 
+    allowes for if with statements 
+    if contidion = True it will execute before before and after after 
+    """
+    if cond:
+        before()
+    yield None
+    if cond:
+        after()
+
+
 def main():
+    # TODO: add command splittingng options like in admin.py
     """
     Entrypoint for `run.py`
     Using the script requires *only* docker and python!
