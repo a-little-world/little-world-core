@@ -16,10 +16,9 @@ class UserManager(BaseUserManager):
         from . import state
         from . import profile
         assert email and password
-        _filtered_kwargs = kwargs.copy()
-        # For some reason the user model doesn't accept second_name in kwargs
-        _filtered_kwargs.pop("second_name")
-        user = self.model(email=email, **_filtered_kwargs)
+        # This will redundantly store 'first_name' and 'second_name'
+        # This is nice though cause we will never change these so we always know with which name they sighned up!
+        user = self.model(email=email, **kwargs)
         user.save(using=self._db)
         user.set_password(password)
         user.save(using=self._db)
@@ -33,7 +32,8 @@ class UserManager(BaseUserManager):
             # We let this throw an error if fist name is not present
             # Cause it should always be present! ( Note: for admin users we offer an default)
             first_name=kwargs.get("first_name"),
-            second_name=kwargs.get("second_name")
+            # I like calling this 'last_name' more
+            second_name=kwargs.get("last_name")
         )
         return user
 
@@ -47,7 +47,7 @@ class UserManager(BaseUserManager):
         kwargs["is_superuser"] = True
         kwargs["first_name"] = kwargs.get(
             "first_name", "adminuserwastolazytosetfirstname")
-        kwargs["second_name"] = kwargs.get(
+        kwargs["last_name"] = kwargs.get(
             "second_name", "adminuserwastolazytosetsecondname")
         self._create_user(email=email, password=password, **kwargs)
 
