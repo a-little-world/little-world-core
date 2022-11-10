@@ -63,7 +63,7 @@ class ProfileBase(models.Model):
     a key and type is only added to this field if the user_type changes!
     """
     # TODO: handle updating of this field
-    past_user_types = models.JSONField(blank=True)
+    past_user_types = models.JSONField(blank=True, null=True)
 
     """
     Target group for matching

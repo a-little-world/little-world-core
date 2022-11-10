@@ -1,5 +1,6 @@
 from django.db import models
 from .user import User
+from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
 
@@ -18,10 +19,15 @@ class State(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     """ Form page the user is currently on """
-    user_form_page = models.IntegerField()
+    user_form_page = models.IntegerField(default=0)
+
+    class UserFormStateChoices(models.IntegerChoices):
+        UNFILLED = 0, _("Unfilled user form")
+        FILLED = 1, _("Filled user form")
 
     """ If the user_form ist filled or not """
-    user_form_state = models.IntegerField()
+    user_form_state = models.IntegerField(
+        default=UserFormStateChoices.UNFILLED)
 
 
 class StateSerializer(serializers.ModelSerializer):
