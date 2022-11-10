@@ -8,3 +8,4 @@ Main management models:
 from .profile import Profile, ProfileSerializer, CensoredProfileSerializer
 from .user import UserSerializer, CensoredUserSerializer, User
 from .state import State, StateSerializer
+from .settings import Settings

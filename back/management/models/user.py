@@ -15,6 +15,7 @@ class UserManager(BaseUserManager):
         # But importing them on top level will cause circular import currently
         from . import state
         from . import profile
+        from . import settings
         assert email and password
         # This will redundantly store 'first_name' and 'second_name'
         # This is nice though cause we will never change these so we always know with which name they sighned up!
@@ -35,6 +36,7 @@ class UserManager(BaseUserManager):
             # I like calling this 'last_name' more
             second_name=kwargs.get("last_name")
         )
+        settings.Settings.objects.create(user=user)
         return user
 
     def create_user(self, email, password, **kwargs):

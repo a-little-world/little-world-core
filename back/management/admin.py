@@ -26,11 +26,21 @@ class ProfileModelInline(admin.StackedInline):
     model = models.profile.Profile
 
 
+@admin.register(models.settings.Settings)
+class SettingsModelAdmin(admin.ModelAdmin):
+    list_display = ('user', 'language')
+
+
+class SettingsModelInline(admin.StackedInline):
+    model = models.settings.Settings
+
+
 @admin.register(models.user.User)
 class UserAdmin(DjangoUserAdmin):
     inlines = [
         StateAdminInline,
-        ProfileModelInline
+        ProfileModelInline,
+        SettingsModelInline
     ]
 
     fieldsets = (
