@@ -1,6 +1,6 @@
 """
 Contains all the admin apis
-generally all APIView here are required to have: permission_classes = [ IsAdminUser ]
+generally all APIViews here are required to have: permission_classes = [ IsAdminUser ]
 """
 from rest_framework.views import APIView
 from typing import List, Optional
@@ -141,6 +141,7 @@ class MakeMatch(APIView):  # TODO
 
 class UserModificationAction(APIView):  # TODO:
     """
+    put to user/notify
     This is to be used if an admin user wan't to berfor a modification to one or more users
     """
     pass
