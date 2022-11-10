@@ -1,7 +1,55 @@
 from django.db import models
 from uuid import uuid4
 from rest_framework import serializers
-from django.contrib.auth.models import AbstractUser
+from django.contrib.auth.models import AbstractUser, BaseUserManager
+
+
+class UserManager(BaseUserManager):
+    """
+    We overwrite the BaseUserManager so we can: 
+    - automaticly create State, Profile, Settings everytime create_user is called
+    """
+
+    def _create_user(self, email=None, password=None, **kwargs):
+        # TODO: defering the import here is suboptimal, import stucture should be impoved
+        # But importing them on top level will cause circular import currently
+        from . import state
+        from . import profile
+        assert email and password
+        _filtered_kwargs = kwargs.copy()
+        # For some reason the user model doesn't accept second_name in kwargs
+        _filtered_kwargs.pop("second_name")
+        user = self.model(email=email, **_filtered_kwargs)
+        user.save(using=self._db)
+        user.set_password(password)
+        user.save(using=self._db)
+        """
+        Now we create: State, Profile, Settings, creating them here ensures that they will always be present!
+        All users have that even all the admin users!
+        """
+        state.State.objects.create(user=user)
+        profile.Profile.objects.create(
+            user=user,
+            # We let this throw an error if fist name is not present
+            # Cause it should always be present! ( Note: for admin users we offer an default)
+            first_name=kwargs.get("first_name"),
+            second_name=kwargs.get("second_name")
+        )
+        return user
+
+    def create_user(self, email, password, **kwargs):
+        kwargs["is_staff"] = False
+        kwargs["is_superuser"] = False
+        self._create_user(email=email, password=password, **kwargs)
+
+    def create_superuser(self, email, password, **kwargs):
+        kwargs["is_staff"] = True
+        kwargs["is_superuser"] = True
+        kwargs["first_name"] = kwargs.get(
+            "first_name", "adminuserwastolazytosetfirstname")
+        kwargs["second_name"] = kwargs.get(
+            "second_name", "adminuserwastolazytosetsecondname")
+        self._create_user(email=email, password=password, **kwargs)
 
 
 class User(AbstractUser):
@@ -13,6 +61,8 @@ class User(AbstractUser):
     """
     hash = models.CharField(max_length=100, blank=True,
                             unique=True, default=uuid4)  # type: ignore
+
+    objects = UserManager()  # Register the new user manager
 
 
 class UserSerializer(serializers.ModelSerializer):
