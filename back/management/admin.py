@@ -13,17 +13,30 @@ class StateAdmin(admin.ModelAdmin):
     ordering = ('user', 'created_at')
 
 
-class StateAdminInline(admin.TabularInline):
+class StateAdminInline(admin.StackedInline):
     model = models.state.State
+
+
+@admin.register(models.profile.Profile)
+class ProfileModelAdmin(admin.ModelAdmin):
+    list_display = ('user', 'first_name', 'second_name')
+
+
+class ProfileModelInline(admin.StackedInline):
+    model = models.profile.Profile
 
 
 @admin.register(models.user.User)
 class UserAdmin(DjangoUserAdmin):
+    inlines = [
+        StateAdminInline,
+        ProfileModelInline
+    ]
+
     fieldsets = (
-        (None, {'fields': ('email', 'password')}), (_('Personal info'), {
-            'fields': ('first_name', 'last_name')}),
-        (_('Permissions'), {'fields': ('is_active', 'is_staff', 'is_superuser',
-                                       'groups', 'user_permissions')}),
+        (None, {'fields': ('email', 'password')}),
+        (_('Permissions'), {
+         'fields': ('is_active', 'is_staff', 'is_superuser')}),
         (_('Important dates'), {'fields': ('last_login', 'date_joined')}),
         #("Matching", {"fields" : ("user_matches")})
     )
@@ -37,7 +50,3 @@ class UserAdmin(DjangoUserAdmin):
                     'first_name', 'last_name', 'is_staff')
     search_fields = ('email', 'first_name', 'last_name')
     ordering = ('email', 'is_staff')
-
-    inlines = [
-        StateAdminInline
-    ]
