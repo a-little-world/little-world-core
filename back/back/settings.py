@@ -26,6 +26,8 @@ INSTALLED_APPS = [
     'drf_spectacular',  # for api shema generation
     'drf_spectacular_sidecar',  # statics for redoc and swagger
 
+    *(['django_spaghetti'] if BUILD_TYPE in ['staging', 'development'] else []),
+
     'webpack_loader',  # Load bundled webpack files, check `./run.py front`
     'django.contrib.admin',
     'django.contrib.auth',
@@ -35,6 +37,14 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 ]
 print(f'Installed apps:\n' + '\n- '.join(INSTALLED_APPS))
+
+if BUILD_TYPE in ['staging', 'development']:
+    SPAGHETTI_SAUCE = {
+        'apps': ['auth', 'management'],
+        'show_fields': False,
+        'exclude': {'auth': ['user']},
+    }
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
