@@ -13,3 +13,8 @@ urlpatterns = [
     path('', include('management.urls')),
     path('admin/', admin.site.urls),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+
+if settings.BUILD_TYPE in ['staging', 'development']:
+    urlpatterns += [
+        path('db/', include('django_spaghetti.urls')),
+    ]
