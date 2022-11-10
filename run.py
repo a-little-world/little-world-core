@@ -289,15 +289,12 @@ def deploy_staging(args):
     """
     Build and push the dockerfile for the staging server
     This acction requires some config params passed via -i
-    e.g.: -i "{'HEROKU_REGISTRY_URL':'...','HEROKU_APP_NAME':'...'}"
     optional 'ROOT_USER_PASSWORD' if passed will create a root user
     optional 'ROOT_USER_EMAIL', 'ROOT_USER_USERNAME'
     optional 'DOCS', default: False
     """
     assert args.input, " '-i' required, e.g.: \"{'HEROKU_REGISTRY_URL':'...','HEROKU_APP_NAME':'...'}\""
     heroku_env = eval(args.input)
-    if not 'HEROKU_REGISTRY_URL' in heroku_env:  # The registry url can componly be infered from the app name
-        heroku_env['HEROKU_REGISTRY_URL'] = f"registry.heroku.com/{heroku_env['HEROKU_APP_NAME']}/web"
     if 'DOCS' in heroku_env and heroku_env['DOCS'].lower() in ('true', '1', 't'):
         # Also build the documentation and move it to /static
         build_docs(args)
@@ -325,33 +322,18 @@ def deploy_staging(args):
             "tag": c.staging_tag
         })
 
-    # We need to check if heroku config vars need updating
-    env_statge = _env_as_dict(c.stage_env)
-    for k in env_statge:
-        _cmd = ["heroku", "config:get",
-                k, f"--app={heroku_env['HEROKU_APP_NAME']}"]
-        var = str(subprocess.run(
-            _cmd, **subprocess_capture_out).stdout).replace('\n', '')
-        if var == env_statge[k]:
-            print(f"{k} ('{env_statge[k]}') didn't change progressing")
-        else:
-            print(f"Change detected: '{var}' vs '{env_statge[k]}'")
-            print(f"updating heroku config var: {k} -> {env_statge[k]}")
-            _cmd = ["heroku", "config:set",
-                    f"{k}={env_statge[k]}", f"--app={heroku_env['HEROKU_APP_NAME']}"]
-            subprocess.run(_cmd)
     # Tag the image with the heroku repo, and push it:
     img = _docker_images(repo=c.staging_tag, tag="latest")
     assert len(img) == 1, \
         f"Multiple or no 'latest' image for name {c.staging_tag} found"
-    print(img)
-    _cmd = ["docker", "tag", img[0]["ID"], heroku_env['HEROKU_REGISTRY_URL']]
-    subprocess.run(_cmd)
-    _cmd = ["docker", "push", heroku_env['HEROKU_REGISTRY_URL']]
-    subprocess.run(_cmd)
-    _cmd = ["heroku", "container:release", "web",
-            f"--app={heroku_env['HEROKU_APP_NAME']}"]
-    subprocess.run(_cmd)
+    # print(img)
+    #_cmd = ["docker", "tag", img[0]["ID"], heroku_env['HEROKU_REGISTRY_URL']]
+    # subprocess.run(_cmd)
+    #_cmd = ["docker", "push", heroku_env['HEROKU_REGISTRY_URL']]
+    # subprocess.run(_cmd)
+    # _cmd = ["heroku", "container:release", "web",
+    #        f"--app={heroku_env['HEROKU_APP_NAME']}"]
+    # subprocess.run(_cmd)
 
 
 @register_action(alias=["b"], cont=True)
