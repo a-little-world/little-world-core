@@ -1,10 +1,11 @@
-FROM python:3.10
+FROM python:3.10-alpine
 
 WORKDIR /back
 
 COPY /back/requirements.txt ./
 
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip cache purge
 
 EXPOSE 8000
 

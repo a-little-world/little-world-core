@@ -1,10 +1,11 @@
-FROM python:3.10
+FROM python:3.10-alpine
 
 WORKDIR /back
 
 COPY /back/requirements.txt ./
 
 RUN pip install --no-cache-dir -r requirements.txt
+RUN pip cache purge
 
 # Copy all the backend files
 # this assumes all the frontends are build and the static files have already been moved to ./back/static
