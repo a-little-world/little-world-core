@@ -5,12 +5,12 @@ const CompressionPlugin = require('compression-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
 
 var config = function (env) {
-  var publicPath = '/static/dist/$frontendName/';
+  var publicPath = '/static/dist/user_form_frontend/';
   var devTool = env.DEV_TOOL;
   // It is always assumed that the backend is mounted at /back
-  var outputPath = '../back/static/dist/$frontendName';
-  var entry = './apps/$frontendName';
-  var entryPoint = `${entry}/src/index.js`;
+  var outputPath = '../back/static/dist/user_form_frontend';
+  var entry = './apps/user_form_frontend';
+  var entryPoint = `${entry}/src/index.tsx`;
   var debug = env.DEBUG === '1';
 
   return {
@@ -20,7 +20,7 @@ var config = function (env) {
     },
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, 'apps/$frontendName/src/'),
+        //'@': path.resolve(__dirname, 'apps/user_form_frontend/src/'),
         '@django': path.resolve(__dirname, '../back/static/'),
       },
     },
@@ -34,7 +34,7 @@ var config = function (env) {
       new BundleTracker({
         filename: path.join(
           __dirname,
-          './$frontendName.webpack-stats.json'
+          './user_form_frontend.webpack-stats.json'
         ),
       }),
       new CompressionPlugin(),
@@ -55,15 +55,22 @@ var config = function (env) {
           exclude: /node_modules/,
           use: ['babel-loader'],
           resolve: {
-            extensions: ['.js', '.jsx'],
+            extensions: [
+              '.js',
+              '.jsx',
+              '.ts',
+              '.tsx',
+              '.js',
+              '.json',
+            ],
           },
           include: [
-            path.resolve(__dirname, 'apps/$frontendName/src'),
+            path.resolve(__dirname, 'apps/user_form_frontend/src'),
           ],
         },
         {
           test: /\.svg$/,
-          issuer: /\.jsx?$/,
+          issuer: /\.(jsx|tsx)$/,
           use: [
             'babel-loader',
             {
@@ -89,7 +96,7 @@ var config = function (env) {
         },
         {
           test: /\.css$/,
-          use: ['style-loader', 'css-loader'],
+          use: ['style-loader', 'css-loader', 'postcss-loader'],
         },
       ],
     },
