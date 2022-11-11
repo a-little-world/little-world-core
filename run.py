@@ -293,9 +293,9 @@ def deploy_staging(args):
     optional 'ROOT_USER_EMAIL', 'ROOT_USER_USERNAME'
     optional 'DOCS', default: False
     """
-    assert args.input, " '-i' required, e.g.: \"{'HEROKU_REGISTRY_URL':'...','HEROKU_APP_NAME':'...'}\""
-    heroku_env = eval(args.input)
-    if 'DOCS' in heroku_env and heroku_env['DOCS'].lower() in ('true', '1', 't'):
+    assert args.input, " '-i' required, e.g.: \"{'AWS_ACCOUNT_ID':'...','AWS_REGISTRY_NAME':'...'}\""
+    aws_env = eval(args.input)
+    if 'DOCS' in aws_env and aws_env['DOCS'].lower() in ('true', '1', 't'):
         # Also build the documentation and move it to /static
         build_docs(args)
         # Copy the build files to
@@ -307,27 +307,29 @@ def deploy_staging(args):
     extract_static(args)
     # Build Dockerfile.stage
     _build_file_tag(c.file_staging[1], c.staging_tag)
-    if 'ROOT_USER_PASSWORD' in heroku_env:
+    if 'ROOT_USER_PASSWORD' in aws_env:
         print("Got 'ROOT_USER_PASSWORD' adding root user ...")
         # Ok in that case we create a base root user
         # The default staging deployment doesn't use *any* root user
         # This would only be needed if backend administration should be debugged in staging
         _run_tag_env(c.staging_tag, env=c.stage_env, background=True)
-        assert 'ROOT_USER_USERNAME' in heroku_env
+        assert 'ROOT_USER_USERNAME' in aws_env
         _make_root_user(**{
-            "email": heroku_env.get(
-                "ROOT_USER_EMAIL", heroku_env['ROOT_USER_USERNAME'] + "@mail.com"),
-            "username": heroku_env['ROOT_USER_USERNAME'],
-            "password": heroku_env['ROOT_USER_PASSWORD'],
+            "email": aws_env.get(
+                "ROOT_USER_EMAIL", aws_env['ROOT_USER_USERNAME'] + "@mail.com"),
+            "username": aws_env['ROOT_USER_USERNAME'],
+            "password": aws_env['ROOT_USER_PASSWORD'],
             "tag": c.staging_tag
         })
 
     # Tag the image with the heroku repo, and push it:
     img = _docker_images(repo=c.staging_tag, tag="latest")
+    print(img)
     assert len(img) == 1, \
         f"Multiple or no 'latest' image for name {c.staging_tag} found"
-    # print(img)
-    #_cmd = ["docker", "tag", img[0]["ID"], heroku_env['HEROKU_REGISTRY_URL']]
+    aws_registry_url = f"{aws_env['AWS_ACCOUNT_ID']}.dkr.ecr.region.amazonaws.com/{aws_env['AWS_REGISTRY_NAME']}:latest"
+    _cmd = ["docker", "tag", img[0]["ID"], aws_registry_url]
+    print(" ".join(_cmd))
     # subprocess.run(_cmd)
     #_cmd = ["docker", "push", heroku_env['HEROKU_REGISTRY_URL']]
     # subprocess.run(_cmd)
@@ -393,6 +395,11 @@ def build_front(args):
     subprocess.run(_cmd)  # 2
     _run_in_running(_is_dev(args), ["npm", "i"], backend=False)  # 3
     frontends = env["FR_FRONTENDS"].split(",")
+    if len(frontends) == 0:
+        print("No frontends present, exiting...")
+        return
+    else:
+        print("Initalizing frontends: " + ', '.join(frontends))
     print(
         f'`npm i` for frontends: {frontends} \nAdd frontends under `FR_FRONTENDS` in env, place them in front/apps/')
     for front in frontends:
