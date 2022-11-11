@@ -3,11 +3,16 @@
   "version": "1.0.0",
   "description": "Building frontends",
   "main": "index.js",
-  "scripts": {},
+  "scripts": {
+    "watch_user_form_frontend": "./node_modules/.bin/webpack --watch --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mode development --config webpack.user_form_frontend.config.js",
+    "build_user_form_frontend_dev": "./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mode development --config webpack.user_form_frontend.config.js",
+    "build_user_form_frontend_prod": "./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=0 --mode production --config webpack.user_form_frontend.config.js"
+  },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@babel/core": "^7.19.6",
+    "@babel/preset-typescript": "^7.18.6",
     "babel-loader": "^8.2.5",
     "compression-webpack-plugin": "^10.0.0",
     "css-loader": "^6.7.1",
