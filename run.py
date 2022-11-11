@@ -292,8 +292,9 @@ def deploy_staging(args):
     optional 'ROOT_USER_PASSWORD' if passed will create a root user
     optional 'ROOT_USER_EMAIL', 'ROOT_USER_USERNAME'
     optional 'DOCS', default: False
+    Note: pushing the image will only work if you have acess permission to the registry, ask tim@timschupp.de for that
     """
-    assert args.input, " '-i' required, e.g.: \"{'AWS_ACCOUNT_ID':'...','AWS_REGISTRY_NAME':'...'}\""
+    assert args.input, " '-i' required, e.g.: \"{'AWS_ACCOUNT_ID':'...','AWS_REGISTRY_NAME':'...','AWS_REGION':''}\""
     aws_env = eval(args.input)
     if 'DOCS' in aws_env and aws_env['DOCS'].lower() in ('true', '1', 't'):
         # Also build the documentation and move it to /static
@@ -327,15 +328,13 @@ def deploy_staging(args):
     print(img)
     assert len(img) == 1, \
         f"Multiple or no 'latest' image for name {c.staging_tag} found"
-    aws_registry_url = f"{aws_env['AWS_ACCOUNT_ID']}.dkr.ecr.region.amazonaws.com/{aws_env['AWS_REGISTRY_NAME']}:latest"
+    aws_registry_url = f"{aws_env['AWS_ACCOUNT_ID']}.dkr.ecr.{aws_env['AWS_REGION']}.amazonaws.com/{aws_env['AWS_REGISTRY_NAME']}:latest"
     _cmd = ["docker", "tag", img[0]["ID"], aws_registry_url]
     print(" ".join(_cmd))
-    # subprocess.run(_cmd)
-    #_cmd = ["docker", "push", heroku_env['HEROKU_REGISTRY_URL']]
-    # subprocess.run(_cmd)
-    # _cmd = ["heroku", "container:release", "web",
-    #        f"--app={heroku_env['HEROKU_APP_NAME']}"]
-    # subprocess.run(_cmd)
+    subprocess.run(_cmd)
+    _cmd = ["docker", "push", aws_registry_url]
+    print(" ".join(_cmd))
+    subprocess.run(_cmd)
 
 
 @register_action(alias=["b"], cont=True)
@@ -394,12 +393,10 @@ def build_front(args):
     env = _env_as_dict(c.denv[1])
     subprocess.run(_cmd)  # 2
     _run_in_running(_is_dev(args), ["npm", "i"], backend=False)  # 3
-    frontends = env["FR_FRONTENDS"].split(",")
-    if len(frontends) == 0:
+    if env["FR_FRONTENDS"] == "":
         print("No frontends present, exiting...")
         return
-    else:
-        print("Initalizing frontends: " + ', '.join(frontends))
+    frontends = env["FR_FRONTENDS"].split(",")
     print(
         f'`npm i` for frontends: {frontends} \nAdd frontends under `FR_FRONTENDS` in env, place them in front/apps/')
     for front in frontends:
