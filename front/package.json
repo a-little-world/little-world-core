@@ -3,11 +3,7 @@
   "version": "1.0.0",
   "description": "Building frontends",
   "main": "index.js",
-  "scripts": {
-    "watch_example_app": "./node_modules/.bin/webpack --watch --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mode development --config webpack.example_app.config.js",
-    "build_example_app_dev": "./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mode development --config webpack.example_app.config.js",
-    "build_example_app_prod": "./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=0 --mode production --config webpack.example_app.config.js"
-  },
+  "scripts": {},
   "author": "",
   "license": "ISC",
   "dependencies": {
