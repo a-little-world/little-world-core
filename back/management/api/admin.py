@@ -7,6 +7,7 @@ from typing import List, Optional
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 from django.utils.translation import gettext as _
+from rest_framework import status
 from rest_framework import authentication, permissions
 from rest_framework.response import Response
 from rest_framework import serializers
@@ -51,7 +52,7 @@ class GetUser(APIView):
         ],
     )
     def get(self, request, format=None):
-        serializer = GetUserSerialier(data=request.querry_params)
+        serializer = GetUserSerialier(data=request.query_params)
         serializer.is_valid(raise_exception=True)
         params = serializer.save()
         # So we can check == "",  also get_user_by_pk accepts string and auto converts to int
@@ -62,15 +63,20 @@ class GetUser(APIView):
             raise serializers.ValidationError({
                 n: _("at least one field required") for n in self.param_names
             })
-        if sum(empty_params) > 1:
+        if sum([not e for e in empty_params]) > 1:
+            print(empty_params)
             raise serializers.ValidationError({
                 n: _(f"maximum one field allowed") for n in self.param_names if getattr(params, n) != ""
             })
         lookup = self.param_names[empty_params.index(False)]
-        return Response(get_user_data(
-            controller.get_user(getattr(params, lookup), lookup=lookup),
-            is_self=True  # Cause admins can be who every they want ;)
-        ))
+        try:
+            return Response(get_user_data(
+                controller.get_user(getattr(params, lookup), lookup=lookup),
+                is_self=True, admin=True  # Cause admins can be who every they want ;)
+            ))
+        except controller.UserNotFoundErr as e:
+            print(f"ERR: {str(e)}")
+            return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
 
 
 @dataclass

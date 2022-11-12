@@ -1,4 +1,5 @@
 import django.contrib.auth.password_validation as pw_validation
+from copy import deepcopy
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 from drf_spectacular.types import OpenApiTypes
 from datetime import datetime
@@ -14,15 +15,18 @@ from django.views.decorators.cache import cache_page
 from django.views.decorators.vary import vary_on_cookie, vary_on_headers
 from rest_framework import serializers
 from rest_framework.throttling import UserRateThrottle
+from dataclasses import dataclass
 from rest_framework.permissions import IsAuthenticated
 from django.core.paginator import Paginator
 from ..models import (
-    ProfileSerializer,
-    UserSerializer,
-    StateSerializer,
+    ProfileSerializer, SelfProfileSerializer,
+    UserSerializer, SelfUserSerializer,
+    StateSerializer, SelfStateSerializer,
     CensoredUserSerializer,
     CensoredProfileSerializer
 )
+
+from ..controller import get_user_models
 
 # For the current user
 """
@@ -33,12 +37,17 @@ state -> models.state.State
 settings -> models.settings.Settings
 """
 self_serializers = {
-    "user": UserSerializer,
-    "profile": ProfileSerializer,
-    "state": StateSerializer,
+    "user": SelfUserSerializer,
+    "profile": SelfProfileSerializer,
+    "state": SelfStateSerializer,
     # "settings" # TODO create
 }
 
+admin_serializers = {
+    "user": UserSerializer,
+    "profile": ProfileSerializer,
+    "state": StateSerializer,
+}
 # For 'other' users
 other_serializers = {
     "user": CensoredUserSerializer,
@@ -47,28 +56,39 @@ other_serializers = {
 }
 
 
+@dataclass
 class UserDataApiParams:
     page: int = 1
     paginate_by: int = 20
+    options: bool = False
 
 
 class UserDataApiSerializer(serializers.Serializer):
     page = serializers.IntegerField(min_value=1, required=False)
     paginate_by = serializers.IntegerField(min_value=1, required=False)
+    options = serializers.BooleanField(required=False)
 
     def create(self, validated_data):
         return UserDataApiParams(**validated_data)  # type: ignore
 
 
-def get_user_data(user, is_self=False):
+def get_user_data(user, is_self=False, admin=False, include_options=False):
     """ 
     user: some user
     is_self: if the user is asking for himself ( or an admin is asking )
     This contains all data from all acessible user models
     if the request user is not the same user we censor the profile data by usin another serializer
     """
-    _serializers = self_serializers if is_self else other_serializers
-    return {k: _serializers[k](user).data for k in _serializers}
+    _serializers = other_serializers
+    if is_self:
+        _serializers = self_serializers
+    if admin:
+        _serializers = admin_serializers
+    if include_options:
+        _serializers['profile'] = deepcopy(_serializers['profile'])
+        _serializers['profile'].Meta.fields.append("options")
+    models = get_user_models(user)  # user, profile, state
+    return {k: _serializers[k](models[k]).data for k in _serializers}
 
 
 def get_matches_paginated(user, admin=False,
@@ -80,7 +100,7 @@ def get_matches_paginated(user, admin=False,
     """
     user_querry = ""  # Get the queryset ... TODO
     pages = Paginator(user_querry, paginate_by).page(page)
-    return [get_user_data(user, is_self=admin) for p in pages]
+    return [get_user_data(user, is_self=True, admin=admin) for p in pages]
 
 
 class SelfInfo(APIView):
@@ -104,13 +124,21 @@ class UserData(APIView):
                               authentication.BasicAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(
+        request=UserDataApiSerializer(many=False),
+        parameters=[
+            OpenApiParameter(name=k, description="",
+                             required=False, type=type(getattr(UserDataApiParams, k)))
+            for k in UserDataApiParams.__annotations__.keys()
+        ],
+    )
     def get(self, request, format=None):
         serializer = UserDataApiSerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
         params = serializer.save()
 
         return Response({
-            "self": get_user_data(request.user, is_self=True),
+            "self": get_user_data(request.user, is_self=True, include_options=params.options),
             "matches": get_matches_paginated(
                 request.user,
                 admin=request.user.is_staff,
