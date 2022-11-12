@@ -17,6 +17,7 @@ management: for user management and general api usage
 
 INSTALLED_APPS = [
     'management',  # Main backend application
+    'tracking',  # Our user / action / event tracking
 
     'corsheaders',
     'rest_framework',
@@ -40,7 +41,7 @@ print(f'Installed apps:\n' + '\n- '.join(INSTALLED_APPS))
 
 if BUILD_TYPE in ['staging', 'development']:
     SPAGHETTI_SAUCE = {
-        'apps': ['auth', 'management'],
+        'apps': ['auth', 'management', 'tracking'],
         'show_fields': False,
         'exclude': {'auth': ['user']},
     }
