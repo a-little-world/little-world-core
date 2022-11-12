@@ -8,6 +8,8 @@ from rest_framework import serializers
 from django.views import View
 from rest_framework.response import Response
 from typing import List, Optional
+from tracking import utils
+from tracking.models import Event
 
 
 # The following two are redundant with api.admin.UserListParams, api.admin.UserListApiSerializer
@@ -36,6 +38,7 @@ class MainFrontendView(LoginRequiredMixin, View):
     login_url = '/login'
     redirect_field_name = 'next'
 
+    @utils.track_event(name=_("Render User Form"), event_type=Event.EventTypeChoices.REQUEST, tags=["frontend"])
     def get(self, request, **kwargs):
         """
         Entrypoint to the main frontend react app.
@@ -51,7 +54,9 @@ class MainFrontendView(LoginRequiredMixin, View):
         # We will wrap the 'request' into a DRF.request
         # This gives us json parsed .data and .query_set options
         drf_request = Request(request=request)
+
         if not request.user.is_staff and len(drf_request.query_params) != 0:
+            # TODO: this check doesn't seems to work
             return Response(_('Query param usage on main view only allowed for admins!'), status=status.HTTP_403_FORBIDDEN)
 
         serializer = MainFrontendParamsSerializer(
@@ -61,5 +66,7 @@ class MainFrontendView(LoginRequiredMixin, View):
             # Since this is a regular django view we have to return the erros manually
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         params = serializer.save()
+
+        # TODO email verified checks and co...
 
         return render(request, "main_frontend.html", {})
