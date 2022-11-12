@@ -91,21 +91,22 @@ def create_user(
     4 - send email verification code
     """
     # Step 1
-
-    user_data_serializer = UserSerializer(data=dict(
+    data = dict(
         # Currently we don't allow any specific username
         username=email,
         email=email,
         first_name=first_name,
         second_name=second_name,
         password=password
-    ))  # type: ignore
+    )
+    user_data_serializer = UserSerializer(data=data)  # type: ignore
 
     # If you don't want this to error catch serializers.ValidationError!
     user_data_serializer.is_valid(raise_exception=True)
     # The user_data_serializer automaticly creates the user model
-    # The User model automaticly creates Profile, State, Settings, see models.user.UserManager
-    user = user_data_serializer.save()
+    # automaticly creates Profile, State, Settings, see models.user.UserManager
+    data['last_name'] = data.pop('second_name')
+    User.objects.create_user(**data)
 
     # Step 2 ... TODO send mail
 
