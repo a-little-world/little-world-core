@@ -141,7 +141,16 @@ class ProfileSerializer(serializers.ModelSerializer):
         d = {}
         dataG = SimpleMetadata()
         for k, v in self.get_fields().items():
-            d[k] = dataG.get_field_info(v)
+            # Per default we only send 'options' for choice fields
+            # This keeps the overhead low and doesn't expose any unnecessary model information
+            _f = dataG.get_field_info(v)
+            if "type" in _f and _f["type"] == "choice":
+                _t_choices = {}
+                for choice in _f["choices"]:
+                    # We do assume that models.IntegerChoices is used
+                    # sadly it seems int keys are auto transformed to string when jsonized
+                    _t_choices[choice["value"]] = choice["display_name"]
+                d[k] = {"choices": _t_choices}
         return d
 
     class Meta:
