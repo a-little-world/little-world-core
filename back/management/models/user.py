@@ -68,9 +68,16 @@ class User(AbstractUser):
 
 
 class UserSerializer(serializers.ModelSerializer):
+
     class Meta:
         model = User
         fields = '__all__'
+
+
+class SelfUserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["email", "hash"]
 
 
 class CensoredUserSerializer(serializers.ModelSerializer):
