@@ -119,6 +119,15 @@ class SelfInfo(APIView):
         return Response(get_user_data(request.user, is_self=True))
 
 
+def get_user_data_and_matches(user, options=False, admin=False,
+                              page=UserDataApiParams.page,
+                              paginate_by=UserDataApiParams.paginate_by):
+    return {
+        "self": get_user_data(user, is_self=True, include_options=options),
+        "matches": get_matches_paginated(user, admin=admin, page=page, paginate_by=paginate_by)
+    }
+
+
 class UserData(APIView):
     """
     Returns the main application data for a given user.
@@ -144,12 +153,4 @@ class UserData(APIView):
         serializer.is_valid(raise_exception=True)
         params = serializer.save()
 
-        return Response({
-            "self": get_user_data(request.user, is_self=True, include_options=params.options),
-            "matches": get_matches_paginated(
-                request.user,
-                admin=request.user.is_staff,
-                page=params.page,
-                paginate_by=params.paginate_by
-            ),
-        })
+        return Response(get_user_data_and_matches(request.user, admin=request.user.is_staff, **params.__attributes__))
