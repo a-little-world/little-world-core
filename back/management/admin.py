@@ -44,7 +44,7 @@ class UserAdmin(DjangoUserAdmin):
     ]
 
     fieldsets = (
-        (None, {'fields': ('email', 'password')}),
+        (None, {'fields': ('email', 'password', 'hash')}),
         (_('Permissions'), {
          'fields': ('is_active', 'is_staff', 'is_superuser')}),
         (_('Important dates'), {'fields': ('last_login', 'date_joined')}),
