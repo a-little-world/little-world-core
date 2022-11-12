@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils.translation import gettext as _
 from datetime import datetime
+from rest_framework.metadata import SimpleMetadata
 from rest_framework import serializers
 from .user import User
 
@@ -130,12 +131,33 @@ class ProfileAtMatchRequest(ProfileBase):
 
 
 class ProfileSerializer(serializers.ModelSerializer):
+    hash = serializers.SerializerMethodField()
+    options = serializers.SerializerMethodField()
+
+    def get_hash(self, obj):
+        return obj.user.hash
+
+    def get_options(self, obj):
+        d = {}
+        dataG = SimpleMetadata()
+        for k, v in self.get_fields().items():
+            d[k] = dataG.get_field_info(v)
+        return d
+
     class Meta:
         model = Profile
         fields = '__all__'
 
 
-class CensoredProfileSerializer(serializers.ModelSerializer):
+class SelfProfileSerializer(ProfileSerializer):
+
+    class Meta:
+        model = Profile
+        fields = ['first_name', 'second_name', 'target_group',
+                  'speech_medium', 'hash']
+
+
+class CensoredProfileSerializer(SelfProfileSerializer):
     class Meta:
         model = Profile
         fields = ["first_name"]
