@@ -6,5 +6,7 @@ from .models import Event
 
 @admin.register(Event)
 class StateAdmin(admin.ModelAdmin):
-    list_display = ('hash', 'time', 'caller', 'type')
-    search_fields = ('hash', 'time', 'caller', 'type')
+    list_display = ('_abr_hash', 'name', 'type', 'caller',
+                    'time', 'tags', 'func', 'metadata')
+    search_fields = ('_abr_hash', 'name', 'type', 'caller',
+                     'time', 'tags', 'func', 'metadata')
