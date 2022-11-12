@@ -20,7 +20,7 @@ from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
 from ..models import ProfileSerializer, UserSerializer
 from dataclasses import dataclass
-from .. import validators
+from .. import validators, controller
 from ..models.user import User
 from . import schemas
 
@@ -86,28 +86,11 @@ class Register(APIView):
     )
     def post(self, request) -> Optional[Response]:
         serializer = RegistrationSerializer(data=request.data)
-        if serializer.is_valid(raise_exception=True):
-            # Perform registration, send email etc...
-            # The types are secure, we checked that using the 'Registration Serializer'
-            registration_data = serializer.save()
-            user_data_serializer = UserSerializer(data=dict(
-                # Currently we don't allow any specific username
-                username=registration_data.email,
-                email=registration_data.email,
-                first_name=registration_data.first_name,
-                second_name=registration_data.second_name,
-                password=registration_data.password
-            ))  # type: ignore
-            if user_data_serializer.is_valid():
-                User.objects.create(
-                    **user_data_serializer.data
-                )
-            else:
-                # In this case we don't raise and execption!
-                # because we wan't to rename the validated fields first!
-                # e.g.: rename username -> email ( we use username as email but the user doesn't know that )
-                # TODO: we should maybe also overwrite some of the messages
-                _errors = user_data_serializer.errors
-                _errors["email"] = _errors.pop("username")
-                return Response(_errors, status=status.HTTP_400_BAD_REQUEST)
-            return Response("Sucessfully Created User")
+        serializer.is_valid(raise_exception=True)
+        # The types are secure, we checked that using the 'Registration Serializer'
+        registration_data = serializer.save()
+        # create_user will trow seralization error per default
+        # also performs registration, send email etc...
+        controller.create_user(**{k: getattr(registration_data, k) for k in registration_data.__annotations__},
+                               send_verification_mail=True)
+        return Response("Sucessfully Created User")

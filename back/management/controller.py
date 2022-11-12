@@ -74,12 +74,12 @@ def get_user_models(user):
 
 
 def create_user(
-    username,
     email,
     password,
     first_name,
     second_name,
-    birth_year
+    birth_year,
+    send_verification_mail=True
 ):
     """ 
     This should be used when creating a new user, it may throw validations errors!
@@ -100,9 +100,14 @@ def create_user(
         second_name=second_name,
         password=password
     ))  # type: ignore
-    user_data_serializer.is_valid(raise_exception=True)
 
-    # Step 2 ... TODO
+    # If you don't want this to error catch serializers.ValidationError!
+    user_data_serializer.is_valid(raise_exception=True)
+    # The user_data_serializer automaticly creates the user model
+    # The User model automaticly creates Profile, State, Settings, see models.user.UserManager
+    user = user_data_serializer.save()
+
+    # Step 2 ... TODO send mail
 
 
 def match_users(users: set):  # 'set' No one can put two identical users
