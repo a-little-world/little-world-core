@@ -1,11 +1,7 @@
 from django.db import models
 from django.utils.translation import gettext as _
-from uuid import uuid4
 from management.models import User
-
-
-def _double_uuid():
-    return str(uuid4()) + "-" + str(uuid4())
+from back import utils
 
 
 class Event(models.Model):
@@ -16,7 +12,7 @@ class Event(models.Model):
     # TODO: this model should eventually be saved to a diffeerent database than the main database!
     # Currently this creates an extra database call everytime a tracking event is fired
     hash = models.CharField(max_length=255, blank=True,
-                            unique=True, default=_double_uuid)  # type: ignore
+                            unique=True, default=utils._double_uuid)  # type: ignore
 
     def _abr_hash(self):
         return self.hash[:8]
