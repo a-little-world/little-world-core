@@ -1,22 +1,31 @@
 from django.test import TestCase
 import json
 from rest_framework.response import Response
+from management.controller import create_user
 from rest_framework.test import APIRequestFactory
 from . import api
+
+valid_request_data = dict(
+    email='benjamin.tim@gmx.de',
+    first_name='Tim',
+    second_name='Schupp',
+    password1='Test123!',
+    password2='Test123!',
+    birth_year=1984
+)
+
+valid_create_data = dict(
+    email=valid_request_data['email'],
+    password=valid_request_data['password1'],
+    first_name=valid_request_data['first_name'],
+    second_name=valid_request_data['second_name'],
+    birth_year=valid_request_data['birth_year'],
+)
 
 
 class RegisterTests(TestCase):
 
     required_params = api.register.Register.required_args
-
-    valid_request_data = dict(
-        email='benjamin.tim@gmx.de',
-        first_name='Tim',
-        second_name='Schupp',
-        password1='Test123!',
-        password2='Test123!',
-        birth_year=1984
-    )
 
     def _some_register_call(self, data: dict) -> Response:
         factory = APIRequestFactory(enforce_csrf_checks=True)
@@ -28,14 +37,14 @@ class RegisterTests(TestCase):
 
     def test_sucessfull_register(self):
         """ Fully valid register """
-        response = self._some_register_call(self.valid_request_data)
+        response = self._some_register_call(valid_request_data)
         assert response.status_code == 200
 
     def test_w_missing_params(self):
         """ Request with missing params """
         datas = []
         for parm in self.required_params:
-            partial_data = self.valid_request_data.copy()
+            partial_data = valid_request_data.copy()
             del partial_data[parm]
             datas.append(partial_data)
         for i, d in enumerate(datas):
@@ -50,7 +59,7 @@ class RegisterTests(TestCase):
         passwords = ["Test123", "abcdefg", "password"]
         datas = []
         for i, v in enumerate(passwords):
-            _data = self.valid_request_data.copy()
+            _data = valid_request_data.copy()
             _data["password1"] = passwords[i]
             _data["password2"] = passwords[i]
             datas.append(_data)
@@ -76,7 +85,7 @@ class RegisterTests(TestCase):
 
     def test_password_missmatch(self):
         """ Register with password missmatch """
-        _data = self.valid_request_data.copy()
+        _data = valid_request_data.copy()
         _data["password2"] = str(reversed(_data["password1"]))
         response = self._some_register_call(_data)
         assert response.status_code == 400
@@ -86,7 +95,7 @@ class RegisterTests(TestCase):
                        "chat_what", "no.name", "any@body"]
         for field in ["first_name", "second_name"]:
             for n in false_names:
-                _data = self.valid_request_data.copy()
+                _data = valid_request_data.copy()
                 _data[field] = n
                 response = self._some_register_call(_data)
                 assert response.status_code == 400
@@ -94,9 +103,9 @@ class RegisterTests(TestCase):
     def test_register_existing_user(self):
         """ Registring a user that alredy has an account """
         # Not we have to register him sucessfull first, cause tests always reset the DB
-        response = self._some_register_call(self.valid_request_data)
+        response = self._some_register_call(valid_request_data)
         assert response.status_code == 200
-        response = self._some_register_call(self.valid_request_data)
+        response = self._some_register_call(valid_request_data)
         assert response.status_code == 400
 
     def test_email_verification_enforced(self):
@@ -105,5 +114,30 @@ class RegisterTests(TestCase):
 
 
 class AdminApiTests(TestCase):
-    def test_user_list():
+    def _create_abunch_of_users(self, amnt=20):
+        mail_count = 0
+        mail_fragments = valid_create_data["email"].split("@")
+
+        def _make_mail(count):
+            count += 1
+            return count, mail_fragments[0] + str(count) + "@" + mail_fragments[1]
+
+        users = []
+        for i in range(amnt):
+            # 20 test users
+            _data = valid_create_data.copy()
+            mail_count, _mail = _make_mail(mail_count)
+            print(f"Creating user: '_mail'")
+            _data['email'] = _mail
+            users.append(create_user(**_data))
+        return users
+
+    def _match_all(self, users):
+        # Matches *all* user in the users list
+        pass
+
+    def test_management_user_created(self):
+        pass
+
+    def test_user_list(self):
         pass
