@@ -68,7 +68,6 @@ class RegistrationSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {"password1": _("Passwords must match")})
 
-        # TODO: validate birth_year, maybe enforce min-age
         return super(RegistrationSerializer, self).validate(data)
 
 
