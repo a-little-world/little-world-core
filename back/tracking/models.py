@@ -5,7 +5,7 @@ from management.models import User
 
 
 def _double_uuid():
-    return str(uuid4) + "-" + str(uuid4)
+    return str(uuid4()) + "-" + str(uuid4())
 
 
 class Event(models.Model):
@@ -17,6 +17,9 @@ class Event(models.Model):
     # Currently this creates an extra database call everytime a tracking event is fired
     hash = models.CharField(max_length=255, blank=True,
                             unique=True, default=_double_uuid)  # type: ignore
+
+    def _abr_hash(self):
+        return self.hash[:8]
 
     class EventTypeChoices(models.IntegerChoices):
         MISC = 0, _("Misc event")
@@ -44,7 +47,7 @@ class Event(models.Model):
     Caller user, but optional
     since there can be also events that have no or an anonymous caller
     """
-    caller = models.OneToOneField(
+    caller = models.ForeignKey(
         User, on_delete=models.SET_NULL, null=True, blank=True)
 
     """ Name of the function that called the event """
