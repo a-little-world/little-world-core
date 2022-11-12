@@ -5,10 +5,10 @@ from functools import partial, wraps
 import contextlib
 import os
 import sys
-import subprocess
 import argparse
 import signal
 import json
+from cli.tim_cli_utils import *
 
 TAG = "littleworld_back"
 FRONT_TAG = "littleworld_front"
@@ -57,26 +57,6 @@ subprocess_capture_out = {
     "text": True
 }
 
-ACTIONS = {}  # Populated with the `@register_action` decorator
-
-
-def _dispatch_register_action_decorator(f, name=None, cont=False, call=None, alias=[]):
-    ACTIONS.update({name if name else f.__name__: {
-        "alias": alias,
-        "continue": cont,
-        "func": f,
-        "exec": call if call else lambda a: f(a)
-    }})
-
-    @wraps(f)
-    def run(*args, **kwargs):
-        return f(*args, **kwargs)
-    return run
-
-
-def register_action(**kwargs):
-    return partial(_dispatch_register_action_decorator, **kwargs)
-
 
 def _parser():
     """
@@ -96,11 +76,12 @@ def _parser():
         '-o', '--output', help="Ouput file or path required by some actions")
     parser.add_argument(
         '-i', '--input', help="Input file (or data) required by some actions")
-    parser.add_argument('actions', metavar='A', type=str, default=[
-                        "build", "static", "migrate", "run"], nargs='?', help='action')
-    parser.add_argument('-c', '--cmd', nargs='+',
-                        help='Passing command input')
 
+    # default actions required by tim_cli_utils (TODO: they should be moved there)
+    parser.add_argument('actions', metavar='A', type=str, default=[
+                        "build", "static", "migrate", "run"], nargs='*', help='action')
+    parser.add_argument('-s', '--silent', action="store_true",
+                        help="Mute all output exept what is required")
     return parser
 
 
@@ -108,10 +89,6 @@ def _env_as_dict(path: str) -> dict:
     with open(path, 'r') as f:
         return dict(tuple(line.replace('\n', '').split('=')) for line
                     in f.readlines() if not line.startswith('#'))
-
-
-def args():
-    return _parser().parse_args()
 
 
 def _is_dev(a):
@@ -123,7 +100,7 @@ def _setup(args):
     # If you clone this repo with: `git clone --recurse-submodules -j8 git://github.com/foo/bar.git` there is no need to install submodules
     setups up the whole installation:
     - clone all submodules
-    """
+    """  # TODO: finish
     _cmd = ["git", "submodule", "init"]
 
 
@@ -479,12 +456,11 @@ def _run(dev=True, background=False):
         c.denv if dev else c.penv)[1], mounts=c.vmount, background=background)
 
 
-@register_action(alias=["ma", "manage", "manage.py"])
+@register_action(alias=["ma", "manage", "manage.py"], parse_own_args=True)
 def manage_command(args):
     """ runns a manage.py command inside the container """
-    assert args.cmd, "command list required '-c' ..."
-    _cmd = args.cmd[1:-1].split(" ") if len(
-        args.cmd) == 1 and args.cmd[0].startswith("'") else args.cmd
+    assert args.unknown
+    _cmd = args.unknown
     _run_in_running(_is_dev(args), ["python3", "manage.py", *_cmd])
 
 
@@ -508,22 +484,6 @@ def build_docs(args):
     _kill_tag(c.tag_spinix)
 
 
-@register_action(name="help", alias=["h", "?"])
-def _print_help(a):
-    print(main.__doc__)
-    _parser().print_help()
-    print("Generating action help messages...")
-    for act in ACTIONS:
-        print(
-            f"action '{act}' (with aliases {', '.join(ACTIONS[act]['alias'])})")
-        f = ACTIONS[act].get("func", None)
-        if f:
-            info = ACTIONS[act]['func'].__doc__
-            print(f"\tinfo: {info}\n")
-        else:
-            print("\tNo info availabol")
-
-
 def _action_by_alias(alias):
     for act in ACTIONS:
         if alias in [*ACTIONS[act]["alias"], act]:
@@ -545,8 +505,7 @@ def _conditional_wrap(cond, before, after):
         after()
 
 
-def main():
-    # TODO: add command splittingng options like in admin.py
+if __name__ == "__main__":
     """
     Entrypoint for `run.py`
     Using the script requires *only* docker and python!
@@ -560,16 +519,5 @@ def main():
     `./run.py shell`:
         Login to `c.shell` on a *running* container
     """
-    a = args()
-    for action in a.actions if isinstance(a.actions, list) else [a.actions]:
-        k, _action = _action_by_alias(action)
-        print(f"Performing '{k}' -action")
-        _action["exec"](a)
-        if not _action.get("continue", False):
-            print(f"Ran into final action '{k}'")
-            break
-    print("Exiting `run.py`...")
-
-
-if __name__ == "__main__":
-    main()
+    set_parser(_parser)
+    parse_actions_run()
