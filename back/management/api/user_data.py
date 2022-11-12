@@ -153,4 +153,4 @@ class UserData(APIView):
         serializer.is_valid(raise_exception=True)
         params = serializer.save()
 
-        return Response(get_user_data_and_matches(request.user, admin=request.user.is_staff, **params.__attributes__))
+        return Response(get_user_data_and_matches(request.user, admin=request.user.is_staff, **{k: getattr(params, k) for k in params.__annotations__}))
