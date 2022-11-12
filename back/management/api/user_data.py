@@ -85,8 +85,15 @@ def get_user_data(user, is_self=False, admin=False, include_options=False):
     if admin:
         _serializers = admin_serializers
     if include_options:
-        _serializers['profile'] = deepcopy(_serializers['profile'])
-        _serializers['profile'].Meta.fields.append("options")
+        # This is a simple hack to create a clone of the standart serializer that included the 'options' field
+        _serializers = _serializers.copy()
+        for _model in ["profile"]:
+            class WOptionSerializer(_serializers[_model]):  # type: ignore
+                class Meta:
+                    model = deepcopy(_serializers[_model].Meta.model)
+                    fields = [
+                        *deepcopy(_serializers[_model].Meta.fields), "options"]
+            _serializers[_model] = WOptionSerializer
     models = get_user_models(user)  # user, profile, state
     return {k: _serializers[k](models[k]).data for k in _serializers}
 
@@ -127,7 +134,7 @@ class UserData(APIView):
     @extend_schema(
         request=UserDataApiSerializer(many=False),
         parameters=[
-            OpenApiParameter(name=k, description="",
+            OpenApiParameter(name=k, description="Use this and every self field will contain possible choices in 'options'" if k == "options" else "",
                              required=False, type=type(getattr(UserDataApiParams, k)))
             for k in UserDataApiParams.__annotations__.keys()
         ],
