@@ -84,9 +84,9 @@ class ProfileBase(models.Model):
     Which medium the user preferes for  
     """
     class SpeechMediumChoices(models.IntegerChoices):
-        ANY = 0, _("converstation_medium_any_trans")
-        VIDEO = 1, _("converstation_medium_video_trans")
-        PHONE = 2, _("converstation_medium_phone_trans")
+        ANY = 0, _("Any medium")
+        VIDEO = 1, _("Video only")
+        PHONE = 2, _("Phone only")
     speech_medium = models.IntegerField(
         choices=SpeechMediumChoices.choices, default=SpeechMediumChoices.ANY)
 
