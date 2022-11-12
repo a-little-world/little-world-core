@@ -1,5 +1,6 @@
 from functools import partial, wraps
 from .models import Event
+from django.http import HttpRequest
 
 
 possible_metadata = [
@@ -12,7 +13,7 @@ possible_metadata = [
 def _dispath_event_tracking(f,
                             caller="anonymous",
                             name="",
-                            type: int = Event.EventTypeChoices.MISC,
+                            event_type: int = Event.EventTypeChoices.MISC,
                             tags=[],
                             track_arguments=[],
                             censor_args=False,
@@ -32,15 +33,26 @@ def _dispath_event_tracking(f,
             "kwargs": {arg: kwargs.get(arg) for arg in track_arguments},
             "args": args
         }
-        if type == Event.EventTypeChoices.MISC:
-            metadata['request']
+        _user = None
+        if event_type == Event.EventTypeChoices.MISC \
+                or event_type == Event.EventTypeChoices.REQUEST:
+            # In both these cases try to get the 'request' object
+            for a in args:
+                str_type = str(type(a)).lower()
+                if "request" in str_type:
+                    try:
+                        _user = a.user
+                    except:
+                        pass
 
         Event.objects.create(
             # `time` is set automaticly
             tags=tags,
             func=f.__name__,
+            type=event_type,
             name=name,
-            metadata={}
+            metadata={},
+            **({'caller': _user} if _user else {})
         )
         return f(*args, **kwargs)
     return run
