@@ -383,6 +383,7 @@ def build_front(args):
     6. Kill the frontend container
     """
     if not _is_dev(args):
+        # TODO: in production we might want to do some extra cleanup!
         raise NotImplementedError
     _cmd = [*c.dbuild, *c.front_docker_file, "-t",
             c.front_tag, "."]
