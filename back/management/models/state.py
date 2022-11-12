@@ -35,6 +35,18 @@ class StateSerializer(serializers.ModelSerializer):
     Note: this serializer is not to be used for matches of the current user 
     This should only be used to expose data of the user to him self or an admin
     """
+    hash = serializers.SerializerMethodField()
+
+    def get_hash(self, obj):
+        return obj.user.hash
+
     class Meta:
         model = State
         fields = '__all__'
+
+
+class SelfStateSerializer(StateSerializer):
+
+    class Meta:
+        model = State
+        fields = ["user_form_state", "user_form_page", "hash"]
