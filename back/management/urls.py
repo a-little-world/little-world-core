@@ -1,6 +1,7 @@
 from . import views, api
-from django.urls import path
+from django.urls import path, re_path
 from django.conf import settings
+from . import views
 from rest_framework import routers
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 
@@ -28,8 +29,6 @@ api_routes = [
 
 urlpatterns = [
     # Frontends:
-    path(f"app/", views.example_frontend),  # Main app
-    path(f"userform/", views.example_frontend),
 
     *api_routes,  # Add all API routes from above
 
@@ -39,5 +38,7 @@ urlpatterns = [
              SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
         path('api/schema/redoc/',
              SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
-    ] if settings.BUILD_TYPE in ['development', 'staging'] else [])
+    ] if settings.BUILD_TYPE in ['development', 'staging'] else []),
+
+    re_path(fr'^app/(?P<path>.*)$', views.MainFrontendView.as_view()),
 ]
