@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils.translation import gettext as _
 from uuid import uuid4
+from management.models import User
 
 
 def _double_uuid():
@@ -36,6 +37,15 @@ class Event(models.Model):
 
     """ Contains a list of custom assighned tags """
     tags = models.JSONField()
+
+    type = models.IntegerField(choices=EventTypeChoices.choices)
+
+    """ 
+    Caller user, but optional
+    since there can be also events that have no or an anonymous caller
+    """
+    caller = models.OneToOneField(
+        User, on_delete=models.SET_NULL, null=True, blank=True)
 
     """ Name of the function that called the event """
     func = models.CharField(max_length=255)
