@@ -135,7 +135,7 @@ class ProfileSerializer(serializers.ModelSerializer):
     usr_hash = serializers.SerializerMethodField()
     options = serializers.SerializerMethodField()
 
-    def get_hash(self, obj):
+    def get_usr_hash(self, obj):
         return obj.user.hash
 
     def get_options(self, obj):
@@ -146,12 +146,13 @@ class ProfileSerializer(serializers.ModelSerializer):
             # This keeps the overhead low and doesn't expose any unnecessary model information
             _f = dataG.get_field_info(v)
             if "type" in _f and _f["type"] == "choice":
-                _t_choices = {}
+                _t_choices = []
                 for choice in _f["choices"]:
                     # We do assume that models.IntegerChoices is used
                     # sadly it seems int keys are auto transformed to string when jsonized
-                    _t_choices[choice["value"]] = choice["display_name"]
-                d[k] = {"choices": _t_choices}
+                    _t_choices.append(
+                        {"tag": choice["display_name"], "value": choice["value"]})
+                d[k] = _t_choices
         return d
 
     class Meta:
@@ -164,7 +165,7 @@ class SelfProfileSerializer(ProfileSerializer):
     class Meta:
         model = Profile
         fields = ['first_name', 'second_name', 'target_group',
-                  'speech_medium', 'hash']
+                  'speech_medium', 'usr_hash']
 
 
 class CensoredProfileSerializer(SelfProfileSerializer):
