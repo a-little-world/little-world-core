@@ -89,7 +89,7 @@ class StateSerializer(serializers.ModelSerializer):
     """
     usr_hash = serializers.SerializerMethodField()
 
-    def get_hash(self, obj):
+    def get_usr_hash(self, obj):
         return obj.user.hash
 
     class Meta:
@@ -101,4 +101,4 @@ class SelfStateSerializer(StateSerializer):
 
     class Meta:
         model = State
-        fields = ["user_form_state", "user_form_page", "hash"]
+        fields = ["user_form_state", "user_form_page", "usr_hash"]
