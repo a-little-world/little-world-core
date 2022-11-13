@@ -9,3 +9,5 @@ whitenoise # Serving static files in development
 django-webpack-loader # Load the static file bundles
 django-cors-headers
 django-spaghetti-and-meatballs # TODO: don't include in production
+django-ipware # Best way I found to determine and track IP adresses
+django-jazzmin # Waaay better admin UI
