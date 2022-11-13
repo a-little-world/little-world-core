@@ -12,7 +12,7 @@ class ViewEmail(UserPassesTestMixin, View):
     redirect_field_name = 'next'
 
     def test_func(self):
-        return self.request.user.is_staff
+        return not self.request.user.is_anonymous and self.request.user.is_staff  # type: ignore
 
     @utils.track_event(name=_("Email Viewed"), event_type=Event.EventTypeChoices.REQUEST, tags=["frontend"])
     def get(self, request, **kwargs):
@@ -23,4 +23,4 @@ class ViewEmail(UserPassesTestMixin, View):
         mail_name = kwargs.get('mail_name')
         print("TBS: " + str(mail_name))
         mail_data = get_mail_data_by_name(mail_name)
-        return render(request, mail_data['template'], {})
+        return render(request, mail_data.template, {})
