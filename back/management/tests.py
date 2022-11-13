@@ -1,7 +1,7 @@
 from django.test import TestCase
 import json
 from rest_framework.response import Response
-from management.controller import create_user, get_user_by_email
+from management.controller import create_user, get_user_by_email, match_users
 from management.api.user_data import get_user_models
 from rest_framework.test import APIRequestFactory
 from . import api
@@ -118,6 +118,20 @@ class RegisterTests(TestCase):
         """ Test that user has to verify email before being able to render the app """
         pass  # TODO
 
+    def test_mail_verification(self):
+        """
+        Tests if mail code was generate and we can verify it
+        """
+
+    def test_auto_login_after_register(self):
+        response = self._some_register_call(valid_request_data)
+        assert response.status_code == 200
+        usr = get_user_by_email(valid_create_data["email"])
+        code_b64 = usr.state.get_email_auth_code_b64()
+        assert usr.state.check_email_auth_code_b64(code_b64)
+        assert usr.state.is_email_verified()
+        # Now ok lets set it to unverified again and then check if calling the api also does the trick
+
 
 class AdminApiTests(TestCase):
     def _create_abunch_of_users(self, amnt=20):
@@ -140,10 +154,23 @@ class AdminApiTests(TestCase):
 
     def _match_all(self, users):
         # Matches *all* user in the users list
-        pass
+        stack = users.copy()
+        while len(stack) > 1:
+            usr = stack.pop(len(stack))  # begin at the highest index
+            for _usr in stack:
+                match_users({usr, _usr})
 
     def test_management_user_created(self):
-        pass
+        # Would throw error if users cant be created or
+        # If the admin user doesn't yet exist
+        users = self._create_abunch_of_users(amnt=4)
+        for u in users:
+            assert u.state.matches
+
+    def test_matches_made(self):
+        users = self._create_abunch_of_users(amnt=20)
+        for usr in users:
+            get_user_models(usr)["state"].matches
 
     def test_user_list(self):
         pass
