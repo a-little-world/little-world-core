@@ -19,6 +19,13 @@ class WelcomeEmailParams:
 # Register all templates and their serializers here
 templates = [dict(
     name="welcome",
-    template="welcome_mail.html",
+    template="emails/welcome.html",
     serializer=WelcomeEmailParams
 )]
+
+
+def get_mail_data_by_name(name):
+    for t in templates:
+        if t['name'] == name:
+            return t
+    # TODO: else thow some mail not found error
