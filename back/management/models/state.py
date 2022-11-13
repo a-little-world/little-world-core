@@ -2,6 +2,7 @@ from django.db import models
 from .user import User
 import json
 import base64
+import zlib
 from back import utils
 import random
 from django.utils.translation import gettext_lazy as _
@@ -10,8 +11,8 @@ from rest_framework import serializers
 
 class State(models.Model):
     """
-    This is the base state model for every user 
-    It handles things like email verification, 
+    This is the base state model for every user
+    It handles things like email verification,
     the users matches, and if the userform is filled
     """
     # Key...
@@ -33,12 +34,13 @@ class State(models.Model):
         default=UserFormStateChoices.UNFILLED)
 
     # Just some hash for verifying the email
-    email_auth_hash = models.CharField(default=utils._double_uuid)
+    email_auth_hash = models.CharField(
+        default=utils._double_uuid, max_length=255)
     email_auth_pin = models.IntegerField(
         # By wrapping in lambda this will get called when the model is created
         # and not at server start, then we get better randomization maybe
         # Also this conveniently inialized the pin
-        default=lambda: random.randint(100000, 999999))
+        default=utils._rand_int6)
 
     email_authenticated = models.BooleanField(default=False)
 
@@ -71,16 +73,18 @@ class State(models.Model):
         return _check
 
     def get_email_auth_code_b64(self):
-        return base64.encodestring(json.dumps({
-            "u": self.user.hash, "h": self.email_auth_hash, "p": self.email_auth_pin}).encode())
+        return base64.urlsafe_b64encode(zlib.compress(bytes(json.dumps({
+            "u": self.user.hash, "h": self.email_auth_hash, "p": self.email_auth_pin}), 'utf-8'))).decode()
 
-    def decode_email_auth_code_b64(self, str_b64):
-        return json.loads(base64.decodestring(str_b64))
+    @classmethod
+    def decode_email_auth_code_b64(cls, str_b64):
+        return json.loads(zlib.decompress(
+            base64.urlsafe_b64decode(str_b64.encode())).decode())
 
 
 class StateSerializer(serializers.ModelSerializer):
     """
-    Note: this serializer is not to be used for matches of the current user 
+    Note: this serializer is not to be used for matches of the current user
     This should only be used to expose data of the user to him self or an admin
     """
     usr_hash = serializers.SerializerMethodField()
