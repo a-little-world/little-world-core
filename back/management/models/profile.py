@@ -113,7 +113,8 @@ class ProfileAtMatchRequest(ProfileBase):
     This model is created everytime a users request a match 
     It basicly stores a full copy of the profile when the user asks for a match
     """
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE)  # TODO: do we really wan't to cascade here?
     # Sadly we cant use a date field here cause it is not json serializable
     # See https://stackoverflow.com/questions/11875770/how-to-overcome-datetime-datetime-not-json-serializable
     sdate = models.CharField(default=_date_string, max_length=255)
@@ -131,7 +132,7 @@ class ProfileAtMatchRequest(ProfileBase):
 
 
 class ProfileSerializer(serializers.ModelSerializer):
-    hash = serializers.SerializerMethodField()
+    usr_hash = serializers.SerializerMethodField()
     options = serializers.SerializerMethodField()
 
     def get_hash(self, obj):
