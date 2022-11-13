@@ -1,5 +1,5 @@
 from django.db import models
-from uuid import uuid4
+from back import utils
 from rest_framework import serializers
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 
@@ -62,9 +62,24 @@ class User(AbstractUser):
     in the settings we set this via 'AUTH_USER_MODEL'
     """
     hash = models.CharField(max_length=100, blank=True,
-                            unique=True, default=uuid4)  # type: ignore
+                            unique=True, default=utils._double_uuid)  # type: ignore
 
     objects = UserManager()  # Register the new user manager
+
+    @property
+    def state(self):
+        from . import state
+        return state.State.objects.get(user=self)
+
+    @property
+    def profile(self):
+        from . import profile
+        return profile.Profile.objects.get(user=self)
+
+    @property
+    def settings(self):
+        from . import settings
+        return settings.Settings.objects.get(user=self)
 
 
 class UserSerializer(serializers.ModelSerializer):
