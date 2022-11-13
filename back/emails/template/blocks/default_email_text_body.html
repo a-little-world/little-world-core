@@ -1,0 +1,72 @@
+{% load static %}
+<tr>
+    <td align="center" valign="middle" style="mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%; padding-top: 16px; padding-bottom: 16px;">
+        <table width="100%" cellspacing="0" cellpadding="0" border="0" align="center" bgcolor="#FFFFFF" style="border-collapse: separate !important;width:100%; background-color: #FFFFFF; background: #FFFFFF; mso-table-lspace: 0pt; mso-table-rspace: 0pt; -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; border-radius: 20px;">
+            <tr>
+                <td align="center" style="mso-line-height-rule: exactly; -ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;padding: 40px 32px 40px 32px; border-radius: 20px; border: 1px solid #E6E8EC;" valign="middle">
+                    <table width="100%" cellspacing="0" cellpadding="0" border="0" align="center" style="width:100%;">
+                        <tr>
+                            <td align="left" style="font-size: 32px; line-height: 40px; mso-line-height-rule: exactly; -ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%; color: #363535; font-style: normal; font-weight: 700; font-family: 'Arial', 'Helvetica', sans-serif; padding-bottom: 12px; " valign="middle">
+                                {{ greeting }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td align="left" style="font-size: 15px; line-height: 18px; mso-line-height-rule: exactly; -ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%; color: #363535; font-style: normal; font-weight: 300; font-family: 'Arial', 'Helvetica', sans-serif; padding-bottom: 23px;" valign="middle">
+                                {{ content_start_text }}
+                                <br /><br />
+                                {{ content_body_text }}
+                            </td>
+                        </tr>
+                        <!-- Link box or verification code box -->
+                        {% if link_box_text %}
+                        <tr>
+                            <td align="left" style="font-size: 15px; line-height: 18px; mso-line-height-rule: exactly; -ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%; color: #36A9E0; font-style: normal; font-weight: 300; font-family: 'Arial', 'Helvetica', sans-serif; padding: 7px 12px 7px 12px; background-color: #E6E8EC; border-radius: 20px; " valign="middle">
+                                {{ link_box_text }}
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% if below_link_text %}
+                            <tr>
+                                <td align="left" style="font-size: 15px; line-height: 18px; mso-line-height-rule: exactly; -ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%; color: #363535; font-style: normal; font-weight: 300; font-family: 'Arial', 'Helvetica', sans-serif; padding-bottom: 23px; padding-top: 23px;" valign="middle">
+                                    {{ below_link_text }}
+                                </td>
+                            </tr>
+                        {% endif %}
+                        {% if button_text %}
+                        <tr>
+                            <td align="left" style="mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;" valign="center">
+                                <table align="left" bgcolor="#36A9E0" border="0" cellpadding="0" cellspacing="0" role="presentation" style="border-collapse: separate !important;background-color: #36A9E0; background: #36A9E0; mso-table-lspace: 0pt;mso-table-rspace: 0pt;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;border-radius: 60px; background: linear-gradient(50.19deg, #36A9E0 2.84%, #0367B2 106.82%);">
+                                    <tbody>
+                                        <tr>
+                                            <th bgcolor="#36A9E0" align="center" style="width: 157px; mso-padding-alt: 0px 12px 0px 12px; height: 36px;border-radius: 60px; background: linear-gradient(50.19deg, #36A9E0 2.84%, #0367B2 106.82%);" valign="middle" width="157">
+                                                <div>
+                                                    <a href="{{ button_link }}" style="text-decoration: none; color: #FFFFFF; display: block!important; font-size: 14px; line-height: 17px; mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%; font-family: 'Arial', 'Helvetica', sans-serif; text-align: center;word-break: keep-all; font-weight: 700;padding: 12px 16px 12px 16px; background-color: #36A9E0; border-radius: 60px; background: linear-gradient(50.19deg, #36A9E0 2.84%, #0367B2 106.82%);">
+                                                        <span style="text-decoration: none !important; color: #FFFFFF;">{{ button_text }}</span>
+                                                    </a>
+                                                </div>
+                                            </th>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </td>
+                        </tr> 
+                        {% endif %}
+                        {% if footer_text %}
+                        <tr>
+                            <td align="left" style="font-size: 15px; line-height: 18px; mso-line-height-rule: exactly; -ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%; color: #363535; font-style: normal; font-weight: 300; font-family: 'Arial', 'Helvetica', sans-serif; padding-bottom: 23px; padding-top: 23px;" valign="middle">
+                                {{ footer_text }}
+                            </td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <td align="left" style="font-size: 15px; line-height: 18px; mso-line-height-rule: exactly; -ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%; color: #363535; font-style: normal; font-weight: 300; font-family: 'Arial', 'Helvetica', sans-serif;" valign="middle">
+                                {{ goodbye }} <br />
+                                {{ goodbye_name }}
+                            </td>
+                        </tr>   
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </td>
+</tr>
