@@ -4,8 +4,8 @@ from uuid import uuid4
 VERSION = 1
 
 
-def _api_url(slug, v=VERSION, admin=False):
-    return f"api/admin/v{v}/{slug}/" if admin else f"api/v{v}/{slug}/"
+def _api_url(slug, v=VERSION, admin=False, end_slash=True):
+    return (f"api/admin/v{v}/{slug}" if admin else f"api/v{v}/{slug}") + ("/" if end_slash else "")
 
 
 def _double_uuid():
