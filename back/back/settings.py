@@ -84,7 +84,8 @@ TEMPLATES = [
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
         'DIRS': [
             os.path.join(BASE_DIR, "template/"),
-            os.path.join(BASE_DIR, "management/template/")
+            os.path.join(BASE_DIR, "management/template/"),
+            os.path.join(BASE_DIR, "emails/template/")
         ],
         'APP_DIRS': True,
         'OPTIONS': {
@@ -103,7 +104,7 @@ STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
 
 STATICFILES_DIRS = [
-    # TODO: add static filed from other apps?
+    os.path.join(BASE_DIR, 'emails/static/')
 ]
 
 
