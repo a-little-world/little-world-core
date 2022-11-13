@@ -1,6 +1,10 @@
 from dataclasses import dataclass
 from rest_framework import serializers
+from django.conf import settings
 from django.utils.translation import gettext as _
+from django.template.loader import render_to_string
+from .models import EmailLog
+from django.core.mail import EmailMessage
 
 """
 This file contains a dataclass for every email
@@ -42,3 +46,42 @@ def get_mail_data_by_name(name) -> MailMeta:
         if t.name == name:
             return t
     raise MailDataNotFoundErr(_("Mail data with name not found"))
+
+
+def send_email(
+        subject: str,
+        recivers: list,  # email adresses!
+        mail_data: MailMeta,
+        mail_params: object,
+        attachments=[],
+        sender=settings.MANAGEMENT_USER_MAIL):
+    """
+    Sends any mail we do this within a celery task to avoid runtime errors
+    This does not send a messages to all receivers at the same time, 
+    it sends one email per receiver
+    """
+    for to in recivers:
+
+        # First create the mail log, if sending fails afterwards we sill have a log!
+        EmailLog.objects.create(
+            sender=settings.MANAGEMENT_USER_MAIL,
+            reciver=to,
+            data=dict(
+                params=mail_params,
+                sender_str=str(sender),
+                recivers_str=",".join(recivers)
+            )
+        )
+
+        html = render_to_string(mail_data.template, mail_params.__dict__)
+
+        mail = EmailMessage(
+            subject=subject,
+            body=html,
+            from_email=sender,
+            to=[to],
+        )
+        mail.content_subtype = "html"
+        for attachment in attachments:
+            mail.attach_file(attachment)
+        mail.send(fail_silently=False)

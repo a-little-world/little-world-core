@@ -14,11 +14,14 @@ class ViewEmail(UserPassesTestMixin, View):
     def test_func(self):
         return not self.request.user.is_anonymous and self.request.user.is_staff  # type: ignore
 
-    @utils.track_event(name=_("Email Viewed"), event_type=Event.EventTypeChoices.REQUEST, tags=["frontend"])
+    @utils.track_event(
+        name=_("Email Viewed"),
+        event_type=Event.EventTypeChoices.REQUEST,
+        tags=["frontend"], track_arguments=["mail_name"])
     def get(self, request, **kwargs):
 
-        if not 'mail_name':
-            pass  # TODO: throm error
+        if not 'mail_name' in kwargs:
+            raise Exception(_("No mail template with that name"))
 
         mail_name = kwargs.get('mail_name')
         print("TBS: " + str(mail_name))
