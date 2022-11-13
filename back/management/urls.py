@@ -2,23 +2,27 @@ from . import views, api
 from django.urls import path, re_path
 from django.conf import settings
 from . import views
+from back.utils import _api_url
 from rest_framework import routers
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
-
-VERSION = 1
-
-
-def _api_url(slug, v=VERSION, admin=False):
-    return f"api/admin/v{v}/{slug}/" if admin else f"api/v{v}/{slug}/"
 
 
 router = routers.SimpleRouter()
 # Register possible viewsets here ... TODO
 api_routes = [
+    # User
     path(_api_url('user_data'), api.user_data.UserData.as_view()),
     path(_api_url('register'), api.register.Register.as_view()),
-    path(_api_url('self'), api.user_data.SelfInfo.as_view()),
+    path(_api_url('user'), api.user_data.SelfInfo.as_view()),
 
+    # TODO this should be a viewset for the whole profile model!
+    # path(_api_url('user/profile'), api.user_data.SelfInfo.as_view()),
+
+    # e.g.: /user/verify/email/Base64{d=email&u=hash&k=pin:hash}
+    path(_api_url('user/verify/email/<str:auth_data>'),  # TODO create verify email api
+         api.user.VerifyEmail.as_view()),
+
+    # Admin
     path(_api_url('user/get', admin=True), api.admin.GetUser.as_view()),
     path(_api_url('user/list', admin=True), api.admin.UserList.as_view()),
     #    path(_api_url('user/match', admin=True), api.admin.MakeMatch.as_view()),
