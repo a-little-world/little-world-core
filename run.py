@@ -484,6 +484,17 @@ def build_docs(args):
     _kill_tag(c.tag_spinix)
 
 
+@register_action()
+def reset_migrations(args):
+    import glob  # This one required glob to be installed
+    migration_files = [p for p in glob.glob(
+        f"{os.getcwd()}/back/*/migrations/*") if not ('__init__.py' in p or '__pycache__' in p)]
+    print(f"Deleting migrations files: {migration_files}")
+    for p in migration_files:
+        print(f"del: {p}")
+        os.remove(p)
+
+
 def _action_by_alias(alias):
     for act in ACTIONS:
         if alias in [*ACTIONS[act]["alias"], act]:
