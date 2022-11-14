@@ -225,7 +225,14 @@ JAZZMIN_SETTINGS = {
 
         {"name": "Repo", "url": "https://github.com/a-little-world/little-world-backend",
             "new_window": True},
+
+        {"name": "Docs", "url": "/static/docs",
+            "new_window": True},
+
         {"name": "API", "url": "/api/schema/swagger-ui/",
+            "new_window": True},
+
+        {"name": "Emails", "url": "/emails/welcome",
             "new_window": True},
 
         {"event": "tracking"},
@@ -259,6 +266,7 @@ JAZZMIN_SETTINGS = {
     "default_icon_children": "fas fa-circle",
     "related_modal_active": False,
     "custom_css": None,
+    # I'm pretty sure we can just load react avatar js here and render profile images / avatars
     "custom_js": None,
     # Whether to link font from fonts.googleapis.com (use custom_css to supply font otherwise)
     "use_google_fonts_cdn": True,  # TODO: we don't want his
