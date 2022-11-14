@@ -505,8 +505,10 @@ def build_docs(args):
 @register_action()
 def reset_migrations(args):
     import glob  # This one required glob to be installed
-    migration_files = [p for p in glob.glob(
-        f"{os.getcwd()}/back/*/migrations/*") if not ('__init__.py' in p or '__pycache__' in p)]
+    select_paths = [*glob.glob(f"{os.getcwd()}/back/*/migrations/*"),
+                    *glob.glob(f"{os.getcwd()}/back/*/*/migrations/*")]
+    migration_files = [p for p in select_paths if not (
+        '__init__.py' in p or '__pycache__' in p)]
     print(f"Deleting migrations files: {migration_files}")
     for p in migration_files:
         print(f"del: {p}")
