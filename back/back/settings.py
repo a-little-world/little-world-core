@@ -18,14 +18,19 @@ management: for user management and general api usage
 """
 
 INSTALLED_APPS = [
-    'management',  # Main backend application
     'tracking',  # Our user / action / event tracking
     'emails',  # Manageing logging and sending emails
+    'cookie_consent',  # Our cookie consent management system
+
+    'management',  # Main backend application
+
+    # TODO: inclusing here can be cleaned up:
+    'chat.django_private_chat2.apps.DjangoPrivateChat2Config',  # Our chat
 
     'corsheaders',
     'rest_framework',
 
-    'jazzmin',
+    'jazzmin',  # The waaaaaay nicer admin interface
 
     # API docs not required in deployment, so we disable to routes
     # Though we keep the backages so we don't have to split the code
@@ -66,6 +71,13 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+MIDDLEWARE_CLASSES = [
+    'corsheaders.middleware.CorsMiddleware',
+    "cookie_consent.middleware.CleanCookiesMiddleware",
+]
+
+COOKIE_CONSENT_ENABLED = True
 
 ROOT_URLCONF = 'back.urls'
 """
@@ -214,7 +226,7 @@ JAZZMIN_SETTINGS = {
     "login_logo_dark": None,
     "site_logo_classes": "img-circle",
     "site_icon": None,
-    "welcome_sign": "Waddup greetings rellow admin :)",
+    "welcome_sign": "Waddup greetings fellow admin :)",
     "copyright": "Tim Schupp, A Little World gUG",
     "search_model": ["auth.User", "auth.Group"],
     # Field name on user model that contains avatar ImageField/URLField/Charfield or a callable that receives the user
