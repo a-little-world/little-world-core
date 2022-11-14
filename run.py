@@ -464,6 +464,24 @@ def manage_command(args):
     _run_in_running(_is_dev(args), ["python3", "manage.py", *_cmd])
 
 
+@register_action(alias=["ma_shell_inject"])
+def inject_shell(args):
+    """ Injects a script into the python management shell """
+    assert args.input, "Please provide a shell script input file"
+    import shlex
+    script_file_text = ""
+    with open(args.input, "r") as f:
+        for l in f.readlines():
+            if not "!dont_include" in l and not '!include' in l:
+                script_file_text += l
+            elif '!include' in l:
+                script_file_text += l.replace("# !include ", "")
+    _cmd = ["python3",
+            "manage.py", "shell", "--command", shlex.quote(script_file_text)]
+    print(" ".join(_cmd))
+    _run_in_running(_is_dev(args), _cmd)
+
+
 @register_action(name="build_docs", alias=["docs"])
 def build_docs(args):
     """ 
