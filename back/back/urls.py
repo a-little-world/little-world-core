@@ -13,6 +13,7 @@ urlpatterns = [
     path('', include('management.urls')),
     path('', include('emails.urls')),
     path('admin/', admin.site.urls),
+    path("cookies/", include("cookie_consent.urls")),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
 
 if settings.BUILD_TYPE in ['staging', 'development']:
