@@ -1,6 +1,3 @@
-[submodule "back/cookie_consent"]
-	path = back/cookie_consent
-	url = https://github.com/a-little-world/little-world-cookie-consent
 [submodule "front/apps/main_frontend"]
 	path = front/apps/main_frontend
 	url = https://github.com/a-little-world/little-world-frontend.git
@@ -13,3 +10,6 @@
 [submodule "back/chat"]
 	path = back/chat
 	url = https://github.com/a-little-world/little-world-private-chat.git
+[submodule "back/_cookie_consent_repo"]
+	path = back/_cookie_consent_repo
+	url = https://github.com/a-little-world/little-world-cookie-consent
