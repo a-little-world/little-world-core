@@ -37,12 +37,14 @@ class UserManager(BaseUserManager):
             second_name=kwargs.get("last_name")
         )
         settings.Settings.objects.create(user=user)
+
+        # The matching with the main admin user happens in 'controller.create_user' !
         return user
 
     def create_user(self, email, password, **kwargs):
         kwargs["is_staff"] = False
         kwargs["is_superuser"] = False
-        self._create_user(email=email, password=password, **kwargs)
+        return self._create_user(email=email, password=password, **kwargs)
 
     def create_superuser(self, email, password, **kwargs):
         kwargs["is_staff"] = True
@@ -51,7 +53,7 @@ class UserManager(BaseUserManager):
             "first_name", "adminuserwastolazytosetfirstname")
         kwargs["last_name"] = kwargs.get(
             "second_name", "adminuserwastolazytosetsecondname")
-        self._create_user(email=email, password=password, **kwargs)
+        return self._create_user(email=email, password=password, **kwargs)
 
 
 class User(AbstractUser):
@@ -80,6 +82,11 @@ class User(AbstractUser):
     def settings(self):
         from . import settings
         return settings.Settings.objects.get(user=self)
+
+    def is_user_form_filled(self):
+        _state = self.state
+        return _state.user_form_state == _state.UserFormStateChoices.FILLED
+    is_user_form_filled.boolean = True
 
 
 class UserSerializer(serializers.ModelSerializer):
