@@ -14,6 +14,8 @@ api_routes = [
     path(_api_url('user_data'), api.user_data.UserData.as_view()),
     path(_api_url('register'), api.register.Register.as_view()),
     path(_api_url('user'), api.user_data.SelfInfo.as_view()),
+    path(_api_url('profile'),
+         api.profile.ProfileViewSet.as_view({"post": "partial_update"})),
 
     # TODO this should be a viewset for the whole profile model!
     # path(_api_url('user/profile'), api.user_data.SelfInfo.as_view()),
