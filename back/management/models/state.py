@@ -5,6 +5,7 @@ import base64
 import zlib
 from back import utils
 import random
+from datetime import datetime
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
@@ -43,6 +44,15 @@ class State(models.Model):
         default=utils._rand_int6)
 
     email_authenticated = models.BooleanField(default=False)
+
+    matches = models.ManyToManyField(User, related_name='+')
+
+    """
+    This state is used to sendout the unread email notification for you have new messages
+    """
+    unread_message_count = models.IntegerField(default=0)
+    unread_message_count_update_time = models.DateTimeField(
+        default=datetime.now)
 
     def is_email_verified(self):
         return self.email_authenticated
