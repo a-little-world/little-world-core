@@ -1,6 +1,8 @@
 from functools import partial, wraps
 from .models import Event
+from django.utils.translation import gettext as _
 from django.http import HttpRequest
+from ipware import get_client_ip  # django-ipware
 
 
 possible_metadata = [
@@ -8,6 +10,14 @@ possible_metadata = [
     "user",
     "email"
 ]
+
+
+def _ip_meta(request):
+    client_ip, is_routable = get_client_ip(request)
+    return {
+        "IP": client_ip,
+        "public": is_routable
+    }
 
 
 def _dispath_event_tracking(f,
@@ -29,9 +39,10 @@ def _dispath_event_tracking(f,
 
     @wraps(f)
     def run(*args, **kwargs):
+        # TODO: for poduction this should fail silently! 'try'
         metadata = {
             "kwargs": {arg: kwargs.get(arg) for arg in track_arguments},
-            "args": args
+            "msg": [],
         }
         _user = None
         if event_type == Event.EventTypeChoices.MISC \
@@ -41,9 +52,15 @@ def _dispath_event_tracking(f,
                 str_type = str(type(a)).lower()
                 if "request" in str_type:
                     try:
+                        metadata.update(_ip_meta(a))
+                    except:
+                        metadata["msg"].append(
+                            _("tracking: could not determine IP"))
+                    try:
                         _user = a.user
                     except:
-                        pass
+                        metadata["msg"].append(
+                            _("traking: could not deterine user"))
 
         Event.objects.create(
             # `time` is set automaticly
@@ -51,7 +68,7 @@ def _dispath_event_tracking(f,
             func=f.__name__,
             type=event_type,
             name=name,
-            metadata={},
+            metadata=metadata,
             **({'caller': _user} if _user else {})
         )
         return f(*args, **kwargs)
