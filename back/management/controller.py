@@ -6,6 +6,7 @@ from .models import User
 from django.conf import settings
 from .models import UserSerializer, User, Profile, State
 from django.utils.translation import gettext as _
+from emails import mails
 
 
 class UserNotFoundErr(Exception):
@@ -106,9 +107,24 @@ def create_user(
     # The user_data_serializer automaticly creates the user model
     # automaticly creates Profile, State, Settings, see models.user.UserManager
     data['last_name'] = data.pop('second_name')
-    User.objects.create_user(**data)
+    usr = User.objects.create_user(**data)
+    # Error if user doesn't exist, would prob already happen on is_valid
+    assert isinstance(usr, User)
 
-    # Step 2 ... TODO send mail
+    # Step 2 ... send mail
+    if send_verification_mail:
+        mails.send_email(
+            recivers=[email],
+            subject="undefined",  # TODO set!
+            mail_data=mails.get_mail_data_by_name("welcome"),
+            mail_params=mails.WelcomeEmailParams(
+                first_name=usr.profile.first_name,
+                second_name=usr.profile.first_name,
+                verification_code=""
+            )
+        )
+    else:
+        print("Not sending verification mail!")
 
 
 def match_users(users: set):  # 'set' No one can put two identical users
