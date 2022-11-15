@@ -2,9 +2,29 @@
   "customizations": {
     "codespaces": {
       "repositories": {
-        "a-little-world/*": {
-          "permissions": {
+        "a-little-world/little-world-frontend": {
+          "contents": {
             "issues": "write"
+          }
+        },
+        "a-little-world/little-world-cookie-banner": {
+          "contents": {
+            "issues": "write-all"
+          }
+        },
+        "a-little-world/little-world-user-form": {
+          "contents": {
+            "issues": "write-all"
+          }
+        },
+        "a-little-world/little-world-private-chat": {
+          "contents": {
+            "issues": "write-all"
+          }
+        },
+        "a-little-world/little-world-cookie-consent": {
+          "contents": {
+            "issues": "write-all"
           }
         }
       }

@@ -455,6 +455,9 @@ def _run(dev=True, background=False):
     _run_tag_env(tag=c.dtag if dev else c.ptag, env=(
         c.denv if dev else c.penv)[1], mounts=c.vmount, background=background)
 
+    # we print this mainly for port forwarding in codespaces:
+    print("Running at localhost:8000 ")
+
 
 @register_action(alias=["ma", "manage", "manage.py"], parse_own_args=True)
 def manage_command(args):
