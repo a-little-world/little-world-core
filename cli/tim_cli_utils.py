@@ -141,4 +141,4 @@ def parse_actions_run():
     if len(a.unknown) > 1:
         print("there where unhandled extra args: " + " ".join(a.unknown))
     if not a.silent:
-        print("Exiting admin cli...")
+        print("Exiting 'run.py' cli...")
