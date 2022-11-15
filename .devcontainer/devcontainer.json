@@ -3,29 +3,19 @@
     "codespaces": {
       "repositories": {
         "a-little-world/little-world-frontend": {
-          "permissions": {
-            "contents": "write-all"
-          }
+          "permissions": "write-all"
         },
         "a-little-world/little-world-cookie-banner": {
-          "permissions": {
-            "contents": "write-all"
-          }
+          "permissions": "write-all"
         },
         "a-little-world/little-world-user-form": {
-          "permissions": {
-            "contents": "write-all"
-          }
+          "permissions": "write-all"
         },
         "a-little-world/little-world-private-chat": {
-          "permissions": {
-            "contents": "write-all"
-          }
+          "permissions": "write-all"
         },
         "a-little-world/little-world-cookie-consent": {
-          "permissions": {
-            "contents": "write-all"
-          }
+          "permissions": "write-all"
         }
       }
     }
