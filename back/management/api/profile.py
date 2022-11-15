@@ -1,4 +1,4 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, authentication, permissions
 from ..models import SelfProfileSerializer, Profile
 
 
@@ -6,6 +6,10 @@ class ProfileViewSet(viewsets.GenericViewSet, viewsets.mixins.UpdateModelMixin):
     """
     A viewset for viewing and editing user instances.
     """
+    authentication_classes = [authentication.SessionAuthentication,
+                              authentication.BasicAuthentication]
+
+    permission_classes = [permissions.IsAuthenticated]
     serializer_class = SelfProfileSerializer
 
     def get_object(self):
