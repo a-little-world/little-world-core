@@ -10,7 +10,7 @@ DEBUG = os.environ["DJ_DEBUG"].lower() in ('true', '1', 't')
 BASE_URL = os.environ.get("DJ_BASE_URL", "http://localhost:8000")
 ALLOWED_HOSTS = os.environ.get("DJ_ALLOWED_HOSTS", "").split(",")
 FRONTENDS = os.environ["FR_FRONTENDS"].split(",")
-MANAGEMENT_USER_MAIL = os.environ["DJ_MANAGEMENT_USER_MAIL"].split(",")
+MANAGEMENT_USER_MAIL = os.environ["DJ_MANAGEMENT_USER_MAIL"]
 
 """
 Own applications:
