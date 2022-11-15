@@ -75,6 +75,8 @@ class Register(APIView):
     """
     Register a user by post request
     """
+    authentication_classes = [
+    ]  # No authentication required, TODO: cors should still be enabled right?
     permission_classes = []  # Everyone can acess this api
     required_args = ['email', 'first_name', 'second_name',
                      'password1', 'password2', 'birth_year']
