@@ -25,7 +25,7 @@ def _dispath_event_tracking(f,
                             name="",
                             event_type: int = Event.EventTypeChoices.MISC,
                             tags=[],
-                            track_arguments=[],
+                            track_arguments="__all__",
                             censor_args=False,
                             censor_kwargs=[]
                             ):
@@ -39,9 +39,16 @@ def _dispath_event_tracking(f,
 
     @wraps(f)
     def run(*args, **kwargs):
+        import json
+        print(args)
+        print(kwargs)
         # TODO: for poduction this should fail silently! 'try'
+
         metadata = {
-            "kwargs": {arg: kwargs.get(arg) for arg in track_arguments},
+            "kwargs": str({arg: kwargs.get(arg) for arg in track_arguments}
+                          if not track_arguments != "__all__" else kwargs),
+            # TODO: has to be done same somehow, most things are not json serializabol
+            "args": str(args),
             "msg": [],
         }
         _user = None
