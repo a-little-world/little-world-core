@@ -2,11 +2,8 @@ from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from django.utils.safestring import mark_safe
 from django.contrib import messages
-
-
-from . import models
-
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from . import models
 
 
 @admin.register(models.state.State)
@@ -63,6 +60,12 @@ class UserFormFilledFilter(admin.SimpleListFilter):
             return [q for q in queryset if q.is_user_form_filled()]
         if self.value() == 'is_not_filled':
             return [q for q in queryset if not q.is_user_form_filled()]
+
+
+@admin.register(models.Notification)
+class NotificationAdmin(admin.ModelAdmin):
+    list_display = ("user", "created_at", "time_read",
+                    "state", "type", "title", "meta")
 
 
 @admin.register(models.user.User)
