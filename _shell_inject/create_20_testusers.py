@@ -1,3 +1,6 @@
+# This little hack here allowes me to use full syntax hightlighting and type checking without having the django project setup up
+# Pylint doesn't globaly know the django apps, but it does recognize ./back as a package
+# So when we prefix the import with back.--inport-- we get all the syntax suggar :)
 from back.management import controller  # !dont_include # used for syntax only
 # !include from management import controller # this will be used on script execution
 print(controller)
