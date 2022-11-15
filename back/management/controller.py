@@ -7,6 +7,9 @@ from django.conf import settings
 from .models import UserSerializer, User, Profile, State, Settings
 from django.utils.translation import gettext as _
 from emails import mails
+from tracking import utils
+from tracking.models import Event
+import os
 
 
 class UserNotFoundErr(Exception):
@@ -133,16 +136,35 @@ def create_user(
     match_users({get_base_management_user(), usr})
 
     # Step 5 Notify the user
-    usr.notify()  # TODO set title, description & co...
+    # TODO set title, description & co...
+    usr.notify(title=_("Welcome Notification"))
 
     # Step 6 Message the user from the admin account
-    usr.message(_("Welcome message..."))
+    usr.message(_("Welcome Message..."))
 
 
-def match_users(users: set):  # 'set' No one can put two identical users
+# 'set' No one can put two identical users
+@utils.track_event(
+    name=_("Users Matched"),
+    event_type=Event.EventTypeChoices.FLOW,
+    tags=["backend", "function", "db"])
+def match_users(users: set, send_notification=True, send_message=True, send_email=True):
     """ Accepts a list of two users to match """
     assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
-    # Match ... TODO
+    usrs = list(users)
+    usr1, usr2 = usrs
+    usr1.match(usr2)
+    usr2.match(usr1)
+
+    if send_notification:
+        usr1.notify(title=_("New match: %s" % usr2.profile.first_name))
+        usr2.notify(title=_("New match: %s" % usr1.profile.first_name))
+
+    if send_message:
+        pass  # TODO
+
+    if send_email:
+        pass  # TODO
 
 
 def unmatch_users(users: set):
@@ -155,7 +177,21 @@ def get_base_management_user():
     """
     Always returns the BASE_MANAGEMENT_USER user
     """
-    get_user_by_email(settings.BASE_MANAGEMENT_USER_EMAIL)
+    try:
+        return get_user_by_email(settings.MANAGEMENT_USER_MAIL)
+    except UserNotFoundErr:
+        print("Management user doesn't seem to exist jet")
+        usr = User.objects.create_superuser(
+            email=settings.MANAGEMENT_USER_MAIL,
+            username=settings.MANAGEMENT_USER_MAIL,
+            password=os.environ['DJ_MANAGEMENT_PW'],
+            first_name=os.environ.get(
+                'DJ_MANAGEMENT_FIRST_NAME', 'Support'),
+            last_name=os.environ.get(
+                'DJ_MANAGEMENT_SECOND_NAME', 'User'),
+        )
+        print("BASE ADMIN USER CREATED!")
+        return usr
 
 
 # TODO: can this cause issues when settings not initalized?
