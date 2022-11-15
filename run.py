@@ -347,18 +347,40 @@ def _make_webpack_command(env, config, debug: bool, watch: bool):
     return _cmd
 
 
+@register_action(alias=["uf"], cont=True)
+def update_front(args):
+    """ only to be run when frontends are build """
+    assert args.input, "which frontend to update?"
+
+    _cmd = [*c.drun, *(c.denv if _is_dev(args) else c.penv), *
+            c.vmount_front, "-d", c.front_tag]
+    subprocess.run(_cmd)  # start the frontend container
+
+    _run_in_running(
+        _is_dev(args), ["npm", "run", f"build_{args.input}_{args.btype}"], backend=False)
+
+    kill(args, back=False)  # Kill the frontend container
+
+
 @register_action(alias=["fb", "bf"], cont=True)
 def build_front(args):
     """
     Builds the frontends
     This whole process is dockerized so you don't need any local nodejs installation ( but if wanted a local nodejs installation can be used also )
     1. Build the frontend docker image
+    1.5. Copy over env files
     2. Run the container ( keep it running artifically see Dockerfile.front )
     3. Run `npm i`
     4. For all frontends ( check `env.FR_FRONTENDS` ) run `npm i`
     5. For all frontends run webpack build
     6. Kill the frontend container
     """
+    env = _env_as_dict(c.denv[1])
+    if env["FR_FRONTENDS"] == "":
+        print("No frontends present, exiting...")
+        return
+    frontends = env["FR_FRONTENDS"].split(",")
+
     if not _is_dev(args):
         # TODO: in production we might want to do some extra cleanup!
         raise NotImplementedError
@@ -366,15 +388,34 @@ def build_front(args):
             c.front_tag, "."]
     print(" ".join(_cmd))
     subprocess.run(_cmd)  # 1
+
+    """
+    Every frontend has an exchangabol env json file:
+    main_frontend.local.env.js <-- for local frontend development ( this is the default env from the repo, but it will not work in the backend use `.dev.env.js` for that )
+    main_frontend.dev.env.js <-- env for development in the repo ( if you want to develop font + back at the same time )
+    main_frontend.pro.env.js <-- env for poduction or staging
+    """
+    # Check if such an env exist for current build type
+
+    import shutil
+
+    for front in frontends:
+        def _p(t):
+            return f"./front/env_apps/{front}.{t}.js"
+        original_env = f"./front/apps/{front}/src/ENVIRONMENT.js"
+        if not os.path.exists(_p("local")) and os.path.exists(original_env):
+            # The <app>.local.env.js is basicly a backup of the original env
+            print("Backend up original src/ENVIRONMENT.js ")
+            shutil.copy(original_env, _p("local"))
+        if os.path.exists(_p("dev")):
+            # Found replacement env,
+            print("Found dev env, overwriting: " + _p("dev"))
+            shutil.copy(_p("dev"), original_env)
+
     _cmd = [*c.drun, *(c.denv if _is_dev(args) else c.penv), *
             c.vmount_front, "-d", c.front_tag]
-    env = _env_as_dict(c.denv[1])
     subprocess.run(_cmd)  # 2
     _run_in_running(_is_dev(args), ["npm", "i"], backend=False)  # 3
-    if env["FR_FRONTENDS"] == "":
-        print("No frontends present, exiting...")
-        return
-    frontends = env["FR_FRONTENDS"].split(",")
     print(
         f'`npm i` for frontends: {frontends} \nAdd frontends under `FR_FRONTENDS` in env, place them in front/apps/')
     for front in frontends:
@@ -407,6 +448,27 @@ def build_front(args):
         _run_in_running(
             _is_dev(args), ["npm", "run", f"build_{front}_{args.btype}"], backend=False)
     kill(args, back=False)
+
+
+@register_action(alias=["watch"], cont=False)
+def watch_frontend(args):
+    assert args.input, "please input a active frontend: " + \
+        str(_env_as_dict(c.denv[1])["FR_FRONTENDS"].split(","))
+    assert _is_dev(
+        args), "can't watch frontend changes in staging or deloyment sorry"
+    # start the frontend container:
+    _cmd = [*c.drun, *(c.denv if _is_dev(args) else c.penv), *
+            c.vmount_front, "-d", c.front_tag]
+    env = _env_as_dict(c.denv[1])
+    print("starting container")
+
+    print(" ".join(_cmd))
+    subprocess.run(_cmd)
+
+    _cmd = _make_webpack_command(
+        _env_as_dict(c.denv[1]), f'webpack.{args.input}.config.js', watch=True, debug=True)
+    print(f"generated cmd: {' '.join(_cmd)}")
+    _run_in_running(_is_dev(args), _cmd, backend=False)
 
 
 @register_action(alias=["rds", "rd", "redis-server"])
