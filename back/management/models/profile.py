@@ -1,7 +1,7 @@
 from django.db import models
 from django.utils.translation import gettext as _
+from back.utils import get_options_serializer
 from datetime import datetime
-from rest_framework.metadata import SimpleMetadata
 from rest_framework import serializers
 from .user import User
 
@@ -132,28 +132,10 @@ class ProfileAtMatchRequest(ProfileBase):
 
 
 class ProfileSerializer(serializers.ModelSerializer):
-    usr_hash = serializers.SerializerMethodField()
     options = serializers.SerializerMethodField()
 
-    def get_usr_hash(self, obj):
-        return obj.user.hash
-
     def get_options(self, obj):
-        d = {}
-        dataG = SimpleMetadata()
-        for k, v in self.get_fields().items():
-            # Per default we only send 'options' for choice fields
-            # This keeps the overhead low and doesn't expose any unnecessary model information
-            _f = dataG.get_field_info(v)
-            if "type" in _f and _f["type"] == "choice":
-                _t_choices = []
-                for choice in _f["choices"]:
-                    # We do assume that models.IntegerChoices is used
-                    # sadly it seems int keys are auto transformed to string when jsonized
-                    _t_choices.append(
-                        {"tag": choice["display_name"], "value": choice["value"]})
-                d[k] = _t_choices
-        return d
+        return get_options_serializer(self, obj)
 
     class Meta:
         model = Profile
@@ -165,7 +147,7 @@ class SelfProfileSerializer(ProfileSerializer):
     class Meta:
         model = Profile
         fields = ['first_name', 'second_name', 'target_group',
-                  'speech_medium', 'usr_hash']
+                  'speech_medium']
 
 
 class CensoredProfileSerializer(SelfProfileSerializer):
