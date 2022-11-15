@@ -4,7 +4,7 @@ e.g.: Creating a new user, sending a notification to a users etc...
 """
 from .models import User
 from django.conf import settings
-from .models import UserSerializer, User, Profile, State
+from .models import UserSerializer, User, Profile, State, Settings
 from django.utils.translation import gettext as _
 from emails import mails
 
@@ -17,7 +17,8 @@ class UserNotFoundErr(Exception):
 user_models = {  # Model, primary key name
     "user": [User, 'email'],
     "profile": [Profile, 'user'],
-    "state": [State, 'user']
+    "state": [State, 'user'],
+    "settings": [Settings, 'settings']
 }
 
 
@@ -87,11 +88,13 @@ def create_user(
     performs the following setps:
     Note: this assumes some rought validations steps where done already, see `api.register.Register`
     1 - validate for user model
-    2 - validate for profile model
+    1.5 - validate for profile model (implicit cause only first_name, second_name, birth_year are needed right now )
     3 - create all models <- happens automaticly when the user model is created, see management.models.user.UserManager
     4 - send email verification code
+    5 - create welcome notification
+    6 - send welcome message from admin chat
     """
-    # Step 1
+    # Step 1 - 3
     data = dict(
         # Currently we don't allow any specific username
         username=email,
@@ -111,7 +114,7 @@ def create_user(
     # Error if user doesn't exist, would prob already happen on is_valid
     assert isinstance(usr, User)
 
-    # Step 2 ... send mail
+    # Step 4 send mail
     if send_verification_mail:
         mails.send_email(
             recivers=[email],
@@ -125,6 +128,15 @@ def create_user(
         )
     else:
         print("Not sending verification mail!")
+
+    # Step 5 Match with admin user
+    match_users({get_base_management_user(), usr})
+
+    # Step 5 Notify the user
+    usr.notify()  # TODO set title, description & co...
+
+    # Step 6 Message the user from the admin account
+    usr.message(_("Welcome message..."))
 
 
 def match_users(users: set):  # 'set' No one can put two identical users
