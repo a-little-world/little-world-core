@@ -1,5 +1,6 @@
 from django.db import models
 from back import utils
+from django.utils.translation import gettext as _
 from rest_framework import serializers
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 
@@ -37,8 +38,6 @@ class UserManager(BaseUserManager):
             second_name=kwargs.get("last_name")
         )
         settings.Settings.objects.create(user=user)
-
-        # The matching with the main admin user happens in 'controller.create_user' !
         return user
 
     def create_user(self, email, password, **kwargs):
@@ -87,6 +86,45 @@ class User(AbstractUser):
         _state = self.state
         return _state.user_form_state == _state.UserFormStateChoices.FILLED
     is_user_form_filled.boolean = True
+
+    def get_matches(self):
+        """ Returns a list of matches """
+        return self.state.matches.all()
+
+    def get_notifications(self):
+        """ Returns a list of matches """
+        return self.state.notifications.all()
+
+    def match(self, user):
+        """
+        Adds the user as match of this user 
+        ( this doesn't automaticly create a match for the other user ) 
+        """
+        self.state.matches.add(user)
+
+    def notify(self, title=_('title'), description=_('description')):
+        """
+        Sends a notifcation to that user ( or rater creates a notifcation for that user )
+        """
+        from .notifications import Notification
+        notification = Notification.objects.create(
+            user=self,
+            title=title,
+            description=description
+        )
+        self.state.notifications.add(notification)
+
+    def message(self, msg, sender=None):
+        """
+        Sends the users a chat message
+        theoreticly this could be used to send a message from any sender
+        this would ofcourse require these user to have a related dialog object
+        """
+        from ..controller import get_base_management_user
+        if not sender:
+            sender = get_base_management_user()
+
+        pass  # TODO implement
 
 
 class UserSerializer(serializers.ModelSerializer):
