@@ -68,6 +68,10 @@ class NotificationAdmin(admin.ModelAdmin):
                     "state", "type", "title", "meta")
 
 
+class NotificationInline(admin.TabularInline):
+    model = models.state.Notification
+
+
 @admin.register(models.user.User)
 class UserAdmin(DjangoUserAdmin):
 
@@ -87,7 +91,8 @@ class UserAdmin(DjangoUserAdmin):
     inlines = [
         StateAdminInline,
         ProfileModelInline,
-        SettingsModelInline
+        SettingsModelInline,
+        NotificationInline
     ]
 
     fieldsets = (
