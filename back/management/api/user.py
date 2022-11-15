@@ -26,10 +26,13 @@ class VerifyEmail(APIView):
         if not 'auth_data' in kwargs:
             raise serializers.ValidationError(
                 {"auth_data": _("Must be part of url path!")})
-        _data = State.decode_email_auth_code_b64(kwargs.get('auth_data'))
-        usr = get_user_by_hash(_data['u'])
-        if usr.state.check_email_auth_code_b64(kwargs['auth_data']):
-            return Response(_("Email sucessfully verified"))
+        try:
+            _data = State.decode_email_auth_code_b64(kwargs.get('auth_data'))
+            usr = get_user_by_hash(_data['u'])
+            if usr.state.check_email_auth_code_b64(kwargs['auth_data']):
+                return Response(_("Email sucessfully verified"))
+        except Exception as e:
+            print(repr(e))
         return Response(_("Email verification failed"), status=status.HTTP_400_BAD_REQUEST)
 
     def post(self, request, **kwargs):
