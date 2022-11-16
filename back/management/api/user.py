@@ -1,5 +1,6 @@
 from rest_framework.views import APIView
 from django.utils.translation import gettext as _
+from drf_spectacular.utils import extend_schema
 from management.controller import get_user_by_hash
 from rest_framework.response import Response
 from django.contrib.auth import authenticate, login
@@ -65,7 +66,13 @@ class LoginSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     password = serializers.CharField(required=True)
 
+    def create(self, validated_data):
+        return LoginData(**validated_data)
 
+
+@extend_schema(
+    request=LoginSerializer(many=False)
+)
 class LoginApi(APIView):
     permission_classes = []
     authentication_classes = []
@@ -86,5 +93,6 @@ class LoginApi(APIView):
 
         if usr is not None:
             login(request, usr)
+            return Response(_("Login sucessfull"))
         else:
             return Response(_("Login failed"), status=status.HTTP_400_BAD_REQUEST)
