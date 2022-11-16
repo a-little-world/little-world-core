@@ -9,5 +9,8 @@ RUN pip cache purge
 
 EXPOSE 8000
 
+# Required for extracting translations strings
+RUN apk add gettext
+
 # Would have went with daphne but no hot reloading (https://github.com/django/daphne/issues/9) is quire problematic
 CMD ["uvicorn", "back.asgi:application" ,"--reload", "--port", "8000","--host", "0.0.0.0"]
