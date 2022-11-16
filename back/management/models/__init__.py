@@ -9,4 +9,4 @@ from .profile import Profile, ProfileSerializer, CensoredProfileSerializer, Self
 from .user import UserSerializer, CensoredUserSerializer, User, SelfUserSerializer
 from .state import State, StateSerializer, SelfStateSerializer
 from .settings import Settings
-from .notifications import Notification, NotificationSerializer
+from .notifications import Notification, NotificationSerializer, SelfNotificationSerializer
