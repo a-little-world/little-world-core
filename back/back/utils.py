@@ -5,8 +5,9 @@ from rest_framework.metadata import SimpleMetadata
 VERSION = 1
 
 
-def _api_url(slug, v=VERSION, admin=False, end_slash=True):
-    return (f"api/admin/v{v}/{slug}" if admin else f"api/v{v}/{slug}") + ("/" if end_slash else "")
+def _api_url(slug, _v=VERSION, admin=False, end_slash=True):
+    v = "" if _v == 1 else f"/v{_v}"
+    return (f"api/admin{v}/{slug}" if admin else f"api/{slug}{v}") + ("/" if end_slash else "")
 
 
 def _double_uuid():
