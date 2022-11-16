@@ -2,8 +2,12 @@ from rest_framework.views import APIView
 from django.utils.translation import gettext as _
 from management.controller import get_user_by_hash
 from rest_framework.response import Response
+from django.contrib.auth import authenticate, login
 from ..models.state import State
 from rest_framework import serializers, status
+from dataclasses import dataclass
+from tracking.models import Event
+from tracking import utils
 """
 The public /user api's
 
@@ -49,3 +53,38 @@ class VerifyEmail(APIView):
         if request.user.state.check_email_auth_pin(int(kwargs['auth_data'])):
             return Response(_("Email sucessfully verified"))
         return Response(_("Email verification failed"), status=status.HTTP_400_BAD_REQUEST)
+
+
+@dataclass
+class LoginData:
+    email: str
+    password: str
+
+
+class LoginSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(required=True)
+
+
+class LoginApi(APIView):
+    permission_classes = []
+    authentication_classes = []
+
+    @utils.track_event(
+        name=_("User Logged in"),
+        event_type=Event.EventTypeChoices.REQUEST,
+        tags=["frontend", "login", "sensitive"],
+        censor_kwargs=["password"])
+    def post(self, request):
+        serializer = LoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        login_data = serializer.save()
+
+        usr = authenticate(username=login_data.email,
+                           password=login_data.password)
+
+        if usr is not None:
+            login(request, usr)
+        else:
+            return Response(_("Login failed"), status=status.HTTP_400_BAD_REQUEST)
