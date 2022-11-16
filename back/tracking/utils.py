@@ -2,6 +2,7 @@ from functools import partial, wraps
 from .models import Event
 from django.utils.translation import gettext as _
 from django.http import HttpRequest
+from rest_framework.request import Request
 from ipware import get_client_ip  # django-ipware
 
 
@@ -43,11 +44,16 @@ def _dispath_event_tracking(f,
         print(args)
         print(kwargs)
         # TODO: for poduction this should fail silently! 'try'
+        _kwargs = {}
+        if kwargs != "__all__":
+            for k in kwargs:
+                if k in track_arguments and k not in censor_kwargs:
+                    _kwargs[k] = kwargs[k]
+        else:
+            _kwargs = kwargs
 
         metadata = {
-            "kwargs": str({arg: kwargs.get(arg) for arg in track_arguments}
-                          if not track_arguments != "__all__" else kwargs),
-            # TODO: has to be done same somehow, most things are not json serializabol
+            "kwargs": str(_kwargs),
             "args": str(args),
             "msg": [],
         }
@@ -69,6 +75,25 @@ def _dispath_event_tracking(f,
                         metadata["msg"].append(
                             _("traking: could not deterine user"))
 
+                    try:
+                        metadata["request_data1"] = a.data
+                    except:
+                        metadata["msg"].append(
+                            _("request.data not existing"))
+
+                    try:
+                        # If the conversion above didn't work maybe it is a http request
+                        drf_request = Request(request=a)
+                        metadata["request_data2"] = a.data
+                    except:
+                        metadata["msg"].append(
+                            _("couldn't convert to drf request"))
+
+        try:
+            _user.is_authenticated()
+        except:
+            metadata["usr"] = str(_user)
+            _user = None
         Event.objects.create(
             # `time` is set automaticly
             tags=tags,
