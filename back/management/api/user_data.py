@@ -1,6 +1,5 @@
 import django.contrib.auth.password_validation as pw_validation
 from copy import deepcopy
-from ..models import Notification, NotificationSerializer
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 from drf_spectacular.types import OpenApiTypes
 from datetime import datetime
@@ -20,6 +19,7 @@ from dataclasses import dataclass
 from rest_framework.permissions import IsAuthenticated
 from django.core.paginator import Paginator
 from ..models import (
+    SelfNotificationSerializer, NotificationSerializer, Notification,
     ProfileSerializer, SelfProfileSerializer,
     UserSerializer, SelfUserSerializer,
     StateSerializer, SelfStateSerializer,
@@ -41,6 +41,7 @@ self_serializers = {
     "user": SelfUserSerializer,
     "profile": SelfProfileSerializer,
     "state": SelfStateSerializer,
+    "_notifications": SelfNotificationSerializer
     # "settings" # TODO create
 }
 
@@ -48,6 +49,7 @@ admin_serializers = {
     "user": UserSerializer,
     "profile": ProfileSerializer,
     "state": StateSerializer,
+    "_notifications": NotificationSerializer
 }
 # For 'other' users
 other_serializers = {
@@ -100,7 +102,7 @@ def get_user_data(user, is_self=False, admin=False, include_options=False):
                         *deepcopy(_serializers[_model].Meta.fields), "options"]
             _serializers[_model] = WOptionSerializer
     models = get_user_models(user)  # user, profile, state
-    return {k: _serializers[k](models[k]).data for k in _serializers}
+    return {k: _serializers[k](models[k]).data for k in _serializers if not k.startswith("_")}
 
 
 def get_matches_paginated(user, admin=False,
@@ -116,12 +118,15 @@ def get_matches_paginated(user, admin=False,
 
 
 def get_notifications_paginated(user,
+                                admin=False,
                                 page=UserDataApiParams.noti_page,
                                 paginate_by=UserDataApiParams.noti_paginate_by):
     """
     This returns a list of notifications for that user
     """
-    return [NotificationSerializer(data=p).data for p in Paginator(user.get_notifications(), paginate_by).page(page)]
+    _serializer = (admin_serializers if admin else self_serializers)[
+        "_notifications"]
+    return [_serializer(p).data for p in Paginator(user.get_notifications(), paginate_by).page(page)]
 
 
 class SelfInfo(APIView):
@@ -141,7 +146,7 @@ def get_user_data_and_matches(user, options=False, admin=False,
     return {
         **get_user_data(user, is_self=True, include_options=options),
         "matches": get_matches_paginated(user, admin=admin, page=page, paginate_by=paginate_by),
-        "notifications": get_notifications_paginated(user, page=noti_page, paginate_by=noti_paginate_by)
+        "notifications": get_notifications_paginated(user, admin=admin, page=noti_page, paginate_by=noti_paginate_by)
     }
 
 
