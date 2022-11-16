@@ -1,5 +1,6 @@
 from rest_framework import viewsets, authentication, permissions
 from ..models import SelfProfileSerializer, Profile
+from rest_framework.response import Response
 
 
 class ProfileViewSet(viewsets.GenericViewSet, viewsets.mixins.UpdateModelMixin):
@@ -19,7 +20,11 @@ class ProfileViewSet(viewsets.GenericViewSet, viewsets.mixins.UpdateModelMixin):
         #assert not pk
         pk = self.request.user.pk
         self.kwargs["pk"] = 1
+        print("request.data" + str(request.data))
         return super().partial_update(request, pk=pk)
+
+    def _get(self, request):
+        return Response(self.serializer_class(self.get_object()).data)
 
     def get_queryset(self):
         user = self.request.user
