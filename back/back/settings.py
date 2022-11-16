@@ -29,6 +29,9 @@ INSTALLED_APPS = [
 
     'corsheaders',
     'rest_framework',
+    # A convenient multiselect field for db objects ( used e.g.: in profile.interests )
+    'multiselectfield',
+    'phonenumber_field',  # Conevnient handler for phone numbers with admin prefix
 
     'jazzmin',  # The waaaaaay nicer admin interface
 
