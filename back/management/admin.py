@@ -3,6 +3,8 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.safestring import mark_safe
 from django.contrib import messages
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django import forms
+from phonenumber_field.widgets import PhoneNumberPrefixWidget
 from . import models
 
 
@@ -25,11 +27,19 @@ def make_match_admin(modeladmin, request, queryset):
         request, "Not implemented", level=messages.ERROR)
 
 
+class ProfileModelForm(forms.ModelForm):
+    class Meta:
+        widgets = {
+            'phone': PhoneNumberPrefixWidget(initial='DE'),
+        }
+
+
 @admin.register(models.profile.Profile)
 class ProfileModelAdmin(admin.ModelAdmin):
     list_display = ('user', 'first_name', 'second_name')
 
     actions = [make_match_admin]
+    form = ProfileModelForm
 
 
 class ProfileModelInline(admin.StackedInline):
@@ -45,21 +55,33 @@ class SettingsModelInline(admin.StackedInline):
     model = models.settings.Settings
 
 
+# TODO: we should make a general class that allowes
 class UserFormFilledFilter(admin.SimpleListFilter):
     title = _('User form filled')
     parameter_name = 'is_form_filled'
 
     def lookups(self, request, model_admin):
-        return (
-            ('is_filled', _('Form filled')),
-            ('is_not_filled', _('Form not filled')),
-        )
+        return models.State.UserFormStateChoices.choices
 
     def queryset(self, request, queryset):
-        if self.value() == 'is_filled':
-            return [q for q in queryset if q.is_user_form_filled()]
-        if self.value() == 'is_not_filled':
-            return [q for q in queryset if not q.is_user_form_filled()]
+        _val = self.value()
+        if not _val:
+            return queryset
+        return queryset.filter(state__user_form_state=self.value())
+
+
+class UserCategory(admin.SimpleListFilter):
+    title = _('User category')
+    parameter_name = 'user_category'
+
+    def lookups(self, request, model_admin):
+        return models.State.UserCategoryChoices.choices
+
+    def queryset(self, request, queryset):
+        _val = self.value()
+        if not _val:
+            return queryset
+        return queryset.filter(state__user_category=self.value())
 
 
 @admin.register(models.Notification)
@@ -79,7 +101,7 @@ class UserAdmin(DjangoUserAdmin):
     def chat_with(self, obj):
         # return HTML link that will not be escaped
         return mark_safe(
-            '<a href="%s">%s</a>' % ("bla", "open")
+            '<a href="_show_message">%s</a>' % ("open")
         )
 
     def get_search_results(self, request, queryset, search_term):
@@ -100,7 +122,7 @@ class UserAdmin(DjangoUserAdmin):
         (_('Permissions'), {
          'fields': ('is_active', 'is_staff', 'is_superuser')}),
         (_('Important dates'), {'fields': ('last_login', 'date_joined')}),
-        #("Matching", {"fields" : ("user_matches")})
+        # ("Matching", {"fields" : ("user_matches")})
     )
     add_fieldsets = (
         (None, {
@@ -108,8 +130,8 @@ class UserAdmin(DjangoUserAdmin):
             'fields': ('email', 'password1', 'password2'),
         }),
     )
-    list_display = ('email', 'last_login', 'date_joined',
+    list_display = ('_abr_hash', 'email', 'last_login', 'date_joined',
                     'first_name', 'last_name', 'chat_with', 'is_user_form_filled', 'is_staff')
     search_fields = ('email', 'first_name', 'last_name', 'hash')
     ordering = ('email', 'is_staff')
-    list_filter = (UserFormFilledFilter, 'is_staff',)
+    list_filter = (UserFormFilledFilter, UserCategory, 'is_staff',)
