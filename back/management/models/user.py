@@ -82,6 +82,9 @@ class User(AbstractUser):
         from . import settings
         return settings.Settings.objects.get(user=self)
 
+    def _abr_hash(self):
+        return self.hash[:8]
+
     def is_user_form_filled(self):
         _state = self.state
         return _state.user_form_state == _state.UserFormStateChoices.FILLED
