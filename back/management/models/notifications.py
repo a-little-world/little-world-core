@@ -49,6 +49,12 @@ class Notification(models.Model):
         self.state = self.NotificationState.ARCHIVED
 
 
+class SelfNotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = ["hash", "type", "state", "title", "description"]
+
+
 class NotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
