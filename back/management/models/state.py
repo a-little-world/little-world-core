@@ -47,9 +47,10 @@ class State(models.Model):
 
     email_authenticated = models.BooleanField(default=False)
 
-    matches = models.ManyToManyField(User, related_name='+')
+    matches = models.ManyToManyField(User, related_name='+', blank=True)
 
-    notifications = models.ManyToManyField(Notification, related_name='n+')
+    notifications = models.ManyToManyField(
+        Notification, related_name='n+', blank=True)
 
     """
     This state is used to sendout the unread email notification for you have new messages
@@ -57,6 +58,14 @@ class State(models.Model):
     unread_message_count = models.IntegerField(default=0)
     unread_message_count_update_time = models.DateTimeField(
         default=datetime.now)
+
+    class UserCategoryChoices(models.IntegerChoices):
+        UNDEFINED = 0, _("Undefined (user-c)")
+        SPAM = 1, _("Spam (user-c)")
+        LEGIT = 2, _("Legit (user-c)")
+        TEST = 3, _("Test (user-c)")
+    user_category = models.IntegerField(
+        choices=UserCategoryChoices.choices, default=UserCategoryChoices.UNDEFINED)
 
     def is_email_verified(self):
         return self.email_authenticated
