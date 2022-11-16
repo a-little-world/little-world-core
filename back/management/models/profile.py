@@ -1,9 +1,12 @@
 from django.db import models
 from django.utils.translation import gettext as _
+from phonenumber_field.modelfields import PhoneNumberField
 from back.utils import get_options_serializer
 from datetime import datetime
 from rest_framework import serializers
+from multiselectfield import MultiSelectField
 from .user import User
+from ..validators import validate_name
 
 # This can be used to handle changes in the api from the frontend
 PROFILE_MODEL_VERSION = "1"
@@ -38,13 +41,15 @@ class ProfileBase(models.Model):
     first_name = models.CharField(
         max_length=150,
         blank=False,
-        default=None  # Will raise 'IntegrityError' if not passed
+        default=None,  # Will raise 'IntegrityError' if not passed
+        validators=[validate_name]  # type: ignore
     )
 
     second_name = models.CharField(
         max_length=150,
         blank=False,
-        default=None
+        default=None,
+        validators=[validate_name]  # type: ignore
     )
 
     """
@@ -63,7 +68,6 @@ class ProfileBase(models.Model):
     This stores a dict of dates and what the users type was then
     a key and type is only added to this field if the user_type changes!
     """
-    # TODO: handle updating of this field
     past_user_types = models.JSONField(blank=True, null=True)
 
     """
@@ -81,6 +85,16 @@ class ProfileBase(models.Model):
         choices=TargetGroupChoices.choices, default=TargetGroupChoices.ANY)
 
     """
+    Prefered partner sex 
+    """
+    class ParterSexChoice(models.IntegerChoices):
+        ANY = 0, _("Any sex")
+        MALE = 1, _("Male only")
+        FEMALE = 2, _("Female only")
+    partner_sex = models.IntegerField(
+        choices=ParterSexChoice.choices, default=ParterSexChoice.ANY)
+
+    """
     Which medium the user preferes for  
     """
     class SpeechMediumChoices(models.IntegerChoices):
@@ -91,11 +105,65 @@ class ProfileBase(models.Model):
         choices=SpeechMediumChoices.choices, default=SpeechMediumChoices.ANY)
 
     """
+    where people want there match to be located 
+    """
+    class ConversationPartlerLocation(models.IntegerChoices):
+        ANYWHERE = 0, _("Location Anywhere")
+        CLOSE = 1, _("Location close")
+        FAR = 2, _("Location far")
+    partner_location = models.IntegerField(
+        choices=ConversationPartlerLocation.choices, default=ConversationPartlerLocation.ANYWHERE)
+
+    """
+    Postal code, char so we support international code for the future 
+    """
+    postal_code = models.CharField(max_length=255, blank=True)
+
+    class InterestChoices(models.IntegerChoices):
+        SPORT = 0, _("Sport (interest)")
+        ART = 1, _("Art (interest)")
+        MUSIC = 2, _("Music (interest)")
+        LITERATURE = 3, _("Literature (interest)")
+        VIDEO = 4, _("Movies (interest)")
+        FASHION = 5, _("Fashion (interest)")
+        KULTURE = 6, _("Culture (interest)")
+        TRAVEL = 7, _("Travel (interest)")
+        FOOD = 8, _("Food (interest)")
+        POLITICS = 9, _("Politics (interest)")
+        NATURE = 10, _("Nature (interest)")
+        SCIENCE = 11, _("Science (interest)")
+        TECHNOLOGIE = 12, _("Technology (interest)")
+        HISTORY = 13, _("History (interest)")
+        RELIGION = 14, _("Religion (interest)")
+        SOZIOLOGIE = 15, _("Sociology (interest)")
+        FAMILY = 16, _("Family (interest)")
+        PSYCOLOGY = 17, _("Psycology (interest)")
+        PERSON_DEV = 18, _("Personal development (interest)")
+
+    interests = MultiSelectField(
+        choices=InterestChoices.choices, max_choices=20, max_length=20, blank=True)  # type: ignore
+
+    """
     For simpliciy we store the time slots just in JSON
     Be aware of the time_slot_serializer TODO
     """
     # TODO: create the time slot serializer
     availability = models.JSONField(null=True, blank=True)
+
+    class LiabilityChoices(models.IntegerChoices):
+        DECLINED = 0, _("Declined Liability")
+        ACCEPTED = 1, _("Accepted Liability")
+    liability = models.IntegerField(
+        choices=LiabilityChoices.choices, default=LiabilityChoices.DECLINED)
+
+    class NotificationChannelChoices(models.IntegerChoices):
+        EMAIL = 0, _("Notify per email")
+        SMS = 1, _("Notify per SMS")
+        CALL = 2, _("Notify by calling")
+    notify_channel = models.IntegerField(
+        choices=NotificationChannelChoices.choices, default=NotificationChannelChoices.CALL)
+
+    phone_mobile = PhoneNumberField(blank=True, unique=False)
 
 
 class Profile(ProfileBase):
@@ -146,8 +214,10 @@ class SelfProfileSerializer(ProfileSerializer):
 
     class Meta:
         model = Profile
-        fields = ['first_name', 'second_name', 'target_group',
-                  'speech_medium']
+        fields = ['first_name', 'second_name', 'target_group', 'speech_medium',
+                  'user_type', 'target_group', 'partner_sex', 'speech_medium',
+                  'partner_location', 'postal_code', 'interests', 'availability',
+                  'notify_channel', 'phone_mobile']
 
 
 class CensoredProfileSerializer(SelfProfileSerializer):
