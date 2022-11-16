@@ -14,10 +14,11 @@ api_routes = [
 
     path(_api_url('register'), api.register.Register.as_view()),
     path(_api_url('user'), api.user_data.SelfInfo.as_view()),
+    path(_api_url('user/login'), api.user.LoginApi.as_view()),
     path(_api_url('profile'),
-         api.profile.ProfileViewSet.as_view({"post": "partial_update"})),
+         api.profile.ProfileViewSet.as_view({"post": "partial_update", "get": "_get"})),
 
-    path(_api_url('notifications'),
+    path(_api_url('notification'),
          api.notify.NotificationGetApi.as_view()),
     path(_api_url('notification/<str:action>', end_slash=False),
          api.notify.NotificationActionApi.as_view()),
