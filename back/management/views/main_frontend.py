@@ -1,4 +1,5 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
+import json
 from django.shortcuts import render
 from dataclasses import dataclass, field
 from rest_framework.request import Request
@@ -10,6 +11,7 @@ from rest_framework.response import Response
 from typing import List, Optional
 from tracking import utils
 from tracking.models import Event
+from ..api.user_data import get_user_data_and_matches
 
 
 # The following two are redundant with api.admin.UserListParams, api.admin.UserListApiSerializer
@@ -69,4 +71,5 @@ class MainFrontendView(LoginRequiredMixin, View):
 
         # TODO email verified checks and co...
 
-        return render(request, "main_frontend.html", {})
+        profile_data = get_user_data_and_matches(request.user)
+        return render(request, "main_frontend.html", {"profile_data": json.dumps(profile_data)})
