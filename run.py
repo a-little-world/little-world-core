@@ -349,15 +349,21 @@ def _make_webpack_command(env, config, debug: bool, watch: bool):
 
 @register_action(alias=["uf"], cont=True)
 def update_front(args):
-    """ only to be run when frontends are build """
-    assert args.input, "which frontend to update?"
+    """ 
+    only to be run when frontends are build 
+    you can use '-i' to specify a specifc frontend
+    """
 
     _cmd = [*c.drun, *(c.denv if _is_dev(args) else c.penv), *
             c.vmount_front, "-d", c.front_tag]
     subprocess.run(_cmd)  # start the frontend container
 
-    _run_in_running(
-        _is_dev(args), ["npm", "run", f"build_{args.input}_{args.btype}"], backend=False)
+    frontends = _env_as_dict(c.denv[1])["FR_FRONTENDS"]
+    assert frontends != ''
+
+    for app in [args.input] if args.input else frontends.split(","):
+        _run_in_running(
+            _is_dev(args), ["npm", "run", f"build_{app}_{args.btype}"], backend=False)
 
     kill(args, back=False)  # Kill the frontend container
 
@@ -401,7 +407,7 @@ def build_front(args):
 
     for front in frontends:
         def _p(t):
-            return f"./front/env_apps/{front}.{t}.js"
+            return f"./front/env_apps/{front}.{t}.env.js"
         original_env = f"./front/apps/{front}/src/ENVIRONMENT.js"
         if not os.path.exists(_p("local")) and os.path.exists(original_env):
             # The <app>.local.env.js is basicly a backup of the original env
