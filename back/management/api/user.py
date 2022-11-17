@@ -83,6 +83,10 @@ class LoginApi(APIView):
         tags=["frontend", "login", "sensitive"],
         censor_kwargs=["password"])
     def post(self, request):
+        """
+        This is to login regular users only!!!! 
+        Admins are not allowed to login here, see section `Security` of the README.md
+        """
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -92,6 +96,8 @@ class LoginApi(APIView):
                            password=login_data.password)
 
         if usr is not None:
+            if usr.is_staff:
+                return Response(_("Login failed"), status=status.HTTP_400_BAD_REQUEST)
             login(request, usr)
             return Response(_("Login sucessfull"))
         else:
