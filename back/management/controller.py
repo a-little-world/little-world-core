@@ -187,7 +187,7 @@ def get_base_management_user():
             password=os.environ['DJ_MANAGEMENT_PW'],
             first_name=os.environ.get(
                 'DJ_MANAGEMENT_FIRST_NAME', 'Support'),
-            last_name=os.environ.get(
+            second_name=os.environ.get(
                 'DJ_MANAGEMENT_SECOND_NAME', 'User'),
         )
         print("BASE ADMIN USER CREATED!")
