@@ -24,7 +24,8 @@ from ..models import (
     UserSerializer, SelfUserSerializer,
     StateSerializer, SelfStateSerializer,
     CensoredUserSerializer,
-    CensoredProfileSerializer
+    CensoredProfileSerializer,
+    SelfSettingsSerializer
 )
 
 from ..controller import get_user_models
@@ -41,8 +42,8 @@ self_serializers = {
     "user": SelfUserSerializer,
     "profile": SelfProfileSerializer,
     "state": SelfStateSerializer,
-    "_notifications": SelfNotificationSerializer
-    # "settings" # TODO create
+    "_notifications": SelfNotificationSerializer,
+    "settings": SelfSettingsSerializer
 }
 
 admin_serializers = {
@@ -114,7 +115,7 @@ def get_matches_paginated(user, admin=False,
     """
 
     pages = Paginator(user.get_matches(), paginate_by).page(page)
-    return [get_user_data(user, is_self=False, admin=admin) for p in pages]
+    return [get_user_data(p, is_self=False, admin=admin) for p in pages]
 
 
 def get_notifications_paginated(user,
