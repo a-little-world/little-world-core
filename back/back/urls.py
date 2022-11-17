@@ -3,6 +3,7 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.contrib.auth.views import LoginView
 
 
 """
@@ -11,7 +12,7 @@ Admin paths registered last
 """
 
 urlpatterns = [
-    path('', include('management.urls')),
+    path('', include(('management.urls', 'management'), namespace="management")),
     path('', include('emails.urls')),
     path('admin/', admin.site.urls),
     path("cookies/", include("cookie_consent.urls")),
