@@ -15,7 +15,8 @@
 </body>
 {% render_bundle 'staticfiles' 'js' 'user_form_frontend' %}
 <script>
-    const extraKwargs = JSON.parse('{{ kwargs | escapejs }}');
+    const tmpData = '{{ kwargs | escapejs }}'
+    const extraKwargs = tmpData !== '' ? JSON.parse(tmpData) : {};
     render_app({ byName : "{{ app_name }}", ...extraKwargs})
 </script>
 {% if use_cookie_banner %}
