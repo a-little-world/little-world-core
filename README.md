@@ -56,6 +56,13 @@ Test users (`user:pw`):
 - `herrduenschnlate@gmail.com:Test123!` ( basic user )
 - `admin@little-world.com:Admin123!` ( test admin user )
 
+#### Security and admin users
+
+You wont be able to login as admin at `/api/user/login` this is blocked!
+Andmin users can only login at `admin/login/?opensesame`, note `?opensesame` will be different in production!
+
+In poduction only admin users may render the paths: `/db`, `/api/schema/*`, `/admin/*`
+
 ### Adding Submodules
 
 All django apps that we maintain or use a fork of shall be linked as submodule into `./back/`.
