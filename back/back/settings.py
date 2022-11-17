@@ -11,6 +11,7 @@ BASE_URL = os.environ.get("DJ_BASE_URL", "http://localhost:8000")
 ALLOWED_HOSTS = os.environ.get("DJ_ALLOWED_HOSTS", "").split(",")
 FRONTENDS = os.environ["FR_FRONTENDS"].split(",")
 MANAGEMENT_USER_MAIL = os.environ["DJ_MANAGEMENT_USER_MAIL"]
+ADMIN_OPEN_KEYPHRASE = os.environ["DJ_ADMIN_OPEN_KEYPHRASE"]
 
 """
 Own applications:
@@ -54,7 +55,7 @@ print(f'Installed apps:\n' + '\n- '.join(INSTALLED_APPS))
 
 if BUILD_TYPE in ['staging', 'development']:
     SPAGHETTI_SAUCE = {
-        'apps': ['auth', 'management', 'tracking'],
+        'apps': ['auth', 'management', 'tracking', 'emails'],
         'show_fields': False,
         'exclude': {'auth': ['user']},
     }
@@ -73,6 +74,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'management.middleware.AdminPathBlockingMiddleware',
 ]
 
 MIDDLEWARE_CLASSES = [
