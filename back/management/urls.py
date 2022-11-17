@@ -6,7 +6,13 @@ from back.utils import _api_url
 from rest_framework import routers
 from .views.user_form_frontend import (
     login,
-    register
+    register,
+    subsection_of_user_form,
+    email_verification,
+    email_change,
+    email_verification_sucess,
+    email_verification_fail,
+    error
 )
 
 
@@ -45,6 +51,18 @@ view_routes = [
     path("register", register, name="register"),
 
     path("login", login, name="login"),
+
+    path("formpage", subsection_of_user_form, name="formpage"),
+
+    path('mailverify/', email_verification, name="email_verification"),
+    path('mailchange/', email_change, name="email_change"),
+    path('mailverify/sucess/', email_verification_sucess,
+         name="email_verification_sucess"),
+    path('mailverify/fail/', email_verification_fail,
+         name="email_verification_fail"),
+
+    path('error/', error, name="error"),
+
 
     re_path(fr'^app/(?P<path>.*)$',
             views.MainFrontendView.as_view(), name="main_frontend"),
