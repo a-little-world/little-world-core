@@ -102,6 +102,7 @@ def _setup(args):
     setups up the whole installation:
     - clone all submodules
     - build frontend containers ( so basicly npm install all the packages in there )
+    - load default database fixture TODO
 
     Generaly this has to be done only once, you can re-invoke this by running 'update' or delete `.run.py.setup_complete`
     """
@@ -549,7 +550,7 @@ def manage_command(args):
     _run_in_running(_is_dev(args), ["python3", "manage.py", *_cmd])
 
 
-@register_action(alias=["ma_shell_inject"])
+@register_action(alias=["ma_shell_inject", "inject"])
 def inject_shell(args):
     """ Injects a script into the python management shell """
     assert args.input, "Please provide a shell script input file"
@@ -592,6 +593,8 @@ def reset_migrations(args):
     import glob  # This one required glob to be installed
     select_paths = [*glob.glob(f"{os.getcwd()}/back/*/migrations/*"),
                     *glob.glob(f"{os.getcwd()}/back/*/*/migrations/*")]
+    # otherwise cause of symlink cookie_consent would be considered twice:
+    select_paths = [p for p in select_paths if not "_cookie_consent_repo" in p]
     migration_files = [p for p in select_paths if not (
         '__init__.py' in p or '__pycache__' in p)]
     print(f"Deleting migrations files: {migration_files}")
