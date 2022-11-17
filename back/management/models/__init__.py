@@ -8,5 +8,5 @@ Main management models:
 from .profile import Profile, ProfileSerializer, CensoredProfileSerializer, SelfProfileSerializer
 from .user import UserSerializer, CensoredUserSerializer, User, SelfUserSerializer
 from .state import State, StateSerializer, SelfStateSerializer
-from .settings import Settings
+from .settings import Settings, SelfSettingsSerializer
 from .notifications import Notification, NotificationSerializer, SelfNotificationSerializer
