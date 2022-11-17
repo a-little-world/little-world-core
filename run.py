@@ -78,7 +78,7 @@ def _parser():
         '-i', '--input', help="Input file (or data) required by some actions")
 
     # default actions required by tim_cli_utils (TODO: they should be moved there)
-    parser.add_argument('actions', metavar='A', type=str, default=[
+    parser.add_argument('actions', metavar='A', type=str, default=["_setup",
                         "build", "static", "migrate", "run"], nargs='*', help='action')
     parser.add_argument('-s', '--silent', action="store_true",
                         help="Mute all output exept what is required")
@@ -95,13 +95,27 @@ def _is_dev(a):
     return "dev" in a.btype
 
 
+@register_action(name="setup_repos_containers", alias=["update", "_setup"])
 def _setup(args):
     """ 
     # If you clone this repo with: `git clone --recurse-submodules -j8 git://github.com/foo/bar.git` there is no need to install submodules
     setups up the whole installation:
     - clone all submodules
-    """  # TODO: finish
-    _cmd = ["git", "submodule", "init"]
+    - build frontend containers ( so basicly npm install all the packages in there )
+
+    Generaly this has to be done only once, you can re-invoke this by running 'update' or delete `.run.py.setup_complete`
+    """
+    from datetime import datetime
+    complete_file = ".run.py.setup_complete"
+    if not os.path.exists(complete_file) or ["update"] in args.action:
+        _cmd = ["git", "submodule", "update", "--init", "--recursive"]
+        subprocess.run(_cmd)
+        build_front(args)
+
+        with open(complete_file, "w") as file:
+            file.write(datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
+    else:
+        print("Setup already run! If you want to updated submodules or frontend packages run ./run.py update")
 
 
 @register_action(name="list_running", alias=["ps"])
