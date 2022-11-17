@@ -131,19 +131,23 @@ class User(AbstractUser):
 
 
 class UserSerializer(serializers.ModelSerializer):
+    is_admin = serializers.SerializerMethodField()
+
+    def get_is_admin(self, obj):
+        return obj.is_staff
 
     class Meta:
         model = User
         fields = '__all__'
 
 
-class SelfUserSerializer(serializers.ModelSerializer):
+class SelfUserSerializer(UserSerializer):
     class Meta:
         model = User
         fields = ["email", "hash"]
 
 
-class CensoredUserSerializer(serializers.ModelSerializer):
+class CensoredUserSerializer(UserSerializer):
     class Meta:
         model = User
-        fields = ["hash"]
+        fields = ["hash", "is_admin"]
