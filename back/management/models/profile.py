@@ -71,6 +71,8 @@ class ProfileBase(models.Model):
         validators=[validate_name]  # type: ignore
     )
 
+    birth_year = models.IntegerField(default=1984, blank=True)
+
     """
     A user can be either a volunteer or a language learner!
     But be aware that the user might change his choice
@@ -162,9 +164,11 @@ class ProfileBase(models.Model):
     interests = MultiSelectField(
         choices=InterestChoices.choices, max_choices=20, max_length=20, blank=True)  # type: ignore
 
+    additional_interests = models.TextField(default="", blank=True)
+
     """
     For simpliciy we store the time slots just in JSON
-    Be aware of the time_slot_serializer TODO
+    Be aware of the validate_availability
     """
     availability = models.JSONField(
         null=True, blank=True,
@@ -252,10 +256,11 @@ class SelfProfileSerializer(ProfileSerializer):
         fields = ['first_name', 'second_name', 'target_group', 'speech_medium',
                   'user_type', 'target_group', 'partner_sex', 'speech_medium',
                   'partner_location', 'postal_code', 'interests', 'availability',
-                  'notify_channel', 'phone_mobile']
+                  'notify_channel', 'phone_mobile', 'profile_image_type', 'profile_avatar_config', 'profile_image']
 
 
 class CensoredProfileSerializer(SelfProfileSerializer):
     class Meta:
         model = Profile
-        fields = ["first_name"]
+        fields = ["first_name", 'interests', 'availability',
+                  'notify_channel', 'phone_mobile', 'profile_image_type', 'profile_avatar_config', 'profile_image']
