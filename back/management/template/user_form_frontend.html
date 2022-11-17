@@ -1,12 +1,12 @@
 {% load render_bundle from webpack_loader %}
 <!DOCTYPE html>
 <head>
-    {% include "react_app_head_base.html" with app_name='user_form_frontend' title='Clean Slate' %}    
+    {% include "react_app_head_base.html" with app_name='user_form_frontend' title='User Form' %}    
+    {% if use_cookie_banner %}
+        {% render_bundle 'staticfiles' 'css' 'user_form_frontend' %}
+    {% endif %}
+    {% render_bundle 'staticfiles' 'css' 'user_form_frontend' %}
 </head>
-{% if use_cookie_banner %}
-    {% render_bundle 'staticfiles' 'js' 'cookie_banner_frontend' %}
-{% endif %}
-{% render_bundle 'staticfiles' 'css' 'user_form_frontend' %}
 <body>
     <div id="root"></div>
     {% if use_cookie_banner %}
@@ -16,14 +16,21 @@
 {% render_bundle 'staticfiles' 'js' 'user_form_frontend' %}
 <script>
     const extraKwargs = JSON.parse('{{ kwargs | escapejs }}');
-    renderApp({ byName : "{{ app_name }}", ...extraKwargs})
+    render_app({ byName : "{{ app_name }}", ...extraKwargs})
 </script>
 {% if use_cookie_banner %}
+    {% render_bundle 'staticfiles' 'js' 'cookie_banner_frontend' %}
     <script>
-    const toImpressum = () => { window.showImpressum() }
-    const toPrivacy = () => { window.showPrivacy() } 
-    const cookieData = JSON.parse('{{ kwargs | cookie_data }}');
-    cookieBanner(...cookieData, toImpressum, toPrivacy);
+        const toImpressum = () => { window.showImpressum() }
+        const toPrivacy = () => { window.showPrivacy() } 
+        const cookieData = JSON.parse('{{ cookie_data | escapejs }}');
+        cookieBanner(
+            cookieData.cookieGroups,
+            cookieData.cookieSets, 
+            cookieData.cookieStateDict, 
+            toImpressum, 
+            toPrivacy
+        );
     </script>
 {% endif %}
 <div style="display: none;">{{csrf_token}}</div>
