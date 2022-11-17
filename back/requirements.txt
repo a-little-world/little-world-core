@@ -8,7 +8,7 @@ drf-spectacular[sidecar] # route will only be available for admins if in product
 whitenoise # Serving static files in development
 django-webpack-loader # Load the static file bundles
 django-cors-headers
-django-spaghetti-and-meatballs # TODO: don't include in production
+django-spaghetti-and-meatballs # shows a sweet db render at /db
 django-ipware # Best way I found to determine and track IP adresses
 django-jazzmin # Waaay better admin UI
 ipython # with this we can use the IPython shell on manage.py shell
@@ -17,3 +17,4 @@ django-appconf # Required for django-cookie-consent
 django-multiselectfield # For multiple choice fields
 django-phonenumber-field[phonenumbers]
 Babel # Required for the widged of the phone number field
+Pillow # Required for django image field
