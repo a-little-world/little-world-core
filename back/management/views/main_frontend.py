@@ -2,6 +2,8 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 import json
 from django.shortcuts import render
 from dataclasses import dataclass, field
+from django.shortcuts import render, redirect
+from django.urls import reverse
 from rest_framework.request import Request
 from django.utils.translation import gettext as _
 from rest_framework import status
@@ -69,7 +71,8 @@ class MainFrontendView(LoginRequiredMixin, View):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         params = serializer.save()
 
-        # TODO email verified checks and co...
+        if not request.user.state.is_email_verified():
+            return redirect(reverse("management:email_verification", kwargs={}))
 
         profile_data = get_user_data_and_matches(request.user)
         return render(request, "main_frontend.html", {"profile_data": json.dumps(profile_data)})
