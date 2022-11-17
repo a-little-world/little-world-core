@@ -95,7 +95,7 @@ def _is_dev(a):
     return "dev" in a.btype
 
 
-@register_action(name="setup_repos_containers", alias=["update", "_setup"])
+@register_action(name="setup_repos_containers", alias=["update", "_setup"], cont=True)
 def _setup(args):
     """ 
     # If you clone this repo with: `git clone --recurse-submodules -j8 git://github.com/foo/bar.git` there is no need to install submodules
@@ -107,7 +107,7 @@ def _setup(args):
     """
     from datetime import datetime
     complete_file = ".run.py.setup_complete"
-    if not os.path.exists(complete_file) or ["update"] in args.action:
+    if not os.path.exists(complete_file) or ["update"] in args.actions:
         _cmd = ["git", "submodule", "update", "--init", "--recursive"]
         subprocess.run(_cmd)
         build_front(args)
