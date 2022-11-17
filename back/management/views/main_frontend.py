@@ -74,5 +74,5 @@ class MainFrontendView(LoginRequiredMixin, View):
         if not request.user.state.is_email_verified():
             return redirect(reverse("management:email_verification", kwargs={}))
 
-        profile_data = get_user_data_and_matches(request.user)
+        profile_data = get_user_data_and_matches(request.user, options=True)
         return render(request, "main_frontend.html", {"profile_data": json.dumps(profile_data)})
