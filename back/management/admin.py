@@ -114,7 +114,7 @@ class UserAdmin(DjangoUserAdmin):
         StateAdminInline,
         ProfileModelInline,
         SettingsModelInline,
-        NotificationInline
+        NotificationInline,
     ]
 
     fieldsets = (
