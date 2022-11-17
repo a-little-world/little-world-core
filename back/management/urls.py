@@ -1,9 +1,12 @@
 from . import views, api
 from django.urls import path, re_path
+from django.contrib import admin
 from django.conf import settings
 from . import views
 from back.utils import _api_url
+from django.conf.urls import include
 from rest_framework import routers
+from django.contrib.auth import views as auth_views
 from .views.user_form_frontend import (
     login,
     register,
@@ -47,6 +50,23 @@ api_routes = [
     *router.urls
 ]
 
+extra_auth_views = [
+    path('accounts/reset/<uidb64>/<token>/',
+         auth_views.PasswordResetConfirmView.as_view(
+             template_name='registration/password_reset_confirm_custom.html'
+         ),
+         name='password_reset_confirm'),
+    path('anAdminPathTh3yS4y/', admin.site.urls),
+    path('accounts/password_reset/',
+         auth_views.PasswordResetView.as_view(
+             html_email_template_name='email/pw_reset.html'
+         ),
+         name='password_reset'
+         ),
+    # TODO: do we really need to include them all?:
+    path('accounts/', include("django.contrib.auth.urls")),
+]
+
 view_routes = [
     path("register", register, name="register"),
 
@@ -71,5 +91,6 @@ view_routes = [
 
 urlpatterns = [
     *api_routes,
-    *view_routes
+    *view_routes,
+    *extra_auth_views
 ]
