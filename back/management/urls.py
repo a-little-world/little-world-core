@@ -4,6 +4,10 @@ from django.conf import settings
 from . import views
 from back.utils import _api_url
 from rest_framework import routers
+from .views.user_form_frontend import (
+    login,
+    register
+)
 
 
 router = routers.SimpleRouter()
@@ -37,11 +41,17 @@ api_routes = [
     *router.urls
 ]
 
+view_routes = [
+    path("register", register, name="register"),
+
+    path("login", login, name="login"),
+
+    re_path(fr'^app/(?P<path>.*)$',
+            views.MainFrontendView.as_view(), name="main_frontend"),
+
+]
+
 urlpatterns = [
-
-    *api_routes,  # Add all API routes from above
-
-
-    # Frontends:
-    re_path(fr'^app/(?P<path>.*)$', views.MainFrontendView.as_view()),
+    *api_routes,
+    *view_routes
 ]
