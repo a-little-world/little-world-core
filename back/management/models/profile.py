@@ -5,11 +5,30 @@ from back.utils import get_options_serializer
 from datetime import datetime
 from rest_framework import serializers
 from multiselectfield import MultiSelectField
+from back.utils import _double_uuid
 from .user import User
-from ..validators import validate_name
+from ..validators import validate_name, validate_availability
+from django.utils.deconstruct import deconstructible
+import os
 
 # This can be used to handle changes in the api from the frontend
 PROFILE_MODEL_VERSION = "1"
+
+
+@deconstructible
+class PathRename(object):
+
+    def __init__(self, sub_path):
+        self.path = sub_path
+
+    def __call__(self, instance, filename):
+        ext = filename.split('.')[-1]
+        # Every profile image is stored as <usr-hash>.<random-hash>.ext
+        # That way noone can brutefore user image paths, but we still know which user a path belongs to
+        usr_hash = "-".join(instance.user.hash.split("-")[:3])
+        filename = usr_hash + "." + str(_double_uuid()) + ".pimage." + ext
+        path_new = os.path.join(self.path, filename)
+        return path_new
 
 
 class ProfileBase(models.Model):
@@ -147,8 +166,9 @@ class ProfileBase(models.Model):
     For simpliciy we store the time slots just in JSON
     Be aware of the time_slot_serializer TODO
     """
-    # TODO: create the time slot serializer
-    availability = models.JSONField(null=True, blank=True)
+    availability = models.JSONField(
+        null=True, blank=True,
+        validators=[validate_availability])  # type: ignore
 
     class LiabilityChoices(models.IntegerChoices):
         DECLINED = 0, _("Declined Liability")
@@ -164,6 +184,21 @@ class ProfileBase(models.Model):
         choices=NotificationChannelChoices.choices, default=NotificationChannelChoices.CALL)
 
     phone_mobile = PhoneNumberField(blank=True, unique=False)
+
+    description = models.TextField(default="", blank=True)
+    language_skill_description = models.TextField(default="", blank=True)
+
+    # Profile image
+    class ImageTypeChoice(models.IntegerChoices):
+        AVATAR = 0, _("avatar_profile_trans")
+        IMAGE = 1, _("image_profile_trans")
+
+    profile_image_type = models.IntegerField(
+        choices=ImageTypeChoice.choices, default=ImageTypeChoice.IMAGE)
+    profile_image = models.ImageField(
+        upload_to=PathRename("profile_pics/"), blank=True)
+    profile_avatar_config = models.TextField(
+        default="", blank=True)  # Contains the avatar builder config
 
 
 class Profile(ProfileBase):
