@@ -84,8 +84,9 @@ view_routes = [
     path('error/', error, name="error"),
 
 
+    path('app/', views.MainFrontendView.as_view(), name="main_frontend"),
     re_path(fr'^app/(?P<path>.*)$',
-            views.MainFrontendView.as_view(), name="main_frontend"),
+            views.MainFrontendView.as_view(), name="main_frontend_w_path"),
 
 ]
 
