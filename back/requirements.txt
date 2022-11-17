@@ -4,7 +4,16 @@ celery==5.2.7
 djangorestframework==3.14.0
 uvicorn[standard]
 # [sidecar] only used to not need static files from CDN
-drf-spectacular[sidecar] # TODO: maybe this should only be used for api building
+drf-spectacular[sidecar] # route will only be available for admins if in production
 whitenoise # Serving static files in development
 django-webpack-loader # Load the static file bundles
 django-cors-headers
+django-spaghetti-and-meatballs # TODO: don't include in production
+django-ipware # Best way I found to determine and track IP adresses
+django-jazzmin # Waaay better admin UI
+ipython # with this we can use the IPython shell on manage.py shell
+django-model-utils # this package is required for our chat backend!
+django-appconf # Required for django-cookie-consent
+django-multiselectfield # For multiple choice fields
+django-phonenumber-field[phonenumbers]
+Babel # Required for the widged of the phone number field

@@ -1,0 +1,15 @@
+[submodule "front/apps/main_frontend"]
+	path = front/apps/main_frontend
+	url = https://github.com/a-little-world/little-world-frontend.git
+[submodule "front/apps/cookie_banner_frontend"]
+	path = front/apps/cookie_banner_frontend
+	url = https://github.com/a-little-world/little-world-cookie-banner.git
+[submodule "front/apps/user_form_frontend"]
+	path = front/apps/user_form_frontend
+	url = https://github.com/a-little-world/little-world-user-form.git
+[submodule "back/chat"]
+	path = back/chat
+	url = https://github.com/a-little-world/little-world-private-chat.git
+[submodule "back/_cookie_consent_repo"]
+	path = back/_cookie_consent_repo
+	url = https://github.com/a-little-world/little-world-cookie-consent

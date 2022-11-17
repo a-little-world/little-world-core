@@ -1,0 +1,23 @@
+{
+  "customizations": {
+    "codespaces": {
+      "repositories": {
+        "a-little-world/little-world-frontend": {
+          "permissions": "write-all"
+        },
+        "a-little-world/little-world-cookie-banner": {
+          "permissions": "write-all"
+        },
+        "a-little-world/little-world-user-form": {
+          "permissions": "write-all"
+        },
+        "a-little-world/little-world-private-chat": {
+          "permissions": "write-all"
+        },
+        "a-little-world/little-world-cookie-consent": {
+          "permissions": "write-all"
+        }
+      }
+    }
+  }
+}

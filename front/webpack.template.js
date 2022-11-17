@@ -5,11 +5,11 @@ const CompressionPlugin = require('compression-webpack-plugin');
 const CopyPlugin = require('copy-webpack-plugin');
 
 var config = function (env) {
-  var publicPath = '/static/dist/example_app/';
+  var publicPath = '/static/dist/$frontendName/';
   var devTool = env.DEV_TOOL;
   // It is always assumed that the backend is mounted at /back
-  var outputPath = '../back/static/dist/example_app';
-  var entry = './apps/example_app';
+  var outputPath = '../back/static/dist/$frontendName';
+  var entry = './apps/$frontendName';
   var entryPoint = `${entry}/src/index.js`;
   var debug = env.DEBUG === '1';
 

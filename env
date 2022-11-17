@@ -5,7 +5,10 @@ DJ_ALLOWED_HOSTS=*
 DJ_CELERY_TIMEZONE=Australia/Tasmania
 DJ_LANGUAGE_CODE=en-us
 DJ_TIME_ZONE=UTC
-FR_FRONTENDS=example_app
+DJ_MANAGEMENT_USER_MAIL=admin@user.com
+DJ_MANAGEMENT_PW=Admin123!
+DJ_ADMIN_OPEN_KEYPHRASE=opensesame
+FR_FRONTENDS=user_form_frontend,main_frontend,cookie_banner_frontend
 # Put static bucked url here in production
 WEBPACK_PUBLIC_PATH=
 # Set to 'none' for production

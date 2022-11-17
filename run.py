@@ -2,12 +2,13 @@
 """ General entry point for backend build and deployment processes """
 import shutil
 from functools import partial, wraps
+import contextlib
 import os
 import sys
-import subprocess
 import argparse
 import signal
 import json
+from cli.tim_cli_utils import *
 
 TAG = "littleworld_back"
 FRONT_TAG = "littleworld_front"
@@ -41,7 +42,7 @@ class c:
 
     # For making the spinix docs
     vmount_spinix = ["-v", f"{os.getcwd()}/_docs:/docs",
-                     "-v", f"{os.getcwd()}/back:/docs/backend"]
+                     "-v", f"{os.getcwd()}/back:/docs_source/backend"]
     file_spinix = ["-f", "Dockerfile.docs"]
     tag_spinix = "docs.spinix"
 
@@ -55,26 +56,6 @@ subprocess_capture_out = {
     "capture_output": True,
     "text": True
 }
-
-ACTIONS = {}  # Populated with the `@register_action` decorator
-
-
-def _dispatch_register_action_decorator(f, name=None, cont=False, call=None, alias=[]):
-    ACTIONS.update({name if name else f.__name__: {
-        "alias": alias,
-        "continue": cont,
-        "func": f,
-        "exec": call if call else lambda a: f(a)
-    }})
-
-    @wraps(f)
-    def run(*args, **kwargs):
-        return f(*args, **kwargs)
-    return run
-
-
-def register_action(**kwargs):
-    return partial(_dispatch_register_action_decorator, **kwargs)
 
 
 def _parser():
@@ -95,11 +76,12 @@ def _parser():
         '-o', '--output', help="Ouput file or path required by some actions")
     parser.add_argument(
         '-i', '--input', help="Input file (or data) required by some actions")
-    parser.add_argument('actions', metavar='A', type=str, default=[
-                        "build", "static", "migrate", "run"], nargs='?', help='action')
-    parser.add_argument('-c', '--cmd', nargs='+',
-                        help='Passing command input')
 
+    # default actions required by tim_cli_utils (TODO: they should be moved there)
+    parser.add_argument('actions', metavar='A', type=str, default=[
+                        "build", "static", "migrate", "run"], nargs='*', help='action')
+    parser.add_argument('-s', '--silent', action="store_true",
+                        help="Mute all output exept what is required")
     return parser
 
 
@@ -109,12 +91,27 @@ def _env_as_dict(path: str) -> dict:
                     in f.readlines() if not line.startswith('#'))
 
 
-def args():
-    return _parser().parse_args()
-
-
 def _is_dev(a):
     return "dev" in a.btype
+
+
+def _setup(args):
+    """ 
+    # If you clone this repo with: `git clone --recurse-submodules -j8 git://github.com/foo/bar.git` there is no need to install submodules
+    setups up the whole installation:
+    - clone all submodules
+    """  # TODO: finish
+    _cmd = ["git", "submodule", "init"]
+
+
+@register_action(name="list_running", alias=["ps"])
+def _list_running_instances(args):
+    all_running = []
+    for tag in [c.ptag, c.dtag, c.front_tag, c.staging_tag]:
+        ps = _running_instances(tag)
+        all_running += ps if isinstance(ps, list) else [ps]
+    print(all_running)
+    return all_running
 
 
 def _running_instances(tag=TAG):
@@ -140,17 +137,24 @@ def _docker_images(repo=TAG, tag=None):
     return _filtered_images
 
 
+@register_action(alias=["fg"])
+def attach(args):
+    """ Attach to running container instances """
+    ps = _list_running_instances(args)
+    assert len(ps) == 1, "where to attach? please specify -i " + \
+        "\"{'ID':'...'}\""
+    subprocess.run(["docker", "container", "attach", ps[0]["ID"]
+                   if len(ps) == 1 else eval(args.input)["ID"]])
+
+
 @register_action(cont=True, alias=["k"])
 def kill(args, front=True, back=True):
     """ Kills all the running container instances (back & front)"""
-    ps = [*(_running_instances() if back else []),
-          *(_running_instances(tag=FRONT_TAG) if front else [])]
-    _cmd = ["docker", "kill"]
-    for p in ps:
-        _c = _cmd + [p["ID"]]
-        print(' '.join(_c))
-        subprocess.run(_c)
-    # TODO: make use of the _kill_tag function below
+    for tag in [c.front_tag if front else None,
+                c.dtag if back else None,
+                c.ptag if not _is_dev(args) else None]:
+        if tag:
+            _kill_tag(tag)
 
 
 def _kill_tag(tag):
@@ -218,14 +222,18 @@ def loaddata(args):
 
 
 @register_action(alias=["m"], cont=True)
-def migrate(args):
-    """ Migrate db inside docker container """
-    _run(_is_dev(args), background=True)
-    _run_in_running(_is_dev(args), ["python3", "manage.py",
-                    "makemigrations"])
-    _run_in_running(_is_dev(args), ["python3", "manage.py",
-                    "migrate"])
-    kill(args, front=False)
+def migrate(args, running=False):
+    """ 
+    Migrate db inside docker container 
+    you can call this in code with running=True and it will not start and kill the container
+    """
+    with _conditional_wrap(not running,  # If the containers isn't running we will have to start it
+                           before=lambda: _run(_is_dev(args), background=True),
+                           after=lambda: kill(args, front=False)):
+        _run_in_running(_is_dev(args), ["python3", "manage.py",
+                        "makemigrations"])
+        _run_in_running(_is_dev(args), ["python3", "manage.py",
+                        "migrate"])
 
 
 def _build_file_tag(file, tag):
@@ -258,14 +266,18 @@ def deploy_staging(args):
     """
     Build and push the dockerfile for the staging server
     This acction requires some config params passed via -i
-    e.g.: -i "{'HEROKU_REGISTRY_URL':'...','HEROKU_APP_NAME':'...'}"
     optional 'ROOT_USER_PASSWORD' if passed will create a root user
     optional 'ROOT_USER_EMAIL', 'ROOT_USER_USERNAME'
+    optional 'DOCS', default: False
+    Note: pushing the image will only work if you have acess permission to the registry, ask tim@timschupp.de for that
     """
-    assert args.input, " '-i' required, e.g.: \"{'HEROKU_REGISTRY_URL':'...','HEROKU_APP_NAME':'...'}\""
-    heroku_env = eval(args.input)
-    if not 'HEROKU_REGISTRY_URL' in heroku_env:  # The registry url can componly be infered from the app name
-        heroku_env['HEROKU_REGISTRY_URL'] = f"registry.heroku.com/{heroku_env['HEROKU_APP_NAME']}/web"
+    assert args.input, " '-i' required, e.g.: \"{'AWS_ACCOUNT_ID':'...','AWS_REGISTRY_NAME':'...','AWS_REGION':''}\""
+    aws_env = eval(args.input)
+    if 'DOCS' in aws_env and aws_env['DOCS'].lower() in ('true', '1', 't'):
+        # Also build the documentation and move it to /static
+        build_docs(args)
+        # Copy the build files to
+        shutil.copytree("./docs", "./back/static/docs")
     # Build the frontends
     build_front(args)
     # Collect the statics ( also contains the files for open api specifications )
@@ -273,47 +285,32 @@ def deploy_staging(args):
     extract_static(args)
     # Build Dockerfile.stage
     _build_file_tag(c.file_staging[1], c.staging_tag)
-    if 'ROOT_USER_PASSWORD' in heroku_env:
+    if 'ROOT_USER_PASSWORD' in aws_env:
         print("Got 'ROOT_USER_PASSWORD' adding root user ...")
         # Ok in that case we create a base root user
         # The default staging deployment doesn't use *any* root user
         # This would only be needed if backend administration should be debugged in staging
         _run_tag_env(c.staging_tag, env=c.stage_env, background=True)
-        assert 'ROOT_USER_USERNAME' in heroku_env
+        assert 'ROOT_USER_USERNAME' in aws_env
         _make_root_user(**{
-            "email": heroku_env.get(
-                "ROOT_USER_EMAIL", heroku_env['ROOT_USER_USERNAME'] + "@mail.com"),
-            "username": heroku_env['ROOT_USER_USERNAME'],
-            "password": heroku_env['ROOT_USER_PASSWORD'],
+            "email": aws_env.get(
+                "ROOT_USER_EMAIL", aws_env['ROOT_USER_USERNAME'] + "@mail.com"),
+            "username": aws_env['ROOT_USER_USERNAME'],
+            "password": aws_env['ROOT_USER_PASSWORD'],
             "tag": c.staging_tag
         })
 
-    # We need to check if heroku config vars need updating
-    env_statge = _env_as_dict(c.stage_env)
-    for k in env_statge:
-        _cmd = ["heroku", "config:get",
-                k, f"--app={heroku_env['HEROKU_APP_NAME']}"]
-        var = str(subprocess.run(
-            _cmd, **subprocess_capture_out).stdout).replace('\n', '')
-        if var == env_statge[k]:
-            print(f"{k} ('{env_statge[k]}') didn't change progressing")
-        else:
-            print(f"Change detected: '{var}' vs '{env_statge[k]}'")
-            print(f"updating heroku config var: {k} -> {env_statge[k]}")
-            _cmd = ["heroku", "config:set",
-                    f"{k}={env_statge[k]}", f"--app={heroku_env['HEROKU_APP_NAME']}"]
-            subprocess.run(_cmd)
     # Tag the image with the heroku repo, and push it:
     img = _docker_images(repo=c.staging_tag, tag="latest")
+    print(img)
     assert len(img) == 1, \
         f"Multiple or no 'latest' image for name {c.staging_tag} found"
-    print(img)
-    _cmd = ["docker", "tag", img[0]["ID"], heroku_env['HEROKU_REGISTRY_URL']]
+    aws_registry_url = f"{aws_env['AWS_ACCOUNT_ID']}.dkr.ecr.{aws_env['AWS_REGION']}.amazonaws.com/{aws_env['AWS_REGISTRY_NAME']}:latest"
+    _cmd = ["docker", "tag", img[0]["ID"], aws_registry_url]
+    print(" ".join(_cmd))
     subprocess.run(_cmd)
-    _cmd = ["docker", "push", heroku_env['HEROKU_REGISTRY_URL']]
-    subprocess.run(_cmd)
-    _cmd = ["heroku", "container:release", "web",
-            f"--app={heroku_env['HEROKU_APP_NAME']}"]
+    _cmd = ["docker", "push", aws_registry_url]
+    print(" ".join(_cmd))
     subprocess.run(_cmd)
 
 
@@ -329,15 +326,13 @@ def build(args):
 
 
 @register_action(alias=["static", "collectstatic"], cont=True)
-def extract_static(args):
-    # TODO: here and in the migrate command the '_run' and 'kill' should be conditional,
-    # they should only be used when this is run as a 'singular' command!
-    # Otherwise this causes unnecessary app restarts
-    _run(_is_dev(args), background=True)
-    # '--noinput' why ask for overwrite permission we are in container anyways
-    _run_in_running(_is_dev(args), ["python3", "manage.py",
-                    "collectstatic", "--noinput"])
-    kill(args, front=False)
+def extract_static(args, running=False):
+    with _conditional_wrap(not running,  # If the containers isn't running we will have to start it
+                           before=lambda: _run(_is_dev(args), background=True),
+                           after=lambda: kill(args, front=False)):
+        # '--noinput' why ask for overwrite permission we are in container anyways
+        _run_in_running(_is_dev(args), ["python3", "manage.py",
+                        "collectstatic", "--noinput"])
 
 
 def _make_webpack_command(env, config, debug: bool, watch: bool):
@@ -352,30 +347,81 @@ def _make_webpack_command(env, config, debug: bool, watch: bool):
     return _cmd
 
 
+@register_action(alias=["uf"], cont=True)
+def update_front(args):
+    """ 
+    only to be run when frontends are build 
+    you can use '-i' to specify a specifc frontend
+    """
+
+    _cmd = [*c.drun, *(c.denv if _is_dev(args) else c.penv), *
+            c.vmount_front, "-d", c.front_tag]
+    subprocess.run(_cmd)  # start the frontend container
+
+    frontends = _env_as_dict(c.denv[1])["FR_FRONTENDS"]
+    assert frontends != ''
+
+    for app in [args.input] if args.input else frontends.split(","):
+        _run_in_running(
+            _is_dev(args), ["npm", "run", f"build_{app}_{args.btype}"], backend=False)
+
+    kill(args, back=False)  # Kill the frontend container
+
+
 @register_action(alias=["fb", "bf"], cont=True)
 def build_front(args):
     """
     Builds the frontends
     This whole process is dockerized so you don't need any local nodejs installation ( but if wanted a local nodejs installation can be used also )
     1. Build the frontend docker image
+    1.5. Copy over env files
     2. Run the container ( keep it running artifically see Dockerfile.front )
     3. Run `npm i`
     4. For all frontends ( check `env.FR_FRONTENDS` ) run `npm i`
     5. For all frontends run webpack build
     6. Kill the frontend container
     """
+    env = _env_as_dict(c.denv[1])
+    if env["FR_FRONTENDS"] == "":
+        print("No frontends present, exiting...")
+        return
+    frontends = env["FR_FRONTENDS"].split(",")
+
     if not _is_dev(args):
+        # TODO: in production we might want to do some extra cleanup!
         raise NotImplementedError
     _cmd = [*c.dbuild, *c.front_docker_file, "-t",
             c.front_tag, "."]
     print(" ".join(_cmd))
     subprocess.run(_cmd)  # 1
+
+    """
+    Every frontend has an exchangabol env json file:
+    main_frontend.local.env.js <-- for local frontend development ( this is the default env from the repo, but it will not work in the backend use `.dev.env.js` for that )
+    main_frontend.dev.env.js <-- env for development in the repo ( if you want to develop font + back at the same time )
+    main_frontend.pro.env.js <-- env for poduction or staging
+    """
+    # Check if such an env exist for current build type
+
+    import shutil
+
+    for front in frontends:
+        def _p(t):
+            return f"./front/env_apps/{front}.{t}.env.js"
+        original_env = f"./front/apps/{front}/src/ENVIRONMENT.js"
+        if not os.path.exists(_p("local")) and os.path.exists(original_env):
+            # The <app>.local.env.js is basicly a backup of the original env
+            print("Backend up original src/ENVIRONMENT.js ")
+            shutil.copy(original_env, _p("local"))
+        if os.path.exists(_p("dev")):
+            # Found replacement env,
+            print("Found dev env, overwriting: " + _p("dev"))
+            shutil.copy(_p("dev"), original_env)
+
     _cmd = [*c.drun, *(c.denv if _is_dev(args) else c.penv), *
             c.vmount_front, "-d", c.front_tag]
-    env = _env_as_dict(c.denv[1])
     subprocess.run(_cmd)  # 2
     _run_in_running(_is_dev(args), ["npm", "i"], backend=False)  # 3
-    frontends = env["FR_FRONTENDS"].split(",")
     print(
         f'`npm i` for frontends: {frontends} \nAdd frontends under `FR_FRONTENDS` in env, place them in front/apps/')
     for front in frontends:
@@ -408,6 +454,27 @@ def build_front(args):
         _run_in_running(
             _is_dev(args), ["npm", "run", f"build_{front}_{args.btype}"], backend=False)
     kill(args, back=False)
+
+
+@register_action(alias=["watch"], cont=False)
+def watch_frontend(args):
+    assert args.input, "please input a active frontend: " + \
+        str(_env_as_dict(c.denv[1])["FR_FRONTENDS"].split(","))
+    assert _is_dev(
+        args), "can't watch frontend changes in staging or deloyment sorry"
+    # start the frontend container:
+    _cmd = [*c.drun, *(c.denv if _is_dev(args) else c.penv), *
+            c.vmount_front, "-d", c.front_tag]
+    env = _env_as_dict(c.denv[1])
+    print("starting container")
+
+    print(" ".join(_cmd))
+    subprocess.run(_cmd)
+
+    _cmd = _make_webpack_command(
+        _env_as_dict(c.denv[1]), f'webpack.{args.input}.config.js', watch=True, debug=True)
+    print(f"generated cmd: {' '.join(_cmd)}")
+    _run_in_running(_is_dev(args), _cmd, backend=False)
 
 
 @register_action(alias=["rds", "rd", "redis-server"])
@@ -456,14 +523,34 @@ def _run(dev=True, background=False):
     _run_tag_env(tag=c.dtag if dev else c.ptag, env=(
         c.denv if dev else c.penv)[1], mounts=c.vmount, background=background)
 
+    # we print this mainly for port forwarding in codespaces:
+    print("Running at localhost:8000 ")
 
-@register_action(alias=["ma", "manage", "manage.py"])
+
+@register_action(alias=["ma", "manage", "manage.py"], parse_own_args=True)
 def manage_command(args):
     """ runns a manage.py command inside the container """
-    assert args.cmd, "command list required '-c' ..."
-    _cmd = args.cmd[1:-1].split(" ") if len(
-        args.cmd) == 1 and args.cmd[0].startswith("'") else args.cmd
+    assert args.unknown
+    _cmd = args.unknown
     _run_in_running(_is_dev(args), ["python3", "manage.py", *_cmd])
+
+
+@register_action(alias=["ma_shell_inject"])
+def inject_shell(args):
+    """ Injects a script into the python management shell """
+    assert args.input, "Please provide a shell script input file"
+    import shlex
+    script_file_text = ""
+    with open(args.input, "r") as f:
+        for l in f.readlines():
+            if not "!dont_include" in l and not '!include' in l:
+                script_file_text += l
+            elif '!include' in l:
+                script_file_text += l.replace("# !include ", "")
+    _cmd = ["python3",
+            "manage.py", "shell", "--command", shlex.quote(script_file_text)]
+    print(" ".join(_cmd))
+    _run_in_running(_is_dev(args), _cmd)
 
 
 @register_action(name="build_docs", alias=["docs"])
@@ -479,27 +566,24 @@ def build_docs(args):
     _cmd = [*c.drun, *c.denv, *c.vmount_spinix, *c.port, "-d", c.tag_spinix]
     print(" ".join(_cmd))
     subprocess.run(_cmd)
-    _run_in_running_tag(["make", "html"], tag=c.tag_spinix, work_dir="/docs")
-    # _run_in_running_tag(["sh"], tag=c.tag_spinix)
-    _kill_tag(c.tag_spinix)
+    #_run_in_running_tag(["make", "html"], tag=c.tag_spinix, work_dir="/docs")
+    _run_in_running_tag(["sh"], tag=c.tag_spinix)
     # copy the output files
     shutil.copytree("./_docs/build/html", "./docs")
+    _kill_tag(c.tag_spinix)
 
 
-@register_action(name="help", alias=["h", "?"])
-def _print_help(a):
-    print(main.__doc__)
-    _parser().print_help()
-    print("Generating action help messages...")
-    for act in ACTIONS:
-        print(
-            f"action '{act}' (with aliases {', '.join(ACTIONS[act]['alias'])})")
-        f = ACTIONS[act].get("func", None)
-        if f:
-            info = ACTIONS[act]['func'].__doc__
-            print(f"\tinfo: {info}\n")
-        else:
-            print("\tNo info availabol")
+@register_action()
+def reset_migrations(args):
+    import glob  # This one required glob to be installed
+    select_paths = [*glob.glob(f"{os.getcwd()}/back/*/migrations/*"),
+                    *glob.glob(f"{os.getcwd()}/back/*/*/migrations/*")]
+    migration_files = [p for p in select_paths if not (
+        '__init__.py' in p or '__pycache__' in p)]
+    print(f"Deleting migrations files: {migration_files}")
+    for p in migration_files:
+        print(f"del: {p}")
+        os.remove(p)
 
 
 def _action_by_alias(alias):
@@ -510,7 +594,20 @@ def _action_by_alias(alias):
         raise Exception(f"Action or alias '{alias}' not found")
 
 
-def main():
+@contextlib.contextmanager
+def _conditional_wrap(cond, before, after):
+    """ 
+    allowes for if with statements 
+    if contidion = True it will execute before before and after after 
+    """
+    if cond:
+        before()
+    yield None
+    if cond:
+        after()
+
+
+if __name__ == "__main__":
     """
     Entrypoint for `run.py`
     Using the script requires *only* docker and python!
@@ -524,16 +621,5 @@ def main():
     `./run.py shell`:
         Login to `c.shell` on a *running* container
     """
-    a = args()
-    for action in a.actions if isinstance(a.actions, list) else [a.actions]:
-        k, _action = _action_by_alias(action)
-        print(f"Performing '{k}' -action")
-        _action["exec"](a)
-        if not _action.get("continue", False):
-            print(f"Ran into final action '{k}'")
-            break
-    print("Exiting `run.py`...")
-
-
-if __name__ == "__main__":
-    main()
+    set_parser(_parser)
+    parse_actions_run()

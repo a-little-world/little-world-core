@@ -1,0 +1,75 @@
+from django.contrib.auth.mixins import LoginRequiredMixin
+import json
+from django.shortcuts import render
+from dataclasses import dataclass, field
+from rest_framework.request import Request
+from django.utils.translation import gettext as _
+from rest_framework import status
+from rest_framework import serializers
+from django.views import View
+from rest_framework.response import Response
+from typing import List, Optional
+from tracking import utils
+from tracking.models import Event
+from ..api.user_data import get_user_data_and_matches
+
+
+# The following two are redundant with api.admin.UserListParams, api.admin.UserListApiSerializer
+# But that is desired I wan't to always handle admin logic seperately this might come in handy in the future
+
+@dataclass
+class MainFrontendParams:
+    filters: 'list[str]' = field(default_factory=list)
+    paginate_by: int = 50
+    order_by: Optional[str] = None  # Use default order per default
+    page: int = 1
+
+
+class MainFrontendParamsSerializer(serializers.Serializer):
+    # All these parameters are only allowed for admins!
+    filters = serializers.ListField(required=False)
+    paginate_by = serializers.IntegerField(required=False)
+    page = serializers.IntegerField(required=False)
+    order_by = serializers.CharField(required=False)
+
+    def create(self, validated_data):
+        return MainFrontendParams(**validated_data)
+
+
+class MainFrontendView(LoginRequiredMixin, View):
+    login_url = '/login'
+    redirect_field_name = 'next'
+
+    @utils.track_event(name=_("Render User Form"), event_type=Event.EventTypeChoices.REQUEST, tags=["frontend"])
+    def get(self, request, **kwargs):
+        """
+        Entrypoint to the main frontend react app.
+        1. check if email verified, if not redirect to views.form.email_verification
+        2. check if user form filled, if not redirect to views.from.user_form
+
+        TODO this **will** change, 
+        at some point we will allow to use the main app even without having your email verified
+        """
+
+        # This is a regular django view,
+        # but since we still wan't to use serialization from DRF
+        # We will wrap the 'request' into a DRF.request
+        # This gives us json parsed .data and .query_set options
+        drf_request = Request(request=request)
+
+        if not request.user.is_staff and len(drf_request.query_params) != 0:
+            # TODO: this check doesn't seems to work
+            return Response(_('Query param usage on main view only allowed for admins!'), status=status.HTTP_403_FORBIDDEN)
+
+        serializer = MainFrontendParamsSerializer(
+            data=drf_request.query_params)  # type: ignore
+
+        if not serializer.is_valid():
+            # Since this is a regular django view we have to return the erros manually
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        params = serializer.save()
+
+        # TODO email verified checks and co...
+
+        profile_data = get_user_data_and_matches(request.user)
+        return render(request, "main_frontend.html", {"profile_data": json.dumps(profile_data)})

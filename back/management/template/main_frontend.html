@@ -1,0 +1,15 @@
+{% load render_bundle from webpack_loader %}
+<!DOCTYPE html>
+<head>
+    {% include "react_app_head_base.html" with app_name='main_frontend' title='Clean Slate' %}    
+</head>
+{% render_bundle 'staticfiles' 'css' 'main_frontend' %}
+<body>
+    <div id="root"></div>
+</body>
+{% render_bundle 'staticfiles' 'js' 'main_frontend' %}
+<script>
+  const data = JSON.parse('{{ profile_data | escapejs }}');
+  renderApp({ initData : data })
+</script>
+<div style="display: none;">{{csrf_token}}</div>

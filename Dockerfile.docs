@@ -11,9 +11,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir -r requirements_docs.txt
 
 # We want the run file to be included in the docs
-COPY ./run.py ./extra_mods/
-RUN touch ./extra_mods/__init__.py
-RUN touch ./__init__.py
+COPY ./run.py /docs_source/extra_mods/
+RUN touch /docs_source/extra_mods/__init__.py
+RUN touch /docs_source/__init__.py
 
 EXPOSE 8000
 
