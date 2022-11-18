@@ -35,7 +35,7 @@ class Event(models.Model):
         FRONT = 6, _("Frontend event")
 
     """ Contains a list of custom assighned tags """
-    tags = models.JSONField()
+    tags = models.JSONField(null=True, blank=True)
 
     type = models.IntegerField(choices=EventTypeChoices.choices)
 
@@ -50,7 +50,7 @@ class Event(models.Model):
     func = models.CharField(max_length=255)
 
     """ The name of the event """
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, null=True, blank=True)
 
     time = models.DateTimeField(auto_now_add=True)
 
