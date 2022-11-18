@@ -19,3 +19,4 @@ django-multiselectfield # For multiple choice fields
 django-phonenumber-field[phonenumbers]
 Babel # Required for the widged of the phone number field
 Pillow # Required for django image field
+django-rest-passwordreset

@@ -23,6 +23,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path("cookies/", include("cookie_consent.urls")),
     path("", include("chat.django_private_chat2.urls")),
+
     *statics
 ]
 

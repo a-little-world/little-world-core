@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     # A convenient multiselect field for db objects ( used e.g.: in profile.interests )
     'multiselectfield',
     'phonenumber_field',  # Conevnient handler for phone numbers with admin prefix
+    'django_rest_passwordreset',  # TODO: could also be used for MFA via email
 
     'jazzmin',  # The waaaaaay nicer admin interface
 
@@ -140,6 +141,12 @@ ASGI_APPLICATION = "back.asgi.application"
 CELERY_TIMEZONE = os.environ['DJ_CELERY_TIMEZONE']
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
+
+# django-rest-password reset config:
+# Password reset tokens are only valid for 1h!
+DJANGO_REST_MULTITOKENAUTH_RESET_TOKEN_EXPIRY_TIME = 1
+DJANGO_REST_PASSWORDRESET_NO_INFORMATION_LEAKAGE = True
+DJANGO_REST_MULTITOKENAUTH_REQUIRE_USABLE_PASSWORD = False
 
 
 if BUILD_TYPE in ['staging', 'development']:
