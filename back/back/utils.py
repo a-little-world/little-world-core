@@ -14,8 +14,8 @@ def _double_uuid():
     return str(uuid4()) + "-" + str(uuid4())
 
 
-def _rand_int6():
-    return random.randint(100000, 999999)
+def _rand_int5():
+    return random.randint(10000, 99999)
 
 
 def get_options_serializer(self, obj):
