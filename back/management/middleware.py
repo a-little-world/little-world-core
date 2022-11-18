@@ -12,6 +12,7 @@ def responde_404(request):
 # In development it ok if everybody can see the admin paths
 IF_NOT_ADMIN_404_ROUTES = [] if settings.BUILD_TYPE in ['staging', 'development'] else [
     "/admin",
+    "/admin_chat",
     "/db",
     "/api/schema"
 ]

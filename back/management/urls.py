@@ -19,9 +19,28 @@ from .views.user_form_frontend import (
     error
 )
 
+from rest_framework.routers import DefaultRouter
+from django_rest_passwordreset.views import ResetPasswordValidateTokenViewSet, ResetPasswordConfirmViewSet, \
+    ResetPasswordRequestTokenViewSet
 
-router = routers.SimpleRouter()
-# Register possible viewsets here ... TODO
+router = DefaultRouter()
+router.register(  # TODO: we might even wan't to exclude this api
+    r'api/user/resetpw/validate',
+    ResetPasswordValidateTokenViewSet,
+    basename='reset-password-validate'
+)
+router.register(
+    r'api/user/resetpw/confirm',
+    ResetPasswordConfirmViewSet,
+    basename='reset-password-confirm'
+)
+router.register(
+    r'api/user/resetpw',
+    ResetPasswordRequestTokenViewSet,
+    basename='reset-password-request'
+)
+
+
 api_routes = [
     # User
     path(_api_url('user_data'), api.user_data.UserData.as_view()),
@@ -29,6 +48,7 @@ api_routes = [
     path(_api_url('register'), api.register.Register.as_view()),
     path(_api_url('user'), api.user_data.SelfInfo.as_view()),
     path(_api_url('user/login'), api.user.LoginApi.as_view()),
+    path(_api_url('user/checkpw'), api.user.CheckPasswordApi.as_view()),
     path(_api_url('profile'),
          api.profile.ProfileViewSet.as_view({"post": "partial_update", "get": "_get"})),
 
@@ -45,27 +65,11 @@ api_routes = [
     # Admin
     path(_api_url('user/get', admin=True), api.admin.GetUser.as_view()),
     path(_api_url('user/list', admin=True), api.admin.UserList.as_view()),
+
     #    path(_api_url('user/match', admin=True), api.admin.MakeMatch.as_view()),
     #    path(_api_url('user/suggest_match', admin=True),
     #         api.admin.MatchingSuggestion.as_view()),
     *router.urls
-]
-
-extra_auth_views = [
-    path('accounts/reset/<uidb64>/<token>/',
-         auth_views.PasswordResetConfirmView.as_view(
-             template_name='registration/password_reset_confirm_custom.html'
-         ),
-         name='password_reset_confirm'),
-    path('anAdminPathTh3yS4y/', admin.site.urls),
-    path('accounts/password_reset/',
-         auth_views.PasswordResetView.as_view(
-             html_email_template_name='email/pw_reset.html'
-         ),
-         name='password_reset'
-         ),
-    # TODO: do we really need to include them all?:
-    path('accounts/', include("django.contrib.auth.urls")),
 ]
 
 view_routes = [
@@ -97,5 +101,4 @@ view_routes = [
 urlpatterns = [
     *api_routes,
     *view_routes,
-    *extra_auth_views
 ]

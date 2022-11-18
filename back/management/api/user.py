@@ -5,6 +5,7 @@ from management.controller import get_user_by_hash
 from rest_framework.response import Response
 from django.contrib.auth import authenticate, login
 from ..models.state import State
+from rest_framework import authentication, permissions
 from rest_framework import serializers, status
 from dataclasses import dataclass
 from tracking.models import Event
@@ -97,8 +98,34 @@ class LoginApi(APIView):
 
         if usr is not None:
             if usr.is_staff:
-                return Response(_("Login failed"), status=status.HTTP_400_BAD_REQUEST)
+                return Response(_("Login failed"), statusG=status.HTTP_400_BAD_REQUEST)
             login(request, usr)
             return Response(_("Login sucessfull"))
         else:
             return Response(_("Login failed"), status=status.HTTP_400_BAD_REQUEST)
+
+
+# TODO: maybe depricate:
+@dataclass
+class CheckPwParams:
+    password: str
+
+
+class CheckPwSerializer(serializers.Serializer):
+    password = serializers.EmailField(required=True)
+
+
+class CheckPasswordApi(APIView):
+
+    authentication_classes = [authentication.SessionAuthentication,
+                              authentication.BasicAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(request=CheckPwSerializer(many=False))
+    def get(self, request):
+        serializer = CheckPwSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        params = serializer.save()
+
+        _check = request.user.check_password(params.password)
+        return Response(status=status.HTTP_200_OK if _check else status.HTTP_400_BAD_REQUEST)
