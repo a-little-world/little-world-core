@@ -112,7 +112,7 @@ def create_user(
     user_data_serializer.is_valid(raise_exception=True)
     # The user_data_serializer automaticly creates the user model
     # automaticly creates Profile, State, Settings, see models.user.UserManager
-    # data['last_name'] = data.pop('second_name')
+    data['last_name'] = data.pop('second_name')
     usr = User.objects.create_user(**data)
     # Error if user doesn't exist, would prob already happen on is_valid
     assert isinstance(usr, User)
