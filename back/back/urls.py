@@ -19,6 +19,7 @@ statics = [
 urlpatterns = [
     path('', include(('management.urls', 'management'), namespace="management")),
     path('', include('emails.urls')),
+    path('', include('tracking.urls')),
     path('admin/', admin.site.urls),
     path("cookies/", include("cookie_consent.urls")),
     *statics
