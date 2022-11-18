@@ -160,6 +160,10 @@ def match_users(users: set, send_notification=True, send_message=True, send_emai
     usr1.match(usr2)
     usr2.match(usr1)
 
+    # After the users are registered as matches we still need to create a dialog for them
+    from chat.django_private_chat2.models import DialogsModel
+    DialogsModel.create_if_not_exists(usr1, usr2)
+
     if send_notification:
         usr1.notify(title=_("New match: %s" % usr2.profile.first_name))
         usr2.notify(title=_("New match: %s" % usr1.profile.first_name))
