@@ -2,6 +2,7 @@ from django.db import models
 from back import utils
 from django.utils.translation import gettext as _
 from rest_framework import serializers
+from asgiref.sync import async_to_sync
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 
 
@@ -122,10 +123,11 @@ class User(AbstractUser):
         this would ofcourse require these user to have a related dialog object
         """
         from ..controller import get_base_management_user
+        from chat.django_private_chat2.consumers.db_operations import save_text_message
         if not sender:
             sender = get_base_management_user()
 
-        pass  # TODO implement
+        async_to_sync(save_text_message)(msg, sender, self)
 
 
 class UserSerializer(serializers.ModelSerializer):
