@@ -589,6 +589,10 @@ def build_docs(args):
 
 @register_action()
 def reset_migrations(args):
+    """
+    Deltes all migration files appart from the __init__.py
+    You can call ./run.py rest_migrations -i git
+    """
     import glob  # This one required glob to be installed
     select_paths = [*glob.glob(f"{os.getcwd()}/back/*/migrations/*"),
                     *glob.glob(f"{os.getcwd()}/back/*/*/migrations/*")]
@@ -597,9 +601,16 @@ def reset_migrations(args):
     migration_files = [p for p in select_paths if not (
         '__init__.py' in p or '__pycache__' in p)]
     print(f"Deleting migrations files: {migration_files}")
-    for p in migration_files:
-        print(f"del: {p}")
-        os.remove(p)
+    if args.input and args.input == "git":
+        for p in migration_files:
+            _cmd = ["git", "rm", "-f", p]
+            print(f"del: {' '.join(_cmd)}")
+            subprocess.run(_cmd)
+        pass
+    else:
+        for p in migration_files:
+            print(f"del: {p}")
+            os.remove(p)
 
 
 def _action_by_alias(alias):
