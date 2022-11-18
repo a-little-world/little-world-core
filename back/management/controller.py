@@ -112,23 +112,27 @@ def create_user(
     user_data_serializer.is_valid(raise_exception=True)
     # The user_data_serializer automaticly creates the user model
     # automaticly creates Profile, State, Settings, see models.user.UserManager
-    data['last_name'] = data.pop('second_name')
+    # data['last_name'] = data.pop('second_name')
     usr = User.objects.create_user(**data)
     # Error if user doesn't exist, would prob already happen on is_valid
     assert isinstance(usr, User)
 
     # Step 4 send mail
     if send_verification_mail:
-        mails.send_email(
-            recivers=[email],
-            subject="undefined",  # TODO set!
-            mail_data=mails.get_mail_data_by_name("welcome"),
-            mail_params=mails.WelcomeEmailParams(
-                first_name=usr.profile.first_name,
-                second_name=usr.profile.first_name,
-                verification_code=""
+        try:
+            mails.send_email(
+                recivers=[email],
+                subject="undefined",  # TODO set!
+                mail_data=mails.get_mail_data_by_name("welcome"),
+                mail_params=mails.WelcomeEmailParams(
+                    first_name=usr.profile.first_name,
+                    second_name=usr.profile.first_name,
+                    verification_code=""
+                )
             )
-        )
+        except:
+            # TODO: actualy return an error and log this
+            print("Email sending failed!")
     else:
         print("Not sending verification mail!")
 
