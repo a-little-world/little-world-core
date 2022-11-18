@@ -26,6 +26,7 @@ class c:
     vmount = [
         "-v", f"{os.getcwd()}/back:/back",
         "-v", f"{os.getcwd()}/front:/front"]
+    host_routes = ["--add-host=host.docker.internal:host-gateway"]
     denv = ["--env-file", "./env"]
     penv = ["--env-file", "./penv"]
     shell = "/bin/bash"
@@ -515,12 +516,12 @@ def run(args):
     return _run(dev=_is_dev(args), background=args.background)
 
 
-def _run_tag_env(tag, env, mounts=[], background=False):
+def _run_tag_env(tag, env, mounts=[], background=False, add_host_route=False):
     """
     Some variations on `docker run` for interactive / passive container control
     """
-    _cmd = [*c.drun, "--env-file", env, *mounts,
-            *c.port, "-d" if background else "-t", tag]
+    _cmd = [*c.drun, "--env-file", env, *mounts, *(c.host_routes if add_host_route else []),
+            * c.port, "-d" if background else "-t", tag]
     print(" ".join(_cmd))
     if background:
         subprocess.run(_cmd)
@@ -533,10 +534,8 @@ def _run_tag_env(tag, env, mounts=[], background=False):
 
 
 def _run(dev=True, background=False):
-    _cmd = [*c.drun, *(c.denv if dev else c.penv), *c.vmount,
-            *c.port, "-d" if background else "-t", c.dtag if dev else c.ptag]
     _run_tag_env(tag=c.dtag if dev else c.ptag, env=(
-        c.denv if dev else c.penv)[1], mounts=c.vmount, background=background)
+        c.denv if dev else c.penv)[1], mounts=c.vmount, background=background, add_host_route=True)
 
     # we print this mainly for port forwarding in codespaces:
     print("Running at localhost:8000 ")
