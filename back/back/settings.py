@@ -177,6 +177,17 @@ if BUILD_TYPE in ['staging', 'development']:
         },
     }
 
+if BUILD_TYPE in ['staging', 'development']:
+    host_ip_from_inside_container = "host.docker.internal"
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [(host_ip_from_inside_container, 6379)],
+            },
+        }
+    }
+
 
 """
 Development database is simply sq-lite, 
