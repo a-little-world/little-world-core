@@ -75,6 +75,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'management.middleware.AdminPathBlockingMiddleware',
+    'tracking.middleware.TrackRequestsMiddleware',
 ]
 
 MIDDLEWARE_CLASSES = [
