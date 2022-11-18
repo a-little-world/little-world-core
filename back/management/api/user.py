@@ -122,7 +122,7 @@ class CheckPasswordApi(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(request=CheckPwSerializer(many=False))
-    def get(self, request):
+    def post(self, request):
         serializer = CheckPwSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         params = serializer.save()
