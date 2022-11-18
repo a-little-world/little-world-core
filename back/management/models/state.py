@@ -43,7 +43,7 @@ class State(models.Model):
         # By wrapping in lambda this will get called when the model is created
         # and not at server start, then we get better randomization maybe
         # Also this conveniently inialized the pin
-        default=utils._rand_int6)
+        default=utils._rand_int5)  # TODO maybe increase a little ? -> would mean also in translation texts
 
     email_authenticated = models.BooleanField(default=False)
 
