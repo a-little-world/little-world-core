@@ -48,10 +48,8 @@ class UserManager(BaseUserManager):
     def create_superuser(self, email, password, **kwargs):
         kwargs["is_staff"] = True
         kwargs["is_superuser"] = True
-        kwargs["first_name"] = kwargs.get(
-            "first_name", "adminuserwastolazytosetfirstname")
-        kwargs["last_name"] = kwargs.get(
-            "second_name", "adminuserwastolazytosetsecondname")
+        kwargs["first_name"] = kwargs.pop("first_name")
+        kwargs["last_name"] = kwargs.pop("second_name")
         return self._create_user(email=email, password=password, **kwargs)
 
 
