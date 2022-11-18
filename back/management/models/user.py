@@ -1,9 +1,11 @@
 from django.db import models
 from back import utils
 from django.utils.translation import gettext as _
+from django.conf import settings
 from rest_framework import serializers
 from asgiref.sync import async_to_sync
 from django.contrib.auth.models import AbstractUser, BaseUserManager
+from emails.mails import send_email, MailMeta
 
 
 class UserManager(BaseUserManager):
@@ -128,6 +130,22 @@ class User(AbstractUser):
             sender = get_base_management_user()
 
         async_to_sync(save_text_message)(msg, sender, self)
+
+    def send_email(self,
+                   subject: str,
+                   mail_data: MailMeta,
+                   mail_params: object,
+                   attachments=[]):
+        # Just a wrapper for emails.mails.send_email
+        # Send to a user by usr.send_email(...)
+        recivers = [self.email]
+        send_email(
+            subject=subject,
+            recivers=recivers,
+            mail_data=mail_data,
+            mail_params=mail_params,
+            attachments=attachments
+        )
 
 
 class UserSerializer(serializers.ModelSerializer):
