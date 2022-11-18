@@ -29,16 +29,28 @@ class MailMeta:
 class WelcomeEmailParams:
     # We only talk to people in first name these days
     first_name: str
-    second_name: str
     verification_code: str
 
 
+@dataclass
+class MatchMailParams:
+    first_name: str
+    match_first_name: str
+
+
 # Register all templates and their serializers here
-templates = [MailMeta(
-    name="welcome",
-    template="emails/welcome.html",
-    params=WelcomeEmailParams
-)]
+templates = [
+    MailMeta(
+        name="welcome",
+        template="emails/welcome.html",
+        params=WelcomeEmailParams
+    ),
+    MailMeta(
+        name="match",
+        template="emails/welcome.html",  # TODO: get correct template
+        params=MatchMailParams
+    )
+]
 
 
 def get_mail_data_by_name(name) -> MailMeta:
