@@ -4,4 +4,4 @@ from .models import EmailLog
 
 @admin.register(EmailLog)
 class EmailLogAdmin(admin.ModelAdmin):
-    pass
+    list_display = ("receiver", "template", "time", "sender", "data")

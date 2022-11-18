@@ -13,6 +13,8 @@ class EmailLog(models.Model):
     # The time of this log creation, should be roughly equivaent to send time
     time = models.DateTimeField(auto_now_add=True)
 
+    template = models.CharField(max_length=255, blank=True)
+
     # hash as wike like to have everywhere :)
 
     # For this we always expect:

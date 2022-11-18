@@ -60,14 +60,16 @@ def send_email(
     This does not send a messages to all receivers at the same time, 
     it sends one email per receiver
     """
+    from management.controller import get_base_management_user, get_user_by_email
     for to in recivers:
 
         # First create the mail log, if sending fails afterwards we sill have a log!
         EmailLog.objects.create(
-            sender=settings.MANAGEMENT_USER_MAIL,
-            reciver=to,
+            sender=get_base_management_user(),
+            receiver=get_user_by_email(to),
+            template=MailMeta.template,
             data=dict(
-                params=mail_params,
+                params=mail_params.__dict__,
                 sender_str=str(sender),
                 recivers_str=",".join(recivers)
             )
