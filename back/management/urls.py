@@ -5,6 +5,7 @@ from django.conf import settings
 from . import views
 from back.utils import _api_url
 from django.conf.urls import include
+from django.views.generic.base import RedirectView
 from rest_framework import routers
 from django.contrib.auth import views as auth_views
 from .views.user_form_frontend import (
@@ -68,11 +69,14 @@ extra_auth_views = [
 ]
 
 view_routes = [
-    path("register", register, name="register"),
+    path("", RedirectView.as_view(  # Redirect all requests to "/" to "/app/" per default
+         url=f"app/", permanent=True), name="frontend_redirect"),
 
-    path("login", login, name="login"),
+    path("register/", register, name="register"),
 
-    path("formpage", subsection_of_user_form, name="formpage"),
+    path("login/", login, name="login"),
+
+    path("formpage/", subsection_of_user_form, name="formpage"),
 
     path('mailverify/', email_verification, name="email_verification"),
     path('mailchange/', email_change, name="email_change"),
