@@ -154,14 +154,14 @@ def create_user(
     tags=["backend", "function", "db"])
 def match_users(users: set, send_notification=True, send_message=True, send_email=True):
     """ Accepts a list of two users to match """
+    from chat.django_private_chat2.models import DialogsModel
+
     assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
-    usrs = list(users)
-    usr1, usr2 = usrs
+    usr1, usr2 = list(users)
     usr1.match(usr2)
     usr2.match(usr1)
 
     # After the users are registered as matches we still need to create a dialog for them
-    from chat.django_private_chat2.models import DialogsModel
     DialogsModel.create_if_not_exists(usr1, usr2)
 
     if send_notification:
@@ -169,9 +169,20 @@ def match_users(users: set, send_notification=True, send_message=True, send_emai
         usr2.notify(title=_("New match: %s" % usr1.profile.first_name))
 
     if send_message:
-        pass  # TODO
+        usr1.message(_("New match found! Checkout %s's profile now" %
+                     usr2.profile.first_name))
+        usr2.message(_("New match found! Checkout %s's profile now" %
+                     usr1.profile.first_name))
 
     if send_email:
+        usr1.send_email(
+            subject="undefined",  # TODO set!
+            mail_data=mails.get_mail_data_by_name("match"),
+            mail_params=mails.MatchMailParams(
+                first_name=usr1.profile.first_name,
+                match_first_name=usr1.profile.first_name
+            )
+        )
         pass  # TODO
 
 
