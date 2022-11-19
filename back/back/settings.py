@@ -1,3 +1,4 @@
+from django.utils.translation import gettext as _
 import os
 
 # This can be used to exclude apps or middleware
@@ -70,6 +71,7 @@ MIDDLEWARE = [
         'whitenoise.middleware.WhiteNoiseMiddleware',
     ] if BUILD_TYPE in ['staging', 'development'] else []),
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -103,6 +105,7 @@ if BUILD_TYPE == 'staging':
         # TODO: setup
     ]
 
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -134,6 +137,17 @@ STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'emails/static/')
 ]
 
+USE_I18N = True
+def ugettext(s): return s
+
+
+LANGUAGES = [
+    ('en', ugettext('English')),
+    ('de', ugettext('German'))
+]
+LOCALE_PATHS = [
+    os.path.join(BASE_DIR, 'management/locale/')
+]
 
 WSGI_APPLICATION = "back.wsgi.application"
 ASGI_APPLICATION = "back.asgi.application"
