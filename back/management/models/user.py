@@ -5,7 +5,6 @@ from django.conf import settings
 from rest_framework import serializers
 from asgiref.sync import async_to_sync
 from django.contrib.auth.models import AbstractUser, BaseUserManager
-from emails.mails import send_email, MailMeta
 
 
 class UserManager(BaseUserManager):
@@ -133,11 +132,13 @@ class User(AbstractUser):
 
     def send_email(self,
                    subject: str,
-                   mail_data: MailMeta,
+                   mail_data,  # Can't really typecheck MailMeta when
+                   # I'm importing below TODO this can be fixed
                    mail_params: object,
                    attachments=[]):
         # Just a wrapper for emails.mails.send_email
         # Send to a user by usr.send_email(...)
+        from emails.mails import send_email, MailMeta
         recivers = [self.email]
         send_email(
             subject=subject,
