@@ -29,7 +29,7 @@ class c:
     host_routes = ["--add-host=host.docker.internal:host-gateway"]
     denv = ["--env-file", "./env"]
     penv = ["--env-file", "./penv"]
-    shell = "/bin/bash"
+    shell = "sh"
     redis_port = ["-p", "6379:6379"]
 
     # Frontend container stuff
