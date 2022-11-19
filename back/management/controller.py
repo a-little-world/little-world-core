@@ -169,6 +169,7 @@ def match_users(users: set, send_notification=True, send_message=True, send_emai
         usr2.notify(title=_("New match: %s" % usr1.profile.first_name))
 
     if send_message:
+        # Sends a message from the admin model
         usr1.message(_("New match found! Checkout %s's profile now" %
                      usr2.profile.first_name))
         usr2.message(_("New match found! Checkout %s's profile now" %
@@ -180,10 +181,17 @@ def match_users(users: set, send_notification=True, send_message=True, send_emai
             mail_data=mails.get_mail_data_by_name("match"),
             mail_params=mails.MatchMailParams(
                 first_name=usr1.profile.first_name,
+                match_first_name=usr2.profile.first_name
+            )
+        )
+        usr2.send_email(
+            subject="undefined",  # TODO set!
+            mail_data=mails.get_mail_data_by_name("match"),
+            mail_params=mails.MatchMailParams(
+                first_name=usr2.profile.first_name,
                 match_first_name=usr1.profile.first_name
             )
         )
-        pass  # TODO
 
 
 def unmatch_users(users: set):
