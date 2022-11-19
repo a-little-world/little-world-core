@@ -42,6 +42,8 @@ self_serializers = {
     "user": SelfUserSerializer,
     "profile": SelfProfileSerializer,
     "state": SelfStateSerializer,
+    # Serializers with '_' wont be included in the standart user data serialization
+    # --> notifications for example are handled and paginated seperately
     "_notifications": SelfNotificationSerializer,
     "settings": SelfSettingsSerializer
 }
@@ -52,6 +54,7 @@ admin_serializers = {
     "state": StateSerializer,
     "_notifications": NotificationSerializer
 }
+
 # For 'other' users
 other_serializers = {
     "user": CensoredUserSerializer,
@@ -133,9 +136,9 @@ def get_notifications_paginated(user,
 class SelfInfo(APIView):
     authentication_classes = [authentication.SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    """ simple api to fetch your own user info """
 
     def get(self, request, format=None):
+        """ simple api to fetch your own user info """
         return Response(get_user_data(request.user, is_self=True))
 
 
