@@ -45,6 +45,8 @@ api_routes = [
     # User
     path(_api_url('user_data'), api.user_data.UserData.as_view()),
 
+    path(_api_url('trans/<str:lang>'), api.trans.TranslationsGet.as_view()),
+
     path(_api_url('register'), api.register.Register.as_view()),
     path(_api_url('user'), api.user_data.SelfInfo.as_view()),
     path(_api_url('user/login'), api.user.LoginApi.as_view()),
