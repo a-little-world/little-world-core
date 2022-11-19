@@ -100,8 +100,9 @@ class UserAdmin(DjangoUserAdmin):
     @admin.display(description='chat')
     def chat_with(self, obj):
         # return HTML link that will not be escaped
+        print(obj)
         return mark_safe(
-            '<a href="_show_message">%s</a>' % ("open")
+            f'<a href="/admin_chat/?usr_hash={obj.hash}" target="_blank" rel="noopener noreferrer" >open</a>'
         )
 
     def get_search_results(self, request, queryset, search_term):
