@@ -75,6 +75,9 @@ class MainFrontendView(LoginRequiredMixin, View):
         if not request.user.state.is_email_verified():
             return redirect(reverse("management:email_verification", kwargs={}))
 
+        if not request.user.state.is_user_form_filled():
+            return redirect(reverse("management:user_form", kwargs={}))
+
         _kwargs = params.__dict__
         _kwargs.pop("filters")  # TODO: they are not yet supported
         _kwargs.pop("order_by")  # TODO: they are not yet supported
