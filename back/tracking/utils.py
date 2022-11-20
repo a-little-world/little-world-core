@@ -54,9 +54,8 @@ def inline_track_event(
         # In both these cases try to get the 'request' object
         for a in args:
             str_type = str(type(a)).lower()
-            print(str_type)
             if "request" in str_type:
-                print("Request type: " + str(a))
+                #print("Request type: " + str(a))
                 try:
                     metadata.update(_ip_meta(a))
                 except:
@@ -70,14 +69,19 @@ def inline_track_event(
 
                 try:
                     metadata["request_data1"] = a.data
+                    if censor_kwargs:
+                        for arg in censor_kwargs:
+                            metadata["request_data1"].pop(arg)
                 except:
                     metadata["msg"].append(
                         _("request.data 1 not existing"))
 
                 try:
                     metadata["request_data2"] = {**a.POST, **a.GET}
-                except:
-                    print(metadata)
+                    if censor_kwargs:
+                        for arg in censor_kwargs:
+                            metadata["request_data2"].pop(arg)
+                except Exception as e:
                     metadata["msg"].append(
                         _("request.data 2 not existing"))
 
@@ -85,10 +89,12 @@ def inline_track_event(
                     # If the conversion above didn't work maybe it is a http request
                     drf_request = Request(request=a)
                     metadata["request_data3"] = a.data
+                    if censor_kwargs:
+                        for arg in censor_kwargs:
+                            metadata["request_data3"].pop(arg)
                 except:
                     metadata["msg"].append(
                         _("couldn't convert to drf request"))
-                print(metadata)
 
     try:
         _user.is_staff
