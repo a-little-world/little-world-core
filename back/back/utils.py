@@ -1,6 +1,7 @@
 import random
 from uuid import uuid4
 from rest_framework.metadata import SimpleMetadata
+from copy import deepcopy
 
 VERSION = 1
 
@@ -34,3 +35,12 @@ def get_options_serializer(self, obj):
                     {"tag": choice["display_name"], "value": choice["value"]})
                 d[k] = _t_choices
     return d
+
+
+def transform_add_options_serializer(serializer):
+    class WOptionSerializer(serializer):  # type: ignore
+        class Meta:
+            model = deepcopy(serializer.Meta.model)
+            fields = [
+                *deepcopy(serializer.Meta.fields), "options"]
+    return WOptionSerializer
