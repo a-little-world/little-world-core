@@ -52,7 +52,11 @@ class UserManager(BaseUserManager):
         kwargs["is_superuser"] = True
         kwargs["first_name"] = kwargs.pop("first_name")
         kwargs["last_name"] = kwargs.pop("second_name")
-        return self._create_user(email=email, password=password, **kwargs)
+        usr = self._create_user(email=email, password=password, **kwargs)
+
+        # Superuses cant be bothered to verify their email:
+        usr.state.check_email_auth_pin(usr.state.email_auth_pin)
+        return usr
 
 
 class User(AbstractUser):
