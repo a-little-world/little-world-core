@@ -7,13 +7,9 @@ from .utils import inline_track_event
 
 
 """
-keys are:
-block full
-1 '*' -> anywhere in path
-2 '/' -> at beginning
-
-block specific args:
-2 'k'
+We wan't to gather as much data as possible.
+But never store any passwords! 
+So we have to do some manual censoring
 """
 CENSOR_ROUTES = {
     "/register": {
@@ -21,11 +17,12 @@ CENSOR_ROUTES = {
         "mode": "k",
         "censor": ["password", "password1", "password2"]
     },
-    "/login": {
+    "/login": {  # Also takes care of /admin/login
         "search": "any",
         "mode": "k",
         "censor": ["password"]
     }
+    # TODO: add reset password api here
 }
 
 
@@ -64,18 +61,20 @@ class TrackRequestsMiddleware:
             _kwargs.update(**request.POST)
         with _try():
             _kwargs.update(**ast.literal_eval(request.body.decode()))
-        print(_kwargs)
 
         censor = _should_censor(path)
+        _censor_kwargs = []
         if censor:
+            print("About to censor", path)
             _kwargs = {k: _kwargs[k]
                        for k in _kwargs if not k in censor["censor"]}
-            pass  # TODO strip stuff that shouldn't be shown
+            _censor_kwargs = censor["censor"]
 
         inline_track_event(*[request], name="request",
                            tags=["middleware", "general"],
                            caller=request.user,
-                           **{
+                           censor_kwargs=_censor_kwargs,
+                           ** {
             "path": path,
             **_kwargs
         })
