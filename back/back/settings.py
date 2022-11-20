@@ -5,6 +5,10 @@ import os
 BUILD_TYPE = os.environ["BUILD_TYPE"]
 assert BUILD_TYPE in ['deployment', 'staging', 'development']
 
+IS_DEV = BUILD_TYPE == 'development'
+IS_STAGE = BUILD_TYPE == 'staging'
+IS_PROD = BUILD_TYPE == 'deployment'
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = os.environ['DJ_SECRET_KEY']
 DEBUG = os.environ["DJ_DEBUG"].lower() in ('true', '1', 't')
