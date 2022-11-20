@@ -70,6 +70,9 @@ class State(models.Model):
     def is_email_verified(self):
         return self.email_authenticated
 
+    def is_user_form_filled(self):
+        return self.user_form_state == self.UserFormStateChoices.FILLED
+
     def check_email_auth_pin(self, pin):
         """
         checks email verification pin, this shall only be used it the user is logged in!
