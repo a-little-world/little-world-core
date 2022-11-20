@@ -76,10 +76,10 @@ def send_email(
     for to in recivers:
 
         # First create the mail log, if sending fails afterwards we sill have a log!
-        EmailLog.objects.create(
+        log = EmailLog.objects.create(
             sender=get_base_management_user(),
             receiver=get_user_by_email(to),
-            template=MailMeta.template,
+            template=mail_data.template,
             data=dict(
                 params=mail_params.__dict__,
                 sender_str=str(sender),
@@ -87,15 +87,24 @@ def send_email(
             )
         )
 
-        html = render_to_string(mail_data.template, mail_params.__dict__)
+        try:
+            html = render_to_string(mail_data.template, mail_params.__dict__)
 
-        mail = EmailMessage(
-            subject=subject,
-            body=html,
-            from_email=sender,
-            to=[to],
-        )
-        mail.content_subtype = "html"
-        for attachment in attachments:
-            mail.attach_file(attachment)
-        mail.send(fail_silently=False)
+            mail = EmailMessage(
+                subject=subject,
+                body=html,
+                from_email=sender,
+                to=[to],
+            )
+            mail.content_subtype = "html"
+            for attachment in attachments:
+                mail.attach_file(attachment)
+            mail.send(fail_silently=False)
+            log.sucess = True
+        except Exception as e:
+            # Now we mark the email logs as errored
+            print(str(e))
+            _data = log.data
+            _data['error'] = str(e)
+            log.data = _data
+        log.save()
