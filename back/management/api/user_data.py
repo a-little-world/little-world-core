@@ -16,6 +16,7 @@ from django.views.decorators.vary import vary_on_cookie, vary_on_headers
 from rest_framework import serializers
 from rest_framework.throttling import UserRateThrottle
 from dataclasses import dataclass
+from back.utils import transform_add_options_serializer
 from rest_framework.permissions import IsAuthenticated
 from django.core.paginator import Paginator
 from ..models import (
@@ -99,12 +100,8 @@ def get_user_data(user, is_self=False, admin=False, include_options=False):
         # This is a simple hack to create a clone of the standart serializer that included the 'options' field
         _serializers = _serializers.copy()
         for _model in ["profile", "state"]:
-            class WOptionSerializer(_serializers[_model]):  # type: ignore
-                class Meta:
-                    model = deepcopy(_serializers[_model].Meta.model)
-                    fields = [
-                        *deepcopy(_serializers[_model].Meta.fields), "options"]
-            _serializers[_model] = WOptionSerializer
+            _serializers[_model] = transform_add_options_serializer(
+                _serializers[_model])
     models = get_user_models(user)  # user, profile, state
     return {k: _serializers[k](models[k]).data for k in _serializers if not k.startswith("_")}
 
