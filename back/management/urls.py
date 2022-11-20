@@ -11,12 +11,15 @@ from django.contrib.auth import views as auth_views
 from .views.user_form_frontend import (
     login,
     register,
+    forgot_password,
+    set_password_reset,
     subsection_of_user_form,
     email_verification,
     email_change,
     email_verification_sucess,
     email_verification_fail,
-    error
+    error,
+    user_form
 )
 
 from rest_framework.routers import DefaultRouter
@@ -52,7 +55,9 @@ api_routes = [
     path(_api_url('user/login'), api.user.LoginApi.as_view()),
     path(_api_url('user/checkpw'), api.user.CheckPasswordApi.as_view()),
     path(_api_url('profile'),
-         api.profile.ProfileViewSet.as_view({"post": "partial_update", "get": "_get"})),
+         api.profile.ProfileGetApi.as_view()),
+    path(_api_url('profile'),
+         api.profile.ProfileViewSet.as_view({"post": "partial_update"})),
 
     path(_api_url('notification'),
          api.notify.NotificationGetApi.as_view()),
@@ -79,6 +84,9 @@ view_routes = [
          url=f"app/", permanent=True), name="frontend_redirect"),
 
     path("register/", register, name="register"),
+    path("password_reset/", forgot_password, name="password_reset"),
+    path("set_password/<str:usr_hash>/<str:token>",
+         set_password_reset, name="set_password_reset"),
 
     path("login/", login, name="login"),
 
@@ -93,7 +101,11 @@ view_routes = [
 
     path('error/', error, name="error"),
 
+    # The user form ( does its own routing )
+    path(f"form/", user_form, name="user_form"),
+    re_path(fr'^form/(?P<path>.*)$', user_form),
 
+    # The main frontend ( does its own routing )
     path('app/', views.MainFrontendView.as_view(), name="main_frontend"),
     re_path(fr'^app/(?P<path>.*)$',
             views.MainFrontendView.as_view(), name="main_frontend_w_path"),
@@ -101,6 +113,6 @@ view_routes = [
 ]
 
 urlpatterns = [
-    *api_routes,
     *view_routes,
+    *api_routes,
 ]
