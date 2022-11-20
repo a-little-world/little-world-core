@@ -15,6 +15,9 @@ class EmailLog(models.Model):
 
     template = models.CharField(max_length=255, blank=True)
 
+    # This marks wheather or not the code to send the email as trown an error
+    sucess = models.BooleanField(default=False)
+
     # hash as wike like to have everywhere :)
 
     # For this we always expect:
