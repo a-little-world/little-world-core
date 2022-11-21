@@ -5,7 +5,7 @@ generally all APIViews here are required to have: permission_classes = [ IsAdmin
 from rest_framework.views import APIView
 from typing import List, Optional
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy as _
 from rest_framework import status
 from rest_framework import authentication, permissions
 from rest_framework.response import Response

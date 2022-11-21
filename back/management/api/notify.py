@@ -3,7 +3,7 @@ from typing import Optional
 from rest_framework import authentication, permissions, viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy as _
 from dataclasses import dataclass
 from rest_framework import serializers
 from django.core.paginator import Paginator

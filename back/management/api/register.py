@@ -1,7 +1,7 @@
 from drf_spectacular.utils import OpenApiParameter, OpenApiExample
 import django.contrib.auth.password_validation as pw_validation
 from typing import Optional
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy as _
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
 from datetime import datetime

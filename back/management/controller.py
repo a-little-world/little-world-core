@@ -5,7 +5,7 @@ e.g.: Creating a new user, sending a notification to a users etc...
 from .models import User
 from django.conf import settings
 from .models import UserSerializer, User, Profile, State, Settings
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy as _
 from emails import mails
 from tracking import utils
 from tracking.models import Event

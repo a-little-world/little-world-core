@@ -1,6 +1,7 @@
 from django.template import RequestContext
 from django.shortcuts import render
 from django.conf import settings
+from django.contrib.sessions.middleware import SessionMiddleware
 
 
 def responde_404(request):

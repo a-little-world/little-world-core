@@ -1,4 +1,4 @@
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy as _
 import os
 
 # This can be used to exclude apps or middleware
@@ -146,11 +146,14 @@ def ugettext(s): return s
 
 
 LANGUAGES = [
+    ('aka', ugettext('Tags')),
     ('en', ugettext('English')),
     ('de', ugettext('German'))
 ]
+# TODO: somehow translations or our management app don't seem to be included in the catalogue
 LOCALE_PATHS = [
-    os.path.join(BASE_DIR, 'management/locale/')
+    os.path.join(BASE_DIR, 'management/locale/'),
+    os.path.join(BASE_DIR, 'management/')
 ]
 
 WSGI_APPLICATION = "back.wsgi.application"
@@ -250,7 +253,7 @@ WEBPACK_LOADER = {app: {  # Configure seperate loaders for every app!
     'IGNORE': [r'.+\.hot-update.js', r'.+\.map'],
 } for app in FRONTENDS}
 
-LANGUAGE_CODE = os.environ.get('DJ_LANGUAGE_CODE', 'en-us')
+# LANGUAGE_CODE = 'aka'  # os.environ.get('DJ_LANGUAGE_CODE', 'en-us')
 TIME_ZONE = os.environ.get('DJ_TIME_ZONE', 'UTC')
 USE_I18N = True
 USE_L10N = True

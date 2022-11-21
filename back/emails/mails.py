@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from rest_framework import serializers
 from django.conf import settings
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy as _
 from django.template.loader import render_to_string
 from .models import EmailLog
 from django.core.mail import EmailMessage

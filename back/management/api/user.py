@@ -1,5 +1,5 @@
 from rest_framework.views import APIView
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy as _
 from drf_spectacular.utils import extend_schema
 from management.controller import get_user_by_hash
 from rest_framework.response import Response
