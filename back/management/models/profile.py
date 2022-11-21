@@ -97,9 +97,13 @@ class ProfileBase(models.Model):
     for learners this is which group they belong to
     """
     class TargetGroupChoices(models.IntegerChoices):
+        # Allen Gruppen:
         ANY = 0, _("Any Group")
+        # Geflüchteten (u.a. Ukraine, Jemen, Syrien):
         REFUGEES = 1, _("Refugees only")
+        # Studierenden
         STUDENTS = 2, _("Students only")
+        # Fachkräften aus dem Ausland:
         WORKERS = 3, _("Workers only")
 
     target_group = models.IntegerField(
@@ -192,10 +196,19 @@ class ProfileBase(models.Model):
     description = models.TextField(default="", blank=True)
     language_skill_description = models.TextField(default="", blank=True)
 
+    class LanguageLevelChoices(models.IntegerChoices):
+        A1 = 0, _("Level 0 (egal)")
+        A2 = 1, _("Level 1 (B1 = (Alltagssituationen, Geschichten, Hoffnungen))")
+        A3 = 2, _(
+            "Level 2 (B2 = (fließende & spontane Gespräche, aktuelles Geschehen))")
+        A4 = 3, _("Level 3 (C1 = (komplexe Themen, kaum nach Wörtern suchen))")
+    lang_level = models.IntegerField(
+        choices=LanguageLevelChoices.choices, default=LanguageLevelChoices.A1)
+
     # Profile image
     class ImageTypeChoice(models.IntegerChoices):
-        AVATAR = 0, _("avatar_profile_trans")
-        IMAGE = 1, _("image_profile_trans")
+        AVATAR = 0, _("Avatar")
+        IMAGE = 1, _("Image")
 
     profile_image_type = models.IntegerField(
         choices=ImageTypeChoice.choices, default=ImageTypeChoice.IMAGE)
@@ -240,6 +253,8 @@ class ProfileAtMatchRequest(ProfileBase):
 
 class ProfileSerializer(serializers.ModelSerializer):
     options = serializers.SerializerMethodField()
+    interests = serializers.MultipleChoiceField(
+        choices=Profile.InterestChoices.choices)
 
     def get_options(self, obj):
         return get_options_serializer(self, obj)
@@ -255,7 +270,7 @@ class SelfProfileSerializer(ProfileSerializer):
         model = Profile
         fields = ['first_name', 'second_name', 'target_group', 'speech_medium',
                   'user_type', 'target_group', 'partner_sex', 'speech_medium',
-                  'partner_location', 'postal_code', 'interests', 'availability',
+                  'partner_location', 'postal_code', 'interests', 'availability', 'lang_level', 'additional_interests', 'language_skill_description', 'birth_year', 'description',
                   'notify_channel', 'phone_mobile', 'profile_image_type', 'profile_avatar_config', 'profile_image']
 
 
