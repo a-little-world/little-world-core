@@ -1,6 +1,6 @@
 from functools import partial, wraps
 from .models import Event
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy as _
 from django.http import HttpRequest
 from rest_framework.request import Request
 from ipware import get_client_ip  # django-ipware
