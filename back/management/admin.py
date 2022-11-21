@@ -27,19 +27,11 @@ def make_match_admin(modeladmin, request, queryset):
         request, "Not implemented", level=messages.ERROR)
 
 
-class ProfileModelForm(forms.ModelForm):
-    class Meta:
-        widgets = {
-            'phone': PhoneNumberPrefixWidget(initial='DE'),
-        }
-
-
 @admin.register(models.profile.Profile)
 class ProfileModelAdmin(admin.ModelAdmin):
     list_display = ('user', 'first_name', 'second_name')
 
     actions = [make_match_admin]
-    form = ProfileModelForm
 
 
 class ProfileModelInline(admin.StackedInline):

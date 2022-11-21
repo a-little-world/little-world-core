@@ -1,6 +1,6 @@
 from django.db import models
 from back import utils
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy as _
 from django.conf import settings
 from rest_framework import serializers
 from asgiref.sync import async_to_sync

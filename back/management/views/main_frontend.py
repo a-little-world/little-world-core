@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from rest_framework.request import Request
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy as _
 from rest_framework import status
 from rest_framework import serializers
 from django.views import View

@@ -2,7 +2,7 @@ from django.shortcuts import render
 from tracking import utils
 from django.views import View
 from django.contrib.auth.mixins import UserPassesTestMixin
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy as _
 from tracking.models import Event
 from .mails import get_mail_data_by_name
 
