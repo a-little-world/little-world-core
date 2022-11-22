@@ -109,10 +109,12 @@ class LoginApi(APIView):
 @dataclass
 class CheckPwParams:
     password: str
+    email: str
 
 
 class CheckPwSerializer(serializers.Serializer):
     password = serializers.EmailField(required=True)
+    email = serializers.EmailField(required=True)
 
 
 class CheckPasswordApi(APIView):
