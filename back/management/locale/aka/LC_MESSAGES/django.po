@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-11-22 10:50+0000\n"
+"POT-Creation-Date: 2022-11-22 16:16+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -46,7 +46,15 @@ msgstr ""
 msgid "Notification %(hash)s for user"
 msgstr ""
 
-#: api/register.py:69
+#: api/register.py:51
+msgid "First Name: This field may not be blank."
+msgstr ""
+
+#: api/register.py:56
+msgid "Second Name: This field may not be blank."
+msgstr ""
+
+#: api/register.py:83
 msgid "Passwords must match"
 msgstr ""
 
@@ -132,194 +140,203 @@ msgstr ""
 msgid "no-description"
 msgstr ""
 
-#: models/profile.py:83
+#: models/profile.py:86
 msgid "Volunteer"
 msgstr ""
 
-#: models/profile.py:84
+#: models/profile.py:87
 msgid "Language learner"
 msgstr ""
 
-#: models/profile.py:101
+#: models/profile.py:104
 msgid "Any Group"
 msgstr ""
 
-#: models/profile.py:103
+#: models/profile.py:106
 msgid "Refugees only"
 msgstr ""
 
-#: models/profile.py:105
+#: models/profile.py:108
 msgid "Students only"
 msgstr ""
 
-#: models/profile.py:107
+#: models/profile.py:110
 msgid "Workers only"
 msgstr ""
 
-#: models/profile.py:116
+#: models/profile.py:119
 msgid "Any sex"
 msgstr ""
 
-#: models/profile.py:117
+#: models/profile.py:120
 msgid "Male only"
 msgstr ""
 
-#: models/profile.py:118
+#: models/profile.py:121
 msgid "Female only"
 msgstr ""
 
-#: models/profile.py:126
+#: models/profile.py:129
 msgid "Any medium"
 msgstr ""
 
-#: models/profile.py:127
+#: models/profile.py:130
 msgid "Video only"
 msgstr ""
 
-#: models/profile.py:128
+#: models/profile.py:131
 msgid "Phone only"
 msgstr ""
 
-#: models/profile.py:136
+#: models/profile.py:139
 msgid "Location Anywhere"
 msgstr ""
 
-#: models/profile.py:137
+#: models/profile.py:140
 msgid "Location close"
 msgstr ""
 
-#: models/profile.py:138
+#: models/profile.py:141
 msgid "Location far"
 msgstr ""
 
-#: models/profile.py:148
+#: models/profile.py:151
 msgid "Sport"
 msgstr "interest_sport"
 
-#: models/profile.py:149
+#: models/profile.py:152
 msgid "Art"
 msgstr "interest_art"
 
-#: models/profile.py:150
+#: models/profile.py:153
 msgid "Music"
 msgstr "interest_music"
 
-#: models/profile.py:151
+#: models/profile.py:154
 msgid "Literature"
 msgstr "interest_literature"
 
-#: models/profile.py:152
+#: models/profile.py:155
 msgid "Movies"
 msgstr "interest_movies"
 
-#: models/profile.py:153
+#: models/profile.py:156
 msgid "Fashion"
 msgstr "interest_fashion"
 
-#: models/profile.py:154
+#: models/profile.py:157
 msgid "Culture"
 msgstr "interest_culture"
 
-#: models/profile.py:155
+#: models/profile.py:158
 msgid "Travel"
 msgstr "interest_travel"
 
-#: models/profile.py:156
+#: models/profile.py:159
 msgid "Food"
 msgstr "interest_food"
 
-#: models/profile.py:157
+#: models/profile.py:160
 msgid "Politics"
 msgstr "interest_politics"
 
-#: models/profile.py:158
+#: models/profile.py:161
 msgid "Nature"
 msgstr "interest_nature"
 
-#: models/profile.py:159
+#: models/profile.py:162
 msgid "Science"
 msgstr "interest_science"
 
-#: models/profile.py:160
+#: models/profile.py:163
 msgid "Technology"
 msgstr "interest_technology"
 
-#: models/profile.py:161
+#: models/profile.py:164
 msgid "History"
 msgstr "interest_history"
 
-#: models/profile.py:162
+#: models/profile.py:165
 msgid "Religion"
 msgstr "interest_religion"
 
-#: models/profile.py:163
+#: models/profile.py:166
 msgid "Sociology"
 msgstr "interest_sociology"
 
-#: models/profile.py:164
+#: models/profile.py:167
 msgid "Family"
 msgstr "interest_family"
 
-#: models/profile.py:165
+#: models/profile.py:168
 msgid "Psycology"
 msgstr "interest_psychology"
 
-#: models/profile.py:166
+#: models/profile.py:169
 msgid "Personal development"
 msgstr "interest_pdev"
 
-#: models/profile.py:182
+#: models/profile.py:185
 msgid "Declined Liability"
 msgstr ""
 
-#: models/profile.py:183
+#: models/profile.py:186
 msgid "Accepted Liability"
 msgstr ""
 
-#: models/profile.py:188
+#: models/profile.py:191
 msgid "Notify per email"
 msgstr ""
 
-#: models/profile.py:189
+#: models/profile.py:192
 msgid "Notify per SMS"
 msgstr ""
 
-#: models/profile.py:190
+#: models/profile.py:193
 msgid "Notify by calling"
 msgstr ""
 
-#: models/profile.py:201
+#: models/profile.py:205
 msgid "Level 0 (egal)"
 msgstr ""
 
-#: models/profile.py:202
+#: models/profile.py:206
 msgid "Level 1 (B1 = (Alltagssituationen, Geschichten, Hoffnungen))"
 msgstr ""
 
-#: models/profile.py:204
+#: models/profile.py:208
 msgid "Level 2 (B2 = (fließende & spontane Gespräche, aktuelles Geschehen))"
 msgstr ""
 
-#: models/profile.py:205
+#: models/profile.py:209
 msgid "Level 3 (C1 = (komplexe Themen, kaum nach Wörtern suchen))"
 msgstr ""
 
-#: models/profile.py:211
+#: models/profile.py:215
 msgid "Avatar"
 msgstr ""
 
-#: models/profile.py:212
+#: models/profile.py:216
 msgid "Image"
 msgstr ""
 
-#: models/profile.py:274
+#: models/profile.py:284
 msgid ""
 "Language Skill: Ensure this field has no more than max_length characters."
+msgstr "lang_skill_to_long"
+
+#: models/profile.py:285
+msgid "Language Skill: Ensure this field has at least min_length characters."
 msgstr "lang_skill_to_short"
 
-#: models/profile.py:275
-msgid "Language Skill: Ensure this field has at least min_length characters."
-msgstr "lang_skill_to_long"
+#: models/profile.py:290
+msgid "Description: Ensure this field has no more than max_length characters."
+msgstr "self_desciption_to_long"
+
+#: models/profile.py:298
+msgctxt "self_desc_to_short"
+msgid "Self description has to be at least 10 chars"
+msgstr "Blubber blub"
 
 #: models/state.py:32
 msgid "Unfilled user form"
@@ -351,14 +368,14 @@ msgstr ""
 
 #: validators.py:9
 msgid "Name contains invalid characters"
-msgstr ""
+msgstr "name_contains_unallowed_characters"
 
-#: validators.py:32
+#: validators.py:36
 #, python-format
 msgid "Day '%s' not present in availability!"
 msgstr ""
 
-#: validators.py:36
+#: validators.py:40
 #, python-format
 msgid "Slot '%s' is unknown!"
 msgstr ""
