@@ -146,15 +146,21 @@ def ugettext(s): return s
 
 
 LANGUAGES = [
-    ('aka', ugettext('Tags')),
+    # v-- first one cause this is the lang we write our translation tags in
+    # _TB cause this is Tim Benjamins English ;)
+    # v- Tim using jamaican english, cause he cant be botherered to recompile translation everythime
     ('en', ugettext('English')),
-    ('de', ugettext('German'))
+    ('de', ugettext('German')),
+    ('tag', ugettext('Tag')),
+    # v-- these are custom tags to be overwritten from frontend!
 ]
 # TODO: somehow translations or our management app don't seem to be included in the catalogue
 LOCALE_PATHS = [
     os.path.join(BASE_DIR, 'management/locale/'),
     os.path.join(BASE_DIR, 'management/')
 ]
+
+LOGIN_URL = "/login"
 
 WSGI_APPLICATION = "back.wsgi.application"
 ASGI_APPLICATION = "back.asgi.application"
@@ -178,7 +184,7 @@ if BUILD_TYPE in ['staging', 'development']:
 # We enforce these authentication classes
 # By that we force a crsf token to be present on **every** POST request
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
+    "DEFAULT_AUTHENTICATION_CLASSES": [
         'rest_framework.authentication.BasicAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ]
@@ -187,7 +193,7 @@ REST_FRAMEWORK = {
 if BUILD_TYPE in ['staging', 'development']:
 
     # pylint doesn't like it not sure why
-    REST_FRAMEWORK['DEFAULT_SCHEMA_CLASS'] = 'drf_spectacular.openapi.AutoSchema'
+    REST_FRAMEWORK["DEFAULT_SCHEMA_CLASS"] = 'drf_spectacular.openapi.AutoSchema'
 
     SPECTACULAR_SETTINGS = {
         'TITLE': 'Little Worlds Api Documentation',
@@ -253,8 +259,10 @@ WEBPACK_LOADER = {app: {  # Configure seperate loaders for every app!
     'IGNORE': [r'.+\.hot-update.js', r'.+\.map'],
 } for app in FRONTENDS}
 
-# LANGUAGE_CODE = 'aka'  # os.environ.get('DJ_LANGUAGE_CODE', 'en-us')
-TIME_ZONE = os.environ.get('DJ_TIME_ZONE', 'UTC')
+# This *must* stay 'en' as default language this will always have a fallback
+LANGUAGE_CODE = 'en'
+TIME_ZONE = os.environ.get('DJ_TIME_ZONE', 'UTC+1')  # UTC+1 = Berlin
+
 USE_I18N = True
 USE_L10N = True
 USE_TZ = True
@@ -263,7 +271,7 @@ STATIC_URL = '/static/'
 
 if DEBUG:
     info = '\n '.join([f'{n}: {globals()[n]}' for n in [
-        'BASE_DIR', 'SECRET_KEY', 'ALLOWED_HOSTS', 'CELERY_TIMEZONE', 'FRONTENDS']])
+        'BASE_DIR', 'ALLOWED_HOSTS', 'CELERY_TIMEZONE', 'FRONTENDS']])
     print(f"configured django settings:\n {info}")
 
 JAZZMIN_SETTINGS = {
