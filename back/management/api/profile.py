@@ -56,7 +56,6 @@ class ProfileViewSet(viewsets.GenericViewSet, viewsets.mixins.UpdateModelMixin):
         #assert not pk
         pk = self.request.user.pk
         self.kwargs["pk"] = 1
-        print("request.data" + str(request.data))
         return super().partial_update(request, pk=pk)
 
     def get_queryset(self):
