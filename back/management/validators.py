@@ -24,7 +24,7 @@ def validate_second_name(value: str):
     if amnt_spaces > 1:
         raise serializers.ValidationError(
             pgettext_lazy("val.second-name-too-many-spaces",
-                          "It is maximum one space allowed in the Second Name, but you have %i" % amnt_spaces))
+                          "It is maximum one space allowed in the Second Name, but you have {count}".format({'count': amnt_spaces})))
     _value = value.replace(" ", "")  # <-- So this doesn't error on spaces
     if not _value.isalpha():
         raise serializers.ValidationError(
