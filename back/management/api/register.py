@@ -35,26 +35,24 @@ class RegistrationData:
 
 
 class RegistrationSerializer(serializers.Serializer):
-    email = serializers.EmailField(required=True)
-    first_name = serializers.CharField(max_length=150, required=True)
-    second_name = serializers.CharField(max_length=150, required=True)
+    email = serializers.EmailField(required=True, error_messages={
+        'blank': pgettext_lazy('register.email-blank-err', 'Please enter your e-mail adress'),
+        # 'invalid' --> The message here is quite ok, so I'll just keep using it!
+    })
+
+    first_name = serializers.CharField(max_length=150, required=True, error_messages={
+        'blank': pgettext_lazy('register.first-name-blank-err', 'Please enter your first name'),
+    })
+    second_name = serializers.CharField(max_length=150, required=True, error_messages={
+        'blank': pgettext_lazy('register.second-name-blank-err', 'Please enter your second name'),
+    })
     password1 = serializers.CharField(max_length=100, required=True)
     password2 = serializers.CharField(max_length=100, required=True)
-    birth_year = serializers.IntegerField(min_value=1900, max_value=2040)
-
-    class Meta:
-        extra_kwargs = dict(
-            first_name={
-                "error_messages": {
-                    'blank': pgettext_lazy('register.first-name-blank-err', 'Please enter your name'),
-                }
-            },
-            second_name={
-                "error_messages": {
-                    'blank': _('Second Name: This field may not be blank.'),
-                }
-            },
-        )
+    birth_year = serializers.IntegerField(min_value=1900, max_value=2024, error_messages={
+        'invalid': pgettext_lazy('register.birth-year-invalid', 'Please enter a valid year'),
+        'min_value': pgettext_lazy('register.birth-year-under-1900', 'I\'m sorry but you can\'t be that old'),
+        'max_value': pgettext_lazy('register.birth-year-over-2024', 'Sorry we don\'t allow people from the future yet'),
+    })
 
     def create(self, validated_data):
         # Password same validation happens in 'validate()' we need only one password now
