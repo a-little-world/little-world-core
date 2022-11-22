@@ -1,7 +1,7 @@
 from drf_spectacular.utils import OpenApiParameter, OpenApiExample
 import django.contrib.auth.password_validation as pw_validation
 from typing import Optional
-from django.utils.translation import gettext_lazy as _
+from django.utils.translation import pgettext_lazy, gettext_lazy as _
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
 from datetime import datetime
@@ -36,19 +36,40 @@ class RegistrationData:
 
 class RegistrationSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
-    first_name = serializers.CharField(max_length=150, required=True,
-                                       validators=[validators.validate_name])
-    second_name = serializers.CharField(max_length=150, required=True,
-                                        validators=[validators.validate_name])
+    first_name = serializers.CharField(max_length=150, required=True)
+    second_name = serializers.CharField(max_length=150, required=True)
     password1 = serializers.CharField(max_length=100, required=True)
     password2 = serializers.CharField(max_length=100, required=True)
     birth_year = serializers.IntegerField(min_value=1900, max_value=2040)
+
+    class Meta:
+        extra_kwargs = dict(
+            first_name={
+                "error_messages": {
+                    'blank': pgettext_lazy('register.first-name-blank-err', 'Please enter your name'),
+                }
+            },
+            second_name={
+                "error_messages": {
+                    'blank': _('Second Name: This field may not be blank.'),
+                }
+            },
+        )
 
     def create(self, validated_data):
         # Password same validation happens in 'validate()' we need only one password now
         return RegistrationData(
             **{k: v for k, v in validated_data.items() if k not in ["password1", "password2"]},
             password=validated_data['password1'])
+
+    def validate_email(self, value):
+        return value.lower()
+
+    def validate_first_name(self, value):
+        return validators.validate_first_name(value)
+
+    def validate_second_name(self, value):
+        return validators.validate_second_name(value)
 
     def validate(self, data):
         user = User(
