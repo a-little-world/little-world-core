@@ -371,6 +371,7 @@ def make_messages(args, running=False):
     # This will use pgettext(context, string) everywher where we wan't a context tag!
     # For all these translations we can auto detemine the 'tag'
     import polib  # Note if you don't need this step you can comment this out and wont be required to install polib
+    import string
     for pofile in all_locale:
         if pofile.startswith(f"./back/{args.unknown[0]}/locale/tag"):
             print("Parsing: ", pofile)
@@ -379,7 +380,15 @@ def make_messages(args, running=False):
             for entry in valid_entries:
                 if hasattr(entry, "msgctxt") and entry.msgctxt is not None:
                     print(entry.msgctxt, entry.msgid, entry.msgstr)
+                    # There might be python formaters in the string!
+                    # We could ignore them, but I'll just patch them in!
+                    required_formatting = ["{%s}" % arg for arg in list(
+                        string.Formatter().parse(entry.msgid))[0][1:] if arg != "" and arg is not None]
                     entry.msgstr = entry.msgctxt
+                    if required_formatting:
+                        entry.msgstr += "|" + ",".join(required_formatting)
+                        pass
+                    print("---> ", entry.msgctxt, entry.msgid, entry.msgstr)
             po.save()
 
 
