@@ -83,6 +83,8 @@ def _parser():
                         "build", "static", "migrate", "run"], nargs='*', help='action')
     parser.add_argument('-s', '--silent', action="store_true",
                         help="Mute all output exept what is required")
+    parser.add_argument('-ci', '--on-ci', action="store_true",
+                        help="Run with this flag if on CI, this will skip some build steps! e.g.: frontend builds.")
     return parser
 
 
@@ -109,10 +111,13 @@ def _setup(args):
     """
     from datetime import datetime
     complete_file = ".run.py.setup_complete"
+    # TODO: we want to skip frontend builds when running on github actions!
     if not os.path.exists(complete_file) or ["update"] in args.actions:
         _cmd = ["git", "submodule", "update", "--init", "--recursive"]
         subprocess.run(_cmd)
-        build_front(args)
+        if not args.on_ci:
+            # For GH action there is no need to build frontends!
+            build_front(args)
 
         with open(complete_file, "w") as file:
             file.write(datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
