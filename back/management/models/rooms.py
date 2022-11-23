@@ -27,8 +27,10 @@ class Room(models.Model):
     """
     name = models.CharField(max_length=255)
 
-    usr1 = models.ForeignKey(User, on_delete=models.CASCADE)
-    usr2 = models.ForeignKey(User, on_delete=models.CASCADE)
+    usr1 = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='usr1')
+    usr2 = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='usr2')
 
     """
     This marks weather or not a video rooms is active! 
