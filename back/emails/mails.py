@@ -5,6 +5,9 @@ from django.utils.translation import gettext_lazy as _
 from django.template.loader import render_to_string
 from .models import EmailLog
 from django.core.mail import EmailMessage
+import json
+import base64
+import zlib
 
 """
 This file contains a dataclass for every email
@@ -60,12 +63,23 @@ def get_mail_data_by_name(name) -> MailMeta:
     raise MailDataNotFoundErr(_("Mail data with name not found"))
 
 
+def encode_mail_params(params_raw):
+    return base64.urlsafe_b64encode(zlib.compress(
+        bytes(json.dumps(params_raw), 'utf-8'))).decode()
+
+
+def decode_mail_params(pramas_encoded):
+    return json.loads(zlib.decompress(
+        base64.urlsafe_b64decode(pramas_encoded.encode())).decode())
+
+
 def send_email(
         subject: str,
         recivers: list,  # email adresses!
         mail_data: MailMeta,
         mail_params: object,
         attachments=[],
+        raise_exception=False,
         sender=settings.MANAGEMENT_USER_MAIL):
     """
     Sends any mail we do this within a celery task to avoid runtime errors
@@ -87,6 +101,7 @@ def send_email(
             )
         )
 
+        expt = None
         try:
             html = render_to_string(mail_data.template, mail_params.__dict__)
 
@@ -103,8 +118,10 @@ def send_email(
             log.sucess = True
         except Exception as e:
             # Now we mark the email logs as errored
-            print(str(e))
+            expt = str(e)
             _data = log.data
-            _data['error'] = str(e)
+            _data['error'] = expt
             log.data = _data
-        log.save()
+        log.save()  # Saves the error after it happended ( or stores sending success )
+        if expt and raise_exception:  # If there was an error we can raise it now!
+            raise Exception(expt)
