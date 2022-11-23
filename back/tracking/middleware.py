@@ -52,7 +52,6 @@ class TrackRequestsMiddleware:
 
     def __call__(self, request):
         path = request.path
-        print(path)
         _kwargs = {}
 
         with _try():
@@ -65,7 +64,6 @@ class TrackRequestsMiddleware:
         censor = _should_censor(path)
         _censor_kwargs = []
         if censor:
-            print("About to censor", path)
             _kwargs = {k: _kwargs[k]
                        for k in _kwargs if not k in censor["censor"]}
             _censor_kwargs = censor["censor"]
