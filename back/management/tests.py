@@ -212,6 +212,27 @@ class ProfileApiTests(TestCase):
         assert isinstance(response, Response)
         return response  # type: ignore
 
+    def test_invalid_postal_code(self):
+        self._some_register_call(valid_request_data)
+        usr = get_user_by_email(valid_request_data["email"])
+        for code in [
+            "asdgads",  # Letters not allowed postalcode
+            "12",
+            "ad2134"
+        ]:
+            resp = self._some_profile_call({"postal_code": code}, usr)
+            assert resp.status_code == 400
+
+    def test_valid_postal_code(self):
+        self._some_register_call(valid_request_data)
+        usr = get_user_by_email(valid_request_data["email"])
+        for code in [
+            "52062",
+            "04230"
+        ]:
+            resp = self._some_profile_call({"postal_code": code}, usr)
+            assert resp.status_code == 200
+
     def test_change_values_all(self):
         """
         Tests a lot of possible value for all values that can be changed
@@ -235,15 +256,23 @@ class ProfileApiTests(TestCase):
                 # Always overwritten so in the end this contains the last option!:
                 _last_option_of_key[option_list_key] = [option]
                 _data = {option_list_key: option["value"]}
+                if option_list_key == "interests":  # In this case the api does expect a list!
+                    _data = {option_list_key: [option["value"]]}
                 resp = self._some_profile_call(_data, usr)
                 assert resp.status_code == 200
                 resp.render()
                 resp_content = json.loads(resp.content)
+                print(resp_content, option_list_key)
                 # Check if the value changed to what we expected
                 assert resp_content[option_list_key] == _data[option_list_key]
                 # check if the model contains the same data as was returned by the response
-                assert getattr(
-                    usr.profile, option_list_key) == _data[option_list_key]
+                profile_val = getattr(usr.profile, option_list_key)
+                # print("Profileval", profile_val)
+                # Multiple choices do return sets, that is why we check for list(profileval)
+                if option_list_key == "interests":
+                    assert list(profile_val) == _data[option_list_key]
+                else:
+                    assert profile_val == _data[option_list_key]
 
         for option_list_key in _last_option_of_key:
             for option in _last_option_of_key[option_list_key]:
