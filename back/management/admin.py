@@ -111,11 +111,8 @@ class UserAdmin(DjangoUserAdmin):
     ]
 
     fieldsets = (
-        (None, {'fields': ('email', 'password', 'hash')}),
-        (_('Permissions'), {
-         'fields': ('is_active', 'is_staff', 'is_superuser')}),
-        (_('Important dates'), {'fields': ('last_login', 'date_joined')}),
-        # ("Matching", {"fields" : ("user_matches")})
+        (None, {'fields': ('email', 'password', 'hash',
+         'is_active', 'last_login', 'first_name', 'last_name')}),
     )
     add_fieldsets = (
         (None, {
@@ -126,5 +123,8 @@ class UserAdmin(DjangoUserAdmin):
     list_display = ('_abr_hash', 'email', 'last_login', 'date_joined',
                     'first_name', 'last_name', 'chat_with', 'is_user_form_filled', 'is_staff')
     search_fields = ('email', 'first_name', 'last_name', 'hash')
+    # fist & last names are read-only here,
+    # the user can change the first / lastnames stored in profile, but not this one!
+    readonly_fields = ('hash', 'first_name', 'last_name')
     ordering = ('email', 'is_staff')
     list_filter = (UserFormFilledFilter, UserCategory, 'is_staff',)
