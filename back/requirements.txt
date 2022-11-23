@@ -22,3 +22,4 @@ Pillow # Required for django image field
 django-rest-passwordreset
 requests # for tests mainly
 twilio # For the video calls
+pytest # Are used for the tests in cookie_banner
