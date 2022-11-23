@@ -138,11 +138,15 @@ def create_user(
     # Step 5 Match with admin user
     match_users({get_base_management_user(), usr})
 
-    # Step 5 Notify the user
+    # Step 6 Create a room for the two users!
+    # This allowes them to authenticate twilio rooms for video calls
+    # TODO
+
+    # Step 7 Notify the user
     # TODO set title, description & co...
     usr.notify(title=_("Welcome Notification"))
 
-    # Step 6 Message the user from the admin account
+    # Step 8 Message the user from the admin account
     usr.message(_("Welcome Message..."))
 
 
