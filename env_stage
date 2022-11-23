@@ -3,9 +3,13 @@ DJ_DEBUG=0
 DJ_SECRET_KEY=0i*%m&-$!be0%2_8_g$7o!$#(2nw)p51l^$$j38!q&t9)h!-$t
 DJ_ALLOWED_HOSTS=*
 DJ_CELERY_TIMEZONE=Australia/Tasmania
-DJ_LANGUAGE_CODE=en-us
-DJ_TIME_ZONE=UTC
-FR_FRONTENDS=
+DJ_MANAGEMENT_USER_MAIL=mikeadmin@user.com
+DJ_MANAGEMENT_PW=MikeAdminLookaround123!
+DJ_ADMIN_OPEN_KEYPHRASE=opensesame
+DJ_TWILIO_ACCOUNT_SID=AccSidNotProvidedInDev
+DJ_TWILIO_API_KEY_SID=TwApiKeyNotIncludedDev
+DJ_TWILIO_API_SECRET=TwApiSecretNotIncludedDev
+FR_FRONTENDS=user_form_frontend,main_frontend,cookie_banner_frontend
 # Put static bucked url here in production
 WEBPACK_PUBLIC_PATH=
 # Set to 'none' for production

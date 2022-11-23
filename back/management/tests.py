@@ -1,4 +1,5 @@
 from django.test import TestCase
+from rest_framework.test import RequestsClient
 import json
 from rest_framework.response import Response
 from management.api.trans import get_trans_as_tag_catalogue
@@ -167,12 +168,27 @@ class RegisterTests(TestCase):
         """ Test that user has to verify email before being able to render the app """
         pass  # TODO
 
+    def test_base_admin_created_if_no_users(self):
+        response = self._some_register_call(valid_request_data)
+        assert response.status_code == 200
+        # v-- base managment user should be automaticly created:
+        usr = get_user_by_email(settings.MANAGEMENT_USER_MAIL)
+
+        # would error if the user doesn't exist...
+
+    def test_auto_login_after_register(self):
+        response = self._some_register_call(valid_request_data)
+        assert response.status_code == 200
+        usr = get_user_by_email(valid_create_data["email"])
+        # now if we render /app we should be redirected to /login
+        client = RequestsClient()
+        response = client.get('http://localhost:8000/app')
+        print(response)
+
     def test_mail_verification(self):
         """
         Tests if mail code was generate and we can verify it
         """
-
-    def test_auto_login_after_register(self):
         response = self._some_register_call(valid_request_data)
         assert response.status_code == 200
         usr = get_user_by_email(valid_create_data["email"])

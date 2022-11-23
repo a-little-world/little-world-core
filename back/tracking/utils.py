@@ -41,8 +41,6 @@ def inline_track_event(
     else:
         _kwargs = kwargs
 
-    # print("KWRGS" + str(kwargs) + str(_kwargs))
-
     metadata = {
         "kwargs": str(_kwargs),
         "args": str(args),
@@ -55,7 +53,6 @@ def inline_track_event(
         for a in args:
             str_type = str(type(a)).lower()
             if "request" in str_type:
-                #print("Request type: " + str(a))
                 try:
                     metadata.update(_ip_meta(a))
                 except:
@@ -68,7 +65,7 @@ def inline_track_event(
                         _("traking: could not deterine user"))
 
                 try:
-                    metadata["request_data1"] = a.data
+                    metadata["request_data1"] = dict(a.data)
                     if censor_kwargs:
                         for arg in censor_kwargs:
                             metadata["request_data1"].pop(arg)
@@ -113,16 +110,22 @@ def inline_track_event(
                 _user = caller
         except:
             metadata["usr3"] = str(_user)
+    import json
 
-    Event.objects.create(
+    metadata = {m: str(v) for m, v in metadata.items()}
+
+    _input = dict(
         # `time` is set automaticly
         tags=tags,
         func=f.__name__ if f else "unknown",
         type=event_type,
         name=name,
+        # Adding the default for json.dumps should normaly prevent this from erroring
+        # TODO: we should maybe catch this also though, we could then just write an error event
         metadata=metadata,
         **({'caller': _user} if _user else {})
     )
+    Event.objects.create(**_input)
 
 
 def _dispath_event_tracking(f,

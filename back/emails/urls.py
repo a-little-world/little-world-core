@@ -17,5 +17,9 @@ api_routes = [
 
 urlpatterns = [
     *api_routes,
+    # This always views a template in raw:
     path('emails/<str:mail_name>', ViewEmail.as_view(), name='view_mail'),
+    # This tries to render also the email content:
+    path('emails/<str:mail_name>/<str:mail_params>',
+         ViewEmail.as_view(), name='view_mail_params'),
 ]

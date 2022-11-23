@@ -18,6 +18,10 @@ FRONTENDS = os.environ["FR_FRONTENDS"].split(",")
 MANAGEMENT_USER_MAIL = os.environ["DJ_MANAGEMENT_USER_MAIL"]
 ADMIN_OPEN_KEYPHRASE = os.environ["DJ_ADMIN_OPEN_KEYPHRASE"]
 
+TWILIO_ACCOUNT_SID = os.environ["DJ_TWILIO_ACCOUNT_SID"]
+TWILIO_API_KEY_SID = os.environ["DJ_TWILIO_API_KEY_SID"]
+TWILIO_API_SECRET = os.environ["DJ_TWILIO_API_SECRET"]
+
 """
 Own applications:
 management: for user management and general api usage

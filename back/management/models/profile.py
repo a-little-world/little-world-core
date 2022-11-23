@@ -1,5 +1,5 @@
 from django.db import models
-from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext_lazy as _, gettext_noop
 from phonenumber_field.modelfields import PhoneNumberField
 from back.utils import get_options_serializer
 from datetime import datetime
@@ -7,9 +7,21 @@ from rest_framework import serializers
 from multiselectfield import MultiSelectField
 from back.utils import _double_uuid
 from .user import User
-from ..validators import validate_name, validate_availability
+from ..validators import (
+    validate_availability,
+    get_default_availability,
+    validate_first_name,
+    model_validate_first_name,
+    model_validate_second_name,
+    validate_postal_code,
+    validate_second_name,
+    as_djv  # <-- We can use all rest validators also on our DB models!
+)
 from django.utils.deconstruct import deconstructible
+import sys
 import os
+#from back.utils import tt
+from django.utils.translation import pgettext_lazy
 
 # This can be used to handle changes in the api from the frontend
 PROFILE_MODEL_VERSION = "1"
@@ -53,22 +65,22 @@ class ProfileBase(models.Model):
 
     """
     The first and second name of the user,
-    these are the **only** fields marked with blank=False 
-    cause these are the **only** fields filled on profile creation, 
+    these are the **only** fields marked with blank=False
+    cause these are the **only** fields filled on profile creation,
     others are filled when the user filles the user_form
     """
     first_name = models.CharField(
         max_length=150,
         blank=False,
         default=None,  # Will raise 'IntegrityError' if not passed
-        validators=[validate_name]  # type: ignore
+        validators=[model_validate_first_name]
     )
 
     second_name = models.CharField(
         max_length=150,
         blank=False,
         default=None,
-        validators=[validate_name]  # type: ignore
+        validators=[model_validate_second_name]
     )
 
     birth_year = models.IntegerField(default=1984, blank=True)
@@ -110,7 +122,7 @@ class ProfileBase(models.Model):
         choices=TargetGroupChoices.choices, default=TargetGroupChoices.ANY)
 
     """
-    Prefered partner sex 
+    Prefered partner sex
     """
     class ParterSexChoice(models.IntegerChoices):
         ANY = 0, _("Any sex")
@@ -120,7 +132,7 @@ class ProfileBase(models.Model):
         choices=ParterSexChoice.choices, default=ParterSexChoice.ANY)
 
     """
-    Which medium the user preferes for  
+    Which medium the user preferes for
     """
     class SpeechMediumChoices(models.IntegerChoices):
         ANY = 0, _("Any medium")
@@ -130,7 +142,7 @@ class ProfileBase(models.Model):
         choices=SpeechMediumChoices.choices, default=SpeechMediumChoices.ANY)
 
     """
-    where people want there match to be located 
+    where people want there match to be located
     """
     class ConversationPartlerLocation(models.IntegerChoices):
         ANYWHERE = 0, _("Location Anywhere")
@@ -140,30 +152,34 @@ class ProfileBase(models.Model):
         choices=ConversationPartlerLocation.choices, default=ConversationPartlerLocation.ANYWHERE)
 
     """
-    Postal code, char so we support international code for the future 
+    Postal code, char so we support international code for the future
     """
     postal_code = models.CharField(max_length=255, blank=True)
 
     class InterestChoices(models.IntegerChoices):
-        SPORT = 0, _("Sport (interest)")
-        ART = 1, _("Art (interest)")
-        MUSIC = 2, _("Music (interest)")
-        LITERATURE = 3, _("Literature (interest)")
-        VIDEO = 4, _("Movies (interest)")
-        FASHION = 5, _("Fashion (interest)")
-        KULTURE = 6, _("Culture (interest)")
-        TRAVEL = 7, _("Travel (interest)")
-        FOOD = 8, _("Food (interest)")
-        POLITICS = 9, _("Politics (interest)")
-        NATURE = 10, _("Nature (interest)")
-        SCIENCE = 11, _("Science (interest)")
-        TECHNOLOGIE = 12, _("Technology (interest)")
-        HISTORY = 13, _("History (interest)")
-        RELIGION = 14, _("Religion (interest)")
-        SOZIOLOGIE = 15, _("Sociology (interest)")
-        FAMILY = 16, _("Family (interest)")
-        PSYCOLOGY = 17, _("Psycology (interest)")
-        PERSON_DEV = 18, _("Personal development (interest)")
+        SPORT = 0, pgettext_lazy("profile.sport-interest", "Sport")
+        ART = 1, pgettext_lazy("profile.art-interest", "Art")
+        MUSIC = 2, pgettext_lazy("profile.music-interest", "Music")
+        LITERATURE = 3, pgettext_lazy(
+            "profile.literature-interest", "Literature")
+        VIDEO = 4, pgettext_lazy("profile.video-interest", "Video")
+        FASHION = 5, pgettext_lazy("profile.fashion-interest", "Fashion")
+        KULTURE = 6, pgettext_lazy("profile.culture-interest", "Culture")
+        TRAVEL = 7, pgettext_lazy("profile.travel-interest", "Travel")
+        FOOD = 8, pgettext_lazy("profile.food-interest", "Food")
+        POLITICS = 9, pgettext_lazy("profile.politics-interest", "Politics")
+        NATURE = 10, pgettext_lazy("profile.nature-interest", "Nature")
+        SCIENCE = 11, pgettext_lazy("profile.science-interest", "Science")
+        TECHNOLOGIE = 12, pgettext_lazy("profile.tech-interest", "Technology")
+        HISTORY = 13, pgettext_lazy("profile.history-interest", "History")
+        RELIGION = 14, pgettext_lazy("profile.religion-interest", "Religion")
+        SOZIOLOGIE = 15, pgettext_lazy(
+            "profile.soziologie-interest", "Sociology")
+        FAMILY = 16, pgettext_lazy("profile.family-interest", "Family")
+        PSYCOLOGY = 17, pgettext_lazy(
+            "profile.psycology-interest", "Psycology")
+        PERSON_DEV = 18, pgettext_lazy(
+            "profile.pdev-interest", "Personal development")
 
     interests = MultiSelectField(
         choices=InterestChoices.choices, max_choices=20, max_length=20, blank=True)  # type: ignore
@@ -175,7 +191,7 @@ class ProfileBase(models.Model):
     Be aware of the validate_availability
     """
     availability = models.JSONField(
-        null=True, blank=True,
+        null=True, blank=True, default=get_default_availability,
         validators=[validate_availability])  # type: ignore
 
     class LiabilityChoices(models.IntegerChoices):
@@ -193,8 +209,10 @@ class ProfileBase(models.Model):
 
     phone_mobile = PhoneNumberField(blank=True, unique=False)
 
-    description = models.TextField(default="", blank=True)
-    language_skill_description = models.TextField(default="", blank=True)
+    description = models.TextField(
+        default="", blank=True, max_length=300)
+    language_skill_description = models.TextField(
+        default="", blank=True, max_length=300)
 
     class LanguageLevelChoices(models.IntegerChoices):
         A1 = 0, _("Level 0 (egal)")
@@ -230,7 +248,7 @@ def _date_string():
 
 class ProfileAtMatchRequest(ProfileBase):
     """
-    This model is created everytime a users request a match 
+    This model is created everytime a users request a match
     It basicly stores a full copy of the profile when the user asks for a match
     """
     user = models.ForeignKey(
@@ -265,13 +283,35 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 
 class SelfProfileSerializer(ProfileSerializer):
-
     class Meta:
         model = Profile
         fields = ['first_name', 'second_name', 'target_group', 'speech_medium',
                   'user_type', 'target_group', 'partner_sex', 'speech_medium',
-                  'partner_location', 'postal_code', 'interests', 'availability', 'lang_level', 'additional_interests', 'language_skill_description', 'birth_year', 'description',
+                  'partner_location', 'postal_code', 'interests', 'availability',
+                  'lang_level', 'additional_interests', 'language_skill_description', 'birth_year', 'description',
                   'notify_channel', 'phone_mobile', 'profile_image_type', 'profile_avatar_config', 'profile_image']
+
+        extra_kwargs = dict(
+            language_skill_description={
+                "error_messages": {
+                    'max_length': pgettext_lazy("profile.lskill-descr-to-long", "must have a maximum of 300 characters"),
+                }
+            },
+            description={
+                "error_messages": {
+                    'max_length': pgettext_lazy("profile.descr-to-long", "must have a maximum of 300 characters"),
+                }
+            }
+        )
+
+    def validate_postal_code(self, value):
+        return validate_postal_code(value)
+
+    def validate_description(self, value):
+        if len(value) < 10:  # TODO: higher?
+            raise serializers.ValidationError(
+                pgettext_lazy("profile.descr-to-short", "must have at least 10 characters"))
+        return value
 
 
 class CensoredProfileSerializer(SelfProfileSerializer):

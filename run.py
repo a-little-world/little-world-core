@@ -687,7 +687,7 @@ def _action_by_alias(alias):
         raise Exception(f"Action or alias '{alias}' not found")
 
 
-@ contextlib.contextmanager
+@contextlib.contextmanager
 def _conditional_wrap(cond, before, after):
     """
     allowes for if with statements

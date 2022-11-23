@@ -55,7 +55,7 @@ def get_user_by_email(email):
     return __user_get_catch(email=email)
 
 
-def get_user_by_hash(hash):
+def get_user_by_hash(hash) -> User:
     # TODO: here i'm assuming that .get return only one object and throws an error if there are multiple
     return __user_get_catch(hash=hash)
 
@@ -125,8 +125,7 @@ def create_user(
                 subject="undefined",  # TODO set!
                 mail_data=mails.get_mail_data_by_name("welcome"),
                 mail_params=mails.WelcomeEmailParams(
-                    first_name=usr.profile.first_name,
-                    second_name=usr.profile.first_name,
+                    first_name=usr.profile.first_name,  # type: ignore
                     verification_code=""
                 )
             )
@@ -139,11 +138,15 @@ def create_user(
     # Step 5 Match with admin user
     match_users({get_base_management_user(), usr})
 
-    # Step 5 Notify the user
+    # Step 6 Create a room for the two users!
+    # This allowes them to authenticate twilio rooms for video calls
+    # TODO
+
+    # Step 7 Notify the user
     # TODO set title, description & co...
     usr.notify(title=_("Welcome Notification"))
 
-    # Step 6 Message the user from the admin account
+    # Step 8 Message the user from the admin account
     usr.message(_("Welcome Message..."))
 
 
