@@ -55,7 +55,7 @@ def get_user_by_email(email):
     return __user_get_catch(email=email)
 
 
-def get_user_by_hash(hash):
+def get_user_by_hash(hash) -> User:
     # TODO: here i'm assuming that .get return only one object and throws an error if there are multiple
     return __user_get_catch(hash=hash)
 
@@ -125,8 +125,7 @@ def create_user(
                 subject="undefined",  # TODO set!
                 mail_data=mails.get_mail_data_by_name("welcome"),
                 mail_params=mails.WelcomeEmailParams(
-                    first_name=usr.profile.first_name,
-                    second_name=usr.profile.first_name,
+                    first_name=usr.profile.first_name,  # type: ignore
                     verification_code=""
                 )
             )
