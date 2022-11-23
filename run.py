@@ -157,6 +157,8 @@ def _docker_images(repo=TAG, tag=None):
 def attach(args):
     """ Attach to running container instances """
     ps = _list_running_instances(args)
+    # v-- we generaly only every want to attach to a backend
+    ps = [p for p in ps if '_back' in p['Image']]
     assert len(ps) == 1, "where to attach? please specify -i " + \
         "\"{'ID':'...'}\""
     subprocess.run(["docker", "container", "attach", ps[0]["ID"]
