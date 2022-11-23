@@ -21,6 +21,9 @@ jobs:
     name: Build & Run tests
     steps:
       - uses: actions/checkout@master
+        with:
+          token: ${{ secrets.BOT_PAT }}
+          submodules: recursive
       - name: Build Image
         shell: 'script -q -e -c "bash {0}"'
         run: python3 run.py build # Only build the docker container on CI
