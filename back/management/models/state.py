@@ -60,10 +60,11 @@ class State(models.Model):
         default=datetime.now)
 
     class UserCategoryChoices(models.IntegerChoices):
-        UNDEFINED = 0, _("Undefined (user-c)")
-        SPAM = 1, _("Spam (user-c)")
-        LEGIT = 2, _("Legit (user-c)")
-        TEST = 3, _("Test (user-c)")
+        # For this we can use the default translations '_()'
+        UNDEFINED = 0, _("Undefined")
+        SPAM = 1, _("Spam")
+        LEGIT = 2, _("Legit")
+        TEST = 3, _("Test")
     user_category = models.IntegerField(
         choices=UserCategoryChoices.choices, default=UserCategoryChoices.UNDEFINED)
 
