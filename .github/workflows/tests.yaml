@@ -34,7 +34,7 @@ jobs:
       - name: Run Tests
         shell: 'script -q -e -c "bash {0}"'
         # Runns 'manage.py' test in the container
-        run: python3 run.py ma test
+        run: python3 run.py run_django_tests
       - name: Build Image
         shell: 'script -q -e -c "bash {0}"'
         # Kill everything we are done

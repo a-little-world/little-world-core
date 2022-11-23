@@ -117,6 +117,7 @@ def _setup(args):
         subprocess.run(_cmd)
         if not args.on_ci:
             # For GH action there is no need to build frontends!
+            # We only
             build_front(args)
 
         with open(complete_file, "w") as file:
@@ -189,7 +190,7 @@ def _kill_tag(tag):
         subprocess.run(_c)
 
 
-def _run_in_running(dev, commands, backend=True, capture_out=False, work_dir=None):
+def _run_in_running(dev, commands, backend=True, capture_out=False, work_dir=None, fail=False):
     """
     Runns command in a running container.
     Per default this looks for a backend container.
@@ -199,10 +200,10 @@ def _run_in_running(dev, commands, backend=True, capture_out=False, work_dir=Non
         commands=commands,
         tag=(c.dtag if dev else c.ptag) if backend else FRONT_TAG,
         capture_out=capture_out,
-        work_dir=work_dir)
+        work_dir=work_dir, fail=fail)
 
 
-def _run_in_running_tag(commands, tag, capture_out=False, work_dir=None, extra_docker_cmd=[]):
+def _run_in_running_tag(commands, tag, capture_out=False, work_dir=None, extra_docker_cmd=[], fail=False):
     """
     Runns command in a running container, with a specific tag
     """
@@ -211,7 +212,7 @@ def _run_in_running_tag(commands, tag, capture_out=False, work_dir=None, extra_d
     _cmd = ["docker", "exec",
             *(["-w", work_dir] if work_dir else []), *extra_docker_cmd, "-it", ps[0]["ID"], *commands]
     if not capture_out:
-        subprocess.run(" ".join(_cmd), shell=True)
+        subprocess.run(" ".join(_cmd), shell=True, check=fail)
     else:
         return str(subprocess.run(_cmd, **subprocess_capture_out).stdout)
 
@@ -346,6 +347,11 @@ def build(args):
     if not _is_dev(args):
         raise NotImplementedError
     _build_file_tag(c.file[1], c.dtag if _is_dev(args) else c.ptag)
+
+
+@register_action(alias=["tests"], cont=True)
+def run_django_tests(args):
+    _run_in_running(_is_dev(args), ["python3", "manage.py", "test"], fail=True)
 
 
 @register_action(alias=["static", "collectstatic"], cont=True)
