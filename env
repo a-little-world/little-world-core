@@ -3,7 +3,6 @@ DJ_DEBUG=1
 DJ_SECRET_KEY=0i*%m&-$!be0%2_8_g$7o!$#(2nw)p51l^$$j38!q&t9)h!-$t
 DJ_ALLOWED_HOSTS=*
 DJ_CELERY_TIMEZONE=Australia/Tasmania
-DJ_LANGUAGE_CODE=en-us
 DJ_TIME_ZONE=UTC
 DJ_MANAGEMENT_USER_MAIL=admin@user.com
 DJ_MANAGEMENT_PW=Admin123!

@@ -1,7 +1,9 @@
 from django.db import models
 from back import utils
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy as _
+from django.conf import settings
 from rest_framework import serializers
+from asgiref.sync import async_to_sync
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 
 
@@ -48,11 +50,13 @@ class UserManager(BaseUserManager):
     def create_superuser(self, email, password, **kwargs):
         kwargs["is_staff"] = True
         kwargs["is_superuser"] = True
-        kwargs["first_name"] = kwargs.get(
-            "first_name", "adminuserwastolazytosetfirstname")
-        kwargs["last_name"] = kwargs.get(
-            "second_name", "adminuserwastolazytosetsecondname")
-        return self._create_user(email=email, password=password, **kwargs)
+        kwargs["first_name"] = kwargs.pop("first_name")
+        kwargs["last_name"] = kwargs.pop("second_name")
+        usr = self._create_user(email=email, password=password, **kwargs)
+
+        # Superuses cant be bothered to verify their email:
+        usr.state.check_email_auth_pin(usr.state.email_auth_pin)
+        return usr
 
 
 class User(AbstractUser):
@@ -124,26 +128,49 @@ class User(AbstractUser):
         this would ofcourse require these user to have a related dialog object
         """
         from ..controller import get_base_management_user
+        from chat.django_private_chat2.consumers.db_operations import save_text_message
         if not sender:
             sender = get_base_management_user()
 
-        pass  # TODO implement
+        async_to_sync(save_text_message)(msg, sender, self)
+
+    def send_email(self,
+                   subject: str,
+                   mail_data,  # Can't really typecheck MailMeta when
+                   # I'm importing below TODO this can be fixed
+                   mail_params: object,
+                   attachments=[]):
+        # Just a wrapper for emails.mails.send_email
+        # Send to a user by usr.send_email(...)
+        from emails.mails import send_email, MailMeta
+        recivers = [self.email]
+        send_email(
+            subject=subject,
+            recivers=recivers,
+            mail_data=mail_data,
+            mail_params=mail_params,
+            attachments=attachments
+        )
 
 
 class UserSerializer(serializers.ModelSerializer):
+    is_admin = serializers.SerializerMethodField()
+
+    def get_is_admin(self, obj):
+        return obj.is_staff
 
     class Meta:
         model = User
         fields = '__all__'
 
 
-class SelfUserSerializer(serializers.ModelSerializer):
+class SelfUserSerializer(UserSerializer):
     class Meta:
         model = User
         fields = ["email", "hash"]
 
 
-class CensoredUserSerializer(serializers.ModelSerializer):
+class CensoredUserSerializer(UserSerializer):
     class Meta:
         model = User
-        fields = ["hash"]
+        fields = ["hash", "is_admin"]

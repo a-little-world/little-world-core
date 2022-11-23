@@ -11,12 +11,21 @@ We are adding all app urls under `'/'` their paths should be set under `<app>/ur
 Admin paths registered last
 """
 
+statics = [
+    *static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT),
+    *static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+]
+
 urlpatterns = [
     path('', include(('management.urls', 'management'), namespace="management")),
     path('', include('emails.urls')),
+    path('', include('tracking.urls')),
     path('admin/', admin.site.urls),
     path("cookies/", include("cookie_consent.urls")),
-] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    path("", include("chat.django_private_chat2.urls")),
+
+    *statics
+]
 
 
 if settings.BUILD_TYPE in ['staging', 'development']:

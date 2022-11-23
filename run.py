@@ -26,9 +26,10 @@ class c:
     vmount = [
         "-v", f"{os.getcwd()}/back:/back",
         "-v", f"{os.getcwd()}/front:/front"]
+    host_routes = ["--add-host=host.docker.internal:host-gateway"]
     denv = ["--env-file", "./env"]
     penv = ["--env-file", "./penv"]
-    shell = "/bin/bash"
+    shell = "sh"
     redis_port = ["-p", "6379:6379"]
 
     # Frontend container stuff
@@ -78,7 +79,7 @@ def _parser():
         '-i', '--input', help="Input file (or data) required by some actions")
 
     # default actions required by tim_cli_utils (TODO: they should be moved there)
-    parser.add_argument('actions', metavar='A', type=str, default=[
+    parser.add_argument('actions', metavar='A', type=str, default=["_setup",
                         "build", "static", "migrate", "run"], nargs='*', help='action')
     parser.add_argument('-s', '--silent', action="store_true",
                         help="Mute all output exept what is required")
@@ -95,13 +96,28 @@ def _is_dev(a):
     return "dev" in a.btype
 
 
+@register_action(name="setup_repos_containers", alias=["update", "_setup"], cont=True)
 def _setup(args):
-    """ 
+    """
     # If you clone this repo with: `git clone --recurse-submodules -j8 git://github.com/foo/bar.git` there is no need to install submodules
     setups up the whole installation:
     - clone all submodules
-    """  # TODO: finish
-    _cmd = ["git", "submodule", "init"]
+    - build frontend containers ( so basicly npm install all the packages in there )
+    - load default database fixture TODO
+
+    Generaly this has to be done only once, you can re-invoke this by running 'update' or delete `.run.py.setup_complete`
+    """
+    from datetime import datetime
+    complete_file = ".run.py.setup_complete"
+    if not os.path.exists(complete_file) or ["update"] in args.actions:
+        _cmd = ["git", "submodule", "update", "--init", "--recursive"]
+        subprocess.run(_cmd)
+        build_front(args)
+
+        with open(complete_file, "w") as file:
+            file.write(datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
+    else:
+        print("Setup already run! If you want to updated submodules or frontend packages run ./run.py update")
 
 
 @register_action(name="list_running", alias=["ps"])
@@ -141,6 +157,8 @@ def _docker_images(repo=TAG, tag=None):
 def attach(args):
     """ Attach to running container instances """
     ps = _list_running_instances(args)
+    # v-- we generaly only every want to attach to a backend
+    ps = [p for p in ps if '_back' in p['Image']]
     assert len(ps) == 1, "where to attach? please specify -i " + \
         "\"{'ID':'...'}\""
     subprocess.run(["docker", "container", "attach", ps[0]["ID"]
@@ -223,8 +241,8 @@ def loaddata(args):
 
 @register_action(alias=["m"], cont=True)
 def migrate(args, running=False):
-    """ 
-    Migrate db inside docker container 
+    """
+    Migrate db inside docker container
     you can call this in code with running=True and it will not start and kill the container
     """
     with _conditional_wrap(not running,  # If the containers isn't running we will have to start it
@@ -335,6 +353,71 @@ def extract_static(args, running=False):
                         "collectstatic", "--noinput"])
 
 
+@register_action(alias=["makemessages"], cont=False, parse_own_args=True)
+def make_messages(args, running=False):
+    """
+    Make translation messages for an specific app
+    So this basicly scans a python app for _(), or gettext ...
+    And creates accoring <app>/locale/<langs>/LC_MESSAGES/django.po
+    (<langs>) is determined from back/back/settings.py
+    """
+    assert len(
+        args.unknown) >= 1, "Provied <app> the app you want to make translation messages for"
+    _run_in_running(_is_dev(args), [
+                    "python3", "../manage.py", "makemessages", *(["-a"] if len(args.unknown) == 1 else [*args.unknown[1:]])], work_dir=f"/back/{args.unknown[0]}")
+    import glob  # Yeah we require glob here but not to many people wanna make translations so not everybody needs this
+    all_locale = [a for a in glob.glob(
+        f"./back/{args.unknown[0]}/locale/*/*/*") if a.endswith(".po")]
+    print("Updated: ", all_locale)
+    # Now this smartly auto populates the 'tag' language
+    # This will use pgettext(context, string) everywher where we wan't a context tag!
+    # For all these translations we can auto detemine the 'tag'
+    import polib  # Note if you don't need this step you can comment this out and wont be required to install polib
+    import string
+    for pofile in all_locale:
+        if pofile.startswith(f"./back/{args.unknown[0]}/locale/tag"):
+            print("Parsing: ", pofile)
+            po = polib.pofile(pofile)
+            valid_entries = [e for e in po if not e.obsolete]
+            for entry in valid_entries:
+                if hasattr(entry, "msgctxt") and entry.msgctxt is not None:
+                    print(entry.msgctxt, entry.msgid, entry.msgstr)
+                    # There might be python formaters in the string!
+                    # We could ignore them, but I'll just patch them in!
+                    required_formatting = ["{%s}" % arg for arg in list(
+                        string.Formatter().parse(entry.msgid))[0][1:] if arg != "" and arg is not None]
+                    entry.msgstr = entry.msgctxt
+                    if required_formatting:
+                        entry.msgstr += "|" + ",".join(required_formatting)
+                        pass
+                    print("---> ", entry.msgctxt, entry.msgid, entry.msgstr)
+            po.save()
+
+
+@ register_action(alias=["trans"], cont=True)
+def translate(args, running=False):
+    """
+    This comiles the messages then extracts statics
+    Basicly runs manage.py compilemessages
+    We use '--use-fuzzy' by default, cause we wan't to easly change the english translation in code
+    """
+    _run_in_running(
+        _is_dev(args), ["python3", "manage.py", "compilemessages", "--use-fuzzy"])
+    extract_static(args, running=True)
+
+
+@ register_action(alias=["open_translation"], cont=True)
+def open_trans(args):
+    """
+        Opens  atranslation file
+        Expects -i <app-name>.<lang>
+    """
+    assert args.input
+    app, lang = args.input.split(".")
+    _cmd = ["code", "-r", f"./back/{app}/locale/{lang}/LC_MESSAGES/django.po"]
+    subprocess.run(_cmd)
+
+
 def _make_webpack_command(env, config, debug: bool, watch: bool):
     _cmd = [
         './node_modules/.bin/webpack',
@@ -347,10 +430,10 @@ def _make_webpack_command(env, config, debug: bool, watch: bool):
     return _cmd
 
 
-@register_action(alias=["uf"], cont=True)
+@ register_action(alias=["uf"], cont=True)
 def update_front(args):
-    """ 
-    only to be run when frontends are build 
+    """
+    only to be run when frontends are build
     you can use '-i' to specify a specifc frontend
     """
 
@@ -368,7 +451,7 @@ def update_front(args):
     kill(args, back=False)  # Kill the frontend container
 
 
-@register_action(alias=["fb", "bf"], cont=True)
+@ register_action(alias=["fb", "bf"], cont=True)
 def build_front(args):
     """
     Builds the frontends
@@ -456,7 +539,7 @@ def build_front(args):
     kill(args, back=False)
 
 
-@register_action(alias=["watch"], cont=False)
+@ register_action(alias=["watch"], cont=False)
 def watch_frontend(args):
     assert args.input, "please input a active frontend: " + \
         str(_env_as_dict(c.denv[1])["FR_FRONTENDS"].split(","))
@@ -477,7 +560,7 @@ def watch_frontend(args):
     _run_in_running(_is_dev(args), _cmd, backend=False)
 
 
-@register_action(alias=["rds", "rd", "redis-server"])
+@ register_action(alias=["rds", "rd", "redis-server"])
 def redis(args):
     """
     Runs a local instance of `redis-server` ( required for the chat )
@@ -488,7 +571,7 @@ def redis(args):
     subprocess.run(_cmd)
 
 
-@register_action(alias=["r"])
+@ register_action(alias=["r"])
 def run(args):
     """
     Running the docker image, this requires a build image to be present.
@@ -500,12 +583,12 @@ def run(args):
     return _run(dev=_is_dev(args), background=args.background)
 
 
-def _run_tag_env(tag, env, mounts=[], background=False):
+def _run_tag_env(tag, env, mounts=[], background=False, add_host_route=False):
     """
     Some variations on `docker run` for interactive / passive container control
     """
-    _cmd = [*c.drun, "--env-file", env, *mounts,
-            *c.port, "-d" if background else "-t", tag]
+    _cmd = [*c.drun, "--env-file", env, *mounts, *(c.host_routes if add_host_route else []),
+            * c.port, "-d" if background else "-t", tag]
     print(" ".join(_cmd))
     if background:
         subprocess.run(_cmd)
@@ -518,16 +601,14 @@ def _run_tag_env(tag, env, mounts=[], background=False):
 
 
 def _run(dev=True, background=False):
-    _cmd = [*c.drun, *(c.denv if dev else c.penv), *c.vmount,
-            *c.port, "-d" if background else "-t", c.dtag if dev else c.ptag]
     _run_tag_env(tag=c.dtag if dev else c.ptag, env=(
-        c.denv if dev else c.penv)[1], mounts=c.vmount, background=background)
+        c.denv if dev else c.penv)[1], mounts=c.vmount, background=background, add_host_route=True)
 
     # we print this mainly for port forwarding in codespaces:
     print("Running at localhost:8000 ")
 
 
-@register_action(alias=["ma", "manage", "manage.py"], parse_own_args=True)
+@ register_action(alias=["ma", "manage", "manage.py"], parse_own_args=True)
 def manage_command(args):
     """ runns a manage.py command inside the container """
     assert args.unknown
@@ -535,7 +616,7 @@ def manage_command(args):
     _run_in_running(_is_dev(args), ["python3", "manage.py", *_cmd])
 
 
-@register_action(alias=["ma_shell_inject"])
+@ register_action(alias=["ma_shell_inject", "inject"])
 def inject_shell(args):
     """ Injects a script into the python management shell """
     assert args.input, "Please provide a shell script input file"
@@ -553,10 +634,10 @@ def inject_shell(args):
     _run_in_running(_is_dev(args), _cmd)
 
 
-@register_action(name="build_docs", alias=["docs"])
+@ register_action(name="build_docs", alias=["docs"])
 def build_docs(args):
-    """ 
-    Can build the spinix documentation inside the docker container 
+    """
+    Can build the spinix documentation inside the docker container
     Note: This assumes you have already build the docker backend container
     """
     assert _is_dev(args), "Can only build docs in development mode"
@@ -566,24 +647,36 @@ def build_docs(args):
     _cmd = [*c.drun, *c.denv, *c.vmount_spinix, *c.port, "-d", c.tag_spinix]
     print(" ".join(_cmd))
     subprocess.run(_cmd)
-    #_run_in_running_tag(["make", "html"], tag=c.tag_spinix, work_dir="/docs")
+    # _run_in_running_tag(["make", "html"], tag=c.tag_spinix, work_dir="/docs")
     _run_in_running_tag(["sh"], tag=c.tag_spinix)
     # copy the output files
     shutil.copytree("./_docs/build/html", "./docs")
     _kill_tag(c.tag_spinix)
 
 
-@register_action()
+@ register_action()
 def reset_migrations(args):
+    """
+    Deltes all migration files appart from the __init__.py
+    You can call ./run.py rest_migrations -i git to register deleted files with git
+    """
     import glob  # This one required glob to be installed
     select_paths = [*glob.glob(f"{os.getcwd()}/back/*/migrations/*"),
                     *glob.glob(f"{os.getcwd()}/back/*/*/migrations/*")]
+    # otherwise cause of symlink cookie_consent would be considered twice:
+    select_paths = [p for p in select_paths if not "_cookie_consent_repo" in p]
     migration_files = [p for p in select_paths if not (
         '__init__.py' in p or '__pycache__' in p)]
     print(f"Deleting migrations files: {migration_files}")
-    for p in migration_files:
-        print(f"del: {p}")
-        os.remove(p)
+    if args.input and args.input == "git":
+        for p in migration_files:
+            _cmd = ["git", "rm", "-f", p]
+            print(f"del: {' '.join(_cmd)}")
+            subprocess.run(_cmd)
+    else:
+        for p in migration_files:
+            print(f"del: {p}")
+            os.remove(p)
 
 
 def _action_by_alias(alias):
@@ -594,11 +687,11 @@ def _action_by_alias(alias):
         raise Exception(f"Action or alias '{alias}' not found")
 
 
-@contextlib.contextmanager
+@ contextlib.contextmanager
 def _conditional_wrap(cond, before, after):
-    """ 
-    allowes for if with statements 
-    if contidion = True it will execute before before and after after 
+    """
+    allowes for if with statements
+    if contidion = True it will execute before before and after after
     """
     if cond:
         before()

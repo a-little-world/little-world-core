@@ -8,6 +8,15 @@ import os
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "back.settings")
 django_asgi_app = get_asgi_application()
 
+
+def get_urls_patterns():
+    from chat.django_private_chat2 import urls
+    return urls.websocket_urlpatterns
+
+
 application = ProtocolTypeRouter({
     "http": django_asgi_app,
+    "websocket": AuthMiddlewareStack(
+        URLRouter(get_urls_patterns())
+    ),
 })

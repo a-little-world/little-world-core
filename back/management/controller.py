@@ -5,7 +5,7 @@ e.g.: Creating a new user, sending a notification to a users etc...
 from .models import User
 from django.conf import settings
 from .models import UserSerializer, User, Profile, State, Settings
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy as _
 from emails import mails
 from tracking import utils
 from tracking.models import Event
@@ -119,16 +119,20 @@ def create_user(
 
     # Step 4 send mail
     if send_verification_mail:
-        mails.send_email(
-            recivers=[email],
-            subject="undefined",  # TODO set!
-            mail_data=mails.get_mail_data_by_name("welcome"),
-            mail_params=mails.WelcomeEmailParams(
-                first_name=usr.profile.first_name,
-                second_name=usr.profile.first_name,
-                verification_code=""
+        try:
+            mails.send_email(
+                recivers=[email],
+                subject="undefined",  # TODO set!
+                mail_data=mails.get_mail_data_by_name("welcome"),
+                mail_params=mails.WelcomeEmailParams(
+                    first_name=usr.profile.first_name,
+                    second_name=usr.profile.first_name,
+                    verification_code=""
+                )
             )
-        )
+        except:
+            # TODO: actualy return an error and log this
+            print("Email sending failed!")
     else:
         print("Not sending verification mail!")
 
@@ -150,21 +154,44 @@ def create_user(
     tags=["backend", "function", "db"])
 def match_users(users: set, send_notification=True, send_message=True, send_email=True):
     """ Accepts a list of two users to match """
+    from chat.django_private_chat2.models import DialogsModel
+
     assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
-    usrs = list(users)
-    usr1, usr2 = usrs
+    usr1, usr2 = list(users)
     usr1.match(usr2)
     usr2.match(usr1)
+
+    # After the users are registered as matches we still need to create a dialog for them
+    DialogsModel.create_if_not_exists(usr1, usr2)
 
     if send_notification:
         usr1.notify(title=_("New match: %s" % usr2.profile.first_name))
         usr2.notify(title=_("New match: %s" % usr1.profile.first_name))
 
     if send_message:
-        pass  # TODO
+        # Sends a message from the admin model
+        usr1.message(_("New match found! Checkout %s's profile now" %
+                     usr2.profile.first_name))
+        usr2.message(_("New match found! Checkout %s's profile now" %
+                     usr1.profile.first_name))
 
     if send_email:
-        pass  # TODO
+        usr1.send_email(
+            subject="undefined",  # TODO set!
+            mail_data=mails.get_mail_data_by_name("match"),
+            mail_params=mails.MatchMailParams(
+                first_name=usr1.profile.first_name,
+                match_first_name=usr2.profile.first_name
+            )
+        )
+        usr2.send_email(
+            subject="undefined",  # TODO set!
+            mail_data=mails.get_mail_data_by_name("match"),
+            mail_params=mails.MatchMailParams(
+                first_name=usr2.profile.first_name,
+                match_first_name=usr1.profile.first_name
+            )
+        )
 
 
 def unmatch_users(users: set):
@@ -187,7 +214,7 @@ def get_base_management_user():
             password=os.environ['DJ_MANAGEMENT_PW'],
             first_name=os.environ.get(
                 'DJ_MANAGEMENT_FIRST_NAME', 'Support'),
-            last_name=os.environ.get(
+            second_name=os.environ.get(
                 'DJ_MANAGEMENT_SECOND_NAME', 'User'),
         )
         print("BASE ADMIN USER CREATED!")

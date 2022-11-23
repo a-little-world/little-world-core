@@ -16,6 +16,7 @@ from django.views.decorators.vary import vary_on_cookie, vary_on_headers
 from rest_framework import serializers
 from rest_framework.throttling import UserRateThrottle
 from dataclasses import dataclass
+from back.utils import transform_add_options_serializer
 from rest_framework.permissions import IsAuthenticated
 from django.core.paginator import Paginator
 from ..models import (
@@ -24,7 +25,8 @@ from ..models import (
     UserSerializer, SelfUserSerializer,
     StateSerializer, SelfStateSerializer,
     CensoredUserSerializer,
-    CensoredProfileSerializer
+    CensoredProfileSerializer,
+    SelfSettingsSerializer
 )
 
 from ..controller import get_user_models
@@ -41,8 +43,10 @@ self_serializers = {
     "user": SelfUserSerializer,
     "profile": SelfProfileSerializer,
     "state": SelfStateSerializer,
-    "_notifications": SelfNotificationSerializer
-    # "settings" # TODO create
+    # Serializers with '_' wont be included in the standart user data serialization
+    # --> notifications for example are handled and paginated seperately
+    "_notifications": SelfNotificationSerializer,
+    "settings": SelfSettingsSerializer
 }
 
 admin_serializers = {
@@ -51,6 +55,7 @@ admin_serializers = {
     "state": StateSerializer,
     "_notifications": NotificationSerializer
 }
+
 # For 'other' users
 other_serializers = {
     "user": CensoredUserSerializer,
@@ -95,12 +100,8 @@ def get_user_data(user, is_self=False, admin=False, include_options=False):
         # This is a simple hack to create a clone of the standart serializer that included the 'options' field
         _serializers = _serializers.copy()
         for _model in ["profile", "state"]:
-            class WOptionSerializer(_serializers[_model]):  # type: ignore
-                class Meta:
-                    model = deepcopy(_serializers[_model].Meta.model)
-                    fields = [
-                        *deepcopy(_serializers[_model].Meta.fields), "options"]
-            _serializers[_model] = WOptionSerializer
+            _serializers[_model] = transform_add_options_serializer(
+                _serializers[_model])
     models = get_user_models(user)  # user, profile, state
     return {k: _serializers[k](models[k]).data for k in _serializers if not k.startswith("_")}
 
@@ -114,7 +115,7 @@ def get_matches_paginated(user, admin=False,
     """
 
     pages = Paginator(user.get_matches(), paginate_by).page(page)
-    return [get_user_data(user, is_self=False, admin=admin) for p in pages]
+    return [get_user_data(p, is_self=False, admin=admin) for p in pages]
 
 
 def get_notifications_paginated(user,
@@ -132,9 +133,9 @@ def get_notifications_paginated(user,
 class SelfInfo(APIView):
     authentication_classes = [authentication.SessionAuthentication]
     permission_classes = [permissions.IsAuthenticated]
-    """ simple api to fetch your own user info """
 
     def get(self, request, format=None):
+        """ simple api to fetch your own user info """
         return Response(get_user_data(request.user, is_self=True))
 
 

@@ -1,6 +1,7 @@
 import random
 from uuid import uuid4
 from rest_framework.metadata import SimpleMetadata
+from copy import deepcopy
 
 VERSION = 1
 
@@ -14,8 +15,8 @@ def _double_uuid():
     return str(uuid4()) + "-" + str(uuid4())
 
 
-def _rand_int6():
-    return random.randint(100000, 999999)
+def _rand_int5():
+    return random.randint(10000, 99999)
 
 
 def get_options_serializer(self, obj):
@@ -25,7 +26,7 @@ def get_options_serializer(self, obj):
         # Per default we only send 'options' for choice fields
         # This keeps the overhead low and doesn't expose any unnecessary model information
         _f = dataG.get_field_info(v)
-        if "type" in _f and _f["type"] == "choice":
+        if "type" in _f and (_f["type"] == "choice" or _f["type"] == "multiple choice"):
             _t_choices = []
             for choice in _f["choices"]:
                 # We do assume that models.IntegerChoices is used
@@ -34,3 +35,12 @@ def get_options_serializer(self, obj):
                     {"tag": choice["display_name"], "value": choice["value"]})
                 d[k] = _t_choices
     return d
+
+
+def transform_add_options_serializer(serializer):
+    class WOptionSerializer(serializer):  # type: ignore
+        class Meta:
+            model = deepcopy(serializer.Meta.model)
+            fields = [
+                *deepcopy(serializer.Meta.fields), "options"]
+    return WOptionSerializer

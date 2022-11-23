@@ -15,8 +15,11 @@
 </body>
 {% render_bundle 'staticfiles' 'js' 'user_form_frontend' %}
 <script>
-    const extraKwargs = JSON.parse('{{ kwargs | escapejs }}');
-    render_app({ byName : "{{ app_name }}", ...extraKwargs})
+    const tmpData = '{{ kwargs | escapejs }}';
+    const extraKwargs = tmpData !== '' ? JSON.parse(tmpData) : {};
+    const appName = "{{ app_name }}";
+    if(appName==="") render_app({...extraKwargs}) 
+    else render_app({ byName : appName, ...extraKwargs})
 </script>
 {% if use_cookie_banner %}
     {% render_bundle 'staticfiles' 'js' 'cookie_banner_frontend' %}

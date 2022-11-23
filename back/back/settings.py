@@ -1,8 +1,13 @@
+from django.utils.translation import gettext_lazy as _
 import os
 
 # This can be used to exclude apps or middleware
 BUILD_TYPE = os.environ["BUILD_TYPE"]
 assert BUILD_TYPE in ['deployment', 'staging', 'development']
+
+IS_DEV = BUILD_TYPE == 'development'
+IS_STAGE = BUILD_TYPE == 'staging'
+IS_PROD = BUILD_TYPE == 'deployment'
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = os.environ['DJ_SECRET_KEY']
@@ -33,6 +38,7 @@ INSTALLED_APPS = [
     # A convenient multiselect field for db objects ( used e.g.: in profile.interests )
     'multiselectfield',
     'phonenumber_field',  # Conevnient handler for phone numbers with admin prefix
+    'django_rest_passwordreset',  # TODO: could also be used for MFA via email
 
     'jazzmin',  # The waaaaaay nicer admin interface
 
@@ -69,12 +75,14 @@ MIDDLEWARE = [
         'whitenoise.middleware.WhiteNoiseMiddleware',
     ] if BUILD_TYPE in ['staging', 'development'] else []),
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'django.middleware.locale.LocaleMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'management.middleware.AdminPathBlockingMiddleware',
+    'tracking.middleware.TrackRequestsMiddleware',
 ]
 
 MIDDLEWARE_CLASSES = [
@@ -101,6 +109,7 @@ if BUILD_TYPE == 'staging':
         # TODO: setup
     ]
 
+
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
@@ -121,14 +130,37 @@ TEMPLATES = [
     },
 ]
 
+# TODO: following adjust for production
 STATIC_URL = 'static/'
+MEDIA_URL = '/media/'
 
 STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')
 
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'emails/static/')
 ]
 
+USE_I18N = True
+def ugettext(s): return s
+
+
+LANGUAGES = [
+    # v-- first one cause this is the lang we write our translation tags in
+    # _TB cause this is Tim Benjamins English ;)
+    # v- Tim using jamaican english, cause he cant be botherered to recompile translation everythime
+    ('en', ugettext('English')),
+    ('de', ugettext('German')),
+    ('tag', ugettext('Tag')),
+    # v-- these are custom tags to be overwritten from frontend!
+]
+# TODO: somehow translations or our management app don't seem to be included in the catalogue
+LOCALE_PATHS = [
+    os.path.join(BASE_DIR, 'management/locale/'),
+    os.path.join(BASE_DIR, 'management/')
+]
+
+LOGIN_URL = "/login"
 
 WSGI_APPLICATION = "back.wsgi.application"
 ASGI_APPLICATION = "back.asgi.application"
@@ -136,6 +168,12 @@ ASGI_APPLICATION = "back.asgi.application"
 CELERY_TIMEZONE = os.environ['DJ_CELERY_TIMEZONE']
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
+
+# django-rest-password reset config:
+# Password reset tokens are only valid for 1h!
+DJANGO_REST_MULTITOKENAUTH_RESET_TOKEN_EXPIRY_TIME = 1
+DJANGO_REST_PASSWORDRESET_NO_INFORMATION_LEAKAGE = True
+DJANGO_REST_MULTITOKENAUTH_REQUIRE_USABLE_PASSWORD = False
 
 
 if BUILD_TYPE in ['staging', 'development']:
@@ -146,7 +184,7 @@ if BUILD_TYPE in ['staging', 'development']:
 # We enforce these authentication classes
 # By that we force a crsf token to be present on **every** POST request
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
+    "DEFAULT_AUTHENTICATION_CLASSES": [
         'rest_framework.authentication.BasicAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ]
@@ -155,7 +193,7 @@ REST_FRAMEWORK = {
 if BUILD_TYPE in ['staging', 'development']:
 
     # pylint doesn't like it not sure why
-    REST_FRAMEWORK['DEFAULT_SCHEMA_CLASS'] = 'drf_spectacular.openapi.AutoSchema'
+    REST_FRAMEWORK["DEFAULT_SCHEMA_CLASS"] = 'drf_spectacular.openapi.AutoSchema'
 
     SPECTACULAR_SETTINGS = {
         'TITLE': 'Little Worlds Api Documentation',
@@ -171,6 +209,18 @@ if BUILD_TYPE in ['staging', 'development']:
             "persistAuthorization": True,
             "displayOperationId": True,
         },
+    }
+
+if BUILD_TYPE in ['staging', 'development']:
+    # TODO: actually for staging we should use in Memory channel layer or install redis in the container
+    host_ip_from_inside_container = "host.docker.internal"
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [(host_ip_from_inside_container, 6379)],
+            },
+        }
     }
 
 
@@ -209,8 +259,10 @@ WEBPACK_LOADER = {app: {  # Configure seperate loaders for every app!
     'IGNORE': [r'.+\.hot-update.js', r'.+\.map'],
 } for app in FRONTENDS}
 
-LANGUAGE_CODE = os.environ.get('DJ_LANGUAGE_CODE', 'en-us')
-TIME_ZONE = os.environ.get('DJ_TIME_ZONE', 'UTC')
+# This *must* stay 'en' as default language this will always have a fallback
+LANGUAGE_CODE = 'en'
+TIME_ZONE = os.environ.get('DJ_TIME_ZONE', 'UTC+1')  # UTC+1 = Berlin
+
 USE_I18N = True
 USE_L10N = True
 USE_TZ = True
@@ -219,7 +271,7 @@ STATIC_URL = '/static/'
 
 if DEBUG:
     info = '\n '.join([f'{n}: {globals()[n]}' for n in [
-        'BASE_DIR', 'SECRET_KEY', 'ALLOWED_HOSTS', 'CELERY_TIMEZONE', 'FRONTENDS']])
+        'BASE_DIR', 'ALLOWED_HOSTS', 'CELERY_TIMEZONE', 'FRONTENDS']])
     print(f"configured django settings:\n {info}")
 
 JAZZMIN_SETTINGS = {

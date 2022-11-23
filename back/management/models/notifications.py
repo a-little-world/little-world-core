@@ -1,7 +1,7 @@
 from back import utils
 from django.db import models
 from rest_framework import serializers
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy as _
 from .user import User
 
 

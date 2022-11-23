@@ -2,8 +2,10 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 import json
 from django.shortcuts import render
 from dataclasses import dataclass, field
+from django.shortcuts import render, redirect
+from django.urls import reverse
 from rest_framework.request import Request
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy as _
 from rest_framework import status
 from rest_framework import serializers
 from django.views import View
@@ -68,8 +70,17 @@ class MainFrontendView(LoginRequiredMixin, View):
             # Since this is a regular django view we have to return the erros manually
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         params = serializer.save()
+        print("PRMS: " + str(params))
 
-        # TODO email verified checks and co...
+        if not request.user.state.is_email_verified():
+            return redirect(reverse("management:email_verification", kwargs={}))
 
-        profile_data = get_user_data_and_matches(request.user)
+        if not request.user.state.is_user_form_filled():
+            return redirect(reverse("management:user_form", kwargs={}))
+
+        _kwargs = params.__dict__
+        _kwargs.pop("filters")  # TODO: they are not yet supported
+        _kwargs.pop("order_by")  # TODO: they are not yet supported
+        profile_data = get_user_data_and_matches(
+            request.user, options=True, **_kwargs)
         return render(request, "main_frontend.html", {"profile_data": json.dumps(profile_data)})

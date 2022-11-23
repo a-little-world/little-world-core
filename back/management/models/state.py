@@ -43,7 +43,7 @@ class State(models.Model):
         # By wrapping in lambda this will get called when the model is created
         # and not at server start, then we get better randomization maybe
         # Also this conveniently inialized the pin
-        default=utils._rand_int6)
+        default=utils._rand_int5)  # TODO maybe increase a little ? -> would mean also in translation texts
 
     email_authenticated = models.BooleanField(default=False)
 
@@ -69,6 +69,9 @@ class State(models.Model):
 
     def is_email_verified(self):
         return self.email_authenticated
+
+    def is_user_form_filled(self):
+        return self.user_form_state == self.UserFormStateChoices.FILLED
 
     def check_email_auth_pin(self, pin):
         """

@@ -1,15 +1,34 @@
 from django.db import models
-from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy as _
 from phonenumber_field.modelfields import PhoneNumberField
 from back.utils import get_options_serializer
 from datetime import datetime
 from rest_framework import serializers
 from multiselectfield import MultiSelectField
+from back.utils import _double_uuid
 from .user import User
-from ..validators import validate_name
+from ..validators import validate_name, validate_availability
+from django.utils.deconstruct import deconstructible
+import os
 
 # This can be used to handle changes in the api from the frontend
 PROFILE_MODEL_VERSION = "1"
+
+
+@deconstructible
+class PathRename(object):
+
+    def __init__(self, sub_path):
+        self.path = sub_path
+
+    def __call__(self, instance, filename):
+        ext = filename.split('.')[-1]
+        # Every profile image is stored as <usr-hash>.<random-hash>.ext
+        # That way noone can brutefore user image paths, but we still know which user a path belongs to
+        usr_hash = "-".join(instance.user.hash.split("-")[:3])
+        filename = usr_hash + "." + str(_double_uuid()) + ".pimage." + ext
+        path_new = os.path.join(self.path, filename)
+        return path_new
 
 
 class ProfileBase(models.Model):
@@ -52,6 +71,8 @@ class ProfileBase(models.Model):
         validators=[validate_name]  # type: ignore
     )
 
+    birth_year = models.IntegerField(default=1984, blank=True)
+
     """
     A user can be either a volunteer or a language learner!
     But be aware that the user might change his choice
@@ -76,9 +97,13 @@ class ProfileBase(models.Model):
     for learners this is which group they belong to
     """
     class TargetGroupChoices(models.IntegerChoices):
+        # Allen Gruppen:
         ANY = 0, _("Any Group")
+        # Geflüchteten (u.a. Ukraine, Jemen, Syrien):
         REFUGEES = 1, _("Refugees only")
+        # Studierenden
         STUDENTS = 2, _("Students only")
+        # Fachkräften aus dem Ausland:
         WORKERS = 3, _("Workers only")
 
     target_group = models.IntegerField(
@@ -143,12 +168,15 @@ class ProfileBase(models.Model):
     interests = MultiSelectField(
         choices=InterestChoices.choices, max_choices=20, max_length=20, blank=True)  # type: ignore
 
+    additional_interests = models.TextField(default="", blank=True)
+
     """
     For simpliciy we store the time slots just in JSON
-    Be aware of the time_slot_serializer TODO
+    Be aware of the validate_availability
     """
-    # TODO: create the time slot serializer
-    availability = models.JSONField(null=True, blank=True)
+    availability = models.JSONField(
+        null=True, blank=True,
+        validators=[validate_availability])  # type: ignore
 
     class LiabilityChoices(models.IntegerChoices):
         DECLINED = 0, _("Declined Liability")
@@ -164,6 +192,30 @@ class ProfileBase(models.Model):
         choices=NotificationChannelChoices.choices, default=NotificationChannelChoices.CALL)
 
     phone_mobile = PhoneNumberField(blank=True, unique=False)
+
+    description = models.TextField(default="", blank=True)
+    language_skill_description = models.TextField(default="", blank=True)
+
+    class LanguageLevelChoices(models.IntegerChoices):
+        A1 = 0, _("Level 0 (egal)")
+        A2 = 1, _("Level 1 (B1 = (Alltagssituationen, Geschichten, Hoffnungen))")
+        A3 = 2, _(
+            "Level 2 (B2 = (fließende & spontane Gespräche, aktuelles Geschehen))")
+        A4 = 3, _("Level 3 (C1 = (komplexe Themen, kaum nach Wörtern suchen))")
+    lang_level = models.IntegerField(
+        choices=LanguageLevelChoices.choices, default=LanguageLevelChoices.A1)
+
+    # Profile image
+    class ImageTypeChoice(models.IntegerChoices):
+        AVATAR = 0, _("Avatar")
+        IMAGE = 1, _("Image")
+
+    profile_image_type = models.IntegerField(
+        choices=ImageTypeChoice.choices, default=ImageTypeChoice.IMAGE)
+    profile_image = models.ImageField(
+        upload_to=PathRename("profile_pics/"), blank=True)
+    profile_avatar_config = models.TextField(
+        default="", blank=True)  # Contains the avatar builder config
 
 
 class Profile(ProfileBase):
@@ -201,6 +253,8 @@ class ProfileAtMatchRequest(ProfileBase):
 
 class ProfileSerializer(serializers.ModelSerializer):
     options = serializers.SerializerMethodField()
+    interests = serializers.MultipleChoiceField(
+        choices=Profile.InterestChoices.choices)
 
     def get_options(self, obj):
         return get_options_serializer(self, obj)
@@ -216,11 +270,12 @@ class SelfProfileSerializer(ProfileSerializer):
         model = Profile
         fields = ['first_name', 'second_name', 'target_group', 'speech_medium',
                   'user_type', 'target_group', 'partner_sex', 'speech_medium',
-                  'partner_location', 'postal_code', 'interests', 'availability',
-                  'notify_channel', 'phone_mobile']
+                  'partner_location', 'postal_code', 'interests', 'availability', 'lang_level', 'additional_interests', 'language_skill_description', 'birth_year', 'description',
+                  'notify_channel', 'phone_mobile', 'profile_image_type', 'profile_avatar_config', 'profile_image']
 
 
 class CensoredProfileSerializer(SelfProfileSerializer):
     class Meta:
         model = Profile
-        fields = ["first_name"]
+        fields = ["first_name", 'interests', 'availability',
+                  'notify_channel', 'phone_mobile', 'profile_image_type', 'profile_avatar_config', 'profile_image']

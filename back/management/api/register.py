@@ -1,7 +1,7 @@
 from drf_spectacular.utils import OpenApiParameter, OpenApiExample
 import django.contrib.auth.password_validation as pw_validation
 from typing import Optional
-from django.utils.translation import gettext as _
+from django.utils.translation import pgettext_lazy, gettext_lazy as _
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
 from datetime import datetime
@@ -35,20 +35,39 @@ class RegistrationData:
 
 
 class RegistrationSerializer(serializers.Serializer):
-    email = serializers.EmailField(required=True)
-    first_name = serializers.CharField(max_length=150, required=True,
-                                       validators=[validators.validate_name])
-    second_name = serializers.CharField(max_length=150, required=True,
-                                        validators=[validators.validate_name])
+    email = serializers.EmailField(required=True, error_messages={
+        'blank': pgettext_lazy('register.email-blank-err', 'Please enter your e-mail adress'),
+        # 'invalid' --> The message here is quite ok, so I'll just keep using it!
+    })
+
+    first_name = serializers.CharField(max_length=150, required=True, error_messages={
+        'blank': pgettext_lazy('register.first-name-blank-err', 'Please enter your first name'),
+    })
+    second_name = serializers.CharField(max_length=150, required=True, error_messages={
+        'blank': pgettext_lazy('register.second-name-blank-err', 'Please enter your second name'),
+    })
     password1 = serializers.CharField(max_length=100, required=True)
     password2 = serializers.CharField(max_length=100, required=True)
-    birth_year = serializers.IntegerField(min_value=1900, max_value=2040)
+    birth_year = serializers.IntegerField(min_value=1900, max_value=2024, error_messages={
+        'invalid': pgettext_lazy('register.birth-year-invalid', 'Please enter a valid year'),
+        'min_value': pgettext_lazy('register.birth-year-under-1900', 'I\'m sorry but you can\'t be that old'),
+        'max_value': pgettext_lazy('register.birth-year-over-2024', 'Sorry we don\'t allow people from the future yet'),
+    })
 
     def create(self, validated_data):
         # Password same validation happens in 'validate()' we need only one password now
         return RegistrationData(
             **{k: v for k, v in validated_data.items() if k not in ["password1", "password2"]},
             password=validated_data['password1'])
+
+    def validate_email(self, value):
+        return value.lower()
+
+    def validate_first_name(self, value):
+        return validators.validate_first_name(value)
+
+    def validate_second_name(self, value):
+        return validators.validate_second_name(value)
 
     def validate(self, data):
         user = User(

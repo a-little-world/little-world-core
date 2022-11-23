@@ -1,0 +1,427 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-11-22 20:33+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: admin.py:52
+msgid "User form filled"
+msgstr ""
+
+#: admin.py:66
+msgid "User category"
+msgstr ""
+
+#: admin.py:115
+msgid "Permissions"
+msgstr ""
+
+#: admin.py:117
+msgid "Important dates"
+msgstr ""
+
+#: api/admin.py:63
+msgid "at least one field required"
+msgstr ""
+
+#: api/admin.py:68
+msgid "maximum one field allowed"
+msgstr ""
+
+#: api/notify.py:91
+#, python-format
+msgid "Notification %(hash)s for user"
+msgstr ""
+
+#: api/register.py:39
+msgctxt "register.email-blank-err"
+msgid "Please enter your e-mail adress"
+msgstr ""
+
+#: api/register.py:43
+msgctxt "register.first-name-blank-err"
+msgid "Please enter your first name"
+msgstr ""
+
+#: api/register.py:46
+msgctxt "register.second-name-blank-err"
+msgid "Please enter your second name"
+msgstr ""
+
+#: api/register.py:83
+msgid "Passwords must match"
+msgstr ""
+
+#: api/user.py:34 api/user.py:54
+msgid "Must be part of url path!"
+msgstr ""
+
+#: api/user.py:39 api/user.py:56
+msgid "Email sucessfully verified"
+msgstr ""
+
+#: api/user.py:42 api/user.py:57
+msgid "Email verification failed"
+msgstr ""
+
+#: api/user.py:82
+msgid "User Logged in"
+msgstr ""
+
+#: api/user.py:101 api/user.py:105
+msgid "Login failed"
+msgstr ""
+
+#: api/user.py:103
+msgid "Login sucessfull"
+msgstr ""
+
+#: controller.py:51
+msgid "User doesn't exist"
+msgstr ""
+
+#: controller.py:144
+msgid "Welcome Notification"
+msgstr ""
+
+#: controller.py:147
+msgid "Welcome Message..."
+msgstr ""
+
+#: controller.py:152
+msgid "Users Matched"
+msgstr ""
+
+#: controller.py:168 controller.py:169
+#, python-format
+msgid "New match: %s"
+msgstr ""
+
+#: controller.py:173 controller.py:175
+#, python-format
+msgid "New match found! Checkout %s's profile now"
+msgstr ""
+
+#: models/notifications.py:27
+msgid "unread"
+msgstr ""
+
+#: models/notifications.py:28
+msgid "read"
+msgstr ""
+
+#: models/notifications.py:29
+msgid "archived"
+msgstr ""
+
+#: models/notifications.py:34
+msgid "none"
+msgstr ""
+
+#: models/notifications.py:35
+msgid "match"
+msgstr ""
+
+#: models/notifications.py:36
+msgid "message"
+msgstr ""
+
+#: models/notifications.py:40 models/user.py:112
+msgid "title"
+msgstr ""
+
+#: models/notifications.py:41
+msgid "no-description"
+msgstr ""
+
+#: models/profile.py:86
+msgid "Volunteer"
+msgstr ""
+
+#: models/profile.py:87
+msgid "Language learner"
+msgstr ""
+
+#: models/profile.py:104
+msgid "Any Group"
+msgstr ""
+
+#: models/profile.py:106
+msgid "Refugees only"
+msgstr ""
+
+#: models/profile.py:108
+msgid "Students only"
+msgstr ""
+
+#: models/profile.py:110
+msgid "Workers only"
+msgstr ""
+
+#: models/profile.py:119
+msgid "Any sex"
+msgstr ""
+
+#: models/profile.py:120
+msgid "Male only"
+msgstr ""
+
+#: models/profile.py:121
+msgid "Female only"
+msgstr ""
+
+#: models/profile.py:129
+msgid "Any medium"
+msgstr ""
+
+#: models/profile.py:130
+msgid "Video only"
+msgstr ""
+
+#: models/profile.py:131
+msgid "Phone only"
+msgstr ""
+
+#: models/profile.py:139
+msgid "Location Anywhere"
+msgstr ""
+
+#: models/profile.py:140
+msgid "Location close"
+msgstr ""
+
+#: models/profile.py:141
+msgid "Location far"
+msgstr ""
+
+#: models/profile.py:151
+msgctxt "profile.sport-interest"
+msgid "Sport"
+msgstr ""
+
+#: models/profile.py:152
+msgctxt "profile.art-interest"
+msgid "Art"
+msgstr ""
+
+#: models/profile.py:153
+msgctxt "profile.music-interest"
+msgid "Music"
+msgstr ""
+
+#: models/profile.py:155
+msgctxt "profile.literature-interest"
+msgid "Literature"
+msgstr ""
+
+#: models/profile.py:156
+msgctxt "profile.video-interest"
+msgid "Video"
+msgstr ""
+
+#: models/profile.py:157
+msgctxt "profile.fashion-interest"
+msgid "Fashion"
+msgstr ""
+
+#: models/profile.py:158
+msgctxt "profile.culture-interest"
+msgid "Culture"
+msgstr ""
+
+#: models/profile.py:159
+msgctxt "profile.travel-interest"
+msgid "Travel"
+msgstr ""
+
+#: models/profile.py:160
+msgctxt "profile.food-interest"
+msgid "Food"
+msgstr ""
+
+#: models/profile.py:161
+msgctxt "profile.politics-interest"
+msgid "Politics"
+msgstr ""
+
+#: models/profile.py:162
+msgctxt "profile.nature-interest"
+msgid "Nature"
+msgstr ""
+
+#: models/profile.py:163
+msgctxt "profile.science-interest"
+msgid "Science"
+msgstr ""
+
+#: models/profile.py:164
+msgctxt "profile.tech-interest"
+msgid "Technology"
+msgstr ""
+
+#: models/profile.py:165
+msgctxt "profile.history-interest"
+msgid "History"
+msgstr ""
+
+#: models/profile.py:166
+msgctxt "profile.religion-interest"
+msgid "Religion"
+msgstr ""
+
+#: models/profile.py:168
+msgctxt "profile.soziologie-interest"
+msgid "Sociology"
+msgstr ""
+
+#: models/profile.py:169
+msgctxt "profile.family-interest"
+msgid "Family"
+msgstr ""
+
+#: models/profile.py:171
+msgctxt "profile.psycology-interest"
+msgid "Psycology"
+msgstr ""
+
+#: models/profile.py:173
+msgctxt "profile.pdev-interest"
+msgid "Personal development"
+msgstr ""
+
+#: models/profile.py:189
+msgid "Declined Liability"
+msgstr ""
+
+#: models/profile.py:190
+msgid "Accepted Liability"
+msgstr ""
+
+#: models/profile.py:195
+msgid "Notify per email"
+msgstr ""
+
+#: models/profile.py:196
+msgid "Notify per SMS"
+msgstr ""
+
+#: models/profile.py:197
+msgid "Notify by calling"
+msgstr ""
+
+#: models/profile.py:209
+msgid "Level 0 (egal)"
+msgstr ""
+
+#: models/profile.py:210
+msgid "Level 1 (B1 = (Alltagssituationen, Geschichten, Hoffnungen))"
+msgstr ""
+
+#: models/profile.py:212
+msgid "Level 2 (B2 = (fließende & spontane Gespräche, aktuelles Geschehen))"
+msgstr ""
+
+#: models/profile.py:213
+msgid "Level 3 (C1 = (komplexe Themen, kaum nach Wörtern suchen))"
+msgstr ""
+
+#: models/profile.py:219
+msgid "Avatar"
+msgstr ""
+
+#: models/profile.py:220
+msgid "Image"
+msgstr ""
+
+#: models/profile.py:288
+msgctxt "profile.lskill-descr-to-long"
+msgid "must have a maximum of 300 characters"
+msgstr ""
+
+#: models/profile.py:293
+msgctxt "profile.descr-to-long"
+msgid "must have a maximum of 300 characters"
+msgstr ""
+
+#: models/profile.py:301
+msgctxt "profile.descr-to-short"
+msgid "must have at least 10 characters"
+msgstr "muss mindestend 10 characters haben"
+
+#: models/state.py:32
+msgid "Unfilled user form"
+msgstr ""
+
+#: models/state.py:33
+msgid "Filled user form"
+msgstr ""
+
+#: models/state.py:63
+msgid "Undefined (user-c)"
+msgstr ""
+
+#: models/state.py:64
+msgid "Spam (user-c)"
+msgstr ""
+
+#: models/state.py:65
+msgid "Legit (user-c)"
+msgstr ""
+
+#: models/state.py:66
+msgid "Test (user-c)"
+msgstr ""
+
+#: models/user.py:112
+msgid "description"
+msgstr ""
+
+#: validators.py:18
+#, python-brace-format
+msgctxt "val.first-name-unallowed-chars"
+msgid "First name contains invalid characters: {chars}"
+msgstr ""
+
+#: validators.py:29
+#, python-brace-format
+msgctxt "val.second-name-too-many-spaces"
+msgid ""
+"It is maximum one space allowed in the Second Name, but you have {count}"
+msgstr ""
+
+#: validators.py:34
+msgctxt "val.second-name-unallowed-chars"
+msgid "Second name contains invalid characters"
+msgstr ""
+
+#: validators.py:61
+#, python-format
+msgid "Day '%s' not present in availability!"
+msgstr ""
+
+#: validators.py:65
+#, python-format
+msgid "Slot '%s' is unknown!"
+msgstr ""
+
+#: views/main_frontend.py:45
+msgid "Render User Form"
+msgstr ""
+
+#: views/main_frontend.py:64
+msgid "Query param usage on main view only allowed for admins!"
+msgstr ""
