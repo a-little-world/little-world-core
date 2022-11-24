@@ -10,7 +10,7 @@ class EmailLogAdmin(admin.ModelAdmin):
     list_display = ("receiver", "sucess", "view_mail", "template",
                     "time", "sender", "data")
 
-    readonly_fields = ('mail_ref',)
+    readonly_fields = ('view_mail',)
 
     def view_mail(self, obj):
         try:
