@@ -113,6 +113,8 @@ if BUILD_TYPE == 'staging':
         # TODO: setup
     ]
 
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
 
 TEMPLATES = [
     {
@@ -226,6 +228,17 @@ if BUILD_TYPE in ['staging', 'development']:
             },
         }
     }
+elif IS_PROD:
+    redis_connect_url = "rediss://" + os.environ["DJ_REDIS_USER"] + ":" + os.environ["DJ_REDIS_PASSWORD"] \
+        + "@" + os.environ["DJ_REDIS_HOST"] + ":" + os.environ["DJ_REDIS_PORT"]
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [(redis_connect_url)],
+            },
+        }
+    }
 
 
 """
@@ -240,8 +253,29 @@ DATABASES = {
         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     }
 } if BUILD_TYPE in ['staging', 'development'] else {
-    # TODO: production DB setup
+    'default': {
+        'ENGINE': 'django.db.backends.{}'.format(
+            os.environ['DJ_DATABASE_ENGINE']
+        ),
+        'NAME': os.environ['DATABASE_NAME'],
+        'USER': os.environ['DATABASE_USERNAME'],
+        'PASSWORD': os.environ['DATABASE_PASSWORD'],
+        'HOST': os.environ['DATABASE_HOST'],
+        'PORT': os.environ['DATABASE_PORT'],
+        'OPTIONS': {'sslmode': 'require'},
+    },
 }
+
+if IS_PROD:
+    EMAIL_HOST = 'smtp.sendgrid.net'
+    EMAIL_HOST_USER = 'apikey'
+    EMAIL_HOST_PASSWORD = os.environ['DJ_SG_SENDGRID_API_KEY']
+    EMAIL_PORT = 587
+    EMAIL_USE_TLS = True
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+    # TODO create this param
+    DEFAULT_FROM_EMAIL = os.environ["DJ_DEFAULT_FROM_EMAIL"]
+
 
 AUTH_PASSWORD_VALIDATORS = [{'NAME': val} for val in [
     'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
