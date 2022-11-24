@@ -4,6 +4,15 @@ from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from django.template.loader import render_to_string
 from .models import EmailLog
+from .templates import (
+    WelcomeTemplateParamsDefaults,
+    WelcomeTemplateMail,
+    PasswordResetEmailDefaults,
+    PasswordResetEmailTexts,
+    # Currently we are using the same template as weclone
+    # so MatchFoundEmailTexts has no Defaults
+    MatchFoundEmailTexts
+)
 from django.core.mail import EmailMessage
 import json
 import base64
@@ -26,6 +35,8 @@ class MailMeta:
     name: str
     template: str
     params: object
+    defaults: object
+    texts: object
 
 
 @dataclass
@@ -33,25 +44,46 @@ class WelcomeEmailParams:
     # We only talk to people in first name these days
     first_name: str
     verification_code: str
+    verification_url: str
 
 
 @dataclass
 class MatchMailParams:
     first_name: str
     match_first_name: str
+    profile_link_url: str
+
+
+@dataclass
+class PwResetMailParams:
+    password_reset_url: str
 
 
 # Register all templates and their serializers here
 templates = [
-    MailMeta(
+    MailMeta(  # Welcome & Email verification !
         name="welcome",
+        # subject =
         template="emails/welcome.html",
-        params=WelcomeEmailParams
+        params=WelcomeEmailParams,
+        texts=WelcomeTemplateMail,
+        defaults=WelcomeTemplateParamsDefaults
     ),
-    MailMeta(
+    MailMeta(  # Match Found Email !
         name="match",
         template="emails/welcome.html",  # TODO: get correct template
-        params=MatchMailParams
+        # subject = TODO
+        params=MatchMailParams,
+        texts=MatchFoundEmailTexts,
+        defaults=WelcomeTemplateParamsDefaults
+    ),
+    MailMeta(
+        name="password_reset",
+        # subject =
+        template="emails/password_reset.html",
+        params=PwResetMailParams,
+        texts=PasswordResetEmailTexts,
+        defaults=PasswordResetEmailDefaults
     )
 ]
 
@@ -93,7 +125,7 @@ def send_email(
         log = EmailLog.objects.create(
             sender=get_base_management_user(),
             receiver=get_user_by_email(to),
-            template=mail_data.template,
+            template=mail_data.name,
             data=dict(
                 params=mail_params.__dict__,
                 sender_str=str(sender),
