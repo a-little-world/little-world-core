@@ -20,7 +20,10 @@ var config = function (env) {
     },
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, 'apps/admin_panel_frontend/src/'),
+        '@': path.resolve(
+          __dirname,
+          'apps/admin_panel_frontend/src/'
+        ),
         '@django': path.resolve(__dirname, '../back/static/'),
       },
     },
@@ -46,6 +49,7 @@ var config = function (env) {
           },
         ],
       }),
+      //['styled-components', { ssr: false }],
     ],
     devtool: devTool,
     module: {
@@ -62,21 +66,23 @@ var config = function (env) {
           ],
         },
         {
+          test: /\.css$/,
+          use: ['style-loader', 'css-loader'],
+        },
+        {
           test: /\.svg$/,
-          issuer: /\.jsx?$/,
           use: [
-            'babel-loader',
             {
-              loader: 'react-svg-loader',
-              options: {
-                svgo: {
-                  plugins: [{ removeTitle: false }],
-                  floatPrecision: 2,
-                },
-                jsx: true,
-              },
+              loader: '@svgr/webpack',
+            },
+            {
+              loader: 'file-loader',
             },
           ],
+          type: 'javascript/auto',
+          issuer: {
+            and: [/\.(ts|tsx|js|jsx|md|mdx)$/],
+          },
         },
         {
           test: /\.(png|jpg|gif|ttf)$/,
@@ -86,10 +92,6 @@ var config = function (env) {
               name: '[name].[hash:8].[ext]',
             },
           },
-        },
-        {
-          test: /\.css$/,
-          use: ['style-loader', 'css-loader'],
         },
       ],
     },
