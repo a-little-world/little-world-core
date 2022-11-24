@@ -20,6 +20,10 @@ def _rand_int5():
 
 
 def get_options_serializer(self, obj):
+    """
+    Takes the default django rest options serializer 
+    and transformes it to a little bit more limited amount of data 
+    """
     d = {}
     dataG = SimpleMetadata()
     for k, v in self.get_fields().items():
