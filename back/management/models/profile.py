@@ -15,7 +15,8 @@ from ..validators import (
     model_validate_second_name,
     validate_postal_code,
     validate_second_name,
-    as_djv  # <-- We can use all rest validators also on our DB models!
+    DAYS,
+    SLOTS
 )
 from django.utils.deconstruct import deconstructible
 import sys
@@ -275,7 +276,15 @@ class ProfileSerializer(serializers.ModelSerializer):
         choices=Profile.InterestChoices.choices)
 
     def get_options(self, obj):
-        return get_options_serializer(self, obj)
+        d = get_options_serializer(self, obj)
+        # There is no way the serializer can determine the options for our availability
+        # so lets just add it now, sice availability is stored as json anyways
+        # we can easily change the choices here in the future
+        if 'availability' in self.fields:
+            d.update({  # Ourcourse there is no need to do this for the Censored profile view
+                'availability': {day: SLOTS for day in DAYS}
+            })
+        return d
 
     class Meta:
         model = Profile
