@@ -1,6 +1,5 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
 import json
-from django.shortcuts import render
 from dataclasses import dataclass, field
 from django.shortcuts import render, redirect
 from django.urls import reverse
