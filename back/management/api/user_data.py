@@ -4,6 +4,7 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExampl
 from drf_spectacular.types import OpenApiTypes
 from datetime import datetime
 from django.conf import settings
+from copy import deepcopy
 from django.core import exceptions
 from django.utils.module_loading import import_string
 from rest_framework.decorators import api_view, schema, throttle_classes, permission_classes
@@ -103,7 +104,18 @@ def get_user_data(user, is_self=False, admin=False, include_options=False):
             _serializers[_model] = transform_add_options_serializer(
                 _serializers[_model])
     models = get_user_models(user)  # user, profile, state
-    return {k: _serializers[k](models[k]).data for k in _serializers if not k.startswith("_")}
+
+    def _maybe_delete_options(d):
+        # The admin model included options by default so we can delte them here
+        # TODO: there might a sligh performance gain if we have another serializer without the options
+        # But that would make the code a bunch longer
+        if not include_options and 'options' in d:
+            del d['options']
+            return d
+        return d
+
+    return {k: _maybe_delete_options(_serializers[k](models[k]).data)
+            for k in _serializers if not k.startswith("_")}
 
 
 def get_matches_paginated(user, admin=False,
