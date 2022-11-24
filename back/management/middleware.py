@@ -11,7 +11,7 @@ def responde_404(request):
 
 
 # In development it ok if everybody can see the admin paths
-IF_NOT_ADMIN_404_ROUTES = [] if settings.BUILD_TYPE in ['staging', 'development'] else [
+IF_NOT_ADMIN_404_ROUTES = [] if settings.DEBUG else [
     "/admin",
     "/admin_chat",
     "/db",
@@ -42,9 +42,7 @@ class AdminPathBlockingMiddleware:
         path = request.path
         if path.startswith("/admin/login"):
             # See what I did here, you can only render the admin login if you add `?opensesame`
-            if settings.BUILD_TYPE in ['staging', 'development']:
-                pass  # In staging or development you'r allowed to render the admin page anyways
-            elif not settings.ADMIN_OPEN_KEYPHRASE in request.GET:
+            if not settings.DEBUG and not settings.ADMIN_OPEN_KEYPHRASE in request.GET:
                 return _404_if_not_staff(request, self.get_response)
         else:
             if _is_blocked_route(path):
