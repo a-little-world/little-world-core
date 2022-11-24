@@ -458,7 +458,15 @@ def update_front(args):
     kill(args, back=False)  # Kill the frontend container
 
 
-@ register_action(alias=["fb", "bf"], cont=True)
+@register_action(alias=["af"], cont=False)
+def attach_front(args):
+    _cmd = [*c.drun, *(c.denv if _is_dev(args) else c.penv), *
+            c.vmount_front, "-d", c.front_tag]
+    subprocess.run(_cmd)
+    _run_in_running(_is_dev(args), ["sh"], backend=False)
+
+
+@register_action(alias=["fb", "bf"], cont=True)
 def build_front(args):
     """
     Builds the frontends
