@@ -120,13 +120,15 @@ def create_user(
     # Step 4 send mail
     if send_verification_mail:
         try:
+            verifiaction_url = f"{settings.BASE_URL}/api/user/verify/email/{usr.state.get_email_auth_code_b64()}"
             mails.send_email(
                 recivers=[email],
                 subject="undefined",  # TODO set!
                 mail_data=mails.get_mail_data_by_name("welcome"),
                 mail_params=mails.WelcomeEmailParams(
-                    first_name=usr.profile.first_name,  # type: ignore
-                    verification_code=""
+                    first_name=usr.profile.first_name,
+                    verification_url=verifiaction_url,
+                    verification_code=str(usr.state.get_email_auth_pin())
                 )
             )
         except:
@@ -136,7 +138,8 @@ def create_user(
         print("Not sending verification mail!")
 
     # Step 5 Match with admin user
-    match_users({get_base_management_user(), usr})
+    # Do *not* send an matching mail
+    match_users({get_base_management_user(), usr}, send_email=False)
 
     # Step 6 Create a room for the two users!
     # This allowes them to authenticate twilio rooms for video calls
@@ -152,7 +155,7 @@ def create_user(
 
 # 'set' No one can put two identical users
 @utils.track_event(
-    name=_("Users Matched"),
+    name="Users Matched",
     event_type=Event.EventTypeChoices.FLOW,
     tags=["backend", "function", "db"])
 def match_users(users: set, send_notification=True, send_message=True, send_email=True):
@@ -184,7 +187,8 @@ def match_users(users: set, send_notification=True, send_message=True, send_emai
             mail_data=mails.get_mail_data_by_name("match"),
             mail_params=mails.MatchMailParams(
                 first_name=usr1.profile.first_name,
-                match_first_name=usr2.profile.first_name
+                match_first_name=usr2.profile.first_name,
+                profile_link_url=settings.BASE_URL  # TODO
             )
         )
         usr2.send_email(
@@ -192,7 +196,9 @@ def match_users(users: set, send_notification=True, send_message=True, send_emai
             mail_data=mails.get_mail_data_by_name("match"),
             mail_params=mails.MatchMailParams(
                 first_name=usr2.profile.first_name,
-                match_first_name=usr1.profile.first_name
+                match_first_name=usr1.profile.first_name,
+                # TODO: should be the actual profile slug in the future
+                profile_link_url=settings.BASE_URL
             )
         )
 
@@ -216,9 +222,9 @@ def get_base_management_user():
             username=settings.MANAGEMENT_USER_MAIL,
             password=os.environ['DJ_MANAGEMENT_PW'],
             first_name=os.environ.get(
-                'DJ_MANAGEMENT_FIRST_NAME', 'Support'),
+                'DJ_MANAGEMENT_FIRST_NAME', 'Oliver (Support)'),
             second_name=os.environ.get(
-                'DJ_MANAGEMENT_SECOND_NAME', 'User'),
+                'DJ_MANAGEMENT_SECOND_NAME', ''),
         )
         print("BASE ADMIN USER CREATED!")
         return usr
