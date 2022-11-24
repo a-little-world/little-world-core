@@ -83,8 +83,6 @@ def _parser():
                         "build", "static", "migrate", "run"], nargs='*', help='action')
     parser.add_argument('-s', '--silent', action="store_true",
                         help="Mute all output exept what is required")
-    parser.add_argument('-ci', '--on-ci', action="store_true",
-                        help="Run with this flag if on CI, this will skip some build steps! e.g.: frontend builds.")
     return parser
 
 
@@ -115,10 +113,8 @@ def _setup(args):
     if not os.path.exists(complete_file) or ["update"] in args.actions:
         _cmd = ["git", "submodule", "update", "--init", "--recursive"]
         subprocess.run(_cmd)
-        if not args.on_ci:
-            # For GH action there is no need to build frontends!
-            # We only
-            build_front(args)
+
+        build_front(args)
 
         with open(complete_file, "w") as file:
             file.write(datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
@@ -481,6 +477,11 @@ def build_front(args):
         return
     frontends = env["FR_FRONTENDS"].split(",")
 
+    if args.input:
+        # You can also build the container but only one fronend in it
+        print(f"WARN building only {args.input}")
+        frontends = [args.input]
+
     if not _is_dev(args):
         # TODO: in production we might want to do some extra cleanup!
         raise NotImplementedError
@@ -519,6 +520,7 @@ def build_front(args):
     print(
         f'`npm i` for frontends: {frontends} \nAdd frontends under `FR_FRONTENDS` in env, place them in front/apps/')
     for front in frontends:
+        # TODO: there should also be an 'update' option that doesn't install all of this!
         _run_in_running(
             _is_dev(args), ["npm", "i"], work_dir=f"/front/apps/{front}", backend=False)  # 4
     # Frontend builds can only be performed with the webpack configs present
