@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-11-22 20:33+0000\n"
+"POT-Creation-Date: 2022-11-24 00:34+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -23,14 +23,6 @@ msgstr ""
 
 #: admin.py:66
 msgid "User category"
-msgstr ""
-
-#: admin.py:115
-msgid "Permissions"
-msgstr ""
-
-#: admin.py:117
-msgid "Important dates"
 msgstr ""
 
 #: api/admin.py:63
@@ -54,7 +46,7 @@ msgctxt "register.email-blank-err"
 msgid "Please enter your e-mail adress"
 msgstr "register.email-blank-err"
 
-#: api/register.py:43
+#: api/register.py:44
 #, fuzzy
 #| msgctxt "register.first-name-blank-err"
 #| msgid "Please enter your name"
@@ -62,7 +54,7 @@ msgctxt "register.first-name-blank-err"
 msgid "Please enter your first name"
 msgstr "register.first-name-blank-err"
 
-#: api/register.py:46
+#: api/register.py:47
 #, fuzzy
 #| msgctxt "register.first-name-blank-err"
 #| msgid "Please enter your name"
@@ -70,56 +62,106 @@ msgctxt "register.second-name-blank-err"
 msgid "Please enter your second name"
 msgstr "register.second-name-blank-err"
 
-#: api/register.py:83
+#: api/register.py:52
+#, fuzzy
+#| msgctxt "register.first-name-blank-err"
+#| msgid "Please enter your name"
+msgctxt "register.birth-year-invalid"
+msgid "Please enter a valid year"
+msgstr "register.birth-year-invalid"
+
+#: api/register.py:53
+msgctxt "register.birth-year-under-1900"
+msgid "I'm sorry but you can't be that old"
+msgstr "register.birth-year-under-1900"
+
+#: api/register.py:54
+msgctxt "register.birth-year-over-2024"
+msgid "Sorry we don't allow people from the future yet"
+msgstr "register.birth-year-over-2024"
+
+#: api/register.py:88
 msgid "Passwords must match"
 msgstr ""
 
-#: api/user.py:34 api/user.py:54
-msgid "Must be part of url path!"
-msgstr ""
+#: api/twilio.py:53
+msgctxt "api.twilio-room-inactive-err"
+msgid "Room is marked as inactive, cant authenticate!"
+msgstr "api.twilio-room-inactive-err"
 
-#: api/user.py:39 api/user.py:56
+#: api/twilio.py:66
+msgctxt "api.twilio-room-auth-failure"
+msgid "Room authentication failed!"
+msgstr "api.twilio-room-auth-failure"
+
+#: api/user.py:35
+msgctxt "email.verify-auth-data-missing-get"
+msgid "Email authentication data missing"
+msgstr "email.verify-auth-data-missing-get"
+
+#: api/user.py:41
+msgctxt "email.verify-success-get"
 msgid "Email sucessfully verified"
-msgstr ""
+msgstr "email.verify-success-get"
 
-#: api/user.py:42 api/user.py:57
+#: api/user.py:45
+msgctxt "email.verify-failure-get"
 msgid "Email verification failed"
-msgstr ""
+msgstr "email.verify-failure-get"
 
-#: api/user.py:82
-msgid "User Logged in"
-msgstr ""
+#: api/user.py:60
+msgctxt "email.verify-auth-data-missing-post"
+msgid "Email authentication data missing"
+msgstr "email.verify-auth-data-missing-post"
 
-#: api/user.py:101 api/user.py:105
-msgid "Login failed"
-msgstr ""
+#: api/user.py:66
+msgctxt "email.verify-failure-not-numeric"
+msgid "Enter a 5 digit pin please"
+msgstr "email.verify-failure-not-numeric"
 
-#: api/user.py:103
-msgid "Login sucessfull"
-msgstr ""
+#: api/user.py:69
+msgctxt "email.verify-success-post"
+msgid "Email sucessfully verified"
+msgstr "email.verify-success-post"
+
+#: api/user.py:71
+msgctxt "email.verify-failure-post"
+msgid "Email verification failed, wrong code."
+msgstr "email.verify-failure-post"
+
+#: api/user.py:116
+msgctxt "api.login-failed-staff"
+msgid "Can't log in email or password wrong!"
+msgstr "api.login-failed-staff"
+
+#: api/user.py:120
+msgctxt "api.login-sucessful"
+msgid "Sucessfully logged in!"
+msgstr "api.login-sucessful"
+
+#: api/user.py:123
+msgctxt "api.login-failed"
+msgid "Can't log-in email or password wrong!"
+msgstr "api.login-failed"
 
 #: controller.py:51
 msgid "User doesn't exist"
 msgstr ""
 
-#: controller.py:144
+#: controller.py:150
 msgid "Welcome Notification"
 msgstr ""
 
-#: controller.py:147
+#: controller.py:153
 msgid "Welcome Message..."
 msgstr ""
 
-#: controller.py:152
-msgid "Users Matched"
-msgstr ""
-
-#: controller.py:168 controller.py:169
+#: controller.py:174 controller.py:175
 #, python-format
 msgid "New match: %s"
 msgstr ""
 
-#: controller.py:173 controller.py:175
+#: controller.py:179 controller.py:181
 #, python-format
 msgid "New match found! Checkout %s's profile now"
 msgstr ""
@@ -156,117 +198,117 @@ msgstr ""
 msgid "no-description"
 msgstr ""
 
-#: models/profile.py:86
+#: models/profile.py:96
 msgid "Volunteer"
 msgstr ""
 
-#: models/profile.py:87
+#: models/profile.py:97
 msgid "Language learner"
 msgstr ""
 
-#: models/profile.py:104
+#: models/profile.py:114
 msgid "Any Group"
 msgstr ""
 
-#: models/profile.py:106
+#: models/profile.py:116
 msgid "Refugees only"
 msgstr ""
 
-#: models/profile.py:108
+#: models/profile.py:118
 msgid "Students only"
 msgstr ""
 
-#: models/profile.py:110
+#: models/profile.py:120
 msgid "Workers only"
 msgstr ""
 
-#: models/profile.py:119
+#: models/profile.py:129
 msgid "Any sex"
 msgstr ""
 
-#: models/profile.py:120
+#: models/profile.py:130
 msgid "Male only"
 msgstr ""
 
-#: models/profile.py:121
+#: models/profile.py:131
 msgid "Female only"
 msgstr ""
 
-#: models/profile.py:129
+#: models/profile.py:139
 msgid "Any medium"
 msgstr ""
 
-#: models/profile.py:130
+#: models/profile.py:140
 msgid "Video only"
 msgstr ""
 
-#: models/profile.py:131
+#: models/profile.py:141
 msgid "Phone only"
 msgstr ""
 
-#: models/profile.py:139
+#: models/profile.py:149
 msgid "Location Anywhere"
 msgstr ""
 
-#: models/profile.py:140
+#: models/profile.py:150
 msgid "Location close"
 msgstr ""
 
-#: models/profile.py:141
+#: models/profile.py:151
 msgid "Location far"
 msgstr ""
 
-#: models/profile.py:151
+#: models/profile.py:161
 msgctxt "profile.sport-interest"
 msgid "Sport"
 msgstr "profile.sport-interest"
 
-#: models/profile.py:152
+#: models/profile.py:162
 msgctxt "profile.art-interest"
 msgid "Art"
 msgstr "profile.art-interest"
 
-#: models/profile.py:153
+#: models/profile.py:163
 msgctxt "profile.music-interest"
 msgid "Music"
 msgstr "profile.music-interest"
 
-#: models/profile.py:155
+#: models/profile.py:165
 msgctxt "profile.literature-interest"
 msgid "Literature"
 msgstr "profile.literature-interest"
 
-#: models/profile.py:156
+#: models/profile.py:166
 msgctxt "profile.video-interest"
 msgid "Video"
 msgstr "profile.video-interest"
 
-#: models/profile.py:157
+#: models/profile.py:167
 msgctxt "profile.fashion-interest"
 msgid "Fashion"
 msgstr "profile.fashion-interest"
 
-#: models/profile.py:158
+#: models/profile.py:168
 msgctxt "profile.culture-interest"
 msgid "Culture"
 msgstr "profile.culture-interest"
 
-#: models/profile.py:159
+#: models/profile.py:169
 msgctxt "profile.travel-interest"
 msgid "Travel"
 msgstr "profile.travel-interest"
 
-#: models/profile.py:160
+#: models/profile.py:170
 msgctxt "profile.food-interest"
 msgid "Food"
 msgstr "profile.food-interest"
 
-#: models/profile.py:161
+#: models/profile.py:171
 msgctxt "profile.politics-interest"
 msgid "Politics"
 msgstr "profile.politics-interest"
 
-#: models/profile.py:162
+#: models/profile.py:172
 #, fuzzy
 #| msgctxt "profile.literature-interest"
 #| msgid "Literature"
@@ -274,101 +316,101 @@ msgctxt "profile.nature-interest"
 msgid "Nature"
 msgstr "profile.nature-interest"
 
-#: models/profile.py:163
+#: models/profile.py:173
 msgctxt "profile.science-interest"
 msgid "Science"
 msgstr "profile.science-interest"
 
-#: models/profile.py:164
+#: models/profile.py:174
 msgctxt "profile.tech-interest"
 msgid "Technology"
 msgstr "profile.tech-interest"
 
-#: models/profile.py:165
+#: models/profile.py:175
 msgctxt "profile.history-interest"
 msgid "History"
 msgstr "profile.history-interest"
 
-#: models/profile.py:166
+#: models/profile.py:176
 msgctxt "profile.religion-interest"
 msgid "Religion"
 msgstr "profile.religion-interest"
 
-#: models/profile.py:168
+#: models/profile.py:178
 msgctxt "profile.soziologie-interest"
 msgid "Sociology"
 msgstr "profile.soziologie-interest"
 
-#: models/profile.py:169
+#: models/profile.py:179
 msgctxt "profile.family-interest"
 msgid "Family"
 msgstr "profile.family-interest"
 
-#: models/profile.py:171
+#: models/profile.py:181
 msgctxt "profile.psycology-interest"
 msgid "Psycology"
 msgstr "profile.psycology-interest"
 
-#: models/profile.py:173
+#: models/profile.py:183
 msgctxt "profile.pdev-interest"
 msgid "Personal development"
 msgstr "profile.pdev-interest"
 
-#: models/profile.py:189
+#: models/profile.py:199
 msgid "Declined Liability"
 msgstr ""
 
-#: models/profile.py:190
+#: models/profile.py:200
 msgid "Accepted Liability"
 msgstr ""
 
-#: models/profile.py:195
+#: models/profile.py:205
 msgid "Notify per email"
 msgstr ""
 
-#: models/profile.py:196
+#: models/profile.py:206
 msgid "Notify per SMS"
 msgstr ""
 
-#: models/profile.py:197
+#: models/profile.py:207
 msgid "Notify by calling"
 msgstr ""
 
-#: models/profile.py:209
+#: models/profile.py:219
 msgid "Level 0 (egal)"
 msgstr ""
 
-#: models/profile.py:210
+#: models/profile.py:220
 msgid "Level 1 (B1 = (Alltagssituationen, Geschichten, Hoffnungen))"
 msgstr ""
 
-#: models/profile.py:212
+#: models/profile.py:222
 msgid "Level 2 (B2 = (fließende & spontane Gespräche, aktuelles Geschehen))"
 msgstr ""
 
-#: models/profile.py:213
+#: models/profile.py:223
 msgid "Level 3 (C1 = (komplexe Themen, kaum nach Wörtern suchen))"
 msgstr ""
 
-#: models/profile.py:219
+#: models/profile.py:229
 msgid "Avatar"
 msgstr ""
 
-#: models/profile.py:220
+#: models/profile.py:230
 msgid "Image"
 msgstr ""
 
-#: models/profile.py:288
+#: models/profile.py:306
 msgctxt "profile.lskill-descr-to-long"
 msgid "must have a maximum of 300 characters"
 msgstr "profile.lskill-descr-to-long"
 
-#: models/profile.py:293
+#: models/profile.py:311
 msgctxt "profile.descr-to-long"
 msgid "must have a maximum of 300 characters"
 msgstr "profile.descr-to-long"
 
-#: models/profile.py:301
+#: models/profile.py:322
 msgctxt "profile.descr-to-short"
 msgid "must have at least 10 characters"
 msgstr "profile.descr-to-short"
@@ -381,27 +423,27 @@ msgstr ""
 msgid "Filled user form"
 msgstr ""
 
-#: models/state.py:63
-msgid "Undefined (user-c)"
-msgstr ""
-
 #: models/state.py:64
-msgid "Spam (user-c)"
+msgid "Undefined"
 msgstr ""
 
 #: models/state.py:65
-msgid "Legit (user-c)"
+msgid "Spam"
 msgstr ""
 
 #: models/state.py:66
-msgid "Test (user-c)"
+msgid "Legit"
+msgstr ""
+
+#: models/state.py:67
+msgid "Test"
 msgstr ""
 
 #: models/user.py:112
 msgid "description"
 msgstr ""
 
-#: validators.py:18
+#: validators.py:61
 #, fuzzy, python-brace-format
 #| msgctxt "val.first-name-unallowed-chars"
 #| msgid "First name contains invalid characters"
@@ -409,7 +451,7 @@ msgctxt "val.first-name-unallowed-chars"
 msgid "First name contains invalid characters: {chars}"
 msgstr "val.first-name-unallowed-chars|{chars}"
 
-#: validators.py:29
+#: validators.py:72
 #, fuzzy, python-brace-format
 #| msgctxt "val.second-name-too-many-spaces"
 #| msgid ""
@@ -419,17 +461,32 @@ msgid ""
 "It is maximum one space allowed in the Second Name, but you have {count}"
 msgstr "val.second-name-too-many-spaces|{count}"
 
-#: validators.py:34
+#: validators.py:77
 msgctxt "val.second-name-unallowed-chars"
 msgid "Second name contains invalid characters"
 msgstr "val.second-name-unallowed-chars"
 
-#: validators.py:61
+#: validators.py:86
+msgctxt "val.postal-code-not-numeric"
+msgid "German postalcode should be a number"
+msgstr "val.postal-code-not-numeric"
+
+#: validators.py:91
+msgctxt "val.postal-code-too-big"
+msgid "German postalcode should have maximum 5 digits"
+msgstr "val.postal-code-too-big"
+
+#: validators.py:95
+msgctxt "val.postal-code-too-small"
+msgid "Postalcode impossibly small"
+msgstr "val.postal-code-too-small"
+
+#: validators.py:122
 #, python-format
 msgid "Day '%s' not present in availability!"
 msgstr ""
 
-#: validators.py:65
+#: validators.py:126
 #, python-format
 msgid "Slot '%s' is unknown!"
 msgstr ""
