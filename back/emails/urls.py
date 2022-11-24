@@ -12,6 +12,8 @@ router.register(_api_url("email/logs", admin=True,
 api_routes = [
     path(_api_url('email/templates', admin=True),
          api.ListEmailTemplates.as_view()),
+    path(_api_url('email/templates/encode', admin=True),
+         api.EncodeTemplate.as_view()),
     *router.urls
 ]
 
