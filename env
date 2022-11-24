@@ -10,7 +10,7 @@ DJ_ADMIN_OPEN_KEYPHRASE=opensesame
 DJ_TWILIO_ACCOUNT_SID=AccSidNotProvidedInDev
 DJ_TWILIO_API_KEY_SID=TwApiKeyNotIncludedDev
 DJ_TWILIO_API_SECRET=TwApiSecretNotIncludedDev
-FR_FRONTENDS=user_form_frontend,main_frontend,cookie_banner_frontend
+FR_FRONTENDS=user_form_frontend,main_frontend,cookie_banner_frontend,admin_panel_frontend
 # Put static bucked url here in production
 WEBPACK_PUBLIC_PATH=
 # Set to 'none' for production
