@@ -55,7 +55,7 @@ def _create_abunch_of_users(amnt=10):
         _data['first_name'] = names[i][0]
         _data['second_name'] = names[i][1]
         users.append(controller.create_user(
-            **_data, send_verification_mail=False))
+            **_data, send_verification_mail=True))
     return users
 
 
