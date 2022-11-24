@@ -64,7 +64,7 @@ api_routes = [
 
 
     # e.g.: /user/verify/email/Base64{d=email&u=hash&k=pin:hash}
-    path(_api_url('user/verify/email/<str:auth_data>'),  # TODO create verify email api
+    path(_api_url('user/verify/email/<str:auth_data>', end_slash=False),
          api.user.VerifyEmail.as_view()),
 
     # Admin
