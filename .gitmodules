@@ -13,3 +13,6 @@
 [submodule "back/_cookie_consent_repo"]
 	path = back/_cookie_consent_repo
 	url = https://github.com/a-little-world/little-world-cookie-consent
+[submodule "front/apps/admin_panel_frontend"]
+	path = front/apps/admin_panel_frontend
+	url = https://github.com/a-little-world/little-world-admin-panel
