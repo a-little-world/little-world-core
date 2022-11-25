@@ -22,6 +22,6 @@ def debug_task(self):
 
 
 @worker_ready.connect
-def startup_task(self, **k):
+def startup_task(sender, **k):
     print("started")
     return "Started"
