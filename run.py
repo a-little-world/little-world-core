@@ -170,6 +170,7 @@ def attach(args):
 @register_action(cont=True, alias=["k"])
 def kill(args, front=True, back=True):
     """ Kills all the running container instances (back & front)"""
+    # TODO: this should also kill the lw redis instance ( if running )
     for tag in [c.front_tag if front else None,
                 c.dtag if back else None,
                 c.ptag if not _is_dev(args) else None]:
@@ -256,8 +257,8 @@ def migrate(args, running=False):
                         "migrate"])
 
 
-def _build_file_tag(file, tag):
-    _cmd = [*c.dbuild, "-f", file, "-t", tag, "."]
+def _build_file_tag(file, tag, build_context_path="."):
+    _cmd = [*c.dbuild, "-f", file, "-t", tag, "./back"]
     print(" ".join(_cmd))
     subprocess.run(_cmd)
 
@@ -342,7 +343,11 @@ def build(args):
     """
     if not _is_dev(args):
         raise NotImplementedError
-    _build_file_tag(c.file[1], c.dtag if _is_dev(args) else c.ptag)
+
+    # Note we only use build context in ./back this reduces our image by a fucking lot!
+    # Otherwise we would have to specify .dockerignore for the specific images!
+    _build_file_tag(c.file[1], c.dtag if _is_dev(
+        args) else c.ptag, build_context_path="./back")
 
 
 @register_action(alias=["tests"], cont=True)
@@ -581,7 +586,7 @@ def watch_frontend(args):
     _run_in_running(_is_dev(args), _cmd, backend=False)
 
 
-@ register_action(alias=["rds", "rd", "redis-server"])
+@register_action(alias=["rds", "rd", "redis-server"])
 def redis(args):
     """
     Runs a local instance of `redis-server` ( required for the chat )
@@ -592,7 +597,7 @@ def redis(args):
     subprocess.run(_cmd)
 
 
-@ register_action(alias=["r"])
+@register_action(alias=["r"])
 def run(args):
     """
     Running the docker image, this requires a build image to be present.
@@ -601,10 +606,10 @@ def run(args):
         Then container will mount the local `./back` folder,
         and forward port `c.port` (default 8000)
     """
-    return _run(dev=_is_dev(args), background=args.background)
+    return _run(dev=_is_dev(args), background=args.background, args=args)
 
 
-def _run_tag_env(tag, env, mounts=[], background=False, add_host_route=False):
+def _run_tag_env(tag, env, mounts=[], background=False, add_host_route=False, args=None):
     """
     Some variations on `docker run` for interactive / passive container control
     """
@@ -612,24 +617,26 @@ def _run_tag_env(tag, env, mounts=[], background=False, add_host_route=False):
             * c.port, "-d" if background else "-t", tag]
     print(" ".join(_cmd))
     if background:
+        print("BACKGROUND!")
         subprocess.run(_cmd)
     else:
         def handler(signum, frame):
             print("EXITING\nKilling container...")
-            kill(None, front=False)
+            kill(args, front=False)
         signal.signal(signal.SIGINT, handler)
         p = subprocess.call(" ".join(_cmd), shell=True, stdin=subprocess.PIPE)
 
 
-def _run(dev=True, background=False):
+def _run(dev=True, background=False, args=None):
     _run_tag_env(tag=c.dtag if dev else c.ptag, env=(
-        c.denv if dev else c.penv)[1], mounts=c.vmount, background=background, add_host_route=True)
+        c.denv if dev else c.penv)[1], mounts=c.vmount,
+        background=background, add_host_route=True, args=args)
 
     # we print this mainly for port forwarding in codespaces:
     print("Running at localhost:8000 ")
 
 
-@ register_action(alias=["ma", "manage", "manage.py"], parse_own_args=True)
+@register_action(alias=["ma", "manage", "manage.py"], parse_own_args=True)
 def manage_command(args):
     """ runns a manage.py command inside the container """
     assert args.unknown
@@ -637,7 +644,7 @@ def manage_command(args):
     _run_in_running(_is_dev(args), ["python3", "manage.py", *_cmd])
 
 
-@ register_action(alias=["ma_shell_inject", "inject"])
+@register_action(alias=["ma_shell_inject", "inject"])
 def inject_shell(args):
     """ Injects a script into the python management shell """
     assert args.input, "Please provide a shell script input file"
@@ -655,7 +662,7 @@ def inject_shell(args):
     _run_in_running(_is_dev(args), _cmd)
 
 
-@ register_action(name="build_docs", alias=["docs"])
+@register_action(name="build_docs", alias=["docs"])
 def build_docs(args):
     """
     Can build the spinix documentation inside the docker container
