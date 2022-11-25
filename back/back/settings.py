@@ -46,6 +46,9 @@ INSTALLED_APPS = [
 
     'jazzmin',  # The waaaaaay nicer admin interface
 
+    'django_celery_beat',
+    'django_celery_results',
+
     # API docs not required in deployment, so we disable to routes
     # Though we keep the backages so we don't have to split the code
     'drf_spectacular',  # for api shema generation
@@ -175,6 +178,9 @@ CELERY_TIMEZONE = os.environ['DJ_CELERY_TIMEZONE']
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 
+if BUILD_TYPE in ['staging', 'development']:
+    pass
+
 # django-rest-password reset config:
 # Password reset tokens are only valid for 1h!
 DJANGO_REST_MULTITOKENAUTH_RESET_TOKEN_EXPIRY_TIME = 1
@@ -185,6 +191,16 @@ DJANGO_REST_MULTITOKENAUTH_REQUIRE_USABLE_PASSWORD = False
 if BUILD_TYPE in ['staging', 'development']:
     # autmaticly renders index.html when entering an absolute static path
     WHITENOISE_INDEX_FILE = True
+    CELERY_BROKER_URL = 'redis://host.docker.internal:6379'
+    CELERY_RESULT_BACKEND = 'django-db'  # 'redis://host.docker.internal:6379'
+    CELERY_ACCEPT_CONTENT = ['application/json']
+    CELERY_TASK_SERIALIZER = 'json'
+    CELERY_RESULT_SERIALIZER = 'json'
+    CELERY_TIMEZONE = 'Asia/Dhaka'  # TODO: change to berlin
+    CELERY_TASK_TRACK_STARTED = True
+    CELERY_TASK_TIME_LIMIT = 30 * 60
+
+    CELERY_RESULT_BACKEND = 'django-db'
 
 
 # We enforce these authentication classes
@@ -218,14 +234,16 @@ if BUILD_TYPE in ['staging', 'development']:
     }
 
 if BUILD_TYPE in ['staging', 'development']:
-    # TODO: actually for staging we should use in Memory channel layer or install redis in the container
+    # TODO: actually for staging we should use in Memory channel layer
+    # or install redis in the container
     host_ip_from_inside_container = "host.docker.internal"
     CHANNEL_LAYERS = {
         "default": {
-            "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {
-                "hosts": [(host_ip_from_inside_container, 6379)],
-            },
+            # "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+            # "CONFIG": {
+            #    "hosts": [(host_ip_from_inside_container, 6379)],
+            # },
         }
     }
 elif IS_PROD:
