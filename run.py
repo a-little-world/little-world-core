@@ -31,6 +31,7 @@ class c:
     penv = ["--env-file", "./penv"]
     shell = "sh"
     redis_port = ["-p", "6379:6379"]
+    redis_name = ["--name", "little-world-redis"]
 
     # Frontend container stuff
     front_docker_file = ["-f", "Dockerfile.front"]
@@ -125,19 +126,38 @@ def _setup(args):
 @register_action(name="list_running", alias=["ps"])
 def _list_running_instances(args):
     all_running = []
+
+    # We mostry reference by tag
     for tag in [c.ptag, c.dtag, c.front_tag, c.staging_tag]:
         ps = _running_instances(tag)
         all_running += ps if isinstance(ps, list) else [ps]
+
+    # Sometimes we like to use names, e.g.: redis
+    # ( we can't tag cause this aint our image )
+    for name in [c.redis_name[1]]:
+        ps = _running_instances_name(name)
+        all_running += ps if isinstance(ps, list) else [ps]
+
     print(all_running)
+
     return all_running
+
+
+def _all_running():
+    _cmd = ["docker", "ps", "--format",
+            r"""{"ID":"{{ .ID }}", "Image": "{{ .Image }}", "Names":"{{ .Names }}"}"""]
+    out = str(subprocess.run(_cmd, **subprocess_capture_out).stdout)
+    return [eval(x) for x in out.split("\n") if x.strip()]
+
+
+def _running_instances_name(name):
+    ps = _all_running()
+    return [x for x in ps if name in x["Names"]]
 
 
 def _running_instances(tag=TAG):
     """ Get a list of running instance for docker 'tag' """
-    _cmd = ["docker", "ps", "--format",
-            r"""{"ID":"{{ .ID }}", "Image": "{{ .Image }}", "Names":"{{ .Names }}"}"""]
-    out = str(subprocess.run(_cmd, **subprocess_capture_out).stdout)
-    ps = [eval(x) for x in out.split("\n") if x.strip()]
+    ps = _all_running()
     return [x for x in ps if tag in x["Image"]]
 
 
@@ -168,7 +188,7 @@ def attach(args):
 
 
 @register_action(cont=True, alias=["k"])
-def kill(args, front=True, back=True):
+def kill(args, front=True, back=True, redis=True):
     """ Kills all the running container instances (back & front)"""
     # TODO: this should also kill the lw redis instance ( if running )
     for tag in [c.front_tag if front else None,
@@ -176,6 +196,19 @@ def kill(args, front=True, back=True):
                 c.ptag if not _is_dev(args) else None]:
         if tag:
             _kill_tag(tag)
+
+    for name in [c.redis_name[1]]:
+        if name:
+            _kill_name(name)
+
+
+def _kill_name(name):
+    ps = _running_instances_name(name)
+    _cmd = ["docker", "kill"]
+    for p in ps:
+        _c = _cmd + [p["ID"]]
+        print(' '.join(_c))
+        subprocess.run(_c)
 
 
 def _kill_tag(tag):
@@ -586,13 +619,17 @@ def watch_frontend(args):
     _run_in_running(_is_dev(args), _cmd, backend=False)
 
 
-@register_action(alias=["rds", "rd", "redis-server"])
+@register_action(alias=["rds", "rd", "redis-server"], cont=True)
 def redis(args):
     """
     Runs a local instance of `redis-server` ( required for the chat )
     """
     assert _is_dev(args), "Local redis is only for development"
-    _cmd = [*c.drun, *c.redis_port, "-d", "redis:5"]
+    # First try to delete to old container if it is present
+    _cmd = ['docker', 'rm', c.redis_name[1]]
+    subprocess.run(_cmd)
+
+    _cmd = [*c.drun, *c.redis_port, *c.redis_name, "-d", "redis:5"]
     print(' '.join(_cmd))
     subprocess.run(_cmd)
 
