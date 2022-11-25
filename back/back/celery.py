@@ -1,4 +1,5 @@
 import os
+from celery.signals import worker_ready
 from celery import Celery
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'back.settings')
@@ -18,3 +19,9 @@ app.autodiscover_tasks()
 @app.task(bind=True)
 def debug_task(self):
     print(f'Request: {self.request!r}')
+
+
+@worker_ready.connect
+def startup_task(self, **k):
+    print("started")
+    return "Started"
