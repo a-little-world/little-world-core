@@ -363,7 +363,7 @@ JAZZMIN_SETTINGS = {
         {"event": "tracking"},
     ],
     "usermenu_links": [
-        {"name": "AdminChat", "url": "https://github.com/farridav/django-jazzmin/issues",
+        {"name": "AdminChat", "url": f"{BASE_URL}/admin_chat",
             "new_window": True},
     ],
     "show_sidebar": True,
@@ -396,4 +396,8 @@ JAZZMIN_SETTINGS = {
     # Whether to link font from fonts.googleapis.com (use custom_css to supply font otherwise)
     "use_google_fonts_cdn": True,  # TODO: we don't want his
     "show_ui_builder": False,
+}
+
+JAZZMIN_UI_TWEAKS = {
+    "sidebar_nav_compact_style": True,
 }
