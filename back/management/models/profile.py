@@ -280,7 +280,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         # There is no way the serializer can determine the options for our availability
         # so lets just add it now, sice availability is stored as json anyways
         # we can easily change the choices here in the future
-        if 'availability' in self.fields:
+        if 'availability' in self.Meta.fields:  # <- TODO: does this check work with inheritence?
             d.update({  # Ourcourse there is no need to do this for the Censored profile view
                 'availability': {day: SLOTS for day in DAYS}
             })
@@ -303,12 +303,14 @@ class SelfProfileSerializer(ProfileSerializer):
         extra_kwargs = dict(
             language_skill_description={
                 "error_messages": {
-                    'max_length': pgettext_lazy("profile.lskill-descr-to-long", "must have a maximum of 300 characters"),
+                    'max_length': pgettext_lazy("profile.lskill-descr-to-long",
+                                                "must have a maximum of 300 characters"),
                 }
             },
             description={
                 "error_messages": {
-                    'max_length': pgettext_lazy("profile.descr-to-long", "must have a maximum of 300 characters"),
+                    'max_length': pgettext_lazy("profile.descr-to-long",
+                                                "must have a maximum of 300 characters"),
                 }
             }
         )
@@ -319,7 +321,8 @@ class SelfProfileSerializer(ProfileSerializer):
     def validate_description(self, value):
         if len(value) < 10:  # TODO: higher?
             raise serializers.ValidationError(
-                pgettext_lazy("profile.descr-to-short", "must have at least 10 characters"))
+                pgettext_lazy("profile.descr-to-short",
+                              "must have at least 10 characters"))
         return value
 
 
@@ -327,4 +330,5 @@ class CensoredProfileSerializer(SelfProfileSerializer):
     class Meta:
         model = Profile
         fields = ["first_name", 'interests', 'availability',
-                  'notify_channel', 'phone_mobile', 'profile_image_type', 'profile_avatar_config', 'profile_image']
+                  'notify_channel', 'phone_mobile', 'profile_image_type',
+                  'profile_avatar_config', 'profile_image']
