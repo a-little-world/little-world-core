@@ -5,7 +5,7 @@ import base64
 import zlib
 import random
 from datetime import datetime
-from django.utils.translation import gettext_lazy as _
+from django.utils.translation import pgettext_lazy, gettext_lazy as _
 from rest_framework import serializers
 from .notifications import Notification
 from back.utils import get_options_serializer
@@ -43,20 +43,53 @@ class State(models.Model):
         # By wrapping in lambda this will get called when the model is created
         # and not at server start, then we get better randomization maybe
         # Also this conveniently inialized the pin
-        default=utils._rand_int5)  # TODO maybe increase a little ? -> would mean also in translation texts
+        default=utils._rand_int5)
 
     email_authenticated = models.BooleanField(default=False)
 
+    """
+    These are referense to the actual user model of this persons matches 
+    """
     matches = models.ManyToManyField(User, related_name='+', blank=True)
 
+    class MatchingStateChoices(models.IntegerChoices):
+        """
+        All matching states! 
+        Idle is the default state at the beginning
+        but we do (currently) automaticly set it to searching 
+        when the userform was finished.
+        """
+        IDLE = 0, pgettext_lazy(
+            "models.state.matching-state-idle",
+            "Not Searching (Idle)")
+        SEARCHING = 1, pgettext_lazy(
+            "models.state.matching-state-searching",
+            "Searching")
+
+    matching_state = models.IntegerField(choices=MatchingStateChoices.choices,
+                                         default=MatchingStateChoices.IDLE)
+
+    """
+    This contains a list of matches the user has not yet confirmed 
+    this can be used by the frontend to display them as 'new'
+    POST api/user/matches/confirm/
+    data = [<usr-hash>, ... ] 
+    """
+    unconfirmed_matches_stack = models.JSONField(default=list)
+
+    """
+    all user notification
+    reference to models.notifications.Notification
+    """
     notifications = models.ManyToManyField(
         Notification, related_name='n+', blank=True)
 
     """
-    This state is used to sendout the unread email notification for you have new messages
+    This state is used to sendout the unread email notification
+    when a user has new messages on the plattform
     """
-    unread_message_count = models.IntegerField(default=0)
-    unread_message_count_update_time = models.DateTimeField(
+    unread_chat_message_count = models.IntegerField(default=0)
+    unread_chat_message_count_update_time = models.DateTimeField(
         default=datetime.now)
 
     class UserCategoryChoices(models.IntegerChoices):
@@ -66,7 +99,22 @@ class State(models.Model):
         LEGIT = 2, _("Legit")
         TEST = 3, _("Test")
     user_category = models.IntegerField(
-        choices=UserCategoryChoices.choices, default=UserCategoryChoices.UNDEFINED)
+        choices=UserCategoryChoices.choices,
+        default=UserCategoryChoices.UNDEFINED)
+
+    def confirm_matches(self, matches: list):
+        """
+        Confirms some matches, basicly by removing them from the stack 
+        *but* this can throw 'Not and unconfirmed match'
+        """
+        cur_unconfirmed = self.unconfirmed_matches_stack
+        for m in matches:
+            if not m in cur_unconfirmed:
+                raise Exception("Not an unconfirmed match {m}".format(m=m))
+            else:
+                cur_unconfirmed.remove(m)
+        self.unconfirmed_matches_stack = cur_unconfirmed
+        self.save()
 
     def is_email_verified(self):
         return self.email_authenticated
