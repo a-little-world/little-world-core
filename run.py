@@ -197,7 +197,7 @@ def kill(args, front=True, back=True, redis=True):
         if tag:
             _kill_tag(tag)
 
-    for name in [c.redis_name[1]]:
+    for name in [c.redis_name[1] if redis else None]:
         if name:
             _kill_name(name)
 
@@ -240,7 +240,8 @@ def _run_in_running_tag(commands, tag, capture_out=False, work_dir=None, extra_d
     ps = _running_instances(tag)
     assert len(ps) > 0, "no running instances found"
     _cmd = ["docker", "exec",
-            *(["-w", work_dir] if work_dir else []), *extra_docker_cmd, "-it", ps[0]["ID"], *commands]
+            *(["-w", work_dir] if work_dir else []),
+            *extra_docker_cmd, "-it", ps[0]["ID"], *commands]
     if not capture_out:
         subprocess.run(" ".join(_cmd), shell=True, check=fail)
     else:
@@ -439,7 +440,7 @@ def make_messages(args, running=False):
             po.save()
 
 
-@ register_action(alias=["trans"], cont=True)
+@register_action(alias=["trans"], cont=True)
 def translate(args, running=False):
     """
     This comiles the messages then extracts statics
@@ -451,7 +452,7 @@ def translate(args, running=False):
     extract_static(args, running=True)
 
 
-@ register_action(alias=["open_translation"], cont=True)
+@register_action(alias=["open_translation"], cont=True)
 def open_trans(args):
     """
         Opens  atranslation file
@@ -475,7 +476,7 @@ def _make_webpack_command(env, config, debug: bool, watch: bool):
     return _cmd
 
 
-@ register_action(alias=["uf"], cont=True)
+@register_action(alias=["uf"], cont=True)
 def update_front(args):
     """
     only to be run when frontends are build
@@ -642,7 +643,9 @@ def run(args):
     if dev:
         Then container will mount the local `./back` folder,
         and forward port `c.port` (default 8000)
+    ** This also automaticly starts the redis instance!
     """
+    redis(args)  # <-- start redis!
     return _run(dev=_is_dev(args), background=args.background, args=args)
 
 
@@ -659,6 +662,7 @@ def _run_tag_env(tag, env, mounts=[], background=False, add_host_route=False, ar
     else:
         def handler(signum, frame):
             print("EXITING\nKilling container...")
+            # Also kill redis... cause it starts per default now
             kill(args, front=False)
         signal.signal(signal.SIGINT, handler)
         p = subprocess.call(" ".join(_cmd), shell=True, stdin=subprocess.PIPE)
