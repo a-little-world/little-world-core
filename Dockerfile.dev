@@ -2,7 +2,7 @@ FROM python:3.10-alpine
 
 WORKDIR /back
 
-COPY /back/requirements.txt ./
+COPY ./requirements.txt ./
 
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip cache purge
@@ -13,4 +13,4 @@ EXPOSE 8000
 RUN apk add gettext
 
 # Would have went with daphne but no hot reloading (https://github.com/django/daphne/issues/9) is quire problematic
-CMD ["uvicorn", "back.asgi:application" ,"--reload", "--port", "8000","--host", "0.0.0.0"]
+CMD ["sh", "./entry.sh"]
