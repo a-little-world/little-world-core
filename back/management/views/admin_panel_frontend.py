@@ -35,8 +35,6 @@ def admin_panel(request):
     # Though you can't yet change the page TODO
     pages = Paginator(filtered_user_list, paginate_by).page(page)
 
-    print(pages[0])
-
     user_list_data = [get_user_data(
         p, is_self=True, admin=True, include_options=False) for p in pages]
 
