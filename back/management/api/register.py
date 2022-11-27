@@ -61,6 +61,8 @@ class RegistrationSerializer(serializers.Serializer):
             password=validated_data['password1'])
 
     def validate_email(self, value):
+        # we strip spaces at beginning and end ( cause many people accidently have those )
+        value = value.strip()
         return value.lower()
 
     def validate_first_name(self, value):
