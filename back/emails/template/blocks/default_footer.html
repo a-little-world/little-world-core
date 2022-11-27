@@ -1,4 +1,6 @@
+{% load temp_utils %}
 {% load static %}
+{% get_base_url as BASE_URL %}
 <tr>
     <td align="left" style=" mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;" valign="middle">
         <table align="center" border="0" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%;" width="100%">
@@ -6,7 +8,7 @@
                 <tr>
                     <td align="left" style=" mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;" valign="middle">
                         <a href="#" target="_blank" style="text-decoration:none; display: block;">
-                            <img align="absbottom" border="0" src="{{BASE_URL}}{% static "img/email/footer_logo_w_text.png" %}" style="width: 70px; display: block; vertical-align:middle; border:0; height:auto;" width="70" />
+                            <img align="absbottom" border="0" src="{{ BASE_URL }}{% static "img/email/footer_logo_w_text.png" %}" style="width: 70px; display: block; vertical-align:middle; border:0; height:auto;" width="70" />
                         </a>
                     </td>
                 </tr>
@@ -21,7 +23,7 @@
                             <tbody>
                                 <tr>
                                     <td align="left" width="20" style=" mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%; padding-right: 2px;" valign="middle">
-                                        <img align="absbottom" border="0" src="{{BASE_URL}}{% static "img/email/icon_www.png" %}" style="width: 18px; display: block; vertical-align:middle; border:0; height:auto;" width="18" />
+                                        <img align="absbottom" border="0" src="{{ BASE_URL }}{% static "img/email/icon_www.png" %}" style="width: 18px; display: block; vertical-align:middle; border:0; height:auto;" width="18" />
                                     </td>
                                     <td align="left" style="font-size: 12px; line-height: 14px; mso-line-height-rule: exactly; -ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%; color: #4B4C4F; font-style: normal; font-weight: 300; font-family: 'Arial', 'Helvetica', sans-serif;" valign="middle">
                                         <a href="https://www.little-world.com" style="color:#4B4C4F; text-decoration:none;"><span style="color:#4B4C4F; text-decoration: none;">www.little-world.com</span></a>
@@ -29,7 +31,7 @@
                                 </tr>
                                 <tr>
                                     <td align="left" width="20" style=" mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%; padding-right: 2px; padding-top: 4px; padding-bottom: 4px;" valign="middle">
-                                        <img align="absbottom" border="0" src="{{BASE_URL}}{% static "img/email/icon_mail.png" %}" style="width: 18px; display: block; vertical-align:middle; border:0; height:auto;" width="18" />
+                                        <img align="absbottom" border="0" src="{{ BASE_URL }}{% static "img/email/icon_mail.png" %}" style="width: 18px; display: block; vertical-align:middle; border:0; height:auto;" width="18" />
                                     </td>
                                     <td align="left" style="font-size: 12px; line-height: 14px; mso-line-height-rule: exactly; -ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%; color: #4B4C4F; font-style: normal; font-weight: 300; font-family: 'Arial', 'Helvetica', sans-serif; padding-top: 4px; padding-bottom: 4px;" valign="middle">
                                         <a href="mailto:oliver.berlin@little-world.com" style="color:#4B4C4F; text-decoration:none;"><span style="color:#4B4C4F; text-decoration: none;">oliver.berlin@little-world.com</span></a>
@@ -37,7 +39,7 @@
                                 </tr>
                                 <tr>
                                     <td align="left" width="20" style=" mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%; padding-right: 2px;" valign="middle">
-                                        <img align="absbottom" border="0" src="{{BASE_URL}}{% static "img/email/icon_phone.png" %}" style="width: 18px; display: block; vertical-align:middle; border:0; height:auto;" width="18" />
+                                        <img align="absbottom" border="0" src="{{ BASE_URL }}{% static "img/email/icon_phone.png" %}" style="width: 18px; display: block; vertical-align:middle; border:0; height:auto;" width="18" />
                                     </td>
                                     <td align="left" style="font-size: 12px; line-height: 14px; mso-line-height-rule: exactly; -ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%; color: #4B4C4F; font-style: normal; font-weight: 300; font-family: 'Arial', 'Helvetica', sans-serif;" valign="middle">
                                         <a href="tel:0241 980 93 490" style="color:#4B4C4F; text-decoration:none;"><span style="color:#4B4C4F; text-decoration: none;">0152 34 777 471</span></a>
@@ -59,11 +61,11 @@
                             <tbody>
                                 <tr>
                                     <td align="right" style="text-align: right;padding:10px 0;font-size:22px">
-                                        <a style="width:20px;display:inline-block;" href="#" target="_blank" ><img alt="linkedin" style="width:18px;" width="18" src="{{BASE_URL}}{% static "img/email/social_0_in.png" %}" >
+                                        <a style="width:20px;display:inline-block;" href="#" target="_blank" ><img alt="linkedin" style="width:18px;" width="18" src="{{ BASE_URL }}{% static "img/email/social_0_in.png" %}" >
                                         </a>&nbsp;
-                                        <a style="width:20px;display:inline-block;" href="#"  target="_blank" ><img alt="facebook" style="width:18px;" width="18" src="{{BASE_URL}}{% static "img/email/social_1_fb.png" %}" >
+                                        <a style="width:20px;display:inline-block;" href="#"  target="_blank" ><img alt="facebook" style="width:18px;" width="18" src="{{ BASE_URL }}{% static "img/email/social_1_fb.png" %}" >
                                         </a>&nbsp;
-                                        <a style="width:20px;display:inline-block;" href="#"  target="_blank" ><img alt="instagram" style="width:18px;" width="18" src="{{BASE_URL}}{% static "img/email/social_2_ig.png" %}" >
+                                        <a style="width:20px;display:inline-block;" href="#"  target="_blank" ><img alt="instagram" style="width:18px;" width="18" src="{{ BASE_URL }}{% static "img/email/social_2_ig.png" %}" >
                                         </a>
                                     </td>
                                 </tr>
