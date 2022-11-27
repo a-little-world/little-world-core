@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from celery.signals import worker_ready
 from celery import Celery, shared_task
 
@@ -23,17 +24,16 @@ def debug_task(self):
 
 @worker_ready.connect
 def startup_task(sender, **k):
-    print("started")
-    return "Started"
+    return "Started " + datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
 
 
-@shared_task
-def im_allive_task():
-    from datetime import datetime
+@app.task(bind=True, name="im_allive_task")
+def im_allive_task(self):
     print("> ", datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
     print("=========================================")
     print("==== Server I'm happily chillin ;) ======")
     print("=========================================")
+    # return "RESULT" we don't return this as a result otherwise we would just be flooding the database
 
 
 """
@@ -42,7 +42,7 @@ e.g.: notifying users that they have new messages
 """
 app.conf.beat_schedule = {
     'im-allive-ping': {
-        'task': 'back.celery.im_allive_task',
-        'schedule': 60.0  # Every minute!
+        'task': 'im_allive_task',
+        'schedule': 60.0 * 20.0  # Every twentry minutes!
     }
 }
