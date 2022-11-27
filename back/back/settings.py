@@ -177,6 +177,7 @@ ASGI_APPLICATION = "back.asgi.application"
 CELERY_TIMEZONE = os.environ['DJ_CELERY_TIMEZONE']
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
+CELERY_RESULT_EXTENDED = True
 
 if BUILD_TYPE in ['staging', 'development']:
     pass
@@ -292,7 +293,7 @@ if IS_PROD:
     EMAIL_USE_TLS = True
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
     # TODO create this param
-    DEFAULT_FROM_EMAIL = os.environ["DJ_DEFAULT_FROM_EMAIL"]
+    DEFAULT_FROM_EMAIL = os.environ["DJ_SG_DEFAULT_FROM_EMAIL"]
 
 
 AUTH_PASSWORD_VALIDATORS = [{'NAME': val} for val in [
