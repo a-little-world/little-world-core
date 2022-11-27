@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 import string
 from django.utils.translation import pgettext_lazy
+from django.utils.safestring import mark_safe
 
 
 class MissingEmailParamErr(Exception):
@@ -12,6 +13,7 @@ def inject_template_data(template_dict, params):
     This takes one of the Templat Param classes below
     if this failes it means there is a missing parameter
     """
+    print(template_dict, params)
     _dict = template_dict.copy()
     # We need to take one of the templates from below
     # and for each parameter we check if there is a requred format string
@@ -165,3 +167,32 @@ class PasswordResetEmailDefaults:
     reset_body_start: str = 'reset_body_start'
     reset_button_text: str = 'reset_button_text'
     reset_button_url: str = 'reset_button_url'
+
+
+@dataclass
+class SorryWeStillNeedALittleMail:
+    subject_header_text: str = 'Suche & Gruppengespräche'
+    greeting: str = 'Hi {first_name}'
+    content_start_text: str = mark_safe(
+        'wow, hunderte von Menschen haben sich in den letzten Wochen für die ' +
+        '<i>Beta-Version</i> von <b>Little World</b> registriert. Vielen Dank euch!')
+    content_body_text: str = mark_safe(
+        'Unser kleines Team arbeitet auf Hochtouren daran, ' +
+        'für alle die passenden Gesprächspartner:innen zu finden –' +
+        ' das schaffen wir noch nicht überall auf Anhieb. ' +
+        'Dafür möchten wir uns entschuldigen, dafür bieten wir aber auch eine Lösung an.' + '<br><br>' +
+        'Unser Vorschlag: Um schneller zu matchen, erhöhen wir ab <b>Sonntag, 27. November 2022</b>, ' +
+        'den Suchradius auf 100 km. Alle deine anderen Einstellungen bleiben genauso, wie sie waren. ' +
+        'Solltest du aber weiterhin bei „möglichst in der Nähe“ bleiben wollen, ist das auch kein Problem. ' +
+        'Dann antworte ganz einfach auf diese Mail, am besten mit einer maximalen Entfernung.' + '<br><br>' +
+        'Hast du noch Fragen? Dann melde dich jederzeit unter <i>0152 34 777 471</i> oder <i>oliver.berlin@little-world.com</i> oder über den Chat auf unserer Webseite. <br>' +
+        'Oder besuche unsere <b>Gruppengespräche</b> für Fragen & Anregungen. ' +
+        'Diese findest ab jetzt immer angemeldet auf <a href="www.little-world.com">www.little-world.com</a> unter dem Bereich „Start“ und dann „Kaffeeklatsch“ zu wechselnden Zeiten. ' +
+        ' Als nächstes treffen wir uns <b>dienstags 18 - 19 Uhr</b> und <b>donnerstags 13 - 14 Uhr</b>.')
+    link_box_text: str = ''
+    button_text: str = ''
+    button_link: str = ''
+    below_link_text: str = ''
+    footer_text: str = ''
+    goodbye: str = 'Wir freuen uns über jeden Austausch,'
+    goodbye_name: str = 'dein Team von Little World'
