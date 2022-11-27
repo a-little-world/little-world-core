@@ -19,6 +19,10 @@ def _rand_int5():
     return random.randint(10000, 99999)
 
 
+def dataclass_as_dict(data):
+    return {k: getattr(data, k) for k in data.__annotations__}
+
+
 def get_options_serializer(self, obj):
     """
     Takes the default django rest options serializer 
