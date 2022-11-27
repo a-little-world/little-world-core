@@ -185,7 +185,8 @@ class ProfileBase(models.Model):
     interests = MultiSelectField(
         choices=InterestChoices.choices, max_choices=20, max_length=20, blank=True)  # type: ignore
 
-    additional_interests = models.TextField(default="", blank=True)
+    additional_interests = models.TextField(
+        default="", blank=True, max_length=300)
 
     """
     For simpliciy we store the time slots just in JSON
@@ -215,14 +216,34 @@ class ProfileBase(models.Model):
     language_skill_description = models.TextField(
         default="", blank=True, max_length=300)
 
-    class LanguageLevelChoices(models.IntegerChoices):
-        A1 = 0, _("Level 0 (egal)")
-        A2 = 1, _("Level 1 (B1 = (Alltagssituationen, Geschichten, Hoffnungen))")
-        A3 = 2, _(
-            "Level 2 (B2 = (fließende & spontane Gespräche, aktuelles Geschehen))")
-        A4 = 3, _("Level 3 (C1 = (komplexe Themen, kaum nach Wörtern suchen))")
-    lang_level = models.IntegerField(
-        choices=LanguageLevelChoices.choices, default=LanguageLevelChoices.A1)
+    class LanguageLevelChoices(models.TextChoices):
+        """
+        For all choices we allow to version a version for a volunteer 
+        and a version for a lanaguage learer
+        NOTE: this means we *need* to update selection if a users switches from learner to volunteer or vice versa
+        """
+        LEVEL_0_VOL = "level-0.vol", pgettext_lazy(
+            "profile.lang-level.level-0-vol", "any")
+        LEVEL_0_LER = "level-0.ler", pgettext_lazy(
+            "profile.lang-level.level-0-ler", "any")
+
+        LEVEL_1_VOL = "level-1.vol", pgettext_lazy(
+            "profile.lang-level.level-1-vol", "B1 = (everyday situations, stories, hopes)")
+        LEVEL_1_LER = "level-1.ler", pgettext_lazy(
+            "profile.lang-level.level-1-ler", "B1 = (everyday situations, stories, hopes)")
+
+        LEVEL_2_VOL = "level-2.vol", pgettext_lazy(
+            "profile.lang-level.level-2-vol", "B2 = (fluent & spontaneous conversations, current events)")
+        LEVEL_2_LER = "level-2.ler", pgettext_lazy(
+            "profile.lang-level.level-2-ler", "B2 = (fluent & spontaneous conversations, current events)")
+
+        LEVEL_3_VOL = "level-3.vol", pgettext_lazy(
+            "profile.lang-level.level-3-vol", "C1/C2 = (complex topics, hardly searching for words)")
+        LEVEL_3_LER = "level-3.ler", pgettext_lazy(
+            "profile.lang-level.level-3-ler", "C1/C2 = (complex topics, hardly searching for words)")
+
+    lang_level = models.CharField(
+        choices=LanguageLevelChoices.choices, default=LanguageLevelChoices.LEVEL_0_VOL)
 
     # Profile image
     class ImageTypeChoice(models.IntegerChoices):
