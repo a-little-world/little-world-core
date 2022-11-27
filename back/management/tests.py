@@ -197,6 +197,9 @@ class RegisterTests(TestCase):
         assert usr.state.is_email_verified()
         # Now ok lets set it to unverified again and then check if calling the api also does the trick
 
+    def test_space_in_email_allowed_and_removed(self):
+        pass  # TODO: Test is spaces at the biginning and end of an emails are allowed and working
+
 
 class ProfileApiTests(TestCase):
 
