@@ -328,7 +328,7 @@ STATIC_URL = '/static/'
 
 if DEBUG:
     info = '\n '.join([f'{n}: {globals()[n]}' for n in [
-        'BASE_DIR', 'ALLOWED_HOSTS', 'CELERY_TIMEZONE', 'FRONTENDS']])
+        'BASE_DIR', 'ALLOWED_HOSTS', 'CELERY_TIMEZONE', 'FRONTENDS', 'DATABASES']])
     print(f"configured django settings:\n {info}")
 
 JAZZMIN_SETTINGS = {
