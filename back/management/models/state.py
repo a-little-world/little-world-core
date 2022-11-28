@@ -34,7 +34,8 @@ class State(models.Model):
 
     """ If the user_form ist filled or not """
     user_form_state = models.CharField(choices=UserFormStateChoices.choices,
-                                       default=UserFormStateChoices.UNFILLED)
+                                       default=UserFormStateChoices.UNFILLED,
+                                       max_length=255)
 
     # Just some hash for verifying the email
     email_auth_hash = models.CharField(
@@ -67,7 +68,8 @@ class State(models.Model):
             "Searching")
 
     matching_state = models.CharField(choices=MatchingStateChoices.choices,
-                                      default=MatchingStateChoices.IDLE)
+                                      default=MatchingStateChoices.IDLE,
+                                      max_length=255)
 
     """
     This contains a list of matches the user has not yet confirmed 
@@ -100,7 +102,8 @@ class State(models.Model):
         TEST = "test", _("Test")
     user_category = models.CharField(
         choices=UserCategoryChoices.choices,
-        default=UserCategoryChoices.UNDEFINED)
+        default=UserCategoryChoices.UNDEFINED,
+        max_length=255)
 
     def confirm_matches(self, matches: list):
         """
