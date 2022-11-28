@@ -37,7 +37,9 @@ class Event(models.Model):
     """ Contains a list of custom assighned tags """
     tags = models.JSONField(null=True, blank=True)
 
-    type = models.CharField(choices=EventTypeChoices.choices)
+    type = models.CharField(choices=EventTypeChoices.choices,
+                            default=EventTypeChoices.MISC,
+                            max_length=255)
 
     """ 
     Caller user, but optional
