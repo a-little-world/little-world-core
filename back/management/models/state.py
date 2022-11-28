@@ -28,13 +28,13 @@ class State(models.Model):
     """ Form page the user is currently on """
     user_form_page = models.IntegerField(default=0)
 
-    class UserFormStateChoices(models.IntegerChoices):
-        UNFILLED = 0, _("Unfilled user form")
-        FILLED = 1, _("Filled user form")
+    class UserFormStateChoices(models.TextChoices):
+        UNFILLED = "unfilled", _("Unfilled user form")
+        FILLED = "filled", _("Filled user form")
 
     """ If the user_form ist filled or not """
-    user_form_state = models.IntegerField(choices=UserFormStateChoices.choices,
-                                          default=UserFormStateChoices.UNFILLED)
+    user_form_state = models.CharField(choices=UserFormStateChoices.choices,
+                                       default=UserFormStateChoices.UNFILLED)
 
     # Just some hash for verifying the email
     email_auth_hash = models.CharField(
@@ -52,22 +52,22 @@ class State(models.Model):
     """
     matches = models.ManyToManyField(User, related_name='+', blank=True)
 
-    class MatchingStateChoices(models.IntegerChoices):
+    class MatchingStateChoices(models.TextChoices):
         """
         All matching states! 
         Idle is the default state at the beginning
         but we do (currently) automaticly set it to searching 
         when the userform was finished.
         """
-        IDLE = 0, pgettext_lazy(
+        IDLE = "idle", pgettext_lazy(
             "models.state.matching-state-idle",
             "Not Searching (Idle)")
-        SEARCHING = 1, pgettext_lazy(
+        SEARCHING = "searching", pgettext_lazy(
             "models.state.matching-state-searching",
             "Searching")
 
-    matching_state = models.IntegerField(choices=MatchingStateChoices.choices,
-                                         default=MatchingStateChoices.IDLE)
+    matching_state = models.CharField(choices=MatchingStateChoices.choices,
+                                      default=MatchingStateChoices.IDLE)
 
     """
     This contains a list of matches the user has not yet confirmed 
@@ -92,13 +92,13 @@ class State(models.Model):
     unread_chat_message_count_update_time = models.DateTimeField(
         default=datetime.now)
 
-    class UserCategoryChoices(models.IntegerChoices):
+    class UserCategoryChoices(models.TextChoices):
         # For this we can use the default translations '_()'
-        UNDEFINED = 0, _("Undefined")
-        SPAM = 1, _("Spam")
-        LEGIT = 2, _("Legit")
-        TEST = 3, _("Test")
-    user_category = models.IntegerField(
+        UNDEFINED = "undefined", _("Undefined")
+        SPAM = "spam", _("Spam")
+        LEGIT = "legit", _("Legit")
+        TEST = "test", _("Test")
+    user_category = models.CharField(
         choices=UserCategoryChoices.choices,
         default=UserCategoryChoices.UNDEFINED)
 
