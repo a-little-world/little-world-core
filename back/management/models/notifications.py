@@ -29,7 +29,8 @@ class Notification(models.Model):
         ARCHIVED = "archived", pgettext_lazy(
             "notification.state.archived", "Archived")
     state = models.CharField(choices=NotificationState.choices,
-                             default=NotificationState.UNREAD)
+                             default=NotificationState.UNREAD,
+                             max_length=255)
 
     class NotificationType(models.TextChoices):
         NONE = "none", pgettext_lazy("notification.type.none", "No Type")
@@ -38,7 +39,8 @@ class Notification(models.Model):
             "notification.type.message", "message")
 
     type = models.CharField(
-        choices=NotificationType.choices, default=NotificationType.NONE)
+        choices=NotificationType.choices, default=NotificationType.NONE,
+        max_length=255)
 
     title = models.CharField(max_length=255, default=_("title"))
     description = models.TextField(default=_("no-description"))
