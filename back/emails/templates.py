@@ -13,11 +13,10 @@ def inject_template_data(template_dict, params):
     This takes one of the Templat Param classes below
     if this failes it means there is a missing parameter
     """
-    print(template_dict, params)
+    #print(template_dict, params)
     _dict = template_dict.copy()
     # We need to take one of the templates from below
     # and for each parameter we check if there is a requred format string
-    print(_dict)
     for k in _dict:
         # This allowes us to read all parameters
         _formats = list(string.Formatter().parse(str(_dict[k])))
@@ -27,7 +26,7 @@ def inject_template_data(template_dict, params):
             continue
         _format_args = [arg for arg in list(string.Formatter().parse(str(_dict[k])))[
             0][1:] if arg != "" and arg is not None]
-        print("Fomattable stuff ", _format_args)
+        #print("Fomattable stuff ", _format_args)
         for _k in _format_args:
             if not _k in params:
                 raise MissingEmailParamErr(
