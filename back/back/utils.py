@@ -37,7 +37,7 @@ def get_options_serializer(self, obj):
         if "type" in _f and (_f["type"] == "choice" or _f["type"] == "multiple choice"):
             _t_choices = []
             for choice in _f["choices"]:
-                # We do assume that models.IntegerChoices is used
+                # We do assume that models.IntegerChoices or models.TextChoices is used
                 # sadly it seems int keys are auto transformed to string when jsonized
                 _t_choices.append(
                     {"tag": choice["display_name"], "value": choice["value"]})
