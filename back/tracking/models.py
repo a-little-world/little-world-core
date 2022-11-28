@@ -17,27 +17,27 @@ class Event(models.Model):
     def _abr_hash(self):
         return self.hash[:8]
 
-    class EventTypeChoices(models.IntegerChoices):
-        MISC = 0, _("Misc event")
-        REQUEST = 1, _("Request event")
-        DATABASE = 2, _("Database event")
-        ADMIN = 3, _("Admin event")
+    class EventTypeChoices(models.TextChoices):
+        MISC = "misc", _("Misc event")
+        REQUEST = "request", _("Request event")
+        DATABASE = "database", _("Database event")
+        ADMIN = "admin", _("Admin event")
         """
         A flow event represents an event that happened during the flow of something 
         e.g.: user form was marked finished or matchin state changed!
         """
-        FLOW = 4, _("Flow event")
-        EMAIL = 5, _("Email event")
+        FLOW = "flow", _("Flow event")
+        EMAIL = "email", _("Email event")
         """
         This is reserved for event triggered from the frontend
         this can be triggered with the `api/event/v1/trigger` TODO make this API
         """
-        FRONT = 6, _("Frontend event")
+        FRONT = "front", _("Frontend event")
 
     """ Contains a list of custom assighned tags """
     tags = models.JSONField(null=True, blank=True)
 
-    type = models.IntegerField(choices=EventTypeChoices.choices)
+    type = models.CharField(choices=EventTypeChoices.choices)
 
     """ 
     Caller user, but optional
