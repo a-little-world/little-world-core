@@ -52,7 +52,7 @@ def get_users_by_slug_filter(
     # Per default this would operate on **all** users
     # But when we want to apply multiple filters
     # we will have to be able to pass a limited user list:
-    user_to_filter=list(User.objects.all())
+    user_to_filter=None
 ):
     """
     Allowes to filter users by a slug. 
@@ -67,6 +67,10 @@ def get_users_by_slug_filter(
     e.g.: It will automaticly detect wheather a int or a str is used as value
     and make the comparison lookup accordingly
     """
+    if not user_to_filter:
+        # We have to do this here rather than in parameters
+        # cause otherwise this would always try to acess the DB when the code is first loaded
+        user_to_filter = list(User.objects.all())
     assert filter_slug and filter_slug.count(":") == 2, "Filterslug wrong!"
     # TODO: we might wan't to handle this more gracefully and return the error
 
@@ -126,7 +130,7 @@ def get_users_by_slug_filter(
 
         if _check_operation_condition(operation, model_value, compare_list=value) \
                 if value_kind == 'multi' else \
-        _check_operation_condition(operation, model_value, compare_value=value):
+            _check_operation_condition(operation, model_value, compare_value=value):
             filtered_user_list.append(user)
 
     for user in user_to_filter:
