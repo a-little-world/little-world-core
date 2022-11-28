@@ -92,10 +92,13 @@ class ProfileBase(models.Model):
     e.g.: there might be a user that learns german and later decides he wants to volunteer
     therefore we store changes of this choice in `past_user_types`
     """
-    class TypeChoices(models.IntegerChoices):
-        VOLUNTEER = 0, _("Volunteer")
-        LEARNER = 1, _("Language learner")
-    user_type = models.IntegerField(
+    class TypeChoices(models.TextChoices):
+        VOLUNTEER = "volunteer", pgettext_lazy(
+            "profile.user-type.volunteer", "Volunteer")
+        LEARNER = "learner", pgettext_lazy(
+            "profile.user-type.learner", "Language learner")
+
+    user_type = models.CharField(
         choices=TypeChoices.choices, default=TypeChoices.VOLUNTEER)
 
     """
@@ -109,77 +112,132 @@ class ProfileBase(models.Model):
     Note: for volunteers this is a preference
     for learners this is which group they belong to
     """
-    class TargetGroupChoices(models.IntegerChoices):
-        # Allen Gruppen:
-        ANY = 0, _("Any Group")
-        # Geflüchteten (u.a. Ukraine, Jemen, Syrien):
-        REFUGEES = 1, _("Refugees only")
-        # Studierenden
-        STUDENTS = 2, _("Students only")
-        # Fachkräften aus dem Ausland:
-        WORKERS = 3, _("Workers only")
+    class TargetGroupChoices(models.TextChoices):
 
-    target_group = models.IntegerField(
-        choices=TargetGroupChoices.choices, default=TargetGroupChoices.ANY)
+        ANY_VOL = "any.vol", pgettext_lazy(
+            "profile.target-group.any-vol", "Any group")
+
+        ANY_LER = "any.ler", pgettext_lazy(
+            "profile.target-group.any-ler", "Any group")
+
+        REFUGEE_VOL = "refugee.vol", pgettext_lazy(
+            "profile.target-group.refugee-vol", "Refugees only")
+
+        REFUGEE_LER = "refugee.ler", pgettext_lazy(
+            "profile.target-group.refugee-ler", "Refugees only")
+
+        STUDENT_VOL = "student.vol", pgettext_lazy(
+            "profile.target-group.student-vol", "Students only")
+
+        STUDENT_LER = "student.ler", pgettext_lazy(
+            "profile.target-group.student-ler", "Students only")
+
+        WORKER_VOL = "worker.vol", pgettext_lazy(
+            "profile.target-group.worker-vol", "Workers only")
+
+        WORKER_LER = "worker.ler", pgettext_lazy(
+            "profile.target-group.worker-ler", "Workers only")
+
+    target_group = models.CharField(
+        choices=TargetGroupChoices.choices, default=TargetGroupChoices.ANY_VOL)
 
     """
     Prefered partner sex
     """
-    class ParterSexChoice(models.IntegerChoices):
-        ANY = 0, _("Any sex")
-        MALE = 1, _("Male only")
-        FEMALE = 2, _("Female only")
-    partner_sex = models.IntegerField(
+    class ParterSexChoice(models.TextChoices):
+        ANY = "any", pgettext_lazy("profile.partner-sex.any", "Any")
+        MALE = "male", pgettext_lazy("profile.partner-sex.male", "Male only")
+        FEMALE = "female", pgettext_lazy(
+            "profile.partner-sex.female", "Female only")
+
+    partner_sex = models.CharField(
         choices=ParterSexChoice.choices, default=ParterSexChoice.ANY)
 
     """
     Which medium the user preferes for
     """
-    class SpeechMediumChoices(models.IntegerChoices):
-        ANY = 0, _("Any medium")
-        VIDEO = 1, _("Video only")
-        PHONE = 2, _("Phone only")
-    speech_medium = models.IntegerField(
-        choices=SpeechMediumChoices.choices, default=SpeechMediumChoices.ANY)
+    class SpeechMediumChoices(models.TextChoices):
+        ANY_VOL = "any.vol", pgettext_lazy(
+            "profile.speech-medium.any-vol", "Any")
+
+        ANY_LER = "any.ler", pgettext_lazy(
+            "profile.speech-medium.any-ler", "Any")
+
+        VIDEO_VOL = "video.vol", pgettext_lazy(
+            "profile.speech-medium.video-vol", "Video only")
+
+        VIDEO_LER = "video.ler", pgettext_lazy(
+            "profile.speech-medium.video-ler", "Video only")
+
+        PHONE_VOL = "phone.vol", pgettext_lazy(
+            "profile.speech-medium.phone-vol", "Phone only")
+
+        PHONE_LER = "phone.ler", pgettext_lazy(
+            "profile.speech-medium.phone-ler", "Phone only")
+
+    speech_medium = models.CharField(
+        choices=SpeechMediumChoices.choices, default=SpeechMediumChoices.ANY_VOL)
 
     """
     where people want there match to be located
     """
-    class ConversationPartlerLocation(models.IntegerChoices):
-        ANYWHERE = 0, _("Location Anywhere")
-        CLOSE = 1, _("Location close")
-        FAR = 2, _("Location far")
-    partner_location = models.IntegerField(
-        choices=ConversationPartlerLocation.choices, default=ConversationPartlerLocation.ANYWHERE)
+    class ConversationPartlerLocation(models.TextChoices):
+        ANYWHERE_VOL = "anywhere.vol", pgettext_lazy(
+            "profile.partner-location.anywhere-vol", "Anywhere")
+
+        ANYWHERE_LER = "anywhere.ler", pgettext_lazy(
+            "profile.partner-location.anywhere-ler", "Anywhere")
+
+        CLOSE_VOL = "close.vol", pgettext_lazy(
+            "profile.partner-location.close-vol", "Close")
+
+        CLOSE_LER = "close.ler", pgettext_lazy(
+            "profile.partner-location.close-ler", "Close")
+
+        FAR_VOL = "far.vol", pgettext_lazy(
+            "profile.partner-location.far-vol", "Far")
+
+        FAR_LER = "far.ler", pgettext_lazy(
+            "profile.partner-location.far-ler", "Far")
+
+    partner_location = models.CharField(
+        choices=ConversationPartlerLocation.choices, default=ConversationPartlerLocation.ANYWHERE_VOL)
 
     """
     Postal code, char so we support international code for the future
     """
     postal_code = models.CharField(max_length=255, blank=True)
 
-    class InterestChoices(models.IntegerChoices):
-        SPORT = 0, pgettext_lazy("profile.sport-interest", "Sport")
-        ART = 1, pgettext_lazy("profile.art-interest", "Art")
-        MUSIC = 2, pgettext_lazy("profile.music-interest", "Music")
-        LITERATURE = 3, pgettext_lazy(
+    class InterestChoices(models.TextChoices):
+        SPORT = "sport", pgettext_lazy("profile.sport-interest", "Sport")
+        ART = "art", pgettext_lazy("profile.art-interest", "Art")
+        MUSIC = "music", pgettext_lazy("profile.music-interest", "Music")
+        LITERATURE = "literature", pgettext_lazy(
             "profile.literature-interest", "Literature")
-        VIDEO = 4, pgettext_lazy("profile.video-interest", "Video")
-        FASHION = 5, pgettext_lazy("profile.fashion-interest", "Fashion")
-        KULTURE = 6, pgettext_lazy("profile.culture-interest", "Culture")
-        TRAVEL = 7, pgettext_lazy("profile.travel-interest", "Travel")
-        FOOD = 8, pgettext_lazy("profile.food-interest", "Food")
-        POLITICS = 9, pgettext_lazy("profile.politics-interest", "Politics")
-        NATURE = 10, pgettext_lazy("profile.nature-interest", "Nature")
-        SCIENCE = 11, pgettext_lazy("profile.science-interest", "Science")
-        TECHNOLOGIE = 12, pgettext_lazy("profile.tech-interest", "Technology")
-        HISTORY = 13, pgettext_lazy("profile.history-interest", "History")
-        RELIGION = 14, pgettext_lazy("profile.religion-interest", "Religion")
-        SOZIOLOGIE = 15, pgettext_lazy(
+        VIDEO = "video", pgettext_lazy("profile.video-interest", "Video")
+        FASHION = "fashion", pgettext_lazy(
+            "profile.fashion-interest", "Fashion")
+        KULTURE = "culture", pgettext_lazy(
+            "profile.culture-interest", "Culture")
+        TRAVEL = "travel", pgettext_lazy("profile.travel-interest", "Travel")
+        FOOD = "food", pgettext_lazy("profile.food-interest", "Food")
+        POLITICS = "politics", pgettext_lazy(
+            "profile.politics-interest", "Politics")
+        NATURE = "nature", pgettext_lazy("profile.nature-interest", "Nature")
+        SCIENCE = "science", pgettext_lazy(
+            "profile.science-interest", "Science")
+        TECHNOLOGIE = "technology", pgettext_lazy(
+            "profile.tech-interest", "Technology")
+        HISTORY = "hostry", pgettext_lazy(
+            "profile.history-interest", "History")
+        RELIGION = "religion", pgettext_lazy(
+            "profile.religion-interest", "Religion")
+        SOZIOLOGIE = "sociology", pgettext_lazy(
             "profile.soziologie-interest", "Sociology")
-        FAMILY = 16, pgettext_lazy("profile.family-interest", "Family")
-        PSYCOLOGY = 17, pgettext_lazy(
+        FAMILY = "family", pgettext_lazy("profile.family-interest", "Family")
+        PSYCOLOGY = "psycology", pgettext_lazy(
             "profile.psycology-interest", "Psycology")
-        PERSON_DEV = 18, pgettext_lazy(
+        PERSON_DEV = "personal-development", pgettext_lazy(
             "profile.pdev-interest", "Personal development")
 
     interests = MultiSelectField(
@@ -196,18 +254,26 @@ class ProfileBase(models.Model):
         null=True, blank=True, default=get_default_availability,
         validators=[validate_availability])  # type: ignore
 
-    class LiabilityChoices(models.IntegerChoices):
-        DECLINED = 0, _("Declined Liability")
-        ACCEPTED = 1, _("Accepted Liability")
-    liability = models.IntegerField(
+    class LiabilityChoices(models.TextChoices):
+        DECLINED = "declined", pgettext_lazy(
+            "profile.liability.declined", "Declined Liability")
+
+        ACCEPTED = "accepted", pgettext_lazy(
+            "profile.liability.accepted", "Accepted Liability")
+
+    liability = models.CharField(
         choices=LiabilityChoices.choices, default=LiabilityChoices.DECLINED)
 
-    class NotificationChannelChoices(models.IntegerChoices):
-        EMAIL = 0, _("Notify per email")
-        SMS = 1, _("Notify per SMS")
-        CALL = 2, _("Notify by calling")
-    notify_channel = models.IntegerField(
-        choices=NotificationChannelChoices.choices, default=NotificationChannelChoices.CALL)
+    class NotificationChannelChoices(models.TextChoices):
+        EMAIL = "email", pgettext_lazy(
+            "profile.notify-channel.email", "Notify per email")
+        SMS = "sms", pgettext_lazy(
+            "profile.notify-channel.sms", "Notify per SMS")
+        CALL = "call", pgettext_lazy(
+            "profile.notify-channel.call", "Notify by calling")
+
+    notify_channel = models.CharField(
+        choices=NotificationChannelChoices.choices, default=NotificationChannelChoices.EMAIL)
 
     phone_mobile = PhoneNumberField(blank=True, unique=False)
 
@@ -246,16 +312,24 @@ class ProfileBase(models.Model):
         choices=LanguageLevelChoices.choices, default=LanguageLevelChoices.LEVEL_0_VOL)
 
     # Profile image
-    class ImageTypeChoice(models.IntegerChoices):
-        AVATAR = 0, _("Avatar")
-        IMAGE = 1, _("Image")
+    class ImageTypeChoice(models.TextChoices):
+        AVATAR = "avatar", pgettext_lazy("profile.image-type.avatar", "Avatar")
+        IMAGE = "image", pgettext_lazy("profile.image-type.image", "Image")
 
-    profile_image_type = models.IntegerField(
+    image_type = models.CharField(
         choices=ImageTypeChoice.choices, default=ImageTypeChoice.IMAGE)
-    profile_image = models.ImageField(
+    image = models.ImageField(
         upload_to=PathRename("profile_pics/"), blank=True)
-    profile_avatar_config = models.TextField(
+    avatar_config = models.TextField(
         default="", blank=True)  # Contains the avatar builder config
+
+    def save(self, *args, **kwargs):
+        """
+        Cause we have different choices for language learners 
+        and volunteers we need to detect when this is changed.
+        If user type is changed we hav to update all choices that have '.vol' or '.ler' ending
+        """
+        super(ProfileBase, self).save(*args, **kwargs)
 
 
 class Profile(ProfileBase):
