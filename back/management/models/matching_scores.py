@@ -2,7 +2,7 @@ from django.db import models
 from .user import User
 
 
-class MatchinScores(models.Model):
+class MatchinScore(models.Model):
     """
     This model hols scores for *every* person to *every* person.
     So this basicly contains the eges for a directed graph.
@@ -20,7 +20,7 @@ class MatchinScores(models.Model):
     We add this extra relation slug it tells us for which direction this score is 
     it is always formated as <from-hash>_<to-hash>
     """
-    relation_slug = models.CharField()
+    relation_slug = models.CharField(max_length=255)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
