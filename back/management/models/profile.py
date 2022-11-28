@@ -16,7 +16,8 @@ from ..validators import (
     validate_postal_code,
     validate_second_name,
     DAYS,
-    SLOTS
+    SLOTS,
+    SLOT_TRANS
 )
 from django.utils.deconstruct import deconstructible
 import sys
@@ -99,7 +100,9 @@ class ProfileBase(models.Model):
             "profile.user-type.learner", "Language learner")
 
     user_type = models.CharField(
-        choices=TypeChoices.choices, default=TypeChoices.VOLUNTEER)
+        choices=TypeChoices.choices,
+        default=TypeChoices.VOLUNTEER,
+        max_length=255)
 
     """
     This stores a dict of dates and what the users type was then
@@ -139,7 +142,9 @@ class ProfileBase(models.Model):
             "profile.target-group.worker-ler", "Workers only")
 
     target_group = models.CharField(
-        choices=TargetGroupChoices.choices, default=TargetGroupChoices.ANY_VOL)
+        choices=TargetGroupChoices.choices,
+        default=TargetGroupChoices.ANY_VOL,
+        max_length=255)
 
     """
     Prefered partner sex
@@ -151,7 +156,9 @@ class ProfileBase(models.Model):
             "profile.partner-sex.female", "Female only")
 
     partner_sex = models.CharField(
-        choices=ParterSexChoice.choices, default=ParterSexChoice.ANY)
+        choices=ParterSexChoice.choices,
+        default=ParterSexChoice.ANY,
+        max_length=255)
 
     """
     Which medium the user preferes for
@@ -176,7 +183,9 @@ class ProfileBase(models.Model):
             "profile.speech-medium.phone-ler", "Phone only")
 
     speech_medium = models.CharField(
-        choices=SpeechMediumChoices.choices, default=SpeechMediumChoices.ANY_VOL)
+        choices=SpeechMediumChoices.choices,
+        default=SpeechMediumChoices.ANY_VOL,
+        max_length=255)
 
     """
     where people want there match to be located
@@ -201,7 +210,9 @@ class ProfileBase(models.Model):
             "profile.partner-location.far-ler", "Far")
 
     partner_location = models.CharField(
-        choices=ConversationPartlerLocation.choices, default=ConversationPartlerLocation.ANYWHERE_VOL)
+        choices=ConversationPartlerLocation.choices,
+        default=ConversationPartlerLocation.ANYWHERE_VOL,
+        max_length=255)
 
     """
     Postal code, char so we support international code for the future
@@ -262,7 +273,9 @@ class ProfileBase(models.Model):
             "profile.liability.accepted", "Accepted Liability")
 
     liability = models.CharField(
-        choices=LiabilityChoices.choices, default=LiabilityChoices.DECLINED)
+        choices=LiabilityChoices.choices,
+        default=LiabilityChoices.DECLINED,
+        max_length=255)
 
     class NotificationChannelChoices(models.TextChoices):
         EMAIL = "email", pgettext_lazy(
@@ -273,7 +286,9 @@ class ProfileBase(models.Model):
             "profile.notify-channel.call", "Notify by calling")
 
     notify_channel = models.CharField(
-        choices=NotificationChannelChoices.choices, default=NotificationChannelChoices.EMAIL)
+        choices=NotificationChannelChoices.choices,
+        default=NotificationChannelChoices.EMAIL,
+        max_length=255)
 
     phone_mobile = PhoneNumberField(blank=True, unique=False)
 
@@ -309,7 +324,9 @@ class ProfileBase(models.Model):
             "profile.lang-level.level-3-ler", "C1/C2 = (complex topics, hardly searching for words)")
 
     lang_level = models.CharField(
-        choices=LanguageLevelChoices.choices, default=LanguageLevelChoices.LEVEL_0_VOL)
+        choices=LanguageLevelChoices.choices,
+        default=LanguageLevelChoices.LEVEL_0_VOL,
+        max_length=255)
 
     # Profile image
     class ImageTypeChoice(models.TextChoices):
@@ -317,7 +334,9 @@ class ProfileBase(models.Model):
         IMAGE = "image", pgettext_lazy("profile.image-type.image", "Image")
 
     image_type = models.CharField(
-        choices=ImageTypeChoice.choices, default=ImageTypeChoice.IMAGE)
+        choices=ImageTypeChoice.choices,
+        default=ImageTypeChoice.IMAGE,
+        max_length=255)
     image = models.ImageField(
         upload_to=PathRename("profile_pics/"), blank=True)
     avatar_config = models.TextField(
@@ -329,6 +348,7 @@ class ProfileBase(models.Model):
         and volunteers we need to detect when this is changed.
         If user type is changed we hav to update all choices that have '.vol' or '.ler' ending
         """
+        pass
         super(ProfileBase, self).save(*args, **kwargs)
 
 
@@ -377,7 +397,10 @@ class ProfileSerializer(serializers.ModelSerializer):
         # we can easily change the choices here in the future
         if 'availability' in self.Meta.fields:  # <- TODO: does this check work with inheritence?
             d.update({  # Ourcourse there is no need to do this for the Censored profile view
-                'availability': {day: SLOTS for day in DAYS}
+                'availability': {day: [
+                    {"value": slot,
+                     "tag": SLOT_TRANS[slot]} for slot in SLOTS
+                ] for day in DAYS}
             })
         return d
 
@@ -393,7 +416,7 @@ class SelfProfileSerializer(ProfileSerializer):
                   'user_type', 'target_group', 'partner_sex', 'speech_medium',
                   'partner_location', 'postal_code', 'interests', 'availability',
                   'lang_level', 'additional_interests', 'language_skill_description', 'birth_year', 'description',
-                  'notify_channel', 'phone_mobile', 'profile_image_type', 'profile_avatar_config', 'profile_image']
+                  'notify_channel', 'phone_mobile', 'image_type', 'avatar_config', 'image']
 
         extra_kwargs = dict(
             language_skill_description={
