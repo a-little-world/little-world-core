@@ -105,6 +105,10 @@ class State(models.Model):
         default=UserCategoryChoices.UNDEFINED,
         max_length=255)
 
+    def set_user_form_completed(self):
+        self.user_form_state = self.UserFormStateChoices.FILLED
+        self.save()
+
     def confirm_matches(self, matches: list):
         """
         Confirms some matches, basicly by removing them from the stack 
