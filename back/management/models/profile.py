@@ -252,7 +252,7 @@ class ProfileBase(models.Model):
             "profile.pdev-interest", "Personal development")
 
     interests = MultiSelectField(
-        choices=InterestChoices.choices, max_choices=20, max_length=20, blank=True)  # type: ignore
+        choices=InterestChoices.choices, max_choices=20, max_length=1000, blank=True)  # type: ignore
 
     additional_interests = models.TextField(
         default="", blank=True, max_length=300)
@@ -479,6 +479,32 @@ class SelfProfileSerializer(ProfileSerializer):
             }
         )
 
+    def validate(self, data):
+        """
+        Additional model validation for the profile 
+        this is especialy important for the image vs avatar!
+        """
+        if 'image_type' in data:
+            if data['image_type'] == Profile.ImageTypeChoice.IMAGE:
+                def __no_img():
+                    raise serializers.ValidationError({"image":
+                                                       pgettext_lazy(
+                                                           "profile.image-missing",
+                                                           "You have selected profile image but not uploaded an image")})
+                if not 'image' in data:
+                    if not self.instance.image:
+                        # If the image is not present we only proceede if there is already an image set
+                        __no_img()
+                elif not data['image']:
+                    __no_img()
+            if data['image_type'] == Profile.ImageTypeChoice.AVATAR:
+                if not 'avatar_config' in data or not data['avatar_config']:
+                    raise serializers.ValidationError({"avatar_config":
+                                                       pgettext_lazy(
+                                                           "profile.avatar-missing",
+                                                           "You have selected avatar but not uploaded an avatar")})
+        return data
+
     def validate_postal_code(self, value):
         return validate_postal_code(value)
 
@@ -494,5 +520,5 @@ class CensoredProfileSerializer(SelfProfileSerializer):
     class Meta:
         model = Profile
         fields = ["first_name", 'interests', 'availability',
-                  'notify_channel', 'phone_mobile', 'profile_image_type',
-                  'profile_avatar_config', 'profile_image']
+                  'notify_channel', 'phone_mobile', 'image_type',
+                  'avatar_config', 'image']
