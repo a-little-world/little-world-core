@@ -108,6 +108,13 @@ class State(models.Model):
     # Stores a users past emails ...
     past_emails = models.JSONField(blank=True, default=list)
 
+    def regnerate_email_auth_code(self, set_to_unauthenticated=True):
+        # TODO: do we want to log old auth codes? is there any benefit?
+        self.email_auth_hash = utils._double_uuid()
+        self.email_auth_pin = utils._rand_int5()
+        self.email_authenticated = set_to_unauthenticated
+        self.save()
+
     def archive_email_adress(self, email):
         self.past_emails.append(email)
         self.save()
