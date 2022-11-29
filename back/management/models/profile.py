@@ -348,7 +348,25 @@ class ProfileBase(models.Model):
         and volunteers we need to detect when this is changed.
         If user type is changed we hav to update all choices that have '.vol' or '.ler' ending
         """
-        pass
+        def __ending(vol=True):
+            cfield = self.TypeChoices.VOLUNTEER if vol else self.TypeChoices.LEARNER
+            return ".vol" if self.user_type == cfield else ".ler"
+        choices_different = [  # All choice fields that differe for learners vs volunteers
+            'lang_level',
+            'partner_location',
+            'speech_medium',
+            'target_group'
+        ]
+        allowed_ending = __ending(True)
+        disallowed_ending = __ending(False)
+
+        for field in choices_different:
+            value = getattr(self, field)
+            if value.endswith(disallowed_ending):
+                # Now we basicly replace disallowed ending with allowed ending
+                setattr(self, field, value.replace(
+                    disallowed_ending, allowed_ending))
+
         super(ProfileBase, self).save(*args, **kwargs)
 
 
