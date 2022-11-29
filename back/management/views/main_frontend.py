@@ -1,4 +1,5 @@
 from django.contrib.auth.mixins import LoginRequiredMixin
+from back.utils import CoolerJson
 import json
 from dataclasses import dataclass, field
 from django.shortcuts import render, redirect
@@ -82,4 +83,4 @@ class MainFrontendView(LoginRequiredMixin, View):
         _kwargs.pop("order_by")  # TODO: they are not yet supported
         profile_data = get_user_data_and_matches(
             request.user, options=True, **_kwargs)
-        return render(request, "main_frontend.html", {"profile_data": json.dumps(profile_data)})
+        return render(request, "main_frontend.html", {"profile_data": json.dumps(profile_data, cls=CoolerJson)})
