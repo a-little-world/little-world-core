@@ -57,6 +57,8 @@ api_routes = [
     path(_api_url('user/checkpw'), api.user.CheckPasswordApi.as_view()),
     path(_api_url('profile'),
          api.profile.ProfileViewSet.as_view({"post": "partial_update", "get": "_get"})),
+    path(_api_url('profile/completed'),
+         api.profile.ProfileCompletedApi.as_view()),
 
     path(_api_url('notification'),
          api.notify.NotificationGetApi.as_view()),
