@@ -57,7 +57,8 @@ class Notification(models.Model):
 class SelfNotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
-        fields = ["hash", "type", "state", "title", "description"]
+        fields = ["hash", "type", "state",
+                  "title", "description", "created_at"]
 
 
 class NotificationSerializer(serializers.ModelSerializer):
