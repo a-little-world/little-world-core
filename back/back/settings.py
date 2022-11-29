@@ -316,7 +316,8 @@ WEBPACK_LOADER = {app: {  # Configure seperate loaders for every app!
     'IGNORE': [r'.+\.hot-update.js', r'.+\.map'],
 } for app in FRONTENDS}
 
-# This *must* stay 'en' as default language this will always have a fallback
+# This *must* stay 'en'
+# as default language this will always have a fallback
 LANGUAGE_CODE = 'en'
 TIME_ZONE = os.environ.get('DJ_TIME_ZONE', 'UTC+1')  # UTC+1 = Berlin
 
