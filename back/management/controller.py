@@ -138,8 +138,9 @@ def create_user(
         print("Not sending verification mail!")
 
     # Step 5 Match with admin user
-    # Do *not* send an matching mail
-    match_users({get_base_management_user(), usr}, send_email=False)
+    # Do *not* send an matching mail, or notification or message!
+    match_users({get_base_management_user(), usr},
+                send_notification=False, send_message=False, send_email=False)
 
     # Step 6 Create a room for the two users!
     # This allowes them to authenticate twilio rooms for video calls
@@ -226,6 +227,7 @@ def get_base_management_user():
             second_name=os.environ.get(
                 'DJ_MANAGEMENT_SECOND_NAME', ''),
         )
+        usr.state.set_user_form_completed()  # Admin doesn't have to fill the userform
         print("BASE ADMIN USER CREATED!")
         return usr
 
