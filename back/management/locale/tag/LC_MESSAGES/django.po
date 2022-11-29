@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-11-24 00:34+0000\n"
+"POT-Creation-Date: 2022-11-28 14:11+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -25,11 +25,11 @@ msgstr ""
 msgid "User category"
 msgstr ""
 
-#: api/admin.py:63
+#: api/admin.py:70
 msgid "at least one field required"
 msgstr ""
 
-#: api/admin.py:68
+#: api/admin.py:75
 msgid "maximum one field allowed"
 msgstr ""
 
@@ -80,7 +80,7 @@ msgctxt "register.birth-year-over-2024"
 msgid "Sorry we don't allow people from the future yet"
 msgstr "register.birth-year-over-2024"
 
-#: api/register.py:88
+#: api/register.py:90
 msgid "Passwords must match"
 msgstr ""
 
@@ -167,148 +167,225 @@ msgid "New match found! Checkout %s's profile now"
 msgstr ""
 
 #: models/notifications.py:27
-msgid "unread"
-msgstr ""
+msgctxt "notification.state.unread"
+msgid "Unread"
+msgstr "notification.state.unread"
 
 #: models/notifications.py:28
-msgid "read"
-msgstr ""
+msgctxt "notification.state.read"
+msgid "Read"
+msgstr "notification.state.read"
 
-#: models/notifications.py:29
-msgid "archived"
-msgstr ""
-
-#: models/notifications.py:34
-msgid "none"
-msgstr ""
-
-#: models/notifications.py:35
-msgid "match"
-msgstr ""
+#: models/notifications.py:30
+msgctxt "notification.state.archived"
+msgid "Archived"
+msgstr "notification.state.archived"
 
 #: models/notifications.py:36
-msgid "message"
-msgstr ""
+msgctxt "notification.type.none"
+msgid "No Type"
+msgstr "notification.type.none"
 
-#: models/notifications.py:40 models/user.py:112
+#: models/notifications.py:37
+msgctxt "notification.type.match"
+msgid "Match"
+msgstr "notification.type.match"
+
+#: models/notifications.py:39
+msgctxt "notification.type.message"
+msgid "message"
+msgstr "notification.type.message"
+
+#: models/notifications.py:45 models/user.py:112
 msgid "title"
 msgstr ""
 
-#: models/notifications.py:41
+#: models/notifications.py:46
 msgid "no-description"
 msgstr ""
 
-#: models/profile.py:96
+#: models/profile.py:98
+msgctxt "profile.user-type.volunteer"
 msgid "Volunteer"
-msgstr ""
+msgstr "profile.user-type.volunteer"
 
-#: models/profile.py:97
+#: models/profile.py:100
+msgctxt "profile.user-type.learner"
 msgid "Language learner"
-msgstr ""
+msgstr "profile.user-type.learner"
 
-#: models/profile.py:114
-msgid "Any Group"
-msgstr ""
+#: models/profile.py:121
+msgctxt "profile.target-group.any-vol"
+msgid "Any group"
+msgstr "profile.target-group.any-vol"
 
-#: models/profile.py:116
+#: models/profile.py:124
+msgctxt "profile.target-group.any-ler"
+msgid "Any group"
+msgstr "profile.target-group.any-ler"
+
+#: models/profile.py:127
+msgctxt "profile.target-group.refugee-vol"
 msgid "Refugees only"
-msgstr ""
-
-#: models/profile.py:118
-msgid "Students only"
-msgstr ""
-
-#: models/profile.py:120
-msgid "Workers only"
-msgstr ""
-
-#: models/profile.py:129
-msgid "Any sex"
-msgstr ""
+msgstr "profile.target-group.refugee-vol"
 
 #: models/profile.py:130
-msgid "Male only"
-msgstr ""
+msgctxt "profile.target-group.refugee-ler"
+msgid "Refugees only"
+msgstr "profile.target-group.refugee-ler"
 
-#: models/profile.py:131
-msgid "Female only"
-msgstr ""
+#: models/profile.py:133
+msgctxt "profile.target-group.student-vol"
+msgid "Students only"
+msgstr "profile.target-group.student-vol"
+
+#: models/profile.py:136
+msgctxt "profile.target-group.student-ler"
+msgid "Students only"
+msgstr "profile.target-group.student-ler"
 
 #: models/profile.py:139
-msgid "Any medium"
-msgstr ""
+msgctxt "profile.target-group.worker-vol"
+msgid "Workers only"
+msgstr "profile.target-group.worker-vol"
 
-#: models/profile.py:140
+#: models/profile.py:142
+msgctxt "profile.target-group.worker-ler"
+msgid "Workers only"
+msgstr "profile.target-group.worker-ler"
+
+#: models/profile.py:153
+msgctxt "profile.partner-sex.any"
+msgid "Any"
+msgstr "profile.partner-sex.any"
+
+#: models/profile.py:154
+msgctxt "profile.partner-sex.male"
+msgid "Male only"
+msgstr "profile.partner-sex.male"
+
+#: models/profile.py:156
+msgctxt "profile.partner-sex.female"
+msgid "Female only"
+msgstr "profile.partner-sex.female"
+
+#: models/profile.py:168
+msgctxt "profile.speech-medium.any-vol"
+msgid "Any"
+msgstr "profile.speech-medium.any-vol"
+
+#: models/profile.py:171
+msgctxt "profile.speech-medium.any-ler"
+msgid "Any"
+msgstr "profile.speech-medium.any-ler"
+
+#: models/profile.py:174
+#, fuzzy
+#| msgctxt "profile.video-interest"
+#| msgid "Video"
+msgctxt "profile.speech-medium.video-vol"
 msgid "Video only"
-msgstr ""
+msgstr "profile.speech-medium.video-vol"
 
-#: models/profile.py:141
+#: models/profile.py:177
+#, fuzzy
+#| msgctxt "profile.video-interest"
+#| msgid "Video"
+msgctxt "profile.speech-medium.video-ler"
+msgid "Video only"
+msgstr "profile.speech-medium.video-ler"
+
+#: models/profile.py:180
+msgctxt "profile.speech-medium.phone-vol"
 msgid "Phone only"
-msgstr ""
+msgstr "profile.speech-medium.phone-vol"
 
-#: models/profile.py:149
-msgid "Location Anywhere"
-msgstr ""
+#: models/profile.py:183
+msgctxt "profile.speech-medium.phone-ler"
+msgid "Phone only"
+msgstr "profile.speech-medium.phone-ler"
 
-#: models/profile.py:150
-msgid "Location close"
-msgstr ""
+#: models/profile.py:195
+msgctxt "profile.partner-location.anywhere-vol"
+msgid "Anywhere"
+msgstr "profile.partner-location.anywhere-vol"
 
-#: models/profile.py:151
-msgid "Location far"
-msgstr ""
+#: models/profile.py:198
+msgctxt "profile.partner-location.anywhere-ler"
+msgid "Anywhere"
+msgstr "profile.partner-location.anywhere-ler"
 
-#: models/profile.py:161
+#: models/profile.py:201
+msgctxt "profile.partner-location.close-vol"
+msgid "Close"
+msgstr "profile.partner-location.close-vol"
+
+#: models/profile.py:204
+msgctxt "profile.partner-location.close-ler"
+msgid "Close"
+msgstr "profile.partner-location.close-ler"
+
+#: models/profile.py:207
+msgctxt "profile.partner-location.far-vol"
+msgid "Far"
+msgstr "profile.partner-location.far-vol"
+
+#: models/profile.py:210
+msgctxt "profile.partner-location.far-ler"
+msgid "Far"
+msgstr "profile.partner-location.far-ler"
+
+#: models/profile.py:223
 msgctxt "profile.sport-interest"
 msgid "Sport"
 msgstr "profile.sport-interest"
 
-#: models/profile.py:162
+#: models/profile.py:224
 msgctxt "profile.art-interest"
 msgid "Art"
 msgstr "profile.art-interest"
 
-#: models/profile.py:163
+#: models/profile.py:225
 msgctxt "profile.music-interest"
 msgid "Music"
 msgstr "profile.music-interest"
 
-#: models/profile.py:165
+#: models/profile.py:227
 msgctxt "profile.literature-interest"
 msgid "Literature"
 msgstr "profile.literature-interest"
 
-#: models/profile.py:166
+#: models/profile.py:228
 msgctxt "profile.video-interest"
 msgid "Video"
 msgstr "profile.video-interest"
 
-#: models/profile.py:167
+#: models/profile.py:230
 msgctxt "profile.fashion-interest"
 msgid "Fashion"
 msgstr "profile.fashion-interest"
 
-#: models/profile.py:168
+#: models/profile.py:232
 msgctxt "profile.culture-interest"
 msgid "Culture"
 msgstr "profile.culture-interest"
 
-#: models/profile.py:169
+#: models/profile.py:233
 msgctxt "profile.travel-interest"
 msgid "Travel"
 msgstr "profile.travel-interest"
 
-#: models/profile.py:170
+#: models/profile.py:234
 msgctxt "profile.food-interest"
 msgid "Food"
 msgstr "profile.food-interest"
 
-#: models/profile.py:171
+#: models/profile.py:236
 msgctxt "profile.politics-interest"
 msgid "Politics"
 msgstr "profile.politics-interest"
 
-#: models/profile.py:172
+#: models/profile.py:237
 #, fuzzy
 #| msgctxt "profile.literature-interest"
 #| msgid "Literature"
@@ -316,101 +393,132 @@ msgctxt "profile.nature-interest"
 msgid "Nature"
 msgstr "profile.nature-interest"
 
-#: models/profile.py:173
+#: models/profile.py:239
 msgctxt "profile.science-interest"
 msgid "Science"
 msgstr "profile.science-interest"
 
-#: models/profile.py:174
+#: models/profile.py:241
 msgctxt "profile.tech-interest"
 msgid "Technology"
 msgstr "profile.tech-interest"
 
-#: models/profile.py:175
+#: models/profile.py:243
 msgctxt "profile.history-interest"
 msgid "History"
 msgstr "profile.history-interest"
 
-#: models/profile.py:176
+#: models/profile.py:245
 msgctxt "profile.religion-interest"
 msgid "Religion"
 msgstr "profile.religion-interest"
 
-#: models/profile.py:178
+#: models/profile.py:247
 msgctxt "profile.soziologie-interest"
 msgid "Sociology"
 msgstr "profile.soziologie-interest"
 
-#: models/profile.py:179
+#: models/profile.py:248
 msgctxt "profile.family-interest"
 msgid "Family"
 msgstr "profile.family-interest"
 
-#: models/profile.py:181
+#: models/profile.py:250
 msgctxt "profile.psycology-interest"
 msgid "Psycology"
 msgstr "profile.psycology-interest"
 
-#: models/profile.py:183
+#: models/profile.py:252
 msgctxt "profile.pdev-interest"
 msgid "Personal development"
 msgstr "profile.pdev-interest"
 
-#: models/profile.py:199
+#: models/profile.py:270
+msgctxt "profile.liability.declined"
 msgid "Declined Liability"
-msgstr ""
+msgstr "profile.liability.declined"
 
-#: models/profile.py:200
+#: models/profile.py:273
+msgctxt "profile.liability.accepted"
 msgid "Accepted Liability"
-msgstr ""
+msgstr "profile.liability.accepted"
 
-#: models/profile.py:205
+#: models/profile.py:282
+msgctxt "profile.notify-channel.email"
 msgid "Notify per email"
-msgstr ""
+msgstr "profile.notify-channel.email"
 
-#: models/profile.py:206
+#: models/profile.py:284
+msgctxt "profile.notify-channel.sms"
 msgid "Notify per SMS"
-msgstr ""
+msgstr "profile.notify-channel.sms"
 
-#: models/profile.py:207
+#: models/profile.py:286
+msgctxt "profile.notify-channel.call"
 msgid "Notify by calling"
-msgstr ""
+msgstr "profile.notify-channel.call"
 
-#: models/profile.py:219
-msgid "Level 0 (egal)"
-msgstr ""
+#: models/profile.py:307
+msgctxt "profile.lang-level.level-0-vol"
+msgid "any"
+msgstr "profile.lang-level.level-0-vol"
 
-#: models/profile.py:220
-msgid "Level 1 (B1 = (Alltagssituationen, Geschichten, Hoffnungen))"
-msgstr ""
+#: models/profile.py:309
+msgctxt "profile.lang-level.level-0-ler"
+msgid "any"
+msgstr "profile.lang-level.level-0-ler"
 
-#: models/profile.py:222
-msgid "Level 2 (B2 = (fließende & spontane Gespräche, aktuelles Geschehen))"
-msgstr ""
+#: models/profile.py:312
+msgctxt "profile.lang-level.level-1-vol"
+msgid "B1 = (everyday situations, stories, hopes)"
+msgstr "profile.lang-level.level-1-vol"
 
-#: models/profile.py:223
-msgid "Level 3 (C1 = (komplexe Themen, kaum nach Wörtern suchen))"
-msgstr ""
+#: models/profile.py:314
+msgctxt "profile.lang-level.level-1-ler"
+msgid "B1 = (everyday situations, stories, hopes)"
+msgstr "profile.lang-level.level-1-ler"
 
-#: models/profile.py:229
+#: models/profile.py:317
+msgctxt "profile.lang-level.level-2-vol"
+msgid "B2 = (fluent & spontaneous conversations, current events)"
+msgstr "profile.lang-level.level-2-vol"
+
+#: models/profile.py:319
+msgctxt "profile.lang-level.level-2-ler"
+msgid "B2 = (fluent & spontaneous conversations, current events)"
+msgstr "profile.lang-level.level-2-ler"
+
+#: models/profile.py:322
+msgctxt "profile.lang-level.level-3-vol"
+msgid "C1/C2 = (complex topics, hardly searching for words)"
+msgstr "profile.lang-level.level-3-vol"
+
+#: models/profile.py:324
+msgctxt "profile.lang-level.level-3-ler"
+msgid "C1/C2 = (complex topics, hardly searching for words)"
+msgstr "profile.lang-level.level-3-ler"
+
+#: models/profile.py:333
+msgctxt "profile.image-type.avatar"
 msgid "Avatar"
-msgstr ""
+msgstr "profile.image-type.avatar"
 
-#: models/profile.py:230
+#: models/profile.py:334
+msgctxt "profile.image-type.image"
 msgid "Image"
-msgstr ""
+msgstr "profile.image-type.image"
 
-#: models/profile.py:306
+#: models/profile.py:425
 msgctxt "profile.lskill-descr-to-long"
 msgid "must have a maximum of 300 characters"
 msgstr "profile.lskill-descr-to-long"
 
-#: models/profile.py:311
+#: models/profile.py:431
 msgctxt "profile.descr-to-long"
 msgid "must have a maximum of 300 characters"
 msgstr "profile.descr-to-long"
 
-#: models/profile.py:322
+#: models/profile.py:443
 msgctxt "profile.descr-to-short"
 msgid "must have at least 10 characters"
 msgstr "profile.descr-to-short"
@@ -423,19 +531,29 @@ msgstr ""
 msgid "Filled user form"
 msgstr ""
 
-#: models/state.py:64
+#: models/state.py:65
+msgctxt "models.state.matching-state-idle"
+msgid "Not Searching (Idle)"
+msgstr "models.state.matching-state-idle"
+
+#: models/state.py:68
+msgctxt "models.state.matching-state-searching"
+msgid "Searching"
+msgstr "models.state.matching-state-searching"
+
+#: models/state.py:99
 msgid "Undefined"
 msgstr ""
 
-#: models/state.py:65
+#: models/state.py:100
 msgid "Spam"
 msgstr ""
 
-#: models/state.py:66
+#: models/state.py:101
 msgid "Legit"
 msgstr ""
 
-#: models/state.py:67
+#: models/state.py:102
 msgid "Test"
 msgstr ""
 
@@ -481,20 +599,90 @@ msgctxt "val.postal-code-too-small"
 msgid "Postalcode impossibly small"
 msgstr "val.postal-code-too-small"
 
+#: validators.py:108
+msgctxt "val.availability.time-slot-08-10"
+msgid "8 to 10 a.m."
+msgstr "val.availability.time-slot-08-10"
+
+#: validators.py:109
+msgctxt "val.availability.time-slot-10-12"
+msgid "10 to 12 p.m."
+msgstr "val.availability.time-slot-10-12"
+
+#: validators.py:110
+msgctxt "val.availability.time-slot-12-14"
+msgid "12 to 2 p.m."
+msgstr "val.availability.time-slot-12-14"
+
+#: validators.py:111
+msgctxt "val.availability.time-slot-14-16"
+msgid "2 to 4 p.m."
+msgstr "val.availability.time-slot-14-16"
+
+#: validators.py:112
+msgctxt "val.availability.time-slot-16-18"
+msgid "4 to 6 p.m."
+msgstr "val.availability.time-slot-16-18"
+
+#: validators.py:113
+msgctxt "val.availability.time-slot-18-20"
+msgid "6 to 8 p.m."
+msgstr "val.availability.time-slot-18-20"
+
+#: validators.py:114
+msgctxt "val.availability.time-slot-20-22"
+msgid "8 to 10 p.m."
+msgstr "val.availability.time-slot-20-22"
+
+#: validators.py:118
+msgctxt "val.availability.week-day-mo"
+msgid "Monday"
+msgstr "val.availability.week-day-mo"
+
+#: validators.py:119
+msgctxt "val.availability.week-day-tu"
+msgid "Tuesday"
+msgstr "val.availability.week-day-tu"
+
+#: validators.py:120
+msgctxt "val.availability.week-day-we"
+msgid "Wednesday"
+msgstr "val.availability.week-day-we"
+
+#: validators.py:121
+msgctxt "val.availability.week-day-th"
+msgid "Thursday"
+msgstr "val.availability.week-day-th"
+
 #: validators.py:122
+msgctxt "val.availability.week-day-fr"
+msgid "Friday"
+msgstr "val.availability.week-day-fr"
+
+#: validators.py:123
+msgctxt "val.availability.week-day-sa"
+msgid "Saturday"
+msgstr "val.availability.week-day-sa"
+
+#: validators.py:124
+msgctxt "val.availability.week-day-su"
+msgid "Sunday"
+msgstr "val.availability.week-day-su"
+
+#: validators.py:142
 #, python-format
 msgid "Day '%s' not present in availability!"
 msgstr ""
 
-#: validators.py:126
+#: validators.py:146
 #, python-format
 msgid "Slot '%s' is unknown!"
 msgstr ""
 
-#: views/main_frontend.py:45
+#: views/main_frontend.py:44
 msgid "Render User Form"
 msgstr ""
 
-#: views/main_frontend.py:64
+#: views/main_frontend.py:63
 msgid "Query param usage on main view only allowed for admins!"
 msgstr ""
