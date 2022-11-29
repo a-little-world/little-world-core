@@ -359,12 +359,15 @@ class ProfileBase(models.Model):
             *(["phone_mobile"] if self.notify_channel !=  # phone is only required if notification channel is not email ( so it's sms or phone )
               self.NotificationChannelChoices.EMAIL else []),
         ]
+        msgs = []
         is_completed = True
         for field in fields_required_for_completion:
             value = getattr(self, field)
             if value == "":  # TODO: we should also run the serializer
+                msgs.append(pgettext_lazy("profile.completion-check.missing-value",
+                            "'{val}' is not completed".format(val=field)))
                 is_completed = False
-        return is_completed
+        return is_completed, msgs
 
     def save(self, *args, **kwargs):
         """
