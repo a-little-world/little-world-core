@@ -599,7 +599,7 @@ def build_front(args):
     kill(args, back=False)
 
 
-@ register_action(alias=["watch"], cont=False)
+@register_action(alias=["watch"], cont=False)
 def watch_frontend(args):
     assert args.input, "please input a active frontend: " + \
         str(_env_as_dict(c.denv[1])["FR_FRONTENDS"].split(","))
@@ -617,6 +617,12 @@ def watch_frontend(args):
     _cmd = _make_webpack_command(
         _env_as_dict(c.denv[1]), f'webpack.{args.input}.config.js', watch=True, debug=True)
     print(f"generated cmd: {' '.join(_cmd)}")
+
+    def handler(signum, frame):
+        print("EXITING\nKilling container...")
+        # Also kill redis... cause it starts per default now
+        kill(args, front=True, back=False, redis=False)
+    signal.signal(signal.SIGINT, handler)
     _run_in_running(_is_dev(args), _cmd, backend=False)
 
 
