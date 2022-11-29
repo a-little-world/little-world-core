@@ -55,6 +55,7 @@ api_routes = [
     path(_api_url('user'), api.user_data.SelfInfo.as_view()),
     path(_api_url('user/login'), api.user.LoginApi.as_view()),
     path(_api_url('user/checkpw'), api.user.CheckPasswordApi.as_view()),
+    path(_api_url('user/change_email'), api.user.ChangeEmailApi.as_view()),
     path(_api_url('profile'),
          api.profile.ProfileViewSet.as_view({"post": "partial_update", "get": "_get"})),
     path(_api_url('profile/completed'),
