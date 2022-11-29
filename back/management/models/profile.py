@@ -342,6 +342,30 @@ class ProfileBase(models.Model):
     avatar_config = models.TextField(
         default="", blank=True)  # Contains the avatar builder config
 
+    def check_form_completion(self):
+        """
+        Checks if the userform is completed 
+        TODO this could be a little more consize and extract better on which user form page
+        the user is currently
+        """
+        fields_required_for_completion = [
+            "lang_level",
+            "description",  # This is required but 'language_skill_description' is not!
+            "image" if self.image_type == self.ImageTypeChoice.IMAGE else "avatar_config",
+            # Postal code only required if partner location close selected!
+            *(["postal_code"] if self.speech_medium else []),
+            "target_group",
+            # 'additional_interests' also not required
+            *(["phone_mobile"] if self.notify_channel !=  # phone is only required if notification channel is not email ( so it's sms or phone )
+              self.NotificationChannelChoices.EMAIL else []),
+        ]
+        is_completed = True
+        for field in fields_required_for_completion:
+            value = getattr(self, field)
+            if value == "":  # TODO: we should also run the serializer
+                is_completed = False
+        return is_completed
+
     def save(self, *args, **kwargs):
         """
         Cause we have different choices for language learners 
@@ -360,6 +384,7 @@ class ProfileBase(models.Model):
         allowed_ending = __ending(True)
         disallowed_ending = __ending(False)
 
+        # TODO: we could also only run this if the value of 'user_type' has changed
         for field in choices_different:
             value = getattr(self, field)
             if value.endswith(disallowed_ending):
