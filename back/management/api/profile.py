@@ -1,9 +1,10 @@
 from rest_framework import viewsets, authentication, permissions
 from ..models import SelfProfileSerializer, Profile
+from django.utils.translation import pgettext_lazy
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 from rest_framework.views import APIView
-from rest_framework import serializers
+from rest_framework import serializers, status
 from dataclasses import dataclass
 from back.utils import transform_add_options_serializer
 
@@ -53,7 +54,7 @@ class ProfileViewSet(viewsets.GenericViewSet, viewsets.mixins.UpdateModelMixin):
         return self.get_queryset()[0]
 
     def partial_update(self, request, pk=None):
-        #assert not pk
+        # assert not pk
         pk = self.request.user.pk
         self.kwargs["pk"] = 1
         return super().partial_update(request, pk=pk)
@@ -61,3 +62,22 @@ class ProfileViewSet(viewsets.GenericViewSet, viewsets.mixins.UpdateModelMixin):
     def get_queryset(self):
         user = self.request.user
         return [getattr(user, "profile")]
+
+
+class ProfileCompletedApi(APIView):
+
+    authentication_classes = [authentication.SessionAuthentication,
+                              authentication.BasicAuthentication]
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        """
+        Checks if a users profile is completed
+        and returns a description of what is missing if not
+        """
+        completed, info = request.user.profile.check_form_completion()
+        if completed:
+            return Response(pgettext_lazy("profile.completion-check.sucessfull", "Profile complete!"))
+        else:
+            return Response(info, status=status.HTTP_400_BAD_REQUEST)
