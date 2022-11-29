@@ -1,4 +1,5 @@
 import random
+import json
 from uuid import uuid4
 from rest_framework.metadata import SimpleMetadata
 from copy import deepcopy
@@ -17,6 +18,23 @@ def _double_uuid():
 
 def _rand_int5():
     return random.randint(10000, 99999)
+
+
+class CoolerJson(json.JSONEncoder):
+    """
+    This is our custom json serializer that can also encode sets!
+    """
+
+    def default(self, obj):
+        if isinstance(obj, set):
+            return list(obj)
+        try:
+            # TODO: it is kinda bad to wrap this in a try
+            # But especially for __proxy__ elements this is the only way I found
+            # I would love to type check for proxy instead but I can't find the __proxy__ type!
+            return json.JSONEncoder.default(self, obj)
+        except:
+            return str(obj)
 
 
 def dataclass_as_dict(data):
