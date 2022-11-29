@@ -78,6 +78,8 @@ class ProfileCompletedApi(APIView):
         """
         completed, info = request.user.profile.check_form_completion()
         if completed:
+            # If it is completed we store set the state to completet asual!
+            request.user.state.set_user_form_completed()
             return Response(pgettext_lazy("profile.completion-check.sucessfull", "Profile complete!"))
         else:
             return Response(info, status=status.HTTP_400_BAD_REQUEST)
