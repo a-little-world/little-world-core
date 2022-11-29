@@ -105,6 +105,13 @@ class State(models.Model):
         default=UserCategoryChoices.UNDEFINED,
         max_length=255)
 
+    # Stores a users past emails ...
+    past_emails = models.JSONField(blank=True, default=list)
+
+    def archive_email_adress(self, email):
+        self.past_emails.append(email)
+        self.save()
+
     def set_user_form_completed(self):
         self.user_form_state = self.UserFormStateChoices.FILLED
         self.save()
