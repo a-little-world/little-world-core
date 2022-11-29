@@ -135,6 +135,9 @@ class CheckPwSerializer(serializers.Serializer):
     password = serializers.EmailField(required=True)
     email = serializers.EmailField(required=True)
 
+    def create(self, validated_data):
+        return CheckPwParams(**validated_data)
+
 
 class CheckPasswordApi(APIView):
 
@@ -150,3 +153,49 @@ class CheckPasswordApi(APIView):
 
         _check = request.user.check_password(params.password)
         return Response(status=status.HTTP_200_OK if _check else status.HTTP_400_BAD_REQUEST)
+
+
+@dataclass
+class ChangeEmailParams:
+    email: str
+    # password: str TODO we might want to allow changing email only with password?
+
+
+class ChangeEmailSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    # password = serializers.EmailField(required=True)
+
+    def create(self, validated_data):
+        return ChangeEmailParams(**validated_data)
+
+
+class ChangeEmailApi(APIView):
+
+    authentication_classes = [authentication.SessionAuthentication,
+                              authentication.BasicAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(request=ChangeEmailSerializer(many=False))
+    def post(self, request):
+        """
+        The user can use this to change his email,
+        we always store old emails in state.past_emails just to be sure
+        NOTE this **will** automaticly set 'state.email_autenticated = False'
+        and the user will get another email send
+        """
+        serializer = ChangeEmailSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        params = serializer.save()
+
+        if params.email == request.user.email:
+            raise serializers.ValidationError({
+                "email": pgettext_lazy(
+                    "api.user.change-email-failed.same-email",
+                    "This is your current email!"
+                )
+            })
+
+        request.user.change_email(params.email)
+        return Response(pgettext_lazy(
+            "api.user.change-email-successful",
+            "E-mail adres update, email adress must be reauthenticated."))
