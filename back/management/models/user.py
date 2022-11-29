@@ -109,6 +109,40 @@ class User(AbstractUser):
         """
         self.state.matches.add(user)
 
+    def change_email(self, email, send_verification_mail=True):
+        """
+        Can be used to change the email
+        If there is a problem check user.state.past_emails
+        """
+        from emails import mails
+        from ..api.user import ChangeEmailSerializer, ChangeEmailParams
+        # We do an aditional email serialization here!
+        _s = ChangeEmailSerializer(data=dict(email=email))  # type: ignore
+        _s.is_valid(raise_exception=True)
+        prms = _s.save()
+
+        self.state.archive_email_adress(email)
+        self.state.regnerate_email_auth_code()  # New auth code and pin !
+
+        # We send the email first so if this would fail the changing of email would also fail!
+        # ... so user can not easily be locked out of their account
+        verifiaction_url = f"{settings.BASE_URL}/api/user/verify/email/{self.state.get_email_auth_code_b64()}"
+        self.send_email(
+            # We use this here so the models doesnt have to be saved jet
+            overwrite_mail=prms.email,
+            subject="undefined",  # TODO set!
+            # TODO this should be different email!
+            mail_data=mails.get_mail_data_by_name("welcome"),
+            mail_params=mails.WelcomeEmailParams(
+                first_name=self.profile.first_name,
+                verification_url=verifiaction_url,
+                verification_code=str(self.state.get_email_auth_pin())
+            )
+        )
+
+        self.email = prms.email
+        self.save()
+
     def notify(self, title=_('title'), description=_('description')):
         """
         Sends a notifcation to that user ( or rater creates a notifcation for that user )
@@ -139,11 +173,12 @@ class User(AbstractUser):
                    mail_data,  # Can't really typecheck MailMeta when
                    # I'm importing below TODO this can be fixed
                    mail_params: object,
-                   attachments=[]):
+                   attachments=[],
+                   overwrite_mail=None):
         # Just a wrapper for emails.mails.send_email
         # Send to a user by usr.send_email(...)
         from emails.mails import send_email, MailMeta
-        recivers = [self.email]
+        recivers = [overwrite_mail] if overwrite_mail else [self.email]
         send_email(
             subject=subject,
             recivers=recivers,
