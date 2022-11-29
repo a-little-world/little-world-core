@@ -228,6 +228,7 @@ def get_base_management_user():
                 'DJ_MANAGEMENT_SECOND_NAME', ''),
         )
         usr.state.set_user_form_completed()  # Admin doesn't have to fill the userform
+        usr.notify("You are the admin master!")
         print("BASE ADMIN USER CREATED!")
         return usr
 
