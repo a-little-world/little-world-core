@@ -99,6 +99,13 @@ def _non_verbose(args, silence_subprocess=True, use_w=True, use_c=True, use_o=Tr
 
 
 def parse_actions_run():
+    """
+    This is a very convenient commandline utility based on argparse 
+    You can write any function in a script that usees this
+    add the @register_action(...) decoratior and the function will be run on
+    `./run.py <action-name>`
+    then the action can claim to parse the unrecognized cli args via `args.unknown`
+    """
     a, _ = _parser().parse_known_args()
     assert getattr(a, "actions") and a.actions
     reparse = (None, False)
