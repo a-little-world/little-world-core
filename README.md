@@ -22,10 +22,19 @@ For more check the doc-page of [`./run.py`](TODO).
 
 ### TAB autocompletion
 
-If you do `pip3 install argcomplete` and then run `eval "$(register-python-argcomplete run.py)"`
+If you do
+
+```
+pip3 install argcomplete
+bash
+eval "$(register-python-argcomplete run.py)"
+```
+
+Or simply run `source _scripts/init_argcomplete.sh` and your current shell will autocomplete!
+
 you will have auto completion for actions and options!
 
-> Tipp: If you only want to see available actions but not their alias use `./run.py -a <TAB>`
+> Tipp: If you only want to see available actions but not their alias use `./run.py -sa <TAB>`
 
 ### Documentation
 

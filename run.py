@@ -765,8 +765,8 @@ def build_docs(args):
     _cmd = [*c.drun, *c.denv, *c.vmount_spinix, *c.port, "-d", c.tag_spinix]
     print(" ".join(_cmd))
     subprocess.run(_cmd)
-    # _run_in_running_tag(["make", "html"], tag=c.tag_spinix, work_dir="/docs")
-    _run_in_running_tag(["sh"], tag=c.tag_spinix)
+    _run_in_running_tag(["make", "html"], tag=c.tag_spinix, work_dir="/docs")
+    #_run_in_running_tag(["sh"], tag=c.tag_spinix)
     # copy the output files
     shutil.copytree("./_docs/build/html", "./docs")
     _kill_tag(c.tag_spinix)
@@ -810,6 +810,10 @@ def _conditional_wrap(cond, before, after):
         after()
 
 
+if USE_BASH_AUTOMCOMPLETION:
+    print("using auto completion")
+    argcomplete.autocomplete(_parser())
+
 if __name__ == "__main__":
     """
     Entrypoint for `run.py`
@@ -824,8 +828,5 @@ if __name__ == "__main__":
     `./run.py shell`:
         Login to `c.shell` on a *running* container
     """
-    if USE_BASH_AUTOMCOMPLETION:
-        print("using auto completion")
-        argcomplete.autocomplete(_parser())
     set_parser(_parser)
     parse_actions_run()
