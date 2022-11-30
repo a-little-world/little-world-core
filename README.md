@@ -12,12 +12,20 @@ Only requirement for the backend are `docker` & `python > 3.8`
 
 ```shell
 chmod u+x run.py
+./run.py <TAB> # only if you have autocompletion, see below
 ./run.py ?
 ```
 
 Simply running `./run.py` will install all required packages, clone all required submodules, build the required images ( here `Dockerfile.front` builds all frontends and `Dockerfile.dev` builds the backend ) and run the images.
 
 For more check the doc-page of [`./run.py`](TODO).
+
+### TAB autocompletion
+
+If you do `pip3 install argcomplete` and then run `eval "$(register-python-argcomplete run.py)"`
+you will have auto completion for actions and options!
+
+> Tipp: If you only want to see available actions but not their alias use `./run.py -a <TAB>`
 
 ### Documentation
 
