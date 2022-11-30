@@ -54,6 +54,7 @@ api_routes = [
     path(_api_url('register'), api.register.Register.as_view()),
     path(_api_url('user'), api.user_data.SelfInfo.as_view()),
     path(_api_url('user/login'), api.user.LoginApi.as_view()),
+    path(_api_url('user/logout'), api.user.LogoutApi.as_view()),
     path(_api_url('user/checkpw'), api.user.CheckPasswordApi.as_view()),
     path(_api_url('user/change_email'), api.user.ChangeEmailApi.as_view()),
     path(_api_url('profile'),
@@ -95,7 +96,7 @@ view_routes = [
     path("formpage/", subsection_of_user_form, name="formpage"),
 
     path('mailverify/', email_verification, name="email_verification"),
-    path('mailchange/', email_change, name="email_change"),
+    path('change_email/', email_change, name="email_change"),
     path('mailverify/sucess/', email_verification_sucess,
          name="email_verification_sucess"),
     path('mailverify/fail/', email_verification_fail,
