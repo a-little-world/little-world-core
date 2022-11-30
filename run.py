@@ -309,8 +309,8 @@ def migrate(args, running=False):
                         "migrate"])
 
 
-def _build_file_tag(file, tag, build_context_path="."):
-    _cmd = [*c.dbuild, "-f", file, "-t", tag, "./back"]
+def _build_file_tag(file, tag, build_context_path=".", context_dir="./back"):
+    _cmd = [*c.dbuild, "-f", file, "-t", tag, context_dir]
     print(" ".join(_cmd))
     subprocess.run(_cmd)
 
@@ -346,18 +346,20 @@ def deploy_staging(args):
     """
     assert args.input, " '-i' required, e.g.: \"{'AWS_ACCOUNT_ID':'...','AWS_REGISTRY_NAME':'...','AWS_REGION':''}\""
     aws_env = eval(args.input)
+    args.input = None  # set to none now so no other actions use the parameter
     if 'DOCS' in aws_env and aws_env['DOCS'].lower() in ('true', '1', 't'):
         # Also build the documentation and move it to /static
         build_docs(args)
         # Copy the build files to
-        shutil.copytree("./docs", "./back/static/docs")
+        shutil.copytree("./_docs/build/html", "./back/static/docs")
+        # shutil.copytree("./docs", "./back/static/docs")
     # Build the frontends
     build_front(args)
     # Collect the statics ( also contains the files for open api specifications )
     build(args)  # Required build of the 'dev' image
     extract_static(args)
     # Build Dockerfile.stage
-    _build_file_tag(c.file_staging[1], c.staging_tag)
+    _build_file_tag(c.file_staging[1], c.staging_tag, context_dir=".")
     if 'ROOT_USER_PASSWORD' in aws_env:
         print("Got 'ROOT_USER_PASSWORD' adding root user ...")
         # Ok in that case we create a base root user
@@ -408,6 +410,20 @@ def run_django_tests(args):
     Runs tests for all django apps in /back 
     """
     _run_in_running(_is_dev(args), ["python3", "manage.py", "test"], fail=True)
+
+
+@register_action(alias=["clear_static", "delte_static"], cont=True)
+def delete_static_files(args, running=False):
+    """
+    Deltes everything in './back/static/*`
+    sometimes required for cleaning up old static files!
+    """
+    print("Deleting static files")
+    import glob
+    for file in glob.glob("./back/static/*"):
+        print(f"rm {file}")
+        shutil.rmtree(file)
+    print("Done")
 
 
 @register_action(alias=["static", "collectstatic"], cont=True)
@@ -563,7 +579,7 @@ def build_front(args):
         # TODO: in production we might want to do some extra cleanup!
         raise NotImplementedError
     _cmd = [*c.dbuild, *c.front_docker_file, "-t",
-            c.front_tag, "."]
+            c.front_tag, "./front"]  # <- can just use build context of the fronend dir!
     print(" ".join(_cmd))
     subprocess.run(_cmd)  # 1
 
@@ -639,7 +655,7 @@ def watch_frontend(args):
     assert args.input, "please input a active frontend: " + \
         str(_env_as_dict(c.denv[1])["FR_FRONTENDS"].split(","))
     assert _is_dev(
-        args), "can't watch frontend changes in staging or deloyment sorry"
+        args), "can't watch frontend changes in staging or deloyment sorry"  # ? TODO: why not though?
     # start the frontend container:
     _cmd = [*c.drun, *(c.denv if _is_dev(args) else c.penv), *
             c.vmount_front, "-d", c.front_tag]
@@ -768,8 +784,9 @@ def build_docs(args):
     _run_in_running_tag(["make", "html"], tag=c.tag_spinix, work_dir="/docs")
     #_run_in_running_tag(["sh"], tag=c.tag_spinix)
     # copy the output files
-    shutil.copytree("./_docs/build/html", "./docs")
+    # shutil.copytree("./_docs/build/html", "./docs")
     _kill_tag(c.tag_spinix)
+    shutil.copytree("./_docs/build/html", "./back/static/docs")
 
 
 @register_action()
