@@ -86,9 +86,12 @@ class User(AbstractUser):
         from . import settings
         return settings.Settings.objects.get(user=self)
 
+    # Not only having but also displaying the full hashes is not necessary
     def _abr_hash(self):
         return self.hash[:8]
 
+    # This is realy only a nicer wrapper for the user form filled state
+    # will display the nice check mark in admin pannel
     def is_user_form_filled(self):
         _state = self.state
         return _state.user_form_state == _state.UserFormStateChoices.FILLED
@@ -112,7 +115,12 @@ class User(AbstractUser):
     def change_email(self, email, send_verification_mail=True):
         """
         Can be used to change the email
-        If there is a problem check user.state.past_emails
+        there is a problem with authentication of the changed email check `user.state.past_emails`
+        The user will still be allowed to use this api to change the email back
+        there is the frontend `/change_email` for logged-in users 
+        so if someone fasely changes their mail they can change it back
+        & user will be automaticly reidrected to `/mailverify/`
+        wich has a button `change-email` which redirects to `/change_email`
         """
         from emails import mails
         from ..api.user import ChangeEmailSerializer, ChangeEmailParams
@@ -154,6 +162,7 @@ class User(AbstractUser):
             description=description
         )
         self.state.notifications.add(notification)
+        # TODO: in the future also send a websocked 'notification' object!
 
     def message(self, msg, sender=None):
         """
@@ -175,8 +184,10 @@ class User(AbstractUser):
                    mail_params: object,
                    attachments=[],
                    overwrite_mail=None):
-        # Just a wrapper for emails.mails.send_email
-        # Send to a user by usr.send_email(...)
+        """
+        Just a wrapper for emails.mails.send_email
+        Send to a user by usr.send_email(...)
+        """
         from emails.mails import send_email, MailMeta
         recivers = [overwrite_mail] if overwrite_mail else [self.email]
         send_email(
