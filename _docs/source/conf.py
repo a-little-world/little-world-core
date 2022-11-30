@@ -92,7 +92,9 @@ master_doc = 'index'
 # a list of builtin themes.
 #
 #html_theme = 'alabaster'
-html_theme = 'sphinx_rtd_theme'
+#html_theme = 'sphinx_rtd_theme'
+html_theme = "pydata_sphinx_theme"
+
 
 html_theme_options = {
     # these are for sphinx_rtd_theme:
