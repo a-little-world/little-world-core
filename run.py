@@ -81,13 +81,12 @@ def _parser():
         4. running the container interactively ( close with ctl-C )
     """
 
-    def github_org_members(prefix, parsed_args, **kwargs):
-        print("Completing actions")
-
+    possible_actions = get_all_action_aliases()
+    possible_actions.append("")  # Empty action
+    default_actions = ["_setup", "build", "static", "migrate", "run"]
     parser = argparse.ArgumentParser()
-    parser.add_argument('actions', metavar='A', type=str, default=["_setup",
-                                                                   "build", "static", "migrate", "run"],
-                        choices=get_all_action_aliases(), nargs='+', help='action')
+    parser.add_argument('actions', metavar='A', type=str, default="",
+                        choices=possible_actions, nargs='*', help='action')
     parser.add_argument('-b', '--btype', default="dev",
                         help="prod, dev, any", choices=["development", "staging", "deployment"])
     parser.add_argument('-bg', '--background',
@@ -96,6 +95,8 @@ def _parser():
         '-o', '--output', help="Ouput file or path required by some actions")
     parser.add_argument(
         '-i', '--input', help="Input file (or data) required by some actions")
+    parser.add_argument('-sa', '--single-action', type=str,
+                        choices=get_all_full_action_names(), help='action')
 
     # default actions required by tim_cli_utils (TODO: they should be moved there)
     parser.add_argument('-s', '--silent', action="store_true",

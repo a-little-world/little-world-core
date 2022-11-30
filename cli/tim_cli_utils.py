@@ -37,6 +37,18 @@ def register_action(**kwargs):
     return partial(_dispatch_register_action_decorator, **kwargs)
 
 
+def get_all_full_action_names():
+    return [act for act in ACTIONS]
+
+
+def get_all_action_aliases():
+    all_aliases = []
+    for act in ACTIONS:
+        for alias in [*ACTIONS[act]["alias"], act]:
+            all_aliases.append(alias)
+    return all_aliases
+
+
 def _action_by_alias(alias):
     for act in ACTIONS:
         if alias in [*ACTIONS[act]["alias"], act]:
@@ -106,8 +118,20 @@ def parse_actions_run():
     `./run.py <action-name>`
     then the action can claim to parse the unrecognized cli args via `args.unknown`
     """
+
+    def parse_args(_partial=None):
+        if _partial:
+            a = _parser().parse_args(_partial)
+        else:
+            a = _parser().parse_args()
+        if a.single_action:
+            print("SA", a.single_action)
+            a.actions = [a.single_action]
+            print("actions", a.actions)
+        else:
+            assert getattr(a, "actions") and a.actions
+        return a
     a, _ = _parser().parse_known_args()
-    assert getattr(a, "actions") and a.actions
     reparse = (None, False)
     # Check if there is a 'parse_own_args' action in the actions
     for action in a.actions:
@@ -121,10 +145,10 @@ def parse_actions_run():
     if reparse[1]:
         assert isinstance(reparse[0], str)
         _partial = sys.argv[1:sys.argv.index(reparse[0])+1]
-        a = _parser().parse_args(_partial)
+        a = parse_args(_partial)
         setattr(a, 'unknown', sys.argv[sys.argv.index(reparse[0]) + 1:])
     else:
-        a = _parser().parse_args()
+        a = parse_args()
         setattr(a, 'unknown', [])
 
     silence_all_actions = a.silent if a.silent else False
