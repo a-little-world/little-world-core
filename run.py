@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# PYTHON_ARGCOMPLETE_OK
+
 """ General entry point for backend build and deployment processes """
 import shutil
 from functools import partial, wraps
@@ -78,8 +80,16 @@ def _parser():
         3. mirations for the db
         4. running the container interactively ( close with ctl-C )
     """
+
+    def github_org_members(prefix, parsed_args, **kwargs):
+        print("Completing actions")
+
     parser = argparse.ArgumentParser()
-    parser.add_argument('-b', '--btype', default="dev", help="prod, dev, any")
+    parser.add_argument('actions', metavar='A', type=str, default=["_setup",
+                                                                   "build", "static", "migrate", "run"],
+                        choices=get_all_action_aliases(), nargs='+', help='action')
+    parser.add_argument('-b', '--btype', default="dev",
+                        help="prod, dev, any", choices=["development", "staging", "deployment"])
     parser.add_argument('-bg', '--background',
                         action="store_true", help="Run the docker container in background (`./run.py kill` to stop)")
     parser.add_argument(
@@ -88,13 +98,9 @@ def _parser():
         '-i', '--input', help="Input file (or data) required by some actions")
 
     # default actions required by tim_cli_utils (TODO: they should be moved there)
-    parser.add_argument('actions', metavar='A', type=str, default=["_setup",
-                        "build", "static", "migrate", "run"], nargs='*', help='action')
     parser.add_argument('-s', '--silent', action="store_true",
                         help="Mute all output exept what is required")
 
-    if USE_BASH_AUTOMCOMPLETION:
-        argcomplete.autocomplete(parser)
     return parser
 
 
@@ -817,5 +823,8 @@ if __name__ == "__main__":
     `./run.py shell`:
         Login to `c.shell` on a *running* container
     """
+    if USE_BASH_AUTOMCOMPLETION:
+        print("using auto completion")
+        argcomplete.autocomplete(_parser())
     set_parser(_parser)
     parse_actions_run()
