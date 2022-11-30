@@ -9,6 +9,14 @@ import argparse
 import signal
 import json
 from cli.tim_cli_utils import *
+USE_BASH_AUTOMCOMPLETION = False
+try:  # We don't make this required cause people might not use bash
+    import argcomplete
+    USE_BASH_AUTOMCOMPLETION = True
+except:
+    print('WARN: "argcomplete" import failed!, ' +
+          'you have no sleek bash auto completion!\n' +
+          'maybe try `pip3 install argcomplete`')
 
 TAG = "littleworld_back"
 FRONT_TAG = "littleworld_front"
@@ -84,6 +92,9 @@ def _parser():
                         "build", "static", "migrate", "run"], nargs='*', help='action')
     parser.add_argument('-s', '--silent', action="store_true",
                         help="Mute all output exept what is required")
+
+    if USE_BASH_AUTOMCOMPLETION:
+        argcomplete.autocomplete(parser)
     return parser
 
 
@@ -386,11 +397,19 @@ def build(args):
 
 @register_action(alias=["tests"], cont=True)
 def run_django_tests(args):
+    """
+    Runs tests for all django apps in /back 
+    """
     _run_in_running(_is_dev(args), ["python3", "manage.py", "test"], fail=True)
 
 
 @register_action(alias=["static", "collectstatic"], cont=True)
 def extract_static(args, running=False):
+    """
+    This collects all the static files, 
+    this is especially imporant if you changed any files in django apps 'statics/*' directories!
+    In production is would also automaticly upload the files to an S3 bucket! TODO
+    """
     with _conditional_wrap(not running,  # If the containers isn't running we will have to start it
                            before=lambda: _run(_is_dev(args), background=True),
                            after=lambda: kill(args, front=False)):
@@ -499,6 +518,10 @@ def update_front(args):
 
 @register_action(alias=["af"], cont=False)
 def attach_front(args):
+    """
+    Attach to a running frontend container 
+    currently this will errror if mulitple containers
+    """
     _cmd = [*c.drun, *(c.denv if _is_dev(args) else c.penv), *
             c.vmount_front, "-d", c.front_tag]
     subprocess.run(_cmd)
@@ -601,6 +624,11 @@ def build_front(args):
 
 @register_action(alias=["watch"], cont=False)
 def watch_frontend(args):
+    """
+    Runs the webpack watch command in a new frontend container 
+    This can be used to watch multiple fontends at the same time! 
+    & without having node installed or manging npm versions !! :)
+    """
     assert args.input, "please input a active frontend: " + \
         str(_env_as_dict(c.denv[1])["FR_FRONTENDS"].split(","))
     assert _is_dev(
@@ -693,7 +721,15 @@ def manage_command(args):
 
 @register_action(alias=["ma_shell_inject", "inject"])
 def inject_shell(args):
-    """ Injects a script into the python management shell """
+    """ 
+    Injects a script as text command argument into the python management shell 
+    NOTE there can be a max lenght of inputable characters in shells
+    so in some shells to long script throw an error!
+    see _shell_inject/* for exaple scripts
+
+    You can use '!dont_include' as a comment and the line will not be included
+    To include a commented line use '!include' somewhere in the comment
+    """
     assert args.input, "Please provide a shell script input file"
     import shlex
     script_file_text = ""
@@ -729,7 +765,7 @@ def build_docs(args):
     _kill_tag(c.tag_spinix)
 
 
-@ register_action()
+@register_action()
 def reset_migrations(args):
     """
     Deltes all migration files appart from the __init__.py
@@ -752,14 +788,6 @@ def reset_migrations(args):
         for p in migration_files:
             print(f"del: {p}")
             os.remove(p)
-
-
-def _action_by_alias(alias):
-    for act in ACTIONS:
-        if alias in [*ACTIONS[act]["alias"], act]:
-            return act, ACTIONS[act]
-    else:
-        raise Exception(f"Action or alias '{alias}' not found")
 
 
 @contextlib.contextmanager
