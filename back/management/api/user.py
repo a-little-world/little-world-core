@@ -1,7 +1,8 @@
 from rest_framework.views import APIView
 from django.utils.translation import pgettext_lazy
+from django.contrib.auth import logout
 from drf_spectacular.utils import extend_schema
-from management.controller import get_user_by_hash
+from management.controller import get_user_by_hash, get_user_by_email, UserNotFoundErr
 from rest_framework.response import Response
 from django.contrib.auth import authenticate, login
 from ..models.state import State
@@ -124,7 +125,23 @@ class LoginApi(APIView):
                 status=status.HTTP_400_BAD_REQUEST)
 
 
-# TODO: maybe depricate:
+class LogoutApi(APIView):
+
+    authentication_classes = [authentication.SessionAuthentication,
+                              authentication.BasicAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    @utils.track_event(
+        name="User Logged out",
+        event_type=Event.EventTypeChoices.REQUEST,
+        tags=["frontend", "log-out", "sensitive"])
+    def get(self, request):
+
+        logout(request)
+        return Response(pgettext_lazy(
+            "api.logout-sucessful", "Sucessfully logged out!"))
+
+
 @dataclass
 class CheckPwParams:
     password: str
@@ -139,6 +156,8 @@ class CheckPwSerializer(serializers.Serializer):
         return CheckPwParams(**validated_data)
 
 
+# This sorta enables password enumeration but only if one manages to steal a users session token
+# TODO So like the login api this should be throttled!
 class CheckPasswordApi(APIView):
 
     authentication_classes = [authentication.SessionAuthentication,
@@ -180,7 +199,7 @@ class ChangeEmailApi(APIView):
         """
         The user can use this to change his email,
         we always store old emails in state.past_emails just to be sure
-        NOTE this **will** automaticly set 'state.email_autenticated = False'
+        NOTE this **will** automaticly set 'state.email_autenticated = False' if email can be changed
         and the user will get another email send
         """
         serializer = ChangeEmailSerializer(data=request.data)
@@ -194,7 +213,16 @@ class ChangeEmailApi(APIView):
                     "This is your current email!"
                 )
             })
+        else:
+            # Maybe a user with this email already exista anyways?
+            try:
+                get_user_by_email(params.email)
+            except UserNotFoundErr:
+                raise ValueError({"email":  # TODO: now we are exposing us to email enumeration this APIView should be throttled!
+                                  pgettext_lazy("api.user.change-email-failed.email-exists",
+                                                "Email {email} exists".format(email=params.email))})
 
+        # Now we change the email, change the auto code & pin, send another verification mail
         request.user.change_email(params.email)
         return Response(pgettext_lazy(
             "api.user.change-email-successful",
