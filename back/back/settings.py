@@ -154,6 +154,12 @@ USE_I18N = True
 def ugettext(s): return s
 
 
+"""
+We want BigAutoField per default just in case
+this will use 'BigAutoField' as default id for db models
+"""
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
 LANGUAGES = [
     # v-- first one cause this is the lang we write our translation tags in
     # _TB cause this is Tim Benjamins English ;)
@@ -171,9 +177,18 @@ LOCALE_PATHS = [
 
 LOGIN_URL = "/login"
 
+"""
+uvicorn can handle both WSGI & ASGI
+ASGI is veryimportant for chat websockets 
+and e.g.: incomming call popups
+"""
 WSGI_APPLICATION = "back.wsgi.application"
 ASGI_APPLICATION = "back.asgi.application"
 
+"""
+Some settings for celery
+CELERY_RESULT_EXTENDED is imporant for celery results to correctly display in db admin panel
+"""
 CELERY_TIMEZONE = os.environ['DJ_CELERY_TIMEZONE']
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
@@ -182,8 +197,12 @@ CELERY_RESULT_EXTENDED = True
 if BUILD_TYPE in ['staging', 'development']:
     pass
 
-# django-rest-password reset config:
-# Password reset tokens are only valid for 1h!
+"""
+django-rest-password reset config:
+Password reset tokens are only valid for 1h!
+This will nicely show all active tokens 
+which are valid for only one password change!
+"""
 DJANGO_REST_MULTITOKENAUTH_RESET_TOKEN_EXPIRY_TIME = 1
 DJANGO_REST_PASSWORDRESET_NO_INFORMATION_LEAKAGE = True
 DJANGO_REST_MULTITOKENAUTH_REQUIRE_USABLE_PASSWORD = False
@@ -295,7 +314,14 @@ if IS_PROD:
     # TODO create this param
     DEFAULT_FROM_EMAIL = os.environ["DJ_SG_DEFAULT_FROM_EMAIL"]
 
-
+"""
+Default django password validator
+We *dont* allow: 
+- numeric passwords
+- password to similar to user.first_name
+- password to common ( sample of commonly enumerated passwords )
+- password under 8 characters
+"""
 AUTH_PASSWORD_VALIDATORS = [{'NAME': val} for val in [
     'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
     'django.contrib.auth.password_validation.MinimumLengthValidator',
@@ -316,15 +342,31 @@ WEBPACK_LOADER = {app: {  # Configure seperate loaders for every app!
     'IGNORE': [r'.+\.hot-update.js', r'.+\.map'],
 } for app in FRONTENDS}
 
-# This *must* stay 'en'
-# as default language this will always have a fallback
+"""
+Default language code of the application
+this reflects which language the translation of the app are written in
+so as long the default the incode translations are english **dont change this**
+as default language the user will always have a fallback langugae 
+english no matter if frontent translation failes
+"""
 LANGUAGE_CODE = 'en'
 TIME_ZONE = os.environ.get('DJ_TIME_ZONE', 'UTC+1')  # UTC+1 = Berlin
 
+"""
+We use django internalization to enable use of 'django_language' cookie 
+And the use of Accept-Language: <lang> headers
+this e.g.: enables frontends to request api translation before calling the apis!
+They would request the pseudo language 'tag' as reference
+`tag` are the translation contexts for all `pgettext_lazy` calls
+"""
 USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
+"""
+In development all staticfiles will be hosted here
+In production we host them in an S3 bucket so we don't need to serve them our selves!
+"""
 STATIC_URL = '/static/'
 
 if DEBUG:
@@ -332,6 +374,10 @@ if DEBUG:
         'BASE_DIR', 'ALLOWED_HOSTS', 'CELERY_TIMEZONE', 'FRONTENDS', 'DATABASES']])
     print(f"configured django settings:\n {info}")
 
+"""
+Settings for the sleek admin panel
+TODO we should remove cdn stuff like google fonts from this!
+"""
 JAZZMIN_SETTINGS = {
     "site_title": "Little World Admin",
     "site_header": "Admin Little World",
@@ -351,6 +397,9 @@ JAZZMIN_SETTINGS = {
             "permissions": ["auth.view_user"]},
 
         {"name": "Repo", "url": "https://github.com/a-little-world/little-world-backend",
+            "new_window": True},
+
+        {"name": "Admin Chat", "url": "/admin_chat",
             "new_window": True},
 
         {"name": "Docs", "url": "/static/docs",
