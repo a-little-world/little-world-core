@@ -21,8 +21,12 @@ CENSOR_ROUTES = {
         "search": "any",
         "mode": "k",
         "censor": ["password"]
+    },
+    "/set_password": {  # Also takes care of /admin/login
+        "search": "any",
+        "mode": "k",
+        "censor": ["password"]
     }
-    # TODO: add reset password api here
 }
 
 
