@@ -1,9 +1,15 @@
 import os
 from datetime import datetime
+from django.conf import settings
 from celery.signals import worker_ready
 from celery import Celery, shared_task
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'back.settings')
+
+# CELERY_IMPORTS = [
+#    "management.database_defaults.create_default_cookie_groups",
+#    "management.database_defaults.create_default_community_events",
+# ]
 
 app = Celery('back')
 
@@ -14,7 +20,8 @@ app = Celery('back')
 app.config_from_object('django.conf:settings', namespace='CELERY')
 
 # Load task modules from all registered Django apps.
-app.autodiscover_tasks()
+# app.autodiscover_tasks()
+app.autodiscover_tasks(lambda: settings.INSTALLED_APPS)
 
 
 @app.task(bind=True)

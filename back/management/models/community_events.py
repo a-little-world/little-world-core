@@ -14,6 +14,8 @@ class CommunityEvent(models.Model):
 
     time = models.DateTimeField(null=False, blank=False)
 
+    link = models.CharField(default="", max_length=255)
+
     class EventFrequencyChoices(models.TextChoices):
         WEEKLY = "weekly", pgettext_lazy(
             'model.community-event.frequency-weekly', "Weekly")
