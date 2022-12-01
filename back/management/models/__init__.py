@@ -12,3 +12,4 @@ from .settings import Settings, SelfSettingsSerializer
 from .notifications import Notification, NotificationSerializer, SelfNotificationSerializer
 from .rooms import Room
 from .matching_scores import MatchinScore
+from .community_events import CommunityEvent
