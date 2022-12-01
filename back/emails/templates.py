@@ -35,7 +35,7 @@ def inject_template_data(template_dict, params):
         _dict[k] = _dict[k].format(**{
             k: params[k] for k in _format_args
         })
-        # print("Updated templte dict ", template_dict)
+        #print("Updated templte dict ", _dict)
     return _dict
 
 
