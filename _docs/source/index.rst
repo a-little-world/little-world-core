@@ -1,5 +1,5 @@
-.. Django documentation master file, created by
-   sphinx-quickstart on Tue Oct 25 16:11:00 2022.
+.. Little World Documentation master file, created by
+   tbcode on Tue Oct 25 16:11:00 2022.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 

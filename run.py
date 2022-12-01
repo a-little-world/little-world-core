@@ -775,12 +775,15 @@ def build_docs(args):
     Note: This assumes you have already build the docker backend container
     """
     assert _is_dev(args), "Can only build docs in development mode"
-    _cmd = [*c.dbuild, *c.file_spinix, "-t", c.tag_spinix, "."]
+    _cmd = [*c.dbuild, *c.file_spinix, "-t", c.tag_spinix, "./docs"]
     print(" ".join(_cmd))
     subprocess.run(_cmd)
     _cmd = [*c.drun, *c.denv, *c.vmount_spinix, *c.port, "-d", c.tag_spinix]
     print(" ".join(_cmd))
     subprocess.run(_cmd)
+    if os.path.exists("./back/static/docs"):
+        print("WARN: found all docs build, overwriting...")
+        shutil.rmtree("./back/static/docs")
     _run_in_running_tag(["make", "html"], tag=c.tag_spinix, work_dir="/docs")
     #_run_in_running_tag(["sh"], tag=c.tag_spinix)
     # copy the output files
