@@ -217,20 +217,33 @@ def get_base_management_user():
     try:
         return get_user_by_email(settings.MANAGEMENT_USER_MAIL)
     except UserNotFoundErr:
-        print("Management user doesn't seem to exist jet")
-        usr = User.objects.create_superuser(
-            email=settings.MANAGEMENT_USER_MAIL,
-            username=settings.MANAGEMENT_USER_MAIL,
-            password=os.environ['DJ_MANAGEMENT_PW'],
-            first_name=os.environ.get(
-                'DJ_MANAGEMENT_FIRST_NAME', 'Oliver (Support)'),
-            second_name=os.environ.get(
-                'DJ_MANAGEMENT_SECOND_NAME', ''),
-        )
-        usr.state.set_user_form_completed()  # Admin doesn't have to fill the userform
-        usr.notify("You are the admin master!")
-        print("BASE ADMIN USER CREATED!")
-        return usr
+        return create_base_admin_and_add_standart_db_values()
+
+
+def create_base_admin_and_add_standart_db_values():
+    print("Management user doesn't seem to exist jet")
+    usr = User.objects.create_superuser(
+        email=settings.MANAGEMENT_USER_MAIL,
+        username=settings.MANAGEMENT_USER_MAIL,
+        password=os.environ['DJ_MANAGEMENT_PW'],
+        first_name=os.environ.get(
+            'DJ_MANAGEMENT_FIRST_NAME', 'Oliver (Support)'),
+        second_name=os.environ.get(
+            'DJ_MANAGEMENT_SECOND_NAME', ''),
+    )
+    usr.state.set_user_form_completed()  # Admin doesn't have to fill the userform
+    usr.notify("You are the admin master!")
+    print("BASE ADMIN USER CREATED!")
+
+    # Now we create some default database elements that should be part of all setups!
+    from management.tasks import create_default_community_events, create_default_cookie_groups
+
+    # Create default cookie groups and community events
+    # This is done as celery task in the background!
+    create_default_cookie_groups.delay()
+    create_default_community_events.delay()
+
+    return usr
 
 
 # TODO: can this cause issues when settings not initalized?
