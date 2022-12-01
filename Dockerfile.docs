@@ -4,8 +4,8 @@ FROM python:3.10
 
 WORKDIR /docs
 
-COPY ./back/requirements.txt ./
-COPY ./_docs/requirements.txt ./requirements_docs.txt
+COPY ../back/requirements.txt ./
+COPY ./requirements.txt ./requirements_docs.txt
 
 RUN pip install --upgrade setuptools
 RUN pip install --no-cache-dir -r requirements.txt
