@@ -13,11 +13,13 @@ from .views.user_form_frontend import (
     register,
     forgot_password,
     set_password_reset,
+    password_reset_mail_send,
     subsection_of_user_form,
     email_verification,
     email_change,
     email_verification_sucess,
     email_verification_fail,
+    password_set_success,
     error,
     user_form
 )
@@ -90,6 +92,12 @@ view_routes = [
     path("password_reset/", forgot_password, name="password_reset"),
     path("set_password/<str:usr_hash>/<str:token>",
          set_password_reset, name="set_password_reset"),
+
+    path("new_password_set/", password_set_success,
+         name="password_reset_succsess"),
+
+    path("password_reset_mail_send/", password_reset_mail_send,
+         name="password_reset_succsess"),
 
     path("login/", login, name="login"),
 
