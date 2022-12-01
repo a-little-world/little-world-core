@@ -4,6 +4,10 @@ WORKDIR /back
 
 COPY ./requirements.txt ./
 
+# psycopg2-binary is fufficient for DB acess
+# But if we want `manage.py dbshell` might might need some more stuff:
+# RUN apk add libpq-dev python3-dev
+# RUN apk add postgres
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip cache purge
 
