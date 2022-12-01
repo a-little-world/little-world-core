@@ -29,6 +29,7 @@ from ..models import (
     CensoredProfileSerializer,
     SelfSettingsSerializer
 )
+from .community_events import get_all_comunity_events_serialized
 
 from ..controller import get_user_models
 
@@ -160,6 +161,25 @@ def get_user_data_and_matches(user, options=False, admin=False,
         **get_user_data(user, is_self=True, include_options=options),
         "matches": get_matches_paginated(user, admin=admin, page=page, paginate_by=paginate_by),
         "notifications": get_notifications_paginated(user, admin=admin, page=noti_page, paginate_by=noti_paginate_by)
+    }
+
+
+def get_full_frontend_data(user, options=False, admin=False,
+                           page=UserDataApiParams.page,
+                           paginate_by=UserDataApiParams.paginate_by,
+                           noti_page=UserDataApiParams.page,
+                           noti_paginate_by=UserDataApiParams.paginate_by):
+    """
+    Gathers *all* data for the frontend in addition to matches and self info
+    there is also data like community_events, frontend_state
+    """
+
+    return {
+        **get_user_data_and_matches(user, options=options, admin=admin,
+                                    page=page, paginate_by=paginate_by,
+                                    noti_page=noti_page, noti_paginate_by=noti_paginate_by),
+        "community_events": get_all_comunity_events_serialized(),
+        # "frontend_state": "",
     }
 
 
