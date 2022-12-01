@@ -5,6 +5,7 @@ from back.cookie_consent.models import CookieGroup, Cookie  # !dont_include
 # Our anlytics cookie group
 analytics_cookiegroup = CookieGroup.objects.create(
     varname="analytics",
+    name="analytics_cookiegroup",
     description="Google analytics and Facebook Pixel",
     is_required=False,
     is_deletable=True
@@ -12,6 +13,7 @@ analytics_cookiegroup = CookieGroup.objects.create(
 
 google_analytics_cookie = Cookie.objects.create(
     cookiegroup=analytics_cookiegroup,
+    name="google_analytics_cookie",
     description="Google anlytics cookies and scripts",
     include_srcs=[
         "https://www.googletagmanager.com/gtag/js?id=AW-10994486925"],
@@ -33,6 +35,7 @@ facebook_init_script = "\n!function(f,b,e,v,n,t,s)\n{if(f.fbq)return;n=f.fbq=fun
 
 facebook_pixel_cookie = Cookie.objects.create(
     cookiegroup=analytics_cookiegroup,
+    name="facebook_pixel_cookie",
     description="Facebook Pixel analytics cookies and scripts",
     include_srcs=[],
     include_scripts=[facebook_init_script],
