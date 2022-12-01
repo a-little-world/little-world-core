@@ -254,8 +254,7 @@ if BUILD_TYPE in ['staging', 'development']:
         },
     }
 
-if BUILD_TYPE in ['staging', 'development']:
-    # TODO: actually for staging we should use in Memory channel layer
+if IS_DEV:
     # or install redis in the container
     host_ip_from_inside_container = "host.docker.internal"
     CHANNEL_LAYERS = {
@@ -267,7 +266,7 @@ if BUILD_TYPE in ['staging', 'development']:
             # },
         }
     }
-elif IS_PROD:
+elif IS_PROD or IS_STAGE:
     redis_connect_url = "rediss://" + os.environ["DJ_REDIS_USER"] + ":" + os.environ["DJ_REDIS_PASSWORD"] \
         + "@" + os.environ["DJ_REDIS_HOST"] + ":" + os.environ["DJ_REDIS_PORT"]
     CHANNEL_LAYERS = {
@@ -291,16 +290,16 @@ DATABASES = {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     }
-} if BUILD_TYPE in ['staging', 'development'] else {
+} if IS_DEV else {
     'default': {
         'ENGINE': 'django.db.backends.{}'.format(
             os.environ['DJ_DATABASE_ENGINE']
         ),
-        'NAME': os.environ['DATABASE_NAME'],
-        'USER': os.environ['DATABASE_USERNAME'],
-        'PASSWORD': os.environ['DATABASE_PASSWORD'],
-        'HOST': os.environ['DATABASE_HOST'],
-        'PORT': os.environ['DATABASE_PORT'],
+        'NAME': os.environ['DJ_DATABASE_NAME'],
+        'USER': os.environ['DJ_DATABASE_USERNAME'],
+        'PASSWORD': os.environ['DJ_DATABASE_PASSWORD'],
+        'HOST': os.environ['DJ_DATABASE_HOST'],
+        'PORT': os.environ['DJ_DATABASE_PORT'],
         'OPTIONS': {'sslmode': 'require'},
     },
 }
