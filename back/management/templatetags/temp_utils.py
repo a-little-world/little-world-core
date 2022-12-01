@@ -22,6 +22,5 @@ def get_api_translations(request):
     This can be used by frontends to dynamicly change error translation lanugages without resending requrests
     """
     return json.dumps({
-        "en": get_trans_as_tag_catalogue(request, "en"),
-        "de": get_trans_as_tag_catalogue(request, "de")
+        lang: get_trans_as_tag_catalogue(request, lang) for lang in settings.FRONTEND_LANGS
     })
