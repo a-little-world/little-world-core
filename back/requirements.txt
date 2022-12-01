@@ -25,3 +25,4 @@ django-rest-passwordreset
 requests # for tests mainly
 twilio # For the video calls
 pytest # Are used for the tests in cookie_banner
+psycopg2-binary # For aws postgres sql
