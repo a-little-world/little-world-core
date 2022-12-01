@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from typing import List, Optional
 from tracking import utils
 from tracking.models import Event
-from ..api.user_data import get_user_data_and_matches
+from ..api.user_data import get_full_frontend_data
 
 
 # The following two are redundant with api.admin.UserListParams, api.admin.UserListApiSerializer
@@ -81,6 +81,6 @@ class MainFrontendView(LoginRequiredMixin, View):
         _kwargs = params.__dict__
         _kwargs.pop("filters")  # TODO: they are not yet supported
         _kwargs.pop("order_by")  # TODO: they are not yet supported
-        profile_data = get_user_data_and_matches(
+        profile_data = get_full_frontend_data(
             request.user, options=True, **_kwargs)
         return render(request, "main_frontend.html", {"profile_data": json.dumps(profile_data, cls=CoolerJson)})
