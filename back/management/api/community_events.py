@@ -1,7 +1,14 @@
+import datetime
 from rest_framework.views import APIView
 from rest_framework import authentication, permissions, viewsets
 from rest_framework.response import Response
+from django.utils.translation import pgettext_lazy
 from ..models.community_events import CommunityEvent, CommunityEventSerializer
+
+
+def get_all_comunity_events_serialized():
+    active_event = list(CommunityEvent.get_all_active_events())
+    return [CommunityEventSerializer(e).data for e in active_event]
 
 
 class GetActiveEventsApi(APIView):
@@ -11,7 +18,4 @@ class GetActiveEventsApi(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        active_event = list(CommunityEvent.get_all_active_events())
-        return Response([
-            CommunityEventSerializer(e).data for e in active_event
-        ])
+        return Response(get_all_comunity_events_serialized())
