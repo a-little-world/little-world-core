@@ -3,13 +3,14 @@ from django.shortcuts import render, redirect
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from rest_framework import serializers
+from dataclasses import dataclass
 from django.urls import reverse
 import json
 
 
 def _render_user_form_app(request, app_name="", use_cookie_banner=False, **kwargs):
     """
-    This renders any user form app this is always handles by running render_app() 
+    This renders any user form app this is always handles by running render_app()
     You can render a specific subset of the app by passing 'byName'
     see user_from_fromtend/src/index.tsx for more info
     set app_name = "" to render the main userform
@@ -34,6 +35,7 @@ def forgot_password(request):
     return _render_user_form_app(request, "resetpw", use_cookie_banner=True)
 
 
+@dataclass
 class SetPasswordResetParams:
     usr_hash: str
     token: str
@@ -55,10 +57,21 @@ def set_password_reset(request, **kwargs):
     })  # type: ignore
     # TODO: handle gracefully and show error screen:
     serializer.is_valid(raise_exception=True)
+    params = serializer.save()
 
     # Now validate the token, if its valid maybe update using django_rest_password reset
+    # TODO: if token invalid redirect to token ivalid page!
 
-    return _render_user_form_app(request, "setpw", use_cookie_banner=True)
+    return _render_user_form_app(
+        request, "setpw", use_cookie_banner=True, usr_hash=params.usr_hash, token=params.token)
+
+
+def password_set_success(request):
+    return _render_user_form_app(request, "passwordset", use_cookie_banner=True)
+
+
+def password_reset_mail_send(request):
+    return _render_user_form_app(request, "mailsend", use_cookie_banner=True)
 
 
 def register(request):
@@ -102,7 +115,7 @@ def subsection_of_user_form(request):
     return _render_user_form_app(request, "oneformpageonly", use_cookie_banner=False, pages=pages)
 
 
-@login_required
+@ login_required
 def user_form(request, path=None):
     """
     Renders the main user form app, this data is used for matching the users
