@@ -1,6 +1,9 @@
 from rest_framework.views import APIView
 from django.utils.translation import pgettext_lazy
 from django.contrib.auth import logout
+from django_rest_passwordreset.signals import reset_password_token_created
+from django.conf import settings
+from django.dispatch import receiver
 from drf_spectacular.utils import extend_schema
 from management.controller import get_user_by_hash, get_user_by_email, UserNotFoundErr
 from rest_framework.response import Response
@@ -11,6 +14,7 @@ from rest_framework import serializers, status
 from dataclasses import dataclass
 from tracking.models import Event
 from tracking import utils
+from emails.mails import get_mail_data_by_name, PwResetMailParams
 """
 The public /user api's
 
@@ -227,3 +231,27 @@ class ChangeEmailApi(APIView):
         return Response(pgettext_lazy(
             "api.user.change-email-successful",
             "E-mail adres update, email adress must be reauthenticated."))
+
+
+@receiver(reset_password_token_created)
+def password_reset_token_created(sender, instance, reset_password_token, *args, **kwargs):
+    """
+    Handles password reset tokens
+    This is automaticly called fron djang-rest-password reset when the /api/user/resetpw is called
+    """
+    # TODO: track this event!
+    #print("TBS: request PW reset", sender, instance, reset_password_token)
+    # This is the url of our password reset view
+    # We also pass the reset token to the view so it can be used to change the password
+    usr_hash = reset_password_token.user.hash
+    reset_password_url = f"{settings.BASE_URL}/set_password/{usr_hash}/{reset_password_token.key}"
+    print("GENERATED RESET URL", reset_password_url)
+
+    mail_data = get_mail_data_by_name("password_reset")
+    reset_password_token.user.send_email(
+        subject=pgettext_lazy("api.user-resetpw.mail-subject", ""),
+        mail_data=mail_data,
+        mail_params=PwResetMailParams(
+            password_reset_url=reset_password_url
+        ),
+    )
