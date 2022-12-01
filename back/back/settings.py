@@ -160,6 +160,10 @@ this will use 'BigAutoField' as default id for db models
 """
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# All languages frontends can be in:
+# They will pre passed as tag -> lang references!
+FRONTEND_LANGS = ['en', 'de']
+
 LANGUAGES = [
     # v-- first one cause this is the lang we write our translation tags in
     # _TB cause this is Tim Benjamins English ;)
