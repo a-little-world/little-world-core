@@ -203,6 +203,7 @@ class SelfStateSerializer(StateSerializer):
         fields = [
             "user_form_state",
             "user_form_page",
+            "unconfirmed_matches_stack"
             # "email_authenticated"
             # TODO A-- will be imporant once we allow to verify the email later
         ]
