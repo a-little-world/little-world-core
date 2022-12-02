@@ -56,6 +56,8 @@ class TrackRequestsMiddleware:
 
     def __call__(self, request):
         path = request.path
+        # Actually this could *all* be done in a celery task, could also be a little too many celery tasks?
+        # That way we would avoid any slowdown due to tracking TODO?
         _kwargs = {}
 
         with _try():
