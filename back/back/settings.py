@@ -83,6 +83,7 @@ MIDDLEWARE = [
     ] if BUILD_TYPE in ['staging', 'development'] else []),
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',
+    'management.middleware.OverwriteSessionLangIfAcceptLangHeaderSet',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
