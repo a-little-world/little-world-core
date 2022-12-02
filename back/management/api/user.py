@@ -201,7 +201,8 @@ class ChangeEmailApi(APIView):
     @extend_schema(request=ChangeEmailSerializer(many=False))
     def post(self, request):
         """
-        The user can use this to change his email,
+        The user can use this to change his email, *of couse only if the is logged in*
+        we identify the user by his session
         we always store old emails in state.past_emails just to be sure
         NOTE this **will** automaticly set 'state.email_autenticated = False' if email can be changed
         and the user will get another email send
@@ -231,6 +232,39 @@ class ChangeEmailApi(APIView):
         return Response(pgettext_lazy(
             "api.user.change-email-successful",
             "E-mail adres update, email adress must be reauthenticated."))
+
+
+@dataclass
+class ConfirmMatchesParams:
+    matches: 'list[str]'
+
+
+class ConfirmMatchesSerializer(serializers.Serializer):
+    matches = serializers.ListField(required=True)
+
+    def create(self, validated_data):
+        return ConfirmMatchesParams(**validated_data)
+
+
+class ConfirmMatchesApi(APIView):
+
+    authentication_classes = [authentication.SessionAuthentication,
+                              authentication.BasicAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(request=ConfirmMatchesSerializer(many=False))
+    def post(self, request):
+        serializer = ConfirmMatchesSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        params = serializer.save()
+
+        try:
+            request.user.state.confirm_matches(params.matches)
+        except Exception as e:
+            raise serializers.ValidationError({"matches": str(e)})
+
+        return Response(pgettext_lazy("api.user-matches-successfully-confirmed",
+                                      "Matches confirmed!"))
 
 
 @receiver(reset_password_token_created)
