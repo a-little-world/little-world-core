@@ -109,7 +109,7 @@ class State(models.Model):
     past_emails = models.JSONField(blank=True, default=list)
 
     def regnerate_email_auth_code(self, set_to_unauthenticated=True):
-        # TODO: do we want to log old auth codes? is there any benefit?
+        # We do not log old auth codes, donsnt realy matter
         self.email_auth_hash = utils._double_uuid()
         self.email_auth_pin = utils._rand_int5()
         self.email_authenticated = set_to_unauthenticated
@@ -200,4 +200,9 @@ class SelfStateSerializer(StateSerializer):
 
     class Meta:
         model = State
-        fields = ["user_form_state", "user_form_page"]
+        fields = [
+            "user_form_state",
+            "user_form_page",
+            # "email_authenticated"
+            # TODO A-- will be imporant once we allow to verify the email later
+        ]
