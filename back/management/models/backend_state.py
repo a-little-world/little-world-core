@@ -19,7 +19,7 @@ class BackendState(models.Model):
         default_cookies = "db-created-default-cookies-and-cookiegroups"
 
     slug = models.CharField(null=False, blank=False,
-                            choices=BackendStateEnum.choices, unique=True)
+                            choices=BackendStateEnum.choices, unique=True, max_length=255)
 
     name = models.CharField(default="master", unique=True, max_length=255)
     hash = models.CharField(default=_double_uuid, max_length=255)
