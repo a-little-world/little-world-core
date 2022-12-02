@@ -139,8 +139,13 @@ def create_user(
 
     # Step 5 Match with admin user
     # Do *not* send an matching mail, or notification or message!
+    # Also no need to set the admin user as unconfirmed,
+    # there is no popup message required about being matched to the admin!
     match_users({get_base_management_user(), usr},
-                send_notification=False, send_message=False, send_email=False)
+                send_notification=False,
+                send_message=False,
+                send_email=False,
+                set_unconfirmed=False)
 
     # Step 6 Create a room for the two users!
     # This allowes them to authenticate twilio rooms for video calls
@@ -159,14 +164,14 @@ def create_user(
     name="Users Matched",
     event_type=Event.EventTypeChoices.FLOW,
     tags=["backend", "function", "db"])
-def match_users(users: set, send_notification=True, send_message=True, send_email=True):
+def match_users(users: set, send_notification=True, send_message=True, send_email=True, set_unconfirmed=True):
     """ Accepts a list of two users to match """
     from chat.django_private_chat2.models import DialogsModel
 
     assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
     usr1, usr2 = list(users)
-    usr1.match(usr2)
-    usr2.match(usr1)
+    usr1.match(usr2, set_unconfirmed=set_unconfirmed)
+    usr2.match(usr1, set_unconfirmed=set_unconfirmed)
 
     # After the users are registered as matches we still need to create a dialog for them
     DialogsModel.create_if_not_exists(usr1, usr2)
@@ -236,12 +241,17 @@ def create_base_admin_and_add_standart_db_values():
     print("BASE ADMIN USER CREATED!")
 
     # Now we create some default database elements that should be part of all setups!
-    from management.tasks import create_default_community_events, create_default_cookie_groups
+    from management.tasks import (
+        create_default_community_events,
+        create_default_cookie_groups,
+        fill_base_management_user_profile
+    )
 
     # Create default cookie groups and community events
     # This is done as celery task in the background!
     create_default_cookie_groups.delay()
     create_default_community_events.delay()
+    fill_base_management_user_profile.delay()
 
     return usr
 
