@@ -451,6 +451,7 @@ JAZZMIN_SETTINGS = {
         "management.User": "fas fa-user",
         "management.State": "fas fa-user-cog",
         "management.Profile": "fas fa-user-circle",
+        "management.Room": "fas fa-video",
         "management.Settings": "fas fa-cogs",
         "management.CommunityEvent": "fas fa-users",
         "management.Notification": "fas fa-comment-alt",
