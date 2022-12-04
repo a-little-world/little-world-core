@@ -74,10 +74,10 @@ class State(models.Model):
     """
     This contains a list of matches the user has not yet confirmed 
     this can be used by the frontend to display them as 'new'
-    POST api/user/matches/confirm/
+    POST api/user/confrim_match/
     data = [<usr-hash>, ... ] 
     """
-    unconfirmed_matches_stack = models.JSONField(default=list)
+    unconfirmed_matches_stack = models.JSONField(default=list, blank=True)
 
     """
     all user notification
@@ -113,6 +113,13 @@ class State(models.Model):
         self.email_auth_hash = utils._double_uuid()
         self.email_auth_pin = utils._rand_int5()
         self.email_authenticated = set_to_unauthenticated
+        self.save()
+
+    def change_searching_state(self, slug):
+        # We put this list here so we ensure to stay safe if we add states that shouldn't be changed by the user!
+        allowed_usr_change_search_states = ['idle', 'searching']
+        assert slug in allowed_usr_change_search_states
+        self.matching_state = slug
         self.save()
 
     def archive_email_adress(self, email):
@@ -203,7 +210,8 @@ class SelfStateSerializer(StateSerializer):
         fields = [
             "user_form_state",
             "user_form_page",
-            "unconfirmed_matches_stack"
+            "unconfirmed_matches_stack",
+            "matching_state"
             # "email_authenticated"
             # TODO A-- will be imporant once we allow to verify the email later
         ]

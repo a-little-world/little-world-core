@@ -105,12 +105,17 @@ class User(AbstractUser):
         """ Returns a list of matches """
         return self.state.notifications.all()
 
-    def match(self, user):
+    def match(self, user, set_unconfirmed=True):
         """
         Adds the user as match of this user 
         ( this doesn't automaticly create a match for the other user ) 
+        'set_unconfirmed' determines if the user should be added to the unconfirmed matches list
         """
+        # This seems to autosave ? but lets still call state.save() in the end just to be sure
         self.state.matches.add(user)
+        if set_unconfirmed:
+            self.state.unconfirmed_matches_stack.append(user.hash)
+        self.state.save()
 
     def change_email(self, email, send_verification_mail=True):
         """
