@@ -17,6 +17,7 @@ class BackendState(models.Model):
     class BackendStateEnum(models.TextChoices):
         default_community_events = "db-created-default-cummunity-events"
         default_cookies = "db-created-default-cookies-and-cookiegroups"
+        base_management_user_profile = "db-filled-base-management-user-profile"
 
     slug = models.CharField(null=False, blank=False,
                             choices=BackendStateEnum.choices, unique=True, max_length=255)
@@ -35,7 +36,7 @@ class BackendState(models.Model):
             if set_true:
                 cls.objects.create(
                     slug=enum_slug,
-                    name="automatic event",
+                    name="automatic event " + str(_double_uuid()),
                 )
             return False
 
@@ -48,3 +49,8 @@ class BackendState(models.Model):
     def are_default_community_events_set(cls, set_true=False):
         return cls.exists_or_create(
             cls.BackendStateEnum.default_community_events, set_true=set_true)
+
+    @classmethod
+    def is_base_management_user_profile_filled(cls, set_true=False):
+        return cls.exists_or_create(
+            cls.BackendStateEnum.base_management_user_profile, set_true=set_true)
