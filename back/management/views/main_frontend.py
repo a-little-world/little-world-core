@@ -81,6 +81,12 @@ class MainFrontendView(LoginRequiredMixin, View):
         _kwargs = params.__dict__
         _kwargs.pop("filters")  # TODO: they are not yet supported
         _kwargs.pop("order_by")  # TODO: they are not yet supported
-        profile_data = get_full_frontend_data(
-            request.user, options=True, **_kwargs)
+        from django.utils import translation
+
+        # we want this view to pass tags by default,
+        # the frontend also receives all api translations!
+        # This way it can switch the language without reloading
+        with translation.override("tag"):
+            profile_data = get_full_frontend_data(
+                request.user, options=True, **_kwargs)
         return render(request, "main_frontend.html", {"profile_data": json.dumps(profile_data, cls=CoolerJson)})
