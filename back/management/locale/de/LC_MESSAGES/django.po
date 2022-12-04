@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-11-28 14:11+0000\n"
+"POT-Creation-Date: 2022-12-02 16:55+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,11 +18,11 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: admin.py:52
+#: admin.py:63
 msgid "User form filled"
 msgstr ""
 
-#: admin.py:66
+#: admin.py:77
 msgid "User category"
 msgstr ""
 
@@ -34,9 +34,14 @@ msgstr ""
 msgid "maximum one field allowed"
 msgstr ""
 
-#: api/notify.py:91
+#: api/notify.py:94
 #, python-format
 msgid "Notification %(hash)s for user"
+msgstr ""
+
+#: api/profile.py:83
+msgctxt "profile.completion-check.sucessfull"
+msgid "Profile complete!"
 msgstr ""
 
 #: api/register.py:39
@@ -83,76 +88,129 @@ msgctxt "api.twilio-room-auth-failure"
 msgid "Room authentication failed!"
 msgstr ""
 
-#: api/user.py:35
+#: api/user.py:40
 msgctxt "email.verify-auth-data-missing-get"
 msgid "Email authentication data missing"
 msgstr ""
 
-#: api/user.py:41
+#: api/user.py:46
 msgctxt "email.verify-success-get"
 msgid "Email sucessfully verified"
 msgstr ""
 
-#: api/user.py:45
+#: api/user.py:50
 msgctxt "email.verify-failure-get"
 msgid "Email verification failed"
 msgstr ""
 
-#: api/user.py:60
+#: api/user.py:65
 msgctxt "email.verify-auth-data-missing-post"
 msgid "Email authentication data missing"
 msgstr ""
 
-#: api/user.py:66
+#: api/user.py:71
 msgctxt "email.verify-failure-not-numeric"
 msgid "Enter a 5 digit pin please"
 msgstr ""
 
-#: api/user.py:69
+#: api/user.py:74
 msgctxt "email.verify-success-post"
 msgid "Email sucessfully verified"
 msgstr ""
 
-#: api/user.py:71
+#: api/user.py:76
 msgctxt "email.verify-failure-post"
 msgid "Email verification failed, wrong code."
 msgstr ""
 
-#: api/user.py:116
+#: api/user.py:121
 msgctxt "api.login-failed-staff"
 msgid "Can't log in email or password wrong!"
 msgstr ""
 
-#: api/user.py:120
+#: api/user.py:125
 msgctxt "api.login-sucessful"
 msgid "Sucessfully logged in!"
 msgstr ""
 
-#: api/user.py:123
+#: api/user.py:128
 msgctxt "api.login-failed"
 msgid "Can't log-in email or password wrong!"
 msgstr ""
+
+#: api/user.py:146
+msgctxt "api.logout-sucessful"
+msgid "Sucessfully logged out!"
+msgstr ""
+
+#: api/user.py:218
+msgctxt "api.user.change-email-failed.same-email"
+msgid "This is your current email!"
+msgstr ""
+
+#: api/user.py:228
+#, python-brace-format
+msgctxt "api.user.change-email-failed.email-exists"
+msgid "Email {email} exists"
+msgstr ""
+
+#: api/user.py:234
+msgctxt "api.user.change-email-successful"
+msgid "E-mail adres update, email adress must be reauthenticated."
+msgstr ""
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#: api/user.py:253
+#, fuzzy
+msgctxt "api.user-resetpw.mail-subject"
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2022-11-28 14:11+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: controller.py:51
 msgid "User doesn't exist"
 msgstr ""
 
-#: controller.py:150
+#: controller.py:151
 msgid "Welcome Notification"
 msgstr ""
 
-#: controller.py:153
+#: controller.py:154
 msgid "Welcome Message..."
 msgstr ""
 
-#: controller.py:174 controller.py:175
+#: controller.py:175 controller.py:176
 #, python-format
 msgid "New match: %s"
 msgstr ""
 
-#: controller.py:179 controller.py:181
+#: controller.py:180 controller.py:182
 #, python-format
 msgid "New match found! Checkout %s's profile now"
+msgstr ""
+
+#: models/community_events.py:21
+msgctxt "model.community-event.frequency-weekly"
+msgid "Weekly"
+msgstr ""
+
+#: models/community_events.py:23
+msgctxt "model.community-event.frequency-once"
+msgid "Once"
 msgstr ""
 
 #: models/notifications.py:27
@@ -185,7 +243,7 @@ msgctxt "notification.type.message"
 msgid "message"
 msgstr ""
 
-#: models/notifications.py:45 models/user.py:112
+#: models/notifications.py:45 models/user.py:154
 msgid "title"
 msgstr ""
 
@@ -488,17 +546,33 @@ msgctxt "profile.image-type.image"
 msgid "Image"
 msgstr ""
 
-#: models/profile.py:425
+#: models/profile.py:368
+#, python-brace-format
+msgctxt "profile.completion-check.missing-value"
+msgid "'{val}' is not completed"
+msgstr ""
+
+#: models/profile.py:471
 msgctxt "profile.lskill-descr-to-long"
 msgid "must have a maximum of 300 characters"
 msgstr ""
 
-#: models/profile.py:431
+#: models/profile.py:477
 msgctxt "profile.descr-to-long"
 msgid "must have a maximum of 300 characters"
 msgstr ""
 
-#: models/profile.py:443
+#: models/profile.py:493
+msgctxt "profile.image-missing"
+msgid "You have selected profile image but not uploaded an image"
+msgstr ""
+
+#: models/profile.py:505
+msgctxt "profile.avatar-missing"
+msgid "You have selected avatar but not uploaded an avatar"
+msgstr ""
+
+#: models/profile.py:515
 msgctxt "profile.descr-to-short"
 msgid "must have at least 10 characters"
 msgstr "muss mindestend 10 characters haben"
@@ -537,8 +611,13 @@ msgstr ""
 msgid "Test"
 msgstr ""
 
-#: models/user.py:112
+#: models/user.py:154
 msgid "description"
+msgstr ""
+
+#: tasks.py:25
+msgctxt "community-event.coffe-chillout"
+msgid "Kaffeerunden"
 msgstr ""
 
 #: validators.py:61
@@ -654,10 +733,10 @@ msgstr ""
 msgid "Slot '%s' is unknown!"
 msgstr ""
 
-#: views/main_frontend.py:44
+#: views/main_frontend.py:45
 msgid "Render User Form"
 msgstr ""
 
-#: views/main_frontend.py:63
+#: views/main_frontend.py:64
 msgid "Query param usage on main view only allowed for admins!"
 msgstr ""
