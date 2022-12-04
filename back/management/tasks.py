@@ -76,3 +76,29 @@ def create_default_cookie_groups():
         include_scripts=[facebook_init_script],
     )
     return "RES"
+
+
+@shared_task
+def fill_base_management_user_profile():
+    """
+    Fills our required fields for the admin user in the background 
+    """
+    if BackendState.is_base_management_user_profile_filled(set_true=True):
+        return
+
+    from .controller import get_base_management_user
+
+    base_management_user_description = """
+Hey :)
+ich bin Oliver, einer der Gründer und dein persönlicher Ansprechpartner für Fragen & Anregungen.
+
+Selbst habe ich vier Jahre im Ausland gelebt, von Frankreich bis nach China. Den interkulturellen Austausch habe ich immer geliebt, wobei mich die Gastfreundschaft oft tief beeindruckt hat. 
+"""
+    usr = get_base_management_user()
+    usr.profile.birth_year = 1984
+    usr.profile.postal_code = 20480
+    usr.profile.description = base_management_user_description
+    # TODO: add default interests
+    # TODO: upload default image!
+    usr.profile.save()
+    return "sucessfully filled base management user profile"
