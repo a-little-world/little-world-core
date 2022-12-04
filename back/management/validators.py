@@ -14,7 +14,7 @@ def as_djv(validator):
         try:
             validator(value)
         except serializers.ValidationError as e:
-            raise ValidationError(repr(e))
+            raise ValidationError(str(e))
     return _validate
 
 
@@ -23,7 +23,7 @@ def decorate_djv(validator):
         try:
             validator(value)
         except serializers.ValidationError as e:
-            raise ValidationError(repr(e))
+            raise ValidationError(str(e))
     return wrapper
 
 
@@ -42,7 +42,7 @@ def dajango_validation():
     try:
         yield None
     except serializers.ValidationError as e:
-        raise ValidationError(repr(e))
+        raise ValidationError(e.detail)
 
 
 def validate_first_name(value: str):
