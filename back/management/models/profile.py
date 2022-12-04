@@ -6,6 +6,7 @@ from datetime import datetime
 from rest_framework import serializers
 from multiselectfield import MultiSelectField
 from back.utils import _double_uuid
+from django.core.files import File
 from .user import User
 from ..validators import (
     validate_availability,
@@ -252,7 +253,8 @@ class ProfileBase(models.Model):
             "profile.pdev-interest", "Personal development")
 
     interests = MultiSelectField(
-        choices=InterestChoices.choices, max_choices=20, max_length=1000, blank=True)  # type: ignore
+        choices=InterestChoices.choices, max_choices=20,
+        max_length=1000, blank=True)  # type: ignore
 
     additional_interests = models.TextField(
         default="", blank=True, max_length=300)
@@ -339,8 +341,13 @@ class ProfileBase(models.Model):
         max_length=255)
     image = models.ImageField(
         upload_to=PathRename("profile_pics/"), blank=True)
-    avatar_config = models.TextField(
+    avatar_config = models.JSONField(
         default="", blank=True)  # Contains the avatar builder config
+
+    def add_profile_picture_from_local_path(self, path):
+        print("Trying to add the pic", path)
+        self.image.save(os.path.basename(path), File(open(path, 'rb')))
+        self.save()
 
     def check_form_completion(self):
         """
@@ -521,4 +528,7 @@ class CensoredProfileSerializer(SelfProfileSerializer):
         model = Profile
         fields = ["first_name", 'interests', 'availability',
                   'notify_channel', 'phone_mobile', 'image_type',
-                  'avatar_config', 'image']
+                  'avatar_config', 'image', 'description',
+                  'additional_interests', 'language_skill_description']
+        # TODO: do we want language_skill_descr... to be included?
+        # It is currently used as 'What Do You Expect From The Talks?' in the main frontend
