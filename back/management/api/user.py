@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from tracking.models import Event
 from tracking import utils
 from emails.mails import get_mail_data_by_name, PwResetMailParams
+from ..models.state import State
 """
 The public /user api's
 
@@ -265,6 +266,49 @@ class ConfirmMatchesApi(APIView):
 
         return Response(pgettext_lazy("api.user-matches-successfully-confirmed",
                                       "Matches confirmed!"))
+
+
+@dataclass
+class SearchingStateApiParams:
+    state_slug: str
+
+
+class SearchingStateApiSerializer(serializers.Serializer):
+    state_slug = serializers.CharField(required=True)
+
+    def create(self, validated_data):
+        return SearchingStateApiParams(**validated_data)
+
+
+class UpdateSearchingStateApi(APIView):
+
+    authentication_classes = [authentication.SessionAuthentication,
+                              authentication.BasicAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(request=SearchingStateApiSerializer(many=False))
+    def post(self, request, **kwargs):
+        """
+        Update the users serching state, current possible states: 'idle', 'searching'
+        So e.g.: This should be called then the users clicks on search for match
+        """
+        serializer = SearchingStateApiSerializer(
+            data={'state_slug': kwargs.get('state_slug')} if 'state_slug' in kwargs else {})  # type: ignore
+        serializer.is_valid(raise_exception=True)
+        params = serializer.save()
+
+        print("TBS", State.MatchingStateChoices.values)
+
+        if not params.state_slug in State.MatchingStateChoices.values:
+            raise serializers.ValidationError(
+                {"state_slug": pgettext_lazy(
+                    "api.user-update-searching-state.slug-doesnt-exist",
+                    "'{slug}' is not a possible seraching state!".format(slug=params.state_slug))}
+            )
+
+        request.user.state.change_searching_state(params.state_slug)
+        return Response(pgettext_lazy("api.user-update-searching-state.state-successfully-changed",
+                                      "State updated!"))
 
 
 @receiver(reset_password_token_created)
