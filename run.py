@@ -70,7 +70,7 @@ subprocess_capture_out = {
 }
 
 
-def _parser():
+def _parser(use_choices=False):
     """
     Commandline args:
     most notably 'actions'
@@ -79,6 +79,8 @@ def _parser():
         2. static extraction
         3. mirations for the db
         4. running the container interactively ( close with ctl-C )
+
+    We use choices only for autocompletion, otherwise they can cause issue with actions that parse their own args
     """
 
     possible_actions = get_all_action_aliases()
@@ -86,9 +88,9 @@ def _parser():
     default_actions = ["_setup", "build", "static", "migrate", "run"]
     parser = argparse.ArgumentParser()
     parser.add_argument('actions', metavar='A', type=str, default="",
-                        choices=possible_actions, nargs='*', help='action')
+                        **(dict(choices=possible_actions) if use_choices else {}), nargs='*', help='action')
     parser.add_argument('-b', '--btype', default="dev",
-                        help="prod, dev, any", choices=["development", "staging", "deployment"])
+                        help="prod, dev, any", **(dict(choices=["development", "staging", "deployment"]) if use_choices else {}))
     parser.add_argument('-bg', '--background',
                         action="store_true", help="Run the docker container in background (`./run.py kill` to stop)")
     parser.add_argument(
@@ -96,7 +98,7 @@ def _parser():
     parser.add_argument(
         '-i', '--input', help="Input file (or data) required by some actions")
     parser.add_argument('-sa', '--single-action', type=str,
-                        choices=get_all_full_action_names(), help='action')
+                        **(dict(choices=get_all_full_action_names()) if use_choices else {}), help='action')
 
     # default actions required by tim_cli_utils (TODO: they should be moved there)
     parser.add_argument('-s', '--silent', action="store_true",
@@ -407,7 +409,7 @@ def build(args):
 @register_action(alias=["tests"], cont=True)
 def run_django_tests(args):
     """
-    Runs tests for all django apps in /back 
+    Runs tests for all django apps in /back
     """
     _run_in_running(_is_dev(args), ["python3", "manage.py", "test"], fail=True)
 
@@ -429,7 +431,7 @@ def delete_static_files(args, running=False):
 @register_action(alias=["static", "collectstatic"], cont=True)
 def extract_static(args, running=False):
     """
-    This collects all the static files, 
+    This collects all the static files,
     this is especially imporant if you changed any files in django apps 'statics/*' directories!
     In production is would also automaticly upload the files to an S3 bucket! TODO
     """
@@ -472,8 +474,9 @@ def make_messages(args, running=False):
                     print(entry.msgctxt, entry.msgid, entry.msgstr)
                     # There might be python formaters in the string!
                     # We could ignore them, but I'll just patch them in!
-                    required_formatting = ["{%s}" % arg for arg in list(
-                        string.Formatter().parse(entry.msgid))[0][1:] if arg != "" and arg is not None]
+                    format_opts = list(string.Formatter().parse(entry.msgid))
+                    required_formatting = [
+                        "{%s}" % arg for arg in format_opts[0][1:] if arg != "" and arg is not None] if format_opts else None
                     entry.msgstr = entry.msgctxt
                     if required_formatting:
                         entry.msgstr += "|" + ",".join(required_formatting)
@@ -542,7 +545,7 @@ def update_front(args):
 @register_action(alias=["af"], cont=False)
 def attach_front(args):
     """
-    Attach to a running frontend container 
+    Attach to a running frontend container
     currently this will errror if mulitple containers
     """
     _cmd = [*c.drun, *(c.denv if _is_dev(args) else c.penv), *
@@ -648,8 +651,8 @@ def build_front(args):
 @register_action(alias=["watch"], cont=False)
 def watch_frontend(args):
     """
-    Runs the webpack watch command in a new frontend container 
-    This can be used to watch multiple fontends at the same time! 
+    Runs the webpack watch command in a new frontend container
+    This can be used to watch multiple fontends at the same time!
     & without having node installed or manging npm versions !! :)
     """
     assert args.input, "please input a active frontend: " + \
@@ -744,8 +747,8 @@ def manage_command(args):
 
 @register_action(alias=["ma_shell_inject", "inject"])
 def inject_shell(args):
-    """ 
-    Injects a script as text command argument into the python management shell 
+    """
+    Injects a script as text command argument into the python management shell
     NOTE there can be a max lenght of inputable characters in shells
     so in some shells to long script throw an error!
     see _shell_inject/* for exaple scripts
@@ -785,7 +788,7 @@ def build_docs(args):
         print("WARN: found all docs build, overwriting...")
         shutil.rmtree("./back/static/docs")
     _run_in_running_tag(["make", "html"], tag=c.tag_spinix, work_dir="/docs")
-    #_run_in_running_tag(["sh"], tag=c.tag_spinix)
+    # _run_in_running_tag(["sh"], tag=c.tag_spinix)
     # copy the output files
     # shutil.copytree("./_docs/build/html", "./docs")
     _kill_tag(c.tag_spinix)
