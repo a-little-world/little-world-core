@@ -2,9 +2,13 @@
 This is a controller for any userform related actions
 e.g.: Creating a new user, sending a notification to a users etc...
 """
+from chat.django_private_chat2.consumers.message_types import MessageTypes, OutgoingEventNewTextMessage
+from chat.django_private_chat2.models import DialogsModel
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
 from .models import User
 from django.conf import settings
-from .models import UserSerializer, User, Profile, State, Settings
+from .models import UserSerializer, User, Profile, State, Settings, Room
 from django.utils.translation import gettext_lazy as _
 from emails import mails
 from tracking import utils
@@ -157,6 +161,7 @@ def create_user(
 
     # Step 8 Message the user from the admin account
     usr.message(_("Welcome Message..."))
+    return usr
 
 
 # 'set' No one can put two identical users
@@ -164,7 +169,14 @@ def create_user(
     name="Users Matched",
     event_type=Event.EventTypeChoices.FLOW,
     tags=["backend", "function", "db"])
-def match_users(users: set, send_notification=True, send_message=True, send_email=True, set_unconfirmed=True):
+def match_users(
+        users: set,
+        send_notification=True,
+        send_message=True,
+        send_email=True,
+        create_dialog=True,
+        create_video_room=True,
+        set_unconfirmed=True):
     """ Accepts a list of two users to match """
     from chat.django_private_chat2.models import DialogsModel
 
@@ -173,8 +185,16 @@ def match_users(users: set, send_notification=True, send_message=True, send_emai
     usr1.match(usr2, set_unconfirmed=set_unconfirmed)
     usr2.match(usr1, set_unconfirmed=set_unconfirmed)
 
-    # After the users are registered as matches we still need to create a dialog for them
-    DialogsModel.create_if_not_exists(usr1, usr2)
+    if create_dialog:
+        # After the users are registered as matches
+        # we still need to create a dialog for them
+        DialogsModel.create_if_not_exists(usr1, usr2)
+
+    if create_video_room:
+        room = Room.objects.create(
+            usr1=usr1,
+            usr2=usr2
+        )
 
     if send_notification:
         usr1.notify(title=_("New match: %s" % usr2.profile.first_name))
@@ -256,7 +276,33 @@ def create_base_admin_and_add_standart_db_values():
     return usr
 
 
+def send_websocket_callback(
+        to_usr,
+        message: str,
+        from_user=get_base_management_user()):
+    """
+    This sends a websocket chat message without saving it 
+    this can be used for simple frontend callbacks 
+    such as there is a twilio call incomming!
+    """
+
+    assert from_user.is_staff
+    admin = from_user
+
+    channel_layer = get_channel_layer()
+    dialog = DialogsModel.dialog_exists(admin, to_usr)
+    async_to_sync(channel_layer.group_send)(str(to_usr.pk), {
+        "type": "send_message_dialog_def",
+        "dialog_id": str(to_usr.pk),
+        "message": f"[TMPADMIN]({message})]",
+        "admin_pk": str(admin.pk),
+        "user_pk": str(to_usr.pk),
+        "admin_h256_pk": str(admin.user_h256_pk),
+    })
+
 # TODO: can this cause issues when settings not initalized?
+
+
 def send_chat_message(to_user, from_user, message):
     """
     This can send a chat message from any user to any user
