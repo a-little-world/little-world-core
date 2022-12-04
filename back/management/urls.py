@@ -58,10 +58,21 @@ api_routes = [
 
     path(_api_url('register'), api.register.Register.as_view()),
     path(_api_url('user'), api.user_data.SelfInfo.as_view()),
+    path(_api_url('user/confirm_match'), api.user.ConfirmMatchesApi.as_view()),
+    path(_api_url('user/search_state/<str:state_slug>', end_slash=False),
+         api.user.UpdateSearchingStateApi.as_view()),
     path(_api_url('user/login'), api.user.LoginApi.as_view()),
     path(_api_url('user/logout'), api.user.LogoutApi.as_view()),
     path(_api_url('user/checkpw'), api.user.CheckPasswordApi.as_view()),
     path(_api_url('user/change_email'), api.user.ChangeEmailApi.as_view()),
+
+    # TODO we should later be adding a new appointments api here!
+    path(_api_url('video_rooms/authenticate_call'),
+         api.twilio.AuthenticateCallRoom.as_view()),
+
+    path(_api_url('video_rooms/twillio_callback'),
+         api.twilio.TwilioCallbackApi.as_view()),
+
     path(_api_url('profile'),
          api.profile.ProfileViewSet.as_view({"post": "partial_update", "get": "_get"})),
     path(_api_url('profile/completed'),
