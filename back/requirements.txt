@@ -26,3 +26,5 @@ requests # for tests mainly
 twilio # For the video calls
 pytest # Are used for the tests in cookie_banner
 psycopg2-binary # For aws postgres sql
+django-storages # For manageing s2 bucket in combinaton with boto3
+boto3 # for connection loading and updloading to amazon s3
