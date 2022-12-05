@@ -1,3 +1,4 @@
+from ..api.user_data import get_full_frontend_data
 from django.contrib.auth.mixins import LoginRequiredMixin
 from back.utils import CoolerJson
 import json
@@ -13,7 +14,6 @@ from rest_framework.response import Response
 from typing import List, Optional
 from tracking import utils
 from tracking.models import Event
-from ..api.user_data import get_full_frontend_data
 
 
 # The following two are redundant with api.admin.UserListParams, api.admin.UserListApiSerializer
