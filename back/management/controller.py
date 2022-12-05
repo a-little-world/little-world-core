@@ -279,12 +279,14 @@ def create_base_admin_and_add_standart_db_values():
 def send_websocket_callback(
         to_usr,
         message: str,
-        from_user=get_base_management_user()):
+        from_user=None):
     """
     This sends a websocket chat message without saving it 
     this can be used for simple frontend callbacks 
     such as there is a twilio call incomming!
     """
+    if not from_user:
+        from_user = get_base_management_user()
 
     assert from_user.is_staff
     admin = from_user
