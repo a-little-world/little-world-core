@@ -157,3 +157,6 @@ back/static
 
 # This is the file we use to mark when the setup up repos and frontends is done:
 .run.py.setup_complete
+
+# Ignore staging environments
+env_stage
