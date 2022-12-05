@@ -162,8 +162,13 @@ if IS_STAGE or IS_PROD:
     AWS_LOCATION = f'static'
     AWS_DEFAULT_ACL = 'public-read'
 
+    STATICFILES_DIRS = [
+        os.path.join(BASE_DIR, 'static/')
+    ]
+
     AWS_STATIC_ROOT = f'static'
     STATIC_URL = '{}/{}/'.format(AWS_S3_CUSTOM_DOMAIN, AWS_STATIC_ROOT)
+
     #STATIC_ROOT = os.path.join(BASE_DIR, 'static')
     #STATIC_ROOT = '{}/static/'.format(AWS_STORAGE_BUCKET_NAME)
 
