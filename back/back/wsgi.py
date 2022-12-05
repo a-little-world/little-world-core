@@ -16,6 +16,6 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'back.settings')
 
 application = get_wsgi_application()
 
-if settings.BUILD_TYPE in ['development', 'staging']:
+if settings.BUILD_TYPE in ['development']:
     root_path = settings.STATIC_ROOT
     application = WhiteNoise(application, root=root_path)
