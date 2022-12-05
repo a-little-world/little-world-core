@@ -8,6 +8,8 @@ var config = function (env) {
   var publicPath = '/static/dist/main_frontend/';
   var devTool = env.DEV_TOOL;
   // It is always assumed that the backend is mounted at /back
+  if (env.PUBLIC_PATH && env.PUBLIC_PATH !== '')
+    publicPath = env.PUBLIC_PATH + publicPath;
   var outputPath = '../back/static/dist/main_frontend';
   var entry = './apps/main_frontend';
   var entryPoint = `${entry}/src/index.js`;

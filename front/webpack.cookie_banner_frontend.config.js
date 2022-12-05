@@ -7,6 +7,9 @@ const CopyPlugin = require('copy-webpack-plugin');
 var config = function (env) {
   var publicPath = '/static/dist/cookie_banner_frontend/';
   var devTool = env.DEV_TOOL;
+  console.log('TBS', 'public path', env.PUBLIC_PATH);
+  if (env.PUBLIC_PATH && env.PUBLIC_PATH !== '')
+    publicPath = env.PUBLIC_PATH + publicPath;
   // It is always assumed that the backend is mounted at /back
   var outputPath = '../back/static/dist/cookie_banner_frontend';
   var entry = './apps/cookie_banner_frontend';
@@ -20,7 +23,10 @@ var config = function (env) {
     },
     resolve: {
       alias: {
-        '@': path.resolve(__dirname, 'apps/cookie_banner_frontend/src/'),
+        '@': path.resolve(
+          __dirname,
+          'apps/cookie_banner_frontend/src/'
+        ),
         '@django': path.resolve(__dirname, '../back/static/'),
       },
     },
@@ -58,7 +64,10 @@ var config = function (env) {
             extensions: ['.js', '.jsx'],
           },
           include: [
-            path.resolve(__dirname, 'apps/cookie_banner_frontend/src'),
+            path.resolve(
+              __dirname,
+              'apps/cookie_banner_frontend/src'
+            ),
           ],
         },
         {

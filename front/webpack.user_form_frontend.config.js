@@ -7,6 +7,8 @@ const CopyPlugin = require('copy-webpack-plugin');
 var config = function (env) {
   var publicPath = '/static/dist/user_form_frontend/';
   var devTool = env.DEV_TOOL;
+  if (env.PUBLIC_PATH && env.PUBLIC_PATH !== '')
+    publicPath = env.PUBLIC_PATH + publicPath;
   // It is always assumed that the backend is mounted at /back
   var outputPath = '../back/static/dist/user_form_frontend';
   var entry = './apps/user_form_frontend';
