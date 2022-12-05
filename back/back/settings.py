@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     *(['django_spaghetti'] if BUILD_TYPE in ['staging', 'development'] else []),
 
     'webpack_loader',  # Load bundled webpack files, check `./run.py front`
+    'storages',  # django storages managing s3 bucket files!
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -80,7 +81,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     *([  # Whitenoise to server static only needed in staging or development
         'whitenoise.middleware.WhiteNoiseMiddleware',
-    ] if BUILD_TYPE in ['staging', 'development'] else []),
+    ] if BUILD_TYPE in ['development'] else []),
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',
     'management.middleware.OverwriteSessionLangIfAcceptLangHeaderSet',
@@ -107,14 +108,15 @@ We overwirte the default user model, and add an 'hash' parmameter
 AUTH_USER_MODEL = 'management.User'
 
 CORS_ALLOWED_ORIGINS = []
-if BUILD_TYPE == 'staging':
+if IS_STAGE:
     CORS_ALLOWED_ORIGINS = [
-        # TODO: setup
     ]
 
-if BUILD_TYPE == 'staging':
+    CORS_ORIGIN_WHITELIST = [
+        # TODO: !!
+    ]
+
     CSRF_TRUSTED_ORIGINS = [
-        # TODO: setup
     ]
 
 if not DEBUG:
@@ -140,20 +142,56 @@ TEMPLATES = [
     },
 ]
 
-# TODO: following adjust for production
-STATIC_URL = 'static/'
-MEDIA_URL = '/media/'
 
-STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')
+if IS_STAGE or IS_PROD:
+    # In production & staging we use S3 as file storage!
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    STATICFILES_STORAGE = 'storages.backends.s3boto3.S3StaticStorage'
 
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'emails/static/')
-]
+    AWS_ACCESS_KEY_ID = os.environ['DJ_AWS_STATIC_ACCESS_KEY_ID']
+    AWS_SECRET_ACCESS_KEY = os.environ['DJ_AWS_STATIC_SECRET_KEY']
+    AWS_STORAGE_BUCKET_NAME = os.environ['DJ_AWS_STATIC_BUCKET_NAME']
+    AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
+    AWS_S3_REGION_NAME = os.environ['DJ_AWS_REGION_NAME']
+    AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com'
+    # https: // litttle-world-staging-bucket.s3.eu-central-1.amazonaws.com/
+    AWS_S3_ENDPOINT_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}'
+    # {AWS_STORAGE_BUCKET_NAME}
+    AWS_LOCATION = f'{AWS_STORAGE_BUCKET_NAME}/static'
+    AWS_DEFAULT_ACL = 'public-read'
+
+    AWS_STATIC_ROOT = f'{AWS_STORAGE_BUCKET_NAME}/static'
+    STATIC_URL = '{}/{}/'.format(AWS_S3_ENDPOINT_URL, AWS_STATIC_ROOT)
+    #STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+    #STATIC_ROOT = '{}/static/'.format(AWS_STORAGE_BUCKET_NAME)
+
+    # dynamic user uploaded content like the profile image
+    # .format(AWS_STORAGE_BUCKET_NAME)
+    #jAWS_LOCATION_MEDIA = f'{AWS_STORAGE_BUCKET_NAME}/media'
+    #MEDIA_URL = '{}/{}/'.format(AWS_S3_ENDPOINT_URL, AWS_LOCATION_MEDIA)
+    #MEDIA_ROOT = 'media/'
+    #jprint("TBS:", MEDIA_URL)
+    print("TBS:", STATIC_URL)
+else:
+    """
+    In development all staticfiles will be hosted here
+    In production we host them in an S3 bucket so we don't need to serve them our selves!
+    """
+    print("USING LOCAL STATIC SETUP")
+    STATIC_URL = '/static/'
+    STATIC_URL = 'static/'
+    MEDIA_URL = '/media/'
+
+    STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media/')
+
+    STATICFILES_DIRS = [
+        os.path.join(BASE_DIR, 'emails/static/')
+    ]
+
 
 USE_I18N = True
 def ugettext(s): return s
-
 
 """
 We want BigAutoField per default just in case
@@ -214,7 +252,7 @@ DJANGO_REST_PASSWORDRESET_NO_INFORMATION_LEAKAGE = True
 DJANGO_REST_MULTITOKENAUTH_REQUIRE_USABLE_PASSWORD = False
 
 
-if BUILD_TYPE in ['staging', 'development']:
+if IS_STAGE or IS_DEV:
     # autmaticly renders index.html when entering an absolute static path
     WHITENOISE_INDEX_FILE = True
     CELERY_BROKER_URL = 'redis://host.docker.internal:6379'
@@ -259,7 +297,7 @@ if BUILD_TYPE in ['staging', 'development']:
         },
     }
 
-if IS_DEV:
+if IS_DEV or IS_STAGE:
     # or install redis in the container
     host_ip_from_inside_container = "host.docker.internal"
     CHANNEL_LAYERS = {
@@ -271,7 +309,7 @@ if IS_DEV:
             # },
         }
     }
-elif IS_PROD or IS_STAGE:
+elif IS_PROD:
     redis_connect_url = "rediss://" + os.environ["DJ_REDIS_USER"] + ":" + os.environ["DJ_REDIS_PASSWORD"] \
         + "@" + os.environ["DJ_REDIS_HOST"] + ":" + os.environ["DJ_REDIS_PORT"]
     CHANNEL_LAYERS = {
@@ -295,7 +333,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     }
-} if IS_DEV else {
+} if IS_DEV or IS_STAGE else {
     'default': {
         'ENGINE': 'django.db.backends.{}'.format(
             os.environ['DJ_DATABASE_ENGINE']
@@ -368,11 +406,6 @@ USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
-"""
-In development all staticfiles will be hosted here
-In production we host them in an S3 bucket so we don't need to serve them our selves!
-"""
-STATIC_URL = '/static/'
 
 if DEBUG:
     info = '\n '.join([f'{n}: {globals()[n]}' for n in [
