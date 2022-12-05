@@ -87,7 +87,7 @@ def _parser(use_choices=False):
     possible_actions.append("")  # Empty action
     default_actions = ["_setup", "build", "static", "migrate", "run"]
     parser = argparse.ArgumentParser()
-    parser.add_argument('actions', metavar='A', type=str, default="",
+    parser.add_argument('actions', metavar='A', type=str, default="" if use_choices else default_actions,
                         **(dict(choices=possible_actions) if use_choices else {}), nargs='*', help='action')
     parser.add_argument('-b', '--btype', default="dev",
                         help="prod, dev, any", **(dict(choices=["development", "staging", "deployment"]) if use_choices else {}))
