@@ -63,6 +63,9 @@ class c:
     staging_tag = f"{TAG}.stage"
     stage_env = "./env_stage"
 
+    staging_keys = "staging/staging_keys.kdbx"
+    staging_key_file = "staging/little-world-staging-key.key"
+
 
 subprocess_capture_out = {
     "capture_output": True,
@@ -404,6 +407,56 @@ def build(args):
     # Otherwise we would have to specify .dockerignore for the specific images!
     _build_file_tag(c.file[1], c.dtag if _is_dev(
         args) else c.ptag, build_context_path="./back")
+
+
+@register_action()
+def open_staging_keys(args):
+    """
+    Opens the staging keys file, only pissible if you have the password *and* the keyfile for the staging env
+    """
+    print("W", "Attemping password read from `staging/staging_keys.kdbx` expecting password input:")
+    _in = eval(args.input) if args.input else {}
+    _cmd = ["keepass", c.staging_keys, "--keyfile",
+            _in["keyfile"] if "keyfile" in _in else c.staging_key_file, "--pw-stdin",
+            *(["--pw-stdin", _in["password"]] if "password" in _in else [])]
+    subprocess.run(_cmd)
+
+
+def _process_out(out):
+    lines = out.split("\n")
+    keys = {}
+    cur_key = None
+    txt = ""
+    for l in lines:
+        if ":" in l:
+            cur_key, txt = l.split(":")
+        else:
+            txt += "\n" +
+
+    out = {y[0]: y[1][1:] if len(y) > 1 and y[0] != '' else None
+           for y in [x.split(":") for x in out.split("\n")]}
+    assert 'Password' in out, "Password extraction failed, wrong credentials?"
+    return out
+
+
+@register_action()
+def unlock_and_write_staging_env(args):
+    """
+    Takes staging env file from the decrypted database and puts them into env_stage
+    NOTE this requires keypassxc-cli!
+    """
+    import getpass
+    _cmd = ["keepassxc-cli", "show", c.staging_keys,
+            "ENV", "--k", c.staging_key_file]
+    password = getpass.getpass()
+    # print(password)
+    out = subprocess.run(_cmd, stdout=subprocess.PIPE,
+                         input=password,
+                         encoding='ascii').stdout
+    env_txt = _process_out(out)["Notes"]
+    assert env_txt
+    with open("env_stage", "w+") as f:
+        f.write(env_txt)
 
 
 @register_action(alias=["tests"], cont=True)
