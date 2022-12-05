@@ -11,6 +11,13 @@ from rest_framework import authentication, permissions
 from rest_framework.response import Response
 from rest_framework import serializers
 from .user_data import get_user_data
+from .user_slug_filter_lookup import get_users_by_slug_filter
+from ..models import (
+    User,
+    Profile,
+    State,
+    Room
+)
 from dataclasses import dataclass, field
 from django.core.paginator import Paginator
 from .. import controller
@@ -103,6 +110,8 @@ class UserList(APIView):  # TODO:
     - paginate_by = 50
     - order_by = TODO some default
     - page = 1
+
+    e.g.: filters = ['state.user_form_page:is:0']
     """
 
     permission_classes = [permissions.IsAdminUser]
@@ -115,9 +124,18 @@ class UserList(APIView):  # TODO:
         serializer.is_valid(raise_exception=True)
         params = serializer.save()
 
-        user_querry = ""  # Get the queryset ... TODO
-        pages = Paginator(user_querry, params.paginate_by).page(params.page)
-        return [get_user_data(p, is_self=True) for p in pages]
+        filtered_user_list = list(User.objects.all())
+
+        for filter in params.filters:
+            print("Applying filter ", filter)
+            filtered_user_list = get_users_by_slug_filter(
+                filter_slug=filter, user_to_filter=filtered_user_list)
+
+        pages = Paginator(filtered_user_list,
+                          params.paginate_by).page(params.page)
+        # We return the full user data for every user
+        # TODO: we might want way to limit the amount of data passed here
+        return Response([get_user_data(p, is_self=True, admin=True, include_options=False) for p in pages])
 
 
 class MatchingSuggestion(APIView):  # TODO

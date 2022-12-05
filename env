@@ -1,18 +1,27 @@
 BUILD_TYPE=development
+# base django settings
 DJ_DEBUG=1
 DJ_SECRET_KEY=0i*%m&-$!be0%2_8_g$7o!$#(2nw)p51l^$$j38!q&t9)h!-$t
 DJ_ALLOWED_HOSTS=*
-DJ_CELERY_TIMEZONE=Australia/Tasmania
 DJ_TIME_ZONE=UTC
+# DJ_CELERY_* celery settings
+DJ_CELERY_TIMEZONE=Australia/Tasmania
+# DJ_MANAGEMENT_ base management user, matched to all users
 DJ_MANAGEMENT_USER_MAIL=admin@user.com
 DJ_MANAGEMENT_PW=Admin123!
 DJ_ADMIN_OPEN_KEYPHRASE=opensesame
+# DJ_TWILIO_* put action twilio credentails
 DJ_TWILIO_ACCOUNT_SID=AccSidNotProvidedInDev
 DJ_TWILIO_API_KEY_SID=TwApiKeyNotIncludedDev
 DJ_TWILIO_API_SECRET=TwApiSecretNotIncludedDev
-FR_FRONTENDS=user_form_frontend,main_frontend,cookie_banner_frontend
-# Put static bucked url here in production
+# List of apps under /front/apps/* to try to build and bundle
+FR_FRONTENDS=user_form_frontend,main_frontend,cookie_banner_frontend,admin_panel_frontend
+# WEBPACK_PUBLIC_PATH Put static bucked url here in production
 WEBPACK_PUBLIC_PATH=
-# Set to 'none' for production
+# WEBPACK_DEV_TOOL Set to 'none' for production
 WEBPACK_DEV_TOOL=eval-cheap-module-source-map
 WEBPACK_DEBUG=1
+# Sendgrid: put actual api keys here in staging/production
+DJ_SG_SENDGRID_API_KEY="not_an_api_key"
+DJ_SG_DEFAULT_FROM_EMAIL="admin@user.com"
+DJ_BASE_URL=http://localhost:8000

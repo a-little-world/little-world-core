@@ -8,11 +8,30 @@ from phonenumber_field.widgets import PhoneNumberPrefixWidget
 from . import models
 
 
+@admin.register(models.backend_state.BackendState)
+class BackendStateAdmin(admin.ModelAdmin):
+    list_display = ('slug', 'name', 'hash', 'meta', 'created_at')
+
+
+@admin.register(models.community_events.CommunityEvent)
+class CommunityEventAdmin(admin.ModelAdmin):
+    list_display = ('title', 'active', 'description',
+                    'time', 'frequency', 'link')
+
+
 @admin.register(models.state.State)
 class StateAdmin(admin.ModelAdmin):
-    list_display = ('user', 'created_at', 'user_form_state')
+    list_display = ('user', 'created_at', 'user_form_state',
+                    'matching_state', 'unread_chat_message_count', 'user_category')
+    list_editable = ('user_category',)
     search_fields = ('user', 'created_at', 'user_form_state')
     ordering = ('user', 'created_at')
+
+
+@admin.register(models.Room)
+class VideoRoomAdmin(admin.ModelAdmin):
+    list_display = ("name", "usr1", "usr2",
+                    "active", "updated_at", "created_at")
 
 
 class StateAdminInline(admin.StackedInline):

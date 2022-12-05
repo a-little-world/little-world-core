@@ -6,6 +6,7 @@ from datetime import datetime
 from rest_framework import serializers
 from multiselectfield import MultiSelectField
 from back.utils import _double_uuid
+from django.core.files import File
 from .user import User
 from ..validators import (
     validate_availability,
@@ -15,7 +16,9 @@ from ..validators import (
     model_validate_second_name,
     validate_postal_code,
     validate_second_name,
-    as_djv  # <-- We can use all rest validators also on our DB models!
+    DAYS,
+    SLOTS,
+    SLOT_TRANS
 )
 from django.utils.deconstruct import deconstructible
 import sys
@@ -91,11 +94,16 @@ class ProfileBase(models.Model):
     e.g.: there might be a user that learns german and later decides he wants to volunteer
     therefore we store changes of this choice in `past_user_types`
     """
-    class TypeChoices(models.IntegerChoices):
-        VOLUNTEER = 0, _("Volunteer")
-        LEARNER = 1, _("Language learner")
-    user_type = models.IntegerField(
-        choices=TypeChoices.choices, default=TypeChoices.VOLUNTEER)
+    class TypeChoices(models.TextChoices):
+        VOLUNTEER = "volunteer", pgettext_lazy(
+            "profile.user-type.volunteer", "Volunteer")
+        LEARNER = "learner", pgettext_lazy(
+            "profile.user-type.learner", "Language learner")
+
+    user_type = models.CharField(
+        choices=TypeChoices.choices,
+        default=TypeChoices.VOLUNTEER,
+        max_length=255)
 
     """
     This stores a dict of dates and what the users type was then
@@ -108,83 +116,148 @@ class ProfileBase(models.Model):
     Note: for volunteers this is a preference
     for learners this is which group they belong to
     """
-    class TargetGroupChoices(models.IntegerChoices):
-        # Allen Gruppen:
-        ANY = 0, _("Any Group")
-        # Geflüchteten (u.a. Ukraine, Jemen, Syrien):
-        REFUGEES = 1, _("Refugees only")
-        # Studierenden
-        STUDENTS = 2, _("Students only")
-        # Fachkräften aus dem Ausland:
-        WORKERS = 3, _("Workers only")
+    class TargetGroupChoices(models.TextChoices):
 
-    target_group = models.IntegerField(
-        choices=TargetGroupChoices.choices, default=TargetGroupChoices.ANY)
+        ANY_VOL = "any.vol", pgettext_lazy(
+            "profile.target-group.any-vol", "Any group")
+
+        ANY_LER = "any.ler", pgettext_lazy(
+            "profile.target-group.any-ler", "Any group")
+
+        REFUGEE_VOL = "refugee.vol", pgettext_lazy(
+            "profile.target-group.refugee-vol", "Refugees only")
+
+        REFUGEE_LER = "refugee.ler", pgettext_lazy(
+            "profile.target-group.refugee-ler", "Refugees only")
+
+        STUDENT_VOL = "student.vol", pgettext_lazy(
+            "profile.target-group.student-vol", "Students only")
+
+        STUDENT_LER = "student.ler", pgettext_lazy(
+            "profile.target-group.student-ler", "Students only")
+
+        WORKER_VOL = "worker.vol", pgettext_lazy(
+            "profile.target-group.worker-vol", "Workers only")
+
+        WORKER_LER = "worker.ler", pgettext_lazy(
+            "profile.target-group.worker-ler", "Workers only")
+
+    target_group = models.CharField(
+        choices=TargetGroupChoices.choices,
+        default=TargetGroupChoices.ANY_VOL,
+        max_length=255)
 
     """
     Prefered partner sex
     """
-    class ParterSexChoice(models.IntegerChoices):
-        ANY = 0, _("Any sex")
-        MALE = 1, _("Male only")
-        FEMALE = 2, _("Female only")
-    partner_sex = models.IntegerField(
-        choices=ParterSexChoice.choices, default=ParterSexChoice.ANY)
+    class ParterSexChoice(models.TextChoices):
+        ANY = "any", pgettext_lazy("profile.partner-sex.any", "Any")
+        MALE = "male", pgettext_lazy("profile.partner-sex.male", "Male only")
+        FEMALE = "female", pgettext_lazy(
+            "profile.partner-sex.female", "Female only")
+
+    partner_sex = models.CharField(
+        choices=ParterSexChoice.choices,
+        default=ParterSexChoice.ANY,
+        max_length=255)
 
     """
     Which medium the user preferes for
     """
-    class SpeechMediumChoices(models.IntegerChoices):
-        ANY = 0, _("Any medium")
-        VIDEO = 1, _("Video only")
-        PHONE = 2, _("Phone only")
-    speech_medium = models.IntegerField(
-        choices=SpeechMediumChoices.choices, default=SpeechMediumChoices.ANY)
+    class SpeechMediumChoices(models.TextChoices):
+        ANY_VOL = "any.vol", pgettext_lazy(
+            "profile.speech-medium.any-vol", "Any")
+
+        ANY_LER = "any.ler", pgettext_lazy(
+            "profile.speech-medium.any-ler", "Any")
+
+        VIDEO_VOL = "video.vol", pgettext_lazy(
+            "profile.speech-medium.video-vol", "Video only")
+
+        VIDEO_LER = "video.ler", pgettext_lazy(
+            "profile.speech-medium.video-ler", "Video only")
+
+        PHONE_VOL = "phone.vol", pgettext_lazy(
+            "profile.speech-medium.phone-vol", "Phone only")
+
+        PHONE_LER = "phone.ler", pgettext_lazy(
+            "profile.speech-medium.phone-ler", "Phone only")
+
+    speech_medium = models.CharField(
+        choices=SpeechMediumChoices.choices,
+        default=SpeechMediumChoices.ANY_VOL,
+        max_length=255)
 
     """
     where people want there match to be located
     """
-    class ConversationPartlerLocation(models.IntegerChoices):
-        ANYWHERE = 0, _("Location Anywhere")
-        CLOSE = 1, _("Location close")
-        FAR = 2, _("Location far")
-    partner_location = models.IntegerField(
-        choices=ConversationPartlerLocation.choices, default=ConversationPartlerLocation.ANYWHERE)
+    class ConversationPartlerLocation(models.TextChoices):
+        ANYWHERE_VOL = "anywhere.vol", pgettext_lazy(
+            "profile.partner-location.anywhere-vol", "Anywhere")
+
+        ANYWHERE_LER = "anywhere.ler", pgettext_lazy(
+            "profile.partner-location.anywhere-ler", "Anywhere")
+
+        CLOSE_VOL = "close.vol", pgettext_lazy(
+            "profile.partner-location.close-vol", "Close")
+
+        CLOSE_LER = "close.ler", pgettext_lazy(
+            "profile.partner-location.close-ler", "Close")
+
+        FAR_VOL = "far.vol", pgettext_lazy(
+            "profile.partner-location.far-vol", "Far")
+
+        FAR_LER = "far.ler", pgettext_lazy(
+            "profile.partner-location.far-ler", "Far")
+
+    partner_location = models.CharField(
+        choices=ConversationPartlerLocation.choices,
+        default=ConversationPartlerLocation.ANYWHERE_VOL,
+        max_length=255)
 
     """
     Postal code, char so we support international code for the future
     """
     postal_code = models.CharField(max_length=255, blank=True)
 
-    class InterestChoices(models.IntegerChoices):
-        SPORT = 0, pgettext_lazy("profile.sport-interest", "Sport")
-        ART = 1, pgettext_lazy("profile.art-interest", "Art")
-        MUSIC = 2, pgettext_lazy("profile.music-interest", "Music")
-        LITERATURE = 3, pgettext_lazy(
+    class InterestChoices(models.TextChoices):
+        SPORT = "sport", pgettext_lazy("profile.sport-interest", "Sport")
+        ART = "art", pgettext_lazy("profile.art-interest", "Art")
+        MUSIC = "music", pgettext_lazy("profile.music-interest", "Music")
+        LITERATURE = "literature", pgettext_lazy(
             "profile.literature-interest", "Literature")
-        VIDEO = 4, pgettext_lazy("profile.video-interest", "Video")
-        FASHION = 5, pgettext_lazy("profile.fashion-interest", "Fashion")
-        KULTURE = 6, pgettext_lazy("profile.culture-interest", "Culture")
-        TRAVEL = 7, pgettext_lazy("profile.travel-interest", "Travel")
-        FOOD = 8, pgettext_lazy("profile.food-interest", "Food")
-        POLITICS = 9, pgettext_lazy("profile.politics-interest", "Politics")
-        NATURE = 10, pgettext_lazy("profile.nature-interest", "Nature")
-        SCIENCE = 11, pgettext_lazy("profile.science-interest", "Science")
-        TECHNOLOGIE = 12, pgettext_lazy("profile.tech-interest", "Technology")
-        HISTORY = 13, pgettext_lazy("profile.history-interest", "History")
-        RELIGION = 14, pgettext_lazy("profile.religion-interest", "Religion")
-        SOZIOLOGIE = 15, pgettext_lazy(
+        VIDEO = "video", pgettext_lazy("profile.video-interest", "Video")
+        FASHION = "fashion", pgettext_lazy(
+            "profile.fashion-interest", "Fashion")
+        KULTURE = "culture", pgettext_lazy(
+            "profile.culture-interest", "Culture")
+        TRAVEL = "travel", pgettext_lazy("profile.travel-interest", "Travel")
+        FOOD = "food", pgettext_lazy("profile.food-interest", "Food")
+        POLITICS = "politics", pgettext_lazy(
+            "profile.politics-interest", "Politics")
+        NATURE = "nature", pgettext_lazy("profile.nature-interest", "Nature")
+        SCIENCE = "science", pgettext_lazy(
+            "profile.science-interest", "Science")
+        TECHNOLOGIE = "technology", pgettext_lazy(
+            "profile.tech-interest", "Technology")
+        HISTORY = "hostry", pgettext_lazy(
+            "profile.history-interest", "History")
+        RELIGION = "religion", pgettext_lazy(
+            "profile.religion-interest", "Religion")
+        SOZIOLOGIE = "sociology", pgettext_lazy(
             "profile.soziologie-interest", "Sociology")
-        FAMILY = 16, pgettext_lazy("profile.family-interest", "Family")
-        PSYCOLOGY = 17, pgettext_lazy(
+        FAMILY = "family", pgettext_lazy("profile.family-interest", "Family")
+        PSYCOLOGY = "psycology", pgettext_lazy(
             "profile.psycology-interest", "Psycology")
-        PERSON_DEV = 18, pgettext_lazy(
+        PERSON_DEV = "personal-development", pgettext_lazy(
             "profile.pdev-interest", "Personal development")
 
     interests = MultiSelectField(
-        choices=InterestChoices.choices, max_choices=20, max_length=20, blank=True)  # type: ignore
+        choices=InterestChoices.choices, max_choices=20,
+        max_length=1000, blank=True)  # type: ignore
 
-    additional_interests = models.TextField(default="", blank=True)
+    additional_interests = models.TextField(
+        default="", blank=True, max_length=300)
 
     """
     For simpliciy we store the time slots just in JSON
@@ -194,18 +267,30 @@ class ProfileBase(models.Model):
         null=True, blank=True, default=get_default_availability,
         validators=[validate_availability])  # type: ignore
 
-    class LiabilityChoices(models.IntegerChoices):
-        DECLINED = 0, _("Declined Liability")
-        ACCEPTED = 1, _("Accepted Liability")
-    liability = models.IntegerField(
-        choices=LiabilityChoices.choices, default=LiabilityChoices.DECLINED)
+    class LiabilityChoices(models.TextChoices):
+        DECLINED = "declined", pgettext_lazy(
+            "profile.liability.declined", "Declined Liability")
 
-    class NotificationChannelChoices(models.IntegerChoices):
-        EMAIL = 0, _("Notify per email")
-        SMS = 1, _("Notify per SMS")
-        CALL = 2, _("Notify by calling")
-    notify_channel = models.IntegerField(
-        choices=NotificationChannelChoices.choices, default=NotificationChannelChoices.CALL)
+        ACCEPTED = "accepted", pgettext_lazy(
+            "profile.liability.accepted", "Accepted Liability")
+
+    liability = models.CharField(
+        choices=LiabilityChoices.choices,
+        default=LiabilityChoices.DECLINED,
+        max_length=255)
+
+    class NotificationChannelChoices(models.TextChoices):
+        EMAIL = "email", pgettext_lazy(
+            "profile.notify-channel.email", "Notify per email")
+        SMS = "sms", pgettext_lazy(
+            "profile.notify-channel.sms", "Notify per SMS")
+        CALL = "call", pgettext_lazy(
+            "profile.notify-channel.call", "Notify by calling")
+
+    notify_channel = models.CharField(
+        choices=NotificationChannelChoices.choices,
+        default=NotificationChannelChoices.EMAIL,
+        max_length=255)
 
     phone_mobile = PhoneNumberField(blank=True, unique=False)
 
@@ -214,26 +299,110 @@ class ProfileBase(models.Model):
     language_skill_description = models.TextField(
         default="", blank=True, max_length=300)
 
-    class LanguageLevelChoices(models.IntegerChoices):
-        A1 = 0, _("Level 0 (egal)")
-        A2 = 1, _("Level 1 (B1 = (Alltagssituationen, Geschichten, Hoffnungen))")
-        A3 = 2, _(
-            "Level 2 (B2 = (fließende & spontane Gespräche, aktuelles Geschehen))")
-        A4 = 3, _("Level 3 (C1 = (komplexe Themen, kaum nach Wörtern suchen))")
-    lang_level = models.IntegerField(
-        choices=LanguageLevelChoices.choices, default=LanguageLevelChoices.A1)
+    class LanguageLevelChoices(models.TextChoices):
+        """
+        For all choices we allow to version a version for a volunteer 
+        and a version for a lanaguage learer
+        NOTE: this means we *need* to update selection if a users switches from learner to volunteer or vice versa
+        """
+        LEVEL_0_VOL = "level-0.vol", pgettext_lazy(
+            "profile.lang-level.level-0-vol", "any")
+        LEVEL_0_LER = "level-0.ler", pgettext_lazy(
+            "profile.lang-level.level-0-ler", "any")
+
+        LEVEL_1_VOL = "level-1.vol", pgettext_lazy(
+            "profile.lang-level.level-1-vol", "B1 = (everyday situations, stories, hopes)")
+        LEVEL_1_LER = "level-1.ler", pgettext_lazy(
+            "profile.lang-level.level-1-ler", "B1 = (everyday situations, stories, hopes)")
+
+        LEVEL_2_VOL = "level-2.vol", pgettext_lazy(
+            "profile.lang-level.level-2-vol", "B2 = (fluent & spontaneous conversations, current events)")
+        LEVEL_2_LER = "level-2.ler", pgettext_lazy(
+            "profile.lang-level.level-2-ler", "B2 = (fluent & spontaneous conversations, current events)")
+
+        LEVEL_3_VOL = "level-3.vol", pgettext_lazy(
+            "profile.lang-level.level-3-vol", "C1/C2 = (complex topics, hardly searching for words)")
+        LEVEL_3_LER = "level-3.ler", pgettext_lazy(
+            "profile.lang-level.level-3-ler", "C1/C2 = (complex topics, hardly searching for words)")
+
+    lang_level = models.CharField(
+        choices=LanguageLevelChoices.choices,
+        default=LanguageLevelChoices.LEVEL_0_VOL,
+        max_length=255)
 
     # Profile image
-    class ImageTypeChoice(models.IntegerChoices):
-        AVATAR = 0, _("Avatar")
-        IMAGE = 1, _("Image")
+    class ImageTypeChoice(models.TextChoices):
+        AVATAR = "avatar", pgettext_lazy("profile.image-type.avatar", "Avatar")
+        IMAGE = "image", pgettext_lazy("profile.image-type.image", "Image")
 
-    profile_image_type = models.IntegerField(
-        choices=ImageTypeChoice.choices, default=ImageTypeChoice.IMAGE)
-    profile_image = models.ImageField(
+    image_type = models.CharField(
+        choices=ImageTypeChoice.choices,
+        default=ImageTypeChoice.IMAGE,
+        max_length=255)
+    image = models.ImageField(
         upload_to=PathRename("profile_pics/"), blank=True)
-    profile_avatar_config = models.TextField(
+    avatar_config = models.JSONField(
         default="", blank=True)  # Contains the avatar builder config
+
+    def add_profile_picture_from_local_path(self, path):
+        print("Trying to add the pic", path)
+        self.image.save(os.path.basename(path), File(open(path, 'rb')))
+        self.save()
+
+    def check_form_completion(self):
+        """
+        Checks if the userform is completed 
+        TODO this could be a little more consize and extract better on which user form page
+        the user is currently
+        """
+        fields_required_for_completion = [
+            "lang_level",
+            "description",  # This is required but 'language_skill_description' is not!
+            "image" if self.image_type == self.ImageTypeChoice.IMAGE else "avatar_config",
+            # Postal code only required if partner location close selected!
+            *(["postal_code"] if self.speech_medium else []),
+            "target_group",
+            # 'additional_interests' also not required
+            *(["phone_mobile"] if self.notify_channel !=  # phone is only required if notification channel is not email ( so it's sms or phone )
+              self.NotificationChannelChoices.EMAIL else []),
+        ]
+        msgs = []
+        is_completed = True
+        for field in fields_required_for_completion:
+            value = getattr(self, field)
+            if value == "":  # TODO: we should also run the serializer
+                msgs.append(pgettext_lazy("profile.completion-check.missing-value",
+                            "'{val}' is not completed".format(val=field)))
+                is_completed = False
+        return is_completed, msgs
+
+    def save(self, *args, **kwargs):
+        """
+        Cause we have different choices for language learners 
+        and volunteers we need to detect when this is changed.
+        If user type is changed we hav to update all choices that have '.vol' or '.ler' ending
+        """
+        def __ending(vol=True):
+            cfield = self.TypeChoices.VOLUNTEER if vol else self.TypeChoices.LEARNER
+            return ".vol" if self.user_type == cfield else ".ler"
+        choices_different = [  # All choice fields that differe for learners vs volunteers
+            'lang_level',
+            'partner_location',
+            'speech_medium',
+            'target_group'
+        ]
+        allowed_ending = __ending(True)
+        disallowed_ending = __ending(False)
+
+        # TODO: we could also only run this if the value of 'user_type' has changed
+        for field in choices_different:
+            value = getattr(self, field)
+            if value.endswith(disallowed_ending):
+                # Now we basicly replace disallowed ending with allowed ending
+                setattr(self, field, value.replace(
+                    disallowed_ending, allowed_ending))
+
+        super(ProfileBase, self).save(*args, **kwargs)
 
 
 class Profile(ProfileBase):
@@ -275,7 +444,18 @@ class ProfileSerializer(serializers.ModelSerializer):
         choices=Profile.InterestChoices.choices)
 
     def get_options(self, obj):
-        return get_options_serializer(self, obj)
+        d = get_options_serializer(self, obj)
+        # There is no way the serializer can determine the options for our availability
+        # so lets just add it now, sice availability is stored as json anyways
+        # we can easily change the choices here in the future
+        if 'availability' in self.Meta.fields:  # <- TODO: does this check work with inheritence?
+            d.update({  # Ourcourse there is no need to do this for the Censored profile view
+                'availability': {day: [
+                    {"value": slot,
+                     "tag": SLOT_TRANS[slot]} for slot in SLOTS
+                ] for day in DAYS}
+            })
+        return d
 
     class Meta:
         model = Profile
@@ -289,20 +469,48 @@ class SelfProfileSerializer(ProfileSerializer):
                   'user_type', 'target_group', 'partner_sex', 'speech_medium',
                   'partner_location', 'postal_code', 'interests', 'availability',
                   'lang_level', 'additional_interests', 'language_skill_description', 'birth_year', 'description',
-                  'notify_channel', 'phone_mobile', 'profile_image_type', 'profile_avatar_config', 'profile_image']
+                  'notify_channel', 'phone_mobile', 'image_type', 'avatar_config', 'image']
 
         extra_kwargs = dict(
             language_skill_description={
                 "error_messages": {
-                    'max_length': pgettext_lazy("profile.lskill-descr-to-long", "must have a maximum of 300 characters"),
+                    'max_length': pgettext_lazy("profile.lskill-descr-to-long",
+                                                "must have a maximum of 300 characters"),
                 }
             },
             description={
                 "error_messages": {
-                    'max_length': pgettext_lazy("profile.descr-to-long", "must have a maximum of 300 characters"),
+                    'max_length': pgettext_lazy("profile.descr-to-long",
+                                                "must have a maximum of 300 characters"),
                 }
             }
         )
+
+    def validate(self, data):
+        """
+        Additional model validation for the profile 
+        this is especialy important for the image vs avatar!
+        """
+        if 'image_type' in data:
+            if data['image_type'] == Profile.ImageTypeChoice.IMAGE:
+                def __no_img():
+                    raise serializers.ValidationError({"image":
+                                                       pgettext_lazy(
+                                                           "profile.image-missing",
+                                                           "You have selected profile image but not uploaded an image")})
+                if not 'image' in data:
+                    if not self.instance.image:
+                        # If the image is not present we only proceede if there is already an image set
+                        __no_img()
+                elif not data['image']:
+                    __no_img()
+            if data['image_type'] == Profile.ImageTypeChoice.AVATAR:
+                if not 'avatar_config' in data or not data['avatar_config']:
+                    raise serializers.ValidationError({"avatar_config":
+                                                       pgettext_lazy(
+                                                           "profile.avatar-missing",
+                                                           "You have selected avatar but not uploaded an avatar")})
+        return data
 
     def validate_postal_code(self, value):
         return validate_postal_code(value)
@@ -310,7 +518,8 @@ class SelfProfileSerializer(ProfileSerializer):
     def validate_description(self, value):
         if len(value) < 10:  # TODO: higher?
             raise serializers.ValidationError(
-                pgettext_lazy("profile.descr-to-short", "must have at least 10 characters"))
+                pgettext_lazy("profile.descr-to-short",
+                              "must have at least 10 characters"))
         return value
 
 
@@ -318,4 +527,8 @@ class CensoredProfileSerializer(SelfProfileSerializer):
     class Meta:
         model = Profile
         fields = ["first_name", 'interests', 'availability',
-                  'notify_channel', 'phone_mobile', 'profile_image_type', 'profile_avatar_config', 'profile_image']
+                  'notify_channel', 'phone_mobile', 'image_type',
+                  'avatar_config', 'image', 'description',
+                  'additional_interests', 'language_skill_description']
+        # TODO: do we want language_skill_descr... to be included?
+        # It is currently used as 'What Do You Expect From The Talks?' in the main frontend

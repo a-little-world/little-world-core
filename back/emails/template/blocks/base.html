@@ -1,4 +1,6 @@
+{% load temp_utils %}
 {% load static %}
+{% get_base_url as BASE_URL %}
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html lang="en">
     <head>
@@ -190,7 +192,7 @@
                                                                 <tr>
                     <tr>
                         <td align="center" style=" mso-line-height-rule: exactly;-ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%;" valign="middle">
-                            <img align="absbottom" border="0"  src="{{BASE_URL}}{% static "img/email/boundTo350MobileWidth.gif" %}" style="width: 350px; max-width: 350px;  display: block; vertical-align:middle; border:0; height:auto;" width="350" />
+                            <img align="absbottom" border="0"  src="{{ BASE_URL }}{% static "img/email/boundTo350MobileWidth.gif" %}" style="width: 350px; max-width: 350px;  display: block; vertical-align:middle; border:0; height:auto;" width="350" />
                         </td>
                     </tr>
                 </tbody>

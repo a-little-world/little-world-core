@@ -10,9 +10,8 @@ RUN pip cache purge
 # Copy all the backend files
 # this assumes all the frontends are build and the static files have already been moved to ./back/static
 ADD back /back/
-ADD front /front/
+# ADD front /front/
 
 #EXPOSE 8000
 
-# Heroku docs arent very clear here but it seems they just define their own port
 CMD uvicorn back.asgi:application --port $PORT --host 0.0.0.0

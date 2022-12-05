@@ -4,6 +4,7 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExampl
 from drf_spectacular.types import OpenApiTypes
 from datetime import datetime
 from django.conf import settings
+from copy import deepcopy
 from django.core import exceptions
 from django.utils.module_loading import import_string
 from rest_framework.decorators import api_view, schema, throttle_classes, permission_classes
@@ -28,6 +29,7 @@ from ..models import (
     CensoredProfileSerializer,
     SelfSettingsSerializer
 )
+from .community_events import get_all_comunity_events_serialized
 
 from ..controller import get_user_models
 
@@ -103,7 +105,18 @@ def get_user_data(user, is_self=False, admin=False, include_options=False):
             _serializers[_model] = transform_add_options_serializer(
                 _serializers[_model])
     models = get_user_models(user)  # user, profile, state
-    return {k: _serializers[k](models[k]).data for k in _serializers if not k.startswith("_")}
+
+    def _maybe_delete_options(d):
+        # The admin model included options by default so we can delte them here
+        # TODO: there might a sligh performance gain if we have another serializer without the options
+        # But that would make the code a bunch longer
+        if not include_options and 'options' in d:
+            del d['options']
+            return d
+        return d
+
+    return {k: _maybe_delete_options(_serializers[k](models[k]).data)
+            for k in _serializers if not k.startswith("_")}
 
 
 def get_matches_paginated(user, admin=False,
@@ -148,6 +161,25 @@ def get_user_data_and_matches(user, options=False, admin=False,
         **get_user_data(user, is_self=True, include_options=options),
         "matches": get_matches_paginated(user, admin=admin, page=page, paginate_by=paginate_by),
         "notifications": get_notifications_paginated(user, admin=admin, page=noti_page, paginate_by=noti_paginate_by)
+    }
+
+
+def get_full_frontend_data(user, options=False, admin=False,
+                           page=UserDataApiParams.page,
+                           paginate_by=UserDataApiParams.paginate_by,
+                           noti_page=UserDataApiParams.page,
+                           noti_paginate_by=UserDataApiParams.paginate_by):
+    """
+    Gathers *all* data for the frontend in addition to matches and self info
+    there is also data like community_events, frontend_state
+    """
+
+    return {
+        **get_user_data_and_matches(user, options=options, admin=admin,
+                                    page=page, paginate_by=paginate_by,
+                                    noti_page=noti_page, noti_paginate_by=noti_paginate_by),
+        "community_events": get_all_comunity_events_serialized(),
+        # "frontend_state": "",
     }
 
 

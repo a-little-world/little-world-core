@@ -3,7 +3,19 @@ from rest_framework import serializers
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from django.template.loader import render_to_string
+from back.utils import dataclass_as_dict
+from .templates import inject_template_data
 from .models import EmailLog
+from .templates import (
+    WelcomeTemplateParamsDefaults,
+    WelcomeTemplateMail,
+    PasswordResetEmailDefaults,
+    PasswordResetEmailTexts,
+    # Currently we are using the same template as weclone
+    # so MatchFoundEmailTexts has no Defaults
+    MatchFoundEmailTexts,
+    SorryWeStillNeedALittleMail
+)
 from django.core.mail import EmailMessage
 import json
 import base64
@@ -26,6 +38,8 @@ class MailMeta:
     name: str
     template: str
     params: object
+    defaults: object
+    texts: object
 
 
 @dataclass
@@ -33,25 +47,59 @@ class WelcomeEmailParams:
     # We only talk to people in first name these days
     first_name: str
     verification_code: str
+    verification_url: str
 
 
 @dataclass
 class MatchMailParams:
     first_name: str
     match_first_name: str
+    profile_link_url: str
+
+
+@dataclass
+class PwResetMailParams:
+    password_reset_url: str
+
+
+@dataclass
+class SorryWeNeedMoreTimeToMatchYouMailParams:
+    first_name: str
 
 
 # Register all templates and their serializers here
 templates = [
-    MailMeta(
+    MailMeta(  # Welcome & Email verification !
         name="welcome",
+        # subject =
         template="emails/welcome.html",
-        params=WelcomeEmailParams
+        params=WelcomeEmailParams,
+        texts=WelcomeTemplateMail,
+        defaults=WelcomeTemplateParamsDefaults
     ),
-    MailMeta(
+    MailMeta(  # Match Found Email !
         name="match",
         template="emails/welcome.html",  # TODO: get correct template
-        params=MatchMailParams
+        # subject = TODO
+        params=MatchMailParams,
+        texts=MatchFoundEmailTexts,
+        defaults=WelcomeTemplateParamsDefaults
+    ),
+    MailMeta(
+        name="password_reset",
+        # subject =
+        template="emails/password_reset.html",
+        params=PwResetMailParams,
+        texts=PasswordResetEmailTexts,
+        defaults=PasswordResetEmailDefaults
+    ),
+    MailMeta(
+        name="we_need_some_more_time_for_matching",
+        # subject =
+        template="emails/welcome.html",
+        params=PwResetMailParams,
+        texts=SorryWeStillNeedALittleMail,
+        defaults=SorryWeStillNeedALittleMail
     )
 ]
 
@@ -89,13 +137,20 @@ def send_email(
     from management.controller import get_base_management_user, get_user_by_email
     for to in recivers:
 
+        usr_ref = None
+        try:
+            usr_ref = get_user_by_email(to)
+        except:
+            print(
+                f"User '{to}' doesn't seem to be registered, sending mail anyways")
+
         # First create the mail log, if sending fails afterwards we sill have a log!
         log = EmailLog.objects.create(
             sender=get_base_management_user(),
-            receiver=get_user_by_email(to),
-            template=mail_data.template,
+            receiver=usr_ref,
+            template=mail_data.name,
             data=dict(
-                params=mail_params.__dict__,
+                params=dataclass_as_dict(mail_params),
                 sender_str=str(sender),
                 recivers_str=",".join(recivers)
             )
@@ -103,7 +158,9 @@ def send_email(
 
         expt = None
         try:
-            html = render_to_string(mail_data.template, mail_params.__dict__)
+            params_injected_text = inject_template_data(
+                dataclass_as_dict(mail_data.texts), dataclass_as_dict(mail_params))
+            html = render_to_string(mail_data.template, params_injected_text)
 
             mail = EmailMessage(
                 subject=subject,

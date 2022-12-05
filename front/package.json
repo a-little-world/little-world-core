@@ -12,15 +12,21 @@
     "build_main_frontend_prod": "./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=0 --mode production --config webpack.main_frontend.config.js",
     "watch_cookie_banner_frontend": "./node_modules/.bin/webpack --watch --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mode development --config webpack.cookie_banner_frontend.config.js",
     "build_cookie_banner_frontend_dev": "./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mode development --config webpack.cookie_banner_frontend.config.js",
-    "build_cookie_banner_frontend_prod": "./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=0 --mode production --config webpack.cookie_banner_frontend.config.js"
+    "build_cookie_banner_frontend_prod": "./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=0 --mode production --config webpack.cookie_banner_frontend.config.js",
+    "watch_admin_panel_frontend": "./node_modules/.bin/webpack --watch --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mode development --config webpack.admin_panel_frontend.config.js",
+    "build_admin_panel_frontend_dev": "./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mode development --config webpack.admin_panel_frontend.config.js",
+    "build_admin_panel_frontend_prod": "./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=0 --mode production --config webpack.admin_panel_frontend.config.js"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@babel/core": "^7.19.6",
     "@babel/preset-typescript": "^7.18.6",
+    "@svgr/webpack": "^6.5.1",
     "autoprefixer": "^10.4.13",
     "babel-loader": "^8.2.5",
+    "babel-plugin-macros": "^3.1.0",
+    "babel-plugin-styled-components": "^2.0.7",
     "compression-webpack-plugin": "^10.0.0",
     "css-loader": "^6.7.1",
     "postcss-loader": "^7.0.1",

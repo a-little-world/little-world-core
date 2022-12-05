@@ -14,7 +14,7 @@ def as_djv(validator):
         try:
             validator(value)
         except serializers.ValidationError as e:
-            raise ValidationError(repr(e))
+            raise ValidationError(str(e))
     return _validate
 
 
@@ -23,7 +23,7 @@ def decorate_djv(validator):
         try:
             validator(value)
         except serializers.ValidationError as e:
-            raise ValidationError(repr(e))
+            raise ValidationError(str(e))
     return wrapper
 
 
@@ -42,7 +42,7 @@ def dajango_validation():
     try:
         yield None
     except serializers.ValidationError as e:
-        raise ValidationError(repr(e))
+        raise ValidationError(e.detail)
 
 
 def validate_first_name(value: str):
@@ -103,6 +103,26 @@ def validate_year(value: int):
 
 DAYS = ["mo", "tu", "we", "th", "fr", "sa", "su"]
 SLOTS = ["08_10", "10_12", "12_14", "14_16", "16_18", "18_20", "20_22"]
+
+SLOT_TRANS = {
+    "08_10": pgettext_lazy("val.availability.time-slot-08-10", "8 to 10 a.m."),
+    "10_12": pgettext_lazy("val.availability.time-slot-10-12", "10 to 12 p.m."),
+    "12_14": pgettext_lazy("val.availability.time-slot-12-14", "12 to 2 p.m."),
+    "14_16": pgettext_lazy("val.availability.time-slot-14-16", "2 to 4 p.m."),
+    "16_18": pgettext_lazy("val.availability.time-slot-16-18", "4 to 6 p.m."),
+    "18_20": pgettext_lazy("val.availability.time-slot-18-20", "6 to 8 p.m."),
+    "20_22": pgettext_lazy("val.availability.time-slot-20-22", "8 to 10 p.m.")
+}
+
+DAY_TRANS = {
+    "mo": pgettext_lazy("val.availability.week-day-mo", "Monday"),
+    "tu": pgettext_lazy("val.availability.week-day-tu", "Tuesday"),
+    "we": pgettext_lazy("val.availability.week-day-we", "Wednesday"),
+    "th": pgettext_lazy("val.availability.week-day-th", "Thursday"),
+    "fr": pgettext_lazy("val.availability.week-day-fr", "Friday"),
+    "sa": pgettext_lazy("val.availability.week-day-sa", "Saturday"),
+    "su": pgettext_lazy("val.availability.week-day-su", "Sunday")
+}
 
 
 def get_default_availability():

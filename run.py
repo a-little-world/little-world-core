@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# PYTHON_ARGCOMPLETE_OK
+
 """ General entry point for backend build and deployment processes """
 import shutil
 from functools import partial, wraps
@@ -9,6 +11,14 @@ import argparse
 import signal
 import json
 from cli.tim_cli_utils import *
+USE_BASH_AUTOMCOMPLETION = False
+try:  # We don't make this required cause people might not use bash
+    import argcomplete
+    USE_BASH_AUTOMCOMPLETION = True
+except:
+    print('WARN: "argcomplete" import failed!, ' +
+          'you have no sleek bash auto completion!\n' +
+          'maybe try `pip3 install argcomplete`')
 
 TAG = "littleworld_back"
 FRONT_TAG = "littleworld_front"
@@ -31,6 +41,7 @@ class c:
     penv = ["--env-file", "./penv"]
     shell = "sh"
     redis_port = ["-p", "6379:6379"]
+    redis_name = ["--name", "little-world-redis"]
 
     # Frontend container stuff
     front_docker_file = ["-f", "Dockerfile.front"]
@@ -59,7 +70,7 @@ subprocess_capture_out = {
 }
 
 
-def _parser():
+def _parser(use_choices=False):
     """
     Commandline args:
     most notably 'actions'
@@ -68,21 +79,31 @@ def _parser():
         2. static extraction
         3. mirations for the db
         4. running the container interactively ( close with ctl-C )
+
+    We use choices only for autocompletion, otherwise they can cause issue with actions that parse their own args
     """
+
+    possible_actions = get_all_action_aliases()
+    possible_actions.append("")  # Empty action
+    default_actions = ["_setup", "build", "static", "migrate", "run"]
     parser = argparse.ArgumentParser()
-    parser.add_argument('-b', '--btype', default="dev", help="prod, dev, any")
+    parser.add_argument('actions', metavar='A', type=str, default="",
+                        **(dict(choices=possible_actions) if use_choices else {}), nargs='*', help='action')
+    parser.add_argument('-b', '--btype', default="dev",
+                        help="prod, dev, any", **(dict(choices=["development", "staging", "deployment"]) if use_choices else {}))
     parser.add_argument('-bg', '--background',
                         action="store_true", help="Run the docker container in background (`./run.py kill` to stop)")
     parser.add_argument(
         '-o', '--output', help="Ouput file or path required by some actions")
     parser.add_argument(
         '-i', '--input', help="Input file (or data) required by some actions")
+    parser.add_argument('-sa', '--single-action', type=str,
+                        **(dict(choices=get_all_full_action_names()) if use_choices else {}), help='action')
 
     # default actions required by tim_cli_utils (TODO: they should be moved there)
-    parser.add_argument('actions', metavar='A', type=str, default=["_setup",
-                        "build", "static", "migrate", "run"], nargs='*', help='action')
     parser.add_argument('-s', '--silent', action="store_true",
                         help="Mute all output exept what is required")
+
     return parser
 
 
@@ -109,9 +130,11 @@ def _setup(args):
     """
     from datetime import datetime
     complete_file = ".run.py.setup_complete"
+    # TODO: we want to skip frontend builds when running on github actions!
     if not os.path.exists(complete_file) or ["update"] in args.actions:
         _cmd = ["git", "submodule", "update", "--init", "--recursive"]
         subprocess.run(_cmd)
+
         build_front(args)
 
         with open(complete_file, "w") as file:
@@ -123,19 +146,38 @@ def _setup(args):
 @register_action(name="list_running", alias=["ps"])
 def _list_running_instances(args):
     all_running = []
+
+    # We mostry reference by tag
     for tag in [c.ptag, c.dtag, c.front_tag, c.staging_tag]:
         ps = _running_instances(tag)
         all_running += ps if isinstance(ps, list) else [ps]
+
+    # Sometimes we like to use names, e.g.: redis
+    # ( we can't tag cause this aint our image )
+    for name in [c.redis_name[1]]:
+        ps = _running_instances_name(name)
+        all_running += ps if isinstance(ps, list) else [ps]
+
     print(all_running)
+
     return all_running
+
+
+def _all_running():
+    _cmd = ["docker", "ps", "--format",
+            r"""{"ID":"{{ .ID }}", "Image": "{{ .Image }}", "Names":"{{ .Names }}"}"""]
+    out = str(subprocess.run(_cmd, **subprocess_capture_out).stdout)
+    return [eval(x) for x in out.split("\n") if x.strip()]
+
+
+def _running_instances_name(name):
+    ps = _all_running()
+    return [x for x in ps if name in x["Names"]]
 
 
 def _running_instances(tag=TAG):
     """ Get a list of running instance for docker 'tag' """
-    _cmd = ["docker", "ps", "--format",
-            r"""{"ID":"{{ .ID }}", "Image": "{{ .Image }}", "Names":"{{ .Names }}"}"""]
-    out = str(subprocess.run(_cmd, **subprocess_capture_out).stdout)
-    ps = [eval(x) for x in out.split("\n") if x.strip()]
+    ps = _all_running()
     return [x for x in ps if tag in x["Image"]]
 
 
@@ -166,13 +208,27 @@ def attach(args):
 
 
 @register_action(cont=True, alias=["k"])
-def kill(args, front=True, back=True):
+def kill(args, front=True, back=True, redis=True):
     """ Kills all the running container instances (back & front)"""
+    # TODO: this should also kill the lw redis instance ( if running )
     for tag in [c.front_tag if front else None,
                 c.dtag if back else None,
                 c.ptag if not _is_dev(args) else None]:
         if tag:
             _kill_tag(tag)
+
+    for name in [c.redis_name[1] if redis else None]:
+        if name:
+            _kill_name(name)
+
+
+def _kill_name(name):
+    ps = _running_instances_name(name)
+    _cmd = ["docker", "kill"]
+    for p in ps:
+        _c = _cmd + [p["ID"]]
+        print(' '.join(_c))
+        subprocess.run(_c)
 
 
 def _kill_tag(tag):
@@ -184,7 +240,7 @@ def _kill_tag(tag):
         subprocess.run(_c)
 
 
-def _run_in_running(dev, commands, backend=True, capture_out=False, work_dir=None):
+def _run_in_running(dev, commands, backend=True, capture_out=False, work_dir=None, fail=False):
     """
     Runns command in a running container.
     Per default this looks for a backend container.
@@ -194,19 +250,20 @@ def _run_in_running(dev, commands, backend=True, capture_out=False, work_dir=Non
         commands=commands,
         tag=(c.dtag if dev else c.ptag) if backend else FRONT_TAG,
         capture_out=capture_out,
-        work_dir=work_dir)
+        work_dir=work_dir, fail=fail)
 
 
-def _run_in_running_tag(commands, tag, capture_out=False, work_dir=None, extra_docker_cmd=[]):
+def _run_in_running_tag(commands, tag, capture_out=False, work_dir=None, extra_docker_cmd=[], fail=False):
     """
     Runns command in a running container, with a specific tag
     """
     ps = _running_instances(tag)
     assert len(ps) > 0, "no running instances found"
     _cmd = ["docker", "exec",
-            *(["-w", work_dir] if work_dir else []), *extra_docker_cmd, "-it", ps[0]["ID"], *commands]
+            *(["-w", work_dir] if work_dir else []),
+            *extra_docker_cmd, "-it", ps[0]["ID"], *commands]
     if not capture_out:
-        subprocess.run(" ".join(_cmd), shell=True)
+        subprocess.run(" ".join(_cmd), shell=True, check=fail)
     else:
         return str(subprocess.run(_cmd, **subprocess_capture_out).stdout)
 
@@ -254,8 +311,8 @@ def migrate(args, running=False):
                         "migrate"])
 
 
-def _build_file_tag(file, tag):
-    _cmd = [*c.dbuild, "-f", file, "-t", tag, "."]
+def _build_file_tag(file, tag, build_context_path=".", context_dir="./back"):
+    _cmd = [*c.dbuild, "-f", file, "-t", tag, context_dir]
     print(" ".join(_cmd))
     subprocess.run(_cmd)
 
@@ -291,18 +348,20 @@ def deploy_staging(args):
     """
     assert args.input, " '-i' required, e.g.: \"{'AWS_ACCOUNT_ID':'...','AWS_REGISTRY_NAME':'...','AWS_REGION':''}\""
     aws_env = eval(args.input)
+    args.input = None  # set to none now so no other actions use the parameter
     if 'DOCS' in aws_env and aws_env['DOCS'].lower() in ('true', '1', 't'):
         # Also build the documentation and move it to /static
         build_docs(args)
         # Copy the build files to
-        shutil.copytree("./docs", "./back/static/docs")
+        shutil.copytree("./_docs/build/html", "./back/static/docs")
+        # shutil.copytree("./docs", "./back/static/docs")
     # Build the frontends
     build_front(args)
     # Collect the statics ( also contains the files for open api specifications )
     build(args)  # Required build of the 'dev' image
     extract_static(args)
     # Build Dockerfile.stage
-    _build_file_tag(c.file_staging[1], c.staging_tag)
+    _build_file_tag(c.file_staging[1], c.staging_tag, context_dir=".")
     if 'ROOT_USER_PASSWORD' in aws_env:
         print("Got 'ROOT_USER_PASSWORD' adding root user ...")
         # Ok in that case we create a base root user
@@ -340,11 +399,42 @@ def build(args):
     """
     if not _is_dev(args):
         raise NotImplementedError
-    _build_file_tag(c.file[1], c.dtag if _is_dev(args) else c.ptag)
+
+    # Note we only use build context in ./back this reduces our image by a fucking lot!
+    # Otherwise we would have to specify .dockerignore for the specific images!
+    _build_file_tag(c.file[1], c.dtag if _is_dev(
+        args) else c.ptag, build_context_path="./back")
+
+
+@register_action(alias=["tests"], cont=True)
+def run_django_tests(args):
+    """
+    Runs tests for all django apps in /back
+    """
+    _run_in_running(_is_dev(args), ["python3", "manage.py", "test"], fail=True)
+
+
+@register_action(alias=["clear_static", "delte_static"], cont=True)
+def delete_static_files(args, running=False):
+    """
+    Deltes everything in './back/static/*`
+    sometimes required for cleaning up old static files!
+    """
+    print("Deleting static files")
+    import glob
+    for file in glob.glob("./back/static/*"):
+        print(f"rm {file}")
+        shutil.rmtree(file)
+    print("Done")
 
 
 @register_action(alias=["static", "collectstatic"], cont=True)
 def extract_static(args, running=False):
+    """
+    This collects all the static files,
+    this is especially imporant if you changed any files in django apps 'statics/*' directories!
+    In production is would also automaticly upload the files to an S3 bucket! TODO
+    """
     with _conditional_wrap(not running,  # If the containers isn't running we will have to start it
                            before=lambda: _run(_is_dev(args), background=True),
                            after=lambda: kill(args, front=False)):
@@ -384,8 +474,9 @@ def make_messages(args, running=False):
                     print(entry.msgctxt, entry.msgid, entry.msgstr)
                     # There might be python formaters in the string!
                     # We could ignore them, but I'll just patch them in!
-                    required_formatting = ["{%s}" % arg for arg in list(
-                        string.Formatter().parse(entry.msgid))[0][1:] if arg != "" and arg is not None]
+                    format_opts = list(string.Formatter().parse(entry.msgid))
+                    required_formatting = [
+                        "{%s}" % arg for arg in format_opts[0][1:] if arg != "" and arg is not None] if format_opts else None
                     entry.msgstr = entry.msgctxt
                     if required_formatting:
                         entry.msgstr += "|" + ",".join(required_formatting)
@@ -394,7 +485,7 @@ def make_messages(args, running=False):
             po.save()
 
 
-@ register_action(alias=["trans"], cont=True)
+@register_action(alias=["trans"], cont=True)
 def translate(args, running=False):
     """
     This comiles the messages then extracts statics
@@ -406,7 +497,7 @@ def translate(args, running=False):
     extract_static(args, running=True)
 
 
-@ register_action(alias=["open_translation"], cont=True)
+@register_action(alias=["open_translation"], cont=True)
 def open_trans(args):
     """
         Opens  atranslation file
@@ -430,7 +521,7 @@ def _make_webpack_command(env, config, debug: bool, watch: bool):
     return _cmd
 
 
-@ register_action(alias=["uf"], cont=True)
+@register_action(alias=["uf"], cont=True)
 def update_front(args):
     """
     only to be run when frontends are build
@@ -451,7 +542,19 @@ def update_front(args):
     kill(args, back=False)  # Kill the frontend container
 
 
-@ register_action(alias=["fb", "bf"], cont=True)
+@register_action(alias=["af"], cont=False)
+def attach_front(args):
+    """
+    Attach to a running frontend container
+    currently this will errror if mulitple containers
+    """
+    _cmd = [*c.drun, *(c.denv if _is_dev(args) else c.penv), *
+            c.vmount_front, "-d", c.front_tag]
+    subprocess.run(_cmd)
+    _run_in_running(_is_dev(args), ["sh"], backend=False)
+
+
+@register_action(alias=["fb", "bf"], cont=True)
 def build_front(args):
     """
     Builds the frontends
@@ -470,11 +573,16 @@ def build_front(args):
         return
     frontends = env["FR_FRONTENDS"].split(",")
 
+    if args.input:
+        # You can also build the container but only one fronend in it
+        print(f"WARN building only {args.input}")
+        frontends = [args.input]
+
     if not _is_dev(args):
         # TODO: in production we might want to do some extra cleanup!
         raise NotImplementedError
     _cmd = [*c.dbuild, *c.front_docker_file, "-t",
-            c.front_tag, "."]
+            c.front_tag, "./front"]  # <- can just use build context of the fronend dir!
     print(" ".join(_cmd))
     subprocess.run(_cmd)  # 1
 
@@ -508,6 +616,7 @@ def build_front(args):
     print(
         f'`npm i` for frontends: {frontends} \nAdd frontends under `FR_FRONTENDS` in env, place them in front/apps/')
     for front in frontends:
+        # TODO: there should also be an 'update' option that doesn't install all of this!
         _run_in_running(
             _is_dev(args), ["npm", "i"], work_dir=f"/front/apps/{front}", backend=False)  # 4
     # Frontend builds can only be performed with the webpack configs present
@@ -539,12 +648,17 @@ def build_front(args):
     kill(args, back=False)
 
 
-@ register_action(alias=["watch"], cont=False)
+@register_action(alias=["watch"], cont=False)
 def watch_frontend(args):
+    """
+    Runs the webpack watch command in a new frontend container
+    This can be used to watch multiple fontends at the same time!
+    & without having node installed or manging npm versions !! :)
+    """
     assert args.input, "please input a active frontend: " + \
         str(_env_as_dict(c.denv[1])["FR_FRONTENDS"].split(","))
     assert _is_dev(
-        args), "can't watch frontend changes in staging or deloyment sorry"
+        args), "can't watch frontend changes in staging or deloyment sorry"  # ? TODO: why not though?
     # start the frontend container:
     _cmd = [*c.drun, *(c.denv if _is_dev(args) else c.penv), *
             c.vmount_front, "-d", c.front_tag]
@@ -557,21 +671,31 @@ def watch_frontend(args):
     _cmd = _make_webpack_command(
         _env_as_dict(c.denv[1]), f'webpack.{args.input}.config.js', watch=True, debug=True)
     print(f"generated cmd: {' '.join(_cmd)}")
+
+    def handler(signum, frame):
+        print("EXITING\nKilling container...")
+        # Also kill redis... cause it starts per default now
+        kill(args, front=True, back=False, redis=False)
+    signal.signal(signal.SIGINT, handler)
     _run_in_running(_is_dev(args), _cmd, backend=False)
 
 
-@ register_action(alias=["rds", "rd", "redis-server"])
+@register_action(alias=["rds", "rd", "redis-server"], cont=True)
 def redis(args):
     """
     Runs a local instance of `redis-server` ( required for the chat )
     """
     assert _is_dev(args), "Local redis is only for development"
-    _cmd = [*c.drun, *c.redis_port, "-d", "redis:5"]
+    # First try to delete to old container if it is present
+    _cmd = ['docker', 'rm', c.redis_name[1]]
+    subprocess.run(_cmd)
+
+    _cmd = [*c.drun, *c.redis_port, *c.redis_name, "-d", "redis:5"]
     print(' '.join(_cmd))
     subprocess.run(_cmd)
 
 
-@ register_action(alias=["r"])
+@register_action(alias=["r"])
 def run(args):
     """
     Running the docker image, this requires a build image to be present.
@@ -579,11 +703,13 @@ def run(args):
     if dev:
         Then container will mount the local `./back` folder,
         and forward port `c.port` (default 8000)
+    ** This also automaticly starts the redis instance!
     """
-    return _run(dev=_is_dev(args), background=args.background)
+    redis(args)  # <-- start redis!
+    return _run(dev=_is_dev(args), background=args.background, args=args)
 
 
-def _run_tag_env(tag, env, mounts=[], background=False, add_host_route=False):
+def _run_tag_env(tag, env, mounts=[], background=False, add_host_route=False, args=None):
     """
     Some variations on `docker run` for interactive / passive container control
     """
@@ -591,24 +717,27 @@ def _run_tag_env(tag, env, mounts=[], background=False, add_host_route=False):
             * c.port, "-d" if background else "-t", tag]
     print(" ".join(_cmd))
     if background:
+        print("BACKGROUND!")
         subprocess.run(_cmd)
     else:
         def handler(signum, frame):
             print("EXITING\nKilling container...")
-            kill(None, front=False)
+            # Also kill redis... cause it starts per default now
+            kill(args, front=False)
         signal.signal(signal.SIGINT, handler)
         p = subprocess.call(" ".join(_cmd), shell=True, stdin=subprocess.PIPE)
 
 
-def _run(dev=True, background=False):
+def _run(dev=True, background=False, args=None):
     _run_tag_env(tag=c.dtag if dev else c.ptag, env=(
-        c.denv if dev else c.penv)[1], mounts=c.vmount, background=background, add_host_route=True)
+        c.denv if dev else c.penv)[1], mounts=c.vmount,
+        background=background, add_host_route=True, args=args)
 
     # we print this mainly for port forwarding in codespaces:
     print("Running at localhost:8000 ")
 
 
-@ register_action(alias=["ma", "manage", "manage.py"], parse_own_args=True)
+@register_action(alias=["ma", "manage", "manage.py"], parse_own_args=True)
 def manage_command(args):
     """ runns a manage.py command inside the container """
     assert args.unknown
@@ -616,9 +745,17 @@ def manage_command(args):
     _run_in_running(_is_dev(args), ["python3", "manage.py", *_cmd])
 
 
-@ register_action(alias=["ma_shell_inject", "inject"])
+@register_action(alias=["ma_shell_inject", "inject"])
 def inject_shell(args):
-    """ Injects a script into the python management shell """
+    """
+    Injects a script as text command argument into the python management shell
+    NOTE there can be a max lenght of inputable characters in shells
+    so in some shells to long script throw an error!
+    see _shell_inject/* for exaple scripts
+
+    You can use '!dont_include' as a comment and the line will not be included
+    To include a commented line use '!include' somewhere in the comment
+    """
     assert args.input, "Please provide a shell script input file"
     import shlex
     script_file_text = ""
@@ -634,27 +771,31 @@ def inject_shell(args):
     _run_in_running(_is_dev(args), _cmd)
 
 
-@ register_action(name="build_docs", alias=["docs"])
+@register_action(name="build_docs", alias=["docs"])
 def build_docs(args):
     """
     Can build the spinix documentation inside the docker container
     Note: This assumes you have already build the docker backend container
     """
     assert _is_dev(args), "Can only build docs in development mode"
-    _cmd = [*c.dbuild, *c.file_spinix, "-t", c.tag_spinix, "."]
+    _cmd = [*c.dbuild, *c.file_spinix, "-t", c.tag_spinix, "./docs"]
     print(" ".join(_cmd))
     subprocess.run(_cmd)
     _cmd = [*c.drun, *c.denv, *c.vmount_spinix, *c.port, "-d", c.tag_spinix]
     print(" ".join(_cmd))
     subprocess.run(_cmd)
-    # _run_in_running_tag(["make", "html"], tag=c.tag_spinix, work_dir="/docs")
-    _run_in_running_tag(["sh"], tag=c.tag_spinix)
+    if os.path.exists("./back/static/docs"):
+        print("WARN: found all docs build, overwriting...")
+        shutil.rmtree("./back/static/docs")
+    _run_in_running_tag(["make", "html"], tag=c.tag_spinix, work_dir="/docs")
+    # _run_in_running_tag(["sh"], tag=c.tag_spinix)
     # copy the output files
-    shutil.copytree("./_docs/build/html", "./docs")
+    # shutil.copytree("./_docs/build/html", "./docs")
     _kill_tag(c.tag_spinix)
+    shutil.copytree("./_docs/build/html", "./back/static/docs")
 
 
-@ register_action()
+@register_action()
 def reset_migrations(args):
     """
     Deltes all migration files appart from the __init__.py
@@ -679,14 +820,6 @@ def reset_migrations(args):
             os.remove(p)
 
 
-def _action_by_alias(alias):
-    for act in ACTIONS:
-        if alias in [*ACTIONS[act]["alias"], act]:
-            return act, ACTIONS[act]
-    else:
-        raise Exception(f"Action or alias '{alias}' not found")
-
-
 @contextlib.contextmanager
 def _conditional_wrap(cond, before, after):
     """
@@ -699,6 +832,10 @@ def _conditional_wrap(cond, before, after):
     if cond:
         after()
 
+
+if USE_BASH_AUTOMCOMPLETION:
+    print("using auto completion")
+    argcomplete.autocomplete(_parser())
 
 if __name__ == "__main__":
     """

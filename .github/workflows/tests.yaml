@@ -21,11 +21,21 @@ jobs:
     name: Build & Run tests
     steps:
       - uses: actions/checkout@master
+        with:
+          token: ${{ secrets.BOT_PAT }}
+          submodules: recursive
       - name: Build Image
         shell: 'script -q -e -c "bash {0}"'
-        # We use '-b' to run the container in background
-        run: python3 run.py -bg
+        run: python3 run.py build # Only build the docker container on CI
+      - name: Build Image
+        shell: 'script -q -e -c "bash {0}"'
+        # We use '-bg' to run the container in background
+        run: python3 run.py r -bg
       - name: Run Tests
         shell: 'script -q -e -c "bash {0}"'
         # Runns 'manage.py' test in the container
-        run: python3 run.py ma -c test
+        run: python3 run.py run_django_tests
+      - name: Build Image
+        shell: 'script -q -e -c "bash {0}"'
+        # Kill everything we are done
+        run: python3 run.py kill

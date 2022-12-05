@@ -1,6 +1,7 @@
+from ..api.user_data import get_full_frontend_data
 from django.contrib.auth.mixins import LoginRequiredMixin
+from back.utils import CoolerJson
 import json
-from django.shortcuts import render
 from dataclasses import dataclass, field
 from django.shortcuts import render, redirect
 from django.urls import reverse
@@ -13,7 +14,6 @@ from rest_framework.response import Response
 from typing import List, Optional
 from tracking import utils
 from tracking.models import Event
-from ..api.user_data import get_user_data_and_matches
 
 
 # The following two are redundant with api.admin.UserListParams, api.admin.UserListApiSerializer
@@ -81,6 +81,12 @@ class MainFrontendView(LoginRequiredMixin, View):
         _kwargs = params.__dict__
         _kwargs.pop("filters")  # TODO: they are not yet supported
         _kwargs.pop("order_by")  # TODO: they are not yet supported
-        profile_data = get_user_data_and_matches(
-            request.user, options=True, **_kwargs)
-        return render(request, "main_frontend.html", {"profile_data": json.dumps(profile_data)})
+        from django.utils import translation
+
+        # we want this view to pass tags by default,
+        # the frontend also receives all api translations!
+        # This way it can switch the language without reloading
+        with translation.override("tag"):
+            profile_data = get_full_frontend_data(
+                request.user, options=True, **_kwargs)
+        return render(request, "main_frontend.html", {"profile_data": json.dumps(profile_data, cls=CoolerJson)})

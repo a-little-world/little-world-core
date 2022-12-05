@@ -1,4 +1,6 @@
 {% load render_bundle from webpack_loader %}
+{% load get_api_translations from temp_utils %}
+{% get_api_translations request=request as api_translations %}
 <!DOCTYPE html>
 <head>
     {% include "react_app_head_base.html" with app_name='user_form_frontend' title='User Form' %}    
@@ -16,10 +18,11 @@
 {% render_bundle 'staticfiles' 'js' 'user_form_frontend' %}
 <script>
     const tmpData = '{{ kwargs | escapejs }}';
+    const apiTranslations = JSON.parse('{{ api_translations | escapejs }}');
     const extraKwargs = tmpData !== '' ? JSON.parse(tmpData) : {};
     const appName = "{{ app_name }}";
-    if(appName==="") render_app({...extraKwargs}) 
-    else render_app({ byName : appName, ...extraKwargs})
+    if(appName==="") render_app({...extraKwargs}, { apiTranslations }) 
+    else render_app({ byName : appName, ...extraKwargs}, { apiTranslations })
 </script>
 {% if use_cookie_banner %}
     {% render_bundle 'staticfiles' 'js' 'cookie_banner_frontend' %}

@@ -1,17 +1,19 @@
-FROM python:3.8
+FROM python:3.10
 # Need python <= 3.8: https://github.com/readthedocs/readthedocs.org/issues/9031
+# 
 
 WORKDIR /docs
 
-COPY /back/requirements.txt ./
-COPY /_docs/requirements.txt ./requirements_docs.txt
+COPY ../back/requirements.txt ./
+COPY ./requirements.txt ./requirements_docs.txt
 
-
+RUN pip install --upgrade setuptools
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install --no-cache-dir -r requirements_docs.txt
 
 # We want the run file to be included in the docs
 COPY ./run.py /docs_source/extra_mods/
+ADD cli /docs_source/extra_mods/cli/
 RUN touch /docs_source/extra_mods/__init__.py
 RUN touch /docs_source/__init__.py
 

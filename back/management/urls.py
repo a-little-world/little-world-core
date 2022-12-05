@@ -13,14 +13,17 @@ from .views.user_form_frontend import (
     register,
     forgot_password,
     set_password_reset,
+    password_reset_mail_send,
     subsection_of_user_form,
     email_verification,
     email_change,
     email_verification_sucess,
     email_verification_fail,
+    password_set_success,
     error,
     user_form
 )
+from .views.admin_panel_frontend import admin_panel
 
 from rest_framework.routers import DefaultRouter
 from django_rest_passwordreset.views import ResetPasswordValidateTokenViewSet, ResetPasswordConfirmViewSet, \
@@ -50,12 +53,30 @@ api_routes = [
 
     path(_api_url('trans/<str:lang>'), api.trans.TranslationsGet.as_view()),
 
+    path(_api_url('community/events'),
+         api.community_events.GetActiveEventsApi.as_view()),
+
     path(_api_url('register'), api.register.Register.as_view()),
     path(_api_url('user'), api.user_data.SelfInfo.as_view()),
+    path(_api_url('user/confirm_match'), api.user.ConfirmMatchesApi.as_view()),
+    path(_api_url('user/search_state/<str:state_slug>', end_slash=False),
+         api.user.UpdateSearchingStateApi.as_view()),
     path(_api_url('user/login'), api.user.LoginApi.as_view()),
+    path(_api_url('user/logout'), api.user.LogoutApi.as_view()),
     path(_api_url('user/checkpw'), api.user.CheckPasswordApi.as_view()),
+    path(_api_url('user/change_email'), api.user.ChangeEmailApi.as_view()),
+
+    # TODO we should later be adding a new appointments api here!
+    path(_api_url('video_rooms/authenticate_call'),
+         api.twilio.AuthenticateCallRoom.as_view()),
+
+    path(_api_url('video_rooms/twillio_callback'),
+         api.twilio.TwilioCallbackApi.as_view()),
+
     path(_api_url('profile'),
          api.profile.ProfileViewSet.as_view({"post": "partial_update", "get": "_get"})),
+    path(_api_url('profile/completed'),
+         api.profile.ProfileCompletedApi.as_view()),
 
     path(_api_url('notification'),
          api.notify.NotificationGetApi.as_view()),
@@ -64,7 +85,7 @@ api_routes = [
 
 
     # e.g.: /user/verify/email/Base64{d=email&u=hash&k=pin:hash}
-    path(_api_url('user/verify/email/<str:auth_data>'),  # TODO create verify email api
+    path(_api_url('user/verify/email/<str:auth_data>', end_slash=False),
          api.user.VerifyEmail.as_view()),
 
     # Admin
@@ -86,12 +107,18 @@ view_routes = [
     path("set_password/<str:usr_hash>/<str:token>",
          set_password_reset, name="set_password_reset"),
 
+    path("new_password_set/", password_set_success,
+         name="password_reset_succsess"),
+
+    path("password_reset_mail_send/", password_reset_mail_send,
+         name="password_reset_succsess"),
+
     path("login/", login, name="login"),
 
     path("formpage/", subsection_of_user_form, name="formpage"),
 
     path('mailverify/', email_verification, name="email_verification"),
-    path('mailchange/', email_change, name="email_change"),
+    path('change_email/', email_change, name="email_change"),
     path('mailverify/sucess/', email_verification_sucess,
          name="email_verification_sucess"),
     path('mailverify/fail/', email_verification_fail,
@@ -107,6 +134,9 @@ view_routes = [
     path('app/', views.MainFrontendView.as_view(), name="main_frontend"),
     re_path(fr'^app/(?P<path>.*)$',
             views.MainFrontendView.as_view(), name="main_frontend_w_path"),
+
+
+    path(f"admin_panel/", admin_panel, name="admin_panel"),
 
 ]
 

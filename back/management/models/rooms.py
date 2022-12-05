@@ -1,5 +1,6 @@
 from django.db import models
 from django.db.models import Q
+from back.utils import _double_uuid
 from .user import User
 
 
@@ -22,10 +23,12 @@ class Room(models.Model):
     """
     last_time_autenticated = models.DateTimeField(auto_now_add=True)
 
+    hash = models.CharField(max_length=255, default=_double_uuid)
+
     """
     This stores the room name, this is important for twilio!
     """
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, default=_double_uuid)
 
     usr1 = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name='usr1')
@@ -41,3 +44,10 @@ class Room(models.Model):
 
     def is_active(self):
         return self.active
+
+    @classmethod
+    def get_room_by_hash(cls, hash):
+        # Room must exists!
+        r = cls.objects.filter(hash=hash)
+        assert r.exists() and r.count() == 1
+        return r.first()

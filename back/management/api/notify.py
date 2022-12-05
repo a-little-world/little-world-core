@@ -7,7 +7,7 @@ from django.utils.translation import gettext_lazy as _
 from dataclasses import dataclass
 from rest_framework import serializers
 from django.core.paginator import Paginator
-from ..models.notifications import Notification
+from ..models.notifications import Notification, SelfNotificationSerializer
 from rest_framework import status
 from ..models.user import User
 
@@ -41,8 +41,11 @@ class NotificationGetApi(APIView):
         params = serializer.save()
         assert isinstance(request.user, User)
         notifications_user = request.user.get_notifications()
+        paged_notificatons = Paginator(
+            notifications_user, params.paginate_by).page(params.page)
 
-        return Response(Paginator(notifications_user, params.paginate_by).page(params.page))
+        # TODO: we could allow admins to use the raw NotificationsSerializer
+        return Response([SelfNotificationSerializer(p).data for p in paged_notificatons])
 
 
 @dataclass

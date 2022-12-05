@@ -16,7 +16,7 @@ def get_urls_patterns():
 
 application = ProtocolTypeRouter({
     "http": django_asgi_app,
-    "websocket": AuthMiddlewareStack(
+    "websocket": AllowedHostsOriginValidator(AuthMiddlewareStack(
         URLRouter(get_urls_patterns())
-    ),
+    )),
 })

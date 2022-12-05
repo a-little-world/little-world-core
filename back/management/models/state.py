@@ -5,7 +5,7 @@ import base64
 import zlib
 import random
 from datetime import datetime
-from django.utils.translation import gettext_lazy as _
+from django.utils.translation import pgettext_lazy, gettext_lazy as _
 from rest_framework import serializers
 from .notifications import Notification
 from back.utils import get_options_serializer
@@ -28,13 +28,14 @@ class State(models.Model):
     """ Form page the user is currently on """
     user_form_page = models.IntegerField(default=0)
 
-    class UserFormStateChoices(models.IntegerChoices):
-        UNFILLED = 0, _("Unfilled user form")
-        FILLED = 1, _("Filled user form")
+    class UserFormStateChoices(models.TextChoices):
+        UNFILLED = "unfilled", _("Unfilled user form")
+        FILLED = "filled", _("Filled user form")
 
     """ If the user_form ist filled or not """
-    user_form_state = models.IntegerField(choices=UserFormStateChoices.choices,
-                                          default=UserFormStateChoices.UNFILLED)
+    user_form_state = models.CharField(choices=UserFormStateChoices.choices,
+                                       default=UserFormStateChoices.UNFILLED,
+                                       max_length=255)
 
     # Just some hash for verifying the email
     email_auth_hash = models.CharField(
@@ -43,36 +44,115 @@ class State(models.Model):
         # By wrapping in lambda this will get called when the model is created
         # and not at server start, then we get better randomization maybe
         # Also this conveniently inialized the pin
-        default=utils._rand_int5)  # TODO maybe increase a little ? -> would mean also in translation texts
+        default=utils._rand_int5)
 
     email_authenticated = models.BooleanField(default=False)
 
+    """
+    These are referense to the actual user model of this persons matches 
+    """
     matches = models.ManyToManyField(User, related_name='+', blank=True)
 
+    class MatchingStateChoices(models.TextChoices):
+        """
+        All matching states! 
+        Idle is the default state at the beginning
+        but we do (currently) automaticly set it to searching 
+        when the userform was finished.
+        """
+        IDLE = "idle", pgettext_lazy(
+            "models.state.matching-state-idle",
+            "Not Searching (Idle)")
+        SEARCHING = "searching", pgettext_lazy(
+            "models.state.matching-state-searching",
+            "Searching")
+
+    matching_state = models.CharField(choices=MatchingStateChoices.choices,
+                                      default=MatchingStateChoices.IDLE,
+                                      max_length=255)
+
+    """
+    This contains a list of matches the user has not yet confirmed 
+    this can be used by the frontend to display them as 'new'
+    POST api/user/confrim_match/
+    data = [<usr-hash>, ... ] 
+    """
+    unconfirmed_matches_stack = models.JSONField(default=list, blank=True)
+
+    """
+    all user notification
+    reference to models.notifications.Notification
+    """
     notifications = models.ManyToManyField(
         Notification, related_name='n+', blank=True)
 
     """
-    This state is used to sendout the unread email notification for you have new messages
+    This state is used to sendout the unread email notification
+    when a user has new messages on the plattform
     """
-    unread_message_count = models.IntegerField(default=0)
-    unread_message_count_update_time = models.DateTimeField(
+    # TODO: the unread message count must be reset from in the chat!
+    unread_chat_message_count = models.IntegerField(default=0)
+    unread_chat_message_count_update_time = models.DateTimeField(
         default=datetime.now)
 
-    class UserCategoryChoices(models.IntegerChoices):
+    class UserCategoryChoices(models.TextChoices):
         # For this we can use the default translations '_()'
-        UNDEFINED = 0, _("Undefined")
-        SPAM = 1, _("Spam")
-        LEGIT = 2, _("Legit")
-        TEST = 3, _("Test")
-    user_category = models.IntegerField(
-        choices=UserCategoryChoices.choices, default=UserCategoryChoices.UNDEFINED)
+        UNDEFINED = "undefined", _("Undefined")
+        SPAM = "spam", _("Spam")
+        LEGIT = "legit", _("Legit")
+        TEST = "test", _("Test")
+    user_category = models.CharField(
+        choices=UserCategoryChoices.choices,
+        default=UserCategoryChoices.UNDEFINED,
+        max_length=255)
+
+    # Stores a users past emails ...
+    past_emails = models.JSONField(blank=True, default=list)
+
+    def regnerate_email_auth_code(self, set_to_unauthenticated=True):
+        # We do not log old auth codes, donsnt realy matter
+        self.email_auth_hash = utils._double_uuid()
+        self.email_auth_pin = utils._rand_int5()
+        self.email_authenticated = set_to_unauthenticated
+        self.save()
+
+    def change_searching_state(self, slug):
+        # We put this list here so we ensure to stay safe if we add states that shouldn't be changed by the user!
+        allowed_usr_change_search_states = ['idle', 'searching']
+        assert slug in allowed_usr_change_search_states
+        self.matching_state = slug
+        self.save()
+
+    def archive_email_adress(self, email):
+        self.past_emails.append(email)
+        self.save()
+
+    def set_user_form_completed(self):
+        self.user_form_state = self.UserFormStateChoices.FILLED
+        self.save()
+
+    def confirm_matches(self, matches: list):
+        """
+        Confirms some matches, basicly by removing them from the stack 
+        *but* this can throw 'Not and unconfirmed match'
+        """
+        cur_unconfirmed = self.unconfirmed_matches_stack
+        for m in matches:
+            if not m in cur_unconfirmed:
+                raise Exception("Not an unconfirmed match {m}".format(m=m))
+            else:
+                cur_unconfirmed.remove(m)
+        self.unconfirmed_matches_stack = cur_unconfirmed
+        self.save()
 
     def is_email_verified(self):
         return self.email_authenticated
 
     def is_user_form_filled(self):
         return self.user_form_state == self.UserFormStateChoices.FILLED
+
+    def get_email_auth_pin(self):
+        return self.email_auth_pin
 
     def check_email_auth_pin(self, pin):
         """
@@ -128,4 +208,11 @@ class SelfStateSerializer(StateSerializer):
 
     class Meta:
         model = State
-        fields = ["user_form_state", "user_form_page"]
+        fields = [
+            "user_form_state",
+            "user_form_page",
+            "unconfirmed_matches_stack",
+            "matching_state"
+            # "email_authenticated"
+            # TODO A-- will be imporant once we allow to verify the email later
+        ]
