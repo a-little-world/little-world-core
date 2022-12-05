@@ -119,6 +119,8 @@ if IS_STAGE:
     CSRF_TRUSTED_ORIGINS = [
     ]
 
+CORS_ALLOWED_ORIGINS = "*"  # TODO remove
+
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
 
@@ -155,13 +157,13 @@ if IS_STAGE or IS_PROD:
     AWS_S3_REGION_NAME = os.environ['DJ_AWS_REGION_NAME']
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com'
     # https: // litttle-world-staging-bucket.s3.eu-central-1.amazonaws.com/
-    AWS_S3_ENDPOINT_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}'
+    # AWS_S3_ENDPOINT_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}'
     # {AWS_STORAGE_BUCKET_NAME}
-    AWS_LOCATION = f'{AWS_STORAGE_BUCKET_NAME}/static'
+    AWS_LOCATION = f'static'
     AWS_DEFAULT_ACL = 'public-read'
 
-    AWS_STATIC_ROOT = f'{AWS_STORAGE_BUCKET_NAME}/static'
-    STATIC_URL = '{}/{}/'.format(AWS_S3_ENDPOINT_URL, AWS_STATIC_ROOT)
+    AWS_STATIC_ROOT = f'static'
+    STATIC_URL = '{}/{}/'.format(AWS_S3_CUSTOM_DOMAIN, AWS_STATIC_ROOT)
     #STATIC_ROOT = os.path.join(BASE_DIR, 'static')
     #STATIC_ROOT = '{}/static/'.format(AWS_STORAGE_BUCKET_NAME)
 
@@ -333,7 +335,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     }
-} if IS_DEV else {
+} if IS_DEV or IS_STAGE else {
     'default': {
         'ENGINE': 'django.db.backends.{}'.format(
             os.environ['DJ_DATABASE_ENGINE']
