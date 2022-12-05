@@ -93,7 +93,7 @@ def _parser(use_choices=False):
     parser.add_argument('actions', metavar='A', type=str, default="" if use_choices else default_actions,
                         **(dict(choices=possible_actions) if use_choices else {}), nargs='*', help='action')
     parser.add_argument('-b', '--btype', default="dev",
-                        help="prod, dev, any", **(dict(choices=["development", "staging", "deployment"]) if use_choices else {}))
+                        help="prod, dev, staging", **(dict(choices=["development", "staging", "deployment"]) if use_choices else {}))
     parser.add_argument('-bg', '--background',
                         action="store_true", help="Run the docker container in background (`./run.py kill` to stop)")
     parser.add_argument(
@@ -590,8 +590,14 @@ def update_front(args):
     assert frontends != ''
 
     for app in [args.input] if args.input else frontends.split(","):
-        _run_in_running(
-            _is_dev(args), ["npm", "run", f"build_{app}_{args.btype}"], backend=False)
+
+        env = _env_as_dict(c.denv[1])
+        _cmd = ["npm", "run", f"build_{app}_{args.btype}"] if not _is_dev(args) else \
+            _make_webpack_command(
+                env, f'webpack.{app}.config.js', watch=False, debug=False)
+
+        print("TBS", _cmd)
+        _run_in_running(_is_dev(args), _cmd, backend=False)
 
     kill(args, back=False)  # Kill the frontend container
 
