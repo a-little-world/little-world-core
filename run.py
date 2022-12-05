@@ -422,21 +422,21 @@ def open_staging_keys(args):
     subprocess.run(_cmd)
 
 
-def _process_out(out):
+def _parse_keypass_password_info(out):
     lines = out.split("\n")
     keys = {}
     cur_key = None
     txt = ""
     for l in lines:
-        if ":" in l:
-            cur_key, txt = l.split(":")
+        if ":" in l and (not cur_key or not 'Notes' in cur_key):
+            li = l.split(":")
+            cur_key, txt = li
+            keys[cur_key] = txt + "\n"
         else:
-            txt += "\n" +
-
-    out = {y[0]: y[1][1:] if len(y) > 1 and y[0] != '' else None
-           for y in [x.split(":") for x in out.split("\n")]}
-    assert 'Password' in out, "Password extraction failed, wrong credentials?"
-    return out
+            if cur_key:
+                keys[cur_key] += l + "\n"
+    assert 'Password' in keys, "Password extraction failed, wrong credentials?"
+    return keys
 
 
 @register_action()
@@ -453,7 +453,8 @@ def unlock_and_write_staging_env(args):
     out = subprocess.run(_cmd, stdout=subprocess.PIPE,
                          input=password,
                          encoding='ascii').stdout
-    env_txt = _process_out(out)["Notes"]
+    env_txt = _parse_keypass_password_info(out)["Notes"]
+    print(env_txt)
     assert env_txt
     with open("env_stage", "w+") as f:
         f.write(env_txt)
