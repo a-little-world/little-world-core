@@ -22,11 +22,11 @@ CENSOR_ROUTES = {
         "mode": "k",
         "censor": ["password"]
     },
-    "/set_password": {  # Also takes care of /admin/login
+    "/set_password": {  # changing passwords
         "search": "any",
         "mode": "k",
         "censor": ["password"]
-    }
+    }  # TODO checking password
 }
 
 
@@ -73,6 +73,11 @@ class TrackRequestsMiddleware:
             _kwargs = {k: _kwargs[k]
                        for k in _kwargs if not k in censor["censor"]}
             _censor_kwargs = censor["censor"]
+
+        if 'name' in _kwargs:
+            print(f"got duplicate tracking args name={_kwargs['name']}")
+            _kwargs['name_extra'] = _kwargs['name']
+            del _kwargs['name']  # otherwise can cause dubplicte args
 
         inline_track_event(*[request], name="request",
                            tags=["middleware", "general"],
