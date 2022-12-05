@@ -119,7 +119,7 @@ if IS_STAGE:
     CSRF_TRUSTED_ORIGINS = [
     ]
 
-CORS_ALLOWED_ORIGINS = "*"  # TODO remove
+# CORS_ALLOWED_ORIGINS = "*"  # TODO remove
 
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
@@ -335,7 +335,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     }
-} if IS_DEV or IS_STAGE else {
+} if IS_DEV else {
     'default': {
         'ENGINE': 'django.db.backends.{}'.format(
             os.environ['DJ_DATABASE_ENGINE']
