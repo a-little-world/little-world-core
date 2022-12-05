@@ -21,7 +21,9 @@ class CommunityEventAdmin(admin.ModelAdmin):
 
 @admin.register(models.state.State)
 class StateAdmin(admin.ModelAdmin):
-    list_display = ('user', 'created_at', 'user_form_state')
+    list_display = ('user', 'created_at', 'user_form_state',
+                    'matching_state', 'unread_chat_message_count', 'user_category')
+    list_editable = ('user_category',)
     search_fields = ('user', 'created_at', 'user_form_state')
     ordering = ('user', 'created_at')
 
