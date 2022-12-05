@@ -428,6 +428,7 @@ def _parse_keypass_password_info(out):
     cur_key = None
     txt = ""
     for l in lines:
+        # 'Notes' is the only filed that has multilines allowed
         if ":" in l and (not cur_key or not 'Notes' in cur_key):
             li = l.split(":")
             cur_key, txt = li
@@ -449,7 +450,6 @@ def unlock_and_write_staging_env(args):
     _cmd = ["keepassxc-cli", "show", c.staging_keys,
             "ENV", "--k", c.staging_key_file]
     password = getpass.getpass()
-    # print(password)
     out = subprocess.run(_cmd, stdout=subprocess.PIPE,
                          input=password,
                          encoding='ascii').stdout
