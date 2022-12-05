@@ -26,7 +26,7 @@ def inline_track_event(
     f=None,
     caller="anonymous",
     name="",
-    event_type: int = Event.EventTypeChoices.MISC,
+    event_type: str = Event.EventTypeChoices.MISC,
     tags=[],
     track_arguments="__all__",
     censor_args=False,
