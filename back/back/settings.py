@@ -145,7 +145,7 @@ TEMPLATES = [
 ]
 
 
-if IS_STAGE or IS_PROD:
+if IS_PROD or IS_STAGE:
     # In production & staging we use S3 as file storage!
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
     STATICFILES_STORAGE = 'storages.backends.s3boto3.S3StaticStorage'
@@ -259,20 +259,28 @@ DJANGO_REST_PASSWORDRESET_NO_INFORMATION_LEAKAGE = True
 DJANGO_REST_MULTITOKENAUTH_REQUIRE_USABLE_PASSWORD = False
 
 
-if IS_STAGE or IS_DEV:
+def get_redis_connect_url():
+    return f"rediss://{os.environ['DJ_REDIS_HOST']}:{os.environ['DJ_REDIS_PORT']}"
+    # return "rediss://" + os.environ["DJ_REDIS_USER"] + ":" + os.environ["DJ_REDIS_PASSWORD"] \
+    #    + "@" + os.environ["DJ_REDIS_HOST"] + ":" + os.environ["DJ_REDIS_PORT"]
+
+
+if IS_DEV:
     # autmaticly renders index.html when entering an absolute static path
     WHITENOISE_INDEX_FILE = True
     CELERY_BROKER_URL = 'redis://host.docker.internal:6379'
-    CELERY_RESULT_BACKEND = 'django-db'  # 'redis://host.docker.internal:6379'
-    CELERY_ACCEPT_CONTENT = ['application/json']
-    CELERY_TASK_SERIALIZER = 'json'
-    CELERY_RESULT_SERIALIZER = 'json'
-    CELERY_TIMEZONE = 'Asia/Dhaka'  # TODO: change to berlin
-    CELERY_TASK_TRACK_STARTED = True
-    CELERY_TASK_TIME_LIMIT = 30 * 60
+elif IS_STAGE or IS_PROD:
+    CELERY_BROKER_URL = get_redis_connect_url()
 
-    CELERY_RESULT_BACKEND = 'django-db'
+CELERY_RESULT_BACKEND = 'django-db'  # 'redis://host.docker.internal:6379'
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Asia/Dhaka'  # TODO: change to berlin
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60
 
+CELERY_RESULT_BACKEND = 'django-db'
 
 # We enforce these authentication classes
 # By that we force a crsf token to be present on **every** POST request
@@ -304,21 +312,19 @@ if BUILD_TYPE in ['staging', 'development']:
         },
     }
 
-if IS_DEV or IS_STAGE:
+if IS_DEV:
     # or install redis in the container
-    host_ip_from_inside_container = "host.docker.internal"
     CHANNEL_LAYERS = {
         "default": {
-            # "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "BACKEND": "channels.layers.InMemoryChannelLayer",
-            # "CONFIG": {
-            #    "hosts": [(host_ip_from_inside_container, 6379)],
-            # },
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            # "BACKEND": "channels.layers.InMemoryChannelLayer",
+            "CONFIG": {
+                "hosts": [("host.docker.internal", 6379)],
+            },
         }
     }
-elif IS_PROD:
-    redis_connect_url = "rediss://" + os.environ["DJ_REDIS_USER"] + ":" + os.environ["DJ_REDIS_PASSWORD"] \
-        + "@" + os.environ["DJ_REDIS_HOST"] + ":" + os.environ["DJ_REDIS_PORT"]
+elif IS_STAGE or IS_PROD:
+    redis_connect_url = get_redis_connect_url()
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
@@ -361,7 +367,6 @@ if IS_PROD:
     EMAIL_PORT = 587
     EMAIL_USE_TLS = True
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-    # TODO create this param
     DEFAULT_FROM_EMAIL = os.environ["DJ_SG_DEFAULT_FROM_EMAIL"]
 
 """
