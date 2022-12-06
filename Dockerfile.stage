@@ -10,8 +10,14 @@ RUN pip cache purge
 # Copy all the backend files
 # this assumes all the frontends are build and the static files have already been moved to ./back/static
 ADD back /back/
-# ADD front /front/
 
-#EXPOSE 8000
+RUN mkdir /front
+ADD front/cookie_banner_frontend.webpack-stats.json /front/cookie_banner_frontend.webpack-stats.json
+ADD front/admin_panel_frontend.webpack-stats.json /front/admin_panel_frontend.webpack-stats.json
+ADD front/user_form_frontend.webpack-stats.json /front/user_form_frontend.webpack-stats.json
+ADD front/main_frontend.webpack-stats.json /front/main_frontend.webpack-stats.json
 
-CMD uvicorn back.asgi:application --port $PORT --host 0.0.0.0
+EXPOSE 8000
+
+# CMD uvicorn back.asgi:application --port $PORT --host 0.0.0.0
+CMD ["sh", "./entry.sh"]
