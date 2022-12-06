@@ -592,9 +592,8 @@ def update_front(args):
     for app in [args.input] if args.input else frontends.split(","):
 
         env = _env_as_dict(c.denv[1])
-        _cmd = ["npm", "run", f"build_{app}_{args.btype}"] if not _is_dev(args) else \
-            _make_webpack_command(
-                env, f'webpack.{app}.config.js', watch=False, debug=False)
+        _cmd = _make_webpack_command(
+            env, f'webpack.{app}.config.js', watch=False, debug=False)
 
         print("TBS", _cmd)
         _run_in_running(_is_dev(args), _cmd, backend=False)
@@ -703,8 +702,11 @@ def build_front(args):
                 })
                 f.write(json.dumps(package, indent=2))
                 f.truncate()
+        _cmd = _make_webpack_command(
+            env, f'webpack.{front}.config.js', watch=False, debug=False)
+        print("TBS: _cmd ", _cmd)
         _run_in_running(
-            _is_dev(args), ["npm", "run", f"build_{front}_{args.btype}"], backend=False)
+            _is_dev(args), _cmd, backend=False)
     kill(args, back=False)
 
 
