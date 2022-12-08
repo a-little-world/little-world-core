@@ -350,6 +350,7 @@ def deploy_staging(args):
     Note: pushing the image will only work if you have acess permission to the registry, ask tim@timschupp.de for that
     """
     assert args.input, " '-i' required, e.g.: \"{'AWS_ACCOUNT_ID':'...','AWS_REGISTRY_NAME':'...','AWS_REGION':''}\""
+    STAGING_STEPS = ["docker"]  # ["front", "docker"]
     aws_env = eval(args.input)
     args.input = None  # set to none now so no other actions use the parameter
     if 'DOCS' in aws_env and aws_env['DOCS'].lower() in ('true', '1', 't'):
@@ -358,13 +359,19 @@ def deploy_staging(args):
         # Copy the build files to
         shutil.copytree("./_docs/build/html", "./back/static/docs")
         # shutil.copytree("./docs", "./back/static/docs")
-    # Build the frontends
-    build_front(args)
-    # Collect the statics ( also contains the files for open api specifications )
-    build(args)  # Required build of the 'dev' image
-    extract_static(args)
+    if "front" in STAGING_STEPS:
+        # Build the frontends
+        build_front(args)
+        # Collect the statics ( also contains the files for open api specifications )
+        build(args)  # Required build of the 'dev' image
+        # <-- extract static can curretly only be done from inside the dev container
+        extract_static(args)
     # Build Dockerfile.stage
-    _build_file_tag(c.file_staging[1], c.staging_tag, context_dir=".")
+    #_build_file_tag(c.file_staging[1], c.staging_tag, context_dir=".")
+    _cmd = [*c.dbuild,  "-f",  # "--no-cache", <-- sometimes required when image build is misbehaving
+            c.file_staging[1], "-t", c.staging_tag, "."]
+    print(" ".join(_cmd))
+    subprocess.run(_cmd)
     if 'ROOT_USER_PASSWORD' in aws_env:
         print("Got 'ROOT_USER_PASSWORD' adding root user ...")
         # Ok in that case we create a base root user
