@@ -1,3 +1,4 @@
+from channels_redis.core import RedisChannelLayer
 from django.utils.translation import gettext_lazy as _
 import os
 
@@ -79,9 +80,9 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
-    *([  # Whitenoise to server static only needed in staging or development
+    *([  # Whitenoise to server static only needed in development
         'whitenoise.middleware.WhiteNoiseMiddleware',
-    ] if BUILD_TYPE in ['development'] else []),
+    ] if IS_DEV else []),
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',
     'management.middleware.OverwriteSessionLangIfAcceptLangHeaderSet',
@@ -108,18 +109,19 @@ We overwirte the default user model, and add an 'hash' parmameter
 AUTH_USER_MODEL = 'management.User'
 
 CORS_ALLOWED_ORIGINS = []
-if IS_STAGE:
+if IS_STAGE or IS_PROD:
+    # TODO: figure out which of these actually is the correct one!
     CORS_ALLOWED_ORIGINS = [
+        BASE_URL
     ]
 
     CORS_ORIGIN_WHITELIST = [
-        # TODO: !!
+        BASE_URL
     ]
 
     CSRF_TRUSTED_ORIGINS = [
+        BASE_URL
     ]
-
-# CORS_ALLOWED_ORIGINS = "*"  # TODO remove
 
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
@@ -200,6 +202,7 @@ else:
 USE_I18N = True
 def ugettext(s): return s
 
+
 """
 We want BigAutoField per default just in case
 this will use 'BigAutoField' as default id for db models
@@ -259,10 +262,8 @@ DJANGO_REST_PASSWORDRESET_NO_INFORMATION_LEAKAGE = True
 DJANGO_REST_MULTITOKENAUTH_REQUIRE_USABLE_PASSWORD = False
 
 
-def get_redis_connect_url():
-    return f"rediss://{os.environ['DJ_REDIS_HOST']}:{os.environ['DJ_REDIS_PORT']}"
-    # return "rediss://" + os.environ["DJ_REDIS_USER"] + ":" + os.environ["DJ_REDIS_PASSWORD"] \
-    #    + "@" + os.environ["DJ_REDIS_HOST"] + ":" + os.environ["DJ_REDIS_PORT"]
+def get_redis_connect_url_port():
+    return os.environ['DJ_REDIS_HOST'], os.environ['DJ_REDIS_PORT']
 
 
 if IS_DEV:
@@ -270,7 +271,13 @@ if IS_DEV:
     WHITENOISE_INDEX_FILE = True
     CELERY_BROKER_URL = 'redis://host.docker.internal:6379'
 elif IS_STAGE or IS_PROD:
-    CELERY_BROKER_URL = get_redis_connect_url()
+    # Sadly it turnsour that celery doesn't support redis clusters
+    # So we will need to use Rabbit MQ instead
+    # url, port = get_redis_connect_url_port()
+    # CELERY_BROKER_URL = f"rediss://{url}:{port}/0"
+    mb_usr, mb_pass, mb_host, mb_port = os.environ['DJ_RABBIT_MQ_USER'], os.environ[
+        'DJ_RABBIT_MQ_PASSWORD'], os.environ['DJ_RABBIT_MQ_HOST'], os.environ['DJ_RABBIT_MQ_PORT']
+    CELERY_BROKER_URL = f'amqps://{mb_usr}:{mb_pass}@{mb_host}:{mb_port}'
 
 CELERY_RESULT_BACKEND = 'django-db'  # 'redis://host.docker.internal:6379'
 CELERY_ACCEPT_CONTENT = ['application/json']
@@ -312,6 +319,7 @@ if BUILD_TYPE in ['staging', 'development']:
         },
     }
 
+
 if IS_DEV:
     # or install redis in the container
     CHANNEL_LAYERS = {
@@ -324,12 +332,26 @@ if IS_DEV:
         }
     }
 elif IS_STAGE or IS_PROD:
-    redis_connect_url = get_redis_connect_url()
+    """
+    There are some quirks setting this up in production: 
+    For aws memory db we can unly connect to channels from redis cli by using --tls
+    I can also connect to redis with redis-py if I use ssl=True
+    But I'm not sure how to tell django-channels to use ssl=True
+    I think there actually isn't such an option, see this issue: https://github.com/django/channels_redis/issues/235
+    Ok I did some digging in the channels_redis package
+    It seems that It uses: aioredis.create_redis_pool(**kwargs)
+    This is based on the host configuration and does accept an ssl=* param
+    And that did acutally fucking work lol, go read some code kids
+    """
+    url, port = get_redis_connect_url_port()
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
             "CONFIG": {
-                "hosts": [(redis_connect_url)],
+                "hosts": [{
+                    'address': f"rediss://{url}:{port}",
+                    'ssl': True
+                }],
             },
         }
     }
