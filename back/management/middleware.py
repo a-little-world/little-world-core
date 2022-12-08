@@ -3,6 +3,7 @@ from django.template import RequestContext
 from django.shortcuts import render
 from django.conf import settings
 from django.contrib.sessions.middleware import SessionMiddleware
+from .models import State
 
 
 def responde_404(request):
@@ -10,6 +11,19 @@ def responde_404(request):
     response.status_code = 404
     return response
 
+
+EXTRA_USER_AUTHORIZATION_ROUTES = {
+    "/db": {
+        "check": lambda u: u.state.has_extra_user_permission(
+            State.ExtraUserPermissionChoices.DATABASE_SCHEMA),
+        "else": lambda r: responde_404(request=r)
+    },
+    "/api/schema": {
+        "check": lambda u: u.state.has_extra_user_permission(
+            State.ExtraUserPermissionChoices.DATABASE_SCHEMA),
+        "else": lambda r: responde_404(request=r)
+    }
+}
 
 # In development it ok if everybody can see the admin paths
 IF_NOT_ADMIN_404_ROUTES = [] if settings.DEBUG else [
@@ -25,6 +39,14 @@ def _is_blocked_route(path):
         if path.startswith(route):
             return True
     return False
+
+
+def _requires_extra_user_permission(path):
+    # Only applicable for users, admins dont need these extra permissions
+    for route in list(EXTRA_USER_AUTHORIZATION_ROUTES.keys()):
+        if path.startswith(route):
+            return True, EXTRA_USER_AUTHORIZATION_ROUTES[route]
+    return False, None
 
 
 def _404_if_not_staff(request, get_response):
@@ -48,6 +70,14 @@ class AdminPathBlockingMiddleware:
         else:
             if _is_blocked_route(path):
                 return _404_if_not_staff(request, self.get_response)
+
+            # Now check for extra user permissions,
+            # Sometimes we might want to allow specific users to view the api/schema for example
+            extra_auth, auth_tools = _requires_extra_user_permission(request)
+            if extra_auth and auth_tools:
+                if not auth_tools["check"](request.user):
+                    return auth_tools["else"](request)
+
         return self.get_response(request)
 
 
