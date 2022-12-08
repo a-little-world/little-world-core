@@ -11,7 +11,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'back.settings')
 #    "management.database_defaults.create_default_community_events",
 # ]
 
-app = Celery('back')
+app = Celery('back', broker=settings.CELERY_BROKER_URL)
 
 # Using a string here means the worker doesn't have to serialize
 # the configuration object to child processes.
@@ -38,7 +38,7 @@ def startup_task(sender, **k):
 def im_allive_task(self):
     print("> ", datetime.now().strftime("%m/%d/%Y, %H:%M:%S"))
     print("=========================================")
-    print("==== Server I'm happily chillin ;) ======")
+    print("==== Server: I'm happily chilli'n ;) ====")
     print("=========================================")
     # return "RESULT" we don't return this as a result otherwise we would just be flooding the database
 
