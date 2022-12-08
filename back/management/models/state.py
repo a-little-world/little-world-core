@@ -10,6 +10,7 @@ from rest_framework import serializers
 from .notifications import Notification
 from back.utils import get_options_serializer
 from back import utils
+from multiselectfield import MultiSelectField
 
 
 class State(models.Model):
@@ -108,6 +109,23 @@ class State(models.Model):
 
     # Stores a users past emails ...
     past_emails = models.JSONField(blank=True, default=list)
+
+    class ExtraUserPermissionChoices(models.TextChoices):
+        API_SCHEMAS = "view-api-schema", _("Is allowed to view API schemas")
+        DATABASE_SCHEMA = "view-database-schema", _(
+            "Is allowed to view database schemas")
+        AUTO_LOGIN = "use-autologin-api", _(
+            "Is allowed to use the auto login api (with a specific token)")
+
+    extra_user_permissions = MultiSelectField(
+        max_length=1000,
+        choices=ExtraUserPermissionChoices.choices,
+        null=True, blank=True)
+
+    auto_login_api_token = models.CharField()
+
+    def has_extra_user_permission(self, permission):
+        return permission in self.extra_user_permissions
 
     def regnerate_email_auth_code(self, set_to_unauthenticated=True):
         # We do not log old auth codes, donsnt realy matter
