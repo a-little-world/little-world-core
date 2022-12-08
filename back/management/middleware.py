@@ -73,7 +73,7 @@ class AdminPathBlockingMiddleware:
 
             # Now check for extra user permissions,
             # Sometimes we might want to allow specific users to view the api/schema for example
-            extra_auth, auth_tools = _requires_extra_user_permission(request)
+            extra_auth, auth_tools = _requires_extra_user_permission(path)
             if extra_auth and auth_tools:
                 if not auth_tools["check"](request.user):
                     return auth_tools["else"](request)
