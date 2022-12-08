@@ -122,7 +122,8 @@ class State(models.Model):
         choices=ExtraUserPermissionChoices.choices,
         null=True, blank=True)
 
-    auto_login_api_token = models.CharField()
+    auto_login_api_token = models.CharField(
+        default=utils._double_uuid, max_length=255)
 
     def has_extra_user_permission(self, permission):
         return permission in self.extra_user_permissions
