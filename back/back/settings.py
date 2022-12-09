@@ -50,6 +50,8 @@ INSTALLED_APPS = [
     'django_celery_beat',
     'django_celery_results',
 
+    'martor',
+
     # API docs not required in deployment, so we disable to routes
     # Though we keep the backages so we don't have to split the code
     'drf_spectacular',  # for api shema generation
