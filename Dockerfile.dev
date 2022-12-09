@@ -15,6 +15,9 @@ EXPOSE 8000
 
 # Required for extracting translations strings
 RUN apk add gettext
+RUN apk add --update --no-cache py3-numpy
+# link the numpy installation
+ENV PYTHONPATH=/usr/lib/python3.10/site-packages
 
 # Would have went with daphne but no hot reloading (https://github.com/django/daphne/issues/9) is quire problematic
 CMD ["sh", "./entry.sh"]
