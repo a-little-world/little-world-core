@@ -24,18 +24,21 @@ jobs:
         with:
           token: ${{ secrets.BOT_PAT }}
           submodules: recursive
-      - name: Build Image
+      - name: build backend image
         shell: 'script -q -e -c "bash {0}"'
-        run: python3 run.py build # Only build the docker container on CI
-      - name: Build Image
+        run: python3 run.py build
+      - name: build frontend image
+        shell: 'script -q -e -c "bash {0}"'
+        run: python3 run.py bf
+      - name: run backend image
         shell: 'script -q -e -c "bash {0}"'
         # We use '-bg' to run the container in background
         run: python3 run.py r -bg
-      - name: Run Tests
+      - name: run django tests
         shell: 'script -q -e -c "bash {0}"'
-        # Runns 'manage.py' test in the container
+        # Runns 'manage.py test' in the container
         run: python3 run.py run_django_tests
-      - name: Build Image
+      - name: kill backend image
         shell: 'script -q -e -c "bash {0}"'
         # Kill everything we are done
         run: python3 run.py kill
