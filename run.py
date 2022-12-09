@@ -582,7 +582,7 @@ def _make_webpack_command(env, config, debug: bool, watch: bool):
     return _cmd
 
 
-@register_action(alias=["uf"], cont=True)
+@register_action(alias=["uf", "update_frontend"], cont=True)
 def update_front(args):
     """
     only to be run when frontends are build
@@ -680,11 +680,11 @@ def build_front(args):
     subprocess.run(_cmd)  # 2
     _run_in_running(_is_dev(args), ["npm", "i"], backend=False)  # 3
     print(
-        f'`npm i` for frontends: {frontends} \nAdd frontends under `FR_FRONTENDS` in env, place them in front/apps/')
+        f'`npm ci` for frontends: {frontends} \nAdd frontends under `FR_FRONTENDS` in env, place them in front/apps/')
     for front in frontends:
         # TODO: there should also be an 'update' option that doesn't install all of this!
         _run_in_running(
-            _is_dev(args), ["npm", "i"], work_dir=f"/front/apps/{front}", backend=False)  # 4
+            _is_dev(args), ["npm", "ci"], work_dir=f"/front/apps/{front}", backend=False)  # 4
     # Frontend builds can only be performed with the webpack configs present
     with open('./front/webpack.template.js', 'r') as f:
         webpack_template = f.read()
@@ -710,7 +710,7 @@ def build_front(args):
                 f.write(json.dumps(package, indent=2))
                 f.truncate()
         _cmd = _make_webpack_command(
-            env, f'webpack.{front}.config.js', watch=False, debug=False)
+            env, f'webpack.{front}.config.js', watch=False, debug=_is_dev(args))
         print("TBS: _cmd ", _cmd)
         _run_in_running(
             _is_dev(args), _cmd, backend=False)
