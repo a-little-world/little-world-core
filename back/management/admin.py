@@ -1,3 +1,5 @@
+from django.db import models as dj_models
+from martor.widgets import AdminMartorWidget
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from django.utils.safestring import mark_safe
@@ -17,6 +19,19 @@ class BackendStateAdmin(admin.ModelAdmin):
 class CommunityEventAdmin(admin.ModelAdmin):
     list_display = ('title', 'active', 'description',
                     'time', 'frequency', 'link')
+
+
+@admin.register(models.matching_scores.MatchinScore)
+class DirectionalMatchinScores(admin.ModelAdmin):
+    list_display = ('from_usr', 'to_usr', 'score', 'matchable')
+
+
+@admin.register(models.matching_scores.ScoreTableSource)
+class ScoreTableAdmin(admin.ModelAdmin):
+    list_display = ('tag', 'hash', 'created_at')
+    formfield_overrides = {
+        dj_models.TextField: {'widget': AdminMartorWidget},
+    }
 
 
 @admin.register(models.state.State)
