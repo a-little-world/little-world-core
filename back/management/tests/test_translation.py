@@ -8,7 +8,7 @@ from management.api.user_data import get_user_models
 from django.conf import settings
 from management.models import profile
 from rest_framework.test import APIRequestFactory, force_authenticate
-from . import api
+from .. import api
 
 valid_request_data = dict(
     email='benjamin.tim@gmx.de',
@@ -38,6 +38,7 @@ class TestTranslations(TestCase):
             factory = APIRequestFactory(enforce_csrf_checks=True)
             request = factory.get(f'/api/trans/{lang}')
             context[lang_code] = get_trans_as_tag_catalogue(request, lang_code)
+            print("TRANS", context)
             assert context[lang_code], "Translation dict emtpy!"
         return context
 
