@@ -582,6 +582,14 @@ def _make_webpack_command(env, config, debug: bool, watch: bool):
     return _cmd
 
 
+@register_action(parse_own_args=True)
+def relink_env(args):
+    assert len(args.unknown) == 1, "Enter one env to relink"
+    assert os.path.exists(args.unknown[0]), f"Cant find env {args.unknown[0]}"
+    os.unlink("./env")
+    os.symlink(args.unknown[0], "./env")
+
+
 @register_action(alias=["uf", "update_frontend"], cont=True)
 def update_front(args):
     """
