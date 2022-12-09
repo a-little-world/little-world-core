@@ -5,18 +5,8 @@ user below helpers to transform them to numpy arrays
 import numpy as np
 
 
-def raw_sheets_print_to_md(data):
-    # This is just cause tim is too lazy to convert the tables to markdown
-    # So he made a helper that simply allowes to copy paste the data from a goole sheet
-    # TODO: they should all the in markdown format directly ( or some other format )
-    rows = []
-    _rows = data.split("\n")
-    for r in _rows:
-        _rn = r.replace("\t", " | ")
-        if _rn != "":
-            rows.append(_rn)
-
-    return '\n'.join(rows)
+def raw_sheets_print_to_md(raw_sheet: str):
+    return raw_sheet
 
 
 helping_group: str = r"""
@@ -26,6 +16,24 @@ helping_group: str = r"""
 |  1  |  0 | 25 |  0 | 0  |
 | 2   | 0  | 0  | 25 | 0  |
 | 3   | 0  | 0  | 0  | 25 |
+"""
+
+target_group_score_table: str = r"""
+| y:volunteer, x:learner | any.ler | refugee.ler | student.ler | worker.ler  |
+|:----------------------:|:-------:|:-----------:|:-----------:|:-----------:|
+| any.vol                |  25     |  30         |  20         |   20        |
+| refugee.ler            |   0     |  25         |   0         |    0        |
+| student.ler            |   0     |   0         |  25         |    0        |
+| worker.ler             |   0     |   0         |   0         |   25        |
+"""
+
+target_group_msg: str = r"""
+| y:volunteer, x:learner | any.ler | refugee.ler | student.ler | worker.ler  |
+|:----------------------:|:-------:|:-----------:|:-----------:|:-----------:|
+| any.vol                | both:any| v:any       | v:any       | v:any       |
+| refugee.ler            |  -      | matching    |  -          |  -          |
+| student.ler            |  -      |  -          | matching    |  -          |
+| worker.ler             |  -      |  -          |  -          | matching    |
 """
 
 helping_group_msg: str = r"""
