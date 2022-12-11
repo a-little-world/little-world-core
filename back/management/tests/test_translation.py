@@ -57,7 +57,9 @@ class TestTranslations(TestCase):
             for lang in non_tag_lang:
                 if k not in context[lang]:
                     missing_trans[lang].append(k)
-        assert all([missing_trans[l] for l in non_tag_lang]
+
+        print("MISSING", missing_trans)
+        assert all([len(missing_trans[l]) == 0 for l in non_tag_lang]
                    ), f"There are missing translations:\n" \
             + '\n'.join([f"Lang: '{l}':\n" + '\n'.join([t for t in missing_trans[l]])
                         for l in non_tag_lang])
