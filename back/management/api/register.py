@@ -117,5 +117,9 @@ class Register(APIView):
         # also performs registration, send email etc...
         usr = controller.create_user(**{k: getattr(registration_data, k) for k in registration_data.__annotations__},
                                      send_verification_mail=True)
-        login(request, usr)
+        try:
+            login(request, usr)  # this errors in tests, if used as function
+        except Exception as e:
+            print("Auto login failed: {}".format(repr(e)))
+            return Response("User cerated but auto login failed")
         return Response("Sucessfully Created User")
