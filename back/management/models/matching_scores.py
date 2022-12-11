@@ -29,6 +29,8 @@ def nparray_and_indexes_to_dict_graph(array, indexes):
     for x in range(len(indexes["x"])):
         for y in range(len(indexes["y"])):
             d[(indexes["x"][x], indexes["y"][y])] = array[y][x]
+            # We need both directions!
+            d[(indexes["y"][y], indexes["x"][x])] = array[y][x]
     return d
 
 
@@ -105,9 +107,31 @@ class MatchinScore(models.Model):
 
     meta = models.JSONField()
 
+    current_score = models.BooleanField(default=True)
+
+    rendered_results_md_table = models.TextField(default="")
+
     class Meta:
         constraints = [
             models.UniqueConstraint(
                 fields=['from_usr', 'to_usr', 'relation_slug'], name='unique_from_to_usr_relation'
             )
         ]
+
+    def save(self, *args, **kwargs):
+
+        # Now check if there is another score with that relational slug
+        if not 'depricated_score' in kwargs or not kwargs['depricated_score']:
+            self.relation_slug = "{}_{}".format(
+                self.from_usr.hash, self.to_usr.hash)
+            old_score = MatchinScore.objects.filter(
+                relation_slug=self.relation_slug)
+
+            if old_score.exists():
+                for s in old_score:
+                    s.current_score = False
+                    s.relation_slug = s.relation_slug + "_depricated_" + _double_uuid()
+                    s.save(depricated_score=True)
+        if 'depricated_score' in kwargs:
+            del kwargs['depricated_score']
+        super().save(*args, **kwargs)
