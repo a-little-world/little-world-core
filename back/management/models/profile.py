@@ -342,7 +342,7 @@ class ProfileBase(models.Model):
     image = models.ImageField(
         upload_to=PathRename("profile_pics/"), blank=True)
     avatar_config = models.JSONField(
-        default="", blank=True)  # Contains the avatar builder config
+        default=dict, blank=True)  # Contains the avatar builder config
 
     def add_profile_picture_from_local_path(self, path):
         print("Trying to add the pic", path)
