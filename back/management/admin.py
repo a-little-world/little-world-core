@@ -43,8 +43,8 @@ class ScoreTableAdmin(admin.ModelAdmin):
 @admin.register(models.state.State)
 class StateAdmin(admin.ModelAdmin):
     list_display = ('user', 'created_at', 'user_form_state',
-                    'matching_state', 'unread_chat_message_count', 'user_category')
-    list_editable = ('user_category',)
+                    'matching_state', 'unread_chat_message_count', 'user_category', 'tags')
+    list_editable = ('user_category', 'tags',)
     search_fields = ('user', 'created_at', 'user_form_state')
     ordering = ('user', 'created_at')
 
@@ -69,7 +69,8 @@ def make_match_admin(modeladmin, request, queryset):
 
 @admin.register(models.profile.Profile)
 class ProfileModelAdmin(admin.ModelAdmin):
-    list_display = ('user', 'first_name', 'second_name')
+    list_display = ('user', 'first_name', 'second_name',
+                    'user_type', 'birth_year', 'description', 'lang_level', 'notify_channel')
 
     actions = [make_match_admin]
 
