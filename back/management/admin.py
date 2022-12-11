@@ -23,7 +23,13 @@ class CommunityEventAdmin(admin.ModelAdmin):
 
 @admin.register(models.matching_scores.MatchinScore)
 class DirectionalMatchinScores(admin.ModelAdmin):
-    list_display = ('from_usr', 'to_usr', 'score', 'matchable')
+    list_display = ('from_usr', 'current_score',
+                    'to_usr', 'score', 'matchable', 'messages')
+    search_fields = ('from_usr__email', 'from_usr__hash')
+    list_filter = ('matchable', 'current_score')
+    formfield_overrides = {
+        dj_models.TextField: {'widget': AdminMartorWidget},
+    }
 
 
 @admin.register(models.matching_scores.ScoreTableSource)
@@ -131,6 +137,13 @@ class UserAdmin(DjangoUserAdmin):
             f'<a href="/admin_chat/?usr_hash={obj.hash}" target="_blank" rel="noopener noreferrer" >open</a>'
         )
 
+    @admin.display(description='matching')
+    def show_matching_suggestions(self, obj):
+        route = f'/admin/management/matchinscore/?matchable__exact=1&current_score__exact=1&q={obj.hash}&o=-4'
+        return mark_safe(
+            f'<a href="{route}" target="_blank" rel="noopener noreferrer" >view suggestions</a>'
+        )
+
     def get_search_results(self, request, queryset, search_term):
         queryset, use_distinct = super(DjangoUserAdmin, self).get_search_results(
             request, queryset, search_term)
@@ -155,7 +168,7 @@ class UserAdmin(DjangoUserAdmin):
         }),
     )
     list_display = ('_abr_hash', 'email', 'last_login', 'date_joined',
-                    'first_name', 'last_name', 'chat_with', 'is_user_form_filled', 'is_staff')
+                    'first_name', 'last_name', 'chat_with', 'show_matching_suggestions', 'is_user_form_filled', 'is_staff')
     search_fields = ('email', 'first_name', 'last_name', 'hash')
     # fist & last names are read-only here,
     # the user can change the first / lastnames stored in profile, but not this one!
