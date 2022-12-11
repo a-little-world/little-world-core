@@ -125,6 +125,23 @@ class State(models.Model):
     auto_login_api_token = models.CharField(
         default=utils._double_uuid, max_length=255)
 
+    class TagChoices(models.TextChoices):
+        SPAM = "state.tags-spam"
+        WRONG_LANG_LEVEL = "state.tags-wrong-language-level"
+        NAME_NOT_CORRECT = "state.tags-name-not-correct"
+        DESCRIPTION_LANG_WRONG = "state.tags-description-lang-wrong"
+        LANGUAGE_LEVEL_TO_LOW_OR_UNCERTAIN = "state.tags-language-level-to-low-or-uncertain"
+        TOO_YUNG = "state.tags-too-young"
+        DOESNT_AWNSER_MATCH = "state.tags-doesnt-awnser-match"
+        POSTAL_CODE_INVALID = "state.tags-postal-code-invalid"
+        WANTS_TO_LEARN_OTHER_LANGUAGE = "state.tags-wants-to-learn-other-language"
+        REQUESTED_TO_BE_DELETED = "state.tags-requested-to-be-deleted"
+        UNCERTAIN_IF_VOL_OR_LEARNER = "state.tags-uncertain-if-vol-or-learner"
+
+    tags = MultiSelectField(
+        choices=TagChoices.choices, max_choices=20,
+        max_length=1000, blank=True, null=True)  # type: ignore
+
     def has_extra_user_permission(self, permission):
         return permission in self.extra_user_permissions
 
