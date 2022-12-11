@@ -6,18 +6,18 @@ TARGET_GROUP_SCORES: str = r"""
 | y:volunteer, x:learner | any.ler | refugee.ler | student.ler | worker.ler  |
 |:----------------------:|:-------:|:-----------:|:-----------:|:-----------:|
 | any.vol                |  25     |  30         |  20         |   20        |
-| refugee.ler            |   0     |  25         |   0         |    0        |
-| student.ler            |   0     |   0         |  25         |    0        |
-| worker.ler             |   0     |   0         |   0         |   25        |
+| refugee.vol            |   0     |  25         |   0         |    0        |
+| student.vol            |   0     |   0         |  25         |    0        |
+| worker.vol             |   0     |   0         |   0         |   25        |
 """
 
 TARGET_GROUP_MESSAGES: str = r"""
 | y:volunteer, x:learner | any.ler | refugee.ler | student.ler | worker.ler  |
 |:----------------------:|:-------:|:-----------:|:-----------:|:-----------:|
 | any.vol                | both:any| v:any       | v:any       | v:any       |
-| refugee.ler            |  -      | matching    |  -          |  -          |
-| student.ler            |  -      |  -          | matching    |  -          |
-| worker.ler             |  -      |  -          |  -          | matching    |
+| refugee.vol            |  -      | matching    |  -          |  -          |
+| student.vol            |  -      |  -          | matching    |  -          |
+| worker.vol             |  -      |  -          |  -          | matching    |
 """
 
 PARTNER_LOCATION_SCORES: str = r"""
