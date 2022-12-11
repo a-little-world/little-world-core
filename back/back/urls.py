@@ -1,10 +1,10 @@
+from dataclasses import dataclass
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth.views import LoginView
-
 
 """
 We are adding all app urls under `'/'` their paths should be set under `<app>/urls.py`
@@ -31,6 +31,8 @@ urlpatterns = [
 
 # These view have extra accesibility control via 'management.middleware'
 urlpatterns += [
+    path('martor/', include('martor.urls')),
+
     path('db/', include('django_spaghetti.urls')),
     # Don't expose the api shemas in production!
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
