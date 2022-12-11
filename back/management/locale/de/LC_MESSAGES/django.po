@@ -258,42 +258,42 @@ msgstr "Ehrenamtliche*r Sprachpate/patin"
 #: models/profile.py:101
 msgctxt "profile.user-type.learner"
 msgid "Language learner"
-msgstr ""
+msgstr "Sprachlernende*r"
 
 #: models/profile.py:122
 msgctxt "profile.target-group.any-vol"
 msgid "Any group"
-msgstr ""
+msgstr "Egal welche Gruppe"
 
 #: models/profile.py:125
 msgctxt "profile.target-group.any-ler"
 msgid "Any group"
-msgstr ""
+msgstr "Irgendeiner Gruppe"
 
 #: models/profile.py:128
 msgctxt "profile.target-group.refugee-vol"
 msgid "Refugees only"
-msgstr ""
+msgstr "Geflüchtete (u.a. Ukraine, Jemen, Syrien)"
 
 #: models/profile.py:131
 msgctxt "profile.target-group.refugee-ler"
 msgid "Refugees only"
-msgstr ""
+msgstr "Geflüchtete (u.a. Ukraine, Jemen, Syrien)"
 
 #: models/profile.py:134
 msgctxt "profile.target-group.student-vol"
 msgid "Students only"
-msgstr ""
+msgstr "Nur Studenten"
 
 #: models/profile.py:137
 msgctxt "profile.target-group.student-ler"
 msgid "Students only"
-msgstr ""
+msgstr "Studierenden"
 
 #: models/profile.py:140
 msgctxt "profile.target-group.worker-vol"
 msgid "Workers only"
-msgstr ""
+msgstr "Fachkräften aus dem Ausland"
 
 #: models/profile.py:143
 msgctxt "profile.target-group.worker-ler"
@@ -303,172 +303,172 @@ msgstr ""
 #: models/profile.py:154
 msgctxt "profile.partner-sex.any"
 msgid "Any"
-msgstr ""
+msgstr "Egal"
 
 #: models/profile.py:155
 msgctxt "profile.partner-sex.male"
 msgid "Male only"
-msgstr ""
+msgstr "Männlich"
 
 #: models/profile.py:157
 msgctxt "profile.partner-sex.female"
 msgid "Female only"
-msgstr ""
+msgstr "Weiblich"
 
 #: models/profile.py:169
 msgctxt "profile.speech-medium.any-vol"
 msgid "Any"
-msgstr ""
+msgstr "Video oder Telefon"
 
 #: models/profile.py:172
 msgctxt "profile.speech-medium.any-ler"
 msgid "Any"
-msgstr ""
+msgstr "Video oder Telefon"
 
 #: models/profile.py:175
 msgctxt "profile.speech-medium.video-vol"
 msgid "Video only"
-msgstr ""
+msgstr "nur Videotelefonie (auch ohne Video)"
 
 #: models/profile.py:178
 msgctxt "profile.speech-medium.video-ler"
 msgid "Video only"
-msgstr ""
+msgstr "nur Videotelefonie (auch ohne Video)"
 
 #: models/profile.py:181
 msgctxt "profile.speech-medium.phone-vol"
 msgid "Phone only"
-msgstr ""
+msgstr "nur Telefon"
 
 #: models/profile.py:184
 msgctxt "profile.speech-medium.phone-ler"
 msgid "Phone only"
-msgstr ""
+msgstr "nur Telefon"
 
 #: models/profile.py:196
 msgctxt "profile.partner-location.anywhere-vol"
 msgid "Anywhere"
-msgstr ""
+msgstr "egal"
 
 #: models/profile.py:199
 msgctxt "profile.partner-location.anywhere-ler"
 msgid "Anywhere"
-msgstr ""
+msgstr "egal"
 
 #: models/profile.py:202
 msgctxt "profile.partner-location.close-vol"
 msgid "Close"
-msgstr ""
+msgstr "möglichst in meiner Nähe wohnen"
 
 #: models/profile.py:205
 msgctxt "profile.partner-location.close-ler"
 msgid "Close"
-msgstr ""
+msgstr "möglichst in meiner Nähe wohnen"
 
 #: models/profile.py:208
 msgctxt "profile.partner-location.far-vol"
 msgid "Far"
-msgstr ""
+msgstr "nicht in meiner Nähe wohnen"
 
 #: models/profile.py:211
 msgctxt "profile.partner-location.far-ler"
 msgid "Far"
-msgstr ""
+msgstr "nicht in meiner Nähe wohnen"
 
 #: models/profile.py:224
 msgctxt "profile.sport-interest"
 msgid "Sport"
-msgstr ""
+msgstr "Sport"
 
 #: models/profile.py:225
 msgctxt "profile.art-interest"
 msgid "Art"
-msgstr ""
+msgstr "Kunst"
 
 #: models/profile.py:226
 msgctxt "profile.music-interest"
 msgid "Music"
-msgstr ""
+msgstr "Musik"
 
 #: models/profile.py:228
 msgctxt "profile.literature-interest"
 msgid "Literature"
-msgstr ""
+msgstr "Literatur"
 
 #: models/profile.py:229
 msgctxt "profile.video-interest"
 msgid "Video"
-msgstr ""
+msgstr "Filme"
 
 #: models/profile.py:231
 msgctxt "profile.fashion-interest"
 msgid "Fashion"
-msgstr ""
+msgstr "Mode"
 
 #: models/profile.py:233
 msgctxt "profile.culture-interest"
 msgid "Culture"
-msgstr ""
+msgstr "Kultur"
 
 #: models/profile.py:234
 msgctxt "profile.travel-interest"
 msgid "Travel"
-msgstr ""
+msgstr "Reisen"
 
 #: models/profile.py:235
 msgctxt "profile.food-interest"
 msgid "Food"
-msgstr ""
+msgstr "Essen"
 
 #: models/profile.py:237
 msgctxt "profile.politics-interest"
 msgid "Politics"
-msgstr ""
+msgstr "Politik"
 
 #: models/profile.py:238
 msgctxt "profile.nature-interest"
 msgid "Nature"
-msgstr ""
+msgstr "Natur"
 
 #: models/profile.py:240
 msgctxt "profile.science-interest"
 msgid "Science"
-msgstr ""
+msgstr "Wissenschaft"
 
 #: models/profile.py:242
 msgctxt "profile.tech-interest"
 msgid "Technology"
-msgstr ""
+msgstr "Technologie"
 
 #: models/profile.py:244
 msgctxt "profile.history-interest"
 msgid "History"
-msgstr ""
+msgstr "Geschichte"
 
 #: models/profile.py:246
 msgctxt "profile.religion-interest"
 msgid "Religion"
-msgstr ""
+msgstr "Religion"
 
 #: models/profile.py:248
 msgctxt "profile.soziologie-interest"
 msgid "Sociology"
-msgstr ""
+msgstr "Gesellschaft"
 
 #: models/profile.py:249
 msgctxt "profile.family-interest"
 msgid "Family"
-msgstr ""
+msgstr "Familie"
 
 #: models/profile.py:251
 msgctxt "profile.psycology-interest"
 msgid "Psycology"
-msgstr ""
+msgstr "Psychologie"
 
 #: models/profile.py:253
 msgctxt "profile.pdev-interest"
 msgid "Personal development"
-msgstr ""
+msgstr "Persönliche Entwicklung"
 
 #: models/profile.py:272
 msgctxt "profile.liability.declined"
@@ -483,57 +483,57 @@ msgstr ""
 #: models/profile.py:284
 msgctxt "profile.notify-channel.email"
 msgid "Notify per email"
-msgstr ""
+msgstr "nur per E-Mail benachrichtigt werden?"
 
 #: models/profile.py:286
 msgctxt "profile.notify-channel.sms"
 msgid "Notify per SMS"
-msgstr ""
+msgstr "zusätzlich per SMS benachrichtigt werden?"
 
 #: models/profile.py:288
 msgctxt "profile.notify-channel.call"
 msgid "Notify by calling"
-msgstr ""
+msgstr "zusätzlich einen kurzen Anruf erhalten? Du kannst uns hier alle deine Fragen stellen, bevor es los geht."
 
 #: models/profile.py:309
 msgctxt "profile.lang-level.level-0-vol"
 msgid "any"
-msgstr ""
+msgstr "egal"
 
 #: models/profile.py:311
 msgctxt "profile.lang-level.level-0-ler"
 msgid "any"
-msgstr ""
+msgstr "egal"
 
 #: models/profile.py:314
 msgctxt "profile.lang-level.level-1-vol"
 msgid "B1 = (everyday situations, stories, hopes)"
-msgstr ""
+msgstr "B1 = (Alltagssituationen, Geschichten, Hoffnungen)"
 
 #: models/profile.py:316
 msgctxt "profile.lang-level.level-1-ler"
 msgid "B1 = (everyday situations, stories, hopes)"
-msgstr ""
+msgstr "B1 = (Alltagssituationen, Geschichten, Hoffnungen)"
 
 #: models/profile.py:319
 msgctxt "profile.lang-level.level-2-vol"
 msgid "B2 = (fluent & spontaneous conversations, current events)"
-msgstr ""
+msgstr "B2 = (fließende & spontane Gespräche, aktuelles Geschehen)"
 
 #: models/profile.py:321
 msgctxt "profile.lang-level.level-2-ler"
 msgid "B2 = (fluent & spontaneous conversations, current events)"
-msgstr ""
+msgstr "B2 = (fließende & spontane Gespräche, aktuelles Geschehen)"
 
 #: models/profile.py:324
 msgctxt "profile.lang-level.level-3-vol"
 msgid "C1/C2 = (complex topics, hardly searching for words)"
-msgstr ""
+msgstr "C1 = (komplexe Themen, kaum nach Wörtern suchen)"
 
 #: models/profile.py:326
 msgctxt "profile.lang-level.level-3-ler"
 msgid "C1/C2 = (complex topics, hardly searching for words)"
-msgstr ""
+msgstr "C1 = (komplexe Themen, kaum nach Wörtern suchen)"
 
 #: models/profile.py:335
 msgctxt "profile.image-type.avatar"
