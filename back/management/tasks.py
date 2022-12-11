@@ -118,3 +118,28 @@ def calculate_directional_matching_score_background(usr):
         # e.g.: if the user is a volunteer and the 'other_usr' is also a volunteer
         # then the score calculation would abbort imediately and return 'matchable = False'
         pass
+
+
+@shared_task
+def create_default_table_score_source():
+    if BackendState.is_default_score_source_created(set_true=True):
+        return "default score source already created"
+
+    from .models.matching_scores import ScoreTableSource
+    from .matching.matching_score import SCORING_FUNCTIONS
+    from .matching.score_table_lookup import (
+        TARGET_GROUP_SCORES,
+        TARGET_GROUP_MESSAGES,
+        PARTNER_LOCATION_SCORES,
+        LANGUAGE_LEVEL_SCORES
+    )
+
+    ScoreTableSource.objects.create(
+        target_group_scores=TARGET_GROUP_SCORES,
+        target_group_messages=TARGET_GROUP_MESSAGES,
+        partner_location_scores=PARTNER_LOCATION_SCORES,
+        language_level_scores=LANGUAGE_LEVEL_SCORES,
+        # Per default select **all** scoring functions
+        function_scoring_selection=list(SCORING_FUNCTIONS.keys())
+    )
+    return "default score source created"
