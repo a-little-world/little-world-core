@@ -344,12 +344,23 @@ class ProfileBase(models.Model):
     avatar_config = models.JSONField(
         default=dict, blank=True)  # Contains the avatar builder config
 
+    @classmethod
+    def normalize_choice(obj, choice: str):
+        ends = [".vol", ".ler"]
+        assert any([choice.endswith(c) for c in ends])
+        # TODO: somehow catch if dev accidently retused
+        # .ler / .vol in profile choice
+        return choice.replace(".vol", "").replace(".ler", "")
+
     def add_profile_picture_from_local_path(self, path):
         print("Trying to add the pic", path)
         self.image.save(os.path.basename(path), File(open(path, 'rb')))
         self.save()
 
-    def check_form_completion(self):
+    def check_form_completion(
+            self, mark_completed=True,
+            set_searching_if_completed=True,
+            trigger_score_calulation=True):
         """
         Checks if the userform is completed 
         TODO this could be a little more consize and extract better on which user form page
@@ -360,7 +371,8 @@ class ProfileBase(models.Model):
             "description",  # This is required but 'language_skill_description' is not!
             "image" if self.image_type == self.ImageTypeChoice.IMAGE else "avatar_config",
             # Postal code only required if partner location close selected!
-            *(["postal_code"] if self.speech_medium else []),
+            *(["postal_code"] if self.partner_location == Profile.normalize_choice(
+                self.ConversationPartlerLocation.CLOSE_VOL) else []),
             "target_group",
             # 'additional_interests' also not required
             *(["phone_mobile"] if self.notify_channel !=  # phone is only required if notification channel is not email ( so it's sms or phone )
@@ -374,6 +386,15 @@ class ProfileBase(models.Model):
                 msgs.append(pgettext_lazy("profile.completion-check.missing-value",
                             "'{val}' is not completed".format(val=field)))
                 is_completed = False
+
+        if is_completed and mark_completed:
+            self.user.state.set_user_form_completed()
+
+        if is_completed and set_searching_if_completed:
+            self.user.state.change_searching_state(
+                slug="searching",
+                trigger_score_update=trigger_score_calulation)
+
         return is_completed, msgs
 
     def save(self, *args, **kwargs):
