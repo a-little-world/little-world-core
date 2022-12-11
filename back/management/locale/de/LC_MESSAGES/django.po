@@ -42,7 +42,7 @@ msgstr ""
 #: api/profile.py:83
 msgctxt "profile.completion-check.sucessfull"
 msgid "Profile complete!"
-msgstr ""
+msgstr "Profil vollständig!"
 
 #: api/register.py:40
 msgctxt "register.email-blank-err"
@@ -106,7 +106,7 @@ msgstr "Email verifizierung fehlgeschlagen"
 #: api/user.py:66
 msgctxt "email.verify-auth-data-missing-post"
 msgid "Email authentication data missing"
-msgstr ""
+msgstr "Email authentifizierungsdaten fehlen"
 
 #: api/user.py:72
 msgctxt "email.verify-failure-not-numeric"
@@ -190,7 +190,7 @@ msgstr "Willkommensbenachrichtigung"
 
 #: controller.py:163
 msgid "Welcome Message..."
-msgstr ""
+msgstr "Willkommensnachricht..."
 
 #: controller.py:200 controller.py:201
 #, python-format
@@ -200,55 +200,55 @@ msgstr "Neuer Match: %s"
 #: controller.py:205 controller.py:207
 #, python-format
 msgid "New match found! Checkout %s's profile now"
-msgstr ""
+msgstr "Neuer Match gefunden! Schau dir jetzt das Profil von %s an"
 
 #: models/community_events.py:21
 msgctxt "model.community-event.frequency-weekly"
 msgid "Weekly"
-msgstr ""
+msgstr "Wöchentlich"
 
 #: models/community_events.py:23
 msgctxt "model.community-event.frequency-once"
 msgid "Once"
-msgstr ""
+msgstr "Einmalig"
 
 #: models/notifications.py:27
 msgctxt "notification.state.unread"
 msgid "Unread"
-msgstr ""
+msgstr "Ungelesen"
 
 #: models/notifications.py:28
 msgctxt "notification.state.read"
 msgid "Read"
-msgstr ""
+msgstr "Gelesen"
 
 #: models/notifications.py:30
 msgctxt "notification.state.archived"
 msgid "Archived"
-msgstr ""
+msgstr "Archiviert"
 
 #: models/notifications.py:36
 msgctxt "notification.type.none"
 msgid "No Type"
-msgstr ""
+msgstr "Kein Typ"
 
 #: models/notifications.py:37
 msgctxt "notification.type.match"
 msgid "Match"
-msgstr ""
+msgstr "Match"
 
 #: models/notifications.py:39
 msgctxt "notification.type.message"
 msgid "message"
-msgstr ""
+msgstr "Nachricht"
 
 #: models/notifications.py:45 models/user.py:159
 msgid "title"
-msgstr ""
+msgstr "Titel"
 
 #: models/notifications.py:46
 msgid "no-description"
-msgstr ""
+msgstr "Keine Beschreibung"
 
 #: models/profile.py:99
 msgctxt "profile.user-type.volunteer"
@@ -298,7 +298,7 @@ msgstr "Fachkräften aus dem Ausland"
 #: models/profile.py:143
 msgctxt "profile.target-group.worker-ler"
 msgid "Workers only"
-msgstr ""
+msgstr "Arbeitenden"
 
 #: models/profile.py:154
 msgctxt "profile.partner-sex.any"
@@ -473,12 +473,12 @@ msgstr "Persönliche Entwicklung"
 #: models/profile.py:272
 msgctxt "profile.liability.declined"
 msgid "Declined Liability"
-msgstr ""
+msgstr "Ablehnung der Haftungserklärung"
 
 #: models/profile.py:275
 msgctxt "profile.liability.accepted"
 msgid "Accepted Liability"
-msgstr ""
+msgstr "Annahme der Haftungserklärung"
 
 #: models/profile.py:284
 msgctxt "profile.notify-channel.email"
@@ -538,38 +538,38 @@ msgstr "C1 = (komplexe Themen, kaum nach Wörtern suchen)"
 #: models/profile.py:335
 msgctxt "profile.image-type.avatar"
 msgid "Avatar"
-msgstr ""
+msgstr "Avatar"
 
 #: models/profile.py:336
 msgctxt "profile.image-type.image"
 msgid "Image"
-msgstr ""
+msgstr "Bild"
 
 #: models/profile.py:387
 #, python-brace-format
 msgctxt "profile.completion-check.missing-value"
 msgid "'{val}' is not completed"
-msgstr ""
+msgstr "'{val}' ist nicht ausgefüllt"
 
 #: models/profile.py:499
 msgctxt "profile.lskill-descr-to-long"
 msgid "must have a maximum of 300 characters"
-msgstr ""
+msgstr "Darf maximal 300 Zeichen haben"
 
 #: models/profile.py:505
 msgctxt "profile.descr-to-long"
 msgid "must have a maximum of 300 characters"
-msgstr ""
+msgstr "Darf maximal 300 Zeichen haben"
 
 #: models/profile.py:521
 msgctxt "profile.image-missing"
 msgid "You have selected profile image but not uploaded an image"
-msgstr ""
+msgstr "Du hast ein Bild ausgewählt, aber kein Bild hochgeladen"
 
 #: models/profile.py:533
 msgctxt "profile.avatar-missing"
 msgid "You have selected avatar but not uploaded an avatar"
-msgstr ""
+msgstr "Du hast ein Avatar ausgewählt, aber kein Avatar erstellt"
 
 #: models/profile.py:543
 msgctxt "profile.descr-to-short"
@@ -578,49 +578,49 @@ msgstr "muss mindestend 10 characters haben"
 
 #: models/state.py:33
 msgid "Unfilled user form"
-msgstr ""
+msgstr "Nicht ausgefülltes Benutzerformular"
 
 #: models/state.py:34
 msgid "Filled user form"
-msgstr ""
+msgstr "Benutzerformular ausgefüllt"
 
 #: models/state.py:66
 msgctxt "models.state.matching-state-idle"
 msgid "Not Searching (Idle)"
-msgstr ""
+msgstr "Nicht suchend (Idle)"
 
 #: models/state.py:69
 msgctxt "models.state.matching-state-searching"
 msgid "Searching"
-msgstr ""
+msgstr "Suchend"
 
 #: models/state.py:101
 msgid "Undefined"
-msgstr ""
+msgstr "Undefiniert"
 
 #: models/state.py:102
 msgid "Spam"
-msgstr ""
+msgstr "Spam"
 
 #: models/state.py:103
 msgid "Legit"
-msgstr ""
+msgstr "Legit"
 
 #: models/state.py:104
 msgid "Test"
-msgstr ""
+msgstr "Test"
 
 #: models/state.py:114
 msgid "Is allowed to view API schemas"
-msgstr ""
+msgstr "Anzeigen von API Schemata erlaubt"
 
 #: models/state.py:116
 msgid "Is allowed to view database schemas"
-msgstr ""
+msgstr "Anzeigen von Datenbank Schemata erlaubt"
 
 #: models/state.py:118
 msgid "Is allowed to use the auto login api (with a specific token)"
-msgstr ""
+msgstr "Darf die Auto-Login API benutzen (mit einem spezifischen Token)"
 
 #: models/user.py:159
 msgid "description"
@@ -629,13 +629,13 @@ msgstr ""
 #: tasks.py:26
 msgctxt "community-event.coffe-chillout"
 msgid "Kaffeerunden"
-msgstr ""
+msgstr "Kaffeerunden"
 
 #: validators.py:61
 #, python-brace-format
 msgctxt "val.first-name-unallowed-chars"
 msgid "First name contains invalid characters: {chars}"
-msgstr ""
+msgstr "Vorname enthält ungültige Zeichen: {chars}"
 
 #: validators.py:72
 #, python-brace-format
