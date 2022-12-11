@@ -327,7 +327,8 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
 
     mail_data = get_mail_data_by_name("password_reset")
     reset_password_token.user.send_email(
-        subject=pgettext_lazy("api.user-resetpw.mail-subject", ""),
+        subject=pgettext_lazy("api.user-resetpw.mail-subject",
+                              "Password reset Little World"),
         mail_data=mail_data,
         mail_params=PwResetMailParams(
             password_reset_url=reset_password_url

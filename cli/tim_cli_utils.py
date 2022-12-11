@@ -73,14 +73,23 @@ def _print_help(a):
             print("\tNo info availabol")
 
 
+PRINT_ONLY_MODE = False
+
+
 @register_action(alias=["only_print", "stdout", "%%"], cont=True)
 def _print_commands(args, extra_out=["C"]):
     """
     overwrites subprocess.run to only output the commands 
     """
+    PRINT_ONLY_MODE = True
+
     def _print_command_and_args(*args, **kwargs):
         print(
             *extra_out, f"_cmd: `{' '.join(args[0]) if isinstance(args[0], list) else args[0]}`, kwargs: {kwargs}")
+
+        class Placeholder:
+            stdout = ''
+        return Placeholder()
     subprocess.run = _print_command_and_args
     subprocess.check_output = _print_command_and_args
     subprocess.call = _print_command_and_args

@@ -10,6 +10,7 @@ from rest_framework import serializers
 from .notifications import Notification
 from back.utils import get_options_serializer
 from back import utils
+from multiselectfield import MultiSelectField
 
 
 class State(models.Model):
@@ -109,6 +110,41 @@ class State(models.Model):
     # Stores a users past emails ...
     past_emails = models.JSONField(blank=True, default=list)
 
+    class ExtraUserPermissionChoices(models.TextChoices):
+        API_SCHEMAS = "view-api-schema", _("Is allowed to view API schemas")
+        DATABASE_SCHEMA = "view-database-schema", _(
+            "Is allowed to view database schemas")
+        AUTO_LOGIN = "use-autologin-api", _(
+            "Is allowed to use the auto login api (with a specific token)")
+
+    extra_user_permissions = MultiSelectField(
+        max_length=1000,
+        choices=ExtraUserPermissionChoices.choices,
+        null=True, blank=True)
+
+    auto_login_api_token = models.CharField(
+        default=utils._double_uuid, max_length=255)
+
+    class TagChoices(models.TextChoices):
+        SPAM = "state.tags-spam"
+        WRONG_LANG_LEVEL = "state.tags-wrong-language-level"
+        NAME_NOT_CORRECT = "state.tags-name-not-correct"
+        DESCRIPTION_LANG_WRONG = "state.tags-description-lang-wrong"
+        LANGUAGE_LEVEL_TO_LOW_OR_UNCERTAIN = "state.tags-language-level-to-low-or-uncertain"
+        TOO_YUNG = "state.tags-too-young"
+        DOESNT_AWNSER_MATCH = "state.tags-doesnt-awnser-match"
+        POSTAL_CODE_INVALID = "state.tags-postal-code-invalid"
+        WANTS_TO_LEARN_OTHER_LANGUAGE = "state.tags-wants-to-learn-other-language"
+        REQUESTED_TO_BE_DELETED = "state.tags-requested-to-be-deleted"
+        UNCERTAIN_IF_VOL_OR_LEARNER = "state.tags-uncertain-if-vol-or-learner"
+
+    tags = MultiSelectField(
+        choices=TagChoices.choices, max_choices=20,
+        max_length=1000, blank=True, null=True)  # type: ignore
+
+    def has_extra_user_permission(self, permission):
+        return permission in self.extra_user_permissions
+
     def regnerate_email_auth_code(self, set_to_unauthenticated=True):
         # We do not log old auth codes, donsnt realy matter
         self.email_auth_hash = utils._double_uuid()
@@ -116,12 +152,18 @@ class State(models.Model):
         self.email_authenticated = set_to_unauthenticated
         self.save()
 
-    def change_searching_state(self, slug):
+    def change_searching_state(self, slug, trigger_score_update=True):
         # We put this list here so we ensure to stay safe if we add states that shouldn't be changed by the user!
         allowed_usr_change_search_states = ['idle', 'searching']
         assert slug in allowed_usr_change_search_states
         self.matching_state = slug
         self.save()
+
+        if trigger_score_update and slug == 'searching':
+            print("Triggering score update")
+            from ..tasks import calculate_directional_matching_score_background
+            calculate_directional_matching_score_background.delay(
+                self.user.hash)
 
     def archive_email_adress(self, email):
         self.past_emails.append(email)

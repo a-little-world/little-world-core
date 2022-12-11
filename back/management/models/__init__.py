@@ -11,6 +11,6 @@ from .state import State, StateSerializer, SelfStateSerializer
 from .settings import Settings, SelfSettingsSerializer
 from .notifications import Notification, NotificationSerializer, SelfNotificationSerializer
 from .rooms import Room
-from .matching_scores import MatchinScore
+from .matching_scores import MatchinScore, ScoreTableSource
 from .community_events import CommunityEvent
 from .backend_state import BackendState

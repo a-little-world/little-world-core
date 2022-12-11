@@ -1,3 +1,4 @@
+from channels_redis.core import RedisChannelLayer
 from django.utils.translation import gettext_lazy as _
 import os
 
@@ -49,6 +50,8 @@ INSTALLED_APPS = [
     'django_celery_beat',
     'django_celery_results',
 
+    'martor',
+
     # API docs not required in deployment, so we disable to routes
     # Though we keep the backages so we don't have to split the code
     'drf_spectacular',  # for api shema generation
@@ -79,9 +82,9 @@ MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
-    *([  # Whitenoise to server static only needed in staging or development
+    *([  # Whitenoise to server static only needed in development
         'whitenoise.middleware.WhiteNoiseMiddleware',
-    ] if BUILD_TYPE in ['development'] else []),
+    ] if IS_DEV else []),
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',
     'management.middleware.OverwriteSessionLangIfAcceptLangHeaderSet',
@@ -108,15 +111,18 @@ We overwirte the default user model, and add an 'hash' parmameter
 AUTH_USER_MODEL = 'management.User'
 
 CORS_ALLOWED_ORIGINS = []
-if IS_STAGE:
+if IS_STAGE or IS_PROD:
+    # TODO: figure out which of these actually is the correct one!
     CORS_ALLOWED_ORIGINS = [
+        BASE_URL
     ]
 
     CORS_ORIGIN_WHITELIST = [
-        # TODO: !!
+        BASE_URL
     ]
 
     CSRF_TRUSTED_ORIGINS = [
+        BASE_URL
     ]
 
 if not DEBUG:
@@ -143,7 +149,7 @@ TEMPLATES = [
 ]
 
 
-if IS_STAGE or IS_PROD:
+if IS_PROD or IS_STAGE:
     # In production & staging we use S3 as file storage!
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
     STATICFILES_STORAGE = 'storages.backends.s3boto3.S3StaticStorage'
@@ -155,13 +161,18 @@ if IS_STAGE or IS_PROD:
     AWS_S3_REGION_NAME = os.environ['DJ_AWS_REGION_NAME']
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com'
     # https: // litttle-world-staging-bucket.s3.eu-central-1.amazonaws.com/
-    AWS_S3_ENDPOINT_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}'
+    # AWS_S3_ENDPOINT_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}'
     # {AWS_STORAGE_BUCKET_NAME}
-    AWS_LOCATION = f'{AWS_STORAGE_BUCKET_NAME}/static'
+    AWS_LOCATION = f'static'
     AWS_DEFAULT_ACL = 'public-read'
 
-    AWS_STATIC_ROOT = f'{AWS_STORAGE_BUCKET_NAME}/static'
-    STATIC_URL = '{}/{}/'.format(AWS_S3_ENDPOINT_URL, AWS_STATIC_ROOT)
+    STATICFILES_DIRS = [
+        os.path.join(BASE_DIR, 'static/')
+    ]
+
+    AWS_STATIC_ROOT = f'static'
+    STATIC_URL = '{}/{}/'.format(AWS_S3_CUSTOM_DOMAIN, AWS_STATIC_ROOT)
+
     #STATIC_ROOT = os.path.join(BASE_DIR, 'static')
     #STATIC_ROOT = '{}/static/'.format(AWS_STORAGE_BUCKET_NAME)
 
@@ -192,6 +203,7 @@ else:
 
 USE_I18N = True
 def ugettext(s): return s
+
 
 """
 We want BigAutoField per default just in case
@@ -252,20 +264,32 @@ DJANGO_REST_PASSWORDRESET_NO_INFORMATION_LEAKAGE = True
 DJANGO_REST_MULTITOKENAUTH_REQUIRE_USABLE_PASSWORD = False
 
 
-if IS_STAGE or IS_DEV:
+def get_redis_connect_url_port():
+    return os.environ['DJ_REDIS_HOST'], os.environ['DJ_REDIS_PORT']
+
+
+if IS_DEV:
     # autmaticly renders index.html when entering an absolute static path
     WHITENOISE_INDEX_FILE = True
     CELERY_BROKER_URL = 'redis://host.docker.internal:6379'
-    CELERY_RESULT_BACKEND = 'django-db'  # 'redis://host.docker.internal:6379'
-    CELERY_ACCEPT_CONTENT = ['application/json']
-    CELERY_TASK_SERIALIZER = 'json'
-    CELERY_RESULT_SERIALIZER = 'json'
-    CELERY_TIMEZONE = 'Asia/Dhaka'  # TODO: change to berlin
-    CELERY_TASK_TRACK_STARTED = True
-    CELERY_TASK_TIME_LIMIT = 30 * 60
+elif IS_STAGE or IS_PROD:
+    # Sadly it turnsour that celery doesn't support redis clusters
+    # So we will need to use Rabbit MQ instead
+    # url, port = get_redis_connect_url_port()
+    # CELERY_BROKER_URL = f"rediss://{url}:{port}/0"
+    mb_usr, mb_pass, mb_host, mb_port = os.environ['DJ_RABBIT_MQ_USER'], os.environ[
+        'DJ_RABBIT_MQ_PASSWORD'], os.environ['DJ_RABBIT_MQ_HOST'], os.environ['DJ_RABBIT_MQ_PORT']
+    CELERY_BROKER_URL = f'amqps://{mb_usr}:{mb_pass}@{mb_host}:{mb_port}'
 
-    CELERY_RESULT_BACKEND = 'django-db'
+CELERY_RESULT_BACKEND = 'django-db'  # 'redis://host.docker.internal:6379'
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Asia/Dhaka'  # TODO: change to berlin
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60
 
+CELERY_RESULT_BACKEND = 'django-db'
 
 # We enforce these authentication classes
 # By that we force a crsf token to be present on **every** POST request
@@ -297,26 +321,39 @@ if BUILD_TYPE in ['staging', 'development']:
         },
     }
 
-if IS_DEV or IS_STAGE:
+
+if IS_DEV:
     # or install redis in the container
-    host_ip_from_inside_container = "host.docker.internal"
     CHANNEL_LAYERS = {
         "default": {
-            # "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "BACKEND": "channels.layers.InMemoryChannelLayer",
-            # "CONFIG": {
-            #    "hosts": [(host_ip_from_inside_container, 6379)],
-            # },
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            # "BACKEND": "channels.layers.InMemoryChannelLayer",
+            "CONFIG": {
+                "hosts": [("host.docker.internal", 6379)],
+            },
         }
     }
-elif IS_PROD:
-    redis_connect_url = "rediss://" + os.environ["DJ_REDIS_USER"] + ":" + os.environ["DJ_REDIS_PASSWORD"] \
-        + "@" + os.environ["DJ_REDIS_HOST"] + ":" + os.environ["DJ_REDIS_PORT"]
+elif IS_STAGE or IS_PROD:
+    """
+    There are some quirks setting this up in production: 
+    For aws memory db we can unly connect to channels from redis cli by using --tls
+    I can also connect to redis with redis-py if I use ssl=True
+    But I'm not sure how to tell django-channels to use ssl=True
+    I think there actually isn't such an option, see this issue: https://github.com/django/channels_redis/issues/235
+    Ok I did some digging in the channels_redis package
+    It seems that It uses: aioredis.create_redis_pool(**kwargs)
+    This is based on the host configuration and does accept an ssl=* param
+    And that did acutally fucking work lol, go read some code kids
+    """
+    url, port = get_redis_connect_url_port()
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
             "CONFIG": {
-                "hosts": [(redis_connect_url)],
+                "hosts": [{
+                    'address': f"rediss://{url}:{port}",
+                    'ssl': True
+                }],
             },
         }
     }
@@ -333,7 +370,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     }
-} if IS_DEV or IS_STAGE else {
+} if IS_DEV else {
     'default': {
         'ENGINE': 'django.db.backends.{}'.format(
             os.environ['DJ_DATABASE_ENGINE']
@@ -354,7 +391,6 @@ if IS_PROD:
     EMAIL_PORT = 587
     EMAIL_USE_TLS = True
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-    # TODO create this param
     DEFAULT_FROM_EMAIL = os.environ["DJ_SG_DEFAULT_FROM_EMAIL"]
 
 """
@@ -483,6 +519,8 @@ JAZZMIN_SETTINGS = {
         "management.BackendState": "fas fa-code",
         "management.User": "fas fa-user",
         "management.State": "fas fa-user-cog",
+        "management.MatchinScore": "fas fa-project-diagram",
+        "management.ScoreTableSource": "fas fa-digital-tachograph",
         "management.Profile": "fas fa-user-circle",
         "management.Room": "fas fa-video",
         "management.Settings": "fas fa-cogs",

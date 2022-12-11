@@ -63,6 +63,9 @@ class c:
     staging_tag = f"{TAG}.stage"
     stage_env = "./env_stage"
 
+    staging_keys = "staging/staging_keys.kdbx"
+    staging_key_file = "staging/little-world-staging-key.key"
+
 
 subprocess_capture_out = {
     "capture_output": True,
@@ -87,10 +90,10 @@ def _parser(use_choices=False):
     possible_actions.append("")  # Empty action
     default_actions = ["_setup", "build", "static", "migrate", "run"]
     parser = argparse.ArgumentParser()
-    parser.add_argument('actions', metavar='A', type=str, default="",
+    parser.add_argument('actions', metavar='A', type=str, default="" if use_choices else default_actions,
                         **(dict(choices=possible_actions) if use_choices else {}), nargs='*', help='action')
     parser.add_argument('-b', '--btype', default="dev",
-                        help="prod, dev, any", **(dict(choices=["development", "staging", "deployment"]) if use_choices else {}))
+                        help="prod, dev, staging", **(dict(choices=["development", "staging", "deployment"]) if use_choices else {}))
     parser.add_argument('-bg', '--background',
                         action="store_true", help="Run the docker container in background (`./run.py kill` to stop)")
     parser.add_argument(
@@ -347,6 +350,7 @@ def deploy_staging(args):
     Note: pushing the image will only work if you have acess permission to the registry, ask tim@timschupp.de for that
     """
     assert args.input, " '-i' required, e.g.: \"{'AWS_ACCOUNT_ID':'...','AWS_REGISTRY_NAME':'...','AWS_REGION':''}\""
+    STAGING_STEPS = ["docker"]  # ["front", "docker"]
     aws_env = eval(args.input)
     args.input = None  # set to none now so no other actions use the parameter
     if 'DOCS' in aws_env and aws_env['DOCS'].lower() in ('true', '1', 't'):
@@ -355,13 +359,19 @@ def deploy_staging(args):
         # Copy the build files to
         shutil.copytree("./_docs/build/html", "./back/static/docs")
         # shutil.copytree("./docs", "./back/static/docs")
-    # Build the frontends
-    build_front(args)
-    # Collect the statics ( also contains the files for open api specifications )
-    build(args)  # Required build of the 'dev' image
-    extract_static(args)
+    if "front" in STAGING_STEPS:
+        # Build the frontends
+        build_front(args)
+        # Collect the statics ( also contains the files for open api specifications )
+        build(args)  # Required build of the 'dev' image
+        # <-- extract static can curretly only be done from inside the dev container
+        extract_static(args)
     # Build Dockerfile.stage
-    _build_file_tag(c.file_staging[1], c.staging_tag, context_dir=".")
+    #_build_file_tag(c.file_staging[1], c.staging_tag, context_dir=".")
+    _cmd = [*c.dbuild,  "-f",  # "--no-cache", <-- sometimes required when image build is misbehaving
+            c.file_staging[1], "-t", c.staging_tag, "."]
+    print(" ".join(_cmd))
+    subprocess.run(_cmd)
     if 'ROOT_USER_PASSWORD' in aws_env:
         print("Got 'ROOT_USER_PASSWORD' adding root user ...")
         # Ok in that case we create a base root user
@@ -404,6 +414,57 @@ def build(args):
     # Otherwise we would have to specify .dockerignore for the specific images!
     _build_file_tag(c.file[1], c.dtag if _is_dev(
         args) else c.ptag, build_context_path="./back")
+
+
+@register_action()
+def open_staging_keys(args):
+    """
+    Opens the staging keys file, only pissible if you have the password *and* the keyfile for the staging env
+    """
+    print("W", "Attemping password read from `staging/staging_keys.kdbx` expecting password input:")
+    _in = eval(args.input) if args.input else {}
+    _cmd = ["keepass", c.staging_keys, "--keyfile",
+            _in["keyfile"] if "keyfile" in _in else c.staging_key_file, "--pw-stdin",
+            *(["--pw-stdin", _in["password"]] if "password" in _in else [])]
+    subprocess.run(_cmd)
+
+
+def _parse_keypass_password_info(out):
+    lines = out.split("\n")
+    keys = {}
+    cur_key = None
+    txt = ""
+    for l in lines:
+        # 'Notes' is the only filed that has multilines allowed
+        if ":" in l and (not cur_key or not 'Notes' in cur_key):
+            li = l.split(":")
+            cur_key, txt = li
+            keys[cur_key] = txt + "\n"
+        else:
+            if cur_key:
+                keys[cur_key] += l + "\n"
+    assert 'Password' in keys, "Password extraction failed, wrong credentials?"
+    return keys
+
+
+@register_action()
+def unlock_and_write_staging_env(args):
+    """
+    Takes staging env file from the decrypted database and puts them into env_stage
+    NOTE this requires keypassxc-cli!
+    """
+    import getpass
+    _cmd = ["keepassxc-cli", "show", c.staging_keys,
+            "ENV", "--k", c.staging_key_file]
+    password = getpass.getpass()
+    out = subprocess.run(_cmd, stdout=subprocess.PIPE,
+                         input=password,
+                         encoding='ascii').stdout
+    env_txt = _parse_keypass_password_info(out)["Notes"]
+    print(env_txt)
+    assert env_txt
+    with open("env_stage", "w+") as f:
+        f.write(env_txt)
 
 
 @register_action(alias=["tests"], cont=True)
@@ -521,7 +582,15 @@ def _make_webpack_command(env, config, debug: bool, watch: bool):
     return _cmd
 
 
-@register_action(alias=["uf"], cont=True)
+@register_action(parse_own_args=True)
+def relink_env(args):
+    assert len(args.unknown) == 1, "Enter one env to relink"
+    assert os.path.exists(args.unknown[0]), f"Cant find env {args.unknown[0]}"
+    os.unlink("./env")
+    os.symlink(args.unknown[0], "./env")
+
+
+@register_action(alias=["uf", "update_frontend"], cont=True)
 def update_front(args):
     """
     only to be run when frontends are build
@@ -536,8 +605,13 @@ def update_front(args):
     assert frontends != ''
 
     for app in [args.input] if args.input else frontends.split(","):
-        _run_in_running(
-            _is_dev(args), ["npm", "run", f"build_{app}_{args.btype}"], backend=False)
+
+        env = _env_as_dict(c.denv[1])
+        _cmd = _make_webpack_command(
+            env, f'webpack.{app}.config.js', watch=False, debug=False)
+
+        print("TBS", _cmd)
+        _run_in_running(_is_dev(args), _cmd, backend=False)
 
     kill(args, back=False)  # Kill the frontend container
 
@@ -614,11 +688,11 @@ def build_front(args):
     subprocess.run(_cmd)  # 2
     _run_in_running(_is_dev(args), ["npm", "i"], backend=False)  # 3
     print(
-        f'`npm i` for frontends: {frontends} \nAdd frontends under `FR_FRONTENDS` in env, place them in front/apps/')
+        f'`npm ci` for frontends: {frontends} \nAdd frontends under `FR_FRONTENDS` in env, place them in front/apps/')
     for front in frontends:
         # TODO: there should also be an 'update' option that doesn't install all of this!
         _run_in_running(
-            _is_dev(args), ["npm", "i"], work_dir=f"/front/apps/{front}", backend=False)  # 4
+            _is_dev(args), ["npm", "ci"], work_dir=f"/front/apps/{front}", backend=False)  # 4
     # Frontend builds can only be performed with the webpack configs present
     with open('./front/webpack.template.js', 'r') as f:
         webpack_template = f.read()
@@ -643,8 +717,11 @@ def build_front(args):
                 })
                 f.write(json.dumps(package, indent=2))
                 f.truncate()
+        _cmd = _make_webpack_command(
+            env, f'webpack.{front}.config.js', watch=False, debug=_is_dev(args))
+        print("TBS: _cmd ", _cmd)
         _run_in_running(
-            _is_dev(args), ["npm", "run", f"build_{front}_{args.btype}"], backend=False)
+            _is_dev(args), _cmd, backend=False)
     kill(args, back=False)
 
 

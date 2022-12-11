@@ -37,6 +37,14 @@ valid_create_data = dict(
 )
 
 
+def random_postal_code():
+    return random.randint(10000, 99999)
+
+
+def random_phone_number():
+    return f'+49{random.randint(100000000, 999999999)}'
+
+
 def random_avatar():
     def rand_color():
         def r(): return random.randint(0, 255)
@@ -150,7 +158,19 @@ def _create_abunch_of_users(amnt=10, user_seeds=[42]*20):
         else:
             usr.profile.add_profile_picture_from_local_path(
                 pics[random.randint(0, len(pics) - 1)])
+
+        if usr.profile.partner_location == \
+                models.Profile.normalize_choice(models.Profile.ConversationPartlerLocation.CLOSE_VOL):
+            # In this case the user is required to have a postal code
+            usr.profile.postal_code = str(random_postal_code())
+        if usr.profile.notify_channel != \
+                models.Profile.NotificationChannelChoices.EMAIL:
+            usr.profile.phone_mobile = str(random_phone_number())
         usr.profile.save()
+        # This will set the profile to completed
+        completed, msgs = usr.profile.check_form_completion()
+        print("TBS", msgs)
+        # & it will automaticly trigger the score calulation for that user
 
     # Cool thing, we can actuly set them a profile picture from currently inside the container!
     return users

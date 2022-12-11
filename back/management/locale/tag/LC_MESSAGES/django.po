@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2022-12-02 16:55+0000\n"
+"POT-Creation-Date: 2022-12-11 14:49+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,11 +17,11 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: admin.py:63
+#: admin.py:93
 msgid "User form filled"
 msgstr ""
 
-#: admin.py:77
+#: admin.py:107
 msgid "User category"
 msgstr ""
 
@@ -43,7 +43,7 @@ msgctxt "profile.completion-check.sucessfull"
 msgid "Profile complete!"
 msgstr "profile.completion-check.sucessfull"
 
-#: api/register.py:39
+#: api/register.py:40
 #, fuzzy
 #| msgctxt "register.first-name-blank-err"
 #| msgid "Please enter your name"
@@ -51,7 +51,7 @@ msgctxt "register.email-blank-err"
 msgid "Please enter your e-mail adress"
 msgstr "register.email-blank-err"
 
-#: api/register.py:44
+#: api/register.py:45
 #, fuzzy
 #| msgctxt "register.first-name-blank-err"
 #| msgid "Please enter your name"
@@ -59,7 +59,7 @@ msgctxt "register.first-name-blank-err"
 msgid "Please enter your first name"
 msgstr "register.first-name-blank-err"
 
-#: api/register.py:47
+#: api/register.py:48
 #, fuzzy
 #| msgctxt "register.first-name-blank-err"
 #| msgid "Please enter your name"
@@ -67,7 +67,7 @@ msgctxt "register.second-name-blank-err"
 msgid "Please enter your second name"
 msgstr "register.second-name-blank-err"
 
-#: api/register.py:52
+#: api/register.py:53
 #, fuzzy
 #| msgctxt "register.first-name-blank-err"
 #| msgid "Please enter your name"
@@ -75,81 +75,81 @@ msgctxt "register.birth-year-invalid"
 msgid "Please enter a valid year"
 msgstr "register.birth-year-invalid"
 
-#: api/register.py:53
+#: api/register.py:54
 msgctxt "register.birth-year-under-1900"
 msgid "I'm sorry but you can't be that old"
 msgstr "register.birth-year-under-1900"
 
-#: api/register.py:54
+#: api/register.py:55
 msgctxt "register.birth-year-over-2024"
 msgid "Sorry we don't allow people from the future yet"
 msgstr "register.birth-year-over-2024"
 
-#: api/register.py:90
+#: api/register.py:91
 msgid "Passwords must match"
 msgstr ""
 
-#: api/twilio.py:53
+#: api/twilio.py:55
 msgctxt "api.twilio-room-inactive-err"
 msgid "Room is marked as inactive, cant authenticate!"
 msgstr "api.twilio-room-inactive-err"
 
-#: api/twilio.py:66
+#: api/twilio.py:68
 msgctxt "api.twilio-room-auth-failure"
 msgid "Room authentication failed!"
 msgstr "api.twilio-room-auth-failure"
 
-#: api/user.py:40
+#: api/user.py:41
 msgctxt "email.verify-auth-data-missing-get"
 msgid "Email authentication data missing"
 msgstr "email.verify-auth-data-missing-get"
 
-#: api/user.py:46
+#: api/user.py:47
 msgctxt "email.verify-success-get"
 msgid "Email sucessfully verified"
 msgstr "email.verify-success-get"
 
-#: api/user.py:50
+#: api/user.py:51
 msgctxt "email.verify-failure-get"
 msgid "Email verification failed"
 msgstr "email.verify-failure-get"
 
-#: api/user.py:65
+#: api/user.py:66
 msgctxt "email.verify-auth-data-missing-post"
 msgid "Email authentication data missing"
 msgstr "email.verify-auth-data-missing-post"
 
-#: api/user.py:71
+#: api/user.py:72
 msgctxt "email.verify-failure-not-numeric"
 msgid "Enter a 5 digit pin please"
 msgstr "email.verify-failure-not-numeric"
 
-#: api/user.py:74
+#: api/user.py:75
 msgctxt "email.verify-success-post"
 msgid "Email sucessfully verified"
 msgstr "email.verify-success-post"
 
-#: api/user.py:76
+#: api/user.py:77
 msgctxt "email.verify-failure-post"
 msgid "Email verification failed, wrong code."
 msgstr "email.verify-failure-post"
 
-#: api/user.py:121
+#: api/user.py:122
 msgctxt "api.login-failed-staff"
 msgid "Can't log in email or password wrong!"
 msgstr "api.login-failed-staff"
 
-#: api/user.py:125
+#: api/user.py:126
 msgctxt "api.login-sucessful"
 msgid "Sucessfully logged in!"
 msgstr "api.login-sucessful"
 
-#: api/user.py:128
+#: api/user.py:129
 msgctxt "api.login-failed"
 msgid "Can't log-in email or password wrong!"
 msgstr "api.login-failed"
 
-#: api/user.py:146
+#: api/user.py:147
 #, fuzzy
 #| msgctxt "api.login-sucessful"
 #| msgid "Sucessfully logged in!"
@@ -157,51 +157,61 @@ msgctxt "api.logout-sucessful"
 msgid "Sucessfully logged out!"
 msgstr "api.logout-sucessful"
 
-#: api/user.py:218
+#: api/user.py:219
 msgctxt "api.user.change-email-failed.same-email"
 msgid "This is your current email!"
 msgstr "api.user.change-email-failed.same-email"
 
-#: api/user.py:228
+#: api/user.py:229
 #, python-brace-format
 msgctxt "api.user.change-email-failed.email-exists"
 msgid "Email {email} exists"
 msgstr "api.user.change-email-failed.email-exists|{email}"
 
-#: api/user.py:234
+#: api/user.py:235
 msgctxt "api.user.change-email-successful"
 msgid "E-mail adres update, email adress must be reauthenticated."
 msgstr "api.user.change-email-successful"
 
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
-#: api/user.py:253
-#, fuzzy
+#: api/user.py:268
+msgctxt "api.user-matches-successfully-confirmed"
+msgid "Matches confirmed!"
+msgstr "api.user-matches-successfully-confirmed"
+
+#: api/user.py:306
+#, python-brace-format
+msgctxt "api.user-update-searching-state.slug-doesnt-exist"
+msgid "'{slug}' is not a possible seraching state!"
+msgstr "api.user-update-searching-state.slug-doesnt-exist|{slug}"
+
+#: api/user.py:311
+msgctxt "api.user-update-searching-state.state-successfully-changed"
+msgid "State updated!"
+msgstr "api.user-update-searching-state.state-successfully-changed"
+
+#: api/user.py:331
 msgctxt "api.user-resetpw.mail-subject"
-msgid ""
+msgid "Password reset Little World"
 msgstr "api.user-resetpw.mail-subject"
 
-#: controller.py:51
+#: controller.py:55
 msgid "User doesn't exist"
 msgstr ""
 
-#: controller.py:151
+#: controller.py:160
 msgid "Welcome Notification"
 msgstr ""
 
-#: controller.py:154
+#: controller.py:163
 msgid "Welcome Message..."
 msgstr ""
 
-#: controller.py:175 controller.py:176
+#: controller.py:200 controller.py:201
 #, python-format
 msgid "New match: %s"
 msgstr ""
 
-#: controller.py:180 controller.py:182
+#: controller.py:205 controller.py:207
 #, python-format
 msgid "New match found! Checkout %s's profile now"
 msgstr ""
@@ -246,7 +256,7 @@ msgctxt "notification.type.message"
 msgid "message"
 msgstr "notification.type.message"
 
-#: models/notifications.py:45 models/user.py:154
+#: models/notifications.py:45 models/user.py:159
 msgid "title"
 msgstr ""
 
@@ -254,82 +264,82 @@ msgstr ""
 msgid "no-description"
 msgstr ""
 
-#: models/profile.py:98
+#: models/profile.py:99
 msgctxt "profile.user-type.volunteer"
 msgid "Volunteer"
 msgstr "profile.user-type.volunteer"
 
-#: models/profile.py:100
+#: models/profile.py:101
 msgctxt "profile.user-type.learner"
 msgid "Language learner"
 msgstr "profile.user-type.learner"
 
-#: models/profile.py:121
+#: models/profile.py:122
 msgctxt "profile.target-group.any-vol"
 msgid "Any group"
 msgstr "profile.target-group.any-vol"
 
-#: models/profile.py:124
+#: models/profile.py:125
 msgctxt "profile.target-group.any-ler"
 msgid "Any group"
 msgstr "profile.target-group.any-ler"
 
-#: models/profile.py:127
+#: models/profile.py:128
 msgctxt "profile.target-group.refugee-vol"
 msgid "Refugees only"
 msgstr "profile.target-group.refugee-vol"
 
-#: models/profile.py:130
+#: models/profile.py:131
 msgctxt "profile.target-group.refugee-ler"
 msgid "Refugees only"
 msgstr "profile.target-group.refugee-ler"
 
-#: models/profile.py:133
+#: models/profile.py:134
 msgctxt "profile.target-group.student-vol"
 msgid "Students only"
 msgstr "profile.target-group.student-vol"
 
-#: models/profile.py:136
+#: models/profile.py:137
 msgctxt "profile.target-group.student-ler"
 msgid "Students only"
 msgstr "profile.target-group.student-ler"
 
-#: models/profile.py:139
+#: models/profile.py:140
 msgctxt "profile.target-group.worker-vol"
 msgid "Workers only"
 msgstr "profile.target-group.worker-vol"
 
-#: models/profile.py:142
+#: models/profile.py:143
 msgctxt "profile.target-group.worker-ler"
 msgid "Workers only"
 msgstr "profile.target-group.worker-ler"
 
-#: models/profile.py:153
+#: models/profile.py:154
 msgctxt "profile.partner-sex.any"
 msgid "Any"
 msgstr "profile.partner-sex.any"
 
-#: models/profile.py:154
+#: models/profile.py:155
 msgctxt "profile.partner-sex.male"
 msgid "Male only"
 msgstr "profile.partner-sex.male"
 
-#: models/profile.py:156
+#: models/profile.py:157
 msgctxt "profile.partner-sex.female"
 msgid "Female only"
 msgstr "profile.partner-sex.female"
 
-#: models/profile.py:168
+#: models/profile.py:169
 msgctxt "profile.speech-medium.any-vol"
 msgid "Any"
 msgstr "profile.speech-medium.any-vol"
 
-#: models/profile.py:171
+#: models/profile.py:172
 msgctxt "profile.speech-medium.any-ler"
 msgid "Any"
 msgstr "profile.speech-medium.any-ler"
 
-#: models/profile.py:174
+#: models/profile.py:175
 #, fuzzy
 #| msgctxt "profile.video-interest"
 #| msgid "Video"
@@ -337,7 +347,7 @@ msgctxt "profile.speech-medium.video-vol"
 msgid "Video only"
 msgstr "profile.speech-medium.video-vol"
 
-#: models/profile.py:177
+#: models/profile.py:178
 #, fuzzy
 #| msgctxt "profile.video-interest"
 #| msgid "Video"
@@ -345,97 +355,97 @@ msgctxt "profile.speech-medium.video-ler"
 msgid "Video only"
 msgstr "profile.speech-medium.video-ler"
 
-#: models/profile.py:180
+#: models/profile.py:181
 msgctxt "profile.speech-medium.phone-vol"
 msgid "Phone only"
 msgstr "profile.speech-medium.phone-vol"
 
-#: models/profile.py:183
+#: models/profile.py:184
 msgctxt "profile.speech-medium.phone-ler"
 msgid "Phone only"
 msgstr "profile.speech-medium.phone-ler"
 
-#: models/profile.py:195
+#: models/profile.py:196
 msgctxt "profile.partner-location.anywhere-vol"
 msgid "Anywhere"
 msgstr "profile.partner-location.anywhere-vol"
 
-#: models/profile.py:198
+#: models/profile.py:199
 msgctxt "profile.partner-location.anywhere-ler"
 msgid "Anywhere"
 msgstr "profile.partner-location.anywhere-ler"
 
-#: models/profile.py:201
+#: models/profile.py:202
 msgctxt "profile.partner-location.close-vol"
 msgid "Close"
 msgstr "profile.partner-location.close-vol"
 
-#: models/profile.py:204
+#: models/profile.py:205
 msgctxt "profile.partner-location.close-ler"
 msgid "Close"
 msgstr "profile.partner-location.close-ler"
 
-#: models/profile.py:207
+#: models/profile.py:208
 msgctxt "profile.partner-location.far-vol"
 msgid "Far"
 msgstr "profile.partner-location.far-vol"
 
-#: models/profile.py:210
+#: models/profile.py:211
 msgctxt "profile.partner-location.far-ler"
 msgid "Far"
 msgstr "profile.partner-location.far-ler"
 
-#: models/profile.py:223
+#: models/profile.py:224
 msgctxt "profile.sport-interest"
 msgid "Sport"
 msgstr "profile.sport-interest"
 
-#: models/profile.py:224
+#: models/profile.py:225
 msgctxt "profile.art-interest"
 msgid "Art"
 msgstr "profile.art-interest"
 
-#: models/profile.py:225
+#: models/profile.py:226
 msgctxt "profile.music-interest"
 msgid "Music"
 msgstr "profile.music-interest"
 
-#: models/profile.py:227
+#: models/profile.py:228
 msgctxt "profile.literature-interest"
 msgid "Literature"
 msgstr "profile.literature-interest"
 
-#: models/profile.py:228
+#: models/profile.py:229
 msgctxt "profile.video-interest"
 msgid "Video"
 msgstr "profile.video-interest"
 
-#: models/profile.py:230
+#: models/profile.py:231
 msgctxt "profile.fashion-interest"
 msgid "Fashion"
 msgstr "profile.fashion-interest"
 
-#: models/profile.py:232
+#: models/profile.py:233
 msgctxt "profile.culture-interest"
 msgid "Culture"
 msgstr "profile.culture-interest"
 
-#: models/profile.py:233
+#: models/profile.py:234
 msgctxt "profile.travel-interest"
 msgid "Travel"
 msgstr "profile.travel-interest"
 
-#: models/profile.py:234
+#: models/profile.py:235
 msgctxt "profile.food-interest"
 msgid "Food"
 msgstr "profile.food-interest"
 
-#: models/profile.py:236
+#: models/profile.py:237
 msgctxt "profile.politics-interest"
 msgid "Politics"
 msgstr "profile.politics-interest"
 
-#: models/profile.py:237
+#: models/profile.py:238
 #, fuzzy
 #| msgctxt "profile.literature-interest"
 #| msgid "Literature"
@@ -443,191 +453,203 @@ msgctxt "profile.nature-interest"
 msgid "Nature"
 msgstr "profile.nature-interest"
 
-#: models/profile.py:239
+#: models/profile.py:240
 msgctxt "profile.science-interest"
 msgid "Science"
 msgstr "profile.science-interest"
 
-#: models/profile.py:241
+#: models/profile.py:242
 msgctxt "profile.tech-interest"
 msgid "Technology"
 msgstr "profile.tech-interest"
 
-#: models/profile.py:243
+#: models/profile.py:244
 msgctxt "profile.history-interest"
 msgid "History"
 msgstr "profile.history-interest"
 
-#: models/profile.py:245
+#: models/profile.py:246
 msgctxt "profile.religion-interest"
 msgid "Religion"
 msgstr "profile.religion-interest"
 
-#: models/profile.py:247
+#: models/profile.py:248
 msgctxt "profile.soziologie-interest"
 msgid "Sociology"
 msgstr "profile.soziologie-interest"
 
-#: models/profile.py:248
+#: models/profile.py:249
 msgctxt "profile.family-interest"
 msgid "Family"
 msgstr "profile.family-interest"
 
-#: models/profile.py:250
+#: models/profile.py:251
 msgctxt "profile.psycology-interest"
 msgid "Psycology"
 msgstr "profile.psycology-interest"
 
-#: models/profile.py:252
+#: models/profile.py:253
 msgctxt "profile.pdev-interest"
 msgid "Personal development"
 msgstr "profile.pdev-interest"
 
-#: models/profile.py:270
+#: models/profile.py:272
 msgctxt "profile.liability.declined"
 msgid "Declined Liability"
 msgstr "profile.liability.declined"
 
-#: models/profile.py:273
+#: models/profile.py:275
 msgctxt "profile.liability.accepted"
 msgid "Accepted Liability"
 msgstr "profile.liability.accepted"
 
-#: models/profile.py:282
+#: models/profile.py:284
 msgctxt "profile.notify-channel.email"
 msgid "Notify per email"
 msgstr "profile.notify-channel.email"
 
-#: models/profile.py:284
+#: models/profile.py:286
 msgctxt "profile.notify-channel.sms"
 msgid "Notify per SMS"
 msgstr "profile.notify-channel.sms"
 
-#: models/profile.py:286
+#: models/profile.py:288
 msgctxt "profile.notify-channel.call"
 msgid "Notify by calling"
 msgstr "profile.notify-channel.call"
 
-#: models/profile.py:307
+#: models/profile.py:309
 msgctxt "profile.lang-level.level-0-vol"
 msgid "any"
 msgstr "profile.lang-level.level-0-vol"
 
-#: models/profile.py:309
+#: models/profile.py:311
 msgctxt "profile.lang-level.level-0-ler"
 msgid "any"
 msgstr "profile.lang-level.level-0-ler"
 
-#: models/profile.py:312
+#: models/profile.py:314
 msgctxt "profile.lang-level.level-1-vol"
 msgid "B1 = (everyday situations, stories, hopes)"
 msgstr "profile.lang-level.level-1-vol"
 
-#: models/profile.py:314
+#: models/profile.py:316
 msgctxt "profile.lang-level.level-1-ler"
 msgid "B1 = (everyday situations, stories, hopes)"
 msgstr "profile.lang-level.level-1-ler"
 
-#: models/profile.py:317
+#: models/profile.py:319
 msgctxt "profile.lang-level.level-2-vol"
 msgid "B2 = (fluent & spontaneous conversations, current events)"
 msgstr "profile.lang-level.level-2-vol"
 
-#: models/profile.py:319
+#: models/profile.py:321
 msgctxt "profile.lang-level.level-2-ler"
 msgid "B2 = (fluent & spontaneous conversations, current events)"
 msgstr "profile.lang-level.level-2-ler"
 
-#: models/profile.py:322
+#: models/profile.py:324
 msgctxt "profile.lang-level.level-3-vol"
 msgid "C1/C2 = (complex topics, hardly searching for words)"
 msgstr "profile.lang-level.level-3-vol"
 
-#: models/profile.py:324
+#: models/profile.py:326
 msgctxt "profile.lang-level.level-3-ler"
 msgid "C1/C2 = (complex topics, hardly searching for words)"
 msgstr "profile.lang-level.level-3-ler"
 
-#: models/profile.py:333
+#: models/profile.py:335
 msgctxt "profile.image-type.avatar"
 msgid "Avatar"
 msgstr "profile.image-type.avatar"
 
-#: models/profile.py:334
+#: models/profile.py:336
 msgctxt "profile.image-type.image"
 msgid "Image"
 msgstr "profile.image-type.image"
 
-#: models/profile.py:368
+#: models/profile.py:387
 #, python-brace-format
 msgctxt "profile.completion-check.missing-value"
 msgid "'{val}' is not completed"
 msgstr "profile.completion-check.missing-value|{val}"
 
-#: models/profile.py:471
+#: models/profile.py:499
 msgctxt "profile.lskill-descr-to-long"
 msgid "must have a maximum of 300 characters"
 msgstr "profile.lskill-descr-to-long"
 
-#: models/profile.py:477
+#: models/profile.py:505
 msgctxt "profile.descr-to-long"
 msgid "must have a maximum of 300 characters"
 msgstr "profile.descr-to-long"
 
-#: models/profile.py:493
+#: models/profile.py:521
 msgctxt "profile.image-missing"
 msgid "You have selected profile image but not uploaded an image"
 msgstr "profile.image-missing"
 
-#: models/profile.py:505
+#: models/profile.py:533
 msgctxt "profile.avatar-missing"
 msgid "You have selected avatar but not uploaded an avatar"
 msgstr "profile.avatar-missing"
 
-#: models/profile.py:515
+#: models/profile.py:543
 msgctxt "profile.descr-to-short"
 msgid "must have at least 10 characters"
 msgstr "profile.descr-to-short"
 
-#: models/state.py:32
+#: models/state.py:33
 msgid "Unfilled user form"
 msgstr ""
 
-#: models/state.py:33
+#: models/state.py:34
 msgid "Filled user form"
 msgstr ""
 
-#: models/state.py:65
+#: models/state.py:66
 msgctxt "models.state.matching-state-idle"
 msgid "Not Searching (Idle)"
 msgstr "models.state.matching-state-idle"
 
-#: models/state.py:68
+#: models/state.py:69
 msgctxt "models.state.matching-state-searching"
 msgid "Searching"
 msgstr "models.state.matching-state-searching"
 
-#: models/state.py:99
+#: models/state.py:101
 msgid "Undefined"
 msgstr ""
 
-#: models/state.py:100
+#: models/state.py:102
 msgid "Spam"
 msgstr ""
 
-#: models/state.py:101
+#: models/state.py:103
 msgid "Legit"
 msgstr ""
 
-#: models/state.py:102
+#: models/state.py:104
 msgid "Test"
 msgstr ""
 
-#: models/user.py:154
+#: models/state.py:114
+msgid "Is allowed to view API schemas"
+msgstr ""
+
+#: models/state.py:116
+msgid "Is allowed to view database schemas"
+msgstr ""
+
+#: models/state.py:118
+msgid "Is allowed to use the auto login api (with a specific token)"
+msgstr ""
+
+#: models/user.py:159
 msgid "description"
 msgstr ""
 
-#: tasks.py:25
+#: tasks.py:26
 msgctxt "community-event.coffe-chillout"
 msgid "Kaffeerunden"
 msgstr "community-event.coffe-chillout"
@@ -757,3 +779,13 @@ msgstr ""
 #: views/main_frontend.py:64
 msgid "Query param usage on main view only allowed for admins!"
 msgstr ""
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# 
+#, fuzzy
+#~ msgctxt "api.user-resetpw.mail-subject"
+#~ msgid ""
+#~ msgstr "api.user-resetpw.mail-subject"

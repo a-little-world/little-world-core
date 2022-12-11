@@ -1,3 +1,5 @@
+from django.db import models as dj_models
+from martor.widgets import AdminMartorWidget
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from django.utils.safestring import mark_safe
@@ -19,11 +21,30 @@ class CommunityEventAdmin(admin.ModelAdmin):
                     'time', 'frequency', 'link')
 
 
+@admin.register(models.matching_scores.MatchinScore)
+class DirectionalMatchinScores(admin.ModelAdmin):
+    list_display = ('from_usr', 'current_score',
+                    'to_usr', 'score', 'matchable', 'messages')
+    search_fields = ('from_usr__email', 'from_usr__hash')
+    list_filter = ('matchable', 'current_score')
+    formfield_overrides = {
+        dj_models.TextField: {'widget': AdminMartorWidget},
+    }
+
+
+@admin.register(models.matching_scores.ScoreTableSource)
+class ScoreTableAdmin(admin.ModelAdmin):
+    list_display = ('tag', 'hash', 'created_at')
+    formfield_overrides = {
+        dj_models.TextField: {'widget': AdminMartorWidget},
+    }
+
+
 @admin.register(models.state.State)
 class StateAdmin(admin.ModelAdmin):
     list_display = ('user', 'created_at', 'user_form_state',
-                    'matching_state', 'unread_chat_message_count', 'user_category')
-    list_editable = ('user_category',)
+                    'matching_state', 'unread_chat_message_count', 'user_category', 'tags')
+    list_editable = ('user_category', 'tags',)
     search_fields = ('user', 'created_at', 'user_form_state')
     ordering = ('user', 'created_at')
 
@@ -48,7 +69,8 @@ def make_match_admin(modeladmin, request, queryset):
 
 @admin.register(models.profile.Profile)
 class ProfileModelAdmin(admin.ModelAdmin):
-    list_display = ('user', 'first_name', 'second_name')
+    list_display = ('user', 'first_name', 'second_name',
+                    'user_type', 'birth_year', 'description', 'lang_level', 'notify_channel')
 
     actions = [make_match_admin]
 
@@ -116,6 +138,13 @@ class UserAdmin(DjangoUserAdmin):
             f'<a href="/admin_chat/?usr_hash={obj.hash}" target="_blank" rel="noopener noreferrer" >open</a>'
         )
 
+    @admin.display(description='matching')
+    def show_matching_suggestions(self, obj):
+        route = f'/admin/management/matchinscore/?matchable__exact=1&current_score__exact=1&q={obj.hash}&o=-4'
+        return mark_safe(
+            f'<a href="{route}" target="_blank" rel="noopener noreferrer" >view suggestions</a>'
+        )
+
     def get_search_results(self, request, queryset, search_term):
         queryset, use_distinct = super(DjangoUserAdmin, self).get_search_results(
             request, queryset, search_term)
@@ -140,7 +169,7 @@ class UserAdmin(DjangoUserAdmin):
         }),
     )
     list_display = ('_abr_hash', 'email', 'last_login', 'date_joined',
-                    'first_name', 'last_name', 'chat_with', 'is_user_form_filled', 'is_staff')
+                    'first_name', 'last_name', 'chat_with', 'show_matching_suggestions', 'is_user_form_filled', 'is_staff')
     search_fields = ('email', 'first_name', 'last_name', 'hash')
     # fist & last names are read-only here,
     # the user can change the first / lastnames stored in profile, but not this one!
