@@ -135,12 +135,18 @@ class State(models.Model):
         self.email_authenticated = set_to_unauthenticated
         self.save()
 
-    def change_searching_state(self, slug):
+    def change_searching_state(self, slug, trigger_score_update=True):
         # We put this list here so we ensure to stay safe if we add states that shouldn't be changed by the user!
         allowed_usr_change_search_states = ['idle', 'searching']
         assert slug in allowed_usr_change_search_states
         self.matching_state = slug
         self.save()
+
+        if trigger_score_update and slug == 'searching':
+            print("Triggering score update")
+            from ..tasks import calculate_directional_matching_score_background
+            calculate_directional_matching_score_background.delay(
+                self.user.hash)
 
     def archive_email_adress(self, email):
         self.past_emails.append(email)
