@@ -93,7 +93,8 @@ class OverwriteSessionLangIfAcceptLangHeaderSet:
         """
         We add our own http header that can be used to for usage of **only** translations tags for the frontends!
         """
-        if USE_TAG_HEADER in request.META and request.META[USE_TAG_HEADER]:
+        print("TBS", request.META)
+        if USE_TAG_HEADER in request.META and request.META[USE_TAG_HEADER].lower() in ("true", "1", "t"):
             with translation.override("tag"):
                 return self.get_response(request)
         else:
