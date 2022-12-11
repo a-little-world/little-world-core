@@ -18,13 +18,14 @@ class BackendState(models.Model):
         default_community_events = "db-created-default-cummunity-events"
         default_cookies = "db-created-default-cookies-and-cookiegroups"
         base_management_user_profile = "db-filled-base-management-user-profile"
+        default_score_source_created = "db-created-default-score-source"
 
     slug = models.CharField(null=False, blank=False,
                             choices=BackendStateEnum.choices, unique=True, max_length=255)
 
     name = models.CharField(default="master", unique=True, max_length=255)
     hash = models.CharField(default=_double_uuid, max_length=255)
-    meta = models.JSONField(default={})
+    meta = models.JSONField(default=dict)
 
     @classmethod
     def exists_or_create(cls, enum_slug, set_true=True):
@@ -54,3 +55,8 @@ class BackendState(models.Model):
     def is_base_management_user_profile_filled(cls, set_true=False):
         return cls.exists_or_create(
             cls.BackendStateEnum.base_management_user_profile, set_true=set_true)
+
+    @classmethod
+    def is_default_score_source_created(cls, set_true=False):
+        return cls.exists_or_create(
+            cls.BackendStateEnum.default_score_source_created, set_true=set_true)
