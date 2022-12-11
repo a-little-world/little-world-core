@@ -106,18 +106,28 @@ Selbst habe ich vier Jahre im Ausland gelebt, von Frankreich bis nach China. Den
 
 
 @shared_task
-def calculate_directional_matching_score_background(usr):
+def calculate_directional_matching_score_background(usr_hash):
     """
     This is the backend task for calculating a matching score. 
     This will *automaticly* be executed everytime a users changes his user form
     run with calculate_directional_matching_score_background.delay(usr)
     """
+    print(f"Calculating score for {usr_hash}")
+    from .controller import get_user_by_hash
+    from .matching.matching_score import calculate_directional_score_write_results_to_db
 
-    for other_usr in User.objects.all().exclude(usr=usr):
-        # We do loop over all users, but for most users the score calculation will abort quickly
-        # e.g.: if the user is a volunteer and the 'other_usr' is also a volunteer
-        # then the score calculation would abbort imediately and return 'matchable = False'
-        pass
+    usr = get_user_by_hash(usr_hash)
+    all_other_users = User.objects.all().exclude(id=usr.id)
+    print("OTHERS", all_other_users)
+    for other_usr in all_other_users:
+        print(f"Calculating score {usr} -> {other_usr}")
+        calculate_directional_score_write_results_to_db(
+            usr, other_usr, return_on_nomatch=False,
+            catch_exceptions=True)
+        print(f"Calculating score {other_usr} -> {usr}")
+        calculate_directional_score_write_results_to_db(
+            other_usr, usr, return_on_nomatch=False,
+            catch_exceptions=True)
 
 
 @shared_task
