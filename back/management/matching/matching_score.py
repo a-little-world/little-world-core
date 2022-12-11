@@ -175,6 +175,52 @@ def scoring_result_dict_as_markdown_table(scoring_results_dict):
     return writer.dumps()
 
 
+def calculate_directional_score_write_results_to_db(
+        usr1, usr2, return_on_nomatch=False, catch_exceptions=False):
+    """
+    This is the main function that calculates the directional score
+    and writes the results to the db
+    """
+    from ..models import MatchinScore
+    res = None
+    err_msg = ""
+    if catch_exceptions:
+        try:
+            res = calculate_directional_matching_score(usr1, usr2)
+        except Exception as e:
+            print("Error while calculating the matching score for ",
+                  usr1, usr2, str(e))
+            err_msg += repr(e)
+    else:
+        res = calculate_directional_matching_score(usr1, usr2)
+
+    if res is not None:
+        matchable, score, msgs, summary = res
+
+        score_summary = scoring_result_dict_as_markdown_table(summary)
+        print("score summary: ", score_summary)
+        # now save score and msgs in the database
+        score = MatchinScore.objects.create(
+            from_usr=usr1,
+            to_usr=usr2,
+            score=score,
+            matchable=matchable,
+            messages=msgs,
+            meta=summary,
+            rendered_results_md_table=score_summary
+        )
+    else:
+        score = MatchinScore.objects.create(
+            from_usr=usr1,
+            to_usr=usr2,
+            score=-999,
+            matchable=False,
+            messages="Error while calculating the matching score: " + err_msg,
+            meta={"error": "Error while calculating the matching score: " + err_msg},
+            rendered_results_md_table=""
+        )
+
+
 def calculate_directional_matching_score(
     usr1, usr2,
     return_on_nomatch=False
