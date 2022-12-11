@@ -20,7 +20,7 @@ EXTRA_USER_AUTHORIZATION_ROUTES = {
     },
     "/api/schema": {
         "check": lambda u: u.state.has_extra_user_permission(
-            State.ExtraUserPermissionChoices.DATABASE_SCHEMA),
+            State.ExtraUserPermissionChoices.API_SCHEMAS),
         "else": lambda r: responde_404(request=r)
     }
 }
