@@ -1,5 +1,6 @@
 from drf_spectacular.utils import OpenApiParameter, OpenApiExample
 import django.contrib.auth.password_validation as pw_validation
+from django.contrib.auth import authenticate, login
 from typing import Optional
 from django.utils.translation import pgettext_lazy, gettext_lazy as _
 from drf_spectacular.utils import extend_schema
@@ -114,6 +115,7 @@ class Register(APIView):
         registration_data = serializer.save()
         # create_user will trow seralization error per default
         # also performs registration, send email etc...
-        controller.create_user(**{k: getattr(registration_data, k) for k in registration_data.__annotations__},
-                               send_verification_mail=True)
+        usr = controller.create_user(**{k: getattr(registration_data, k) for k in registration_data.__annotations__},
+                                     send_verification_mail=True)
+        login(request, usr)
         return Response("Sucessfully Created User")
