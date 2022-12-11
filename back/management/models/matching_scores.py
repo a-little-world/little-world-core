@@ -1,5 +1,79 @@
 from django.db import models
+import numpy as np
+from back.utils import _double_uuid
+from ..matching.matching_score import SCORING_FUNCTIONS
+from multiselectfield import MultiSelectField
 from .user import User
+
+
+def markdown_to_nparray(markdown_string):
+    # 1 - we load the all into an array format
+    matrix = []
+    lines = markdown_string.split("\n")
+    for l in lines:
+        if not all([":" in l, "---" in l]) and l != '':
+            _r = [a.replace(" ", "") for a in l.split("|") if a != '']
+            matrix.append(_r)
+
+    # 2 - then we strip the rows and colum indexes so it contains only the raw data
+    indexes = dict(x=matrix[0][1:], y=[item[0] for item in matrix[1:]])
+    _matrix = []
+    for m in matrix[1:]:
+        _matrix.append(m[1:])
+
+    return np.array(_matrix), indexes
+
+
+def nparray_and_indexes_to_dict_graph(array, indexes):
+    d = {}
+    for x in range(len(indexes["x"])):
+        for y in range(len(indexes["y"])):
+            d[(indexes["x"][x], indexes["y"][y])] = array[y][x]
+    return d
+
+
+class ScoreTableSource(models.Model):
+
+    tag = models.CharField(max_length=255, default="latest")
+
+    hash = models.CharField(max_length=255, default=_double_uuid)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    target_group_scores = models.TextField(default="")
+    target_group_messages = models.TextField(default="")
+
+    partner_location_scores = models.TextField(default="")
+
+    language_level_scores = models.TextField(default="")
+
+    function_scoring_selection = MultiSelectField(
+        choices=[(key, key) for key in SCORING_FUNCTIONS],
+        max_length=1000, blank=False, default=list(SCORING_FUNCTIONS.keys())
+    )
+
+    def get_table_field_as_graph_dict(self, field):
+        array, indexes = markdown_to_nparray(getattr(self, field))
+        return nparray_and_indexes_to_dict_graph(array, indexes)
+
+    @ classmethod
+    def get_latest(cls):
+        return cls.objects.filter(tag="latest").first()
+
+    def save(self, *args, **kwargs):
+        # On save we se our self to 'latest'
+        # And all ther score tables to 'old'
+        if not 'recursive' in kwargs or not kwargs['recursive']:
+            for obj in ScoreTableSource.objects.all():
+                if obj.hash != self.hash:
+                    obj.tag = "old"
+                    obj.save(recursive=True)
+        if 'recursive' in kwargs and kwargs['recursive']:
+            del kwargs['recursive']
+        else:
+            self.tag = "latest"
+        super().save(*args, **kwargs)
 
 
 class MatchinScore(models.Model):
@@ -17,7 +91,7 @@ class MatchinScore(models.Model):
         User, on_delete=models.CASCADE, related_name="to_usr")
 
     """
-    We add this extra relation slug it tells us for which direction this score is 
+    We add this extra relation slug it tells us for which direction this score is
     it is always formated as <from-hash>_<to-hash>
     """
     relation_slug = models.CharField(max_length=255)
