@@ -2,20 +2,20 @@ FROM python:3.10-alpine
 
 WORKDIR /back
 
-COPY /back/requirements.txt ./
+COPY ./requirements.txt ./
 
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip cache purge
 
 # Copy all the backend files
 # this assumes all the frontends are build and the static files have already been moved to ./back/static
-ADD back /back/
+ADD . .
 
 RUN mkdir /front
-ADD front/cookie_banner_frontend.webpack-stats.json /front/cookie_banner_frontend.webpack-stats.json
-ADD front/admin_panel_frontend.webpack-stats.json /front/admin_panel_frontend.webpack-stats.json
-ADD front/user_form_frontend.webpack-stats.json /front/user_form_frontend.webpack-stats.json
-ADD front/main_frontend.webpack-stats.json /front/main_frontend.webpack-stats.json
+ADD ./webpack/cookie_banner_frontend.webpack-stats.json /front/cookie_banner_frontend.webpack-stats.json
+ADD ./webpack/admin_panel_frontend.webpack-stats.json /front/admin_panel_frontend.webpack-stats.json
+ADD ./webpack/user_form_frontend.webpack-stats.json /front/user_form_frontend.webpack-stats.json
+ADD ./webpack/main_frontend.webpack-stats.json /front/main_frontend.webpack-stats.json
 
 EXPOSE 8000
 
