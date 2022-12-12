@@ -31,3 +31,4 @@ boto3 # for connection loading and updloading to amazon s3
 martor # Markdown editar, also used for editable tables in admin view
 networkx # For scoring calculation using graphs
 pytablewriter # For generating goodlooking markdown tables
+Collectfast # Faster static file collection

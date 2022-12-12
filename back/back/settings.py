@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'django_celery_results',
 
     'martor',
+    'collectfast',
 
     # API docs not required in deployment, so we disable to routes
     # Though we keep the backages so we don't have to split the code
@@ -128,7 +129,7 @@ elif DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
     CSRF_TRUSTED_ORIGINS = ["https://*.github.dev"]
     CSRF_ORIGIN_ALLOW_ALL = True
-    
+
 
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
@@ -158,6 +159,7 @@ if IS_PROD or IS_STAGE:
     # In production & staging we use S3 as file storage!
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
     STATICFILES_STORAGE = 'storages.backends.s3boto3.S3StaticStorage'
+    COLLECTFAST_STRATEGY = "collectfast.strategies.boto3.Boto3Strategy"
 
     AWS_ACCESS_KEY_ID = os.environ['DJ_AWS_STATIC_ACCESS_KEY_ID']
     AWS_SECRET_ACCESS_KEY = os.environ['DJ_AWS_STATIC_SECRET_KEY']
