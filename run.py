@@ -5,6 +5,7 @@
 import shutil
 from functools import partial, wraps
 import contextlib
+import glob
 import os
 import sys
 import argparse
@@ -365,13 +366,17 @@ def deploy_staging(args):
         # Build the frontends
         build_front(args)
         # Collect the statics ( also contains the files for open api specifications )
+        # Copy the webpack stats files to the back/webpack folder
+        for stat_file in glob.glob("./front/*.webpack-stats.json"):
+            stat_name = stat_file.split("/")[-1]
+            shutil.copy(stat_file, f"./back/webpack/{stat_name}")
         build(args)  # Required build of the 'dev' image
         # <-- extract static can curretly only be done from inside the dev container
         extract_static(args)
     # Build Dockerfile.stage
     #_build_file_tag(c.file_staging[1], c.staging_tag, context_dir=".")
     _cmd = [*c.dbuild,  "-f",  # "--no-cache", <-- sometimes required when image build is misbehaving
-            c.file_staging[1], "-t", c.staging_tag, "."]
+            c.file_staging[1], "-t", c.staging_tag, "./back"]
     print(" ".join(_cmd))
     subprocess.run(_cmd)
     if 'ROOT_USER_PASSWORD' in aws_env:
