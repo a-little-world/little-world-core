@@ -20,24 +20,24 @@ msgstr ""
 
 #: admin.py:93
 msgid "User form filled"
-msgstr ""
+msgstr "Nutzerformular ausgefüllt"
 
 #: admin.py:107
 msgid "User category"
-msgstr ""
+msgstr "Nutzerkategorie"
 
 #: api/admin.py:70
 msgid "at least one field required"
-msgstr ""
+msgstr "Mindestens ein Feld erforderlich"
 
 #: api/admin.py:75
 msgid "maximum one field allowed"
-msgstr ""
+msgstr "Maximal ein Feld erlaubt"
 
 #: api/notify.py:94
 #, python-format
 msgid "Notification %(hash)s for user"
-msgstr ""
+msgstr "Benachrichtigung %(hash)s für Benutzer"
 
 #: api/profile.py:83
 msgctxt "profile.completion-check.sucessfull"

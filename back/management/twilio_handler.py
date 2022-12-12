@@ -16,8 +16,8 @@ def _get_client():
 
 
 def _get_status_url():
-    # TODO: add /twilio_callback url
-    return settings.BASE_URL + "/api/twilio_callback"
+    callback_url = settings.BASE_URL + "/api/video_rooms/twilio_callback"
+    return callback_url
 
 
 def _get_token(identity):
@@ -35,10 +35,23 @@ def make_room(name):
     the status_callback_url is where twilio make callback api calls to
     """
     client = _get_client()
+    room_type = 'go'  # TODO: we can have max 245 of these
     client.video.rooms.create(unique_name=name,
-                              type=name,
+                              type=room_type,
                               media_region='de1',
                               status_callback=_get_status_url())
+
+
+def complete_room(name):
+    client = _get_client()
+    client.video.rooms(name).update(status='completed')
+
+
+def complete_room_if_empty(name):
+    room = get_rooms(name)[0]
+    participants = room.participants.list(status='connected')
+    if len(participants) == 0:
+        complete_room(name)
 
 
 def get_rooms(name):
@@ -51,9 +64,15 @@ def room_exists(name):
     return len(rooms) > 1
 
 
+def get_room_or_create(name):
+    if not room_exists(name):
+        make_room(name)
+    return get_rooms(name)
+
+
 def get_usr_auth_token(room_name, user_identity):
     token = _get_token(user_identity)
     # Create a Video grant and add to token
     video_grant = VideoGrant(room=room_name)
     token.add_grant(video_grant)
-    return token
+    return token.to_jwt()

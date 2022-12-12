@@ -352,7 +352,7 @@ def deploy_staging(args):
     Note: pushing the image will only work if you have acess permission to the registry, ask tim@timschupp.de for that
     """
     assert args.input, " '-i' required, e.g.: \"{'AWS_ACCOUNT_ID':'...','AWS_REGISTRY_NAME':'...','AWS_REGION':''}\""
-    STAGING_STEPS = ["docker"]  # ["front", "docker"]
+    STAGING_STEPS = ["docker", "front"]  # ["front", "docker"]
     aws_env = eval(args.input)
     args.input = None  # set to none now so no other actions use the parameter
     if 'DOCS' in aws_env and aws_env['DOCS'].lower() in ('true', '1', 't'):

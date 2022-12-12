@@ -301,7 +301,7 @@ def send_websocket_callback(
         "message": f"[TMPADMIN]({message})]",
         "admin_pk": str(admin.pk),
         "user_pk": str(to_usr.pk),
-        "admin_h256_pk": str(admin.user_h256_pk),
+        "admin_h256_pk": str(admin.hash),
     })
 
 # TODO: can this cause issues when settings not initalized?
