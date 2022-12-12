@@ -41,6 +41,8 @@ jobs:
         shell: 'script -q -e -c "bash {0}"'
         # Runns 'manage.py test' in the container
         run: python3 run.py run_django_tests
+        env:
+          CI: True
       - name: kill backend image
         shell: 'script -q -e -c "bash {0}"'
         # Kill everything we are done
