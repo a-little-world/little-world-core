@@ -54,7 +54,9 @@ class c:
 
     # For making the spinix docs
     vmount_spinix = ["-v", f"{os.getcwd()}/_docs:/docs",
-                     "-v", f"{os.getcwd()}/back:/docs_source/backend"]
+                     "-v", f"{os.getcwd()}/back:/docs_source/backend",
+                     "-v", f"{os.getcwd()}/run.py:/docs_source/extra_mods/run.py",
+                     "-v", f"{os.getcwd()}/cli:/docs_source/extra_mods/cli"]
     file_spinix = ["-f", "Dockerfile.docs"]
     tag_spinix = "docs.spinix"
 
@@ -855,7 +857,7 @@ def build_docs(args):
     Note: This assumes you have already build the docker backend container
     """
     assert _is_dev(args), "Can only build docs in development mode"
-    _cmd = [*c.dbuild, *c.file_spinix, "-t", c.tag_spinix, "./docs"]
+    _cmd = [*c.dbuild, *c.file_spinix, "-t", c.tag_spinix, "./_docs"]
     print(" ".join(_cmd))
     subprocess.run(_cmd)
     _cmd = [*c.drun, *c.denv, *c.vmount_spinix, *c.port, "-d", c.tag_spinix]

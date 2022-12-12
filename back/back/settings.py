@@ -124,6 +124,11 @@ if IS_STAGE or IS_PROD:
     CSRF_TRUSTED_ORIGINS = [
         BASE_URL
     ]
+elif DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+    CSRF_TRUSTED_ORIGINS = ["https://*.github.dev"]
+    CSRF_ORIGIN_ALLOW_ALL = True
+    
 
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
