@@ -16,6 +16,9 @@
         },
         "a-little-world/little-world-cookie-consent": {
           "permissions": "write-all"
+        },
+        "a-little-world/little-world-admin-panel": {
+          "permissions": "write-all"
         }
       }
     }
