@@ -85,11 +85,12 @@ def validate_postal_code(value: str):
             pgettext_lazy("val.postal-code-not-numeric",
                           "German postalcode should be a number"))
     as_int = int(value)
+    print("TBS", as_int)
     if as_int > 99999:
         raise serializers.ValidationError(
             pgettext_lazy("val.postal-code-too-big",
                           "German postalcode should have maximum 5 digits"))
-    if as_int < 100:
+    if as_int < 1000:
         raise serializers.ValidationError(
             pgettext_lazy("val.postal-code-too-small",
                           "Postalcode impossibly small"))

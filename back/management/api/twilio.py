@@ -5,7 +5,7 @@ from rest_framework import authentication, permissions
 from django.utils.translation import pgettext_lazy
 from dataclasses import dataclass
 from rest_framework.response import Response
-from ..twilio_handler import get_usr_auth_token
+from ..twilio_handler import get_usr_auth_token, get_room_or_create, complete_room_if_empty
 from ..models.rooms import get_rooms_user, Room, get_rooms_match
 from ..controller import get_user_by_hash, send_websocket_callback
 
@@ -55,6 +55,9 @@ class AuthenticateCallRoom(APIView):
                                           "Room is marked as inactive, cant authenticate!"),
                             status=status.HTTP_400_BAD_REQUEST)
 
+        # Now check if the twilio room exists! if not create it!
+        get_room_or_create(room.name)
+
         usr_auth_token = None
         try:
             usr_auth_token = get_usr_auth_token(room.name, params.usr_hash)
@@ -62,7 +65,10 @@ class AuthenticateCallRoom(APIView):
             print(repr(e))  # TODO: this should inline track an exception
 
         if usr_auth_token:
-            return Response({"usr_auth_token": usr_auth_token})
+            return Response({
+                "usr_auth_token": usr_auth_token,
+                "room_name": room.name
+            })
         else:
             return Response(pgettext_lazy("api.twilio-room-auth-failure",
                                           "Room authentication failed!"),
@@ -108,6 +114,7 @@ class TwilioCallbackApi(APIView):
 
         if StatusCallbackEvent == 'participant-disconnected':
             room, caller, participant = get_room_caller_and_participant()
+            complete_room_if_empty(room)
 
             send_websocket_callback(
                 participant,
