@@ -401,7 +401,7 @@ def deploy_staging(args):
     print(img)
     assert len(img) == 1, \
         f"Multiple or no 'latest' image for name {c.staging_tag} found"
-    aws_registry_url = f"{aws_env['AWS_ACCOUNT_ID']}.dkr.ecr.{aws_env['AWS_REGION']}.amazonaws.com/{aws_env['AWS_REGISTRY_NAME']}:latest"
+    aws_registry_url = f"{aws_env['AWS_ACCOUNT_ID']}.dkr.ecr.{aws_env['AWS_REGION']}.amazonaws.com/{aws_env['AWS_REGISTRY_NAME']}:{aws_env['DOCKER_TAG']}"
     _cmd = ["docker", "tag", img[0]["ID"], aws_registry_url]
     print(" ".join(_cmd))
     subprocess.run(_cmd)
@@ -425,7 +425,7 @@ def build_tag_push_staging_image(args):
     print(img)
     assert len(img) == 1, \
         f"Multiple or no 'latest' image for name {c.staging_tag} found"
-    aws_registry_url = f"{aws_env['AWS_ACCOUNT_ID']}.dkr.ecr.{aws_env['AWS_REGION']}.amazonaws.com/{aws_env['AWS_REGISTRY_NAME']}:latest"
+    aws_registry_url = f"{aws_env['AWS_ACCOUNT_ID']}.dkr.ecr.{aws_env['AWS_REGION']}.amazonaws.com/{aws_env['AWS_REGISTRY_NAME']}:{aws_env['DOCKER_TAG']}"
     _cmd = ["docker", "tag", img[0]["ID"], aws_registry_url]
     print(" ".join(_cmd))
     subprocess.run(_cmd)
