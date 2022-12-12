@@ -372,7 +372,9 @@ def deploy_staging(args):
             shutil.copy(stat_file, f"./back/webpack/{stat_name}")
         build(args)  # Required build of the 'dev' image
         # <-- extract static can curretly only be done from inside the dev container
-        extract_static(args)
+        _run(dev=_is_dev(args), background=True, args=args)
+        extract_static(args, running=True)
+        kill(args, front=False)
     # Build Dockerfile.stage
     #_build_file_tag(c.file_staging[1], c.staging_tag, context_dir=".")
     _cmd = [*c.dbuild,  "-f",  # "--no-cache", <-- sometimes required when image build is misbehaving
