@@ -533,8 +533,9 @@ def extract_static(args, running=False):
                            before=lambda: _run(_is_dev(args), background=True),
                            after=lambda: kill(args, front=False)):
         # '--noinput' why ask for overwrite permission we are in container anyways
+        redis(args)  # We use this as cachebackend for collect fast!
         _run_in_running(_is_dev(args), ["python3", "manage.py",
-                        "collectstatic", "--noinput", "--verbosity 3"])
+                        "collectstatic", "--noinput", "--verbosity", "3"])
 
 
 @register_action(alias=["makemessages"], cont=False, parse_own_args=True)
