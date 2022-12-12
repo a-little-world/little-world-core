@@ -160,3 +160,4 @@ back/static
 
 # Ignore staging environments
 env_stage
+back/webpack
