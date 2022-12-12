@@ -411,10 +411,27 @@ def deploy_staging(args):
 
 
 @register_action()
-def build_tag_push_staging_image():
+def build_tag_push_staging_image(args):
+    aws_env = eval(args.input)
+    args.input = None  # set to none now so no other actions use the parameter
     for stat_file in glob.glob("./front/*.webpack-stats.json"):
         stat_name = stat_file.split("/")[-1]
         shutil.copy(stat_file, f"./back/webpack/{stat_name}")
+    _cmd = [*c.dbuild,  "-f",  # "--no-cache", <-- sometimes required when image build is misbehaving
+            c.file_staging[1], "-t", c.staging_tag, "./back"]
+    print(" ".join(_cmd))
+    subprocess.run(_cmd)
+    img = _docker_images(repo=c.staging_tag, tag="latest")
+    print(img)
+    assert len(img) == 1, \
+        f"Multiple or no 'latest' image for name {c.staging_tag} found"
+    aws_registry_url = f"{aws_env['AWS_ACCOUNT_ID']}.dkr.ecr.{aws_env['AWS_REGION']}.amazonaws.com/{aws_env['AWS_REGISTRY_NAME']}:latest"
+    _cmd = ["docker", "tag", img[0]["ID"], aws_registry_url]
+    print(" ".join(_cmd))
+    subprocess.run(_cmd)
+    _cmd = ["docker", "push", aws_registry_url]
+    print(" ".join(_cmd))
+    subprocess.run(_cmd)
 
 
 @register_action(alias=["b"], cont=True)
