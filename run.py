@@ -410,6 +410,13 @@ def deploy_staging(args):
     subprocess.run(_cmd)
 
 
+@register_action()
+def build_tag_push_staging_image():
+    for stat_file in glob.glob("./front/*.webpack-stats.json"):
+        stat_name = stat_file.split("/")[-1]
+        shutil.copy(stat_file, f"./back/webpack/{stat_name}")
+
+
 @register_action(alias=["b"], cont=True)
 def build(args):
     """
@@ -510,7 +517,7 @@ def extract_static(args, running=False):
                            after=lambda: kill(args, front=False)):
         # '--noinput' why ask for overwrite permission we are in container anyways
         _run_in_running(_is_dev(args), ["python3", "manage.py",
-                        "collectstatic", "--noinput"])
+                        "collectstatic", "--noinput", "--verbosity 3"])
 
 
 @register_action(alias=["makemessages"], cont=False, parse_own_args=True)
