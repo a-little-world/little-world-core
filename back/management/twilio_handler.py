@@ -56,4 +56,4 @@ def get_usr_auth_token(room_name, user_identity):
     # Create a Video grant and add to token
     video_grant = VideoGrant(room=room_name)
     token.add_grant(video_grant)
-    return token
+    return token.to_jwt()

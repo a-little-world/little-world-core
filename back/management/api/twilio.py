@@ -6,7 +6,7 @@ from django.utils.translation import pgettext_lazy
 from dataclasses import dataclass
 from rest_framework.response import Response
 from ..twilio_handler import get_usr_auth_token
-from ..models.rooms import get_rooms_user, Room
+from ..models.rooms import get_rooms_user, Room, get_rooms_match
 from ..controller import get_user_by_hash, send_websocket_callback
 
 
@@ -44,9 +44,9 @@ class AuthenticateCallRoom(APIView):
         usr_self = get_user_by_hash(params.usr_hash)
         usr_other = get_user_by_hash(params.partner_hash)
 
-        rooms_with_match = get_rooms_user(usr_self)
+        rooms_with_match = get_rooms_match(usr_self, usr_other)
         assert rooms_with_match.count(
-        ) == 1, f"{usr_self} and {usr_other} have multiple rooms together"
+        ) == 1, f"{usr_self} and {usr_other} have multiple rooms together {rooms_with_match}"
         room = rooms_with_match.first()
 
         assert isinstance(room, Room)
