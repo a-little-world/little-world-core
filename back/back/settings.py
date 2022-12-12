@@ -189,7 +189,14 @@ if IS_PROD or IS_STAGE:
     #MEDIA_URL = '{}/{}/'.format(AWS_S3_ENDPOINT_URL, AWS_LOCATION_MEDIA)
     #MEDIA_ROOT = 'media/'
     #jprint("TBS:", MEDIA_URL)
-    print("TBS:", STATIC_URL)
+    CACHES = {
+        'collectfast': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': 'redis://host.docker.internal:6379',
+        }
+    }
+    COLLECTFAST_CACHE = "collectfast"
+    COLLECTFAST_THREADS = 20
 else:
     """
     In development all staticfiles will be hosted here
