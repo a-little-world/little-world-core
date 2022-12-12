@@ -189,7 +189,8 @@ if IS_PROD or IS_STAGE:
     #MEDIA_URL = '{}/{}/'.format(AWS_S3_ENDPOINT_URL, AWS_LOCATION_MEDIA)
     #MEDIA_ROOT = 'media/'
     #jprint("TBS:", MEDIA_URL)
-    CACHES = {
+    CACHES = {  # This is so wee can use multithreaded statics uploads!
+        # TODO: always check that we are not overwriting other cache setups
         'collectfast': {
             'BACKEND': 'django.core.cache.backends.redis.RedisCache',
             'LOCATION': 'redis://host.docker.internal:6379',
@@ -217,7 +218,6 @@ else:
 
 USE_I18N = True
 def ugettext(s): return s
-
 
 """
 We want BigAutoField per default just in case
