@@ -78,8 +78,8 @@ class CallRoomTests(TestCase):
         assert rooms.count() == 1
 
     def test_authenticate_call(self):
-        if _is_on_ci()
-        return  # Then dont run this test it would fail cause of missing credentaials
+        if _is_on_ci():
+            return  # Then dont run this test it would fail cause of missing credentaials
         usrs = self.create_two_users_match()
         auth_data = self._auth_call_room_post(usrs[0], usrs[1])
         assert 'usr_auth_token' in auth_data
