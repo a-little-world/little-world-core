@@ -5,6 +5,7 @@ e.g.: Creating a new user, sending a notification to a users etc...
 from chat.django_private_chat2.consumers.message_types import MessageTypes, OutgoingEventNewTextMessage
 from chat.django_private_chat2.models import DialogsModel
 from asgiref.sync import async_to_sync
+from back.utils import _double_uuid
 from channels.layers import get_channel_layer
 from .models import User
 from django.conf import settings
@@ -104,7 +105,7 @@ def create_user(
     # Step 1 - 3
     data = dict(
         # Currently we don't allow any specific username
-        username=email,
+        username=email,  # NOTE that if we change mail we need to change 'username' too
         email=email,
         first_name=first_name,
         second_name=second_name,
