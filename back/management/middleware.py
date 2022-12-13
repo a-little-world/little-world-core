@@ -23,7 +23,7 @@ EXTRA_USER_AUTHORIZATION_ROUTES = {
             State.ExtraUserPermissionChoices.API_SCHEMAS),
         "else": lambda r: responde_404(request=r)
     }
-}
+} if not settings.DEBUG else {}
 
 # In development it ok if everybody can see the admin paths
 IF_NOT_ADMIN_404_ROUTES = [] if settings.DEBUG else [
@@ -44,8 +44,11 @@ def _is_blocked_route(path):
 def _requires_extra_user_permission(path):
     # Only applicable for users, admins dont need these extra permissions
     for route in list(EXTRA_USER_AUTHORIZATION_ROUTES.keys()):
-        if path.startswith(route):
-            return True, EXTRA_USER_AUTHORIZATION_ROUTES[route]
+        try:
+            if path.startswith(route):
+                return True, EXTRA_USER_AUTHORIZATION_ROUTES[route]
+        except:
+            pass  # If the check fails we assume the user doesn't have reqired permissions
     return False, None
 
 
@@ -74,8 +77,13 @@ class AdminPathBlockingMiddleware:
             # Now check for extra user permissions,
             # Sometimes we might want to allow specific users to view the api/schema for example
             extra_auth, auth_tools = _requires_extra_user_permission(path)
-            if extra_auth and auth_tools:
-                if not auth_tools["check"](request.user):
+            if (extra_auth and auth_tools) and not (request.user.is_authenticated and request.user.is_staff):
+                has_permission = False
+                try:
+                    has_permission = not auth_tools["check"](request.user)
+                    if has_permission:
+                        return auth_tools["else"](request)
+                except:
                     return auth_tools["else"](request)
 
         return self.get_response(request)
