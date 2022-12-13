@@ -152,8 +152,8 @@ class User(AbstractUser):
                 verification_code=str(self.state.get_email_auth_pin())
             )
         )
-
         self.email = prms.email
+        self.username = prms.email  # <- so the user can login with that email now
         self.save()
 
     def notify(self, title=_('title'), description=_('description')):
