@@ -82,6 +82,8 @@ def register(request):
 
 @login_required
 def email_verification(request):
+    if request.user.state.is_email_verified():
+        return redirect(reverse("management:user_form", kwargs={}))
     return _render_user_form_app(request, "verifymail", use_cookie_banner=True, email=request.user.email)
 
 
