@@ -182,12 +182,10 @@ class CheckPasswordApi(APIView):
 @dataclass
 class ChangeEmailParams:
     email: str
-    # password: str TODO we might want to allow changing email only with password?
 
 
 class ChangeEmailSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
-    # password = serializers.EmailField(required=True)
 
     def create(self, validated_data):
         return ChangeEmailParams(**validated_data)
@@ -212,6 +210,14 @@ class ChangeEmailApi(APIView):
         serializer.is_valid(raise_exception=True)
         params = serializer.save()
 
+        if request.user.is_staff:
+            raise serializers.ValidationError({
+                "email": pgettext_lazy(
+                    "api.user.change-email-not-allowed-staff",
+                    "Admin may never change their email! Only by the grace of @tbscode"
+                )
+            })
+
         if params.email == request.user.email:
             raise serializers.ValidationError({
                 "email": pgettext_lazy(
@@ -221,12 +227,15 @@ class ChangeEmailApi(APIView):
             })
         else:
             # Maybe a user with this email already exista anyways?
+            email_exists = True
             try:
                 get_user_by_email(params.email)
             except UserNotFoundErr:
-                raise ValueError({"email":  # TODO: now we are exposing us to email enumeration this APIView should be throttled!
-                                  pgettext_lazy("api.user.change-email-failed.email-exists",
-                                                "Email {email} exists".format(email=params.email))})
+                email_exists = False
+            if email_exists:
+                raise serializers.ValidationError({"email":  # TODO: now we are exposing us to email enumeration this APIView should be throttled!
+                                                   pgettext_lazy("api.user.change-email-failed.email-exists",
+                                                                 "Email {email} exists".format(email=params.email))})
 
         # Now we change the email, change the auto code & pin, send another verification mail
         request.user.change_email(params.email)
