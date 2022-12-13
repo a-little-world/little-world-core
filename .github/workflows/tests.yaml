@@ -26,7 +26,9 @@ jobs:
           submodules: recursive
       - name: build backend image
         shell: 'script -q -e -c "bash {0}"'
-        run: python3 run.py build
+        run: |
+          echo "CI=True" >> env
+          python3 run.py build
       - name: build frontend image
         shell: 'script -q -e -c "bash {0}"'
         run: python3 run.py bf
@@ -41,8 +43,6 @@ jobs:
         shell: 'script -q -e -c "bash {0}"'
         # Runns 'manage.py test' in the container
         run: python3 run.py run_django_tests
-        env:
-          CI: True
       - name: kill backend image
         shell: 'script -q -e -c "bash {0}"'
         # Kill everything we are done
