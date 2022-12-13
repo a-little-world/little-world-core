@@ -8,6 +8,7 @@ from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django import forms
 from phonenumber_field.widgets import PhoneNumberPrefixWidget
 from . import models
+from hijack.contrib.admin import HijackUserAdminMixin
 
 
 @admin.register(models.backend_state.BackendState)
@@ -41,12 +42,15 @@ class ScoreTableAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.state.State)
-class StateAdmin(admin.ModelAdmin):
+class StateAdmin(HijackUserAdminMixin, admin.ModelAdmin):
     list_display = ('user', 'created_at', 'user_form_state',
                     'matching_state', 'unread_chat_message_count', 'user_category', 'tags')
     list_editable = ('user_category', 'tags',)
     search_fields = ('user', 'created_at', 'user_form_state')
     ordering = ('user', 'created_at')
+
+    def get_hijack_user(self, obj):
+        return obj.user
 
 
 @admin.register(models.Room)
