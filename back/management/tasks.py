@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from .models import User
 import datetime
 from django.utils.translation import pgettext_lazy
@@ -5,6 +6,7 @@ from .models.community_events import CommunityEvent, CommunityEventSerializer
 from .models.backend_state import BackendState
 from cookie_consent.models import CookieGroup, Cookie
 from celery import shared_task
+from tracking.utils import inline_track_event
 """
 also contains general startup celery tasks, most of them are automaticly run when the controller.get_base_management user is created
 some of them are managed via models.backend_state.BackendState to ensure they don't run twice!
@@ -82,7 +84,7 @@ def create_default_cookie_groups():
 @shared_task
 def fill_base_management_user_profile():
     """
-    Fills our required fields for the admin user in the background 
+    Fills our required fields for the admin user in the background
     """
     if BackendState.is_base_management_user_profile_filled(set_true=True):
         return
@@ -93,7 +95,7 @@ def fill_base_management_user_profile():
 Hey :)
 ich bin Oliver, einer der Gründer und dein persönlicher Ansprechpartner für Fragen & Anregungen.
 
-Selbst habe ich vier Jahre im Ausland gelebt, von Frankreich bis nach China. Den interkulturellen Austausch habe ich immer geliebt, wobei mich die Gastfreundschaft oft tief beeindruckt hat. 
+Selbst habe ich vier Jahre im Ausland gelebt, von Frankreich bis nach China. Den interkulturellen Austausch habe ich immer geliebt, wobei mich die Gastfreundschaft oft tief beeindruckt hat.
 """
     usr = get_base_management_user()
     usr.profile.birth_year = 1984
@@ -108,7 +110,7 @@ Selbst habe ich vier Jahre im Ausland gelebt, von Frankreich bis nach China. Den
 @shared_task
 def calculate_directional_matching_score_background(usr_hash):
     """
-    This is the backend task for calculating a matching score. 
+    This is the backend task for calculating a matching score.
     This will *automaticly* be executed everytime a users changes his user form
     run with calculate_directional_matching_score_background.delay(usr)
     """
@@ -153,3 +155,44 @@ def create_default_table_score_source():
         function_scoring_selection=list(SCORING_FUNCTIONS.keys())
     )
     return "default score source created"
+
+
+@shared_task
+def dispatch_track_chat_channel_event(
+    message_type: str,  # connected | disconnected | message-send
+    usr_hash: str,
+    meta: dict
+):
+    """
+    Automaticly triggered by some event in management.app.chat
+    """
+    from .controller import get_user_by_hash
+    caller = "anonymous"
+    try:
+        caller = get_user_by_hash(usr_hash)
+    except:
+        print("Could not find user by hash", usr_hash)
+
+    inline_track_event(
+        caller=caller,  # TODO actually inline track supports passing users
+        tags=["chat", "channels", message_type],
+        channel_meta=meta
+    )
+
+
+@shared_task
+def archive_current_profile_user(usr_hash):
+    """
+    Task is called when a user changed this searching state, it will archive the current profile
+    """
+
+    from .models.profile import ProfileAtMatchRequest, SelfProfileSerializer
+    from .controller import get_user_by_hash
+    profile = get_user_by_hash(usr_hash).profile
+    data = SelfProfileSerializer(profile).data
+    _d = {k: data[k]
+          for k in data if not k in ["options"]}  # Filter out options
+    ProfileAtMatchRequest.objects.create(
+        usr_hash=usr_hash,
+        **data
+    )
