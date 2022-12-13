@@ -21,7 +21,7 @@ class Notification(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    time_read = models.DateTimeField(null=True)
+    time_read = models.DateTimeField(null=True, blank=True)
 
     class NotificationState(models.TextChoices):
         UNREAD = "unread", pgettext_lazy("notification.state.unread", "Unread")
