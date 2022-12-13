@@ -22,6 +22,7 @@ urlpatterns = [
     path('', include('tracking.urls')),
     path('admin/', admin.site.urls),
     path("cookies/", include("cookie_consent.urls")),
+    path('hijack/', include('hijack.urls')),
     path("", include("chat.django_private_chat2.urls")),
 
     # In staging and production we are serving statics from an aws bucket!

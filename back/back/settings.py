@@ -47,6 +47,9 @@ INSTALLED_APPS = [
 
     'jazzmin',  # The waaaaaay nicer admin interface
 
+    'hijack',  # For admins to login as other users, for remote administration and support
+    'hijack.contrib.admin',  # Hijack button on user list in admin interface
+
     'django_celery_beat',
     'django_celery_results',
 
@@ -68,6 +71,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    #*(['django.contrib.sessions'] if IS_PROD or IS_STAGE else []),
+
+
 ]
 print(f'Installed apps:\n' + '\n- '.join(INSTALLED_APPS))
 
@@ -95,6 +101,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'management.middleware.AdminPathBlockingMiddleware',
+    'hijack.middleware.HijackUserMiddleware',
     'tracking.middleware.TrackRequestsMiddleware',
 ]
 
@@ -491,6 +498,9 @@ JAZZMIN_SETTINGS = {
         {"name": "Repo", "url": "https://github.com/a-little-world/little-world-backend",
             "new_window": True},
 
+        {"name": "DB shema", "url": "/db",
+            "new_window": True},
+
         {"name": "Admin Chat", "url": "/admin_chat",
             "new_window": True},
 
@@ -508,6 +518,21 @@ JAZZMIN_SETTINGS = {
     "usermenu_links": [
         {"name": "AdminChat", "url": f"{BASE_URL}/admin_chat",
             "new_window": True},
+        {"name": "Home",  "url": "/app",
+            "permissions": ["auth.view_user"]},
+        {"name": "Repo", "url": "https://github.com/a-little-world/little-world-backend",
+            "new_window": True},
+        {"name": "DB shema", "url": "/db",
+            "new_window": True},
+        {"name": "Admin Chat", "url": "/admin_chat",
+            "new_window": True},
+        {"name": "Docs", "url": "/static/docs",
+            "new_window": True},
+        {"name": "API", "url": "/api/schema/swagger-ui/",
+            "new_window": True},
+        {"name": "Emails", "url": "/emails/welcome",
+            "new_window": True},
+        {"event": "tracking"},
     ],
     "show_sidebar": True,
     "navigation_expanded": True,

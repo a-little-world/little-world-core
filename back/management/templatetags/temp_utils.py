@@ -11,7 +11,11 @@ def create_dict(str_dict):
 
 @register.simple_tag
 def get_base_url():
-    return settings.BASE_URL
+    # TODO: this was only meant for the email templates
+    # and seems to be fixed vir correcting static path in settings
+    # so prop depricate!
+    return ""
+    # return settings.BASE_URL
 
 
 @register.simple_tag

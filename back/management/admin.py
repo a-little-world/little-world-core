@@ -1,3 +1,4 @@
+from django.contrib.sessions.models import Session
 from django.db import models as dj_models
 from martor.widgets import AdminMartorWidget
 from django.contrib import admin
@@ -8,6 +9,7 @@ from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django import forms
 from phonenumber_field.widgets import PhoneNumberPrefixWidget
 from . import models
+from hijack.contrib.admin import HijackUserAdminMixin
 
 
 @admin.register(models.backend_state.BackendState)
@@ -41,12 +43,15 @@ class ScoreTableAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.state.State)
-class StateAdmin(admin.ModelAdmin):
+class StateAdmin(HijackUserAdminMixin, admin.ModelAdmin):
     list_display = ('user', 'created_at', 'user_form_state',
                     'matching_state', 'unread_chat_message_count', 'user_category', 'tags')
     list_editable = ('user_category', 'tags',)
     search_fields = ('user', 'created_at', 'user_form_state')
     ordering = ('user', 'created_at')
+
+    def get_hijack_user(self, obj):
+        return obj.user
 
 
 @admin.register(models.Room)
@@ -176,3 +181,10 @@ class UserAdmin(DjangoUserAdmin):
     readonly_fields = ('hash', 'first_name', 'last_name')
     ordering = ('email', 'is_staff')
     list_filter = (UserFormFilledFilter, UserCategory, 'is_staff',)
+
+
+@admin.register(Session)
+class SessionAdmin(admin.ModelAdmin):
+    def _session_data(self, obj):
+        return obj.get_decoded()
+    list_display = ['session_key', '_session_data', 'expire_date']
