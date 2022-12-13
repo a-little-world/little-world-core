@@ -190,7 +190,10 @@ if IS_PROD or IS_STAGE:
     #MEDIA_ROOT = 'media/'
     #jprint("TBS:", MEDIA_URL)
     CACHES = {  # This is so wee can use multithreaded statics uploads!
-        # TODO: always check that we are not overwriting other cache setups
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'unique-snowflake',
+        },
         'collectfast': {
             'BACKEND': 'django.core.cache.backends.redis.RedisCache',
             'LOCATION': 'redis://host.docker.internal:6379',
@@ -218,6 +221,7 @@ else:
 
 USE_I18N = True
 def ugettext(s): return s
+
 
 """
 We want BigAutoField per default just in case
