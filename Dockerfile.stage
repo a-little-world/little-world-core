@@ -19,5 +19,10 @@ ADD ./webpack/main_frontend.webpack-stats.json /front/main_frontend.webpack-stat
 
 EXPOSE 8000
 
+RUN apk add gettext
+RUN apk add --update --no-cache py3-numpy
+# link the numpy installation
+ENV PYTHONPATH=/usr/lib/python3.10/site-packages
+
 # CMD uvicorn back.asgi:application --port $PORT --host 0.0.0.0
 CMD ["sh", "./entry.sh"]
