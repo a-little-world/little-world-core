@@ -12,11 +12,10 @@ from management.models.user import User
 class EventAdmin(admin.ModelAdmin):
     list_display = ('_abr_hash', 'name', 'type', 'user_ref',
                     'time', 'tags', 'func', 'metadata')
-    search_fields = ('_abr_hash', 'name', 'type', 'caller',
-                     'time', 'tags', 'func', 'metadata')
+    search_fields = ('name', 'type', 'tags', 'caller__hash', 'caller__email')
     list_filter = ("caller",)
 
-    readonly_fields = ('user_ref',)
+    #readonly_fields = ('user_ref',)
 
     def user_ref(self, obj):
         if obj.caller is not None:
