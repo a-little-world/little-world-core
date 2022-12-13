@@ -47,6 +47,9 @@ INSTALLED_APPS = [
 
     'jazzmin',  # The waaaaaay nicer admin interface
 
+    'hijack',  # For admins to login as other users, for remote administration and support
+    'hijack.contrib.admin',  # Hijack button on user list in admin interface
+
     'django_celery_beat',
     'django_celery_results',
 
@@ -95,6 +98,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'management.middleware.AdminPathBlockingMiddleware',
+    'hijack.middleware.HijackUserMiddleware',
     'tracking.middleware.TrackRequestsMiddleware',
 ]
 
