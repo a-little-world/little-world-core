@@ -27,7 +27,7 @@ jobs:
       - name: build backend image
         shell: 'script -q -e -c "bash {0}"'
         run: |
-          echo "CI=True" >> env
+          echo -e "\nCI=True" >> env
           python3 run.py build
       - name: build frontend image
         shell: 'script -q -e -c "bash {0}"'
