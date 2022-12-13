@@ -616,7 +616,7 @@ def _make_webpack_command(env, config, debug: bool, watch: bool):
     return _cmd
 
 
-@register_action(parse_own_args=True)
+@register_action(parse_own_args=True, alias=["switch_env"])
 def relink_env(args):
     assert len(args.unknown) == 1, "Enter one env to relink"
     assert os.path.exists(args.unknown[0]), f"Cant find env {args.unknown[0]}"
