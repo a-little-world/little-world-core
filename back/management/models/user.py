@@ -71,6 +71,10 @@ class User(AbstractUser):
 
     objects = UserManager()  # Register the new user manager
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__original_username = self.username
+
     @property
     def state(self):
         from . import state
@@ -96,6 +100,14 @@ class User(AbstractUser):
         _state = self.state
         return _state.user_form_state == _state.UserFormStateChoices.FILLED
     is_user_form_filled.boolean = True
+
+    def save(self, *args, **kwargs):
+        if self.email != self.__original_username:
+            # Then the email of that user was changed!
+            # This means we have to update the username too!
+            self.username = self.email
+        super().save(*args, **kwargs)
+        self.__original_username = self.username
 
     def get_matches(self):
         """ Returns a list of matches """
@@ -153,7 +165,9 @@ class User(AbstractUser):
             )
         )
         self.email = prms.email
-        self.username = prms.email  # <- so the user can login with that email now
+        # NOTE the save() method automaicly detects the email change and also changes the username
+        # We do this so admins can edit emails in the admin pannel and changes are reflected as expected
+        # self.username = prms.email  # <- so the user can login with that email now
         self.save()
 
     def notify(self, title=_('title'), description=_('description')):
