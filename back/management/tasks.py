@@ -103,6 +103,9 @@ Selbst habe ich vier Jahre im Ausland gelebt, von Frankreich bis nach China. Den
     usr.profile.description = base_management_user_description
     # TODO: add default interests
     # TODO: upload default image!
+    usr.profile.add_profile_picture_from_local_path(
+        '/back/dev_test_data/oliver_berlin_management_user_profile_pic.jpg')
+    usr.profile.save()
     usr.profile.save()
     return "sucessfully filled base management user profile"
 
