@@ -1,5 +1,6 @@
 from django.contrib.auth.decorators import user_passes_test
 from django.shortcuts import render
+from back.utils import CoolerJson
 from ..api.user_data import get_user_data
 from ..api.user_slug_filter_lookup import get_users_by_slug_filter
 from ..models import User
@@ -39,4 +40,4 @@ def admin_panel(request):
         p, is_self=True, admin=True, include_options=False) for p in pages]
 
     return render(request, "admin_panel_frontend.html",
-                  {"user_data": json.dumps(user_list_data, default=lambda a: str(a))})
+                  {"user_data": json.dumps(user_list_data, cls=CoolerJson)})
