@@ -411,7 +411,7 @@ DATABASES = {
     },
 }
 
-if IS_PROD:
+if IS_PROD and IS_STAGE:
     EMAIL_HOST = 'smtp.sendgrid.net'
     EMAIL_HOST_USER = 'apikey'
     EMAIL_HOST_PASSWORD = os.environ['DJ_SG_SENDGRID_API_KEY']
