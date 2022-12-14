@@ -23,6 +23,10 @@ TWILIO_ACCOUNT_SID = os.environ["DJ_TWILIO_ACCOUNT_SID"]
 TWILIO_API_KEY_SID = os.environ["DJ_TWILIO_API_KEY_SID"]
 TWILIO_API_SECRET = os.environ["DJ_TWILIO_API_SECRET"]
 
+if IS_PROD and 'K8_POD_IP' in os.environ:
+    # So that we can further restrict access to the depoloyment kubernetes node
+    ALLOWED_HOSTS.append(os.environ['K8_POD_IP'])
+
 """
 Own applications:
 management: for user management and general api usage
