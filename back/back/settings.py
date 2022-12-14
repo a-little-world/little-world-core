@@ -163,10 +163,12 @@ TEMPLATES = [
 
 
 if IS_PROD or IS_STAGE:
+    print("TRYING to push statics to bucket")
     # In production & staging we use S3 as file storage!
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
     STATICFILES_STORAGE = 'storages.backends.s3boto3.S3StaticStorage'
     COLLECTFAST_STRATEGY = "collectfast.strategies.boto3.Boto3Strategy"
+    #COLLECTFAST_ENABLED = False
 
     AWS_ACCESS_KEY_ID = os.environ['DJ_AWS_STATIC_ACCESS_KEY_ID']
     AWS_SECRET_ACCESS_KEY = os.environ['DJ_AWS_STATIC_SECRET_KEY']
@@ -186,6 +188,7 @@ if IS_PROD or IS_STAGE:
 
     AWS_STATIC_ROOT = f'static'
     STATIC_URL = '{}/{}/'.format(AWS_S3_CUSTOM_DOMAIN, AWS_STATIC_ROOT)
+    print("AWS URL", STATIC_URL)
 
     #STATIC_ROOT = os.path.join(BASE_DIR, 'static')
     #STATIC_ROOT = '{}/static/'.format(AWS_STORAGE_BUCKET_NAME)
@@ -228,7 +231,6 @@ else:
 
 USE_I18N = True
 def ugettext(s): return s
-
 
 """
 We want BigAutoField per default just in case
@@ -498,6 +500,9 @@ JAZZMIN_SETTINGS = {
         {"name": "Repo", "url": "https://github.com/a-little-world/little-world-backend",
             "new_window": True},
 
+        {"name": "Matching Pannel", "url": "/admin_panel",
+            "new_window": True},
+
         {"name": "DB shema", "url": "/db",
             "new_window": True},
 
@@ -516,6 +521,8 @@ JAZZMIN_SETTINGS = {
         {"event": "tracking"},
     ],
     "usermenu_links": [
+        {"name": "Matching Pannel", "url": "/admin_panel",
+            "new_window": True},
         {"name": "AdminChat", "url": f"{BASE_URL}/admin_chat",
             "new_window": True},
         {"name": "Home",  "url": "/app",

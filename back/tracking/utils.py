@@ -1,10 +1,12 @@
 from functools import partial, wraps
+import json
 from .models import Event
 from django.utils.translation import gettext_lazy as _
 from django.http import HttpRequest
 from rest_framework.request import Request
 from ipware import get_client_ip  # django-ipware
 
+from back.utils import CoolerJson
 
 possible_metadata = [
     "request",
@@ -42,8 +44,8 @@ def inline_track_event(
         _kwargs = kwargs
 
     metadata = {
-        "kwargs": str(_kwargs),
-        "args": str(args),
+        "kwargs": _kwargs,
+        "args": args,
         "msg": [],
     }
     _user = None
@@ -112,7 +114,7 @@ def inline_track_event(
             metadata["usr3"] = str(_user)
     import json
 
-    metadata = {m: str(v) for m, v in metadata.items()}
+    #metadata = {m: str(v) for m, v in metadata.items()}
 
     _input = dict(
         # `time` is set automaticly
@@ -121,8 +123,9 @@ def inline_track_event(
         type=event_type,
         name=name,
         # Adding the default for json.dumps should normaly prevent this from erroring
-        # TODO: we should maybe catch this also though, we could then just write an error event
-        metadata=metadata,
+        # We dump it using our cooler serializer that falls back to strings
+        # and handles some other cases where json would error
+        metadata=json.loads(json.dumps(metadata, cls=CoolerJson)),
         **({'caller': _user} if _user else {})
     )
     Event.objects.create(**_input)

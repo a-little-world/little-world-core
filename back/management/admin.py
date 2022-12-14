@@ -42,6 +42,11 @@ class ScoreTableAdmin(admin.ModelAdmin):
     }
 
 
+@admin.register(models.profile.ProfileAtMatchRequest)
+class ProfileAtMatchRequestAdmin(admin.ModelAdmin):
+    list_display = ('usr_hash', 'sdate', 'date')
+
+
 @admin.register(models.state.State)
 class StateAdmin(HijackUserAdminMixin, admin.ModelAdmin):
     list_display = ('user', 'created_at', 'user_form_state',
@@ -150,6 +155,13 @@ class UserAdmin(DjangoUserAdmin):
             f'<a href="{route}" target="_blank" rel="noopener noreferrer" >view suggestions</a>'
         )
 
+    @admin.display(description='activity')
+    def view_tracked_activity(self, obj):
+        url = f'/admin/tracking/event/?q={obj.hash}&o=-5'
+        return mark_safe(
+            f'<a href="{url}" target="_blank" rel="noopener noreferrer" >view tracked activity</a>'
+        )
+
     def get_search_results(self, request, queryset, search_term):
         queryset, use_distinct = super(DjangoUserAdmin, self).get_search_results(
             request, queryset, search_term)
@@ -174,7 +186,7 @@ class UserAdmin(DjangoUserAdmin):
         }),
     )
     list_display = ('_abr_hash', 'email', 'last_login', 'date_joined',
-                    'first_name', 'last_name', 'chat_with', 'show_matching_suggestions', 'is_user_form_filled', 'is_staff')
+                    'first_name', 'last_name', 'chat_with', 'show_matching_suggestions', 'view_tracked_activity', 'is_user_form_filled', 'is_staff')
     search_fields = ('email', 'first_name', 'last_name', 'hash')
     # fist & last names are read-only here,
     # the user can change the first / lastnames stored in profile, but not this one!

@@ -64,3 +64,44 @@ class Event(models.Model):
     etc... TODO: be a little more specific
     """
     metadata = models.JSONField()
+
+
+class Summaries(models.Model):
+    """
+    Saves daily / hourly / weekly summaries of events 
+    e.g.: User logins today user messages sent today
+    user registrations today
+
+
+    We want e.g.:
+    - users registered today
+    - users verified email today
+    - users filled user form today
+    - users logged in today
+    - users send messages today
+    - users had a call together today
+    - users total time connected to chat
+    - users mean call time today
+    - amount messages sent today
+    - amount matches created today
+    """
+
+    class RateChoices(models.TextChoices):
+        HOURLY = 'hourly', _('Hourly')
+        DAILY = 'daily', _('Daily')
+        WEEKLY = 'weekly', _('Weekly')
+        MONTHLY = 'monthly', _('Monthly')
+
+    label = models.CharField(max_length=255, blank=False, null=False)
+
+    hash = models.CharField(max_length=255, blank=True,
+                            default=utils._double_uuid)
+
+    rate = models.CharField(
+        max_length=1000, choices=RateChoices.choices, blank=False)
+
+    time_created = models.DateTimeField(auto_now_add=True)
+
+    summary_table = models.TextField()
+
+    meta = models.JSONField()

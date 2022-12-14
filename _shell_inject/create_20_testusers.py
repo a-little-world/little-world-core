@@ -83,7 +83,8 @@ def _create_abunch_of_users(amnt=10, user_seeds=[42]*20):
         count += 1
         return count, mail_fragments[0] + str(count) + "@" + mail_fragments[1]
     import glob
-    pics = glob.glob("/back/dev_test_data/*")
+    pics = [f for f in glob.glob(
+        "/back/dev_test_data/*") if not "management_user" in f]
 
     # Just some stuff to generate some random sentances
     # It will be more meaningfull if we have real words here for viewing in the frontend

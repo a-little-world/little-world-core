@@ -612,6 +612,7 @@ def _make_webpack_command(env, config, debug: bool, watch: bool):
         '--env', f'PUBLIC_PATH={env["WEBPACK_PUBLIC_PATH"]}',
         '--env', f'DEV_TOOL={env["WEBPACK_DEV_TOOL"]}',
         '--env', 'DEBUG=1' if debug else 'DEBUG=0',
+        *(['--no-devtool'] if not debug else []),
         '--mode', 'development' if debug else 'production',
         '--config', config]
     return _cmd
