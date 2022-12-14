@@ -1,12 +1,12 @@
+from cookie_consent.models import CookieGroup, Cookie
+from celery import shared_task
+from tracking.utils import inline_track_event
 from dataclasses import dataclass
 from .models import User
 import datetime
 from django.utils.translation import pgettext_lazy
 from .models.community_events import CommunityEvent, CommunityEventSerializer
 from .models.backend_state import BackendState
-from cookie_consent.models import CookieGroup, Cookie
-from celery import shared_task
-from tracking.utils import inline_track_event
 """
 also contains general startup celery tasks, most of them are automaticly run when the controller.get_base_management user is created
 some of them are managed via models.backend_state.BackendState to ensure they don't run twice!
@@ -87,7 +87,7 @@ def fill_base_management_user_profile():
     Fills our required fields for the admin user in the background
     """
     if BackendState.is_base_management_user_profile_filled(set_true=True):
-        return
+        return  # Allready filled base management user profile
 
     from .controller import get_base_management_user
 
@@ -196,3 +196,62 @@ def archive_current_profile_user(usr_hash):
         usr_hash=usr_hash,
         **data
     )
+
+
+@shared_task
+def write_hourly_backend_event_summary():
+    """
+    Collects a bunch of stats and stores them as tracking.models.Summaries
+
+    - users registered today
+    - users verified email today
+    - users filled user form today
+    - users logged in today
+    - users send messages today
+    - users had a call together today
+    - users total time connected to chat
+    - users mean call time today
+    - amount messages sent today
+    - amount matches created today
+    """
+
+    from tracking.models import Summaries, Event
+    from datetime import timedelta
+    from django.utils import timezone
+
+    # For that fist we extract all event within that hour
+    this_hour = timezone.now().replace(minute=0, second=0, microsecond=0)
+    one_hour_later = this_hour + timedelta(hours=4)
+    earlier = this_hour - timedelta(hours=4)
+    events = Event.objects.filter(time__range=(this_hour, one_hour_later))
+
+    chat_connected_users_per_user_time = {}
+    chat_per_user_message_send_count = {}
+    for event in events:
+        #print("TIME", event.time)
+        has_event_tags = hasattr(
+            event, "tags") and isinstance(event.tags, list)
+        has_caller_annotation = hasattr(event, "caller")
+
+        #print("TAGS", event.tags)
+        #print("DATA", event.metadata)
+
+        if has_event_tags and has_caller_annotation:
+            assert isinstance(event.tags, list)
+            if all([x in event.tags for x in ['chat', 'channels', 'connected']]):
+                # User connected to chat
+                chat_connected_users_per_user_time.get(event.caller, None)
+                chat_connected_users_per_user_time[event.caller] = event.time
+                print("Detected user connected to chat",
+                      event.caller, event.time)
+            if all([x in event.tags for x in ['chat', 'channels', 'disconnected']]):
+                # User connected to chat
+                chat_connected_users_per_user_time[event.caller] = event.time
+                print("Detected user disconnected to chat",
+                      event.caller, event.time)
+            if all([x in event.tags for x in ['chat', 'channels', 'message-send']]):
+                if not event.caller in chat_per_user_message_send_count:
+                    chat_per_user_message_send_count[event.caller] = 0
+                chat_per_user_message_send_count[event.caller] += 1
+                print("Detected user send message to chat",
+                      event.caller, event.time)
