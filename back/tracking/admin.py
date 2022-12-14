@@ -1,11 +1,16 @@
 from django.contrib import admin
-from .models import Event
+from .models import Event, Summaries
 
 # Register your models here.
 from django.template.defaultfilters import escape
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 from management.models.user import User
+
+
+@admin.register(Summaries)
+class SummariesAdmin(admin.ModelAdmin):
+    list_display = ('label', 'hash', 'rate', 'time_created', 'meta')
 
 
 @admin.register(Event)
