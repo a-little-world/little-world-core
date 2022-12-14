@@ -498,6 +498,9 @@ JAZZMIN_SETTINGS = {
         {"name": "Repo", "url": "https://github.com/a-little-world/little-world-backend",
             "new_window": True},
 
+        {"name": "Matching Pannel", "url": "/admin_panel",
+            "new_window": True},
+
         {"name": "DB shema", "url": "/db",
             "new_window": True},
 
@@ -516,6 +519,8 @@ JAZZMIN_SETTINGS = {
         {"event": "tracking"},
     ],
     "usermenu_links": [
+        {"name": "Matching Pannel", "url": "/admin_panel",
+            "new_window": True},
         {"name": "AdminChat", "url": f"{BASE_URL}/admin_chat",
             "new_window": True},
         {"name": "Home",  "url": "/app",
