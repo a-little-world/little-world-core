@@ -142,24 +142,42 @@ class MatchingSuggestion(APIView):  # TODO
     pass
 
 
+# ==================================== TWO user 'action' apis: ====================================
+
 @dataclass
-class MakeMatchData:
+class TwoUserInputData:
     user1: str
     user2: str
     lookup: str = "hash"  # The user hashes are always default lookup
 
 
-class MakeMatchSerializer(serializers.Serializer):
+class TwoUserInputSerializer(serializers.Serializer):
     user1 = serializers.CharField(required=True)
     user2 = serializers.CharField(required=True)
     lookup = serializers.CharField(required=False)
 
     def create(self, validated_data):
-        return MakeMatchData(**validated_data)
+        return TwoUserInputData(**validated_data)
 
 
-class MakeMatch(APIView):  # TODO
-    pass
+def get_two_users(usr1, usr2, lookup):
+    return [
+        controller.get_user(usr1, lookup=lookup),
+        controller.get_user(usr2, lookup=lookup),
+    ]
+
+
+class MakeMatch(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    @extend_schema(
+        request=TwoUserInputSerializer(many=False),
+    )
+    def post(self, request):
+        serializer = TwoUserInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        params = serializer.save()
+        users = get_two_users(params.user1, params.user2, params.lookup)
 
 
 class UserModificationAction(APIView):  # TODO:
