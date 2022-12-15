@@ -27,7 +27,8 @@ def get_cookie_banner_data(request):
 @register.simple_tag
 def get_base_page_url():
     # to be used in exportable_cookie_banner_template.js
-    return settings.BASE_URL
+    # TODO: depricate
+    return ""  # settings.BASE_URL
 
 
 @register.simple_tag
