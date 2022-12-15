@@ -19,6 +19,18 @@ def get_base_url():
 
 
 @register.simple_tag
+def get_cookie_banner_data(request):
+    from ..views.cookie_banner_frontend import get_cookie_banner_template_data
+    return json.dumps(get_cookie_banner_template_data(request))
+
+
+@register.simple_tag
+def get_base_page_url():
+    # to be used in exportable_cookie_banner_template.js
+    return settings.BASE_URL
+
+
+@register.simple_tag
 def get_api_translations(request):
     from ..api.trans import get_trans_as_tag_catalogue
     """

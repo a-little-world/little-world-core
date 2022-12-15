@@ -58,6 +58,8 @@ api_routes = [
 
     path(_api_url('register'), api.register.Register.as_view()),
     path(_api_url('user'), api.user_data.SelfInfo.as_view()),
+    path(_api_url('cookies/cookie_banner.js'),
+         api.cookies.get_dynamic_cookie_banner_js),
     path(_api_url('user/confirm_match'), api.user.ConfirmMatchesApi.as_view()),
     path(_api_url('user/search_state/<str:state_slug>', end_slash=False),
          api.user.UpdateSearchingStateApi.as_view()),

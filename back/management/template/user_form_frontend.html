@@ -1,19 +1,18 @@
 {% load render_bundle from webpack_loader %}
 {% load get_api_translations from temp_utils %}
+{% load get_base_page_url from temp_utils %}
 {% get_api_translations request=request as api_translations %}
 <!DOCTYPE html>
 <head>
     {% include "react_app_head_base.html" with app_name='user_form_frontend' title='User Form' %}    
     {% if use_cookie_banner %}
-        {% render_bundle 'staticfiles' 'css' 'user_form_frontend' %}
+        {% get_base_page_url as BASE_PAGE_URL %}
+        <script type='text/javascript' async src='{{ BASE_PAGE_URL }}/api/cookies/cookie_banner.js'></script>
     {% endif %}
     {% render_bundle 'staticfiles' 'css' 'user_form_frontend' %}
 </head>
 <body>
     <div id="root"></div>
-    {% if use_cookie_banner %}
-        <div id="shadow-root"></div>
-    {% endif %}
 </body>
 {% render_bundle 'staticfiles' 'js' 'user_form_frontend' %}
 <script>
@@ -24,19 +23,4 @@
     if(appName==="") render_app({...extraKwargs}, { apiTranslations }) 
     else render_app({ byName : appName, ...extraKwargs}, { apiTranslations })
 </script>
-{% if use_cookie_banner %}
-    {% render_bundle 'staticfiles' 'js' 'cookie_banner_frontend' %}
-    <script>
-        const toImpressum = () => { window.showImpressum() }
-        const toPrivacy = () => { window.showPrivacy() } 
-        const cookieData = JSON.parse('{{ cookie_data | escapejs }}');
-        cookieBanner(
-            cookieData.cookieGroups,
-            cookieData.cookieSets, 
-            cookieData.cookieStateDict, 
-            toImpressum, 
-            toPrivacy
-        );
-    </script>
-{% endif %}
 <div style="display: none;">{{csrf_token}}</div>
