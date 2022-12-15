@@ -135,3 +135,9 @@ class MatchinScore(models.Model):
         if 'depricated_score' in kwargs:
             del kwargs['depricated_score']
         super().save(*args, **kwargs)
+
+    @classmethod
+    def get_current_directional_score(cls, from_usr, to_usr):
+        return cls.objects.filter(
+            from_usr=from_usr, to_usr=to_usr, current_score=True
+        ).first()

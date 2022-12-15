@@ -94,6 +94,10 @@ api_routes = [
     path(_api_url('user/get', admin=True), api.admin.GetUser.as_view()),
     path(_api_url('user/list', admin=True), api.admin.UserList.as_view()),
 
+
+    path(_api_url('twousr_actions/match', admin=True),
+         api.admin.MakeMatch.as_view()),
+
     #    path(_api_url('user/match', admin=True), api.admin.MakeMatch.as_view()),
     #    path(_api_url('user/suggest_match', admin=True),
     #         api.admin.MatchingSuggestion.as_view()),

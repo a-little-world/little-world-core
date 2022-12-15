@@ -11,7 +11,8 @@ from .score_tables import (
 )
 
 from .score_table_lookup import (
-    check__plz_distance_matching_score
+    check__plz_distance_matching_score,
+    check__volunteer_vs_learner
 )
 
 
@@ -58,6 +59,7 @@ def _generate_table_scoring(
     # Choices are always strings now!
     if _usr1_to_usr2_score.lower() == "x":
         _matchable = False
+        _usr1_to_usr2_score = -69
     else:
         # above is the only non integer case that is allowed
         # so it if wher not an integer we should error here:
@@ -84,7 +86,8 @@ LIMITING_CONDITIONS = dict(
 )
 
 SCORING_FUNCTIONS = dict(  # This matches models.matching_score.TabaseScoring.ScoreFunctions
-    postal_code_distance_check=check__plz_distance_matching_score
+    postal_code_distance_check=check__plz_distance_matching_score,
+    volunteer_vs_leaner_check=check__volunteer_vs_learner
 )
 
 
@@ -103,6 +106,7 @@ def get_scoring_from_latest_table_model():
     assert scores, "No 'latests' scoring table!"
 
     return dict(
+        volunteer_vs_learner=SCORING_FUNCTIONS['volunteer_vs_leaner_check'],
         target_group=dispatch_table_score(
             limiting_condition=LIMITING_CONDITIONS['learner'],
             value_lookup=lambda usr: usr.profile.target_group,
@@ -186,13 +190,15 @@ def calculate_directional_score_write_results_to_db(
     err_msg = ""
     if catch_exceptions:
         try:
-            res = calculate_directional_matching_score(usr1, usr2)
+            res = calculate_directional_matching_score(
+                usr1, usr2, catch_exceptions=True)
         except Exception as e:
             print("Error while calculating the matching score for ",
                   usr1, usr2, str(e))
             err_msg += repr(e)
     else:
-        res = calculate_directional_matching_score(usr1, usr2)
+        res = calculate_directional_matching_score(
+            usr1, usr2, catch_exceptions=False)
 
     if res is not None:
         matchable, score, msgs, summary = res
@@ -223,7 +229,8 @@ def calculate_directional_score_write_results_to_db(
 
 def calculate_directional_matching_score(
     usr1, usr2,
-    return_on_nomatch=False
+    return_on_nomatch=False,
+    catch_exceptions=False
 ):
     """
     A general function that can calucate the directionmal matching score for two users
@@ -240,7 +247,15 @@ def calculate_directional_matching_score(
 
     _SCORINGS = get_scoring_from_latest_table_model()
     for scoring in _SCORINGS:
-        matchable, score, msg, meta = _SCORINGS[scoring](usr1, usr2)
+        matchable, score, msg, meta = True, -50, "", {}
+
+        if catch_exceptions:
+            try:
+                matchable, score, msg, meta = _SCORINGS[scoring](usr1, usr2)
+            except Exception as e:
+                msg = f"Error while calculating the matching score {e}, \n please investigate! This may also happen if a previus condition was matchable=False. e.g.: If learner and volunteer condition is false, several other condtions **will** fail! \n leaving matchable=True, for now subtracting 50 score points "
+        else:
+            matchable, score, msg, meta = _SCORINGS[scoring](usr1, usr2)
 
         scoring_results_dict[scoring] = dict(
             matchable=matchable,

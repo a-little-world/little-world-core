@@ -3,6 +3,7 @@ Contains all the admin apis
 generally all APIViews here are required to have: permission_classes = [ IsAdminUser ]
 """
 from rest_framework.views import APIView
+from django.conf import settings
 from typing import List, Optional
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 from django.utils.translation import gettext_lazy as _
@@ -149,12 +150,14 @@ class TwoUserInputData:
     user1: str
     user2: str
     lookup: str = "hash"  # The user hashes are always default lookup
+    force: Optional[bool] = False
 
 
 class TwoUserInputSerializer(serializers.Serializer):
     user1 = serializers.CharField(required=True)
     user2 = serializers.CharField(required=True)
     lookup = serializers.CharField(required=False)
+    force = serializers.BooleanField(required=False)
 
     def create(self, validated_data):
         return TwoUserInputData(**validated_data)
@@ -165,6 +168,10 @@ def get_two_users(usr1, usr2, lookup):
         controller.get_user(usr1, lookup=lookup),
         controller.get_user(usr2, lookup=lookup),
     ]
+
+
+MATCH_BY_FORCE_MSG = _(
+    "\nIf you are sure you want to match these users anyways, please set the 'force' flag to true")
 
 
 class MakeMatch(APIView):
@@ -178,6 +185,31 @@ class MakeMatch(APIView):
         serializer.is_valid(raise_exception=True)
         params = serializer.save()
         users = get_two_users(params.user1, params.user2, params.lookup)
+
+        from ..models.matching_scores import MatchinScore
+
+        # Load the current matching state and repond with an error if they are not matchable
+        dir1 = None
+        dir2 = None
+        try:
+            dir1 = MatchinScore.get_current_directional_score(
+                users[0], users[1])
+            dir2 = MatchinScore.get_current_directional_score(
+                users[1], users[0])
+        except:
+            if not params.force:
+                return Response(_("Can extract matchable info for users, seems like the score calulation failed. This is an idicator that the users are possible unmatchable, if you are sure you want to continue use: ") + MATCH_BY_FORCE_MSG,
+                                status=status.HTTP_400_BAD_REQUEST)
+
+        if not params.force:
+            assert dir1 and dir2
+            if not dir1.matchable or dir2.matchable:
+                return Response({
+                    "message": _("Users score marks users as not matchable with message") + MATCH_BY_FORCE_MSG,
+                    "user1_user2_msg": {"msg": dir1.messages, "view": f"{settings.BASE_URL}/admin/management/matchinscore/{dir1.pk}"},
+                    "user2_user1_msg": {"msg": dir2.messages, "view": f"{settings.BASE_URL}/admin/management/matchinscore/{dir2.pk}"},
+                },
+                    status=status.HTTP_400_BAD_REQUEST)
 
 
 class UserModificationAction(APIView):  # TODO:
