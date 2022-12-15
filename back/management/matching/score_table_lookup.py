@@ -71,10 +71,10 @@ def check__plz_distance_matching_score(usr1, usr2):
             # check if the postal_code is close
             if postal_code1 - postal_code2 < MIN_POSTAL_CODE_DISTANCE:
                 msg += "Both users have a close postal code!" + "\n"
-                return True, 50, msg
+                return True, 50, msg, meta
             else:
                 msg += "users have a far postal code!" + "\n"
-                return False, 0, msg
+                return False, 0, msg, meta
         else:
             return False, 0, "At least one user doesn't have a postal code set!" + "\n" \
                 + "But user has requested close, so setting 'unmatchable'"
@@ -82,8 +82,8 @@ def check__plz_distance_matching_score(usr1, usr2):
 
 
 def check__volunteer_vs_learner(usr1, usr2):
-    oppsite = any([usr1.user_type == Profile.TypeChoices.LEARNER and usr2.user_type ==
+    oppsite = any([usr1.profile.user_type == Profile.TypeChoices.LEARNER and usr2.profile.user_type ==
                    Profile.TypeChoices.VOLUNTEER,
-                   usr1.user_type == Profile.TypeChoices.VOLUNTEER and usr2.user_type ==
+                   usr1.profile.user_type == Profile.TypeChoices.VOLUNTEER and usr2.profile.user_type ==
                    Profile.TypeChoices.LEARNER])
-    return oppsite, 0, "Learner and Volunteer!" if oppsite else "Can't match both learner/volunteer", {}
+    return oppsite, 0, "Learner and Volunteer!" if oppsite else "Can't match both either learner or volunteer", {"values": (usr1.profile.user_type, usr2.profile.user_type)}
