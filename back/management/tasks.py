@@ -120,11 +120,18 @@ def calculate_directional_matching_score_background(usr_hash):
     print(f"Calculating score for {usr_hash}")
     from .controller import get_user_by_hash
     from .matching.matching_score import calculate_directional_score_write_results_to_db
+    from .models import State
 
     usr = get_user_by_hash(usr_hash)
-    all_other_users = User.objects.all().exclude(id=usr.id)
-    print("OTHERS", all_other_users)
-    for other_usr in all_other_users:
+
+    # We only search for all users that are searching
+    # But since the search is generally triggered by the user searching
+    # -> this will keep all matching scores up to date always
+    all_other_searching_users = User.objects.all() \
+        .exclude(id=usr.id) \
+        .exclude(state__matching_state=State.MatchingStateChoices.IDLE)
+    print("OTHERS", all_other_searching_users)
+    for other_usr in all_other_searching_users:
         print(f"Calculating score {usr} -> {other_usr}")
         calculate_directional_score_write_results_to_db(
             usr, other_usr, return_on_nomatch=False,
@@ -162,12 +169,13 @@ def create_default_table_score_source():
 
 @shared_task
 def dispatch_track_chat_channel_event(
-    message_type: str,  # connected | disconnected | message-send
+    message_type: str,
     usr_hash: str,
     meta: dict
 ):
     """
-    Automaticly triggered by some event in management.app.chat
+    Automaticly triggered by some events in management.app.chat
+    types:    connected | disconnected | message-send
     """
     from .controller import get_user_by_hash
     caller = "anonymous"
@@ -177,7 +185,7 @@ def dispatch_track_chat_channel_event(
         print("Could not find user by hash", usr_hash)
 
     inline_track_event(
-        caller=caller,  # TODO actually inline track supports passing users
+        caller=caller,  # TODO yes actually inline track supports passing users
         tags=["chat", "channels", message_type],
         channel_meta=meta
     )
