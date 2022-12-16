@@ -377,7 +377,7 @@ def deploy_staging(args):
         extract_static(args, running=True)
         kill(args, front=False)
     # Build Dockerfile.stage
-    #_build_file_tag(c.file_staging[1], c.staging_tag, context_dir=".")
+    # _build_file_tag(c.file_staging[1], c.staging_tag, context_dir=".")
     _cmd = [*c.dbuild,  "-f",  # "--no-cache", <-- sometimes required when image build is misbehaving
             c.file_staging[1], "-t", c.staging_tag, "./back"]
     print(" ".join(_cmd))
@@ -714,10 +714,14 @@ def build_front(args):
             # The <app>.local.env.js is basicly a backup of the original env
             print("Backend up original src/ENVIRONMENT.js ")
             shutil.copy(original_env, _p("local"))
-        if os.path.exists(_p("dev")):
+        if os.path.exists(_p("dev")) and env["BUILD_TYPE"] == "development":
             # Found replacement env,
             print("Found dev env, overwriting: " + _p("dev"))
             shutil.copy(_p("dev"), original_env)
+        if os.path.exists(_p("pro")) and env["BUILD_TYPE"] in ["production", "staging", "deployment"]:
+            # Found replacement env,
+            print("Found pro env, overwriting: " + _p("pro"))
+            shutil.copy(_p("pro"), original_env)
 
     _cmd = [*c.drun, *(c.denv if _is_dev(args) else c.penv), *
             c.vmount_front, "-d", c.front_tag]
@@ -761,15 +765,15 @@ def build_front(args):
     kill(args, back=False)
 
 
-@register_action(alias=["watch"], cont=False)
+@ register_action(alias=["watch"], cont=False)
 def watch_frontend(args):
     """
     Runs the webpack watch command in a new frontend container
     This can be used to watch multiple fontends at the same time!
     & without having node installed or manging npm versions !! :)
     """
-    assert args.input, "please input a active frontend: " + \
-        str(_env_as_dict(c.denv[1])["FR_FRONTENDS"].split(","))
+    assert args.input, "please input a active frontend: " +
+    str(_env_as_dict(c.denv[1])["FR_FRONTENDS"].split(","))
     assert _is_dev(
         args), "can't watch frontend changes in staging or deloyment sorry"  # ? TODO: why not though?
     # start the frontend container:
@@ -793,7 +797,7 @@ def watch_frontend(args):
     _run_in_running(_is_dev(args), _cmd, backend=False)
 
 
-@register_action(alias=["rds", "rd", "redis-server"], cont=True)
+@ register_action(alias=["rds", "rd", "redis-server"], cont=True)
 def redis(args):
     """
     Runs a local instance of `redis-server` ( required for the chat )
@@ -808,7 +812,7 @@ def redis(args):
     subprocess.run(_cmd)
 
 
-@register_action(alias=["r"])
+@ register_action(alias=["r"])
 def run(args):
     """
     Running the docker image, this requires a build image to be present.
@@ -850,7 +854,7 @@ def _run(dev=True, background=False, args=None):
     print("Running at localhost:8000 ")
 
 
-@register_action(alias=["ma", "manage", "manage.py"], parse_own_args=True)
+@ register_action(alias=["ma", "manage", "manage.py"], parse_own_args=True)
 def manage_command(args):
     """ runns a manage.py command inside the container """
     assert args.unknown
@@ -858,7 +862,7 @@ def manage_command(args):
     _run_in_running(_is_dev(args), ["python3", "manage.py", *_cmd])
 
 
-@register_action(alias=["ma_shell_inject", "inject"])
+@ register_action(alias=["ma_shell_inject", "inject"])
 def inject_shell(args):
     """
     Injects a script as text command argument into the python management shell
@@ -884,7 +888,7 @@ def inject_shell(args):
     _run_in_running(_is_dev(args), _cmd)
 
 
-@register_action(name="build_docs", alias=["docs"])
+@ register_action(name="build_docs", alias=["docs"])
 def build_docs(args):
     """
     Can build the spinix documentation inside the docker container
@@ -908,7 +912,7 @@ def build_docs(args):
     shutil.copytree("./_docs/build/html", "./back/static/docs")
 
 
-@register_action()
+@ register_action()
 def reset_migrations(args):
     """
     Deltes all migration files appart from the __init__.py
@@ -933,7 +937,7 @@ def reset_migrations(args):
             os.remove(p)
 
 
-@contextlib.contextmanager
+@ contextlib.contextmanager
 def _conditional_wrap(cond, before, after):
     """
     allowes for if with statements
