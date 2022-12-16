@@ -130,8 +130,7 @@ def check__interest_overlap(usr1, usr2):
     return True, score if score < MAX_SCORE else MAX_SCORE, \
         "Common interests: " + str(common_interests) + \
         (f". Score was capped at {MAX_SCORE} per default" if score > MAX_SCORE else ""), \
-        {"values": (it1, it2),
-         "common_interests": list(common_interests)}
+        {"values": (it1, it2), "common_interests": list(common_interests)}
 
 
 def load_or_predict_gender_with_gender_api(usr):
