@@ -87,3 +87,85 @@ def check__volunteer_vs_learner(usr1, usr2):
                    usr1.profile.user_type == Profile.TypeChoices.VOLUNTEER and usr2.profile.user_type ==
                    Profile.TypeChoices.LEARNER])
     return oppsite, 0, "Learner and Volunteer!" if oppsite else "Can't match both either learner or volunteer", {"values": (usr1.profile.user_type, usr2.profile.user_type)}
+
+
+def check__time_slot_overlap(usr1, usr2):
+    """
+    Calculate overlapping time slots 
+    We assigns some scores for overlapping interests
+    But this can never cause 'unmatchable'
+    """
+    from ..validators import DAYS, SLOTS
+    slots1 = usr1.profile.availability
+    slots2 = usr2.profile.availability
+
+    BASE_SCORES = [-15, 15, 25, 29, 32, 35, 37]
+    amnt_common_slots = 0
+    common_slots = {}
+
+    for day in DAYS:
+        for slot in SLOTS:
+            if day in slots1 and day in slots2 and slot in slots1[day] and slot in slots2[day]:
+                common_slots[day] = common_slots.get(day, []) + [slot]
+                amnt_common_slots += 1
+
+    return True, BASE_SCORES[amnt_common_slots] if amnt_common_slots < len(BASE_SCORES) else BASE_SCORES[len(BASE_SCORES)-1], \
+        "Common slots: " + str(common_slots), \
+        {"values": (slots1, slots2), "common_slots": common_slots}
+
+
+def check__interest_overlap(usr1, usr2):
+    """
+    Calculate overlapping interests
+    also can nv cause 'unmatchable'
+    """
+    it1 = usr1.profile.interests
+    it2 = usr2.profile.interests
+    MAX_SCORE = 30
+    SCORE_STEP = 5
+
+    common_interests = set(it1).intersection(set(it2))
+    score = SCORE_STEP * len(common_interests)
+
+    return True, score if score < MAX_SCORE else MAX_SCORE, \
+        "Common interests: " + str(common_interests) + \
+        (f". Score was capped at {MAX_SCORE} per default" if score > MAX_SCORE else ""), \
+        {"values": (it1, it2), "common_interests": list(common_interests)}
+
+
+def load_or_predict_gender_with_gender_api(usr):
+    if not usr.profile.gender_prediction:
+        raise Exception("Generder api key needs updating!")
+        gender_api_key = "Y6aBX6Jg3QpnzaGSefg7Y9VPsY9jzH6PzwRW"
+        _url = "https://gender-api.com/v2/gender/by-full-name"
+        request_data = {
+            "full_name": f"{usr.profile.first_name} {usr.profile.second_name}",
+        }
+        import requests
+        headers = {"Authorization": f"Bearer {gender_api_key}"}
+
+        prediction = requests.post(
+            _url, data=request_data, headers=headers).json()
+
+        usr.profile.gender_prediction = prediction
+        usr.profile.save()
+    return usr.profile.gender_prediction
+
+
+def check__partner_sex_choice(usr1, usr2):
+    """
+    Checks if the match gender preference is met
+    NOTE this is currently no definaive programmatic process
+    This just predicts the gender via gender api
+    """
+    from ..models import Profile
+
+    c1 = usr1.profile.partner_sex
+    c2 = usr2.profile.partner_sex
+
+    p1 = load_or_predict_gender_with_gender_api(usr1)
+    p2 = load_or_predict_gender_with_gender_api(usr2)
+
+    return True, 0, f"usr1({usr1.email}) wants {c1}. usr2({usr2.email}) wants {c2}\n" + \
+        f"For usr1({usr1.email} we predict {p1}. For usr2({usr2.email}) we predict {p2}",  \
+        {"values": (c1, c2), "gender_predictions": (p1, p2)}

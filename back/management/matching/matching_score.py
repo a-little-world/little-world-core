@@ -12,7 +12,10 @@ from .score_tables import (
 
 from .score_table_lookup import (
     check__plz_distance_matching_score,
-    check__volunteer_vs_learner
+    check__volunteer_vs_learner,
+    check__time_slot_overlap,
+    check__interest_overlap,
+    check__partner_sex_choice
 )
 
 
@@ -61,6 +64,7 @@ def _generate_table_scoring(
         _matchable = False
         _usr1_to_usr2_score = -69
     else:
+        print(f"tyring to be an int: {_usr1_to_usr2_score}")
         # above is the only non integer case that is allowed
         # so it if wher not an integer we should error here:
         _usr1_to_usr2_score = int(_usr1_to_usr2_score)
@@ -87,7 +91,10 @@ LIMITING_CONDITIONS = dict(
 
 SCORING_FUNCTIONS = dict(  # This matches models.matching_score.TabaseScoring.ScoreFunctions
     postal_code_distance_check=check__plz_distance_matching_score,
-    volunteer_vs_leaner_check=check__volunteer_vs_learner
+    volunteer_vs_leaner_check=check__volunteer_vs_learner,
+    time_slot_overlap_check=check__time_slot_overlap,
+    interests_overlap_check=check__interest_overlap,
+    partner_sex_prediction=check__partner_sex_choice
 )
 
 
@@ -121,6 +128,9 @@ def get_scoring_from_latest_table_model():
             value_lookup=lambda usr: usr.profile.partner_location,
             table=scores.get_table_field_as_graph_dict('partner_location_scores')),
         partner_distance=SCORING_FUNCTIONS['postal_code_distance_check'],
+        time_slot_overlap=SCORING_FUNCTIONS['time_slot_overlap_check'],
+        interests_overlap=SCORING_FUNCTIONS['interests_overlap_check'],
+        gender_prediction=SCORING_FUNCTIONS['partner_sex_prediction']
     )
 
 
@@ -158,6 +168,9 @@ def scoring_result_dict_as_markdown_table(scoring_results_dict):
     headers = ["scoring name", "v1", "v2", "usr1 -> usr2 score",
                "score message", "is matchable"]
 
+    def escape_markdown(s):
+        return str(s).replace("}", "]").replace("{", "[")
+
     values = []
     for key in scoring_results_dict:
         v = []
@@ -167,8 +180,9 @@ def scoring_result_dict_as_markdown_table(scoring_results_dict):
         else:
             v = ["-", "-"]
         values.append([
-            key, v[0], v[1],
-            scoring_results_dict[key]['score'], scoring_results_dict[key]['msg'],
+            key, escape_markdown(v[0]), escape_markdown(v[1]),
+            scoring_results_dict[key]['score'], escape_markdown(
+                scoring_results_dict[key]['msg']),
             scoring_results_dict[key]['matchable']
         ])
     writer = MarkdownTableWriter(
