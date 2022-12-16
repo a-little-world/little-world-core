@@ -377,7 +377,7 @@ def deploy_staging(args):
         extract_static(args, running=True)
         kill(args, front=False)
     # Build Dockerfile.stage
-    #_build_file_tag(c.file_staging[1], c.staging_tag, context_dir=".")
+    # _build_file_tag(c.file_staging[1], c.staging_tag, context_dir=".")
     _cmd = [*c.dbuild,  "-f",  # "--no-cache", <-- sometimes required when image build is misbehaving
             c.file_staging[1], "-t", c.staging_tag, "./back"]
     print(" ".join(_cmd))
@@ -714,10 +714,14 @@ def build_front(args):
             # The <app>.local.env.js is basicly a backup of the original env
             print("Backend up original src/ENVIRONMENT.js ")
             shutil.copy(original_env, _p("local"))
-        if os.path.exists(_p("dev")):
+        if os.path.exists(_p("dev")) and env["BUILD_TYPE"] == "development":
             # Found replacement env,
             print("Found dev env, overwriting: " + _p("dev"))
             shutil.copy(_p("dev"), original_env)
+        if os.path.exists(_p("pro")) and env["BUILD_TYPE"] in ["production", "staging", "deployment"]:
+            # Found replacement env,
+            print("Found pro env, overwriting: " + _p("pro"))
+            shutil.copy(_p("pro"), original_env)
 
     _cmd = [*c.drun, *(c.denv if _is_dev(args) else c.penv), *
             c.vmount_front, "-d", c.front_tag]
@@ -933,7 +937,7 @@ def reset_migrations(args):
             os.remove(p)
 
 
-@contextlib.contextmanager
+@ contextlib.contextmanager
 def _conditional_wrap(cond, before, after):
     """
     allowes for if with statements

@@ -61,7 +61,7 @@ def get_rooms(name):
 
 def room_exists(name):
     rooms = get_rooms(name)
-    return len(rooms) > 1
+    return len(rooms) >= 1
 
 
 def get_room_or_create(name):
