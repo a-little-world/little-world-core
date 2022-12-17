@@ -197,12 +197,13 @@ class MakeMatch(APIView):
             dir2 = MatchinScore.get_current_directional_score(
                 users[1], users[0])
         except:
-            if not params.force:
+            if params.force is None or not params.force:
                 return Response(_("Can extract matchable info for users, seems like the score calulation failed. This is an idicator that the users are possible unmatchable, if you are sure you want to continue use: ") + MATCH_BY_FORCE_MSG,
                                 status=status.HTTP_400_BAD_REQUEST)
 
         if not params.force:
-            assert dir1 and dir2
+            print("DIR")
+            assert dir1 and dir2, "respective directional matching scores do not exist!"
             if not dir1.matchable or dir2.matchable:
                 return Response({
                     "message": _("Users score marks users as not matchable with message") + MATCH_BY_FORCE_MSG,

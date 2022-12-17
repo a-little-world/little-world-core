@@ -95,7 +95,7 @@ api_routes = [
     path(_api_url('user/list', admin=True), api.admin.UserList.as_view()),
 
 
-    path(_api_url('twousr_actions/match', admin=True),
+    path(_api_url('user/match', admin=True),
          api.admin.MakeMatch.as_view()),
 
     #    path(_api_url('user/match', admin=True), api.admin.MakeMatch.as_view()),
