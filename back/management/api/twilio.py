@@ -104,35 +104,36 @@ class TwilioCallbackApi(APIView):
         params = serializer.save()
 
         StatusCallbackEvent = params['StatusCallbackEvent']
-        RoomName = params['RoomName']
-        ParticipantIdentity = params['ParticipantIdentity']
+        if StatusCallbackEvent in ['participant-connected', 'participant-disconnected']:
+            RoomName = params['RoomName']
+            ParticipantIdentity = params['ParticipantIdentity']
 
-        def get_room_caller_and_participant():
-            room = Room.get_room_by_hash(RoomName)
-            room_usrs = [room.usr1, room.usr2]
-            assert len(
-                room_usrs) == 2, "There should never be more than two users per room!"
-            usr = get_user_by_hash(ParticipantIdentity)
-            assert usr in room_usrs, "User is not in this room! He should try to authenticate it!"
-            other_user = [u for u in room_usrs if u != usr][0]
-            return room, usr, other_user
+            def get_room_caller_and_participant():
+                room = Room.get_room_by_hash(RoomName)
+                room_usrs = [room.usr1, room.usr2]
+                assert len(
+                    room_usrs) == 2, "There should never be more than two users per room!"
+                usr = get_user_by_hash(ParticipantIdentity)
+                assert usr in room_usrs, "User is not in this room! He should try to authenticate it!"
+                other_user = [u for u in room_usrs if u != usr][0]
+                return room, usr, other_user
 
-        if StatusCallbackEvent == 'participant-disconnected':
-            room, caller, participant = get_room_caller_and_participant()
-            complete_room_if_empty(room)
+            if StatusCallbackEvent == 'participant-disconnected':
+                room, caller, participant = get_room_caller_and_participant()
+                complete_room_if_empty(room)
 
-            send_websocket_callback(
-                participant,
-                f"exited_call:{caller.hash}"
-            )
-            return Response()
-        elif StatusCallbackEvent == 'participant-connected':
-            room, caller, participant = get_room_caller_and_participant()
+                send_websocket_callback(
+                    participant,
+                    f"exited_call:{caller.hash}"
+                )
+                return Response()
+            elif StatusCallbackEvent == 'participant-connected':
+                room, caller, participant = get_room_caller_and_participant()
 
-            send_websocket_callback(
-                participant,
-                f"entered_call:{caller.hash}"
-            )
-            return Response()
+                send_websocket_callback(
+                    participant,
+                    f"entered_call:{caller.hash}"
+                )
+                return Response()
         # Means we havenet handled this callback yet!
         return Response(status=400)
