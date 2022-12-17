@@ -165,6 +165,14 @@ def create_user(
     return usr
 
 
+def are_users_matched(
+    users: set
+):
+    assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
+    usr1, usr2 = list(users)
+    return usr1.is_matched(usr2) and usr2.is_matched(usr1)
+
+
 # 'set' No one can put two identical users
 @utils.track_event(
     name="Users Matched",
