@@ -145,6 +145,7 @@ class ProfileApiTests(TestCase):
         all_fields_blocked_change.remove("options")  # This is a meta field
         # TODO: this field is not used yet
         all_fields_blocked_change.remove("past_user_types")
+        all_fields_blocked_change.remove("gender_prediction")
         print("BLOCKED FOR CHANGE:", all_fields_blocked_change)
 
         for field in all_fields_blocked_change:
