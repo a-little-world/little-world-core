@@ -48,6 +48,6 @@ class Room(models.Model):
     @classmethod
     def get_room_by_hash(cls, hash):
         # Room must exists!
-        r = cls.objects.filter(hash=hash)
-        assert r.exists() and r.count() == 1
+        r = cls.objects.filter(name=hash)
+        assert r.exists() and r.count() == 1, "Room doesn't seem to exist"
         return r.first()
