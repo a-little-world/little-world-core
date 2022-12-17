@@ -5,6 +5,7 @@ from rest_framework import authentication, permissions
 from django.utils.translation import pgettext_lazy
 from dataclasses import dataclass
 from rest_framework.response import Response
+from tracking.utils import track_event
 from ..twilio_handler import get_usr_auth_token, get_room_or_create, complete_room_if_empty
 from ..models.rooms import get_rooms_user, Room, get_rooms_match
 from ..controller import get_user_by_hash, send_websocket_callback
@@ -89,6 +90,10 @@ class TwilioCallbackApi(APIView):
     permission_classes = []
 
     @extend_schema(request=TwilioCallbackApiSerializer(many=False))
+    @track_event(
+        name="twilio_callback_received",
+        tags=["remote", "twilio"]
+    )
     def post(self, request):
         """
         This is the api twilio sends callbacks to 

@@ -72,7 +72,7 @@ api_routes = [
     path(_api_url('video_rooms/authenticate_call'),
          api.twilio.AuthenticateCallRoom.as_view()),
 
-    path(_api_url('video_rooms/twillio_callback'),
+    path(_api_url('video_rooms/twillio_callback', end_slash=True),
          api.twilio.TwilioCallbackApi.as_view()),
 
     path(_api_url('profile'),
