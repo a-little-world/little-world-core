@@ -1,4 +1,5 @@
 exports.DEVELOPMENT = false; // this is more like FRONTEND_LOCAL_DEVELOPENT ( it's ment to be false, when use in backend local development )
+exports.PRODUCTION = true;
 exports.DEFAULT_LOGIN_USERNAME = this.DEVELOPMENT
   ? 'benjamin.tim@gmx.de'
   : 'nopeHeAintExistInProduction:)';
