@@ -379,7 +379,7 @@ elif IS_STAGE or IS_PROD:
     url, port = get_redis_connect_url_port()
     path = f"rediss://{url}:{port}"
     if IS_PROD:
-        r_auth_token = os.environ['DJ_REDIS_AUTH_TOKEN']
+        r_auth_token = os.environ['DJ_REDIS_PASSWORD']
         path = f"rediss://:{r_auth_token}@{url}:{port}"
     CHANNEL_LAYERS = {
         "default": {
