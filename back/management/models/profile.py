@@ -344,6 +344,8 @@ class ProfileBase(models.Model):
     avatar_config = models.JSONField(
         default=dict, blank=True)  # Contains the avatar builder config
 
+    gender_prediction = models.JSONField(null=True, blank=True)
+
     @classmethod
     def normalize_choice(obj, choice: str):
         ends = [".vol", ".ler"]
