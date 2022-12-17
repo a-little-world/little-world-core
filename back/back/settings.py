@@ -377,12 +377,16 @@ elif IS_STAGE or IS_PROD:
     And that did acutally fucking work lol, go read some code kids
     """
     url, port = get_redis_connect_url_port()
+    path = f"rediss://{url}:{port}"
+    if IS_PROD:
+        r_auth_token = os.environ['DJ_REDIS_AUTH_TOKEN']
+        path = f"rediss://:{r_auth_token}@{url}:{port}"
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
             "CONFIG": {
                 "hosts": [{
-                    'address': f"rediss://{url}:{port}",
+                    'address': path,
                     'ssl': True
                 }],
             },
