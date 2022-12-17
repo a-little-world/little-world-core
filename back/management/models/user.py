@@ -129,6 +129,9 @@ class User(AbstractUser):
             self.state.unconfirmed_matches_stack.append(user.hash)
         self.state.save()
 
+    def is_matched(self, user):
+        return self.state.matches.filter(hash=user.hash).exists()
+
     def change_email(self, email, send_verification_mail=True):
         """
         Can be used to change the email
