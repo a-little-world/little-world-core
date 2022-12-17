@@ -58,6 +58,21 @@ class WelcomeTemplateParamsDefaults:
 
 
 @dataclass
+class RAWTemplateMail:
+    subject_header_text: str = '{subject_header_text}'
+    greeting: str = '{greeting}'
+    content_start_text: str = '{content_start_text}'
+    content_body_text: str = '{content_body_text}'
+    link_box_text: str = '{link_box_text}'
+    button_text: str = '{button_text}'
+    button_link: str = '{button_link}'
+    below_link_text: str = '{below_link_text}'
+    footer_text: str = '{footer_text}'
+    goodbye: str = '{goodbye}'
+    goodbye_name: str = '{goodbye_name}'
+
+
+@dataclass
 class WelcomeTemplateMail:
     """
     ---------------> WELCOME & E-mail Verification - mail <--------------------

@@ -14,7 +14,8 @@ from .templates import (
     # Currently we are using the same template as weclone
     # so MatchFoundEmailTexts has no Defaults
     MatchFoundEmailTexts,
-    SorryWeStillNeedALittleMail
+    SorryWeStillNeedALittleMail,
+    RAWTemplateMail
 )
 from django.core.mail import EmailMessage
 import json
@@ -31,6 +32,21 @@ and it is easy to tell which parameters are available
 
 class MailDataNotFoundErr(Exception):
     pass
+
+
+@dataclass
+class RAWTemplateMailParams:
+    subject_header_text: str = ''
+    greeting: str = ''
+    content_start_text: str = ''
+    content_body_text: str = ''
+    link_box_text: str = ''
+    button_text: str = ''
+    button_link: str = ''
+    below_link_text: str = ''
+    footer_text: str = ''
+    goodbye: str = ''
+    goodbye_name: str = ''
 
 
 @dataclass
@@ -69,6 +85,13 @@ class SorryWeNeedMoreTimeToMatchYouMailParams:
 
 # Register all templates and their serializers here
 templates = [
+    MailMeta(
+        name="raw",
+        template="emails/welcome.html",
+        params=RAWTemplateMailParams,
+        defaults=WelcomeTemplateParamsDefaults,
+        texts=RAWTemplateMail
+    ),
     MailMeta(  # Welcome & Email verification !
         name="welcome",
         # subject =
