@@ -16,7 +16,7 @@ def _get_client():
 
 
 def _get_status_url():
-    callback_url = settings.BASE_URL + "/api/video_rooms/twillio_callback"
+    callback_url = settings.BASE_URL + "/api/video_rooms/twillio_callback/"
     return callback_url
 
 
