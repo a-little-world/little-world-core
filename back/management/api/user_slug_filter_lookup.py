@@ -55,7 +55,7 @@ def get_users_by_slug_filter(
     user_to_filter=None
 ):
     """
-    Allowes to filter users by a slug. 
+    Allowes to filter users by a slug.
     It is generaly assumed that a slug is in the following shape:
 
     ----> subject:operation:value
@@ -109,16 +109,12 @@ def get_users_by_slug_filter(
 
     def _check_for_user(user):
         field = None
-        try:
-            if lookup_field:
-                print("User form ", lookup_field)
-                field = getattr(user, lookup_field)
-                print(field.user_form_page)
-            else:
-                # None -> means just look on the user model itself
-                field = user
-        except:
-            assert False, f"User lookup field lookup failed for field {lookup_field}"
+        if lookup_field:
+            print("User form ", lookup_field)
+            field = getattr(user, lookup_field)
+        else:
+            # None -> means just look on the user model itself
+            field = user
         assert field is not None, "Getting field failed"
         try:
             print("Looking up", field, py_attr[1])
@@ -130,7 +126,7 @@ def get_users_by_slug_filter(
 
         if _check_operation_condition(operation, model_value, compare_list=value) \
                 if value_kind == 'multi' else \
-            _check_operation_condition(operation, model_value, compare_value=value):
+        _check_operation_condition(operation, model_value, compare_value=value):
             filtered_user_list.append(user)
 
     for user in user_to_filter:

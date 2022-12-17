@@ -151,6 +151,9 @@ class TwoUserInputData:
     user2: str
     lookup: str = "hash"  # The user hashes are always default lookup
     force: Optional[bool] = False
+    send_email: Optional[bool] = True
+    send_message: Optional[bool] = True
+    send_notification: Optional[bool] = True
 
 
 class TwoUserInputSerializer(serializers.Serializer):
@@ -158,6 +161,9 @@ class TwoUserInputSerializer(serializers.Serializer):
     user2 = serializers.CharField(required=True)
     lookup = serializers.CharField(required=False)
     force = serializers.BooleanField(required=False)
+    send_email = serializers.BooleanField(required=False)
+    send_message = serializers.BooleanField(required=False)
+    send_notification = serializers.BooleanField(required=False)
 
     def create(self, validated_data):
         return TwoUserInputData(**validated_data)
@@ -204,13 +210,26 @@ class MakeMatch(APIView):
         if not params.force:
             print("DIR")
             assert dir1 and dir2, "respective directional matching scores do not exist!"
-            if not dir1.matchable or dir2.matchable:
+            if not (dir1.matchable and dir2.matchable):
                 return Response({
                     "message": _("Users score marks users as not matchable with message") + MATCH_BY_FORCE_MSG,
                     "user1_user2_msg": {"msg": dir1.messages, "view": f"{settings.BASE_URL}/admin/management/matchinscore/{dir1.pk}"},
                     "user2_user1_msg": {"msg": dir2.messages, "view": f"{settings.BASE_URL}/admin/management/matchinscore/{dir2.pk}"},
                 },
                     status=status.HTTP_400_BAD_REQUEST)
+
+        # Also check if the users are already matched
+        if controller.are_users_matched({users[0], users[1]}):
+            return Response(_("Users are already matched"), status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            controller.match_users({users[0], users[1]},
+                                   send_email=params.send_email,
+                                   send_message=params.send_message,
+                                   send_notification=params.send_notification)
+        except Exception as e:
+            return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
+        return Response(_("Users sucessfully matched"))
 
 
 class UserModificationAction(APIView):  # TODO:
