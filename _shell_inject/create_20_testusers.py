@@ -116,7 +116,6 @@ def _create_abunch_of_users(amnt=10, user_seeds=[42]*20):
         "lang_level": getattr(profile_cls, 'LanguageLevelChoices'),
         "partner_sex": getattr(profile_cls, 'ParterSexChoice'),
         "image_type": getattr(profile_cls, 'ImageTypeChoice'),
-        "user_type": getattr(profile_cls, 'TypeChoices'),
     }
 
     users = []
