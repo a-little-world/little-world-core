@@ -88,5 +88,5 @@ class MainFrontendView(LoginRequiredMixin, View):
         # This way it can switch the language without reloading
         with translation.override("tag"):
             profile_data = get_full_frontend_data(
-                request.user, options=True, **_kwargs)
+                request.user, options=True, **_kwargs, admin=request.user.is_staff)
         return render(request, "main_frontend.html", {"profile_data": json.dumps(profile_data, cls=CoolerJson)})
