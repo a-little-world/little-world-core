@@ -221,6 +221,7 @@ else:
     In development all staticfiles will be hosted here
     In production we host them in an S3 bucket so we don't need to serve them our selves!
     """
+    COLLECTFAST_ENABLED = False
     print("USING LOCAL STATIC SETUP")
     STATIC_URL = '/static/'
     STATIC_URL = 'static/'
