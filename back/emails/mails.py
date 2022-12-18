@@ -151,13 +151,16 @@ def send_email(
         mail_params: object,
         attachments=[],
         raise_exception=False,
-        sender=settings.MANAGEMENT_USER_MAIL):
+        sender=None):
     """
     Sends any mail we do this within a celery task to avoid runtime errors
     This does not send a messages to all receivers at the same time, 
     it sends one email per receiver
     """
     from management.controller import get_base_management_user, get_user_by_email
+    if sender is None:
+        sender = settings.DEFAULT_FROM_EMAIL
+
     for to in recivers:
 
         usr_ref = None
