@@ -6,6 +6,7 @@ import json
 
 
 USER_DATA_MAP = {}
+USERS_THAT_REQUIRE_IMAGE_REUPLOAD = []
 
 
 def map_user_profile(model, pk, fields):
@@ -42,12 +43,13 @@ def map_user_profile(model, pk, fields):
                              "travel", "food", "politics", "nature",
                              "science", "technology", "history", "religion",
                              "sociology", "family", "psycology", "personal-development"]
-        return ",".join([ORDERED_INTERESTS[int(i)] for i in interests.split(",")])
+        return ",".join([ORDERED_INTERESTS[int(i)] for i in interests.split(",") if i != ""])
 
     def transfrom_avatar_config(avatar_config):
         # We stored them as json string before, now they are json fields in db
         # TODO: can they be empty?
-        return json.loads(avatar_config) if avatar_config != "" else {}
+        print("TBS: config", avatar_config)
+        return json.loads(avatar_config) if avatar_config is not None and avatar_config != "" and avatar_config.lower() != "none" else {}
 
     def transform_notification_channel(notification_channel):
         if notification_channel == 0:
@@ -136,6 +138,15 @@ def map_user_profile(model, pk, fields):
         else:
             raise ValueError(f"Unknown image_type {image_type}")
 
+    user = pop_filed("user")
+    profile_img_url = pop_filed("profile_image")
+    if profile_img_url != "":
+        USERS_THAT_REQUIRE_IMAGE_REUPLOAD.append({
+            "usr_pk": user,
+            "old_image_url": profile_img_url,
+        })
+        pass
+
     transformed_data = {
         "version": 0,  # Version 0 is a marker old backend imported profiles
         "created_at": pop_filed("created_at"),
@@ -144,14 +155,13 @@ def map_user_profile(model, pk, fields):
         "second_name": pop_filed("second_name"),
         "birth_year": pop_filed("birth_year"),
         "user_type": user_type,
-        "past_user_types": None,  # TODO: can I also just ignore this?
+        # "past_user_types": None, django will set defaults here
         "target_group": typed_choice(transfrom_target_group(pop_filed("helping_group")), user_type),
         "partner_sex": transform_partner_sex(pop_filed('partner_sex')),
         "speech_medium": transform_speech_medium(pop_filed('conversation_medium')),
         "partner_location": typed_choice(transform_partner_location(pop_filed('partner_location')), user_type),
         "postal_code": pop_filed("postal_code"),
         "interests": transfrom_interests(pop_filed("interests")),
-        # v- NOTE this is the user id never mix this up!
         "additional_interests": pop_filed("additional_interests"),
         "availability": extract_and_transform_availability(),
         "liability": transform_liability(pop_filed("liability")),
@@ -161,9 +171,10 @@ def map_user_profile(model, pk, fields):
         "language_skill_description": pop_filed("language_skill_description"),
         "lang_level": typed_choice(transform_lang_level(pop_filed("language_level")), user_type),
         "image_type": transfrom_image_type(pop_filed("profile_image_type")),
-        # "image":  pop_filed("image"), TODO
+        "image":  profile_img_url,
         "avatar_config": transfrom_avatar_config(pop_filed("profile_avatar")),
-        "user": pop_filed("user"),
+        # v- NOTE this is the user id never mix this up!
+        "user": user,
     }
     return transformed_data
 
@@ -232,18 +243,19 @@ def map_user_state(model, pk, fields):
 
 
 def map_user(model, pk, fields):
+    user_email = fields.pop("email")
     user_model_data = {
         "password": fields.pop("password"),
         "last_login": fields.pop("last_login"),
-        # TODO: should only be one!
         "is_superuser": fields.pop("is_superuser"),
         "first_name": "",  # TODO: this sould be populated from the corresponding profile
         "last_name": "",  # TODO: this sould be populated from the corresponding profile
         "is_staff": fields.pop("is_staff"),
         "is_active": fields.pop("is_active"),
         "date_joined": fields.pop("date_joined"),
-        "email": fields.pop("email"),
-        "hash": "",  # TODO: should I just generate this here or does django use the defualt if i dont add this?
+        "email": user_email,
+        "username": user_email,
+        # hash: we can leave this blank django will auto generate a hash!
         "old_backend_user_h256_pk": fields.pop("user_h256_pk"),
         "groups": [],
         "user_permissions": [],
@@ -277,23 +289,55 @@ MAPPING_FUNCTIONS = {
 }
 
 MODELS = []
+PK_USER_DATA_MAP = {}
 
 if __name__ == "__main__":
 
-    with open("test_userprofile.json") as f:
+    with open("user_management_db_dump.json") as f:
+        # with open("test_userprofile.json") as f:
         data = json.loads(f.read())
+
+    def update_pk_model_reference(pk, model, m_data):
+        if pk in PK_USER_DATA_MAP:
+            PK_USER_DATA_MAP[pk][MAPPING_FUNCTIONS[model]
+                                 ["model"]] = m_data
+        else:
+            PK_USER_DATA_MAP[pk] = {}
+            PK_USER_DATA_MAP[pk][MAPPING_FUNCTIONS[model]
+                                 ["model"]] = m_data
 
     for element in data:
         model = element["model"]
         pk = element["pk"]
         fields = element["fields"]
+        if model not in MAPPING_FUNCTIONS:
+            print("WARNING: ", f"Model {model} is not mapped!", "Skipping...")
+            continue
         print(model, pk, "Field names: ", list(fields.keys()))
-        MODELS.append({
+        m_data = {
             "model": MAPPING_FUNCTIONS[model]["model"],
             "pk": pk,
             "fields": MAPPING_FUNCTIONS[model]["f"](model, pk, fields)
-        })
+        }
+        MODELS.append(m_data)
+        if model == "user_management.user":
+            update_pk_model_reference(pk, model, m_data)
+        elif model in ["user_management.userprofile", "user_management.userstate"]:
+            usr_pk = m_data["fields"]["user"]
+            update_pk_model_reference(usr_pk, model, m_data)
+
         print("========>", f"Extracted {model} for user {pk}")
+
+    # After the inital extraction we need to perform some post updates
+    # 1. we need to take last and first name fom the user model and ad it to their profile model
+    for model in MODELS:
+        if model["model"] == "management.user":
+            user_pk = model["pk"]
+            print("User pk: ", user_pk)
+            print("User data: ", PK_USER_DATA_MAP[user_pk])
+            user_profile = PK_USER_DATA_MAP[user_pk]["management.profile"]
+            model["fields"]["first_name"] = user_profile["fields"]["first_name"]
+            model["fields"]["last_name"] = user_profile["fields"]["second_name"]
 
     print(json.dumps(MODELS, indent=4))
 
@@ -304,4 +348,14 @@ if __name__ == "__main__":
 
     """
     How to perform the import? 
+    1. create the default base management user (pk=1)
+    2. Make sure the old basemangement user is overwritten (old pk=1) ( Delete is from the transformed fixture!)
+    3. Make sure to overwrite the old second admin user (pk=2) with a regular user
+    4. Load all other users! They all should already have a match with the default management user (pk=1)
+    5. Load all dialogs and chat messages
+    6. For all matches, create a new video room
+    7. For all users that had a profile image url set, download the profile image and upload it to the new bucket
+    8. Calculate the new match score for all users 
+
+    ...Test integiry login with some users check if all messages are listed as expected
     """
