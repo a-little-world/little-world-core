@@ -37,7 +37,8 @@ def map_user_profile(model, pk, fields):
             raise ValueError(f"Unknown target_group {target_group}")
 
     def typed_choice(choice, _user_type):
-        return choice + ".vol" if _user_type == "volunteer" else ".ler"
+        extension = ".vol" if _user_type == "volunteer" else ".ler"
+        return choice + extension
 
     def transfrom_interests(interests):
         ORDERED_INTERESTS = ["sport", "art", "music", "literature",
