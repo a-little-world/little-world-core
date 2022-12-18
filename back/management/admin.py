@@ -186,7 +186,7 @@ class UserAdmin(DjangoUserAdmin):
         }),
     )
     list_display = ('_abr_hash', 'email', 'last_login', 'date_joined',
-                    'first_name', 'last_name', 'chat_with', 'show_matching_suggestions', 'view_tracked_activity', 'is_user_form_filled', 'is_staff')
+                    'first_name', 'last_name', 'chat_with', 'show_matching_suggestions', 'view_tracked_activity', 'is_user_form_filled', 'is_staff', 'username')
     search_fields = ('email', 'first_name', 'last_name', 'hash')
     # fist & last names are read-only here,
     # the user can change the first / lastnames stored in profile, but not this one!
