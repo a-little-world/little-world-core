@@ -240,7 +240,7 @@ class ProfileBase(models.Model):
             "profile.science-interest", "Science")
         TECHNOLOGIE = "technology", pgettext_lazy(
             "profile.tech-interest", "Technology")
-        HISTORY = "hostry", pgettext_lazy(
+        HISTORY = "history", pgettext_lazy(
             "profile.history-interest", "History")
         RELIGION = "religion", pgettext_lazy(
             "profile.religion-interest", "Religion")
