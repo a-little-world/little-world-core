@@ -131,6 +131,20 @@ def get_matches_paginated(user, admin=False,
     return [get_user_data(p, is_self=False, admin=admin) for p in pages]
 
 
+def get_matches_paginated_extra_details(user, admin=False,
+                                        page=UserDataApiParams.page,
+                                        paginate_by=UserDataApiParams.paginate_by):
+
+    paginator = Paginator(user.get_matches(), paginate_by)
+    pages = paginator.page(page)
+
+    return [get_user_data(p, is_self=False, admin=admin) for p in pages], {
+        "page": page,
+        "num_pages": paginator.num_pages,
+        "paginate_by": paginate_by,
+    }
+
+
 def get_notifications_paginated(user,
                                 admin=False,
                                 page=UserDataApiParams.noti_page,
@@ -157,11 +171,18 @@ def get_user_data_and_matches(user, options=False, admin=False,
                               paginate_by=UserDataApiParams.paginate_by,
                               noti_page=UserDataApiParams.page,
                               noti_paginate_by=UserDataApiParams.paginate_by):
-    return {
+    match_data, extra_info = get_matches_paginated_extra_details(
+        user, admin=admin, page=page, paginate_by=paginate_by)
+    user_and_match_data = {
         **get_user_data(user, is_self=True, include_options=options),
-        "matches": get_matches_paginated(user, admin=admin, page=page, paginate_by=paginate_by),
+        "matches": match_data,
         "notifications": get_notifications_paginated(user, admin=admin, page=noti_page, paginate_by=noti_paginate_by)
     }
+
+    if admin:
+        user_and_match_data["extra_info"] = extra_info
+
+    return user_and_match_data
 
 
 def get_full_frontend_data(user, options=False, admin=False,
@@ -174,13 +195,23 @@ def get_full_frontend_data(user, options=False, admin=False,
     there is also data like community_events, frontend_state
     """
 
-    return {
-        **get_user_data_and_matches(user, options=options, admin=admin,
-                                    page=page, paginate_by=paginate_by,
-                                    noti_page=noti_page, noti_paginate_by=noti_paginate_by),
+    user_data_and_matches = get_user_data_and_matches(user, options=options, admin=admin,
+                                                      page=page, paginate_by=paginate_by,
+                                                      noti_page=noti_page, noti_paginate_by=noti_paginate_by)
+    extra_infos = user_data_and_matches.pop("extra_info", {})
+
+    frontend_data = {
+        **user_data_and_matches,
         "community_events": get_all_comunity_events_serialized(),
         # "frontend_state": "",
     }
+
+    if admin:
+        frontend_data["admin_infos"] = {
+            **extra_infos
+        }
+
+    return frontend_data
 
 
 class UserData(APIView):
