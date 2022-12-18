@@ -89,7 +89,9 @@ def create_user(
     first_name,
     second_name,
     birth_year,
-    send_verification_mail=True
+    send_verification_mail=True,
+    send_welcome_notification=True,
+    send_welcome_message=True,
 ):
     """ 
     This should be used when creating a new user, it may throw validations errors!
@@ -152,16 +154,13 @@ def create_user(
                 send_email=False,
                 set_unconfirmed=False)
 
-    # Step 6 Create a room for the two users!
-    # This allowes them to authenticate twilio rooms for video calls
-    # TODO
-
     # Step 7 Notify the user
-    # TODO set title, description & co...
-    usr.notify(title=_("Welcome Notification"))
+    if send_welcome_notification:
+        usr.notify(title=_("Welcome Notification"))
 
     # Step 8 Message the user from the admin account
-    usr.message(_("Welcome Message..."))
+    if send_welcome_message:
+        usr.message(_("Welcome Message..."))
     return usr
 
 

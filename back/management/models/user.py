@@ -71,6 +71,9 @@ class User(AbstractUser):
 
     objects = UserManager()  # Register the new user manager
 
+    old_backend_user_h256_pk = models.CharField(
+        max_length=255, blank=True, null=True)
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.__original_username = self.username
