@@ -178,6 +178,8 @@ def map_user_profile(model, pk, fields):
         # v- NOTE this is the user id never mix this up!
         "user": user,
     }
+    assert len(list(fields.keys())
+               ) == 0, f"fields left: {list(fields.keys())})"
     return transformed_data
 
 
@@ -241,6 +243,8 @@ def map_user_state(model, pk, fields):
         "unread_chat_message_count": pop_filed("last_new_message_count"),
         "unread_chat_message_count_update_time": pop_filed("last_time_last_message_count_update"),
     }
+    assert len(list(fields.keys())
+               ) == 0, f"fields left: {list(fields.keys())})"
     return user_state
 
 
@@ -262,6 +266,8 @@ def map_user(model, pk, fields):
         "groups": [],
         "user_permissions": [],
     }
+    assert len(list(fields.keys())
+               ) == 0, f"fields left: {list(fields.keys())})"
     return user_model_data
 
 
@@ -272,6 +278,8 @@ def map_dialogs(model, pk, fields):
         "user1": fields.pop("user1"),
         "user2": fields.pop("user2"),
     }
+    assert len(list(fields.keys())
+               ) == 0, f"fields left: {list(fields.keys())})"
     return transformed_dialog
 
 
@@ -286,6 +294,8 @@ def map_messages(model, pk, fields):
         "file": fields.pop("file"),
         "read": fields.pop("read"),
     }
+    assert len(list(fields.keys())
+               ) == 0, f"fields left: {list(fields.keys())})"
     return transformed_message
 
 
@@ -297,6 +307,8 @@ def map_cookie_consent_logitem(model, pk, fields):
         "created": fields.pop("created"),
         "ip_address": fields.pop("ip_address"),
     }
+    assert len(list(fields.keys())
+               ) == 0, f"fields left: {list(fields.keys())})"
     return transformed_cookie_consent
 
 
