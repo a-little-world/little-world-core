@@ -119,7 +119,7 @@ def map_user_profile(model, pk, fields):
         elif partner_location == 2:
             return "far"
 
-    user_type = transform_user_type(fields.pop("user_type"))
+    user_type = transform_user_type(fields.pop("learner"))
 
     def transfrom_liability(liability):
         if liability == 0:
@@ -134,9 +134,9 @@ def map_user_profile(model, pk, fields):
 
     def transfrom_image_type(image_type):
         if image_type == 0:
-            return "image"
+            return "avatar"
         elif image_type == 1:
-            return "background"
+            return "image"
         else:
             raise ValueError(f"Unknown image_type {image_type}")
 
@@ -174,10 +174,13 @@ def map_user_profile(model, pk, fields):
         "lang_level": typed_choice(transform_lang_level(pop_filed("language_level")), user_type),
         "image_type": transfrom_image_type(pop_filed("profile_image_type")),
         "image":  profile_img_url,
+        "gender_prediction": pop_filed("gener_prediction"),
         "avatar_config": transfrom_avatar_config(pop_filed("profile_avatar")),
         # v- NOTE this is the user id never mix this up!
         "user": user,
     }
+    # This is not used anymore now we have is_admin which is automaticly set
+    pop_filed("user_type")
     assert len(list(fields.keys())
                ) == 0, f"fields left: {list(fields.keys())})"
     return transformed_data
@@ -186,7 +189,7 @@ def map_user_profile(model, pk, fields):
 def map_user_state(model, pk, fields):
 
     def pop_filed(field_name):
-        return fields.pop(field_name, None)
+        return fields.pop(field_name)
 
     def transform_user_category(user_category):
         if user_category == 0:
@@ -266,6 +269,8 @@ def map_user(model, pk, fields):
         "groups": [],
         "user_permissions": [],
     }
+    for intentionally_ignored in ['first_name', 'last_name', 'display_name', 'groups', 'user_permissions']:
+        fields.pop(intentionally_ignored)
     assert len(list(fields.keys())
                ) == 0, f"fields left: {list(fields.keys())})"
     return user_model_data
@@ -344,7 +349,7 @@ PK_USER_DATA_MAP = {}
 
 if __name__ == "__main__":
 
-    with open("user_management_db_dump.json") as f:
+    with open("old_db_full_dump.json") as f:
         # with open("test_userprofile.json") as f:
         data = json.loads(f.read())
 
@@ -433,22 +438,29 @@ if __name__ == "__main__":
     BASE_OLD_STATIC_URL = "https://fra1.digitaloceanspaces.com/lw-object-storage-bucket/static/"
 
     # Download old profile images and generate a map to use for the reupload
-    user_image_map = {}
-    for info in USERS_THAT_REQUIRE_IMAGE_REUPLOAD:
-        img_url = BASE_OLD_STATIC_URL + \
-            info["old_image_url"]
-        # Now try to download the image
-        file_ending = img_url.split(".")[-1]
-        out_path = f"./back/old_backend_p_images/{uuid4()}.{file_ending}"
-        urllib.request.urlretrieve(img_url)
-        user_image_map[info["usr_pk"]] = out_path
+    if False:
+        # Not needed right now images already downloaded
+        user_image_map = {}
+        for info in USERS_THAT_REQUIRE_IMAGE_REUPLOAD:
+            img_url = BASE_OLD_STATIC_URL + \
+                info["old_image_url"]
+            # Now try to download the image
+            file_ending = img_url.split(".")[-1]
+            out_path = f"./back/old_backend_p_images/{uuid4()}.{file_ending}"
+            print("TRYING to get image from: ", img_url)
+            try:
+                urllib.request.urlretrieve(img_url, out_path)
+            except:
+                print("ERROR: ", f"Could not download image from {img_url}")
+                continue
+            user_image_map[info["usr_pk"]] = out_path
 
-    with open("./back/old_backend_import_infos.json", "w") as f:
-        highest_user_pk = max(PK_USER_DATA_MAP.keys())
-        f.write(json.dumps({
-            "total_users": highest_user_pk,
-            "user_image_map": user_image_map
-        }, indent=4))
+        with open("./back/old_backend_import_infos.json", "w") as f:
+            highest_user_pk = max(PK_USER_DATA_MAP.keys())
+            f.write(json.dumps({
+                "total_users": highest_user_pk,
+                "user_image_map": user_image_map
+            }, indent=4))
 
     """
     How to perform the import? 
