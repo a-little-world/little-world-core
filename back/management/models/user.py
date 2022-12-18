@@ -238,7 +238,7 @@ class UserSerializer(serializers.ModelSerializer):
 class SelfUserSerializer(UserSerializer):
     class Meta:
         model = User
-        fields = ["email", "hash"]
+        fields = ["email", "hash", "is_admin"]
 
 
 class CensoredUserSerializer(UserSerializer):
