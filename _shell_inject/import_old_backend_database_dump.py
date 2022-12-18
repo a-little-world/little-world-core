@@ -145,7 +145,6 @@ def map_user_profile(model, pk, fields):
             "usr_pk": user,
             "old_image_url": profile_img_url,
         })
-        pass
 
     transformed_data = {
         "version": 0,  # Version 0 is a marker old backend imported profiles
@@ -158,7 +157,7 @@ def map_user_profile(model, pk, fields):
         # "past_user_types": None, django will set defaults here
         "target_group": typed_choice(transfrom_target_group(pop_filed("helping_group")), user_type),
         "partner_sex": transform_partner_sex(pop_filed('partner_sex')),
-        "speech_medium": transform_speech_medium(pop_filed('conversation_medium')),
+        "speech_medium": typed_choice(transform_speech_medium(pop_filed('conversation_medium')), user_type),
         "partner_location": typed_choice(transform_partner_location(pop_filed('partner_location')), user_type),
         "postal_code": pop_filed("postal_code"),
         "interests": transfrom_interests(pop_filed("interests")),
@@ -319,14 +318,26 @@ if __name__ == "__main__":
             "pk": pk,
             "fields": MAPPING_FUNCTIONS[model]["f"](model, pk, fields)
         }
-        MODELS.append(m_data)
+
+        dont_add_to_models = False
         if model == "user_management.user":
-            update_pk_model_reference(pk, model, m_data)
+            if not pk in [1, 2]:
+                update_pk_model_reference(pk, model, m_data)
+            else:
+                dont_add_to_models = True
         elif model in ["user_management.userprofile", "user_management.userstate"]:
             usr_pk = m_data["fields"]["user"]
-            update_pk_model_reference(usr_pk, model, m_data)
+            if not usr_pk in [1, 2]:
+                update_pk_model_reference(usr_pk, model, m_data)
+            else:
+                dont_add_to_models = True
 
-        print("========>", f"Extracted {model} for user {pk}")
+        if not dont_add_to_models:
+            MODELS.append(m_data)
+            print("========>", f"Extracted {model} for user {pk}")
+        else:
+            print(
+                "XXXX", f"Skipping {model} for user {pk} since I was told to do so!")
 
     # After the inital extraction we need to perform some post updates
     # 1. we need to take last and first name fom the user model and ad it to their profile model
@@ -339,6 +350,24 @@ if __name__ == "__main__":
             model["fields"]["first_name"] = user_profile["fields"]["first_name"]
             model["fields"]["last_name"] = user_profile["fields"]["second_name"]
 
+    def make_settings_fixture(__pk):
+        return {
+            "model": "management.settings",
+            "pk": __pk,
+            "fields": {
+                "user": __pk,
+                "language": "en"
+            }
+        }
+
+    # Now we add a default settings fixture for each user
+    for _pk in PK_USER_DATA_MAP:
+        MODELS.append(make_settings_fixture(_pk))
+
+    # Now we overwrite the two default admin users!
+    # pk=1 ( old management.littleworld@gmail.com )
+    # pk=2 ( old tim@timschupp.de )
+
     print(json.dumps(MODELS, indent=4))
 
     # we write the results to ./back/transformed_fixture.json
@@ -346,12 +375,16 @@ if __name__ == "__main__":
     with open("./back/transformed_fixture.json", "w") as f:
         f.write(json.dumps(MODELS, indent=4))
 
+    print("YOU will need to update profile images",
+          USERS_THAT_REQUIRE_IMAGE_REUPLOAD)
+
     """
     How to perform the import? 
     1. create the default base management user (pk=1)
     2. Make sure the old basemangement user is overwritten (old pk=1) ( Delete is from the transformed fixture!)
     3. Make sure to overwrite the old second admin user (pk=2) with a regular user
     4. Load all other users! They all should already have a match with the default management user (pk=1)
+    4.5. Add a settings model for every user
     5. Load all dialogs and chat messages
     6. For all matches, create a new video room
     7. For all users that had a profile image url set, download the profile image and upload it to the new bucket
