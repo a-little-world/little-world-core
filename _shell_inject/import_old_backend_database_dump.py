@@ -1,4 +1,6 @@
 import json
+import urllib.request
+from uuid import uuid4
 # Loads all values from the old database into the current database
 # dumpdata --indent --app management > db_management.json
 # manage.py dumpdata --indent 2 management.profile
@@ -140,7 +142,8 @@ def map_user_profile(model, pk, fields):
 
     user = pop_filed("user")
     profile_img_url = pop_filed("profile_image")
-    if profile_img_url != "":
+    # Ignore images for the two base admin users
+    if profile_img_url != "" and not user in [1, 2]:
         USERS_THAT_REQUIRE_IMAGE_REUPLOAD.append({
             "usr_pk": user,
             "old_image_url": profile_img_url,
@@ -247,8 +250,8 @@ def map_user(model, pk, fields):
         "password": fields.pop("password"),
         "last_login": fields.pop("last_login"),
         "is_superuser": fields.pop("is_superuser"),
-        "first_name": "",  # TODO: this sould be populated from the corresponding profile
-        "last_name": "",  # TODO: this sould be populated from the corresponding profile
+        "first_name": "",
+        "last_name": "",
         "is_staff": fields.pop("is_staff"),
         "is_active": fields.pop("is_active"),
         "date_joined": fields.pop("date_joined"),
@@ -263,13 +266,38 @@ def map_user(model, pk, fields):
 
 
 def map_dialogs(model, pk, fields):
-    pass
+    transformed_dialog = {
+        "created": fields.pop("created"),
+        "modified": fields.pop("modified"),
+        "user1": fields.pop("user1"),
+        "user2": fields.pop("user2"),
+    }
+    return transformed_dialog
 
 
 def map_messages(model, pk, fields):
-    pass
+    transformed_message = {
+        "created": fields.pop("created"),
+        "modified": fields.pop("modified"),
+        "is_removed": fields.pop("is_removed"),
+        "sender": fields.pop("sender"),
+        "recipient": fields.pop("recipient"),
+        "text": fields.pop("text"),
+        "file": fields.pop("file"),
+        "read": fields.pop("read"),
+    }
+    return transformed_message
 
-# TODO: we shall not forget to create the video rooms!
+
+def map_cookie_consent_logitem(model, pk, fields):
+    transformed_cookie_consent = {
+        "action": fields.pop("action"),
+        "cookiegroup": fields.pop("cookiegroup"),
+        "version": fields.pop("version"),
+        "created": fields.pop("created"),
+        "ip_address": fields.pop("ip_address"),
+    }
+    return transformed_cookie_consent
 
 
 MAPPING_FUNCTIONS = {
@@ -284,6 +312,18 @@ MAPPING_FUNCTIONS = {
     "user_management.user": {
         "f": map_user,
         "model": "management.user"
+    },
+    "django_private_chat2.dialogsmodel": {
+        "f": map_dialogs,
+        "model": "django_private_chat2.dialogsmodel"
+    },
+    "django_private_chat2.messagemodel": {
+        "f": map_messages,
+        "model": "django_private_chat2.messagemodel"
+    },
+    "cookie_consent.logitem": {
+        "f": map_cookie_consent_logitem,
+        "model": "cookie_consent.logitem"
     }
 }
 
@@ -377,6 +417,26 @@ if __name__ == "__main__":
 
     print("YOU will need to update profile images",
           USERS_THAT_REQUIRE_IMAGE_REUPLOAD)
+
+    BASE_OLD_STATIC_URL = "https://fra1.digitaloceanspaces.com/lw-object-storage-bucket/static/"
+
+    # Download old profile images and generate a map to use for the reupload
+    user_image_map = {}
+    for info in USERS_THAT_REQUIRE_IMAGE_REUPLOAD:
+        img_url = BASE_OLD_STATIC_URL + \
+            info["old_image_url"]
+        # Now try to download the image
+        file_ending = img_url.split(".")[-1]
+        out_path = f"./back/old_backend_p_images/{uuid4()}.{file_ending}"
+        urllib.request.urlretrieve(img_url)
+        user_image_map[info["usr_pk"]] = out_path
+
+    with open("./back/old_backend_import_infos.json", "w") as f:
+        highest_user_pk = max(PK_USER_DATA_MAP.keys())
+        f.write(json.dumps({
+            "total_users": highest_user_pk,
+            "user_image_map": user_image_map
+        }, indent=4))
 
     """
     How to perform the import? 
