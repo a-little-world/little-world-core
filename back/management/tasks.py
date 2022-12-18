@@ -50,6 +50,14 @@ def create_default_cookie_groups():
         is_deletable=True
     )
 
+    little_world_functionality_cookies = CookieGroup.objects.create(
+        varname="little_world_functionality_cookies",
+        name="LittleWorldFunctionalityCookies",
+        description="Cookies required for basic functionality of Little World",
+        is_required=True,
+        is_deletable=False
+    )
+
     google_analytics_cookie = Cookie.objects.create(
         cookiegroup=analytics_cookiegroup,
         name="google_analytics_cookie",
