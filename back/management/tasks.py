@@ -284,7 +284,7 @@ def dispatch_admin_email_notification(subject, message):
 
     base_management_user.send_email(
         subject=subject,
-        mail_data=mails.get_mail_data_by_name("match"),
+        mail_data=mails.get_mail_data_by_name("raw"),
         mail_params=mails.RAWTemplateMailParams(
             subject_header_text=subject,
             greeting=message,
