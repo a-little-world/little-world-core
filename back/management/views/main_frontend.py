@@ -1,6 +1,7 @@
 from ..api.user_data import get_full_frontend_data
 from django.contrib.auth.mixins import LoginRequiredMixin
 from back.utils import CoolerJson
+from django.conf import settings
 import json
 from dataclasses import dataclass, field
 from django.shortcuts import render, redirect
@@ -39,7 +40,7 @@ class MainFrontendParamsSerializer(serializers.Serializer):
 
 
 class MainFrontendView(LoginRequiredMixin, View):
-    login_url = '/login'
+    login_url = '/login' if settings.IS_DEV else 'https://home.little-world.com/'
     redirect_field_name = 'next'
 
     @utils.track_event(name=_("Render User Form"), event_type=Event.EventTypeChoices.REQUEST, tags=["frontend"])
