@@ -624,6 +624,7 @@ def relink_env(args):
     assert os.path.exists(args.unknown[0]), f"Cant find env {args.unknown[0]}"
     os.unlink("./env")
     os.symlink(args.unknown[0], "./env")
+    kill(args) # We kill since it can sometimes be very bad if you accidently use an old container with an old ENV inside
 
 
 @register_action(alias=["uf", "update_frontend"], cont=True)
