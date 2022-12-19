@@ -274,3 +274,20 @@ def write_hourly_backend_event_summary():
                 chat_per_user_message_send_count[event.caller] += 1
                 print("Detected user send message to chat",
                       event.caller, event.time)
+
+
+@shared_task
+def dispatch_admin_email_notification(subject, message):
+    from . import controller
+    from emails import mails
+    base_management_user = controller.get_base_management_user()
+
+    base_management_user.send_email(
+        subject=subject,
+        mail_data=mails.get_mail_data_by_name("match"),
+        mail_params=mails.RAWTemplateMailParams(
+            subject_header_text=subject,
+            greeting=message,
+            content_start_text=message
+        )
+    )

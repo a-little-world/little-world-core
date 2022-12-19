@@ -117,6 +117,11 @@ class Register(APIView):
         # also performs registration, send email etc...
         usr = controller.create_user(**{k: getattr(registration_data, k) for k in registration_data.__annotations__},
                                      send_verification_mail=True)
+
+        if settings.IS_PROD:
+            from ..tasks import dispatch_admin_email_notification
+            dispatch_admin_email_notification.delay(
+                "New user registered", str(request.data))
         try:
             login(request, usr)  # this errors in tests, if used as function
         except Exception as e:
