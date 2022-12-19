@@ -164,8 +164,9 @@ class State(models.Model):
             # TODO: also check that the slug has changed otherwise there is no need to recalculate
             print("Triggering score update")
             from ..tasks import calculate_directional_matching_score_background, archive_current_profile_user
-            calculate_directional_matching_score_background.delay(
-                self.user.hash)
+            # This was too calculation heavy
+            # calculate_directional_matching_score_background.delay(
+            #    self.user.hash)
 
             # Also we will now archive the current user profile
             archive_current_profile_user.delay(self.user.hash)
