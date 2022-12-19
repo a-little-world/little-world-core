@@ -51,8 +51,8 @@ def create_default_cookie_groups():
     )
 
     little_world_functionality_cookies = CookieGroup.objects.create(
-        varname="little_world_functionality_cookies",
-        name="LittleWorldFunctionalityCookies",
+        varname="lw_func_cookies",
+        name="FunctionalityCookies",
         description="Cookies required for basic functionality of Little World",
         is_required=True,
         is_deletable=False
