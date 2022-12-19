@@ -10,6 +10,16 @@ def create_dict(str_dict):
 
 
 @register.simple_tag
+def get_base_matomo_script_tag():
+    return """
+var _mtm = window._mtm = window._mtm || [];
+_mtm.push({'mtm.startTime': (new Date().getTime()), 'event': 'mtm.Start'});
+var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
+g.async=true; g.src='https://matomo.little-world.com/js/container_TFKaHyie.js'; s.parentNode.insertBefore(g,s);
+"""
+
+
+@register.simple_tag
 def get_base_url():
     # TODO: this was only meant for the email templates
     # and seems to be fixed vir correcting static path in settings

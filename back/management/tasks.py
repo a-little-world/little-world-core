@@ -68,8 +68,8 @@ def create_default_cookie_groups():
             "\nwindow.dataLayer = window.dataLayer || [];\n" +
             "function gtag(){dataLayer.push(arguments);}\n" +
             "gtag('js', new Date());\n" +
-            "gtag('config', 'AW-10994486925');\n"
-            # TODO: there was another gtag I should include
+            "gtag('config', 'AW-10994486925');\n" +
+            "gtag('config', 'AW-10992228532');"
         ],
     )
 

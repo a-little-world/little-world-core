@@ -1,9 +1,14 @@
 {% load render_bundle from webpack_loader %}
 {% load get_api_translations from temp_utils %}
 {% load get_base_page_url from temp_utils %}
+{% load get_base_matomo_script_tag from temp_utils %}
+{% get_base_matomo_script_tag as MATOMO_TAG_SCRIPT %}
 {% get_api_translations request=request as api_translations %}
 <!DOCTYPE html>
 <head>
+    <script>
+      {{ MATOMO_TAG_SCRIPT | safe }}
+    </script>
     {% include "react_app_head_base.html" with app_name='user_form_frontend' title='User Form' %}    
     {% if use_cookie_banner %}
         {% get_base_page_url as BASE_PAGE_URL %}

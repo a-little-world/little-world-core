@@ -227,6 +227,12 @@ class MakeMatch(APIView):
                                    send_email=params.send_email,
                                    send_message=params.send_message,
                                    send_notification=params.send_notification)
+
+            # Now we still need to set the user to no searching anymore
+            users[0].state.change_searching_state(
+                State.MatchingStateChoices.IDLE)
+            users[1].state.change_searching_state(
+                State.MatchingStateChoices.IDLE)
         except Exception as e:
             return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
         return Response(_("Users sucessfully matched"))
