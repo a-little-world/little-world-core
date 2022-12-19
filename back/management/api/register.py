@@ -121,7 +121,7 @@ class Register(APIView):
         if settings.IS_PROD:
             from ..tasks import dispatch_admin_email_notification
             dispatch_admin_email_notification.delay(
-                "New user registered", str(request.data))
+                "New user registered", f"{registration_data.email}, {registration_data.first_name}, {registration_data.second_name}, {registration_data.birth_year}")
         try:
             login(request, usr)  # this errors in tests, if used as function
         except Exception as e:
