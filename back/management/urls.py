@@ -94,6 +94,8 @@ api_routes = [
     path(_api_url('user/get', admin=True), api.admin.GetUser.as_view()),
     path(_api_url('user/list', admin=True), api.admin.UserList.as_view()),
 
+    path(_api_url('user/update_score', admin=True),
+         api.admin.RequestMatchingScoreUpdate.as_view()),
 
     path(_api_url('user/match', admin=True),
          api.admin.MakeMatch.as_view()),

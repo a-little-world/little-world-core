@@ -238,6 +238,39 @@ class MakeMatch(APIView):
         return Response(_("Users sucessfully matched"))
 
 
+@dataclass
+class OneUserInputData:
+    user: str
+    lookup: str = "hash"
+
+
+class OneUserSerializer(serializers.Serializer):
+    user = serializers.CharField(required=True)
+    lookup = serializers.CharField(required=False)
+
+    def create(self, validated_data):
+        return OneUserInputData(**validated_data)
+
+
+class RequestMatchingScoreUpdate(APIView):
+
+    permission_classes = [permissions.IsAdminUser]
+
+    @extend_schema(
+        request=OneUserSerializer(many=False),
+    )
+    def post(self, request):
+        from ..tasks import calculate_directional_matching_score_background
+
+        serializer = OneUserSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        params = serializer.save()
+
+        user = controller.get_user(params.user, lookup=params.lookup)
+        calculate_directional_matching_score_background.delay(user.hash)
+        return Response("Task dispatched scores will be written to db on task completion")
+
+
 class UserModificationAction(APIView):  # TODO:
     """
     put to user/notify
