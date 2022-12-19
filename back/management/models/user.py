@@ -152,7 +152,7 @@ class User(AbstractUser):
         _s.is_valid(raise_exception=True)
         prms = _s.save()
 
-        self.state.archive_email_adress(email)
+        self.state.archive_email_adress(self.email)
         self.state.regnerate_email_auth_code()  # New auth code and pin !
 
         # We send the email first so if this would fail the changing of email would also fail!

@@ -149,7 +149,8 @@ class State(models.Model):
         # We do not log old auth codes, donsnt realy matter
         self.email_auth_hash = utils._double_uuid()
         self.email_auth_pin = utils._rand_int5()
-        self.email_authenticated = set_to_unauthenticated
+        if set_to_unauthenticated:
+            self.email_authenticated = False
         self.save()
 
     def change_searching_state(self, slug, trigger_score_update=True):
