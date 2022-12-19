@@ -10,7 +10,7 @@ from channels.layers import get_channel_layer
 from .models import User
 from django.conf import settings
 from .models import UserSerializer, User, Profile, State, Settings, Room
-from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext_lazy as _, pgettext_lazy
 from emails import mails
 from tracking import utils
 from tracking.models import Event
@@ -160,7 +160,14 @@ def create_user(
 
     # Step 8 Message the user from the admin account
     if send_welcome_message:
-        usr.message(_("Welcome Message..."))
+        usr.message(pgettext_lazy("api.register-welcome-message-text", """
+Hallo {first_name}
+
+ich bin Oliver, einer der Gründer von Little World. Wir freuen uns riesig, Dich als einer der ersten Nutzer:innen unserer Plattform begrüßen zu dürfen! Da wir täglich daran arbeiten, unsere neue Plattform zu verbessern, ist Dein Feedback besonders wertvoll! Hast du vielleicht schon Anregungen zur Verbesserung? Dann schreib mir einfach!
+
+Wir freuen uns über Deine Unterstützung und senden ganz liebe Grüße aus Aachen,
+Oliver  
+        """.format(first_name=first_name)))
     return usr
 
 
