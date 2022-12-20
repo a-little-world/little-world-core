@@ -208,8 +208,10 @@ class MakeMatch(APIView):
                                 status=status.HTTP_400_BAD_REQUEST)
 
         if not params.force:
-            print("DIR")
-            assert dir1 and dir2, "respective directional matching scores do not exist!"
+            if not (dir1 and dir2):
+                return Response({
+                    "msg": _("Directional matching score doesnt seem to exist, not sure if users are matchable. Either request to calculate it or set the 'force' flag to true and match anyways"),
+                })
             if not (dir1.matchable and dir2.matchable):
                 return Response({
                     "message": _("Users score marks users as not matchable with message") + MATCH_BY_FORCE_MSG,
@@ -267,8 +269,13 @@ class RequestMatchingScoreUpdate(APIView):
         params = serializer.save()
 
         user = controller.get_user(params.user, lookup=params.lookup)
-        calculate_directional_matching_score_background.delay(user.hash)
-        return Response("Task dispatched scores will be written to db on task completion")
+        x = calculate_directional_matching_score_background.delay(user.hash)
+
+        return Response({
+            "msg": "Task dispatched scores will be written to db on task completion",
+            "task_id": x.task_id,
+            "view": f"/admin/django_celery_results/taskresult/?q={x.task_id}"
+        })
 
 
 class UserModificationAction(APIView):  # TODO:
