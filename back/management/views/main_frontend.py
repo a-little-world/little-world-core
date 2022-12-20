@@ -40,7 +40,7 @@ class MainFrontendParamsSerializer(serializers.Serializer):
 
 
 class MainFrontendView(LoginRequiredMixin, View):
-    login_url = '/login' if settings.IS_DEV else 'https://home.little-world.com/'
+    login_url = 'https://home.little-world.com/' if settings.IS_PROD else '/login'
     redirect_field_name = 'next'
 
     @utils.track_event(name=_("Render User Form"), event_type=Event.EventTypeChoices.REQUEST, tags=["frontend"])
