@@ -1,5 +1,6 @@
 from .cookie_banner_frontend import get_cookie_banner_template_data
 from django.shortcuts import render, redirect
+from django.utils.translation import pgettext_lazy
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from rest_framework import serializers
@@ -90,6 +91,20 @@ def email_verification(request):
 @login_required
 def email_change(request):
     return _render_user_form_app(request, "changemail", use_cookie_banner=True)
+
+
+def email_verification_link_screen(request, **kwargs):
+    from ..api.user import verify_email_link
+
+    if not 'auth_data' in kwargs:
+        raise serializers.ValidationError(
+            {"auth_data": pgettext_lazy("email.verify-auth-data-missing-get-frontend",
+                                        "Email authentication data missing")})
+
+    if verify_email_link(kwargs['auth_data']):
+        return _render_user_form_app(request, "mailverificationsucess")
+    else:
+        return _render_user_form_app(request, "mailverificationfail")
 
 
 @login_required

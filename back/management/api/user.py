@@ -23,6 +23,18 @@ The public /user api's
 """
 
 
+def verify_email_link(auth_data):
+    try:
+        _data = State.decode_email_auth_code_b64(auth_data)
+        usr = get_user_by_hash(_data['u'])
+        if usr.state.check_email_auth_code_b64(auth_data):
+            return True
+    except Exception as e:
+        print(repr(e))
+        return False
+    return False
+
+
 class VerifyEmail(APIView):
 
     # Everyone can acess this 'get' api,
@@ -39,14 +51,11 @@ class VerifyEmail(APIView):
             raise serializers.ValidationError(
                 {"auth_data": pgettext_lazy("email.verify-auth-data-missing-get",
                                             "Email authentication data missing")})
-        try:
-            _data = State.decode_email_auth_code_b64(kwargs['auth_data'])
-            usr = get_user_by_hash(_data['u'])
-            if usr.state.check_email_auth_code_b64(kwargs['auth_data']):
-                return Response(pgettext_lazy("email.verify-success-get",
-                                              "Email sucessfully verified"))
-        except Exception as e:
-            print(repr(e))
+
+        if verify_email_link(kwargs['auth_data']):
+            return Response(pgettext_lazy("email.verify-success-get",
+                                          "Email sucessfully verified"))
+
         return Response(pgettext_lazy("email.verify-failure-get",
                                       "Email verification failed"),
                         status=status.HTTP_400_BAD_REQUEST)

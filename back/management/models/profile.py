@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _, gettext_noop
 from phonenumber_field.modelfields import PhoneNumberField
+from phonenumber_field.phonenumber import PhoneNumber
 from back.utils import get_options_serializer
 from datetime import datetime
 from rest_framework import serializers
@@ -534,6 +535,22 @@ class SelfProfileSerializer(ProfileSerializer):
                                                            "profile.avatar-missing",
                                                            "You have selected avatar but not uploaded an avatar")})
         return data
+
+    def to_internal_value(self, data):
+
+        # If a phone number is present we try to converty it to e164 *before* we validate it
+        # This allowes users to make small format erros that we can still correct our selves
+        if 'phone_mobile' in data:
+            try:
+                phone = PhoneNumber.from_string(
+                    phone_number=data['phone_mobile'], region='DE').as_e164
+                print(
+                    f"Reparsed phone number {data['phone_mobile']} -> {phone}")
+                data['phone_mobile'] = phone
+            except Exception as e:
+                data['phone_mobile'] = "parse_error"
+
+        return super(SelfProfileSerializer, self).to_internal_value(data)
 
     def validate_postal_code(self, value):
         return validate_postal_code(value)

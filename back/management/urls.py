@@ -21,6 +21,7 @@ from .views.user_form_frontend import (
     email_verification_fail,
     password_set_success,
     error,
+    email_verification_link_screen,
     user_form
 )
 from .views.admin_panel_frontend import admin_panel
@@ -126,6 +127,8 @@ view_routes = [
     path("formpage/", subsection_of_user_form, name="formpage"),
 
     path('mailverify/', email_verification, name="email_verification"),
+    path('mailverify_link/<str:auth_data>', email_verification_link_screen,
+         name="email_verification_link"),
     path('change_email/', email_change, name="email_change"),
     path('mailverify/sucess/', email_verification_sucess,
          name="email_verification_sucess"),
