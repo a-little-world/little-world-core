@@ -127,7 +127,8 @@ def create_user(
     # Step 4 send mail
     if send_verification_mail:
         try:
-            verifiaction_url = f"{settings.BASE_URL}/api/user/verify/email/{usr.state.get_email_auth_code_b64()}"
+            link_route = 'mailverify_link'  # api/user/verify/email
+            verifiaction_url = f"{settings.BASE_URL}/{link_route}/{usr.state.get_email_auth_code_b64()}"
             mails.send_email(
                 recivers=[email],
                 subject="undefined",  # TODO set!
