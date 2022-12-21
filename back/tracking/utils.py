@@ -70,7 +70,8 @@ def inline_track_event(
                     metadata["request_data1"] = dict(a.data)
                     if censor_kwargs:
                         for arg in censor_kwargs:
-                            metadata["request_data1"].pop(arg)
+                            if arg in metadata["request_data2"]:
+                                metadata["request_data1"].pop(arg)
                 except:
                     metadata["msg"].append(
                         _("request.data 1 not existing"))
@@ -79,7 +80,8 @@ def inline_track_event(
                     metadata["request_data2"] = {**a.POST, **a.GET}
                     if censor_kwargs:
                         for arg in censor_kwargs:
-                            metadata["request_data2"].pop(arg)
+                            if arg in metadata["request_data2"]:
+                                metadata["request_data2"].pop(arg)
                 except Exception as e:
                     metadata["msg"].append(
                         _("request.data 2 not existing"))

@@ -20,9 +20,12 @@ for usr in User.objects.all():
     print(usr)
     if usr.pk != base_management_user.pk:
         base_management_user.state.matches.add(usr)
-    for m in usr.state.matches.all():
-        if not rooms.get_rooms_match(usr, m).exists():
-            rooms.Room.objects.create(usr1=usr, usr2=m)
+    try:
+        for m in usr.state.matches.all():
+            if not rooms.get_rooms_match(usr, m).exists():
+                rooms.Room.objects.create(usr1=usr, usr2=m)
+    except Exception as e:
+        print("Problem with", usr, str(e))
 
 # Old images are automaticly downloaded into ./back/old_backend_p_images/*
 # The info which image corresponds to which user is stored in ./back/old_backend_import_infos.json

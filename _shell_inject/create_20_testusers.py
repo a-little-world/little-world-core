@@ -176,4 +176,4 @@ def _create_abunch_of_users(amnt=10, user_seeds=[42]*20):
     return users
 
 
-_create_abunch_of_users(amnt=20)
+_create_abunch_of_users(amnt=10)
