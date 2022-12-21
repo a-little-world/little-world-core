@@ -333,26 +333,25 @@ REST_FRAMEWORK = {
     ]
 }
 
-if BUILD_TYPE in ['staging', 'development']:
 
-    # pylint doesn't like it not sure why
-    REST_FRAMEWORK["DEFAULT_SCHEMA_CLASS"] = 'drf_spectacular.openapi.AutoSchema'
+# pylint doesn't like it not sure why
+REST_FRAMEWORK["DEFAULT_SCHEMA_CLASS"] = 'drf_spectacular.openapi.AutoSchema'
 
-    SPECTACULAR_SETTINGS = {
-        'TITLE': 'Little Worlds Api Documentation',
-        'DESCRIPTION': 'by tbscode',
-        'VERSION': '1.0.0',
-        'SERVE_INCLUDE_SCHEMA': False,
-        # The following are for using sidecar
-        'SWAGGER_UI_DIST': 'SIDECAR',
-        'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
-        'REDOC_DIST': 'SIDECAR',
-        "SWAGGER_UI_SETTINGS": {
-            "deepLinking": True,
-            "persistAuthorization": True,
-            "displayOperationId": True,
-        },
-    }
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Little Worlds Api Documentation',
+    'DESCRIPTION': 'by tbscode',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    # The following are for using sidecar
+    'SWAGGER_UI_DIST': 'SIDECAR',
+    'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
+    'REDOC_DIST': 'SIDECAR',
+    "SWAGGER_UI_SETTINGS": {
+        "deepLinking": True,
+        "persistAuthorization": True,
+        "displayOperationId": True,
+    },
+}
 
 
 if IS_DEV:
