@@ -76,6 +76,8 @@ def password_reset_mail_send(request):
 
 
 def register(request):
+    if request.user.is_authenticated:
+        return redirect(reverse("management:main_frontend", kwargs={}))
     return _render_user_form_app(request, "register", use_cookie_banner=True)
 
 # Inacessible setup pages ( only for loggedin users )
