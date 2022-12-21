@@ -15,6 +15,7 @@ from .templates import (
     # so MatchFoundEmailTexts has no Defaults
     MatchFoundEmailTexts,
     SorryWeStillNeedALittleMail,
+    NewServerMail,
     RAWTemplateMail
 )
 from django.core.mail import EmailMessage
@@ -79,8 +80,8 @@ class PwResetMailParams:
 
 
 @dataclass
-class SorryWeNeedMoreTimeToMatchYouMailParams:
-    first_name: str
+class NewServerMailParams:
+    pass
 
 
 # Register all templates and their serializers here
@@ -117,12 +118,12 @@ templates = [
         defaults=PasswordResetEmailDefaults
     ),
     MailMeta(
-        name="we_need_some_more_time_for_matching",
+        name="new_server",
         # subject =
-        template="emails/welcome.html",
-        params=PwResetMailParams,
-        texts=SorryWeStillNeedALittleMail,
-        defaults=SorryWeStillNeedALittleMail
+        template="emails/base_with_social_banner.html",
+        params=NewServerMailParams,
+        texts=NewServerMail,
+        defaults=NewServerMail
     )
 ]
 
