@@ -59,12 +59,14 @@ class EventTriggerApi(APIView):
 @dataclass
 class SearchEventMataInputParams:
     search_string: str
+    include_meta: bool = False
     start_date: Optional[str] = None
     end_data: Optional[str] = None
 
 
 class SearchEventMataInputSerializer(serializers.Serializer):
     search_string = serializers.CharField(max_length=150, required=True)
+    include_meta = serializers.BooleanField(required=False)
     start_date = serializers.DateTimeField(required=False)
     end_date = serializers.DateTimeField(required=False)
 
@@ -117,10 +119,13 @@ class SearchEventMetadataPostgressApi(APIView):
         filtered_events = []
 
         for event in events:
-            filtered_events.append({
+            _data = {
                 "hash": event.hash,
                 "link": f"{settings.BASE_URL}/admin/tracking/event/?q={event.hash}",
-            })
+            }
+            if params.include_meta:
+                _data["metadata"] = event.metadata
+            filtered_events.append(_data)
 
         return Response(filtered_events)
 
@@ -159,9 +164,12 @@ class SearchEventMetadataApi(APIView):
 
         for event in events:
             if params.search_string in str(event.metadata):
-                filtered_events.append({
+                _data = {
                     "hash": event.hash,
                     "link": f"{settings.BASE_URL}/admin/tracking/event/?q={event.hash}",
-                })
+                }
+                if params.include_meta:
+                    _data["metadata"] = event.metadata
+                filtered_events.append(_data)
 
         return Response(filtered_events)
