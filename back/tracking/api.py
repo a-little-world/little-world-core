@@ -122,6 +122,7 @@ class SearchEventMetadataPostgressApi(APIView):
             _data = {
                 "hash": event.hash,
                 "link": f"{settings.BASE_URL}/admin/tracking/event/?q={event.hash}",
+                "time": str(event.time)
             }
             if params.include_meta:
                 _data["metadata"] = event.metadata
@@ -167,6 +168,7 @@ class SearchEventMetadataApi(APIView):
                 _data = {
                     "hash": event.hash,
                     "link": f"{settings.BASE_URL}/admin/tracking/event/?q={event.hash}",
+                    "time": str(event.time)
                 }
                 if params.include_meta:
                     _data["metadata"] = event.metadata
