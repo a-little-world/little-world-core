@@ -113,8 +113,17 @@ class Register(APIView):
         serializer.is_valid(raise_exception=True)
         # The types are secure, we checked that using the 'Registration Serializer'
         registration_data = serializer.save()
-        # create_user will trow seralization error per default
-        # also performs registration, send email etc...
+
+        try:
+            usr = controller.get_user_by_email(registration_data.email)
+            raise serializers.ValidationError(
+                {"email": pgettext_lazy("api.register-user-email-exists", "User with this email already exists")})
+        except:
+            # If this doesnt fail the user doesn't exist!
+            pass
+
+            # create_user will trow seralization error per default
+            # also performs registration, send email etc...
         usr = controller.create_user(**{k: getattr(registration_data, k) for k in registration_data.__annotations__},
                                      send_verification_mail=True)
 
