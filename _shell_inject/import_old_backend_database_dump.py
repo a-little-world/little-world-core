@@ -350,7 +350,7 @@ PK_USER_DATA_MAP = {}
 
 if __name__ == "__main__":
 
-    with open("old_db_full_dump.json") as f:
+    with open("final_db_dump_backend_v2.json") as f:
         # with open("test_userprofile.json") as f:
         data = json.loads(f.read())
 
@@ -439,29 +439,28 @@ if __name__ == "__main__":
     BASE_OLD_STATIC_URL = "https://fra1.digitaloceanspaces.com/lw-object-storage-bucket/static/"
 
     # Download old profile images and generate a map to use for the reupload
-    if False:
-        # Not needed right now images already downloaded
-        user_image_map = {}
-        for info in USERS_THAT_REQUIRE_IMAGE_REUPLOAD:
-            img_url = BASE_OLD_STATIC_URL + \
-                info["old_image_url"]
-            # Now try to download the image
-            file_ending = img_url.split(".")[-1]
-            out_path = f"./back/old_backend_p_images/{uuid4()}.{file_ending}"
-            print("TRYING to get image from: ", img_url)
-            try:
-                urllib.request.urlretrieve(img_url, out_path)
-            except:
-                print("ERROR: ", f"Could not download image from {img_url}")
-                continue
-            user_image_map[info["usr_pk"]] = out_path
+    # Not needed right now images already downloaded
+    user_image_map = {}
+    for info in USERS_THAT_REQUIRE_IMAGE_REUPLOAD:
+        img_url = BASE_OLD_STATIC_URL + \
+            info["old_image_url"]
+        # Now try to download the image
+        file_ending = img_url.split(".")[-1]
+        out_path = f"./back/old_backend_p_images/{uuid4()}.{file_ending}"
+        print("TRYING to get image from: ", img_url)
+        try:
+            urllib.request.urlretrieve(img_url, out_path)
+        except:
+            print("ERROR: ", f"Could not download image from {img_url}")
+            continue
+        user_image_map[info["usr_pk"]] = out_path
 
-        with open("./back/old_backend_import_infos.json", "w") as f:
-            highest_user_pk = max(PK_USER_DATA_MAP.keys())
-            f.write(json.dumps({
-                "total_users": highest_user_pk,
-                "user_image_map": user_image_map
-            }, indent=4))
+    with open("./back/old_backend_import_infos.json", "w") as f:
+        highest_user_pk = max(PK_USER_DATA_MAP.keys())
+        f.write(json.dumps({
+            "total_users": highest_user_pk,
+            "user_image_map": user_image_map
+        }, indent=4))
 
     """
     How to perform the import? 
