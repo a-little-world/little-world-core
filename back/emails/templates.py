@@ -218,7 +218,7 @@ class NewServerMail:
     greeting: str = 'Liebe Community,'
     content_start_text: str = mark_safe(
         'wir sind umgezogen – es ging auf einen neuen Server. Sorry, sollte es weiterhin zu technischen Problemen kommen. Meldet euch bitte bei unserem Support und wir kümmern uns umgehend darum!'
-        + 'Dieser Schritt war wichtig: für mehr Nutzer:innen, einen schnelleren Matching-Prozess und weitere Features und Verbesserungen, auf die ihr euch bald freuen könnt!')
+        + ' Dieser Schritt war wichtig: für mehr Nutzer:innen, einen schnelleren Matching-Prozess und weitere Features und Verbesserungen, auf die ihr euch bald freuen könnt!')
     content_body_text: str = mark_safe('Wir freuen uns über <b>750 Anmeldungen</b>! Vielen Dank für eure Hilfe, euer Engagement, euer Vertrauen und all die Verbesserungsvorschläge! Unser kleines Team arbeitet auf Hochtouren daran, alles umzusetzen und für alle ein Match zu finden – das schaffen wir noch nicht überall auf Anhieb. Dafür möchten wir uns entschuldigen, dafür bieten wir aber auch eine Lösung an:'
                                        + '<br><br>' + 'Erzählt anderen Leuten von Little World; folgt uns auf <b>Social Media</b>, teilt unsere Beiträge und helft uns dabei, dass Little World weiter wächst! Denn auch jetzt warten noch mehr als 120 Deutschlernende auf ein Match. Je mehr Leute von uns wissen, desto schneller finden wir für alle Gesprächspartner:innen.')
     social_banner_header_text: str = 'Ihr findet uns auf folgenden Plattformen:'
