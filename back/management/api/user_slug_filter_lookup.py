@@ -7,6 +7,7 @@ from ..models import (
     ProfileSerializer,
     StateSerializer,
     State,
+    UserSerializer,
     Room
 )
 _filter_slug_meta = {
@@ -89,7 +90,8 @@ def get_filter_slug_filtered_users_multiple_paginated(
         "results_total": len(filtered_user_list),
         "filter_options": {
             "profile": ProfileSerializer(bm_user.profile).data["options"],
-            "state": StateSerializer(bm_user.state).data["options"]
+            "state": StateSerializer(bm_user.state).data["options"],
+            "user": UserSerializer(bm_user).data["options"]
         }
     }
 
