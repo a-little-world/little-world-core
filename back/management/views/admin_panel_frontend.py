@@ -14,14 +14,14 @@ def admin_panel(request):
     This renders our sweet admin matching panel 
     We allow it to contain a bunch of 'filters' in the query params
     """
-
     GET = request.GET
-    filters = []
+    filters = None
     if GET.getlist("filter"):
-        filters = GET.getlist("filter")
+        filters = []
+    elif GET.get("filter"):
+        filters = [GET.get("filter")]
     else:
-        # This also defines the default filter!
-        filters = [GET.get("filter", "state.user_form_page:is:0")]
+        filters = ["state.user_form_state:is:filled"]
 
     user_list_data, extra_info = get_filter_slug_filtered_users_multiple_paginated(
         filters=filters,
