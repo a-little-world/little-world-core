@@ -119,7 +119,11 @@ Selbst habe ich vier Jahre im Ausland gelebt, von Frankreich bis nach China. Den
 
 
 @shared_task
-def calculate_directional_matching_score_background(usr_hash, filter_slugs=None):
+def calculate_directional_matching_score_background(
+    usr_hash,
+    filter_slugs=None,
+    invalidate_other_scores=False
+):
     """
     This is the backend task for calculating a matching score.
     This will *automaticly* be executed everytime a users changes his user form
@@ -128,7 +132,7 @@ def calculate_directional_matching_score_background(usr_hash, filter_slugs=None)
     print(f"Calculating score for {usr_hash}")
     from .controller import get_user_by_hash
     from .matching.matching_score import calculate_directional_score_write_results_to_db
-    from .models import State
+    from .models import State, MatchinScore
 
     usr = get_user_by_hash(usr_hash)
 
@@ -147,13 +151,25 @@ def calculate_directional_matching_score_background(usr_hash, filter_slugs=None)
     print("CONSIDERING", all_users_to_consider)
     for other_usr in all_users_to_consider:
         print(f"Calculating score {usr} -> {other_usr}")
-        calculate_directional_score_write_results_to_db(
+        score1 = calculate_directional_score_write_results_to_db(
             usr, other_usr, return_on_nomatch=False,
             catch_exceptions=True)
         print(f"Calculating score {other_usr} -> {usr}")
-        calculate_directional_score_write_results_to_db(
+        score2 = calculate_directional_score_write_results_to_db(
             other_usr, usr, return_on_nomatch=False,
             catch_exceptions=True)
+
+    if invalidate_other_scores:
+        for other_user in User.objects.exclude(id=usr.id):
+            if other_user not in all_users_to_consider:
+                cur_score = MatchinScore.get_current_directional_score(
+                    from_usr=usr,
+                    to_usr=other_user,
+                    raise_exeption=False
+                )
+                print(f"Invalidating score {usr.id}")
+                if not cur_score is None:
+                    cur_score.set_to_old()
 
 
 @shared_task
