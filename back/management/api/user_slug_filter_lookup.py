@@ -91,7 +91,7 @@ def get_filter_slug_filtered_users_multiple_paginated(
         "filter_options": {
             "profile": ProfileSerializer(bm_user.profile).data["options"],
             "state": StateSerializer(bm_user.state).data["options"],
-            "user": UserSerializer(bm_user).data["options"]
+            # "user": UserSerializer(bm_user).data["options"]
         }
     }
 
