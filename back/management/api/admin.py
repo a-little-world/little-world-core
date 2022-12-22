@@ -243,6 +243,8 @@ class MakeMatch(APIView):
 @dataclass
 class OneUserInputData:
     user: str
+    filters: 'Optional[list[str]]' = None
+    invalidate_all_old_scores: bool = False
     lookup: str = "hash"
 
 
