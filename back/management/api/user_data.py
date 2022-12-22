@@ -117,7 +117,8 @@ def get_user_data(user, is_self=False, admin=False, include_options=False):
     user_data = {}
     for k in _serializers:
         if not k.startswith("_"):
-            user_data[k] = _serializers[k](models[k]).data
+            user_data[k] = _maybe_delete_options(
+                _serializers[k](models[k]).data)
     return user_data
 
 
