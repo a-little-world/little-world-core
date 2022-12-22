@@ -119,7 +119,7 @@ Selbst habe ich vier Jahre im Ausland gelebt, von Frankreich bis nach China. Den
 
 
 @shared_task
-def calculate_directional_matching_score_background(usr_hash):
+def calculate_directional_matching_score_background(usr_hash, filter_slugs=None):
     """
     This is the backend task for calculating a matching score.
     This will *automaticly* be executed everytime a users changes his user form
@@ -135,11 +135,17 @@ def calculate_directional_matching_score_background(usr_hash):
     # We only search for all users that are searching
     # But since the search is generally triggered by the user searching
     # -> this will keep all matching scores up to date always
-    all_other_searching_users = User.objects.all() \
-        .exclude(id=usr.id) \
-        .exclude(state__matching_state=State.MatchingStateChoices.IDLE)
-    print("OTHERS", all_other_searching_users)
-    for other_usr in all_other_searching_users:
+    if filter_slugs is None:
+        all_users_to_consider = User.objects.all() \
+            .exclude(id=usr.id) \
+            .exclude(state__matching_state=State.MatchingStateChoices.IDLE)
+    else:
+        from .api.user_slug_filter_lookup import get_filter_slug_filtered_users_multiple
+        all_users_to_consider = get_filter_slug_filtered_users_multiple(
+            filters=filter_slugs
+        )
+    print("CONSIDERING", all_users_to_consider)
+    for other_usr in all_users_to_consider:
         print(f"Calculating score {usr} -> {other_usr}")
         calculate_directional_score_write_results_to_db(
             usr, other_usr, return_on_nomatch=False,
@@ -274,6 +280,17 @@ def write_hourly_backend_event_summary():
                 chat_per_user_message_send_count[event.caller] += 1
                 print("Detected user send message to chat",
                       event.caller, event.time)
+
+
+@shared_task
+def delete_all_old_matching_scores():
+    from .models import MatchinScore
+    count = 0
+    for score in MatchinScore.objects.all():
+        if not score.current_score:
+            count += 1
+            score.delete()
+    return f"{count} scores deleted"
 
 
 @shared_task

@@ -244,7 +244,7 @@ def calculate_directional_score_write_results_to_db(
 def calculate_directional_matching_score(
     usr1, usr2,
     return_on_nomatch=False,
-    catch_exceptions=False
+    catch_exceptions=False,
 ):
     """
     A general function that can calucate the directionmal matching score for two users

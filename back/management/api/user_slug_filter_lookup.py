@@ -1,13 +1,18 @@
 from typing import List, Optional
+from django.core.paginator import Paginator
+from .user_data import get_user_data
 from ..models import (
     User,
     Profile,
+    ProfileSerializer,
+    StateSerializer,
     State,
+    UserSerializer,
     Room
 )
 _filter_slug_meta = {
     "is": {"kind": "single"},
-    "in": {"kind": "single"},
+    "in": {"kind": "multi"},
     "not": {"kind": "multi"},
     "cut": {"kind": "multi"},
 }
@@ -45,6 +50,52 @@ def _check_operation_condition(
     elif operation == "cut":
         return not str(prop) in compare_list  # type: ignore
     return False
+
+
+def get_filter_slug_filtered_users_multiple(
+    filtered_user_list=None,
+    filters=[],
+):
+    if filtered_user_list is None:
+        filtered_user_list = list(User.objects.all())
+    for filter in filters:
+        filtered_user_list = get_users_by_slug_filter(
+            filter_slug=filter, user_to_filter=filtered_user_list)
+    return filtered_user_list
+
+
+def get_filter_slug_filtered_users_multiple_paginated(
+        filtered_user_list=None,
+        filters=[],
+        paginate_by=50,
+        page=1,
+):
+    from ..controller import get_base_management_user
+    filtered_user_list = get_filter_slug_filtered_users_multiple(
+        filtered_user_list=filtered_user_list,
+        filters=filters
+    )
+    paginator = Paginator(filtered_user_list, paginate_by)
+    pages = paginator.page(page)
+
+    user_list_data = [get_user_data(
+        p, is_self=True, admin=True, include_options=False) for p in pages]
+
+    bm_user = get_base_management_user()
+
+    extra_info = {
+        "paginate_by": paginate_by,
+        "page": page,
+        "num_pages": pages.paginator.num_pages,
+        "results_total": len(filtered_user_list),
+        "filter_options": {
+            "profile": ProfileSerializer(bm_user.profile).data["options"],
+            "state": StateSerializer(bm_user.state).data["options"],
+            # "user": UserSerializer(bm_user).data["options"]
+        }
+    }
+
+    return user_list_data, extra_info
 
 
 def get_users_by_slug_filter(
@@ -126,7 +177,7 @@ def get_users_by_slug_filter(
 
         if _check_operation_condition(operation, model_value, compare_list=value) \
                 if value_kind == 'multi' else \
-        _check_operation_condition(operation, model_value, compare_value=value):
+            _check_operation_condition(operation, model_value, compare_value=value):
             filtered_user_list.append(user)
 
     for user in user_to_filter:

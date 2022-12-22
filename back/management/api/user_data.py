@@ -114,9 +114,12 @@ def get_user_data(user, is_self=False, admin=False, include_options=False):
             del d['options']
             return d
         return d
-
-    return {k: _maybe_delete_options(_serializers[k](models[k]).data)
-            for k in _serializers if not k.startswith("_")}
+    user_data = {}
+    for k in _serializers:
+        if not k.startswith("_"):
+            user_data[k] = _maybe_delete_options(
+                _serializers[k](models[k]).data)
+    return user_data
 
 
 def get_matches_paginated(user, admin=False,

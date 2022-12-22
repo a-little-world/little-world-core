@@ -81,7 +81,7 @@ class PwResetMailParams:
 
 @dataclass
 class NewServerMailParams:
-    pass
+    placeholder: str = "placeholder"
 
 
 # Register all templates and their serializers here
