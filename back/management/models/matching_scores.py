@@ -136,6 +136,10 @@ class MatchinScore(models.Model):
             del kwargs['depricated_score']
         super().save(*args, **kwargs)
 
+    def set_to_old(self):
+        self.current_score = False
+        self.save()
+
     @classmethod
     def get_current_directional_score(
             cls,
