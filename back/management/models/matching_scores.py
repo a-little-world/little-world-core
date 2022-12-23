@@ -1,5 +1,6 @@
 from django.db import models
 import numpy as np
+from rest_framework import serializers
 from back.utils import _double_uuid
 from ..matching.matching_score import SCORING_FUNCTIONS
 from multiselectfield import MultiSelectField
@@ -141,6 +142,20 @@ class MatchinScore(models.Model):
         self.save()
 
     @classmethod
+    def matching_suggestion_from_database(cls, user):
+        scores = []
+        for other_user in User.objects.exclude(id=user.id):
+            _score = cls.get_current_directional_score(
+                from_usr=user, to_usr=other_user,
+                raise_exeption=False)
+            if _score is not None:
+                scores.append({
+                    "model": _score,
+                    "score": _score.score,
+                })
+        return [MatchingScoreSerializer(m["model"]).data for m in sorted(scores, key=lambda x: x["score"], reverse=True)]
+
+    @classmethod
     def get_current_directional_score(
             cls,
             from_usr,
@@ -154,3 +169,9 @@ class MatchinScore(models.Model):
         if not raise_exeption and not cur_score.exists():
             return None
         return cur_score.first()
+
+
+class MatchingScoreSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MatchinScore
+        fields = '__all__'
