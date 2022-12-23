@@ -136,9 +136,21 @@ class MatchinScore(models.Model):
             del kwargs['depricated_score']
         super().save(*args, **kwargs)
 
+    def set_to_old(self):
+        self.current_score = False
+        self.save()
+
     @classmethod
-    def get_current_directional_score(cls, from_usr, to_usr):
+    def get_current_directional_score(
+            cls,
+            from_usr,
+            to_usr,
+            raise_exeption=True
+    ):
         print("LOoign for", from_usr, to_usr)
-        return cls.objects.filter(
+        cur_score = cls.objects.filter(
             from_usr=from_usr, to_usr=to_usr, current_score=True
-        ).first()
+        )
+        if not raise_exeption and not cur_score.exists():
+            return None
+        return cur_score.first()

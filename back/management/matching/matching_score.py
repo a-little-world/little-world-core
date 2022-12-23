@@ -239,6 +239,7 @@ def calculate_directional_score_write_results_to_db(
             meta={"error": "Error while calculating the matching score: " + err_msg},
             rendered_results_md_table=""
         )
+    return score
 
 
 def calculate_directional_matching_score(
