@@ -138,7 +138,10 @@ class NotificationInline(admin.TabularInline):
 
 
 @admin.register(models.user.User)
-class UserAdmin(DjangoUserAdmin):
+class UserAdmin(HijackUserAdminMixin, DjangoUserAdmin):
+
+    def get_hijack_user(self, obj):
+        return obj
 
     @admin.display(description='chat')
     def chat_with(self, obj):
