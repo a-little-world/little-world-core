@@ -251,6 +251,8 @@ class OneUserInputData:
 class OneUserSerializer(serializers.Serializer):
     user = serializers.CharField(required=True)
     lookup = serializers.CharField(required=False)
+    invalidate_all_old_scores = serializers.BooleanField(required=False)
+    filters = serializers.ListField(required=False)
 
     def create(self, validated_data):
         return OneUserInputData(**validated_data)
@@ -271,7 +273,11 @@ class RequestMatchingScoreUpdate(APIView):
         params = serializer.save()
 
         user = controller.get_user(params.user, lookup=params.lookup)
-        x = calculate_directional_matching_score_background.delay(user.hash)
+        x = calculate_directional_matching_score_background.delay(
+            user.hash,
+            filter_slugs=params.filters,
+            invalidate_other_scores=params.invalidate_all_old_scores
+        )
 
         return Response({
             "msg": "Task dispatched scores will be written to db on task completion",
