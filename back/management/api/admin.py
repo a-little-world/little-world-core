@@ -280,6 +280,53 @@ class RequestMatchingScoreUpdate(APIView):
         })
 
 
+@dataclass
+class UserTaggingParams:
+    user: str
+    tag: str
+    action: str = "toggle"  # toggle / add / remove
+    lookup: str = "hash"
+
+
+class UserTaggingSerializer(serializers.Serializer):
+    tag = serializers.CharField(required=True)
+    user = serializers.CharField(required=True)
+    lookup = serializers.CharField(required=False)
+
+    def create(self, validated_data):
+        return UserTaggingParams(**validated_data)
+
+
+class UserTaggingApi(APIView):
+
+    permission_classes = [permissions.IsAdminUser]
+
+    @extend_schema(
+        request=UserTaggingSerializer(many=False),
+    )
+    def post(self, request, **kwargs):
+
+        serializer = UserTaggingSerializer(
+            data=request.data)  # type: ignore
+        serializer.is_valid(raise_exception=True)
+
+        params = serializer.save()
+        params.action = kwargs.get("action", params.action)
+
+        user = controller.get_user(params.user, lookup=params.lookup)
+        assert params.tag in State.TagChoices.values, "Tag not found"
+
+        if params.action == "toggle":
+            if params.tag in user.state.tags:
+                user.state.tags.remove(params.tag)
+            else:
+                user.state.tags.append(params.tag)
+            user.state.save()
+            return Response({"mas": "Tag toggled:" + str(user.state.tags), "tags": user.state.tags})
+        else:
+            raise Exception("Not implemented")
+
+
 class UserModificationAction(APIView):  # TODO:
     """
     put to user/notify
