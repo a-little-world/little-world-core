@@ -240,6 +240,55 @@ def archive_current_profile_user(usr_hash):
 
 
 @shared_task
+def send_new_message_notifications_all_users(
+    filter_out_base_user_messages=True
+):
+    """
+    First we need to caluculate how many new messages per chat there are 
+    Then we check if this are more unread messages than before
+    """
+    #user = controller.get_user_by_hash(user_hash)
+    from chat.django_private_chat2.models import MessageModel, DialogsModel
+    from . import controller
+    from .models import User
+    base_management_user = controller.get_base_management_user()
+    for user in User.objects.all():
+        print("==== checking ===> ", user.email, user.hash)
+        dialogs = DialogsModel.get_dialogs_for_user_as_object(user)
+        new_unread_stack = []
+        for dialog in dialogs:
+
+            unread = MessageModel.get_unread_count_for_dialog_with_user(
+                dialog.user1, dialog.user2)
+
+            if unread > 0:
+                last_message = MessageModel.get_last_message_for_dialog(
+                    dialog.user1, dialog.user2)
+
+                urstd = {
+                    "unread_count": unread,
+                    "dialog_id": dialog.id,
+                    "other_user_hash": user.hash,
+                    "last_message_id": last_message.id,
+                }
+
+                if not (filter_out_base_user_messages and base_management_user.hash == user.hash):
+                    new_unread_stack.append(urstd)
+                    print("Not added since from base admin")
+                else:
+                    print("updated unread", urstd)
+
+        print(new_unread_stack)
+        # Now we can load the old unread stack
+        # for unread_state in user.state.unread_messages_state:
+        #    if unread_state in new_unread_stack:
+        #        print("Found old unread state", unread_state, ", removing...")
+        #        new_unread_stack.remove(unread_state)
+        #    else:
+        #        print("State", new_unread_stack, "appreas to be new")
+
+
+@shared_task
 def write_hourly_backend_event_summary():
     """
     Collects a bunch of stats and stores them as tracking.models.Summaries
