@@ -50,7 +50,7 @@ class ProfileAtMatchRequestAdmin(admin.ModelAdmin):
 @admin.register(models.state.State)
 class StateAdmin(HijackUserAdminMixin, admin.ModelAdmin):
     list_display = ('user', 'created_at', 'user_form_state',
-                    'matching_state', 'unread_chat_message_count', 'user_category', 'tags')
+                    'matching_state', 'user_category', 'tags')
     list_editable = ('user_category', 'tags',)
     search_fields = ('user', 'created_at', 'user_form_state')
     ordering = ('user', 'created_at')
