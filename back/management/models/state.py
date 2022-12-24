@@ -91,7 +91,7 @@ class State(models.Model):
     This state is used to sendout the unread email notification
     when a user has new messages on the plattform
     """
-    unread_messages_state = models.JSONField(default=dict, blank=True)
+    unread_messages_state = models.JSONField(default=list, blank=True)
     unread_state_update_time = models.DateTimeField(default=datetime.now)
 
     class UserCategoryChoices(models.TextChoices):
