@@ -69,7 +69,6 @@ api_routes = [
     path(_api_url('user/checkpw'), api.user.CheckPasswordApi.as_view()),
     path(_api_url('user/change_email'), api.user.ChangeEmailApi.as_view()),
 
-    # TODO we should later be adding a new appointments api here!
     path(_api_url('video_rooms/authenticate_call'),
          api.twilio.AuthenticateCallRoom.as_view()),
 
