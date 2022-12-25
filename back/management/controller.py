@@ -61,7 +61,6 @@ def get_user_by_email(email):
 
 
 def get_user_by_hash(hash) -> User:
-    # TODO: here i'm assuming that .get return only one object and throws an error if there are multiple
     return __user_get_catch(hash=hash)
 
 
@@ -233,16 +232,18 @@ Damit euch viel Spaß! Schöne Grüße vom Team Little World
 
     if send_email:
         usr1.send_email(
-            subject="undefined",  # TODO set!
+            subject=pgettext_lazy(
+                "api.match-made-email-subject", "Glückwunsch! Gesprächspartner:in gefunden auf Little World"),
             mail_data=mails.get_mail_data_by_name("match"),
             mail_params=mails.MatchMailParams(
                 first_name=usr1.profile.first_name,
                 match_first_name=usr2.profile.first_name,
-                profile_link_url=settings.BASE_URL  # TODO
+                profile_link_url=settings.BASE_URL
             )
         )
         usr2.send_email(
-            subject="undefined",  # TODO set!
+            subject=pgettext_lazy(
+                "api.match-made-email-subject", "Glückwunsch! Gesprächspartner:in gefunden auf Little World"),
             mail_data=mails.get_mail_data_by_name("match"),
             mail_params=mails.MatchMailParams(
                 first_name=usr2.profile.first_name,
@@ -254,7 +255,16 @@ Damit euch viel Spaß! Schöne Grüße vom Team Little World
 
 
 def unmatch_users(users: set):
-    """ Accepts a list of two users to unmatch """
+    """ 
+    Accepts a list of two users to unmatch 
+
+    Do:
+    - Remove both from respective 'matches' field
+    Need to delete:
+    - Dialog
+    - Messages ( or set to `deleted` )
+    - Video Room
+    """
     assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
     # Un-Match ... TODO
 
@@ -327,8 +337,6 @@ def send_websocket_callback(
         "user_pk": str(to_usr.pk),
         "admin_h256_pk": str(admin.hash),
     })
-
-# TODO: can this cause issues when settings not initalized?
 
 
 def send_chat_message(to_user, from_user, message):
