@@ -260,6 +260,7 @@ def send_new_message_notifications_all_users(
 
     base_management_user = controller.get_base_management_user()
     # test1_user = controller.get_user_by_email("test1@user.de")
+    users_to_send_update_to = []
     for user in User.objects.all():
         print("==== checking ===> ", user.email, user.hash)
         dialogs = DialogsModel.get_dialogs_for_user_as_object(user)
@@ -320,7 +321,11 @@ def send_new_message_notifications_all_users(
         print("Saved updated state", user.state.unread_messages_state)
         if len(new_unread_stack) > 0:
             # Now we can sendout the notifications email
-            pass
+            print("\n\nSEND update to", user.email, user.hash)
+            users_to_send_update_to.append(user)
+
+    for u in users_to_send_update_to:
+        print("Notifying ", u.email)
 
 
 @shared_task
