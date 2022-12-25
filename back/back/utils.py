@@ -29,7 +29,6 @@ class CoolerJson(json.JSONEncoder):
         if isinstance(obj, set):
             return list(obj)
         try:
-            # TODO: it is kinda bad to wrap this in a try
             # But especially for __proxy__ elements this is the only way I found
             # I would love to type check for proxy instead but I can't find the __proxy__ type!
             return json.JSONEncoder.default(self, obj)
