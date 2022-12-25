@@ -24,7 +24,7 @@ def admin_panel(request):
     GET = request.GET
     filters = None
     if GET.getlist("filter"):
-        filters = []
+        filters = GET.getlist("filter")
     elif GET.get("filter"):
         filters = [GET.get("filter")]
     else:
