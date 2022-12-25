@@ -34,7 +34,6 @@ def create_default_community_events():
     )
 
     return "events created!"
-    # TODO: there is still a second event missing
 
 
 @shared_task
@@ -109,8 +108,6 @@ Selbst habe ich vier Jahre im Ausland gelebt, von Frankreich bis nach China. Den
     usr.profile.birth_year = 1984
     usr.profile.postal_code = 20480
     usr.profile.description = base_management_user_description
-    # TODO: add default interests
-    # TODO: upload default image!
     usr.profile.add_profile_picture_from_local_path(
         '/back/dev_test_data/oliver_berlin_management_user_profile_pic.jpg')
     usr.profile.save()
@@ -215,7 +212,7 @@ def dispatch_track_chat_channel_event(
         print("Could not find user by hash", usr_hash)
 
     inline_track_event(
-        caller=caller,  # TODO yes actually inline track supports passing users
+        caller=caller,
         tags=["chat", "channels", message_type],
         channel_meta=meta
     )
