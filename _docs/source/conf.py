@@ -58,7 +58,7 @@ extensions = [
                               # https://github.com/edoburu/sphinxcontrib-django/issues/12
     'sphinx.ext.viewcode',    # enable viewing autodoc'd code
     'sphinx.ext.intersphinx',  # make links between different sphinx-documented packages
-    'sphinx.ext.todo',        # TODO: figure out how to use this;-)
+    # 'sphinx.ext.todo',
     #    'sphinx_markdown_tables',  # CommonMark doesn't do tables: This extensions does!
     'sphinxcontrib.confluencebuilder',  # supposedly installs docs on Confluence
     'myst_parser'
