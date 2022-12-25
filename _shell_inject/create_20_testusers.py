@@ -72,7 +72,7 @@ def random_avatar():
     return init
 
 
-def _create_abunch_of_users(amnt=10, user_seeds=[42]*20):
+def _create_abunch_of_users(amnt=30, user_seeds=[42]*20):
     # We can for now just create a range of seeds,
     # thereby it will give use the same rando users everytime!
     user_seeds = list(range(amnt))
@@ -176,4 +176,4 @@ def _create_abunch_of_users(amnt=10, user_seeds=[42]*20):
     return users
 
 
-_create_abunch_of_users(amnt=10)
+_create_abunch_of_users(amnt=30)

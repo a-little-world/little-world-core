@@ -91,10 +91,8 @@ class State(models.Model):
     This state is used to sendout the unread email notification
     when a user has new messages on the plattform
     """
-    # TODO: the unread message count must be reset from in the chat!
-    unread_chat_message_count = models.IntegerField(default=0)
-    unread_chat_message_count_update_time = models.DateTimeField(
-        default=datetime.now)
+    unread_messages_state = models.JSONField(default=list, blank=True)
+    unread_state_update_time = models.DateTimeField(default=datetime.now)
 
     class UserCategoryChoices(models.TextChoices):
         # For this we can use the default translations '_()'

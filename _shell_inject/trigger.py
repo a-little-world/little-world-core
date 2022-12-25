@@ -1,0 +1,2 @@
+from management.tasks import send_new_message_notifications_all_users
+send_new_message_notifications_all_users()

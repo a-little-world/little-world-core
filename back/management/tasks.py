@@ -240,6 +240,95 @@ def archive_current_profile_user(usr_hash):
 
 
 @shared_task
+def send_new_message_notifications_all_users(
+    filter_out_base_user_messages=True
+):
+    """
+    First we need to caluculate how many new messages per chat there are 
+    Then we check if this are more unread messages than before
+    """
+    #user = controller.get_user_by_hash(user_hash)
+    from chat.django_private_chat2.models import MessageModel, DialogsModel
+    from . import controller
+    from .models import User
+
+    def is_dialog_in_old_unread_stack(dialog_id, old_unread_stack):
+        for urstd in old_unread_stack:
+            if urstd["dialog_id"] == dialog_id:
+                return urstd
+        return None
+
+    base_management_user = controller.get_base_management_user()
+    # test1_user = controller.get_user_by_email("test1@user.de")
+    users_to_send_update_to = []
+    for user in User.objects.all():
+        print("==== checking ===> ", user.email, user.hash)
+        dialogs = DialogsModel.get_dialogs_for_user_as_object(user)
+        print("DIAZZZ", dialogs)
+        new_unread_stack = []
+        for dialog in dialogs:
+
+            other_user = dialog.user1 if dialog.user1 != user else dialog.user2
+
+            unread = MessageModel.get_unread_count_for_dialog_with_user(
+                other_user, user)
+            last_message = MessageModel.get_last_message_for_dialog(
+                dialog.user1, dialog.user2)
+            print("UNREAD OF THAT", unread, last_message.text)
+
+            if unread > 0:
+
+                urstd = {
+                    "unread_count": unread,
+                    "dialog_id": dialog.id,
+                    "other_user_hash": user.hash,
+                    "last_message_id": last_message.id,
+                }
+
+                if not (filter_out_base_user_messages and base_management_user.hash == user.hash):
+                    new_unread_stack.append(urstd)
+                    print("Not added since from base admin")
+                else:
+                    print("updated unread", urstd)
+
+        # Now we can load the old unread stack
+        print("Checking last unread state", user.state.unread_messages_state)
+        current_unread_state = user.state.unread_messages_state
+        for unread_state in new_unread_stack:
+            old_dialog = is_dialog_in_old_unread_stack(
+                unread_state["dialog_id"], current_unread_state)
+
+            if old_dialog is None:
+                # Then we know this is definately a new dialog, we need to notifiy about
+                print("Completely new dialog unread state", unread_state)
+                pass
+            else:
+                if old_dialog["last_message_id"] != unread_state["last_message_id"]:
+                    # Then we know there is another new mesasage in a disalog we need to notify about
+                    # So wee need to delete the old dialog refernce in the current model
+                    current_unread_state.remove(old_dialog)
+                    print(
+                        "Found new unread state for dialog that already had unreads", unread_state)
+                else:
+                    # Then this is not a new unread message so we need to remove it from the stack
+                    print("Found old unread state",
+                          unread_state, ", removing...")
+                    new_unread_stack.remove(unread_state)
+
+        print("Filtered for new unread states: ", new_unread_stack)
+        user.state.unread_messages_state = current_unread_state + new_unread_stack
+        user.state.save()
+        print("Saved updated state", user.state.unread_messages_state)
+        if len(new_unread_stack) > 0:
+            # Now we can sendout the notifications email
+            print("\n\nSEND update to", user.email, user.hash)
+            users_to_send_update_to.append(user)
+
+    for u in users_to_send_update_to:
+        print("Notifying ", u.email)
+
+
+@shared_task
 def write_hourly_backend_event_summary():
     """
     Collects a bunch of stats and stores them as tracking.models.Summaries
