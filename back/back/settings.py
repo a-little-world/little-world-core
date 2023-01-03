@@ -40,7 +40,6 @@ INSTALLED_APPS = [
 
     'management',  # Main backend application
 
-    # TODO: inclusing here can be cleaned up:
     'chat.django_private_chat2.apps.DjangoPrivateChat2Config',  # Our chat
 
     'corsheaders',
@@ -257,7 +256,7 @@ LANGUAGES = [
     ('tag', ugettext('Tag')),
     # v-- these are custom tags to be overwritten from frontend!
 ]
-# TODO: somehow translations or our management app don't seem to be included in the catalogue
+
 LOCALE_PATHS = [
     os.path.join(BASE_DIR, 'management/locale/'),
     os.path.join(BASE_DIR, 'management/')
@@ -318,7 +317,7 @@ CELERY_RESULT_BACKEND = 'django-db'  # 'redis://host.docker.internal:6379'
 CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'Asia/Dhaka'  # TODO: change to berlin
+CELERY_TIMEZONE = os.environ.get("DJ_CELERY_TIMEZONE", "Europe/Berlin")
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 
@@ -452,7 +451,7 @@ For loading webpack static files
 WEBPACK_LOADER = {app: {  # Configure seperate loaders for every app!
     'CACHE': not DEBUG,
     'STATS_FILE': f"/front/{app}.webpack-stats.json",
-    'BUNDLE_DIR_NAME': f"/front/dist/{app}",  # TODO: is this required?
+    'BUNDLE_DIR_NAME': f"/front/dist/{app}",
     'POLL_INTERVAL': 0.1,
     'IGNORE': [r'.+\.hot-update.js', r'.+\.map'],
 } for app in FRONTENDS}

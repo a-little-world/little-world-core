@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # PYTHON_ARGCOMPLETE_OK
+# TODO Migrate to the new tb-cli-utils
 
 """ General entry point for backend build and deployment processes """
 import shutil
@@ -106,7 +107,6 @@ def _parser(use_choices=False):
     parser.add_argument('-sa', '--single-action', type=str,
                         **(dict(choices=get_all_full_action_names()) if use_choices else {}), help='action')
 
-    # default actions required by tim_cli_utils (TODO: they should be moved there)
     parser.add_argument('-s', '--silent', action="store_true",
                         help="Mute all output exept what is required")
 
@@ -136,7 +136,6 @@ def _setup(args):
     """
     from datetime import datetime
     complete_file = ".run.py.setup_complete"
-    # TODO: we want to skip frontend builds when running on github actions!
     if not os.path.exists(complete_file) or ["update"] in args.actions:
         _cmd = ["git", "submodule", "update", "--init", "--recursive"]
         subprocess.run(_cmd)
@@ -624,7 +623,7 @@ def relink_env(args):
     assert os.path.exists(args.unknown[0]), f"Cant find env {args.unknown[0]}"
     os.unlink("./env")
     os.symlink(args.unknown[0], "./env")
-    kill(args) # We kill since it can sometimes be very bad if you accidently use an old container with an old ENV inside
+    kill(args)  # We kill since it can sometimes be very bad if you accidently use an old container with an old ENV inside
 
 
 @register_action(alias=["uf", "update_frontend"], cont=True)
@@ -689,9 +688,6 @@ def build_front(args):
         print(f"WARN building only {args.input}")
         frontends = [args.input]
 
-    if not _is_dev(args):
-        # TODO: in production we might want to do some extra cleanup!
-        raise NotImplementedError
     _cmd = [*c.dbuild, *c.front_docker_file, "-t",
             c.front_tag, "./front"]  # <- can just use build context of the fronend dir!
     print(" ".join(_cmd))
@@ -731,7 +727,6 @@ def build_front(args):
     print(
         f'`npm ci` for frontends: {frontends} \nAdd frontends under `FR_FRONTENDS` in env, place them in front/apps/')
     for front in frontends:
-        # TODO: there should also be an 'update' option that doesn't install all of this!
         _run_in_running(
             _is_dev(args), ["npm", "ci"], work_dir=f"/front/apps/{front}", backend=False)  # 4
     # Frontend builds can only be performed with the webpack configs present
@@ -776,7 +771,7 @@ def watch_frontend(args):
     assert args.input, "please input a active frontend: " + \
         str(_env_as_dict(c.denv[1])["FR_FRONTENDS"].split(","))
     assert _is_dev(
-        args), "can't watch frontend changes in staging or deloyment sorry"  # ? TODO: why not though?
+        args), "can't watch frontend changes in staging or deloyment sorry"
     # start the frontend container:
     _cmd = [*c.drun, *(c.denv if _is_dev(args) else c.penv), *
             c.vmount_front, "-d", c.front_tag]

@@ -85,6 +85,7 @@ class NewServerMailParams:
 
 
 # Register all templates and their serializers here
+# TODO: make email subject part of the template
 templates = [
     MailMeta(
         name="raw",
@@ -95,7 +96,6 @@ templates = [
     ),
     MailMeta(  # Welcome & Email verification !
         name="welcome",
-        # subject =
         template="emails/welcome.html",
         params=WelcomeEmailParams,
         texts=WelcomeTemplateMail,
@@ -103,15 +103,13 @@ templates = [
     ),
     MailMeta(  # Match Found Email !
         name="match",
-        template="emails/welcome.html",  # TODO: get correct template
-        # subject = TODO
+        template="emails/welcome.html",
         params=MatchMailParams,
         texts=MatchFoundEmailTexts,
         defaults=WelcomeTemplateParamsDefaults
     ),
     MailMeta(
         name="password_reset",
-        # subject =
         template="emails/password_reset.html",
         params=PwResetMailParams,
         texts=PasswordResetEmailTexts,
@@ -119,7 +117,6 @@ templates = [
     ),
     MailMeta(
         name="new_server",
-        # subject =
         template="emails/base_with_social_banner.html",
         params=NewServerMailParams,
         texts=NewServerMail,

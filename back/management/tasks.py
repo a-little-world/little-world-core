@@ -34,7 +34,6 @@ def create_default_community_events():
     )
 
     return "events created!"
-    # TODO: there is still a second event missing
 
 
 @shared_task
@@ -109,8 +108,6 @@ Selbst habe ich vier Jahre im Ausland gelebt, von Frankreich bis nach China. Den
     usr.profile.birth_year = 1984
     usr.profile.postal_code = 20480
     usr.profile.description = base_management_user_description
-    # TODO: add default interests
-    # TODO: upload default image!
     usr.profile.add_profile_picture_from_local_path(
         '/back/dev_test_data/oliver_berlin_management_user_profile_pic.jpg')
     usr.profile.save()
@@ -215,7 +212,7 @@ def dispatch_track_chat_channel_event(
         print("Could not find user by hash", usr_hash)
 
     inline_track_event(
-        caller=caller,  # TODO yes actually inline track supports passing users
+        caller=caller,
         tags=["chat", "channels", message_type],
         channel_meta=meta
     )
@@ -241,7 +238,9 @@ def archive_current_profile_user(usr_hash):
 
 @shared_task
 def send_new_message_notifications_all_users(
-    filter_out_base_user_messages=True
+    filter_out_base_user_messages=True,
+    do_send_emails=True,
+    do_write_new_state_to_db=True
 ):
     """
     First we need to caluculate how many new messages per chat there are 
@@ -261,7 +260,7 @@ def send_new_message_notifications_all_users(
     base_management_user = controller.get_base_management_user()
     # test1_user = controller.get_user_by_email("test1@user.de")
     users_to_send_update_to = []
-    for user in User.objects.all():
+    for user in User.objects.all().exclude(id=base_management_user.id):
         print("==== checking ===> ", user.email, user.hash)
         dialogs = DialogsModel.get_dialogs_for_user_as_object(user)
         print("DIAZZZ", dialogs)
@@ -272,8 +271,11 @@ def send_new_message_notifications_all_users(
 
             unread = MessageModel.get_unread_count_for_dialog_with_user(
                 other_user, user)
-            last_message = MessageModel.get_last_message_for_dialog(
+            last_message = MessageModel.get_last_message_object_for_dialog(
                 dialog.user1, dialog.user2)
+            if last_message is None:
+                print("WARN, mesasge object empty")
+                continue
             print("UNREAD OF THAT", unread, last_message.text)
 
             if unread > 0:
@@ -301,7 +303,6 @@ def send_new_message_notifications_all_users(
             if old_dialog is None:
                 # Then we know this is definately a new dialog, we need to notifiy about
                 print("Completely new dialog unread state", unread_state)
-                pass
             else:
                 if old_dialog["last_message_id"] != unread_state["last_message_id"]:
                     # Then we know there is another new mesasage in a disalog we need to notify about
@@ -315,9 +316,11 @@ def send_new_message_notifications_all_users(
                           unread_state, ", removing...")
                     new_unread_stack.remove(unread_state)
 
-        print("Filtered for new unread states: ", new_unread_stack)
-        user.state.unread_messages_state = current_unread_state + new_unread_stack
-        user.state.save()
+        print("Filtered for new unread states: ",
+              new_unread_stack, current_unread_state)
+        if do_write_new_state_to_db:
+            user.state.unread_messages_state = current_unread_state + new_unread_stack
+            user.state.save()
         print("Saved updated state", user.state.unread_messages_state)
         if len(new_unread_stack) > 0:
             # Now we can sendout the notifications email
@@ -326,6 +329,13 @@ def send_new_message_notifications_all_users(
 
     for u in users_to_send_update_to:
         print("Notifying ", u.email)
+        if do_send_emails:
+            u.send_email(
+                pgettext_lazy(
+                    "tasks.unread-notifications-email-subject", "Neue Nachricht(en) auf Little World")
+            )
+    print("Summary: ",
+          f"\namount notifications: {len(users_to_send_update_to)}")
 
 
 @shared_task

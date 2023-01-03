@@ -50,8 +50,6 @@ def map_user_profile(model, pk, fields):
 
     def transfrom_avatar_config(avatar_config):
         # We stored them as json string before, now they are json fields in db
-        # TODO: can they be empty?
-        print("TBS: config", avatar_config)
         return json.loads(avatar_config) if avatar_config is not None and avatar_config != "" and avatar_config.lower() != "none" else {}
 
     def transform_notification_channel(notification_channel):
