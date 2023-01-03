@@ -159,6 +159,44 @@ class MatchFoundEmailTexts:
         'Dein Little World Team')
 
 
+@dataclass
+class NewUnreadMessages:
+    """
+    ---------------> Unread messages mail <--------------------
+    """
+    subject_header_text: str = pgettext_lazy(
+        "email.new-unread-messages.subject-header-text", "Neue Nachrichten")
+    greeting: str = pgettext_lazy(
+        'email.new-unread-messages.greeting',
+        'Hallo {first_name}')
+    content_start_text: str = pgettext_lazy(
+        'email.new-unread-messages.content-start-text',
+        'Du hast neue Nachricht(en) auf Little World erhalten. Du kannst deine Nachrichten in dem Chat von Little World ansehen, indem du auf folgenden Knopf drückst:')
+    content_body_text: str = pgettext_lazy(
+        'email.new-unread-messages.content-body-text', '')
+    link_box_text: str = pgettext_lazy(
+        'email.new-unread-messages.link-box-text',
+        '')  # Emtpy -> means section auto removed in template rendering
+    button_text: str = pgettext_lazy(
+        'email.new-unread-messages.button-text',
+        'Neue Nachrichten anzeigen')
+    button_link: str = pgettext_lazy(
+        'email.new-unread-messages.button-link',
+        'https://little-world.com/app/chat')
+    below_link_text: str = pgettext_lazy(
+        'email.new-unread-messages.below-link-text',
+        '')
+    footer_text: str = pgettext_lazy(
+        'email.new-unread-messages.footer-text',
+        '')
+    goodbye: str = pgettext_lazy(
+        'email.new-unread-messages.goodbye',
+        'Beste Grüße,')
+    goodbye_name: str = pgettext_lazy(
+        'email.email.new-unread-messages.goodbye.goodbye-name',
+        'Dein Little World Team')
+
+
 @ dataclass
 class PasswordResetEmailTexts:
     reset_subject: str = pgettext_lazy(
