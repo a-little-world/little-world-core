@@ -51,6 +51,8 @@ class ScoreTableSource(models.Model):
 
     language_level_scores = models.TextField(default="")
 
+    speech_medium_scores = models.TextField(default="")
+
     function_scoring_selection = MultiSelectField(
         choices=[(key, key) for key in SCORING_FUNCTIONS],
         max_length=1000, blank=False, default=list(SCORING_FUNCTIONS.keys())
@@ -60,7 +62,7 @@ class ScoreTableSource(models.Model):
         array, indexes = markdown_to_nparray(getattr(self, field))
         return nparray_and_indexes_to_dict_graph(array, indexes)
 
-    @ classmethod
+    @classmethod
     def get_latest(cls):
         return cls.objects.filter(tag="latest").first()
 
