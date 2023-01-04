@@ -70,7 +70,7 @@ def inline_track_event(
                     metadata["request_data1"] = dict(a.data)
                     if censor_kwargs:
                         for arg in censor_kwargs:
-                            if arg in metadata["request_data2"]:
+                            if arg in metadata["request_data1"]:
                                 metadata["request_data1"].pop(arg)
                 except:
                     metadata["msg"].append(
