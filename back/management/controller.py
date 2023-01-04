@@ -192,7 +192,8 @@ def match_users(
         send_email=True,
         create_dialog=True,
         create_video_room=True,
-        set_unconfirmed=True):
+        set_unconfirmed=True,
+        set_to_idle=True):
     """ Accepts a list of two users to match """
     from chat.django_private_chat2.models import DialogsModel
 
@@ -252,6 +253,10 @@ Damit euch viel Spaß! Schöne Grüße vom Team Little World
                 profile_link_url=settings.BASE_URL
             )
         )
+
+    if set_to_idle:
+        usr1.state.set_idle()
+        usr2.state.set_idle()
 
 
 def unmatch_users(users: set):
