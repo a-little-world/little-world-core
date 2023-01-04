@@ -170,6 +170,8 @@ class State(models.Model):
             archive_current_profile_user.delay(self.user.hash)
 
     def set_idle(self):
+        # TODO: here we might need to update some matching scores
+        # especially remove all suggestion of this user
         self.matching_state = self.MatchingStateChoices.IDLE
         self.save()
 
