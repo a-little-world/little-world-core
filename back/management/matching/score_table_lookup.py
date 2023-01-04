@@ -37,6 +37,14 @@ LANGUAGE_LEVEL_SCORES: str = r"""
 | level-3.vol            |  0          |  0          |  0          |  30         |
 """
 
+SPEECH_MEDIUM_SCORES: str = r"""
+| y:volunteer, x:learner | any.ler | video.ler | phone.ler |
+| :---------------------:|:-------:|:---------:|:---------:|
+| any.vol                |  5      |  10       |  10       |
+| video.vol              |  10     |  15       |  -500     |
+| phone.vol              |  10     |  -500     |  20       |
+"""
+
 
 def __profile_choice_by_user_type(choice):
     """
