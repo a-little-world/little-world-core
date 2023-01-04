@@ -127,6 +127,10 @@ def get_scoring_from_latest_table_model():
             limiting_condition=LIMITING_CONDITIONS['learner'],
             value_lookup=lambda usr: usr.profile.partner_location,
             table=scores.get_table_field_as_graph_dict('partner_location_scores')),
+        speech_medium=dispatch_table_score(
+            limiting_condition=LIMITING_CONDITIONS['learner'],
+            value_lookup=lambda usr: usr.profile.speech_medium,
+            table=scores.get_table_field_as_graph_dict('speech_medium_scores')),
         partner_distance=SCORING_FUNCTIONS['postal_code_distance_check'],
         time_slot_overlap=SCORING_FUNCTIONS['time_slot_overlap_check'],
         interests_overlap=SCORING_FUNCTIONS['interests_overlap_check'],
@@ -135,6 +139,7 @@ def get_scoring_from_latest_table_model():
 
 
 SCORINGS = dict(  # These nice python 3 dicts are ordered! so this also defines the order of calcuation
+    # TODO this can be depricated
 
     helping_group=dispatch_table_score(
         limiting_condition=LIMITING_CONDITIONS['learner'],

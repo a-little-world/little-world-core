@@ -23,9 +23,9 @@ TARGET_GROUP_MESSAGES: str = r"""
 PARTNER_LOCATION_SCORES: str = r"""
 | y:volunteer, x:learner | anywhere.ler | close.ler | far.ler |
 |:----------------------:|:------------:|:---------:|:-------:|
-| anywhere.vol           |  40          |  X        |  25     |
-| close.vol              |  X           |  15       |  10     |
-| far.vol                |  25          |  10       |  5      |
+| anywhere.vol           |   5          |  15       |  10     |
+| close.vol              |  15          |  20       |  X      |
+| far.vol                |  10          |  X        |  20     |
 """
 
 LANGUAGE_LEVEL_SCORES: str = r"""
@@ -35,6 +35,14 @@ LANGUAGE_LEVEL_SCORES: str = r"""
 | level-1.vol            |  0          |  30         |  20         |  15         |
 | level-2.vol            |  0          |  0          |  30         |  20         |
 | level-3.vol            |  0          |  0          |  0          |  30         |
+"""
+
+SPEECH_MEDIUM_SCORES: str = r"""
+| y:volunteer, x:learner | any.ler | video.ler | phone.ler |
+| :---------------------:|:-------:|:---------:|:---------:|
+| any.vol                |  5      |  10       |  10       |
+| video.vol              |  10     |  15       |  -500     |
+| phone.vol              |  10     |  -500     |  20       |
 """
 
 
