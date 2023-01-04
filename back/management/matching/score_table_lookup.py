@@ -23,9 +23,9 @@ TARGET_GROUP_MESSAGES: str = r"""
 PARTNER_LOCATION_SCORES: str = r"""
 | y:volunteer, x:learner | anywhere.ler | close.ler | far.ler |
 |:----------------------:|:------------:|:---------:|:-------:|
-| anywhere.vol           |  40          |  X        |  25     |
-| close.vol              |  X           |  15       |  10     |
-| far.vol                |  25          |  10       |  5      |
+| anywhere.vol           |   5          |  15       |  10     |
+| close.vol              |  15          |  20       |  X      |
+| far.vol                |  10          |  X        |  20     |
 """
 
 LANGUAGE_LEVEL_SCORES: str = r"""
