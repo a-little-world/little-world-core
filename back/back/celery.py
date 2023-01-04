@@ -50,10 +50,10 @@ e.g.: notifying users that they have new messages
 app.conf.beat_schedule = {
     'im-allive-ping': {
         'task': 'im_allive_task',
-        'schedule': 60.0 * 1.0  # Every minute!
+        'schedule': 60.0 * 5.0  # Every five minutes!
     },
-    # 'new-message-notification': {
-    #    'task': 'management.tasks.send_new_message_notifications_all_users',
-    #    'schedule': 60.0 * 60.0  # Every hour
-    # }
+    'new-message-notification': {
+        'task': 'management.tasks.send_new_message_notifications_all_users',
+        'schedule': 60.0 * 60.0  # Every hour
+    }
 }
