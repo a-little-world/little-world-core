@@ -169,6 +169,12 @@ class State(models.Model):
             # Also we will now archive the current user profile
             archive_current_profile_user.delay(self.user.hash)
 
+    def set_idle(self):
+        # TODO: here we might need to update some matching scores
+        # especially remove all suggestion of this user
+        self.matching_state = self.MatchingStateChoices.IDLE
+        self.save()
+
     def archive_email_adress(self, email):
         self.past_emails.append(email)
         self.save()
