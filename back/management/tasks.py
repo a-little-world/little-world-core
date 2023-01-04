@@ -352,7 +352,7 @@ def send_new_message_notifications_all_users(
 
     for u in users_to_send_update_to:
         print("Notifying ", u.email)
-        if do_send_emails:
+        if False:  # if do_send_emails:
             u.send_email(
                 subject=pgettext_lazy(
                     "tasks.unread-notifications-email-subject", "Neue Nachricht(en) auf Little World"),
@@ -369,7 +369,9 @@ def send_new_message_notifications_all_users(
 
 
 @shared_task
-def write_hourly_backend_event_summary():
+def write_hourly_backend_event_summary(
+    start_time=None
+):
     """
     Collects a bunch of stats and stores them as tracking.models.Summaries
 
@@ -386,56 +388,128 @@ def write_hourly_backend_event_summary():
     """
 
     from tracking.models import Summaries, Event
+    from management.models import User
     from datetime import timedelta
     from django.utils import timezone
 
     # For that fist we extract all event within that hour
-    this_hour = timezone.now().replace(minute=0, second=0, microsecond=0)
+    time = timezone.now()
+    if start_time is not None:
+        time = start_time  # TODO: prob need serializable format
+
+    this_hour = time.replace(minute=0, second=0, microsecond=0)
     one_hour_later = this_hour + timedelta(hours=4)
     earlier = this_hour - timedelta(hours=4)
     events = Event.objects.filter(time__range=(this_hour, one_hour_later))
 
-    chat_connected_users_per_user_time = {}
-    chat_per_user_message_send_count = {}
+    chat_connections_per_user = {}
+    new_user_registrations = []
+    users_called_login_api = []
+    users_sucessfully_logged_in = []
+    users_changed_profile = []
+    users_logged_out = []
+    call_rooms_authenticated = []
+    matches_made = []
+    absolute_requests_tracked = 0
+
+    def init_connection_hash_is_empty(hash):
+        if not hash in chat_connections_per_user:
+            chat_connections_per_user[hash] = {
+                "connected": [],
+                "disconnected": [],
+                "send_messages_count": 0
+            }
+
     for event in events:
         # print("TIME", event.time)
         has_event_tags = hasattr(
             event, "tags") and isinstance(event.tags, list)
         has_caller_annotation = hasattr(event, "caller")
 
-        # print("TAGS", event.tags)
-        # print("DATA", event.metadata)
+        caller_hash = None
 
-        if has_event_tags and has_caller_annotation:
+        try:
+            caller_hash = event.caller.hash
+        except:
+            pass
+
+        if event.name == "request":
+            absolute_requests_tracked += 1
+
+        if has_event_tags and has_caller_annotation and caller_hash is not None:
             assert isinstance(event.tags, list)
+
+            if all([x in event.tags for x in ["backend", "function", "db"]]):
+                m = [(None, None)]
+                try:
+                    m[0] = event.metadata["args"][0]
+                except:
+                    pass
+
+                matches_made += m
+
+            if all([x in event.tags for x in ['frontend', 'login']]):
+                # Try to extract the login user email
+                if 'request_data1' in event.metadata and 'email' in event.metadata['request_data1']:
+                    users_called_login_api.append(
+                        event.metadata['request_data1']['email'])
+                elif 'request_data2' in event.metadata and 'email' in event.metadata['request_data2']:
+                    users_called_login_api.append(
+                        event.metadata['request_data2']['email'])
+                else:
+                    print("Login attepted but couldn't retrive email")
+
             if all([x in event.tags for x in ['chat', 'channels', 'connected']]):
                 # User connected to chat
-                chat_connected_users_per_user_time.get(event.caller, None)
-                chat_connected_users_per_user_time[event.caller] = event.time
-                print("Detected user connected to chat",
-                      event.caller, event.time)
+                init_connection_hash_is_empty(caller_hash)
+                chat_connections_per_user[caller_hash]["connected"].append(
+                    event.time)
+
             if all([x in event.tags for x in ['chat', 'channels', 'disconnected']]):
                 # User connected to chat
-                chat_connected_users_per_user_time[event.caller] = event.time
-                print("Detected user disconnected to chat",
-                      event.caller, event.time)
+                init_connection_hash_is_empty(caller_hash)
+                chat_connections_per_user[caller_hash]["disconnected"].append(
+                    event.time)
+
             if all([x in event.tags for x in ['chat', 'channels', 'message-send']]):
-                if not event.caller in chat_per_user_message_send_count:
-                    chat_per_user_message_send_count[event.caller] = 0
-                chat_per_user_message_send_count[event.caller] += 1
-                print("Detected user send message to chat",
-                      event.caller, event.time)
+                init_connection_hash_is_empty(caller_hash)
+                chat_connections_per_user[caller_hash]["send_messages_count"] += 1
+
+    # Now see how many users actually sucessfully loggedin during that hour
+    for u in User.objects.filter(last_login__range=(this_hour, one_hour_later)):
+        users_sucessfully_logged_in.append(u)
+
+    for u in User.objects.filter(profile__updated_at__range=(this_hour, one_hour_later)):
+        users_changed_profile.append(u)
+
+    summary_meta = dict(
+        chat_connections_per_user=chat_connections_per_user,
+        new_user_registrations=new_user_registrations,
+        users_called_login_api=users_called_login_api,
+        users_sucessfully_logged_in=users_sucessfully_logged_in,
+        users_changed_profile=users_changed_profile,
+        users_logged_out=users_logged_out,
+        call_rooms_authenticated=call_rooms_authenticated,
+        absolute_requests_tracked=absolute_requests_tracked,
+        matches_made=matches_made,
+        absoulte_matches_made=len(matches_made),
+    )
+
+    return summary_meta
 
 
 @shared_task
 def delete_all_old_matching_scores():
     from .models import MatchinScore
-    count = 0
-    for score in MatchinScore.objects.all():
-        if not score.current_score:
-            count += 1
-            score.delete()
-    return f"{count} scores deleted"
+    count = MatchinScore.objects.all().count()
+    c = 0
+    for s in range(count):
+        score = MatchinScore.objects.filter(pk=s).first()
+        if score is not None:
+            print(f"Check score for deletion {c}/{count}")
+            if not score.current_score:
+                c += 1
+                score.delete()
 
 
 @shared_task
