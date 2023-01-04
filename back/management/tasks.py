@@ -240,15 +240,17 @@ def archive_current_profile_user(usr_hash):
 def send_new_message_notifications_all_users(
     filter_out_base_user_messages=True,
     do_send_emails=True,
-    do_write_new_state_to_db=True
+    do_write_new_state_to_db=True,
+    send_only_if_logged_in_withing_last_3_weeks=False
 ):
     """
-    First we need to caluculate how many new messages per chat there are 
+    First we need to caluculate how many new messages per chat there are
     Then we check if this are more unread messages than before
     """
-    #user = controller.get_user_by_hash(user_hash)
+    # user = controller.get_user_by_hash(user_hash)
     from chat.django_private_chat2.models import MessageModel, DialogsModel
     from . import controller
+    from emails import mails
     from .models import User
 
     def is_dialog_in_old_unread_stack(dialog_id, old_unread_stack):
@@ -260,7 +262,11 @@ def send_new_message_notifications_all_users(
     base_management_user = controller.get_base_management_user()
     # test1_user = controller.get_user_by_email("test1@user.de")
     users_to_send_update_to = []
-    for user in User.objects.all().exclude(id=base_management_user.id):
+
+    users = User.objects.all().exclude(
+        id=base_management_user.id).exclude(state__user_category="spam").exclude(state__user_category="test")
+    print("Prefiltered users", users.count())
+    for user in users:
         print("==== checking ===> ", user.email, user.hash)
         dialogs = DialogsModel.get_dialogs_for_user_as_object(user)
         print("DIAZZZ", dialogs)
@@ -325,17 +331,35 @@ def send_new_message_notifications_all_users(
         if len(new_unread_stack) > 0:
             # Now we can sendout the notifications email
             print("\n\nSEND update to", user.email, user.hash)
-            users_to_send_update_to.append(user)
+            if send_only_if_logged_in_withing_last_3_weeks:
+                from django.utils import timezone
+                today = timezone.now()
+                tree_weeks = datetime.timedelta(days=7*3)
+                tree_weeks_ago = today - tree_weeks
+                if user.last_login < tree_weeks_ago:
+                    print("WARN, user not logged in for 3 weeks")
+                    continue
+                else:
+                    users_to_send_update_to.append(user)
+            else:
+                users_to_send_update_to.append(user)
 
     for u in users_to_send_update_to:
         print("Notifying ", u.email)
         if do_send_emails:
             u.send_email(
-                pgettext_lazy(
-                    "tasks.unread-notifications-email-subject", "Neue Nachricht(en) auf Little World")
+                subject=pgettext_lazy(
+                    "tasks.unread-notifications-email-subject", "Neue Nachricht(en) auf Little World"),
+                mail_data=mails.get_mail_data_by_name("new_messages"),
+                mail_params=mails.NewUreadMessagesParams(
+                    first_name=u.profile.first_name,
+                )
             )
     print("Summary: ",
           f"\namount notifications: {len(users_to_send_update_to)}")
+    return {
+        "emailed_users": [u.email for u in users_to_send_update_to]
+    }
 
 
 @shared_task
@@ -368,13 +392,13 @@ def write_hourly_backend_event_summary():
     chat_connected_users_per_user_time = {}
     chat_per_user_message_send_count = {}
     for event in events:
-        #print("TIME", event.time)
+        # print("TIME", event.time)
         has_event_tags = hasattr(
             event, "tags") and isinstance(event.tags, list)
         has_caller_annotation = hasattr(event, "caller")
 
-        #print("TAGS", event.tags)
-        #print("DATA", event.metadata)
+        # print("TAGS", event.tags)
+        # print("DATA", event.metadata)
 
         if has_event_tags and has_caller_annotation:
             assert isinstance(event.tags, list)
