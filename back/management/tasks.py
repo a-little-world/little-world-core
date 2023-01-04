@@ -180,7 +180,8 @@ def create_default_table_score_source():
         TARGET_GROUP_SCORES,
         TARGET_GROUP_MESSAGES,
         PARTNER_LOCATION_SCORES,
-        LANGUAGE_LEVEL_SCORES
+        LANGUAGE_LEVEL_SCORES,
+        SPEECH_MEDIUM_SCORES
     )
 
     ScoreTableSource.objects.create(
@@ -188,6 +189,7 @@ def create_default_table_score_source():
         target_group_messages=TARGET_GROUP_MESSAGES,
         partner_location_scores=PARTNER_LOCATION_SCORES,
         language_level_scores=LANGUAGE_LEVEL_SCORES,
+        speech_medium_scores=SPEECH_MEDIUM_SCORES,
         # Per default select **all** scoring functions
         function_scoring_selection=list(SCORING_FUNCTIONS.keys())
     )
