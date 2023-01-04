@@ -247,11 +247,15 @@ def send_new_message_notifications_all_users(
     First we need to caluculate how many new messages per chat there are
     Then we check if this are more unread messages than before
     """
+    from django.conf import settings
     # user = controller.get_user_by_hash(user_hash)
     from chat.django_private_chat2.models import MessageModel, DialogsModel
     from . import controller
     from emails import mails
     from .models import User
+
+    if settings.IS_STAGE or settings.IS_DEV:
+        return "Not caluculating or sending new messages cause in dev or in staging environment"
 
     def is_dialog_in_old_unread_stack(dialog_id, old_unread_stack):
         for urstd in old_unread_stack:
