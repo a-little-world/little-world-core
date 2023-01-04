@@ -13,6 +13,7 @@ from .templates import (
     PasswordResetEmailTexts,
     # Currently we are using the same template as weclone
     # so MatchFoundEmailTexts has no Defaults
+    NewUnreadMessages,
     MatchFoundEmailTexts,
     SorryWeStillNeedALittleMail,
     NewServerMail,
@@ -75,6 +76,11 @@ class MatchMailParams:
 
 
 @dataclass
+class NewUreadMessagesParams:
+    first_name: str
+
+
+@dataclass
 class PwResetMailParams:
     password_reset_url: str
 
@@ -121,6 +127,13 @@ templates = [
         params=NewServerMailParams,
         texts=NewServerMail,
         defaults=NewServerMail
+    ),
+    MailMeta(
+        name="new_messages",
+        template="emails/welcome.html",
+        params=NewUreadMessagesParams,
+        texts=NewUnreadMessages,
+        defaults=NewUnreadMessages
     )
 ]
 
