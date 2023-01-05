@@ -118,6 +118,7 @@ Selbst habe ich vier Jahre im Ausland gelebt, von Frankreich bis nach China. Den
 @shared_task
 def calculate_directional_matching_score_background(
     usr_hash,
+    catch_exceptions=False,
     filter_slugs=None,
     invalidate_other_scores=False
 ):
@@ -150,11 +151,11 @@ def calculate_directional_matching_score_background(
         print(f"Calculating score {usr} -> {other_usr}")
         score1 = calculate_directional_score_write_results_to_db(
             usr, other_usr, return_on_nomatch=False,
-            catch_exceptions=True)
+            catch_exceptions=catch_exceptions)
         print(f"Calculating score {other_usr} -> {usr}")
         score2 = calculate_directional_score_write_results_to_db(
             other_usr, usr, return_on_nomatch=False,
-            catch_exceptions=True)
+            catch_exceptions=catch_exceptions)
 
     if invalidate_other_scores:
         for other_user in User.objects.exclude(id=usr.id):
@@ -269,6 +270,7 @@ def send_new_message_notifications_all_users(
     base_management_user = controller.get_base_management_user()
     # test1_user = controller.get_user_by_email("test1@user.de")
     users_to_send_update_to = []
+    users_to_old_unread_stack = {}
     users_to_new_unread_stack = {}
 
     users = User.objects.all().exclude(
@@ -310,6 +312,7 @@ def send_new_message_notifications_all_users(
         # Now we can load the old unread stack
         print("Checking last unread state", user.state.unread_messages_state)
         current_unread_state = user.state.unread_messages_state
+        users_to_old_unread_stack[user.email] = current_unread_state
         for unread_state in new_unread_stack:
             old_dialog = is_dialog_in_old_unread_stack(
                 unread_state["dialog_id"], current_unread_state)
@@ -369,7 +372,8 @@ def send_new_message_notifications_all_users(
     import json
     return {
         "emailed_users": [u.email for u in users_to_send_update_to],
-        "stack": json.loads(json.dumps(users_to_new_unread_stack, cls=CoolerJson))
+        "stack": json.loads(json.dumps(users_to_new_unread_stack, cls=CoolerJson)),
+        "stack_old": json.loads(json.dumps(users_to_old_unread_stack, cls=CoolerJson))
     }
 
 
