@@ -118,7 +118,7 @@ Selbst habe ich vier Jahre im Ausland gelebt, von Frankreich bis nach China. Den
 @shared_task
 def calculate_directional_matching_score_background(
     usr_hash,
-    catch_exceptions=False,
+    catch_exceptions=True,
     filter_slugs=None,
     invalidate_other_scores=False
 ):
