@@ -14,3 +14,4 @@ from .rooms import Room
 from .matching_scores import MatchinScore, ScoreTableSource
 from .community_events import CommunityEvent
 from .backend_state import BackendState
+from .news_and_updates import NewsItem, NewsItemSerializer
