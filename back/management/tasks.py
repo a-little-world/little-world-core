@@ -275,6 +275,9 @@ def send_new_message_notifications_all_users(
 
     users = User.objects.all().exclude(
         id=base_management_user.id).exclude(state__user_category="spam").exclude(state__user_category="test")
+
+    # if :
+    #users = users.filter(email="benjamin.tim@gmx.de")
     print("Prefiltered users", users.count())
     for user in users:
         print("==== checking ===> ", user.email, user.hash)
@@ -303,8 +306,8 @@ def send_new_message_notifications_all_users(
                     "last_message_id": last_message.id,
                 }
 
-                if not (filter_out_base_user_messages and base_management_user.hash == user.hash):
-                    print("Not added since from base admin")
+                if filter_out_base_user_messages and base_management_user.hash == other_user.hash:
+                    print("Not added since from base admin", urstd)
                 else:
                     new_unread_stack.append(urstd)
                     print("updated unread", urstd)
