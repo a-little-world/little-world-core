@@ -13,7 +13,8 @@ def markdown_to_nparray(markdown_string):
     lines = markdown_string.split("\n")
     for l in lines:
         if not all([":" in l, "---" in l]) and l != '':
-            _r = [a.replace(" ", "") for a in l.split("|") if a != '']
+            _r = [a.replace(" ", "")
+                  for a in l.split("|") if a != '' and a != "\r" and a != "\n"]
             matrix.append(_r)
 
     # 2 - then we strip the rows and colum indexes so it contains only the raw data
@@ -21,6 +22,8 @@ def markdown_to_nparray(markdown_string):
     _matrix = []
     for m in matrix[1:]:
         _matrix.append(m[1:])
+
+    print("GENERATED MATRIX: ", _matrix)
 
     return np.array(_matrix), indexes
 
