@@ -250,6 +250,7 @@ def send_new_message_notifications_all_users(
     Then we check if this are more unread messages than before
     """
     from django.conf import settings
+    from back.utils import CoolerJson
     # user = controller.get_user_by_hash(user_hash)
     from chat.django_private_chat2.models import MessageModel, DialogsModel
     from . import controller
@@ -301,9 +302,9 @@ def send_new_message_notifications_all_users(
                 }
 
                 if not (filter_out_base_user_messages and base_management_user.hash == user.hash):
-                    new_unread_stack.append(urstd)
                     print("Not added since from base admin")
                 else:
+                    new_unread_stack.append(urstd)
                     print("updated unread", urstd)
 
         # Now we can load the old unread stack
@@ -365,9 +366,10 @@ def send_new_message_notifications_all_users(
             )
     print("Summary: ",
           f"\namount notifications: {len(users_to_send_update_to)}")
+    import json
     return {
         "emailed_users": [u.email for u in users_to_send_update_to],
-        "stack": users_to_new_unread_stack
+        "stack": json.loads(json.dumps(users_to_new_unread_stack, cls=CoolerJson))
     }
 
 
