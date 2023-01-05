@@ -332,7 +332,7 @@ def send_new_message_notifications_all_users(
 
         print("Filtered for new unread states: ",
               new_unread_stack, current_unread_state)
-        users_to_new_unread_stack[user] = new_unread_stack
+        users_to_new_unread_stack[user.email] = new_unread_stack
         if do_write_new_state_to_db:
             user.state.unread_messages_state = current_unread_state + new_unread_stack
             user.state.save()
