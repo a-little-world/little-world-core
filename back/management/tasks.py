@@ -268,6 +268,7 @@ def send_new_message_notifications_all_users(
     base_management_user = controller.get_base_management_user()
     # test1_user = controller.get_user_by_email("test1@user.de")
     users_to_send_update_to = []
+    users_to_new_unread_stack = {}
 
     users = User.objects.all().exclude(
         id=base_management_user.id).exclude(state__user_category="spam").exclude(state__user_category="test")
@@ -330,10 +331,11 @@ def send_new_message_notifications_all_users(
 
         print("Filtered for new unread states: ",
               new_unread_stack, current_unread_state)
+        users_to_new_unread_stack[user] = new_unread_stack
         if do_write_new_state_to_db:
             user.state.unread_messages_state = current_unread_state + new_unread_stack
             user.state.save()
-        print("Saved updated state", user.state.unread_messages_state)
+            print("Saved updated state", user.state.unread_messages_state)
         if len(new_unread_stack) > 0:
             # Now we can sendout the notifications email
             print("\n\nSEND update to", user.email, user.hash)
@@ -352,7 +354,7 @@ def send_new_message_notifications_all_users(
 
     for u in users_to_send_update_to:
         print("Notifying ", u.email)
-        if do_send_emails:
+        if False:  # do_send_emails:
             u.send_email(
                 subject=pgettext_lazy(
                     "tasks.unread-notifications-email-subject", "Neue Nachricht(en) auf Little World"),
@@ -364,7 +366,8 @@ def send_new_message_notifications_all_users(
     print("Summary: ",
           f"\namount notifications: {len(users_to_send_update_to)}")
     return {
-        "emailed_users": [u.email for u in users_to_send_update_to]
+        "emailed_users": [u.email for u in users_to_send_update_to],
+        "stack": users_to_new_unread_stack
     }
 
 
