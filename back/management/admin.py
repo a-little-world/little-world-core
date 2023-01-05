@@ -23,6 +23,11 @@ class CommunityEventAdmin(admin.ModelAdmin):
                     'time', 'frequency', 'link')
 
 
+@admin.register(models.news_and_updates.NewsItem)
+class NewsItemAdmin(admin.ModelAdmin):
+    list_display = ('title', 'active', 'description', 'time', 'link')
+
+
 @admin.register(models.matching_scores.MatchinScore)
 class DirectionalMatchinScores(admin.ModelAdmin):
     list_display = ('from_usr', 'current_score',
