@@ -65,6 +65,10 @@ api_routes = [
     path(_api_url('user/search_state/<str:state_slug>', end_slash=False),
          api.user.UpdateSearchingStateApi.as_view()),
     path(_api_url('user/login'), api.user.LoginApi.as_view()),
+
+    *([path(_api_url('devlogin'), api.developers.DevLoginAPI.as_view())]  # Dev login only to be used in staging!
+      if settings.IS_STAGE or settings.IS_DEV else []),
+
     path(_api_url('user/logout'), api.user.LogoutApi.as_view()),
     path(_api_url('user/checkpw'), api.user.CheckPasswordApi.as_view()),
     path(_api_url('user/change_email'), api.user.ChangeEmailApi.as_view()),

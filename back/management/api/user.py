@@ -103,6 +103,8 @@ class LoginSerializer(serializers.Serializer):
 
 @extend_schema(request=LoginSerializer(many=False))
 class LoginApi(APIView):
+    # TODO: this has to be throttled!
+    # TODO: als this need csrf protection
     permission_classes = []
     authentication_classes = []
 
