@@ -273,11 +273,8 @@ def send_new_message_notifications_all_users(
     users_to_old_unread_stack = {}
     users_to_new_unread_stack = {}
 
-    users = User.objects.all().exclude(
-        id=base_management_user.id).exclude(state__user_category="spam").exclude(state__user_category="test")
-
-    # if :
-    #users = users.filter(email="benjamin.tim@gmx.de")
+    users = User.objects.all()
+    # users = users.filter(email="herrduenschnlate@gmail.com")
     print("Prefiltered users", users.count())
     for user in users:
         print("==== checking ===> ", user.email, user.hash)
