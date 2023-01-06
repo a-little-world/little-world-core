@@ -1,6 +1,8 @@
 from typing import List, Optional
 from django.core.paginator import Paginator
 from .user_data import get_user_data
+from django.utils import translation
+from multiselectfield.db.fields import MSFList
 from ..models import (
     User,
     Profile,
@@ -15,6 +17,10 @@ _filter_slug_meta = {
     "in": {"kind": "multi"},
     "not": {"kind": "multi"},
     "cut": {"kind": "multi"},
+    "all": {"kind": "multi"},
+    "none": {"kind": "multi"},
+    "contains": {"kind": "single"},
+    "excludes": {"kind": "single"},
 }
 
 FILTER_SLUG_OPERATIONS = list(_filter_slug_meta.keys())
@@ -49,6 +55,17 @@ def _check_operation_condition(
         return str(prop) != compare_value
     elif operation == "cut":
         return not str(prop) in compare_list  # type: ignore
+    elif operation == "contains":
+        print("TBS", compare_value, prop)
+        return compare_value in prop
+    elif operation == "excludes":
+        return not compare_value in prop
+    elif operation == "all":
+        print("TBS", compare_list, prop)
+        return all([(p in prop) for p in compare_list])
+    elif operation == "none":
+        return all([(p not in prop) for p in compare_list])
+
     return False
 
 
@@ -163,6 +180,13 @@ def get_users_by_slug_filter(
         try:
             print("Looking up", field, py_attr[1])
             model_value = getattr(field, py_attr[1])
+            if isinstance(model_value, MSFList):
+                model_value = str(model_value).replace(
+                    ", ", ",")
+                if model_value == "":
+                    model_value = []
+                else:
+                    model_value = model_value.split(",")
         except Exception as e:
             assert False, f"Getting model value failed for '{py_attr[1]}' {repr(e)}"
 
