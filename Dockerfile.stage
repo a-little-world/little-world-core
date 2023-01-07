@@ -5,6 +5,8 @@ WORKDIR /back
 COPY ./requirements.txt ./
 
 RUN pip install --no-cache-dir -r requirements.txt
+RUN apk add --no-cache git
+RUN pip install git+https://github.com/jazzband/django-revproxy.git@aafddd1
 RUN pip cache purge
 
 # Copy all the backend files
