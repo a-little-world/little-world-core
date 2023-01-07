@@ -1,7 +1,10 @@
 from dataclasses import dataclass
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+from rest_framework.response import Response
+from rest_framework import status
 from django.contrib import admin
 from django.urls import path, include
+from django.http import HttpResponse
 from django.urls import path, re_path
 from django.conf import settings
 from django.conf.urls.static import static
@@ -48,11 +51,21 @@ urlpatterns += [
 # This routs can only be accessed from within the cluster
 
 
-if settings.IS_STAGE:
+if settings.IS_STAGE or settings.IS_DEV:
     from revproxy.views import ProxyView
+
+    view = ProxyView.as_view(
+        upstream='http://little-world-staging-docs-clusterip-service:8000/static/docs/')
+
+    def auth_docs(request, **kwargs):
+        from management.models import State
+        if request.user.is_authenticated and \
+                request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.DOCS_VIEW):
+            return view(request, **kwargs)
+        return HttpResponse("Not authenticated or insufficient permissions to view docs", status=status.HTTP_403_FORBIDDEN)
+
     urlpatterns += [
-        re_path(fr'^docs/(?P<path>.*)$', ProxyView.as_view(
-            upstream='http://little-world-staging-docs-clusterip-service:8000/static/docs/')),
+        re_path(fr'^docs/(?P<path>.*)$', auth_docs),
     ]
 
 if settings.DOCS_BUILD:
