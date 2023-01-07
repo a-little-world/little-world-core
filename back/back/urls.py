@@ -2,9 +2,11 @@ from dataclasses import dataclass
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from django.contrib import admin
 from django.urls import path, include
+from django.urls import path, re_path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth.views import LoginView
+from revproxy.views import ProxyView
 
 """
 We are adding all app urls under `'/'` their paths should be set under `<app>/urls.py`
@@ -42,3 +44,17 @@ urlpatterns += [
     path('api/schema/redoc/',
          SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 ]
+
+# In staging we also add and proxy pass to 'http://little-world-staging-docs-clusterip-service:8000/static/docs/'
+# This routs can only be accessed from within the cluster
+
+
+if settings.IS_STAGE:
+    urlpatterns += [
+        re_path(fr'^docs/(?P<path>.*)$', ProxyView.as_view(
+            upstream='http://little-world-staging-docs-clusterip-service:8000/static/docs/')),
+    ]
+
+if settings.DOCS_BUILD:
+    # If DOCS_BUILD we only use this route!
+    urlpatterns = statics
