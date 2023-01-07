@@ -34,4 +34,3 @@ pytablewriter # For generating goodlooking markdown tables
 Collectfast # Faster static file collection
 django-hijack # Can be used by admin to login as another user
 single-beat
-django-revproxy

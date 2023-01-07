@@ -56,12 +56,10 @@ def _check_operation_condition(
     elif operation == "cut":
         return not str(prop) in compare_list  # type: ignore
     elif operation == "contains":
-        print("TBS", compare_value, prop)
         return compare_value in prop
     elif operation == "excludes":
         return not compare_value in prop
     elif operation == "all":
-        print("TBS", compare_list, prop)
         return all([(p in prop) for p in compare_list])
     elif operation == "none":
         return all([(p not in prop) for p in compare_list])

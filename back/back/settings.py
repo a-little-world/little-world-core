@@ -10,6 +10,9 @@ IS_DEV = BUILD_TYPE == 'development'
 IS_STAGE = BUILD_TYPE == 'staging'
 IS_PROD = BUILD_TYPE == 'deployment'
 
+DOCS_BUILD = os.environ.get(
+    "DJ_DOCS_BUILD", "false").lower() in ('true', '1', 't')
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = os.environ['DJ_SECRET_KEY']
 DEBUG = os.environ["DJ_DEBUG"].lower() in ('true', '1', 't')
@@ -75,7 +78,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'revproxy'
+    *(['revproxy'] if IS_STAGE else []),
     #*(['django.contrib.sessions'] if IS_PROD or IS_STAGE else []),
 ]
 print(f'Installed apps:\n' + '\n- '.join(INSTALLED_APPS))
@@ -94,7 +97,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     *([  # Whitenoise to server static only needed in development
         'whitenoise.middleware.WhiteNoiseMiddleware',
-    ] if IS_DEV else []),
+    ] if IS_DEV or DOCS_BUILD else []),
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',
     'management.middleware.OverwriteSessionLangIfAcceptLangHeaderSet',
@@ -165,7 +168,7 @@ TEMPLATES = [
 ]
 
 
-if IS_PROD or IS_STAGE:
+if not DOCS_BUILD and (IS_PROD or IS_STAGE):
     print("TRYING to push statics to bucket")
     # In production & staging we use S3 as file storage!
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
@@ -235,6 +238,7 @@ else:
 
 USE_I18N = True
 def ugettext(s): return s
+
 
 """
 We want BigAutoField per default just in case
