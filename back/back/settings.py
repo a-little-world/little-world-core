@@ -78,7 +78,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'revproxy'
+    *(['revproxy'] if IS_STAGE else []),
     #*(['django.contrib.sessions'] if IS_PROD or IS_STAGE else []),
 ]
 print(f'Installed apps:\n' + '\n- '.join(INSTALLED_APPS))
