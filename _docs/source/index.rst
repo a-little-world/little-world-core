@@ -3,6 +3,10 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+    
+.. _API: https://s1.littleworld-test.com/api/schema/swagger-ui/
+.. _DB: https://s1.littleworld-test.com/db/
+
 Little World Documentation
 ==================================
 
@@ -20,6 +24,8 @@ There are severl external subrepositories that are also managed by us, see :doc:
 * for getting started on backend development visit the :doc:`getting_started_backend` page
 * for building translations visit the :doc:`backend_making_translations`
 * for a overview of the main django applications visit :doc:`modules`
+* api shema hosted on staging server here: API_.
+* database schema can be viewed here: DB_.
 
 Here you can search the code documentation of the backend :ref:`search`
 
