@@ -29,7 +29,7 @@ python_version = ".".join(map(str, sys.version_info[0:2]))
 
 # -- Project information -----------------------------------------------------
 
-project = 'Django'
+project = 'Little World'
 copyright = '2022, Tim Schupp'
 author = 'Tim Schupp'
 
