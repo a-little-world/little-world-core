@@ -223,6 +223,7 @@ else:
     In production we host them in an S3 bucket so we don't need to serve them our selves!
     """
     COLLECTFAST_ENABLED = False
+    WHITENOISE_INDEX_FILE = True
     print("USING LOCAL STATIC SETUP")
     STATIC_URL = '/static/'
     STATIC_URL = 'static/'
@@ -305,7 +306,6 @@ def get_redis_connect_url_port():
 
 if IS_DEV:
     # autmaticly renders index.html when entering an absolute static path
-    WHITENOISE_INDEX_FILE = True
     CELERY_BROKER_URL = 'redis://host.docker.internal:6379'
 elif IS_STAGE or IS_PROD:
     # Sadly it turnsour that celery doesn't support redis clusters
