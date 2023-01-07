@@ -9,6 +9,8 @@ COPY ./requirements.txt ./
 # RUN apk add libpq-dev python3-dev
 # RUN apk add postgres
 RUN pip install --no-cache-dir -r requirements.txt
+RUN apk add --no-cache git
+RUN pip install git+https://github.com/jazzband/django-revproxy.git@aafddd1
 RUN pip cache purge
 
 EXPOSE 8000

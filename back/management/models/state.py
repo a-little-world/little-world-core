@@ -114,6 +114,7 @@ class State(models.Model):
             "Is allowed to view database schemas")
         AUTO_LOGIN = "use-autologin-api", _(
             "Is allowed to use the auto login api (with a specific token)")
+        DOCS_VIEW = "view-docs", _("Is allowed to view the docs")
 
     extra_user_permissions = MultiSelectField(
         max_length=1000,
