@@ -6,7 +6,6 @@ from django.urls import path, re_path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth.views import LoginView
-from revproxy.views import ProxyView
 
 """
 We are adding all app urls under `'/'` their paths should be set under `<app>/urls.py`
@@ -50,6 +49,7 @@ urlpatterns += [
 
 
 if settings.IS_STAGE:
+    from revproxy.views import ProxyView
     urlpatterns += [
         re_path(fr'^docs/(?P<path>.*)$', ProxyView.as_view(
             upstream='http://little-world-staging-docs-clusterip-service:8000/static/docs/')),
