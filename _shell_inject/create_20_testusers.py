@@ -25,4 +25,4 @@ devuser.state.extra_user_permissions.append(
     State.ExtraUserPermissionChoices.API_SCHEMAS)
 devuser.state.extra_user_permissions.append(
     State.ExtraUserPermissionChoices.DATABASE_SCHEMA)
-devuser.save()
+devuser.state.save()
