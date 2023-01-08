@@ -10,6 +10,7 @@ from django.core.paginator import Paginator
 from ..models.notifications import Notification, SelfNotificationSerializer
 from rest_framework import status
 from ..models.user import User
+from drf_spectacular.utils import extend_schema
 
 
 @dataclass
@@ -34,6 +35,16 @@ class NotificationGetApi(APIView):
 
     permission_classes = [permissions.IsAuthenticated]
 
+    @extend_schema(
+        description='Retrive notifications',
+        request=NotificationApiSerializer(many=False),
+        parameters=[
+            OpenApiParameter(name="page", description="default: 1",
+                             required=False, type=str, location=OpenApiParameter.QUERY),
+            OpenApiParameter(name="paginate_by", description="default: 20",
+                             required=False, type=str, location=OpenApiParameter.QUERY),
+        ]
+    )
     def get(self, request):
 
         serializer = NotificationApiSerializer(data=request.query_params)
