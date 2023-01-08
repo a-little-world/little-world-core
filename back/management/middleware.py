@@ -29,8 +29,6 @@ EXTRA_USER_AUTHORIZATION_ROUTES = {
 IF_NOT_ADMIN_404_ROUTES = [] if settings.DEBUG else [
     "/admin",
     "/admin_chat",
-    "/db",
-    "/api/schema"
 ]
 
 
