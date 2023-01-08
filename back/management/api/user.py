@@ -1,11 +1,15 @@
 from rest_framework.views import APIView
 from django.utils.translation import pgettext_lazy
+from typing import Optional
 from django.contrib.auth import logout
+from django.urls import reverse
+from django.http import HttpResponseRedirect
+from django.shortcuts import render, redirect
 from django_rest_passwordreset.signals import reset_password_token_created
 from django.conf import settings
 from django.dispatch import receiver
 from drf_spectacular.utils import extend_schema
-from management.controller import get_user_by_hash, get_user_by_email, UserNotFoundErr
+from management.controller import get_user_by_hash, get_user_by_email, UserNotFoundErr, get_user
 from rest_framework.response import Response
 from django.contrib.auth import authenticate, login
 from ..models.state import State
@@ -101,7 +105,24 @@ class LoginSerializer(serializers.Serializer):
         return LoginData(**validated_data)
 
 
-@extend_schema(request=LoginSerializer(many=False))
+@dataclass
+class AutoLoginData:
+    u: str  # user
+    l: str  # lookup: hash | email | id
+    token: str  # auto login token
+    n: Optional[str] = None  # next page
+
+
+class AutoLoginSerializer(serializers.Serializer):
+    u = serializers.CharField(required=True)
+    l = serializers.CharField(required=True)
+    n = serializers.CharField(required=False)
+    token = serializers.CharField(required=True)
+
+    def create(self, validated_data):
+        return AutoLoginData(**validated_data)
+
+
 class LoginApi(APIView):
     # TODO: this has to be throttled!
     # TODO: als this need csrf protection
@@ -113,6 +134,7 @@ class LoginApi(APIView):
         event_type=Event.EventTypeChoices.REQUEST,
         tags=["frontend", "login", "sensitive"],
         censor_kwargs=["password"])
+    @extend_schema(request=LoginSerializer(many=False))
     def post(self, request):
         """
         This is to login regular users only!!!!
@@ -140,6 +162,35 @@ class LoginApi(APIView):
                 "api.login-failed", "Can't log-in email or password wrong!"),
                 status=status.HTTP_400_BAD_REQUEST)
 
+    @utils.track_event(
+        name="User used auto log-in",
+        event_type=Event.EventTypeChoices.REQUEST,
+        tags=["frontend", "auto-login", "sensitive"],
+        censor_kwargs=["token"])
+    @extend_schema(request=AutoLoginSerializer(many=False))
+    def get(self, request):
+        """
+        Allowes to authenticate users using the extra auth token
+        """
+        if (not settings.IS_DEV) and (not settings.IS_STAGE):
+            assert False, "For now this api is only available on stage"
+
+        serializer = AutoLoginSerializer(data=request.query_params)
+        serializer.is_valid(raise_exception=True)
+        params = serializer.save()
+
+        u = get_user(params.u, params.l)
+        if not u.state.has_extra_user_permission(State.ExtraUserPermissionChoices.AUTO_LOGIN):
+            return Response("Unauthorized", status=status.HTTP_403_FORBIDDEN)
+        else:
+            if params.token == u.state.auto_login_api_token:
+                login(request, u)
+                if params.n is None:
+                    return redirect(reverse("management:main_frontend"))
+                else:
+                    return HttpResponseRedirect(redirect_to=params.n)
+        return Response(pgettext_lazy("api.auto-login-failed", "Can't auto log-in!")),
+
 
 class LogoutApi(APIView):
 
@@ -147,7 +198,7 @@ class LogoutApi(APIView):
                               authentication.BasicAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
-    @utils.track_event(
+    @ utils.track_event(
         name="User Logged out",
         event_type=Event.EventTypeChoices.REQUEST,
         tags=["frontend", "log-out", "sensitive"])
@@ -158,7 +209,7 @@ class LogoutApi(APIView):
             "api.logout-sucessful", "Sucessfully logged out!"))
 
 
-@dataclass
+@ dataclass
 class CheckPwParams:
     password: str
     email: str
@@ -180,7 +231,7 @@ class CheckPasswordApi(APIView):
                               authentication.BasicAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(request=CheckPwSerializer(many=False))
+    @ extend_schema(request=CheckPwSerializer(many=False))
     def post(self, request):
         serializer = CheckPwSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -190,7 +241,7 @@ class CheckPasswordApi(APIView):
         return Response(status=status.HTTP_200_OK if _check else status.HTTP_400_BAD_REQUEST)
 
 
-@dataclass
+@ dataclass
 class ChangeEmailParams:
     email: str
 
@@ -208,7 +259,7 @@ class ChangeEmailApi(APIView):
                               authentication.BasicAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(request=ChangeEmailSerializer(many=False))
+    @ extend_schema(request=ChangeEmailSerializer(many=False))
     def post(self, request):
         """
         The user can use this to change his email, *of couse only if the is logged in*
@@ -255,7 +306,7 @@ class ChangeEmailApi(APIView):
             "E-mail adres update, email adress must be reauthenticated."))
 
 
-@dataclass
+@ dataclass
 class ConfirmMatchesParams:
     matches: 'list[str]'
 
@@ -273,7 +324,7 @@ class ConfirmMatchesApi(APIView):
                               authentication.BasicAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(request=ConfirmMatchesSerializer(many=False))
+    @ extend_schema(request=ConfirmMatchesSerializer(many=False))
     def post(self, request):
         serializer = ConfirmMatchesSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -288,7 +339,7 @@ class ConfirmMatchesApi(APIView):
                                       "Matches confirmed!"))
 
 
-@dataclass
+@ dataclass
 class SearchingStateApiParams:
     state_slug: str
 
@@ -306,7 +357,7 @@ class UpdateSearchingStateApi(APIView):
                               authentication.BasicAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(request=SearchingStateApiSerializer(many=False))
+    @ extend_schema(request=SearchingStateApiSerializer(many=False))
     def post(self, request, **kwargs):
         """
         Update the users serching state, current possible states: 'idle', 'searching'
@@ -331,14 +382,14 @@ class UpdateSearchingStateApi(APIView):
                                       "State updated!"))
 
 
-@receiver(reset_password_token_created)
+@ receiver(reset_password_token_created)
 def password_reset_token_created(sender, instance, reset_password_token, *args, **kwargs):
     """
     Handles password reset tokens
     This is automaticly called fron djang-rest-password reset when the /api/user/resetpw is called
     """
     # TODO: track this event!
-    #print("TBS: request PW reset", sender, instance, reset_password_token)
+    # print("TBS: request PW reset", sender, instance, reset_password_token)
     # This is the url of our password reset view
     # We also pass the reset token to the view so it can be used to change the password
     usr_hash = reset_password_token.user.hash
