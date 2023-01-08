@@ -1,13 +1,23 @@
-### Backend V2
+## Little World Backend V2
 
-@tbscode cleaner rewrite of `little-world-dev-backend`
+The backend for the little world web-application and its services.
 
 > For stack info check [`django-clean-state`](https://github.com/tbscode/django-clean-slate)
 
-For code documentation visit [`docs.littleworld-test.com`](https://docs.littleworld-test.com)
+### Development, Documentation & Apis
 
-For a quick start on development see [`/getting_started`](https://docs.littleworld-test.com/getting_started)
+The default staging server is deployed at [`s1.littleworld-test.com`](https://s1.littleworld-test.com)
+For viewing documentation and apis you can loging with a test user:
 
-All merges into `main` will automaticly deployed to [`s1.littleworld-test.com`](https://s1.littleworld-test.com)
+by visiting:
 
-Once staging setup is tested it may be deployed into production by @tbscode
+[`https://s1.littleworld-test.com/api/user/login?token=someToken&u=default.devuser@mail.com`](https://little-world.com/api/user/login?token=someToken&u=default.devuser@mail.com)
+
+Or you can login manually at [`https://s1.littleworld-test.com/login`](https://s1.littleworld-test.com/login)
+with the default staging user `pw: Test321!`, `email: default.devuser@mail.com`.
+
+When you logged in you can view the **Documentation** at [`https://s1.littleworld-test.com/docs`](https://s1.littleworld-test.com/docs)
+
+###### Authors
+
+@tbscode, tim@timschupp.de
