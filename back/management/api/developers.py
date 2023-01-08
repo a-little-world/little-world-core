@@ -73,13 +73,12 @@ class DevLoginAPI(APIView):
             except:
                 return Response("Authentication failed", status=403)
 
-            from ..api.user_data import get_full_frontend_data
-
-            with translation.override("tag"):
-                profile_data = get_full_frontend_data(
-                    request.user, options=True, **request.query_params,
-                    admin=request.user.is_staff)
-
+            from ..models import Profile, SelfProfileSerializer
             from ..templatetags.temp_utils import get_api_translations
-            return Response({"profile_data": json.dumps(profile_data, cls=CoolerJson), "api_translations": get_api_translations(request)})
+
+            return Response({
+                "api_translations": json.loads(get_api_translations(request)),
+                "user_data": SelfProfileSerializer(request.user.profile).data,
+                "form_options": SelfProfileSerializer(request.user.profile).get_options(request.user.profile)
+            })
         return Response("Error, maybe dev_dataset doesn't exist?", status=400)
