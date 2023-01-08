@@ -8,6 +8,16 @@ In production the bundles are injeted into django views.
 The backend passes render data to a function in `src/index.js`.
 The file `src/ENVIRONMENT.js` is to configure different frontend versions. This will be dynamicly replaced by the backend depending on build configuration.
 
+### TL; DR
+
+```bash
+# start routing to staging api server ( localhost:3333/api/* -> s1.littleworld-test.com/api/* )
+./schrodingers-nginx.sh
+# start webpack server ( localhost:3000 )
+npx webpack serve --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mode development
+# start developing view frontend at `localhost:3333/`
+```
+
 ### Starting the local development server
 
 This is configured in `./webpack.config.js:devServer`.
@@ -17,6 +27,8 @@ npx webpack serve --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mo
 ```
 
 ### local backend development using staging server api
+
+> Note your frontend might already provide a custom `schroedingers-nginx.sh` setup, in that case you'll not need to ferform the next setps.
 
 We setup 3 routes api routes:
 
