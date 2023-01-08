@@ -11,7 +11,7 @@ For viewing documentation and apis you can loging with a test user:
 
 by visiting:
 
-[`https://s1.littleworld-test.com/api/user/login?token=someToken&u=default.devuser@mail.com`](https://little-world.com/api/user/login?token=someToken&u=default.devuser@mail.com)
+[`https://s1.littleworld-test.com/api/user/login?token=devUserAutoLoginTokenXYZ&u=devuser@mail.com&l=email&n=/docs`](https://s1.littleworld-test.com/api/user/login?token=devUserAutoLoginTokenXYZ&u=devuser@mail.com&l=email&n=/docs)
 
 Or you can login manually at [`https://s1.littleworld-test.com/login`](https://s1.littleworld-test.com/login)
 with the default staging user `pw: Test321!`, `email: default.devuser@mail.com`.
