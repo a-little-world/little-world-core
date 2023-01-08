@@ -61,5 +61,7 @@ class DevLoginAPI(APIView):
                 profile_data = get_full_frontend_data(
                     request.user, options=True, **request.query_params,
                     admin=request.user.is_staff)
-            return Response({"profile_data": json.dumps(profile_data, cls=CoolerJson)})
+
+            from ..templatetags.temp_utils import get_api_translations
+            return Response({"profile_data": json.dumps(profile_data, cls=CoolerJson), "api_translations": get_api_translations(request)})
         return Response("Error, maybe dev_dataset doesn't exist?", status=400)
