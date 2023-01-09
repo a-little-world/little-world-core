@@ -133,6 +133,15 @@ class User(AbstractUser):
             self.state.unconfirmed_matches_stack.append(user.hash)
         self.state.save()
 
+    def unmatch(self, user):
+        """
+        Removes the user from matches and unconfirmed matches
+        """
+        self.state.matches.remove(user)
+        if user.hash in self.state.unconfirmed_matches_stack:
+            self.state.unconfirmed_matches_stack.remove(user.hash)
+        self.state.save()
+
     def is_matched(self, user):
         return self.state.matches.filter(hash=user.hash).exists()
 
