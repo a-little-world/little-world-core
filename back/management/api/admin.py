@@ -258,6 +258,45 @@ class MakeMatch(APIView):
         return Response(_("Users sucessfully matched"))
 
 
+class UnmatchUsersParams:
+    user1: str
+    user2: str
+    lookup: str = "hash"
+    delete_video_room: bool = True
+    delete_dialog: bool = True
+
+
+class UnmatchUsersInputSerializer(serializers.Serializer):
+    user1 = serializers.CharField(required=True)
+    user2 = serializers.CharField(required=True)
+    lookup = serializers.CharField(required=False, default="hash")
+    delete_video_room = serializers.BooleanField(required=False)
+    delete_dialog = serializers.BooleanField(required=False)
+
+    def clean(self, validated_data):
+        return UnmatchUsersParams(**validated_data)
+
+
+class UnmatchUsers(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    @extend_schema(
+        request=UnmatchUsersInputSerializer(many=False),
+    )
+    def post(self, request):
+        serializer = UnmatchUsersInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        params = serializer.save()
+        users = get_two_users(params.user1, params.user2, params.lookup)
+
+        try:
+            controller.unmatch_users(
+                {users[0], users[1]}, params.delete_video_room, params.delete_dialog)
+        except Exception as e:
+            return Response("Unmatching error:" + str(e), status=status.HTTP_400_BAD_REQUEST)
+        return Response(_("Users sucessfully un-matched"))
+
+
 @dataclass
 class OneUserInputData:
     user: str
