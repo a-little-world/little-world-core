@@ -109,6 +109,7 @@ class User(AbstractUser):
             # Then the email of that user was changed!
             # This means we have to update the username too!
             self.username = self.email
+            # TODO: also add to 'past emails' list
         super().save(*args, **kwargs)
         self.__original_username = self.username
 
