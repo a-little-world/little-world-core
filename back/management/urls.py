@@ -107,6 +107,8 @@ api_routes = [
     path(_api_url('user/match', admin=True),
          api.admin.MakeMatch.as_view()),
 
+    path(_api_url('user/unmatch', admin=True),
+         api.admin.UnmatchUsers.as_view()),
     #    path(_api_url('user/match', admin=True), api.admin.MakeMatch.as_view()),
     #    path(_api_url('user/suggest_match', admin=True),
     #         api.admin.MatchingSuggestion.as_view()),

@@ -154,6 +154,7 @@ class TwoUserInputData:
     send_email: Optional[bool] = True
     send_message: Optional[bool] = True
     send_notification: Optional[bool] = True
+    recalc_matching_score: Optional[bool] = True
 
 
 class TwoUserInputSerializer(serializers.Serializer):
@@ -164,6 +165,7 @@ class TwoUserInputSerializer(serializers.Serializer):
     send_email = serializers.BooleanField(required=False)
     send_message = serializers.BooleanField(required=False)
     send_notification = serializers.BooleanField(required=False)
+    recalc_matching_score = serializers.BooleanField(required=False)
 
     def create(self, validated_data):
         return TwoUserInputData(**validated_data)
@@ -197,15 +199,31 @@ class MakeMatch(APIView):
         # Load the current matching state and repond with an error if they are not matchable
         dir1 = None
         dir2 = None
-        try:
-            dir1 = MatchinScore.get_current_directional_score(
-                users[0], users[1])
-            dir2 = MatchinScore.get_current_directional_score(
-                users[1], users[0])
-        except:
-            if params.force is None or not params.force:
-                return Response(_("Can extract matchable info for users, seems like the score calulation failed. This is an idicator that the users are possible unmatchable, if you are sure you want to continue use: ") + MATCH_BY_FORCE_MSG,
-                                status=status.HTTP_400_BAD_REQUEST)
+        if params.recalc_matching_score:
+
+            from ..matching.matching_score import calculate_directional_score_write_results_to_db
+
+            try:
+                dir1 = calculate_directional_score_write_results_to_db(
+                    users[0], users[1], return_on_nomatch=False,
+                    catch_exceptions=True)
+                dir2 = calculate_directional_score_write_results_to_db(
+                    users[1], users[0], return_on_nomatch=False,
+                    catch_exceptions=True)
+            except Exception as e:
+                if params.force is None or not params.force:
+                    return Response(_("Unable to recalucate matching score! Error: ") + str(e) + " " + MATCH_BY_FORCE_MSG,
+                                    status=status.HTTP_400_BAD_REQUEST)
+        else:
+            try:
+                dir1 = MatchinScore.get_current_directional_score(
+                    users[0], users[1])
+                dir2 = MatchinScore.get_current_directional_score(
+                    users[1], users[0])
+            except:
+                if params.force is None or not params.force:
+                    return Response(_("Can extract matchable info for users, seems like the score calulation failed. This is an idicator that the users are possible unmatchable, if you are sure you want to continue use: ") + MATCH_BY_FORCE_MSG,
+                                    status=status.HTTP_400_BAD_REQUEST)
 
         if not params.force:
             if not (dir1 and dir2):
@@ -238,6 +256,45 @@ class MakeMatch(APIView):
         except Exception as e:
             return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
         return Response(_("Users sucessfully matched"))
+
+
+class UnmatchUsersParams:
+    user1: str
+    user2: str
+    lookup: str = "hash"
+    delete_video_room: bool = True
+    delete_dialog: bool = True
+
+
+class UnmatchUsersInputSerializer(serializers.Serializer):
+    user1 = serializers.CharField(required=True)
+    user2 = serializers.CharField(required=True)
+    lookup = serializers.CharField(required=False, default="hash")
+    delete_video_room = serializers.BooleanField(required=False)
+    delete_dialog = serializers.BooleanField(required=False)
+
+    def clean(self, validated_data):
+        return UnmatchUsersParams(**validated_data)
+
+
+class UnmatchUsers(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    @extend_schema(
+        request=UnmatchUsersInputSerializer(many=False),
+    )
+    def post(self, request):
+        serializer = UnmatchUsersInputSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        params = serializer.save()
+        users = get_two_users(params.user1, params.user2, params.lookup)
+
+        try:
+            controller.unmatch_users(
+                {users[0], users[1]}, params.delete_video_room, params.delete_dialog)
+        except Exception as e:
+            return Response("Unmatching error:" + str(e), status=status.HTTP_400_BAD_REQUEST)
+        return Response(_("Users sucessfully un-matched"))
 
 
 @dataclass

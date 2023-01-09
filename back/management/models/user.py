@@ -109,6 +109,7 @@ class User(AbstractUser):
             # Then the email of that user was changed!
             # This means we have to update the username too!
             self.username = self.email
+            # TODO: also add to 'past emails' list
         super().save(*args, **kwargs)
         self.__original_username = self.username
 
@@ -130,6 +131,15 @@ class User(AbstractUser):
         self.state.matches.add(user)
         if set_unconfirmed:
             self.state.unconfirmed_matches_stack.append(user.hash)
+        self.state.save()
+
+    def unmatch(self, user):
+        """
+        Removes the user from matches and unconfirmed matches
+        """
+        self.state.matches.remove(user)
+        if user.hash in self.state.unconfirmed_matches_stack:
+            self.state.unconfirmed_matches_stack.remove(user.hash)
         self.state.save()
 
     def is_matched(self, user):

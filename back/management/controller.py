@@ -259,7 +259,11 @@ Damit euch viel Spaß! Schöne Grüße vom Team Little World
         usr2.state.set_idle()
 
 
-def unmatch_users(users: set):
+def unmatch_users(
+    users: set,
+    delete_video_room=True,
+    delete_dialog=True,
+):
     """ 
     Accepts a list of two users to unmatch 
 
@@ -271,7 +275,24 @@ def unmatch_users(users: set):
     - Video Room
     """
     assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
-    # Un-Match ... TODO
+
+    # Un-Match the users by removing the from their 'matches' field
+
+    usr1, usr2 = list(users)
+    usr1.unmatch(usr2)
+    usr2.unmatch(usr1)
+
+    # Then disable the video room
+    if delete_video_room:
+        from .models.rooms import get_rooms_match
+        get_rooms_match(usr1, usr2).delete()
+
+    # Delte the dialog
+    if delete_dialog:
+        from chat.django_private_chat2.models import DialogsModel
+        dia = DialogsModel.dialog_exists(usr1, usr2)
+        if dia:
+            dia.delete()
 
 
 def get_base_management_user():
