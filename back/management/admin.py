@@ -170,6 +170,13 @@ class UserAdmin(HijackUserAdminMixin, DjangoUserAdmin):
             f'<a href="{url}" target="_blank" rel="noopener noreferrer" >view tracked activity</a>'
         )
 
+    @admin.display(description='existing_matches')
+    def show_matches_in_panel(self, obj):
+        route = f'/admin_panel/?matches={obj.hash}'
+        return mark_safe(
+            f'<a href="{route}" target="_blank" rel="noopener noreferrer" >show user and matches in admin panel</a>'
+        )
+
     def get_search_results(self, request, queryset, search_term):
         queryset, use_distinct = super(DjangoUserAdmin, self).get_search_results(
             request, queryset, search_term)
@@ -194,7 +201,7 @@ class UserAdmin(HijackUserAdminMixin, DjangoUserAdmin):
         }),
     )
     list_display = ('_abr_hash', 'email', 'last_login', 'date_joined',
-                    'first_name', 'last_name', 'chat_with', 'show_matching_suggestions', 'view_tracked_activity', 'is_user_form_filled', 'is_staff', 'username')
+                    'first_name', 'last_name', 'chat_with', 'show_matching_suggestions', 'show_matches_in_panel', 'view_tracked_activity', 'is_user_form_filled', 'is_staff', 'username')
     search_fields = ('email', 'first_name', 'last_name', 'hash')
     # fist & last names are read-only here,
     # the user can change the first / lastnames stored in profile, but not this one!

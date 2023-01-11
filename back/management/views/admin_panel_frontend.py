@@ -57,6 +57,17 @@ def admin_panel(request):
         extra_info['suggested_users'] = suggested_users
         extra_info['s1'] = user.hash
         user_list_data = [get_user_data(user, is_self=True, admin=True)]
+    elif 'matches' in GET:
+        extra_info['matches'] = GET['matches']
+        user = controller.get_user_by_hash(GET['matches'])
+
+        # If we have 's1' we even try to list suggestions
+        from ..models.matching_scores import MatchinScore
+
+        extra_info['suggested_users'] = [{**get_user_data(
+            u, is_self=True, admin=True), "score": []} for u in user.state.matches.all()]
+        extra_info['s1'] = user.hash
+        user_list_data = [get_user_data(user, is_self=True, admin=True)]
     else:
         user_list_data, _info = get_filter_slug_filtered_users_multiple_paginated(
             filters=filters,
