@@ -96,14 +96,14 @@ class ProfileBase(models.Model):
     therefore we store changes of this choice in `past_user_types`
     """
     class TypeChoices(models.TextChoices):
-        VOLUNTEER = "volunteer", pgettext_lazy(
-            "profile.user-type.volunteer", "Volunteer")
         LEARNER = "learner", pgettext_lazy(
             "profile.user-type.learner", "Language learner")
+        VOLUNTEER = "volunteer", pgettext_lazy(
+            "profile.user-type.volunteer", "Volunteer")
 
     user_type = models.CharField(
         choices=TypeChoices.choices,
-        default=TypeChoices.VOLUNTEER,
+        default=TypeChoices.LEARNER,
         max_length=255)
 
     """
@@ -285,8 +285,6 @@ class ProfileBase(models.Model):
             "profile.notify-channel.email", "Notify per email")
         SMS = "sms", pgettext_lazy(
             "profile.notify-channel.sms", "Notify per SMS")
-        CALL = "call", pgettext_lazy(
-            "profile.notify-channel.call", "Notify by calling")
 
     notify_channel = models.CharField(
         choices=NotificationChannelChoices.choices,
@@ -373,9 +371,9 @@ class ProfileBase(models.Model):
             "lang_level",
             "description",  # This is required but 'language_skill_description' is not!
             "image" if self.image_type == self.ImageTypeChoice.IMAGE else "avatar_config",
-            # Postal code only required if partner location close selected!
-            *(["postal_code"] if self.partner_location == Profile.normalize_choice(
-                self.ConversationPartlerLocation.CLOSE_VOL) else []),
+            # Postal code is not required anymore
+            # *(["postal_code"] if self.partner_location == Profile.normalize_choice(
+            #    self.ConversationPartlerLocation.CLOSE_VOL) else []),
             "target_group",
             # 'additional_interests' also not required
             *(["phone_mobile"] if self.notify_channel !=  # phone is only required if notification channel is not email ( so it's sms or phone )
