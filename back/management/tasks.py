@@ -379,7 +379,8 @@ def send_new_message_notifications_all_users(
 
 @shared_task
 def write_hourly_backend_event_summary(
-    start_time=None
+    start_time=None,
+    end_time=None,
 ):
     """
     Collects a bunch of stats and stores them as tracking.models.Summaries
@@ -398,18 +399,22 @@ def write_hourly_backend_event_summary(
 
     from tracking.models import Summaries, Event
     from management.models import User
-    from datetime import timedelta
+    from datetime import timedelta, datetime
     from django.utils import timezone
 
     # For that fist we extract all event within that hour
     time = timezone.now()
     if start_time is not None:
-        time = start_time  # TODO: prob need serializable format
+        time = datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S.%f')
 
     this_hour = time.replace(minute=0, second=0, microsecond=0)
-    one_hour_later = this_hour + timedelta(hours=4)
-    earlier = this_hour - timedelta(hours=4)
+    one_hour_later = this_hour + timedelta(hours=1)
+    if end_time is not None:
+        one_hour_later = datetime.strptime(end_time, '%Y-%m-%d %H:%M:%S.%f')
     events = Event.objects.filter(time__range=(this_hour, one_hour_later))
+
+    event_count = events.count()
+    print("Found" + str(event_count) + "events in that hour")
 
     chat_connections_per_user = {}
     new_user_registrations = []
@@ -419,6 +424,7 @@ def write_hourly_backend_event_summary(
     users_logged_out = []
     call_rooms_authenticated = []
     matches_made = []
+    connection_disconnection_events = []
     absolute_requests_tracked = 0
 
     def init_connection_hash_is_empty(hash):
@@ -429,8 +435,11 @@ def write_hourly_backend_event_summary(
                 "send_messages_count": 0
             }
 
+    i = -1
     for event in events:
         # print("TIME", event.time)
+        i += 1
+        print(f"Processing event ({i}/{event_count})")
         has_event_tags = hasattr(
             event, "tags") and isinstance(event.tags, list)
         has_caller_annotation = hasattr(event, "caller")
@@ -450,12 +459,21 @@ def write_hourly_backend_event_summary(
 
             if all([x in event.tags for x in ["backend", "function", "db"]]):
                 m = [(None, None)]
+                other_user_with_management = None
                 try:
                     m[0] = event.metadata["args"][0]
+                    if m[0][1] == "littleworld.management@gmail.com":
+                        other_user_with_management = m[0][0]
+                    elif m[0][0] == "littleworld.management@gmail.com":
+                        other_user_with_management = m[0][1]
                 except:
                     pass
 
                 matches_made += m
+                # Every match that is made with the admin base user implies that a new user has registered
+                if other_user_with_management is not None:
+                    # TODO: in the future this check should be performed differently
+                    new_user_registrations.append(other_user_with_management)
 
             if all([x in event.tags for x in ['frontend', 'login']]):
                 # Try to extract the login user email
@@ -467,6 +485,33 @@ def write_hourly_backend_event_summary(
                         event.metadata['request_data2']['email'])
                 else:
                     print("Login attepted but couldn't retrive email")
+
+            if all([x in event.tags for x in ['frontend', 'log-out']]):
+                usr_mail = None
+                if 'request_data1' in event.metadata and 'email' in event.metadata['request_data1']:
+                    usr_mail = event.metadata['request_data1']['email']
+                elif 'request_data2' in event.metadata and 'email' in event.metadata['request_data2']:
+                    usr_mail = event.metadata['request_data2']['email']
+                if usr_mail is not None:
+                    users_logged_out.append(usr_mail)
+
+            if all([x in event.tags for x in ['remote', 'twilio']]):
+                if 'request_data1' in event.metadata and 'RoomName' in event.metadata['request_data1']:
+                    room_name = event.metadata['request_data1']['RoomName']
+                    participant = event.metadata['request_data1']['ParticipantIdentity']
+                    status_event = event.metadata['request_data1']['StatusCallbackEvent']
+                    # 'participant-disconnected' or 'participant-connected'
+                    from .models import Room
+                    # Lookup the room add both users
+                    room = Room.get_room_by_hash(room_name)
+                    connection_disconnection_events.append({
+                        "time": event.time,
+                        "timestamp": event.metadata['request_data1']['Timestamp'],
+                        "room_name": room_name,
+                        "room_users": [room.usr1.hash, room.usr2.hash],
+                        "event": status_event,
+                        "actor": participant
+                    })
 
             if all([x in event.tags for x in ['chat', 'channels', 'connected']]):
                 # User connected to chat
@@ -491,7 +536,10 @@ def write_hourly_backend_event_summary(
     for u in User.objects.filter(profile__updated_at__range=(this_hour, one_hour_later)):
         users_changed_profile.append(u)
 
-    summary_meta = dict(
+    import json
+    from back.utils import CoolerJson
+
+    summary_meta = json.loads(json.dumps(dict(
         chat_connections_per_user=chat_connections_per_user,
         new_user_registrations=new_user_registrations,
         users_called_login_api=users_called_login_api,
@@ -502,7 +550,7 @@ def write_hourly_backend_event_summary(
         absolute_requests_tracked=absolute_requests_tracked,
         matches_made=matches_made,
         absoulte_matches_made=len(matches_made),
-    )
+    ), cls=CoolerJson))
 
     return summary_meta
 
