@@ -121,7 +121,7 @@ def create_user(
     data['last_name'] = data.pop('second_name')
     usr = User.objects.create_user(**data)
 
-    usr.profile.birth_year = birth_year
+    usr.profile.birth_year = int(birth_year)
     usr.profile.save()
     # Error if user doesn't exist, would prob already happen on is_valid
     assert isinstance(usr, User)
