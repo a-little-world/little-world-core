@@ -401,6 +401,7 @@ def write_hourly_backend_event_summary(
     from management.models import User
     from datetime import timedelta, datetime
     from django.utils import timezone
+    from . import controller
 
     # For that fist we extract all event within that hour
     time = timezone.now()
@@ -425,6 +426,7 @@ def write_hourly_backend_event_summary(
     call_rooms_authenticated = []
     matches_made = []
     connection_disconnection_events = []
+    event_errors = []
     absolute_requests_tracked = 0
 
     def init_connection_hash_is_empty(hash):
@@ -457,61 +459,9 @@ def write_hourly_backend_event_summary(
         if has_event_tags and has_caller_annotation and caller_hash is not None:
             assert isinstance(event.tags, list)
 
-            if all([x in event.tags for x in ["backend", "function", "db"]]):
-                m = [(None, None)]
-                other_user_with_management = None
-                try:
-                    m[0] = event.metadata["args"][0]
-                    if m[0][1] == "littleworld.management@gmail.com":
-                        other_user_with_management = m[0][0]
-                    elif m[0][0] == "littleworld.management@gmail.com":
-                        other_user_with_management = m[0][1]
-                except:
-                    pass
-
-                matches_made += m
-                # Every match that is made with the admin base user implies that a new user has registered
-                if other_user_with_management is not None:
-                    # TODO: in the future this check should be performed differently
-                    new_user_registrations.append(other_user_with_management)
-
-            if all([x in event.tags for x in ['frontend', 'login']]):
-                # Try to extract the login user email
-                if 'request_data1' in event.metadata and 'email' in event.metadata['request_data1']:
-                    users_called_login_api.append(
-                        event.metadata['request_data1']['email'])
-                elif 'request_data2' in event.metadata and 'email' in event.metadata['request_data2']:
-                    users_called_login_api.append(
-                        event.metadata['request_data2']['email'])
-                else:
-                    print("Login attepted but couldn't retrive email")
-
             if all([x in event.tags for x in ['frontend', 'log-out']]):
-                usr_mail = None
-                if 'request_data1' in event.metadata and 'email' in event.metadata['request_data1']:
-                    usr_mail = event.metadata['request_data1']['email']
-                elif 'request_data2' in event.metadata and 'email' in event.metadata['request_data2']:
-                    usr_mail = event.metadata['request_data2']['email']
-                if usr_mail is not None:
-                    users_logged_out.append(usr_mail)
-
-            if all([x in event.tags for x in ['remote', 'twilio']]):
-                if 'request_data1' in event.metadata and 'RoomName' in event.metadata['request_data1']:
-                    room_name = event.metadata['request_data1']['RoomName']
-                    participant = event.metadata['request_data1']['ParticipantIdentity']
-                    status_event = event.metadata['request_data1']['StatusCallbackEvent']
-                    # 'participant-disconnected' or 'participant-connected'
-                    from .models import Room
-                    # Lookup the room add both users
-                    room = Room.get_room_by_hash(room_name)
-                    connection_disconnection_events.append({
-                        "time": event.time,
-                        "timestamp": event.metadata['request_data1']['Timestamp'],
-                        "room_name": room_name,
-                        "room_users": [room.usr1.hash, room.usr2.hash],
-                        "event": status_event,
-                        "actor": participant
-                    })
+                if event.caller:
+                    users_logged_out.append(event.caller.hash)
 
             if all([x in event.tags for x in ['chat', 'channels', 'connected']]):
                 # User connected to chat
@@ -528,13 +478,78 @@ def write_hourly_backend_event_summary(
             if all([x in event.tags for x in ['chat', 'channels', 'message-send']]):
                 init_connection_hash_is_empty(caller_hash)
                 chat_connections_per_user[caller_hash]["send_messages_count"] += 1
+        elif has_event_tags:
+            # Stuff that doesnt have caller annotations
 
-    # Now see how many users actually sucessfully loggedin during that hour
+            if all([x in event.tags for x in ['frontend', 'login']]):
+                # Try to extract the login user email
+                if 'request_data1' in event.metadata and 'email' in event.metadata['request_data1']:
+                    mail = event.metadata['request_data1']['email'][0]
+                    hash = "unknown"
+                    try:
+                        hash = controller.get_user_by_email(mail.strip()).hash
+                    except:
+                        pass
+                    users_called_login_api.append({"e": mail, "h": hash})
+                elif 'request_data2' in event.metadata and 'email' in event.metadata['request_data2']:
+                    mail = event.metadata['request_data1']['email'][0]
+                    hash = "unknown"
+                    try:
+                        hash = controller.get_user_by_email(mail.strip()).hash
+                    except:
+                        pass
+                    users_called_login_api.append({"e": mail, "h": hash})
+                else:
+                    print("Login attepted but couldn't retrive email")
+
+            if all([x in event.tags for x in ["backend", "function", "db"]]):
+                m = [(None, None)]
+                other_user_with_management = None
+                try:
+                    m[0] = event.metadata["args"][0]
+                    if m[0][1] == "littleworld.management@gmail.com":
+                        other_user_with_management = m[0][0]
+                    elif m[0][0] == "littleworld.management@gmail.com":
+                        other_user_with_management = m[0][1]
+                except:
+                    pass
+
+                # Every match that is made with the admin base user implies that a new user has registered
+                if other_user_with_management is not None:
+                    # TODO: in the future this check should be performed differently
+                    new_user_registrations.append(other_user_with_management)
+                else:
+                    matches_made += m
+
+            if all([x in event.tags for x in ['remote', 'twilio']]):
+                if 'request_data1' in event.metadata and 'RoomName' in event.metadata['request_data1']:
+                    # 'participant-disconnected' or 'participant-connected'
+                    from .models import Room
+                    # Lookup the room add both users
+                    try:
+                        room_name = event.metadata['request_data1']['RoomName'][0]
+                        room = Room.get_room_by_hash(room_name)
+                        participant = event.metadata['request_data1']['ParticipantIdentity'][0]
+                        status_event = event.metadata['request_data1']['StatusCallbackEvent'][0]
+                        if status_event in ["participant-connected", "participant-disconnected"]:
+                            connection_disconnection_events.append({
+                                "time": event.time,
+                                "timestamp": event.metadata['request_data1']['Timestamp'],
+                                "room_name": room_name,
+                                "room_users": [room.usr1.hash, room.usr2.hash],
+                                "event": status_event,
+                                "actor": participant
+                            })
+                    except Exception as e:
+                        print(f"Count retrive room {room_name}")
+                        event_errors.append(str(e) + str(event.metadata))
+
+        # Now see how many users actually sucessfully loggedin during that hour
     for u in User.objects.filter(last_login__range=(this_hour, one_hour_later)):
-        users_sucessfully_logged_in.append(u)
+        users_sucessfully_logged_in.append(u.hash)
 
     for u in User.objects.filter(profile__updated_at__range=(this_hour, one_hour_later)):
-        users_changed_profile.append(u)
+        users_changed_profile.append(u.hash)
 
     import json
     from back.utils import CoolerJson
@@ -550,6 +565,7 @@ def write_hourly_backend_event_summary(
         absolute_requests_tracked=absolute_requests_tracked,
         matches_made=matches_made,
         absoulte_matches_made=len(matches_made),
+        connection_disconnection_events=connection_disconnection_events,
     ), cls=CoolerJson))
 
     return summary_meta
