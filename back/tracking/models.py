@@ -94,6 +94,8 @@ class Summaries(models.Model):
 
     label = models.CharField(max_length=255, blank=False, null=False)
 
+    slug = models.CharField(max_length=255, blank=False, null=False)
+
     hash = models.CharField(max_length=255, blank=True,
                             default=utils._double_uuid)
 
@@ -101,7 +103,5 @@ class Summaries(models.Model):
         max_length=1000, choices=RateChoices.choices, blank=False)
 
     time_created = models.DateTimeField(auto_now_add=True)
-
-    summary_table = models.TextField()
 
     meta = models.JSONField()
