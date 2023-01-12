@@ -120,6 +120,9 @@ def create_user(
     # automaticly creates Profile, State, Settings, see models.user.UserManager
     data['last_name'] = data.pop('second_name')
     usr = User.objects.create_user(**data)
+
+    usr.profile.birth_year = birth_year
+    usr.profile.save()
     # Error if user doesn't exist, would prob already happen on is_valid
     assert isinstance(usr, User)
 
