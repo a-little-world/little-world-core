@@ -554,6 +554,15 @@ def write_hourly_backend_event_summary(
     import json
     from back.utils import CoolerJson
 
+    total_amount_of_users = User.objects.count()
+    total_matches = 0
+    c = 0
+    for u in User.objects.exclude(id=controller.get_base_management_user().id):
+        c += 1
+        print(f"scanning users ({c}/{total_amount_of_users})")
+        # -1 because the user is always matched with the base admin
+        total_matches += u.state.matches.count() - 1
+
     summary_meta = json.loads(json.dumps(dict(
         chat_connections_per_user=chat_connections_per_user,
         new_user_registrations=new_user_registrations,
@@ -566,7 +575,18 @@ def write_hourly_backend_event_summary(
         matches_made=matches_made,
         absoulte_matches_made=len(matches_made),
         connection_disconnection_events=connection_disconnection_events,
+        total_amount_of_users=total_amount_of_users,
+        total_matches=total_matches,
+        total_amount_events_processed=event_count
     ), cls=CoolerJson))
+    from tracking.models import Summaries
+
+    Summaries.objects.create(
+        label="hourly-event-summary",
+        slug=f"hour-{this_hour}",
+        rate=Summaries.RateChoices.HOURLY,
+        meta=summary_meta
+    )
 
     return summary_meta
 
