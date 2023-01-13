@@ -555,13 +555,14 @@ def write_hourly_backend_event_summary(
     from back.utils import CoolerJson
 
     total_amount_of_users = User.objects.count()
-    total_matches = 0
-    c = 0
-    for u in User.objects.exclude(id=controller.get_base_management_user().id):
-        c += 1
-        print(f"scanning users ({c}/{total_amount_of_users})")
-        # -1 because the user is always matched with the base admin
-        total_matches += u.state.matches.count() - 1
+    if False:
+        total_matches = 0
+        c = 0
+        for u in User.objects.exclude(id=controller.get_base_management_user().id):
+            c += 1
+            print(f"scanning users ({c}/{total_amount_of_users})")
+            # -1 because the user is always matched with the base admin
+            total_matches += (u.state.matches.count() - 1)
 
     summary_meta = json.loads(json.dumps(dict(
         chat_connections_per_user=chat_connections_per_user,
@@ -576,8 +577,9 @@ def write_hourly_backend_event_summary(
         absoulte_matches_made=len(matches_made),
         connection_disconnection_events=connection_disconnection_events,
         total_amount_of_users=total_amount_of_users,
-        total_matches=total_matches,
-        total_amount_events_processed=event_count
+        # total_matches=total_matches,
+        total_amount_events_processed=event_count,
+        summary_for_hour=this_hour
     ), cls=CoolerJson))
     from tracking.models import Summaries
 
@@ -589,6 +591,73 @@ def write_hourly_backend_event_summary(
     )
 
     return summary_meta
+
+
+def create_series(start_time, end_time):
+    # Create a graph of histogram or something from the hourly event summaries
+
+    from tracking.models import Summaries
+
+    summaries = Summaries.objects.filter(label="hourly-event-summary")
+
+    time_series = {
+        # all is per hour, this doesn't contain failed logins
+        "logins__time_x_login_count_y": [],
+        "registrations__time_x_login_count_y": [],
+        "matches_made__time_x_login_count_y": [],
+    }
+
+    user_actions_frequency_map = {}
+
+    def update_user_action_fequency_map(hash, **kwargs):
+        current = user_actions_frequency_map[hash]
+        for k in kwargs:
+            if k not in current:
+                if isinstance(kwargs[k], str):
+                    current[k] = [kwargs[k]]
+                else:
+                    current[k] = kwargs[k]
+            elif isinstance(kwargs[k], list):
+                assert isinstance(current[k], list)
+                current[k] += kwargs[k]
+            elif isinstance(kwargs[k], str):
+                assert isinstance(current[k], list)
+                current[k].append(kwargs[k])
+        user_actions_frequency_map[hash] = current
+    for sum in summaries:
+
+        time_series["logins__time_x_login_count_y"].append({
+            "x": sum.meta["summary_for_hour"],
+            "y": len(sum.meta["users_sucessfully_logged_in"])
+        })
+
+        time_series["registrations__time_x_login_count_y"].append({
+            "x": sum.meta["summary_for_hour"],
+            "y": len(sum.meta["new_user_registrations"])
+        })
+
+        time_series["matches_made__time_x_login_count_y"].append({
+            "x": sum.meta["summary_for_hour"],
+            "y": len(sum.meta["matches_made"])
+        })
+
+        # Then check if there are events to be added to the user action frequency map
+        for hash in sum.meta["chat_connections_per_user"].keys():
+
+            for event in sum.meta["chat_connections_per_user"][hash]["disconnected"]:
+                update_user_action_fequency_map(hash, disconnected=event)
+
+            for event in sum.meta["chat_connections_per_user"][hash]["connected"]:
+                update_user_action_fequency_map(hash, connected=event)
+            # update_user_action_fequency_map(hash, )
+
+    # Now we convert this into format for 'chartjs'
+    # https://www.chartjs.org/docs/latest/samples/information.html
+    # also pretty nice: https://github.com/plotly/plotly.js/
+
+    return dict(
+        time_series=time_series
+    )
 
 
 @shared_task
