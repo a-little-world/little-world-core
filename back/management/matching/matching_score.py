@@ -15,7 +15,8 @@ from .score_table_lookup import (
     check__volunteer_vs_learner,
     check__time_slot_overlap,
     check__interest_overlap,
-    check__partner_sex_choice
+    check__partner_sex_choice,
+    check__days_searching_already
 )
 
 
@@ -94,7 +95,8 @@ SCORING_FUNCTIONS = dict(  # This matches models.matching_score.TabaseScoring.Sc
     volunteer_vs_leaner_check=check__volunteer_vs_learner,
     time_slot_overlap_check=check__time_slot_overlap,
     interests_overlap_check=check__interest_overlap,
-    partner_sex_prediction=check__partner_sex_choice
+    partner_sex_prediction=check__partner_sex_choice,
+    searching_since_check=check__days_searching_already
 )
 
 

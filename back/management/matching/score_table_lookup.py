@@ -177,3 +177,24 @@ def check__partner_sex_choice(usr1, usr2):
     return True, 0, f"usr1({usr1.email}) wants {c1}. usr2({usr2.email}) wants {c2}\n" + \
         f"For usr1({usr1.email} we predict {p1}. For usr2({usr2.email}) we predict {p2}",  \
         {"values": (c1, c2), "gender_predictions": (p1, p2)}
+
+
+def check__days_searching_already(usr1, usr2):
+    from datetime import datetime
+    import math
+    # This property is basicly only calculated for usr1 ( doesn't have anything todo with usr2 really )
+
+    # for now we user user.profile.updated_at to determine how long they where searching
+    # TODO: we shoould have a seperate DB field for when the user started searching.
+    def score(count_days):
+        if count_days <= 7:
+            return 0
+        return math.tanh((count_days - 7.0)*math.pi/14) * 30
+
+    searching_since = usr1.profile.updated_at
+    now = datetime.now()
+    delta = now - searching_since
+    days = delta.days
+
+    return True, score(days), f"User has been waiting for at least {days} days", \
+        {"values": (days, "unchecked")}

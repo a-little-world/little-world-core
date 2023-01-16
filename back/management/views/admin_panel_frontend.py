@@ -84,3 +84,11 @@ def admin_panel(request):
                       "user_list": user_list_data,
                       "extra_info": extra_info,
                   }, cls=CoolerJson)})
+
+
+@user_passes_test(lambda u: u.is_staff)
+def stats_panel(request):
+    """
+    Display backend stats
+    """
+    return render(request, "stats_panel_frontend.html", {})
