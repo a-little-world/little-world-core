@@ -49,9 +49,11 @@ class Notification(models.Model):
 
     def mark_read(self):
         self.state = self.NotificationState.READ
+        self.save()
 
     def mark_archived(self):
         self.state = self.NotificationState.ARCHIVED
+        self.save()
 
 
 class SelfNotificationSerializer(serializers.ModelSerializer):
