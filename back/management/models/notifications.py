@@ -48,10 +48,14 @@ class Notification(models.Model):
     meta = models.JSONField(default=dict, blank=True)
 
     def mark_read(self):
+        from datetime import datetime
+        self.time_read = datetime.now()
         self.state = self.NotificationState.READ
+        self.save()
 
     def mark_archived(self):
         self.state = self.NotificationState.ARCHIVED
+        self.save()
 
 
 class SelfNotificationSerializer(serializers.ModelSerializer):
