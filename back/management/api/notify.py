@@ -1,10 +1,10 @@
-from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
 from typing import Optional
 from rest_framework import authentication, permissions, viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.utils.translation import gettext_lazy as _
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from rest_framework import serializers
 from django.core.paginator import Paginator
 from ..models.notifications import Notification, SelfNotificationSerializer
@@ -61,13 +61,16 @@ class NotificationGetApi(APIView):
 
 @dataclass
 class NotificationActionParams(NotificationApiParams):
-    hash: Optional[str] = None
+    hash: 'list[str]' = field(default_factory=list)
     action: Optional[str] = None
 
 
 class NotificationActionSerializer(NotificationApiSerializer):
-    hash = serializers.CharField(required=True)
+    hash = serializers.ListField(required=True)
     action = serializers.CharField(required=True)
+
+    def create(self, validated_data):
+        return NotificationActionParams(**validated_data)  # type: ignore
 
 
 actions = ["read", "archive"]
@@ -83,31 +86,36 @@ class NotificationActionApi(APIView):
         parameters=[
             OpenApiParameter(name="action", description="one of: " + ", ".join([f"'{a}'" for a in actions]),
                              required=True, type=str, location='path'),
-            OpenApiParameter(name="hash", description="hash of notification belonging to current user",
-                             required=True, type=str)
-        ]
+        ],
+        request=inline_serializer(
+            name='hash',
+            fields={
+                'hash': serializers.ListSerializer(
+                    child=serializers.CharField()
+                ),
+            })
     )
     def post(self, request, **kwargs):
         """
         this expects some low profile update action like e.g.:  'read', 'archive'
         -> ntfy/read hash=XXXX
         """
-
         serializer = NotificationActionSerializer(
-            data={**request.query_params, 'action': kwargs.get('action', None)})  # type: ignore
+            data={**request.data, 'action': kwargs.get('action', None)})  # type: ignore
         serializer.is_valid(raise_exception=True)
         params = serializer.save()
 
         assert isinstance(request.user, User)
-        notifications_user = request.user.get_notifications()
 
-        if not notifications_user.exists():
-            return Response(_("Notification %(hash)s for user" % params.hash), status=status.HTTP_400_BAD_REQUEST)
+        usr_notifications = Notification.objects.filter(
+            user=request.user)
 
-        notification = notifications_user.first()
-        assert isinstance(notification, Notification)
-
-        if params.action == "read":
-            notification.mark_read()
-        elif params.action == "archive":
-            notification.mark_archived()
+        for notification_hash in params.hash:
+            notification = usr_notifications.filter(hash=notification_hash)
+            assert notification.exists()
+            notification = notification.first()
+            if params.action == "read":
+                notification.mark_read()
+            elif params.action == "archive":
+                notification.mark_archived()
+        return Response("Sucessfully performed notification actions")
