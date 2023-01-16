@@ -597,35 +597,32 @@ def create_series(start_time, end_time):
     # Create a graph of histogram or something from the hourly event summaries
 
     from tracking.models import Summaries
+    from datetime import datetime
 
     summaries = Summaries.objects.filter(label="hourly-event-summary")
+
+    start_time = end_time.replace(minute=0, second=0, microsecond=0)
+    end_time = end_time.replace(minute=0, second=0, microsecond=0)
 
     time_series = {
         # all is per hour, this doesn't contain failed logins
         "logins__time_x_login_count_y": [],
         "registrations__time_x_login_count_y": [],
         "matches_made__time_x_login_count_y": [],
+        "events_happened__time_x_login_count_y": [],
+        "chat_messages_send__time_x_send_count_y": [],
+        "users_online__time_x_online_count_y": []
     }
 
-    user_actions_frequency_map = {}
-
-    def update_user_action_fequency_map(hash, **kwargs):
-        current = user_actions_frequency_map[hash]
-        for k in kwargs:
-            if k not in current:
-                if isinstance(kwargs[k], str):
-                    current[k] = [kwargs[k]]
-                else:
-                    current[k] = kwargs[k]
-            elif isinstance(kwargs[k], list):
-                assert isinstance(current[k], list)
-                current[k] += kwargs[k]
-            elif isinstance(kwargs[k], str):
-                assert isinstance(current[k], list)
-                current[k].append(kwargs[k])
-        user_actions_frequency_map[hash] = current
+    user_hash_online_map = {}
     for sum in summaries:
+        summary_time = datetime.strptime(
+            sum.meta['summary_for_hour'], '%Y-%m-%d %H:%M:%S.%f')
+        if summary_time > end_time or summary_time < start_time:
+            print("Summary outside time range ignoring...")
+            continue
 
+        total_send_messages = 0
         time_series["logins__time_x_login_count_y"].append({
             "x": sum.meta["summary_for_hour"],
             "y": len(sum.meta["users_sucessfully_logged_in"])
@@ -641,23 +638,45 @@ def create_series(start_time, end_time):
             "y": len(sum.meta["matches_made"])
         })
 
+        time_series["events_happened__time_x_login_count_y"].append({
+            "x": sum.meta["summary_for_hour"],
+            "y": sum.meta["total_amount_events_processed"]
+        })
+
         # Then check if there are events to be added to the user action frequency map
         for hash in sum.meta["chat_connections_per_user"].keys():
 
             for event in sum.meta["chat_connections_per_user"][hash]["disconnected"]:
-                update_user_action_fequency_map(hash, disconnected=event)
+                user_hash_online_map[hash] = False
 
             for event in sum.meta["chat_connections_per_user"][hash]["connected"]:
-                update_user_action_fequency_map(hash, connected=event)
+                user_hash_online_map[hash] = True
+
             # update_user_action_fequency_map(hash, )
+            total_send_messages += sum.meta["chat_connections_per_user"][hash]["send_messages_count"]
+
+        time_series["chat_messages_send__time_x_send_count_y"].append({
+            "x": sum.meta["summary_for_hour"],
+            "y": total_send_messages
+        })
+
+        time_series["users_online__time_x_online_count_y"].append({
+            "x": sum.meta["summary_for_hour"],
+            "y": len([user_hash_online_map[u] for u in user_hash_online_map if user_hash_online_map[u] == True])
+        })
 
     # Now we convert this into format for 'chartjs'
     # https://www.chartjs.org/docs/latest/samples/information.html
     # also pretty nice: https://github.com/plotly/plotly.js/
 
-    return dict(
-        time_series=time_series
+    Summaries.objects.create(
+        label="time-series-summary",
+        slug=f"start-{start_time}-{end_time}".replace(" ", "-"),
+        rate=Summaries.RateChoices.HOURLY,
+        meta=time_series
     )
+
+    return time_series
 
 
 @shared_task
