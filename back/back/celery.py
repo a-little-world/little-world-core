@@ -1,4 +1,5 @@
 import os
+import json
 from datetime import datetime
 from django.conf import settings
 from celery.signals import worker_ready
@@ -55,5 +56,27 @@ app.conf.beat_schedule = {
     'new-message-notification': {
         'task': 'management.tasks.send_new_message_notifications_all_users',
         'schedule': 60.0 * 60.0  # Every hour
+    },
+    'generate-hourly-event-summary': {
+        'task': 'management.tasks.write_hourly_backend_event_summary',
+        'schedule': 60.0 * 60.0,  # Every hour
+    },
+    'generate-stats-series-day-grouped': {
+        'task': 'management.tasks.create_series',
+        'schedule': 60.0 * 60.0,  # Every hour
+        'kwargs': json.dumps({
+            "regroup_by": "day"
+        })
+    },
+    'generate-stats-series-hour-grouped': {
+        'task': 'management.tasks.create_series',
+        'schedule': 60.0 * 60.0,
+        'kwargs': json.dumps({
+            "regroup_by": "hour"
+        })
+    },
+    'generate-static-stats': {
+        'task': 'management.tasks.collect_static_stats',
+        'schedule': 60.0 * 60.0,  # Every hour
     }
 }
