@@ -145,6 +145,18 @@ elif DEBUG:
     CSRF_TRUSTED_ORIGINS = ["https://*.github.dev"]
     CSRF_ORIGIN_ALLOW_ALL = True
 
+if IS_STAGE:
+
+    dev_origins = [
+        "http://localhost",
+        "https://localhost",
+        "https://localhost:3333",
+        "http://localhost:3333",
+    ]
+
+    CORS_ALLOWED_ORIGINS += dev_origins
+    CORS_ORIGIN_WHITELIST += dev_origins
+    CSRF_TRUSTED_ORIGINS += dev_origins
 
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
