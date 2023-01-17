@@ -24,7 +24,7 @@ from .views.user_form_frontend import (
     email_verification_link_screen,
     user_form
 )
-from .views.admin_panel_frontend import admin_panel
+from .views.admin_panel_frontend import admin_panel, stats_panel
 
 from rest_framework.routers import DefaultRouter
 from django_rest_passwordreset.views import ResetPasswordValidateTokenViewSet, ResetPasswordConfirmViewSet, \
@@ -156,6 +156,8 @@ view_routes = [
 
 
     path(f"admin_panel/", admin_panel, name="admin_panel"),
+
+    path(f"stats/<str:regrouped_by>", stats_panel, name="stats_dashboard"),
 
 ]
 
