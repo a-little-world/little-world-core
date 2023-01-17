@@ -86,9 +86,26 @@ def admin_panel(request):
                   }, cls=CoolerJson)})
 
 
-@user_passes_test(lambda u: u.is_staff)
-def stats_panel(request):
+@user_passes_test(lambda u: u.state.has_extra_user_permission("view-stats") or u.is_staff)
+def stats_panel(request, regrouped_by="day"):
     """
     Display backend stats
     """
-    return render(request, "stats_panel_frontend.html", {})
+    from tracking.models import Summaries
+
+    print("RENDER STATA")
+
+    all_series = Summaries.objects.filter(
+        label=f"time-series-summary-{regrouped_by}").order_by("time_created").first().meta
+
+    static_stats = Summaries.objects.filter(
+        label="static-stats-summary").order_by("time_created").first().meta
+
+    data = {
+        **all_series,
+        "static_stats": static_stats
+    }
+
+    return render(request, "stats_panel_frontend.html", {
+        "stats_data": json.dumps(data)
+    })
