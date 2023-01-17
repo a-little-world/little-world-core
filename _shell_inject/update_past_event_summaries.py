@@ -36,7 +36,7 @@ def calculate_for_all_past_hours():
     # (5h) + 7h + 12h = 0 h
     # 19h + (12 days + 12 days)  * 24h ~ 570
 
-    limit = 593
+    limit = 800
 
     while (cur_check_time + ONE_HOUR) < NOW:
         if limit is not None:
