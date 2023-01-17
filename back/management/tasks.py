@@ -593,15 +593,26 @@ def write_hourly_backend_event_summary(
     return summary_meta
 
 
-def create_series(start_time, end_time):
+@shared_task
+def create_series(start_time=None, end_time=None, regroup_by="hour"):
     # Create a graph of histogram or something from the hourly event summaries
 
     from tracking.models import Summaries
     from datetime import datetime
 
-    summaries = Summaries.objects.filter(label="hourly-event-summary")
+    if start_time is None:
+        first_event_logged_time = datetime(
+            2022, 12, 19, 5, 18, 11, 931582)
+        start_time = str(first_event_logged_time)
 
-    start_time = end_time.replace(minute=0, second=0, microsecond=0)
+    if end_time is None:
+        end_time = str(datetime.now())
+
+    summaries = Summaries.objects.filter(label="hourly-event-summary")
+    end_time = datetime.strptime(end_time, '%Y-%m-%d %H:%M:%S.%f')
+    start_time = datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S.%f')
+
+    start_time = start_time.replace(minute=0, second=0, microsecond=0)
     end_time = end_time.replace(minute=0, second=0, microsecond=0)
 
     time_series = {
@@ -617,9 +628,10 @@ def create_series(start_time, end_time):
     user_hash_online_map = {}
     for sum in summaries:
         summary_time = datetime.strptime(
-            sum.meta['summary_for_hour'], '%Y-%m-%d %H:%M:%S.%f')
-        if summary_time > end_time or summary_time < start_time:
-            print("Summary outside time range ignoring...")
+            sum.meta['summary_for_hour'], '%Y-%m-%d %H:%M:%S')
+        if not (summary_time < end_time and summary_time > start_time):
+            print(f"Summary '{summary_time}' outside time range ignoring...",
+                  f"end: {end_time}, start: {start_time}", summary_time < end_time, summary_time > start_time)
             continue
 
         total_send_messages = 0
@@ -668,15 +680,72 @@ def create_series(start_time, end_time):
     # Now we convert this into format for 'chartjs'
     # https://www.chartjs.org/docs/latest/samples/information.html
     # also pretty nice: https://github.com/plotly/plotly.js/
+    if regroup_by == "hour":
+        # then there is nothing todo, perdefault it is grouped by hour
+        pass
+    elif regroup_by == "day":
+        updated_series = {}
+        time_buckets = {}
+        for k in time_series:
+            updated_series[k] = []
+            time_buckets[k] = {}
+            for elem in time_series[k]:
+                time = datetime.strptime(elem["x"], '%Y-%m-%d %H:%M:%S')
+                time = str(time.replace(
+                    hour=0, minute=0, second=0, microsecond=0))
+
+                if not time in time_buckets[k]:
+                    time_buckets[k][time] = elem["y"]
+                else:
+                    time_buckets[k][time] += elem["y"]
+        for k in time_buckets:
+            for time in time_buckets[k]:
+                updated_series[k].append({
+                    "y": time_buckets[k][time],
+                    "x": time
+                })
+        time_series = updated_series
+
+    data = {
+        "time_series": time_series
+    }
 
     Summaries.objects.create(
-        label="time-series-summary",
+        label=f"time-series-summary-{regroup_by}",
         slug=f"start-{start_time}-{end_time}".replace(" ", "-"),
         rate=Summaries.RateChoices.HOURLY,
-        meta=time_series
+        meta=data
     )
 
-    return time_series
+    return data
+
+
+@shared_task
+def collect_static_stats():
+    from management import controller
+    from tracking.models import Summaries
+
+    total_amount_of_users = User.objects.count()
+    total_matches = 0
+    c = 0
+    for u in User.objects.exclude(id=controller.get_base_management_user().id):
+        c += 1
+        print(f"scanning users ({c}/{total_amount_of_users})")
+        # -1 because the user is always matched with the base admin
+        total_matches += (u.state.matches.count() - 1)
+    data = {
+        "total_amoount_of_users": total_amount_of_users,
+        "total_matches": total_matches
+    }
+
+    Summaries.objects.create(
+        label="static-stats-summary",
+        slug="simple-static",
+        rate=Summaries.RateChoices.HOURLY,
+        meta=data
+    )
+
+    return data
 
 
 @shared_task
