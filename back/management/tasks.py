@@ -606,6 +606,7 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
         start_time = str(first_event_logged_time)
 
     if end_time is None:
+        print("END TIME not set")
         end_time = str(datetime.now())
 
     summaries = Summaries.objects.filter(label="hourly-event-summary")
@@ -627,8 +628,10 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
 
     user_hash_online_map = {}
     for sum in summaries:
-        summary_time = datetime.strptime(
-            sum.meta['summary_for_hour'], '%Y-%m-%d %H:%M:%S')
+        summary_time = sum.meta['summary_for_hour']
+        if "+" in summary_time:
+            summary_time = summary_time.split("+")[0]
+        summary_time = datetime.strptime(summary_time, '%Y-%m-%d %H:%M:%S')
         if not (summary_time < end_time and summary_time > start_time):
             print(f"Summary '{summary_time}' outside time range ignoring...",
                   f"end: {end_time}, start: {start_time}", summary_time < end_time, summary_time > start_time)
