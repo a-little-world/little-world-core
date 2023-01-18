@@ -626,11 +626,14 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
         "users_online__time_x_online_count_y": []
     }
 
+    def string_remove_timezone(time_string):
+        if "+" in time_string:
+            return time_string.split("+")[0]
+        return time_string
+
     user_hash_online_map = {}
     for sum in summaries:
-        summary_time = sum.meta['summary_for_hour']
-        if "+" in summary_time:
-            summary_time = summary_time.split("+")[0]
+        summary_time = string_remove_timezone(sum.meta['summary_for_hour'])
         summary_time = datetime.strptime(summary_time, '%Y-%m-%d %H:%M:%S')
         if not (summary_time < end_time and summary_time > start_time):
             print(f"Summary '{summary_time}' outside time range ignoring...",
@@ -693,7 +696,8 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
             updated_series[k] = []
             time_buckets[k] = {}
             for elem in time_series[k]:
-                time = datetime.strptime(elem["x"], '%Y-%m-%d %H:%M:%S')
+                time = datetime.strptime(string_remove_timezone(
+                    elem["x"]), '%Y-%m-%d %H:%M:%S')
                 time = str(time.replace(
                     hour=0, minute=0, second=0, microsecond=0))
 
