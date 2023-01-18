@@ -64,16 +64,16 @@ app.conf.beat_schedule = {
     'generate-stats-series-day-grouped': {
         'task': 'management.tasks.create_series',
         'schedule': 60.0 * 60.0,  # Every hour
-        'kwargs': json.dumps({
+        'kwargs': {
             "regroup_by": "day"
-        })
+        }
     },
     'generate-stats-series-hour-grouped': {
         'task': 'management.tasks.create_series',
         'schedule': 60.0 * 60.0,
-        'kwargs': json.dumps({
+        'kwargs': {
             "regroup_by": "hour"
-        })
+        }
     },
     'generate-static-stats': {
         'task': 'management.tasks.collect_static_stats',
