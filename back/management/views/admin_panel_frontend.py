@@ -96,10 +96,10 @@ def stats_panel(request, regrouped_by="day"):
     print("RENDER STATA")
 
     all_series = Summaries.objects.filter(
-        label=f"time-series-summary-{regrouped_by}").order_by("time_created").first().meta
+        label=f"time-series-summary-{regrouped_by}").order_by("-time_created").first().meta
 
     static_stats = Summaries.objects.filter(
-        label="static-stats-summary").order_by("time_created").first().meta
+        label="static-stats-summary").order_by("-time_created").first().meta
 
     data = {
         **all_series,
