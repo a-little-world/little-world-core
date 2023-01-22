@@ -172,8 +172,8 @@ class LoginApi(APIView):
         """
         Allowes to authenticate users using the extra auth token
         """
-        if (not settings.IS_DEV) and (not settings.IS_STAGE):
-            assert False, "For now this api is only available on stage"
+        # if (not settings.IS_DEV) and (not settings.IS_STAGE):
+        #    assert False, "For now this api is only available on stage"
 
         serializer = AutoLoginSerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
