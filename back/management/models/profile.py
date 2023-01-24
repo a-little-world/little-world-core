@@ -294,7 +294,7 @@ class ProfileBase(models.Model):
     phone_mobile = PhoneNumberField(blank=True, unique=False)
 
     description = models.TextField(
-        default="", blank=True, max_length=300)
+        default="", blank=True, max_length=999)
     language_skill_description = models.TextField(
         default="", blank=True, max_length=300)
 
