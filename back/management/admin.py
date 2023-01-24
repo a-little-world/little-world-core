@@ -17,6 +17,11 @@ class BackendStateAdmin(admin.ModelAdmin):
     list_display = ('slug', 'name', 'hash', 'meta', 'created_at')
 
 
+@admin.register(models.help_message.HelpMessage)
+class HelpMessageStateAdmin(admin.ModelAdmin):
+    list_display = ('user', 'message', 'hash')
+
+
 @admin.register(models.community_events.CommunityEvent)
 class CommunityEventAdmin(admin.ModelAdmin):
     list_display = ('title', 'active', 'description',
