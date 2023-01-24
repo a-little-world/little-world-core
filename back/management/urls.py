@@ -112,6 +112,8 @@ api_routes = [
     #    path(_api_url('user/match', admin=True), api.admin.MakeMatch.as_view()),
     #    path(_api_url('user/suggest_match', admin=True),
     #         api.admin.MatchingSuggestion.as_view()),
+    path(_api_url('help_message'),
+         api.help.SendHelpMessage.as_view()),
     *router.urls
 ]
 
