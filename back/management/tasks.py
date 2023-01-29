@@ -241,7 +241,7 @@ def archive_current_profile_user(usr_hash):
 
 @shared_task
 def send_new_message_notifications_all_users(
-    filter_out_base_user_messages=True,
+    filter_out_base_user_messages=False,
     do_send_emails=True,
     do_write_new_state_to_db=True,
     send_only_if_logged_in_withing_last_3_weeks=False
@@ -274,7 +274,7 @@ def send_new_message_notifications_all_users(
     users_to_new_unread_stack = {}
 
     users = User.objects.all()
-    # users = users.filter(email="herrduenschnlate@gmail.com")
+    #users = users.filter(email="jimmyhendrix1024@gmail.com")
     print("Prefiltered users", users.count())
     for user in users:
         print("==== checking ===> ", user.email, user.hash)
@@ -284,6 +284,7 @@ def send_new_message_notifications_all_users(
         for dialog in dialogs:
 
             other_user = dialog.user1 if dialog.user1 != user else dialog.user2
+            print("THE other guy is", other_user.email)
 
             unread = MessageModel.get_unread_count_for_dialog_with_user(
                 other_user, user)
@@ -308,12 +309,17 @@ def send_new_message_notifications_all_users(
                 else:
                     new_unread_stack.append(urstd)
                     print("updated unread", urstd)
+                    print("\n NEW UNREAD STATE", new_unread_stack, "\n")
 
         # Now we can load the old unread stack
         print("Checking last unread state", user.state.unread_messages_state)
         current_unread_state = user.state.unread_messages_state
         users_to_old_unread_stack[user.email] = current_unread_state
+        print("SCANNING OLD STATES: \n")
+
+        new_unread_stack_copy = new_unread_stack.copy()
         for unread_state in new_unread_stack:
+            print("\nNEW DIA", unread_state, "\n")
             old_dialog = is_dialog_in_old_unread_stack(
                 unread_state["dialog_id"], current_unread_state)
 
@@ -321,6 +327,7 @@ def send_new_message_notifications_all_users(
                 # Then we know this is definately a new dialog, we need to notifiy about
                 print("Completely new dialog unread state", unread_state)
             else:
+                print("OLD DIA ", old_dialog)
                 if old_dialog["last_message_id"] != unread_state["last_message_id"]:
                     # Then we know there is another new mesasage in a disalog we need to notify about
                     # So wee need to delete the old dialog refernce in the current model
@@ -331,7 +338,12 @@ def send_new_message_notifications_all_users(
                     # Then this is not a new unread message so we need to remove it from the stack
                     print("Found old unread state",
                           unread_state, ", removing...")
-                    new_unread_stack.remove(unread_state)
+                    print("\nBREFORE DELETE", new_unread_stack)
+                    new_unread_stack_copy.remove(unread_state)
+                    print("\nAFTER DELETE", new_unread_stack_copy, "\n")
+
+        new_unread_stack = new_unread_stack_copy
+        print("\n UNREAD AFTER", new_unread_stack, "\n")
 
         print("Filtered for new unread states: ",
               new_unread_stack, current_unread_state)
