@@ -199,7 +199,7 @@ class User(AbstractUser):
         self.state.notifications.add(notification)
         # TODO: in the future also send a websocked 'notification' object!
 
-    def message(self, msg, sender=None):
+    def message(self, msg, sender=None, auto_mark_read=False):
         """
         Sends the users a chat message
         theoreticly this could be used to send a message from any sender
@@ -210,7 +210,10 @@ class User(AbstractUser):
         if not sender:
             sender = get_base_management_user()
 
-        async_to_sync(save_text_message)(msg, sender, self)
+        msg = async_to_sync(save_text_message)(msg, sender, self)
+        if auto_mark_read:
+            msg.read = True
+            msg.save()
 
     def send_email(self,
                    subject: str,

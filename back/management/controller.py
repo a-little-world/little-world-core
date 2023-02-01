@@ -171,7 +171,7 @@ ich bin Oliver, einer der Gründer von Little World. Wir freuen uns riesig, Dich
 
 Wir freuen uns über Deine Unterstützung und senden ganz liebe Grüße aus Aachen,
 Oliver  
-        """.format(first_name=first_name)))
+        """.format(first_name=first_name)), auto_mark_read=True)
     return usr
 
 
@@ -231,8 +231,10 @@ Schau dir gerne schon vorher das Profil von {other_name} an, indem du auf den Na
 Damit euch viel Spaß! Schöne Grüße vom Team Little World
 """)
         # Sends a message from the admin model
-        usr1.message(match_message.format(other_name=usr2.profile.first_name))
-        usr2.message(match_message.format(other_name=usr1.profile.first_name))
+        usr1.message(match_message.format(
+            other_name=usr2.profile.first_name), auto_mark_read=True)
+        usr2.message(match_message.format(
+            other_name=usr1.profile.first_name), auto_mark_read=True)
 
     if send_email:
         usr1.send_email(

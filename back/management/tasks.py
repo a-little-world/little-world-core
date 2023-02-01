@@ -370,7 +370,7 @@ def send_new_message_notifications_all_users(
 
     for u in users_to_send_update_to:
         print("Notifying ", u.email)
-        if False:  # do_send_emails:
+        if True:  # do_send_emails:
             u.send_email(
                 subject=pgettext_lazy(
                     "tasks.unread-notifications-email-subject", "Neue Nachricht(en) auf Little World"),

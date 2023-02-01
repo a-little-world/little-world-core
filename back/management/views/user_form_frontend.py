@@ -140,4 +140,4 @@ def user_form(request, path=None):
     Renders the main user form app, this data is used for matching the users
     this app is allowed to reserve all front/* paths
     """
-    return _render_user_form_app(request, localdev=settings.IS_DEV)
+    return _render_user_form_app(request, localdev=settings.IS_DEV, use_cookie_banner=True)
