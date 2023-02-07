@@ -258,6 +258,7 @@ class MakeMatch(APIView):
         return Response(_("Users sucessfully matched"))
 
 
+@dataclass
 class UnmatchUsersParams:
     user1: str
     user2: str
@@ -273,7 +274,7 @@ class UnmatchUsersInputSerializer(serializers.Serializer):
     delete_video_room = serializers.BooleanField(required=False)
     delete_dialog = serializers.BooleanField(required=False)
 
-    def clean(self, validated_data):
+    def create(self, validated_data):
         return UnmatchUsersParams(**validated_data)
 
 
