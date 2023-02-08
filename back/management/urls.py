@@ -94,6 +94,9 @@ api_routes = [
     path(_api_url('user/verify/email/<str:auth_data>', end_slash=False),
          api.user.VerifyEmail.as_view()),
 
+    path(_api_url('user/verify/email_resend'),
+         api.user.resend_verification_mail),
+
     # Admin
     path(_api_url('user/get', admin=True), api.admin.GetUser.as_view()),
     path(_api_url('user/list', admin=True), api.admin.UserList.as_view()),

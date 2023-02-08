@@ -1,4 +1,7 @@
 from rest_framework.views import APIView
+from django.contrib.auth.decorators import login_required
+from emails import mails
+from rest_framework.decorators import api_view
 from django.utils.translation import pgettext_lazy
 from typing import Optional
 from django.contrib.auth import logout
@@ -357,7 +360,7 @@ class UpdateSearchingStateApi(APIView):
                               authentication.BasicAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
-    @ extend_schema(request=SearchingStateApiSerializer(many=False))
+    @extend_schema(request=SearchingStateApiSerializer(many=False))
     def post(self, request, **kwargs):
         """
         Update the users serching state, current possible states: 'idle', 'searching'
@@ -382,7 +385,27 @@ class UpdateSearchingStateApi(APIView):
                                       "State updated!"))
 
 
-@ receiver(reset_password_token_created)
+@login_required
+@api_view(['POST'])
+def resend_verification_mail(request):
+    link_route = 'mailverify_link'
+    verifiaction_url = f"{settings.BASE_URL}/{link_route}/{request.user.state.get_email_auth_code_b64()}"
+    mails.send_email(
+        recivers=[request.user.email],
+        subject=pgettext_lazy(
+            "api.register-welcome-mail-subject", "{code} - Verifizierungscode zur E-Mail Bestätigun".format(code=request.user.state.get_email_auth_pin())),
+        mail_data=mails.get_mail_data_by_name("welcome"),
+        mail_params=mails.WelcomeEmailParams(
+            first_name=request.user.profile.first_name,
+            verification_url=verifiaction_url,
+            verification_code=str(request.user.state.get_email_auth_pin())
+        )
+    )
+
+    return Response("Resend verification mail")
+
+
+@receiver(reset_password_token_created)
 def password_reset_token_created(sender, instance, reset_password_token, *args, **kwargs):
     """
     Handles password reset tokens
