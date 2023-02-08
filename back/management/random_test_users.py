@@ -41,6 +41,19 @@ def random_phone_number():
     return f'+49{random.randint(100000000, 999999999)}'
 
 
+def random_availabilities():
+    from management.validators import SLOTS, DAYS
+
+    data = {}
+    for day in DAYS:
+        amount = random.randint(0, len(SLOTS))
+        if amount == 0:
+            data[day] = []
+        else:
+            data[day] = random.sample(SLOTS, amount)
+    return data
+
+
 def random_avatar():
     def rand_color():
         def r(): return random.randint(0, 255)
@@ -150,6 +163,8 @@ def create_test_user(i, user_seeds=None, password=None, email=None):
         interests.append(c[r])
 
     usr.profile.interests = interests
+    usr.profile.availability = random_availabilities()
+    print("TBS: availabilities", usr.profile.availability)
     for choice in user_form_choices:
         setattr(usr.profile, choice, random_choice(
             user_form_choices[choice]))
