@@ -440,6 +440,7 @@ def write_hourly_backend_event_summary(
     matches_made = []
     connection_disconnection_events = []
     event_errors = []
+    volunteer_learner_registration_ration = 0.0
     absolute_requests_tracked = 0
 
     def init_connection_hash_is_empty(hash):
@@ -557,7 +558,17 @@ def write_hourly_backend_event_summary(
                         print(f"Count retrive room {room_name}")
                         event_errors.append(str(e) + str(event.metadata))
 
-        # Now see how many users actually sucessfully loggedin during that hour
+    total_volunteers = 0
+    total_learners = 0
+
+    for mail in new_user_registrations:
+        _u = controller.get_user_by_email(mail)
+        if _u.profile.user_type == "volunteer":
+            total_volunteers += 1
+        else:
+            total_learners += 1
+
+    # Now see how many users actually sucessfully loggedin during that hour
     for u in User.objects.filter(last_login__range=(this_hour, one_hour_later)):
         users_sucessfully_logged_in.append(u.hash)
 
@@ -580,6 +591,8 @@ def write_hourly_backend_event_summary(
     summary_meta = json.loads(json.dumps(dict(
         chat_connections_per_user=chat_connections_per_user,
         new_user_registrations=new_user_registrations,
+        amount_new_volunteers=total_volunteers,
+        amount_new_learners=total_learners,
         users_called_login_api=users_called_login_api,
         users_sucessfully_logged_in=users_sucessfully_logged_in,
         users_changed_profile=users_changed_profile,
@@ -636,7 +649,9 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
         "matches_made__time_x_login_count_y": [],
         "events_happened__time_x_login_count_y": [],
         "chat_messages_send__time_x_send_count_y": [],
-        "users_online__time_x_online_count_y": []
+        "users_online__time_x_online_count_y": [],
+        "volunteer_registrations__time_x_vol_y": [],
+        "learner_registrations__time_x_vol_y": [],
     }
 
     def string_remove_timezone(time_string):
@@ -657,6 +672,16 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
         time_series["logins__time_x_login_count_y"].append({
             "x": sum.meta["summary_for_hour"],
             "y": len(sum.meta["users_sucessfully_logged_in"])
+        })
+
+        time_series["volunteer_registrations__time_x_vol_y"].append({
+            "x": sum.meta["summary_for_hour"],
+            "y": sum.meta["amount_new_volunteers"]
+        })
+
+        time_series["learner_registrations__time_x_vol_y"].append({
+            "x": sum.meta["summary_for_hour"],
+            "y": sum.meta["amount_new_learners"]
         })
 
         time_series["registrations__time_x_login_count_y"].append({
@@ -746,16 +771,25 @@ def collect_static_stats():
     from tracking.models import Summaries
 
     total_amount_of_users = User.objects.count()
+    amount_of_volunteer = 0
+    amount_of_learners = 0
     total_matches = 0
     c = 0
     for u in User.objects.exclude(id=controller.get_base_management_user().id):
         c += 1
         print(f"scanning users ({c}/{total_amount_of_users})")
+        if u.profile.user_type == "volunteer":
+            amount_of_volunteer += 1
+        else:
+            amount_of_learners += 1
         # -1 because the user is always matched with the base admin
         total_matches += (u.state.matches.count() - 1)
+
     data = {
         "total_amoount_of_users": total_amount_of_users,
-        "total_matches": total_matches
+        "total_matches": total_matches,
+        "total_amount_of_volunteers": amount_of_volunteer,
+        "total_amount_of_learners": amount_of_learners,
     }
 
     Summaries.objects.create(
