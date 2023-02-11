@@ -1,3 +1,4 @@
+from datetime import datetime
 from cookie_consent.models import CookieGroup, Cookie
 from celery import shared_task
 from tracking.utils import inline_track_event
@@ -431,6 +432,7 @@ def write_hourly_backend_event_summary(
     print("Found" + str(event_count) + "events in that hour")
 
     chat_connections_per_user = {}
+    chat_interations_per_dialog = {}
     new_user_registrations = []
     users_called_login_api = []
     users_sucessfully_logged_in = []
@@ -449,6 +451,13 @@ def write_hourly_backend_event_summary(
                 "connected": [],
                 "disconnected": [],
                 "send_messages_count": 0
+            }
+
+    def init_dialog_in_chat_interaction(id_combined):
+        if not id_combined in chat_interations_per_dialog:
+            chat_interations_per_dialog[id_combined] = {
+                "amnt_msgs_send": 0,
+                "msgs": []
             }
 
     i = -1
@@ -491,6 +500,16 @@ def write_hourly_backend_event_summary(
 
             if all([x in event.tags for x in ['chat', 'channels', 'message-send']]):
                 init_connection_hash_is_empty(caller_hash)
+                pk1, pk2 = event.meta["channel_meta"]["from_pk"], event.meta["channel_meta"]["to_pk"]
+                pk1, pk2 = int(pk1), int(pk2)
+                if pk1 < pk2:
+                    slug = f"{pk1}-{pk2}"
+                else:
+                    slug = f"{pk1}-{pk2}"
+                init_dialog_in_chat_interaction(slug)
+                chat_interations_per_dialog[slug]["amnt_msgs_send"] += 1
+                chat_interations_per_dialog[slug]["msgs"].append(
+                    event.meta["channel_meta"])
                 chat_connections_per_user[caller_hash]["send_messages_count"] += 1
         elif has_event_tags:
             # Stuff that doesnt have caller annotations
@@ -621,6 +640,42 @@ def write_hourly_backend_event_summary(
 
 @shared_task
 def create_series(start_time=None, end_time=None, regroup_by="hour"):
+    """
+    Creates plottable series every hour, these can then be rendered in the stats dashboard 
+
+    We want to measure
+    - the influx of users
+        - [x] amount registrations
+        - [x] amount registrations volunteers
+        - [x] amount registrations learners
+        - [x] ration of vol/learner of new registrations
+
+    - the page activity
+        - [x] amount of logins ( with expired sessions, new users, new device or was logged out )
+        - [x] amount of messages send ( total amount of all messages! )
+        - [] amount of chats messages where send in ( active user conversations )
+        - [] average message amount per two user chat
+        - amount of video calls held
+        - average video call time
+
+    - the match quality ( as mesured for a unique two user match )
+        - total time since last interaction
+        - amount of total messages
+        - amount of total video calls ( only counted if over 5 min mutal connection )
+        - average video call length
+        - average message amount per day with conversations
+        - average leght of interation break
+
+    - user specific stats
+        - [x] amount of ( refugees | students | workers ) ( only counted learners! )
+        - [x] amount of users prefere ( any | video | phone )
+        - [x] amount of users have lang level ( 0 | 1 | 2 | 3 )
+        - [x] amount of users interested in XXXX ( make total pie chart )
+        - [x] amount of users per age 
+        - [x] average user age
+        - [x] amount of users state ( only_registered | email verified | form completed | matched )
+        - total most available times calculated over all users
+    """
     # Create a graph of histogram or something from the hourly event summaries
 
     from tracking.models import Summaries
@@ -768,12 +823,50 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
 @shared_task
 def collect_static_stats():
     from management import controller
+    from management.models import Profile, State
     from tracking.models import Summaries
 
     total_amount_of_users = User.objects.count()
     amount_of_volunteer = 0
     amount_of_learners = 0
     total_matches = 0
+
+    lerner_group_kind = {
+        Profile.TargetGroupChoices.REFUGEE_LER: 0,
+        Profile.TargetGroupChoices.STUDENT_LER: 0,
+        Profile.TargetGroupChoices.WORKER_LER: 0,
+        "total": 0
+    }
+
+    total_user_state_stats = {
+        "only_registered": 0,
+        "email_verified": 0,
+        "form_completed": 0,
+        "matched": 0
+    }
+
+    total_prefered_call_medium = {
+        str(choice[0]): 0 for choice in Profile.SpeechMediumChoices.choices
+    }
+    total_prefered_call_medium["total"] = 0
+
+    total_user_interest_state = {
+        str(choice[0]): 0 for choice in Profile.InterestChoices.choices
+    }
+    total_user_interest_state.update({
+        "total_users_counted": 0,
+        "total_choices_counted": 0
+    })
+
+    learner_lang_level_stats = {
+        str(choice[0]): 0 for choice in Profile.LanguageLevelChoices.choices
+    }
+    learner_lang_level_stats["total"] = 0
+
+    age_buckets = {}
+    cur_year = int(datetime.now().year)
+
+    total_idividual_matches = set()
     c = 0
     for u in User.objects.exclude(id=controller.get_base_management_user().id):
         c += 1
@@ -781,15 +874,76 @@ def collect_static_stats():
         if u.profile.user_type == "volunteer":
             amount_of_volunteer += 1
         else:
+            # Learners
+            if u.state.user_form_state == State.UserFormStateChoices.FILLED:
+                lerner_group_kind[u.profile.target_group] += 1
+                lerner_group_kind["total"] += 1
+
+                learner_lang_level_stats[u.profile.lang_level] += 1
+                learner_lang_level_stats["total"] += 1
+
             amount_of_learners += 1
         # -1 because the user is always matched with the base admin
         total_matches += (u.state.matches.count() - 1)
 
+        ums = u.state.matches.all()
+        for o_usr in ums:
+            pk1, pk2 = int(u.pk), int(o_usr.pk)
+            if pk1 < pk2:
+                match_slug = f"{pk1}-{pk2}"
+            else:
+                match_slug = f"{pk1}-{pk2}"
+            total_idividual_matches.add(match_slug)
+
+        if u.state.matches.count() > 1:
+            total_user_state_stats["matched"] += 1
+        elif u.state.user_form_state == State.UserFormStateChoices.FILLED:
+            total_user_state_stats["form_completed"] += 1
+        elif u.state.email_authenticated:
+            total_user_state_stats["email_verified"] += 1
+        else:
+            total_user_state_stats["only_registered"] += 1
+
+        if u.state.user_form_state == State.UserFormStateChoices.FILLED:
+            for interest in u.profile.interests:
+                total_user_interest_state[interest] += 1
+                total_user_interest_state["total_choices_counted"] += 1
+            total_user_interest_state["total_users_counted"] += 1
+
+            total_prefered_call_medium[Profile.normalize_choice(
+                u.profile.speech_medium)]
+
+            total_prefered_call_medium["total"] += 1
+
+        # Organize age bucked by bukketing the years
+
+        usr_age = str(int(u.profile.birth_year) - cur_year)
+        if usr_age not in age_buckets:
+            age_buckets[usr_age] = 0
+        age_buckets[usr_age] += 1
+
+    amount_inidividual_matches = len(total_idividual_matches)
+    print('TBS', amount_inidividual_matches, total_idividual_matches)
+
+    # calculate the avarage user age:
+    total_age_sum = 0
+    total_ages_counted = 0
+    for a in age_buckets:
+        total_age_sum += int(a) * age_buckets[a]
+        total_ages_counted += age_buckets[a]
+
+    average_age = float(total_age_sum) / float(total_ages_counted)
+
     data = {
         "total_amoount_of_users": total_amount_of_users,
         "total_matches": total_matches,
+        "total_individual_matches": amount_inidividual_matches,
         "total_amount_of_volunteers": amount_of_volunteer,
         "total_amount_of_learners": amount_of_learners,
+        "total_user_state_stats": total_user_state_stats,
+        "total_user_interest_state": total_user_interest_state,
+        "age_buckets": age_buckets,
+        "average_age": average_age
     }
 
     Summaries.objects.create(
