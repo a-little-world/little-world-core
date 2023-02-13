@@ -500,7 +500,8 @@ def write_hourly_backend_event_summary(
 
             if all([x in event.tags for x in ['chat', 'channels', 'message-send']]):
                 init_connection_hash_is_empty(caller_hash)
-                pk1, pk2 = event.meta["channel_meta"]["from_pk"], event.meta["channel_meta"]["to_pk"]
+                print("TBS metadata", event.metadata)
+                pk1, pk2 = event.metadata["kwargs"]["channel_meta"]["from_pk"], event.metadata["kwargs"]["channel_meta"]["to_pk"]
                 pk1, pk2 = int(pk1), int(pk2)
                 if pk1 < pk2:
                     slug = f"{pk1}-{pk2}"
@@ -509,7 +510,7 @@ def write_hourly_backend_event_summary(
                 init_dialog_in_chat_interaction(slug)
                 chat_interations_per_dialog[slug]["amnt_msgs_send"] += 1
                 chat_interations_per_dialog[slug]["msgs"].append(
-                    event.meta["channel_meta"])
+                    event.metadata["kwargs"]["channel_meta"])
                 chat_connections_per_user[caller_hash]["send_messages_count"] += 1
         elif has_event_tags:
             # Stuff that doesnt have caller annotations
@@ -581,11 +582,14 @@ def write_hourly_backend_event_summary(
     total_learners = 0
 
     for mail in new_user_registrations:
-        _u = controller.get_user_by_email(mail)
-        if _u.profile.user_type == "volunteer":
-            total_volunteers += 1
-        else:
-            total_learners += 1
+        try:
+            _u = controller.get_user_by_email(mail)
+            if _u.profile.user_type == "volunteer":
+                total_volunteers += 1
+            else:
+                total_learners += 1
+        except:
+            pass
 
     # Now see how many users actually sucessfully loggedin during that hour
     for u in User.objects.filter(last_login__range=(this_hour, one_hour_later)):
@@ -710,6 +714,7 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
         "users_online__time_x_online_count_y": [],
         "volunteer_registrations__time_x_vol_y": [],
         "learner_registrations__time_x_vol_y": [],
+        "video_calls_held__time_x_amount_y": []
     }
 
     def string_remove_timezone(time_string):
@@ -728,6 +733,8 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
             print(f"Summary '{summary_time}' outside time range ignoring...",
                   f"end: {end_time}, start: {start_time}", summary_time < end_time, summary_time > start_time)
             continue
+
+        print("TBS", sum.meta)
 
         total_send_messages = 0
         time_series["logins__time_x_login_count_y"].append({
@@ -774,6 +781,7 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
 
         # amount of video calls held & average duration of video call
         # TODO: we need to consider the auto video room close time ( then no disconnect event would be required )
+        user_call_list = []  # All users that basicly ended an officially counted call this hour
         for video_event in sum.meta["connection_disconnection_events"]:
             # TODO if not in add ...
             if not video_event["room_name"] in video_room_to_users_connected:
@@ -787,24 +795,33 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
                 if video_event["event"] == "participant-connected":
 
                     video_room_to_users_connected[video_event["room_name"]
-                                                  ]["last_connect_time"] = video_event["timestamp"]
+                                                  ]["last_connect_time"] = video_event["timestamp"][0]
 
                     video_room_to_users_connected[video_event["room_name"]]["actors"].append(
                         video_event["actor"])
 
-            if len(video_room_to_users_connected[video_event["room_name"]]) > 2:
-                raise Exception("More than two users in a video room")
+            if len(video_room_to_users_connected[video_event["room_name"]]["actors"]) > 2:
+                raise Exception("More than two users in a video room \n " +
+                                str(video_room_to_users_connected[video_event["room_name"]]))
 
             if len(video_room_to_users_connected[video_event["room_name"]]) > 1:
                 print("Multiple users where connected")
                 if video_event["event"] == "participant-disconnected":
                     # If more than two users where connected and one user disconnected a session just ended
+                    print("EVENT", video_event)
+                    print("DT", datetime.strptime(
+                        video_event['timestamp'][0], '%Y-%m-%dT%H:%M:%S.%fZ'))
+
+                    duration = datetime.strptime(video_event["timestamp"][0], '%Y-%m-%dT%H:%M:%S.%fZ') - datetime.strptime(
+                        video_room_to_users_connected[video_event["room_name"]]["last_connect_time"], '%Y-%m-%dT%H:%M:%S.%fZ')
                     video_room_to_users_connected[video_event["room_name"]]["calls"].append({
-                        "duration": video_event["timestamp"] - video_room_to_users_connected[video_event["room_name"]]["last_connect_time"],
+                        "duration": str(duration),
                         "start_time": video_room_to_users_connected[video_event["room_name"]]["last_connect_time"],
-                        "end_time": video_event["timestamp"]
+                        "end_time": video_event["timestamp"][0]
                     })
-                    pass
+
+                    if duration.seconds > 300:
+                        user_call_list.append(video_event["actor"])
 
             # The check of disconnect event should be last since we first detect disconnect for 2 users and update the time in call duration
             if not video_event["actor"] in video_room_to_users_connected[video_event["room_name"]]:
@@ -813,6 +830,13 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
 
                     video_room_to_users_connected[video_event["room_name"]]["actors"].remove(
                         video_event["actor"])
+
+        # Now we can calulucate the amount of video calls that have been held
+        # We only count a call if it was over 5 min
+        time_series["video_calls_held__time_x_amount_y"].append({
+            "x": sum.meta["summary_for_hour"],
+            "y": len(user_call_list)
+        })
 
         time_series["chat_messages_send__time_x_send_count_y"].append({
             "x": sum.meta["summary_for_hour"],
@@ -855,7 +879,10 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
         time_series = updated_series
 
     data = {
-        "time_series": time_series
+        "time_series": time_series,
+        "extra": {
+            "video_room_to_users_connected": video_room_to_users_connected,
+        }
     }
 
     Summaries.objects.create(
