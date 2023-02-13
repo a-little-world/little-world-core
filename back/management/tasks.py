@@ -622,6 +622,9 @@ def write_hourly_backend_event_summary(
         absoulte_matches_made=len(matches_made),
         connection_disconnection_events=connection_disconnection_events,
         total_amount_of_users=total_amount_of_users,
+        chat_interations_per_dialog=chat_interations_per_dialog,
+        amount_dialogs_where_messages_where_send_in=len(
+            list(chat_interations_per_dialog.keys())),
         # total_matches=total_matches,
         total_amount_events_processed=event_count,
         summary_for_hour=this_hour
@@ -653,8 +656,8 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
     - the page activity
         - [x] amount of logins ( with expired sessions, new users, new device or was logged out )
         - [x] amount of messages send ( total amount of all messages! )
-        - [] amount of chats messages where send in ( active user conversations )
-        - [] average message amount per two user chat
+        - [c] amount of chats messages where send in ( active user conversations )
+        - [c] average message amount per two user chat
         - amount of video calls held
         - average video call time
 
@@ -674,7 +677,7 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
         - [x] amount of users per age 
         - [x] average user age
         - [x] amount of users state ( only_registered | email verified | form completed | matched )
-        - total most available times calculated over all users
+        - [x] total most available times calculated over all users
     """
     # Create a graph of histogram or something from the hourly event summaries
 
@@ -715,6 +718,9 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
         return time_string
 
     user_hash_online_map = {}
+
+    video_room_to_users_connected = {}
+
     for sum in summaries:
         summary_time = string_remove_timezone(sum.meta['summary_for_hour'])
         summary_time = datetime.strptime(summary_time, '%Y-%m-%d %H:%M:%S')
@@ -765,6 +771,48 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
 
             # update_user_action_fequency_map(hash, )
             total_send_messages += sum.meta["chat_connections_per_user"][hash]["send_messages_count"]
+
+        # amount of video calls held & average duration of video call
+        # TODO: we need to consider the auto video room close time ( then no disconnect event would be required )
+        for video_event in sum.meta["connection_disconnection_events"]:
+            # TODO if not in add ...
+            if not video_event["room_name"] in video_room_to_users_connected:
+                video_room_to_users_connected[video_event["room_name"]] = {
+                    "last_connect_time": "", "calls": []}
+                video_room_to_users_connected[video_event["room_name"]]["actors"] = [
+                ]
+
+            if not video_event["actor"] in video_room_to_users_connected[video_event["room_name"]]:
+
+                if video_event["event"] == "participant-connected":
+
+                    video_room_to_users_connected[video_event["room_name"]
+                                                  ]["last_connect_time"] = video_event["timestamp"]
+
+                    video_room_to_users_connected[video_event["room_name"]]["actors"].append(
+                        video_event["actor"])
+
+            if len(video_room_to_users_connected[video_event["room_name"]]) > 2:
+                raise Exception("More than two users in a video room")
+
+            if len(video_room_to_users_connected[video_event["room_name"]]) > 1:
+                print("Multiple users where connected")
+                if video_event["event"] == "participant-disconnected":
+                    # If more than two users where connected and one user disconnected a session just ended
+                    video_room_to_users_connected[video_event["room_name"]]["calls"].append({
+                        "duration": video_event["timestamp"] - video_room_to_users_connected[video_event["room_name"]]["last_connect_time"],
+                        "start_time": video_room_to_users_connected[video_event["room_name"]]["last_connect_time"],
+                        "end_time": video_event["timestamp"]
+                    })
+                    pass
+
+            # The check of disconnect event should be last since we first detect disconnect for 2 users and update the time in call duration
+            if not video_event["actor"] in video_room_to_users_connected[video_event["room_name"]]:
+
+                if video_event["event"] == "participant-disconnected":
+
+                    video_room_to_users_connected[video_event["room_name"]]["actors"].remove(
+                        video_event["actor"])
 
         time_series["chat_messages_send__time_x_send_count_y"].append({
             "x": sum.meta["summary_for_hour"],
@@ -866,6 +914,9 @@ def collect_static_stats():
     age_buckets = {}
     cur_year = int(datetime.now().year)
 
+    availability_buckets = {}
+    total_availabilities_counted = 0
+
     total_idividual_matches = set()
     c = 0
     for u in User.objects.exclude(id=controller.get_base_management_user().id):
@@ -915,7 +966,18 @@ def collect_static_stats():
 
             total_prefered_call_medium["total"] += 1
 
-        # Organize age bucked by bukketing the years
+            from management.validators import DAYS
+
+            user_availability = u.profile.availability
+            for day in user_availability:
+                for slot in user_availability[day]:
+                    slug = f"{day}_{slot}"
+                    if slug not in availability_buckets:
+                        availability_buckets[slug] = 0
+                    availability_buckets[slug] += 1
+                    total_availabilities_counted += 1
+
+                # Organize age bucked by bukketing the years
 
         usr_age = str(int(u.profile.birth_year) - cur_year)
         if usr_age not in age_buckets:
@@ -943,7 +1005,13 @@ def collect_static_stats():
         "total_user_state_stats": total_user_state_stats,
         "total_user_interest_state": total_user_interest_state,
         "age_buckets": age_buckets,
-        "average_age": average_age
+        "average_age": average_age,
+        "total_availabily_stats": {
+            "buckets": availability_buckets,
+            "total": total_availabilities_counted
+        },
+        "prefered_call_medium": total_prefered_call_medium,
+        "learner_lang_level_stat": learner_lang_level_stats
     }
 
     Summaries.objects.create(
