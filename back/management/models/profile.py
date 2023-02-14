@@ -191,6 +191,7 @@ class ProfileBase(models.Model):
 
     """
     where people want there match to be located
+    WE ARE CURRENTLY NOT ASKING THIS!
     """
     class ConversationPartlerLocation(models.TextChoices):
         ANYWHERE_VOL = "anywhere.vol", pgettext_lazy(
