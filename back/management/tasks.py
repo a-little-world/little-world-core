@@ -8,6 +8,8 @@ import datetime
 from django.utils.translation import pgettext_lazy
 from .models.community_events import CommunityEvent, CommunityEventSerializer
 from .models.backend_state import BackendState
+import operator
+from functools import reduce
 """
 also contains general startup celery tasks, most of them are automaticly run when the controller.get_base_management user is created
 some of them are managed via models.backend_state.BackendState to ensure they don't run twice!
@@ -275,7 +277,7 @@ def send_new_message_notifications_all_users(
     users_to_new_unread_stack = {}
 
     users = User.objects.all()
-    #users = users.filter(email="jimmyhendrix1024@gmail.com")
+    # users = users.filter(email="jimmyhendrix1024@gmail.com")
     print("Prefiltered users", users.count())
     for user in users:
         print("==== checking ===> ", user.email, user.hash)
@@ -510,7 +512,7 @@ def write_hourly_backend_event_summary(
                 init_dialog_in_chat_interaction(slug)
                 chat_interations_per_dialog[slug]["amnt_msgs_send"] += 1
                 chat_interations_per_dialog[slug]["msgs"].append(
-                    event.metadata["kwargs"]["channel_meta"])
+                    {**event.metadata["kwargs"]["channel_meta"], "time": event.time})
                 chat_connections_per_user[caller_hash]["send_messages_count"] += 1
         elif has_event_tags:
             # Stuff that doesnt have caller annotations
@@ -648,7 +650,7 @@ def write_hourly_backend_event_summary(
 @shared_task
 def create_series(start_time=None, end_time=None, regroup_by="hour"):
     """
-    Creates plottable series every hour, these can then be rendered in the stats dashboard 
+    Creates plottable series every hour, these can then be rendered in the stats dashboard
 
     We want to measure
     - the influx of users
@@ -660,25 +662,24 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
     - the page activity
         - [x] amount of logins ( with expired sessions, new users, new device or was logged out )
         - [x] amount of messages send ( total amount of all messages! )
-        - [c] amount of chats messages where send in ( active user conversations )
-        - [c] average message amount per two user chat
-        - amount of video calls held
-        - average video call time
+        - [x] amount of chats messages where send in ( active user conversations )
+        - [x] average message amount per two user chat
+        - [x] amount of video calls held
+        - [x] average video call time
 
     - the match quality ( as mesured for a unique two user match )
-        - total time since last interaction
-        - amount of total messages
-        - amount of total video calls ( only counted if over 5 min mutal connection )
-        - average video call length
-        - average message amount per day with conversations
-        - average leght of interation break
+        - [x] total time since last interaction
+        - [x] amount of total messages
+        - [x] amount of total video calls ( only counted if over 5 min mutal connection )
+        - [x] average video call length
+        - [x] average message amount per day with conversations
 
     - user specific stats
         - [x] amount of ( refugees | students | workers ) ( only counted learners! )
         - [x] amount of users prefere ( any | video | phone )
         - [x] amount of users have lang level ( 0 | 1 | 2 | 3 )
         - [x] amount of users interested in XXXX ( make total pie chart )
-        - [x] amount of users per age 
+        - [x] amount of users per age
         - [x] average user age
         - [x] amount of users state ( only_registered | email verified | form completed | matched )
         - [x] total most available times calculated over all users
@@ -686,6 +687,7 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
     # Create a graph of histogram or something from the hourly event summaries
 
     from tracking.models import Summaries
+    from management import controller
     from datetime import datetime
 
     if start_time is None:
@@ -704,17 +706,48 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
     start_time = start_time.replace(minute=0, second=0, microsecond=0)
     end_time = end_time.replace(minute=0, second=0, microsecond=0)
 
+    match_slug_to_interations = {}  # Recods all interactions of matches
+
+    def init_slug_interaction(pk1, pk2):
+        if pk1 == controller.get_base_management_user().id or pk2 == controller.get_base_management_user().id:
+            return None
+        if pk1 < pk2:
+            slug = f"{pk1}-{pk2}"
+        else:
+            slug = f"{pk2}-{pk1}"
+        if not slug in match_slug_to_interations:
+            match_slug_to_interations[slug] = []
+        return slug
+
     time_series = {
         # all is per hour, this doesn't contain failed logins
         "logins__time_x_login_count_y": [],
+        "config__logins__time_x_login_count_y": {
+            "title": "Logins",
+            "combine": "sum"
+        },
         "registrations__time_x_login_count_y": [],
+        "config__registrations__time_x_login_count_y": {
+            "title": "Registrations",
+            "combine": "sum"
+        },
         "matches_made__time_x_login_count_y": [],
         "events_happened__time_x_login_count_y": [],
         "chat_messages_send__time_x_send_count_y": [],
+        "amount_of_chats_messages_send__time_x_send_count_y": [],
         "users_online__time_x_online_count_y": [],
         "volunteer_registrations__time_x_vol_y": [],
         "learner_registrations__time_x_vol_y": [],
-        "video_calls_held__time_x_amount_y": []
+        "video_calls_held__time_x_amount_y": [],
+        "average_call_length__time_x_length_y": [],
+        "config__average_call_length__time_x_length_y": {
+            "combine": "avg"
+        },
+        "message_mount_per_user_chat__time_x_amount_y": [],
+        "config__message_mount_per_user_chat__time_x_amount_y": {
+            "title": "Average message amount per two user chat",
+            "combine": "avg"
+        },
     }
 
     def string_remove_timezone(time_string):
@@ -735,6 +768,11 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
             continue
 
         print("TBS", sum.meta)
+        if not "amount_new_volunteers" in sum.meta:
+            # TODO remove
+            print("deleted depricated sum format ")
+            sum.delete()
+            continue
 
         total_send_messages = 0
         time_series["logins__time_x_login_count_y"].append({
@@ -782,6 +820,7 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
         # amount of video calls held & average duration of video call
         # TODO: we need to consider the auto video room close time ( then no disconnect event would be required )
         user_call_list = []  # All users that basicly ended an officially counted call this hour
+        user_call_length_list = []
         for video_event in sum.meta["connection_disconnection_events"]:
             # TODO if not in add ...
             if not video_event["room_name"] in video_room_to_users_connected:
@@ -812,30 +851,114 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
                     print("DT", datetime.strptime(
                         video_event['timestamp'][0], '%Y-%m-%dT%H:%M:%S.%fZ'))
 
-                    duration = datetime.strptime(video_event["timestamp"][0], '%Y-%m-%dT%H:%M:%S.%fZ') - datetime.strptime(
-                        video_room_to_users_connected[video_event["room_name"]]["last_connect_time"], '%Y-%m-%dT%H:%M:%S.%fZ')
+                    try:
+                        duration = datetime.strptime(video_event["timestamp"][0], '%Y-%m-%dT%H:%M:%S.%fZ') - datetime.strptime(
+                            video_room_to_users_connected[video_event["room_name"]]["last_connect_time"], '%Y-%m-%dT%H:%M:%S.%fZ')
+                    except:
+                        duration = "error_unknown"
+                        print("ERROR couldnt calculate duration")
                     video_room_to_users_connected[video_event["room_name"]]["calls"].append({
                         "duration": str(duration),
                         "start_time": video_room_to_users_connected[video_event["room_name"]]["last_connect_time"],
                         "end_time": video_event["timestamp"][0]
                     })
 
-                    if duration.seconds > 300:
-                        user_call_list.append(video_event["actor"])
+                    if not isinstance(duration, str):
+                        if duration.total_seconds() > 300:
+                            user_call_list.append(video_event["actor"])
+                            user_call_length_list.append(duration)
 
-            # The check of disconnect event should be last since we first detect disconnect for 2 users and update the time in call duration
+                            from management.models import Room
+
+                            users = []
+                            import itertools
+
+                            for u_hash in video_room_to_users_connected[video_event["room_name"]]["actors"]:
+                                try:
+                                    users.append(
+                                        controller.get_user_by_hash(u_hash))
+                                except:
+                                    pass
+                            match_combos = list(
+                                itertools.combinations(users, 2))
+
+                            for combo in match_combos:
+                                slug = init_slug_interaction(
+                                    combo[0].pk, combo[1].pk)
+                                if not slug is None:
+                                    match_slug_to_interations[slug].append({
+                                        "kind": "video_call",
+                                        "duration": duration.total_seconds(),
+                                        "time": video_event["timestamp"][0]
+                                    })
+
+                            # The check of disconnect event should be last since we first detect disconnect for 2 users and update the time in call duration
             if not video_event["actor"] in video_room_to_users_connected[video_event["room_name"]]:
 
                 if video_event["event"] == "participant-disconnected":
+                    print("DICONNECTED", video_event)
+                    print(
+                        "CONN", video_room_to_users_connected[video_event["room_name"]]["actors"])
 
-                    video_room_to_users_connected[video_event["room_name"]]["actors"].remove(
-                        video_event["actor"])
+                    if video_event["actor"] in video_room_to_users_connected[video_event["room_name"]]["actors"]:
+                        video_room_to_users_connected[video_event["room_name"]]["actors"].remove(
+                            video_event["actor"])
+                    else:
+                        print("Dissconeect eventhough not registered",
+                              video_event, video_event["actor"])
+
+        print("TBS: ", user_call_length_list)
+        if len(user_call_length_list) > 0:
+            average_call_length = reduce(
+                operator.add, [s.total_seconds() / 60.0 for s in user_call_length_list]) / float(len(user_call_length_list))
+        else:
+            average_call_length = 0.0
+
+        time_series["average_call_length__time_x_length_y"].append({
+            "x": sum.meta["summary_for_hour"],
+            "y": average_call_length
+        })
 
         # Now we can calulucate the amount of video calls that have been held
         # We only count a call if it was over 5 min
         time_series["video_calls_held__time_x_amount_y"].append({
             "x": sum.meta["summary_for_hour"],
             "y": len(user_call_list)
+        })
+
+        time_series["amount_of_chats_messages_send__time_x_send_count_y"].append({
+            "x": sum.meta["summary_for_hour"],
+            "y": int(sum.meta["amount_dialogs_where_messages_where_send_in"])
+        })
+
+        for dia_slug in sum.meta["chat_interations_per_dialog"]:
+            pk1, pk2 = [int(x) for x in dia_slug.split("-")]
+            slug = init_slug_interaction(pk1, pk2)
+            if slug is not None:
+                for msgs in sum.meta["chat_interations_per_dialog"][dia_slug]["msgs"]:
+                    match_slug_to_interations[slug].append({
+                        "kind": "chat_interaction",
+                        "data": msgs,
+                        "time": msgs["time"]
+                    })
+
+        interations = [int(sum.meta["chat_interations_per_dialog"][s]["amnt_msgs_send"])
+                       for s in sum.meta["chat_interations_per_dialog"]]
+        average_messages_send_per_chat = 0
+        for inter in interations:
+            print("INTER", inter)
+            average_messages_send_per_chat += inter
+
+        if len(interations) > 0:
+            average_messages_send_per_chat = float(
+                average_messages_send_per_chat) / float(len(interations))
+        else:
+            average_messages_send_per_chat = 0.0
+
+        print("TBS AVG", average_messages_send_per_chat)
+        time_series["message_mount_per_user_chat__time_x_amount_y"].append({
+            "x": sum.meta["summary_for_hour"],
+            "y": average_messages_send_per_chat
         })
 
         time_series["chat_messages_send__time_x_send_count_y"].append({
@@ -857,7 +980,20 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
     elif regroup_by == "day":
         updated_series = {}
         time_buckets = {}
+
+        original_time_series = time_series.copy()
+        time_series = {k: time_series[k]
+                       for k in time_series if not k.startswith("config__")}
+
         for k in time_series:
+
+            config = {
+                "title": k,
+                "combine": "sum"
+            }
+
+            if f"config__{k}" in original_time_series:
+                config = original_time_series[f"config__{k}"]
             updated_series[k] = []
             time_buckets[k] = {}
             for elem in time_series[k]:
@@ -867,10 +1003,28 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
                     hour=0, minute=0, second=0, microsecond=0))
 
                 if not time in time_buckets[k]:
-                    time_buckets[k][time] = elem["y"]
+                    if config["combine"] == "sum":
+                        time_buckets[k][time] = elem["y"]
+                    elif config["combine"] == "avg":
+                        time_buckets[k][time] = [elem["y"]]
                 else:
-                    time_buckets[k][time] += elem["y"]
+                    if config["combine"] == "sum":
+                        time_buckets[k][time] += elem["y"]
+                    elif config["combine"] == "avg":
+                        time_buckets[k][time].append(elem["y"])
+
         for k in time_buckets:
+
+            if f"config__{k}" in original_time_series:
+                if original_time_series[f"config__{k}"]["combine"] == "avg":
+                    for time in time_buckets[k]:
+                        times = [b for b in time_buckets[k][time] if b != 0.0]
+                        if len(times) > 0:
+                            time_buckets[k][time] = float(
+                                reduce(operator.add, times)) / float(len(times))
+                        else:
+                            time_buckets[k][time] = 0.0
+
             for time in time_buckets[k]:
                 updated_series[k].append({
                     "y": time_buckets[k][time],
@@ -878,11 +1032,279 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
                 })
         time_series = updated_series
 
+    # Now generate some per-match basis metrics
+    match_slug_to_metrics = {}
+    match_activity_buckets = {}
+    for match_slug in match_slug_to_interations:
+
+        # sort match_slug_to_interations[match_slug] by time
+        total_chat_ineractions = 0
+        total_video_call_interactions = 0
+        video_call_interaction_durations = []
+        last_chat_interaction_time = None
+        inbetween_chat_interactions_time = []
+        last_video_call_interaction_time = None
+        inbetween_video_call_interactions_time = []
+
+        last_any_interaction_time = None
+
+        ineractions = sorted(
+            match_slug_to_interations[match_slug], key=lambda k: k['time'])
+
+        for interaction in match_slug_to_interations[match_slug]:
+
+            print("TBS interaction", interaction)
+            # How can I parse this datetime string in python '2022-12-19 05:55:55.903839+00:00'
+            # https://stackoverflow.com/questions/466345/converting-string-into-datetime
+            if interaction["kind"] == "chat_interaction":
+                total_chat_ineractions += 1
+                if last_chat_interaction_time is not None:
+                    inbetween_chat_interactions_time.append(
+                        (datetime.strptime(interaction["time"], '%Y-%m-%d %H:%M:%S.%f+00:00') - last_chat_interaction_time).total_seconds() / (60.0))
+                last_chat_interaction_time = datetime.strptime(
+                    interaction["time"], '%Y-%m-%d %H:%M:%S.%f+00:00')
+                last_any_interaction_time = datetime.strptime(
+                    interaction["time"], '%Y-%m-%d %H:%M:%S.%f+00:00')
+            elif interaction["kind"] == "video_call":
+
+                total_video_call_interactions += 1
+                video_call_interaction_durations.append(
+                    interaction["duration"])
+                if last_video_call_interaction_time is not None:
+                    inbetween_video_call_interactions_time.append((datetime.strptime(
+                        interaction["time"], '%Y-%m-%d %H:%M:%S.%f+00:00') - last_video_call_interaction_time).total_seconds() / (60.0 * 60.0))
+                last_video_call_interaction_time = datetime.strptime(
+                    interaction["time"],  '%Y-%m-%d %H:%M:%S.%f+00:00')
+
+                last_any_interaction_time = datetime.strptime(
+                    interaction["time"], '%Y-%m-%d %H:%M:%S.%f+00:00')
+
+        # Total time since the last interaction in hours
+        time_since_last_interaction = (
+            datetime.now() - last_any_interaction_time).total_seconds() / (60.0 * 60.0)
+
+        current_match_activity = "undefined"
+        if time_since_last_interaction > 24.0 * 14.0:
+            current_match_activity = "over_2_weeks_since_last_interaction"
+        elif time_since_last_interaction > 24.0 * 7.0:
+            current_match_activity = "over_1_week_since_last_interaction"
+        elif time_since_last_interaction > 24.0 * 2.0:
+            current_match_activity = "over_2_days_since_last_interaction"
+        elif time_since_last_interaction > 24.0:
+            current_match_activity = "over_1_day_since_last_interaction"
+        else:
+            current_match_activity = "active_within_last_day"
+
+        if not current_match_activity in match_activity_buckets:
+            match_activity_buckets[current_match_activity] = 0
+        match_activity_buckets[current_match_activity] += 1
+
+        match_slug_to_metrics[match_slug] = {
+            "total_chat_ineractions": total_chat_ineractions,
+            "total_video_call_interactions": total_video_call_interactions,
+            "total_time_since_last_interaction": time_since_last_interaction,
+            "match_activity": current_match_activity,
+            "average_video_call_duration": float(reduce(operator.add, video_call_interaction_durations)) / float(len(video_call_interaction_durations)) if len(video_call_interaction_durations) > 0 else 0.0,
+            "average_time_between_chat_interactions": float(reduce(operator.add, inbetween_chat_interactions_time)) / float(len(inbetween_chat_interactions_time)) if len(inbetween_chat_interactions_time) > 0 else 0.0,
+            "average_time_between_video_call_interactions": float(reduce(operator.add, inbetween_video_call_interactions_time)) / float(len(inbetween_video_call_interactions_time)) if len(inbetween_video_call_interactions_time) > 0 else 0.0,
+        }
+
+    # Now we do some caluclations to estimate the match quality
+    # total_messages_send = 1 === "less-than-1-messages-send", "min-5-messages-send", "min-10-messages-send", "over-20-messages-send"
+    # total_video_calls = 1 === "no-videocalls", "min-1-video-calls", "min-10-video-calls", "over-20-video-calls"
+    # average_video_call_duration === "under-5min-average"
+    match_quality_estimation = {
+        "chat": {
+            "no-messages-send": 0,
+            "at-least-1-messages-send": 0,
+            "more-than-1-messages-send": 0,
+            "min-5-messages-send": 0,
+            "min-10-messages-send": 0,
+            "over-20-messages-send": 0
+        },
+        "video_call": {
+            "no-videocalls": 0,
+            "min-1-video-calls": 0,
+            "min-2-video-calls": 0,
+            "min-3-video-calls": 0,
+            "over-5-video-calls": 0
+        }
+    }
+    for match_slug in match_slug_to_metrics:
+        if match_slug_to_metrics[match_slug]["total_chat_ineractions"] < 1:
+            match_quality_estimation["chat"]["no-messages-send"] += 1
+        elif match_slug_to_metrics[match_slug]["total_chat_ineractions"] >= 10:
+            match_quality_estimation["chat"]["min-10-messages-send"] += 1
+        elif match_slug_to_metrics[match_slug]["total_chat_ineractions"] >= 20:
+            match_quality_estimation["chat"]["over-20-messages-send"] += 1
+        elif match_slug_to_metrics[match_slug]["total_chat_ineractions"] >= 5:
+            match_quality_estimation["chat"]["min-5-messages-send"] += 1
+        elif match_slug_to_metrics[match_slug]["total_chat_ineractions"] >= 1:
+            match_quality_estimation["chat"]["at-least-1-messages-send"] += 1
+
+        # Write the if else chanin for filling the 'video_call' part of the match_quality_estimation dict
+        if match_slug_to_metrics[match_slug]["total_video_call_interactions"] < 1:
+            match_quality_estimation["video_call"]["no-videocalls"] += 1
+        elif match_slug_to_metrics[match_slug]["total_video_call_interactions"] >= 5:
+            match_quality_estimation["video_call"]["over-5-video-calls"] += 1
+        elif match_slug_to_metrics[match_slug]["total_video_call_interactions"] >= 3:
+            match_quality_estimation["video_call"]["min-3-video-calls"] += 1
+        elif match_slug_to_metrics[match_slug]["total_video_call_interactions"] >= 2:
+            match_quality_estimation["video_call"]["min-2-video-calls"] += 1
+        elif match_slug_to_metrics[match_slug]["total_video_call_interactions"] >= 1:
+            match_quality_estimation["video_call"]["min-1-video-calls"] += 1
+
+    # Total average match quality estimation
+    # 1 - total average video duration
+    # 2 - total average video calls per match
+    # 3 - total average messages per match
+    # 4 - total average time between video calls
+    # 4 - total average time between video messages
+    total_average_estimations = {
+        "video_duration": [],
+        "video_calls_per_match": [],
+        "messages_per_match": [],
+        "time_between_video_calls": [],
+        "time_between_messages": [],
+    }
+
+    for match_slug in match_slug_to_metrics:
+        total_average_estimations["video_duration"].append(
+            match_slug_to_metrics[match_slug]["average_video_call_duration"])
+
+        total_average_estimations["video_calls_per_match"].append(
+            match_slug_to_metrics[match_slug]["total_video_call_interactions"])
+
+        total_average_estimations["messages_per_match"].append(
+            match_slug_to_metrics[match_slug]["total_chat_ineractions"])
+
+        total_average_estimations["time_between_video_calls"].append(
+            match_slug_to_metrics[match_slug]["average_time_between_video_call_interactions"])
+
+        total_average_estimations["time_between_messages"].append(
+            match_slug_to_metrics[match_slug]["average_time_between_chat_interactions"])
+
+    for key in total_average_estimations:
+        total_average_estimations[key] = float(reduce(
+            operator.add, total_average_estimations[key])) / float(len(total_average_estimations[key])) if len(total_average_estimations[key]) > 0 else 0.0
+
+    print("TBS: new total_average_estimations", total_average_estimations)
+
     data = {
         "time_series": time_series,
         "extra": {
             "video_room_to_users_connected": video_room_to_users_connected,
-        }
+            "match_slug_to_interations": match_slug_to_interations,
+            "match_slug_to_metrics": match_slug_to_metrics
+        },
+        "combined": [
+            {
+                "data": [{
+                    "x": [k for k in total_average_estimations],
+                    "y": [total_average_estimations[k] for k in total_average_estimations],
+                    "type": "bar"
+                }],
+                "layout": {
+                    "title": "Absoulate match interation measures",
+                }
+            },
+            {
+                "data": [{
+                    "values": [match_activity_buckets[k] for k in match_activity_buckets],
+                    "labels": [k for k in match_activity_buckets],
+                    "type": "pie"
+                }],
+                "layout": {
+                    "title": "Match activity",
+                }
+            },
+            {
+                "data": [{
+                    "values": [match_quality_estimation["chat"][estimate] for estimate in match_quality_estimation["chat"]],
+                    "labels": [k for k in match_quality_estimation["chat"]],
+                    "type": "pie"
+                }],
+                "layout": {
+                    "title": "Match Chat quality estimation",
+                }
+            },
+            {
+                "data": [{
+                    "values": [match_quality_estimation["video_call"][estimate] for estimate in match_quality_estimation["video_call"]],
+                    "labels": [k for k in match_quality_estimation["video_call"]],
+                    "type": "pie"
+                }],
+                "layout": {
+                    "title": "Match Video call quality estimation",
+                }
+            },
+            {
+                "data": [
+                    {
+                        "x": [slug for slug in match_slug_to_metrics],
+                        "y": [match_slug_to_metrics[slug]["total_video_call_interactions"] for slug in match_slug_to_metrics],
+                        "type": "bar",
+                        "name": "Total video call interactions"
+                    },
+                    {
+                        "x": [slug for slug in match_slug_to_metrics],
+                        "y": [match_slug_to_metrics[slug]["total_chat_ineractions"] for slug in match_slug_to_metrics],
+                        "type": "bar",
+                        "name": "Total chat interactions"
+                    }
+                ],
+                "layout": {
+                    "title": "Interactions per matching",
+                    "showlegend": True
+                }
+            },
+            {
+                "data": [
+                    {
+                        "x": [x["x"] for x in time_series["learner_registrations__time_x_vol_y"]],
+                        "y": [y["y"] for y in time_series["learner_registrations__time_x_vol_y"]],
+                        "type": "bar",
+                        "name": "Learners registered"
+                    },
+                    {
+                        "x": [x["x"] for x in time_series["volunteer_registrations__time_x_vol_y"]],
+                        "y": [y["y"] for y in time_series["volunteer_registrations__time_x_vol_y"]],
+                        "type": "bar",
+                        "name": "Volunteers registered"
+                    }
+                ],
+                "layout": {
+                    "title": "Learner vs Volunteer registrations",
+                    "showlegend": True
+                }
+            },
+            {
+                "data": [
+                    {
+                        "x": [x["x"] for x in time_series["chat_messages_send__time_x_send_count_y"]],
+                        "y": [y["y"] for y in time_series["chat_messages_send__time_x_send_count_y"]],
+                        "type": "bar",
+                        "name": "Total Send Messages"
+                    },
+                    {
+                        "x": [x["x"] for x in time_series["amount_of_chats_messages_send__time_x_send_count_y"]],
+                        "y": [y["y"] for y in time_series["amount_of_chats_messages_send__time_x_send_count_y"]],
+                        "type": "bar",
+                        "name": "Amount of Chats"
+                    },
+                    {
+                        "x": [x["x"] for x in time_series["message_mount_per_user_chat__time_x_amount_y"]],
+                        "y": [y["y"] for y in time_series["message_mount_per_user_chat__time_x_amount_y"]],
+                        "type": "bar",
+                        "name": "Average Messages per Chat"
+                    }
+                ],
+                "layout": {
+                    "title": "Message statistics",
+                    "showlegend": True
+                }
+            },
+        ]
     }
 
     Summaries.objects.create(
@@ -895,11 +1317,12 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
     return data
 
 
-@shared_task
+@ shared_task
 def collect_static_stats():
     from management import controller
     from management.models import Profile, State
     from tracking.models import Summaries
+    from datetime import datetime
 
     total_amount_of_users = User.objects.count()
     amount_of_volunteer = 0
@@ -907,9 +1330,10 @@ def collect_static_stats():
     total_matches = 0
 
     lerner_group_kind = {
-        Profile.TargetGroupChoices.REFUGEE_LER: 0,
-        Profile.TargetGroupChoices.STUDENT_LER: 0,
-        Profile.TargetGroupChoices.WORKER_LER: 0,
+        Profile.normalize_choice(Profile.TargetGroupChoices.REFUGEE_LER): 0,
+        Profile.normalize_choice(Profile.TargetGroupChoices.STUDENT_LER): 0,
+        Profile.normalize_choice(Profile.TargetGroupChoices.WORKER_LER): 0,
+        Profile.normalize_choice(Profile.TargetGroupChoices.ANY_LER): 0,
         "total": 0
     }
 
@@ -924,6 +1348,7 @@ def collect_static_stats():
         str(choice[0]): 0 for choice in Profile.SpeechMediumChoices.choices
     }
     total_prefered_call_medium["total"] = 0
+    print("total_prefered_call_medium", total_prefered_call_medium)
 
     total_user_interest_state = {
         str(choice[0]): 0 for choice in Profile.InterestChoices.choices
@@ -954,7 +1379,8 @@ def collect_static_stats():
         else:
             # Learners
             if u.state.user_form_state == State.UserFormStateChoices.FILLED:
-                lerner_group_kind[u.profile.target_group] += 1
+                lerner_group_kind[Profile.normalize_choice(
+                    u.profile.target_group)] += 1
                 lerner_group_kind["total"] += 1
 
                 learner_lang_level_stats[u.profile.lang_level] += 1
@@ -971,7 +1397,9 @@ def collect_static_stats():
                 match_slug = f"{pk1}-{pk2}"
             else:
                 match_slug = f"{pk1}-{pk2}"
-            total_idividual_matches.add(match_slug)
+            if not (controller.get_base_management_user().id == pk1 or
+                    controller.get_base_management_user().id == pk2):
+                total_idividual_matches.add(match_slug)
 
         if u.state.matches.count() > 1:
             total_user_state_stats["matched"] += 1
@@ -988,8 +1416,7 @@ def collect_static_stats():
                 total_user_interest_state["total_choices_counted"] += 1
             total_user_interest_state["total_users_counted"] += 1
 
-            total_prefered_call_medium[Profile.normalize_choice(
-                u.profile.speech_medium)]
+            total_prefered_call_medium[u.profile.speech_medium]
 
             total_prefered_call_medium["total"] += 1
 
@@ -1006,7 +1433,7 @@ def collect_static_stats():
 
                 # Organize age bucked by bukketing the years
 
-        usr_age = str(int(u.profile.birth_year) - cur_year)
+        usr_age = str(cur_year - int(u.profile.birth_year))
         if usr_age not in age_buckets:
             age_buckets[usr_age] = 0
         age_buckets[usr_age] += 1
@@ -1038,7 +1465,59 @@ def collect_static_stats():
             "total": total_availabilities_counted
         },
         "prefered_call_medium": total_prefered_call_medium,
-        "learner_lang_level_stat": learner_lang_level_stats
+        "learner_lang_level_stat": learner_lang_level_stats,
+        "charts": [
+            {
+                "data": [{
+                    "values": [lerner_group_kind[kind] for kind in lerner_group_kind if kind != "total"],
+                    "labels": [kind for kind in lerner_group_kind if kind != "total"],
+                    "type": "pie"
+                }],
+                "layout": {
+                    "title": "Group kind for learners"
+                }
+            },
+            {
+                "data": [{
+                    "x": [kind for kind in age_buckets if kind != "total"],
+                    "y": [age_buckets[kind] for kind in age_buckets if kind != "total"],
+                    "type": "bar"
+                }],
+                "layout": {
+                    "title": "User age distribution"
+                }
+            },
+            {
+                "data": [{
+                    "values": [learner_lang_level_stats[kind] for kind in learner_lang_level_stats if kind != "total"],
+                    "labels": [kind for kind in learner_lang_level_stats if kind != "total"],
+                    "type": "pie"
+                }],
+                "layout": {
+                    "title": "Learner language level"
+                }
+            },
+            {
+                "data": [{
+                    "values": [total_user_state_stats[state] for state in total_user_state_stats],
+                    "labels": [state for state in total_user_state_stats],
+                    "type": "pie"
+                }],
+                "layout": {
+                    "title": "User state chart"
+                }
+            },
+            {
+                "data": [{
+                    "values": [total_user_interest_state[state] for state in total_user_interest_state if not state.startswith("total")],
+                    "labels": [state for state in total_user_interest_state if not state.startswith("total")],
+                    "type": "pie"
+                }],
+                "layout": {
+                    "title": "User interests chart"
+                }
+            }
+        ]
     }
 
     Summaries.objects.create(
@@ -1052,6 +1531,24 @@ def collect_static_stats():
 
 
 @shared_task
+def collect_match_quality_stats():
+    """
+    Some general statistics of the quality of matches 
+    The relevant data is collected in the hourly event summaries
+
+    What we collect is 'interactions_by_match_slug' this records the following interactions
+    - amount video calls held
+    - amount chat messages send
+    - time since last chat message send
+    - time since last video call
+    - time since matched
+    - average time between video calls
+
+    """
+    pass
+
+
+@ shared_task
 def delete_all_old_matching_scores():
     from .models import MatchinScore
     count = MatchinScore.objects.all().count()
@@ -1065,7 +1562,7 @@ def delete_all_old_matching_scores():
                 score.delete()
 
 
-@shared_task
+@ shared_task
 def dispatch_admin_email_notification(subject, message):
     from . import controller
     from emails import mails
