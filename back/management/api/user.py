@@ -385,6 +385,38 @@ class UpdateSearchingStateApi(APIView):
                                       "State updated!"))
 
 
+class UnmatchSelfSerializer(serializers.Serializer):
+    other_user_hash = serializers.CharField(required=True)
+    reason = serializers.CharField(required=True)
+
+    def create(self, validated_data):
+        return validated_data
+
+
+@extend_schema(request=UnmatchSelfSerializer(many=False))
+@login_required
+@api_view(['POST'])
+def unmatch_self(request):
+    from management import controller
+
+    serializer = UnmatchSelfSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    params = serializer.save()
+
+    other_user = controller.get_user_by_hash(params['other_user_hash'])
+
+    if not other_user in request.user.matches:
+        raise serializers.ValidationError(
+            {"other_user_hash": "User is not matched with you!"})
+
+    past_match = controller.unmatch_users({request.user, other_user})
+    past_match.reason = params['reason']
+    past_match.save()
+
+    return Response(pgettext_lazy("api.user-unmatch-self.success", "Unmatched!"))
+
+
 @login_required
 @api_view(['POST'])
 def resend_verification_mail(request):
