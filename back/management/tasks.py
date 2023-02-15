@@ -836,8 +836,9 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
                     video_room_to_users_connected[video_event["room_name"]
                                                   ]["last_connect_time"] = video_event["timestamp"][0]
 
-                    video_room_to_users_connected[video_event["room_name"]]["actors"].append(
-                        video_event["actor"])
+                    if not video_event["actor"] in video_room_to_users_connected[video_event["room_name"]]["actors"]:
+                        video_room_to_users_connected[video_event["room_name"]]["actors"].append(
+                            video_event["actor"])
 
             if len(video_room_to_users_connected[video_event["room_name"]]["actors"]) > 2:
                 raise Exception("More than two users in a video room \n " +
@@ -1072,12 +1073,12 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
                     interaction["duration"])
                 if last_video_call_interaction_time is not None:
                     inbetween_video_call_interactions_time.append((datetime.strptime(
-                        interaction["time"], '%Y-%m-%d %H:%M:%S.%f+00:00') - last_video_call_interaction_time).total_seconds() / (60.0 * 60.0))
+                        interaction["time"], '%Y-%m-%dT%H:%M:%S.%fZ') - last_video_call_interaction_time).total_seconds() / (60.0 * 60.0))
                 last_video_call_interaction_time = datetime.strptime(
-                    interaction["time"],  '%Y-%m-%d %H:%M:%S.%f+00:00')
+                    interaction["time"],  '%Y-%m-%dT%H:%M:%S.%fZ')
 
                 last_any_interaction_time = datetime.strptime(
-                    interaction["time"], '%Y-%m-%d %H:%M:%S.%f+00:00')
+                    interaction["time"], '%Y-%m-%dT%H:%M:%S.%fZ')
 
         # Total time since the last interaction in hours
         time_since_last_interaction = (
