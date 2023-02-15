@@ -16,3 +16,4 @@ from .community_events import CommunityEvent
 from .backend_state import BackendState
 from .news_and_updates import NewsItem, NewsItemSerializer
 from .help_message import HelpMessage
+from .past_matches import PastMatch

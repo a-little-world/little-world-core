@@ -15,6 +15,9 @@ We are adding all app urls under `'/'` their paths should be set under `<app>/ur
 Admin paths registered last
 """
 
+
+handler404 = "management.views.user_form_frontend.handler404"
+
 statics = [
     *static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT),
     *static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

@@ -7,7 +7,7 @@ from chat.django_private_chat2.models import DialogsModel
 from asgiref.sync import async_to_sync
 from back.utils import _double_uuid
 from channels.layers import get_channel_layer
-from .models import User
+from .models import User, PastMatch
 from django.conf import settings
 from .models import UserSerializer, User, Profile, State, Settings, Room
 from django.utils.translation import gettext_lazy as _, pgettext_lazy
@@ -268,6 +268,7 @@ def unmatch_users(
     users: set,
     delete_video_room=True,
     delete_dialog=True,
+    unmatcher=None
 ):
     """ 
     Accepts a list of two users to unmatch 
@@ -282,6 +283,9 @@ def unmatch_users(
     assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
 
     # Un-Match the users by removing the from their 'matches' field
+
+    if unmatcher is None:
+        unmatcher = get_base_management_user()
 
     usr1, usr2 = list(users)
     usr1.unmatch(usr2)
@@ -298,6 +302,12 @@ def unmatch_users(
         dia = DialogsModel.dialog_exists(usr1, usr2)
         if dia:
             dia.delete()
+
+    return PastMatch.objects.create(
+        usr1=usr1,
+        usr2=usr2,
+        unmatcher=unmatcher
+    )
 
 
 def get_base_management_user():
