@@ -304,9 +304,9 @@ def unmatch_users(
             dia.delete()
 
     return PastMatch.objects.create(
-        usr1=usr1,
-        usr2=usr2,
-        unmatcher=unmatcher
+        user1=usr1,
+        user2=usr2,
+        who_unmatched=unmatcher
     )
 
 
