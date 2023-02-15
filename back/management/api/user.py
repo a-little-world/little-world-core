@@ -406,7 +406,10 @@ def unmatch_self(request):
 
     other_user = controller.get_user_by_hash(params['other_user_hash'])
 
-    if not other_user in request.user.matches:
+    if other_user.is_staff or other_user.pk == controller.get_base_management_user().pk:
+        return Response(status=403)
+
+    if not other_user in request.user.state.matches.all():
         raise serializers.ValidationError(
             {"other_user_hash": "User is not matched with you!"})
 
