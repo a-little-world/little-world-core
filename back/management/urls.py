@@ -54,6 +54,7 @@ api_routes = [
 
     path(_api_url('trans/<str:lang>'), api.trans.TranslationsGet.as_view()),
 
+
     path(_api_url('community/events'),
          api.community_events.GetActiveEventsApi.as_view()),
 
@@ -72,6 +73,7 @@ api_routes = [
 
     path(_api_url('user/logout'), api.user.LogoutApi.as_view()),
     path(_api_url('user/checkpw'), api.user.CheckPasswordApi.as_view()),
+    path(_api_url('user/translate'), api.translation_requests.translate),
     path(_api_url('user/change_email'), api.user.ChangeEmailApi.as_view()),
 
     path(_api_url('video_rooms/authenticate_call'),
@@ -89,7 +91,6 @@ api_routes = [
          api.notify.NotificationGetApi.as_view()),
     path(_api_url('notification/<str:action>', end_slash=False),
          api.notify.NotificationActionApi.as_view()),
-
 
     # e.g.: /user/verify/email/Base64{d=email&u=hash&k=pin:hash}
     path(_api_url('user/verify/email/<str:auth_data>', end_slash=False),
@@ -159,7 +160,6 @@ view_routes = [
     path('app/', views.MainFrontendView.as_view(), name="main_frontend"),
     re_path(fr'^app/(?P<path>.*)$',
             views.MainFrontendView.as_view(), name="main_frontend_w_path"),
-
 
     path(f"admin_panel/", admin_panel, name="admin_panel"),
 
