@@ -141,3 +141,7 @@ def user_form(request, path=None):
     this app is allowed to reserve all front/* paths
     """
     return _render_user_form_app(request, localdev=settings.IS_DEV, use_cookie_banner=True)
+
+
+def handler404(request, exception):
+    return _render_user_form_app(request, "error", use_cookie_banner=False, errorHeader="404 page not found", errorText="This page doesn't seem to exist, press back to go to the login page.", afterErrorRoute="/login")
