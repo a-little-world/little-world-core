@@ -6,7 +6,7 @@ from back import utils
 
 class Event(models.Model):
     """
-    Tracks an arbitrary event by adding it to a log list. 
+    Tracks an arbitrary event by adding it to a log list.
     This is sorta fancy more accessible logging
     """
     # TODO: this model should eventually be saved to a diffeerent database than the main database!
@@ -23,7 +23,7 @@ class Event(models.Model):
         DATABASE = "database", _("Database event")
         ADMIN = "admin", _("Admin event")
         """
-        A flow event represents an event that happened during the flow of something 
+        A flow event represents an event that happened during the flow of something
         e.g.: user form was marked finished or matchin state changed!
         """
         FLOW = "flow", _("Flow event")
@@ -41,7 +41,7 @@ class Event(models.Model):
                             default=EventTypeChoices.MISC,
                             max_length=255)
 
-    """ 
+    """
     Caller user, but optional
     since there can be also events that have no or an anonymous caller
     """
@@ -56,9 +56,9 @@ class Event(models.Model):
 
     time = models.DateTimeField(auto_now_add=True)
 
-    """ 
+    """
     A buch of metadata, for some event time we assume more or less specific metadata
-    e.g.: 
+    e.g.:
     request, should have the 'data' meta-key
     models, should have the 'field' tag if the event changed a field
     etc... TODO: be a little more specific
@@ -68,7 +68,7 @@ class Event(models.Model):
 
 class Summaries(models.Model):
     """
-    Saves daily / hourly / weekly summaries of events 
+    Saves daily / hourly / weekly summaries of events
     e.g.: User logins today user messages sent today
     user registrations today
 
@@ -105,3 +105,15 @@ class Summaries(models.Model):
     time_created = models.DateTimeField(auto_now_add=True)
 
     meta = models.JSONField()
+
+
+class GraphModel(models.Model):
+
+    time = models.DateTimeField(auto_now_add=True)
+
+    slug = models.CharField(max_length=255, blank=False, null=False)
+    hash = models.CharField(max_length=255, blank=True,
+                            default=utils._double_uuid)
+    graph_data = models.JSONField(blank=True, null=True)
+
+    meta = models.JSONField(blank=True, null=True)

@@ -706,6 +706,8 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
     start_time = start_time.replace(minute=0, second=0, microsecond=0)
     end_time = end_time.replace(minute=0, second=0, microsecond=0)
 
+    total_user_growth = {"x": [], "y": []}
+
     match_slug_to_interations = {}  # Recods all interactions of matches
 
     def init_slug_interaction(pk1, pk2):
@@ -759,6 +761,8 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
 
     video_room_to_users_connected = {}
 
+    c = 0
+
     for sum in summaries:
         summary_time = string_remove_timezone(sum.meta['summary_for_hour'])
         summary_time = datetime.strptime(summary_time, '%Y-%m-%d %H:%M:%S')
@@ -767,6 +771,7 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
                   f"end: {end_time}, start: {start_time}", summary_time < end_time, summary_time > start_time)
             continue
 
+        c += 1
         print("TBS", sum.meta)
         if not "amount_new_volunteers" in sum.meta:
             # TODO remove
@@ -784,6 +789,19 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
             "x": sum.meta["summary_for_hour"],
             "y": sum.meta["amount_new_volunteers"]
         })
+
+        len_groth = c
+
+        if len_groth > 1:
+            import math
+            new_reg = abs(
+                time_series["volunteer_registrations__time_x_vol_y"][len_groth - 1]["y"])
+            total_user_growth["y"].append(
+                total_user_growth["y"][len_groth - 2] + new_reg)
+        else:
+            total_user_growth["y"].append(
+                time_series["volunteer_registrations__time_x_vol_y"][len_groth - 1]["y"] + 1200)
+        total_user_growth["x"].append(sum.meta["summary_for_hour"])
 
         time_series["learner_registrations__time_x_vol_y"].append({
             "x": sum.meta["summary_for_hour"],
@@ -1036,6 +1054,7 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
     # Now generate some per-match basis metrics
     match_slug_to_metrics = {}
     match_activity_buckets = {}
+    match_interaction_amount_distribution = {}
     for match_slug in match_slug_to_interations:
 
         # sort match_slug_to_interations[match_slug] by time
@@ -1051,6 +1070,8 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
 
         ineractions = sorted(
             match_slug_to_interations[match_slug], key=lambda k: k['time'])
+
+        match_interaction_amount_distribution[match_slug] = len(ineractions)
 
         for interaction in match_slug_to_interations[match_slug]:
 
@@ -1110,10 +1131,28 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
             "average_time_between_video_call_interactions": float(reduce(operator.add, inbetween_video_call_interactions_time)) / float(len(inbetween_video_call_interactions_time)) if len(inbetween_video_call_interactions_time) > 0 else 0.0,
         }
 
+    current_match_activity_title_mappings = {
+        "over_2_weeks_since_last_interaction": "Over 2 weeks since last interaction",
+        "over_1_week_since_last_interaction": "Last interaction over 1 week ago",
+        "over_2_days_since_last_interaction": "Last interaction over 2 days ago",
+        "over_1_day_since_last_interaction": "Last interaction yesterday",
+        "active_within_last_day": "Active within last 24 hours"
+    }
+
     # Now we do some caluclations to estimate the match quality
     # total_messages_send = 1 === "less-than-1-messages-send", "min-5-messages-send", "min-10-messages-send", "over-20-messages-send"
     # total_video_calls = 1 === "no-videocalls", "min-1-video-calls", "min-10-video-calls", "over-20-video-calls"
     # average_video_call_duration === "under-5min-average"
+
+    match_chat_quality_name_mapping = {
+        "no-messages-send": "Never comunicated",
+        "at-least-1-messages-send": "Only one message send",
+        "more-than-1-messages-send": "More than one message send",
+        "min-5-messages-send": "At least 5 messages send",
+        "min-10-messages-send": "At least 10 messages send",
+        "over-20-messages-send": "Twenty or more messages send"
+    }
+
     match_quality_estimation = {
         "chat": {
             "no-messages-send": 0,
@@ -1134,10 +1173,10 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
     for match_slug in match_slug_to_metrics:
         if match_slug_to_metrics[match_slug]["total_chat_ineractions"] < 1:
             match_quality_estimation["chat"]["no-messages-send"] += 1
-        elif match_slug_to_metrics[match_slug]["total_chat_ineractions"] >= 10:
-            match_quality_estimation["chat"]["min-10-messages-send"] += 1
         elif match_slug_to_metrics[match_slug]["total_chat_ineractions"] >= 20:
             match_quality_estimation["chat"]["over-20-messages-send"] += 1
+        elif match_slug_to_metrics[match_slug]["total_chat_ineractions"] >= 10:
+            match_quality_estimation["chat"]["min-10-messages-send"] += 1
         elif match_slug_to_metrics[match_slug]["total_chat_ineractions"] >= 5:
             match_quality_estimation["chat"]["min-5-messages-send"] += 1
         elif match_slug_to_metrics[match_slug]["total_chat_ineractions"] >= 1:
@@ -1191,6 +1230,158 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
 
     print("TBS: new total_average_estimations", total_average_estimations)
 
+    match_interaction_amount_distribution = dict(
+        sorted(match_interaction_amount_distribution.items(), key=lambda x: x[1]))
+
+    from tracking.models import GraphModel
+
+    combined_graphs = []
+
+    def create_graph_model_and_store(slug, graph_data):
+        GraphModel.objects.create(
+            slug=slug,
+            graph_data=graph_data
+        )
+        combined_graphs.append(graph_data)
+
+    create_graph_model_and_store("total_user_growth", {
+        "data": [{
+            "x": total_user_growth["x"],
+            "y": total_user_growth["y"],
+            "type": "bar"
+        }],
+        "layout": {
+            "title": "Total User Groth",
+        }
+    })
+
+    create_graph_model_and_store("overall_match_quality_stats", {
+        "data": [{
+            "x": [k for k in total_average_estimations],
+            "y": [total_average_estimations[k] for k in total_average_estimations],
+            "type": "bar"
+        }],
+        "layout": {
+            "title": "Absoulate match interation measures",
+        }
+    })
+
+    create_graph_model_and_store("per_match_activity", {
+        "data": [{
+            "values": [match_activity_buckets[k] for k in match_activity_buckets],
+            "labels": [current_match_activity_title_mappings[k] for k in match_activity_buckets],
+            "type": "pie"
+        }],
+        "layout": {
+            "title": "Match activity",
+        }
+    })
+
+    create_graph_model_and_store("per_match_interactions", {
+        "data": [{
+            "y": [match_interaction_amount_distribution[k] for k in match_interaction_amount_distribution],
+            "x": [k for k in match_interaction_amount_distribution],
+            "type": "bar"
+        }],
+        "layout": {
+            "title": "match to interaction amount distribution",
+        }
+    })
+
+    create_graph_model_and_store("chat_quality_per_match", {
+        "data": [{
+            "values": [match_quality_estimation["chat"][estimate] for estimate in match_quality_estimation["chat"]],
+            "labels": [match_chat_quality_name_mapping[k] for k in match_quality_estimation["chat"]],
+            "type": "pie"
+        }],
+        "layout": {
+            "title": "Chat interactions per matching",
+        }
+    })
+
+    create_graph_model_and_store("video_call_quality_per_match", {
+        "data": [{
+            "values": [match_quality_estimation["video_call"][estimate] for estimate in match_quality_estimation["video_call"]],
+            "labels": [k for k in match_quality_estimation["video_call"]],
+            "type": "pie"
+        }],
+        "layout": {
+            "title": "Match Video call quality estimation",
+        }
+    })
+
+    create_graph_model_and_store("chat_and_vieo_interactions_per_match", {
+        "data": [
+            {
+                "x": [slug for slug in match_slug_to_metrics],
+                "y": [match_slug_to_metrics[slug]["total_video_call_interactions"] for slug in match_slug_to_metrics],
+                "type": "bar",
+                "name": "Total video call interactions"
+            },
+            {
+                "x": [slug for slug in match_slug_to_metrics],
+                "y": [match_slug_to_metrics[slug]["total_chat_ineractions"] for slug in match_slug_to_metrics],
+                "type": "bar",
+                "name": "Total chat interactions"
+            }
+        ],
+        "layout": {
+            "title": "Interactions per matching",
+            "showlegend": True
+        }
+    })
+
+    create_graph_model_and_store("lerner_vs_volunteer_registrations", {
+        "data": [
+            {
+                "x": [x["x"] for x in time_series["learner_registrations__time_x_vol_y"]],
+                "y": [y["y"] for y in time_series["learner_registrations__time_x_vol_y"]],
+                "type": "bar",
+                "name": "Learners registered"
+            },
+            {
+                "x": [x["x"] for x in time_series["volunteer_registrations__time_x_vol_y"]],
+                "y": [y["y"] for y in time_series["volunteer_registrations__time_x_vol_y"]],
+                "type": "bar",
+                "name": "Volunteers registered"
+            }
+        ],
+        "layout": {
+            "title": "Learner vs Volunteer registrations",
+            "showlegend": True
+        }
+    })
+
+    create_graph_model_and_store("learner_vs_volunteers_vs_total_registrations", {
+        "data": [
+            {
+                "x": [x["x"] for x in time_series["registrations__time_x_login_count_y"]],
+                "y": [y["y"] for y in time_series["registrations__time_x_login_count_y"]],
+                "type": "bar",
+                "name": "Total registrations"
+            },
+            {
+                "x": [x["x"] for x in time_series["learner_registrations__time_x_vol_y"]],
+                "y": [y["y"] for y in time_series["learner_registrations__time_x_vol_y"]],
+                "type": "bar",
+                "name": "Learners registered"
+            },
+            {
+                "x": [x["x"] for x in time_series["volunteer_registrations__time_x_vol_y"]],
+                "y": [y["y"] for y in time_series["volunteer_registrations__time_x_vol_y"]],
+                "type": "bar",
+                "name": "Volunteers registered"
+            },
+        ],
+        "layout": {
+            "title": "Learner vs Volunteer vs Total registrations",
+            "barmode": "overlay",
+            "showlegend": True
+        }
+    })
+
+    # TODO: we still need to update all the time series
+
     data = {
         "time_series": time_series,
         "extra": {
@@ -1198,114 +1389,7 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
             "match_slug_to_interations": match_slug_to_interations,
             "match_slug_to_metrics": match_slug_to_metrics
         },
-        "combined": [
-            {
-                "data": [{
-                    "x": [k for k in total_average_estimations],
-                    "y": [total_average_estimations[k] for k in total_average_estimations],
-                    "type": "bar"
-                }],
-                "layout": {
-                    "title": "Absoulate match interation measures",
-                }
-            },
-            {
-                "data": [{
-                    "values": [match_activity_buckets[k] for k in match_activity_buckets],
-                    "labels": [k for k in match_activity_buckets],
-                    "type": "pie"
-                }],
-                "layout": {
-                    "title": "Match activity",
-                }
-            },
-            {
-                "data": [{
-                    "values": [match_quality_estimation["chat"][estimate] for estimate in match_quality_estimation["chat"]],
-                    "labels": [k for k in match_quality_estimation["chat"]],
-                    "type": "pie"
-                }],
-                "layout": {
-                    "title": "Match Chat quality estimation",
-                }
-            },
-            {
-                "data": [{
-                    "values": [match_quality_estimation["video_call"][estimate] for estimate in match_quality_estimation["video_call"]],
-                    "labels": [k for k in match_quality_estimation["video_call"]],
-                    "type": "pie"
-                }],
-                "layout": {
-                    "title": "Match Video call quality estimation",
-                }
-            },
-            {
-                "data": [
-                    {
-                        "x": [slug for slug in match_slug_to_metrics],
-                        "y": [match_slug_to_metrics[slug]["total_video_call_interactions"] for slug in match_slug_to_metrics],
-                        "type": "bar",
-                        "name": "Total video call interactions"
-                    },
-                    {
-                        "x": [slug for slug in match_slug_to_metrics],
-                        "y": [match_slug_to_metrics[slug]["total_chat_ineractions"] for slug in match_slug_to_metrics],
-                        "type": "bar",
-                        "name": "Total chat interactions"
-                    }
-                ],
-                "layout": {
-                    "title": "Interactions per matching",
-                    "showlegend": True
-                }
-            },
-            {
-                "data": [
-                    {
-                        "x": [x["x"] for x in time_series["learner_registrations__time_x_vol_y"]],
-                        "y": [y["y"] for y in time_series["learner_registrations__time_x_vol_y"]],
-                        "type": "bar",
-                        "name": "Learners registered"
-                    },
-                    {
-                        "x": [x["x"] for x in time_series["volunteer_registrations__time_x_vol_y"]],
-                        "y": [y["y"] for y in time_series["volunteer_registrations__time_x_vol_y"]],
-                        "type": "bar",
-                        "name": "Volunteers registered"
-                    }
-                ],
-                "layout": {
-                    "title": "Learner vs Volunteer registrations",
-                    "showlegend": True
-                }
-            },
-            {
-                "data": [
-                    {
-                        "x": [x["x"] for x in time_series["chat_messages_send__time_x_send_count_y"]],
-                        "y": [y["y"] for y in time_series["chat_messages_send__time_x_send_count_y"]],
-                        "type": "bar",
-                        "name": "Total Send Messages"
-                    },
-                    {
-                        "x": [x["x"] for x in time_series["amount_of_chats_messages_send__time_x_send_count_y"]],
-                        "y": [y["y"] for y in time_series["amount_of_chats_messages_send__time_x_send_count_y"]],
-                        "type": "bar",
-                        "name": "Amount of Chats"
-                    },
-                    {
-                        "x": [x["x"] for x in time_series["message_mount_per_user_chat__time_x_amount_y"]],
-                        "y": [y["y"] for y in time_series["message_mount_per_user_chat__time_x_amount_y"]],
-                        "type": "bar",
-                        "name": "Average Messages per Chat"
-                    }
-                ],
-                "layout": {
-                    "title": "Message statistics",
-                    "showlegend": True
-                }
-            },
-        ]
+        "combined": combined_graphs
     }
 
     Summaries.objects.create(
