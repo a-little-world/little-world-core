@@ -1,5 +1,6 @@
 from django.contrib.auth.decorators import user_passes_test
 from django.shortcuts import render
+from django.http import HttpResponse
 from back.utils import CoolerJson
 from ..api.user_data import get_user_data
 from ..api.user_slug_filter_lookup import get_users_by_slug_filter, get_filter_slug_filtered_users_multiple_paginated
@@ -108,4 +109,24 @@ def stats_panel(request, regrouped_by="day"):
 
     return render(request, "stats_panel_frontend.html", {
         "stats_data": json.dumps(data)
+    })
+
+
+@user_passes_test(lambda u: u.state.has_extra_user_permission("view-stats") or u.is_staff)
+def graph_panel(request, slug=None):
+
+    from tracking.models import GraphModel
+
+    cur_graph = GraphModel.objects.filter(slug=slug).order_by("-time")
+
+    if not cur_graph.exists():
+        return HttpResponse(f"Graph for slug '{slug}' not found")
+
+    cur_graph = cur_graph.first()
+
+    return render(request, "graph_panel_frontend.html", {
+        "graph_data": json.dumps({
+            "time": cur_graph.time.isoformat(),
+            "data": cur_graph.graph_data,
+        })
     })
