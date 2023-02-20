@@ -1,5 +1,9 @@
 from django.contrib.auth.decorators import user_passes_test
+from rest_framework import serializers
+from rest_framework.response import Response
+from rest_framework.decorators import api_view
 from django.shortcuts import render
+from django.http import HttpResponse
 from back.utils import CoolerJson
 from ..api.user_data import get_user_data
 from ..api.user_slug_filter_lookup import get_users_by_slug_filter, get_filter_slug_filtered_users_multiple_paginated
@@ -109,3 +113,102 @@ def stats_panel(request, regrouped_by="day"):
     return render(request, "stats_panel_frontend.html", {
         "stats_data": json.dumps(data)
     })
+
+
+@user_passes_test(lambda u: u.state.has_extra_user_permission("view-stats") or u.is_staff)
+def graph_panel(request, slug=None):
+
+    if slug == "any":
+        slug = "slug:average_message_amount_per_chat_day"
+
+    graph_lookus = []
+    graph_data = []
+    if slug.startswith("slug:"):
+        sd = slug.split(":")[-1]
+        if "," in sd:
+            graph_lookus = sd.split(",")
+        else:
+            graph_lookus = [sd]
+        for graph_slug in graph_lookus:
+            graph_data.append(get_graph(graph_slug))
+    elif slug.startswith("hash:"):
+        sd = slug.split(":")[-1]
+        if "," in sd:
+            graph_lookus = sd.split(",")
+        else:
+            graph_lookus = [sd]
+        for graph_hash in graph_lookus:
+            graph_data.append(get_graph_hash(graph_hash))
+
+    return render(request, "graph_panel_frontend.html", {
+        "graph_data": json.dumps(graph_data)
+    })
+
+
+class FectchGraphSerializer(serializers.Serializer):
+    slug = serializers.CharField()
+
+    def create(self, validated_data):
+        return validated_data
+
+
+def get_graph_hash(hash):
+    from tracking.models import GraphModel, Summaries
+
+    graph_sum = Summaries.objects.filter(
+        label="series-graph-summary-day").order_by("-time_created").first()
+
+    cur_graph = GraphModel.objects.filter(hash=hash).order_by("-time")
+
+    if not cur_graph.exists():
+        return HttpResponse(f"Graph for hash '{hash}' not found")
+
+    newest_graph = cur_graph.first()
+
+    return {
+        "slug": newest_graph.slug,
+        "hash": newest_graph.hash,
+        "time": newest_graph.time.isoformat(),
+        "oldest_time": cur_graph.last().time.isoformat(),
+        "newest_time": newest_graph.time.isoformat(),
+        "data": newest_graph.graph_data,
+        "slug_options": graph_sum.meta["slugs"],
+        "amount_versions": cur_graph.count()
+    }
+
+
+def get_graph(slug):
+    from tracking.models import GraphModel, Summaries
+
+    graph_sum = Summaries.objects.filter(
+        label="series-graph-summary-day").order_by("-time_created").first()
+
+    cur_graph = GraphModel.objects.filter(slug=slug).order_by("-time")
+
+    if not cur_graph.exists():
+        return HttpResponse(f"Graph for slug '{slug}' not found")
+
+    newest_graph = cur_graph.first()
+
+    return {
+        "slug": slug,
+        "hash": newest_graph.hash,
+        "time": newest_graph.time.isoformat(),
+        "oldest_time": cur_graph.last().time.isoformat(),
+        "newest_time": newest_graph.time.isoformat(),
+        "data": newest_graph.graph_data,
+        "slug_options": graph_sum.meta["slugs"],
+        "amount_versions": cur_graph.count()
+    }
+
+
+@user_passes_test(lambda u: u.state.has_extra_user_permission("view-stats") or u.is_staff)
+@api_view(["POST"])
+def fetch_graph(request):
+    serializer = FectchGraphSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    data = serializer.save()
+    graph_data = get_graph(data['slug'])
+
+    return Response(graph_data)

@@ -528,6 +528,9 @@ JAZZMIN_SETTINGS = {
         {"name": "Matching Pannel", "url": "/admin_panel",
             "new_window": True},
 
+        {"name": "Stats Pannel", "url": "/stats/graph/any",
+            "new_window": True},
+
         {"name": "DB shema", "url": "/db",
             "new_window": True},
 

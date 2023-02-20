@@ -725,15 +725,22 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
         # all is per hour, this doesn't contain failed logins
         "logins__time_x_login_count_y": [],
         "config__logins__time_x_login_count_y": {
-            "title": "Logins",
+            "title": "Logins per Day",
+            "slug": "loging_count_day",
             "combine": "sum"
         },
         "registrations__time_x_login_count_y": [],
         "config__registrations__time_x_login_count_y": {
-            "title": "Registrations",
+            "title": "Registrations per Day",
+            "slug": "registration_count_day",
             "combine": "sum"
         },
         "matches_made__time_x_login_count_y": [],
+        "config__matches_made__time_x_login_count_y": {
+            "title": "Matches made per Day",
+            "slug": "matches_made_count_day",
+            "combine": "sum"
+        },
         "events_happened__time_x_login_count_y": [],
         "chat_messages_send__time_x_send_count_y": [],
         "amount_of_chats_messages_send__time_x_send_count_y": [],
@@ -743,12 +750,15 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
         "video_calls_held__time_x_amount_y": [],
         "average_call_length__time_x_length_y": [],
         "config__average_call_length__time_x_length_y": {
-            "combine": "avg"
+            "title": "Average call length that Day",
+            "combine": "avg",
+            "slug": "average_call_length_day"
         },
         "message_mount_per_user_chat__time_x_amount_y": [],
         "config__message_mount_per_user_chat__time_x_amount_y": {
-            "title": "Average message amount per two user chat",
-            "combine": "avg"
+            "title": "Average message amount per two user chat that Day",
+            "combine": "avg",
+            "slug": "average_message_amount_per_chat_day"
         },
     }
 
@@ -1236,8 +1246,10 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
     from tracking.models import GraphModel
 
     combined_graphs = []
+    all_slugs = []
 
     def create_graph_model_and_store(slug, graph_data):
+        all_slugs.append(slug)
         GraphModel.objects.create(
             slug=slug,
             graph_data=graph_data
@@ -1392,11 +1404,44 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
         "combined": combined_graphs
     }
 
+    # But only the ones that have a slug assigned in their config
+    # Also store the time series as graphes!
+    for series in original_time_series:
+        if series.startswith("config__"):
+            if 'slug' in original_time_series[series]:
+                series_name = series.replace("config__", "")
+                all_slugs.append(original_time_series[series]['slug'])
+                GraphModel.objects.create(
+                    slug=original_time_series[series]['slug'],
+                    graph_data={
+                        "data": [
+                            {
+                                "x": [x["x"] for x in time_series[series_name]],
+                                "y": [y["y"] for y in time_series[series_name]],
+                                "type": "bar",  # Time series charts are per default always bar
+                                "name": original_time_series[series]['title']
+                            },
+                        ],
+                        "layout": {
+                            "title": original_time_series[series]['title'],
+                        }
+                    }
+                )
+
     Summaries.objects.create(
         label=f"time-series-summary-{regroup_by}",
         slug=f"start-{start_time}-{end_time}".replace(" ", "-"),
         rate=Summaries.RateChoices.HOURLY,
         meta=data
+    )
+
+    Summaries.objects.create(
+        label=f"series-graph-summary-{regroup_by}",
+        slug=f"start-{start_time}-{end_time}".replace(" ", "-"),
+        rate=Summaries.RateChoices.HOURLY,
+        meta={
+            "slugs": all_slugs
+        }
     )
 
     return data
