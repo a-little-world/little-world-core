@@ -1246,8 +1246,10 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
     from tracking.models import GraphModel
 
     combined_graphs = []
+    all_slugs = []
 
     def create_graph_model_and_store(slug, graph_data):
+        all_slugs.append(slug)
         GraphModel.objects.create(
             slug=slug,
             graph_data=graph_data
@@ -1408,6 +1410,7 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
         if series.startswith("config__"):
             if 'slug' in original_time_series[series]:
                 series_name = series.replace("config__", "")
+                all_slugs.append(original_time_series[series]['slug'])
                 GraphModel.objects.create(
                     slug=original_time_series[series]['slug'],
                     graph_data={
@@ -1430,6 +1433,15 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
         slug=f"start-{start_time}-{end_time}".replace(" ", "-"),
         rate=Summaries.RateChoices.HOURLY,
         meta=data
+    )
+
+    Summaries.objects.create(
+        label=f"series-graph-summary-{regroup_by}",
+        slug=f"start-{start_time}-{end_time}".replace(" ", "-"),
+        rate=Summaries.RateChoices.HOURLY,
+        meta={
+            "slugs": all_slugs
+        }
     )
 
     return data
