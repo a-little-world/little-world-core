@@ -1,4 +1,7 @@
 from django.contrib.auth.decorators import user_passes_test
+from rest_framework import serializers
+from rest_framework.response import Response
+from rest_framework.decorators import api_view
 from django.shortcuts import render
 from django.http import HttpResponse
 from back.utils import CoolerJson
@@ -115,18 +118,55 @@ def stats_panel(request, regrouped_by="day"):
 @user_passes_test(lambda u: u.state.has_extra_user_permission("view-stats") or u.is_staff)
 def graph_panel(request, slug=None):
 
-    from tracking.models import GraphModel
+    if slug == "any":
+        slug = "registration_count_day"
+
+    graph_data = get_graph(slug)
+
+    return render(request, "graph_panel_frontend.html", {
+        "graph_data": json.dumps(graph_data)
+    })
+
+
+class FectchGraphSerializer(serializers.Serializer):
+    slug = serializers.CharField()
+
+    def create(self, validated_data):
+        return validated_data
+
+
+def get_graph(slug):
+    from tracking.models import GraphModel, Summaries
+
+    graph_sum = Summaries.objects.filter(
+        label="series-graph-summary-day").order_by("-time_created").first()
 
     cur_graph = GraphModel.objects.filter(slug=slug).order_by("-time")
 
     if not cur_graph.exists():
         return HttpResponse(f"Graph for slug '{slug}' not found")
 
-    cur_graph = cur_graph.first()
+    newest_graph = cur_graph.first()
 
-    return render(request, "graph_panel_frontend.html", {
-        "graph_data": json.dumps({
-            "time": cur_graph.time.isoformat(),
-            "data": cur_graph.graph_data,
-        })
-    })
+    return {
+        "slug": slug,
+        "hash": newest_graph.hash,
+        "time": newest_graph.time.isoformat(),
+        "oldest_time": cur_graph.last().time.isoformat(),
+        "newest_time": newest_graph.time.isoformat(),
+        "data": newest_graph.graph_data,
+        "slug_options": graph_sum.meta["slugs"],
+        "amount_versions": cur_graph.count()
+    }
+
+
+@user_passes_test(lambda u: u.state.has_extra_user_permission("view-stats") or u.is_staff)
+@api_view(["POST"])
+def fetch_graph(request):
+    serializer = FectchGraphSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    data = serializer.save()
+    graph_data = get_graph(data['slug'])
+
+    return Response(graph_data)

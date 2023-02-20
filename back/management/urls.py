@@ -24,7 +24,7 @@ from .views.user_form_frontend import (
     email_verification_link_screen,
     user_form
 )
-from .views.admin_panel_frontend import admin_panel, stats_panel, graph_panel
+from .views.admin_panel_frontend import admin_panel, stats_panel, graph_panel, fetch_graph
 
 from rest_framework.routers import DefaultRouter
 from django_rest_passwordreset.views import ResetPasswordValidateTokenViewSet, ResetPasswordConfirmViewSet, \
@@ -102,6 +102,8 @@ api_routes = [
     # Admin
     path(_api_url('user/get', admin=True), api.admin.GetUser.as_view()),
     path(_api_url('user/list', admin=True), api.admin.UserList.as_view()),
+
+    path(_api_url('graph/get', admin=True), fetch_graph),
 
     path(_api_url('user/tag/<str:action>', admin=True),
          api.admin.UserTaggingApi.as_view()),
