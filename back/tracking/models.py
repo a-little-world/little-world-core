@@ -116,4 +116,6 @@ class GraphModel(models.Model):
                             default=utils._double_uuid)
     graph_data = models.JSONField(blank=True, null=True)
 
+    type = models.CharField(max_length=255, default="plot")  # plot or table
+
     meta = models.JSONField(blank=True, null=True)

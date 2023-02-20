@@ -173,6 +173,7 @@ def get_graph_hash(hash):
         "newest_time": newest_graph.time.isoformat(),
         "data": newest_graph.graph_data,
         "slug_options": graph_sum.meta["slugs"],
+        "type": newest_graph.type,
         "amount_versions": cur_graph.count()
     }
 
@@ -198,6 +199,7 @@ def get_graph(slug):
         "newest_time": newest_graph.time.isoformat(),
         "data": newest_graph.graph_data,
         "slug_options": graph_sum.meta["slugs"],
+        "type": newest_graph.type,
         "amount_versions": cur_graph.count()
     }
 

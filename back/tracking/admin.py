@@ -15,7 +15,7 @@ class SummariesAdmin(admin.ModelAdmin):
 
 @admin.register(GraphModel)
 class GraphModels(admin.ModelAdmin):
-    list_display = ('slug', 'hash', 'graph_data', 'meta', 'time')
+    list_display = ('slug', 'hash', 'graph_data', 'meta', 'time', 'type')
 
 
 @admin.register(Event)
