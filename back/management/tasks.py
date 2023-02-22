@@ -420,7 +420,8 @@ def write_hourly_backend_event_summary(
     from . import controller
 
     # For that fist we extract all event within that hour
-    time = timezone.now()
+    # We calculate from 2 hours ago per default cause otherwise the task could be shedules eventhought the hour is not completed yet
+    time = timezone.now() - timedelta(hours=1)
     if start_time is not None:
         time = datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S.%f')
 
@@ -683,9 +684,21 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
         - [x] average user age
         - [x] amount of users state ( only_registered | email verified | form completed | matched )
         - [x] total most available times calculated over all users
+
+    - additions
+        - [ ] fix video call amount charts
+        - [ ] add match logevity chart ( logevity per matching )
+        - [ ] options to request analysis of a specific match
+
+        - total averages:
+            - [ ] total average registrations per day
+            - [ ] total average logins per day
+            - [ ] total average messages send per day
+            - [ ] total average video calls per day
     """
     # Create a graph of histogram or something from the hourly event summaries
 
+    actions = []
     from tracking.models import Summaries
     from management import controller
     from datetime import datetime
@@ -864,6 +877,11 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
                     video_room_to_users_connected[video_event["room_name"]
                                                   ]["last_connect_time"] = video_event["timestamp"][0]
 
+                    actions.append({
+                        "type": "disconnect-detected",
+                        "event": video_event,
+                    })
+
                     if not video_event["actor"] in video_room_to_users_connected[video_event["room_name"]]["actors"]:
                         video_room_to_users_connected[video_event["room_name"]]["actors"].append(
                             video_event["actor"])
@@ -893,7 +911,7 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
                     })
 
                     if not isinstance(duration, str):
-                        if duration.total_seconds() > 300:
+                        if duration.total_seconds() > 180:
                             user_call_list.append(video_event["actor"])
                             user_call_length_list.append(duration)
 
@@ -1083,6 +1101,9 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
 
         match_interaction_amount_distribution[match_slug] = len(ineractions)
 
+        oldest_interaction_time = None
+        newest_interaction_time = None
+
         for interaction in match_slug_to_interations[match_slug]:
 
             print("TBS interaction", interaction)
@@ -1111,6 +1132,12 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
                 last_any_interaction_time = datetime.strptime(
                     interaction["time"], '%Y-%m-%dT%H:%M:%S.%fZ')
 
+            if oldest_interaction_time is None or last_any_interaction_time < oldest_interaction_time:
+                oldest_interaction_time = last_any_interaction_time
+
+            if newest_interaction_time is None or last_any_interaction_time > newest_interaction_time:
+                newest_interaction_time = last_any_interaction_time
+
         # Total time since the last interaction in hours
         time_since_last_interaction = (
             datetime.now() - last_any_interaction_time).total_seconds() / (60.0 * 60.0)
@@ -1131,11 +1158,19 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
             match_activity_buckets[current_match_activity] = 0
         match_activity_buckets[current_match_activity] += 1
 
+        total_interaction_logevity = None
+        if oldest_interaction_time is None or newest_interaction_time is None:
+            total_interaction_logevity = newest_interaction_time - oldest_interaction_time
+
         match_slug_to_metrics[match_slug] = {
+            "oldest_interaction_time": oldest_interaction_time,
+            "newest_interaction_time": newest_interaction_time,
+            "total_interaction_logevity": total_interaction_logevity,
             "total_chat_ineractions": total_chat_ineractions,
             "total_video_call_interactions": total_video_call_interactions,
             "total_time_since_last_interaction": time_since_last_interaction,
             "match_activity": current_match_activity,
+            "total_interaction_amount": len(ineractions),
             "average_video_call_duration": float(reduce(operator.add, video_call_interaction_durations)) / float(len(video_call_interaction_durations)) if len(video_call_interaction_durations) > 0 else 0.0,
             "average_time_between_chat_interactions": float(reduce(operator.add, inbetween_chat_interactions_time)) / float(len(inbetween_chat_interactions_time)) if len(inbetween_chat_interactions_time) > 0 else 0.0,
             "average_time_between_video_call_interactions": float(reduce(operator.add, inbetween_video_call_interactions_time)) / float(len(inbetween_video_call_interactions_time)) if len(inbetween_video_call_interactions_time) > 0 else 0.0,
@@ -1216,6 +1251,7 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
         "messages_per_match": [],
         "time_between_video_calls": [],
         "time_between_messages": [],
+        "total_match_interactions": []  # TODO use
     }
 
     for match_slug in match_slug_to_metrics:
@@ -1233,6 +1269,11 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
 
         total_average_estimations["time_between_messages"].append(
             match_slug_to_metrics[match_slug]["average_time_between_chat_interactions"])
+
+        total_average_estimations["total_match_interactions"].append(
+            match_slug_to_interations[match_slug]["total_interaction_amount"])
+
+    total_average_estimations_uncalculated = total_average_estimations.copy()
 
     for key in total_average_estimations:
         total_average_estimations[key] = float(reduce(
@@ -1396,11 +1437,14 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
 
     data = {
         "time_series": time_series,
+        "total_average_estimations": total_average_estimations,
+        "total_average_estimations_uncalculated": total_average_estimations_uncalculated,
         "extra": {
             "video_room_to_users_connected": video_room_to_users_connected,
             "match_slug_to_interations": match_slug_to_interations,
             "match_slug_to_metrics": match_slug_to_metrics
         },
+        "actions": actions,
         "combined": combined_graphs
     }
 
@@ -1499,6 +1543,8 @@ def collect_static_stats():
     availability_buckets = {}
     total_availabilities_counted = 0
 
+    absolute_user_groth_by_day = {}
+
     total_idividual_matches = set()
     c = 0
     for u in User.objects.exclude(id=controller.get_base_management_user().id):
@@ -1568,6 +1614,13 @@ def collect_static_stats():
             age_buckets[usr_age] = 0
         age_buckets[usr_age] += 1
 
+        #
+        registration_day_normalized = str(u.date_joined.replace(
+            hour=0, minute=0, second=0, microsecond=0))
+        if not registration_day_normalized in absolute_user_groth_by_day:
+            absolute_user_groth_by_day[registration_day_normalized] = 0
+        absolute_user_groth_by_day[registration_day_normalized] += 1
+
     amount_inidividual_matches = len(total_idividual_matches)
     print('TBS', amount_inidividual_matches, total_idividual_matches)
 
@@ -1579,6 +1632,98 @@ def collect_static_stats():
         total_ages_counted += age_buckets[a]
 
     average_age = float(total_age_sum) / float(total_ages_counted)
+
+    from tracking.models import GraphModel
+
+    combined_graphs = []
+    combined_tables = []
+    all_slugs = []
+
+    def create_graph_model_and_store(slug, graph_data, type="plot"):
+        all_slugs.append(slug)
+        GraphModel.objects.create(
+            slug=slug,
+            graph_data=graph_data,
+            type=type
+        )
+        if type == "plot":
+            combined_graphs.append(graph_data)
+        elif type == "table":
+            combined_tables.append(graph_data)
+
+    create_graph_model_and_store("group_kind_for_learners", {
+        "data": [{
+            "values": [lerner_group_kind[kind] for kind in lerner_group_kind if kind != "total"],
+            "labels": [kind for kind in lerner_group_kind if kind != "total"],
+            "type": "pie"
+        }],
+        "layout": {
+            "title": "Group kind for learners"
+        }
+    })
+
+    create_graph_model_and_store("absolute_user_groth_by_day", {
+        "data": [{
+            "x": [k for k in absolute_user_groth_by_day],
+            "y": [absolute_user_groth_by_day[k] for k in absolute_user_groth_by_day],
+            "type": "bar"
+        }],
+        "layout": {
+            "title": "Absolute user groth, per day since launch"
+        }
+    })
+
+    create_graph_model_and_store("user_age_distribution", {
+        "data": [{
+            "x": [kind for kind in age_buckets if kind != "total"],
+            "y": [age_buckets[kind] for kind in age_buckets if kind != "total"],
+            "type": "bar"
+        }],
+        "layout": {
+            "title": "User age distribution"
+        }
+    })
+
+    create_graph_model_and_store("learner_language_level_pie", {
+        "data": [{
+            "values": [learner_lang_level_stats[kind] for kind in learner_lang_level_stats if kind != "total"],
+            "labels": [kind for kind in learner_lang_level_stats if kind != "total"],
+            "type": "pie"
+        }],
+        "layout": {
+            "title": "Learner language level"
+        }
+    })
+
+    create_graph_model_and_store("user_commitment_state_pie", {
+        "data": [{
+            "values": [total_user_state_stats[state] for state in total_user_state_stats],
+            "labels": [state for state in total_user_state_stats],
+            "type": "pie"
+        }],
+        "layout": {
+            "title": "User state chart"
+        }
+    })
+
+    create_graph_model_and_store("user_interests_pie", {
+        "data": [{
+            "values": [total_user_interest_state[state] for state in total_user_interest_state if not state.startswith("total")],
+            "labels": [state for state in total_user_interest_state if not state.startswith("total")],
+            "type": "pie"
+        }],
+        "layout": {
+            "title": "User interests chart"
+        }
+    })
+
+    create_graph_model_and_store("total_values_table", {
+        "headers": ["Total amount of users", "Total amount of matches", "Total amount of individual matches", "Total amount of volunteers", "Total amount of learners"],
+        "rows": [
+            [total_amount_of_users, total_matches, amount_inidividual_matches,
+                amount_of_volunteer, amount_of_learners]
+        ]
+    }, type="table")
 
     data = {
         "total_amoount_of_users": total_amount_of_users,
@@ -1596,58 +1741,7 @@ def collect_static_stats():
         },
         "prefered_call_medium": total_prefered_call_medium,
         "learner_lang_level_stat": learner_lang_level_stats,
-        "charts": [
-            {
-                "data": [{
-                    "values": [lerner_group_kind[kind] for kind in lerner_group_kind if kind != "total"],
-                    "labels": [kind for kind in lerner_group_kind if kind != "total"],
-                    "type": "pie"
-                }],
-                "layout": {
-                    "title": "Group kind for learners"
-                }
-            },
-            {
-                "data": [{
-                    "x": [kind for kind in age_buckets if kind != "total"],
-                    "y": [age_buckets[kind] for kind in age_buckets if kind != "total"],
-                    "type": "bar"
-                }],
-                "layout": {
-                    "title": "User age distribution"
-                }
-            },
-            {
-                "data": [{
-                    "values": [learner_lang_level_stats[kind] for kind in learner_lang_level_stats if kind != "total"],
-                    "labels": [kind for kind in learner_lang_level_stats if kind != "total"],
-                    "type": "pie"
-                }],
-                "layout": {
-                    "title": "Learner language level"
-                }
-            },
-            {
-                "data": [{
-                    "values": [total_user_state_stats[state] for state in total_user_state_stats],
-                    "labels": [state for state in total_user_state_stats],
-                    "type": "pie"
-                }],
-                "layout": {
-                    "title": "User state chart"
-                }
-            },
-            {
-                "data": [{
-                    "values": [total_user_interest_state[state] for state in total_user_interest_state if not state.startswith("total")],
-                    "labels": [state for state in total_user_interest_state if not state.startswith("total")],
-                    "type": "pie"
-                }],
-                "layout": {
-                    "title": "User interests chart"
-                }
-            }
-        ]
+        "charts": combined_graphs,
     }
 
     Summaries.objects.create(
@@ -1660,10 +1754,10 @@ def collect_static_stats():
     return data
 
 
-@shared_task
+@ shared_task
 def collect_match_quality_stats():
     """
-    Some general statistics of the quality of matches 
+    Some general statistics of the quality of matches
     The relevant data is collected in the hourly event summaries
 
     What we collect is 'interactions_by_match_slug' this records the following interactions
