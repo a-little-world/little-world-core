@@ -509,7 +509,7 @@ def write_hourly_backend_event_summary(
                 if pk1 < pk2:
                     slug = f"{pk1}-{pk2}"
                 else:
-                    slug = f"{pk1}-{pk2}"
+                    slug = f"{pk2}-{pk1}"
                 init_dialog_in_chat_interaction(slug)
                 chat_interations_per_dialog[slug]["amnt_msgs_send"] += 1
                 chat_interations_per_dialog[slug]["msgs"].append(
@@ -1586,7 +1586,7 @@ def collect_static_stats():
             if pk1 < pk2:
                 match_slug = f"{pk1}-{pk2}"
             else:
-                match_slug = f"{pk1}-{pk2}"
+                match_slug = f"{pk2}-{pk1}"
             if not (controller.get_base_management_user().id == pk1 or
                     controller.get_base_management_user().id == pk2):
                 total_idividual_matches.add(match_slug)
