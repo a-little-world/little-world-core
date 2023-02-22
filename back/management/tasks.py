@@ -420,7 +420,8 @@ def write_hourly_backend_event_summary(
     from . import controller
 
     # For that fist we extract all event within that hour
-    time = timezone.now()
+    # We calculate from 2 hours ago per default cause otherwise the task could be shedules eventhought the hour is not completed yet
+    time = timezone.now() - timedelta(hours=1)
     if start_time is not None:
         time = datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S.%f')
 
@@ -683,9 +684,21 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
         - [x] average user age
         - [x] amount of users state ( only_registered | email verified | form completed | matched )
         - [x] total most available times calculated over all users
+
+    - additions
+        - [ ] fix video call amount charts
+        - [ ] add match logevity chart ( logevity per matching )
+        - [ ] options to request analysis of a specific match
+
+        - total averages:
+            - [ ] total average registrations per day
+            - [ ] total average logins per day
+            - [ ] total average messages send per day
+            - [ ] total average video calls per day
     """
     # Create a graph of histogram or something from the hourly event summaries
 
+    actions = []
     from tracking.models import Summaries
     from management import controller
     from datetime import datetime
@@ -864,6 +877,11 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
                     video_room_to_users_connected[video_event["room_name"]
                                                   ]["last_connect_time"] = video_event["timestamp"][0]
 
+                    actions.append({
+                        "type": "disconnect-detected",
+                        "event": video_event,
+                    })
+
                     if not video_event["actor"] in video_room_to_users_connected[video_event["room_name"]]["actors"]:
                         video_room_to_users_connected[video_event["room_name"]]["actors"].append(
                             video_event["actor"])
@@ -893,7 +911,7 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
                     })
 
                     if not isinstance(duration, str):
-                        if duration.total_seconds() > 300:
+                        if duration.total_seconds() > 180:
                             user_call_list.append(video_event["actor"])
                             user_call_length_list.append(duration)
 
@@ -1083,6 +1101,9 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
 
         match_interaction_amount_distribution[match_slug] = len(ineractions)
 
+        oldest_interaction_time = None
+        newest_interaction_time = None
+
         for interaction in match_slug_to_interations[match_slug]:
 
             print("TBS interaction", interaction)
@@ -1111,6 +1132,12 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
                 last_any_interaction_time = datetime.strptime(
                     interaction["time"], '%Y-%m-%dT%H:%M:%S.%fZ')
 
+            if oldest_interaction_time is None or last_any_interaction_time < oldest_interaction_time:
+                oldest_interaction_time = last_any_interaction_time
+
+            if newest_interaction_time is None or last_any_interaction_time > newest_interaction_time:
+                newest_interaction_time = last_any_interaction_time
+
         # Total time since the last interaction in hours
         time_since_last_interaction = (
             datetime.now() - last_any_interaction_time).total_seconds() / (60.0 * 60.0)
@@ -1131,11 +1158,19 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
             match_activity_buckets[current_match_activity] = 0
         match_activity_buckets[current_match_activity] += 1
 
+        total_interaction_logevity = None
+        if oldest_interaction_time is None or newest_interaction_time is None:
+            total_interaction_logevity = newest_interaction_time - oldest_interaction_time
+
         match_slug_to_metrics[match_slug] = {
+            "oldest_interaction_time": oldest_interaction_time,
+            "newest_interaction_time": newest_interaction_time,
+            "total_interaction_logevity": total_interaction_logevity,
             "total_chat_ineractions": total_chat_ineractions,
             "total_video_call_interactions": total_video_call_interactions,
             "total_time_since_last_interaction": time_since_last_interaction,
             "match_activity": current_match_activity,
+            "total_interaction_amount": len(ineractions),
             "average_video_call_duration": float(reduce(operator.add, video_call_interaction_durations)) / float(len(video_call_interaction_durations)) if len(video_call_interaction_durations) > 0 else 0.0,
             "average_time_between_chat_interactions": float(reduce(operator.add, inbetween_chat_interactions_time)) / float(len(inbetween_chat_interactions_time)) if len(inbetween_chat_interactions_time) > 0 else 0.0,
             "average_time_between_video_call_interactions": float(reduce(operator.add, inbetween_video_call_interactions_time)) / float(len(inbetween_video_call_interactions_time)) if len(inbetween_video_call_interactions_time) > 0 else 0.0,
@@ -1216,6 +1251,7 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
         "messages_per_match": [],
         "time_between_video_calls": [],
         "time_between_messages": [],
+        "total_match_interactions": []  # TODO use
     }
 
     for match_slug in match_slug_to_metrics:
@@ -1233,6 +1269,11 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
 
         total_average_estimations["time_between_messages"].append(
             match_slug_to_metrics[match_slug]["average_time_between_chat_interactions"])
+
+        total_average_estimations["total_match_interactions"].append(
+            match_slug_to_interations[match_slug]["total_interaction_amount"])
+
+    total_average_estimations_uncalculated = total_average_estimations.copy()
 
     for key in total_average_estimations:
         total_average_estimations[key] = float(reduce(
@@ -1396,11 +1437,14 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
 
     data = {
         "time_series": time_series,
+        "total_average_estimations": total_average_estimations,
+        "total_average_estimations_uncalculated": total_average_estimations_uncalculated,
         "extra": {
             "video_room_to_users_connected": video_room_to_users_connected,
             "match_slug_to_interations": match_slug_to_interations,
             "match_slug_to_metrics": match_slug_to_metrics
         },
+        "actions": actions,
         "combined": combined_graphs
     }
 
@@ -1660,10 +1704,10 @@ def collect_static_stats():
     return data
 
 
-@shared_task
+@ shared_task
 def collect_match_quality_stats():
     """
-    Some general statistics of the quality of matches 
+    Some general statistics of the quality of matches
     The relevant data is collected in the hourly event summaries
 
     What we collect is 'interactions_by_match_slug' this records the following interactions
