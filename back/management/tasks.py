@@ -773,6 +773,12 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
             "combine": "avg",
             "slug": "average_message_amount_per_chat_day"
         },
+        "tracking_slots_per_day__time_x_amount_y": [],
+        "config__tracking_slots_per_day__time_x_amount_y": {
+            "title": "Total tracking slots per day",
+            "combine": "avg",
+            "slug": "total_tracking_slots_per_day"
+        },
     }
 
     def string_remove_timezone(time_string):
@@ -785,6 +791,9 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
     video_room_to_users_connected = {}
 
     c = 0
+
+    # Should of course be 24 per day if it's less than we have missing stats
+    tracking_slots_per_day = {}
 
     for sum in summaries:
         summary_time = string_remove_timezone(sum.meta['summary_for_hour'])
@@ -806,6 +815,11 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
         time_series["logins__time_x_login_count_y"].append({
             "x": sum.meta["summary_for_hour"],
             "y": len(sum.meta["users_sucessfully_logged_in"])
+        })
+
+        time_series["tracking_slots_per_day__time_x_amount_y"].append({
+            "x": sum.meta["summary_for_hour"],
+            "y": 1
         })
 
         time_series["volunteer_registrations__time_x_vol_y"].append({
