@@ -60,13 +60,13 @@ prod_shedules = {
             "regroup_by": "day"
         }
     },
-    'generate-stats-series-hour-grouped': {
-        'task': 'management.tasks.create_series',
-        'schedule': 60.0 * 60.0,
-        'kwargs': {
-            "regroup_by": "hour"
-        }
-    },
+    # 'generate-stats-series-hour-grouped': {
+    #    'task': 'management.tasks.create_series',
+    #    'schedule': 60.0 * 60.0,
+    #    'kwargs': {
+    #        "regroup_by": "hour"
+    #    }
+    # },
     'generate-static-stats': {
         'task': 'management.tasks.collect_static_stats',
         'schedule': 60.0 * 60.0,  # Every hour

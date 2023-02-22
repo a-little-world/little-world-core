@@ -773,6 +773,12 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
             "combine": "avg",
             "slug": "average_message_amount_per_chat_day"
         },
+        "tracking_slots_per_day__time_x_amount_y": [],
+        "config__tracking_slots_per_day__time_x_amount_y": {
+            "title": "Total tracking slots per day",
+            "combine": "sum",
+            "slug": "total_tracking_slots_per_day"
+        },
     }
 
     def string_remove_timezone(time_string):
@@ -785,6 +791,9 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
     video_room_to_users_connected = {}
 
     c = 0
+
+    # Should of course be 24 per day if it's less than we have missing stats
+    tracking_slots_per_day = {}
 
     for sum in summaries:
         summary_time = string_remove_timezone(sum.meta['summary_for_hour'])
@@ -806,6 +815,11 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
         time_series["logins__time_x_login_count_y"].append({
             "x": sum.meta["summary_for_hour"],
             "y": len(sum.meta["users_sucessfully_logged_in"])
+        })
+
+        time_series["tracking_slots_per_day__time_x_amount_y"].append({
+            "x": sum.meta["summary_for_hour"],
+            "y": 1
         })
 
         time_series["volunteer_registrations__time_x_vol_y"].append({
@@ -1163,9 +1177,9 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
             total_interaction_logevity = newest_interaction_time - oldest_interaction_time
 
         match_slug_to_metrics[match_slug] = {
-            "oldest_interaction_time": oldest_interaction_time,
-            "newest_interaction_time": newest_interaction_time,
-            "total_interaction_logevity": total_interaction_logevity,
+            "oldest_interaction_time": str(oldest_interaction_time),
+            "newest_interaction_time": str(newest_interaction_time),
+            "total_interaction_logevity": str(total_interaction_logevity),
             "total_chat_ineractions": total_chat_ineractions,
             "total_video_call_interactions": total_video_call_interactions,
             "total_time_since_last_interaction": time_since_last_interaction,
@@ -1271,7 +1285,7 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
             match_slug_to_metrics[match_slug]["average_time_between_chat_interactions"])
 
         total_average_estimations["total_match_interactions"].append(
-            match_slug_to_interations[match_slug]["total_interaction_amount"])
+            match_slug_to_metrics[match_slug]["total_interaction_amount"])
 
     total_average_estimations_uncalculated = total_average_estimations.copy()
 
@@ -1743,6 +1757,15 @@ def collect_static_stats():
         "learner_lang_level_stat": learner_lang_level_stats,
         "charts": combined_graphs,
     }
+
+    Summaries.objects.create(
+        label="static-graph-summary",
+        slug="static-graph-summary-all",
+        rate=Summaries.RateChoices.HOURLY,
+        meta={
+            "slugs": all_slugs
+        }
+    )
 
     Summaries.objects.create(
         label="static-stats-summary",

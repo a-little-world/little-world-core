@@ -184,6 +184,9 @@ def get_graph(slug):
     graph_sum = Summaries.objects.filter(
         label="series-graph-summary-day").order_by("-time_created").first()
 
+    static_sum = Summaries.objects.filter(
+        label="static-graph-summary").order_by("-time_created").first()
+
     cur_graph = GraphModel.objects.filter(slug=slug).order_by("-time")
 
     if not cur_graph.exists():
@@ -198,7 +201,7 @@ def get_graph(slug):
         "oldest_time": cur_graph.last().time.isoformat(),
         "newest_time": newest_graph.time.isoformat(),
         "data": newest_graph.graph_data,
-        "slug_options": graph_sum.meta["slugs"],
+        "slug_options": [*graph_sum.meta["slugs"], *static_sum.meta["slugs"]],
         "type": newest_graph.type,
         "amount_versions": cur_graph.count()
     }
