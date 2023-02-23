@@ -116,7 +116,8 @@ def stats_panel(request, regrouped_by="day"):
 
 
 list_app_stores = {
-    "app_activity": "slug:average_call_length_day,loging_count_day,per_match_activity,average_message_amount_per_chat_day"
+    "app_activity": "slug:average_call_length_day,loging_count_day,per_match_activity,average_message_amount_per_chat_day",
+    "user_groth_stats": "slug:absolute_user_groth_by_day,relative_user_groth_by_day,commulative_user_groth_by_day"
 }
 
 
