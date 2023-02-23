@@ -117,7 +117,13 @@ def stats_panel(request, regrouped_by="day"):
 
 list_app_stores = {
     "app_activity": "slug:average_call_length_day,loging_count_day,per_match_activity,average_message_amount_per_chat_day",
-    "user_groth_stats": "slug:absolute_user_groth_by_day,relative_user_groth_by_day,commulative_user_groth_by_day"
+    "user_groth_stats": "slug:absolute_user_groth_by_day,relative_user_groth_by_day,commulative_user_groth_by_day",
+
+    # From presentation:
+    "user_influx": "slug:registration_count_day,growth_change_table_overview,absoulte_user_growth,relative_user_growth_by_day,commulative_user_growth_by_day,weekly_user_growth,learner_vs_volunteers_vs_total_registrations",
+    "match_quality": "slug:overall_match_quality_stats,video_call_quality_per_match,chat_quality_per_match,per_match_activity",
+    "app_activity": "slug:total_tracking_slots_per_day,matches_made_count_day,average_message_amount_per_chat_day,average_call_length_day,video_calls_held_day,dialogs_active_day,messages_send_day,events_happened_day,loging_count_day",
+    "user_profiles": "slug:user_age_distribution,learner_language_level_pie,user_commitment_state_pie,user_interests_pie"
 }
 
 
