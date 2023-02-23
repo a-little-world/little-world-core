@@ -755,12 +755,42 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
             "combine": "sum"
         },
         "events_happened__time_x_login_count_y": [],
+        "config__events_happened__time_x_login_count_y": {
+            "title": "Events happened per Day",
+            "slug": "events_happened_day",
+            "combine": "sum"
+        },
         "chat_messages_send__time_x_send_count_y": [],
+        "config__chat_messages_send__time_x_send_count_y": {
+            "title": "Chat messages send per Day",
+            "slug": "messages_send_day",
+            "combine": "sum"
+        },
         "amount_of_chats_messages_send__time_x_send_count_y": [],
+        "config__amount_of_chats_messages_send__time_x_send_count_y": {
+            "title": "Amount of Dialogs messages where send in",
+            "slug": "dialogs_active_day",
+            "combine": "sum"
+        },
         "users_online__time_x_online_count_y": [],
         "volunteer_registrations__time_x_vol_y": [],
+        "config__volunteer_registrations__time_x_vol_y": {
+            "title": "Amount of Volunteers that Day",
+            "slug": "volunteer_registrations_day",
+            "combine": "sum"
+        },
         "learner_registrations__time_x_vol_y": [],
+        "config__learner_registrations__time_x_vol_y" : {
+            "title": "Amount of Learners that Day",
+            "slug": "learner_registrations_day",
+            "combine": "sum"
+        },
         "video_calls_held__time_x_amount_y": [],
+        "config__video_calls_held__time_x_amount_y" : {
+            "title": "Amount of Video Calls that Day",
+            "slug": "video_calls_held_day",
+            "combine": "sum"
+        },
         "average_call_length__time_x_length_y": [],
         "config__average_call_length__time_x_length_y": {
             "title": "Average call length that Day",
