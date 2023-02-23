@@ -1752,7 +1752,7 @@ def collect_static_stats():
             "type": "bar"
         }],
         "layout": {
-            "title": "Commulative user groth, per day since launch"
+            "title": "Commulative user growth, per day since launch"
         }
     })
     from datetime import timedelta
@@ -1761,6 +1761,7 @@ def collect_static_stats():
     # we start with a week from the current date
     week_buckets = {}
     average_groth_per_week = {}
+    absolute_groth_per_week = {}
 
     cur_time = datetime.now()
     cur_time = cur_time.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -1777,16 +1778,23 @@ def collect_static_stats():
             for day in reversed(processed_groth_days):
                 date_time = datetime.strptime(day, '%Y-%m-%d %H:%M:%S+00:00')
                 if date_time < cur_time and date_time > week_ago:
-                    week_buckets[slug].append(absolute_user_groth_by_day[day])
+                    week_buckets[slug].append(
+                        float(absolute_user_groth_by_day[day]))
+                    first_day = day
                 else:
-                    break
+                    pass
 
-                first_day = day
-                processed_groth_days.remove(day)
+                # processed_groth_days.remove(day)
 
         if first_day is not None:
-            average_groth_per_week[first_day] = sum(
-                week_buckets[slug]) / len(week_buckets[slug])
+            if len(week_buckets[slug]) > 0:
+                average_groth_per_week[first_day] = sum(
+                    week_buckets[slug]) / len(week_buckets[slug])
+
+                absolute_groth_per_week[first_day] = sum(week_buckets[slug])
+            else:
+                average_groth_per_week[first_day] = 0.0
+                absolute_groth_per_week[first_day] = 0
 
         cur_time -= timedelta(days=7)
         week_ago -= timedelta(days=7)
@@ -1798,7 +1806,18 @@ def collect_static_stats():
             "type": "bar"
         }],
         "layout": {
-            "title": "Relative user groth, per week since launch"
+            "title": "Relative user growth ( percent points ), per week since launch"
+        }
+    })
+
+    create_graph_model_and_store("absolute_user_growth_week", {
+        "data": [{
+            "x": [k for k in absolute_groth_per_week],
+            "y": [absolute_groth_per_week[k] for k in absolute_groth_per_week],
+            "type": "bar"
+        }],
+        "layout": {
+            "title": "Absolute user growth, per week since launch"
         }
     })
 
