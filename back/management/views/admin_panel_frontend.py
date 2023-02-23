@@ -115,11 +115,18 @@ def stats_panel(request, regrouped_by="day"):
     })
 
 
+list_app_stores = {
+    "app_activity": "slug:average_call_length_day,loging_count_day,per_match_activity,average_message_amount_per_chat_day"
+}
+
+
 @user_passes_test(lambda u: u.state.has_extra_user_permission("view-stats") or u.is_staff)
 def graph_panel(request, slug=None):
 
     if slug == "any":
         slug = "slug:average_message_amount_per_chat_day"
+    elif slug.startswith("list:"):
+        slug = list_app_stores[slug.split(":")[-1]]
 
     graph_lookus = []
     graph_data = []
