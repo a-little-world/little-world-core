@@ -755,12 +755,42 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
             "combine": "sum"
         },
         "events_happened__time_x_login_count_y": [],
+        "config__events_happened__time_x_login_count_y": {
+            "title": "Events happened per Day",
+            "slug": "events_happened_day",
+            "combine": "sum"
+        },
         "chat_messages_send__time_x_send_count_y": [],
+        "config__chat_messages_send__time_x_send_count_y": {
+            "title": "Chat messages send per Day",
+            "slug": "messages_send_day",
+            "combine": "sum"
+        },
         "amount_of_chats_messages_send__time_x_send_count_y": [],
+        "config__amount_of_chats_messages_send__time_x_send_count_y": {
+            "title": "Amount of Dialogs messages where send in",
+            "slug": "dialogs_active_day",
+            "combine": "sum"
+        },
         "users_online__time_x_online_count_y": [],
         "volunteer_registrations__time_x_vol_y": [],
+        "config__volunteer_registrations__time_x_vol_y": {
+            "title": "Amount of Volunteers that Day",
+            "slug": "volunteer_registrations_day",
+            "combine": "sum"
+        },
         "learner_registrations__time_x_vol_y": [],
+        "config__learner_registrations__time_x_vol_y": {
+            "title": "Amount of Learners that Day",
+            "slug": "learner_registrations_day",
+            "combine": "sum"
+        },
         "video_calls_held__time_x_amount_y": [],
+        "config__video_calls_held__time_x_amount_y": {
+            "title": "Amount of Video Calls that Day",
+            "slug": "video_calls_held_day",
+            "combine": "sum"
+        },
         "average_call_length__time_x_length_y": [],
         "config__average_call_length__time_x_length_y": {
             "title": "Average call length that Day",
@@ -1311,16 +1341,18 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
         )
         combined_graphs.append(graph_data)
 
-    create_graph_model_and_store("total_user_growth", {
-        "data": [{
-            "x": total_user_growth["x"],
-            "y": total_user_growth["y"],
-            "type": "bar"
-        }],
-        "layout": {
-            "title": "Total User Groth",
-        }
-    })
+    # create_graph_model_and_store("total_user_growth", {
+    #    "data": [{
+    #        "x": total_user_growth["x"],
+    #        "y": total_user_growth["y"],
+    #        "type": "bar"
+    #    }],
+    #    "layout": {
+    #        "title": "Total User Groth",
+    #    }
+    # })
+
+    # Calculate relative user groth
 
     create_graph_model_and_store("overall_match_quality_stats", {
         "data": [{
@@ -1547,7 +1579,7 @@ def collect_static_stats():
     })
 
     learner_lang_level_stats = {
-        str(choice[0]): 0 for choice in Profile.LanguageLevelChoices.choices
+        str(choice[0]): 0 for choice in Profile.LanguageLevelChoices.choices if not choice[0].endswith(".vol")
     }
     learner_lang_level_stats["total"] = 0
 
@@ -1687,6 +1719,108 @@ def collect_static_stats():
         }
     })
 
+    groth_days = sorted(list(absolute_user_groth_by_day.keys()),
+                        key=lambda x: datetime.strptime(x, '%Y-%m-%d %H:%M:%S+00:00'))
+    create_graph_model_and_store("relative_user_groth_by_day", {
+        "data": [{
+            "y": [((float(absolute_user_groth_by_day[groth_days[i]]) - float(absolute_user_groth_by_day[groth_days[i-1]]))/float(absolute_user_groth_by_day[groth_days[i-1]]))*100.0 for i in range(1, len(groth_days))],
+            "x": groth_days[1:],
+            "type": "bar"
+        }],
+        "layout": {
+            "title": "Relative user groth, per day since launch"
+        }
+    })
+
+    amnt_user_rn = absolute_user_groth_by_day[groth_days[0]]
+    cumulative_user_groth = {}
+    cumulative_user_groth[groth_days[0]] = amnt_user_rn
+
+    for day in groth_days:
+        if day == groth_days[0]:
+            continue
+        print("abs", absolute_user_groth_by_day[day], day)
+        if absolute_user_groth_by_day[day] < 0:
+            raise Exception("Negative user groth", absolute_user_groth_by_day)
+        amnt_user_rn += absolute_user_groth_by_day[day]
+        cumulative_user_groth[day] = amnt_user_rn
+
+    create_graph_model_and_store("commulative_user_groth_by_day", {
+        "data": [{
+            "x": [k for k in cumulative_user_groth],
+            "y": [cumulative_user_groth[k] for k in cumulative_user_groth],
+            "type": "bar"
+        }],
+        "layout": {
+            "title": "Commulative user growth, per day since launch"
+        }
+    })
+    from datetime import timedelta
+
+    # calculate relative user groth per week
+    # we start with a week from the current date
+    week_buckets = {}
+    average_groth_per_week = {}
+    absolute_groth_per_week = {}
+
+    cur_time = datetime.now()
+    cur_time = cur_time.replace(hour=0, minute=0, second=0, microsecond=0)
+    week_ago = cur_time - timedelta(days=7)
+
+    processed_groth_days = groth_days.copy()
+
+    while week_ago > datetime.strptime(groth_days[0], '%Y-%m-%d %H:%M:%S+00:00'):
+        slug = f"{week_ago}<->{cur_time}"
+        week_buckets[slug] = []
+
+        first_day = None
+        if len(processed_groth_days) > 0:
+            for day in reversed(processed_groth_days):
+                date_time = datetime.strptime(day, '%Y-%m-%d %H:%M:%S+00:00')
+                if date_time < cur_time and date_time > week_ago:
+                    week_buckets[slug].append(
+                        float(absolute_user_groth_by_day[day]))
+                    first_day = day
+                else:
+                    pass
+
+                # processed_groth_days.remove(day)
+
+        if first_day is not None:
+            if len(week_buckets[slug]) > 0:
+                average_groth_per_week[first_day] = sum(
+                    week_buckets[slug]) / len(week_buckets[slug])
+
+                absolute_groth_per_week[first_day] = sum(week_buckets[slug])
+            else:
+                average_groth_per_week[first_day] = 0.0
+                absolute_groth_per_week[first_day] = 0
+
+        cur_time -= timedelta(days=7)
+        week_ago -= timedelta(days=7)
+
+    create_graph_model_and_store("weekly_user_groth", {
+        "data": [{
+            "x": [k for k in average_groth_per_week],
+            "y": [average_groth_per_week[k] for k in average_groth_per_week],
+            "type": "bar"
+        }],
+        "layout": {
+            "title": "Relative user growth ( percent points ), per week since launch"
+        }
+    })
+
+    create_graph_model_and_store("absolute_user_growth_week", {
+        "data": [{
+            "x": [k for k in absolute_groth_per_week],
+            "y": [absolute_groth_per_week[k] for k in absolute_groth_per_week],
+            "type": "bar"
+        }],
+        "layout": {
+            "title": "Absolute user growth, per week since launch"
+        }
+    })
+
     create_graph_model_and_store("user_age_distribution", {
         "data": [{
             "x": [kind for kind in age_buckets if kind != "total"],
@@ -1731,12 +1865,31 @@ def collect_static_stats():
         }
     })
 
+    total_val_table_headers = ["Total amount of users", "Total amount of matches",
+                               "Total amount of individual matches", "Total amount of volunteers", "Total amount of learners"]
+
+    total_val_rows = [
+        [total_amount_of_users, total_matches, amount_inidividual_matches,
+            amount_of_volunteer, amount_of_learners]
+    ]
+
     create_graph_model_and_store("total_values_table", {
-        "headers": ["Total amount of users", "Total amount of matches", "Total amount of individual matches", "Total amount of volunteers", "Total amount of learners"],
-        "rows": [
-            [total_amount_of_users, total_matches, amount_inidividual_matches,
-                amount_of_volunteer, amount_of_learners]
-        ]
+        "headers": total_val_table_headers,
+        "rows": total_val_rows
+    }, type="table")
+
+    # We also want an inverted total values table with some groth values included
+    transformed_headers = ["Property", "Value",
+                           "Value change day", "Value change week"]
+    rows = []
+    for i, h in enumerate(total_val_table_headers):
+        rows.append(
+            [h, total_val_rows[0][i], 0, 0]
+        )
+
+    create_graph_model_and_store("groth_change_table_overview", {
+        "headers": transformed_headers,
+        "rows": rows,
     }, type="table")
 
     data = {
