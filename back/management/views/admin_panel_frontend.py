@@ -221,6 +221,56 @@ def get_graph(slug):
     }
 
 
+@user_passes_test(lambda u: u.state.has_extra_user_permission("view-lists") or u.is_staff)
+def user_list_frontend(request):
+
+    user_list_default = "active-user-searching"
+    ul, info = get_user_list(user_list_default)
+
+    return render(request, "user_list_frontend.html", {
+        "user_list_data": json.dumps({
+            "user_lists": [[0]],
+            "state": {
+                "available_lists": info
+            }
+        })
+    })
+
+
+class FectchListSerializer(serializers.Serializer):
+    label = serializers.CharField()
+
+    def create(self, validated_data):
+        return validated_data
+
+
+def get_user_list(label):
+    from tracking.models import Summaries
+
+    sum = Summaries.objects.filter(label="user-list-summary").order_by(
+        "-time_created").first()
+
+    ul = sum.meta["detailed_user_listing"][label]
+    info = list(sum.meta["detailed_user_listing"].keys())
+
+    return ul, info
+
+
+@user_passes_test(lambda u: u.state.has_extra_user_permission("view-lists") or u.is_staff)
+@api_view(["POST"])
+def fetch_list(request):
+    serializer = FectchListSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    data = serializer.save()
+
+    list, info = get_user_list(data['label'])
+
+    return Response({
+        "user_list": list
+    })
+
+
 @user_passes_test(lambda u: u.state.has_extra_user_permission("view-stats") or u.is_staff)
 @api_view(["POST"])
 def fetch_graph(request):
