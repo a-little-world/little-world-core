@@ -67,6 +67,10 @@ prod_shedules = {
     #        "regroup_by": "hour"
     #    }
     # },
+    'generate-user-lists': {
+        'task': 'management.tasks.indentify_and_mark_user_categories',
+        'schedule': 60.0 * 60.0 * 12.0,  # Every 12 hours
+    },
     'generate-static-stats': {
         'task': 'management.tasks.collect_static_stats',
         'schedule': 60.0 * 60.0,  # Every hour

@@ -2070,6 +2070,153 @@ def delete_all_old_matching_scores():
                 score.delete()
 
 
+@shared_task
+def indentify_and_mark_user_categories():
+    """
+    Scans through all users and puts then into following categories
+
+    fresh-user-searching:
+    - sighned up within last two week
+    - filled user form
+    - is searching
+    --> this one need to be matched asap
+    --> these could be notified by us per email
+    There are two variations on this category: fresh-user-searching-learner, fresh-user-searching-volunteer
+    TAGS: `fresh-user-searching`, `fresh-user-searching-learner`,  `fresh-user-searching-volunteer`
+
+    active-user:
+    - active within two last week
+    - sighned up more than two weeks ago
+    - is matched
+    --> we want our users to be in this state
+    TAGS: active-user
+
+    active-user-searching:
+    - active within last two weeks
+    - sighned up more than two weeks ago
+    - is matched
+    - is searching again
+    --> Maybe extra point's cause was matched and is searching again
+    --> this user could be asked why his first match didn't work out, or generaly how his experience was
+
+    inactive-user-ex-searching:
+    - sighned up more than two weeks ago
+    - not active withing last two weeks
+    - is matched
+    --> A user that was matched and turned inactive, we could ask him is he is still in contact with his match
+    TAGS: inactive-user-ex-searching, inactive-user-ex-searching-learner, inactive-user-ex-searching-volunteer
+
+    inactive-user-searching:
+    - sighned up more than two weeks ago
+    - not active withing last two weeks
+    - is matched
+    - is searching (again)
+    --> This one we could ask is he is still searching
+    TAGS: inactive-user-searching, inactive-user-searching-learner, inactive-user-searching-volunteer
+
+    power-user:
+    - sighned up more than two weeks ago
+    - not active withing last two weeks
+    - is matched multiple times
+    - activitiy in 2 or more matches withing past two weeks
+    --> These people we could give some reward or thankyou notice / message
+    TAGS: power-user, power-user-learner, power-user-volunteer
+
+
+    """
+    from datetime import timedelta, timezone, datetime
+    from management.models import State, User
+    from tracking.models import Summaries
+    now = datetime.now(timezone.utc)
+
+    category_conditions = {
+        "fresh-user-searching": ["sighned-up-within-last-two-week", "filled-user-form", "is-searching"],
+        "active-user": ["active-within-two-last-week", "signed-up-more-than-two-weeks-ago", "is-matched"],
+        "active-user-searching": ["active-within-two-last-week", "signed-up-more-than-two-weeks-ago", "is-matched", "is-searching-again"],
+        "inactive-user-ex-searching": ["inactive-within-last-two-week", "signed-up-more-than-two-weeks-ago", "is-matched"],
+        "inactive-user-searching": ["inactive-within-last-two-week", "signed-up-more-than-two-weeks-ago", "is-matched", "is-searching-again"],
+        # TODO: still need to do the match activity check
+        "power-user": ["active-within-two-last-week", "signed-up-more-than-two-weeks-ago", "is-matched", "is-matched-multiple-times"],
+    }
+
+    calculated_props = {}
+
+    per_user_condition_checker = {
+        "sighned-up-within-last-two-week": lambda u, cp: u.date_joined >= now - timedelta(days=14),
+        "signed-up-more-than-two-weeks-ago": lambda u, cp: u.date_joined < now - timedelta(days=14),
+        "filled-user-form": lambda u, cp: u.state.user_form_state == State.UserFormStateChoices.FILLED,
+        "is-searching": lambda u, cp: u.state.matching_state == State.MatchingStateChoices.SEARCHING,
+        "active-within-two-last-week": lambda u, cp: cp['last_active'] > now - timedelta(days=14),
+        "inactive-within-last-two-week": lambda u, cp: cp['last_active'] < now - timedelta(days=14),
+        "is-searching-again": lambda u, cp: (u.state.matching_state == State.MatchingStateChoices.SEARCHING) and (u.state.matches.count() >= 2),
+        "is-matched": lambda u, cp: u.state.matches.count() >= 2,
+        "is-matched-multiple-times": lambda u, cp: u.state.matches.count() >= 3,
+    }
+
+    def calculate_latest_activity(u):
+        latest = u.last_login
+        if latest is None:
+            latest = u.date_joined
+        from tracking.models import Event
+        latest_event = Event.objects.filter(caller=u)
+        if latest_event.exists():
+            print(f"USer {u}, event exxits: {latest_event.last()}")
+            lte = latest_event.last().time
+            if lte > latest:
+                latest = lte
+        return latest
+
+    conditions_user_listing = {k: [] for k in per_user_condition_checker}
+    user_conditions = {}
+    category_user_listing = {k: [] for k in category_conditions}
+
+    detailed_user_listing = {k: [] for k in category_conditions}
+
+    amnt_users = User.objects.count()
+    i = 1
+    for u in User.objects.all():
+
+        print("user {}/{}".format(i, amnt_users))
+
+        user_conditions[u.hash] = {}
+
+        calculated_props["last_active"] = calculate_latest_activity(u)
+
+        for k in per_user_condition_checker:
+            if per_user_condition_checker[k](u, calculated_props):
+                conditions_user_listing[k].append(u)
+                user_conditions[u.hash][k] = True
+            else:
+                user_conditions[u.hash][k] = False
+        print("Calculated user conditions:" + str(user_conditions[u.hash]))
+        print("Condition categories:" + str(category_conditions))
+        for category in category_conditions:
+            if all([user_conditions[u.hash][k] for k in category_conditions[category]]):
+                category_user_listing[category].append(u.hash)
+                detailed_user_listing[category].append({
+                    "email": u.email,
+                    "hash": u.hash,
+                    "pp": str(u.profile.image.url) if u.profile.image else "",
+                })
+
+        i += 1
+
+    print(detailed_user_listing)
+
+    Summaries.objects.create(
+        label="user-list-summary",
+        slug=f"time-{now}",
+        rate=Summaries.RateChoices.DAILY,
+        meta={
+            "user_conditions": user_conditions,
+            "category_user_listing": category_user_listing,
+            "detailed_user_listing": detailed_user_listing,
+        }
+    )
+
+    return category_user_listing
+
+
 @ shared_task
 def dispatch_admin_email_notification(subject, message):
     from . import controller
