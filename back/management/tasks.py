@@ -2193,7 +2193,15 @@ def indentify_and_mark_user_categories():
         for category in category_conditions:
             if all([user_conditions[u.hash][k] for k in category_conditions[category]]):
                 category_user_listing[category].append(u.hash)
+
+                # All info that is relevant for a simple user representation
                 detailed_user_listing[category].append({
+                    "generated_tags": [k for k in category_conditions[category] if user_conditions[u.hash][k]],
+                    "manual_tags": u.state.tags,
+                    "user_category": u.state.user_category,
+                    "matching_state": u.state.matching_state,
+                    "user_type": u.profile.user_type,
+                    # "permissions": u.profile.extra_user_permissions,
                     "email": u.email,
                     "hash": u.hash,
                     "pp": str(u.profile.image.url) if u.profile.image else "",

@@ -251,6 +251,8 @@ def get_user_list(label):
         "-time_created").first()
 
     ul = sum.meta["detailed_user_listing"][label]
+
+    # Now we got to add some more relevant info about that user
     info = list(sum.meta["detailed_user_listing"].keys())
 
     return ul, info
