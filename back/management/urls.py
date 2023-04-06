@@ -73,6 +73,7 @@ api_routes = [
 
     path(_api_url('user/logout'), api.user.LogoutApi.as_view()),
     path(_api_url('user/checkpw'), api.user.CheckPasswordApi.as_view()),
+    path(_api_url('user/changepw'), api.user.ChangePasswordApi.as_view()),
     path(_api_url('user/translate'), api.translation_requests.translate),
     path(_api_url('user/change_email'), api.user.ChangeEmailApi.as_view()),
 

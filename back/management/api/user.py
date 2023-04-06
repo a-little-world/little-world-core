@@ -215,19 +215,15 @@ class LogoutApi(APIView):
 @ dataclass
 class CheckPwParams:
     password: str
-    email: str
 
 
 class CheckPwSerializer(serializers.Serializer):
-    password = serializers.EmailField(required=True)
-    email = serializers.EmailField(required=True)
+    password = serializers.CharField(required=True)
 
     def create(self, validated_data):
         return CheckPwParams(**validated_data)
 
 
-# This sorta enables password enumeration but only if one manages to steal a users session token
-# TODO So like the login api this should be throttled!
 class CheckPasswordApi(APIView):
 
     authentication_classes = [authentication.SessionAuthentication,
@@ -242,6 +238,49 @@ class CheckPasswordApi(APIView):
 
         _check = request.user.check_password(params.password)
         return Response(status=status.HTTP_200_OK if _check else status.HTTP_400_BAD_REQUEST)
+
+
+@ dataclass
+class ChangePwParams:
+    password_old: str
+    password_new: str
+    password_new2: str
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    password_old = serializers.CharField(required=True)
+    password_new = serializers.CharField(required=True)
+    password_new2 = serializers.CharField(required=True)
+
+    def create(self, validated_data):
+        return ChangePwParams(**validated_data)
+
+
+class ChangePasswordApi(APIView):
+
+    authentication_classes = [authentication.SessionAuthentication,
+                              authentication.BasicAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    @ extend_schema(request=ChangePasswordSerializer(many=False))
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        params = serializer.save()
+
+        _check = request.user.check_password(params.password_old)
+        if not _check:
+            return Response(pgettext_lazy("api.change-password-failed.incorrect-old-pw", "Incorrect old password"),
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        if params.password_new != params.password_new2:
+            return Response(pgettext_lazy("api.change-password-failed.new-pw-not-equal", "New passwords not equal"),
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        request.user.set_password(params.password_new)
+        request.user.save()
+
+        return Response(pgettext_lazy("api.change-password-sucessful", "Sucessfully changed password"), status=status.HTTP_200_OK)
 
 
 @ dataclass
