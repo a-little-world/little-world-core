@@ -164,8 +164,7 @@ def create_user(
 
     # Step 8 Message the user from the admin account
     if send_welcome_message:
-        usr.message(pgettext_lazy("api.register-welcome-message-text", """
-Hallo {first_name}
+        usr.message(pgettext_lazy("api.register-welcome-message-text", """Hallo {first_name}
 
 ich bin Oliver, einer der Gründer von Little World. Wir freuen uns riesig, Dich als einer der ersten Nutzer:innen unserer Plattform begrüßen zu dürfen! Da wir täglich daran arbeiten, unsere neue Plattform zu verbessern, ist Dein Feedback besonders wertvoll! Hast du vielleicht schon Anregungen zur Verbesserung? Dann schreib mir einfach!
 
@@ -221,8 +220,7 @@ def match_users(
         usr2.notify(title=_("New match: %s" % usr1.profile.first_name))
 
     if send_message:
-        match_message = pgettext_lazy("api.match-made-message-text", """
-Glückwunsch, wir haben jemanden für dich gefunden! 
+        match_message = pgettext_lazy("api.match-made-message-text", """Glückwunsch, wir haben jemanden für dich gefunden! 
 
 Am besten vereinbarst du direkt einen Termin mit {other_name} für euer erstes Gespräch – das klappt meist besser als viele Nachrichten. 
 Unterhalten könnt ihr euch zur vereinbarten Zeit auf Little World indem du oben rechts auf das Anruf-Symbol drückt. 
