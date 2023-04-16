@@ -1,6 +1,8 @@
 from django.db import models
+from django.utils.encoding import force_str
 from django.utils.translation import gettext_lazy as _, gettext_noop
 from phonenumber_field.modelfields import PhoneNumberField
+from django.utils import translation
 from phonenumber_field.phonenumber import PhoneNumber
 from back.utils import get_options_serializer
 from datetime import datetime
@@ -29,6 +31,10 @@ from django.utils.translation import pgettext_lazy
 
 # This can be used to handle changes in the api from the frontend
 PROFILE_MODEL_VERSION = "1"
+
+
+def base_lang_skill():
+    return [{'lang': 'german', 'level': 'level-0.vol'}]
 
 
 @deconstructible
@@ -330,6 +336,21 @@ class ProfileBase(models.Model):
         default=LanguageLevelChoices.LEVEL_0_VOL,
         max_length=255)
 
+    class LanguageSkillChoices(models.TextChoices):
+        LEVEL_0 = "level-0", pgettext_lazy(
+            "profile.lang-level.level-0", "any")
+
+        LEVEL_1 = "level-1", pgettext_lazy(
+            "profile.lang-level.level-1", "B1 = (everyday situations, stories, hopes)")
+
+        LEVEL_2 = "level-2", pgettext_lazy(
+            "profile.lang-level.level-2", "B2 = (fluent & spontaneous conversations, current events)")
+
+        LEVEL_3 = "level-3", pgettext_lazy(
+            "profile.lang-level.level-3", "C1/C2 = (complex topics, hardly searching for words)")
+
+    lang_skill = models.JSONField(default=base_lang_skill)
+
     # Profile image
     class ImageTypeChoice(models.TextChoices):
         AVATAR = "avatar", pgettext_lazy("profile.image-type.avatar", "Avatar")
@@ -471,6 +492,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         # There is no way the serializer can determine the options for our availability
         # so lets just add it now, sice availability is stored as json anyways
         # we can easily change the choices here in the future
+
         if 'availability' in self.Meta.fields:  # <- TODO: does this check work with inheritence?
             d.update({  # Ourcourse there is no need to do this for the Censored profile view
                 'availability': {day: [
@@ -478,6 +500,12 @@ class ProfileSerializer(serializers.ModelSerializer):
                      "tag": SLOT_TRANS[slot]} for slot in SLOTS
                 ] for day in DAYS}
             })
+
+        if 'lang_skill' in self.Meta.fields:
+            d.update(
+                {'lang_skill': {'level': [{'value': l0, 'tag': force_str(l1, strings_only=True)} for l0, l1 in Profile.LanguageSkillChoices.choices]}})
+
+        # TODO: we might want to update the options for than language skill choices also
         return d
 
     class Meta:
@@ -492,7 +520,7 @@ class SelfProfileSerializer(ProfileSerializer):
                   'user_type', 'target_group', 'partner_sex', 'speech_medium',
                   'partner_location', 'postal_code', 'interests', 'availability',
                   'lang_level', 'additional_interests', 'language_skill_description', 'birth_year', 'description',
-                  'notify_channel', 'phone_mobile', 'image_type', 'avatar_config', 'image']
+                  'notify_channel', 'phone_mobile', 'image_type', 'avatar_config', 'image', 'lang_skill']
 
         extra_kwargs = dict(
             language_skill_description={
@@ -553,6 +581,24 @@ class SelfProfileSerializer(ProfileSerializer):
 
     def validate_postal_code(self, value):
         return validate_postal_code(value)
+
+    # TODO: we need to validate the language skill list here
+    def validate_lang_skill(self, value):
+        german_level_present = False
+        for lang in value:
+            if 'german' in lang['language']:
+                german_level_present = True
+            if not lang['level'] in Profile.LanguageSkillChoices.choices:
+                raise serializers.ValidationError(
+                    pgettext_lazy("profile.lang-level-invalid",
+                                  "Invalid language level selected"))
+
+        if not german_level_present:
+            raise serializers.ValidationError(
+                pgettext_lazy("profile.lang-de-missing",
+                              "You must select at least german as a language"))
+        # TODO: do we want to provide a fixed list of languages? -> if so then they should be checked here
+        return value
 
     def validate_description(self, value):
         if len(value) < 10:  # TODO: higher?
