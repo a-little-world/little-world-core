@@ -108,12 +108,12 @@ msgstr "Entschuldigen Sie, aber Sie können nicht so alt sein"
 #: api/register.py:55
 msgctxt "register.birth-year-over-2024"
 msgid "Sorry currently users have to be at least 18 years old to participate"
-msgstr ""
+msgstr "Entschuldigung, derzeit müssen Nutzer mindestens 18 Jahre alt sein"
 
 #: api/register.py:85
 msgctxt "api.register-user-email-exists"
 msgid "User with this email already exists"
-msgstr ""
+msgstr "Nutzer mit dieser E-Mail existiert bereits"
 
 #: api/register.py:102
 msgid "Passwords must match"
@@ -182,7 +182,7 @@ msgstr "Anmeldung fehlgeschlagen, E-Mail oder Passwort falsch!"
 #: api/user.py:195
 msgctxt "api.auto-login-failed"
 msgid "Can't auto log-in!"
-msgstr ""
+msgstr "Login fehlgeschlagen!"
 
 #: api/user.py:212
 msgctxt "api.logout-sucessful"
@@ -192,12 +192,12 @@ msgstr "Erfolgreich abgemeldet!"
 #: api/user.py:273
 msgctxt "api.change-password-failed.incorrect-old-pw"
 msgid "Incorrect old password"
-msgstr ""
+msgstr "Falsches altes Passwort"
 
 #: api/user.py:277
 msgctxt "api.change-password-failed.new-pw-not-equal"
 msgid "New passwords not equal"
-msgstr ""
+msgstr "Neue Passwörter nicht gleich"
 
 #: api/user.py:283
 #, fuzzy
@@ -210,7 +210,7 @@ msgstr "Erfolgreich abgemeldet!"
 #: api/user.py:321
 msgctxt "api.user.change-email-not-allowed-staff"
 msgid "Admin may never change their email! Only by the grace of @tbscode"
-msgstr ""
+msgstr "Admin darf ihre E-Mail Adresse niemals ändern! Nur durch Gnade von @tbscode"
 
 #: api/user.py:329
 msgctxt "api.user.change-email-failed.same-email"
@@ -248,13 +248,13 @@ msgstr "State aktualisiert!"
 #: api/user.py:459
 msgctxt "api.user-unmatch-self.success"
 msgid "Unmatched!"
-msgstr ""
+msgstr "Match aufgehoben!"
 
 #: api/user.py:470 controller.py:137
 #, python-brace-format
 msgctxt "api.register-welcome-mail-subject"
 msgid "{code} - Verifizierungscode zur E-Mail Bestätigun"
-msgstr ""
+msgstr "{code} - Verifizierungscode zur E-Mail Bestätigung"
 
 #: api/user.py:499
 msgctxt "api.user-resetpw.mail-subject"
@@ -287,6 +287,19 @@ msgid ""
 "Oliver  \n"
 "        "
 msgstr ""
+"\n"
+"Hallo {first_name}\n"
+"\n"
+"ich bin Oliver, einer der Gründer von Little World. Wir freuen uns riesig, "
+"Dich als einer der ersten Nutzer:innen unserer Plattform begrüßen zu dürfen! "
+"Da wir täglich daran arbeiten, unsere neue Plattform zu verbessern, ist Dein "
+"Feedback besonders wertvoll! Hast du vielleicht schon Anregungen zur "
+"Verbesserung? Dann schreib mir einfach!\n"
+"\n"
+"Wir freuen uns über Deine Unterstützung und senden ganz liebe Grüße aus "
+"Aachen,\n"
+"Oliver  \n"
+"        "
 
 #: controller.py:220 controller.py:221
 #, python-format
@@ -308,11 +321,21 @@ msgid ""
 "\n"
 "Damit euch viel Spaß! Schöne Grüße vom Team Little World\n"
 msgstr ""
+"Glückwunsch, wir haben jemanden für dich gefunden! \n"
+"\n"
+"Am besten vereinbarst du direkt einen Termin mit {other_name} für euer "
+"erstes Gespräch – das klappt meist besser als viele Nachrichten. \n"
+"Unterhalten könnt ihr euch zur vereinbarten Zeit auf Little World indem du "
+"oben rechts auf das Anruf-Symbol drückt. \n"
+"Schau dir gerne schon vorher das Profil von {other_name} an, indem du auf "
+"den Namen drückst. \n"
+"\n"
+"Damit euch viel Spaß! Schöne Grüße vom Team Little World\n"
 
 #: controller.py:241 controller.py:251
 msgctxt "api.match-made-email-subject"
 msgid "Glückwunsch! Gesprächspartner:in gefunden auf Little World"
-msgstr ""
+msgstr "Glückwunsch! Gesprächspartner:in gefunden auf Little World"
 
 #: models/community_events.py:21
 msgctxt "model.community-event.frequency-weekly"
@@ -713,12 +736,12 @@ msgstr "Du hast ein Avatar ausgewählt, aber kein Avatar erstellt"
 #: models/profile.py:594
 msgctxt "profile.lang-level-invalid"
 msgid "Invalid language level selected"
-msgstr ""
+msgstr "Invalid language level selected"
 
 #: models/profile.py:599
 msgctxt "profile.lang-de-missing"
 msgid "You must select at least german as a language"
-msgstr ""
+msgstr "Du musst mindestens Deutsch als Sprache auswählen"
 
 #: models/profile.py:607
 msgctxt "profile.descr-to-short"
@@ -785,7 +808,7 @@ msgstr "Anzeigen von Datenbank Schemata erlaubt"
 
 #: models/user.py:189
 msgid "description"
-msgstr ""
+msgstr "description"
 
 #: tasks.py:31
 msgctxt "community-event.coffe-chillout"
@@ -795,7 +818,7 @@ msgstr "Kaffeerunden"
 #: tasks.py:380
 msgctxt "tasks.unread-notifications-email-subject"
 msgid "Neue Nachricht(en) auf Little World"
-msgstr ""
+msgstr "Neue Nachricht(en) auf Little World"
 
 #: validators.py:61
 #, python-brace-format
