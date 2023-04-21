@@ -556,7 +556,10 @@ class ProfileSerializer(serializers.ModelSerializer):
 
         if 'lang_skill' in self.Meta.fields:
             d.update(
-                {'lang_skill': {'level': [{'value': l0, 'tag': force_str(l1, strings_only=True)} for l0, l1 in Profile.LanguageSkillChoices.choices]}})
+                {'lang_skill': {
+                    'level': [{'value': l0, 'tag': force_str(l1, strings_only=True)} for l0, l1 in Profile.LanguageSkillChoices.choices],
+                    'lang': [{'value': l0, 'tag': force_str(l1, strings_only=True)} for l0, l1 in Profile.LanguageChoices.choices]
+                }})
 
         # TODO: we might want to update the options for than language skill choices also
         return d
