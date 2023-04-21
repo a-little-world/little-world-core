@@ -168,6 +168,29 @@ class ProfileBase(models.Model):
         default=ParterSexChoice.ANY,
         max_length=255)
 
+    class PartnerGenderChoices(models.TextChoices):
+        ANY = "any", pgettext_lazy("profile.partner-gender.any", "Any")
+        MALE = "male", pgettext_lazy(
+            "profile.partner-gender.male", "Male only")
+        FEMALE = "female", pgettext_lazy(
+            "profile.gender.female", "Female only")
+
+    class GenderChoices(models.TextChoices):
+        ANY = "any", pgettext_lazy("profile.gender.any", "Dont want to say")
+        MALE = "male", pgettext_lazy("profile.gender.male", "Male")
+        FEMALE = "female", pgettext_lazy(
+            "profile.gender.female", "Female")
+
+    gender = models.CharField(
+        choices=GenderChoices.choices,
+        default=GenderChoices.ANY,
+        max_length=255)
+
+    partner_gender = models.CharField(
+        choices=PartnerGenderChoices.choices,
+        default=PartnerGenderChoices.ANY,
+        max_length=255)
+
     """
     Which medium the user preferes for
     """
@@ -336,6 +359,58 @@ class ProfileBase(models.Model):
         default=LanguageLevelChoices.LEVEL_0_VOL,
         max_length=255)
 
+    class LanguageChoices(models.TextChoices):
+        ENGLISH = "english", pgettext_lazy("profile.lang.english", "English")
+        GERMAN = "german", pgettext_lazy("profile.lang.german", "German")
+        SPANISH = "spanish", pgettext_lazy("profile.lang.spanish", "Spanish")
+        FRENCH = "french", pgettext_lazy("profile.lang.french", "French")
+        ITALIAN = "italian", pgettext_lazy("profile.lang.italian", "Italian")
+        DUTCH = "dutch", pgettext_lazy("profile.lang.dutch", "Dutch")
+        PORTUGUESE = "portuguese", pgettext_lazy(
+            "profile.lang.portuguese", "Portuguese")
+        RUSSIAN = "russian", pgettext_lazy("profile.lang.russian", "Russian")
+        CHINESE = "chinese", pgettext_lazy("profile.lang.chinese", "Chinese")
+        JAPANESE = "japanese", pgettext_lazy(
+            "profile.lang.japanese", "Japanese")
+        KOREAN = "korean", pgettext_lazy("profile.lang.korean", "Korean")
+        ARABIC = "arabic", pgettext_lazy("profile.lang.arabic", "Arabic")
+        TURKISH = "turkish", pgettext_lazy("profile.lang.turkish", "Turkish")
+        SWEDISH = "swedish", pgettext_lazy("profile.lang.swedish", "Swedish")
+        POLISH = "polish", pgettext_lazy("profile.lang.polish", "Polish")
+        DANISH = "danish", pgettext_lazy("profile.lang.danish", "Danish")
+        NORWEGIAN = "norwegian", pgettext_lazy(
+            "profile.lang.norwegian", "Norwegian")
+        FINNISH = "finnish", pgettext_lazy("profile.lang.finnish", "Finnish")
+        GREEK = "greek", pgettext_lazy("profile.lang.greek", "Greek")
+        CZECH = "czech", pgettext_lazy("profile.lang.czech", "Czech")
+        HUNGARIAN = "hungarian", pgettext_lazy(
+            "profile.lang.hungarian", "Hungarian")
+        ROMANIAN = "romanian", pgettext_lazy(
+            "profile.lang.romanian", "Romanian")
+        INDONESIAN = "indonesian", pgettext_lazy(
+            "profile.lang.indonesian", "Indonesian")
+        HEBREW = "hebrew", pgettext_lazy("profile.lang.hebrew", "Hebrew")
+        THAI = "thai", pgettext_lazy("profile.lang.thai", "Thai")
+        VIETNAMESE = "vietnamese", pgettext_lazy(
+            "profile.lang.vietnamese", "Vietnamese")
+        UKRAINIAN = "ukrainian", pgettext_lazy(
+            "profile.lang.ukrainian", "Ukrainian")
+        SLOVAK = "slovak", pgettext_lazy("profile.lang.slovak", "Slovak")
+        CROATIAN = "croatian", pgettext_lazy(
+            "profile.lang.croatian", "Croatian")
+        SERBIAN = "serbian", pgettext_lazy("profile.lang.serbian", "Serbian")
+        BULGARIAN = "bulgarian", pgettext_lazy(
+            "profile.lang.bulgarian", "Bulgarian")
+        LITHUANIAN = "lithuanian", pgettext_lazy(
+            "profile.lang.lithuanian", "Lithuanian")
+        LATVIAN = "latvian", pgettext_lazy("profile.lang.latvian", "Latvian")
+        ESTONIAN = "estonian", pgettext_lazy(
+            "profile.lang.estonian", "Estonian")
+        PERSIAN = "persian", pgettext_lazy("profile.lang.persian", "Persian")
+        AFRIKAANS = "afrikaans", pgettext_lazy(
+            "profile.lang.afrikaans", "Afrikaans")
+        SWAHILI = "swahili", pgettext_lazy("profile.lang.swahili", "Swahili")
+
     class LanguageSkillChoices(models.TextChoices):
         LEVEL_0 = "level-0", pgettext_lazy(
             "profile.lang-level.level-0", "any")
@@ -352,6 +427,7 @@ class ProfileBase(models.Model):
     lang_skill = models.JSONField(default=base_lang_skill)
 
     # Profile image
+
     class ImageTypeChoice(models.TextChoices):
         AVATAR = "avatar", pgettext_lazy("profile.image-type.avatar", "Avatar")
         IMAGE = "image", pgettext_lazy("profile.image-type.image", "Image")
@@ -503,7 +579,10 @@ class ProfileSerializer(serializers.ModelSerializer):
 
         if 'lang_skill' in self.Meta.fields:
             d.update(
-                {'lang_skill': {'level': [{'value': l0, 'tag': force_str(l1, strings_only=True)} for l0, l1 in Profile.LanguageSkillChoices.choices]}})
+                {'lang_skill': {
+                    'level': [{'value': l0, 'tag': force_str(l1, strings_only=True)} for l0, l1 in Profile.LanguageSkillChoices.choices],
+                    'lang': [{'value': l0, 'tag': force_str(l1, strings_only=True)} for l0, l1 in Profile.LanguageChoices.choices]
+                }})
 
         # TODO: we might want to update the options for than language skill choices also
         return d
@@ -520,7 +599,7 @@ class SelfProfileSerializer(ProfileSerializer):
                   'user_type', 'target_group', 'partner_sex', 'speech_medium',
                   'partner_location', 'postal_code', 'interests', 'availability',
                   'lang_level', 'additional_interests', 'language_skill_description', 'birth_year', 'description',
-                  'notify_channel', 'phone_mobile', 'image_type', 'avatar_config', 'image', 'lang_skill']
+                  'notify_channel', 'phone_mobile', 'image_type', 'avatar_config', 'image', 'lang_skill', 'gender', 'partner_gender']
 
         extra_kwargs = dict(
             language_skill_description={
@@ -582,22 +661,36 @@ class SelfProfileSerializer(ProfileSerializer):
     def validate_postal_code(self, value):
         return validate_postal_code(value)
 
-    # TODO: we need to validate the language skill list here
     def validate_lang_skill(self, value):
         german_level_present = False
+        language_count_map = {}
         for lang in value:
-            if 'german' in lang['language']:
+            if 'german' in lang['lang']:
                 german_level_present = True
-            if not lang['level'] in Profile.LanguageSkillChoices.choices:
+            if not (lang['level'] in Profile.LanguageSkillChoices.values):
                 raise serializers.ValidationError(
                     pgettext_lazy("profile.lang-level-invalid",
                                   "Invalid language level selected"))
+
+            if not (lang['lang'] in Profile.LanguageChoices.values):
+                raise serializers.ValidationError(
+                    pgettext_lazy("profile.lang-invalid",
+                                  "Invalid language selected"))
+
+            if not lang['lang'] in language_count_map:
+                language_count_map[lang['lang']] = 1
+            else:
+                language_count_map[lang['lang']] += 1
+
+        if not all([v <= 1 for v in language_count_map.values()]):
+            raise serializers.ValidationError(
+                pgettext_lazy("profile.lang-duplicate",
+                              "You have selected a language multiple times"))
 
         if not german_level_present:
             raise serializers.ValidationError(
                 pgettext_lazy("profile.lang-de-missing",
                               "You must select at least german as a language"))
-        # TODO: do we want to provide a fixed list of languages? -> if so then they should be checked here
         return value
 
     def validate_description(self, value):
