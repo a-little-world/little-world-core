@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-16 12:13+0000\n"
+"POT-Creation-Date: 2023-04-21 12:37+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -210,7 +210,8 @@ msgstr "Erfolgreich abgemeldet!"
 #: api/user.py:321
 msgctxt "api.user.change-email-not-allowed-staff"
 msgid "Admin may never change their email! Only by the grace of @tbscode"
-msgstr "Admin darf ihre E-Mail Adresse niemals ändern! Nur durch Gnade von @tbscode"
+msgstr ""
+"Admin darf ihre E-Mail Adresse niemals ändern! Nur durch Gnade von @tbscode"
 
 #: api/user.py:329
 msgctxt "api.user.change-email-failed.same-email"
@@ -270,10 +271,24 @@ msgid "Welcome Notification"
 msgstr "Willkommensbenachrichtigung"
 
 #: controller.py:167
-#, python-brace-format
+#, fuzzy, python-brace-format
+#| msgctxt "api.register-welcome-message-text"
+#| msgid ""
+#| "\n"
+#| "Hallo {first_name}\n"
+#| "\n"
+#| "ich bin Oliver, einer der Gründer von Little World. Wir freuen uns "
+#| "riesig, Dich als einer der ersten Nutzer:innen unserer Plattform begrüßen "
+#| "zu dürfen! Da wir täglich daran arbeiten, unsere neue Plattform zu "
+#| "verbessern, ist Dein Feedback besonders wertvoll! Hast du vielleicht "
+#| "schon Anregungen zur Verbesserung? Dann schreib mir einfach!\n"
+#| "\n"
+#| "Wir freuen uns über Deine Unterstützung und senden ganz liebe Grüße aus "
+#| "Aachen,\n"
+#| "Oliver  \n"
+#| "        "
 msgctxt "api.register-welcome-message-text"
 msgid ""
-"\n"
 "Hallo {first_name}\n"
 "\n"
 "ich bin Oliver, einer der Gründer von Little World. Wir freuen uns riesig, "
@@ -287,7 +302,6 @@ msgid ""
 "Oliver  \n"
 "        "
 msgstr ""
-"\n"
 "Hallo {first_name}\n"
 "\n"
 "ich bin Oliver, einer der Gründer von Little World. Wir freuen uns riesig, "
@@ -301,12 +315,12 @@ msgstr ""
 "Oliver  \n"
 "        "
 
-#: controller.py:220 controller.py:221
+#: controller.py:219 controller.py:220
 #, python-format
 msgid "New match: %s"
 msgstr "Neuer Match: %s"
 
-#: controller.py:224
+#: controller.py:223
 #, python-brace-format
 msgctxt "api.match-made-message-text"
 msgid ""
@@ -319,7 +333,7 @@ msgid ""
 "Schau dir gerne schon vorher das Profil von {other_name} an, indem du auf "
 "den Namen drückst. \n"
 "\n"
-"Damit euch viel Spaß! Schöne Grüße vom Team Little World\n"
+"Damit euch viel Spaß! Schöne Grüße vom Team Little World"
 msgstr ""
 "Glückwunsch, wir haben jemanden für dich gefunden! \n"
 "\n"
@@ -330,9 +344,9 @@ msgstr ""
 "Schau dir gerne schon vorher das Profil von {other_name} an, indem du auf "
 "den Namen drückst. \n"
 "\n"
-"Damit euch viel Spaß! Schöne Grüße vom Team Little World\n"
+"Damit euch viel Spaß! Schöne Grüße vom Team Little World"
 
-#: controller.py:241 controller.py:251
+#: controller.py:240 controller.py:250
 msgctxt "api.match-made-email-subject"
 msgid "Glückwunsch! Gesprächspartner:in gefunden auf Little World"
 msgstr "Glückwunsch! Gesprächspartner:in gefunden auf Little World"
@@ -385,287 +399,472 @@ msgstr "Titel"
 msgid "no-description"
 msgstr "Keine Beschreibung"
 
-#: models/profile.py:105
+#: models/profile.py:106
 msgctxt "profile.user-type.learner"
 msgid "Language learner"
 msgstr "Sprachlernende*r"
 
-#: models/profile.py:107
+#: models/profile.py:108
 msgctxt "profile.user-type.volunteer"
 msgid "Volunteer"
 msgstr "Ehrenamtliche*r Sprachpate/patin"
 
-#: models/profile.py:128
+#: models/profile.py:129
 msgctxt "profile.target-group.any-vol"
 msgid "Any group"
 msgstr "Egal welche Gruppe"
 
-#: models/profile.py:131
+#: models/profile.py:132
 msgctxt "profile.target-group.any-ler"
 msgid "Any group"
 msgstr "Irgendeiner Gruppe"
 
-#: models/profile.py:134
+#: models/profile.py:135
 msgctxt "profile.target-group.refugee-vol"
 msgid "Refugees only"
 msgstr "Geflüchtete (u.a. Ukraine, Jemen, Syrien)"
 
-#: models/profile.py:137
+#: models/profile.py:138
 msgctxt "profile.target-group.refugee-ler"
 msgid "Refugees only"
 msgstr "Geflüchtete (u.a. Ukraine, Jemen, Syrien)"
 
-#: models/profile.py:140
+#: models/profile.py:141
 msgctxt "profile.target-group.student-vol"
 msgid "Students only"
 msgstr "Nur Studenten"
 
-#: models/profile.py:143
+#: models/profile.py:144
 msgctxt "profile.target-group.student-ler"
 msgid "Students only"
 msgstr "Studierenden"
 
-#: models/profile.py:146
+#: models/profile.py:147
 msgctxt "profile.target-group.worker-vol"
 msgid "Workers only"
 msgstr "Fachkräften aus dem Ausland"
 
-#: models/profile.py:149
+#: models/profile.py:150
 msgctxt "profile.target-group.worker-ler"
 msgid "Workers only"
 msgstr "Arbeitenden"
 
-#: models/profile.py:160
+#: models/profile.py:161
 msgctxt "profile.partner-sex.any"
 msgid "Any"
 msgstr "Egal"
 
-#: models/profile.py:161
+#: models/profile.py:162
 msgctxt "profile.partner-sex.male"
 msgid "Male only"
 msgstr "Männlich"
 
-#: models/profile.py:163
+#: models/profile.py:164
 msgctxt "profile.partner-sex.female"
 msgid "Female only"
 msgstr "Weiblich"
 
-#: models/profile.py:175
+#: models/profile.py:176
 msgctxt "profile.speech-medium.any-vol"
 msgid "Any"
 msgstr "Video oder Telefon"
 
-#: models/profile.py:178
+#: models/profile.py:179
 msgctxt "profile.speech-medium.any-ler"
 msgid "Any"
 msgstr "Video oder Telefon"
 
-#: models/profile.py:181
+#: models/profile.py:182
 msgctxt "profile.speech-medium.video-vol"
 msgid "Video only"
 msgstr "nur Videotelefonie (auch ohne Video)"
 
-#: models/profile.py:184
+#: models/profile.py:185
 msgctxt "profile.speech-medium.video-ler"
 msgid "Video only"
 msgstr "nur Videotelefonie (auch ohne Video)"
 
-#: models/profile.py:187
+#: models/profile.py:188
 msgctxt "profile.speech-medium.phone-vol"
 msgid "Phone only"
 msgstr "nur Telefon"
 
-#: models/profile.py:190
+#: models/profile.py:191
 msgctxt "profile.speech-medium.phone-ler"
 msgid "Phone only"
 msgstr "nur Telefon"
 
-#: models/profile.py:203
+#: models/profile.py:204
 msgctxt "profile.partner-location.anywhere-vol"
 msgid "Anywhere"
 msgstr "egal"
 
-#: models/profile.py:206
+#: models/profile.py:207
 msgctxt "profile.partner-location.anywhere-ler"
 msgid "Anywhere"
 msgstr "egal"
 
-#: models/profile.py:209
+#: models/profile.py:210
 msgctxt "profile.partner-location.close-vol"
 msgid "Close"
 msgstr "möglichst in meiner Nähe wohnen"
 
-#: models/profile.py:212
+#: models/profile.py:213
 msgctxt "profile.partner-location.close-ler"
 msgid "Close"
 msgstr "möglichst in meiner Nähe wohnen"
 
-#: models/profile.py:215
+#: models/profile.py:216
 msgctxt "profile.partner-location.far-vol"
 msgid "Far"
 msgstr "nicht in meiner Nähe wohnen"
 
-#: models/profile.py:218
+#: models/profile.py:219
 msgctxt "profile.partner-location.far-ler"
 msgid "Far"
 msgstr "nicht in meiner Nähe wohnen"
 
-#: models/profile.py:231
+#: models/profile.py:232
 msgctxt "profile.sport-interest"
 msgid "Sport"
 msgstr "Sport"
 
-#: models/profile.py:232
+#: models/profile.py:233
 msgctxt "profile.art-interest"
 msgid "Art"
 msgstr "Kunst"
 
-#: models/profile.py:233
+#: models/profile.py:234
 msgctxt "profile.music-interest"
 msgid "Music"
 msgstr "Musik"
 
-#: models/profile.py:235
+#: models/profile.py:236
 msgctxt "profile.literature-interest"
 msgid "Literature"
 msgstr "Literatur"
 
-#: models/profile.py:236
+#: models/profile.py:237
 msgctxt "profile.video-interest"
 msgid "Video"
 msgstr "Filme"
 
-#: models/profile.py:238
+#: models/profile.py:239
 msgctxt "profile.fashion-interest"
 msgid "Fashion"
 msgstr "Mode"
 
-#: models/profile.py:240
+#: models/profile.py:241
 msgctxt "profile.culture-interest"
 msgid "Culture"
 msgstr "Kultur"
 
-#: models/profile.py:241
+#: models/profile.py:242
 msgctxt "profile.travel-interest"
 msgid "Travel"
 msgstr "Reisen"
 
-#: models/profile.py:242
+#: models/profile.py:243
 msgctxt "profile.food-interest"
 msgid "Food"
 msgstr "Essen"
 
-#: models/profile.py:244
+#: models/profile.py:245
 msgctxt "profile.politics-interest"
 msgid "Politics"
 msgstr "Politik"
 
-#: models/profile.py:245
+#: models/profile.py:246
 msgctxt "profile.nature-interest"
 msgid "Nature"
 msgstr "Natur"
 
-#: models/profile.py:247
+#: models/profile.py:248
 msgctxt "profile.science-interest"
 msgid "Science"
 msgstr "Wissenschaft"
 
-#: models/profile.py:249
+#: models/profile.py:250
 msgctxt "profile.tech-interest"
 msgid "Technology"
 msgstr "Technologie"
 
-#: models/profile.py:251
+#: models/profile.py:252
 msgctxt "profile.history-interest"
 msgid "History"
 msgstr "Geschichte"
 
-#: models/profile.py:253
+#: models/profile.py:254
 msgctxt "profile.religion-interest"
 msgid "Religion"
 msgstr "Religion"
 
-#: models/profile.py:255
+#: models/profile.py:256
 msgctxt "profile.soziologie-interest"
 msgid "Sociology"
 msgstr "Gesellschaft"
 
-#: models/profile.py:256
+#: models/profile.py:257
 msgctxt "profile.family-interest"
 msgid "Family"
 msgstr "Familie"
 
-#: models/profile.py:258
+#: models/profile.py:259
 msgctxt "profile.psycology-interest"
 msgid "Psycology"
 msgstr "Psychologie"
 
-#: models/profile.py:260
+#: models/profile.py:261
 msgctxt "profile.pdev-interest"
 msgid "Personal development"
 msgstr "Persönliche Entwicklung"
 
-#: models/profile.py:279
+#: models/profile.py:280
 msgctxt "profile.liability.declined"
 msgid "Declined Liability"
 msgstr "Ablehnung der Haftungserklärung"
 
-#: models/profile.py:282
+#: models/profile.py:283
 msgctxt "profile.liability.accepted"
 msgid "Accepted Liability"
 msgstr "Annahme der Haftungserklärung"
 
-#: models/profile.py:291
+#: models/profile.py:292
 msgctxt "profile.notify-channel.email"
 msgid "Notify per email"
 msgstr "nur per E-Mail benachrichtigt werden?"
 
-#: models/profile.py:293
+#: models/profile.py:294
 msgctxt "profile.notify-channel.sms"
 msgid "Notify per SMS"
 msgstr "zusätzlich per SMS benachrichtigt werden?"
 
-#: models/profile.py:314
+#: models/profile.py:315
 msgctxt "profile.lang-level.level-0-vol"
 msgid "any"
 msgstr "egal"
 
-#: models/profile.py:316
+#: models/profile.py:317
 msgctxt "profile.lang-level.level-0-ler"
 msgid "any"
 msgstr "egal"
 
-#: models/profile.py:319
+#: models/profile.py:320
 msgctxt "profile.lang-level.level-1-vol"
 msgid "B1 = (everyday situations, stories, hopes)"
 msgstr "B1 = (Alltagssituationen, Geschichten, Hoffnungen)"
 
-#: models/profile.py:321
+#: models/profile.py:322
 msgctxt "profile.lang-level.level-1-ler"
 msgid "B1 = (everyday situations, stories, hopes)"
 msgstr "B1 = (Alltagssituationen, Geschichten, Hoffnungen)"
 
-#: models/profile.py:324
+#: models/profile.py:325
 msgctxt "profile.lang-level.level-2-vol"
 msgid "B2 = (fluent & spontaneous conversations, current events)"
 msgstr "B2 = (fließende & spontane Gespräche, aktuelles Geschehen)"
 
-#: models/profile.py:326
+#: models/profile.py:327
 msgctxt "profile.lang-level.level-2-ler"
 msgid "B2 = (fluent & spontaneous conversations, current events)"
 msgstr "B2 = (fließende & spontane Gespräche, aktuelles Geschehen)"
 
-#: models/profile.py:329
+#: models/profile.py:330
 msgctxt "profile.lang-level.level-3-vol"
 msgid "C1/C2 = (complex topics, hardly searching for words)"
 msgstr "C1 = (komplexe Themen, kaum nach Wörtern suchen)"
 
-#: models/profile.py:331
+#: models/profile.py:332
 msgctxt "profile.lang-level.level-3-ler"
 msgid "C1/C2 = (complex topics, hardly searching for words)"
 msgstr "C1 = (komplexe Themen, kaum nach Wörtern suchen)"
 
 #: models/profile.py:340
+msgctxt "profile.lang.english"
+msgid "English"
+msgstr "Englisch"
+
+#: models/profile.py:341
+msgctxt "profile.lang.german"
+msgid "German"
+msgstr "Deutsch"
+
+#: models/profile.py:342
+msgctxt "profile.lang.spanish"
+msgid "Spanish"
+msgstr "Spanisch"
+
+#: models/profile.py:343
+msgctxt "profile.lang.french"
+msgid "French"
+msgstr "Französisch"
+
+#: models/profile.py:344
+msgctxt "profile.lang.italian"
+msgid "Italian"
+msgstr "Italienisch"
+
+#: models/profile.py:345
+msgctxt "profile.lang.dutch"
+msgid "Dutch"
+msgstr "Niederländisch"
+
+#: models/profile.py:347
+msgctxt "profile.lang.portuguese"
+msgid "Portuguese"
+msgstr "Portugiesisch"
+
+#: models/profile.py:348
+msgctxt "profile.lang.russian"
+msgid "Russian"
+msgstr "Russisch"
+
+#: models/profile.py:349
+msgctxt "profile.lang.chinese"
+msgid "Chinese"
+msgstr "Chinesisch"
+
+#: models/profile.py:351
+msgctxt "profile.lang.japanese"
+msgid "Japanese"
+msgstr "Japanisch"
+
+#: models/profile.py:352
+msgctxt "profile.lang.korean"
+msgid "Korean"
+msgstr "Koreanisch"
+
+#: models/profile.py:353
+msgctxt "profile.lang.arabic"
+msgid "Arabic"
+msgstr "Arabisch"
+
+#: models/profile.py:354
+msgctxt "profile.lang.turkish"
+msgid "Turkish"
+msgstr "Türkisch"
+
+#: models/profile.py:355
+msgctxt "profile.lang.swedish"
+msgid "Swedish"
+msgstr "Schwedisch"
+
+#: models/profile.py:356
+msgctxt "profile.lang.polish"
+msgid "Polish"
+msgstr "Polnisch"
+
+#: models/profile.py:357
+msgctxt "profile.lang.danish"
+msgid "Danish"
+msgstr "Dänisch"
+
+#: models/profile.py:359
+msgctxt "profile.lang.norwegian"
+msgid "Norwegian"
+msgstr "Norwegisch"
+
+#: models/profile.py:360
+msgctxt "profile.lang.finnish"
+msgid "Finnish"
+msgstr "Finnisch"
+
+#: models/profile.py:361
+msgctxt "profile.lang.greek"
+msgid "Greek"
+msgstr "Griechisch"
+
+#: models/profile.py:362
+msgctxt "profile.lang.czech"
+msgid "Czech"
+msgstr "Tschechisch"
+
+#: models/profile.py:364
+msgctxt "profile.lang.hungarian"
+msgid "Hungarian"
+msgstr "Ungarisch"
+
+#: models/profile.py:366
+msgctxt "profile.lang.romanian"
+msgid "Romanian"
+msgstr "Rumänisch"
+
+#: models/profile.py:368
+msgctxt "profile.lang.indonesian"
+msgid "Indonesian"
+msgstr "Indonesisch"
+
+#: models/profile.py:369
+msgctxt "profile.lang.hebrew"
+msgid "Hebrew"
+msgstr "Hebräisch"
+
+#: models/profile.py:370
+msgctxt "profile.lang.thai"
+msgid "Thai"
+msgstr "Thailändisch"
+
+#: models/profile.py:372
+msgctxt "profile.lang.vietnamese"
+msgid "Vietnamese"
+msgstr "Vietnamesisch"
+
+#: models/profile.py:374
+msgctxt "profile.lang.ukrainian"
+msgid "Ukrainian"
+msgstr "Ukrainisch"
+
+#: models/profile.py:375
+msgctxt "profile.lang.slovak"
+msgid "Slovak"
+msgstr "Slowakisch"
+
+#: models/profile.py:377
+msgctxt "profile.lang.croatian"
+msgid "Croatian"
+msgstr "Kroatisch"
+
+#: models/profile.py:378
+msgctxt "profile.lang.serbian"
+msgid "Serbian"
+msgstr "Serbisch"
+
+#: models/profile.py:380
+msgctxt "profile.lang.bulgarian"
+msgid "Bulgarian"
+msgstr "Bulgarisch"
+
+#: models/profile.py:382
+msgctxt "profile.lang.lithuanian"
+msgid "Lithuanian"
+msgstr "Litauisch"
+
+#: models/profile.py:383
+msgctxt "profile.lang.latvian"
+msgid "Latvian"
+msgstr "Lettisch"
+
+#: models/profile.py:385
+msgctxt "profile.lang.estonian"
+msgid "Estonian"
+msgstr "Estnisch"
+
+#: models/profile.py:386
+msgctxt "profile.lang.persian"
+msgid "Persian"
+msgstr "Persisch"
+
+#: models/profile.py:388
+msgctxt "profile.lang.afrikaans"
+msgid "Afrikaans"
+msgstr "Afrikaans"
+
+#: models/profile.py:389
+msgctxt "profile.lang.swahili"
+msgid "Swahili"
+msgstr "Swahili"
+
+#: models/profile.py:393
 #, fuzzy
 #| msgctxt "profile.lang-level.level-0-vol"
 #| msgid "any"
@@ -673,7 +872,7 @@ msgctxt "profile.lang-level.level-0"
 msgid "any"
 msgstr "egal"
 
-#: models/profile.py:343
+#: models/profile.py:396
 #, fuzzy
 #| msgctxt "profile.lang-level.level-1-vol"
 #| msgid "B1 = (everyday situations, stories, hopes)"
@@ -681,7 +880,7 @@ msgctxt "profile.lang-level.level-1"
 msgid "B1 = (everyday situations, stories, hopes)"
 msgstr "B1 = (Alltagssituationen, Geschichten, Hoffnungen)"
 
-#: models/profile.py:346
+#: models/profile.py:399
 #, fuzzy
 #| msgctxt "profile.lang-level.level-2-vol"
 #| msgid "B2 = (fluent & spontaneous conversations, current events)"
@@ -689,7 +888,7 @@ msgctxt "profile.lang-level.level-2"
 msgid "B2 = (fluent & spontaneous conversations, current events)"
 msgstr "B2 = (fließende & spontane Gespräche, aktuelles Geschehen)"
 
-#: models/profile.py:349
+#: models/profile.py:402
 #, fuzzy
 #| msgctxt "profile.lang-level.level-3-vol"
 #| msgid "C1/C2 = (complex topics, hardly searching for words)"
@@ -697,53 +896,53 @@ msgctxt "profile.lang-level.level-3"
 msgid "C1/C2 = (complex topics, hardly searching for words)"
 msgstr "C1 = (komplexe Themen, kaum nach Wörtern suchen)"
 
-#: models/profile.py:355
+#: models/profile.py:409
 msgctxt "profile.image-type.avatar"
 msgid "Avatar"
 msgstr "Avatar"
 
-#: models/profile.py:356
+#: models/profile.py:410
 msgctxt "profile.image-type.image"
 msgid "Image"
 msgstr "Bild"
 
-#: models/profile.py:409
+#: models/profile.py:463
 #, python-brace-format
 msgctxt "profile.completion-check.missing-value"
 msgid "'{val}' is not completed"
 msgstr "'{val}' ist nicht ausgefüllt"
 
-#: models/profile.py:529
+#: models/profile.py:582
 msgctxt "profile.lskill-descr-to-long"
 msgid "must have a maximum of 300 characters"
 msgstr "Darf maximal 300 Zeichen haben"
 
-#: models/profile.py:535
+#: models/profile.py:588
 msgctxt "profile.descr-to-long"
 msgid "must have a maximum of 300 characters"
 msgstr "Darf maximal 300 Zeichen haben"
 
-#: models/profile.py:551
+#: models/profile.py:604
 msgctxt "profile.image-missing"
 msgid "You have selected profile image but not uploaded an image"
 msgstr "Du hast ein Bild ausgewählt, aber kein Bild hochgeladen"
 
-#: models/profile.py:563
+#: models/profile.py:616
 msgctxt "profile.avatar-missing"
 msgid "You have selected avatar but not uploaded an avatar"
 msgstr "Du hast ein Avatar ausgewählt, aber kein Avatar erstellt"
 
-#: models/profile.py:594
+#: models/profile.py:646
 msgctxt "profile.lang-level-invalid"
 msgid "Invalid language level selected"
 msgstr "Invalid language level selected"
 
-#: models/profile.py:599
+#: models/profile.py:651
 msgctxt "profile.lang-de-missing"
 msgid "You must select at least german as a language"
 msgstr "Du musst mindestens Deutsch als Sprache auswählen"
 
-#: models/profile.py:607
+#: models/profile.py:658
 msgctxt "profile.descr-to-short"
 msgid "must have at least 10 characters"
 msgstr "muss mindestend 10 characters haben"
