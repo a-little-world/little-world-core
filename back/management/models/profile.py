@@ -663,6 +663,7 @@ class SelfProfileSerializer(ProfileSerializer):
 
     def validate_lang_skill(self, value):
         german_level_present = False
+        language_count_map = {}
         for lang in value:
             if 'german' in lang['lang']:
                 german_level_present = True
@@ -670,6 +671,21 @@ class SelfProfileSerializer(ProfileSerializer):
                 raise serializers.ValidationError(
                     pgettext_lazy("profile.lang-level-invalid",
                                   "Invalid language level selected"))
+
+            if not (lang['lang'] in Profile.LanguageChoices.values):
+                raise serializers.ValidationError(
+                    pgettext_lazy("profile.lang-invalid",
+                                  "Invalid language selected"))
+
+            if not lang['lang'] in language_count_map:
+                language_count_map[lang['lang']] = 1
+            else:
+                language_count_map[lang['lang']] += 1
+
+        if not all([v <= 1 for v in language_count_map.values()]):
+            raise serializers.ValidationError(
+                pgettext_lazy("profile.lang-duplicate",
+                              "You have selected a language multiple times"))
 
         if not german_level_present:
             raise serializers.ValidationError(
