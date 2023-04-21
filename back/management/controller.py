@@ -226,8 +226,7 @@ Am besten vereinbarst du direkt einen Termin mit {other_name} für euer erstes G
 Unterhalten könnt ihr euch zur vereinbarten Zeit auf Little World indem du oben rechts auf das Anruf-Symbol drückt. 
 Schau dir gerne schon vorher das Profil von {other_name} an, indem du auf den Namen drückst. 
 
-Damit euch viel Spaß! Schöne Grüße vom Team Little World
-""")
+Damit euch viel Spaß! Schöne Grüße vom Team Little World""")
         # Sends a message from the admin model
         usr1.message(match_message.format(
             other_name=usr2.profile.first_name), auto_mark_read=True)
