@@ -168,6 +168,29 @@ class ProfileBase(models.Model):
         default=ParterSexChoice.ANY,
         max_length=255)
 
+    class PartnerGenderChoices(models.TextChoices):
+        ANY = "any", pgettext_lazy("profile.partner-gender.any", "Any")
+        MALE = "male", pgettext_lazy(
+            "profile.partner-gender.male", "Male only")
+        FEMALE = "female", pgettext_lazy(
+            "profile.gender.female", "Female only")
+
+    class GenderChoices(models.TextChoices):
+        ANY = "any", pgettext_lazy("profile.gender.any", "Dont want to say")
+        MALE = "male", pgettext_lazy("profile.gender.male", "Male")
+        FEMALE = "female", pgettext_lazy(
+            "profile.gender.female", "Female")
+
+    gender = models.CharField(
+        choices=GenderChoices.choices,
+        default=GenderChoices.ANY,
+        max_length=255)
+
+    partner_gender = models.CharField(
+        choices=PartnerGenderChoices.choices,
+        default=PartnerGenderChoices.ANY,
+        max_length=255)
+
     """
     Which medium the user preferes for
     """
@@ -576,7 +599,7 @@ class SelfProfileSerializer(ProfileSerializer):
                   'user_type', 'target_group', 'partner_sex', 'speech_medium',
                   'partner_location', 'postal_code', 'interests', 'availability',
                   'lang_level', 'additional_interests', 'language_skill_description', 'birth_year', 'description',
-                  'notify_channel', 'phone_mobile', 'image_type', 'avatar_config', 'image', 'lang_skill']
+                  'notify_channel', 'phone_mobile', 'image_type', 'avatar_config', 'image', 'lang_skill', 'gender', 'partner_gender']
 
         extra_kwargs = dict(
             language_skill_description={
