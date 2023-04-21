@@ -41,7 +41,8 @@ class ProfileApiTests(TestCase):
         return response
 
     def _some_profile_call(self, data: dict, auth_usr) -> Response:  # type: ignore
-        factory = APIRequestFactory(enforce_csrf_checks=True)
+        factory = APIRequestFactory(
+            enforce_csrf_checks=True, content_type='application/json')
         request = factory.post('/api/profile/', data)
         # This will always return the type Optional[Reponse] but pylance doesn't beleave me
         force_authenticate(request, user=auth_usr)
@@ -161,4 +162,37 @@ class ProfileApiTests(TestCase):
                 # Using an unknow property will not cause an error but it sholdn't change the value
                 assert getattr(usr.profile, field) != _v
 
-        # TODO: this test could be somewhat more complete!
+    def test_lang_skill_field(self):
+        self._some_register_call(valid_request_data)
+        usr = get_user_by_email(valid_request_data["email"])
+        s_profile = profile.SelfProfileSerializer(usr.profile)
+        options = profile.ProfileSerializer.get_options(s_profile, usr.profile)
+        resp = self._get_profile_call(usr)
+
+        resp = self._some_profile_call(
+            {"lang_skill": json.dumps([{"lang": "german", "level": "level-0"}])}, usr)
+        assert resp.status_code == 200
+
+        _r = self._get_profile_call(usr)
+        _r.render()
+        cur_usr_data = json.loads(_r.content)
+
+        # duplicate language
+        resp = self._some_profile_call(
+            {"lang_skill": [{"lang": "german", "level": "level-0"}, {"lang": "german", "level": "level-0"}]}, usr)
+        assert resp.status_code == 400
+
+        # no german included
+        resp = self._some_profile_call(
+            {"lang_skill": [{"lang": "english", "level": "level-0"}]}, usr)
+        assert resp.status_code == 400
+
+        # wrong lang name
+        resp = self._some_profile_call(
+            {"lang_skill": [{"lang": "german", "level": "level-0"}, {"lang": "bla", "level": "level-0"}]}, usr)
+        assert resp.status_code == 400
+
+        # unknown level
+        resp = self._some_profile_call(
+            {"lang_skill": [{"lang": "german", "level": "level-1213"}]}, usr)
+        assert resp.status_code == 400
