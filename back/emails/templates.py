@@ -160,6 +160,162 @@ class MatchFoundEmailTexts:
 
 
 @dataclass
+class UnfinishedUserForm1Messages:
+    """
+    Send if the user registered and verified his email but did not finish the userform    
+    send only one TODO
+    """
+    subject_header_text: str = pgettext_lazy(
+        "email.unfinished-user-form-1.subject-header-text", "Umfrage beenden für Bekanntschaften aus aller Welt")
+    greeting: str = pgettext_lazy(
+        'email.unfinished-user-form-1.greeting',
+        'Hallo {first_name}')
+    content_start_text: str = pgettext_lazy(
+        'email.unfinished-user-form-1.content-start-text',
+        'nur fünf weitere Minuten trennen dich von neuen Bekanntschaften und interessanten Geschichten aus aller Welt. Beende jetzt deine Umfrage auf Little World. Dann kannst du kostenlos und flexibel mitmachen! Schon 30 Minuten pro Woche machen einen großen Unterschied.')
+    content_body_text: str = pgettext_lazy(
+        'email.unfinished-user-form-1.content-body-text', '')
+    link_box_text: str = pgettext_lazy(
+        'email.unfinished-user-form-1.link-box-text',
+        '')  # Emtpy -> means section auto removed in template rendering
+    button_text: str = pgettext_lazy(
+        'email.unfinished-user-form-1.button-text',
+        'Umfrage abschließen')
+    button_link: str = pgettext_lazy(
+        'email.unfinished-user-form-1.button-link',
+        'https://little-world.com/form/')
+    below_link_text: str = pgettext_lazy(
+        'email.unfinished-user-form-1.below-link-text',
+        '')
+    footer_text: str = pgettext_lazy(
+        'email.unfinished-user-form-1.footer-text',
+        '')
+    goodbye: str = pgettext_lazy(
+        'email.unfinished-user-form-1.goodbye',
+        'Beste Grüße,')
+    goodbye_name: str = pgettext_lazy(
+        'email.email.unfinished-user-form-1.goodbye.goodbye-name',
+        'Dein Little World Team')
+
+
+@dataclass
+class UnfinishedUserForm2Messages:
+    """
+    Follow up email about the unfinished userform
+    """
+    subject_header_text: str = pgettext_lazy(
+        "email.unfinished-user-form-2.subject-header-text", "Mit 30 Minuten helfen - Umfrage beenden")
+    greeting: str = pgettext_lazy(
+        'email.unfinished-user-form-2.greeting',
+        'Hallo {first_name}')
+    content_start_text: str = pgettext_lazy(
+        'email.unfinished-user-form-2.content-start-text',
+        'Dein Engagement zählt! Willst du Teil der Gemeinschaft von Little World werden und tolle Menschen aus aller Welt kennenlernen? Beende dafür in nur 5 Minuten unsere Umfrage:')
+    content_body_text: str = pgettext_lazy(
+        'email.unfinished-user-form-2.content-body-text', '')
+    link_box_text: str = pgettext_lazy(
+        'email.unfinished-user-form-2.link-box-text',
+        '')  # Emtpy -> means section auto removed in template rendering
+    button_text: str = pgettext_lazy(
+        'email.unfinished-user-form-2.button-text',
+        'Umfrage abschließen')
+    button_link: str = pgettext_lazy(
+        'email.unfinished-user-form-2.button-link',
+        'https://little-world.com/form/')
+    below_link_text: str = pgettext_lazy(
+        'email.unfinished-user-form-2.below-link-text',
+        '')
+    footer_text: str = pgettext_lazy(
+        'email.unfinished-user-form-2.footer-text',
+        'Du hast Fragen? Wir sind für dich da! Ruf an unter {team_phone} oder schreib uns unter {team_email}. Wir helfen dir gerne')
+    goodbye: str = pgettext_lazy(
+        'email.unfinished-user-form-2.goodbye',
+        'Beste Grüße,')
+    goodbye_name: str = pgettext_lazy(
+        'email.email.unfinished-user-form-2.goodbye.goodbye-name',
+        'Dein Little World Team')
+
+
+@dataclass
+class ConfirmMatchMail1Texts:
+    """
+    Follow up email about the unfinished userform
+    """
+    subject_header_text: str = pgettext_lazy(
+        "email.confirm-match-1.subject-header-text", "Match gefunden - jetxt bestätigen")
+    greeting: str = pgettext_lazy(
+        'email.confirm-match-1.greeting',
+        'Hallo {first_name}')
+    content_start_text: str = pgettext_lazy(
+        'email.confirm-match-1.content-start-text',
+        '{match_first_name} freut sich schon darauf, dich kennenzulernen! Ihr scheint auch schon eine Menge gemeinsam zu haben. Was das ist, erfährst Du hier:')
+    content_body_text: str = pgettext_lazy(
+        'email.confirm-match-1.content-body-text', '')
+    link_box_text: str = pgettext_lazy(
+        'email.confirm-match-1.link-box-text',
+        '')  # Emtpy -> means section auto removed in template rendering
+    button_text: str = pgettext_lazy(
+        'email.confirm-match-1.button-text',
+        'Mehr Info')
+    button_link: str = pgettext_lazy(
+        'email.confirm-match-1.button-link',
+        'https://little-world.com/app/')  # TODO: this would be supposed to render a match confirm page instead of a general app page
+    below_link_text: str = pgettext_lazy(
+        'email.confirm-match-1.below-link-text',
+        '')
+    footer_text: str = pgettext_lazy(
+        'email.confirm-match-1.footer-text',
+        'Dort kannst du auch den Gesprächsvorschlag mit MATCH_NAME annehmen. \n' +
+        'Du hast Fragen? Wir sind für dich da! Ruf an unter {team_phone} oder schreib uns unter {team_email}. Wir helfen dir gerne')
+    goodbye: str = pgettext_lazy(
+        'email.confirm-match-1.goodbye',
+        'Beste Grüße,')
+    goodbye_name: str = pgettext_lazy(
+        'email.email.confirm-match-1.goodbye.goodbye-name',
+        'Dein Little World Team')
+
+
+@dataclass
+class ConfirmMatchMail2Texts:
+    """
+    Email to ask user to confirm his match
+    """
+    subject_header_text: str = pgettext_lazy(
+        "email.confirm-match-2.subject-header-text", "Dein match wartet - höchste Zeit zu bestätigen")
+    greeting: str = pgettext_lazy(
+        'email.confirm-match-2.greeting',
+        'Hallo {first_name}')
+    content_start_text: str = pgettext_lazy(
+        'email.confirm-match-2.content-start-text',
+        'du hattest vor Kurzem eine Übereinstimmung auf der Plattform Little World. Gerne würde sich {match_first_name} mit dir unterhalten! Um ihn/sie allerdings nicht zu lange warten zu lassen, werden wir {match_first_name} weitervermitteln, sollten wir nichts von dir hören.\n' +
+        'Du möchtest mehr über {match_first_name} erfahren? Dann klicke hier: ')
+    content_body_text: str = pgettext_lazy(
+        'email.confirm-match-2.content-body-text', '')
+    link_box_text: str = pgettext_lazy(
+        'email.confirm-match-2.link-box-text',
+        '')  # Emtpy -> means section auto removed in template rendering
+    button_text: str = pgettext_lazy(
+        'email.confirm-match-2.button-text',
+        'Mehr Info')
+    button_link: str = pgettext_lazy(
+        'email.confirm-match-2.button-link',
+        'https://little-world.com/app/')  # TODO: this would be supposed to render a match confirm page instead of a general app page
+    below_link_text: str = pgettext_lazy(
+        'email.confirm-match-2.below-link-text',
+        '')
+    footer_text: str = pgettext_lazy(
+        'email.confirm-match-2.footer-text',
+        'Dort kannst du auch den Gesprächsvorschlag mit {match_first_name} annehmen. \n' +
+        'Du hast Fragen? Wir sind für dich da! Ruf an unter {team_phone} oder schreib uns unter {team_email}. Wir helfen dir gerne')
+    goodbye: str = pgettext_lazy(
+        'email.confirm-match-2.goodbye',
+        'Beste Grüße,')
+    goodbye_name: str = pgettext_lazy(
+        'email.email.confirm-match-2.goodbye.goodbye-name',
+        'Dein Little World Team')
+
+
+@dataclass
 class NewUnreadMessages:
     """
     ---------------> Unread messages mail <--------------------
