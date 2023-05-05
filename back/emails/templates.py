@@ -234,6 +234,7 @@ class UnfinishedUserForm2Messages:
     goodbye_name: str = pgettext_lazy(
         'email.email.unfinished-user-form-2.goodbye.goodbye-name',
         'Dein Little World Team')
+    use_unsubscribe_footer: bool = True
 
 
 @dataclass
