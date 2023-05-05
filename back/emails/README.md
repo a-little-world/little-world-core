@@ -1,4 +1,16 @@
+## Little World Emails
+
 These are all our current emails, click the link in the preview to view them
+
+We have our own django app that manages emails, we use django templating to generate email html's and render them. Currently we use sendgrid to send the emails but the backend really doesn't matter.
+
+### Adding a new email
+
+To add a new email, edit the file `back/emails/mails.py` and add a new email to the `templates` list. Here, you will be asked to add a `@dataclasses` for the email's `params`. This should include all parameters that can be changed in an email (e.g., for `MatchMailParams`, that is `first_name`, `match_first_name`, `profile_link_url`).
+
+Next, you need to add `texts` and `defaults`. `Default` is what is rendered when you want to view the email in the admin panel, while `text` contains the email's content. Make sure to have a unique `name` for every email and specify the `template` to be used. Our templates are pretty general, so if you don't want any specific components in the email, you're probably good with the `emails/welcome.html` template.
+
+Once you've implemented your email, you can log in locally as an admin user and view them at `/emails/{email_name}`.
 
 | Name                            | Preview                          | Receivers        | Condition                                                                                                     | Is Optional | New | Misc                                                     |
 | ------------------------------- | -------------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------- | ----------- | --- | -------------------------------------------------------- |
