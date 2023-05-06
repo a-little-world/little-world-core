@@ -3,6 +3,9 @@
 # TODO Migrate to the new tb-cli-utils
 
 """ 
+
+> NOTE: this is the old build script, we are currently migrating to a new more transparent build using a 'Makefile'.
+
 General entry point for backend build and deployment processes 
 
 All the functions annoted with `@register_action` are directly callable via `./run.py <function_name>` ( or `./run.py <alias>` ).
