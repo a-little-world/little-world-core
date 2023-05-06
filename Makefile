@@ -10,6 +10,7 @@ root_dir := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 dev_container_label := littleworld_dev
 all_dev_container_ids := $(shell docker ps -a --filter "label=$(dev_container_label)=1" --format "{{.ID}}")
 running_dev_container_ids := $(shell docker ps --filter "label=$(dev_container_label)=1" --format "{{.ID}}")
+setup_repo: not_initialized := $(shell git submodule foreach 'if [ ! -f $$toplevel/$$path/.git ]; then echo 1; fi' | grep -q 1 && echo 1 || echo 0)
 
 
 # env file to be used dev repo only included 'env'
@@ -30,7 +31,12 @@ backend_img_sha := $(shell docker images -q littleworld_back.dev:latest) # lates
 backend_tag := littleworld_back.dev
 backend_label := littleworld_backend
 
+# frontend container setup
+frontends := user_form_frontend,main_frontend,cookie_banner_frontend,admin_panel_frontend
+frontend_build_all_dev: build_type := dev
+
 ## --------------------- docs and help -----------------------------------
+##  
 
 help:     ## Show this help.
 	@sed -ne '/@sed/!s/## //p' $(MAKEFILE_LIST)
@@ -52,7 +58,7 @@ build_docs: ## build the full documentation
 	rm $(root_dir)/back/run.py
 	rm -rf $(root_dir)/back/cli/
 
-	# move 'em ( using rsync so files are overwritten )
+	# move generated documentation ( using rsync so files are overwritten )
 	mkdir -p $(root_dir)/docs
 	rsync -a $(root_dir)/back/html/ $(root_dir)/docs/
 
@@ -63,14 +69,29 @@ watch_docs: ## watch back for changes in docs files and auto-rebuild ( be aware 
 		inotifywait -e modify,create,delete,move -r $(root_dir)/back/ && $(MAKE) build_docs; \
 	done
 
-## --------------------- backend development --------------------------------
+## --------------------- initial setup --------------------------------------
+##  
 
-get_all_dev_containers:
+setup_repo: ## run after repo was cloned, initalized submodules and build development containers
+	@echo "Setting up repo"
+	@echo "1. Clone all submodules"
+	@if [ $(not_initialized) -eq 1 ]; then \
+	  echo "At least one submodule not initalized initalizing"; \
+	  git submodule update --init --recursive; \
+	else \
+	  echo "Submodules are already initalized, doing nothing ..."; \
+	fi
+	@echo "2. Building frontend development container"
+
+## --------------------- backend development --------------------------------
+##  
+
+get_all_dev_containers: ## print summary of all dev containers build / running
 	@echo "Little world dev containers:"
 	@echo "All Container IDs: $(all_dev_container_ids)"
 	@echo "Running Container IDs: $(running_dev_container_ids)"
 	
-kill_all_dev_containers:
+kill_all_dev_containers: ## kill all running dev containers
 	@echo "Killing all dev containers"
 	docker kill $(running_dev_container_ids)
 
@@ -80,7 +101,58 @@ start_redis: ## Start development redis instance
 start_backend: ## Start development backend instance
 	docker run --env-file $(env_file) -v $(root_dir)/back:/back -v $(root_dir)/front:/front --label "$(dev_container_label)=1" --label "$(backend_label)=1" --add-host=host.docker.internal:host-gateway -p $(backend_port) -t $(backend_tag) 
 	
-start_local_dev_backend:
+build_backend: ## rebuild the django backend ( only required if dependencies are updated )
+	docker build -f Dockerfile.dev -t $(backend_tag) ./back
+	
+backend_static: ## extract static files for django backend
+	docker run --env-file $(env_file) -v $(root_dir)/back:/back -v $(root_dir)/front:/front --label "$(dev_container_label)=1" --label "$(backend_label)=1" --add-host=host.docker.internal:host-gateway -p $(backend_port) -t $(backend_tag) \
+		sh -c 'python3 manage.py collectstatic --noinput --verbosity 3'
+
+backend_make_migrations: ## generate migrations files ( use when models changed )
+	docker run --env-file $(env_file) -v $(root_dir)/back:/back -v $(root_dir)/front:/front --label "$(dev_container_label)=1" --label "$(backend_label)=1" --add-host=host.docker.internal:host-gateway -p $(backend_port) -t $(backend_tag) \
+		sh -c 'python3 manage.py makemigrations --noinput --verbosity 3'
+	
+backend_apply_migrations: ## apply migrations ( before: make sure there are no conflicting or wrong migrations )
+	docker run --env-file $(env_file) -v $(root_dir)/back:/back -v $(root_dir)/front:/front --label "$(dev_container_label)=1" --label "$(backend_label)=1" --add-host=host.docker.internal:host-gateway -p $(backend_port) -t $(backend_tag) \
+		sh -c 'python3 manage.py migrate --noinput --verbosity 3'
+
+backend_migrate: ## make and apply migrations ( only use if sure there can be no conflicting or wrong migrations, else use make, then check or modify migrations, then apply )
+	$(MAKE) backend_make_migrations
+	$(MAKE) backend_apply_migrations
+	
+frontend_build_dev: ## build the development frontend container
+	pass
+
+frontend_build_all_dev: ## build development frontend container and all frontends webpack bundles
+	# this assumes all frontend are listed comma seperated in 'frontends' above
+	# for each frontend a webpack config file is expected at 'front/webpack.<frontend>.config.js'
+	# if that frontends `ENVIRONMENT.js` should be overwritten a file at `front/env_apps/<frontend>.<build_type>.env.js` is expected
+	# the frontends must reside at `front/apps/<frontend>/` and build scripts must be defined in `front/apps/<frontend>/package.json`
+	@echo "Building frontend development containers and webpack bundles"
+	@echo ${frontends} | tr ',' '\n' | while read item; do \
+	  echo "Processing frontend: $$item"; \
+	  config_path="front/webpack.$$item.config.js"; \
+	  env_path="front/env_apps/$$item.$$build_type.env.js"; \
+	  echo "1. Checking env replacement, checking '$$config_path'"; \
+	  if [ -e "$$config_path" ]; then \
+	    echo "File $$config_path exists, starting webpack build ..."; \
+	  else \
+	    echo "ERROR $$config_path does not exist, repo is setup wrong or the frontend '$$item' doesn't exist"; \
+	  fi; \
+	  if [ -e "$$env_path" ]; then \
+	  	replace_env=""./front/apps/$$item/src/ENVIRONMENT.js" \
+	    echo "File '$$env_path' exists, replacing it as frontend ENV file"; \
+	  else \
+	    echo "No extra ENV file found at '$$env_path' using env as is"; \
+	  fi; \
+	done
+	
+frontend_webpack_build: ## Build webpack bundle for ONE of the frontend MUST provide front=name e.g.: `make frontend_webpack_build front=main_frontend`
+	pass
+
+	
+	
+start_local_dev_backend: ## start all development containers attach to output ( automaticly kills all dev containers on ctl-C )
 	$(MAKE) start_redis
 	$(MAKE) start_backend &
 	# press ctl-C to kill all dev containers
