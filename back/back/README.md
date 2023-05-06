@@ -1,5 +1,3 @@
-## Backend Development
-
 For backend development, you need a local Python installation (version > 3.7) and a local Docker installation. All backend and frontend build processes can be performed with `run.py`. It generally uses default Python libraries, but some command actions require additional packages.
 
 > Note that we are currently moving to a more transparent build process using `Makefiles`.
