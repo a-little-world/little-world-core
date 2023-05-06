@@ -66,19 +66,22 @@ watch_docs: ## watch back for changes in docs files and auto-rebuild ( be aware 
 ## --------------------- backend development --------------------------------
 
 get_all_dev_containers:
-	@echo "Container IDs: $(all_dev_container_ids)"
+	@echo "Little world dev containers:"
+	@echo "All Container IDs: $(all_dev_container_ids)"
 	@echo "Running Container IDs: $(running_dev_container_ids)"
 	
 kill_all_dev_containers:
 	@echo "Killing all dev containers"
-	@docker kill $(running_dev_container_ids)
+	docker kill $(running_dev_container_ids)
 
 start_redis: ## Start development redis instance
 	docker run -p $(redis_port) --label "$(redis_label)=1" --label "$(dev_container_label)=1" -d $(redis_img) 
 	
 start_backend: ## Start development backend instance
-	docker run -i --env-file $(env_file) -v $(root_dir)/back:/back -v $(root_dir)/front:/front --add-host=host.docker.internal:host-gateway -p $(backend_port) -t $(backend_tag) --label $(backend_label)
+	docker run --env-file $(env_file) -v $(root_dir)/back:/back -v $(root_dir)/front:/front --label "$(dev_container_label)=1" --label "$(backend_label)=1" --add-host=host.docker.internal:host-gateway -p $(backend_port) -t $(backend_tag) 
 	
 start_local_dev_backend:
 	$(MAKE) start_redis
-	$(MAKE) start_backend
+	$(MAKE) start_backend &
+	# press ctl-C to kill all dev containers
+	-@sh -c 'trap "echo \"\nReceived Ctrl+C. Killing containers...\"; $(MAKE) kill_all_dev_containers; exit" INT; echo "Press Ctrl+C to stop containers..."; while :; do sleep 1; done'
