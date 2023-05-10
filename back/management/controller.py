@@ -261,6 +261,18 @@ Damit euch viel Spaß! Schöne Grüße vom Team Little World""")
         usr2.state.set_idle()
 
 
+def create_user_matching_proposal(
+    users: set,
+    send_confirm_match_email=True
+):
+    """
+    This represents the new intermediate matching step we created.
+    Users are not just matched directly but first a matching proposal is send to the 'volunteer' user. 
+    TODO or is it the learner im still not sure on this?
+    """
+    pass
+
+
 def unmatch_users(
     users: set,
     delete_video_room=True,
