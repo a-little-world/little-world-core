@@ -34,6 +34,15 @@ backend_label := littleworld_backend
 # frontend container setup
 frontends := user_form_frontend,main_frontend,cookie_banner_frontend,admin_panel_frontend
 frontend_build_all_dev: build_type := dev
+	
+# some make file helpers
+
+check_defined = \
+    $(strip $(foreach 1,$1, \
+        $(call __check_defined,$1,$(strip $(value 2)))))
+__check_defined = \
+    $(if $(value $1),, \
+      $(error Undefined $1$(if $2, ($2))))
 
 ## --------------------- docs and help -----------------------------------
 ##  
@@ -121,7 +130,7 @@ backend_migrate: ## make and apply migrations ( only use if sure there can be no
 	$(MAKE) backend_apply_migrations
 	
 frontend_build_dev: ## build the development frontend container
-	pass
+	@echo "Building frontend development container"
 
 frontend_build_all_dev: ## build development frontend container and all frontends webpack bundles
 	# this assumes all frontend are listed comma seperated in 'frontends' above
@@ -141,14 +150,19 @@ frontend_build_all_dev: ## build development frontend container and all frontend
 	  fi; \
 	  if [ -e "$$env_path" ]; then \
 	  	replace_env=""./front/apps/$$item/src/ENVIRONMENT.js" \
+		mv $$env_path $$replace_env; \
 	    echo "File '$$env_path' exists, replacing it as frontend ENV file"; \
 	  else \
 	    echo "No extra ENV file found at '$$env_path' using env as is"; \
 	  fi; \
 	done
 	
-frontend_webpack_build: ## Build webpack bundle for ONE of the frontend MUST provide front=name e.g.: `make frontend_webpack_build front=main_frontend`
-	pass
+frontend_webpack_build_dev: ## Build webpack bundle for ONE of the frontend MUST provide front=name e.g.: `make frontend_webpack_build front=main_frontend`
+	$(call check_defined, front, which frontend to build)
+	@echo "Attempting to build frontend '$(front)'"
+	cd front
+	pwd
+	./node_modules/.bin/webpack --env 'PUBLIC_PATH=/static/$(front)/' --config webpack.$(front).config.js
 
 	
 	
