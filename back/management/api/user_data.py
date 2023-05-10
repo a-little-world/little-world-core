@@ -30,6 +30,7 @@ from ..models import (
     SelfSettingsSerializer
 )
 from .community_events import get_all_comunity_events_serialized
+from management.models.unconfirmed_matches import get_unconfirmed_matches
 
 from ..controller import get_user_models
 
@@ -206,6 +207,7 @@ def get_full_frontend_data(user, options=False, admin=False,
     frontend_data = {
         **user_data_and_matches,
         "community_events": get_all_comunity_events_serialized(),
+        "unconfrimed_matches": get_unconfirmed_matches(user),
         # "frontend_state": "",
     }
 
@@ -220,7 +222,7 @@ def get_full_frontend_data(user, options=False, admin=False,
 class UserData(APIView):
     """
     Returns the main application data for a given user.
-    Basicly this is the data the main frontend app receives
+    Basicly this is the data the main frontend app receives ( there have been some additions check 'get_all_frontend_data' above )
     optional params for paginating the matches:
         page: what page to return, default 1
         paginate_by: what number of users per page ( realy only relevant for admins )
