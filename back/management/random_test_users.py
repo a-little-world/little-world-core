@@ -2,6 +2,7 @@ import glob
 from . import models
 import random
 from . import controller  # this will be used on script execution
+from management.models import Profile
 print(controller)
 
 
@@ -203,3 +204,29 @@ def create_abunch_of_users(amnt=30, user_seeds=[42]*20):
         users.append(create_test_user(i, user_seeds))
 
     return users
+
+
+def modify_profile_to_match(usr1, usr2):
+    """
+    Modifies two user profiles so that they are matching 
+    """
+    u1_p = usr1.profile
+    u2_p = usr2.profile
+
+    u1_p.user_type = Profile.TypeChoices.VOLUNTEER
+    u2_p.user_type = Profile.TypeChoices.LEARNER
+
+    u1_p.partner_location = Profile.ConversationPartlerLocation.ANYWHERE_VOL
+    u2_p.partner_location = Profile.ConversationPartlerLocation.ANYWHERE_LER
+
+    u1_p.target_group = Profile.TargetGroupChoices.ANY_VOL
+    u2_p.target_group = Profile.TargetGroupChoices.ANY_LER
+
+    u1_p.lang_level = Profile.LanguageLevelChoices.LEVEL_0_VOL
+    u2_p.lang_level = Profile.LanguageLevelChoices.LEVEL_0_LER
+
+    u1_p.speech_medium = Profile.SpeechMediumChoices.ANY_VOL
+    u2_p.speech_medium = Profile.SpeechMediumChoices.ANY_LER
+
+    u1_p.save()
+    u2_p.save()
