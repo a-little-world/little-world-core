@@ -74,3 +74,5 @@ def confrim_match(request):
         unconfirmed_match.save()
 
         # TODO: send a to the user that tha match has been expired
+        
+        return Response(pgettext_lazy("confirm_match.match_rejected", "The match has been rejected."))
