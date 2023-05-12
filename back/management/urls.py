@@ -100,6 +100,9 @@ api_routes = [
     path(_api_url('user/verify/email_resend'),
          api.user.resend_verification_mail),
 
+    # api that allows users to confirm or deny a pre-matching
+    path(_api_url('user/match/confirm_deny'),
+         api.confirm_match.confrim_match),
     # Admin
     path(_api_url('user/get', admin=True), api.admin.GetUser.as_view()),
     path(_api_url('user/list', admin=True), api.admin.UserList.as_view()),
