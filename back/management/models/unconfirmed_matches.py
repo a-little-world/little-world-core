@@ -50,7 +50,7 @@ class UnconfirmedMatch(models.Model):
         time_difference = self.expires_at - current_time
 
         return {
-            "hash": self.hash,
+            "hash": str(self.hash),
             "user_hash": other_user.hash,
             "first_name": other_user.first_name,
             "image_type": other_user.profile.image_type,
@@ -61,8 +61,8 @@ class UnconfirmedMatch(models.Model):
 
 def get_unconfirmed_matches(user):
 
-    # First check if the user is 'volunteer' cause we only allow volunteers to confirm matches, otherwise return empty list
-    if user.profile.user_type != Profile.TypeChoices.VOLUNTEER:
+    # First check if the user is 'volunteer' cause we only allow learners to confirm matches, otherwise return empty list
+    if user.profile.user_type == Profile.TypeChoices.VOLUNTEER:
         return []
 
     unconfirmed = list(UnconfirmedMatch.objects.filter(
