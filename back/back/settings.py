@@ -510,7 +510,7 @@ if DEBUG:
         'BASE_DIR', 'ALLOWED_HOSTS', 'CELERY_TIMEZONE', 'FRONTENDS', 'DATABASES']])
     print(f"configured django settings:\n {info}")
     print("PYTHONPATH: ", os.environ.get('PYTHONPATH', 'not set'))
-    print("SITEPACKAGE TREE", print_tree('/usr/lib/'))
+    #print("SITEPACKAGE TREE", print_tree('/usr/lib/'))
     for p in os.environ["PYTHONPATH"].split(':'):
         if p == '':
             continue
