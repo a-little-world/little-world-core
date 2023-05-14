@@ -1,1 +1,1 @@
-| [home (index)](/) | [backend](/back/) | [frontend](/front/) | [emails](/emails/) |
+| [home (index)](/docs/) | [backend](/docs/back/) | [frontend](/docs/front/) | [emails](/docs/emails/) |
