@@ -1,4 +1,4 @@
-FROM python:3.10-alpine
+FROM python:3.11-alpine
 
 WORKDIR /back
 
@@ -24,7 +24,7 @@ EXPOSE 8000
 RUN apk add gettext
 RUN apk add --update --no-cache py3-numpy
 # link the numpy installation
-ENV PYTHONPATH=/usr/lib/python3.10/site-packages
+ENV PYTHONPATH="/usr/lib/python3.11/site-packages/:${PYTHONPATH}"
 
 # CMD uvicorn back.asgi:application --port $PORT --host 0.0.0.0
 CMD ["sh", "./entry.sh"]
