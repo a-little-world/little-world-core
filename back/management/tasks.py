@@ -2224,8 +2224,22 @@ def indentify_and_mark_user_categories():
 
     return category_user_listing
 
+@shared_task
+def check_email_reminders_and_expirations():
+    """
+    Reoccuring task to check for email reminders that should be send out
+    also check if there are expired unconfirmed_matches
+    """
+    from management.models.unconfirmed_matches import UnconfirmedMatch
+    all_unclosed_unconfirmed = UnconfirmedMatch.objects.filter(closed=False)
+    
+    for unclosed in all_unclosed_unconfirmed:
+        if unclosed.is_expired(close_if_expired=True):
+            continue
+        unclosed.is_reminder_due(set_reminder_send=True)
+        # TODO: send the email reminder
 
-@ shared_task
+@shared_task
 def dispatch_admin_email_notification(subject, message):
     from . import controller
     from emails import mails
