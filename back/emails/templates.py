@@ -257,7 +257,7 @@ class ConfirmMatchMail1Texts:
         '')  # Emtpy -> means section auto removed in template rendering
     button_text: str = pgettext_lazy(
         'email.confirm-match-1.button-text',
-        'Mehr Info')
+        'Jetzt match bestätigen')
     button_link: str = pgettext_lazy(
         'email.confirm-match-1.button-link',
         'https://little-world.com/app/')  # TODO: this would be supposed to render a match confirm page instead of a general app page
