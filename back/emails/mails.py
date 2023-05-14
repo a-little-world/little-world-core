@@ -50,17 +50,11 @@ class StillInContactParams:
 class MatchConfirmationMail1Params:
     first_name: str
     match_first_name: str
-    team_email: str
-    team_phone: str
-
 
 @dataclass
 class MatchConfirmationMail2Params:
     first_name: str
     match_first_name: str
-    team_email: str
-    team_phone: str
-
 
 @dataclass
 class UnfinishedUserForm1Params:
