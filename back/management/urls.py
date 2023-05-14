@@ -1,14 +1,14 @@
-from . import views, api
+from management import api
 from django.urls import path, re_path
 from django.contrib import admin
 from django.conf import settings
-from . import views
+from management import views
 from back.utils import _api_url
 from django.conf.urls import include
 from django.views.generic.base import RedirectView
 from rest_framework import routers
 from django.contrib.auth import views as auth_views
-from .views.user_form_frontend import (
+from management.views.user_form_frontend import (
     login,
     register,
     forgot_password,
@@ -24,7 +24,7 @@ from .views.user_form_frontend import (
     email_verification_link_screen,
     user_form
 )
-from .views.admin_panel_frontend import admin_panel, stats_panel, graph_panel, fetch_graph, user_list_frontend, fetch_list
+from management.views.admin_panel_frontend import admin_panel, stats_panel, graph_panel, fetch_graph, user_list_frontend, fetch_list
 
 from rest_framework.routers import DefaultRouter
 from django_rest_passwordreset.views import ResetPasswordValidateTokenViewSet, ResetPasswordConfirmViewSet, \
