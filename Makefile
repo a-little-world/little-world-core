@@ -68,8 +68,16 @@ build_docs: ## build the full documentation
 	rm -rf $(root_dir)/back/cli/
 
 	# move generated documentation ( using rsync so files are overwritten )
-	mkdir -p $(root_dir)/docs
-	rsync -a $(root_dir)/back/html/ $(root_dir)/docs/
+	mkdir -p $(root_dir)/docs/docs
+	rsync -a $(root_dir)/back/html/ $(root_dir)/docs/docs
+	
+build_docs_container:
+	$(MAKE) build_docs
+	docker build -f Dockerfile.docsv2 -t littleworld_docs ./docs
+	
+run_docs_container:
+	docker run -p 5005:5005 -t littleworld_docs
+	
 
 
 watch_docs: ## watch back for changes in docs files and auto-rebuild ( be aware the build thakes a few seconds )
