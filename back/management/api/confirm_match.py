@@ -66,7 +66,9 @@ def confrim_match(request):
     if data.confirm:
         # TODO: create the actuall matching
         match_users({unconfirmed_match.user1, unconfirmed_match.user2})
-        pass
+        unconfirmed_match.closed = True
+        unconfirmed_match.save()
+
         return Response(pgettext_lazy("confirm_match.match_confirmed", "The match has been confirmed, your match has been made!"))
     else:
         # just close the unconfirmed match
