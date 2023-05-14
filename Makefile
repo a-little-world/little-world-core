@@ -73,7 +73,7 @@ build_docs: ## build the full documentation
 	
 build_docs_container:
 	$(MAKE) build_docs
-	docker build -f Dockerfile.docsv2 -t littleworld_docs ./docs
+	docker build -f Dockerfile.docs -t littleworld_docs ./docs
 	
 run_docs_container:
 	docker run -p 5005:5005 -t littleworld_docs
