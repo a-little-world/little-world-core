@@ -54,7 +54,7 @@ class UnconfirmedMatch(models.Model):
             "user_hash": other_user.hash,
             "first_name": other_user.first_name,
             "image_type": other_user.profile.image_type,
-            "avatar_image": other_user.profile.avatar_config if other_user.profile.image_type == Profile.ImageTypeChoice.AVATAR else other_user.profile.image,
+            "avatar_image": other_user.profile.avatar_config if other_user.profile.image_type == Profile.ImageTypeChoice.AVATAR else other_user.profile.image.url,
             "days_until_expiration": str(time_difference.days),
         }
 
