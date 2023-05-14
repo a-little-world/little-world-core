@@ -278,9 +278,19 @@ def create_user_matching_proposal(
     )
 
     if send_confirm_match_email:
-        # TODO: send the email
-        pass
-
+        # send the confirm mail to the learner ONLY!
+        learner = u1 if u1.profile.user_type == Profile.TypeChoices.LEARNER else u2
+        volunteer = u1 if u1.profile.user_type == Profile.TypeChoices.VOLUNTEER else u2
+        mails.send_email(
+            recivers=[learner.email],
+            subject=pgettext_lazy(
+                "mails-subject.pre-match-confirm-1", "Match gefunden - jetxt bestätigen"),
+            mail_data=mails.get_mail_data_by_name("confirm_match_mail_1"),
+            mail_params=mails.MatchConfirmationMail1Params(
+                first_name=learner.profile.first_name,
+                match_first_name=volunteer.profile.first_name,
+            )
+        )
 
 def unmatch_users(
     users: set,
