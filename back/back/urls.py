@@ -58,7 +58,7 @@ if settings.IS_STAGE or settings.IS_DEV:
     from revproxy.views import ProxyView
 
     view = ProxyView.as_view(
-        upstream='http://little-world-staging-docs-clusterip-service:8000/static/docs/')
+        upstream='http://little-world-staging-docs-clusterip-service:8000/')
 
     def auth_docs(request, **kwargs):
         from management.models import State
