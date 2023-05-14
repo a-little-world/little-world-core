@@ -91,6 +91,9 @@ class MatchConfirmationTests(TestCase):
         print("u1_unconf", u1_unconf)
         print("u2_unconf", u2_unconf)
         return u1, u2
+    
+    # TODO: create test for the pre-match email being send out
+    # TODO: check if the link in the pre-match email is valid and leads to the correct page
 
     def test_making_deny_pre_matching(self):
         """
