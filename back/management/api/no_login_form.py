@@ -15,7 +15,6 @@ from django.http import JsonResponse
 from rest_framework.response import Response
 from rest_framework_dataclasses.serializers import DataclassSerializer
 from dataclasses import dataclass
-from management.models.no_login_form import NoLoginForm, FORMS
 
 
 @dataclass
@@ -51,6 +50,8 @@ def no_login_form(request):
     """
     This api required no authentication but can still link submitted for data to a user 
     """
+    from management.models.no_login_form import NoLoginForm, FORMS
+
     serializer = NoLoginFormDataSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
 
