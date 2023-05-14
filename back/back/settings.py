@@ -498,6 +498,13 @@ if DEBUG:
         'BASE_DIR', 'ALLOWED_HOSTS', 'CELERY_TIMEZONE', 'FRONTENDS', 'DATABASES']])
     print(f"configured django settings:\n {info}")
     print("PYTHONPATH: ", os.environ.get('PYTHONPATH', 'not set'))
+    for p in os.environ["PYTHONPATH"].split(':'):
+        if p == '':
+            continue
+        if os.path.exists(p):
+            print("PACKAGES",p, os.listdir(p))
+        else:
+            print("INEXISTENT PYTHONPATH", p)
 
 """
 Settings for the sleek admin panel
