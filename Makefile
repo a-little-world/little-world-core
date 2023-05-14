@@ -8,6 +8,7 @@
 # development dir ( TODO spaces in path are not correctly escaped yet )
 root_dir := $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 dev_container_label := littleworld_dev
+docs_container_label := littleworld_docs
 all_dev_container_ids := $(shell docker ps -a --filter "label=$(dev_container_label)=1" --format "{{.ID}}")
 running_dev_container_ids := $(shell docker ps --filter "label=$(dev_container_label)=1" --format "{{.ID}}")
 setup_repo: not_initialized := $(shell git submodule foreach 'if [ ! -f $$toplevel/$$path/.git ]; then echo 1; fi' | grep -q 1 && echo 1 || echo 0)
@@ -30,6 +31,8 @@ backend_port := 8000:8000
 backend_img_sha := $(shell docker images -q littleworld_back.dev:latest) # lates development backend image
 backend_tag := littleworld_back.dev
 backend_label := littleworld_backend
+
+docs_img_sha := $(shell docker images -q littleworld_docs:latest) # lates docs image
 
 # frontend container setup
 frontends := user_form_frontend,main_frontend,cookie_banner_frontend,admin_panel_frontend

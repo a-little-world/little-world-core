@@ -8,6 +8,6 @@ RUN python3 -m pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-EXPOSE 5005
+EXPOSE 8000
 
 ENTRYPOINT [ "python3", "serve.py" ]

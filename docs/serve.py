@@ -17,5 +17,5 @@ for static in my_static_folders:
     app.wsgi_app.add_files(static)
 
 
-http_server = WSGIServer(('', 5005), app)
+http_server = WSGIServer(('', 8000), app)
 http_server.serve_forever()
