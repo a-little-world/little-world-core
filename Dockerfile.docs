@@ -1,0 +1,13 @@
+FROM python:3.10.0-bullseye
+
+WORKDIR /docs
+
+COPY requirements.txt .
+
+RUN python3 -m pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 5005
+
+ENTRYPOINT [ "python3", "serve.py" ]
