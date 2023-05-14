@@ -2,14 +2,15 @@
 This is a controller for any userform related actions
 e.g.: Creating a new user, sending a notification to a users etc...
 """
+from management.models.unconfirmed_matches import UnconfirmedMatch
 from chat.django_private_chat2.consumers.message_types import MessageTypes, OutgoingEventNewTextMessage
 from chat.django_private_chat2.models import DialogsModel
 from asgiref.sync import async_to_sync
 from back.utils import _double_uuid
 from channels.layers import get_channel_layer
-from .models import User, PastMatch
+from management.models import User, PastMatch
 from django.conf import settings
-from .models import UserSerializer, User, Profile, State, Settings, Room
+from management.models import UserSerializer, User, Profile, State, Settings, Room
 from django.utils.translation import gettext_lazy as _, pgettext_lazy
 from emails import mails
 from tracking import utils
@@ -259,6 +260,26 @@ Damit euch viel Spaß! Schöne Grüße vom Team Little World""")
     if set_to_idle:
         usr1.state.set_idle()
         usr2.state.set_idle()
+
+
+def create_user_matching_proposal(
+    users: set,
+    send_confirm_match_email=True
+):
+    """
+    This represents the new intermediate matching step we created.
+    Users are not just matched directly but first a matching proposal is send to the 'volunteer' user. 
+    TODO or is it the learner im still not sure on this?
+    """
+    u1, u2 = list(users)
+    UnconfirmedMatch.objects.create(
+        user1=u1,
+        user2=u2
+    )
+
+    if send_confirm_match_email:
+        # TODO: send the email
+        pass
 
 
 def unmatch_users(

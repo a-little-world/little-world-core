@@ -11,6 +11,10 @@ from .templates import (
     WelcomeTemplateMail,
     PasswordResetEmailDefaults,
     PasswordResetEmailTexts,
+    UnfinishedUserForm1Messages,
+    UnfinishedUserForm2Messages,
+    ConfirmMatchMail1Texts,
+    ConfirmMatchMail2Texts,
     # Currently we are using the same template as weclone
     # so MatchFoundEmailTexts has no Defaults
     NewUnreadMessages,
@@ -34,6 +38,38 @@ and it is easy to tell which parameters are available
 
 class MailDataNotFoundErr(Exception):
     pass
+
+
+@dataclass
+class StillInContactParams:
+    first_name: str
+    partner_first_name: str
+
+
+@dataclass
+class MatchConfirmationMail1Params:
+    first_name: str
+    match_first_name: str
+    team_email: str
+    team_phone: str
+
+
+@dataclass
+class MatchConfirmationMail2Params:
+    first_name: str
+    match_first_name: str
+    team_email: str
+    team_phone: str
+
+
+@dataclass
+class UnfinishedUserForm1Params:
+    first_name: str
+
+
+@dataclass
+class UnfinishedUserForm2Params:
+    first_name: str
 
 
 @dataclass
@@ -134,6 +170,34 @@ templates = [
         params=NewUreadMessagesParams,
         texts=NewUnreadMessages,
         defaults=NewUnreadMessages
+    ),
+    MailMeta(
+        name="unfinished_user_form_1",
+        template="emails/welcome.html",
+        params=UnfinishedUserForm1Params,
+        texts=UnfinishedUserForm1Messages,
+        defaults=UnfinishedUserForm1Messages
+    ),
+    MailMeta(
+        name="unfinished_user_form_2",
+        template="emails/welcome.html",
+        params=UnfinishedUserForm2Params,
+        texts=UnfinishedUserForm2Messages,
+        defaults=UnfinishedUserForm2Messages
+    ),
+    MailMeta(
+        name="confirm_match_mail_1",
+        template="emails/welcome.html",
+        params=MatchConfirmationMail1Params,
+        texts=ConfirmMatchMail1Texts,
+        defaults=ConfirmMatchMail1Texts
+    ),
+    MailMeta(
+        name="confirm_match_mail_2",
+        template="emails/welcome.html",
+        params=MatchConfirmationMail2Params,
+        texts=ConfirmMatchMail2Texts,
+        defaults=ConfirmMatchMail2Texts
     )
 ]
 

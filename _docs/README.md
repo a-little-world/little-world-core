@@ -1,3 +1,0 @@
-# Documentation
-
-requires sphinx

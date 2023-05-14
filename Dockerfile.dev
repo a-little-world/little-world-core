@@ -1,4 +1,4 @@
-FROM python:3.10-alpine
+FROM python:3.11-alpine
 
 WORKDIR /back
 
@@ -10,7 +10,7 @@ COPY ./requirements.txt ./
 # RUN apk add postgres
 RUN pip install --no-cache-dir -r requirements.txt
 RUN apk add --no-cache git
-RUN pip install git+https://github.com/jazzband/django-revproxy.git@aafddd1
+RUN pip install git+https://github.com/jazzband/django-revproxy.git
 RUN pip cache purge
 
 EXPOSE 8000
@@ -19,7 +19,7 @@ EXPOSE 8000
 RUN apk add gettext
 RUN apk add --update --no-cache py3-numpy
 # link the numpy installation
-ENV PYTHONPATH=/usr/lib/python3.10/site-packages
+ENV PYTHONPATH="/usr/lib/python3.11/site-packages/:${PYTHONPATH}"
 
 # Would have went with daphne but no hot reloading (https://github.com/django/daphne/issues/9) is quire problematic
 CMD ["sh", "./entry.sh"]

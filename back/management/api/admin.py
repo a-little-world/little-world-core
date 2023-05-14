@@ -222,7 +222,7 @@ class MakeMatch(APIView):
                     users[1], users[0])
             except:
                 if params.force is None or not params.force:
-                    return Response(_("Can extract matchable info for users, seems like the score calulation failed. This is an idicator that the users are possible unmatchable, if you are sure you want to continue use: ") + MATCH_BY_FORCE_MSG,
+                    return Response(_("Can't extract matchable info for users, seems like the score calulation failed. This is an idicator that the users are possible unmatchable, if you are sure you want to continue use: ") + MATCH_BY_FORCE_MSG,
                                     status=status.HTTP_400_BAD_REQUEST)
 
         if not params.force:

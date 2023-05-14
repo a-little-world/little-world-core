@@ -1,26 +1,13 @@
-FROM python:3.10-alpine
-# Need python <= 3.8: https://github.com/readthedocs/readthedocs.org/issues/9031
-# 
+FROM python:3.10.0-bullseye
 
 WORKDIR /docs
 
-#COPY ../back/requirements.txt ./
-COPY ./requirements.txt ./requirements_docs.txt
+COPY requirements.txt .
 
-RUN pip install --upgrade setuptools
-#RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install --no-cache-dir -r requirements_docs.txt
+RUN python3 -m pip install --no-cache-dir -r requirements.txt
 
-# We want the run file to be included in the docs
-RUN mkdir -p /docs_source/extra_mods/
-RUN touch /docs_source/extra_mods/__init__.py
-RUN touch /docs_source/__init__.py
+COPY . .
 
-RUN apk add --update --no-cache py3-numpy
-# link the numpy installation
-ENV PYTHONPATH=/usr/lib/python3.10/site-packages
-RUN apk add --update make
+EXPOSE 5005
 
-EXPOSE 8000
-
-ENTRYPOINT ["tail", "-f", "/dev/null"]
+ENTRYPOINT [ "python3", "serve.py" ]

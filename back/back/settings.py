@@ -492,11 +492,33 @@ USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
+def print_tree(root_path, max_depth=3, indent=0):
+    if max_depth < 0:
+        return
+    for root, dirs, files in os.walk(root_path):
+        current_depth = root.count(os.path.sep)
+        if current_depth > max_depth:
+            continue
+        print(' ' * indent + os.path.basename(root) + '/')
+        for file in files:
+            print(' ' * (indent + 2) + file)
+        for dir in dirs:
+            print_tree(os.path.join(root, dir), max_depth, indent + 2)
 
 if DEBUG:
     info = '\n '.join([f'{n}: {globals()[n]}' for n in [
         'BASE_DIR', 'ALLOWED_HOSTS', 'CELERY_TIMEZONE', 'FRONTENDS', 'DATABASES']])
     print(f"configured django settings:\n {info}")
+    print("PYTHONPATH: ", os.environ.get('PYTHONPATH', 'not set'))
+    #print("SITEPACKAGE TREE", print_tree('/usr/lib/'))
+    for p in os.environ["PYTHONPATH"].split(':'):
+        if p == '':
+            continue
+        if os.path.exists(p):
+            print("PACKAGES",p, os.listdir(p))
+        else:
+            print("INEXISTENT PYTHONPATH", p)
+            
 
 """
 Settings for the sleek admin panel
