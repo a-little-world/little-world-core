@@ -5,7 +5,6 @@ from django.utils.translation import gettext_lazy as _
 from django.template.loader import render_to_string
 from back.utils import dataclass_as_dict
 from emails.templates import inject_template_data
-from emails.models import EmailLog
 from emails.templates import (
     WelcomeTemplateParamsDefaults,
     WelcomeTemplateMail,
@@ -285,6 +284,7 @@ def send_email(
                 f"User '{to}' doesn't seem to be registered, sending mail anyways")
 
         # First create the mail log, if sending fails afterwards we sill have a log!
+        from emails.models import EmailLog
         log = EmailLog.objects.create(
             sender=get_base_management_user(),
             receiver=usr_ref,

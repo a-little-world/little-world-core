@@ -2,7 +2,6 @@ from back import utils
 from django.db import models
 from rest_framework import serializers
 from django.utils.translation import gettext_lazy as _, pgettext_lazy
-from management.models.user import User
 from django.conf import settings
 from management.api.no_login_form import StillInContactFormDataSerializer
 
@@ -19,7 +18,7 @@ class NoLoginForm(models.Model):
                                  default=FormTypeChoices.STILL_IN_CONTACT,
                                  max_length=255)
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey('User', on_delete=models.CASCADE)
 
     def get_link(self):
         return f"{settings.DJ_BASE_URL}/extform?form={self.hash}"
@@ -29,7 +28,7 @@ class StillInContactForm(models.Model):
     form = models.ForeignKey(
         NoLoginForm, on_delete=models.CASCADE, related_name="still_in_contact_form")
     user = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="still_in_contact_form_user")
+        'User', on_delete=models.CASCADE, related_name="still_in_contact_form_user")
 
     still_in_contact = models.BooleanField(default=False)
 

@@ -19,3 +19,4 @@ from .help_message import HelpMessage
 from .past_matches import PastMatch
 from .translation_logs import TranslationLog
 from .unconfirmed_matches import UnconfirmedMatch
+from .no_login_form import NoLoginForm

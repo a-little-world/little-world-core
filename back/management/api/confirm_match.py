@@ -15,7 +15,6 @@ from django.http import JsonResponse
 from rest_framework.response import Response
 from rest_framework_dataclasses.serializers import DataclassSerializer
 from dataclasses import dataclass
-from management.models.no_login_form import NoLoginForm, FORMS
 from management.models.unconfirmed_matches import UnconfirmedMatch
 from django.utils.translation import pgettext_lazy
 from rest_framework import serializers

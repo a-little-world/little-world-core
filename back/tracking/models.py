@@ -1,6 +1,6 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-from management.models import User
+#from management.models import User
 from back import utils
 
 
@@ -46,7 +46,7 @@ class Event(models.Model):
     since there can be also events that have no or an anonymous caller
     """
     caller = models.ForeignKey(
-        User, on_delete=models.SET_NULL, null=True, blank=True)
+        'management.User', on_delete=models.SET_NULL, null=True, blank=True)
 
     """ Name of the function that called the event """
     func = models.CharField(max_length=255)
