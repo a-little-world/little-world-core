@@ -157,6 +157,44 @@ class MatchFoundEmailTexts:
     goodbye_name: str = pgettext_lazy(
         'email.match.goodbye-name',
         'Dein Little World Team')
+    
+@dataclass
+class MatchRejectedEmailTexts:
+    """
+    Send if the user decided not to accept a match and wants to start looking for another match
+    """
+    subject_header_text: str = pgettext_lazy(
+        "email.new-match-search.subject-header-text", "Neue Bekanntschaften suchen auf Little World")
+    greeting: str = pgettext_lazy(
+        'email.new-match-search.greeting',
+        'Hallo {first_name}')
+    content_start_text: str = pgettext_lazy(
+        'email.new-match-search.content-start-text',
+        'Du hast dich entschieden, deinen aktuellen Vorschlag nicht anzunehmen. Kein Problem! Es warten noch viele andere interessante Bekanntschaften auf dich. Melde dich einfach wieder bei Little World an und starte deine Suche nach neuen Bekanntschaften aus aller Welt.')
+    content_body_text: str = pgettext_lazy(
+        'email.new-match-search.content-body-text', '')
+    link_box_text: str = pgettext_lazy(
+        'email.new-match-search.link-box-text',
+        '')  # Empty -> means section auto removed in template rendering
+    button_text: str = pgettext_lazy(
+        'email.new-match-search.button-text',
+        'Neue Suche starten')
+    button_link: str = pgettext_lazy(
+        'email.new-match-search.button-link',
+        'https://little-world.com/login/')
+    below_link_text: str = pgettext_lazy(
+        'email.new-match-search.below-link-text',
+        '')
+    footer_text: str = pgettext_lazy(
+        'email.new-match-search.footer-text',
+        '')
+    goodbye: str = pgettext_lazy(
+        'email.new-match-search.goodbye',
+        'Beste Grüße,')
+    goodbye_name: str = pgettext_lazy(
+        'email.email.new-match-search.goodbye.goodbye-name',
+        'Dein Little World Team')
+    use_unsubscribe_footer: bool = True
 
 
 @dataclass
