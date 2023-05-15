@@ -11,6 +11,9 @@ from uuid import uuid4
 def seven_days_from_now():
     return timezone.now() + timedelta(days=7)
 
+def three_days_from_now():
+    return timezone.now() + timedelta(days=7)
+
 
 class UnconfirmedMatch(models.Model):
     """ One object stored for every jet unconfirmed match"""
@@ -26,6 +29,9 @@ class UnconfirmedMatch(models.Model):
 
     # If closed it's not considered anymore
     closed = models.BooleanField(default=False)
+    
+    reminder_send = models.BooleanField(default=False)
+    reminder_due_at = models.DateTimeField(default=three_days_from_now)
 
     potential_matching_created_at = models.DateTimeField(auto_now_add=True)
 
@@ -38,6 +44,14 @@ class UnconfirmedMatch(models.Model):
             self.save()
 
         return expired
+    
+    def is_reminder_due(self, set_reminder_send=True):
+        reminder_due = self.reminder_due_at < timezone.now()
+        if set_reminder_send and reminder_due:
+            self.reminder_send = True
+            self.save()
+
+        return reminder_due
 
     def get_shared_data(self, user):
         """

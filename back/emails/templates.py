@@ -157,6 +157,44 @@ class MatchFoundEmailTexts:
     goodbye_name: str = pgettext_lazy(
         'email.match.goodbye-name',
         'Dein Little World Team')
+    
+@dataclass
+class MatchRejectedEmailTexts:
+    """
+    Send if the user decided not to accept a match and wants to start looking for another match
+    """
+    subject_header_text: str = pgettext_lazy(
+        "email.new-match-search.subject-header-text", "Neue Bekanntschaften suchen auf Little World")
+    greeting: str = pgettext_lazy(
+        'email.new-match-search.greeting',
+        'Hallo {first_name}')
+    content_start_text: str = pgettext_lazy(
+        'email.new-match-search.content-start-text',
+        'Du hast dich entschieden, deinen aktuellen Vorschlag nicht anzunehmen. Kein Problem! Es warten noch viele andere interessante Bekanntschaften auf dich. Melde dich einfach wieder bei Little World an und starte deine Suche nach neuen Bekanntschaften aus aller Welt.')
+    content_body_text: str = pgettext_lazy(
+        'email.new-match-search.content-body-text', '')
+    link_box_text: str = pgettext_lazy(
+        'email.new-match-search.link-box-text',
+        '')  # Empty -> means section auto removed in template rendering
+    button_text: str = pgettext_lazy(
+        'email.new-match-search.button-text',
+        'Neue Suche starten')
+    button_link: str = pgettext_lazy(
+        'email.new-match-search.button-link',
+        'https://little-world.com/login/')
+    below_link_text: str = pgettext_lazy(
+        'email.new-match-search.below-link-text',
+        '')
+    footer_text: str = pgettext_lazy(
+        'email.new-match-search.footer-text',
+        '')
+    goodbye: str = pgettext_lazy(
+        'email.new-match-search.goodbye',
+        'Beste Grüße,')
+    goodbye_name: str = pgettext_lazy(
+        'email.email.new-match-search.goodbye.goodbye-name',
+        'Dein Little World Team')
+    use_unsubscribe_footer: bool = True
 
 
 @dataclass
@@ -196,6 +234,7 @@ class UnfinishedUserForm1Messages:
     goodbye_name: str = pgettext_lazy(
         'email.email.unfinished-user-form-1.goodbye.goodbye-name',
         'Dein Little World Team')
+    use_unsubscribe_footer: bool = True
 
 
 @dataclass
@@ -235,6 +274,88 @@ class UnfinishedUserForm2Messages:
         'email.email.unfinished-user-form-2.goodbye.goodbye-name',
         'Dein Little World Team')
     use_unsubscribe_footer: bool = True
+    
+@dataclass
+class StillInContactMessages:
+    """
+    Send to ask users if they are still in contact with their match
+    """
+    subject_header_text: str = pgettext_lazy(
+        "email.still-in-contact.subject-header-text", "Noch in Kontakt mit {match_name}?")
+    greeting: str = pgettext_lazy(
+        'email.still-in-contact.greeting',
+        'Hallo {first_name},')
+    content_start_text: str = pgettext_lazy(
+        'email.still-in-contact.content-start-text',
+        'wie geht es dir und {match_name}? Wir hoffen, eure Gespräche bereiten euch weiterhin viel Freude. Bitte gib uns eine kurze Rückmeldung für unsere Wirkungsmessung: Unterhältst du dich noch mit {match_name}?')
+    content_body_text: str = pgettext_lazy(
+        'email.still-in-contact.content-body-text', '')
+    link_box_text: str = pgettext_lazy(
+        'email.still-in-contact.link-box-text',
+        '')  # Empty -> means section auto removed in template rendering
+    button_text: str = pgettext_lazy(
+        'email.still-in-contact.button-text',
+        'Ja')
+    button_link: str = pgettext_lazy(
+        'email.still-in-contact.button-link',
+        'https://little-world.com/contact-yes/')
+    button_text_alt: str = pgettext_lazy(
+        'email.still-in-contact.button-text-alt',
+        'Nein')
+    button_link_alt: str = pgettext_lazy(
+        'email.still-in-contact.button-link-alt',
+        'https://little-world.com/contact-no/')
+    below_link_text: str = pgettext_lazy(
+        'email.still-in-contact.below-link-text',
+        '')
+    footer_text: str = pgettext_lazy(
+        'email.still-in-contact.footer-text',
+        '')
+    goodbye: str = pgettext_lazy(
+        'email.still-in-contact.goodbye',
+        'Beste Grüße,')
+    goodbye_name: str = pgettext_lazy(
+        'email.still-in-contact.goodbye.goodbye-name',
+        'Dein Little World Team')
+    use_unsubscribe_footer: bool = True
+    
+@dataclass
+class EmailVerificationReminderMessages:
+    """
+    Send if the user registered but did not verify their email yet
+    """
+    subject_header_text: str = pgettext_lazy(
+        "email.email-verification-reminder.subject-header-text", "Bitte bestätige deine E-Mail-Adresse für Little World")
+    greeting: str = pgettext_lazy(
+        'email.email-verification-reminder.greeting',
+        'Hallo {first_name}')
+    content_start_text: str = pgettext_lazy(
+        'email.email-verification-reminder.content-start-text',
+        'du hast dich kürzlich bei Little World registriert, aber deine E-Mail-Adresse noch nicht bestätigt. Um alle Funktionen unserer Plattform nutzen zu können und mit Menschen aus aller Welt in Kontakt zu treten, bitten wir dich, deine E-Mail-Adresse zu bestätigen.')
+    content_body_text: str = pgettext_lazy(
+        'email.email-verification-reminder.content-body-text', '')
+    link_box_text: str = pgettext_lazy(
+        'email.email-verification-reminder.link-box-text',
+        '')  # Empty -> means section auto removed in template rendering
+    button_text: str = pgettext_lazy(
+        'email.email-verification-reminder.button-text',
+        'E-Mail-Adresse bestätigen')
+    button_link: str = pgettext_lazy(
+        'email.email-verification-reminder.button-link',
+        'https://little-world.com/verify-email/')
+    below_link_text: str = pgettext_lazy(
+        'email.email-verification-reminder.below-link-text',
+        '')
+    footer_text: str = pgettext_lazy(
+        'email.email-verification-reminder.footer-text',
+        '')
+    goodbye: str = pgettext_lazy(
+        'email.email-verification-reminder.goodbye',
+        'Beste Grüße,')
+    goodbye_name: str = pgettext_lazy(
+        'email.email-verification-reminder.goodbye.goodbye-name',
+        'Dein Little World Team')
+    use_unsubscribe_footer: bool = True
 
 
 @dataclass
@@ -243,7 +364,7 @@ class ConfirmMatchMail1Texts:
     Follow up email about the unfinished userform
     """
     subject_header_text: str = pgettext_lazy(
-        "email.confirm-match-1.subject-header-text", "Match gefunden - jetxt bestätigen")
+        "email.confirm-match-1.subject-header-text", "Match gefunden - jetzt bestätigen")
     greeting: str = pgettext_lazy(
         'email.confirm-match-1.greeting',
         'Hallo {first_name}')
@@ -257,7 +378,7 @@ class ConfirmMatchMail1Texts:
         '')  # Emtpy -> means section auto removed in template rendering
     button_text: str = pgettext_lazy(
         'email.confirm-match-1.button-text',
-        'Mehr Info')
+        'Jetzt match bestätigen')
     button_link: str = pgettext_lazy(
         'email.confirm-match-1.button-link',
         'https://little-world.com/app/')  # TODO: this would be supposed to render a match confirm page instead of a general app page
@@ -274,6 +395,7 @@ class ConfirmMatchMail1Texts:
     goodbye_name: str = pgettext_lazy(
         'email.email.confirm-match-1.goodbye.goodbye-name',
         'Dein Little World Team')
+    use_unsubscribe_footer: bool = True
 
 
 @dataclass
@@ -314,6 +436,46 @@ class ConfirmMatchMail2Texts:
     goodbye_name: str = pgettext_lazy(
         'email.email.confirm-match-2.goodbye.goodbye-name',
         'Dein Little World Team')
+    use_unsubscribe_footer: bool = True
+    
+@dataclass
+class MatchExpiredMailTexts:
+    """
+    Email to inform user that their match has expired
+    """
+    subject_header_text: str = pgettext_lazy(
+        "email.match-expired.subject-header-text", "Dein Match ist abgelaufen - Finde einen neuen Partner")
+    greeting: str = pgettext_lazy(
+        'email.match-expired.greeting',
+        'Hallo {first_name}')
+    content_start_text: str = pgettext_lazy(
+        'email.match-expired.content-start-text',
+        'leider ist die Zeit abgelaufen, um {match_first_name} auf der Plattform Little World zu bestätigen. Aber keine Sorge, du kannst dich einloggen und nach einem neuen Match suchen.\n' +
+        'Möchtest du jetzt nach einem neuen Match suchen? Dann klicke hier: ')
+    content_body_text: str = pgettext_lazy(
+        'email.match-expired.content-body-text', '')
+    link_box_text: str = pgettext_lazy(
+        'email.match-expired.link-box-text',
+        '')  # Empty -> means section auto removed in template rendering
+    button_text: str = pgettext_lazy(
+        'email.match-expired.button-text',
+        'Neues Match finden')
+    button_link: str = pgettext_lazy(
+        'email.match-expired.button-link',
+        'https://little-world.com/app/')  # TODO: this would be supposed to render a match search page instead of a general app page
+    below_link_text: str = pgettext_lazy(
+        'email.match-expired.below-link-text',
+        '')
+    footer_text: str = pgettext_lazy(
+        'email.match-expired.footer-text',
+        'Du hast Fragen? Wir sind für dich da! Ruf an unter {team_phone} oder schreib uns unter {team_email}. Wir helfen dir gerne')
+    goodbye: str = pgettext_lazy(
+        'email.match-expired.goodbye',
+        'Beste Grüße,')
+    goodbye_name: str = pgettext_lazy(
+        'email.match-expired.goodbye.goodbye-name',
+        'Dein Little World Team')
+    use_unsubscribe_footer: bool = True
 
 
 @dataclass
