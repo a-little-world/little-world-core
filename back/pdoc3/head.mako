@@ -10,9 +10,6 @@ white-space: nowrap;
 color: #444;
 background: #eee;
 }
-table code {
-    background: unset;
-}
 table tr {
 border-top: 1px solid #ddd;
 border-bottom: 1px solid #ddd;
