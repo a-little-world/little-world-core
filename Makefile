@@ -79,7 +79,7 @@ build_docs_container:
 	docker build -f Dockerfile.docs -t littleworld_docs ./docs
 	
 run_docs_container:
-	docker run -p 5005:5005 -t littleworld_docs
+	docker run -p 8080:8000 -t littleworld_docs
 	
 
 
