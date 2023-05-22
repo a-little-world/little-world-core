@@ -18,6 +18,7 @@ from emails.templates import (
     EmailVerificationReminderMessages,
     StillInContactMessages,
     MatchRejectedEmailTexts,
+    InterviewInvitation,
     # Currently we are using the same template as weclone
     # so MatchFoundEmailTexts has no Defaults
     NewUnreadMessages,
@@ -58,6 +59,12 @@ class MatchRejectedEmailParams:
 class MatchConfirmationMail1Params:
     first_name: str
     match_first_name: str
+    
+    
+@dataclass
+class InterviewInvitationParams:
+    first_name: str
+    link_url: str
 
 @dataclass
 class MatchConfirmationMail2Params:
@@ -159,6 +166,13 @@ templates = [
         params=MatchMailParams,
         texts=MatchFoundEmailTexts,
         defaults=MatchFoundEmailTexts
+    ),
+    MailMeta(  # Interview request ** special email **
+        name="interview",
+        template="emails/welcome.html",
+        params=InterviewInvitationParams,
+        texts=InterviewInvitation,
+        defaults=InterviewInvitation
     ),
     MailMeta(
         name="password_reset",
