@@ -477,6 +477,55 @@ class MatchExpiredMailTexts:
         'Dein Little World Team')
     use_unsubscribe_footer: bool = True
 
+@dataclass
+class InterviewInvitation:
+    """
+    ---------> Interview invitation email <---------------
+    """
+    subject_header_text: str = pgettext_lazy(
+        "email.interview-invitation.subject-header-text", "Einladung zum Online-Interview mit Aniqa")
+    greeting: str = pgettext_lazy(
+        'email.interview-invitation.greeting',
+        'Hallo {first_name}!')
+    content_start_text: str = pgettext_lazy(
+        'email.interview-invitation.content-start-text',
+        'Mein Name ist Aniqa und ich bin derzeit Studentin an der Universität Siegen im Bereich'
+        ' Human Computer Interaction. Im Rahmen meiner Projektarbeit mit Little World führe ich'
+        ' Online-Interviews mit (englischsprachigen) Ehrenamtlichen durch, um die'
+        ' Nutzererfahrungen mit Little World besser zu verstehen.')
+    content_body_text: str = mark_safe(pgettext_lazy(
+        'email.interview-invitation.content-body-text',
+        'Wenn du helfen möchtest die Plattform für andere Benutzer*innen zu verbessern oder'
+        ' einfach eine nette Studentin in ihrer Projektarbeit unterstützen möchtest, dann melde'
+        ' dich bitte bei mir. Nimm gerne einen Kaffee oder Tee zum Online-Interview mit, es wird'
+        ' alles ganz entspannt und dauert nicht mehr als eine Stunde. Ich freue mich auf einen'
+        ' lebhaften Ideenaustausch mit dir!<br></br>'
+        'Hier ist meine E-Mail-Adresse: '))
+    link_box_text: str = mark_safe(pgettext_lazy(
+        'email.interview-invitation.link-box-text',
+        '<a href="mailto:aniqa.rahman@student.uni-siegen.de?subject=Interview" style="color: blue;">aniqa.rahman@student.uni-siegen.de</a>'))
+    button_text: str = pgettext_lazy(
+        'email.interview-invitation.button-text',
+        'Interview-Termin buchen')
+    button_link: str = pgettext_lazy(
+        'email.interview-invitation.button-link',
+        'https://calendly.com/d/y3c-7yr-tzq/getting-to-know-interview-for-little-world')
+    below_link_text: str = pgettext_lazy(
+        'email.interview-invitation.below-link-text',
+        'Thank you so much for your time,')
+    footer_text: str = pgettext_lazy(
+        'email.interview-invitation.footer-text',
+        'PS: das Team von Little World hat diese E-Mail im Namen von Aniqa an dich'
+        ' weitergeleitet. Solltest du in Zukunft keine Interview-Bitten mehr erhalten wollen, so'
+        ' klicke bitte auf E-Mail Abmelden.')
+    goodbye: str = pgettext_lazy(
+        'email.interview-invitation.goodbye',
+        'Aniqa Rahman')
+    goodbye_name: str = pgettext_lazy(
+        'email.email.interview-invitation.goodbye.goodbye-name',
+        '')
+    use_unsubscribe_footer:bool=True
+
 
 @dataclass
 class NewUnreadMessages:
