@@ -77,6 +77,9 @@ api_routes = [
     path(_api_url('user/translate'), api.translation_requests.translate),
     path(_api_url('user/change_email'), api.user.ChangeEmailApi.as_view()),
 
+    path(_api_url('emails/toggle_sub'), api.email_settings.unsubscribe_link),
+    path(_api_url('emails/settings_update/'), api.email_settings.unsubscribe_email),
+
     path(_api_url('video_rooms/authenticate_call'),
          api.twilio.AuthenticateCallRoom.as_view()),
 
