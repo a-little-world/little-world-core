@@ -6,7 +6,10 @@
         <table width="100%" cellspacing="0" cellpadding="0" border="0" align="center" bgcolor="#FFFFFF">
             <tr>
                 <td align="left" style="font-size: 12px; line-height: 14px; mso-line-height-rule: exactly; -ms-text-size-adjust: 100%;-webkit-text-size-adjust: 100%; color: #639acc; font-style: normal; font-weight: 300; font-family: 'Arial', 'Helvetica', sans-serif; padding-top: 5px; padding-bottom: 5px;" valign="middle">
-                    <a class="unsubscribe-link" style="color: #639acc; font-style: normal; font-weight: 300; font-family: 'Arial', 'Helvetica', sans-serif;">unsubscribe ( reminder emails )</a> &middot; <a class="unsubscribe-link" style="color: #639acc; font-style: normal; font-weight: 300; font-family: 'Arial', 'Helvetica', sans-serif;">email settings ( login required )</a>
+                    <a href="{{ unsubscribe_link1 }}" class="unsubscribe-link" style="color: #639acc; font-style: normal; font-weight: 300; font-family: 'Arial', 'Helvetica', sans-serif;">unsubscribe ( {{ unsubscribe_link1_category }} )</a> &middot; 
+{% if unsubscribe_two_link %}
+                    <a href="{{ unsubscribe_link2 }}" class="unsubscribe-link" style="color: #639acc; font-style: normal; font-weight: 300; font-family: 'Arial', 'Helvetica', sans-serif;">email settings ( login required )</a>
+{% endif %}
                 </td>
             </tr>
         </table>
