@@ -1,12 +1,11 @@
-from typing import Enum 
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.decorators import api_view, permission_classes, authentication_classes, throttle_classes
-from typing import Literal
+from typing import Literal, get_type_hints
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_dataclasses.serializers import DataclassSerializer
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, field
 from django.utils.translation import pgettext_lazy
 from rest_framework import serializers
 from management.controller import match_users
@@ -14,13 +13,23 @@ from management.models.settings import UnsubscibeOptions, EmailSettings
 
 @dataclass
 class UnsubscribeParams:
-    unsubscribe_type: UnsubscibeOptions
+    unsubscribe_type: UnsubscibeOptions = field(
+        default=UnsubscibeOptions.interview_requests,
+        metadata={
+            "choices": [opt.value for opt in UnsubscibeOptions],
+        }
+    )
     choice: bool = False
 
 @dataclass
 class UnsubscribeLinkParams:
     settings_hash: str
-    unsubscribe_type: UnsubscibeOptions
+    unsubscribe_type: UnsubscibeOptions = field(
+        default=UnsubscibeOptions.interview_requests,
+        metadata={
+            "choices": [opt.value for opt in UnsubscibeOptions],
+        }
+    )
     choice: bool = False
     
 class UnsubscribeParamsSerializer(DataclassSerializer):
@@ -32,13 +41,13 @@ class UnsubscribeParamsLinkSerializer(DataclassSerializer):
         dataclass = UnsubscribeLinkParams
 
 def update_email_settings(data, email_settings):
-    if data.choice and (data.unsubscribe_type in email_settings):
-        email_settings.remove(data.unsubscribe_type)
+    if (not data.choice) and (data.unsubscribe_type in email_settings.unsubscibed_options):
+        email_settings.unsubscibed_options.remove(data.unsubscribe_type)
         email_settings.save()
         return Response(pgettext_lazy("unsubscribe_email.success", "You have been unsubscribed from this email type"))
 
-    elif not data.choice and (data.unsubscribe_type not in email_settings):
-        email_settings.add(data.unsubscribe_type)
+    elif data.choice and (data.unsubscribe_type not in email_settings.unsubscibed_options):
+        email_settings.unsubscibed_options.append(data.unsubscribe_type)
         email_settings.save()
         return Response(pgettext_lazy("unsubscribe_email.success", "You have been subscribed to this email type"))
     
@@ -63,7 +72,24 @@ def unsubscribe_email(request):
     
 
 @extend_schema(
-    request=UnsubscribeParamsLinkSerializer(many=False),
+    parameters=[
+        OpenApiParameter(
+            name="choice", 
+            type=bool, 
+            location=OpenApiParameter.QUERY
+        ),
+        OpenApiParameter(
+            name="unsubscribe_type",
+            type=str, 
+            enum=UnsubscibeOptions,
+            location=OpenApiParameter.QUERY
+        ),
+        OpenApiParameter(
+            name="settings_hash",
+            type=str,
+            location=OpenApiParameter.QUERY
+        )
+    ]
 )
 @api_view(['GET'])
 @authentication_classes([])
@@ -73,12 +99,12 @@ def unsubscribe_link(request):
     A unsubscribe link that can be acessed by email settings hash rather than being signed in 
     TODO: do this need aditional security? can anyone brute force uuids?
     """
-    serializer = UnsubscribeParamsLinkSerializer(data=request.data)
+    serializer = UnsubscribeParamsLinkSerializer(data=request.query_params)
     serializer.is_valid(raise_exception=True)
     
     data = serializer.save()
     
-    email_settings = EmailSettings.objects.filter(hash=data.settings_hash)
+    email_settings = EmailSettings.objects.get(hash=data.settings_hash)
     
     return update_email_settings(data, email_settings)
     
