@@ -28,7 +28,7 @@ class Settings(models.Model):
 
     language = models.CharField(max_length=20, default="en")
     
-    email_settings = models.OneToOneField(EmailSettings, on_delete=models.CASCADE, default=create_email_settings, unique=False)
+    email_settings = models.OneToOneField(EmailSettings, on_delete=models.CASCADE, default=create_email_settings)
 
 
 class SettingsSerializer(serializers.ModelSerializer):
