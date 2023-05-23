@@ -1,4 +1,8 @@
 from rest_framework.views import APIView
+from dataclasses import dataclass
+from rest_framework.decorators import api_view, permission_classes, authentication_classes, throttle_classes
+from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+from rest_framework.permissions import IsAuthenticated
 from rest_framework import authentication, permissions, viewsets, status
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from django.utils.translation import gettext_lazy as _
@@ -101,3 +105,4 @@ class EmailListView(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.IsAdminUser]
     queryset = EmailLog.objects.all()
     serializer_class = EmailLogSerializer
+

@@ -8,7 +8,7 @@ Main management models:
 from .profile import Profile, ProfileSerializer, CensoredProfileSerializer, SelfProfileSerializer
 from .user import UserSerializer, CensoredUserSerializer, User, SelfUserSerializer
 from .state import State, StateSerializer, SelfStateSerializer
-from .settings import Settings, SelfSettingsSerializer
+from .settings import Settings, SelfSettingsSerializer, EmailSettings
 from .notifications import Notification, NotificationSerializer, SelfNotificationSerializer
 from .rooms import Room
 from .matching_scores import MatchinScore, ScoreTableSource

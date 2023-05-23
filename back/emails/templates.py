@@ -525,6 +525,11 @@ class InterviewInvitation:
         'email.email.interview-invitation.goodbye.goodbye-name',
         '')
     use_unsubscribe_footer:bool=True
+    unsubscribe_two_link = False
+    unsubscribe_link1: str = 'https://timschupp.de'
+    unsubscribe_link1_category: str = 'special interview request'
+    unsubscribe_link2: str = 'none'
+    unsubscribe_link2_category: str = 'none'
 
 
 @dataclass
