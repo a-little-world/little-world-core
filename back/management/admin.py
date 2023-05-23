@@ -20,6 +20,11 @@ class BackendStateAdmin(admin.ModelAdmin):
 @admin.register(models.help_message.HelpMessage)
 class HelpMessageStateAdmin(admin.ModelAdmin):
     list_display = ('user', 'message', 'hash')
+    
+    
+@admin.register(models.settings.EmailSettings)
+class EmailSettingsAdmin(admin.ModelAdmin):
+    list_display = ('hash', 'unsubscibed_options')
 
 
 @admin.register(models.community_events.CommunityEvent)
@@ -101,7 +106,7 @@ class ProfileModelInline(admin.StackedInline):
 
 @admin.register(models.settings.Settings)
 class SettingsModelAdmin(admin.ModelAdmin):
-    list_display = ('user', 'language')
+    list_display = ('user', 'language', 'email_settings')
 
 
 class SettingsModelInline(admin.StackedInline):
