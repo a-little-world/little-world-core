@@ -64,7 +64,9 @@ class MatchConfirmationMail1Params:
 @dataclass
 class InterviewInvitationParams:
     first_name: str
+    email_aniqa: str
     link_url: str
+    unsubscribe_url1: str
 
 @dataclass
 class MatchConfirmationMail2Params:
