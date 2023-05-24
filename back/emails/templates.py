@@ -503,13 +503,13 @@ class InterviewInvitation:
         'Hier ist meine E-Mail-Adresse: '))
     link_box_text: str = mark_safe(pgettext_lazy(
         'email.interview-invitation.link-box-text',
-        '<a href="mailto:aniqa.rahman@student.uni-siegen.de?subject=Interview" style="color: blue;">aniqa.rahman@student.uni-siegen.de</a>'))
+        '<a href="mailto:{email_aniqa}?subject=Interview" style="color: blue;">{email_aniqa}</a>'))
     button_text: str = pgettext_lazy(
         'email.interview-invitation.button-text',
         'Interview-Termin buchen')
     button_link: str = pgettext_lazy(
         'email.interview-invitation.button-link',
-        'https://calendly.com/d/y3c-7yr-tzq/getting-to-know-interview-for-little-world')
+        '{link_url}')
     below_link_text: str = pgettext_lazy(
         'email.interview-invitation.below-link-text',
         'Thank you so much for your time,')
@@ -526,7 +526,7 @@ class InterviewInvitation:
         '')
     use_unsubscribe_footer:bool=True
     unsubscribe_two_link = False
-    unsubscribe_link1: str = 'https://timschupp.de'
+    unsubscribe_link1: str = '{ unsubscribe_url1 }'
     unsubscribe_link1_category: str = 'special interview request'
     unsubscribe_link2: str = 'none'
     unsubscribe_link2_category: str = 'none'
