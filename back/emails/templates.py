@@ -28,13 +28,15 @@ def inject_template_data(template_dict, params):
             0][1:] if arg != "" and arg is not None]
         #print("Fomattable stuff ", _format_args)
         for _k in _format_args:
-            if not _k in params:
+            if not (_k in params):
                 raise MissingEmailParamErr(
-                    "Missing email template param: " + _k)
+                    "Missing email template param: " + _k + "GOt only" + str(params))
 
-        _dict[k] = _dict[k].format(**{
-            k: params[k] for k in _format_args
-        })
+        if not isinstance(_dict[k], bool):
+            # Only try to replace string values
+            _dict[k] = _dict[k].format(**{
+                k: params[k] for k in _format_args
+            })
         #print("Updated templte dict ", _dict)
     return _dict
 
@@ -493,17 +495,15 @@ class InterviewInvitation:
         ' Human Computer Interaction. Im Rahmen meiner Projektarbeit mit Little World führe ich'
         ' Online-Interviews mit (englischsprachigen) Ehrenamtlichen durch, um die'
         ' Nutzererfahrungen mit Little World besser zu verstehen.')
-    content_body_text: str = mark_safe(pgettext_lazy(
+    content_body_text: str = pgettext_lazy(
         'email.interview-invitation.content-body-text',
-        'Wenn du helfen möchtest die Plattform für andere Benutzer*innen zu verbessern oder'
+        mark_safe('Wenn du helfen möchtest die Plattform für andere Benutzer*innen zu verbessern oder'
         ' einfach eine nette Studentin in ihrer Projektarbeit unterstützen möchtest, dann melde'
         ' dich bitte bei mir. Nimm gerne einen Kaffee oder Tee zum Online-Interview mit, es wird'
         ' alles ganz entspannt und dauert nicht mehr als eine Stunde. Ich freue mich auf einen'
         ' lebhaften Ideenaustausch mit dir!<br></br>'
         'Hier ist meine E-Mail-Adresse: '))
-    link_box_text: str = mark_safe(pgettext_lazy(
-        'email.interview-invitation.link-box-text',
-        '<a href="mailto:{email_aniqa}?subject=Interview" style="color: blue;">{email_aniqa}</a>'))
+    link_box_text: str = mark_safe('<a href="mailto:aniqa.rahman@student.uni-siegen.de?subject=Interview" style="color: blue;">aniqa.rahman@student.uni-siegen.de</a>')
     button_text: str = pgettext_lazy(
         'email.interview-invitation.button-text',
         'Interview-Termin buchen')
@@ -525,8 +525,8 @@ class InterviewInvitation:
         'email.email.interview-invitation.goodbye.goodbye-name',
         '')
     use_unsubscribe_footer:bool=True
-    unsubscribe_two_link = False
-    unsubscribe_link1: str = '{ unsubscribe_url1 }'
+    unsubscribe_two_link:bool = False
+    unsubscribe_link1: str = '{unsubscribe_url1}'
     unsubscribe_link1_category: str = 'special interview request'
     unsubscribe_link2: str = 'none'
     unsubscribe_link2_category: str = 'none'
