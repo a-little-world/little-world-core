@@ -32,7 +32,7 @@ valid_create_data = dict(
 )
 
 
-class MatchConfirmationTests(TestCase):
+class EmailSettingsTests(TestCase):
 
     required_params = api.register.Register.required_args
 
@@ -59,7 +59,6 @@ class MatchConfirmationTests(TestCase):
         response = api.email_settings.unsubscribe_link(request)
         
         assert response.status_code == 200
-        response.render()
         
         print("RESPONSE",response.content)
         

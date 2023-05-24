@@ -10,6 +10,7 @@ from django.utils.translation import pgettext_lazy
 from rest_framework import serializers
 from management.controller import match_users
 from management.models.settings import UnsubscibeOptions, EmailSettings
+from management.views.user_form_frontend import dynamic_error_page
 
 @dataclass
 class UnsubscribeParams:
@@ -98,14 +99,17 @@ def unsubscribe_link(request):
     """
     A unsubscribe link that can be acessed by email settings hash rather than being signed in 
     TODO: do this need aditional security? can anyone brute force uuids?
+    localhost:8000/api/emails/toggle_sub/?choice=False&unsubscribe_type=interview_requests&settings_hash=b489fcb7-ca4c-436a-9634-b87edc50e79e
     """
     serializer = UnsubscribeParamsLinkSerializer(data=request.query_params)
     serializer.is_valid(raise_exception=True)
     
     data = serializer.save()
     
-    email_settings = EmailSettings.objects.get(hash=data.settings_hash)
     
-    return update_email_settings(data, email_settings)
+    email_settings = EmailSettings.objects.get(hash=data.settings_hash)
+    res =  update_email_settings(data, email_settings)
+
+    return dynamic_error_page(request, str(res.data))
     
     

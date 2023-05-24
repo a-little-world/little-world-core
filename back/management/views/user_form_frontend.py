@@ -142,6 +142,9 @@ def user_form(request, path=None):
     """
     return _render_user_form_app(request, localdev=settings.IS_DEV, use_cookie_banner=True)
 
+def dynamic_error_page(request, header, text="", afterErrorRoute="/login"):
+    
+    return _render_user_form_app(request, "error", use_cookie_banner=False, errorHeader=header, errorText=text, afterErrorRoute=afterErrorRoute)
 
 def handler404(request, exception):
     return _render_user_form_app(request, "error", use_cookie_banner=False, errorHeader="404 page not found", errorText="This page doesn't seem to exist, press back to go to the login page.", afterErrorRoute="/login")
