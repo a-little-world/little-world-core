@@ -28,3 +28,5 @@ def send_interview_request(email):
             unsubscribe_url1=unsub_link
         )
 )
+
+send_interview_request("benjamin.tim@gmx.de")
