@@ -42,13 +42,13 @@ class UnsubscribeParamsLinkSerializer(DataclassSerializer):
         dataclass = UnsubscribeLinkParams
 
 def update_email_settings(data, email_settings):
-    if (not data.choice) and (data.unsubscribe_type in email_settings.unsubscibed_options):
-        email_settings.unsubscibed_options.remove(data.unsubscribe_type)
+    if (not data.choice) and (not (data.unsubscribe_type in email_settings.unsubscibed_options)):
+        email_settings.unsubscibed_options.append(data.unsubscribe_type)
         email_settings.save()
         return Response(pgettext_lazy("unsubscribe_email.success", "You have been unsubscribed from this email type"))
 
-    elif data.choice and (data.unsubscribe_type not in email_settings.unsubscibed_options):
-        email_settings.unsubscibed_options.append(data.unsubscribe_type)
+    elif data.choice and (data.unsubscribe_type in email_settings.unsubscibed_options):
+        email_settings.unsubscibed_options.remove(data.unsubscribe_type)
         email_settings.save()
         return Response(pgettext_lazy("unsubscribe_email.success", "You have been subscribed to this email type"))
     
