@@ -50,7 +50,7 @@ class EmailSettingsTests(TestCase):
         user = get_user_by_email(valid_request_data['email'])
         settings_hash = str(user.settings.email_settings.hash)
 
-        link = f"/api/emails/toggle_sub?settings_hash={settings_hash}&choice=true&sub_type=interview_requests"
+        link = f"/api/emails/toggle_sub?settings_hash={settings_hash}&choice=False&sub_type=interview_requests"
 
         factory = APIRequestFactory(enforce_csrf_checks=True)
         request = factory.get(link)
