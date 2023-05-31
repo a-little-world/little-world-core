@@ -531,6 +531,51 @@ class InterviewInvitation:
     unsubscribe_link2: str = 'none'
     unsubscribe_link2_category: str = 'none'
 
+@dataclass
+class GeneralSurveyMail:
+    """
+    ---------> Survey email <---------------
+    """
+    subject_header_text: str = pgettext_lazy(
+        "email.survey.subject-header-text", "Umfrage zur Verbesserung von Little World")
+    greeting: str = pgettext_lazy(
+        'email.survey.greeting',
+        'Hallo {first_name},')
+    content_start_text: str = pgettext_lazy(
+        'email.survey.content-start-text',
+        'wir möchten Little World für dich und andere Mitglieder weiter verbessern. Du kannst uns dabei helfen, indem du unsere kurze 3-minütige Umfrage ausfüllst und uns mitteilst, welche Gruppenangebote du dir noch wünschst.')
+    button_text: str = pgettext_lazy(
+        'email.survey.button-text',
+        'ZUR UMFRAGE (google form)')
+    button_link: str = pgettext_lazy(
+        'email.survey.button-link',
+        '{link_url}')
+    content_body_text: str = mark_safe(pgettext_lazy(
+        'email.survey.content-body-text',
+        'Auf die Ergebnisse musst du aber nicht warten. Schon jetzt kannst du dich jeden Dienstag ab 18 Uhr austauschen oder einfach nur zuhören – unverbindlich und in einer kleinen Gruppe. Die beliebtesten Angebote aus unserer Umfrage kommen dann Schritt für Schritt hinzu.<br></br>'
+        'Den Austausch am Dienstag findest du nach dem Einloggen unter "Start" und dann unter "Kaffeeklatsch" oder einfach über folgenden Link:'))
+    link_box_text: str = mark_safe(pgettext_lazy(
+        'email.survey.link-box-text',
+        '<a href="https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09" style="color: blue;">https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09</a>'))
+    below_link_text: str = mark_safe(pgettext_lazy(
+        'email.survey.below-link-text',
+        ' '))
+    footer_text: str = pgettext_lazy(
+        'email.survey.footer-text',
+        'Du hast noch Fragen? Melde dich gerne jederzeit - unsere Kontaktdaten findest du in der Signatur. Wir helfen dir gerne weiter.')
+    goodbye: str = pgettext_lazy(
+        'email.survey.goodbye',
+        'Dein Team von Little World')
+    goodbye_name: str = pgettext_lazy(
+        'email.email.survey.goodbye.goodbye-name',
+        '')
+    use_unsubscribe_footer: bool = True
+    unsubscribe_two_link: bool = False
+    unsubscribe_link1: str = '{unsubscribe_url1}'
+    unsubscribe_link1_category: str = 'Von Umfrage E-Mails abmelden'
+    unsubscribe_link2: str = 'none'
+    unsubscribe_link2_category: str = 'none'
+
 
 @dataclass
 class NewUnreadMessages:
