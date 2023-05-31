@@ -340,6 +340,7 @@ CELERY_TASK_TIME_LIMIT = 30 * 60
 
 CELERY_RESULT_BACKEND = 'django-db'
 
+
 # We enforce these authentication classes
 # By that we force a crsf token to be present on **every** POST request
 REST_FRAMEWORK = {
@@ -349,6 +350,11 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_SCHEMA_CLASS": 'drf_spectacular.openapi.AutoSchema',
 }
+
+if IS_PROD:
+    # disable browsable api in production
+    REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] = ['rest_framework.renderers.JSONRenderer']
+
 
 
 SPECTACULAR_SETTINGS = {

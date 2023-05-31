@@ -2,7 +2,9 @@
 This is a controller for any userform related actions
 e.g.: Creating a new user, sending a notification to a users etc...
 """
+from typing import Dict, Callable
 from management.models.unconfirmed_matches import UnconfirmedMatch
+from dataclasses import dataclass, fields, field
 from chat.django_private_chat2.consumers.message_types import MessageTypes, OutgoingEventNewTextMessage
 from chat.django_private_chat2.models import DialogsModel, MessageModel
 from django.utils import timezone
@@ -510,3 +512,76 @@ def extract_user_activity_info(user):
     }
     #print(json.dumps(data, indent=2, default=str))
     return data
+
+        
+@dataclass
+class EmailSendReport:
+    send: bool = False
+    checked_subscription: bool = False
+    subscription_group: str = "none"
+    unsubscribable: bool = False
+    unsubscribed: bool = False
+    out: str = ""
+    
+    
+def send_email(
+    user,
+    subject: str,
+    mail_name: str,
+    mail_params_func: Callable,
+    unsubscribe_group=None,
+):
+    report = EmailSendReport()
+    settings_hash = str(user.settings.email_settings.hash)
+    
+    
+    mail_params = mail_params_func(user)
+
+    if unsubscribe_group is not None:
+        unsub_link = f"https://little-world.com/api/emails/toggle_sub/?choice=False&unsubscribe_type={unsubscribe_group}&settings_hash={settings_hash}"
+        mail_params.unsubscribe_url1 = unsub_link
+        report.checked_subscription = True
+        report.subscription_group = unsubscribe_group
+    else:
+        report.checked_subscription = False
+        
+    try:
+        mails.send_email(
+            recivers=[user.email],
+            subject=subject,
+            mail_data=mails.get_mail_data_by_name(mail_name),
+            mail_params=mail_params,
+            raise_exception=True
+        )
+    except Exception as e:
+        print("Error sending email", e)
+        report.send = False
+        report.out += f"Error sending email: {e}"
+        
+    return report
+        
+    
+        
+    
+
+
+def send_group_mail(
+    users,
+    subject: str,
+    mail_name: str,
+    mail_params_func: Callable,
+    unsubscribe_group=None,
+):
+    reports: Dict[str, EmailSendReport] = {}
+    
+    for user in users:
+        reports[user.hash] = send_email(
+            user,
+            subject,
+            mail_name,
+            mail_params_func,
+            unsubscribe_group=unsubscribe_group,
+        )
+        
+    return reports
+

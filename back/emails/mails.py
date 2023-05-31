@@ -19,6 +19,7 @@ from emails.templates import (
     StillInContactMessages,
     MatchRejectedEmailTexts,
     InterviewInvitation,
+    GeneralSurveyMail,
     # Currently we are using the same template as weclone
     # so MatchFoundEmailTexts has no Defaults
     NewUnreadMessages,
@@ -53,6 +54,12 @@ class StillInContactParams:
 class MatchRejectedEmailParams:
     first_name: str
     partner_first_name: str
+    
+@dataclass
+class GeneralSurveryMailParams:
+    first_name: str
+    link_url: str
+    unsubscribe_url1: str
 
 
 @dataclass
@@ -245,6 +252,13 @@ templates = [
         params=MatchConfirmationMail2Params,
         texts=ConfirmMatchMail2Texts,
         defaults=ConfirmMatchMail2Texts
+    ),
+    MailMeta(
+        name="general_interview",
+        template="emails/welcome.html",
+        params=GeneralSurveryMailParams,
+        texts=GeneralSurveyMail,
+        defaults=GeneralSurveyMail
     ),
     MailMeta(
         name="confirm_match_expired_mail_1",
