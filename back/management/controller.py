@@ -545,6 +545,8 @@ def send_email(
     else:
         report.checked_subscription = False
         
+    # TODO: we still need to check unsubscription groups
+        
     try:
         mails.send_email(
             recivers=[user.email],
