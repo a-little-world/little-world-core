@@ -7,6 +7,7 @@ from uuid import uuid4
 
 class UnsubscibeOptions(models.TextChoices):
     interview_requests = "interview_requests"
+    survery_requests = "survery_requests"
 
 class EmailSettings(models.Model):
     
