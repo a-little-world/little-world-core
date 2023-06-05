@@ -1,0 +1,13 @@
+{% extends 'blocks/base.html' %}
+
+{% block main_content %}
+{% include 'blocks/header.html' %}
+{% include 'blocks/subject_header.html' with subject_header_text=subject_header_text %}
+{% include 'blocks/default_email_text_body_reversed.html' with greeting=greeting content_start_text=content_start_text content_body_text=content_body_text link_box_text=link_box_text button_text=button_text button_link=button_link below_link_text=below_link_text footer_text=footer_text goodbye=goodbye goodbye_name=goodbye_name %}
+{% endblock %} 
+
+
+{% block footer_content %}
+{% include 'blocks/default_footer.html' %}
+{% if use_unsubscribe_footer %}{% include 'blocks/unsubscribe_footer.html' %}{% endif %}
+{% endblock %} 
