@@ -255,7 +255,7 @@ templates = [
     ),
     MailMeta(
         name="general_interview",
-        template="emails/welcome.html",
+        template="emails/welcome_reversed.html",
         params=GeneralSurveryMailParams,
         texts=GeneralSurveyMail,
         defaults=GeneralSurveyMail
