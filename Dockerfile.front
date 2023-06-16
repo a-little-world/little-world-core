@@ -1,5 +1,9 @@
-FROM node:14
+FROM node:16
 
 WORKDIR /front
+
+# workaround fix npm bug: https://github.com/npm/cli/issues/624
+RUN mkdir -p /npm_cache && chown -R 1000:1000 /npm_cache
+RUN npm config set cache /npm_cache --global
 
 ENTRYPOINT ["tail", "-f", "/dev/null"]
