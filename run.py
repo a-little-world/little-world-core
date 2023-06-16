@@ -59,6 +59,7 @@ class c:
     front_docker_file = ["-f", "Dockerfile.front"]
     vmount_front = [
         "-v", f"{os.getcwd()}/front:/front",
+        "-v", f"{os.getcwd()}/.git:/.git",
         # We mount also the backend, so static files can be copied over
         "-v", f"{os.getcwd()}/back:/back"
     ]

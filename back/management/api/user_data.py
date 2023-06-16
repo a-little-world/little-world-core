@@ -207,7 +207,7 @@ def get_full_frontend_data(user, options=False, admin=False,
     frontend_data = {
         **user_data_and_matches,
         "community_events": get_all_comunity_events_serialized(),
-        "unconfrimed_matches": get_unconfirmed_matches(user),
+        "unconfirmed_matches": get_unconfirmed_matches(user),
         # "frontend_state": "",
     }
 

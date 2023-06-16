@@ -8,6 +8,9 @@ from django.conf.urls import include
 from django.views.generic.base import RedirectView
 from rest_framework import routers
 from django.contrib.auth import views as auth_views
+from management.views.user_form import (
+    user_form_v2
+)
 from management.views.user_form_frontend import (
     login,
     register,
@@ -165,6 +168,9 @@ view_routes = [
     # The user form ( does its own routing )
     path(f"form/", user_form, name="user_form"),
     re_path(fr'^form/(?P<path>.*)$', user_form),
+
+    path(f"form_v2/", user_form_v2, name="user_form_v2"),
+    re_path(fr'^form_v2/(?P<path>.*)$', user_form_v2),
 
     # The main frontend ( does its own routing )
     path('app/', views.MainFrontendView.as_view(), name="main_frontend"),
