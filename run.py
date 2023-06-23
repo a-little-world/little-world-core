@@ -738,6 +738,7 @@ def build_front(args):
     print(
         f'`npm ci` for frontends: {frontends} \nAdd frontends under `FR_FRONTENDS` in env, place them in front/apps/')
     for front in frontends:
+        print(f"\n\nFunning npm install for {front}\n\n")
         _run_in_running(
             _is_dev(args), ["npm", "ci"], work_dir=f"/front/apps/{front}", backend=False)  # 4
     # Frontend builds can only be performed with the webpack configs present

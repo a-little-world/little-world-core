@@ -710,3 +710,9 @@ class CensoredProfileSerializer(SelfProfileSerializer):
                   'additional_interests', 'language_skill_description']
         # TODO: do we want language_skill_descr... to be included?
         # It is currently used as 'What Do You Expect From The Talks?' in the main frontend
+
+class ProposalProfileSerializer(SelfProfileSerializer):
+    class Meta:
+        model = Profile
+        fields = ["first_name", 'availability', 'image_type',
+                  'avatar_config', 'image', 'description']
