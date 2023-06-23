@@ -15,8 +15,8 @@ class Match(models.Model):
     
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
     
-    user1 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='user1')
-    user2 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='user2')
+    user1 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='match_user1')
+    user2 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='match_user2')
     
     support_matching = models.BooleanField(default=False)
     
