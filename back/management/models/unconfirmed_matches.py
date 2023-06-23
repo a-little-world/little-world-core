@@ -36,6 +36,13 @@ class UnconfirmedMatch(models.Model):
     potential_matching_created_at = models.DateTimeField(auto_now_add=True)
 
     expires_at = models.DateTimeField(default=seven_days_from_now)
+    
+    @classmethod
+    def get_open_proposals(cls, user, order_by='potential_matching_created_at'):
+        proposals = cls.objects.filter(Q(user1=user) | Q(user2=user), closed=False)
+        for prop in proposals:
+            prop.is_expired(close_if_expired=True)
+        return cls.objects.filter(Q(user1=user) | Q(user2=user), closed=False).order_by(order_by)
 
     def is_expired(self, close_if_expired=True):
         expired = self.expires_at < timezone.now()
@@ -44,6 +51,9 @@ class UnconfirmedMatch(models.Model):
             self.save()
 
         return expired
+    
+    def get_partner(self, user):
+        return self.user1 if self.user2 == user else self.user2
     
     def is_reminder_due(self, set_reminder_send=True):
         reminder_due = self.reminder_due_at < timezone.now()
