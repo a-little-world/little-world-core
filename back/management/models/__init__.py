@@ -5,7 +5,7 @@ Main management models:
 - State (user): A user state
 - Settings (user): All user settings
 """
-from .profile import Profile, ProfileSerializer, CensoredProfileSerializer, SelfProfileSerializer
+from .profile import Profile, ProfileSerializer, CensoredProfileSerializer, SelfProfileSerializer, ProposalProfileSerializer
 from .user import UserSerializer, CensoredUserSerializer, User, SelfUserSerializer
 from .state import State, StateSerializer, SelfStateSerializer
 from .settings import Settings, SelfSettingsSerializer, EmailSettings
@@ -20,3 +20,4 @@ from .past_matches import PastMatch
 from .translation_logs import TranslationLog
 from .unconfirmed_matches import UnconfirmedMatch
 from .no_login_form import NoLoginForm
+from .matches import Match
