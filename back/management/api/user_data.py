@@ -20,15 +20,20 @@ from dataclasses import dataclass
 from back.utils import transform_add_options_serializer
 from rest_framework.permissions import IsAuthenticated
 from django.core.paginator import Paginator
-from ..models import (
+from management.models import (
     SelfNotificationSerializer, NotificationSerializer, Notification,
     ProfileSerializer, SelfProfileSerializer,
     UserSerializer, SelfUserSerializer,
     StateSerializer, SelfStateSerializer,
     CensoredUserSerializer,
     CensoredProfileSerializer,
-    SelfSettingsSerializer
+    ProposalProfileSerializer,
+    SelfSettingsSerializer,
+    UnconfirmedMatch,
+    State,
+    CommunityEvent
 )
+from management import models
 from .community_events import get_all_comunity_events_serialized
 from management.models.unconfirmed_matches import get_unconfirmed_matches
 
@@ -245,3 +250,84 @@ class UserData(APIView):
         params = serializer.save()
 
         return Response(get_user_data_and_matches(request.user, admin=request.user.is_staff, **{k: getattr(params, k) for k in params.__annotations__}))
+
+def get_paginated(query_set, items_per_page, page):
+    pages = Paginator(query_set, items_per_page).page(page)
+    return {
+        "items": list(pages),
+        "totalItems": pages.paginator.count,
+        "itemsPerPage": items_per_page,
+        "currentPage": page,
+    }
+    
+def serialize_matches(matches, user):
+    serialized = []
+    for match in matches:
+        
+        partner = match.get_partner(user)
+        serialized.append({
+            "id": str(match.uuid),
+            "partner": {
+                "id": str(partner.hash),
+                **CensoredProfileSerializer(partner.profile).data
+            }
+        })
+        
+    return serialized
+
+def serialize_proposed_matches(matching_proposals, user):
+    serialized = []
+    for proposal in matching_proposals:
+        
+        partner = proposal.get_partner(user)
+        serialized.append({
+            "id": str(proposal.hash), # TODO: rename
+            "partner": {
+                "id": str(partner.hash),
+                **ProposalProfileSerializer(partner.profile).data
+            } # TODO: this want some additional fields
+        })
+        
+    return serialized
+
+
+
+def frontend_data(user):
+    
+    user_state = user.state
+    user_profile = user.profile
+    
+    community_events = get_paginated(CommunityEvent.get_all_active_events(), 5, 1)
+
+    confirmed_matches = get_paginated(models.Match.get_confirmed_matches(), 10, 1)
+    confirmed_matches["items"] = serialize_matches(confirmed_matches["items"], user)
+
+    unconfirmed_matches = get_paginated(models.Match.get_unconfirmed_matches(), 10, 1)
+    unconfirmed_matches["items"] = serialize_matches(unconfirmed_matches["items"], user)
+
+    support_matches = get_paginated(models.Match.get_support_matches(), 10, 1)
+    support_matches["items"] = serialize_matches(support_matches["items"], user)
+    
+    proposed_matches = get_paginated(UnconfirmedMatch.get_open_proposals(user), 10, 1)
+    proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
+
+    return {
+        "user": {
+            "id": user.hash,
+            "isSearching": user_state.matching_state == State.SEARCHING,
+            "profile": ProfileSerializer(user_profile).data,
+            "settings": {
+               "frontendLang" : ""
+            }
+        },
+        "communityEvents": community_events,
+        "matches": {
+            "support": support_matches,
+            "confirmed" : confirmed_matches,
+            "unconfirmed": unconfirmed_matches,
+            "proposed": proposed_matches,
+        },
+        "notifications": {
+            
+        }
+    }
