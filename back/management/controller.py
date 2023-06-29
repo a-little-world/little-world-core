@@ -524,6 +524,7 @@ def extract_user_activity_info(user):
         "logins_total": login_event_count,
         # TODO: there is actually no goodway to measure amount of past matches
         # "matches_total": user.matches.count() - 1, # - default match
+        # TODO: the matches count calculation needs to be updated with the new user model
         "current_matches": user.state.matches.count(),
         "messages_send_total": total_messages,
         "match_activity": MATCH_DATA,

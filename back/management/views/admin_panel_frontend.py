@@ -68,6 +68,7 @@ def admin_panel(request):
         # If we have 's1' we even try to list suggestions
         from ..models.matching_scores import MatchinScore
 
+        # TODO: test needs to be updated using the new 'Match' model.
         extra_info['suggested_users'] = [{**get_user_data(
             u, is_self=True, admin=True), "score": []} for u in user.state.matches.all()]
         extra_info['s1'] = user.hash
