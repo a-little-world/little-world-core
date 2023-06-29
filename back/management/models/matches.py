@@ -1,6 +1,7 @@
 from django.db import models
 from django.db.models import Q
 from back.utils import _double_uuid
+from management import models as management_models
 from uuid import uuid4
 
 
@@ -27,6 +28,16 @@ class Match(models.Model):
     @classmethod
     def get_match(cls, user1, user2):
         return cls.objects.filter(Q(user1=user1) | Q(user2=user2))
+    
+    @classmethod
+    def get_matches(cls, user, order_by='created_at'):
+        user1_partners_ids = cls.objects.filter(user1=user, active=True).values_list('user2', flat=True)
+        user2_partners_ids = cls.objects.filter(user2=user, active=True).values_list('user1', flat=True)
+        user_partners_ids = user1_partners_ids.union(user2_partners_ids)
+
+        partners = management_models.User.objects.filter(id__in=user_partners_ids).exclude(id=user.pk)
+        return partners
+
     
     def get_partner(self, user):
         return self.user1 if self.user2 == user else self.user2
