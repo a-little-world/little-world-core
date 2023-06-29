@@ -612,6 +612,7 @@ def write_hourly_backend_event_summary(
             c += 1
             print(f"scanning users ({c}/{total_amount_of_users})")
             # -1 because the user is always matched with the base admin
+            # TODO: needs to be updated with the new Match model handling stategy
             total_matches += (u.state.matches.count() - 1)
 
     summary_meta = json.loads(json.dumps(dict(
@@ -1612,8 +1613,10 @@ def collect_static_stats():
 
             amount_of_learners += 1
         # -1 because the user is always matched with the base admin
+        # TODO: count need to be updated using the new Match model
         total_matches += (u.state.matches.count() - 1)
 
+        # TODO: matches fecthing needs to be updated using the new Match model
         ums = u.state.matches.all()
         for o_usr in ums:
             pk1, pk2 = int(u.pk), int(o_usr.pk)
@@ -1625,6 +1628,7 @@ def collect_static_stats():
                     controller.get_base_management_user().id == pk2):
                 total_idividual_matches.add(match_slug)
 
+        # TODO: count need to be updated using the new Match model
         if u.state.matches.count() > 1:
             total_user_state_stats["matched"] += 1
         elif u.state.user_form_state == State.UserFormStateChoices.FILLED:
@@ -2148,8 +2152,11 @@ def indentify_and_mark_user_categories():
         "is-searching": lambda u, cp: u.state.matching_state == State.MatchingStateChoices.SEARCHING,
         "active-within-two-last-week": lambda u, cp: cp['last_active'] > now - timedelta(days=14),
         "inactive-within-last-two-week": lambda u, cp: cp['last_active'] < now - timedelta(days=14),
+        # TODO: matches coun't need to be updated using the new Match model stategy
         "is-searching-again": lambda u, cp: (u.state.matching_state == State.MatchingStateChoices.SEARCHING) and (u.state.matches.count() >= 2),
+        # TODO: matches count need to be updated with new Match model
         "is-matched": lambda u, cp: u.state.matches.count() >= 2,
+        # TODO: matches count need to be updated with new Match model
         "is-matched-multiple-times": lambda u, cp: u.state.matches.count() >= 3,
     }
 

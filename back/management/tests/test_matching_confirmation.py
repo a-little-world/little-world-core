@@ -121,6 +121,7 @@ class MatchConfirmationTests(TestCase):
         print("RES", str(res.content))
         
         # now check if the user is in the matches
+        # TODO: test need to be updated using the new 'Match' model
         assert not (u1 in u2.state.matches.all()), "The learner must NOT be in the matches of the volunteer"
         assert not (u2 in u1.state.matches.all()), "The volunteer must NOT be in the matches of the learner"
         
@@ -153,6 +154,7 @@ class MatchConfirmationTests(TestCase):
         print("RES", str(res.content))
         
         # now check if the user is in the matches
+        # TODO: test need to be updated using the new 'Match' model
         assert u1 in u2.state.matches.all(), "The learner must be in the matches of the volunteer"
         assert u2 in u1.state.matches.all(), "The volunteer must be in the matches of the learner"
         

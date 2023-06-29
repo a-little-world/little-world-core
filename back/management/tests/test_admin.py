@@ -58,6 +58,7 @@ class AdminApiTests(TestCase):
     def test_management_user_created(self):
         # Would throw error if users cant be created or
         # If the admin user doesn't yet exist
+        # TODO: this looks broken @tbscode
         users = self._create_abunch_of_users(amnt=4)
         for u in users:
             assert u.state.matches
