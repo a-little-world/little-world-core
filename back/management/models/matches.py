@@ -27,7 +27,7 @@ class Match(models.Model):
     
     @classmethod
     def get_match(cls, user1, user2):
-        return cls.objects.filter(Q(user1=user1) | Q(user2=user2))
+        return cls.objects.filter(Q(user1=user1, user2=user2) | Q(user1=user2, user2=user1))
     
     @classmethod
     def get_matches(cls, user, order_by='created_at'):
