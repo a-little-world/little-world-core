@@ -46,6 +46,19 @@ class Notification(models.Model):
     description = models.TextField(default=_("no-description"))
 
     meta = models.JSONField(default=dict, blank=True)
+    
+    @classmethod
+    def get_unread_notifications(cls, user: User, order_by="-created_at"):
+        return cls.objects.filter(user=user, state=cls.NotificationState.UNREAD).order_by(order_by)
+
+    @classmethod
+    def get_read_notifications(cls, user: User, order_by="-created_at"):
+        return cls.objects.filter(user=user, state=cls.NotificationState.READ).order_by(order_by)
+    
+    @classmethod
+    def get_archived_notifications(cls, user: User, order_by="-created_at"):
+        return cls.objects.filter(user=user, state=cls.NotificationState.ARCHIVED).order_by(order_by)
+    
 
     def mark_read(self):
         from datetime import datetime

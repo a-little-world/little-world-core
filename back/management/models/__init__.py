@@ -12,7 +12,7 @@ from .settings import Settings, SelfSettingsSerializer, EmailSettings
 from .notifications import Notification, NotificationSerializer, SelfNotificationSerializer
 from .rooms import Room
 from .matching_scores import MatchinScore, ScoreTableSource
-from .community_events import CommunityEvent
+from .community_events import CommunityEvent, CommunityEventSerializer
 from .backend_state import BackendState
 from .news_and_updates import NewsItem, NewsItemSerializer
 from .help_message import HelpMessage

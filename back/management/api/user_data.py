@@ -1,6 +1,9 @@
 import django.contrib.auth.password_validation as pw_validation
 from copy import deepcopy
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+from rest_framework.decorators import api_view, permission_classes, authentication_classes, throttle_classes
+from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+from rest_framework_dataclasses.serializers import DataclassSerializer
 from drf_spectacular.types import OpenApiTypes
 from datetime import datetime
 from django.conf import settings
@@ -31,13 +34,14 @@ from management.models import (
     SelfSettingsSerializer,
     UnconfirmedMatch,
     State,
-    CommunityEvent
+    CommunityEvent,
+    CommunityEventSerializer
 )
 from management import models
-from .community_events import get_all_comunity_events_serialized
+from management.api.community_events import get_all_comunity_events_serialized
 from management.models.unconfirmed_matches import get_unconfirmed_matches
 
-from ..controller import get_user_models
+from management.controller import get_user_models
 
 # For the current user
 """
@@ -136,7 +140,9 @@ def get_matches_paginated(user, admin=False,
     this will always the censored *except* if accessed by an admin
     """
 
-    pages = Paginator(user.get_matches(), paginate_by).page(page)
+    # TODO: this was the old stategy, that has since been updated to use the new 'Match' model
+    # pages = Paginator(user.get_matches(), paginate_by).page(page)
+    pages = Paginator(models.Match.get_matches(user), paginate_by).page(page)
     return [get_user_data(p, is_self=False, admin=admin) for p in pages]
 
 
@@ -144,7 +150,8 @@ def get_matches_paginated_extra_details(user, admin=False,
                                         page=UserDataApiParams.page,
                                         paginate_by=UserDataApiParams.paginate_by):
 
-    paginator = Paginator(user.get_matches(), paginate_by)
+    #paginator = Paginator(user.get_matches(), paginate_by)
+    paginator = Paginator(models.Match.get_matches(user), paginate_by)
     pages = paginator.page(page)
 
     return [get_user_data(p, is_self=False, admin=admin) for p in pages], {
@@ -290,32 +297,58 @@ def serialize_proposed_matches(matching_proposals, user):
         
     return serialized
 
+def serialize_community_events(events):
+    serialized = []
+    
+    for event in events:
+        serialized.append(CommunityEventSerializer(event).data)
+        
+    return serialized
+
+def serialize_notifications(notifications):
+    serialized = []
+    
+    for notification in notifications:
+        serialized.append(SelfNotificationSerializer(notification).data)
+        
+    return serialized
 
 
-def frontend_data(user):
+
+def frontend_data(user, items_per_page=10):
     
     user_state = user.state
     user_profile = user.profile
     
-    community_events = get_paginated(CommunityEvent.get_all_active_events(), 5, 1)
+    community_events = get_paginated(CommunityEvent.get_all_active_events(), items_per_page, 1)
+    community_events["items"] = serialize_community_events(community_events["items"])
 
-    confirmed_matches = get_paginated(models.Match.get_confirmed_matches(), 10, 1)
+    confirmed_matches = get_paginated(models.Match.get_confirmed_matches(user), items_per_page, 1)
     confirmed_matches["items"] = serialize_matches(confirmed_matches["items"], user)
 
-    unconfirmed_matches = get_paginated(models.Match.get_unconfirmed_matches(), 10, 1)
+    unconfirmed_matches = get_paginated(models.Match.get_unconfirmed_matches(user), items_per_page, 1)
     unconfirmed_matches["items"] = serialize_matches(unconfirmed_matches["items"], user)
 
-    support_matches = get_paginated(models.Match.get_support_matches(), 10, 1)
+    support_matches = get_paginated(models.Match.get_support_matches(user), items_per_page, 1)
     support_matches["items"] = serialize_matches(support_matches["items"], user)
     
-    proposed_matches = get_paginated(UnconfirmedMatch.get_open_proposals(user), 10, 1)
+    proposed_matches = get_paginated(UnconfirmedMatch.get_open_proposals(user), items_per_page, 1)
     proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
+    
+    read_notifications = get_paginated(Notification.get_read_notifications(user), items_per_page, 1)
+    read_notifications["items"] = serialize_notifications(read_notifications["items"])
+
+    unread_notifications = get_paginated(Notification.get_unread_notifications(user), items_per_page, 1)
+    unread_notifications["items"] = serialize_notifications(unread_notifications["items"])
+
+    archived_notifications = get_paginated(Notification.get_archived_notifications(user), items_per_page, 1)
+    archived_notifications["items"] = serialize_notifications(archived_notifications["items"])
 
     return {
         "user": {
             "id": user.hash,
-            "isSearching": user_state.matching_state == State.SEARCHING,
-            "profile": ProfileSerializer(user_profile).data,
+            "isSearching": user_state.matching_state == State.MatchingStateChoices.SEARCHING,
+            "profile": SelfProfileSerializer(user_profile).data,
             "settings": {
                "frontendLang" : ""
             }
@@ -328,6 +361,34 @@ def frontend_data(user):
             "proposed": proposed_matches,
         },
         "notifications": {
-            
+            "unread": unread_notifications,
+            "read": read_notifications,
+            "archived": archived_notifications,
         }
     }
+
+@dataclass
+class UserDataV2Params:
+    items_per_page: int = 10
+    
+
+class ConfirmMatchSerializer(DataclassSerializer):
+    items_per_page = serializers.IntegerField(required=False, default=10)
+    class Meta:
+        dataclass = UserDataV2Params
+        
+
+@extend_schema(
+    request=ConfirmMatchSerializer(many=False),
+)
+@api_view(['POST'])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def user_data_v2(request):
+    
+    serializer = ConfirmMatchSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    
+    params = serializer.save()
+
+    return Response(frontend_data(request.user, params.items_per_page))
