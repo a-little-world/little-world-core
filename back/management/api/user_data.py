@@ -310,6 +310,10 @@ def frontend_data(user):
     
     proposed_matches = get_paginated(UnconfirmedMatch.get_open_proposals(user), 10, 1)
     proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
+    
+    read_notifications = get_paginated(Notification.get_read_notifications(user), 10, 1)
+    unread_notifications = get_paginated(Notification.get_unread_notifications(user), 10, 1)
+    archived_notifications = get_paginated(Notification.get_archived_notifications(user), 10, 1)
 
     return {
         "user": {
@@ -328,6 +332,8 @@ def frontend_data(user):
             "proposed": proposed_matches,
         },
         "notifications": {
-            
+            "unread": unread_notifications,
+            "read": read_notifications,
+            "archived": archived_notifications,
         }
     }
