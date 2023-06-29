@@ -15,14 +15,13 @@ from drf_spectacular.utils import extend_schema
 from management.controller import get_user_by_hash, get_user_by_email, UserNotFoundErr, get_user
 from rest_framework.response import Response
 from django.contrib.auth import authenticate, login
-from ..models.state import State
 from rest_framework import authentication, permissions
 from rest_framework import serializers, status
 from dataclasses import dataclass
 from tracking.models import Event
 from tracking import utils
 from emails.mails import get_mail_data_by_name, PwResetMailParams
-from ..models.state import State
+from management.models import Match, State
 """
 The public /user api's
 
@@ -373,7 +372,21 @@ class ConfirmMatchesApi(APIView):
         params = serializer.save()
 
         try:
+            # TODO: this is the old strategy, we should use the new stragegy
             request.user.state.confirm_matches(params.matches)
+            
+            # In order to keep things working while we deploy the new strategy this api will also populate all db-fileds required for the new strategy
+            # This is a little more involved than it has to be, this will once finished be replaced by 'ConfirmMatchesApi2'
+            for match_hash in params.matches:
+                partner = get_user_by_hash(match_hash)
+                
+                match = Match.get_match(request.user, partner)
+                assert match.exists()
+                match = match.first()
+                match.confirm(request.user)
+
+            
+            
         except Exception as e:
             raise serializers.ValidationError({"matches": str(e)})
 
@@ -448,10 +461,14 @@ def unmatch_self(request):
     if other_user.is_staff or other_user.pk == controller.get_base_management_user().pk:
         return Response(status=403)
 
+    # TODO: remove this check replace with new 'Match' model
     if not other_user in request.user.state.matches.all():
         raise serializers.ValidationError(
             {"other_user_hash": "User is not matched with you!"})
-
+        
+    # TODO: the old unmatch strategy, to be removed
+    # But unmatch_users is already udated to also use the new strategy
+    # TODO: the past match can also be removed, instead we just set a match to be active=False!
     past_match = controller.unmatch_users({request.user, other_user})
     past_match.reason = params['reason']
     past_match.save()
