@@ -136,7 +136,9 @@ def get_matches_paginated(user, admin=False,
     this will always the censored *except* if accessed by an admin
     """
 
-    pages = Paginator(user.get_matches(), paginate_by).page(page)
+    # TODO: this was the old stategy, that has since been updated to use the new 'Match' model
+    # pages = Paginator(user.get_matches(), paginate_by).page(page)
+    pages = Paginator(models.Match.get_matches(user), paginate_by).page(page)
     return [get_user_data(p, is_self=False, admin=admin) for p in pages]
 
 
@@ -144,7 +146,8 @@ def get_matches_paginated_extra_details(user, admin=False,
                                         page=UserDataApiParams.page,
                                         paginate_by=UserDataApiParams.paginate_by):
 
-    paginator = Paginator(user.get_matches(), paginate_by)
+    #paginator = Paginator(user.get_matches(), paginate_by)
+    paginator = Paginator(models.Match.get_matches(user), paginate_by)
     pages = paginator.page(page)
 
     return [get_user_data(p, is_self=False, admin=admin) for p in pages], {
