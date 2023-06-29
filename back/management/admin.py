@@ -9,6 +9,7 @@ from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django import forms
 from phonenumber_field.widgets import PhoneNumberPrefixWidget
 from . import models
+from django.db.migrations.recorder import MigrationRecorder
 from hijack.contrib.admin import HijackUserAdminMixin
 
 
@@ -31,7 +32,7 @@ class EmailSettingsAdmin(admin.ModelAdmin):
 class CommunityEventAdmin(admin.ModelAdmin):
     list_display = ('title', 'active', 'description',
                     'time', 'frequency', 'link')
-
+    
 
 @admin.register(models.news_and_updates.NewsItem)
 class NewsItemAdmin(admin.ModelAdmin):
