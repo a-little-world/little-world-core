@@ -11,7 +11,7 @@ from django.utils import timezone
 from asgiref.sync import async_to_sync
 from back.utils import _double_uuid
 from channels.layers import get_channel_layer
-from management.models import User, PastMatch
+from management.models import User, PastMatch, Match
 from django.conf import settings
 from management.models import UserSerializer, User, Profile, State, Settings, Room
 from django.utils.translation import gettext_lazy as _, pgettext_lazy
@@ -206,8 +206,18 @@ def match_users(
 
     assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
     usr1, usr2 = list(users)
+    
+    # TODO: this is the old way to match to be removed one our frontend strategy updated
+    # For now we deploy both ways and make then work along side, but the old-way is to be removed asap
     usr1.match(usr2, set_unconfirmed=set_unconfirmed)
     usr2.match(usr1, set_unconfirmed=set_unconfirmed)
+    
+    # This is the new way:
+    Match.objects.create(
+        user1=usr1,
+        user2=usr2,
+        support_matching=usr1.is_staff or usr2.is_staff
+    )
 
     if create_dialog:
         # After the users are registered as matches
@@ -319,9 +329,17 @@ def unmatch_users(
     if unmatcher is None:
         unmatcher = get_base_management_user()
 
+    # TODO: old strategy, to be removed
     usr1, usr2 = list(users)
     usr1.unmatch(usr2)
     usr2.unmatch(usr1)
+    
+    # The new match management strategy
+    match = Match.get_match(usr1, usr2)
+    assert match.exists(), "Match does not exist!"
+    match = match.first()
+    match.active = False
+    match.save()
 
     # Then disable the video room
     if delete_video_room:
