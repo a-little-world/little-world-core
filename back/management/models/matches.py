@@ -2,7 +2,6 @@ from django.db import models
 from django.db.models import Q
 from back.utils import _double_uuid
 from uuid import uuid4
-from .user import User
 
 
 
@@ -16,12 +15,12 @@ class Match(models.Model):
     
     confirmed = models.BooleanField(default=False)
     
-    confirmed_by = models.ManyToManyField(User, related_name='users_confirmed_match')
+    confirmed_by = models.ManyToManyField("management.User", related_name='users_confirmed_match')
     
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
     
-    user1 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='match_user1')
-    user2 = models.ForeignKey(User, on_delete=models.CASCADE, related_name='match_user2')
+    user1 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name='match_user1')
+    user2 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name='match_user2')
     
     support_matching = models.BooleanField(default=False)
     
