@@ -24,9 +24,10 @@ def get_match_slug(user1, user2):
         slug = f"{pk1}-{pk2}"
     else:
         slug = f"{pk2}-{pk1}"
+    return slug
         
 for user in User.objects.all():
-    for match in user.matches.all():
+    for match in user.state.matches.all():
         ALL_MATCHES.add(get_match_slug(user, match))
         
 for match in ALL_MATCHES:
