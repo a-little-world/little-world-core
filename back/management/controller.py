@@ -11,7 +11,6 @@ from django.utils import timezone
 from asgiref.sync import async_to_sync
 from back.utils import _double_uuid
 from channels.layers import get_channel_layer
-from management.models import User, PastMatch, Match
 from django.conf import settings
 from management.models import UserSerializer, User, Profile, State, Settings, Room
 from django.utils.translation import gettext_lazy as _, pgettext_lazy
@@ -203,6 +202,7 @@ def match_users(
         set_to_idle=True):
     """ Accepts a list of two users to match """
     from chat.django_private_chat2.models import DialogsModel
+    from management.models import Match
 
     assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
     usr1, usr2 = list(users)
@@ -322,6 +322,7 @@ def unmatch_users(
     - Messages ( or set to `deleted` )
     - Video Room
     """
+    from management.models import Match, PastMatch
     assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
 
     # Un-Match the users by removing the from their 'matches' field

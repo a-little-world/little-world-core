@@ -21,7 +21,8 @@ from dataclasses import dataclass
 from tracking.models import Event
 from tracking import utils
 from emails.mails import get_mail_data_by_name, PwResetMailParams
-from management.models import Match, State
+from management.models import State
+from management import models
 """
 The public /user api's
 
@@ -380,7 +381,7 @@ class ConfirmMatchesApi(APIView):
             for match_hash in params.matches:
                 partner = get_user_by_hash(match_hash)
                 
-                match = Match.get_match(request.user, partner)
+                match = models.Match.get_match(request.user, partner)
                 assert match.exists()
                 match = match.first()
                 match.confirm(request.user)

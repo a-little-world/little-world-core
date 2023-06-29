@@ -34,10 +34,10 @@ from management.models import (
     CommunityEvent
 )
 from management import models
-from .community_events import get_all_comunity_events_serialized
+from management.api.community_events import get_all_comunity_events_serialized
 from management.models.unconfirmed_matches import get_unconfirmed_matches
 
-from ..controller import get_user_models
+from management.controller import get_user_models
 
 # For the current user
 """
