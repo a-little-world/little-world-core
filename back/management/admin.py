@@ -37,6 +37,9 @@ class CommunityEventAdmin(admin.ModelAdmin):
 class NewsItemAdmin(admin.ModelAdmin):
     list_display = ('title', 'active', 'description', 'time', 'link')
 
+@admin.register(models.matches.Match)
+class MatchModelAdmin(admin.ModelAdmin):
+    list_display = ('uuid', 'created_at', 'updated_at', 'user1', 'user2', 'active', 'confirmed_by', 'support_matching')
 
 @admin.register(models.matching_scores.MatchinScore)
 class DirectionalMatchinScores(admin.ModelAdmin):
