@@ -8,7 +8,7 @@ from management.api.user_data import get_user_models
 from django.conf import settings
 from rest_framework.test import APIRequestFactory, force_authenticate
 from management.random_test_users import create_abunch_of_users, modify_profile_to_match
-from management.models import Profile, UnconfirmedMatch
+from management.models import Profile, UnconfirmedMatch, Match
 from management.models.unconfirmed_matches import get_unconfirmed_matches
 from management.matching.matching_score import calculate_directional_score_write_results_to_db
 from management.tasks import create_default_table_score_source
@@ -125,6 +125,10 @@ class MatchConfirmationTests(TestCase):
         assert not (u1 in u2.state.matches.all()), "The learner must NOT be in the matches of the volunteer"
         assert not (u2 in u1.state.matches.all()), "The volunteer must NOT be in the matches of the learner"
         
+        # This is new stategy
+        matching = Match.get_match(u1, u2)
+        assert not matching.exists(), "The match must not exist"
+        
         # the unconfirmed match must be closed now
         unconf_match_obj = UnconfirmedMatch.objects.get(hash=unconf_hash)
         assert unconf_match_obj.closed, "The unconfirmed match must be closed now"
@@ -157,6 +161,9 @@ class MatchConfirmationTests(TestCase):
         # TODO: test need to be updated using the new 'Match' model
         assert u1 in u2.state.matches.all(), "The learner must be in the matches of the volunteer"
         assert u2 in u1.state.matches.all(), "The volunteer must be in the matches of the learner"
+        
+        # This is new stategy:
+        assert Match.get_match(u1, u2).exists(), "The match must exist"
         
         # the unconfirmed match must be closed now
         unconf_match_obj = UnconfirmedMatch.objects.get(hash=unconf_hash)
