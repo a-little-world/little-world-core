@@ -31,7 +31,6 @@ const {
           itemsPerPage: 5,
           currentPage: 1,
         },
-        state: usrState,
         matches: {
           support: [{
             status: MATCH_STATUS_SUPPORT
@@ -186,3 +185,32 @@ DONE!
 ...
 
 7. Refactor chat implementation (get rid of the old out-of-date frontend, some updated backend APIs also required).
+
+
+#### FAQ
+
+Implementation wise I noticed that our notifications are also in different pods: `unread`, `read`, `archived` should we go with a similar structure as the matches then?
+
+I.e.: 
+
+```
+...
+notifications : {
+  unread : {
+    items: [],
+    "totalItems": pages.paginator.count,
+    "itemsPerPage": items_per_page,
+    "currentPage": page,
+  },
+  read : {
+    items: []
+    ...
+  }
+  archived: {
+    items: [],
+    ...
+  }
+}
+```
+
+Makes sense to me, the other options would be to have **one** list and a 'state' in `["read", "unread", "archived"].
