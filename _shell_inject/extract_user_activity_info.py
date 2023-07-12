@@ -42,23 +42,25 @@ for user in User.objects.all():
         print("User not active")
         i += 1
         continue
-
+    
     if user.hash in active_users_map:
         i += 1
         continue
 
-    if user.profile.user_type == Profile.TypeChoices.VOLUNTEER:
-        activity_info = controller.extract_user_activity_info(user)
-        
-        if activity_info["email_verified"] and \
-            (activity_info["current_matches"] > 1) and \
-                (activity_info["form_finished"]):
+    activity_info = controller.extract_user_activity_info(user)
+    
+    if activity_info["email_verified"] and \
+        (activity_info["current_matches"] > 1) and \
+            (activity_info["form_finished"]) and \
+                (activity_info["messages_send_total"] > 10):
 
-            active_users_map[user.hash] = activity_info
+        active_users_map[user.hash] = activity_info
             
     with open(state_file, "w") as fp:
         json.dump(active_users_map, fp, indent=2, default=str)
         
     i += 1
+    
+print("AMOUNT of users ", len(list(active_users_map.keys())))
     
 # sort the users by degree of activity
