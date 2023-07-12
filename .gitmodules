@@ -16,3 +16,6 @@
 [submodule "front/apps/admin_panel_frontend"]
 	path = front/apps/admin_panel_frontend
 	url = https://github.com/a-little-world/little-world-admin-panel
+[submodule "front/apps/user_form"]
+	path = front/apps/user_form
+	url = https://github.com/a-little-world/little-world-user-form-v2

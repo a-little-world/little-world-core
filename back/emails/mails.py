@@ -4,13 +4,22 @@ from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 from django.template.loader import render_to_string
 from back.utils import dataclass_as_dict
-from .templates import inject_template_data
-from .models import EmailLog
-from .templates import (
+from emails.templates import inject_template_data
+from emails.templates import (
     WelcomeTemplateParamsDefaults,
     WelcomeTemplateMail,
     PasswordResetEmailDefaults,
     PasswordResetEmailTexts,
+    UnfinishedUserForm1Messages,
+    UnfinishedUserForm2Messages,
+    ConfirmMatchMail1Texts,
+    ConfirmMatchMail2Texts,
+    MatchExpiredMailTexts,
+    EmailVerificationReminderMessages,
+    StillInContactMessages,
+    MatchRejectedEmailTexts,
+    InterviewInvitation,
+    GeneralSurveyMail,
     # Currently we are using the same template as weclone
     # so MatchFoundEmailTexts has no Defaults
     NewUnreadMessages,
@@ -35,6 +44,59 @@ and it is easy to tell which parameters are available
 class MailDataNotFoundErr(Exception):
     pass
 
+
+@dataclass
+class StillInContactParams:
+    first_name: str
+    partner_first_name: str
+    
+@dataclass
+class MatchRejectedEmailParams:
+    first_name: str
+    partner_first_name: str
+    
+@dataclass
+class GeneralSurveryMailParams:
+    first_name: str
+    link_url: str
+    unsubscribe_url1: str
+
+
+@dataclass
+class MatchConfirmationMail1Params:
+    first_name: str
+    match_first_name: str
+    
+    
+@dataclass
+class InterviewInvitationParams:
+    first_name: str
+    email_aniqa: str
+    link_url: str
+    unsubscribe_url1: str
+
+@dataclass
+class MatchConfirmationMail2Params:
+    first_name: str
+    match_first_name: str
+
+@dataclass
+class MatchExpiredMailParams:
+    first_name: str
+    match_first_name: str
+
+@dataclass
+class UnfinishedUserForm1Params:
+    first_name: str
+
+
+@dataclass
+class UnfinishedUserForm2Params:
+    first_name: str
+
+@dataclass
+class UnfinishedEmailVerificationParams:
+    first_name: str
 
 @dataclass
 class RAWTemplateMailParams:
@@ -105,14 +167,21 @@ templates = [
         template="emails/welcome.html",
         params=WelcomeEmailParams,
         texts=WelcomeTemplateMail,
-        defaults=WelcomeTemplateParamsDefaults
+        defaults=WelcomeTemplateMail
     ),
     MailMeta(  # Match Found Email !
         name="match",
         template="emails/welcome.html",
         params=MatchMailParams,
         texts=MatchFoundEmailTexts,
-        defaults=WelcomeTemplateParamsDefaults
+        defaults=MatchFoundEmailTexts
+    ),
+    MailMeta(  # Interview request ** special email **
+        name="interview",
+        template="emails/welcome.html",
+        params=InterviewInvitationParams,
+        texts=InterviewInvitation,
+        defaults=InterviewInvitation
     ),
     MailMeta(
         name="password_reset",
@@ -120,6 +189,13 @@ templates = [
         params=PwResetMailParams,
         texts=PasswordResetEmailTexts,
         defaults=PasswordResetEmailDefaults
+    ),
+    MailMeta(
+        name="match_resolved",
+        template="emails/welcome.html",
+        params=MatchRejectedEmailParams,
+        texts=MatchRejectedEmailTexts,
+        defaults=MatchRejectedEmailTexts,
     ),
     MailMeta(
         name="new_server",
@@ -134,6 +210,62 @@ templates = [
         params=NewUreadMessagesParams,
         texts=NewUnreadMessages,
         defaults=NewUnreadMessages
+    ),
+    MailMeta(
+        name="email_unverified",
+        template="emails/welcome.html",
+        params=UnfinishedEmailVerificationParams,
+        texts=EmailVerificationReminderMessages,
+        defaults=EmailVerificationReminderMessages
+    ),
+    MailMeta(
+        name="still_in_contact",
+        template="emails/welcome.html",
+        params=StillInContactParams,
+        texts=StillInContactMessages,
+        defaults=StillInContactMessages
+    ),
+    MailMeta(
+        name="unfinished_user_form_1",
+        template="emails/welcome.html",
+        params=UnfinishedUserForm1Params,
+        texts=UnfinishedUserForm1Messages,
+        defaults=UnfinishedUserForm1Messages
+    ),
+    MailMeta(
+        name="unfinished_user_form_2",
+        template="emails/welcome.html",
+        params=UnfinishedUserForm2Params,
+        texts=UnfinishedUserForm2Messages,
+        defaults=UnfinishedUserForm2Messages
+    ),
+    MailMeta(
+        name="confirm_match_mail_1",
+        template="emails/welcome.html",
+        params=MatchConfirmationMail1Params,
+        texts=ConfirmMatchMail1Texts,
+        defaults=ConfirmMatchMail1Texts
+    ),
+    MailMeta(
+        name="confirm_match_mail_2",
+        template="emails/welcome.html",
+        params=MatchConfirmationMail2Params,
+        texts=ConfirmMatchMail2Texts,
+        defaults=ConfirmMatchMail2Texts
+    ),
+    MailMeta(
+        name="general_interview",
+        template="emails/welcome_reversed.html",
+        params=GeneralSurveryMailParams,
+        texts=GeneralSurveyMail,
+        defaults=GeneralSurveyMail
+    ),
+    MailMeta(
+        name="confirm_match_expired_mail_1",
+        template="emails/welcome.html",
+        params=MatchExpiredMailParams,
+        texts=MatchExpiredMailTexts,
+        defaults=MatchExpiredMailTexts
     )
 ]
 
@@ -182,6 +314,7 @@ def send_email(
                 f"User '{to}' doesn't seem to be registered, sending mail anyways")
 
         # First create the mail log, if sending fails afterwards we sill have a log!
+        from emails.models import EmailLog
         log = EmailLog.objects.create(
             sender=get_base_management_user(),
             receiver=usr_ref,

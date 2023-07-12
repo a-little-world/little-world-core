@@ -222,7 +222,7 @@ class MakeMatch(APIView):
                     users[1], users[0])
             except:
                 if params.force is None or not params.force:
-                    return Response(_("Can extract matchable info for users, seems like the score calulation failed. This is an idicator that the users are possible unmatchable, if you are sure you want to continue use: ") + MATCH_BY_FORCE_MSG,
+                    return Response(_("Can't extract matchable info for users, seems like the score calulation failed. This is an idicator that the users are possible unmatchable, if you are sure you want to continue use: ") + MATCH_BY_FORCE_MSG,
                                     status=status.HTTP_400_BAD_REQUEST)
 
         if not params.force:
@@ -258,6 +258,7 @@ class MakeMatch(APIView):
         return Response(_("Users sucessfully matched"))
 
 
+@dataclass
 class UnmatchUsersParams:
     user1: str
     user2: str
@@ -273,7 +274,7 @@ class UnmatchUsersInputSerializer(serializers.Serializer):
     delete_video_room = serializers.BooleanField(required=False)
     delete_dialog = serializers.BooleanField(required=False)
 
-    def clean(self, validated_data):
+    def create(self, validated_data):
         return UnmatchUsersParams(**validated_data)
 
 

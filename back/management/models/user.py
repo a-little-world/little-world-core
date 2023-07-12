@@ -115,6 +115,7 @@ class User(AbstractUser):
 
     def get_matches(self):
         """ Returns a list of matches """
+        # TODO: replace with new 'Match' model
         return self.state.matches.all()
 
     def get_notifications(self):
@@ -128,6 +129,7 @@ class User(AbstractUser):
         'set_unconfirmed' determines if the user should be added to the unconfirmed matches list
         """
         # This seems to autosave ? but lets still call state.save() in the end just to be sure
+        # TODO: remove all reference to this old stategy
         self.state.matches.add(user)
         if set_unconfirmed:
             self.state.unconfirmed_matches_stack.append(user.hash)
@@ -137,12 +139,14 @@ class User(AbstractUser):
         """
         Removes the user from matches and unconfirmed matches
         """
+        # TODO: remove all reference to this old stategy, we use the 'Match' model now
         self.state.matches.remove(user)
         if user.hash in self.state.unconfirmed_matches_stack:
             self.state.unconfirmed_matches_stack.remove(user.hash)
         self.state.save()
 
     def is_matched(self, user):
+        # TODO: remove all reference to this old stategy, we use the 'Match' model now
         return self.state.matches.filter(hash=user.hash).exists()
 
     def change_email(self, email, send_verification_mail=True):
@@ -199,7 +203,7 @@ class User(AbstractUser):
         self.state.notifications.add(notification)
         # TODO: in the future also send a websocked 'notification' object!
 
-    def message(self, msg, sender=None):
+    def message(self, msg, sender=None, auto_mark_read=False):
         """
         Sends the users a chat message
         theoreticly this could be used to send a message from any sender
@@ -210,7 +214,10 @@ class User(AbstractUser):
         if not sender:
             sender = get_base_management_user()
 
-        async_to_sync(save_text_message)(msg, sender, self)
+        msg = async_to_sync(save_text_message)(msg, sender, self)
+        if auto_mark_read:
+            msg.read = True
+            msg.save()
 
     def send_email(self,
                    subject: str,

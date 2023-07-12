@@ -1,0 +1,16 @@
+{% load render_bundle from webpack_loader %}
+<!DOCTYPE html>
+<head>
+    {% include "react_app_head_base.html" with app_name='admin_panel_frontend' title='Admin Pannel' %}    
+     <meta http-equiv="refresh" content="900">
+</head>
+{% render_bundle 'staticfiles' 'css' 'admin_panel_frontend' %}
+<body>
+    <div id="root"></div>
+</body>
+{% render_bundle 'staticfiles' 'js' 'admin_panel_frontend' %}
+<script>
+  const data = JSON.parse('{{ user_list_data | escapejs }}');
+  renderUserListApp({ initData : data })
+</script>
+<div style="display: none;">{{csrf_token}}</div>

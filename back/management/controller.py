@@ -2,18 +2,22 @@
 This is a controller for any userform related actions
 e.g.: Creating a new user, sending a notification to a users etc...
 """
+from typing import Dict, Callable
+from management.models.unconfirmed_matches import UnconfirmedMatch
+from dataclasses import dataclass, fields, field
 from chat.django_private_chat2.consumers.message_types import MessageTypes, OutgoingEventNewTextMessage
-from chat.django_private_chat2.models import DialogsModel
+from chat.django_private_chat2.models import DialogsModel, MessageModel
+from django.utils import timezone
 from asgiref.sync import async_to_sync
 from back.utils import _double_uuid
 from channels.layers import get_channel_layer
-from .models import User
 from django.conf import settings
-from .models import UserSerializer, User, Profile, State, Settings, Room
+from management.models import UserSerializer, User, Profile, State, Settings, Room
 from django.utils.translation import gettext_lazy as _, pgettext_lazy
 from emails import mails
 from tracking import utils
 from tracking.models import Event
+import json
 import os
 
 
@@ -164,14 +168,13 @@ def create_user(
 
     # Step 8 Message the user from the admin account
     if send_welcome_message:
-        usr.message(pgettext_lazy("api.register-welcome-message-text", """
-Hallo {first_name}
+        usr.message(pgettext_lazy("api.register-welcome-message-text", """Hallo {first_name}
 
 ich bin Oliver, einer der Gründer von Little World. Wir freuen uns riesig, Dich als einer der ersten Nutzer:innen unserer Plattform begrüßen zu dürfen! Da wir täglich daran arbeiten, unsere neue Plattform zu verbessern, ist Dein Feedback besonders wertvoll! Hast du vielleicht schon Anregungen zur Verbesserung? Dann schreib mir einfach!
 
 Wir freuen uns über Deine Unterstützung und senden ganz liebe Grüße aus Aachen,
 Oliver  
-        """.format(first_name=first_name)))
+        """.format(first_name=first_name)), auto_mark_read=True)
     return usr
 
 
@@ -199,11 +202,22 @@ def match_users(
         set_to_idle=True):
     """ Accepts a list of two users to match """
     from chat.django_private_chat2.models import DialogsModel
+    from management.models import Match
 
     assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
     usr1, usr2 = list(users)
+    
+    # TODO: this is the old way to match to be removed one our frontend strategy updated
+    # For now we deploy both ways and make then work along side, but the old-way is to be removed asap
     usr1.match(usr2, set_unconfirmed=set_unconfirmed)
     usr2.match(usr1, set_unconfirmed=set_unconfirmed)
+    
+    # This is the new way:
+    Match.objects.create(
+        user1=usr1,
+        user2=usr2,
+        support_matching=usr1.is_staff or usr2.is_staff
+    )
 
     if create_dialog:
         # After the users are registered as matches
@@ -221,18 +235,18 @@ def match_users(
         usr2.notify(title=_("New match: %s" % usr1.profile.first_name))
 
     if send_message:
-        match_message = pgettext_lazy("api.match-made-message-text", """
-Glückwunsch, wir haben jemanden für dich gefunden! 
+        match_message = pgettext_lazy("api.match-made-message-text", """Glückwunsch, wir haben jemanden für dich gefunden! 
 
 Am besten vereinbarst du direkt einen Termin mit {other_name} für euer erstes Gespräch – das klappt meist besser als viele Nachrichten. 
 Unterhalten könnt ihr euch zur vereinbarten Zeit auf Little World indem du oben rechts auf das Anruf-Symbol drückt. 
 Schau dir gerne schon vorher das Profil von {other_name} an, indem du auf den Namen drückst. 
 
-Damit euch viel Spaß! Schöne Grüße vom Team Little World
-""")
+Damit euch viel Spaß! Schöne Grüße vom Team Little World""")
         # Sends a message from the admin model
-        usr1.message(match_message.format(other_name=usr2.profile.first_name))
-        usr2.message(match_message.format(other_name=usr1.profile.first_name))
+        usr1.message(match_message.format(
+            other_name=usr2.profile.first_name), auto_mark_read=True)
+        usr2.message(match_message.format(
+            other_name=usr1.profile.first_name), auto_mark_read=True)
 
     if send_email:
         usr1.send_email(
@@ -262,10 +276,41 @@ Damit euch viel Spaß! Schöne Grüße vom Team Little World
         usr2.state.set_idle()
 
 
+def create_user_matching_proposal(
+    users: set,
+    send_confirm_match_email=True
+):
+    """
+    This represents the new intermediate matching step we created.
+    Users are not just matched directly but first a matching proposal is send to the 'volunteer' user. 
+    TODO or is it the learner im still not sure on this?
+    """
+    u1, u2 = list(users)
+    UnconfirmedMatch.objects.create(
+        user1=u1,
+        user2=u2
+    )
+
+    if send_confirm_match_email:
+        # send the confirm mail to the learner ONLY!
+        learner = u1 if u1.profile.user_type == Profile.TypeChoices.LEARNER else u2
+        volunteer = u1 if u1.profile.user_type == Profile.TypeChoices.VOLUNTEER else u2
+        mails.send_email(
+            recivers=[learner.email],
+            subject=pgettext_lazy(
+                "mails-subject.pre-match-confirm-1", "Match gefunden - jetxt bestätigen"),
+            mail_data=mails.get_mail_data_by_name("confirm_match_mail_1"),
+            mail_params=mails.MatchConfirmationMail1Params(
+                first_name=learner.profile.first_name,
+                match_first_name=volunteer.profile.first_name,
+            )
+        )
+
 def unmatch_users(
     users: set,
     delete_video_room=True,
     delete_dialog=True,
+    unmatcher=None
 ):
     """ 
     Accepts a list of two users to unmatch 
@@ -277,13 +322,25 @@ def unmatch_users(
     - Messages ( or set to `deleted` )
     - Video Room
     """
+    from management.models import Match, PastMatch
     assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
 
     # Un-Match the users by removing the from their 'matches' field
 
+    if unmatcher is None:
+        unmatcher = get_base_management_user()
+
+    # TODO: old strategy, to be removed
     usr1, usr2 = list(users)
     usr1.unmatch(usr2)
     usr2.unmatch(usr1)
+    
+    # The new match management strategy
+    match = Match.get_match(usr1, usr2)
+    assert match.exists(), "Match does not exist!"
+    match = match.first()
+    match.active = False
+    match.save()
 
     # Then disable the video room
     if delete_video_room:
@@ -296,6 +353,12 @@ def unmatch_users(
         dia = DialogsModel.dialog_exists(usr1, usr2)
         if dia:
             dia.delete()
+
+    return PastMatch.objects.create(
+        user1=usr1,
+        user2=usr2,
+        who_unmatched=unmatcher
+    )
 
 
 def get_base_management_user():
@@ -321,7 +384,7 @@ def create_base_admin_and_add_standart_db_values():
     )
     usr.state.set_user_form_completed()  # Admin doesn't have to fill the userform
     usr.notify("You are the admin master!")
-    print("BASE ADMIN USER CREATED!")
+    #print("BASE ADMIN USER CREATED!")
 
     # Now we create some default database elements that should be part of all setups!
     from management.tasks import (
@@ -376,3 +439,171 @@ def send_chat_message(to_user, from_user, message):
     """
     # Send a chat message ... TODO
     pass
+
+def extract_user_activity_info(user):
+    """
+    A general function to generate an overview of a users activity
+    
+    email-verified: XX
+    user-type: XX
+    email-changes: XX
+    from-finished: XX
+    user-searching: XX
+    logins-total: XX
+    matches-total (past & present): XX
+    currnet-matches: XX
+    messages-send-total: XX
+    last-activity: XX days ago
+    
+    matches:
+        last-time-active: XX
+        match-messages-total: XX
+        
+        TODO: we can sorta measure this but extracting this infor is resource intensive
+        video-calls-total: XX
+
+    """
+    
+    # TODO: normally we would also want to check how many actually sucessfull attempts the user did
+
+    login_event_count = Event.objects.filter(
+        tags__contains=["frontend", "login", "sensitive"], 
+        type=Event.EventTypeChoices.REQUEST, 
+        name="User Logged in"
+    ).count()
+    
+    def get_match_tag(u1, u2):
+        if u1.pk == u2.pk:
+            print("User matched with self", u1.email, u2.email)
+            return False
+        if(u1.pk > u2.pk):
+            return f"match-{u2.pk}-{u1.pk}"
+        else:
+            return f"match-{u1.pk}-{u2.pk}"
+        
+    MATCH_DATA = {}
+    def add_match_data(u1, u2, data):
+        match_tag = get_match_tag(u1, u2)
+        if not match_tag in MATCH_DATA:
+            MATCH_DATA[match_tag] = {**data}
+        else:
+            MATCH_DATA[match_tag] = {**MATCH_DATA[match_tag], **data} 
+        
+    
+    user_dialogs = DialogsModel.get_dialogs_for_user_as_object(user)
+    total_messages = 0
+
+    current_time = timezone.now()
+
+    for dialog in user_dialogs:
+        other_user = dialog.user1 if dialog.user1 != user else dialog.user2
+        if get_match_tag(user, other_user):
+            message_count = MessageModel.get_message_count_for_dialog_with_user(dialog.user1, dialog.user2)
+            last_message = MessageModel.get_last_message_object_for_dialog(dialog.user1, dialog.user2)
+            first_message = MessageModel.get_first_message_object_for_dialog(dialog.user1, dialog.user2)
+            add_match_data(user, other_user, {
+                "match_messages_total": message_count,
+            })
+            if first_message:
+                add_match_data(user, other_user, {
+                    "first_message": str(first_message.created) + f" ({first_message.created - current_time} days ago)",
+                })
+            if last_message:
+                add_match_data(user, other_user, {
+                    "last_message" : str(last_message.created) + f" ({last_message.created - current_time} days ago)",
+                })
+            total_messages += message_count
+        
+    data = {
+        "email" : user.email,
+        "first_name": user.profile.first_name,
+        "email_verified": user.state.email_authenticated,
+        "email_changes": len(user.state.past_emails),
+        "user_type": user.profile.user_type,
+        "form_finished": user.state.user_form_state == State.UserFormStateChoices.FILLED,
+        "user_searching": user.state.matching_state,
+        "logins_total": login_event_count,
+        # TODO: there is actually no goodway to measure amount of past matches
+        # "matches_total": user.matches.count() - 1, # - default match
+        # TODO: the matches count calculation needs to be updated with the new user model
+        "current_matches": user.state.matches.count(),
+        "messages_send_total": total_messages,
+        "match_activity": MATCH_DATA,
+    }
+    #print(json.dumps(data, indent=2, default=str))
+    return data
+
+        
+@dataclass
+class EmailSendReport:
+    send: bool = False
+    checked_subscription: bool = False
+    subscription_group: str = "none"
+    unsubscribable: bool = False
+    unsubscribed: bool = False
+    out: str = ""
+    
+    
+def send_email(
+    user,
+    subject: str,
+    mail_name: str,
+    mail_params_func: Callable,
+    unsubscribe_group=None,
+):
+    report = EmailSendReport()
+    settings_hash = str(user.settings.email_settings.hash)
+    
+    
+    mail_params = mail_params_func(user)
+
+    if unsubscribe_group is not None:
+        unsub_link = f"https://little-world.com/api/emails/toggle_sub/?choice=False&unsubscribe_type={unsubscribe_group}&settings_hash={settings_hash}"
+        mail_params.unsubscribe_url1 = unsub_link
+        report.checked_subscription = True
+        report.subscription_group = unsubscribe_group
+    else:
+        report.checked_subscription = False
+        
+    # TODO: we still need to check unsubscription groups
+        
+    try:
+        mails.send_email(
+            recivers=[user.email],
+            subject=subject,
+            mail_data=mails.get_mail_data_by_name(mail_name),
+            mail_params=mail_params,
+            raise_exception=True
+        )
+    except Exception as e:
+        print("Error sending email", e)
+        report.send = False
+        report.out += f"Error sending email: {e}"
+        
+    return report
+        
+    
+        
+    
+
+
+def send_group_mail(
+    users,
+    subject: str,
+    mail_name: str,
+    mail_params_func: Callable,
+    unsubscribe_group=None,
+):
+    reports: Dict[str, EmailSendReport] = {}
+    
+    for user in users:
+        reports[user.hash] = send_email(
+            user,
+            subject,
+            mail_name,
+            mail_params_func,
+            unsubscribe_group=unsubscribe_group,
+        )
+        
+    return reports
+

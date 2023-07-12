@@ -2,7 +2,17 @@
 # PYTHON_ARGCOMPLETE_OK
 # TODO Migrate to the new tb-cli-utils
 
-""" General entry point for backend build and deployment processes """
+""" 
+
+> NOTE: this is the old build script, we are currently migrating to a new more transparent build using a 'Makefile'.
+
+General entry point for backend build and deployment processes 
+
+All the functions annoted with `@register_action` are directly callable via `./run.py <function_name>` ( or `./run.py <alias>` ).
+
+Note that some of the actions require extra arguments. If you whish to know which steps the action performs try running it via `./run.py only_print <function_name>`.
+For some on the fly generated cli documentation you can check `./run.py help`.
+"""
 import shutil
 from functools import partial, wraps
 import contextlib
@@ -49,6 +59,7 @@ class c:
     front_docker_file = ["-f", "Dockerfile.front"]
     vmount_front = [
         "-v", f"{os.getcwd()}/front:/front",
+        "-v", f"{os.getcwd()}/.git:/.git",
         # We mount also the backend, so static files can be copied over
         "-v", f"{os.getcwd()}/back:/back"
     ]
@@ -727,6 +738,7 @@ def build_front(args):
     print(
         f'`npm ci` for frontends: {frontends} \nAdd frontends under `FR_FRONTENDS` in env, place them in front/apps/')
     for front in frontends:
+        print(f"\n\nFunning npm install for {front}\n\n")
         _run_in_running(
             _is_dev(args), ["npm", "ci"], work_dir=f"/front/apps/{front}", backend=False)  # 4
     # Frontend builds can only be performed with the webpack configs present

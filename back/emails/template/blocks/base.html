@@ -130,7 +130,7 @@
             a:link,
             a:visited {
             color: #FFFFFF;
-            text-decoration: none !important;
+            text-decoration: none;
             }
             @media only screen and (max-width: 480px) {
                 /* Targets Native */
@@ -142,6 +142,10 @@
 
                 .zero-padding { padding-top: 0px !important; padding-bottom: 0px !important; }
             }
+            .unsubscribe-link:hover{
+                text-decoration: underline;
+            }
+
         </style>
     </head>
     <body id="body" bgcolor="#FFFFFF" style="height:100% !important;margin:0 !important;padding:0 !important;width:100% !important;">

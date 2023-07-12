@@ -14,7 +14,7 @@ import json
 from django_celery_results.models import TaskResult
 
 first_event_logged_time = datetime(
-    2022, 12, 19, 5, 18, 11, 931582, tzinfo=timezone.utc)
+    2022, 12, 19, 5, 18, 11, 931582)
 
 ONE_HOUR = timedelta(hours=1)
 NOW = datetime.now()
@@ -25,15 +25,18 @@ hourly_summaries = Summaries.objects.filter(label="hourly-event-summary")
 
 def does_event_summary_exist(hour):
     this_hour = hour.replace(minute=0, second=0, microsecond=0)
-    hourly_summaries.filter(f"hour-{this_hour}")
-    return hourly_summaries.exists()
+    sum = hourly_summaries.filter(slug=f"hour-{this_hour}")
+    print(sum)
+    return sum.exists()
 
 
 def calculate_for_all_past_hours():
 
     cur_check_time = first_event_logged_time
+    # (5h) + 7h + 12h = 0 h
+    # 19h + (12 days + 12 days)  * 24h ~ 570
 
-    limit = 10
+    limit = 800
 
     while (cur_check_time + ONE_HOUR) < NOW:
         if limit is not None:
@@ -47,9 +50,14 @@ def calculate_for_all_past_hours():
             print("Summary appears to already exist")
         else:
             print("GENERATE")
-            # write_hourly_backend_event_summary.delay(
-            #    start_time=str(cur_check_time))
 
+            out = write_hourly_backend_event_summary(
+                start_time=str(cur_check_time))
+            print(json.dumps(out, indent=4))
+        cur_check_time = cur_check_time + ONE_HOUR
+
+
+calculate_for_all_past_hours()
 
 # def test():
 #    now = datetime.now()

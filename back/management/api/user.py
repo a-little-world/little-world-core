@@ -1,4 +1,7 @@
 from rest_framework.views import APIView
+from django.contrib.auth.decorators import login_required
+from emails import mails
+from rest_framework.decorators import api_view
 from django.utils.translation import pgettext_lazy
 from typing import Optional
 from django.contrib.auth import logout
@@ -12,14 +15,14 @@ from drf_spectacular.utils import extend_schema
 from management.controller import get_user_by_hash, get_user_by_email, UserNotFoundErr, get_user
 from rest_framework.response import Response
 from django.contrib.auth import authenticate, login
-from ..models.state import State
 from rest_framework import authentication, permissions
 from rest_framework import serializers, status
 from dataclasses import dataclass
 from tracking.models import Event
 from tracking import utils
 from emails.mails import get_mail_data_by_name, PwResetMailParams
-from ..models.state import State
+from management.models import State
+from management import models
 """
 The public /user api's
 
@@ -172,8 +175,8 @@ class LoginApi(APIView):
         """
         Allowes to authenticate users using the extra auth token
         """
-        if (not settings.IS_DEV) and (not settings.IS_STAGE):
-            assert False, "For now this api is only available on stage"
+        # if (not settings.IS_DEV) and (not settings.IS_STAGE):
+        #    assert False, "For now this api is only available on stage"
 
         serializer = AutoLoginSerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
@@ -212,19 +215,15 @@ class LogoutApi(APIView):
 @ dataclass
 class CheckPwParams:
     password: str
-    email: str
 
 
 class CheckPwSerializer(serializers.Serializer):
-    password = serializers.EmailField(required=True)
-    email = serializers.EmailField(required=True)
+    password = serializers.CharField(required=True)
 
     def create(self, validated_data):
         return CheckPwParams(**validated_data)
 
 
-# This sorta enables password enumeration but only if one manages to steal a users session token
-# TODO So like the login api this should be throttled!
 class CheckPasswordApi(APIView):
 
     authentication_classes = [authentication.SessionAuthentication,
@@ -239,6 +238,49 @@ class CheckPasswordApi(APIView):
 
         _check = request.user.check_password(params.password)
         return Response(status=status.HTTP_200_OK if _check else status.HTTP_400_BAD_REQUEST)
+
+
+@ dataclass
+class ChangePwParams:
+    password_old: str
+    password_new: str
+    password_new2: str
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    password_old = serializers.CharField(required=True)
+    password_new = serializers.CharField(required=True)
+    password_new2 = serializers.CharField(required=True)
+
+    def create(self, validated_data):
+        return ChangePwParams(**validated_data)
+
+
+class ChangePasswordApi(APIView):
+
+    authentication_classes = [authentication.SessionAuthentication,
+                              authentication.BasicAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    @ extend_schema(request=ChangePasswordSerializer(many=False))
+    def post(self, request):
+        serializer = ChangePasswordSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        params = serializer.save()
+
+        _check = request.user.check_password(params.password_old)
+        if not _check:
+            return Response(pgettext_lazy("api.change-password-failed.incorrect-old-pw", "Incorrect old password"),
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        if params.password_new != params.password_new2:
+            return Response(pgettext_lazy("api.change-password-failed.new-pw-not-equal", "New passwords not equal"),
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        request.user.set_password(params.password_new)
+        request.user.save()
+
+        return Response(pgettext_lazy("api.change-password-sucessful", "Sucessfully changed password"), status=status.HTTP_200_OK)
 
 
 @ dataclass
@@ -331,7 +373,21 @@ class ConfirmMatchesApi(APIView):
         params = serializer.save()
 
         try:
+            # TODO: this is the old strategy, we should use the new stragegy
             request.user.state.confirm_matches(params.matches)
+            
+            # In order to keep things working while we deploy the new strategy this api will also populate all db-fileds required for the new strategy
+            # This is a little more involved than it has to be, this will once finished be replaced by 'ConfirmMatchesApi2'
+            for match_hash in params.matches:
+                partner = get_user_by_hash(match_hash)
+                
+                match = models.Match.get_match(request.user, partner)
+                assert match.exists()
+                match = match.first()
+                match.confirm(request.user)
+
+            
+            
         except Exception as e:
             raise serializers.ValidationError({"matches": str(e)})
 
@@ -357,7 +413,7 @@ class UpdateSearchingStateApi(APIView):
                               authentication.BasicAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
-    @ extend_schema(request=SearchingStateApiSerializer(many=False))
+    @extend_schema(request=SearchingStateApiSerializer(many=False))
     def post(self, request, **kwargs):
         """
         Update the users serching state, current possible states: 'idle', 'searching'
@@ -382,7 +438,66 @@ class UpdateSearchingStateApi(APIView):
                                       "State updated!"))
 
 
-@ receiver(reset_password_token_created)
+class UnmatchSelfSerializer(serializers.Serializer):
+    other_user_hash = serializers.CharField(required=True)
+    reason = serializers.CharField(required=True)
+
+    def create(self, validated_data):
+        return validated_data
+
+
+@extend_schema(request=UnmatchSelfSerializer(many=False))
+@login_required
+@api_view(['POST'])
+def unmatch_self(request):
+    from management import controller
+
+    serializer = UnmatchSelfSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    params = serializer.save()
+
+    other_user = controller.get_user_by_hash(params['other_user_hash'])
+
+    if other_user.is_staff or other_user.pk == controller.get_base_management_user().pk:
+        return Response(status=403)
+
+    # TODO: remove this check replace with new 'Match' model
+    if not other_user in request.user.state.matches.all():
+        raise serializers.ValidationError(
+            {"other_user_hash": "User is not matched with you!"})
+        
+    # TODO: the old unmatch strategy, to be removed
+    # But unmatch_users is already udated to also use the new strategy
+    # TODO: the past match can also be removed, instead we just set a match to be active=False!
+    past_match = controller.unmatch_users({request.user, other_user})
+    past_match.reason = params['reason']
+    past_match.save()
+
+    return Response(pgettext_lazy("api.user-unmatch-self.success", "Unmatched!"))
+
+
+@login_required
+@api_view(['POST'])
+def resend_verification_mail(request):
+    link_route = 'mailverify_link'
+    verifiaction_url = f"{settings.BASE_URL}/{link_route}/{request.user.state.get_email_auth_code_b64()}"
+    mails.send_email(
+        recivers=[request.user.email],
+        subject=pgettext_lazy(
+            "api.register-welcome-mail-subject", "{code} - Verifizierungscode zur E-Mail Bestätigun".format(code=request.user.state.get_email_auth_pin())),
+        mail_data=mails.get_mail_data_by_name("welcome"),
+        mail_params=mails.WelcomeEmailParams(
+            first_name=request.user.profile.first_name,
+            verification_url=verifiaction_url,
+            verification_code=str(request.user.state.get_email_auth_pin())
+        )
+    )
+
+    return Response("Resend verification mail")
+
+
+@receiver(reset_password_token_created)
 def password_reset_token_created(sender, instance, reset_password_token, *args, **kwargs):
     """
     Handles password reset tokens

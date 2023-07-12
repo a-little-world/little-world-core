@@ -11,6 +11,8 @@ class EmailLogAdmin(admin.ModelAdmin):
                     "time", "sender", "data")
 
     readonly_fields = ('view_mail',)
+    
+    search_fields = ('receiver__email',)
 
     def view_mail(self, obj):
         try:

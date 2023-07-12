@@ -2,6 +2,7 @@ import glob
 from . import models
 import random
 from . import controller  # this will be used on script execution
+from management.models import Profile
 print(controller)
 
 
@@ -16,7 +17,7 @@ def random_names(amnt):
 
 
 valid_request_data = dict(
-    email='test@user.de',
+    email='herrduenschnlate+@gmail.com',
     first_name="?",  # We set them below,'?' would throw an error!
     second_name="?",
     password1='Test123!',
@@ -39,6 +40,19 @@ def random_postal_code():
 
 def random_phone_number():
     return f'+49{random.randint(100000000, 999999999)}'
+
+
+def random_availabilities():
+    from management.validators import SLOTS, DAYS
+
+    data = {}
+    for day in DAYS:
+        amount = random.randint(0, len(SLOTS))
+        if amount == 0:
+            data[day] = []
+        else:
+            data[day] = random.sample(SLOTS, amount)
+    return data
 
 
 def random_avatar():
@@ -150,6 +164,8 @@ def create_test_user(i, user_seeds=None, password=None, email=None):
         interests.append(c[r])
 
     usr.profile.interests = interests
+    usr.profile.availability = random_availabilities()
+    print("TBS: availabilities", usr.profile.availability)
     for choice in user_form_choices:
         setattr(usr.profile, choice, random_choice(
             user_form_choices[choice]))
@@ -188,3 +204,29 @@ def create_abunch_of_users(amnt=30, user_seeds=[42]*20):
         users.append(create_test_user(i, user_seeds))
 
     return users
+
+
+def modify_profile_to_match(usr1, usr2):
+    """
+    Modifies two user profiles so that they are matching 
+    """
+    u1_p = usr1.profile
+    u2_p = usr2.profile
+
+    u1_p.user_type = Profile.TypeChoices.VOLUNTEER
+    u2_p.user_type = Profile.TypeChoices.LEARNER
+
+    u1_p.partner_location = Profile.ConversationPartlerLocation.ANYWHERE_VOL
+    u2_p.partner_location = Profile.ConversationPartlerLocation.ANYWHERE_LER
+
+    u1_p.target_group = Profile.TargetGroupChoices.ANY_VOL
+    u2_p.target_group = Profile.TargetGroupChoices.ANY_LER
+
+    u1_p.lang_level = Profile.LanguageLevelChoices.LEVEL_0_VOL
+    u2_p.lang_level = Profile.LanguageLevelChoices.LEVEL_0_LER
+
+    u1_p.speech_medium = Profile.SpeechMediumChoices.ANY_VOL
+    u2_p.speech_medium = Profile.SpeechMediumChoices.ANY_LER
+
+    u1_p.save()
+    u2_p.save()

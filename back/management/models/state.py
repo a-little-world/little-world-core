@@ -115,6 +115,8 @@ class State(models.Model):
         AUTO_LOGIN = "use-autologin-api", _(
             "Is allowed to use the auto login api (with a specific token)")
         DOCS_VIEW = "view-docs", _("Is allowed to view the docs")
+        EMAIL_TEMPLATES_VIEW = "view-email-templates", _("Is allowed to view the email templates")
+        STATS_VIEW = "view-stats", _("Is allowed to view the stats")
 
     extra_user_permissions = MultiSelectField(
         max_length=1000,

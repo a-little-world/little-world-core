@@ -1,4 +1,5 @@
 import os
+import json
 from datetime import datetime
 from django.conf import settings
 from celery.signals import worker_ready
@@ -43,6 +44,39 @@ def im_allive_task(self):
     # return "RESULT" we don't return this as a result otherwise we would just be flooding the database
 
 
+prod_shedules = {
+    'new-message-notification': {
+        'task': 'management.tasks.send_new_message_notifications_all_users',
+        'schedule': 60.0 * 60.0  # Every hour
+    },
+    'generate-hourly-event-summary': {
+        'task': 'management.tasks.write_hourly_backend_event_summary',
+        'schedule': 60.0 * 60.0,  # Every hour
+    },
+    'generate-stats-series-day-grouped': {
+        'task': 'management.tasks.create_series',
+        'schedule': 60.0 * 60.0,  # Every hour
+        'kwargs': {
+            "regroup_by": "day"
+        }
+    },
+    # 'generate-stats-series-hour-grouped': {
+    #    'task': 'management.tasks.create_series',
+    #    'schedule': 60.0 * 60.0,
+    #    'kwargs': {
+    #        "regroup_by": "hour"
+    #    }
+    # },
+    'generate-user-lists': {
+        'task': 'management.tasks.indentify_and_mark_user_categories',
+        'schedule': 60.0 * 60.0 * 12.0,  # Every 12 hours
+    },
+    'generate-static-stats': {
+        'task': 'management.tasks.collect_static_stats',
+        'schedule': 60.0 * 60.0,  # Every hour
+    }
+}
+
 """
 All little world periodic tasks 
 e.g.: notifying users that they have new messages
@@ -52,8 +86,5 @@ app.conf.beat_schedule = {
         'task': 'im_allive_task',
         'schedule': 60.0 * 5.0  # Every five minutes!
     },
-    'new-message-notification': {
-        'task': 'management.tasks.send_new_message_notifications_all_users',
-        'schedule': 60.0 * 60.0  # Every hour
-    }
+    **(prod_shedules if settings.IS_PROD else {})
 }

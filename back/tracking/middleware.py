@@ -12,21 +12,21 @@ But never store any passwords!
 So we have to do some manual censoring
 """
 CENSOR_ROUTES = {
-    "/register": {
-        "search": "any",
-        "mode": "k",
-        "censor": ["password", "password1", "password2"]
-    },
+    # "/register": {
+    #    "search": "any",
+    #    "mode": "k",
+    #    "censor": ["password", "password1", "password2"]
+    # },
     "/login": {  # Also takes care of /admin/login
         "search": "any",
         "mode": "k",
         "censor": ["password"]
     },
-    "/set_password": {  # changing passwords
-        "search": "any",
-        "mode": "k",
-        "censor": ["password"]
-    }  # TODO checking password
+    # "/set_password": {  # changing passwords
+    #    "search": "any",
+    #    "mode": "k",
+    #    "censor": ["password"]
+    # }  # TODO checking password
 }
 
 

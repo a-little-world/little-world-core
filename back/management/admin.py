@@ -9,6 +9,7 @@ from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django import forms
 from phonenumber_field.widgets import PhoneNumberPrefixWidget
 from . import models
+from django.db.migrations.recorder import MigrationRecorder
 from hijack.contrib.admin import HijackUserAdminMixin
 
 
@@ -17,16 +18,29 @@ class BackendStateAdmin(admin.ModelAdmin):
     list_display = ('slug', 'name', 'hash', 'meta', 'created_at')
 
 
+@admin.register(models.help_message.HelpMessage)
+class HelpMessageStateAdmin(admin.ModelAdmin):
+    list_display = ('user', 'message', 'hash')
+    
+    
+@admin.register(models.settings.EmailSettings)
+class EmailSettingsAdmin(admin.ModelAdmin):
+    list_display = ('hash', 'unsubscibed_options')
+
+
 @admin.register(models.community_events.CommunityEvent)
 class CommunityEventAdmin(admin.ModelAdmin):
     list_display = ('title', 'active', 'description',
                     'time', 'frequency', 'link')
-
+    
 
 @admin.register(models.news_and_updates.NewsItem)
 class NewsItemAdmin(admin.ModelAdmin):
     list_display = ('title', 'active', 'description', 'time', 'link')
 
+@admin.register(models.matches.Match)
+class MatchModelAdmin(admin.ModelAdmin):
+    list_display = ('uuid', 'created_at', 'updated_at', 'user1', 'user2')
 
 @admin.register(models.matching_scores.MatchinScore)
 class DirectionalMatchinScores(admin.ModelAdmin):
@@ -96,7 +110,7 @@ class ProfileModelInline(admin.StackedInline):
 
 @admin.register(models.settings.Settings)
 class SettingsModelAdmin(admin.ModelAdmin):
-    list_display = ('user', 'language')
+    list_display = ('user', 'language', 'email_settings')
 
 
 class SettingsModelInline(admin.StackedInline):
@@ -209,6 +223,9 @@ class UserAdmin(HijackUserAdminMixin, DjangoUserAdmin):
     ordering = ('email', 'is_staff')
     list_filter = (UserFormFilledFilter, UserCategory, 'is_staff',)
 
+@admin.register(models.unconfirmed_matches.UnconfirmedMatch)
+class UnconfirmedMatchAdmin(admin.ModelAdmin):
+    list_display = ("hash", "user1", "user2", "closed", "expires_at")
 
 @admin.register(Session)
 class SessionAdmin(admin.ModelAdmin):

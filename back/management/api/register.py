@@ -49,10 +49,10 @@ class RegistrationSerializer(serializers.Serializer):
     })
     password1 = serializers.CharField(max_length=100, required=True)
     password2 = serializers.CharField(max_length=100, required=True)
-    birth_year = serializers.IntegerField(min_value=1900, max_value=2024, error_messages={
+    birth_year = serializers.IntegerField(min_value=1900, max_value=(datetime.now().year - 17), error_messages={
         'invalid': pgettext_lazy('register.birth-year-invalid', 'Please enter a valid year'),
         'min_value': pgettext_lazy('register.birth-year-under-1900', 'I\'m sorry but you can\'t be that old'),
-        'max_value': pgettext_lazy('register.birth-year-over-2024', 'Sorry we don\'t allow people from the future yet'),
+        'max_value': pgettext_lazy('register.birth-year-over-2024', 'Sorry currently users have to be at least 18 years old to participate'),
     })
 
     def create(self, validated_data):

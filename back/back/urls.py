@@ -15,6 +15,9 @@ We are adding all app urls under `'/'` their paths should be set under `<app>/ur
 Admin paths registered last
 """
 
+
+handler404 = "management.views.user_form_frontend.handler404"
+
 statics = [
     *static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT),
     *static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
@@ -55,7 +58,7 @@ if settings.IS_STAGE or settings.IS_DEV:
     from revproxy.views import ProxyView
 
     view = ProxyView.as_view(
-        upstream='http://little-world-staging-docs-clusterip-service:8000/static/docs/')
+        upstream='http://little-world-staging-docs-clusterip-service:8000/')
 
     def auth_docs(request, **kwargs):
         from management.models import State

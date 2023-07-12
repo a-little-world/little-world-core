@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Event, Summaries
+from .models import Event, Summaries, GraphModel
 
 # Register your models here.
 from django.template.defaultfilters import escape
@@ -11,6 +11,11 @@ from management.models.user import User
 @admin.register(Summaries)
 class SummariesAdmin(admin.ModelAdmin):
     list_display = ('label', 'hash', 'rate', 'time_created', 'meta')
+
+
+@admin.register(GraphModel)
+class GraphModels(admin.ModelAdmin):
+    list_display = ('slug', 'hash', 'graph_data', 'meta', 'time', 'type')
 
 
 @admin.register(Event)

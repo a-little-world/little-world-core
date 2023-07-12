@@ -1,6 +1,6 @@
 Django==4.1.2
 channels==4.0.0
-channels-redis # For using channels with redis
+channels-redis==4.0.0 # For using channels with redis
 celery==5.2.7
 django-celery-results # Task and state admin displays for celery
 django-celery-beat # For automatic and timed tasks
@@ -34,3 +34,5 @@ pytablewriter # For generating goodlooking markdown tables
 Collectfast # Faster static file collection
 django-hijack # Can be used by admin to login as another user
 single-beat
+googletrans==3.1.0a0
+djangorestframework-dataclasses

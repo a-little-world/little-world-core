@@ -145,6 +145,18 @@ elif DEBUG:
     CSRF_TRUSTED_ORIGINS = ["https://*.github.dev"]
     CSRF_ORIGIN_ALLOW_ALL = True
 
+if IS_STAGE:
+
+    dev_origins = [
+        "http://localhost",
+        "https://localhost",
+        "https://localhost:3333",
+        "http://localhost:3333",
+    ]
+
+    CORS_ALLOWED_ORIGINS += dev_origins
+    CORS_ORIGIN_WHITELIST += dev_origins
+    CSRF_TRUSTED_ORIGINS += dev_origins
 
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
@@ -328,18 +340,22 @@ CELERY_TASK_TIME_LIMIT = 30 * 60
 
 CELERY_RESULT_BACKEND = 'django-db'
 
+
 # We enforce these authentication classes
 # By that we force a crsf token to be present on **every** POST request
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         'rest_framework.authentication.BasicAuthentication',
         'rest_framework.authentication.SessionAuthentication',
-    ]
+    ],
+    "DEFAULT_SCHEMA_CLASS": 'drf_spectacular.openapi.AutoSchema',
 }
 
+if IS_PROD:
+    # disable browsable api in production
+    REST_FRAMEWORK['DEFAULT_RENDERER_CLASSES'] = ['rest_framework.renderers.JSONRenderer']
 
-# pylint doesn't like it not sure why
-REST_FRAMEWORK["DEFAULT_SCHEMA_CLASS"] = 'drf_spectacular.openapi.AutoSchema'
+
 
 SPECTACULAR_SETTINGS = {
     'TITLE': 'Little Worlds Api Documentation',
@@ -482,11 +498,33 @@ USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
+def print_tree(root_path, max_depth=3, indent=0):
+    if max_depth < 0:
+        return
+    for root, dirs, files in os.walk(root_path):
+        current_depth = root.count(os.path.sep)
+        if current_depth > max_depth:
+            continue
+        print(' ' * indent + os.path.basename(root) + '/')
+        for file in files:
+            print(' ' * (indent + 2) + file)
+        for dir in dirs:
+            print_tree(os.path.join(root, dir), max_depth, indent + 2)
 
 if DEBUG:
     info = '\n '.join([f'{n}: {globals()[n]}' for n in [
         'BASE_DIR', 'ALLOWED_HOSTS', 'CELERY_TIMEZONE', 'FRONTENDS', 'DATABASES']])
     print(f"configured django settings:\n {info}")
+    print("PYTHONPATH: ", os.environ.get('PYTHONPATH', 'not set'))
+    #print("SITEPACKAGE TREE", print_tree('/usr/lib/'))
+    for p in os.environ["PYTHONPATH"].split(':'):
+        if p == '':
+            continue
+        if os.path.exists(p):
+            print("PACKAGES",p, os.listdir(p))
+        else:
+            print("INEXISTENT PYTHONPATH", p)
+            
 
 """
 Settings for the sleek admin panel
@@ -514,6 +552,9 @@ JAZZMIN_SETTINGS = {
             "new_window": True},
 
         {"name": "Matching Pannel", "url": "/admin_panel",
+            "new_window": True},
+
+        {"name": "Stats Pannel", "url": "/stats/graph/any",
             "new_window": True},
 
         {"name": "DB shema", "url": "/db",

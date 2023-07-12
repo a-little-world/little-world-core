@@ -32,8 +32,8 @@ class CommunityEvent(models.Model):
     """
 
     @classmethod
-    def get_all_active_events(cls):
-        return cls.objects.all().filter(active=True)
+    def get_all_active_events(cls, order_by='time'):
+        return cls.objects.all().filter(active=True).order_by(order_by)
 
 
 class CommunityEventSerializer(serializers.ModelSerializer):

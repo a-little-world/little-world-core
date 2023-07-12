@@ -4,6 +4,7 @@ from django.views import View
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.utils.translation import gettext_lazy as _
 from tracking.models import Event
+from management.models import State
 from .mails import get_mail_data_by_name, decode_mail_params
 from .templates import inject_template_data
 
@@ -12,10 +13,15 @@ class ViewEmail(UserPassesTestMixin, View):
     login_url = '/login'
     redirect_field_name = 'next'
 
-    # TODO: if there are params passed /emails/<template>/params
-    # then also regular users should be allowed
     def test_func(self):
-        return not self.request.user.is_anonymous and self.request.user.is_staff  # type: ignore
+        if self.request.user.is_anonymous:
+            return False
+        if self.request.user.is_staff:
+            return True
+        if self.request.user.is_authenticated and \
+             self.request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.EMAIL_TEMPLATES_VIEW):
+            return True
+        return False
 
     @utils.track_event(
         name="Email Viewed",
