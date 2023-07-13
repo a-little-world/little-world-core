@@ -4,6 +4,7 @@ from back.management.models import User, Profile  # !dont_include
 from back.management.models import rooms  # !dont_include
 from back.emails import mails  # !dont_include
 from django.apps import apps
+from django.utils import timezone
 import shutil
 import json
 import os
@@ -23,8 +24,25 @@ from Crypto.Hash import SHA256
 from Crypto import Random
 import base64
 import hashlib
+import multiprocessing as mp
+from itertools import repeat
+import ctypes
 
+import multiprocessing
+import time
+import random
+from queue import Empty
+import time
 
+start = time.time()
+
+output_dir = "./dumped_data"
+
+output_dir_present = os.path.exists(output_dir)
+if not output_dir_present:
+    os.mkdir(output_dir)
+
+os.chdir("./dumped_data")
 
 app_models = apps.get_app_config('management').get_models()
 
@@ -68,22 +86,15 @@ for app in apps.get_app_configs():
 print(f"Total of {apps_to_process} apps to process with a total of {models_to_extract} models to extract.")
 
 models_extracted = 0
-output_dir = "./dumped_data"
-
-output_dir_present = os.path.exists(output_dir)
-if not output_dir_present:
-    os.mkdir(output_dir)
-
-
-models_extracted = 0
-errors = 0
 
 ARCHIVE_OUTPUTS = True
 ENCRYPT_OUTPUTS = True
-DELETE_OUTPUTS = False
+DELETE_OUTPUTS = True
 PROGRESS_FILE = True
-PROCESS_OUTPUT = "progress.dumpdata.json"
+PROCESS_OUTPUT = "./PROGRESS.dumpdata.json"
+PROGRESS_OUTPUT = PROCESS_OUTPUT
 ENCRYPTION_PASSWORD = "Test123"
+CONCURRENT_DUMPS = 4
 
 CONTINUE = False # to continue an aborted download
 
@@ -118,137 +129,198 @@ def get_size(file_path, unit='bytes'):
     else:
         size = file_size / 1024 ** exponents_map[unit]
         return round(size, 3)
-    
-
-PROGRESS_DATA = {"progress": [], "config": {
-    "ARCHIVE_OUTPUTS": ARCHIVE_OUTPUTS,
-    "ENCRYPT_OUTPUTS": ENCRYPT_OUTPUTS,
-    "DELETE_OUTPUTS": DELETE_OUTPUTS,
-    "PROGRESS_FILE": PROGRESS_FILE,
-    "ENCRYPTION_PASSWORD": "hidden",
-    "MODELS": [],
-    "ENCRYPTED_FILES": [],
-}}
 
 def write_progress(data):
-    with open(PROCESS_OUTPUT, "w") as f:
+    """
+    Function to write progress into a JSON file.
+    :param data: The data that will be written into the JSON file.
+    """
+    with open(PROGRESS_OUTPUT, "w") as f:
         json.dump(data, f, indent=2)
 
 def read_progress():
-    if os.path.exists(PROCESS_OUTPUT):
-        with open(PROCESS_OUTPUT, "r") as f:
-            return json.load(f)
-    else:
-        return PROGRESS_DATA
+    """
+    Function to read any pre-existing progress from a JSON file.
+    :return processed_data: The data previously saved in the JSON file.
+    """
+    try:
+        with open(PROGRESS_OUTPUT, 'r') as f:
+            processed_data = json.load(f)
+    except FileNotFoundError:
+        processed_data = {"config": {"MODELS": [], "ENCRYPTED_FILES": []},"progress": []}
 
-for app in models_per_app:
-    print("Extracting models for app:", app)
+    return processed_data
+
+
+def extract_model_data(app, model, lock, process_no, models_extracted,errors, progress_data, models_list, encrypted_files_list):
+
+    # Initiate error_occured to keep track if an extraction results in any error
+    global error_occured
+    model_path = f"{model}"
+    error_occured = False
     
-    if PROGRESS_FILE:
-        PROGRESS_DATA = read_progress()
 
-    for model in reversed(models_per_app[app]):
+    try:
+        # Add model to MODELS
+        models_list.append(model)
+        total_amount = apps.get_model(app_label=model.split(".")[0], model_name=model.split(".")[-1]).objects.all().count()
+        print("Total amount of objects:", total_amount)
+
+        # Actual extraction
+        call_command('dumpdata', '-o', f'{model_path}.json', '-v', '3', '--indent', '2', model)
+
+        output_size = get_size(f"{model_path}.json", unit='mb')
+        print("File size:", output_size, "mb")
         
-        model_path = f"{output_dir}/{model}"
         
         if PROGRESS_FILE:
-            PROGRESS_DATA["config"]["MODELS"].append(model)
+            out_file_path = f"{model_path}.json"
+            progress_data.append({
+                "model": model, 
+                "step": "dumpdata",
+                "total": total_amount, 
+                "path": out_file_path,
+                "hash": calc_hash(out_file_path),
+                "size": output_size,
+                "time_stamp": str(timezone.now())
+            })
 
-        print("Extracting model:", model)
-        try:
-            total_amount = apps.get_model(app_label=model.split(".")[0], model_name=model.split(".")[-1]).objects.all().count()
-            print("Total amount of objects:", total_amount)
-            
-            # TODO: if we compress then we prob don't want to indent
-            call_command('dumpdata', '-o', f'{model_path}.json', '-v', '3', '--indent', '2', model)
-                    
-            print("Output model_path:", model_path, "to file:", f"{model_path}.json")
-            models_extracted += 1
-            
+        # Implementing zipping and compression
+        if ARCHIVE_OUTPUTS:
+            print("Preparing to compress file: ", f"{model_path}.json")
+            shutil.make_archive(f"{model_path}.compressed", 'zip', base_dir=f"{model_path}.json")
+
             output_size = get_size(f"{model_path}.json", unit='mb')
             print("File size:", output_size, "mb")
-            
+
             if PROGRESS_FILE:
-                out_file_path = f"{model_path}.json"
-                PROGRESS_DATA["progress"].append({
+                out_file_path = f"{model_path}.compressed.zip"
+                output_size = get_size(out_file_path, unit='mb')
+                progress_data.append({
                     "model": model, 
-                    "step": "dumpdata",
+                    "step": "compress",
                     "total": total_amount, 
                     "path": out_file_path,
                     "hash": calc_hash(out_file_path),
                     "size": output_size,
+                    "time_stamp": str(timezone.now())
                 })
-                write_progress(PROGRESS_DATA)
-            
 
-            if ARCHIVE_OUTPUTS:
-                print("Preparing to compress file: ", f"{model_path}.json")
-                shutil.make_archive(f"{model_path}.compressed", 'zip', f"{model_path}.json")
-
-                output_size = get_size(f"{model_path}.json", unit='mb')
-                print("File size:", output_size, "mb")
-                
-                
-                if PROGRESS_FILE:
-                    out_file_path = f"{model_path}.compressed.zip"
-                    PROGRESS_DATA["progress"].append({
-                        "model": model, 
-                        "step": "compress",
-                        "total": total_amount, 
-                        "path": out_file_path,
-                        "hash": calc_hash(out_file_path),
-                        "size": output_size,
-                    })
-                    write_progress(PROGRESS_DATA)
-                
             if ENCRYPT_OUTPUTS:
-                assert ARCHIVE_OUTPUTS, "ENCRYPT_OUTPUTS requires ARCHIVE_OUTPUTS to be True"
-                print("Preparing to encrypt file: ", f"{model_path}.json")
+                print("Preparing to encrypt file: ", f"{model_path}.compressed.zip")
 
                 encrypt_and_write(ENCRYPTION_PASSWORD, f"{model_path}.compressed.zip", f"{model_path}.compressed.encrypted")
+                out_file_path = f"{model_path}.compressed.encrypted"
+                output_size = get_size(out_file_path, unit='mb')
 
-                output_size = get_size(f"{model_path}.json", unit='mb')
                 print("File size:", output_size, "mb")
 
                 if PROGRESS_FILE:
-                    out_file_path = f"{model_path}.compressed.encrypted"
-                    PROGRESS_DATA["config"]["ENCRYPTED_FILES"].append(f"{model_path}.compressed.encrypted")
-                    PROGRESS_DATA["progress"].append({
-                        "model": model, 
+                    encrypted_files_list.append(f"{model_path}.compressed.encrypted")
+                    progress_data.append({
+                        "model": model,
                         "step": "encrypt",
-                        "total": total_amount, 
+                        "total": total_amount,
                         "path": out_file_path,
                         "hash": calc_hash(out_file_path),
                         "size": output_size,
+                        "time_stamp": str(timezone.now())
                     })
-                    write_progress(PROGRESS_DATA)
-                
-            if DELETE_OUTPUTS:
-                assert ARCHIVE_OUTPUTS and ENCRYPT_OUTPUTS, "DELETE_OUTPUTS requires ARCHIVE_OUTPUTS and ENCRYPT_OUTPUTS to be True"
-                os.remove(f"{model_path}.json")
-                os.remove(f"{model_path}.compressed.zip")
-                
-                if PROGRESS_FILE:
-                    PROGRESS_DATA["progress"].append({
-                        "model": model, 
-                        "step": "delete_files",
-                    })
-                    write_progress(PROGRESS_DATA)
+                if DELETE_OUTPUTS:
+                    assert ARCHIVE_OUTPUTS and ENCRYPT_OUTPUTS, "DELETE_OUTPUTS requires ARCHIVE_OUTPUTS and ENCRYPT_OUTPUTS to be True"
+                    os.remove(f"{model_path}.json")
+                    os.remove(f"{model_path}.compressed.zip")
 
-        except Exception as e:
-            
-            error_msg = f"Error extracting model_path: {model_path} to file: {model_path}.json, error: {e}"
-            
-            with open(f"{model_path}.error", "w") as f:
-                f.write(error_msg)
+                    if PROGRESS_FILE:
+                        progress_data.append({
+                            "model": model,
+                            "step": "delete_files",
+                            "time_stamp": str(timezone.now())
+                        })
+                        
+        print(f"({models_extracted.value}/{models_to_extract}) [errors: {errors.value}] finished processing model:", model)    
 
-            print(error_msg)
-            errors += 1
-            if PROGRESS_FILE:
-                PROGRESS_DATA["progress"].append({
-                    "model": model, 
-                    "step": "error_occured",
-                    "error": error_msg,
-                })
-                write_progress(PROGRESS_DATA)
-        print(f"({models_extracted}/{models_to_extract}) [errors: {errors}] finished processing model:", model)
+    except Exception as e:
+        error_msg = f'Error processing model: {model} to file: {model_path}.json, error: {e}'
+        print(error_msg)
+        error_occured = True
+        if PROGRESS_FILE:
+            progress_data.append({
+                "model": model,
+                "step": "error",
+                "error": error_msg,
+            })
+
+    # Lock before changing any shared variables across processes
+    lock.acquire()
+    try:
+        models_extracted.value += 1
+        print(f"\t- Process {process_no}> finished processing model:", model)
+
+        if error_occured:
+            errors.value += 1
+
+        # Updating the progress file with updated progress_data
+        if PROGRESS_FILE:
+            
+            PROGRESS_DATA = read_progress()
+            PROGRESS_DATA["config"]["MODELS"] = list(models_list)
+            PROGRESS_DATA["config"]["ENCRYPTED_FILES"] = list(encrypted_files_list)
+            PROGRESS_DATA["progress"] = list(progress_data)
+            write_progress(PROGRESS_DATA)
+
+    finally:
+        lock.release()   
+
+with multiprocessing.Manager() as manager:
+    lock = multiprocessing.Lock()
+    models_extracted = manager.Value('i', 0)
+    errors = manager.Value('i', 0)
+    progress_data = manager.list()
+    models_list = manager.list()
+    encrypted_files_list = manager.list()
+
+    processes = []
+
+    # for app in ["management"]:
+    #    for model in ["management.User"]:
+    for app in models_per_app:
+        for model in models_per_app[app]:
+            process = multiprocessing.Process(
+                target=extract_model_data, 
+                args=(
+                    app, 
+                    model, 
+                    lock,
+                    len(processes) + 1,
+                    models_extracted,
+                    errors,
+                    progress_data,
+                    models_list,
+                    encrypted_files_list,
+                )
+            )
+            processes.append(process)
+            process.start()
+
+    for process in processes:
+        process.join()
+    print("\nData dumping completed with", errors.value, "errors")
+    print("A total of", models_extracted.value, "models were extracted")
+
+
+
+end = time.time()
+time_diff = end - start
+minutes = time_diff / 60.0
+
+print(f"Time taken: {minutes} minutes")
+if PROGRESS_FILE:
+    
+    PROGRESS_DATA = read_progress()
+    PROGRESS_DATA["progress"].append({
+        "step": "finished",
+        "time_stamp": str(timezone.now()),
+        "duration_minutes": minutes,
+    })
+    write_progress(PROGRESS_DATA)
