@@ -471,7 +471,8 @@ def extract_user_activity_info(user):
     login_event_count = Event.objects.filter(
         tags__contains=["frontend", "login", "sensitive"], 
         type=Event.EventTypeChoices.REQUEST, 
-        name="User Logged in"
+        name="User Logged in",
+        caller=user
     ).count()
     
     def get_match_tag(u1, u2):
