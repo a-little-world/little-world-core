@@ -213,7 +213,7 @@ def match_users(
     usr2.match(usr1, set_unconfirmed=set_unconfirmed)
     
     # This is the new way:
-    Match.objects.create(
+    matching_obj = Match.objects.create(
         user1=usr1,
         user2=usr2,
         support_matching=usr1.is_staff or usr2.is_staff
@@ -274,6 +274,8 @@ Damit euch viel Spaß! Schöne Grüße vom Team Little World""")
     if set_to_idle:
         usr1.state.set_idle()
         usr2.state.set_idle()
+        
+    return matching_obj
 
 
 def create_user_matching_proposal(
@@ -469,7 +471,8 @@ def extract_user_activity_info(user):
     login_event_count = Event.objects.filter(
         tags__contains=["frontend", "login", "sensitive"], 
         type=Event.EventTypeChoices.REQUEST, 
-        name="User Logged in"
+        name="User Logged in",
+        caller=user
     ).count()
     
     def get_match_tag(u1, u2):

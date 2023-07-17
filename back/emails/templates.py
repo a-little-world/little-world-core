@@ -530,6 +530,54 @@ class InterviewInvitation:
     unsubscribe_link1_category: str = 'special interview request'
     unsubscribe_link2: str = 'none'
     unsubscribe_link2_category: str = 'none'
+    
+@dataclass
+class SurveyInvitationAniq2:
+    """
+    ---------> Survey invitation email <---------------
+    """
+    subject_header_text: str = pgettext_lazy(
+        "email.survey-invitation.subject-header-text", "Studentin bittet um Unterstützung – Umfrage bei Little World")
+    greeting: str = pgettext_lazy(
+        'email.survey-invitation.greeting',
+        'Hallo {first_name},')
+    content_start_text: str = pgettext_lazy(
+        'email.survey-invitation.content-start-text',
+        'Möchtest du uns helfen unsere Little World Plattform zu verbessern oder Aniqa bei ihrer Projektarbeit?'
+        ' Dann lade ich dich herzlich ein, an der 10-15-minütigen Umfrage von der Studentin Aniqa teilzunehmen unter ')
+    link_box_text: str = mark_safe('<a href="https://s.surveyplanet.com/iuhajmj7" style="color: blue;">https://s.surveyplanet.com/iuhajmj7</a>')
+    content_body_text: str = pgettext_lazy(
+        'email.survey-invitation.content-body-text',
+        mark_safe('Dein wertvolles Feedback wird uns dabei helfen, die notwendigen Änderungen oder Erweiterungen an'
+        ' unserem Angebot vorzunehmen. Diese Umfrage ist völlig anonym und vertraulich, also teile uns bitte'
+        ' deine ehrlichen Gedanken und Meinungen mit.<br></br>Aniqa ist eine Studentin der Universität Siegen,'
+        ' die derzeit eine Projektarbeit bei uns schreibt. Wenn du Fragen oder Bedenken hast, wende dich gerne'
+        ' jederzeit an uns.'))
+
+    button_text: str = pgettext_lazy(
+        'email.survey-invitation.button-text',
+        'Zur Umfrage')
+    button_link: str = pgettext_lazy(
+        'email.survey-invitation.button-link',
+        '{link_url}')
+    below_link_text: str = pgettext_lazy(
+        'email.survey-invitation.below-link-text',
+        mark_safe('Vielen Dank im Voraus für deine Unterstützung!<br></br>'))
+    footer_text: str = pgettext_lazy(
+        'email.survey-invitation.footer-text',
+        'Herzliche Grüße,')
+    goodbye: str = pgettext_lazy(
+        'email.survey-invitation.goodbye',
+        mark_safe('Das Little World Team<br></br>'))
+    goodbye_name: str = pgettext_lazy(
+        'email.survey-invitation.goodbye-name',
+        '')
+    use_unsubscribe_footer:bool=True
+    unsubscribe_two_link:bool = False
+    unsubscribe_link1: str = '{unsubscribe_url1}'
+    unsubscribe_link1_category: str = 'survey request'
+    unsubscribe_link2: str = 'none'
+    unsubscribe_link2_category: str = 'none'
 
 @dataclass
 class GeneralSurveyMail:

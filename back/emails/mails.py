@@ -22,6 +22,7 @@ from emails.templates import (
     GeneralSurveyMail,
     # Currently we are using the same template as weclone
     # so MatchFoundEmailTexts has no Defaults
+    SurveyInvitationAniq2,
     NewUnreadMessages,
     MatchFoundEmailTexts,
     SorryWeStillNeedALittleMail,
@@ -44,6 +45,11 @@ and it is easy to tell which parameters are available
 class MailDataNotFoundErr(Exception):
     pass
 
+@dataclass
+class SurveyInvitation2AniqParams:
+    first_name: str
+    link_url: str
+    unsubscribe_url1: str
 
 @dataclass
 class StillInContactParams:
@@ -266,6 +272,13 @@ templates = [
         params=MatchExpiredMailParams,
         texts=MatchExpiredMailTexts,
         defaults=MatchExpiredMailTexts
+    ),
+    MailMeta(
+        name="survey_aniq_2",
+        template="emails/welcome.html",
+        params=SurveyInvitation2AniqParams,
+        texts=SurveyInvitationAniq2,
+        defaults=SurveyInvitationAniq2
     )
 ]
 
