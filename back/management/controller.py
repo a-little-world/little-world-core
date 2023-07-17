@@ -565,10 +565,14 @@ def send_email(
         mail_params.unsubscribe_url1 = unsub_link
         report.checked_subscription = True
         report.subscription_group = unsubscribe_group
+        
+        if user.settings.email_settings.has_unsubscribed(unsubscribe_group):
+            print(f"User ({user.email}) has unsubscribed from", unsubscribe_group)
+            report.unsubscribed = True
+            return report
     else:
         report.checked_subscription = False
         
-    # TODO: we still need to check unsubscription groups
         
     try:
         mails.send_email(
@@ -596,10 +600,18 @@ def send_group_mail(
     mail_name: str,
     mail_params_func: Callable,
     unsubscribe_group=None,
+    debug=False
 ):
     reports: Dict[str, EmailSendReport] = {}
     
+    total = len(users)
+    if debug:
+        print(f"Sending {total} bluk emails")
+    i = 0 
     for user in users:
+        i+=1
+        if debug:
+            print(f"Sending email ({i}/{total}) to {user.email}")
         reports[user.hash] = send_email(
             user,
             subject,
