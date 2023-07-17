@@ -64,11 +64,19 @@ def confrim_match(request):
     # now check the user choice
     if data.confirm:
         # TODO: create the actuall matching
-        match_users({unconfirmed_match.user1, unconfirmed_match.user2})
+        matching = match_users({unconfirmed_match.user1, unconfirmed_match.user2})
         unconfirmed_match.closed = True
         unconfirmed_match.save()
+        
+        partner = unconfirmed_match.get_partner(request.user)
+        
+        msg = pgettext_lazy("confirm_match.match_confirmed", "The match has been confirmed, your match has been made!")
 
-        return Response(pgettext_lazy("confirm_match.match_confirmed", "The match has been confirmed, your match has been made!"))
+        return Response({
+            "message": msg,
+            "match": matching.get_serialized(request.user),
+            "unconfirmed_matches": [partner.hash]
+        })
     else:
         # just close the unconfirmed match
         unconfirmed_match.closed = True
