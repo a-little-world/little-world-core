@@ -37,6 +37,21 @@ class Match(models.Model):
 
         partners = management_models.User.objects.filter(id__in=user_partners_ids).exclude(id=user.pk)
         return partners
+    
+    @classmethod
+    def get_match_by_hash(cls, user, matching_uuid):
+        return cls.objects.filter(
+            Q(user1=user) | Q(user2=user), 
+            active=True, 
+            uuid=matching_uuid
+            ).first()
+        
+    def get_serialized(self, user):
+        partner = self.get_partner(user)
+        return {
+            "user": management_models.CensoredUserSerializer(partner).data,
+            "profile": management_models.CensoredProfileSerializer(partner.profile).data,
+        }
 
     
     def get_partner(self, user):
