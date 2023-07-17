@@ -2232,7 +2232,7 @@ def indentify_and_mark_user_categories():
     return category_user_listing
 
 @shared_task
-def check_email_reminders_and_expirations():
+def check_prematch_email_reminders_and_expirations():
     """
     Reoccuring task to check for email reminders that should be send out
     also check if there are expired unconfirmed_matches
@@ -2240,11 +2240,67 @@ def check_email_reminders_and_expirations():
     from management.models.unconfirmed_matches import UnconfirmedMatch
     all_unclosed_unconfirmed = UnconfirmedMatch.objects.filter(closed=False)
     
+    # unconfirmed matches reminders
     for unclosed in all_unclosed_unconfirmed:
         if unclosed.is_expired(close_if_expired=True):
             continue
         unclosed.is_reminder_due(set_reminder_send=True)
         # TODO: send the email reminder
+        
+@shared_task
+def check_registration_reminders():
+    """
+    Reoccuring task to check if we need to send a registration reminder email to the user
+    we send these emails earliest 3h after registration!
+    
+    They include:
+    - email unverified reminder
+    - user from unfinished reminder 1
+    - user from unfinished reminder 2
+    """
+    from datetime import datetime, time
+    from management.models import User, State
+    from django.db.models import Q
+    from django.utils import timezone
+
+    _3hrs_ago = timezone.now() - timezone.timedelta(hours=3)
+
+    unverified_email_unfinished_userform = User.objects.filter(
+        Q(date_joined__lte=_3hrs_ago),
+        settings__email_settings__email_verification_reminder1=False,
+        state__user_form_state=State.UserFormStateChoices.UNFILLED,
+        state__email_authenticated=False)
+    
+    for user in unverified_email_unfinished_userform:
+        ems = user.settings.email_settings
+        ems.send_email_verification_reminder1(user)
+        
+    _two_days_ago = timezone.now() - timezone.timedelta(days=2)
+    
+    _tree_days_ago = timezone.now() - timezone.timedelta(days=3)
+        
+    verified_email_unifinished_userform_reminder1 = User.objects.filter(
+        Q(date_joined__lte=_two_days_ago),
+        settings__email_settings__user_form_unfinished_reminder1=False,
+        settings__email_settings__user_form_unfinished_reminder2=False,
+        state__user_form_state=State.UserFormStateChoices.UNFILLED,
+        state__email_authenticated=True)
+
+    for user in verified_email_unifinished_userform_reminder1:
+        ems = user.settings.email_settings
+        ems.send_email_verification_reminder1(user)
+
+    verified_email_unifinished_userform_reminder2 = User.objects.filter(
+        Q(date_joined__lte=_tree_days_ago),
+        settings__email_settings__user_form_unfinished_reminder1=True,
+        settings__email_settings__user_form_unfinished_reminder2=False,
+        state__user_form_state=State.UserFormStateChoices.UNFILLED,
+        state__email_authenticated=True)
+
+    for user in verified_email_unifinished_userform_reminder2:
+        ems = user.settings.email_settings
+        ems.send_email_verification_reminder1(user)
+    
 
 @shared_task
 def dispatch_admin_email_notification(subject, message):
