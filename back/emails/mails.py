@@ -94,15 +94,18 @@ class MatchExpiredMailParams:
 @dataclass
 class UnfinishedUserForm1Params:
     first_name: str
+    unsubscribe_url1: str
 
 
 @dataclass
 class UnfinishedUserForm2Params:
     first_name: str
+    unsubscribe_url1: str
 
 @dataclass
 class UnfinishedEmailVerificationParams:
     first_name: str
+    unsubscribe_url1: str
 
 @dataclass
 class RAWTemplateMailParams:
