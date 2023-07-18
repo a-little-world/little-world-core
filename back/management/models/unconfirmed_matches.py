@@ -6,6 +6,7 @@ from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Q
 from uuid import uuid4
+from django.dispatch import receiver
 
 
 def seven_days_from_now():
@@ -21,6 +22,8 @@ class UnconfirmedMatch(models.Model):
     hash = models.UUIDField(
         default=uuid4, editable=False, unique=True)
 
+    # TODO: there are potential side effect here if users decide to change their user type after they recieved a matching suggestion!
+    # Maybe we should later save the users here as volunteer / learner and not perform any lookups on the current profile since it could have changed?
     user1 = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="unconfirmed_match_user1")
 
@@ -30,6 +33,8 @@ class UnconfirmedMatch(models.Model):
     # If closed it's not considered anymore
     closed = models.BooleanField(default=False)
     
+    send_inital_mail = models.BooleanField(default=False)
+    
     reminder_send = models.BooleanField(default=False)
     reminder_due_at = models.DateTimeField(default=three_days_from_now)
 
@@ -37,29 +42,120 @@ class UnconfirmedMatch(models.Model):
 
     expires_at = models.DateTimeField(default=seven_days_from_now)
     
+    expired_mail_send = models.BooleanField(default=False)
+    
     @classmethod
     def get_open_proposals(cls, user, order_by='potential_matching_created_at'):
         proposals = cls.objects.filter(Q(user1=user) | Q(user2=user), closed=False)
         for prop in proposals:
-            prop.is_expired(close_if_expired=True)
+            prop.is_expired(close_if_expired=True, send_mail_if_expired=True)
         return cls.objects.filter(Q(user1=user) | Q(user2=user), closed=False).order_by(order_by)
 
-    def is_expired(self, close_if_expired=True):
+    def is_expired(self, close_if_expired=True, send_mail_if_expired=False):
         expired = self.expires_at < timezone.now()
         if close_if_expired and expired:
             self.closed = True
+            
             self.save()
 
+            if send_mail_if_expired:
+                self.send_expiration_mail()
+
         return expired
+    
+    def get_learner(self):
+        return self.user1 if (self.user1.profile.user_type == Profile.TypeChoices.LEARNER) else self.user2
+    
+    def send_initial_mail(self):
+        
+        if self.send_inital_mail:
+            print("Initial mail, already sent")
+            return
+        from management import controller
+        from emails import mails
+        
+        self.send_inital_mail = True
+        self.save()
+
+        learner = self.get_learner()
+        # send groupmail function automaticly checks if users have unsubscribed!
+        # we still mark email verification reminder 1 as True, since we at least tried to send it, 
+        # never wanna send twice! Not even **try** twice!
+        def get_params(user):
+            return mails.MatchConfirmationMail1Params(
+                first_name=user.profile.first_name,
+            )
+        # send the mail
+        controller.send_group_mail(
+            users=[learner],
+            subject="Match gefunden - jetzt bestätigen",
+            mail_name="confirm_match_mail_1",
+            mail_params_func=get_params,
+            unsubscribe_group=None, # You can not unsubscribe from this!
+            emulated_send=True # TODO Just debug for now
+        )
+    
+    def send_expiration_mail(self):
+        # TODO: there are very rare concurrency issues possible here right?
+        # If this triggers ending a mail twice in a row very quick, could this be sending two mails then?
+        if self.expired_mail_send:
+            print("Expiration mail, already sent")
+            return
+        from management import controller
+        from emails import mails
+        
+        self.expired_mail_send = True
+        self.save()
+
+        learner = self.get_learner()
+        # send groupmail function automaticly checks if users have unsubscribed!
+        # we still mark email verification reminder 1 as True, since we at least tried to send it, 
+        # never wanna send twice! Not even **try** twice!
+        def get_params(user):
+            return mails.MatchExpiredMailParams(
+                first_name=user.profile.first_name,
+            )
+        # send the mail
+        controller.send_group_mail(
+            users=[learner],
+            subject="Dein Match ist abgelaufen - Finde einen neuen Partner",
+            mail_name="confirm_match_expired_mail_1",
+            mail_params_func=get_params,
+            unsubscribe_group=None, # You can not unsubscribe from this!
+            emulated_send=True # TODO Just debug for now
+        )
     
     def get_partner(self, user):
         return self.user1 if self.user2 == user else self.user2
     
-    def is_reminder_due(self, set_reminder_send=True):
+    def is_reminder_due(self, send_reminder=True):
         reminder_due = self.reminder_due_at < timezone.now()
-        if set_reminder_send and reminder_due:
+        if send_reminder and reminder_due and (not self.reminder_send):
             self.reminder_send = True
             self.save()
+
+            from management import controller
+            from emails import mails
+
+            learner = self.get_learner()
+            # send groupmail function automaticly checks if users have unsubscribed!
+            # we still mark email verification reminder 1 as True, since we at least tried to send it, 
+            # never wanna send twice! Not even **try** twice!
+            def get_params(user):
+                return mails.MatchConfirmationMail2Params(
+                    first_name=user.profile.first_name,
+                )
+            # send the mail
+            controller.send_group_mail(
+                users=[learner],
+                subject="Dein match wartet - höchste Zeit zu bestätigen",
+                mail_name="confirm_match_mail_2",
+                mail_params_func=get_params,
+                unsubscribe_group=None, # You can not unsubscribe from this!
+                emulated_send=True # TODO Just debug for now
+            )
+            
+            
 
         return reminder_due
 
@@ -81,6 +177,13 @@ class UnconfirmedMatch(models.Model):
             "avatar_image": other_user.profile.avatar_config if other_user.profile.image_type == Profile.ImageTypeChoice.AVATAR else other_user.profile.image.url,
             "days_until_expiration": str(time_difference.days),
         }
+        
+# We automaticly send the new-match proposal mail when a new proposal is created
+@receiver(models.signals.post_save, sender=UnconfirmedMatch)
+def execute_after_save(sender, instance, created, *args, **kwargs):
+    if created:
+        # Send the new match proposal email
+        instance.send_initial_mail()
 
 
 def get_unconfirmed_matches(user):
