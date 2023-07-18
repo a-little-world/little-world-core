@@ -13,6 +13,7 @@ from django.core.paginator import Paginator
 import json
 from ..models import (
     User,
+    State,
     Profile,
     ProfileSerializer,
     StateSerializer

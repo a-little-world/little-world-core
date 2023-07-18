@@ -237,6 +237,9 @@ class UnfinishedUserForm1Messages:
         'email.email.unfinished-user-form-1.goodbye.goodbye-name',
         'Dein Little World Team')
     use_unsubscribe_footer: bool = True
+    unsubscribe_two_link:bool = False
+    unsubscribe_link1: str = '{unsubscribe_url1}'
+    unsubscribe_link1_category: str = 'finish reminders'
 
 
 @dataclass
@@ -276,6 +279,9 @@ class UnfinishedUserForm2Messages:
         'email.email.unfinished-user-form-2.goodbye.goodbye-name',
         'Dein Little World Team')
     use_unsubscribe_footer: bool = True
+    unsubscribe_two_link:bool = False
+    unsubscribe_link1: str = '{unsubscribe_url1}'
+    unsubscribe_link1_category: str = 'finish reminders'
     
 @dataclass
 class StillInContactMessages:
@@ -358,6 +364,9 @@ class EmailVerificationReminderMessages:
         'email.email-verification-reminder.goodbye.goodbye-name',
         'Dein Little World Team')
     use_unsubscribe_footer: bool = True
+    unsubscribe_two_link:bool = False
+    unsubscribe_link1: str = '{unsubscribe_url1}'
+    unsubscribe_link1_category: str = 'finish reminders'
 
 
 @dataclass

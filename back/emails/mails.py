@@ -94,15 +94,18 @@ class MatchExpiredMailParams:
 @dataclass
 class UnfinishedUserForm1Params:
     first_name: str
+    unsubscribe_url1: str
 
 
 @dataclass
 class UnfinishedUserForm2Params:
     first_name: str
+    unsubscribe_url1: str
 
 @dataclass
 class UnfinishedEmailVerificationParams:
     first_name: str
+    unsubscribe_url1: str
 
 @dataclass
 class RAWTemplateMailParams:
@@ -307,7 +310,8 @@ def send_email(
         mail_params: object,
         attachments=[],
         raise_exception=False,
-        sender=None):
+        sender=None,
+        emultated_send=False):
     """
     Sends any mail we do this within a celery task to avoid runtime errors
     This does not send a messages to all receivers at the same time, 
@@ -354,8 +358,11 @@ def send_email(
             mail.content_subtype = "html"
             for attachment in attachments:
                 mail.attach_file(attachment)
-            mail.send(fail_silently=False)
-            log.sucess = True
+            if not emultated_send:
+                mail.send(fail_silently=False)
+                log.sucess = True
+            else:
+                log.data['emulated_send'] = True
         except Exception as e:
             # Now we mark the email logs as errored
             expt = str(e)

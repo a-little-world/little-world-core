@@ -56,7 +56,8 @@ def confrim_match(request):
     assert unconfirmed_match
 
     # then check if maybe this match is already expired
-    if unconfirmed_match.is_expired(close_if_expired=True):
+    if unconfirmed_match.is_expired(close_if_expired=True, send_mail_if_expired=True):
+        # auto close if expired, do send mail if not send
 
         raise serializers.ValidationError(
             pgettext_lazy("confirm_match.unconfimed_match_expired", "This unconfirmed match is expired"))

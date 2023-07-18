@@ -9,4 +9,9 @@ elif [ "$BUILD_TYPE" = "staging" ]; then
 else
     celery -A back beat --loglevel=info &
 fi
+
+if [ "$BUILD_TYPE" = "deployment" ]; then
+    python3 manage.py migrate --noinput
+fi
+
 uvicorn back.asgi:application --reload --port 8000 --host 0.0.0.0

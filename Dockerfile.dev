@@ -8,6 +8,8 @@ COPY ./requirements.txt ./
 # But if we want `manage.py dbshell` might might need some more stuff:
 # RUN apk add libpq-dev python3-dev
 # RUN apk add postgres
+# Fix: https://github.com/yaml/pyyaml/issues/601
+RUN pip install "Cython<3.0" pyyaml --no-build-isolation
 RUN pip install --no-cache-dir -r requirements.txt
 RUN apk add --no-cache git
 RUN pip install git+https://github.com/jazzband/django-revproxy.git
