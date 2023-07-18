@@ -43,6 +43,16 @@ def im_allive_task(self):
     print("=========================================")
     # return "RESULT" we don't return this as a result otherwise we would just be flooding the database
 
+auto_emails = {
+    'check-match-proposals-expire-and-send-mails': {
+        'task': 'management.tasks.check_prematch_email_reminders_and_expirations',
+        'schedule': 60.0 * 60.0,  # Every hour
+    },
+    'check-registration-reminders': {
+        'task': 'management.tasks.check_registration_reminders',
+        'schedule': 60.0 * 60.0,  # Every hour
+    },
+}
 
 prod_shedules = {
     'new-message-notification': {
@@ -60,14 +70,6 @@ prod_shedules = {
             "regroup_by": "day"
         }
     },
-    'check-match-proposals-expire-and-send-mails': {
-        'task': 'management.tasks.check_prematch_email_reminders_and_expirations',
-        'schedule': 60.0 * 60.0,  # Every hour
-    },
-    'check-registration-reminders': {
-        'task': 'management.tasks.check_registration_reminders',
-        'schedule': 60.0 * 60.0,  # Every hour
-    },
     # 'generate-stats-series-hour-grouped': {
     #    'task': 'management.tasks.create_series',
     #    'schedule': 60.0 * 60.0,
@@ -84,6 +86,9 @@ prod_shedules = {
         'schedule': 60.0 * 60.0,  # Every hour
     }
 }
+
+if settings.IS_STAGE:
+    prod_shedules.update(auto_emails)
 
 """
 All little world periodic tasks 
