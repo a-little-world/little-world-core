@@ -329,7 +329,7 @@ def migrate(args, running=False):
 
 def _build_file_tag(file, tag, build_context_path=".", context_dir="./back"):
     # TODO: sometimes requires --no-cache
-    _cmd = [*c.dbuild, "-f", file, "-t", tag, context_dir]
+    _cmd = [*c.dbuild, "-f", file, "-t", tag, "--no-cache", context_dir]
     print(" ".join(_cmd))
     subprocess.run(_cmd)
 
