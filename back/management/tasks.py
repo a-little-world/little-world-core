@@ -2242,10 +2242,9 @@ def check_prematch_email_reminders_and_expirations():
     
     # unconfirmed matches reminders
     for unclosed in all_unclosed_unconfirmed:
-        if unclosed.is_expired(close_if_expired=True):
+        if unclosed.is_expired(close_if_expired=True, send_mail_if_expired=True):
             continue
-        unclosed.is_reminder_due(set_reminder_send=True)
-        # TODO: send the email reminder
+        unclosed.is_reminder_due(send_reminder=True)
         
 @shared_task
 def check_registration_reminders():
@@ -2296,10 +2295,12 @@ def check_registration_reminders():
         settings__email_settings__user_form_unfinished_reminder2=False,
         state__user_form_state=State.UserFormStateChoices.UNFILLED,
         state__email_authenticated=True)
+    
+    # TODO: can there be any order issue here? something with users appearing in a second filter list before they should?
 
     for user in verified_email_unifinished_userform_reminder2:
         ems = user.settings.email_settings
-        ems.send_email_verification_reminder1(user)
+        ems.send_email_verification_reminder2(user)
     
 
 @shared_task
