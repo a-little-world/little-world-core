@@ -55,19 +55,4 @@ class Migration(migrations.Migration):
             name='extra_user_permissions',
             field=multiselectfield.db.fields.MultiSelectField(blank=True, choices=[('view-api-schema', 'Is allowed to view API schemas'), ('view-database-schema', 'Is allowed to view database schemas'), ('use-autologin-api', 'Is allowed to use the auto login api (with a specific token)'), ('view-docs', 'Is allowed to view the docs'), ('view-email-templates', 'Is allowed to view the email templates'), ('view-stats', 'Is allowed to view the stats')], max_length=1000, null=True),
         ),
-        migrations.CreateModel(
-            name='Match',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('active', models.BooleanField(default=True)),
-                ('confirmed', models.BooleanField(default=False)),
-                ('uuid', models.UUIDField(default=uuid.uuid4, editable=False, unique=True)),
-                ('support_matching', models.BooleanField(default=False)),
-                ('confirmed_by', models.ManyToManyField(related_name='users_confirmed_match', to=settings.AUTH_USER_MODEL)),
-                ('user1', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='match_user1', to=settings.AUTH_USER_MODEL)),
-                ('user2', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='match_user2', to=settings.AUTH_USER_MODEL)),
-            ],
-        ),
     ]
