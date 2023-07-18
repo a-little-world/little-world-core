@@ -10,7 +10,7 @@
 </body>
 {% render_bundle 'staticfiles' 'js' 'admin_panel_frontend' %}
 <script>
-  const data = JSON.parse('{{ stats_data | escapejs }}');
+  const data = JSON.parse('{{ data | escapejs }}');
   renderAdminPanelV2(data)
 </script>
 <div style="display: none;">{{csrf_token}}</div>
