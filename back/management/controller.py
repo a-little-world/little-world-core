@@ -288,25 +288,13 @@ def create_user_matching_proposal(
     TODO or is it the learner im still not sure on this?
     """
     u1, u2 = list(users)
-    UnconfirmedMatch.objects.create(
+    proposal = UnconfirmedMatch.objects.create(
         user1=u1,
-        user2=u2
+        user2=u2,
+        # When this is faulse the create signal will not send an email!
+        send_inital_mail=send_confirm_match_email
     )
-
-    if send_confirm_match_email:
-        # send the confirm mail to the learner ONLY!
-        learner = u1 if u1.profile.user_type == Profile.TypeChoices.LEARNER else u2
-        volunteer = u1 if u1.profile.user_type == Profile.TypeChoices.VOLUNTEER else u2
-        mails.send_email(
-            recivers=[learner.email],
-            subject=pgettext_lazy(
-                "mails-subject.pre-match-confirm-1", "Match gefunden - jetxt bestätigen"),
-            mail_data=mails.get_mail_data_by_name("confirm_match_mail_1"),
-            mail_params=mails.MatchConfirmationMail1Params(
-                first_name=learner.profile.first_name,
-                match_first_name=volunteer.profile.first_name,
-            )
-        )
+    return proposal
 
 def unmatch_users(
     users: set,
