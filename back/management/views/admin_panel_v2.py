@@ -4,8 +4,11 @@ from rest_framework.permissions import IsAdminUser
 from django.core.paginator import Paginator
 from django.shortcuts import render
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from management import models
+from enum import Enum
+import json
 from ..models import (
     User,
     State,
@@ -13,6 +16,7 @@ from ..models import (
     StateSerializer
 )
 from typing import OrderedDict
+from django.core.serializers.json import DjangoJSONEncoder
 
 
 def serialize_matches(matches, user):
@@ -114,6 +118,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
             "unconfirmed": unconfirmed_matches,
             "support": support_matches
         }
+        return representation
 
 
 class AdminUserViewSet(viewsets.ModelViewSet):
@@ -121,40 +126,52 @@ class AdminUserViewSet(viewsets.ModelViewSet):
     serializer_class = AdminUserSerializer 
     
 def make_user_viewset(_queryset, _serializer_class=AdminUserSerializer):
-    class __EmulatedUserViewset(viewsets.ModelViewSet):
+    class __EmulatedUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet):
         queryset = _queryset
         serializer_class = _serializer_class
     return __EmulatedUserViewset
     
-class QuerySetEnum:
-    all = ("all", "All users ordered by date joined!")
-    searching = ("searching", "Users who are searching for a match! Exlude users that have not finished the user form or verified their email!")
-    in_registration = ("in_registration", "Users who have not finished the user form or verified their email!")
-    unfinished_registration = ("unfinished_registration", "Users who have not finished the user form, but verfied their email!")
+class QuerySetEnum(Enum):
+    all = "All users ordered by date joined!"
+    searching = "Users who are searching for a match! Exlude users that have not finished the user form or verified their email!"
+    in_registration = "Users who have not finished the user form or verified their email!"
+    unfinished_registration = "Users who have not finished the user form, but verfied their email!"
+    
+    def as_dict():
+        return {i.name: i.value for i in QuerySetEnum}
     
 QUERY_SETS = {
-    QuerySetEnum.all[0]: User.objects.all().order_by('-date_joined'),
-    QuerySetEnum.searching[0]: User.objects.filter(
-        state__searching=State.MatchingStateChoices.SEARCHING
+    QuerySetEnum.all.name: User.objects.all().order_by('-date_joined'),
+    QuerySetEnum.searching.name: User.objects.filter(
+        state__matching_state=State.MatchingStateChoices.SEARCHING
     ).order_by('-date_joined'),
 }
 
-@user_passes_test(lambda u: u.state.has_extra_user_permission("view-stats") or u.is_staff)
-def admin_panel_v2(request, query_set=QuerySetEnum.all[0], page=1, items_per_page=40):
+def get_staff_queryset(query_set, request):
+    # TODO: this should in the future be used to restrict the access of specific user groups to specific staff users
+    # Should be done by checking a condition and then filtering the queryset additionally...
+    return QUERY_SETS[query_set]
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_panel_v2(request, query_set=QuerySetEnum.all.name):
 
     if query_set not in QUERY_SETS:
         return Response(status=404)
     
-    user_viewset = make_user_viewset(QUERY_SETS[query_set])
+    page = request.query_params.get('page', 1)
+    items_per_page = request.query_params.get('items_per_page', 40)
+    
+    user_viewset = make_user_viewset(get_staff_queryset(query_set, request))
     
     user_lists = {}
     user_lists[query_set] = user_viewset.emulate(request).list()
     
     if not ("all" in user_lists):
-        all_viewset = make_user_viewset(QUERY_SETS["all"])
+        all_viewset = make_user_viewset(get_staff_queryset("all", request))
         user_lists["all"] = all_viewset.emulate(request).list()
 
-    return render(request, "admin_pannel_v2_frontend.html", {
-        "query_sets": QuerySetEnum.__dict__(),
+    return render(request, "admin_pannel_v2_frontend.html", { "data" : json.dumps({
+        "query_sets": QuerySetEnum.as_dict(),
         "user_lists": user_lists,
-    })
+    },cls=DjangoJSONEncoder, default=lambda o: str(o))})
