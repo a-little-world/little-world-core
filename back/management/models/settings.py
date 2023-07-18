@@ -48,6 +48,7 @@ class EmailSettings(models.Model):
             mail_name="unfinished_user_form_1",
             mail_params_func=get_params,
             unsubscribe_group=UnsubscibeOptions.finish_reminders,
+            emulated_send=True # TODO Just debug for now
         )
         
         self.save()
@@ -73,6 +74,7 @@ class EmailSettings(models.Model):
             mail_name="unfinished_user_form_2",
             mail_params_func=get_params,
             unsubscribe_group=UnsubscibeOptions.finish_reminders,
+            emulated_send=True # TODO Just debug for now
         )
         
         self.save()
@@ -98,6 +100,7 @@ class EmailSettings(models.Model):
             mail_name="email_unverified",
             mail_params_func=get_params,
             unsubscribe_group=UnsubscibeOptions.finish_reminders,
+            emulated_send=True # TODO Just debug for now
         )
         
         self.save()
