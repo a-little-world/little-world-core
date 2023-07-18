@@ -311,7 +311,7 @@ def send_email(
         attachments=[],
         raise_exception=False,
         sender=None,
-        emultated_send=False):
+        emulated_send=False):
     """
     Sends any mail we do this within a celery task to avoid runtime errors
     This does not send a messages to all receivers at the same time, 
@@ -358,7 +358,7 @@ def send_email(
             mail.content_subtype = "html"
             for attachment in attachments:
                 mail.attach_file(attachment)
-            if not emultated_send:
+            if not emulated_send:
                 mail.send(fail_silently=False)
                 log.sucess = True
             else:
