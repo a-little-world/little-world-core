@@ -81,9 +81,11 @@ class UnconfirmedMatch(models.Model):
         # send groupmail function automaticly checks if users have unsubscribed!
         # we still mark email verification reminder 1 as True, since we at least tried to send it, 
         # never wanna send twice! Not even **try** twice!
+        other = self.get_partner(learner)
         def get_params(user):
             return mails.MatchConfirmationMail1Params(
-                first_name=user.profile.first_name,
+                match_first_name=other.profile.first_name,
+                first_name=user.profile.first_name
             )
         # send the mail
         controller.send_group_mail(
@@ -111,9 +113,11 @@ class UnconfirmedMatch(models.Model):
         # send groupmail function automaticly checks if users have unsubscribed!
         # we still mark email verification reminder 1 as True, since we at least tried to send it, 
         # never wanna send twice! Not even **try** twice!
+        other = self.get_partner(learner)
         def get_params(user):
             return mails.MatchExpiredMailParams(
-                first_name=user.profile.first_name,
+                match_first_name=other.profile.first_name,
+                first_name=user.profile.first_name
             )
         # send the mail
         controller.send_group_mail(
@@ -141,9 +145,11 @@ class UnconfirmedMatch(models.Model):
             # send groupmail function automaticly checks if users have unsubscribed!
             # we still mark email verification reminder 1 as True, since we at least tried to send it, 
             # never wanna send twice! Not even **try** twice!
+            other = self.get_partner(learner)
             def get_params(user):
                 return mails.MatchConfirmationMail2Params(
-                    first_name=user.profile.first_name,
+                    match_first_name=other.profile.first_name,
+                    first_name=user.profile.first_name
                 )
             # send the mail
             controller.send_group_mail(
