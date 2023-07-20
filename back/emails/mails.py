@@ -72,6 +72,8 @@ class GeneralSurveryMailParams:
 class MatchConfirmationMail1Params:
     first_name: str
     match_first_name: str
+    team_phone: str = '015234777471'
+    team_email: str = 'support@little-world.com'
     
     
 @dataclass
@@ -85,22 +87,30 @@ class InterviewInvitationParams:
 class MatchConfirmationMail2Params:
     first_name: str
     match_first_name: str
+    team_phone: str = '015234777471'
+    team_email: str = 'support@little-world.com'
 
 @dataclass
 class MatchExpiredMailParams:
     first_name: str
     match_first_name: str
+    team_phone: str = '015234777471'
+    team_email: str = 'support@little-world.com'
 
 @dataclass
 class UnfinishedUserForm1Params:
     first_name: str
     unsubscribe_url1: str
+    team_phone: str = '015234777471'
+    team_email: str = 'support@little-world.com'
 
 
 @dataclass
 class UnfinishedUserForm2Params:
     first_name: str
     unsubscribe_url1: str
+    team_phone: str = '015234777471'
+    team_email: str = 'support@little-world.com'
 
 @dataclass
 class UnfinishedEmailVerificationParams:
