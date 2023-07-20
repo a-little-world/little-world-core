@@ -181,8 +181,76 @@ TEMPLATES = [
     },
 ]
 
+USE_MINIO = os.environ.get("DJ_USE_MINIO", "0").lower() in ('true', '1', 't')
 
-if not DOCS_BUILD and (IS_PROD or IS_STAGE):
+if False:
+    # This is an anternate minio implementation using djnago-minio-storage
+    STATIC_URL = '/static/'
+    STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+    COLLECTFAST_ENABLED = False
+
+    DEFAULT_FILE_STORAGE = "minio_storage.storage.MinioMediaStorage"
+    STATICFILES_STORAGE = "minio_storage.storage.MinioStaticStorage"
+
+    MINIO_ACCESS_KEY = os.getenv("DJ_MINIO_ROOT_USER")
+    MINIO_SECRET_KEY = os.getenv("DJ_MINIO_ROOT_PASSWORD")
+
+    MINIO_STORAGE_ENDPOINT = 'files.t1m.me'
+    MINIO_STORAGE_ACCESS_KEY = MINIO_ACCESS_KEY
+    MINIO_STORAGE_SECRET_KEY = MINIO_SECRET_KEY
+    MINIO_STORAGE_USE_HTTPS = True
+
+    #MINIO_STORAGE_MEDIA_OBJECT_METADATA = {"Cache-Control": "max-age=1000"}
+    #MINIO_STORAGE_MEDIA_BUCKET_NAME = 'test'
+    #MINIO_STORAGE_MEDIA_BACKUP_FORMAT = '%c/'
+
+    #MINIO_STORAGE_AUTO_CREATE_MEDIA_BUCKET = True
+    MINIO_STORAGE_STATIC_BUCKET_NAME = 'test'
+    #MINIO_STORAGE_AUTO_CREATE_STATIC_BUCKET = True
+
+elif USE_MINIO:
+    print("USING MINIO")
+    
+    COLLECTFAST_ENABLED = False
+    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    STATICFILES_STORAGE = 'storages.backends.s3boto3.S3StaticStorage'
+
+    #COLLECTFAST_STRATEGY = "collectfast.strategies.boto3.Boto3Strategy"
+
+    MINIO_ACCESS_KEY = os.getenv("DJ_MINIO_ROOT_USER")
+    MINIO_SECRET_KEY = os.getenv("DJ_MINIO_ROOT_PASSWORD")
+    MINIO_BUCKET_NAME = os.getenv("DJ_MINIO_BUCKET_NAME")
+    MINIO_ENDPOINT = os.getenv("DJ_MINIO_ENDPOINT")
+
+    AWS_ACCESS_KEY_ID = MINIO_ACCESS_KEY
+    AWS_SECRET_ACCESS_KEY = MINIO_SECRET_KEY
+    AWS_STORAGE_BUCKET_NAME = MINIO_BUCKET_NAME
+    AWS_S3_ENDPOINT_URL = MINIO_ENDPOINT
+    AWS_DEFAULT_ACL = None
+    AWS_QUERYSTRING_AUTH = True
+    AWS_S3_FILE_OVERWRITE = True
+
+    #AWS_LOCATION = f'static'
+    #AWS_DEFAULT_ACL = 'public-read'
+
+    STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+    AWS_STATIC_ROOT = f'static'
+    STATIC_URL = '{}/{}/'.format(AWS_S3_ENDPOINT_URL, AWS_STORAGE_BUCKET_NAME)
+
+    CACHES = {  # This is so wee can use multithreaded statics uploads!
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'unique-snowflake',
+        },
+        'collectfast': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': 'redis://host.docker.internal:6379',
+        }
+    }
+    COLLECTFAST_CACHE = "collectfast"
+    COLLECTFAST_THREADS = 20
+
+elif not DOCS_BUILD and (IS_PROD or IS_STAGE):
     print("TRYING to push statics to bucket")
     # In production & staging we use S3 as file storage!
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
@@ -207,6 +275,7 @@ if not DOCS_BUILD and (IS_PROD or IS_STAGE):
     ]
 
     AWS_STATIC_ROOT = f'static'
+    #STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
     STATIC_URL = '{}/{}/'.format(AWS_S3_CUSTOM_DOMAIN, AWS_STATIC_ROOT)
     print("AWS URL", STATIC_URL)
 
@@ -512,8 +581,8 @@ def print_tree(root_path, max_depth=3, indent=0):
             print_tree(os.path.join(root, dir), max_depth, indent + 2)
 
 if DEBUG:
-    info = '\n '.join([f'{n}: {globals()[n]}' for n in [
-        'BASE_DIR', 'ALLOWED_HOSTS', 'CELERY_TIMEZONE', 'FRONTENDS', 'DATABASES']])
+    info = '\n '.join([f'{n}: {globals()[n] if n in globals() else "NULL"}' for n in [
+        'BASE_DIR', 'ALLOWED_HOSTS', 'CELERY_TIMEZONE', 'FRONTENDS', 'DATABASES',"MINIO_SECRET_KEY", "MINIO_BUCKET_NAME", "MINIO_ENDPOINT", "MINIO_ACCESS_KEY" ]])
     print(f"configured django settings:\n {info}")
     print("PYTHONPATH: ", os.environ.get('PYTHONPATH', 'not set'))
     #print("SITEPACKAGE TREE", print_tree('/usr/lib/'))
