@@ -292,7 +292,7 @@ def create_user_matching_proposal(
         user1=u1,
         user2=u2,
         # When this is faulse the create signal will not send an email!
-        send_inital_mail=send_confirm_match_email
+        send_inital_mail=(not send_confirm_match_email)
     )
     return proposal
 
@@ -572,6 +572,7 @@ def send_email(
             raise_exception=True,
             emulated_send=emulated_send,
         )
+        report.send = (not emulated_send)
     except Exception as e:
         print("Error sending email", str(e), mail_name)
         report.send = False
