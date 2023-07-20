@@ -36,3 +36,4 @@ django-hijack # Can be used by admin to login as another user
 single-beat
 googletrans==3.1.0a0
 djangorestframework-dataclasses
+# django-minio-storage
