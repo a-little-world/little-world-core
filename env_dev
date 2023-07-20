@@ -10,6 +10,13 @@ DJ_CELERY_TIMEZONE=Australia/Tasmania
 DJ_MANAGEMENT_USER_MAIL=admin@user.com
 DJ_MANAGEMENT_PW=Admin123!
 DJ_ADMIN_OPEN_KEYPHRASE=opensesame
+# for static storages using minio: ( disabled by default )
+DJ_USE_MINIO=0
+DJ_MINIO_ROOT_USER=
+DJ_MINIO_ROOT_PASSWORD=
+DJ_MINIO_BUCKET_NAME=
+DJ_MINIO_MEDIA_BUCKET_NAME=
+DJ_MINIO_ENDPOINT=
 # DJ_TWILIO_* put action twilio credentails
 DJ_TWILIO_ACCOUNT_SID=AccSidNotProvidedInDev
 DJ_TWILIO_API_KEY_SID=TwApiKeyNotIncludedDev
