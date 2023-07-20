@@ -573,9 +573,9 @@ def send_email(
             emulated_send=emulated_send,
         )
     except Exception as e:
-        print("Error sending email", e)
+        print("Error sending email", str(e), mail_name)
         report.send = False
-        report.out += f"Error sending email: {e}"
+        report.out += f"Error sending email: {e}" + str(e)
         
     return report
         
