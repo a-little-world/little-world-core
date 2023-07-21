@@ -495,7 +495,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     }
-} if IS_DEV else {
+} if (IS_DEV and (not 'DJ_DATABASE_ENGINE' in os.environ )) else {
     'default': {
         'ENGINE': 'django.db.backends.{}'.format(
             os.environ['DJ_DATABASE_ENGINE']
