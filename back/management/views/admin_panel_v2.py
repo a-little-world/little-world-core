@@ -17,6 +17,7 @@ from ..models import (
     State,
     ProfileSerializer,
     StateSerializer,
+    ProposalProfileSerializer
 )
 from emails.models import EmailLog, EmailLogSerializer, AdvancedEmailLogSerializer
 from typing import OrderedDict
@@ -24,6 +25,20 @@ from django.core.serializers.json import DjangoJSONEncoder
 from rest_framework.utils import serializer_helpers
 from django.db.models import Q
 
+def serialize_proposed_matches(matching_proposals, user):
+    serialized = []
+    for proposal in matching_proposals:
+        
+        partner = proposal.get_partner(user)
+        serialized.append({
+            "id": str(proposal.hash), # TODO: rename
+            "partner": {
+                "id": str(partner.hash),
+                **ProposalProfileSerializer(partner.profile).data
+            } # TODO: this want some additional fields
+        })
+        
+    return serialized
 
 def serialize_matches(matches, user):
     serialized = []
@@ -121,6 +136,9 @@ def update_representation(representation, instance):
 
     support_matches = get_paginated(models.Match.get_support_matches(user), items_per_page, 1)
     support_matches["items"] = serialize_matches(support_matches["items"], user)
+    
+    proposed_matches = get_paginated(models.UnconfirmedMatch.get_open_proposals(user), items_per_page, 1)
+    proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
     
     representation['matches'] = {
         "confirmed": confirmed_matches,
