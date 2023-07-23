@@ -22,6 +22,7 @@ from emails.models import EmailLog, EmailLogSerializer, AdvancedEmailLogSerializ
 from typing import OrderedDict
 from django.core.serializers.json import DjangoJSONEncoder
 from rest_framework.utils import serializer_helpers
+from django.db.models import Q
 
 
 def serialize_matches(matches, user):
@@ -153,21 +154,28 @@ class AdvancedAdminUserSerializer(serializers.ModelSerializer):
         # And the chat with that user
         
         def get_messages(match):
-            print("TBS", match, match['partner']['id'])
             partner = controller.get_user_by_pk(match['partner']['id'])
-            if not DialogsModel.dialog_exists(partner, instance):
+            print("TBS", partner, instance)
+            try:
+                _msgs = MessageModel.objects.filter(
+                    Q(sender=partner, recipient=instance) | Q(sender=instance, recipient=partner)
+                )
+                messages = get_paginated(_msgs, 10, 1)
+                print("MSGS", messages, _msgs)
+            except Exception as e:
+                print("ERR retrieving messages" , repr(e))
+                # TODO: handle better
                 return None
-            return get_paginated(MessageModel.get_messages_for_dialog(partner, instance), 10, 1)
+            if not DialogsModel.get_dialog_for_user_as_object(partner, instance).exists():
+                messages["no_dialog"] = True # prop means it has been deleted
+            return messages
         
         confirmed = representation['matches']['confirmed']['items']
         support = representation['matches']['support']['items']
+        unconfirmed = representation['matches']['unconfirmed']['items']
         
-        # No dialogs exists with unconfirmed matches!
-        # unconfirmed = representation['matches']['unconfirmed']['items']
         messages = {}
-        for match in [*confirmed, *support]:
-            # It can happen that a dialog was aready deleted it this was a past match
-            # TODO: this somethimes causes an error in prod, just not loading the messages for that chat should be ok.
+        for match in [*confirmed, *support, *unconfirmed]:
             _msg = get_messages(match)
             if _msg is None:
                 continue
@@ -210,16 +218,57 @@ class QuerySetEnum(Enum):
     all = "All users ordered by date joined!"
     searching = "Users who are searching for a match! Exlude users that have not finished the user form or verified their email!"
     in_registration = "Users who have not finished the user form or verified their email!"
-    unfinished_registration = "Users who have not finished the user form, but verfied their email!"
+    active_within_3weeks = "Users who have been active within the last 3 weeks!"
+    highquality_matching = "Users who have at least one matching with 20+ Messages"
     
     def as_dict():
         return {i.name: i.value for i in QuerySetEnum}
     
+def three_weeks_ago():
+    from datetime import datetime, timedelta
+    return datetime.now() - timedelta(weeks=3)
+
+def get_quality_match_querry_set():
+    
+    from django.db.models import Subquery, OuterRef, Count
+    from management.models import Match
+
+    # Create a subquery object to annotate the match with msg_count
+    sq = MessageModel.objects.filter(
+        Q(sender=OuterRef('user1'), recipient=OuterRef('user2')) | 
+        Q(sender=OuterRef('user2'), recipient=OuterRef('user1'))
+    ).values('sender')
+
+    # Annotate the match with the count of messages
+    matches_with_msg_count = Match.objects.filter(active=True).annotate(
+        msg_count=Subquery(
+            sq.annotate(cnt=Count('id')).values('cnt')[:1]
+        )
+    )
+
+    # Get the matches where msg_count >= 20
+    matches_with_enough_msgs = matches_with_msg_count.filter(msg_count__gte=20)
+    # Query Users based on the matches_with_enough_msgs queryset
+    filtered_users = User.objects.filter(
+        Q(match_user1__in=matches_with_enough_msgs) | 
+        Q(match_user2__in=matches_with_enough_msgs)
+    ).distinct().order_by('-date_joined')
+    return filtered_users
+
+    
 QUERY_SETS = {
     QuerySetEnum.all.name: User.objects.all().order_by('-date_joined'),
     QuerySetEnum.searching.name: User.objects.filter(
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
         state__matching_state=State.MatchingStateChoices.SEARCHING
     ).order_by('-date_joined'),
+    QuerySetEnum.in_registration.name: User.objects.filter(
+        Q(state__user_form_state=State.UserFormStateChoices.UNFILLED) | Q(state__email_authenticated=False)).order_by('-date_joined'),
+    QuerySetEnum.active_within_3weeks.name: User.objects.filter(
+        last_login__gte=three_weeks_ago()).order_by('-date_joined'),
+    QuerySetEnum.highquality_matching.name: get_quality_match_querry_set()
+    
 }
 
 def get_staff_queryset(query_set, request):
@@ -231,15 +280,32 @@ root_user_viewset = make_user_viewset(QUERY_SETS[QuerySetEnum.all.name], _serial
     'get': 'retrieve',
 })
 
+
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
-def admin_panel_v2(request, query_set=QuerySetEnum.all.name):
+def advanced_user_listing(request, list):
 
-    if query_set not in QUERY_SETS:
-        return Response(status=404)
-    
     page = request.query_params.get('page', 1)
     items_per_page = request.query_params.get('items_per_page', 40)
+
+    user_viewset = make_user_viewset(get_staff_queryset(list, request), items_per_page=items_per_page)
+
+    user_lists = {}
+    user_lists[list] = user_viewset.emulate(request).list()
+
+    return Response({
+        "query_sets": QuerySetEnum.as_dict(),
+        "user_lists": user_lists,
+    })
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def admin_panel_v2(request):
+
+    page = request.query_params.get('page', 1)
+    items_per_page = request.query_params.get('items_per_page', 40)
+    
+    query_set = request.query_params.get('list', QuerySetEnum.all.name)
     
     user_viewset = make_user_viewset(get_staff_queryset(query_set, request), items_per_page=items_per_page)
     
