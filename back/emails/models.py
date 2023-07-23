@@ -32,6 +32,7 @@ class AdvancedEmailLogSerializer(serializers.ModelSerializer):
         
     def to_representation(self, instance):
         from management.models import MinimalProfileSerializer
+        from emails.mails import get_mail_data_by_name, encode_mail_params
 
         representation =  super().to_representation(instance)
         
@@ -49,6 +50,15 @@ class AdvancedEmailLogSerializer(serializers.ModelSerializer):
             'email': instance.receiver.email,
             'profile': MinimalProfileSerializer(instance.receiver.profile).data
         }
+
+        email_params = instance.data["params"]
+        template_name = instance.template
+        print("Template: " + str(template_name), email_params)
+        mail_meta = get_mail_data_by_name(template_name)
+        encoded_mail_data = encode_mail_params(email_params)
+        
+        url = f"/emails/{template_name}/{encoded_mail_data}"
+        representation['retrieve'] = url
 
         return representation
 
