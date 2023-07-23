@@ -13,7 +13,7 @@ import json
 from datetime import date, timedelta
 from django.core.management import call_command
 
-user = controller.get_user_by_email("albakermohamad17@gmail.com")
+user = controller.get_user_by_email("benjamin.tim@gmx.de")
 controller.extract_user_activity_info(user)
 
 ### mission: find our most active volunteers
@@ -28,9 +28,9 @@ i = 0
 active_users_map = {}
 
 current_time = timezone.now()
-LOGIN_WITHIN_DAYS = 220
+LOGIN_WITHIN_DAYS = 400
 
-MIN_TOTAL_MSG = 5
+MIN_TOTAL_MSG = 2
 
 collected = 0
 

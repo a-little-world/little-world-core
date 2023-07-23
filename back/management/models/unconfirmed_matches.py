@@ -84,8 +84,8 @@ class UnconfirmedMatch(models.Model):
         other = self.get_partner(learner)
         def get_params(user):
             return mails.MatchConfirmationMail1Params(
+                first_name=user.profile.first_name,
                 match_first_name=other.profile.first_name,
-                first_name=user.profile.first_name
             )
         # send the mail
         controller.send_group_mail(

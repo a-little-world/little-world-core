@@ -6,17 +6,22 @@ from django.shortcuts import render
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
+from chat.django_private_chat2.models import MessageModel, DialogsModel
+from chat.django_private_chat2.serializers import serialize_message_model
 from management import models
+from management import controller
 from enum import Enum
 import json
 from ..models import (
     User,
     State,
     ProfileSerializer,
-    StateSerializer
+    StateSerializer,
 )
+from emails.models import EmailLog, EmailLogSerializer, AdvancedEmailLogSerializer
 from typing import OrderedDict
 from django.core.serializers.json import DjangoJSONEncoder
+from rest_framework.utils import serializer_helpers
 
 
 def serialize_matches(matches, user):
@@ -46,12 +51,13 @@ def get_paginated(query_set, items_per_page, page):
 ADMIN_USER_MATCH_ITEMS = 5
 
 class AugmentedPagination(PageNumberPagination):
-    page_size = 40
-    max_page_size = 40
+    page_size = 10
+    max_page_size = 10
     
     def get_paginated_response(self, data):
         return Response(OrderedDict([
             ('count', self.page.paginator.count),
+            ('page' , self.page.number),
             ('next', self.get_next_link()),
             ('previous', self.get_previous_link()),
             ('results', data), # The  following are extras added by me:
@@ -88,47 +94,112 @@ class AdminViewSetExtensionMixin:
     def get_permissions(self):
         permission_classes = [IsAdminUser]
         return [permission() for permission in permission_classes]
+    
+    def get_object(self):
+        if isinstance(self.kwargs["pk"], int):
+            return super().get_object()
+        elif self.kwargs["pk"].isnumeric():
+            self.kwargs["pk"] = int(self.kwargs["pk"])
+            # assume uuid
+            return super().get_object()
+        else:
+            return super().get_queryset().get(hash=self.kwargs["pk"])
+        
+def update_representation(representation, instance):
+    representation['profile'] = ProfileSerializer(instance.profile).data
+    representation['state'] = StateSerializer(instance.state).data
+    
+    user = instance
+    items_per_page = ADMIN_USER_MATCH_ITEMS
+
+    confirmed_matches = get_paginated(models.Match.get_confirmed_matches(user), items_per_page, 1)
+    confirmed_matches["items"] = serialize_matches(confirmed_matches["items"], user)
+
+    unconfirmed_matches = get_paginated(models.Match.get_unconfirmed_matches(user), items_per_page, 1)
+    unconfirmed_matches["items"] = serialize_matches(unconfirmed_matches["items"], user)
+
+    support_matches = get_paginated(models.Match.get_support_matches(user), items_per_page, 1)
+    support_matches["items"] = serialize_matches(support_matches["items"], user)
+    
+    representation['matches'] = {
+        "confirmed": confirmed_matches,
+        "unconfirmed": unconfirmed_matches,
+        "support": support_matches
+    }
+    return representation
 
 class AdminUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['hash', 'email', 'date_joined', 'last_login']
+        fields = ['hash', 'id', 'email', 'date_joined', 'last_login']
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         
-        representation['profile'] = ProfileSerializer(instance.profile).data
-        representation['state'] = StateSerializer(instance.state).data
+        return update_representation(representation, instance)
+    
+class AdvancedAdminUserSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = User
+        fields = ['hash', 'id', 'email', 'date_joined', 'last_login']
+    
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation = update_representation(representation, instance)
         
-        user = instance
-        items_per_page = ADMIN_USER_MATCH_ITEMS
-
-        confirmed_matches = get_paginated(models.Match.get_confirmed_matches(user), items_per_page, 1)
-        confirmed_matches["items"] = serialize_matches(confirmed_matches["items"], user)
-
-        unconfirmed_matches = get_paginated(models.Match.get_unconfirmed_matches(user), items_per_page, 1)
-        unconfirmed_matches["items"] = serialize_matches(unconfirmed_matches["items"], user)
-
-        support_matches = get_paginated(models.Match.get_support_matches(user), items_per_page, 1)
-        support_matches["items"] = serialize_matches(support_matches["items"], user)
+        # Now also add the matches messages
+        # And the chat with that user
         
-        representation['matches'] = {
-            "confirmed": confirmed_matches,
-            "unconfirmed": unconfirmed_matches,
-            "support": support_matches
-        }
+        def get_messages(match):
+            print("TBS", match, match['partner']['id'])
+            partner = controller.get_user_by_pk(match['partner']['id'])
+            assert DialogsModel.dialog_exists(partner, instance)
+            return get_paginated(MessageModel.get_messages_for_dialog(partner, instance), 10, 1)
+        
+        confirmed = representation['matches']['confirmed']['items']
+        support = representation['matches']['support']['items']
+        
+        # No dialogs exists with unconfirmed matches!
+        # unconfirmed = representation['matches']['unconfirmed']['items']
+        messages = {}
+        for match in [*confirmed, *support]:
+
+            _msg = get_messages(match)
+            messages[match['id']] = _msg
+            messages[match['id']]["match"] = {
+                "match_id": match['id'],
+                "profile": match['partner']
+            }
+            messages[match['id']]["items"] = [serialize_message_model(item, instance.pk) for item in _msg["items"]]
+            
+        representation['messages'] = messages
+
+        # Also get the email logs
+        email_logs = get_paginated(EmailLog.objects.filter(receiver=instance), 10, 1)
+        email_logs["items"] = AdvancedEmailLogSerializer(email_logs["items"], many=True).data
+        
+        representation['email_logs'] = email_logs
+
         return representation
+            
 
 
 class AdminUserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all().order_by('-date_joined')
     serializer_class = AdminUserSerializer 
     
-def make_user_viewset(_queryset, _serializer_class=AdminUserSerializer):
+def make_user_viewset(_queryset, _serializer_class=AdminUserSerializer, items_per_page=ADMIN_USER_MATCH_ITEMS):
+
+    class Pagination(AugmentedPagination):
+        page_size = items_per_page
+        max_page_size = items_per_page
+
     class __EmulatedUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet):
         queryset = _queryset
         serializer_class = _serializer_class
+        pagination_class = Pagination
     return __EmulatedUserViewset
     
 class QuerySetEnum(Enum):
@@ -152,6 +223,10 @@ def get_staff_queryset(query_set, request):
     # Should be done by checking a condition and then filtering the queryset additionally...
     return QUERY_SETS[query_set]
 
+root_user_viewset = make_user_viewset(QUERY_SETS[QuerySetEnum.all.name], _serializer_class=AdvancedAdminUserSerializer).as_view({
+    'get': 'retrieve',
+})
+
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
 def admin_panel_v2(request, query_set=QuerySetEnum.all.name):
@@ -162,14 +237,15 @@ def admin_panel_v2(request, query_set=QuerySetEnum.all.name):
     page = request.query_params.get('page', 1)
     items_per_page = request.query_params.get('items_per_page', 40)
     
-    user_viewset = make_user_viewset(get_staff_queryset(query_set, request))
+    user_viewset = make_user_viewset(get_staff_queryset(query_set, request), items_per_page=items_per_page)
     
     user_lists = {}
     user_lists[query_set] = user_viewset.emulate(request).list()
     
     if not ("all" in user_lists):
-        all_viewset = make_user_viewset(get_staff_queryset("all", request))
+        all_viewset = make_user_viewset(get_staff_queryset("all", request), items_per_page=items_per_page)
         user_lists["all"] = all_viewset.emulate(request).list()
+        
 
     return render(request, "admin_pannel_v2_frontend.html", { "data" : json.dumps({
         "query_sets": QuerySetEnum.as_dict(),

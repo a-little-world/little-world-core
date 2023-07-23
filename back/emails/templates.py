@@ -398,8 +398,8 @@ class ConfirmMatchMail1Texts:
         '')
     footer_text: str = pgettext_lazy(
         'email.confirm-match-1.footer-text',
-        'Dort kannst du auch den Gesprächsvorschlag mit MATCH_NAME annehmen. \n' +
-        'Du hast Fragen? Wir sind für dich da! Ruf an unter {team_phone} oder schreib uns unter {team_email}. Wir helfen dir gerne')
+        'Dort kannst du auch den Gesprächsvorschlag mit {match_first_name} annehmen. \n' +
+        'Du hast Fragen? Wir sind für dich da! Ruf an unter 015234777471 oder schreib uns unter support@little-world.com. Wir helfen dir gerne')
     goodbye: str = pgettext_lazy(
         'email.confirm-match-1.goodbye',
         'Beste Grüße,')
