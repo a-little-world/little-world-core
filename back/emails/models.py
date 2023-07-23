@@ -24,6 +24,33 @@ class EmailLog(models.Model):
     # template: '...html', email_rendered_html: '...html_str', kwargs: kwargs for creating the mail
     data = models.JSONField()
 
+class AdvancedEmailLogSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = EmailLog
+        fields = '__all__'
+        
+    def to_representation(self, instance):
+        from management.models import MinimalProfileSerializer
+
+        representation =  super().to_representation(instance)
+        
+        # TODO: using the whole profile serializer here is a bit expensive!
+        representation['sender'] = {
+            'id': instance.sender.pk,
+            'hash': instance.sender.hash,
+            'email': instance.sender.email,
+            'profile': MinimalProfileSerializer(instance.sender.profile).data
+        }
+        
+        representation['receiver'] = {
+            'id': instance.receiver.pk,
+            'hash': instance.receiver.hash,
+            'email': instance.receiver.email,
+            'profile': MinimalProfileSerializer(instance.receiver.profile).data
+        }
+
+        return representation
 
 class EmailLogSerializer(serializers.ModelSerializer):
 
