@@ -155,7 +155,8 @@ class AdvancedAdminUserSerializer(serializers.ModelSerializer):
         def get_messages(match):
             print("TBS", match, match['partner']['id'])
             partner = controller.get_user_by_pk(match['partner']['id'])
-            assert DialogsModel.dialog_exists(partner, instance)
+            if not DialogsModel.dialog_exists(partner, instance):
+                return None
             return get_paginated(MessageModel.get_messages_for_dialog(partner, instance), 10, 1)
         
         confirmed = representation['matches']['confirmed']['items']
@@ -165,8 +166,11 @@ class AdvancedAdminUserSerializer(serializers.ModelSerializer):
         # unconfirmed = representation['matches']['unconfirmed']['items']
         messages = {}
         for match in [*confirmed, *support]:
-
+            # It can happen that a dialog was aready deleted it this was a past match
+            # TODO: this somethimes causes an error in prod, just not loading the messages for that chat should be ok.
             _msg = get_messages(match)
+            if _msg is None:
+                continue
             messages[match['id']] = _msg
             messages[match['id']]["match"] = {
                 "match_id": match['id'],
