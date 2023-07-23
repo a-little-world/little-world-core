@@ -7,6 +7,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from chat.django_private_chat2.models import MessageModel, DialogsModel
+from chat.django_private_chat2.serializers import serialize_message_model
 from management import models
 from management import controller
 from enum import Enum
@@ -17,7 +18,7 @@ from ..models import (
     ProfileSerializer,
     StateSerializer,
 )
-from emails.models import EmailLog, EmailLogSerializer
+from emails.models import EmailLog, EmailLogSerializer, AdvancedEmailLogSerializer
 from typing import OrderedDict
 from django.core.serializers.json import DjangoJSONEncoder
 from rest_framework.utils import serializer_helpers
@@ -164,13 +165,20 @@ class AdvancedAdminUserSerializer(serializers.ModelSerializer):
         # unconfirmed = representation['matches']['unconfirmed']['items']
         messages = {}
         for match in [*confirmed, *support]:
-            messages[match['id']] = get_messages(match)
+
+            _msg = get_messages(match)
+            messages[match['id']] = _msg
+            messages[match['id']]["match"] = {
+                "match_id": match['id'],
+                "profile": match['partner']
+            }
+            messages[match['id']]["items"] = [serialize_message_model(item, instance.pk) for item in _msg["items"]]
             
         representation['messages'] = messages
 
         # Also get the email logs
         email_logs = get_paginated(EmailLog.objects.filter(receiver=instance), 10, 1)
-        email_logs["items"] = EmailLogSerializer(email_logs["items"], many=True).data
+        email_logs["items"] = AdvancedEmailLogSerializer(email_logs["items"], many=True).data
         
         representation['email_logs'] = email_logs
 
