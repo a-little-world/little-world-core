@@ -2,6 +2,7 @@ from django.contrib.auth.decorators import user_passes_test
 from rest_framework import viewsets, serializers
 from rest_framework.permissions import IsAdminUser
 from django.core.paginator import Paginator
+from rest_framework.decorators import action
 from django.shortcuts import render
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import api_view, permission_classes
@@ -231,6 +232,8 @@ def make_user_viewset(_queryset, _serializer_class=AdminUserSerializer, items_pe
         serializer_class = _serializer_class
         pagination_class = Pagination
     return __EmulatedUserViewset
+
+
     
 class QuerySetEnum(Enum):
     all = "All users ordered by date joined!"
@@ -294,7 +297,30 @@ def get_staff_queryset(query_set, request):
     # Should be done by checking a condition and then filtering the queryset additionally...
     return QUERY_SETS[query_set]
 
-root_user_viewset = make_user_viewset(QUERY_SETS[QuerySetEnum.all.name], _serializer_class=AdvancedAdminUserSerializer).as_view({
+@classmethod
+def matching_suggestion_from_database_paginated(request, user):
+    from ..models.matching_scores import MatchinScore, MatchingScoreSerializer
+    matching_scores = MatchinScore.objects.filter(from_usr=user, current_score=True)
+    paginator = AugmentedPagination()
+    pages = paginator.get_paginated_response(paginator.paginate_queryset(matching_scores, request))
+    pages["results"] = MatchingScoreSerializer(pages["results"], many=True).data
+    return pages
+
+
+class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet):
+    queryset = User.objects.all().order_by('-date_joined')
+    serializer_class = AdminUserSerializer
+    pagination_class = DetailedPaginationMixin
+    
+    @action(detail=True, methods=['get'])
+    def scores(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        scores = matching_suggestion_from_database_paginated(request, obj)
+        return Response(scores)
+
+root_user_viewset = AdminUserViewSet.as_view({
     'get': 'retrieve',
 })
 
