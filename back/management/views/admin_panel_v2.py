@@ -320,7 +320,7 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         scores = matching_suggestion_from_database_paginated(request, obj)
         return Response(scores)
 
-root_user_viewset = AdminUserViewSet.as_view({
+root_user_viewset = AdvancedAdminUserViewset.as_view({
     'get': 'retrieve',
 })
 
