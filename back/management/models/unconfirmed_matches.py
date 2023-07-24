@@ -195,7 +195,7 @@ class UnconfirmedMatch(models.Model):
     def save(self, *args, **kwargs):
         if self._state.adding is True:
             self.learner_when_created = self.user1 if self.user1.profile.user_type == Profile.TypeChoices.LEARNER else self.user2
-            super(UnconfirmedMatch, self).save(*args, **kwargs)
+        super(UnconfirmedMatch, self).save(*args, **kwargs)
 
         
 # We automaticly send the new-match proposal mail when a new proposal is created
