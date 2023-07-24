@@ -29,6 +29,14 @@ class UnconfirmedMatch(models.Model):
 
     user2 = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="unconfirmed_match_user2")
+    
+    # This field is a patch fix for the issue if a user decided to changes their user type when this unconfirmed_match was created
+    # This way we don't check the current user_type based on the profile, 
+    # but just teat that user by the user_type he had when this model was created
+    learner_when_created = models.ForeignKey(
+        User, on_delete=models.CASCADE, 
+        related_name="unconfirmed_match_learner_when_created", 
+        null=True, blank=True)
 
     # If closed it's not considered anymore
     closed = models.BooleanField(default=False)
@@ -64,7 +72,7 @@ class UnconfirmedMatch(models.Model):
         return expired
     
     def get_learner(self):
-        return self.user1 if (self.user1.profile.user_type == Profile.TypeChoices.LEARNER) else self.user2
+        return self.learner_when_created
     
     def send_initial_mail(self):
         
@@ -184,6 +192,12 @@ class UnconfirmedMatch(models.Model):
             "days_until_expiration": str(time_difference.days),
         }
         
+    def save(self, *args, **kwargs):
+        if self._state.adding is True:
+            self.learner_when_created = self.user1 if self.user1.profile.user_type == Profile.TypeChoices.LEARNER else self.user2
+        super(UnconfirmedMatch, self).save(*args, **kwargs)
+
+        
 # We automaticly send the new-match proposal mail when a new proposal is created
 @receiver(models.signals.post_save, sender=UnconfirmedMatch)
 def execute_after_save(sender, instance, created, *args, **kwargs):
@@ -199,7 +213,7 @@ def get_unconfirmed_matches(user):
         return []
 
     unconfirmed = list(UnconfirmedMatch.objects.filter(
-        Q(user1=user) | Q(user2=user)).filter(closed=False))
+        Q(user1=user, learner_when_created=user) | Q(user2=user, learner_when_created=user)).filter(closed=False))
 
     # Remove expired matches & get the shared data
     unconfirmed = [usr.get_shared_data(user) for usr in unconfirmed if not usr.is_expired(
