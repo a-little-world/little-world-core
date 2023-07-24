@@ -55,7 +55,7 @@ class Match(models.Model):
 
     
     def get_partner(self, user):
-        return self.user1 if self.user2 == user else self.user2
+        return self.user1 if (self.user2 == user) else self.user2
     
     def confirm(self, user):
         if(self.user1 in self.confirmed_by.all() and self.user2 in self.confirmed_by.all()):
