@@ -49,8 +49,8 @@ def serialize_matches(matches, user):
         serialized.append({
             "id": str(match.uuid),
             "partner": {
-                "id": str(partner.hash),
-                **ProfileSerializer(partner.profile).data
+                **ProfileSerializer(partner.profile).data,
+                "id": str(partner.pk),
             }
         })
         
@@ -129,11 +129,16 @@ def update_representation(representation, instance):
     user = instance
     items_per_page = ADMIN_USER_MATCH_ITEMS
 
+    print("updating representations for ", user, instance)
     confirmed_matches = get_paginated(models.Match.get_confirmed_matches(user), items_per_page, 1)
     confirmed_matches["items"] = serialize_matches(confirmed_matches["items"], user)
+    
+    print("confirmed matches", [f'{i["partner"]["id"]} m_id {i["id"]}' for i in confirmed_matches["items"]])
 
     unconfirmed_matches = get_paginated(models.Match.get_unconfirmed_matches(user), items_per_page, 1)
     unconfirmed_matches["items"] = serialize_matches(unconfirmed_matches["items"], user)
+
+    print("unconfirmed matches", [f'{i["partner"]["id"]} m_id {i["id"]}' for i in unconfirmed_matches["items"]])
 
     support_matches = get_paginated(models.Match.get_support_matches(user), items_per_page, 1)
     support_matches["items"] = serialize_matches(support_matches["items"], user)
@@ -166,6 +171,7 @@ class AdvancedAdminUserSerializer(serializers.ModelSerializer):
         fields = ['hash', 'id', 'email', 'date_joined', 'last_login']
     
     def to_representation(self, instance):
+        print("SERIALIZING", instance)
         representation = super().to_representation(instance)
         representation = update_representation(representation, instance)
         
@@ -175,16 +181,10 @@ class AdvancedAdminUserSerializer(serializers.ModelSerializer):
         def get_messages(match):
             partner = controller.get_user_by_pk(match['partner']['id'])
             print("TBS", partner, instance)
-            try:
-                _msgs = MessageModel.objects.filter(
-                    Q(sender=partner, recipient=instance) | Q(sender=instance, recipient=partner)
-                )
-                messages = get_paginated(_msgs, 10, 1)
-                print("MSGS", messages, _msgs)
-            except Exception as e:
-                print("ERR retrieving messages" , repr(e))
-                # TODO: handle better
-                return None
+            _msgs = MessageModel.objects.filter(
+                Q(sender=partner, recipient=instance) | Q(sender=instance, recipient=partner)
+            )
+            messages = get_paginated(_msgs, 10, 1)
             if not DialogsModel.get_dialog_for_user_as_object(partner, instance).exists():
                 messages["no_dialog"] = True # prop means it has been deleted
             return messages
@@ -195,6 +195,9 @@ class AdvancedAdminUserSerializer(serializers.ModelSerializer):
         
         messages = {}
         for match in [*confirmed, *support, *unconfirmed]:
+            print("TBS", match["partner"]["id"], match["partner"]["first_name"])
+            partner = controller.get_user_by_pk(match['partner']['id'])
+            print("PARTNER", partner)
             _msg = get_messages(match)
             if _msg is None:
                 continue
