@@ -183,7 +183,9 @@ view_routes = [
     path(f"admin_panel_v2/", admin_panel_v2, name="admin_panel_v2"),
     path(f"admin_panel_v2/<str:query_set>/", admin_panel_v2, name="admin_panel_v2"),
     
-    path(_api_url('user_advanced/<str:pk>', admin=True), root_user_viewset),
+    path(_api_url('user_advanced/<str:pk>', admin=True), root_user_viewset.as_view({'get': 'retrieve'})),
+    path(_api_url('user_advanced/<str:pk>/scores', admin=True), 
+         root_user_viewset.as_view({'get': 'scores'})),
     path(_api_url('user_listing_advanced/<str:list>', admin=True), advanced_user_listing),
 
     path(f"manage/", user_list_frontend, name="management_panel"),
