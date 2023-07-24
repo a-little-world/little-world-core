@@ -297,12 +297,11 @@ def get_staff_queryset(query_set, request):
     # Should be done by checking a condition and then filtering the queryset additionally...
     return QUERY_SETS[query_set]
 
-@classmethod
 def matching_suggestion_from_database_paginated(request, user):
     from ..models.matching_scores import MatchinScore, MatchingScoreSerializer
     matching_scores = MatchinScore.objects.filter(from_usr=user, current_score=True)
     paginator = AugmentedPagination()
-    pages = paginator.get_paginated_response(paginator.paginate_queryset(matching_scores, request))
+    pages = paginator.get_paginated_response(paginator.paginate_queryset(matching_scores, request)).data
     pages["results"] = MatchingScoreSerializer(pages["results"], many=True).data
     return pages
 
@@ -320,10 +319,7 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         scores = matching_suggestion_from_database_paginated(request, obj)
         return Response(scores)
 
-root_user_viewset = AdvancedAdminUserViewset.as_view({
-    'get': 'retrieve',
-})
-
+root_user_viewset = AdvancedAdminUserViewset
 
 @api_view(['GET'])
 @permission_classes([IsAdminUser])
