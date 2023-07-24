@@ -2287,7 +2287,7 @@ def check_registration_reminders():
 
     for user in verified_email_unifinished_userform_reminder1:
         ems = user.settings.email_settings
-        ems.send_email_verification_reminder1(user)
+        ems.send_user_form_unfinished_reminder1(user)
 
     verified_email_unifinished_userform_reminder2 = User.objects.filter(
         Q(date_joined__lte=_tree_days_ago),
@@ -2300,7 +2300,7 @@ def check_registration_reminders():
 
     for user in verified_email_unifinished_userform_reminder2:
         ems = user.settings.email_settings
-        ems.send_email_verification_reminder2(user)
+        ems.send_user_form_unfinished_reminder2(user)
     
 
 @shared_task
