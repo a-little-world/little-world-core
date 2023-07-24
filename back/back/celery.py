@@ -87,8 +87,7 @@ prod_shedules = {
     }
 }
 
-if settings.IS_STAGE:
-    prod_shedules.update(auto_emails)
+prod_shedules.update(auto_emails)
 
 """
 All little world periodic tasks 
