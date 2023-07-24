@@ -28,7 +28,7 @@ from management.views.user_form_frontend import (
     user_form
 )
 from management.views.admin_panel_frontend import admin_panel, stats_panel, graph_panel, fetch_graph, user_list_frontend, fetch_list
-from management.views.admin_panel_v2 import admin_panel_v2, root_user_viewset
+from management.views.admin_panel_v2 import admin_panel_v2, root_user_viewset, advanced_user_listing
 
 from rest_framework.routers import DefaultRouter
 from django_rest_passwordreset.views import ResetPasswordValidateTokenViewSet, ResetPasswordConfirmViewSet, \
@@ -184,6 +184,7 @@ view_routes = [
     path(f"admin_panel_v2/<str:query_set>/", admin_panel_v2, name="admin_panel_v2"),
     
     path(_api_url('user_advanced/<str:pk>', admin=True), root_user_viewset),
+    path(_api_url('user_listing_advanced/<str:list>', admin=True), advanced_user_listing),
 
     path(f"manage/", user_list_frontend, name="management_panel"),
     path(f"stats/graph/<str:slug>", graph_panel, name="graph_dashboard"),
