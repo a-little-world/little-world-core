@@ -309,7 +309,7 @@ def matching_suggestion_from_database_paginated(request, user):
 
 class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet):
     queryset = User.objects.all().order_by('-date_joined')
-    serializer_class = AdminUserSerializer
+    serializer_class = AdvancedAdminUserSerializer
     pagination_class = DetailedPaginationMixin
     
     @action(detail=True, methods=['get'])
