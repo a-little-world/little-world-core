@@ -73,6 +73,9 @@ api_routes = [
          api.user.UpdateSearchingStateApi.as_view()),
     path(_api_url('user/login'), api.user.LoginApi.as_view()),
 
+    path(_api_url('matching/report'), api.report_unmatch.report),
+    path(_api_url('matching/unmatch'), api.report_unmatch.unmatch),
+
     *([path(_api_url('devlogin'), api.developers.DevLoginAPI.as_view())]  # Dev login only to be used in staging!
       if settings.IS_STAGE or settings.IS_DEV else []),
 
