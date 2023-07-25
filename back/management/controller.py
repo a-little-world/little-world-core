@@ -183,6 +183,8 @@ def are_users_matched(
 ):
     assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
     usr1, usr2 = list(users)
+    
+    # TODO: need updating to the new Match model relation!
     return usr1.is_matched(usr2) and usr2.is_matched(usr1)
 
 
