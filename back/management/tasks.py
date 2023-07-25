@@ -136,9 +136,17 @@ def calculate_directional_matching_score_v2_static(
         state__email_authenticated=True,
         is_staff=False
     )
+    
+    amnt_users = all_users_to_consider.count()
+    print(f"Found {amnt_users} users to consider")
+    calculate_directional_matching_score_v2_static.backend.mark_as_started(
+        calculate_directional_matching_score_v2_static.request.id,
+        progress=f"({0}/{amnt_users})")
+    
+    i = 0
 
-    print(f"Found {all_users_to_consider.count()} users to consider")
     for other_usr in all_users_to_consider:
+        i += 1
         print(f"Calculating score {usr} -> {other_usr}")
         score1 = calculate_directional_score_write_results_to_db(
             usr, other_usr, return_on_nomatch=False,
@@ -147,8 +155,19 @@ def calculate_directional_matching_score_v2_static(
         score2 = calculate_directional_score_write_results_to_db(
             other_usr, usr, return_on_nomatch=False,
             catch_exceptions=catch_exceptions)
+        
+        progress = f"Calculating ({i}/{amnt_users}) -> [{other_usr.hash}]"
+
+        calculate_directional_matching_score_v2_static.backend.mark_as_started(
+            calculate_directional_matching_score_v2_static.request.id,
+            progress=progress)
 
     if invalidate_other_scores:
+
+        calculate_directional_matching_score_v2_static.backend.mark_as_started(
+            calculate_directional_matching_score_v2_static.request.id,
+            progress=f"Finished calculating, invalidating other scores")
+
         for other_user in User.objects.exclude(id=usr.id):
             if other_user not in all_users_to_consider:
                 cur_score = MatchinScore.get_current_directional_score(
