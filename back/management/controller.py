@@ -207,6 +207,11 @@ def match_users(
     assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
     usr1, usr2 = list(users)
     
+    # Only match if they are not already matched!
+    matching = Match.get_match(usr1, usr2)
+    if matching.exists():
+        raise Exception("Users are already matched!")
+    
     # TODO: this is the old way to match to be removed one our frontend strategy updated
     # For now we deploy both ways and make then work along side, but the old-way is to be removed asap
     usr1.match(usr2, set_unconfirmed=set_unconfirmed)
