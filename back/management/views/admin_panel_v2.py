@@ -149,7 +149,8 @@ def update_representation(representation, instance):
     representation['matches'] = {
         "confirmed": confirmed_matches,
         "unconfirmed": unconfirmed_matches,
-        "support": support_matches
+        "support": support_matches,
+        "proposed": proposed_matches
     }
     return representation
 
@@ -244,6 +245,7 @@ class QuerySetEnum(Enum):
     in_registration = "Users who have not finished the user form or verified their email!"
     active_within_3weeks = "Users who have been active within the last 3 weeks!"
     highquality_matching = "Users who have at least one matching with 20+ Messages"
+    message_reply_required = "Users who have a unread message to the admin user"
     
     def as_dict():
         return {i.name: i.value for i in QuerySetEnum}
@@ -251,6 +253,20 @@ class QuerySetEnum(Enum):
 def three_weeks_ago():
     from datetime import datetime, timedelta
     return datetime.now() - timedelta(weeks=3)
+
+def get_user_with_message_to_admin():
+    # TODO: in the future each staff mover has to be filtered here individually
+    
+    from django.db.models import Subquery, OuterRef, Count
+    admin_pk = controller.get_base_management_user().pk
+    unread_messages = MessageModel.objects.filter(
+        recipient_id=admin_pk,
+        read=False
+    )
+    unread_senders_ids = unread_messages.values("sender")
+    sender_users = User.objects.filter(id__in=Subquery(unread_senders_ids))
+    return sender_users
+    
 
 def get_quality_match_querry_set():
     
@@ -291,7 +307,8 @@ QUERY_SETS = {
         Q(state__user_form_state=State.UserFormStateChoices.UNFILLED) | Q(state__email_authenticated=False)).order_by('-date_joined'),
     QuerySetEnum.active_within_3weeks.name: User.objects.filter(
         last_login__gte=three_weeks_ago()).order_by('-date_joined'),
-    QuerySetEnum.highquality_matching.name: get_quality_match_querry_set()
+    QuerySetEnum.highquality_matching.name: get_quality_match_querry_set(),
+    QuerySetEnum.message_reply_required.name: get_user_with_message_to_admin(),
     
 }
 

@@ -4,6 +4,7 @@ from celery import shared_task
 from tracking.utils import inline_track_event
 from dataclasses import dataclass
 from .models import User
+import json
 import datetime
 from django.utils.translation import pgettext_lazy
 from .models.community_events import CommunityEvent, CommunityEventSerializer
@@ -141,7 +142,12 @@ def calculate_directional_matching_score_v2_static(
     print(f"Found {amnt_users} users to consider")
     calculate_directional_matching_score_v2_static.backend.mark_as_started(
         calculate_directional_matching_score_v2_static.request.id,
-        progress=f"({0}/{amnt_users})")
+        progress=f"json:" + json.dumps({
+            'amnt_users': amnt_users,
+            'progress': 0,
+            "state": "starting"
+        }))
+
     
     i = 0
 
@@ -156,17 +162,23 @@ def calculate_directional_matching_score_v2_static(
             other_usr, usr, return_on_nomatch=False,
             catch_exceptions=catch_exceptions)
         
-        progress = f"Calculating ({i}/{amnt_users}) -> [{other_usr.hash}]"
-
         calculate_directional_matching_score_v2_static.backend.mark_as_started(
             calculate_directional_matching_score_v2_static.request.id,
-            progress=progress)
+            progress=f"json:" + json.dumps({
+                'amnt_users': amnt_users,
+                'progress': i,
+                "state": "calculating"
+            }))
 
     if invalidate_other_scores:
 
         calculate_directional_matching_score_v2_static.backend.mark_as_started(
             calculate_directional_matching_score_v2_static.request.id,
-            progress=f"Finished calculating, invalidating other scores")
+            progress=f"json:" + json.dumps({
+                'amnt_users': amnt_users,
+                'progress': amnt_users,
+                "state": "cleaning"
+            }))
 
         for other_user in User.objects.exclude(id=usr.id):
             if other_user not in all_users_to_consider:
