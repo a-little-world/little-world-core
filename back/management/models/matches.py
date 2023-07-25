@@ -7,6 +7,8 @@ from uuid import uuid4
 
 
 class Match(models.Model):
+    
+    ## TODO: ensure no dumplicate entries can exist!
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -25,6 +27,8 @@ class Match(models.Model):
     
     support_matching = models.BooleanField(default=False)
     
+    report_unmatch = models.JSONField(default=list)
+    
     @classmethod
     def get_match(cls, user1, user2):
         return cls.objects.filter(Q(user1=user1, user2=user2) | Q(user1=user2, user2=user1))
@@ -37,6 +41,14 @@ class Match(models.Model):
 
         partners = management_models.User.objects.filter(id__in=user_partners_ids).exclude(id=user.pk)
         return partners
+    
+    @classmethod
+    def get_matching(cls, user, matching_uuid):
+        return cls.objects.filter(
+            Q(user1=user) | Q(user2=user), 
+            active=True, 
+            uuid=matching_uuid, 
+        )
     
     @classmethod
     def get_match_by_hash(cls, user, matching_uuid):
