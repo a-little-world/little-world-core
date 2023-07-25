@@ -38,6 +38,9 @@ def process_report_unmatch(request, kind="report"):
     if not matching.exists():
         raise serializers.ValidationError(_("This match does not exist"))
     
+    if matching.support_matching:
+        raise serializers.ValidationError(_("You can not report a support match!"))
+    
     matching = matching.first()
     
     matching.active = False

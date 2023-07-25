@@ -313,6 +313,7 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
     queryset = User.objects.all().order_by('-date_joined')
     serializer_class = AdvancedAdminUserSerializer
     pagination_class = DetailedPaginationMixin
+    permission_classes = [IsAdminUser]
     
     @action(detail=True, methods=['get'])
     def scores(self, request, pk=None):
@@ -321,6 +322,38 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         
         scores = matching_suggestion_from_database_paginated(request, obj)
         return Response(scores)
+    
+    @action(detail=True, methods=['get'])
+    def request_score_update(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        from management.tasks import calculate_directional_matching_score_v2_static
+        task = calculate_directional_matching_score_v2_static.delay(
+            obj.pk,
+            catch_exceptions=True,
+            invalidate_other_scores=True
+        )
+        
+        return Response({
+            "msg": "Task dispatched scores will be written to db on task completion",
+            "task_id": task.task_id,
+            "view": f"/admin/django_celery_results/taskresult/?q={task.task_id}"
+        })
+        
+def check_task_status(task_id):
+    from celery.result import AsyncResult
+    task = AsyncResult(task_id)
+    
+    return {
+        "state": task.state,
+        "info": json.loads(json.dumps(task.info, cls=DjangoJSONEncoder, default=lambda o: str(o))),
+    }
+    
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def request_task_status(request, task_id):
+    return Response(check_task_status(task_id))
 
 root_user_viewset = AdvancedAdminUserViewset
 
@@ -338,7 +371,7 @@ def advanced_user_listing(request, list):
 
     return Response({
         "query_sets": QuerySetEnum.as_dict(),
-        "user_lists": user_lists,
+        "user_lists": user_lists
     })
 
 @api_view(['GET'])
