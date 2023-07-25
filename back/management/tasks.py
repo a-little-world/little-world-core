@@ -117,6 +117,50 @@ Selbst habe ich vier Jahre im Ausland gelebt, von Frankreich bis nach China. Den
     usr.profile.save()
     return "sucessfully filled base management user profile"
 
+@shared_task
+def calculate_directional_matching_score_v2_static(
+    user_pk,
+    catch_exceptions=True,
+    invalidate_other_scores=True
+):
+    from .controller import get_user_by_pk
+    from management.models import State, User, MatchinScore
+    from django.db.models import Q
+    from .matching.matching_score import calculate_directional_score_write_results_to_db
+    usr = get_user_by_pk(user_pk)
+    all_users_to_consider = User.objects.filter(
+        ~Q(id=usr.pk) & 
+        ~(Q(state__user_category=State.UserCategoryChoices.SPAM) | Q(state__user_category=State.UserCategoryChoices.TEST)),
+        state__matching_state=State.MatchingStateChoices.SEARCHING,
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
+        is_staff=False
+    )
+
+    print(f"Found {all_users_to_consider.count()} users to consider")
+    for other_usr in all_users_to_consider:
+        print(f"Calculating score {usr} -> {other_usr}")
+        score1 = calculate_directional_score_write_results_to_db(
+            usr, other_usr, return_on_nomatch=False,
+            catch_exceptions=catch_exceptions)
+        print(f"Calculating score {other_usr} -> {usr}")
+        score2 = calculate_directional_score_write_results_to_db(
+            other_usr, usr, return_on_nomatch=False,
+            catch_exceptions=catch_exceptions)
+
+    if invalidate_other_scores:
+        for other_user in User.objects.exclude(id=usr.id):
+            if other_user not in all_users_to_consider:
+                cur_score = MatchinScore.get_current_directional_score(
+                    from_usr=usr,
+                    to_usr=other_user,
+                    raise_exeption=False
+                )
+                print(f"Invalidating score {usr.id}")
+                if not cur_score is None:
+                    cur_score.set_to_old()
+    
+
 
 @shared_task
 def calculate_directional_matching_score_background(
