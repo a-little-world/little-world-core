@@ -136,7 +136,7 @@ metadata:
     {{- end }}
     kubernetes.io/ingress.class: public
 spec:
-  {{- if .Values.certManager }}
+  {{- if .Values.ingress.certManager }}
   tls:
     - hosts:
         - {{ .Values.ingress.host }}
