@@ -34,9 +34,10 @@ jobs:
           pull_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
           branch=${{ steps.extract_branch.outputs.branch }}
           SHOULD_STAGE=$(echo $branch | grep -E '^staging-')
+          echo "SHOULD_STAGE=$SHOULD_STAGE" >> $GITHUB_OUTPUT
       - name: Create comment
         uses: peter-evans/create-or-update-comment@v3
-        if: steps.extract_branch.outputs.branch != 'main' && steps.extract_branch.outputs.SHOULD_STAGE != ''
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         with:
           issue-number: 1
           body: |
