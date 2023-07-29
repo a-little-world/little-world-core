@@ -50,9 +50,9 @@ jobs:
         id: setup_emperial_env
         run: |
           touch .env
-          RANDOM_STRING=$(openssl rand -hex 3)
+          RANDOM_STRING="$( openssl rand -hex 3 )"
           IMAGE_URL="ghcr.io/a-little-world/little-world-backend/littleworld-epherial-backend:tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}-${{ steps.setup_emperial_env.outputs.RANDOM_STRING }}"
-          echo "APP_IMAGE_URL=\"$IMAGE_URL/"" >> .env
+          echo "APP_IMAGE_URL=\"$IMAGE_URL\"" >> .env
           echo "REDIS_URL=\"redis://redis-service.default.svc.cluster.local:6379\"" >> .env
           echo "RANDOM_STRING=$RANDOM_STRING" >> $GITHUB_OUTPUT
           echo "IMAGE_URL=$IMAGE_URL" >> $GITHUB_OUTPUT
