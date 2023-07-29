@@ -14,4 +14,10 @@ if [ "$BUILD_TYPE" = "deployment" ]; then
     python3 manage.py migrate --noinput
 fi
 
+if [ "$EMPHIRIAL" = "1" ]; then
+    python3 manage.py collectstatic --noinput
+    python3 manage.py shell --command 'from management.controller import get_base_management_user; get_base_management_user()'
+    python3 manage.py shell --command 'from management.random_test_users import create_abunch_of_users; create_abunch_of_users()'
+fi
+
 uvicorn back.asgi:application --reload --port 8000 --host 0.0.0.0

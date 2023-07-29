@@ -442,8 +442,9 @@ SPECTACULAR_SETTINGS = {
     },
 }
 
+EMPHIRIAL = os.environ.get("EMPHIRIAL", "0") == "1"
 
-if IS_DEV:
+if IS_DEV and (not EMPHIRIAL):
     # or install redis in the container
     CHANNEL_LAYERS = {
         "default": {
@@ -451,6 +452,17 @@ if IS_DEV:
             # "BACKEND": "channels.layers.InMemoryChannelLayer",
             "CONFIG": {
                 "hosts": [("host.docker.internal", 6379)],
+            },
+        }
+    }
+elif EMPHIRIAL:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [{
+                    'address': os.environ['REDIS_URL'],
+                }],
             },
         }
     }
