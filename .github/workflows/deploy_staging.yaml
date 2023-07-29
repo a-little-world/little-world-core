@@ -21,7 +21,7 @@ jobs:
         with:
           token: ${{ secrets.BOT_PAT }}
           submodules: recursive
-        ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Extract branch name
         shell: bash
         run: |
