@@ -44,13 +44,13 @@ jobs:
           token: ${{ secrets.BOT_PAT }}
           issue-number: ${{ steps.determine_pull_id.outputs.PULL_NUMBER }}
           body: |
-            Branches starts with 'staging-*' deploying temporary env!
+            Branch starts with 'staging-*' deploying temporary env!
             1. Setup
       - name: Setup Emperial Env
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         run: |
           touch .env
-          echo "APP_IMAGE_URL=\"ghcr.io/a-little-world/little-world-backend/littleworld-epherial-backend:latest\"" >> .env
+          echo "APP_IMAGE_URL=\"ghcr.io/a-little-world/little-world-backend/littleworld-epherial-backend:tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER  }}\"" >> .env
           echo "REDIS_URL=\"redis://redis-service.default.svc.cluster.local:6379\"" >> .env
       - name: Add build step comment
         uses: peter-evans/create-or-update-comment@v3
@@ -86,4 +86,22 @@ jobs:
           echo "${{ secrets.ENCRYPTED_KUBE_CONFIG_BASE64 }}" | base64 --decode > kubeconfig.enc
           openssl aes-256-cbc -d -pbkdf2 -in ./kubeconfig.enc -out kubeconfig.yaml -k ${{ secrets.KUBE_CONFIG_PASSWORD }}
           cat kubeconfig.yaml
-          KUBECONFIG=./kubeconfig.yaml helm install backend-install ./helm
+          GH_CR_AUTH=$(echo -n "littleworld-bot:${{ secrets.BOT_PAT }}" | base64)
+          cat << EOF | while read eval_command; do yq -i eval "$eval_command" ./helm/values.yaml; done
+            .rootNamespace = "lw-tmp-env-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}"
+            .backend.imageURL = "ghcr.io/a-little-world/little-world-backend/littleworld-epherial-backend:tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}"
+            .ingress.certManger = true
+            .ingress.host = "${{ steps.extract_branch.outputs.branch }}-tmp-env.t1m.me"
+            .registryAuth.token = "$GH_CR_AUTH"
+            .registryAuth.use = true
+          EOF
+          KUBECONFIG=./kubeconfig.yaml helm install backend-tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }} ./helm
+      - name: Add build step comment 3
+        uses: peter-evans/create-or-update-comment@v3
+        id: update_comment_3
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        with:
+          token: ${{ secrets.BOT_PAT }}
+          comment-id: ${{ steps.create_comment.outputs.comment-id }}
+          body: |
+            4. Done check: [`https://${{ steps.extract_branch.outputs.branch }}-tmp-env.t1m.me`](https://${{ steps.extract_branch.outputs.branch }}-tmp-env.t1m.me)
