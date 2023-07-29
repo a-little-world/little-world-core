@@ -89,7 +89,6 @@ jobs:
         run: |
           echo "${{ secrets.ENCRYPTED_KUBE_CONFIG_BASE64 }}" | base64 --decode > kubeconfig.enc
           openssl aes-256-cbc -d -pbkdf2 -in ./kubeconfig.enc -out kubeconfig.yaml -k ${{ secrets.KUBE_CONFIG_PASSWORD }}
-          cat kubeconfig.yaml
           GH_CR_AUTH=$(echo -n "littleworld-bot:${{ secrets.BOT_PAT }}" | base64)
           export STAGING_HOST="${{ steps.extract_branch.outputs.branch }}-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}.t1m.me"
           export STAGING_URL="https://$STAGING_HOST"
@@ -97,7 +96,7 @@ jobs:
             .rootNamespace = "lw-tmp-env-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}"
             .backend.imageURL = "ghcr.io/a-little-world/little-world-backend/littleworld-epherial-backend:tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}"
             .ingress.certManger = true
-            .ingress.host = "STAGING_HOST"
+            .ingress.host = "$STAGING_HOST"
             .registryAuth.token = "$GH_CR_AUTH"
             .registryAuth.use = true
           EOF
