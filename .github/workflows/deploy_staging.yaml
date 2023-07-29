@@ -69,3 +69,9 @@ jobs:
           echo ${{ secrets.BOT_PAT }} | docker login ghcr.io -u littleworld-bot --password-stdin
           DOCKER_BUILDKIT=1 docker-compose build
           DOCKER_BUILDKIT=1 docker-compose push
+      - name: Setup Cluster Connection
+        run: |
+          echo ${{ secrets.ENCRYPTED_KUBE_CONFIG_BASE64 }} | base64 --decode > kubeconfig.enc
+          openssl aes-256-cbc -d -pbkdf2 -in ./kubeconfig.enc -out kubeconfig.yaml -k ${{ secrets.KUBE_CONFIG_PASSWORD }}
+          cat kubeconfig.yaml
+          KUBECONFIG=./kubeconfig.yaml helm install backend-install ./helm
