@@ -18,7 +18,8 @@ from ..models import (
     State,
     ProfileSerializer,
     StateSerializer,
-    ProposalProfileSerializer
+    ProposalProfileSerializer,
+    MatchinScore
 )
 from emails.models import EmailLog, EmailLogSerializer, AdvancedEmailLogSerializer
 from typing import OrderedDict
@@ -317,12 +318,32 @@ def get_staff_queryset(query_set, request):
     # Should be done by checking a condition and then filtering the queryset additionally...
     return QUERY_SETS[query_set]
 
+class AdvancedMatchingScoreSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MatchinScore
+        fields = '__all__'
+        
+    def to_representation(self, instance):
+        representation =  super().to_representation(instance)
+        
+        representation['from_usr'] = {
+            "uuid" : instance.from_usr.hash,
+            "id" : instance.from_usr.id,
+            **AdminUserSerializer(instance.from_usr).data
+        }
+        representation['to_usr'] = {
+            "uuid" : instance.to_usr.hash,
+            "id" : instance.to_usr.id,
+            **AdminUserSerializer(instance.to_usr).data
+        }
+        return representation
+
 def matching_suggestion_from_database_paginated(request, user):
     from ..models.matching_scores import MatchinScore, MatchingScoreSerializer
-    matching_scores = MatchinScore.objects.filter(from_usr=user, current_score=True)
+    matching_scores = MatchinScore.objects.filter(from_usr=user, current_score=True, matchable=True).order_by('-score')
     paginator = AugmentedPagination()
     pages = paginator.get_paginated_response(paginator.paginate_queryset(matching_scores, request)).data
-    pages["results"] = MatchingScoreSerializer(pages["results"], many=True).data
+    pages["results"] = AdvancedMatchingScoreSerializer(pages["results"], many=True).data
     return pages
 
 
