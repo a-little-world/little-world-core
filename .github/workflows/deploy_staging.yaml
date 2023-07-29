@@ -91,8 +91,8 @@ jobs:
           openssl aes-256-cbc -d -pbkdf2 -in ./kubeconfig.enc -out kubeconfig.yaml -k ${{ secrets.KUBE_CONFIG_PASSWORD }}
           cat kubeconfig.yaml
           GH_CR_AUTH=$(echo -n "littleworld-bot:${{ secrets.BOT_PAT }}" | base64)
-          STAGING_HOST="${{ steps.extract_branch.outputs.branch }}-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}.t1m.me"
-          STAGING_URL="https://$STAGING_HOST"
+          export STAGING_HOST="${{ steps.extract_branch.outputs.branch }}-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}.t1m.me"
+          export STAGING_URL="https://$STAGING_HOST"
           cat << EOF | while read eval_command; do yq -i eval "$eval_command" ./helm/values.yaml; done
             .rootNamespace = "lw-tmp-env-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}"
             .backend.imageURL = "ghcr.io/a-little-world/little-world-backend/littleworld-epherial-backend:tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}"
