@@ -1,4 +1,4 @@
-name: Run tests
+name: Deploy temporary env
 
 on:
   push:
