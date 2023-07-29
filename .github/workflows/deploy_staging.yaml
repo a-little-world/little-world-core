@@ -70,7 +70,7 @@ jobs:
           DOCKER_BUILDKIT=1 docker-compose push
       - name: Add build step comment 2
         uses: peter-evans/create-or-update-comment@v3
-        id: update_comment2
+        id: update_comment_2
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         with:
           token: ${{ secrets.BOT_PAT }}
