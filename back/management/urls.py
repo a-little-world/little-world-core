@@ -28,7 +28,7 @@ from management.views.user_form_frontend import (
     user_form
 )
 from management.views.admin_panel_frontend import admin_panel, stats_panel, graph_panel, fetch_graph, user_list_frontend, fetch_list
-from management.views.admin_panel_v2 import admin_panel_v2, root_user_viewset, advanced_user_listing, request_task_status
+from management.views import admin_panel_v2
 
 from rest_framework.routers import DefaultRouter
 from django_rest_passwordreset.views import ResetPasswordValidateTokenViewSet, ResetPasswordConfirmViewSet, \
@@ -183,16 +183,16 @@ view_routes = [
             views.MainFrontendView.as_view(), name="main_frontend_w_path"),
 
     path(f"admin_panel/", admin_panel, name="admin_panel"),
-    path(f"admin_panel_v2/", admin_panel_v2, name="admin_panel_v2"),
-    path(f"admin_panel_v2/<str:query_set>/", admin_panel_v2, name="admin_panel_v2"),
+    path(f"admin_panel_v2/", admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
+    path(f"admin_panel_v2/<str:query_set>/", admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
     
-    path(_api_url('user_advanced/<str:pk>', admin=True), root_user_viewset.as_view({'get': 'retrieve'})),
+    path(_api_url('user_advanced/<str:pk>', admin=True), admin_panel_v2.root_user_viewset.as_view({'get': 'retrieve'})),
     path(_api_url('user_advanced/<str:pk>/scores', admin=True), 
-         root_user_viewset.as_view({'get': 'scores'})),
+         admin_panel_v2.root_user_viewset.as_view({'get': 'scores'})),
     path(_api_url('user_advanced/<str:pk>/request_score_update', admin=True), 
-         root_user_viewset.as_view({'get': 'request_score_update'})),
-    path(_api_url('user_listing_advanced/<str:list>', admin=True), advanced_user_listing),
-    path(_api_url('tasks/<str:task_id>/status', admin=True), request_task_status),
+         admin_panel_v2.root_user_viewset.as_view({'get': 'request_score_update'})),
+    path(_api_url('user_listing_advanced/<str:list>', admin=True), admin_panel_v2.advanced_user_listing),
+    path(_api_url('tasks/<str:task_id>/status', admin=True), admin_panel_v2.request_task_status),
 
     path(f"manage/", user_list_frontend, name="management_panel"),
     path(f"stats/graph/<str:slug>", graph_panel, name="graph_dashboard"),
