@@ -69,6 +69,11 @@ jobs:
           echo ${{ secrets.BOT_PAT }} | docker login ghcr.io -u littleworld-bot --password-stdin
           DOCKER_BUILDKIT=1 docker-compose build
           DOCKER_BUILDKIT=1 docker-compose push
+      - uses: azure/setup-helm@v3
+        with:
+           version: 'latest'
+           token: ${{ secrets.BOT_PAT }}
+        id: install
       - name: Setup Cluster Connection
         run: |
           echo ${{ secrets.ENCRYPTED_KUBE_CONFIG_BASE64 }} | base64 --decode > kubeconfig.enc
