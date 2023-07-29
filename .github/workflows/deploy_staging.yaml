@@ -81,6 +81,10 @@ jobs:
            version: 'latest'
            token: ${{ secrets.BOT_PAT }}
         id: install
+      - uses: azure/setup-kubectl@v3
+        with:
+           version: 'latest'
+        id: install
       - name: Setup Cluster Connection
         run: |
           echo "${{ secrets.ENCRYPTED_KUBE_CONFIG_BASE64 }}" | base64 --decode > kubeconfig.enc
@@ -95,6 +99,7 @@ jobs:
             .registryAuth.token = "$GH_CR_AUTH"
             .registryAuth.use = true
           EOF
+          KUBECONFIG=./kubeconfig.yaml kubectl create namespace lw-tmp-env-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}
           KUBECONFIG=./kubeconfig.yaml helm install backend-tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }} ./helm
       - name: Add build step comment 3
         uses: peter-evans/create-or-update-comment@v3
