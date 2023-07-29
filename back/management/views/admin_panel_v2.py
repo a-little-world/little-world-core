@@ -297,26 +297,28 @@ def get_quality_match_querry_set():
     return filtered_users
 
     
-QUERY_SETS = {
-    QuerySetEnum.all.name: User.objects.all().order_by('-date_joined'),
-    QuerySetEnum.searching.name: User.objects.filter(
-        state__user_form_state=State.UserFormStateChoices.FILLED,
-        state__email_authenticated=True,
-        state__matching_state=State.MatchingStateChoices.SEARCHING
-    ).order_by('-date_joined'),
-    QuerySetEnum.in_registration.name: User.objects.filter(
-        Q(state__user_form_state=State.UserFormStateChoices.UNFILLED) | Q(state__email_authenticated=False)).order_by('-date_joined'),
-    QuerySetEnum.active_within_3weeks.name: User.objects.filter(
-        last_login__gte=three_weeks_ago()).order_by('-date_joined'),
-    QuerySetEnum.highquality_matching.name: get_quality_match_querry_set(),
-    QuerySetEnum.message_reply_required.name: get_user_with_message_to_admin(),
-    
-}
+def get_QUERY_SETS():
+    QUERY_SETS = {
+        QuerySetEnum.all.name: User.objects.all().order_by('-date_joined'),
+        QuerySetEnum.searching.name: User.objects.filter(
+            state__user_form_state=State.UserFormStateChoices.FILLED,
+            state__email_authenticated=True,
+            state__matching_state=State.MatchingStateChoices.SEARCHING
+        ).order_by('-date_joined'),
+        QuerySetEnum.in_registration.name: User.objects.filter(
+            Q(state__user_form_state=State.UserFormStateChoices.UNFILLED) | Q(state__email_authenticated=False)).order_by('-date_joined'),
+        QuerySetEnum.active_within_3weeks.name: User.objects.filter(
+            last_login__gte=three_weeks_ago()).order_by('-date_joined'),
+        QuerySetEnum.highquality_matching.name: get_quality_match_querry_set(),
+        QuerySetEnum.message_reply_required.name: get_user_with_message_to_admin(),
+        
+    }
+    return QUERY_SETS
 
 def get_staff_queryset(query_set, request):
     # TODO: this should in the future be used to restrict the access of specific user groups to specific staff users
     # Should be done by checking a condition and then filtering the queryset additionally...
-    return QUERY_SETS[query_set]
+    return get_QUERY_SETS()[query_set]
 
 class AdvancedMatchingScoreSerializer(serializers.ModelSerializer):
     class Meta:
