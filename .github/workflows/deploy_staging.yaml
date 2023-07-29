@@ -80,11 +80,11 @@ jobs:
         with:
            version: 'latest'
            token: ${{ secrets.BOT_PAT }}
-        id: install
+        id: install-helm
       - uses: azure/setup-kubectl@v3
         with:
            version: 'latest'
-        id: install
+        id: install-kubectl
       - name: Setup Cluster Connection
         run: |
           echo "${{ secrets.ENCRYPTED_KUBE_CONFIG_BASE64 }}" | base64 --decode > kubeconfig.enc
