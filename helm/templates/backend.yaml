@@ -1,0 +1,157 @@
+---
+{{- if .Values.registryAuth.use }}
+kind: Secret
+type: kubernetes.io/dockerconfigjson
+apiVersion: v1
+metadata:
+  name: dockerconfigjson-github-com
+  namespace: {{ .Values.rootNamespace }}
+stringData:
+  .dockerconfigjson: >
+    {{
+      (
+        dict "auths"
+        (
+          dict "ghcr.io"
+          (
+            dict "auth" .Values.registryAuth.token
+          )
+        )
+      )
+      |
+      toJson
+    }}
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-container
+  namespace: {{ .Values.rootNamespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-container
+  template:
+    metadata:
+      labels:
+        app: backend-container
+    spec:
+      containers:
+        - name: backend-container
+          image: {{ .Values.backend.imageURL }}
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: backend-secrets
+      {{- if .Values.registryAuth.use }}
+      imagePullSecrets:
+        - name: {{ .Values.registryAuth.imagePullSecretName }}
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-service
+  namespace: {{ .Values.rootNamespace }}
+  labels:
+    app: backend-container
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+  selector:
+    app: backend-container
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: backend-secrets
+  namespace: {{ .Values.rootNamespace }}
+type: Opaque
+data:
+{{- range $key, $value := .Values.backend.env }}
+  {{ $key }}: {{ $value | b64enc }}
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-deployment
+  namespace: {{ .Values.rootNamespace }}
+  labels:
+    app: redis-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-deployment
+  template:
+    metadata:
+      labels:
+        app: redis-deployment
+    spec:
+      containers:
+        - name: redis-deployment
+          image: redis:5
+          ports:
+            - containerPort: 6379
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: {{ .Values.rootNamespace }}
+  labels:
+    app: redis-deployment
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: 6379
+  selector:
+    app: redis-deployment
+---
+{{- if .Values.ingress.use }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: backend-ingress
+  namespace: {{ .Values.rootNamespace }}
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: '3600'
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '3600'
+    nginx.ingress.kubernetes.io/proxy-send-timeout: '3600'
+    nginx.ingress.kubernetes.io/server-snippets: |
+      location /ws/ {
+        proxy_http_version 1.1;
+        proxy_redirect off;
+        proxy_buffering off;
+      } 
+    {{- if .Values.ingress.certManager }}
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    {{- end }}
+    kubernetes.io/ingress.class: public
+spec:
+  {{- if .Values.certManager }}
+  tls:
+    - hosts:
+        - {{ .Values.ingress.host }}
+      secretName: backend-ingress-tls
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.host }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backend-service
+                port:
+                  number: 8000
+{{- end }}
+---

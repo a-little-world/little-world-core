@@ -3,7 +3,7 @@ name: Bunnyshell Little World Empherial Env
 type: primary
 components:
   -
-    kind: Base
+    kind: Application
     name: app
     gitBranch: main
     gitRepo: 'https://github.com/a-little-world/little-world-backend.git'

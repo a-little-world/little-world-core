@@ -1,0 +1,5 @@
+./front/**/node_modules
+./front/apps/*/node_modules
+**/node_modules
+./*/node_modules/*
+./back/static/*

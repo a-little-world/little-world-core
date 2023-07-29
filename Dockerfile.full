@@ -99,7 +99,7 @@ RUN pip install "Cython<3.0" pyyaml --no-build-isolation
 
 RUN pip install --no-cache-dir -r requirements.txt
 RUN apk add --no-cache git
-RUN pip install git+https://github.com/jazzband/django-revproxy.git@aafddd1
+RUN pip install git+https://github.com/jazzband/django-revproxy.git
 RUN pip cache purge
 
 # Copy all the backend files
