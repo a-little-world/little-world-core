@@ -85,16 +85,19 @@ jobs:
         id: install-kubectl
       - name: Setup Cluster Connection
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        id: cluster_connection
         run: |
           echo "${{ secrets.ENCRYPTED_KUBE_CONFIG_BASE64 }}" | base64 --decode > kubeconfig.enc
           openssl aes-256-cbc -d -pbkdf2 -in ./kubeconfig.enc -out kubeconfig.yaml -k ${{ secrets.KUBE_CONFIG_PASSWORD }}
           cat kubeconfig.yaml
           GH_CR_AUTH=$(echo -n "littleworld-bot:${{ secrets.BOT_PAT }}" | base64)
+          STAGING_HOST = "${{ steps.extract_branch.outputs.branch }}-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}.t1m.me"
+          STAGING_URL = "https://$STAGING_HOST"
           cat << EOF | while read eval_command; do yq -i eval "$eval_command" ./helm/values.yaml; done
             .rootNamespace = "lw-tmp-env-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}"
             .backend.imageURL = "ghcr.io/a-little-world/little-world-backend/littleworld-epherial-backend:tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}"
             .ingress.certManger = true
-            .ingress.host = "${{ steps.extract_branch.outputs.branch }}-tmp-env.t1m.me"
+            .ingress.host = "STAGING_HOST"
             .registryAuth.token = "$GH_CR_AUTH"
             .registryAuth.use = true
           EOF
@@ -102,6 +105,7 @@ jobs:
           KUBECONFIG=./kubeconfig.yaml kubectl create namespace $NAMESPACE || true
           KUBECONFIG=./kubeconfig.yaml helm uninstall backend-tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }} || true
           KUBECONFIG=./kubeconfig.yaml helm install backend-tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }} ./helm
+          echo "STAGING_URL=$STAGING_URL" >> $GITHUB_OUTPUT
       - name: Add build step comment 3
         uses: peter-evans/create-or-update-comment@v3
         id: update_comment_3
@@ -110,4 +114,4 @@ jobs:
           token: ${{ secrets.BOT_PAT }}
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
           body: |
-            4. Done check: [`https://${{ steps.extract_branch.outputs.branch }}-tmp-env.t1m.me`](https://${{ steps.extract_branch.outputs.branch }}-tmp-env.t1m.me)
+            4. Done check: [`${{ steps.cluster_connection.outputs.STAGING_URL }}`](${{ steps.cluster_connection.outputs.STAGING_URL }})
