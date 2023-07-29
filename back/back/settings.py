@@ -456,6 +456,7 @@ if IS_DEV and (not EMPHIRIAL):
         }
     }
 elif EMPHIRIAL:
+
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
