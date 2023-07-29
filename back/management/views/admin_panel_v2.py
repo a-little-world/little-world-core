@@ -298,7 +298,7 @@ def get_quality_match_querry_set():
 
     
 def get_QUERY_SETS():
-    QUERY_SETS = {
+    return {
         QuerySetEnum.all.name: User.objects.all().order_by('-date_joined'),
         QuerySetEnum.searching.name: User.objects.filter(
             state__user_form_state=State.UserFormStateChoices.FILLED,
@@ -313,7 +313,6 @@ def get_QUERY_SETS():
         QuerySetEnum.message_reply_required.name: get_user_with_message_to_admin(),
         
     }
-    return QUERY_SETS
 
 def get_staff_queryset(query_set, request):
     # TODO: this should in the future be used to restrict the access of specific user groups to specific staff users
