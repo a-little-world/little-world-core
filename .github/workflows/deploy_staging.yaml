@@ -51,7 +51,7 @@ jobs:
         run: |
           touch .env
           RANDOM_STRING="$( openssl rand -hex 3 )"
-          IMAGE_URL="ghcr.io/a-little-world/little-world-backend/littleworld-epherial-backend:tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}-${{ steps.setup_emperial_env.outputs.RANDOM_STRING }}"
+          IMAGE_URL="ghcr.io/a-little-world/little-world-backend/littleworld-epherial-backend:tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}-$RANDOM_STRING"
           echo "APP_IMAGE_URL=\"$IMAGE_URL\"" >> .env
           echo "REDIS_URL=\"redis://redis-service.default.svc.cluster.local:6379\"" >> .env
           echo "RANDOM_STRING=$RANDOM_STRING" >> $GITHUB_OUTPUT
@@ -101,14 +101,15 @@ jobs:
           cat << EOF | while read eval_command; do yq -i eval "$eval_command" ./helm/values.yaml; done
             .rootNamespace = "lw-tmp-env-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}"
             .backend.imageURL = "${{ steps.setup_emperial_env.outputs.IMAGE_URL }}"
-            .ingress.certManger = true
+            .ingress.certManager = true
             .ingress.host = "$STAGING_HOST"
             .registryAuth.token = "$GH_CR_AUTH"
             .registryAuth.use = true
           EOF
           NAMESPACE=lw-tmp-env-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}
-          KUBECONFIG=./kubeconfig.yaml kubectl create namespace $NAMESPACE || true
           KUBECONFIG=./kubeconfig.yaml helm uninstall backend-tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }} || true
+          KUBECONFIG=./kubeconfig.yaml kubectl delete namespace $NAMESPACE || true
+          KUBECONFIG=./kubeconfig.yaml kubectl create namespace $NAMESPACE || true
           KUBECONFIG=./kubeconfig.yaml helm install backend-tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }} ./helm
           echo "STAGING_URL=$STAGING_URL" >> $GITHUB_OUTPUT
       - name: Add build step comment 3
