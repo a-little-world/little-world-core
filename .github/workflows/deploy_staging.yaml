@@ -11,7 +11,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: 'pages'
+  group: 'staging_deployment'
   cancel-in-progress: true
 
 jobs:
@@ -27,6 +27,8 @@ jobs:
         shell: bash
         run: |
           echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+          echo $GITHUB_HEAD_REF
+          echo $branch | grep -E '^staging-'
           SHOULD_STAGE=$(echo $branch | grep -E '^staging-')
         id: extract_branch
       - name: Determine Pull ID and if this should be staged
