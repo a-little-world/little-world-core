@@ -129,7 +129,7 @@ user_form_choices = {
 }
 
 
-def create_test_user(i, user_seeds=None, password=None, email=None):
+def create_test_user(i, user_seeds=None, password=None, email=None, pass_if_exists=False):
     # use user_seeds to generate redictable users
     if user_seeds:
         random.seed(user_seeds[i])  # Same user all?
@@ -140,6 +140,16 @@ def create_test_user(i, user_seeds=None, password=None, email=None):
     mail_count, _mail = _make_mail(int(str(i)))
     if email is not None:
         _mail = email
+        
+    if pass_if_exists:
+        try:
+            usr = controller.get_user_by_email(_mail)
+            if usr:
+                return
+        except:
+            pass
+        
+    
     if password is not None:
         _data["password"] = password
     print(f"Creating user: '{_mail}'")
@@ -201,7 +211,7 @@ def create_abunch_of_users(amnt=30, user_seeds=[42]*20):
 
     users = []
     for i in range(amnt):
-        users.append(create_test_user(i, user_seeds))
+        users.append(create_test_user(i, user_seeds, pass_if_exists=True))
 
     return users
 
