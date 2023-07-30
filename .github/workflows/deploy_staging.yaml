@@ -82,7 +82,7 @@ jobs:
       - name: Measure start time
         id: start
         run: |
-          echo "::set-output name=time::$(date +%s)"
+          echo "time=$(date +%s)" >> $GITHUB_OUTPUT
       - name: Build Image
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         run: |
@@ -92,7 +92,7 @@ jobs:
       - name: Measure end time
         id: end
         run: |
-          echo "::set-output name=time::$(date +%s)"
+          echo "time=$(date +%s)" >> $GITHUB_OUTPUT
       - name: Calculate execution time
         id: execution_time
         run: |
