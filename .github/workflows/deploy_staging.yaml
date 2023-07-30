@@ -78,7 +78,7 @@ jobs:
           token: ${{ secrets.BOT_PAT }}
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
           body: |
-            2. Build
+            2. Build ( takes ~5 minutes )
       - name: Measure start time
         id: start
         run: |
