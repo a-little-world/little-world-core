@@ -198,6 +198,10 @@ def create_test_user(i, user_seeds=None, password=None, email=None, pass_if_exis
     completed, msgs = usr.profile.check_form_completion()
     print("TBS", msgs)
     # & it will automaticly trigger the score calulation for that user
+    
+    us = usr.state
+    us.email_authenticated = True
+    us.save()
 
     # Cool thing, we can actuly set them a profile picture from currently inside the container!
     return usr

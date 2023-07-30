@@ -138,3 +138,11 @@ jobs:
             4. Done check: [`${{ steps.cluster_connection.outputs.STAGING_URL }}`](${{ steps.cluster_connection.outputs.STAGING_URL }})
 
             > **Note:** Setting up DNS and solving https challenge can take upto 5 minutes. Please wait for a while before checking the link.
+            
+            <details>
+            <summary> Creds </summary>
+             
+            - 30 users: `herrduenschnate+$i@gmail.com` for `$i in {1..30}`
+            - admin: `admin@user.com:Admin123!`
+
+            </details>
