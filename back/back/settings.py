@@ -394,7 +394,9 @@ def get_redis_connect_url_port():
     return os.environ['DJ_REDIS_HOST'], os.environ['DJ_REDIS_PORT']
 
 
-if IS_DEV:
+if EMPHIRIAL:
+    CELERY_BROKER_URL = os.environ["REDIS_URL"]
+elif IS_DEV:
     # autmaticly renders index.html when entering an absolute static path
     CELERY_BROKER_URL = 'redis://host.docker.internal:6379'
 elif IS_STAGE or IS_PROD:
