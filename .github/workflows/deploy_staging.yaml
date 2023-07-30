@@ -109,6 +109,7 @@ jobs:
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
           body: |
             Finished in ${{ steps.execution_time.outputs.DURATION }} seconds
+            Pushed image to `${{ steps.setup_emperial_env.outputs.IMAGE_URL }}`
             3. Deploy ( to Kubernetes namespace `${{ steps.setup_emperial_env.outputs.NAMESPACE }}` )
       - uses: azure/setup-helm@v3
         with:
@@ -156,9 +157,17 @@ jobs:
             > **Note:** Setting up DNS and solving https challenge can take upto 5 minutes. Please wait for a while before checking the link.
             
             <details>
-            <summary> Creds </summary>
+            <summary> Details </summary>
              
             - 30 users: `herrduenschnate+$i@gmail.com` for `$i in {1..30}`
+            login at `${{ steps.cluster_connection.outputs.STAGING_URL  }}/login`
             - admin: `admin@user.com:Admin123!`
-
+            login at `${{ steps.cluster_connection.outputs.STAGING_URL  }}/admin`
+            
+            Run build localy
+            ```
+            echo "YourGithubToken" | docker login ghcr.io -u littleworld-bot --password-stdin
+            docker run -it --rm -p 8000:8000 ${{ steps.setup_emperial_env.outputs.IMAGE_URL }}
+            ... visit http://localhost:8000
+            ```
             </details>
