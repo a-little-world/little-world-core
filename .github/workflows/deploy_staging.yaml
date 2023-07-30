@@ -144,13 +144,13 @@ jobs:
           KUBECONFIG=./kubeconfig.yaml kubectl create namespace $NAMESPACE || true
           KUBECONFIG=./kubeconfig.yaml helm install backend-tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }} ./helm
           echo "STAGING_URL=$STAGING_URL" >> $GITHUB_OUTPUT
-      - name: Create comment
+      - name: Add build step comment 3
         uses: peter-evans/create-or-update-comment@v3
-        id: create_comment
+        id: update_comment_3
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         with:
           token: ${{ secrets.BOT_PAT }}
-          issue-number: ${{ steps.determine_pull_id.outputs.PULL_NUMBER }}
+          comment-id: ${{ steps.create_comment.outputs.comment-id }}
           body: |
             4. Done check: [`${{ steps.cluster_connection.outputs.STAGING_URL }}`](${{ steps.cluster_connection.outputs.STAGING_URL }})
 
