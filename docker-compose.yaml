@@ -7,6 +7,7 @@ services:
       args:
         DOCKER_BUILDKIT: 1
         PUBLIC_FRONTEND_PATH: ""
+        BUILD_TYPE: "${BUILD_TYPE}"
     image: "${APP_IMAGE_URL}"
     ports:
       - "8000:8000"
