@@ -79,12 +79,27 @@ jobs:
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
           body: |
             2. Build
+      - name: Measure start time
+        id: start
+        run: |
+          echo "::set-output name=time::$(date +%s)"
       - name: Build Image
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         run: |
           echo ${{ secrets.BOT_PAT }} | docker login ghcr.io -u littleworld-bot --password-stdin
           DOCKER_BUILDKIT=1 docker-compose build
           DOCKER_BUILDKIT=1 docker-compose push
+      - name: Measure end time
+        id: end
+        run: |
+          echo "::set-output name=time::$(date +%s)"
+      - name: Calculate execution time
+        id: execution_time
+        run: |
+          START=${{ steps.start.outputs.time }}
+          END=${{ steps.end.outputs.time }}
+          DIFF=$(( END - START ))
+          echo "DURATION=$DIFF" >> $GITHUB_OUTPUT
       - name: Add build step comment 2
         uses: peter-evans/create-or-update-comment@v3
         id: update_comment_2
@@ -93,6 +108,7 @@ jobs:
           token: ${{ secrets.BOT_PAT }}
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
           body: |
+            Finished in ${{ steps.execution_time.outputs.DURATION }} seconds
             3. Deploy ( to Kubernetes namespace `${{ steps.setup_emperial_env.outputs.NAMESPACE }}` )
       - uses: azure/setup-helm@v3
         with:
