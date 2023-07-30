@@ -15,7 +15,7 @@ DOCKER_BUILDKIT=1 docker-compose up --build
 Auto setup, full hot reload for code in `./back/*`
 
 ```
-./run.py
+./run.py # Use `./run.py r` on subsequent runs to skip builds
 ```
 
 ### Frontend + Backend Development
@@ -47,17 +47,26 @@ If the file `./front/env_apps/<frontend-name>.<build-type>.env.js` is present, i
 ```
       
 ### Making Feature Deployments via Pull Request
+      
+To deploy a staging version of your changes all you need to do is:
+      
+1. create a feature branch starting with `staging-*`
+2. make some changes
+3. create pull request to main
 
-1. Makes changes on a feature branch in the frontend repo `frontend-feature-branch`
-2. Clone the backend repo, checkout a new branch `git checkout -b staging-<some-feature-name>`
-3. Initalize submodules `git submodule --init --recursive`
-4. Go into the frontend sub repo you changed - in case of user_form - `cd /front/apps/user_form`
-5. Pull your feature branch `git pull && git switch staging-<some-feature-name>`
-6. Add the updated sub repo commit `git add /front/apps/user_form && git commit -m "feature implementation XXXX"`
-7. Push branch: ``
-8. Go to pull request on github.com
+e.g.: updating the user-form frontend
 
-> Note the `staging-` prefix for the branch name, if that is provided a temporary env will be created on pull request
+```
+git clone github.com/a-little-world/little-world-backend.git && cd little-world-backend
+git submodule --init --recursive
+git checkout -b staging-<your-feature-branch>
+cd ./front/apps/user_form/
+git pull && git switch <your-feature-branch> # or 'main'
+cd ../ && git add ./user_form && git commit -m "update user form" # update commit refence
+git push # Now go to github.com/a-little-world/little-world-backend/tree/<your-feature-branch> & create a pull request
+```
+
+Check the messages in the pull request, in a few minutes you can test your features live.
 
 ## Infrastructure
 
