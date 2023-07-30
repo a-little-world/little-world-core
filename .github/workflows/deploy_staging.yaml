@@ -35,6 +35,13 @@ jobs:
           SHOULD_STAGE=$(echo $branch | grep -E '^staging-')
           echo "SHOULD_STAGE=$SHOULD_STAGE" >> $GITHUB_OUTPUT
           echo "PULL_NUMBER=$pull_number" >> $GITHUB_OUTPUT
+      - name: Delete all littleworld-bot comments
+        run: |
+          comments=$(curl -s -H "Authorization: token ${{ secrets.BOT_PAT }}" https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.determine_pull_id.outputs.PULL_NUMBER }}/comments | jq -r '.[] | select(.user.login=="littleworld-bot") | .id')
+          for comment in $comments
+          do
+            curl -s -H "Authorization: token ${{ secrets.BOT_PAT }}" -X DELETE https://api.github.com/repos/${{ github.repository }}/issues/comments/$comment
+          done
       - name: Create comment
         uses: peter-evans/create-or-update-comment@v3
         id: create_comment
