@@ -161,14 +161,19 @@ jobs:
             <summary> Details </summary>
              
             - 30 users: `herrduenschnate+$i@gmail.com` for `$i in {1..30}`
-            login at `${{ steps.cluster_connection.outputs.STAGING_URL  }}/login`
+            e.g.: `herrduenschnate+17@gmail.com:Test123!`
+            at `${{ steps.cluster_connection.outputs.STAGING_URL  }}/login`
+            - checkout the new user form `${{ steps.cluster_connection.outputs.STAGING_URL  }}/from_v2/userType`
             - admin: `admin@user.com:Admin123!`
-            login at `${{ steps.cluster_connection.outputs.STAGING_URL  }}/admin`
+            at `${{ steps.cluster_connection.outputs.STAGING_URL  }}/admin`
+            - checkout the new admin_panel `${{ steps.cluster_connection.outputs.STAGING_URL  }}/admin_panel_v2/`
             
             Run build localy
             ```
-            echo "YourGithubToken" | docker login ghcr.io -u littleworld-bot --password-stdin
+            echo "<your-git-token>" | docker login ghcr.io -u <your-git-user> --password-stdin
             docker run -it --rm -p 8000:8000 ${{ steps.setup_emperial_env.outputs.IMAGE_URL }}
             ... visit http://localhost:8000
             ```
+            You have the image cached loally now, use this to develop locally with pull api access.
+
             </details>
