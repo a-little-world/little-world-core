@@ -9,10 +9,6 @@ permissions:
   pages: write
   id-token: write
 
-concurrency:
-  group: 'staging_deployment'
-  cancel-in-progress: true
-
 jobs:
   make_docs:
     runs-on: ubuntu-latest
@@ -71,6 +67,6 @@ jobs:
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         with:
           token: ${{ secrets.BOT_PAT }}
-          comment-id: ${{ steps.create_comment.outputs.comment-id }}
+          issue-number: ${{ steps.determine_pull_id.outputs.PULL_NUMBER }}
           body: |
             Cleaned Up Feature Environment `${{ steps.cluster_connection.outputs.STAGING_URL }}`
