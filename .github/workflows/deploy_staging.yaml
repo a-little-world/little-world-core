@@ -79,7 +79,7 @@ jobs:
           token: ${{ secrets.BOT_PAT }}
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
           body: |
-            2. Build ( takes ~5 minutes )
+            2. Building ![action](https://github.com/a-little-world/little-world-backend/actions/workflows/deploy_staging.yml/badge.svg?branch=${{ steps.extract_branch.outputs.branch }})
       - name: Measure start time
         id: start
         run: |

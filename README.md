@@ -35,9 +35,10 @@ Auto setup, full hot reload for code in `./back/*`
 
 #### Frontend Configuration
 
-For any frontend in `./front/apps/<frontend-name>/`
-With config `./front/webpack/<frontend-name>.config.js`
-If the file `./front/env_apps/<frontend-name>.<build-type>.env.js` is present, it's used to replace `./front/apps/<frontend-name>/src/ENVIRONMENT.js`
+For any frontend in `./front/apps/<frontend-name>/`;
+If `<frontend-name>` is listed in `docker-compose.yaml:services.all.evironment.FR_FRONTENEDS` ( or `./env` when using `./run.py` );
+then we expect webpack config `./front/webpack.<frontend-name>.config.js`. 
+If the file `./front/env_apps/<frontend-name>.<build-type>.env.js` is present, it's used to replace `./front/apps/<frontend-name>/src/ENVIRONMENT.js`.
 
 ### Kill containers
 
