@@ -1,0 +1,76 @@
+name: Cleanup Temporary Environments
+
+on:
+  pull_request:
+    types: [ closed ]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: 'staging_deployment'
+  cancel-in-progress: true
+
+jobs:
+  make_docs:
+    runs-on: ubuntu-latest
+    name: Deploy emperial env
+    steps:
+      - uses: actions/checkout@master
+        with:
+          token: ${{ secrets.BOT_PAT }}
+          submodules: recursive
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Extract branch name
+        shell: bash
+        run: |
+          echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+        id: extract_branch
+      - name: Determine Pull ID and if this should be staged
+        id: determine_pull_id
+        run: |
+          pull_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
+          branch=${{ steps.extract_branch.outputs.branch }}
+          SHOULD_STAGE=$(echo $branch | grep -E '^staging-')
+          echo "SHOULD_STAGE=$SHOULD_STAGE" >> $GITHUB_OUTPUT
+          echo "PULL_NUMBER=$pull_number" >> $GITHUB_OUTPUT
+      - name: Delete all littleworld-bot comments
+        run: |
+          comments=$(curl -s -H "Authorization: token ${{ secrets.BOT_PAT }}" https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.determine_pull_id.outputs.PULL_NUMBER }}/comments | jq -r '.[] | select(.user.login=="littleworld-bot") | .id')
+          for comment in $comments
+          do
+            curl -s -H "Authorization: token ${{ secrets.BOT_PAT }}" -X DELETE https://api.github.com/repos/${{ github.repository }}/issues/comments/$comment
+          done
+      - uses: azure/setup-helm@v3
+        with:
+           version: 'latest'
+           token: ${{ secrets.BOT_PAT }}
+        id: install-helm
+      - uses: azure/setup-kubectl@v3
+        with:
+           version: 'latest'
+        id: install-kubectl
+      - name: Setup Cluster Connection
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        id: cluster_connection
+        run: |
+          echo "${{ secrets.ENCRYPTED_KUBE_CONFIG_BASE64 }}" | base64 --decode > kubeconfig.enc
+          openssl aes-256-cbc -d -pbkdf2 -in ./kubeconfig.enc -out kubeconfig.yaml -k ${{ secrets.KUBE_CONFIG_PASSWORD }}
+          GH_CR_AUTH=$(echo -n "littleworld-bot:${{ secrets.BOT_PAT }}" | base64)
+          STAGING_HOST="${{ steps.extract_branch.outputs.branch }}-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}.t1m.me"
+          STAGING_URL="https://$STAGING_HOST"
+          NAMESPACE=lw-tmp-env-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}
+          KUBECONFIG=./kubeconfig.yaml helm uninstall backend-tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }} || true
+          KUBECONFIG=./kubeconfig.yaml kubectl delete namespace $NAMESPACE || true
+          echo "STAGING_URL=$STAGING_URL" >> $GITHUB_OUTPUT
+      - name: Add build step comment
+        uses: peter-evans/create-or-update-comment@v3
+        id: update_comment_3
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        with:
+          token: ${{ secrets.BOT_PAT }}
+          comment-id: ${{ steps.create_comment.outputs.comment-id }}
+          body: |
+            Cleaned Up Feature Environment `${{ steps.cluster_connection.outputs.STAGING_URL }}`

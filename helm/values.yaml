@@ -2,10 +2,9 @@ rootNamespace: "default"
 registryAuth:
   use: false
   token: ""
-  imagePullSecretName: ""
 ingress:
   use: true
-  certManger: false
+  certManager: true
   host: "localhost"
 backend:
   imageURL: "localhost:32000/backend:registry"

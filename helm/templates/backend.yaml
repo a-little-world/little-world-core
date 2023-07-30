@@ -48,7 +48,7 @@ spec:
                 name: backend-secrets
       {{- if .Values.registryAuth.use }}
       imagePullSecrets:
-        - name: {{ .Values.registryAuth.imagePullSecretName }}
+        - name: dockerconfigjson-github-com
       {{- end }}
 ---
 apiVersion: v1
@@ -136,7 +136,7 @@ metadata:
     {{- end }}
     kubernetes.io/ingress.class: public
 spec:
-  {{- if .Values.certManager }}
+  {{- if .Values.ingress.certManager }}
   tls:
     - hosts:
         - {{ .Values.ingress.host }}

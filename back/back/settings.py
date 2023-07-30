@@ -29,6 +29,8 @@ TWILIO_API_SECRET = os.environ["DJ_TWILIO_API_SECRET"]
 
 COOKIE_CONSENT_NAME = "backend_cookie_consent"
 
+EMPHIRIAL = os.environ.get("EMPHIRIAL", "0") == "1"
+
 if IS_PROD and 'K8_POD_IP' in os.environ:
     # So that we can further restrict access to the depoloyment kubernetes node
     ALLOWED_HOSTS.append(os.environ['K8_POD_IP'])
@@ -157,6 +159,11 @@ if IS_STAGE:
     CORS_ALLOWED_ORIGINS += dev_origins
     CORS_ORIGIN_WHITELIST += dev_origins
     CSRF_TRUSTED_ORIGINS += dev_origins
+    
+if EMPHIRIAL:
+    CORS_ALLOW_ALL_ORIGINS = True
+    CSRF_TRUSTED_ORIGINS = ["https://*.t1m.me"]
+    CSRF_ORIGIN_ALLOW_ALL = True
 
 if not DEBUG:
     SESSION_COOKIE_SECURE = True
@@ -387,7 +394,9 @@ def get_redis_connect_url_port():
     return os.environ['DJ_REDIS_HOST'], os.environ['DJ_REDIS_PORT']
 
 
-if IS_DEV:
+if EMPHIRIAL:
+    CELERY_BROKER_URL = os.environ["REDIS_URL"]
+elif IS_DEV:
     # autmaticly renders index.html when entering an absolute static path
     CELERY_BROKER_URL = 'redis://host.docker.internal:6379'
 elif IS_STAGE or IS_PROD:
@@ -442,7 +451,6 @@ SPECTACULAR_SETTINGS = {
     },
 }
 
-EMPHIRIAL = os.environ.get("EMPHIRIAL", "0") == "1"
 
 if IS_DEV and (not EMPHIRIAL):
     # or install redis in the container
@@ -456,6 +464,7 @@ if IS_DEV and (not EMPHIRIAL):
         }
     }
 elif EMPHIRIAL:
+
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",

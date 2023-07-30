@@ -1,8 +1,7 @@
 name: Deploy temporary env
 
 on:
-  push:
-    branches: ['main']
+  pull_request:
 
 permissions:
   contents: read
@@ -22,6 +21,7 @@ jobs:
         with:
           token: ${{ secrets.BOT_PAT }}
           submodules: recursive
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Extract branch name
         shell: bash
         run: |
@@ -35,6 +35,13 @@ jobs:
           SHOULD_STAGE=$(echo $branch | grep -E '^staging-')
           echo "SHOULD_STAGE=$SHOULD_STAGE" >> $GITHUB_OUTPUT
           echo "PULL_NUMBER=$pull_number" >> $GITHUB_OUTPUT
+      - name: Delete all littleworld-bot comments
+        run: |
+          comments=$(curl -s -H "Authorization: token ${{ secrets.BOT_PAT }}" https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.determine_pull_id.outputs.PULL_NUMBER }}/comments | jq -r '.[] | select(.user.login=="littleworld-bot") | .id')
+          for comment in $comments
+          do
+            curl -s -H "Authorization: token ${{ secrets.BOT_PAT }}" -X DELETE https://api.github.com/repos/${{ github.repository }}/issues/comments/$comment
+          done
       - name: Create comment
         uses: peter-evans/create-or-update-comment@v3
         id: create_comment
@@ -43,14 +50,26 @@ jobs:
           token: ${{ secrets.BOT_PAT }}
           issue-number: ${{ steps.determine_pull_id.outputs.PULL_NUMBER }}
           body: |
-            Branches starts with 'staging-*' deploying temporary env!
+            ## Deploying Temporary Feature Environment
+
+            > Triggered because branch starts with `staging-*`
+
             1. Setup
       - name: Setup Emperial Env
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        id: setup_emperial_env
         run: |
           touch .env
-          echo "APP_IMAGE_URL=\"ghcr.io/a-little-world/little-world-backend/littleworld-epherial-backend:latest\"" >> .env
-          echo "REDIS_URL=\"redis://redis-service.default.svc.cluster.local:6379\"" >> .env
+          RANDOM_STRING="$( openssl rand -hex 3 )"
+          IMAGE_URL="ghcr.io/a-little-world/little-world-backend/littleworld-epherial-backend:tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}-$RANDOM_STRING"
+          echo "APP_IMAGE_URL=\"$IMAGE_URL\"" >> .env
+          NAMESPACE="lw-tmp-env-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}"
+          REDIS_URL="redis://redis-service.$NAMESPACE.svc.cluster.local:6379"
+          echo "REDIS_URL=\"$REDIS_URL\"" >> .env
+          echo "REDIS_URL=$REDIS_URL" >> $GITHUB_OUTPUT
+          echo "RANDOM_STRING=$RANDOM_STRING" >> $GITHUB_OUTPUT
+          echo "IMAGE_URL=$IMAGE_URL" >> $GITHUB_OUTPUT
+          echo "NAMESPACE=$NAMESPACE" >> $GITHUB_OUTPUT
       - name: Add build step comment
         uses: peter-evans/create-or-update-comment@v3
         id: update_comment
@@ -60,12 +79,27 @@ jobs:
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
           body: |
             2. Build
+      - name: Measure start time
+        id: start
+        run: |
+          echo "time=$(date +%s)" >> $GITHUB_OUTPUT
       - name: Build Image
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         run: |
           echo ${{ secrets.BOT_PAT }} | docker login ghcr.io -u littleworld-bot --password-stdin
           DOCKER_BUILDKIT=1 docker-compose build
           DOCKER_BUILDKIT=1 docker-compose push
+      - name: Measure end time
+        id: end
+        run: |
+          echo "time=$(date +%s)" >> $GITHUB_OUTPUT
+      - name: Calculate execution time
+        id: execution_time
+        run: |
+          START=${{ steps.start.outputs.time }}
+          END=${{ steps.end.outputs.time }}
+          DIFF=$(( END - START ))
+          echo "DURATION=$DIFF" >> $GITHUB_OUTPUT
       - name: Add build step comment 2
         uses: peter-evans/create-or-update-comment@v3
         id: update_comment_2
@@ -74,15 +108,66 @@ jobs:
           token: ${{ secrets.BOT_PAT }}
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
           body: |
-            3. Deploy
+            Finished in ${{ steps.execution_time.outputs.DURATION }} seconds
+            Pushed image to `${{ steps.setup_emperial_env.outputs.IMAGE_URL }}`
+            3. Deploy ( to Kubernetes namespace `${{ steps.setup_emperial_env.outputs.NAMESPACE }}` )
       - uses: azure/setup-helm@v3
         with:
            version: 'latest'
            token: ${{ secrets.BOT_PAT }}
-        id: install
+        id: install-helm
+      - uses: azure/setup-kubectl@v3
+        with:
+           version: 'latest'
+        id: install-kubectl
       - name: Setup Cluster Connection
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        id: cluster_connection
         run: |
           echo "${{ secrets.ENCRYPTED_KUBE_CONFIG_BASE64 }}" | base64 --decode > kubeconfig.enc
           openssl aes-256-cbc -d -pbkdf2 -in ./kubeconfig.enc -out kubeconfig.yaml -k ${{ secrets.KUBE_CONFIG_PASSWORD }}
-          cat kubeconfig.yaml
-          KUBECONFIG=./kubeconfig.yaml helm install backend-install ./helm
+          GH_CR_AUTH=$(echo -n "littleworld-bot:${{ secrets.BOT_PAT }}" | base64)
+          STAGING_HOST="${{ steps.extract_branch.outputs.branch }}-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}.t1m.me"
+          STAGING_URL="https://$STAGING_HOST"
+          cat << EOF | while read eval_command; do yq -i eval "$eval_command" ./helm/values.yaml; done
+            .rootNamespace = "${{ steps.setup_emperial_env.outputs.NAMESPACE }}"
+            .backend.imageURL = "${{ steps.setup_emperial_env.outputs.IMAGE_URL }}"
+            .ingress.certManager = true
+            .ingress.host = "$STAGING_HOST"
+            .registryAuth.token = "$GH_CR_AUTH"
+            .registryAuth.use = true
+            .backend.env.REDIS_URL = "${{ steps.setup_emperial_env.outputs.REDIS_URL }}"
+          EOF
+          NAMESPACE=lw-tmp-env-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}
+          KUBECONFIG=./kubeconfig.yaml helm uninstall backend-tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }} || true
+          KUBECONFIG=./kubeconfig.yaml kubectl delete namespace $NAMESPACE || true
+          KUBECONFIG=./kubeconfig.yaml kubectl create namespace $NAMESPACE || true
+          KUBECONFIG=./kubeconfig.yaml helm install backend-tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }} ./helm
+          echo "STAGING_URL=$STAGING_URL" >> $GITHUB_OUTPUT
+      - name: Add build step comment 3
+        uses: peter-evans/create-or-update-comment@v3
+        id: update_comment_3
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        with:
+          token: ${{ secrets.BOT_PAT }}
+          comment-id: ${{ steps.create_comment.outputs.comment-id }}
+          body: |
+            4. Done check: [`${{ steps.cluster_connection.outputs.STAGING_URL }}`](${{ steps.cluster_connection.outputs.STAGING_URL }})
+
+            > **Note:** Setting up DNS and solving https challenge can take upto 5 minutes. Please wait for a while before checking the link.
+            
+            <details>
+            <summary> Details </summary>
+             
+            - 30 users: `herrduenschnate+$i@gmail.com` for `$i in {1..30}`
+            login at `${{ steps.cluster_connection.outputs.STAGING_URL  }}/login`
+            - admin: `admin@user.com:Admin123!`
+            login at `${{ steps.cluster_connection.outputs.STAGING_URL  }}/admin`
+            
+            Run build localy
+            ```
+            echo "YourGithubToken" | docker login ghcr.io -u littleworld-bot --password-stdin
+            docker run -it --rm -p 8000:8000 ${{ steps.setup_emperial_env.outputs.IMAGE_URL }}
+            ... visit http://localhost:8000
+            ```
+            </details>
