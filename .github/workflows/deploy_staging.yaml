@@ -43,7 +43,10 @@ jobs:
           token: ${{ secrets.BOT_PAT }}
           issue-number: ${{ steps.determine_pull_id.outputs.PULL_NUMBER }}
           body: |
-            Branch starts with 'staging-*' deploying temporary env!
+            ## Deploying Temporary Feature Environment
+
+            > Triggered because branch starts with `staging-*`
+
             1. Setup
       - name: Setup Emperial Env
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
