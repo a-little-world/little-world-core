@@ -1,0 +1,100 @@
+services:
+  frontend__user_form_frontend:
+    build:
+      context: .
+      target: user_form_frontend_image
+      dockerfile: ./Dockerfile.full
+      args:
+        DOCKER_BUILDKIT: 1
+        PUBLIC_FRONTEND_PATH: ""
+        BUILD_TYPE: "${BUILD_TYPE}"
+    working_dir: /front
+    entrypoint: sh /back/entries/frontend_hot_reload.sh user_form_frontend
+    volumes:
+      - ./back/entries:/back/entries/
+      - ./front/user_form_frontend.webpack-stats.json:/front/user_form_frontend.webpack-stats.json
+      - ./back/static/dist/user_form_frontend/:/back/static/dist/user_form_frontend/
+      - ./front/apps/user_form_frontend/src/:/front/apps/user_form_frontend/src/
+  frontend__main_frontend:
+    build:
+      context: .
+      target: main_frontend_image
+      dockerfile: ./Dockerfile.full
+      args:
+        DOCKER_BUILDKIT: 1
+        PUBLIC_FRONTEND_PATH: ""
+        BUILD_TYPE: "${BUILD_TYPE}"
+    working_dir: /front
+    entrypoint: sh /back/entries/frontend_hot_reload.sh main_frontend
+    volumes:
+      - ./back/entries:/back/entries/
+      - ./back/static/dist/main_frontend/:/back/static/dist/main_frontend/
+      - ./front/main_frontend.webpack-stats.json:/front/main_frontend.webpack-stats.json
+      - ./front/apps/main_frontend/src/:/front/apps/main_frontend/src/
+  frontend__admin_panel_frontend:
+    build:
+      context: .
+      target: admin_panel_frontend_image
+      dockerfile: ./Dockerfile.full
+      args:
+        DOCKER_BUILDKIT: 1
+        PUBLIC_FRONTEND_PATH: ""
+        BUILD_TYPE: "${BUILD_TYPE}"
+    working_dir: /front
+    entrypoint: sh /back/entries/frontend_hot_reload.sh admin_panel_frontend
+    volumes:
+      - ./back/entries:/back/entries/
+      - ./back/static/dist/admin_panel_frontend/:/back/static/dist/admin_panel_frontend/
+      - ./front/apps/admin_panel_frontend/src/:/front/apps/admin_panel_frontend/src/
+  frontend__user_form_v2:
+    build:
+      context: .
+      target: admin_panel_frontend_image
+      dockerfile: ./Dockerfile.full
+      args:
+        DOCKER_BUILDKIT: 1
+        PUBLIC_FRONTEND_PATH: ""
+        BUILD_TYPE: "${BUILD_TYPE}"
+    working_dir: /front
+    entrypoint: sh /back/entries/frontend_hot_reload.sh user_form
+    volumes:
+      - ./back/entries:/back/entries/
+      - ./back/static/dist/user_form/:/back/static/dist/user_form/
+      - ./front/apps/user_form/src/:/front/apps/user_form/src/
+  frontend__cookie_banner:
+    build:
+      context: .
+      target: admin_panel_frontend_image
+      dockerfile: ./Dockerfile.full
+      args:
+        DOCKER_BUILDKIT: 1
+        PUBLIC_FRONTEND_PATH: ""
+        BUILD_TYPE: "${BUILD_TYPE}"
+    working_dir: /front
+    entrypoint: sh /back/entries/frontend_hot_reload.sh cookie_banner_frontend
+    volumes:
+      - ./back/entries:/back/entries/
+      - ./back/static/dist/cookie_banner_frontend/:/back/static/dist/cookie_banner_frontend/
+      - ./front/apps/cookie_banner_frontend/src/:/front/apps/cookie_banner_frontend/src/
+  backend:
+    build:
+      context: .
+      dockerfile: ./Dockerfile.full
+      args:
+        DOCKER_BUILDKIT: 1
+        PUBLIC_FRONTEND_PATH: ""
+        BUILD_TYPE: "${BUILD_TYPE}"
+    image: "${APP_IMAGE_URL}"
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./envs/dev.env
+    volumes:
+      - ./back/:/back/
+      - ./front/user_form_frontend.webpack-stats.json:/front/user_form_frontend.webpack-stats.json
+  redis:
+    image: redis:5
+    ports:
+      - "6379:6379"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
