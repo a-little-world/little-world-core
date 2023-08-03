@@ -200,6 +200,56 @@ class MatchRejectedEmailTexts:
 
 
 @dataclass
+class UserSurveyInvitationEmailNatalia:
+    """
+    Send an interview invitation to the user.
+    """
+    subject_header_text: str = pgettext_lazy(
+        "email.interview-invitation-email.subject-header-text", "Einladung zu einem Online-Interview mit Natalia")
+    greeting: str = pgettext_lazy(
+        'email.interview-invitation-email.greeting',
+        'Hallo {first_name}!')
+    content_start_text: str = pgettext_lazy(
+        'email.interview-invitation-email.content-start-text',
+        'Mein Name ist Natalia und ich bin derzeit Studentin an der Universität Siegen im Bereich \
+        Human Computer Interaction. Im Rahmen meiner Projektarbeit mit Little World führe ich \
+        Online-Interviews (auf Englisch) durch. Das Thema der Interviews ist deine Motivation zur \
+        Teilnahme auf und Erweiterungen von Little World.')
+    content_body_text: str = pgettext_lazy(
+        'email.interview-invitation-email.content-body-text',
+        'Wenn du helfen möchtest die Plattform für andere Benutzer:innen zu verbessern oder du \
+        mich einfach in meiner Projektarbeit unterstützen möchtest, dann melde dich bitte bei mir. \
+        Nimm gerne einen Kaffee oder Tee zum Online-Interview mit, es wird alles ganz entspannt \
+        und dauert 60-80 Minuten. Ich freue mich auf einen lebhaften Ideenaustausch mit dir! \
+        Bitte hilf mir in der Projektarbeit und schreibe mir unter:')
+    link_box_text: str = pgettext_lazy(
+        'email.interview-invitation-email.link-box-text',
+        'natalia.romancheva@student.uni-siegen.de')
+    button_text: str = pgettext_lazy(
+        'email.interview-invitation-email.button-text',
+        'Natalia helfen (E-Mail)')
+    button_link: str = pgettext_lazy(
+        'email.interview-invitation-email.button-link',
+        'mailto:natalia.romancheva@student.uni-siegen.de')
+    below_link_text: str = pgettext_lazy(
+        'email.interview-invitation-email.below-link-text',
+        'PS: das Team von Little World hat diese E-Mail im Namen von Natalia an dich weitergeleitet. \
+        Solltest du in Zukunft keine Interview-Bitten mehr erhalten wollen, so klicke bitte auf E-Mail Abmelden.')
+    footer_text: str = pgettext_lazy(
+        'email.interview-invitation-email.footer-text',
+        '')
+    goodbye: str = pgettext_lazy(
+        'email.interview-invitation-email.goodbye',
+        '')
+    goodbye_name: str = pgettext_lazy(
+        'email.interview-invitation-email.goodbye.goodbye-name',
+        'Natalia Romancheva')
+    use_unsubscribe_footer: bool = True
+    unsubscribe_two_link:bool = False
+    unsubscribe_link1: str = '{unsubscribe_url1}'
+    unsubscribe_link1_category: str = 'survey request'
+
+@dataclass
 class UnfinishedUserForm1Messages:
     """
     Send if the user registered and verified his email but did not finish the userform    
