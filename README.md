@@ -1,55 +1,66 @@
 # Little World Backend
 
+The backend consists of a django application that is containerized using docker.
+Builds are manged using docker-compose. 
+This repo also builds all frontends using webpack and serves them via django views.
+
+> It's always recomended to use `DOCKER_BUILDKIT=1` it is the future default for docker anyways and speeds up builds significantly
+
 ## TL;DR full docker build
 
 Want to test a feature quickly locally:
 
 ```
-git clone <your-feature-branch>
-git submodule --init --recursive
-DOCKER_BUILDKIT=1 docker-compose up --build
+git clone <your-feature-branch> && cd little-world-backend
+git submodule update --init --recursive
+DOCKER_BUILDKIT=1 docker-compose up
 ```
 
-## Backend Development
+> Quciker build meant for testing, check below for development setup
 
-Auto setup, full hot reload for code in `./back/*`
+### Run Tests ( as you should before making a PR )
 
-```
-./run.py # Use `./run.py r` on subsequent runs to skip builds
-```
-
-### Frontend + Backend Development
+Use this to verify locally if your features breaks anything, rather than waiting for the CI!
 
 ```
-./run.py
-./run.py watch -i <frontend-name> # or one-time update ./run.py uf -i <frontend-name>
+DOCKER_BUILDKIT=1 docker-compose up -d
+docker-compose all exec python3 manage.py test
+docker-compose down
 ```
 
-#### Build Frontend
+## Backend ( + Frontend in Backend ) Development
+
+You can do all backend development using docker-compose and a few simple command.
+You can also develop all the frontends from within the backend repo, with full code + hot reloading.
+
+### Full Hot-Reload Back & All Frontends
+
+setup:
 
 ```
-./run.py bf # or ./run.py bf -i <frontend-name>
+git clone <backend> && cd little-world-backend
+git submodule update --init --recursive
+COMPOSE_PROFILES=all DOCKER_BUILDKIT=1 docker-compose -f docker-compose.dev.yaml up
 ```
 
-> Only if packages.json updated, `./run.py` also automaticly updates frontends
+That's it! Any code changed in `/front/apps/*/src/*` or in `/back/*` will cause a hot-reload for the specific frontend, or backend.
+
+Be sure to checkout the frontend commit or branch you want to work on!
+
+> If you wan't only one frontend to auto-update just use `COMPOSE_PROFILE=<frontend-name>` for any frontend `main_frontend`, `user_form` (v2), `user_form_frontend`, `admin_panel_frontend`, `cookie_banner_frontend`
+
 
 #### Frontend Configuration
 
 - Frontends are subrepos in `./front/apps/<frontend-name>`
 - `<frontend-name>` should be listed in `FR_FRONTENDS`
 - configure the environment in `docker-compose.yaml:services.all.evironment`
-or `./env` for local development
+or `./envs/dev.env` for local development
 - specify `BUILD_TYPE=<build-type>` to change frontend environments
 `<build-type>=dev` for local developent and `<build-type>=pro` for staging
-- `./front/env_apps/<frontend-name>.<build-type>.env.js` replaces `./front/apps/<frontend-name>/src/ENVIRONMENT.js`
+- on build; `./front/env_apps/<frontend-name>.<build-type>.env.js` replaces `./front/apps/<frontend-name>/src/ENVIRONMENT.js`
 
-### Kill containers
-
-```
-./run.py k
-```
-      
-### Making Feature Deployments via Pull Request
+### Ephemeral Environments: Making Feature Deployments via Pull Request
       
 To deploy a staging version of your changes all you need to do is:
       
@@ -73,6 +84,8 @@ Check the messages in the pull request, in a few minutes you can test your featu
 
 ## Infrastructure
 
+The development chat, as its also used by our Ephemeral environments.
+
 ### Local Microk8s
 
 You can also run the whole infrastucture locally
@@ -87,9 +100,10 @@ DOCKER_BUILDKIT=1 docker-compose push
 microk8s helm install release-1 ./helm/
 ```
 
-Check for contains to deploy
+Wait for containers to deploy
 
 ```
-microk8s kubectl get pods
-... once ready visit localhost / https://localhost:80
+watch microk8s kubectl get pods
 ```
+
+once ready visit `http://localhost`
