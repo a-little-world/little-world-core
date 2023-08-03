@@ -27,7 +27,8 @@ from emails.templates import (
     MatchFoundEmailTexts,
     SorryWeStillNeedALittleMail,
     NewServerMail,
-    RAWTemplateMail
+    RAWTemplateMail,
+    UserSurveyInvitationEmailNatalia
 )
 from django.core.mail import EmailMessage
 import json
@@ -47,6 +48,12 @@ class MailDataNotFoundErr(Exception):
 
 @dataclass
 class SurveyInvitation2AniqParams:
+    first_name: str
+    link_url: str
+    unsubscribe_url1: str
+    
+@dataclass
+class SurveryInvitation3Natalia:
     first_name: str
     link_url: str
     unsubscribe_url1: str
@@ -292,6 +299,13 @@ templates = [
         params=SurveyInvitation2AniqParams,
         texts=SurveyInvitationAniq2,
         defaults=SurveyInvitationAniq2
+    ),
+    MailMeta(
+        name="survey3_natalia",
+        template="emails/welcome.html",
+        params=SurveryInvitation3Natalia,
+        texts=UserSurveyInvitationEmailNatalia,
+        defaults=UserSurveyInvitationEmailNatalia
     )
 ]
 
