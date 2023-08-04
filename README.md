@@ -47,7 +47,8 @@ That's it! Any code changed in `/front/apps/*/src/*` or in `/back/*` will cause 
 
 Be sure to checkout the frontend commit or branch you want to work on!
 
-> If you wan't only one frontend to auto-update just use `COMPOSE_PROFILE=<frontend-name>` for any frontend `main_frontend`, `user_form` (v2), `user_form_frontend`, `admin_panel_frontend`, `cookie_banner_frontend`
+> If you wan't only one frontend to auto-update just use `COMPOSE_PROFILE=<frontend-name>` for any frontend `main_frontend`, `user_form` (v2), `user_form_frontend`, `admin_panel_frontend`, `cookie_banner_frontend`.
+Or if you only work in the backend use `COMPOSE_PROFILE=backend`
 
 
 #### Frontend Configuration
