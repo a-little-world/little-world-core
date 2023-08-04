@@ -1,0 +1,118 @@
+services:
+  frontend__user_form_frontend:
+    profiles: ["user_form_frontend"]
+    build:
+      context: .
+      target: user_form_frontend_image
+      dockerfile: ./Dockerfile.full
+      args:
+        DOCKER_BUILDKIT: 1
+        PUBLIC_FRONTEND_PATH: ""
+        BUILD_TYPE: "${BUILD_TYPE}"
+    working_dir: /front
+    entrypoint: sh /back/entries/frontend_hot_reload.sh user_form_frontend
+    volumes:
+      - ./back/entries:/back/entries/
+      - ./front/user_form_frontend.webpack-stats.json:/front/user_form_frontend.webpack-stats.json
+      - ./back/static/dist/user_form_frontend/:/back/static/dist/user_form_frontend/
+      - ./front/apps/user_form_frontend/src/:/front/apps/user_form_frontend/src/
+  frontend__main_frontend:
+    profiles: ["main_frontend"]
+    build:
+      context: .
+      target: main_frontend_image
+      dockerfile: ./Dockerfile.full
+      args:
+        DOCKER_BUILDKIT: 1
+        PUBLIC_FRONTEND_PATH: ""
+        BUILD_TYPE: "${BUILD_TYPE}"
+    working_dir: /front
+    entrypoint: sh /back/entries/frontend_hot_reload.sh main_frontend
+    volumes:
+      - ./back/entries:/back/entries/
+      - ./back/static/dist/main_frontend/:/back/static/dist/main_frontend/
+      - ./front/main_frontend.webpack-stats.json:/front/main_frontend.webpack-stats.json
+      - ./front/apps/main_frontend/src/:/front/apps/main_frontend/src/
+  frontend__admin_panel_frontend:
+    profiles: ["admin_panel_frontend"]
+    build:
+      context: .
+      target: admin_panel_frontend_image
+      dockerfile: ./Dockerfile.full
+      args:
+        DOCKER_BUILDKIT: 1
+        PUBLIC_FRONTEND_PATH: ""
+        BUILD_TYPE: "${BUILD_TYPE}"
+    working_dir: /front
+    entrypoint: sh /back/entries/frontend_hot_reload.sh admin_panel_frontend
+    volumes:
+      - ./back/entries:/back/entries/
+      - ./back/static/dist/admin_panel_frontend/:/back/static/dist/admin_panel_frontend/
+      - ./front/admin_panel_frontend.webpack-stats.json:/front/admin_panel_frontend.webpack-stats.json
+      - ./front/apps/admin_panel_frontend/src/:/front/apps/admin_panel_frontend/src/
+  frontend__user_form_v2:
+    profiles: ["user_form_frontend"]
+    build:
+      context: .
+      target: admin_panel_frontend_image
+      dockerfile: ./Dockerfile.full
+      args:
+        DOCKER_BUILDKIT: 1
+        PUBLIC_FRONTEND_PATH: ""
+        BUILD_TYPE: "${BUILD_TYPE}"
+    working_dir: /front
+    entrypoint: sh /back/entries/frontend_hot_reload.sh user_form
+    volumes:
+      - ./back/entries:/back/entries/
+      - ./back/static/dist/user_form/:/back/static/dist/user_form/
+      - ./front/user_form.webpack-stats.json:/front/user_form.webpack-stats.json
+      - ./front/apps/user_form/src/:/front/apps/user_form/src/
+  frontend__cookie_banner:
+    profiles: ["cookie_banner_frontend"]
+    build:
+      context: .
+      target: admin_panel_frontend_image
+      dockerfile: ./Dockerfile.full
+      args:
+        DOCKER_BUILDKIT: 1
+        PUBLIC_FRONTEND_PATH: ""
+        BUILD_TYPE: "${BUILD_TYPE}"
+    working_dir: /front
+    entrypoint: sh /back/entries/frontend_hot_reload.sh cookie_banner_frontend
+    volumes:
+      - ./back/entries:/back/entries/
+      - ./back/static/dist/cookie_banner_frontend/:/back/static/dist/cookie_banner_frontend/
+      - ./front/cookie_banner_frontend.webpack-stats.json:/front/cookie_banner_frontend.webpack-stats.json
+      - ./front/apps/cookie_banner_frontend/src/:/front/apps/cookie_banner_frontend/src/
+  backend:
+    profiles: ["backend", "user_form", "admin_panel_frontend", "main_frontend", "user_form_frontend", "cookie_banner_frontend"]
+    build:
+      context: .
+      dockerfile: ./Dockerfile.full
+      args:
+        DOCKER_BUILDKIT: 1
+        PUBLIC_FRONTEND_PATH: ""
+        BUILD_TYPE: "${BUILD_TYPE}"
+    image: "${APP_IMAGE_URL}"
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./envs/dev.env
+    environment:
+      REDIS_URL: "${REDIS_URL}"
+    volumes:
+      - ./back/:/back/
+      - ./front/user_form_frontend.webpack-stats.json:/front/user_form_frontend.webpack-stats.json
+      - ./front/user_form.webpack-stats.json:/front/user_form.webpack-stats.json
+      - ./front/main_frontend.webpack-stats.json:/front/main_frontend.webpack-stats.json
+      - ./front/admin_panel_frontend.webpack-stats.json:/front/admin_panel_frontend.webpack-stats.json
+      - ./front/cookie_banner_frontend.webpack-stats.json:/front/cookie_banner_frontend.webpack-stats.json
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  redis:
+    profiles: ["backend", "user_form", "admin_panel_frontend", "main_frontend", "user_form_frontend", "cookie_banner_frontend"]
+    image: redis:5
+    ports:
+      - "6379:6379"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

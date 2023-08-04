@@ -9,12 +9,14 @@ ENV PUBLIC_FRONTEND_PATH=$PUBLIC_FRONTEND_PATH
 # local / dev / pro | defines some of the logic of the build process
 ARG BUILD_TYPE
 ENV BUILD_TYPE=$BUILD_TYPE
-RUN if [ "$BUILD_TYPE" = ""] ; then export BUILD_TYPE="dev"; fi
+RUN if [ "$BUILD_TYPE" = "" ] ; then export BUILD_TYPE="dev"; fi
 
 # First we build all the frontends in one container
 COPY ./front /front
 
 WORKDIR /front
+
+RUN npm config set fetch-retry-maxtimeout 120000
 
 # Placeholder output folder
 RUN mkdir -p ../back/static/dist
