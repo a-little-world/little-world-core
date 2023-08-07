@@ -13,21 +13,20 @@ from django.core.management import call_command
 from django.utils.translation import gettext_lazy as _, pgettext_lazy
 
 def get_params(user):
-    return mails.SurveyInvitation2AniqParams(
+    return mails.SurveryInvitation3Natalia(
         first_name=user.profile.first_name,
-        link_url="https://s.surveyplanet.com/iuhajmj7",
         unsubscribe_url1="" # filled automatically
     )
     
 user_emails = ["benjamin.tim@gmx.de"]
-    
+
 #users = [controller.get_user_by_email("benjamin.tim@gmx.de")]
 users = [controller.get_user_by_email(email) for email in user_emails]
 
 reports = controller.send_group_mail(
     users=users,
-    subject="Studentin bittet um Unterstützung – Umfrage bei Little World",
-    mail_name="survey_aniq_2",
+    subject="Einladung zu einem Online-Interview mit Natalia",
+    mail_name="survey3_natalia",
     mail_params_func=get_params,
     unsubscribe_group="survery_requests",
     debug=True
