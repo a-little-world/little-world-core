@@ -224,7 +224,7 @@ class UserSurveyInvitationEmailNatalia:
         Bitte hilf mir in der Projektarbeit und schreibe mir unter:')
     link_box_text: str = pgettext_lazy(
         'email.interview-invitation-email.link-box-text',
-        mark_safe('<a href="mailto:aniqa.rahman@student.uni-siegen.de?subject=Interview" style="color: blue;">aniqa.rahman@student.uni-siegen.de</a>'))
+        mark_safe('<a href="mailto:natalia.romancheva@student.uni-siegen.de?subject=Interview" style="color: blue;">natalia.romancheva@student.uni-siegen.de</a>'))
     button_text: str = pgettext_lazy(
         'email.interview-invitation-email.button-text',
         'Natalia helfen (E-Mail)')
