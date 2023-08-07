@@ -55,7 +55,6 @@ class SurveyInvitation2AniqParams:
 @dataclass
 class SurveryInvitation3Natalia:
     first_name: str
-    link_url: str
     unsubscribe_url1: str
 
 @dataclass
