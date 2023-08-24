@@ -119,6 +119,31 @@ Selbst habe ich vier Jahre im Ausland gelebt, von Frankreich bis nach China. Den
     return "sucessfully filled base management user profile"
 
 @shared_task
+def fill_base_management_user_tim_profile():
+    if BackendState.is_base_management_user_profile_filled(set_true=True):
+        return  # Allready filled base management user profile
+
+    from .controller import get_base_management_user
+
+    base_management_user_description = """
+Hello there 👋🏼
+
+Im the co-founder and CTO of little world. And as of today I'm your support match!
+We are currently working hard to improve our matching process and give to offer you the best experience possible.
+
+Feel free to send me any question or suggestions.
+I'll take the time to answer all your messages but I might take a little time to do so.
+"""
+    usr = get_base_management_user()
+    usr.profile.birth_year = 1999
+    usr.profile.postal_code = 52064
+    usr.profile.description = base_management_user_description
+    usr.profile.add_profile_picture_from_local_path(
+        '/back/dev_test_data/tim_schupp_base_management_profile.jpg')
+    usr.profile.save()
+    usr.profile.save()
+
+@shared_task
 def calculate_directional_matching_score_v2_static(
     user_pk,
     catch_exceptions=True,
