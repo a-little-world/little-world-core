@@ -1,6 +1,6 @@
 from django.contrib.auth.decorators import user_passes_test
 from rest_framework import viewsets, serializers
-from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import IsAdminUser, BasePermission
 from django.core.paginator import Paginator
 from rest_framework.decorators import action
 from django.shortcuts import render
@@ -315,9 +315,15 @@ def get_QUERY_SETS():
     }
 
 def get_staff_queryset(query_set, request):
-    # TODO: this should in the future be used to restrict the access of specific user groups to specific staff users
     # Should be done by checking a condition and then filtering the queryset additionally...
-    return get_QUERY_SETS()[query_set]
+    if request.user.is_staff:
+        # If the user is_staff he will get the full set
+        return get_QUERY_SETS()[query_set]
+    else:
+        # Otherwise we filter for all users that are in the responsible user group for that management user
+        qs = get_QUERY_SETS()[query_set]
+        filtered_users_qs = qs.filter(id__in=request.user.state.managed_users.all())
+        return filtered_users_qs
 
 class AdvancedMatchingScoreSerializer(serializers.ModelSerializer):
     class Meta:
@@ -412,9 +418,19 @@ def advanced_user_listing(request, list):
         "query_sets": QuerySetEnum.as_dict(),
         "user_lists": user_lists
     })
+    
+    
+class IsAdminOrMatchingUser(BasePermission):
+    """
+    Allows access only to admin users.
+    """
+
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_staff) or \
+            bool(request.user and request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER))
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAdminOrMatchingUser])
 def admin_panel_v2(request):
 
     page = request.query_params.get('page', 1)
