@@ -411,7 +411,7 @@ def create_base_admin_and_add_standart_db_values():
     fill_base_management_user_tim_profile.delay()
     create_default_table_score_source.delay()
 
-    return usr
+    return usr_tim
 
 
 def send_websocket_callback(
