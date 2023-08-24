@@ -372,29 +372,37 @@ def get_base_management_user():
 
 def create_base_admin_and_add_standart_db_values():
     print("Management user doesn't seem to exist jet")
-    usr = User.objects.create_superuser(
-        email=settings.MANAGEMENT_USER_MAIL,
-        username=settings.MANAGEMENT_USER_MAIL,
-        password=os.environ['DJ_MANAGEMENT_PW'],
-        first_name=os.environ.get(
-            'DJ_MANAGEMENT_FIRST_NAME', 'Oliver (Support)'),
-        second_name=os.environ.get(
-            'DJ_MANAGEMENT_SECOND_NAME', ''),
-    )
-    usr.state.set_user_form_completed()  # Admin doesn't have to fill the userform
-    usr.notify("You are the admin master!")
+
+    try:
+        get_user_by_email(settings.MANAGEMENT_USER_MAIL)
+    except UserNotFoundErr:
+        usr = User.objects.create_superuser(
+            email=settings.MANAGEMENT_USER_MAIL,
+            username=settings.MANAGEMENT_USER_MAIL,
+            password=os.environ['DJ_MANAGEMENT_PW'],
+            first_name=os.environ.get(
+                'DJ_MANAGEMENT_FIRST_NAME', 'Oliver (Support)'),
+            second_name=os.environ.get(
+                'DJ_MANAGEMENT_SECOND_NAME', ''),
+        )
+        usr.state.set_user_form_completed()  # Admin doesn't have to fill the userform
+        usr.notify("You are the admin master!")
     #print("BASE ADMIN USER CREATED!")
     
     # Tim Schupp is the new base admin user, we will now create a match with hin instead:
-    usr_tim = User.objects.create_user(
-        email="tim.timschupp+420@gmail.com",
-        username="tim.timschupp+420@gmail.com",
-        password=os.environ['DJ_TIM_MANAGEMENT_PW'],
-        first_name="Tim",
-        second_name="Schupp",
-    )
-    usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
-    usr_tim.notify("You are the bese management user with less permissions.")
+    TIM_MANAGEMENT_USER_MAIL = "tim.timschupp+420@gmail.com"
+    try:
+        usr_tim = get_user_by_email(TIM_MANAGEMENT_USER_MAIL)
+    except UserNotFoundErr:
+        usr_tim = User.objects.create_user(
+            email="tim.timschupp+420@gmail.com",
+            username="tim.timschupp+420@gmail.com",
+            password=os.environ['DJ_TIM_MANAGEMENT_PW'],
+            first_name="Tim",
+            last_name="Schupp",
+        )
+        usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
+        usr_tim.notify("You are the bese management user with less permissions.")
     
     # Now we create some default database elements that should be part of all setups!
     from management.tasks import (
