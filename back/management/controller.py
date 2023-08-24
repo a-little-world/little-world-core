@@ -382,7 +382,18 @@ def create_base_admin_and_add_standart_db_values():
     usr.state.set_user_form_completed()  # Admin doesn't have to fill the userform
     usr.notify("You are the admin master!")
     #print("BASE ADMIN USER CREATED!")
-
+    
+    # Tim Schupp is the new base admin user, we will now create a match with hin instead:
+    usr = User.objects.create_user(
+        email="tim.timschupp+420@gmail.com",
+        username="tim.timschupp+420@gmail.com",
+        password=os.environ['DJ_TIM_MANAGEMENT_PW'],
+        first_name="Tim",
+        second_name="Schupp",
+    )
+    usr.state.set_user_form_completed()  # Admin doesn't have to fill the userform
+    usr.notify("You are the bese management user with less permissions.")
+    
     # Now we create some default database elements that should be part of all setups!
     from management.tasks import (
         create_default_community_events,
