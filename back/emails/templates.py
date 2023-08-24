@@ -265,9 +265,12 @@ class UserInterviewRequestEmail:
         Hast du zwischen 30 und 60 Minuten Zeit, ihnen zu helfen?')
     content_body_text: str = pgettext_lazy(
         'email.interview-request-email.content-body_text',
-        mark_safe('Die Erreichbarkeiten sind: Sandra unter \
-        <a href="mailto:sandra.butzek@student.uni-siegen.de">sandra.butzek@student.uni-siegen.de</a> und \
-        Natalia unter <a href="mailto:natalia.romancheva@student.uni-siegen.de">natalia.romancheva@student.uni-siegen.de</a>. \
+        mark_safe('Die Erreichbarkeiten sind: \
+        <ul>\
+        <li>Sandra unter \
+        <a href="mailto:sandra.butzek@student.uni-siegen.de" style="color: blue;">sandra.butzek@student.uni-siegen.de</a></li> \
+        <li>Natalia unter <a href="mailto:natalia.romancheva@student.uni-siegen.de" style="color: blue;">natalia.romancheva@student.uni-siegen.de</a></li>\
+        </ul>\
         Die Themen sind unser zukünftiges Matching sowie zusätzliche Dank- und Belohnungssysteme. \
         Deine Antworten helfen den Studentinnen, ihr an der Uni gelerntes Wissen praktisch anzuwenden \
         und dem Team von Little World, bessere Entscheidungen für die zukünftige Weiterentwicklung von Little World zu treffen. \
