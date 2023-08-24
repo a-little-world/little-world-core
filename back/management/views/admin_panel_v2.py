@@ -436,3 +436,12 @@ def admin_panel_v2(request):
         "query_sets": QuerySetEnum.as_dict(),
         "user_lists": user_lists,
     },cls=DjangoJSONEncoder, default=lambda o: str(o))})
+    
+
+@api_view(['GET'])
+@permission_classes([])
+def admin_panel_v2_login(request):
+    
+    return render(request, "admin_pannel_v2_login.html", { 
+        "data" : json.dumps({}, cls=DjangoJSONEncoder, default=lambda o: str(o))
+    })
