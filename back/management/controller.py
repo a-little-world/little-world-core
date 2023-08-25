@@ -156,11 +156,22 @@ def create_user(
     # Do *not* send an matching mail, or notification or message!
     # Also no need to set the admin user as unconfirmed,
     # there is no popup message required about being matched to the admin!
-    match_users({get_base_management_user(), usr},
+    
+    # TODO: since this was just updated and we now have 'matcher' users
+    # this doesn't always have to be the same management user anymore
+    # Generay how we handle management users needs to be significantly improved!
+    base_management_user = get_base_management_user()
+    
+    match_users({ base_management_user, usr },
                 send_notification=False,
                 send_message=False,
                 send_email=False,
                 set_unconfirmed=False)
+
+    if not base_management_user.is_staff:
+        # Must be a mather user now TODO
+        # Add that user to the list of users managed by this management user!
+        base_management_user.state.managed_users.add(usr)
 
     # Step 7 Notify the user
     if send_welcome_notification:
