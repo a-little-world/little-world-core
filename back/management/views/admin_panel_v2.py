@@ -424,8 +424,11 @@ def check_task_status(task_id):
     
     
 @api_view(['GET'])
-@permission_classes([IsAdminUser, IsAdminOrMatchingUser])
+@permission_classes([IsAdminOrMatchingUser])
 def request_task_status(request, task_id):
+    # TODO: there should be an additional restrictioon here for 'matching' users.
+    # Currently any user with 'matching' permission can request task status for any user
+    # But they generaly never contain sensitive information
     return Response(check_task_status(task_id))
 
 root_user_viewset = AdvancedAdminUserViewset
