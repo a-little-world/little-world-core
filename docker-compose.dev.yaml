@@ -51,7 +51,7 @@ services:
       - ./front/admin_panel_frontend.webpack-stats.json:/front/admin_panel_frontend.webpack-stats.json
       - ./front/apps/admin_panel_frontend/src/:/front/apps/admin_panel_frontend/src/
   frontend__user_form_v2:
-    profiles: ["user_form_frontend", "all"]
+    profiles: ["user_form_v2", "user_form_frontend", "all"]
     build:
       context: .
       target: admin_panel_frontend_image
