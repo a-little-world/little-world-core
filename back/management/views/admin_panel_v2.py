@@ -454,10 +454,23 @@ def admin_panel_v2(request):
     },cls=DjangoJSONEncoder, default=lambda o: str(o))})
     
 
-@api_view(['GET'])
+@api_view(['GET', 'POST'])
 @permission_classes([])
 def admin_panel_v2_login(request):
-    
-    return render(request, "admin_pannel_v2_login.html", { 
-        "data" : json.dumps({}, cls=DjangoJSONEncoder, default=lambda o: str(o))
-    })
+    if request.method == 'POST': 
+        from django.contrib.auth import authenticate, login
+        user = authenticate(request, username=request.data['email'], password=request.data['password'])
+        if (user is not None) and user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+            login(request, user)
+            return Response({
+                "msg": "Successfully logged in",
+                "user": AdminUserSerializer(user).data
+            })
+        else:
+            return Response({
+                "msg": "Invalid credentials or not a Matching User!"
+            }, status=401)
+    else:
+        return render(request, "admin_pannel_v2_login.html", { 
+            "data" : json.dumps({}, cls=DjangoJSONEncoder, default=lambda o: str(o))
+        })
