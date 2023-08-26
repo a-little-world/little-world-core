@@ -412,6 +412,10 @@ def create_base_admin_and_add_standart_db_values():
             first_name="Tim",
             last_name="Schupp",
         )
+        us = usr_tim.state
+        # The tim user should always get the matching permission
+        us.extra_user_permissions.add(State.ExtraUserPermissionChoices.MATCHING_USER)
+        us.save()
         usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
         usr_tim.notify("You are the bese management user with less permissions.")
     
