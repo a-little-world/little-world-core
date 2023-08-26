@@ -54,7 +54,7 @@ services:
     profiles: ["user_form_v2", "user_form_frontend", "all"]
     build:
       context: .
-      target: admin_panel_frontend_image
+      target: user_form_v2_frontend_image
       dockerfile: ./Dockerfile.full
       args:
         DOCKER_BUILDKIT: 1
@@ -71,7 +71,7 @@ services:
     profiles: ["cookie_banner_frontend", "all"]
     build:
       context: .
-      target: admin_panel_frontend_image
+      target: cookie_banner_frontend_image
       dockerfile: ./Dockerfile.full
       args:
         DOCKER_BUILDKIT: 1

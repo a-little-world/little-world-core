@@ -391,8 +391,24 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         self.kwargs['pk'] = pk
         obj = self.get_object()
         
+        # TODO: use the IfHasControlOverUser permission here
+        # TODO: if 'matching' user check if he has access to this user!
+        
         scores = matching_suggestion_from_database_paginated(request, obj)
         return Response(scores)
+    
+    @action(detail=True, methods=['get', 'post'])
+    def notes(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        if request.method == 'POST':
+            obj.state.notes = request.data['notes']
+            obj.state.save()
+            return Response(obj.state.notes)
+        else:
+            return Response(obj.state.notes)
+
     
     @action(detail=True, methods=['get'])
     def request_score_update(self, request, pk=None):
