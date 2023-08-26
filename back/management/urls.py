@@ -188,8 +188,11 @@ view_routes = [
     path(f"admin_panel_v2/<str:query_set>/", admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
     
     path(_api_url('user_advanced/<str:pk>', admin=True), admin_panel_v2.root_user_viewset.as_view({'get': 'retrieve'})),
+    path(_api_url('user_advanced/<str:pk>/notes', admin=True), 
+         admin_panel_v2.root_user_viewset.as_view({'get': 'notes', 'post': 'notes'})),
     path(_api_url('user_advanced/<str:pk>/scores', admin=True), 
          admin_panel_v2.root_user_viewset.as_view({'get': 'scores'})),
+
     path(_api_url('user_advanced/<str:pk>/request_score_update', admin=True), 
          admin_panel_v2.root_user_viewset.as_view({'get': 'request_score_update'})),
     path(_api_url('user_listing_advanced/<str:list>', admin=True), admin_panel_v2.advanced_user_listing),
