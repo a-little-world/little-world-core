@@ -107,6 +107,8 @@ class State(models.Model):
 
     # Stores a users past emails ...
     past_emails = models.JSONField(blank=True, default=list)
+    
+    notes = models.TextField(blank=True, null=True)
 
     class ExtraUserPermissionChoices(models.TextChoices):
         API_SCHEMAS = "view-api-schema", _("Is allowed to view API schemas")
