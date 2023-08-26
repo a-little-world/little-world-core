@@ -11,6 +11,6 @@
 {% render_bundle 'staticfiles' 'js' 'admin_panel_frontend' %}
 <script>
   const data = JSON.parse('{{ data | escapejs }}');
-  dispatchRenderAdminPanelV2LoginScreen(data)
+  renderAdminPanelV2LoginScreen(data)
 </script>
 <div style="display: none;">{{csrf_token}}</div>

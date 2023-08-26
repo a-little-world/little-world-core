@@ -156,11 +156,22 @@ def create_user(
     # Do *not* send an matching mail, or notification or message!
     # Also no need to set the admin user as unconfirmed,
     # there is no popup message required about being matched to the admin!
-    match_users({get_base_management_user(), usr},
+    
+    # TODO: since this was just updated and we now have 'matcher' users
+    # this doesn't always have to be the same management user anymore
+    # Generay how we handle management users needs to be significantly improved!
+    base_management_user = get_base_management_user()
+    
+    match_users({ base_management_user, usr },
                 send_notification=False,
                 send_message=False,
                 send_email=False,
                 set_unconfirmed=False)
+
+    if not base_management_user.is_staff:
+        # Must be a mather user now TODO
+        # Add that user to the list of users managed by this management user!
+        base_management_user.state.managed_users.add(usr)
 
     # Step 7 Notify the user
     if send_welcome_notification:
@@ -362,32 +373,57 @@ def get_base_management_user():
     """
     Always returns the BASE_MANAGEMENT_USER user
     """
+    
+    TIM_MANAGEMENT_USER_MAIL = "tim.timschupp+420@gmail.com"
     try:
-        return get_user_by_email(settings.MANAGEMENT_USER_MAIL)
+        return get_user_by_email(TIM_MANAGEMENT_USER_MAIL)
     except UserNotFoundErr:
         return create_base_admin_and_add_standart_db_values()
 
 
 def create_base_admin_and_add_standart_db_values():
     print("Management user doesn't seem to exist jet")
-    usr = User.objects.create_superuser(
-        email=settings.MANAGEMENT_USER_MAIL,
-        username=settings.MANAGEMENT_USER_MAIL,
-        password=os.environ['DJ_MANAGEMENT_PW'],
-        first_name=os.environ.get(
-            'DJ_MANAGEMENT_FIRST_NAME', 'Oliver (Support)'),
-        second_name=os.environ.get(
-            'DJ_MANAGEMENT_SECOND_NAME', ''),
-    )
-    usr.state.set_user_form_completed()  # Admin doesn't have to fill the userform
-    usr.notify("You are the admin master!")
-    #print("BASE ADMIN USER CREATED!")
 
+    try:
+        get_user_by_email(settings.MANAGEMENT_USER_MAIL)
+    except UserNotFoundErr:
+        usr = User.objects.create_superuser(
+            email=settings.MANAGEMENT_USER_MAIL,
+            username=settings.MANAGEMENT_USER_MAIL,
+            password=os.environ['DJ_MANAGEMENT_PW'],
+            first_name=os.environ.get(
+                'DJ_MANAGEMENT_FIRST_NAME', 'Oliver (Support)'),
+            second_name=os.environ.get(
+                'DJ_MANAGEMENT_SECOND_NAME', ''),
+        )
+        usr.state.set_user_form_completed()  # Admin doesn't have to fill the userform
+        usr.notify("You are the admin master!")
+    #print("BASE ADMIN USER CREATED!")
+    
+    # Tim Schupp is the new base admin user, we will now create a match with hin instead:
+    TIM_MANAGEMENT_USER_MAIL = "tim.timschupp+420@gmail.com"
+    try:
+        usr_tim = get_user_by_email(TIM_MANAGEMENT_USER_MAIL)
+    except UserNotFoundErr:
+        usr_tim = User.objects.create_user(
+            email="tim.timschupp+420@gmail.com",
+            username="tim.timschupp+420@gmail.com",
+            password=os.environ['DJ_TIM_MANAGEMENT_PW'],
+            first_name="Tim",
+            last_name="Schupp",
+        )
+        us = usr_tim.state
+        # The tim user should always get the matching permission
+        us.extra_user_permissions.add(State.ExtraUserPermissionChoices.MATCHING_USER)
+        us.save()
+        usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
+        usr_tim.notify("You are the bese management user with less permissions.")
+    
     # Now we create some default database elements that should be part of all setups!
     from management.tasks import (
         create_default_community_events,
         create_default_cookie_groups,
-        fill_base_management_user_profile,
+        fill_base_management_user_tim_profile,
         create_default_table_score_source
     )
 
@@ -395,10 +431,10 @@ def create_base_admin_and_add_standart_db_values():
     # This is done as celery task in the background!
     create_default_cookie_groups.delay()
     create_default_community_events.delay()
-    fill_base_management_user_profile.delay()
+    fill_base_management_user_tim_profile.delay()
     create_default_table_score_source.delay()
 
-    return usr
+    return usr_tim
 
 
 def send_websocket_callback(

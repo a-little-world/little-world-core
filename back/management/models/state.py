@@ -117,11 +117,16 @@ class State(models.Model):
         DOCS_VIEW = "view-docs", _("Is allowed to view the docs")
         EMAIL_TEMPLATES_VIEW = "view-email-templates", _("Is allowed to view the email templates")
         STATS_VIEW = "view-stats", _("Is allowed to view the stats")
+        
+        MATCHING_USER = "matching-user", _("Is allowed to match users")
 
     extra_user_permissions = MultiSelectField(
         max_length=1000,
         choices=ExtraUserPermissionChoices.choices,
         null=True, blank=True)
+    
+    # This is basicly a list of all users that user manages
+    managed_users = models.ManyToManyField(User, related_name='managed_users_by', blank=True)
 
     auto_login_api_token = models.CharField(
         default=utils._double_uuid, max_length=255)

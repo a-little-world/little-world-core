@@ -248,6 +248,60 @@ class UserSurveyInvitationEmailNatalia:
     unsubscribe_two_link:bool = False
     unsubscribe_link1: str = '{unsubscribe_url1}'
     unsubscribe_link1_category: str = 'survey request'
+    
+@dataclass
+class UserInterviewRequestEmail:
+    """
+    Send a participation request to the user for an interview.
+    """
+    subject_header_text: str = pgettext_lazy(
+        "email.interview-request-email.subject-header-text", "Interviewanfrage für ein Universitätsprojekt")
+    greeting: str = pgettext_lazy(
+        'email.interview-request-email.greeting',
+        'Hallo {first_name},')
+    content_start_text: str = pgettext_lazy(
+        'email.interview-request-email.content-start-text',
+        'Unsere zwei Studentinnen Natalia und Sandra suchen noch 5 weitere Ehrenamtliche für ein Interview. \
+        Hast du zwischen 30 und 60 Minuten Zeit, ihnen zu helfen?')
+    content_body_text: str = pgettext_lazy(
+        'email.interview-request-email.content-body_text',
+        mark_safe('Die Erreichbarkeiten sind: \
+        <ul>\
+        <li>Sandra unter \
+        <a href="mailto:sandra.butzek@student.uni-siegen.de" style="color: blue;">sandra.butzek@student.uni-siegen.de</a></li> \
+        <li>Natalia unter <a href="mailto:natalia.romancheva@student.uni-siegen.de" style="color: blue;">natalia.romancheva@student.uni-siegen.de</a></li>\
+        </ul>\
+        Die Themen sind unser zukünftiges Matching sowie zusätzliche Dank- und Belohnungssysteme. \
+        Deine Antworten helfen den Studentinnen, ihr an der Uni gelerntes Wissen praktisch anzuwenden \
+        und dem Team von Little World, bessere Entscheidungen für die zukünftige Weiterentwicklung von Little World zu treffen. \
+        Für deine Hilfe wären wir dir sehr dankbar. \
+        Deine Daten und Antworten werden nicht veröffentlicht. Du kannst auch teilnehmen, wenn du neu bei Little World bist oder \
+        früher einmal dabei warst.'))
+    link_box_text: str = pgettext_lazy(
+        'email.interview-request-email.link-box-text',
+        '')
+    button_text: str = pgettext_lazy(
+        'email.interview-request-email.button-text',
+        'E-Mail an Sandra und Natalia senden')
+    button_link: str = pgettext_lazy(
+        'email.interview-request-email.button-link',
+        'mailto:sandra.butzek@student.uni-siegen.de;natalia.romancheva@student.uni-siegen.de')
+    below_link_text: str = pgettext_lazy(
+        'email.interview-request-email.below-link-text',
+        '')
+    footer_text: str = pgettext_lazy(
+        'email.interview-request-email.footer-text',
+        '')
+    goodbye: str = pgettext_lazy(
+        'email.interview-request-email.goodbye',
+        'Sommerliche Grüße')
+    goodbye_name: str = pgettext_lazy(
+        'email.interview-request-email.goodbye.goodbye-name',
+        'Oliver vom Team Little World')
+    use_unsubscribe_footer: bool = True
+    unsubscribe_two_link:bool = False
+    unsubscribe_link1: str = '{unsubscribe_url1}'
+    unsubscribe_link1_category: str = 'interview request'
 
 @dataclass
 class UnfinishedUserForm1Messages:

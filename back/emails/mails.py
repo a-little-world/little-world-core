@@ -28,7 +28,8 @@ from emails.templates import (
     SorryWeStillNeedALittleMail,
     NewServerMail,
     RAWTemplateMail,
-    UserSurveyInvitationEmailNatalia
+    UserSurveyInvitationEmailNatalia,
+    UserInterviewRequestEmail
 )
 from django.core.mail import EmailMessage
 import json
@@ -80,6 +81,11 @@ class MatchConfirmationMail1Params:
     match_first_name: str
     team_phone: str = '015234777471'
     team_email: str = 'support@little-world.com'
+
+@dataclass
+class MultiUserInterviewRequestEmail_5:
+    first_name: str
+    unsubscribe_url1: str
     
     
 @dataclass
@@ -305,6 +311,13 @@ templates = [
         params=SurveryInvitation3Natalia,
         texts=UserSurveyInvitationEmailNatalia,
         defaults=UserSurveyInvitationEmailNatalia
+    ),
+    MailMeta(
+        name="multi_user_interview_request_5",
+        template="emails/welcome.html",
+        params=MultiUserInterviewRequestEmail_5,
+        texts=UserInterviewRequestEmail,
+        defaults=UserInterviewRequestEmail
     )
 ]
 

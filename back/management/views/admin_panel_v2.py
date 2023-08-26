@@ -1,6 +1,6 @@
 from django.contrib.auth.decorators import user_passes_test
 from rest_framework import viewsets, serializers
-from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import IsAdminUser, BasePermission
 from django.core.paginator import Paginator
 from rest_framework.decorators import action
 from django.shortcuts import render
@@ -26,6 +26,29 @@ from typing import OrderedDict
 from django.core.serializers.json import DjangoJSONEncoder
 from rest_framework.utils import serializer_helpers
 from django.db.models import Q
+
+class IsAdminOrMatchingUser(BasePermission):
+    """
+    Allows access only to admin users.
+    """
+
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_staff) or \
+            bool(request.user and request.user.is_authenticated and request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER))
+            
+class IfMatchingUserHasPkPermission(BasePermission):
+    # Checks if that manageing user is allowed to access user info for the user that he is trying to access
+    
+    def has_permission(self, request, view):
+        
+        if request.user.is_staff:
+            return True
+        if request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+            if not "pk" in view.kwargs:
+                return False
+            return request.user.state.managed_users.filter(pk=view.kwargs["pk"]).exists()
+        return False
+
 
 def serialize_proposed_matches(matching_proposals, user):
     serialized = []
@@ -110,7 +133,10 @@ class AdminViewSetExtensionMixin:
         return obj
 
     def get_permissions(self):
-        permission_classes = [IsAdminUser]
+        
+        # TODO: non staff users must be users with the 'matching' permission
+        permission_classes = [IsAdminOrMatchingUser, IfMatchingUserHasPkPermission]
+
         return [permission() for permission in permission_classes]
     
     def get_object(self):
@@ -315,9 +341,15 @@ def get_QUERY_SETS():
     }
 
 def get_staff_queryset(query_set, request):
-    # TODO: this should in the future be used to restrict the access of specific user groups to specific staff users
     # Should be done by checking a condition and then filtering the queryset additionally...
-    return get_QUERY_SETS()[query_set]
+    if request.user.is_staff:
+        # If the user is_staff he will get the full set
+        return get_QUERY_SETS()[query_set]
+    else:
+        # Otherwise we filter for all users that are in the responsible user group for that management user
+        qs = get_QUERY_SETS()[query_set]
+        filtered_users_qs = qs.filter(id__in=request.user.state.managed_users.all())
+        return filtered_users_qs
 
 class AdvancedMatchingScoreSerializer(serializers.ModelSerializer):
     class Meta:
@@ -352,7 +384,7 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
     queryset = User.objects.all().order_by('-date_joined')
     serializer_class = AdvancedAdminUserSerializer
     pagination_class = DetailedPaginationMixin
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminOrMatchingUser]
     
     @action(detail=True, methods=['get'])
     def scores(self, request, pk=None):
@@ -389,15 +421,20 @@ def check_task_status(task_id):
         "info": json.loads(json.dumps(task.info, cls=DjangoJSONEncoder, default=lambda o: str(o))),
     }
     
+    
+    
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAdminOrMatchingUser])
 def request_task_status(request, task_id):
+    # TODO: there should be an additional restrictioon here for 'matching' users.
+    # Currently any user with 'matching' permission can request task status for any user
+    # But they generaly never contain sensitive information
     return Response(check_task_status(task_id))
 
 root_user_viewset = AdvancedAdminUserViewset
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAdminOrMatchingUser])
 def advanced_user_listing(request, list):
 
     page = request.query_params.get('page', 1)
@@ -412,9 +449,11 @@ def advanced_user_listing(request, list):
         "query_sets": QuerySetEnum.as_dict(),
         "user_lists": user_lists
     })
+    
+    
 
 @api_view(['GET'])
-@permission_classes([IsAdminUser])
+@permission_classes([IsAdminOrMatchingUser])
 def admin_panel_v2(request):
 
     page = request.query_params.get('page', 1)
@@ -436,3 +475,25 @@ def admin_panel_v2(request):
         "query_sets": QuerySetEnum.as_dict(),
         "user_lists": user_lists,
     },cls=DjangoJSONEncoder, default=lambda o: str(o))})
+    
+
+@api_view(['GET', 'POST'])
+@permission_classes([])
+def admin_panel_v2_login(request):
+    if request.method == 'POST': 
+        from django.contrib.auth import authenticate, login
+        user = authenticate(request, username=request.data['email'], password=request.data['password'])
+        if (user is not None) and user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+            login(request, user)
+            return Response({
+                "msg": "Successfully logged in",
+                "user": AdminUserSerializer(user).data
+            })
+        else:
+            return Response({
+                "msg": "Invalid credentials or not a Matching User!"
+            }, status=401)
+    else:
+        return render(request, "admin_pannel_v2_login.html", { 
+            "data" : json.dumps({}, cls=DjangoJSONEncoder, default=lambda o: str(o))
+        })
