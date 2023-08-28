@@ -62,6 +62,7 @@ jobs:
           touch .env
           RANDOM_STRING="$( openssl rand -hex 3 )"
           IMAGE_URL="ghcr.io/a-little-world/little-world-backend/littleworld-epherial-backend:tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}-$RANDOM_STRING"
+          touch .env; rm .env; touch .env
           echo "APP_IMAGE_URL=\"$IMAGE_URL\"" >> .env
           NAMESPACE="lw-tmp-env-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}"
           REDIS_URL="redis://redis-service.$NAMESPACE.svc.cluster.local:6379"
