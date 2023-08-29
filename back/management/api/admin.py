@@ -255,11 +255,12 @@ class MakeMatch(APIView):
 
         if params.proposal_only:
             # If proposal_only = True, we create a proposed match instead!
-            from management.models import UnconfirmedMatch
-            UnconfirmedMatch.objects.create_user_matching_proposal(
+            # TODO: does this correctly check for already existing proposals?
+            controller.create_user_matching_proposal(
                 {users[0], users[1]},
-                send_email=params.send_email,
+                send_confirm_match_email=params.send_email,
             )
+            return Response("Matching Proposal Created")
         else:
             # Perform an actual matching!
             try:
