@@ -201,9 +201,9 @@ class MakeMatch(APIView):
         # We check if this is not a staff user then it **has** to be a matching user
         # If it is a matching user we **need** to check if that usee is allowed to manage the requested user! TODO
         if not request.user.is_staff:
-            assert request.user.state.has_extra_user_permission(State.extra_user_permissions.MATCHING), "User is not allowed to match users"
-            assert users[0] in request.user.state.managed_users, "User is not allowed to match users"
-            assert users[1] in request.user.state.managed_users, "User is not allowed to match users"
+            assert request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER), "User is not allowed to match users"
+            assert users[0] in request.user.state.managed_users.all(), "User is not allowed to match users"
+            assert users[1] in request.user.state.managed_users.all(), "User is not allowed to match users"
 
         # Load the current matching state and repond with an error if they are not matchable
         dir1 = None
