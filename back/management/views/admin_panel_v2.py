@@ -13,7 +13,7 @@ from management import models
 from management import controller
 from enum import Enum
 import json
-from ..models import (
+from management.models import (
     User,
     State,
     ProfileSerializer,
@@ -21,7 +21,6 @@ from ..models import (
     ProposalProfileSerializer,
     MatchinScore
 )
-from emails.models import EmailLog, EmailLogSerializer, AdvancedEmailLogSerializer
 from typing import OrderedDict
 from django.core.serializers.json import DjangoJSONEncoder
 from rest_framework.utils import serializer_helpers
@@ -199,6 +198,7 @@ class AdvancedAdminUserSerializer(serializers.ModelSerializer):
         fields = ['hash', 'id', 'email', 'date_joined', 'last_login']
     
     def to_representation(self, instance):
+        from emails.models import EmailLog, EmailLogSerializer, AdvancedEmailLogSerializer
         print("SERIALIZING", instance)
         representation = super().to_representation(instance)
         representation = update_representation(representation, instance)
