@@ -155,6 +155,7 @@ class TwoUserInputData:
     send_email: Optional[bool] = True
     send_message: Optional[bool] = True
     send_notification: Optional[bool] = True
+    proposal_only: Optional[bool] = False
     recalc_matching_score: Optional[bool] = True
 
 
@@ -166,6 +167,7 @@ class TwoUserInputSerializer(serializers.Serializer):
     send_email = serializers.BooleanField(required=False)
     send_message = serializers.BooleanField(required=False)
     send_notification = serializers.BooleanField(required=False)
+    proposal_only = serializers.BooleanField(required=False)
     recalc_matching_score = serializers.BooleanField(required=False)
 
     def create(self, validated_data):
@@ -251,20 +253,30 @@ class MakeMatch(APIView):
         if controller.are_users_matched({users[0], users[1]}):
             return Response(_("Users are already matched"), status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            controller.match_users({users[0], users[1]},
-                                   send_email=params.send_email,
-                                   send_message=params.send_message,
-                                   send_notification=params.send_notification)
+        if params.proposal_only:
+            # If proposal_only = True, we create a proposed match instead!
+            from management.models import UnconfirmedMatch
+            UnconfirmedMatch.objects.create_user_matching_proposal(
+                {users[0], users[1]},
+                send_email=params.send_email,
+            )
+        else:
+            # Perform an actual matching!
+            try:
+                controller.match_users({users[0], users[1]},
+                                       send_email=params.send_email,
+                                       send_message=params.send_message,
+                                       send_notification=params.send_notification)
 
-            # Now we still need to set the user to no searching anymore
-            users[0].state.change_searching_state(
-                State.MatchingStateChoices.IDLE)
-            users[1].state.change_searching_state(
-                State.MatchingStateChoices.IDLE)
-        except Exception as e:
-            return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
-        return Response(_("Users sucessfully matched"))
+                # Now we still need to set the user to no searching anymore
+                users[0].state.change_searching_state(
+                    State.MatchingStateChoices.IDLE)
+                users[1].state.change_searching_state(
+                    State.MatchingStateChoices.IDLE)
+            except Exception as e:
+                return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
+            return Response(_("Users sucessfully matched"))
+
 
 
 @dataclass
