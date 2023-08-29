@@ -401,13 +401,17 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
     def notes(self, request, pk=None):
         self.kwargs['pk'] = pk
         obj = self.get_object()
+        _os = obj.state
         
         if request.method == 'POST':
-            obj.state.notes = request.data['notes']
-            obj.state.save()
-            return Response(obj.state.notes)
+            _os.notes = request.data['notes']
+            _os.save()
+            return Response(_os.notes)
         else:
-            return Response(obj.state.notes)
+            if not _os.notes:
+                _os.notes = ""
+                _os.save()
+            return Response(_os.notes)
 
     
     @action(detail=True, methods=['get'])
