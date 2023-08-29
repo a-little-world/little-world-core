@@ -2,6 +2,7 @@
 Contains all the admin apis
 generally all APIViews here are required to have: permission_classes = [ IsAdminUser ]
 """
+from management.views import admin_panel_v2
 from rest_framework.views import APIView
 from django.conf import settings
 from typing import List, Optional
@@ -183,7 +184,7 @@ MATCH_BY_FORCE_MSG = _(
 
 
 class MakeMatch(APIView):
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [admin_panel_v2.IsAdminOrMatchingUser]
 
     @extend_schema(
         request=TwoUserInputSerializer(many=False),
@@ -195,6 +196,14 @@ class MakeMatch(APIView):
         users = get_two_users(params.user1, params.user2, params.lookup)
 
         from ..models.matching_scores import MatchinScore
+        
+        # TODO: there should also be a test for this:
+        # We check if this is not a staff user then it **has** to be a matching user
+        # If it is a matching user we **need** to check if that usee is allowed to manage the requested user! TODO
+        if not request.user.is_staff:
+            assert request.user.state.has_extra_user_permission(State.extra_user_permissions.MATCHING), "User is not allowed to match users"
+            assert users[0] in request.user.state.managed_users, "User is not allowed to match users"
+            assert users[1] in request.user.state.managed_users, "User is not allowed to match users"
 
         # Load the current matching state and repond with an error if they are not matchable
         dir1 = None
