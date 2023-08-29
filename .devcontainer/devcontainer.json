@@ -11,6 +11,9 @@
         "a-little-world/little-world-user-form": {
           "permissions": "write-all"
         },
+        "a-little-world/little-world-user-form-v2": {
+          "permissions": "write-all"
+        },
         "a-little-world/little-world-private-chat": {
           "permissions": "write-all"
         },

@@ -21,6 +21,10 @@ class ViewEmail(UserPassesTestMixin, View):
         if self.request.user.is_authenticated and \
              self.request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.EMAIL_TEMPLATES_VIEW):
             return True
+        if self.request.user.is_authenticated and \
+            self.request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+            # TODO: re-evaluate if matching users should be allowed here?
+            return True
         return False
 
     @utils.track_event(
