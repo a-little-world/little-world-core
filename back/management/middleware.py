@@ -50,8 +50,11 @@ def _requires_extra_user_permission(path):
     return False, None
 
 
-def _404_if_not_staff(request, get_response):
+def _404_if_not_staff(request, get_response, allow_management_user=False):
     if not request.user.is_authenticated or not request.user.is_staff:
+        if allow_management_user and request.user.is_authenticated and (request.user.state.has_extra_user_permission(
+                State.ExtraUserPermissionChoices.MATCHING_USER)):
+            return get_response(request)
         return responde_404(request)
     else:
         return get_response(request)
@@ -70,6 +73,8 @@ class AdminPathBlockingMiddleware:
                 return _404_if_not_staff(request, self.get_response)
         else:
             if _is_blocked_route(path):
+                if "admin_panel_v2" in path:
+                    return _404_if_not_staff(request, self.get_response, allow_management_user=True)
                 return _404_if_not_staff(request, self.get_response)
 
             # Now check for extra user permissions,
