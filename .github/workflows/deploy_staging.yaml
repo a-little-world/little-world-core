@@ -157,8 +157,8 @@ jobs:
             <details>
             <summary> Details </summary>
              
-            - 30 users: `herrduenschnate+$i@gmail.com` for `$i in {1..30}`
-            e.g.: `herrduenschnate+17@gmail.com:Test123!`
+            - 30 users: `herrduenschnlate+$i@gmail.com` for `$i in {1..30}`
+            e.g.: `herrduenschnlate+17@gmail.com:Test123!`
             at `${{ steps.cluster_connection.outputs.STAGING_URL  }}/login`
             - checkout the new user form `${{ steps.cluster_connection.outputs.STAGING_URL  }}/from_v2/userType`
             - admin: `admin@user.com:Admin123!`
