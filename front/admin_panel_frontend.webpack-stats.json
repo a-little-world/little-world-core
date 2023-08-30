@@ -1,0 +1,91 @@
+{
+  "status": "done",
+  "assets": {
+    "82516a8fea2c8235d1df5190f0362c8a.svg": {
+      "name": "82516a8fea2c8235d1df5190f0362c8a.svg",
+      "path": "/back/static/dist/admin_panel_frontend/82516a8fea2c8235d1df5190f0362c8a.svg",
+      "publicPath": "/static/dist/admin_panel_frontend/82516a8fea2c8235d1df5190f0362c8a.svg"
+    },
+    "b5368ec2b61add6a9c58a1c211dd1876.svg": {
+      "name": "b5368ec2b61add6a9c58a1c211dd1876.svg",
+      "path": "/back/static/dist/admin_panel_frontend/b5368ec2b61add6a9c58a1c211dd1876.svg",
+      "publicPath": "/static/dist/admin_panel_frontend/b5368ec2b61add6a9c58a1c211dd1876.svg"
+    },
+    "staticfiles-d67e9dcd65cea48d1a02.js": {
+      "name": "staticfiles-d67e9dcd65cea48d1a02.js",
+      "path": "/back/static/dist/admin_panel_frontend/staticfiles-d67e9dcd65cea48d1a02.js",
+      "publicPath": "/static/dist/admin_panel_frontend/staticfiles-d67e9dcd65cea48d1a02.js"
+    },
+    "377-d67e9dcd65cea48d1a02.js": {
+      "name": "377-d67e9dcd65cea48d1a02.js",
+      "path": "/back/static/dist/admin_panel_frontend/377-d67e9dcd65cea48d1a02.js",
+      "publicPath": "/static/dist/admin_panel_frontend/377-d67e9dcd65cea48d1a02.js"
+    },
+    "favicon.ico": {
+      "name": "favicon.ico",
+      "path": "/back/static/dist/admin_panel_frontend/favicon.ico",
+      "publicPath": "/static/dist/admin_panel_frontend/favicon.ico"
+    },
+    "index.html": {
+      "name": "index.html",
+      "path": "/back/static/dist/admin_panel_frontend/index.html",
+      "publicPath": "/static/dist/admin_panel_frontend/index.html"
+    },
+    "manifest.json": {
+      "name": "manifest.json",
+      "path": "/back/static/dist/admin_panel_frontend/manifest.json",
+      "publicPath": "/static/dist/admin_panel_frontend/manifest.json"
+    },
+    "robots.txt": {
+      "name": "robots.txt",
+      "path": "/back/static/dist/admin_panel_frontend/robots.txt",
+      "publicPath": "/static/dist/admin_panel_frontend/robots.txt"
+    },
+    "staticfiles-d67e9dcd65cea48d1a02.js.LICENSE.txt": {
+      "name": "staticfiles-d67e9dcd65cea48d1a02.js.LICENSE.txt",
+      "path": "/back/static/dist/admin_panel_frontend/staticfiles-d67e9dcd65cea48d1a02.js.LICENSE.txt",
+      "publicPath": "/static/dist/admin_panel_frontend/staticfiles-d67e9dcd65cea48d1a02.js.LICENSE.txt"
+    },
+    "82516a8fea2c8235d1df5190f0362c8a.svg.gz": {
+      "name": "82516a8fea2c8235d1df5190f0362c8a.svg.gz",
+      "path": "/back/static/dist/admin_panel_frontend/82516a8fea2c8235d1df5190f0362c8a.svg.gz",
+      "publicPath": "/static/dist/admin_panel_frontend/82516a8fea2c8235d1df5190f0362c8a.svg.gz"
+    },
+    "b5368ec2b61add6a9c58a1c211dd1876.svg.gz": {
+      "name": "b5368ec2b61add6a9c58a1c211dd1876.svg.gz",
+      "path": "/back/static/dist/admin_panel_frontend/b5368ec2b61add6a9c58a1c211dd1876.svg.gz",
+      "publicPath": "/static/dist/admin_panel_frontend/b5368ec2b61add6a9c58a1c211dd1876.svg.gz"
+    },
+    "377-d67e9dcd65cea48d1a02.js.gz": {
+      "name": "377-d67e9dcd65cea48d1a02.js.gz",
+      "path": "/back/static/dist/admin_panel_frontend/377-d67e9dcd65cea48d1a02.js.gz",
+      "publicPath": "/static/dist/admin_panel_frontend/377-d67e9dcd65cea48d1a02.js.gz"
+    },
+    "index.html.gz": {
+      "name": "index.html.gz",
+      "path": "/back/static/dist/admin_panel_frontend/index.html.gz",
+      "publicPath": "/static/dist/admin_panel_frontend/index.html.gz"
+    },
+    "manifest.json.gz": {
+      "name": "manifest.json.gz",
+      "path": "/back/static/dist/admin_panel_frontend/manifest.json.gz",
+      "publicPath": "/static/dist/admin_panel_frontend/manifest.json.gz"
+    },
+    "staticfiles-d67e9dcd65cea48d1a02.js.LICENSE.txt.gz": {
+      "name": "staticfiles-d67e9dcd65cea48d1a02.js.LICENSE.txt.gz",
+      "path": "/back/static/dist/admin_panel_frontend/staticfiles-d67e9dcd65cea48d1a02.js.LICENSE.txt.gz",
+      "publicPath": "/static/dist/admin_panel_frontend/staticfiles-d67e9dcd65cea48d1a02.js.LICENSE.txt.gz"
+    },
+    "staticfiles-d67e9dcd65cea48d1a02.js.gz": {
+      "name": "staticfiles-d67e9dcd65cea48d1a02.js.gz",
+      "path": "/back/static/dist/admin_panel_frontend/staticfiles-d67e9dcd65cea48d1a02.js.gz",
+      "publicPath": "/static/dist/admin_panel_frontend/staticfiles-d67e9dcd65cea48d1a02.js.gz"
+    }
+  },
+  "chunks": {
+    "staticfiles": [
+      "staticfiles-d67e9dcd65cea48d1a02.js"
+    ]
+  },
+  "publicPath": "/static/dist/admin_panel_frontend/"
+}
