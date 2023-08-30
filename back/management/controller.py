@@ -2,6 +2,7 @@
 This is a controller for any userform related actions
 e.g.: Creating a new user, sending a notification to a users etc...
 """
+from django.db import transaction
 from typing import Dict, Callable
 from management.models.unconfirmed_matches import UnconfirmedMatch
 from dataclasses import dataclass, fields, field
@@ -400,6 +401,13 @@ def create_base_admin_and_add_standart_db_values():
         usr.notify("You are the admin master!")
     print("BASE ADMIN USER CREATED!")
     
+    def update_profile():
+        usr_tim = get_user_by_email(TIM_MANAGEMENT_USER_MAIL)
+        usr_tim.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.MATCHING_USER)
+        usr_tim.state.save()
+        usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
+        usr_tim.notify("You are the bese management user with less permissions.")
+    
     # Tim Schupp is the new base admin user, we will now create a match with hin instead:
     TIM_MANAGEMENT_USER_MAIL = "tim.timschupp+420@gmail.com"
     try:
@@ -412,11 +420,9 @@ def create_base_admin_and_add_standart_db_values():
             first_name="Tim",
             last_name="Schupp",
         )
+        
+    transaction.on_commit(update_profile)
         # The tim user should always get the matching permission
-    usr_tim.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.MATCHING_USER)
-    usr_tim.state.save()
-    usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
-    usr_tim.notify("You are the bese management user with less permissions.")
 
     print("TIM ADMIN USER CREATED!")
     
