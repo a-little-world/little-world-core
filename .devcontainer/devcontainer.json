@@ -1,4 +1,5 @@
 {
+  "postCreateCommand": "bash ./.devcontainer/postCreateCommand.sh",
   "customizations": {
     "codespaces": {
       "repositories": {
