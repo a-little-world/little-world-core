@@ -102,6 +102,7 @@ services:
       REDIS_URL: "${REDIS_URL}"
     volumes:
       - ./back/:/back/
+      - ./front/env_apps/:/front/env_apps/
       - ./front/user_form_frontend.webpack-stats.json:/front/user_form_frontend.webpack-stats.json
       - ./front/user_form.webpack-stats.json:/front/user_form.webpack-stats.json
       - ./front/main_frontend.webpack-stats.json:/front/main_frontend.webpack-stats.json

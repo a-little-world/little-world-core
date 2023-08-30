@@ -1,0 +1,101 @@
+{
+  "status": "done",
+  "assets": {
+    "staticfiles-67110814e8476b7493c0.js": {
+      "name": "staticfiles-67110814e8476b7493c0.js",
+      "path": "/back/static/dist/user_form/staticfiles-67110814e8476b7493c0.js",
+      "publicPath": "/static/dist/user_form/staticfiles-67110814e8476b7493c0.js"
+    },
+    "792-67110814e8476b7493c0.js": {
+      "name": "792-67110814e8476b7493c0.js",
+      "path": "/back/static/dist/user_form/792-67110814e8476b7493c0.js",
+      "publicPath": "/static/dist/user_form/792-67110814e8476b7493c0.js"
+    },
+    "favicon.ico": {
+      "name": "favicon.ico",
+      "path": "/back/static/dist/user_form/favicon.ico",
+      "publicPath": "/static/dist/user_form/favicon.ico"
+    },
+    "index.html": {
+      "name": "index.html",
+      "path": "/back/static/dist/user_form/index.html",
+      "publicPath": "/static/dist/user_form/index.html"
+    },
+    "manifest.json": {
+      "name": "manifest.json",
+      "path": "/back/static/dist/user_form/manifest.json",
+      "publicPath": "/static/dist/user_form/manifest.json"
+    },
+    "robots.txt": {
+      "name": "robots.txt",
+      "path": "/back/static/dist/user_form/robots.txt",
+      "publicPath": "/static/dist/user_form/robots.txt"
+    },
+    "translations/de.js": {
+      "name": "translations/de.js",
+      "path": "/back/static/dist/user_form/translations/de.js",
+      "publicPath": "/static/dist/user_form/translations/de.js"
+    },
+    "translations/de.json": {
+      "name": "translations/de.json",
+      "path": "/back/static/dist/user_form/translations/de.json",
+      "publicPath": "/static/dist/user_form/translations/de.json"
+    },
+    "translations/en.js": {
+      "name": "translations/en.js",
+      "path": "/back/static/dist/user_form/translations/en.js",
+      "publicPath": "/static/dist/user_form/translations/en.js"
+    },
+    "translations/en.json": {
+      "name": "translations/en.json",
+      "path": "/back/static/dist/user_form/translations/en.json",
+      "publicPath": "/static/dist/user_form/translations/en.json"
+    },
+    "staticfiles-67110814e8476b7493c0.js.LICENSE.txt": {
+      "name": "staticfiles-67110814e8476b7493c0.js.LICENSE.txt",
+      "path": "/back/static/dist/user_form/staticfiles-67110814e8476b7493c0.js.LICENSE.txt",
+      "publicPath": "/static/dist/user_form/staticfiles-67110814e8476b7493c0.js.LICENSE.txt"
+    },
+    "792-67110814e8476b7493c0.js.gz": {
+      "name": "792-67110814e8476b7493c0.js.gz",
+      "path": "/back/static/dist/user_form/792-67110814e8476b7493c0.js.gz",
+      "publicPath": "/static/dist/user_form/792-67110814e8476b7493c0.js.gz"
+    },
+    "index.html.gz": {
+      "name": "index.html.gz",
+      "path": "/back/static/dist/user_form/index.html.gz",
+      "publicPath": "/static/dist/user_form/index.html.gz"
+    },
+    "manifest.json.gz": {
+      "name": "manifest.json.gz",
+      "path": "/back/static/dist/user_form/manifest.json.gz",
+      "publicPath": "/static/dist/user_form/manifest.json.gz"
+    },
+    "translations/de.json.gz": {
+      "name": "translations/de.json.gz",
+      "path": "/back/static/dist/user_form/translations/de.json.gz",
+      "publicPath": "/static/dist/user_form/translations/de.json.gz"
+    },
+    "translations/en.json.gz": {
+      "name": "translations/en.json.gz",
+      "path": "/back/static/dist/user_form/translations/en.json.gz",
+      "publicPath": "/static/dist/user_form/translations/en.json.gz"
+    },
+    "staticfiles-67110814e8476b7493c0.js.LICENSE.txt.gz": {
+      "name": "staticfiles-67110814e8476b7493c0.js.LICENSE.txt.gz",
+      "path": "/back/static/dist/user_form/staticfiles-67110814e8476b7493c0.js.LICENSE.txt.gz",
+      "publicPath": "/static/dist/user_form/staticfiles-67110814e8476b7493c0.js.LICENSE.txt.gz"
+    },
+    "staticfiles-67110814e8476b7493c0.js.gz": {
+      "name": "staticfiles-67110814e8476b7493c0.js.gz",
+      "path": "/back/static/dist/user_form/staticfiles-67110814e8476b7493c0.js.gz",
+      "publicPath": "/static/dist/user_form/staticfiles-67110814e8476b7493c0.js.gz"
+    }
+  },
+  "chunks": {
+    "staticfiles": [
+      "staticfiles-67110814e8476b7493c0.js"
+    ]
+  },
+  "publicPath": "/static/dist/user_form/"
+}

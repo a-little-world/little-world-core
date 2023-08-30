@@ -115,7 +115,6 @@ Selbst habe ich vier Jahre im Ausland gelebt, von Frankreich bis nach China. Den
     usr.profile.add_profile_picture_from_local_path(
         '/back/dev_test_data/oliver_berlin_management_user_profile_pic.jpg')
     usr.profile.save()
-    usr.profile.save()
     return "sucessfully filled base management user profile"
 
 @shared_task
@@ -140,7 +139,11 @@ I'll take the time to answer all your messages but I might take a little time to
     usr.profile.description = base_management_user_description
     usr.profile.add_profile_picture_from_local_path(
         '/back/dev_test_data/tim_schupp_base_management_profile.jpg')
-    usr.profile.save()
+    
+    from management.models import State
+    
+    usr.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.MATCHING_USER)
+    usr.state.save()
     usr.profile.save()
 
 @shared_task

@@ -1,0 +1,771 @@
+{
+  "status": "done",
+  "assets": {
+    "staticfiles-38b427ed90819efd52de.js": {
+      "name": "staticfiles-38b427ed90819efd52de.js",
+      "path": "/back/static/dist/main_frontend/staticfiles-38b427ed90819efd52de.js",
+      "publicPath": "/static/dist/main_frontend/staticfiles-38b427ed90819efd52de.js"
+    },
+    "629b37e915fcdb6d27da.svg": {
+      "name": "629b37e915fcdb6d27da.svg",
+      "path": "/back/static/dist/main_frontend/629b37e915fcdb6d27da.svg",
+      "publicPath": "/static/dist/main_frontend/629b37e915fcdb6d27da.svg"
+    },
+    "ffc1aedb2a542845d44f.svg": {
+      "name": "ffc1aedb2a542845d44f.svg",
+      "path": "/back/static/dist/main_frontend/ffc1aedb2a542845d44f.svg",
+      "publicPath": "/static/dist/main_frontend/ffc1aedb2a542845d44f.svg"
+    },
+    "14e378de3332a513c5e0.svg": {
+      "name": "14e378de3332a513c5e0.svg",
+      "path": "/back/static/dist/main_frontend/14e378de3332a513c5e0.svg",
+      "publicPath": "/static/dist/main_frontend/14e378de3332a513c5e0.svg"
+    },
+    "25b80ec3d0987c4a58a8.svg": {
+      "name": "25b80ec3d0987c4a58a8.svg",
+      "path": "/back/static/dist/main_frontend/25b80ec3d0987c4a58a8.svg",
+      "publicPath": "/static/dist/main_frontend/25b80ec3d0987c4a58a8.svg"
+    },
+    "409dcf8aab740c8e008b.svg": {
+      "name": "409dcf8aab740c8e008b.svg",
+      "path": "/back/static/dist/main_frontend/409dcf8aab740c8e008b.svg",
+      "publicPath": "/static/dist/main_frontend/409dcf8aab740c8e008b.svg"
+    },
+    "f63dc2e05d7c87fe994f.svg": {
+      "name": "f63dc2e05d7c87fe994f.svg",
+      "path": "/back/static/dist/main_frontend/f63dc2e05d7c87fe994f.svg",
+      "publicPath": "/static/dist/main_frontend/f63dc2e05d7c87fe994f.svg"
+    },
+    "5e607c100df54ca6ffc3.svg": {
+      "name": "5e607c100df54ca6ffc3.svg",
+      "path": "/back/static/dist/main_frontend/5e607c100df54ca6ffc3.svg",
+      "publicPath": "/static/dist/main_frontend/5e607c100df54ca6ffc3.svg"
+    },
+    "c5b6b07b04b5a1996c6c.svg": {
+      "name": "c5b6b07b04b5a1996c6c.svg",
+      "path": "/back/static/dist/main_frontend/c5b6b07b04b5a1996c6c.svg",
+      "publicPath": "/static/dist/main_frontend/c5b6b07b04b5a1996c6c.svg"
+    },
+    "9e27cdf2cbb6be3eeede.svg": {
+      "name": "9e27cdf2cbb6be3eeede.svg",
+      "path": "/back/static/dist/main_frontend/9e27cdf2cbb6be3eeede.svg",
+      "publicPath": "/static/dist/main_frontend/9e27cdf2cbb6be3eeede.svg"
+    },
+    "95db152ba3af0ed5b572.svg": {
+      "name": "95db152ba3af0ed5b572.svg",
+      "path": "/back/static/dist/main_frontend/95db152ba3af0ed5b572.svg",
+      "publicPath": "/static/dist/main_frontend/95db152ba3af0ed5b572.svg"
+    },
+    "f938314a1075341a05ff.svg": {
+      "name": "f938314a1075341a05ff.svg",
+      "path": "/back/static/dist/main_frontend/f938314a1075341a05ff.svg",
+      "publicPath": "/static/dist/main_frontend/f938314a1075341a05ff.svg"
+    },
+    "bb9758809d60ffdbd241.svg": {
+      "name": "bb9758809d60ffdbd241.svg",
+      "path": "/back/static/dist/main_frontend/bb9758809d60ffdbd241.svg",
+      "publicPath": "/static/dist/main_frontend/bb9758809d60ffdbd241.svg"
+    },
+    "6bb61c61c79a21b38ba9.svg": {
+      "name": "6bb61c61c79a21b38ba9.svg",
+      "path": "/back/static/dist/main_frontend/6bb61c61c79a21b38ba9.svg",
+      "publicPath": "/static/dist/main_frontend/6bb61c61c79a21b38ba9.svg"
+    },
+    "dee316ea9ebb28c17ff0.svg": {
+      "name": "dee316ea9ebb28c17ff0.svg",
+      "path": "/back/static/dist/main_frontend/dee316ea9ebb28c17ff0.svg",
+      "publicPath": "/static/dist/main_frontend/dee316ea9ebb28c17ff0.svg"
+    },
+    "a2cd9cf2c4656664f3ad.svg": {
+      "name": "a2cd9cf2c4656664f3ad.svg",
+      "path": "/back/static/dist/main_frontend/a2cd9cf2c4656664f3ad.svg",
+      "publicPath": "/static/dist/main_frontend/a2cd9cf2c4656664f3ad.svg"
+    },
+    "1c5ba767d111b7d6a4c2.webp": {
+      "name": "1c5ba767d111b7d6a4c2.webp",
+      "path": "/back/static/dist/main_frontend/1c5ba767d111b7d6a4c2.webp",
+      "publicPath": "/static/dist/main_frontend/1c5ba767d111b7d6a4c2.webp"
+    },
+    "bf9c6d5e70bfb12ab9d7.svg": {
+      "name": "bf9c6d5e70bfb12ab9d7.svg",
+      "path": "/back/static/dist/main_frontend/bf9c6d5e70bfb12ab9d7.svg",
+      "publicPath": "/static/dist/main_frontend/bf9c6d5e70bfb12ab9d7.svg"
+    },
+    "e03f90131b420fda46be.svg": {
+      "name": "e03f90131b420fda46be.svg",
+      "path": "/back/static/dist/main_frontend/e03f90131b420fda46be.svg",
+      "publicPath": "/static/dist/main_frontend/e03f90131b420fda46be.svg"
+    },
+    "cb1eab4934b13894c864.svg": {
+      "name": "cb1eab4934b13894c864.svg",
+      "path": "/back/static/dist/main_frontend/cb1eab4934b13894c864.svg",
+      "publicPath": "/static/dist/main_frontend/cb1eab4934b13894c864.svg"
+    },
+    "ddb11b2f60d03af32384.svg": {
+      "name": "ddb11b2f60d03af32384.svg",
+      "path": "/back/static/dist/main_frontend/ddb11b2f60d03af32384.svg",
+      "publicPath": "/static/dist/main_frontend/ddb11b2f60d03af32384.svg"
+    },
+    "9ad2308153f4a7cfcbd4.svg": {
+      "name": "9ad2308153f4a7cfcbd4.svg",
+      "path": "/back/static/dist/main_frontend/9ad2308153f4a7cfcbd4.svg",
+      "publicPath": "/static/dist/main_frontend/9ad2308153f4a7cfcbd4.svg"
+    },
+    "c8a6d3b2801a9ee0df94.svg": {
+      "name": "c8a6d3b2801a9ee0df94.svg",
+      "path": "/back/static/dist/main_frontend/c8a6d3b2801a9ee0df94.svg",
+      "publicPath": "/static/dist/main_frontend/c8a6d3b2801a9ee0df94.svg"
+    },
+    "c6db4c0a853e83d617e5.svg": {
+      "name": "c6db4c0a853e83d617e5.svg",
+      "path": "/back/static/dist/main_frontend/c6db4c0a853e83d617e5.svg",
+      "publicPath": "/static/dist/main_frontend/c6db4c0a853e83d617e5.svg"
+    },
+    "0b9bb282c79ef3799e55.svg": {
+      "name": "0b9bb282c79ef3799e55.svg",
+      "path": "/back/static/dist/main_frontend/0b9bb282c79ef3799e55.svg",
+      "publicPath": "/static/dist/main_frontend/0b9bb282c79ef3799e55.svg"
+    },
+    "4479f39d92d964095475.svg": {
+      "name": "4479f39d92d964095475.svg",
+      "path": "/back/static/dist/main_frontend/4479f39d92d964095475.svg",
+      "publicPath": "/static/dist/main_frontend/4479f39d92d964095475.svg"
+    },
+    "2a96e22fbf6717e32187.svg": {
+      "name": "2a96e22fbf6717e32187.svg",
+      "path": "/back/static/dist/main_frontend/2a96e22fbf6717e32187.svg",
+      "publicPath": "/static/dist/main_frontend/2a96e22fbf6717e32187.svg"
+    },
+    "b5368ec2b61add6a9c58.svg": {
+      "name": "b5368ec2b61add6a9c58.svg",
+      "path": "/back/static/dist/main_frontend/b5368ec2b61add6a9c58.svg",
+      "publicPath": "/static/dist/main_frontend/b5368ec2b61add6a9c58.svg"
+    },
+    "a3dad80014456a6c5c48.svg": {
+      "name": "a3dad80014456a6c5c48.svg",
+      "path": "/back/static/dist/main_frontend/a3dad80014456a6c5c48.svg",
+      "publicPath": "/static/dist/main_frontend/a3dad80014456a6c5c48.svg"
+    },
+    "5939cf557c7f09e3eca0.svg": {
+      "name": "5939cf557c7f09e3eca0.svg",
+      "path": "/back/static/dist/main_frontend/5939cf557c7f09e3eca0.svg",
+      "publicPath": "/static/dist/main_frontend/5939cf557c7f09e3eca0.svg"
+    },
+    "6d184f462b62c4e78ce0.svg": {
+      "name": "6d184f462b62c4e78ce0.svg",
+      "path": "/back/static/dist/main_frontend/6d184f462b62c4e78ce0.svg",
+      "publicPath": "/static/dist/main_frontend/6d184f462b62c4e78ce0.svg"
+    },
+    "8715839bd4e1cebfb108.svg": {
+      "name": "8715839bd4e1cebfb108.svg",
+      "path": "/back/static/dist/main_frontend/8715839bd4e1cebfb108.svg",
+      "publicPath": "/static/dist/main_frontend/8715839bd4e1cebfb108.svg"
+    },
+    "feab7843680e028ca12e.svg": {
+      "name": "feab7843680e028ca12e.svg",
+      "path": "/back/static/dist/main_frontend/feab7843680e028ca12e.svg",
+      "publicPath": "/static/dist/main_frontend/feab7843680e028ca12e.svg"
+    },
+    "9de83b935576f7b758c5.svg": {
+      "name": "9de83b935576f7b758c5.svg",
+      "path": "/back/static/dist/main_frontend/9de83b935576f7b758c5.svg",
+      "publicPath": "/static/dist/main_frontend/9de83b935576f7b758c5.svg"
+    },
+    "172fa7cc4789e150760d.svg": {
+      "name": "172fa7cc4789e150760d.svg",
+      "path": "/back/static/dist/main_frontend/172fa7cc4789e150760d.svg",
+      "publicPath": "/static/dist/main_frontend/172fa7cc4789e150760d.svg"
+    },
+    "01a34754db26ce5c262f.svg": {
+      "name": "01a34754db26ce5c262f.svg",
+      "path": "/back/static/dist/main_frontend/01a34754db26ce5c262f.svg",
+      "publicPath": "/static/dist/main_frontend/01a34754db26ce5c262f.svg"
+    },
+    "d72a6b8464a46cdde68f.svg": {
+      "name": "d72a6b8464a46cdde68f.svg",
+      "path": "/back/static/dist/main_frontend/d72a6b8464a46cdde68f.svg",
+      "publicPath": "/static/dist/main_frontend/d72a6b8464a46cdde68f.svg"
+    },
+    "0396eb94b24bcdec8280.svg": {
+      "name": "0396eb94b24bcdec8280.svg",
+      "path": "/back/static/dist/main_frontend/0396eb94b24bcdec8280.svg",
+      "publicPath": "/static/dist/main_frontend/0396eb94b24bcdec8280.svg"
+    },
+    "3188b917a1082b857124.svg": {
+      "name": "3188b917a1082b857124.svg",
+      "path": "/back/static/dist/main_frontend/3188b917a1082b857124.svg",
+      "publicPath": "/static/dist/main_frontend/3188b917a1082b857124.svg"
+    },
+    "c3e6b22cdc5c82961b6c.svg": {
+      "name": "c3e6b22cdc5c82961b6c.svg",
+      "path": "/back/static/dist/main_frontend/c3e6b22cdc5c82961b6c.svg",
+      "publicPath": "/static/dist/main_frontend/c3e6b22cdc5c82961b6c.svg"
+    },
+    "6a7334b0e5550f4782cf.svg": {
+      "name": "6a7334b0e5550f4782cf.svg",
+      "path": "/back/static/dist/main_frontend/6a7334b0e5550f4782cf.svg",
+      "publicPath": "/static/dist/main_frontend/6a7334b0e5550f4782cf.svg"
+    },
+    "0a33a430601cf12be42c.svg": {
+      "name": "0a33a430601cf12be42c.svg",
+      "path": "/back/static/dist/main_frontend/0a33a430601cf12be42c.svg",
+      "publicPath": "/static/dist/main_frontend/0a33a430601cf12be42c.svg"
+    },
+    "ce5b4a73813a5f10f64e.svg": {
+      "name": "ce5b4a73813a5f10f64e.svg",
+      "path": "/back/static/dist/main_frontend/ce5b4a73813a5f10f64e.svg",
+      "publicPath": "/static/dist/main_frontend/ce5b4a73813a5f10f64e.svg"
+    },
+    "fd771d17c0a15e2f8bba.svg": {
+      "name": "fd771d17c0a15e2f8bba.svg",
+      "path": "/back/static/dist/main_frontend/fd771d17c0a15e2f8bba.svg",
+      "publicPath": "/static/dist/main_frontend/fd771d17c0a15e2f8bba.svg"
+    },
+    "4e4dd175b79598dfb7e7.svg": {
+      "name": "4e4dd175b79598dfb7e7.svg",
+      "path": "/back/static/dist/main_frontend/4e4dd175b79598dfb7e7.svg",
+      "publicPath": "/static/dist/main_frontend/4e4dd175b79598dfb7e7.svg"
+    },
+    "b7ef8e24a52a6e75b185.svg": {
+      "name": "b7ef8e24a52a6e75b185.svg",
+      "path": "/back/static/dist/main_frontend/b7ef8e24a52a6e75b185.svg",
+      "publicPath": "/static/dist/main_frontend/b7ef8e24a52a6e75b185.svg"
+    },
+    "f6c452df459c5a4edcee.svg": {
+      "name": "f6c452df459c5a4edcee.svg",
+      "path": "/back/static/dist/main_frontend/f6c452df459c5a4edcee.svg",
+      "publicPath": "/static/dist/main_frontend/f6c452df459c5a4edcee.svg"
+    },
+    "9863802a4c945249e0af.svg": {
+      "name": "9863802a4c945249e0af.svg",
+      "path": "/back/static/dist/main_frontend/9863802a4c945249e0af.svg",
+      "publicPath": "/static/dist/main_frontend/9863802a4c945249e0af.svg"
+    },
+    "cd72d2dee7ad3f0c59f7.svg": {
+      "name": "cd72d2dee7ad3f0c59f7.svg",
+      "path": "/back/static/dist/main_frontend/cd72d2dee7ad3f0c59f7.svg",
+      "publicPath": "/static/dist/main_frontend/cd72d2dee7ad3f0c59f7.svg"
+    },
+    "e8e05b64548b5e3a2819.svg": {
+      "name": "e8e05b64548b5e3a2819.svg",
+      "path": "/back/static/dist/main_frontend/e8e05b64548b5e3a2819.svg",
+      "publicPath": "/static/dist/main_frontend/e8e05b64548b5e3a2819.svg"
+    },
+    "2f866a871445fb676eda.svg": {
+      "name": "2f866a871445fb676eda.svg",
+      "path": "/back/static/dist/main_frontend/2f866a871445fb676eda.svg",
+      "publicPath": "/static/dist/main_frontend/2f866a871445fb676eda.svg"
+    },
+    "676cf17f17f72a7af667.svg": {
+      "name": "676cf17f17f72a7af667.svg",
+      "path": "/back/static/dist/main_frontend/676cf17f17f72a7af667.svg",
+      "publicPath": "/static/dist/main_frontend/676cf17f17f72a7af667.svg"
+    },
+    "8834639a5f2f0f57589b.svg": {
+      "name": "8834639a5f2f0f57589b.svg",
+      "path": "/back/static/dist/main_frontend/8834639a5f2f0f57589b.svg",
+      "publicPath": "/static/dist/main_frontend/8834639a5f2f0f57589b.svg"
+    },
+    "2bc309886e015ca9ec23.svg": {
+      "name": "2bc309886e015ca9ec23.svg",
+      "path": "/back/static/dist/main_frontend/2bc309886e015ca9ec23.svg",
+      "publicPath": "/static/dist/main_frontend/2bc309886e015ca9ec23.svg"
+    },
+    "79c5f408e9fad276b07e.svg": {
+      "name": "79c5f408e9fad276b07e.svg",
+      "path": "/back/static/dist/main_frontend/79c5f408e9fad276b07e.svg",
+      "publicPath": "/static/dist/main_frontend/79c5f408e9fad276b07e.svg"
+    },
+    "56c9bc7bf24e579ac106.svg": {
+      "name": "56c9bc7bf24e579ac106.svg",
+      "path": "/back/static/dist/main_frontend/56c9bc7bf24e579ac106.svg",
+      "publicPath": "/static/dist/main_frontend/56c9bc7bf24e579ac106.svg"
+    },
+    "a493766db0a7ef705747.svg": {
+      "name": "a493766db0a7ef705747.svg",
+      "path": "/back/static/dist/main_frontend/a493766db0a7ef705747.svg",
+      "publicPath": "/static/dist/main_frontend/a493766db0a7ef705747.svg"
+    },
+    "166adddf13e9c6cf02a6.svg": {
+      "name": "166adddf13e9c6cf02a6.svg",
+      "path": "/back/static/dist/main_frontend/166adddf13e9c6cf02a6.svg",
+      "publicPath": "/static/dist/main_frontend/166adddf13e9c6cf02a6.svg"
+    },
+    "716069dcd9e7c5203ed7.svg": {
+      "name": "716069dcd9e7c5203ed7.svg",
+      "path": "/back/static/dist/main_frontend/716069dcd9e7c5203ed7.svg",
+      "publicPath": "/static/dist/main_frontend/716069dcd9e7c5203ed7.svg"
+    },
+    "c264bfaa5e6ac1987ae6.svg": {
+      "name": "c264bfaa5e6ac1987ae6.svg",
+      "path": "/back/static/dist/main_frontend/c264bfaa5e6ac1987ae6.svg",
+      "publicPath": "/static/dist/main_frontend/c264bfaa5e6ac1987ae6.svg"
+    },
+    "d0b958e39d80d0b2bc9f.svg": {
+      "name": "d0b958e39d80d0b2bc9f.svg",
+      "path": "/back/static/dist/main_frontend/d0b958e39d80d0b2bc9f.svg",
+      "publicPath": "/static/dist/main_frontend/d0b958e39d80d0b2bc9f.svg"
+    },
+    "0129c7dea7e898258bfc.svg": {
+      "name": "0129c7dea7e898258bfc.svg",
+      "path": "/back/static/dist/main_frontend/0129c7dea7e898258bfc.svg",
+      "publicPath": "/static/dist/main_frontend/0129c7dea7e898258bfc.svg"
+    },
+    "2a5d1e16abb0489127e0.svg": {
+      "name": "2a5d1e16abb0489127e0.svg",
+      "path": "/back/static/dist/main_frontend/2a5d1e16abb0489127e0.svg",
+      "publicPath": "/static/dist/main_frontend/2a5d1e16abb0489127e0.svg"
+    },
+    "69a569da4e2e94a89f75.svg": {
+      "name": "69a569da4e2e94a89f75.svg",
+      "path": "/back/static/dist/main_frontend/69a569da4e2e94a89f75.svg",
+      "publicPath": "/static/dist/main_frontend/69a569da4e2e94a89f75.svg"
+    },
+    "446-38b427ed90819efd52de.js": {
+      "name": "446-38b427ed90819efd52de.js",
+      "path": "/back/static/dist/main_frontend/446-38b427ed90819efd52de.js",
+      "publicPath": "/static/dist/main_frontend/446-38b427ed90819efd52de.js"
+    },
+    "896-38b427ed90819efd52de.js": {
+      "name": "896-38b427ed90819efd52de.js",
+      "path": "/back/static/dist/main_frontend/896-38b427ed90819efd52de.js",
+      "publicPath": "/static/dist/main_frontend/896-38b427ed90819efd52de.js"
+    },
+    "android-chrome-192x192.png": {
+      "name": "android-chrome-192x192.png",
+      "path": "/back/static/dist/main_frontend/android-chrome-192x192.png",
+      "publicPath": "/static/dist/main_frontend/android-chrome-192x192.png"
+    },
+    "android-chrome-512x512.png": {
+      "name": "android-chrome-512x512.png",
+      "path": "/back/static/dist/main_frontend/android-chrome-512x512.png",
+      "publicPath": "/static/dist/main_frontend/android-chrome-512x512.png"
+    },
+    "apple-touch-icon.png": {
+      "name": "apple-touch-icon.png",
+      "path": "/back/static/dist/main_frontend/apple-touch-icon.png",
+      "publicPath": "/static/dist/main_frontend/apple-touch-icon.png"
+    },
+    "browserconfig.xml": {
+      "name": "browserconfig.xml",
+      "path": "/back/static/dist/main_frontend/browserconfig.xml",
+      "publicPath": "/static/dist/main_frontend/browserconfig.xml"
+    },
+    "favicon-16x16.png": {
+      "name": "favicon-16x16.png",
+      "path": "/back/static/dist/main_frontend/favicon-16x16.png",
+      "publicPath": "/static/dist/main_frontend/favicon-16x16.png"
+    },
+    "favicon-32x32.png": {
+      "name": "favicon-32x32.png",
+      "path": "/back/static/dist/main_frontend/favicon-32x32.png",
+      "publicPath": "/static/dist/main_frontend/favicon-32x32.png"
+    },
+    "favicon.ico": {
+      "name": "favicon.ico",
+      "path": "/back/static/dist/main_frontend/favicon.ico",
+      "publicPath": "/static/dist/main_frontend/favicon.ico"
+    },
+    "index.html": {
+      "name": "index.html",
+      "path": "/back/static/dist/main_frontend/index.html",
+      "publicPath": "/static/dist/main_frontend/index.html"
+    },
+    "manifest.json": {
+      "name": "manifest.json",
+      "path": "/back/static/dist/main_frontend/manifest.json",
+      "publicPath": "/static/dist/main_frontend/manifest.json"
+    },
+    "mstile-150x150.png": {
+      "name": "mstile-150x150.png",
+      "path": "/back/static/dist/main_frontend/mstile-150x150.png",
+      "publicPath": "/static/dist/main_frontend/mstile-150x150.png"
+    },
+    "robots.txt": {
+      "name": "robots.txt",
+      "path": "/back/static/dist/main_frontend/robots.txt",
+      "publicPath": "/static/dist/main_frontend/robots.txt"
+    },
+    "safari-pinned-tab.svg": {
+      "name": "safari-pinned-tab.svg",
+      "path": "/back/static/dist/main_frontend/safari-pinned-tab.svg",
+      "publicPath": "/static/dist/main_frontend/safari-pinned-tab.svg"
+    },
+    "site.webmanifest": {
+      "name": "site.webmanifest",
+      "path": "/back/static/dist/main_frontend/site.webmanifest",
+      "publicPath": "/static/dist/main_frontend/site.webmanifest"
+    },
+    "staticfiles-38b427ed90819efd52de.js.LICENSE.txt": {
+      "name": "staticfiles-38b427ed90819efd52de.js.LICENSE.txt",
+      "path": "/back/static/dist/main_frontend/staticfiles-38b427ed90819efd52de.js.LICENSE.txt",
+      "publicPath": "/static/dist/main_frontend/staticfiles-38b427ed90819efd52de.js.LICENSE.txt"
+    },
+    "ffc1aedb2a542845d44f.svg.gz": {
+      "name": "ffc1aedb2a542845d44f.svg.gz",
+      "path": "/back/static/dist/main_frontend/ffc1aedb2a542845d44f.svg.gz",
+      "publicPath": "/static/dist/main_frontend/ffc1aedb2a542845d44f.svg.gz"
+    },
+    "25b80ec3d0987c4a58a8.svg.gz": {
+      "name": "25b80ec3d0987c4a58a8.svg.gz",
+      "path": "/back/static/dist/main_frontend/25b80ec3d0987c4a58a8.svg.gz",
+      "publicPath": "/static/dist/main_frontend/25b80ec3d0987c4a58a8.svg.gz"
+    },
+    "409dcf8aab740c8e008b.svg.gz": {
+      "name": "409dcf8aab740c8e008b.svg.gz",
+      "path": "/back/static/dist/main_frontend/409dcf8aab740c8e008b.svg.gz",
+      "publicPath": "/static/dist/main_frontend/409dcf8aab740c8e008b.svg.gz"
+    },
+    "f63dc2e05d7c87fe994f.svg.gz": {
+      "name": "f63dc2e05d7c87fe994f.svg.gz",
+      "path": "/back/static/dist/main_frontend/f63dc2e05d7c87fe994f.svg.gz",
+      "publicPath": "/static/dist/main_frontend/f63dc2e05d7c87fe994f.svg.gz"
+    },
+    "5e607c100df54ca6ffc3.svg.gz": {
+      "name": "5e607c100df54ca6ffc3.svg.gz",
+      "path": "/back/static/dist/main_frontend/5e607c100df54ca6ffc3.svg.gz",
+      "publicPath": "/static/dist/main_frontend/5e607c100df54ca6ffc3.svg.gz"
+    },
+    "c5b6b07b04b5a1996c6c.svg.gz": {
+      "name": "c5b6b07b04b5a1996c6c.svg.gz",
+      "path": "/back/static/dist/main_frontend/c5b6b07b04b5a1996c6c.svg.gz",
+      "publicPath": "/static/dist/main_frontend/c5b6b07b04b5a1996c6c.svg.gz"
+    },
+    "9e27cdf2cbb6be3eeede.svg.gz": {
+      "name": "9e27cdf2cbb6be3eeede.svg.gz",
+      "path": "/back/static/dist/main_frontend/9e27cdf2cbb6be3eeede.svg.gz",
+      "publicPath": "/static/dist/main_frontend/9e27cdf2cbb6be3eeede.svg.gz"
+    },
+    "95db152ba3af0ed5b572.svg.gz": {
+      "name": "95db152ba3af0ed5b572.svg.gz",
+      "path": "/back/static/dist/main_frontend/95db152ba3af0ed5b572.svg.gz",
+      "publicPath": "/static/dist/main_frontend/95db152ba3af0ed5b572.svg.gz"
+    },
+    "629b37e915fcdb6d27da.svg.gz": {
+      "name": "629b37e915fcdb6d27da.svg.gz",
+      "path": "/back/static/dist/main_frontend/629b37e915fcdb6d27da.svg.gz",
+      "publicPath": "/static/dist/main_frontend/629b37e915fcdb6d27da.svg.gz"
+    },
+    "f938314a1075341a05ff.svg.gz": {
+      "name": "f938314a1075341a05ff.svg.gz",
+      "path": "/back/static/dist/main_frontend/f938314a1075341a05ff.svg.gz",
+      "publicPath": "/static/dist/main_frontend/f938314a1075341a05ff.svg.gz"
+    },
+    "14e378de3332a513c5e0.svg.gz": {
+      "name": "14e378de3332a513c5e0.svg.gz",
+      "path": "/back/static/dist/main_frontend/14e378de3332a513c5e0.svg.gz",
+      "publicPath": "/static/dist/main_frontend/14e378de3332a513c5e0.svg.gz"
+    },
+    "bb9758809d60ffdbd241.svg.gz": {
+      "name": "bb9758809d60ffdbd241.svg.gz",
+      "path": "/back/static/dist/main_frontend/bb9758809d60ffdbd241.svg.gz",
+      "publicPath": "/static/dist/main_frontend/bb9758809d60ffdbd241.svg.gz"
+    },
+    "6bb61c61c79a21b38ba9.svg.gz": {
+      "name": "6bb61c61c79a21b38ba9.svg.gz",
+      "path": "/back/static/dist/main_frontend/6bb61c61c79a21b38ba9.svg.gz",
+      "publicPath": "/static/dist/main_frontend/6bb61c61c79a21b38ba9.svg.gz"
+    },
+    "dee316ea9ebb28c17ff0.svg.gz": {
+      "name": "dee316ea9ebb28c17ff0.svg.gz",
+      "path": "/back/static/dist/main_frontend/dee316ea9ebb28c17ff0.svg.gz",
+      "publicPath": "/static/dist/main_frontend/dee316ea9ebb28c17ff0.svg.gz"
+    },
+    "a2cd9cf2c4656664f3ad.svg.gz": {
+      "name": "a2cd9cf2c4656664f3ad.svg.gz",
+      "path": "/back/static/dist/main_frontend/a2cd9cf2c4656664f3ad.svg.gz",
+      "publicPath": "/static/dist/main_frontend/a2cd9cf2c4656664f3ad.svg.gz"
+    },
+    "bf9c6d5e70bfb12ab9d7.svg.gz": {
+      "name": "bf9c6d5e70bfb12ab9d7.svg.gz",
+      "path": "/back/static/dist/main_frontend/bf9c6d5e70bfb12ab9d7.svg.gz",
+      "publicPath": "/static/dist/main_frontend/bf9c6d5e70bfb12ab9d7.svg.gz"
+    },
+    "e03f90131b420fda46be.svg.gz": {
+      "name": "e03f90131b420fda46be.svg.gz",
+      "path": "/back/static/dist/main_frontend/e03f90131b420fda46be.svg.gz",
+      "publicPath": "/static/dist/main_frontend/e03f90131b420fda46be.svg.gz"
+    },
+    "cb1eab4934b13894c864.svg.gz": {
+      "name": "cb1eab4934b13894c864.svg.gz",
+      "path": "/back/static/dist/main_frontend/cb1eab4934b13894c864.svg.gz",
+      "publicPath": "/static/dist/main_frontend/cb1eab4934b13894c864.svg.gz"
+    },
+    "ddb11b2f60d03af32384.svg.gz": {
+      "name": "ddb11b2f60d03af32384.svg.gz",
+      "path": "/back/static/dist/main_frontend/ddb11b2f60d03af32384.svg.gz",
+      "publicPath": "/static/dist/main_frontend/ddb11b2f60d03af32384.svg.gz"
+    },
+    "9ad2308153f4a7cfcbd4.svg.gz": {
+      "name": "9ad2308153f4a7cfcbd4.svg.gz",
+      "path": "/back/static/dist/main_frontend/9ad2308153f4a7cfcbd4.svg.gz",
+      "publicPath": "/static/dist/main_frontend/9ad2308153f4a7cfcbd4.svg.gz"
+    },
+    "c8a6d3b2801a9ee0df94.svg.gz": {
+      "name": "c8a6d3b2801a9ee0df94.svg.gz",
+      "path": "/back/static/dist/main_frontend/c8a6d3b2801a9ee0df94.svg.gz",
+      "publicPath": "/static/dist/main_frontend/c8a6d3b2801a9ee0df94.svg.gz"
+    },
+    "c6db4c0a853e83d617e5.svg.gz": {
+      "name": "c6db4c0a853e83d617e5.svg.gz",
+      "path": "/back/static/dist/main_frontend/c6db4c0a853e83d617e5.svg.gz",
+      "publicPath": "/static/dist/main_frontend/c6db4c0a853e83d617e5.svg.gz"
+    },
+    "0b9bb282c79ef3799e55.svg.gz": {
+      "name": "0b9bb282c79ef3799e55.svg.gz",
+      "path": "/back/static/dist/main_frontend/0b9bb282c79ef3799e55.svg.gz",
+      "publicPath": "/static/dist/main_frontend/0b9bb282c79ef3799e55.svg.gz"
+    },
+    "4479f39d92d964095475.svg.gz": {
+      "name": "4479f39d92d964095475.svg.gz",
+      "path": "/back/static/dist/main_frontend/4479f39d92d964095475.svg.gz",
+      "publicPath": "/static/dist/main_frontend/4479f39d92d964095475.svg.gz"
+    },
+    "2a96e22fbf6717e32187.svg.gz": {
+      "name": "2a96e22fbf6717e32187.svg.gz",
+      "path": "/back/static/dist/main_frontend/2a96e22fbf6717e32187.svg.gz",
+      "publicPath": "/static/dist/main_frontend/2a96e22fbf6717e32187.svg.gz"
+    },
+    "b5368ec2b61add6a9c58.svg.gz": {
+      "name": "b5368ec2b61add6a9c58.svg.gz",
+      "path": "/back/static/dist/main_frontend/b5368ec2b61add6a9c58.svg.gz",
+      "publicPath": "/static/dist/main_frontend/b5368ec2b61add6a9c58.svg.gz"
+    },
+    "5939cf557c7f09e3eca0.svg.gz": {
+      "name": "5939cf557c7f09e3eca0.svg.gz",
+      "path": "/back/static/dist/main_frontend/5939cf557c7f09e3eca0.svg.gz",
+      "publicPath": "/static/dist/main_frontend/5939cf557c7f09e3eca0.svg.gz"
+    },
+    "a3dad80014456a6c5c48.svg.gz": {
+      "name": "a3dad80014456a6c5c48.svg.gz",
+      "path": "/back/static/dist/main_frontend/a3dad80014456a6c5c48.svg.gz",
+      "publicPath": "/static/dist/main_frontend/a3dad80014456a6c5c48.svg.gz"
+    },
+    "6d184f462b62c4e78ce0.svg.gz": {
+      "name": "6d184f462b62c4e78ce0.svg.gz",
+      "path": "/back/static/dist/main_frontend/6d184f462b62c4e78ce0.svg.gz",
+      "publicPath": "/static/dist/main_frontend/6d184f462b62c4e78ce0.svg.gz"
+    },
+    "8715839bd4e1cebfb108.svg.gz": {
+      "name": "8715839bd4e1cebfb108.svg.gz",
+      "path": "/back/static/dist/main_frontend/8715839bd4e1cebfb108.svg.gz",
+      "publicPath": "/static/dist/main_frontend/8715839bd4e1cebfb108.svg.gz"
+    },
+    "feab7843680e028ca12e.svg.gz": {
+      "name": "feab7843680e028ca12e.svg.gz",
+      "path": "/back/static/dist/main_frontend/feab7843680e028ca12e.svg.gz",
+      "publicPath": "/static/dist/main_frontend/feab7843680e028ca12e.svg.gz"
+    },
+    "9de83b935576f7b758c5.svg.gz": {
+      "name": "9de83b935576f7b758c5.svg.gz",
+      "path": "/back/static/dist/main_frontend/9de83b935576f7b758c5.svg.gz",
+      "publicPath": "/static/dist/main_frontend/9de83b935576f7b758c5.svg.gz"
+    },
+    "172fa7cc4789e150760d.svg.gz": {
+      "name": "172fa7cc4789e150760d.svg.gz",
+      "path": "/back/static/dist/main_frontend/172fa7cc4789e150760d.svg.gz",
+      "publicPath": "/static/dist/main_frontend/172fa7cc4789e150760d.svg.gz"
+    },
+    "01a34754db26ce5c262f.svg.gz": {
+      "name": "01a34754db26ce5c262f.svg.gz",
+      "path": "/back/static/dist/main_frontend/01a34754db26ce5c262f.svg.gz",
+      "publicPath": "/static/dist/main_frontend/01a34754db26ce5c262f.svg.gz"
+    },
+    "d72a6b8464a46cdde68f.svg.gz": {
+      "name": "d72a6b8464a46cdde68f.svg.gz",
+      "path": "/back/static/dist/main_frontend/d72a6b8464a46cdde68f.svg.gz",
+      "publicPath": "/static/dist/main_frontend/d72a6b8464a46cdde68f.svg.gz"
+    },
+    "0396eb94b24bcdec8280.svg.gz": {
+      "name": "0396eb94b24bcdec8280.svg.gz",
+      "path": "/back/static/dist/main_frontend/0396eb94b24bcdec8280.svg.gz",
+      "publicPath": "/static/dist/main_frontend/0396eb94b24bcdec8280.svg.gz"
+    },
+    "c3e6b22cdc5c82961b6c.svg.gz": {
+      "name": "c3e6b22cdc5c82961b6c.svg.gz",
+      "path": "/back/static/dist/main_frontend/c3e6b22cdc5c82961b6c.svg.gz",
+      "publicPath": "/static/dist/main_frontend/c3e6b22cdc5c82961b6c.svg.gz"
+    },
+    "3188b917a1082b857124.svg.gz": {
+      "name": "3188b917a1082b857124.svg.gz",
+      "path": "/back/static/dist/main_frontend/3188b917a1082b857124.svg.gz",
+      "publicPath": "/static/dist/main_frontend/3188b917a1082b857124.svg.gz"
+    },
+    "ce5b4a73813a5f10f64e.svg.gz": {
+      "name": "ce5b4a73813a5f10f64e.svg.gz",
+      "path": "/back/static/dist/main_frontend/ce5b4a73813a5f10f64e.svg.gz",
+      "publicPath": "/static/dist/main_frontend/ce5b4a73813a5f10f64e.svg.gz"
+    },
+    "0a33a430601cf12be42c.svg.gz": {
+      "name": "0a33a430601cf12be42c.svg.gz",
+      "path": "/back/static/dist/main_frontend/0a33a430601cf12be42c.svg.gz",
+      "publicPath": "/static/dist/main_frontend/0a33a430601cf12be42c.svg.gz"
+    },
+    "4e4dd175b79598dfb7e7.svg.gz": {
+      "name": "4e4dd175b79598dfb7e7.svg.gz",
+      "path": "/back/static/dist/main_frontend/4e4dd175b79598dfb7e7.svg.gz",
+      "publicPath": "/static/dist/main_frontend/4e4dd175b79598dfb7e7.svg.gz"
+    },
+    "f6c452df459c5a4edcee.svg.gz": {
+      "name": "f6c452df459c5a4edcee.svg.gz",
+      "path": "/back/static/dist/main_frontend/f6c452df459c5a4edcee.svg.gz",
+      "publicPath": "/static/dist/main_frontend/f6c452df459c5a4edcee.svg.gz"
+    },
+    "9863802a4c945249e0af.svg.gz": {
+      "name": "9863802a4c945249e0af.svg.gz",
+      "path": "/back/static/dist/main_frontend/9863802a4c945249e0af.svg.gz",
+      "publicPath": "/static/dist/main_frontend/9863802a4c945249e0af.svg.gz"
+    },
+    "fd771d17c0a15e2f8bba.svg.gz": {
+      "name": "fd771d17c0a15e2f8bba.svg.gz",
+      "path": "/back/static/dist/main_frontend/fd771d17c0a15e2f8bba.svg.gz",
+      "publicPath": "/static/dist/main_frontend/fd771d17c0a15e2f8bba.svg.gz"
+    },
+    "b7ef8e24a52a6e75b185.svg.gz": {
+      "name": "b7ef8e24a52a6e75b185.svg.gz",
+      "path": "/back/static/dist/main_frontend/b7ef8e24a52a6e75b185.svg.gz",
+      "publicPath": "/static/dist/main_frontend/b7ef8e24a52a6e75b185.svg.gz"
+    },
+    "e8e05b64548b5e3a2819.svg.gz": {
+      "name": "e8e05b64548b5e3a2819.svg.gz",
+      "path": "/back/static/dist/main_frontend/e8e05b64548b5e3a2819.svg.gz",
+      "publicPath": "/static/dist/main_frontend/e8e05b64548b5e3a2819.svg.gz"
+    },
+    "cd72d2dee7ad3f0c59f7.svg.gz": {
+      "name": "cd72d2dee7ad3f0c59f7.svg.gz",
+      "path": "/back/static/dist/main_frontend/cd72d2dee7ad3f0c59f7.svg.gz",
+      "publicPath": "/static/dist/main_frontend/cd72d2dee7ad3f0c59f7.svg.gz"
+    },
+    "2f866a871445fb676eda.svg.gz": {
+      "name": "2f866a871445fb676eda.svg.gz",
+      "path": "/back/static/dist/main_frontend/2f866a871445fb676eda.svg.gz",
+      "publicPath": "/static/dist/main_frontend/2f866a871445fb676eda.svg.gz"
+    },
+    "2bc309886e015ca9ec23.svg.gz": {
+      "name": "2bc309886e015ca9ec23.svg.gz",
+      "path": "/back/static/dist/main_frontend/2bc309886e015ca9ec23.svg.gz",
+      "publicPath": "/static/dist/main_frontend/2bc309886e015ca9ec23.svg.gz"
+    },
+    "79c5f408e9fad276b07e.svg.gz": {
+      "name": "79c5f408e9fad276b07e.svg.gz",
+      "path": "/back/static/dist/main_frontend/79c5f408e9fad276b07e.svg.gz",
+      "publicPath": "/static/dist/main_frontend/79c5f408e9fad276b07e.svg.gz"
+    },
+    "56c9bc7bf24e579ac106.svg.gz": {
+      "name": "56c9bc7bf24e579ac106.svg.gz",
+      "path": "/back/static/dist/main_frontend/56c9bc7bf24e579ac106.svg.gz",
+      "publicPath": "/static/dist/main_frontend/56c9bc7bf24e579ac106.svg.gz"
+    },
+    "a493766db0a7ef705747.svg.gz": {
+      "name": "a493766db0a7ef705747.svg.gz",
+      "path": "/back/static/dist/main_frontend/a493766db0a7ef705747.svg.gz",
+      "publicPath": "/static/dist/main_frontend/a493766db0a7ef705747.svg.gz"
+    },
+    "166adddf13e9c6cf02a6.svg.gz": {
+      "name": "166adddf13e9c6cf02a6.svg.gz",
+      "path": "/back/static/dist/main_frontend/166adddf13e9c6cf02a6.svg.gz",
+      "publicPath": "/static/dist/main_frontend/166adddf13e9c6cf02a6.svg.gz"
+    },
+    "716069dcd9e7c5203ed7.svg.gz": {
+      "name": "716069dcd9e7c5203ed7.svg.gz",
+      "path": "/back/static/dist/main_frontend/716069dcd9e7c5203ed7.svg.gz",
+      "publicPath": "/static/dist/main_frontend/716069dcd9e7c5203ed7.svg.gz"
+    },
+    "c264bfaa5e6ac1987ae6.svg.gz": {
+      "name": "c264bfaa5e6ac1987ae6.svg.gz",
+      "path": "/back/static/dist/main_frontend/c264bfaa5e6ac1987ae6.svg.gz",
+      "publicPath": "/static/dist/main_frontend/c264bfaa5e6ac1987ae6.svg.gz"
+    },
+    "d0b958e39d80d0b2bc9f.svg.gz": {
+      "name": "d0b958e39d80d0b2bc9f.svg.gz",
+      "path": "/back/static/dist/main_frontend/d0b958e39d80d0b2bc9f.svg.gz",
+      "publicPath": "/static/dist/main_frontend/d0b958e39d80d0b2bc9f.svg.gz"
+    },
+    "0129c7dea7e898258bfc.svg.gz": {
+      "name": "0129c7dea7e898258bfc.svg.gz",
+      "path": "/back/static/dist/main_frontend/0129c7dea7e898258bfc.svg.gz",
+      "publicPath": "/static/dist/main_frontend/0129c7dea7e898258bfc.svg.gz"
+    },
+    "2a5d1e16abb0489127e0.svg.gz": {
+      "name": "2a5d1e16abb0489127e0.svg.gz",
+      "path": "/back/static/dist/main_frontend/2a5d1e16abb0489127e0.svg.gz",
+      "publicPath": "/static/dist/main_frontend/2a5d1e16abb0489127e0.svg.gz"
+    },
+    "69a569da4e2e94a89f75.svg.gz": {
+      "name": "69a569da4e2e94a89f75.svg.gz",
+      "path": "/back/static/dist/main_frontend/69a569da4e2e94a89f75.svg.gz",
+      "publicPath": "/static/dist/main_frontend/69a569da4e2e94a89f75.svg.gz"
+    },
+    "446-38b427ed90819efd52de.js.gz": {
+      "name": "446-38b427ed90819efd52de.js.gz",
+      "path": "/back/static/dist/main_frontend/446-38b427ed90819efd52de.js.gz",
+      "publicPath": "/static/dist/main_frontend/446-38b427ed90819efd52de.js.gz"
+    },
+    "896-38b427ed90819efd52de.js.gz": {
+      "name": "896-38b427ed90819efd52de.js.gz",
+      "path": "/back/static/dist/main_frontend/896-38b427ed90819efd52de.js.gz",
+      "publicPath": "/static/dist/main_frontend/896-38b427ed90819efd52de.js.gz"
+    },
+    "browserconfig.xml.gz": {
+      "name": "browserconfig.xml.gz",
+      "path": "/back/static/dist/main_frontend/browserconfig.xml.gz",
+      "publicPath": "/static/dist/main_frontend/browserconfig.xml.gz"
+    },
+    "6a7334b0e5550f4782cf.svg.gz": {
+      "name": "6a7334b0e5550f4782cf.svg.gz",
+      "path": "/back/static/dist/main_frontend/6a7334b0e5550f4782cf.svg.gz",
+      "publicPath": "/static/dist/main_frontend/6a7334b0e5550f4782cf.svg.gz"
+    },
+    "676cf17f17f72a7af667.svg.gz": {
+      "name": "676cf17f17f72a7af667.svg.gz",
+      "path": "/back/static/dist/main_frontend/676cf17f17f72a7af667.svg.gz",
+      "publicPath": "/static/dist/main_frontend/676cf17f17f72a7af667.svg.gz"
+    },
+    "manifest.json.gz": {
+      "name": "manifest.json.gz",
+      "path": "/back/static/dist/main_frontend/manifest.json.gz",
+      "publicPath": "/static/dist/main_frontend/manifest.json.gz"
+    },
+    "safari-pinned-tab.svg.gz": {
+      "name": "safari-pinned-tab.svg.gz",
+      "path": "/back/static/dist/main_frontend/safari-pinned-tab.svg.gz",
+      "publicPath": "/static/dist/main_frontend/safari-pinned-tab.svg.gz"
+    },
+    "site.webmanifest.gz": {
+      "name": "site.webmanifest.gz",
+      "path": "/back/static/dist/main_frontend/site.webmanifest.gz",
+      "publicPath": "/static/dist/main_frontend/site.webmanifest.gz"
+    },
+    "staticfiles-38b427ed90819efd52de.js.LICENSE.txt.gz": {
+      "name": "staticfiles-38b427ed90819efd52de.js.LICENSE.txt.gz",
+      "path": "/back/static/dist/main_frontend/staticfiles-38b427ed90819efd52de.js.LICENSE.txt.gz",
+      "publicPath": "/static/dist/main_frontend/staticfiles-38b427ed90819efd52de.js.LICENSE.txt.gz"
+    },
+    "index.html.gz": {
+      "name": "index.html.gz",
+      "path": "/back/static/dist/main_frontend/index.html.gz",
+      "publicPath": "/static/dist/main_frontend/index.html.gz"
+    },
+    "8834639a5f2f0f57589b.svg.gz": {
+      "name": "8834639a5f2f0f57589b.svg.gz",
+      "path": "/back/static/dist/main_frontend/8834639a5f2f0f57589b.svg.gz",
+      "publicPath": "/static/dist/main_frontend/8834639a5f2f0f57589b.svg.gz"
+    },
+    "favicon.ico.gz": {
+      "name": "favicon.ico.gz",
+      "path": "/back/static/dist/main_frontend/favicon.ico.gz",
+      "publicPath": "/static/dist/main_frontend/favicon.ico.gz"
+    },
+    "staticfiles-38b427ed90819efd52de.js.gz": {
+      "name": "staticfiles-38b427ed90819efd52de.js.gz",
+      "path": "/back/static/dist/main_frontend/staticfiles-38b427ed90819efd52de.js.gz",
+      "publicPath": "/static/dist/main_frontend/staticfiles-38b427ed90819efd52de.js.gz"
+    }
+  },
+  "chunks": {
+    "staticfiles": [
+      "staticfiles-38b427ed90819efd52de.js"
+    ]
+  },
+  "publicPath": "/static/dist/main_frontend/"
+}
