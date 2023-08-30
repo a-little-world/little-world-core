@@ -8,10 +8,6 @@ permissions:
   pages: write
   id-token: write
 
-concurrency:
-  group: 'staging_deployment'
-  cancel-in-progress: true
-
 jobs:
   make_docs:
     runs-on: ubuntu-latest
