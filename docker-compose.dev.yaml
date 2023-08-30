@@ -85,7 +85,7 @@ services:
       - ./front/cookie_banner_frontend.webpack-stats.json:/front/cookie_banner_frontend.webpack-stats.json
       - ./front/apps/cookie_banner_frontend/src/:/front/apps/cookie_banner_frontend/src/
   backend:
-    profiles: ["backend", "user_form", "admin_panel_frontend", "main_frontend", "user_form_frontend", "cookie_banner_frontend", "all"]
+    profiles: ["backend", "user_form", "user_form_v2", "admin_panel_frontend", "main_frontend", "user_form_frontend", "cookie_banner_frontend", "all"]
     build:
       context: .
       dockerfile: ./Dockerfile.full
@@ -110,7 +110,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
   redis:
-    profiles: ["backend", "user_form", "admin_panel_frontend", "main_frontend", "user_form_frontend", "cookie_banner_frontend", "all"]
+    profiles: ["backend", "user_form", "user_form_v2", "admin_panel_frontend", "main_frontend", "user_form_frontend", "cookie_banner_frontend", "all"]
     image: redis:5
     ports:
       - "6379:6379"

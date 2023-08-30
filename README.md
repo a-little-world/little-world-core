@@ -40,6 +40,7 @@ setup:
 ```
 git clone <backend> && cd little-world-backend
 git submodule update --init --recursive
+DOCKER_BUILDKIT=1 docker-compose -f docker-compose.dev.yaml build
 COMPOSE_PROFILES=all DOCKER_BUILDKIT=1 docker-compose -f docker-compose.dev.yaml up
 ```
 
