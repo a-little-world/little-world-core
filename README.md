@@ -13,7 +13,7 @@ Want to test a feature quickly locally:
 ```
 git clone <your-feature-branch> && cd little-world-backend
 git submodule update --init --recursive
-DOCKER_BUILDKIT=1 docker-compose up
+DOCKER_BUILDKIT=1 docker-compose build
 ```
 
 > Quciker build meant for testing, check below for development setup
@@ -40,7 +40,8 @@ setup:
 ```
 git clone <backend> && cd little-world-backend
 git submodule update --init --recursive
-DOCKER_BUILDKIT=1 docker-compose -f docker-compose.dev.yaml build
+COMPOSE_PROFILES=all DOCKER_BUILDKIT=1 docker-compose -f docker-compose.dev.yaml build
+for frontend in main_frontend user_form user_form_frontend admin_panel_frontend cookie_banner_frontend; do touch ./front/$frontend.webpack-stats.json ; done
 COMPOSE_PROFILES=all DOCKER_BUILDKIT=1 docker-compose -f docker-compose.dev.yaml up
 ```
 
