@@ -116,6 +116,10 @@ def make_tim_support_user(user):
                 send_email=False,
                 set_unconfirmed=False)
     
+    # 2.5 add that user to the managed users by Tim
+    base_management_user.state.managed_users.add(user)
+    base_management_user.state.save()
+    
     # 3. set that user to 'not searching'
     us = user.state
     us.matching_state = State.MatchingStateChoices.NOT_SEARCHING
