@@ -187,7 +187,7 @@ Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil uns
 
 Aktuell arbeiten wir an einigen Aktualisierungen unserer Plattform und unseres Matching-Verfahrens und schätzen daher jedes <a href="/app/help">Feedback</a>, das wir von dir erhalten.
 
-Während wir für dich ein passendes Match finden, kannst du gerne in unserem <a href="https://home.little-world.com/wp-content/uploads/2023/08/Leitfaden.pdf">Gesprächsleitfaden</a> stöbern. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
+Während wir für dich ein passendes Match finden, kannst du gerne in unserem <a href="https://home.little-world.com/leitfaden">Gesprächsleitfaden</a> stöbern. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
 
 Falls du Lust und Zeit hast, uns weiter zu unterstützen, würden wir uns sehr über deine Teilnahme an unserer Umfrage freuen. 
 Zwei Studentinnen der Uni Siegen, Natalia und Sandra, würden dich gerne zur Verbesserung von Little World interviewen. Das Interview dauert etwa 30-45 Minuten und dient dazu, uns dabei zu helfen, unseren Service zu verbessern. Natürlich bleiben deine Antworten anonym und werden nicht veröffentlicht. Wenn du interessiert bist, kannst du Natalia unter <a href="mailto:natalia.romancheva@student.uni-siegen.de?subject=Interview">natalia.romancheva@student.uni-siegen.de</a> oder Sandra unter <a href="mailto:sandra.butzek@student.uni-siegen.de?subject=Interview">sandra.butzek@student.uni-siegen.de</a> kontaktieren.
