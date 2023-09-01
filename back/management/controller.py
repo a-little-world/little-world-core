@@ -86,6 +86,44 @@ def get_user_models(user):
         d[k] = elem
     return d
 
+def send_still_active_question_message(user):
+    user.message(pgettext_lazy("api.are-you-still-searching", """
+Hallo {first_name} ich bin Tim, Mitbegründer und CTO von Little World!
+                               
+Entschuldige das du warten musstest, wir ueberarbeiten gerade einige Dinge an unserer Plattform und unserem Matching-Verfahren.
+Ich bin dein neuer support nutzer und werde dir bei allen Fragen und Problemen helfen.
+                               
+Da du dich schon vor einiger Zeit registriert hast, wollte ich dich fragen ob du noch aktiv auf der Suche bist?
+Antworte mir genere mit einer schnellen nachricht oder druecke kurz auf diesen knopf: <a href="/user/still_active/">Ich suche noch ein Match!</a>""".format(first_name=user.first_name)), auto_mark_read=False)
+
+
+def make_tim_support_user(user):
+    # 1. We need to remove oliver as matching user
+    from management.models import Match
+    from management import controller
+    
+    admin_user = controller.get_user_by_email("littleworld.management@gmail.com")
+    old_support_matching = Match.get_matching(user1=admin_user, user2=user)
+    if old_support_matching.exists():
+        controller.unmatch_users({admin_user, user}, unmatcher=admin_user)
+        
+    # 2. make the new admin matching
+    base_management_user = get_base_management_user()
+    
+    match_users({ base_management_user, user },
+                send_notification=False,
+                send_message=False,
+                send_email=False,
+                set_unconfirmed=False)
+    
+    # 3. set that user to 'not searching'
+    us = user.state
+    us.matching_state = State.MatchingStateChoices.NOT_SEARCHING
+    us.save()
+    
+    # 4. send the 'still active' question message
+    send_still_active_question_message(user)
+
 
 def create_user(
     email,
