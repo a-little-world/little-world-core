@@ -185,11 +185,12 @@ Hallo {first_name} und herzlich willkommen bei Little World!
 
 Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil unserer Plattform geworden bist!
 
-Aktuell arbeiten wir an einigen Aktualisierungen unserer Plattform und unseres Matching-Verfahrens und schätzen daher jedes Feedback, das wir von dir erhalten.
+Aktuell arbeiten wir an einigen Aktualisierungen unserer Plattform und unseres Matching-Verfahrens und schätzen daher jedes <a href="/app/help">Feedback</a>, das wir von dir erhalten.
 
-Während wir für dich ein passendes Match finden, kannst du gerne in unserem Gesprächsleitfaden stöbern. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
+Während wir für dich ein passendes Match finden, kannst du gerne in unserem <a href="https://home.little-world.com/wp-content/uploads/2023/08/Leitfaden.pdf">Gesprächsleitfaden</a> stöbern. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
 
-Falls du Lust und Zeit hast, uns weiter zu unterstützen, würden wir uns sehr über deine Teilnahme an unserer Umfrage freuen. Zwei Studentinnen der Uni Siegen, Natalia und Sandra, würden dich gerne zur Verbesserung von Little World interviewen. Das Interview dauert etwa 30-45 Minuten und dient dazu, uns dabei zu helfen, unseren Service zu verbessern. Natürlich bleiben deine Antworten anonym und werden nicht veröffentlicht. Wenn du interessiert bist, kannst du Natalia unter natalia.romancheva@student.uni-siegen.de oder Sandra unter sandra.butzek@student.uni-siegen.de kontaktieren.
+Falls du Lust und Zeit hast, uns weiter zu unterstützen, würden wir uns sehr über deine Teilnahme an unserer Umfrage freuen. 
+Zwei Studentinnen der Uni Siegen, Natalia und Sandra, würden dich gerne zur Verbesserung von Little World interviewen. Das Interview dauert etwa 30-45 Minuten und dient dazu, uns dabei zu helfen, unseren Service zu verbessern. Natürlich bleiben deine Antworten anonym und werden nicht veröffentlicht. Wenn du interessiert bist, kannst du Natalia unter <a href="mailto:natalia.romancheva@student.uni-siegen.de?subject=Interview">natalia.romancheva@student.uni-siegen.de</a> oder Sandra unter <a href="mailto:sandra.butzek@student.uni-siegen.de?subject=Interview">sandra.butzek@student.uni-siegen.de</a> kontaktieren.
 
 Vielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!
 """.format(first_name=first_name)), auto_mark_read=True)
