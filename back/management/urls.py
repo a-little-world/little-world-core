@@ -182,6 +182,8 @@ view_routes = [
     re_path(fr'^app/(?P<path>.*)$',
             views.MainFrontendView.as_view(), name="main_frontend_w_path"),
 
+    path(f"user/still_active/", api.user.still_active_callback, name="still_active_callback"),
+
     path(f"admin_panel/", admin_panel, name="admin_panel"),
     path(f"admin_panel_v2/", admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
     path(f"admin_panel_v2_login/", admin_panel_v2.admin_panel_v2_login, name="admin_panel_v2_login"),
