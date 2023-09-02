@@ -530,6 +530,7 @@ def still_active_callback(request):
     from management.models import State
     us = request.user.state
     us.matching_state = State.MatchingStateChoices.SEARCHING
+    us.still_active_reminder_confirmed = True
     us.save()
     
     return HttpResponseRedirect(redirect_to="/app/chat")

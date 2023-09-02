@@ -48,6 +48,9 @@ class State(models.Model):
         default=utils._rand_int5)
 
     email_authenticated = models.BooleanField(default=False)
+    
+    still_active_reminder_send = models.BooleanField(default=False)
+    still_active_reminder_confirmed = models.BooleanField(default=False)
 
     """
     These are referense to the actual user model of this persons matches 

@@ -97,12 +97,12 @@ Da du dich schon vor einiger Zeit registriert hast, wollte ich dich fragen ob du
 Antworte mir genere mit einer schnellen nachricht oder druecke kurz auf diesen knopf: <a href="/user/still_active/">Ich suche noch ein Match!</a>""".format(first_name=user.first_name)), auto_mark_read=False)
 
 
-def make_tim_support_user(user):
+def make_tim_support_user(user, old_management_mail="littleworld.management@gmail.com"):
     # 1. We need to remove oliver as matching user
     from management.models import Match
     from management import controller
     
-    admin_user = controller.get_user_by_email("littleworld.management@gmail.com")
+    admin_user = controller.get_user_by_email(old_management_mail)
     old_support_matching = Match.get_matching(user1=admin_user, user2=user)
     if old_support_matching.exists():
         controller.unmatch_users({admin_user, user}, unmatcher=admin_user)
@@ -122,6 +122,7 @@ def make_tim_support_user(user):
     
     # 3. set that user to 'not searching'
     us = user.state
+    us.still_active_reminder_send = True
     us.matching_state = State.MatchingStateChoices.NOT_SEARCHING
     us.save()
     
