@@ -103,7 +103,7 @@ def make_tim_support_user(user, old_management_mail="littleworld.management@gmai
     from management import controller
     
     admin_user = controller.get_user_by_email(old_management_mail)
-    old_support_matching = Match.get_matching(user1=admin_user, user2=user)
+    old_support_matching = Match.get_match(user1=admin_user, user2=user)
     if old_support_matching.exists():
         controller.unmatch_users({admin_user, user}, unmatcher=admin_user)
         
