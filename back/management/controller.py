@@ -88,13 +88,16 @@ def get_user_models(user):
 
 def send_still_active_question_message(user):
     user.message(pgettext_lazy("api.are-you-still-searching", """
-Hallo {first_name} ich bin Tim, Mitbegründer und CTO von Little World!
-                               
-Entschuldige das du warten musstest, wir ueberarbeiten gerade einige Dinge an unserer Plattform und unserem Matching-Verfahren.
-Ich bin dein neuer support nutzer und werde dir bei allen Fragen und Problemen helfen.
-                               
-Da du dich schon vor einiger Zeit registriert hast, wollte ich dich fragen ob du noch aktiv auf der Suche bist?
-Antworte mir genere mit einer schnellen nachricht oder druecke kurz auf diesen knopf: <a href="/user/still_active/">Ich suche noch ein Match!</a>""".format(first_name=user.first_name)), auto_mark_read=False)
+Hallo {first_name}, ich bin Tim, Mitbegründer und CTO von Little World!
+
+Entschuldige, dass du warten musstest. Wir überarbeiten gerade einige Dinge an unserer Plattform und unserem Matching-Verfahren. Ich bin dein neuer Support-Nutzer und werde dir bei allen Fragen und Problemen helfen.
+
+Da du dich schon vor einiger Zeit registriert hast, wollte ich dich fragen, ob du noch aktiv auf der Suche bist? Antworte mir gerne mit einer schnellen Nachricht oder drücke kurz auf diesen Knopf: <a href="/user/still_active/">Ich suche noch ein Match!</a>
+
+Solange du auf dein Match wartest, kannst du dir schon mal den <a href="https://home.little-world.com/leitfaden">Gesprächsleitfaden</a> anschauen. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
+
+Viele Grüße aus Aachen 👋🏼
+""".format(first_name=user.first_name)), auto_mark_read=False)
 
 
 def make_tim_support_user(user, old_management_mail="littleworld.management@gmail.com"):
