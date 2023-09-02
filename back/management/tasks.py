@@ -138,7 +138,7 @@ I'll take the time to answer all your messages but I might take a little time to
     usr.profile.postal_code = 52064
     usr.profile.description = base_management_user_description
     usr.profile.add_profile_picture_from_local_path(
-        '/back/dev_test_data/tim_schupp_base_management_profile.jpg')
+        '/back/dev_test_data/tim_schupp_base_management_profile_new.jpeg')
     
     from management.models import State
     
