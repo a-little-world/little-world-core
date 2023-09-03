@@ -6,6 +6,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.event.pull_request.id }}
+
 permissions:
   contents: read
   pages: write
