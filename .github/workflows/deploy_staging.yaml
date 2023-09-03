@@ -5,12 +5,10 @@ on:
     types:
       - synchronize
       - opened
-  workflow_run:
-    types:
-      - requested
 
 concurrency:
   group: ${{ github.event.pull_request.id }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
