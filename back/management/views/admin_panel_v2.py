@@ -398,6 +398,20 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         return Response(scores)
     
     @action(detail=True, methods=['get', 'post'])
+    def tasks(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        from management.models import MangementTask, ManagementTaskSerializer
+        if request.method == 'POST':
+            task = MangementTask.create_task(obj, request.data['description'], request.user)
+            return Response(ManagementTaskSerializer(task).data)
+        
+        tasks = MangementTask.objects.filter(user=obj)
+
+        return Response(ManagementTaskSerializer(tasks, many=True).data)
+    
+    @action(detail=True, methods=['get', 'post'])
     def notes(self, request, pk=None):
         self.kwargs['pk'] = pk
         obj = self.get_object()
