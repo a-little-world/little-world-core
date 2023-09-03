@@ -4,6 +4,7 @@ on:
   pull_request:
     types:
       - synchronize
+      - opened
   workflow_run:
     types:
       - requested
