@@ -407,9 +407,23 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
             task = MangementTask.create_task(obj, request.data['description'], request.user)
             return Response(ManagementTaskSerializer(task).data)
         
-        tasks = MangementTask.objects.filter(user=obj)
+        tasks = MangementTask.objects.filter(
+            user=obj,
+            state=MangementTask.MangementTaskStates.OPEN
+        )
 
         return Response(ManagementTaskSerializer(tasks, many=True).data)
+
+    @action(detail=True, methods=['post'])
+    def complete_task(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        from management.models import MangementTask, ManagementTaskSerializer
+        task = MangementTask.objects.get(pk=request.data['task_id'])
+        task.state = MangementTask.MangementTaskStates.FINISHED
+        task.save()
+        return Response(ManagementTaskSerializer(task).data)
     
     @action(detail=True, methods=['get', 'post'])
     def notes(self, request, pk=None):
