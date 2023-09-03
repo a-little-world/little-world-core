@@ -1,5 +1,6 @@
 from django.db import models
 from .user import User
+from .management_tasks import MangementTask
 import json
 import base64
 import zlib
@@ -152,6 +153,8 @@ class State(models.Model):
     tags = MultiSelectField(
         choices=TagChoices.choices, max_choices=20,
         max_length=1000, blank=True, null=True)  # type: ignore
+    
+    management_tasks = models.ManyToManyField(MangementTask, related_name='management_tasks', blank=True)
 
     def has_extra_user_permission(self, permission):
         return permission in self.extra_user_permissions
