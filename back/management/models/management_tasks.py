@@ -7,8 +7,8 @@ import random
 from datetime import datetime
 from django.utils.translation import pgettext_lazy, gettext_lazy as _
 from rest_framework import serializers
-from .notifications import Notification
 from back.utils import get_options_serializer
+from rest_framework import serializers
 from back import utils
 from multiselectfield import MultiSelectField
 
@@ -17,7 +17,7 @@ class MangementTask(models.Model):
     """
     A simple container for a task model to be used by the management admin users 
     """
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='state_user')
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -50,5 +50,16 @@ class MangementTask(models.Model):
             user=user, 
             description=description
         )
-        Notification.create_notification(user, 'New task', 'You have a new task assigned to you')
         return task
+    
+class ManagementTaskSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = MangementTask
+        fields = '__all__'
+        
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data['user'] = instance.user.id
+        data['created_by'] = instance.created_by.id
+        return data
