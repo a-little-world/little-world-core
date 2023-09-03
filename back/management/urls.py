@@ -198,6 +198,9 @@ view_routes = [
     path(_api_url('user_advanced/<str:pk>/tasks', admin=True), 
          admin_panel_v2.root_user_viewset.as_view({'get': 'tasks', 'post': 'tasks'})),
 
+    path(_api_url('user_advanced/<str:pk>/tasks/complete', admin=True), 
+         admin_panel_v2.root_user_viewset.as_view({'post': 'complete_task'})),
+
     path(_api_url('user_advanced/<str:pk>/request_score_update', admin=True), 
          admin_panel_v2.root_user_viewset.as_view({'get': 'request_score_update'})),
     path(_api_url('user_listing_advanced/<str:list>', admin=True), admin_panel_v2.advanced_user_listing),
