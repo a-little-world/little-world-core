@@ -8,10 +8,11 @@ msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
+"PO-Revision-Date: 2023-09-03 15:59+0000\n"
+"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+"Language-Team: German <https://weblate.littleworld-test.com/projects/"
+"little-world/backend/de/>\n"
+"Language: de\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -88,7 +89,7 @@ msgstr "Dies ist keine valide E-Mail"
 #: api/register.py:45
 msgctxt "register.first-name-blank-err"
 msgid "Please enter your first name"
-msgstr "Bitte geben Sie einen einen Vornamen ein"
+msgstr "Bitte geben Sie einen Vornamen ein"
 
 #: api/register.py:48
 msgctxt "register.second-name-blank-err"
@@ -132,7 +133,7 @@ msgstr "Video raum authentifizierung fehlgeschlagen!"
 #: api/user.py:60
 msgctxt "email.verify-auth-data-missing-get"
 msgid "Email authentication data missing"
-msgstr "Email authentifizierungsdaten fehlen"
+msgstr "Email-Authentifizierungsdaten fehlen"
 
 #: api/user.py:64
 msgctxt "email.verify-success-get"
