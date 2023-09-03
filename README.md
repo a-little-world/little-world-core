@@ -45,6 +45,11 @@ for frontend in main_frontend user_form user_form_frontend admin_panel_frontend 
 COMPOSE_PROFILES=all DOCKER_BUILDKIT=1 docker-compose -f docker-compose.dev.yaml up
 ```
 
+e.g.:
+```
+COMPOSE_PROFILES=main_frontend DOCKER_BUILDKIT=1 docker-compose -f docker-compose.dev.yaml up
+```
+
 That's it! Any code changed in `/front/apps/*/src/*` or in `/back/*` will cause a hot-reload for the specific frontend, or backend.
 
 Be sure to checkout the frontend commit or branch you want to work on!
