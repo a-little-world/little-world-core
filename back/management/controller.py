@@ -284,11 +284,16 @@ def match_users(
     usr1.match(usr2, set_unconfirmed=set_unconfirmed)
     usr2.match(usr1, set_unconfirmed=set_unconfirmed)
     
+    # It can also be a support matching with a 'management' user
+    is_support_matching = (usr1.is_staff or usr2.is_staff) \
+        or (usr1.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER) or \
+            usr2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER))
+    
     # This is the new way:
     matching_obj = Match.objects.create(
         user1=usr1,
         user2=usr2,
-        support_matching=usr1.is_staff or usr2.is_staff
+        support_matching=is_support_matching
     )
 
     if create_dialog:
