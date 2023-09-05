@@ -198,6 +198,12 @@ view_routes = [
     path(_api_url('user_advanced/<str:pk>/tasks', admin=True), 
          admin_panel_v2.root_user_viewset.as_view({'get': 'tasks', 'post': 'tasks'})),
 
+    path(_api_url('user_advanced/<str:pk>/message_read', admin=True), 
+         admin_panel_v2.root_user_viewset.as_view({'post': 'messages_mark_read'})),
+
+    path(_api_url('user_advanced/<str:pk>/message_reply', admin=True), 
+         admin_panel_v2.root_user_viewset.as_view({'post': 'messages_reply'})),
+
     path(_api_url('user_advanced/<str:pk>/tasks/complete', admin=True), 
          admin_panel_v2.root_user_viewset.as_view({'post': 'complete_task'})),
 
