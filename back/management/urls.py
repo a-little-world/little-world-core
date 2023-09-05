@@ -29,6 +29,7 @@ from management.views.user_form_frontend import (
 )
 from management.views.admin_panel_frontend import admin_panel, stats_panel, graph_panel, fetch_graph, user_list_frontend, fetch_list
 from management.views import admin_panel_v2
+from management.views import admin_panel_v2_actions
 
 from rest_framework.routers import DefaultRouter
 from django_rest_passwordreset.views import ResetPasswordValidateTokenViewSet, ResetPasswordConfirmViewSet, \
@@ -200,6 +201,8 @@ view_routes = [
 
     path(_api_url('user_advanced/<str:pk>/message_read', admin=True), 
          admin_panel_v2.root_user_viewset.as_view({'post': 'messages_mark_read'})),
+
+    path(_api_url('quick_actions', admin=True), admin_panel_v2_actions.admin_panel_v2_actions),
 
     path(_api_url('user_advanced/<str:pk>/message_reply', admin=True), 
          admin_panel_v2.root_user_viewset.as_view({'post': 'messages_reply'})),
