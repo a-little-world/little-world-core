@@ -202,8 +202,6 @@ view_routes = [
     path(_api_url('user_advanced/<str:pk>/message_read', admin=True), 
          admin_panel_v2.root_user_viewset.as_view({'post': 'messages_mark_read'})),
 
-    path(_api_url('quick_actions', admin=True), admin_panel_v2_actions.admin_panel_v2_actions),
-
     path(_api_url('user_advanced/<str:pk>/message_reply', admin=True), 
          admin_panel_v2.root_user_viewset.as_view({'post': 'messages_reply'})),
 
@@ -218,6 +216,8 @@ view_routes = [
     path(f"manage/", user_list_frontend, name="management_panel"),
     path(f"stats/graph/<str:slug>", graph_panel, name="graph_dashboard"),
     path(f"stats/<str:regrouped_by>", stats_panel, name="stats_dashboard"),
+
+    *admin_panel_v2_actions.action_routes
 
 ]
 
