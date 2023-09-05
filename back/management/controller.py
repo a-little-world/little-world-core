@@ -100,7 +100,12 @@ Viele Grüße aus Aachen 👋🏼
 """.format(first_name=user.first_name)), auto_mark_read=False)
 
 
-def make_tim_support_user(user, old_management_mail="littleworld.management@gmail.com"):
+def make_tim_support_user(
+        user, 
+        old_management_mail="littleworld.management@gmail.com", 
+        send_message=True,
+        custom_message=None
+    ):
     # 1. We need to remove oliver as matching user
     from management.models import Match
     from management import controller
@@ -130,7 +135,12 @@ def make_tim_support_user(user, old_management_mail="littleworld.management@gmai
     us.save()
     
     # 4. send the 'still active' question message
-    send_still_active_question_message(user)
+    if send_message:
+        if not (custom_message is None):
+            user.message(custom_message, auto_mark_read=False)
+        else:
+            send_still_active_question_message(user)
+
 
 
 def create_user(
