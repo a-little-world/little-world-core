@@ -9,13 +9,19 @@
     <script>
       {{ MATOMO_TAG_SCRIPT | safe }}
     </script>
-    {% include "react_app_head_base.html" with app_name='user_form' title='User Form' %}    
+    {% include "react_app_head_base.html" with app_name='user_form' title='User Form' %}
     {% if use_cookie_banner %}
         {% get_base_page_url as BASE_PAGE_URL %}
         <script type='text/javascript' async src='{{ BASE_PAGE_URL }}/api/cookies/cookie_banner.js'></script>
     {% endif %}
     {% render_bundle 'staticfiles' 'css' 'user_form' %}
     {% render_bundle 'staticfiles' 'css' 'user_form_frontend' %}
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Signika+Negative:wght@300;600;700&family=Work+Sans:wght@700&display=swap"
+      rel="stylesheet"
+    />
 </head>
 <body>
     <div id="root"></div>
