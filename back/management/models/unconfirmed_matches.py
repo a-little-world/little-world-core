@@ -102,7 +102,7 @@ class UnconfirmedMatch(models.Model):
             mail_name="confirm_match_mail_1",
             mail_params_func=get_params,
             unsubscribe_group=None, # You can not unsubscribe from this!
-            emulated_send=True # TODO Just debug for now
+            emulated_send=False # TODO Just debug for now
         )
     
     def send_expiration_mail(self):
