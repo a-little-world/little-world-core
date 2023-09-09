@@ -191,6 +191,41 @@ class AdminUserSerializer(serializers.ModelSerializer):
         
         return update_representation(representation, instance)
     
+def serialize_messages_for_matching(instance, representation):
+
+    def get_messages(match):
+        partner = controller.get_user_by_pk(match['partner']['id'])
+        print("TBS", partner, instance)
+        _msgs = MessageModel.objects.filter(
+            Q(sender=partner, recipient=instance) | Q(sender=instance, recipient=partner)
+        )
+        messages = get_paginated(_msgs, 10, 1)
+        if not DialogsModel.get_dialog_for_user_as_object(partner, instance).exists():
+            messages["no_dialog"] = True # prop means it has been deleted
+        return messages
+    
+    confirmed = representation['matches']['confirmed']['items']
+    support = representation['matches']['support']['items']
+    unconfirmed = representation['matches']['unconfirmed']['items']
+    
+    messages = {}
+    for match in [*confirmed, *support, *unconfirmed]:
+        print("TBS", match["partner"]["id"], match["partner"]["first_name"])
+        partner = controller.get_user_by_pk(match['partner']['id'])
+        print("PARTNER", partner)
+        _msg = get_messages(match)
+        if _msg is None:
+            continue
+        messages[match['id']] = _msg
+        messages[match['id']]["match"] = {
+            "match_id": match['id'],
+            "profile": match['partner'],
+            "with_management": True if match in support else False
+        }
+        messages[match['id']]["items"] = [serialize_message_model(item, instance.pk) for item in _msg["items"]]
+        
+    return messages
+    
 class AdvancedAdminUserSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -205,39 +240,7 @@ class AdvancedAdminUserSerializer(serializers.ModelSerializer):
         
         # Now also add the matches messages
         # And the chat with that user
-        
-        def get_messages(match):
-            partner = controller.get_user_by_pk(match['partner']['id'])
-            print("TBS", partner, instance)
-            _msgs = MessageModel.objects.filter(
-                Q(sender=partner, recipient=instance) | Q(sender=instance, recipient=partner)
-            )
-            messages = get_paginated(_msgs, 10, 1)
-            if not DialogsModel.get_dialog_for_user_as_object(partner, instance).exists():
-                messages["no_dialog"] = True # prop means it has been deleted
-            return messages
-        
-        confirmed = representation['matches']['confirmed']['items']
-        support = representation['matches']['support']['items']
-        unconfirmed = representation['matches']['unconfirmed']['items']
-        
-        messages = {}
-        for match in [*confirmed, *support, *unconfirmed]:
-            print("TBS", match["partner"]["id"], match["partner"]["first_name"])
-            partner = controller.get_user_by_pk(match['partner']['id'])
-            print("PARTNER", partner)
-            _msg = get_messages(match)
-            if _msg is None:
-                continue
-            messages[match['id']] = _msg
-            messages[match['id']]["match"] = {
-                "match_id": match['id'],
-                "profile": match['partner'],
-                "with_management": True if match in support else False
-            }
-            messages[match['id']]["items"] = [serialize_message_model(item, instance.pk) for item in _msg["items"]]
-            
-        representation['messages'] = messages
+        representation['messages'] = serialize_messages_for_matching(instance, representation)
 
         # Also get the email logs
         email_logs = get_paginated(EmailLog.objects.filter(receiver=instance), 10, 1)
@@ -429,6 +432,12 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         })
         
         
+    @action(detail=True, methods=['get'])
+    def messages(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        return Response(AdvancedAdminUserSerializer(obj).data['messages'])
+        
 
     @action(detail=True, methods=['get'])
     def messages_reply(self, request, pk=None):
@@ -447,10 +456,11 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
                 "msg": "You are not allowed to access this user!"
             }, status=401)
             
-        obj.message(request.data['message'], sender=request.user)
-        return Response({
-            "msg": "Message sent"
-        })
+        message = obj.message(request.data['message'], sender=request.user)
+        
+        serialized = serialize_message_model(message, obj.pk)
+
+        return Response(serialized)
     
     @action(detail=True, methods=['get', 'post'])
     def tasks(self, request, pk=None):
