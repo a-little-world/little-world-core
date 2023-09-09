@@ -456,10 +456,11 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
                 "msg": "You are not allowed to access this user!"
             }, status=401)
             
-        obj.message(request.data['message'], sender=request.user)
-        return Response({
-            "msg": "Message sent"
-        })
+        message = obj.message(request.data['message'], sender=request.user)
+        
+        serialized = serialize_message_model(message, obj.pk)
+
+        return Response(serialized)
     
     @action(detail=True, methods=['get', 'post'])
     def tasks(self, request, pk=None):
