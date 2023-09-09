@@ -202,6 +202,9 @@ view_routes = [
     path(_api_url('user_advanced/<str:pk>/message_read', admin=True), 
          admin_panel_v2.root_user_viewset.as_view({'post': 'messages_mark_read'})),
 
+    path(_api_url('user_advanced/<str:pk>/resend_email', admin=True), 
+         admin_panel_v2.root_user_viewset.as_view({'post': 'resend_email'})),
+
     path(_api_url('user_advanced/<str:pk>/messages', admin=True), 
          admin_panel_v2.root_user_viewset.as_view({'get': 'messages'})),
 
