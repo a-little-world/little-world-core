@@ -143,7 +143,7 @@ def make_tim_support_user(
 
 
 
-def create_user(
+def create_user2(
     email,
     password,
     first_name,
@@ -210,7 +210,7 @@ def create_user(
             except Exception as e:
                 print("Email sending failed!" + str(e))
         else:
-            send_verification_mail()
+            send_verify_link()
     else:
         print("Not sending verification mail!")
 
