@@ -143,7 +143,7 @@ def make_tim_support_user(
 
 
 
-def create_user2(
+def create_user(
     email,
     password,
     first_name,
