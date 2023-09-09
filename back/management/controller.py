@@ -86,6 +86,62 @@ def get_user_models(user):
         d[k] = elem
     return d
 
+def send_still_active_question_message(user):
+    user.message(pgettext_lazy("api.are-you-still-searching", """
+Hallo {first_name}, ich bin Tim, Mitbegründer und CTO von Little World!
+
+Entschuldige, dass du warten musstest. Wir überarbeiten gerade einige Dinge an unserer Plattform und unserem Matching-Verfahren. Ich bin dein neuer Support-Nutzer und werde dir bei allen Fragen und Problemen helfen.
+
+Da du dich schon vor einiger Zeit registriert hast, wollte ich dich fragen, ob du noch aktiv auf der Suche bist? Antworte mir gerne mit einer schnellen Nachricht oder drücke kurz auf diesen Knopf: <a href="/user/still_active/">Ich suche noch ein Match!</a>
+
+Solange du auf dein Match wartest, kannst du dir schon mal den <a href="https://home.little-world.com/leitfaden">Gesprächsleitfaden</a> anschauen. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
+
+Viele Grüße aus Aachen 👋🏼
+""".format(first_name=user.first_name)), auto_mark_read=False)
+
+
+def make_tim_support_user(
+        user, 
+        old_management_mail="littleworld.management@gmail.com", 
+        send_message=True,
+        custom_message=None
+    ):
+    # 1. We need to remove oliver as matching user
+    from management.models import Match
+    from management import controller
+    
+    admin_user = controller.get_user_by_email(old_management_mail)
+    old_support_matching = Match.get_match(user1=admin_user, user2=user)
+    if old_support_matching.exists():
+        controller.unmatch_users({admin_user, user}, unmatcher=admin_user)
+        
+    # 2. make the new admin matching
+    base_management_user = get_base_management_user()
+    
+    match_users({ base_management_user, user },
+                send_notification=False,
+                send_message=False,
+                send_email=False,
+                set_unconfirmed=False)
+    
+    # 2.5 add that user to the managed users by Tim
+    base_management_user.state.managed_users.add(user)
+    base_management_user.state.save()
+    
+    # 3. set that user to 'not searching'
+    us = user.state
+    us.still_active_reminder_send = True
+    us.matching_state = State.MatchingStateChoices.IDLE
+    us.save()
+    
+    # 4. send the 'still active' question message
+    if send_message:
+        if not (custom_message is None):
+            user.message(custom_message, auto_mark_read=False)
+        else:
+            send_still_active_question_message(user)
+
+
 
 def create_user(
     email,
@@ -187,7 +243,7 @@ Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil uns
 
 Aktuell arbeiten wir an einigen Aktualisierungen unserer Plattform und unseres Matching-Verfahrens und schätzen daher jedes <a href="/app/help">Feedback</a>, das wir von dir erhalten.
 
-Während wir für dich ein passendes Match finden, kannst du gerne in unserem <a href="https://home.little-world.com/wp-content/uploads/2023/08/Leitfaden.pdf">Gesprächsleitfaden</a> stöbern. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
+Während wir für dich ein passendes Match finden, kannst du gerne in unserem <a href="https://home.little-world.com/leitfaden">Gesprächsleitfaden</a> stöbern. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
 
 Falls du Lust und Zeit hast, uns weiter zu unterstützen, würden wir uns sehr über deine Teilnahme an unserer Umfrage freuen. 
 Zwei Studentinnen der Uni Siegen, Natalia und Sandra, würden dich gerne zur Verbesserung von Little World interviewen. Das Interview dauert etwa 30-45 Minuten und dient dazu, uns dabei zu helfen, unseren Service zu verbessern. Natürlich bleiben deine Antworten anonym und werden nicht veröffentlicht. Wenn du interessiert bist, kannst du Natalia unter <a href="mailto:natalia.romancheva@student.uni-siegen.de?subject=Interview">natalia.romancheva@student.uni-siegen.de</a> oder Sandra unter <a href="mailto:sandra.butzek@student.uni-siegen.de?subject=Interview">sandra.butzek@student.uni-siegen.de</a> kontaktieren.
@@ -238,11 +294,16 @@ def match_users(
     usr1.match(usr2, set_unconfirmed=set_unconfirmed)
     usr2.match(usr1, set_unconfirmed=set_unconfirmed)
     
+    # It can also be a support matching with a 'management' user
+    is_support_matching = (usr1.is_staff or usr2.is_staff) \
+        or (usr1.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER) or \
+            usr2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER))
+    
     # This is the new way:
     matching_obj = Match.objects.create(
         user1=usr1,
         user2=usr2,
-        support_matching=usr1.is_staff or usr2.is_staff
+        support_matching=is_support_matching
     )
 
     if create_dialog:

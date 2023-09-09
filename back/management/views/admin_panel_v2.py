@@ -232,7 +232,8 @@ class AdvancedAdminUserSerializer(serializers.ModelSerializer):
             messages[match['id']] = _msg
             messages[match['id']]["match"] = {
                 "match_id": match['id'],
-                "profile": match['partner']
+                "profile": match['partner'],
+                "with_management": True if match in support else False
             }
             messages[match['id']]["items"] = [serialize_message_model(item, instance.pk) for item in _msg["items"]]
             
@@ -396,6 +397,88 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         
         scores = matching_suggestion_from_database_paginated(request, obj)
         return Response(scores)
+    
+    
+    @action(detail=True, methods=['get'])
+    def messages_mark_read(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+
+        message_id = request.data['message_id']
+        
+        # First we check if the user is_staff or has matching permission and is responsible for that user
+        if not request.user.is_staff and not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+            return Response({
+                "msg": "You are not allowed to access this user!"
+            }, status=401)
+            
+        # Now we can check if 'obj'-user is in request.user.state.managed_users ( only if not staff )
+        if not request.user.is_staff and not request.user.state.managed_users.filter(pk=obj.pk).exists():
+            return Response({
+                "msg": "You are not allowed to access this user!"
+            }, status=401)
+            
+        # Now we can check if the user has unread messages from that user
+        from chat.django_private_chat2.models import MessageModel
+        message = MessageModel.get_messages_for_dialog(request.user, obj).get(id=message_id)
+        message.read = True
+        message.save()
+
+        return Response({
+            "msg": "Message marked as read"
+        })
+        
+        
+
+    @action(detail=True, methods=['get'])
+    def messages_reply(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        # First we check if the user is_staff or has matching permission and is responsible for that user
+        if not request.user.is_staff and not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+            return Response({
+                "msg": "You are not allowed to access this user!"
+            }, status=401)
+            
+        # Now we can check if 'obj'-user is in request.user.state.managed_users ( only if not staff )
+        if not request.user.is_staff and not request.user.state.managed_users.filter(pk=obj.pk).exists():
+            return Response({
+                "msg": "You are not allowed to access this user!"
+            }, status=401)
+            
+        obj.message(request.data['message'], sender=request.user)
+        return Response({
+            "msg": "Message sent"
+        })
+    
+    @action(detail=True, methods=['get', 'post'])
+    def tasks(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        from management.models import MangementTask, ManagementTaskSerializer
+        if request.method == 'POST':
+            task = MangementTask.create_task(obj, request.data['description'], request.user)
+            return Response(ManagementTaskSerializer(task).data)
+        
+        tasks = MangementTask.objects.filter(
+            user=obj,
+            state=MangementTask.MangementTaskStates.OPEN
+        )
+
+        return Response(ManagementTaskSerializer(tasks, many=True).data)
+
+    @action(detail=True, methods=['post'])
+    def complete_task(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        from management.models import MangementTask, ManagementTaskSerializer
+        task = MangementTask.objects.get(pk=request.data['task_id'])
+        task.state = MangementTask.MangementTaskStates.FINISHED
+        task.save()
+        return Response(ManagementTaskSerializer(task).data)
     
     @action(detail=True, methods=['get', 'post'])
     def notes(self, request, pk=None):

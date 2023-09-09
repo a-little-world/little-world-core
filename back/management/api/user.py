@@ -1,7 +1,9 @@
 from rest_framework.views import APIView
+from django.http import HttpResponse, HttpResponseRedirect
 from django.contrib.auth.decorators import login_required
 from emails import mails
-from rest_framework.decorators import api_view
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes
 from django.utils.translation import pgettext_lazy
 from typing import Optional
 from django.contrib.auth import logout
@@ -520,3 +522,15 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
             password_reset_url=reset_password_url
         ),
     )
+    
+@login_required
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def still_active_callback(request):
+    from management.models import State
+    us = request.user.state
+    us.matching_state = State.MatchingStateChoices.SEARCHING
+    us.still_active_reminder_confirmed = True
+    us.save()
+    
+    return HttpResponseRedirect(redirect_to="/app/chat")

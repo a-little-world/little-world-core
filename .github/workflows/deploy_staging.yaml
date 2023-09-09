@@ -1,7 +1,14 @@
 name: Deploy temporary env
-
+    
 on:
   pull_request:
+    types:
+      - synchronize
+      - opened
+
+concurrency:
+  group: ${{ github.event.pull_request.id }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
