@@ -374,6 +374,7 @@ def send_email(
             template=mail_data.name,
             data=dict(
                 params=dataclass_as_dict(mail_params),
+                subject=subject,
                 sender_str=str(sender),
                 recivers_str=",".join(recivers)
             )

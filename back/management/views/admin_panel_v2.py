@@ -462,6 +462,52 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
 
         return Response(serialized)
     
+    
+    @action(detail=True, methods=['get', 'post'])
+    def resend_email(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        email_id = request.data['email_id']
+        
+        # First we check if the user is_staff or has matching permission and is responsible for that user
+        if not request.user.is_staff and not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+            return Response({
+                "msg": "You are not allowed to access this user!"
+            }, status=401)
+            
+        # Now we can check if 'obj'-user is in request.user.state.managed_users ( only if not staff )
+        if not request.user.is_staff and not request.user.state.managed_users.filter(pk=obj.pk).exists():
+            return Response({
+                "msg": "You are not allowed to access this user!"
+            }, status=401)
+            
+        from emails.models import EmailLog
+        from emails.mails import get_mail_data_by_name
+        
+        email_log = EmailLog.objects.filter(receiver=obj, pk=email_id).first()
+        subject = email_log.data["subject"] if "subject" in email_log.data else None
+        
+        if (subject is None):
+            if (not ("subject" in request.data)):
+                return Response({
+                    "msg": "Cannot determine subject, please set one via 'subject' param"
+                }, status=404)
+            else:
+                subject = request.data["subject"]
+
+        params = email_log.data["params"]
+        mail_data = get_mail_data_by_name(email_log.template)
+        mail_params = mail_data.params(**params)
+        
+        obj.send_email(
+            subject=subject,
+            mail_data=mail_data,
+            mail_params=mail_params,
+        )
+        
+        return Response("Tried resending email")
+    
     @action(detail=True, methods=['get', 'post'])
     def tasks(self, request, pk=None):
         self.kwargs['pk'] = pk
