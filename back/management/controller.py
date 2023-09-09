@@ -152,6 +152,7 @@ def create_user(
     send_verification_mail=True,
     send_welcome_notification=True,
     send_welcome_message=True,
+    catch_email_send_errors=True
 ):
     """ 
     This should be used when creating a new user, it may throw validations errors!
@@ -189,7 +190,7 @@ def create_user(
 
     # Step 4 send mail
     if send_verification_mail:
-        try:
+        def send_verify_link():
             link_route = 'mailverify_link'  # api/user/verify/email
             verifiaction_url = f"{settings.BASE_URL}/{link_route}/{usr.state.get_email_auth_code_b64()}"
             mails.send_email(
@@ -203,9 +204,13 @@ def create_user(
                     verification_code=str(usr.state.get_email_auth_pin())
                 )
             )
-        except:
-            # TODO: actualy return an error and log this
-            print("Email sending failed!")
+        if catch_email_send_errors:
+            try:
+                send_verify_link()
+            except Exception as e:
+                print("Email sending failed!" + str(e))
+        else:
+            send_verification_mail()
     else:
         print("Not sending verification mail!")
 
