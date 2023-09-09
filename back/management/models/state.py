@@ -157,7 +157,8 @@ class State(models.Model):
     management_tasks = models.ManyToManyField(MangementTask, related_name='management_tasks', blank=True)
 
     def has_extra_user_permission(self, permission):
-        return permission in self.extra_user_permissions
+
+        return (self.extra_user_permissions is None) or (permission in self.extra_user_permissions)
 
     def regnerate_email_auth_code(self, set_to_unauthenticated=True):
         # We do not log old auth codes, donsnt realy matter
