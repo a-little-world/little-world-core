@@ -45,6 +45,8 @@ for frontend in main_frontend user_form user_form_frontend admin_panel_frontend 
 COMPOSE_PROFILES=all DOCKER_BUILDKIT=1 docker-compose -f docker-compose.dev.yaml up
 ```
 
+Once you have run `docker-compose up` with the `=all` flag at least once you can also run only specific frontends with auto-update:
+
 e.g.:
 ```
 COMPOSE_PROFILES=main_frontend DOCKER_BUILDKIT=1 docker-compose -f docker-compose.dev.yaml up
