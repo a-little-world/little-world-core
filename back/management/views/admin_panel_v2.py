@@ -277,6 +277,8 @@ class QuerySetEnum(Enum):
     active_within_3weeks = "Users who have been active within the last 3 weeks!"
     highquality_matching = "Users who have at least one matching with 20+ Messages"
     message_reply_required = "Users who have a unread message to the admin user"
+    read_message_but_not_replied = "Read messages to the management user that have not been replied to"
+    users_with_open_tasks = "Users who have open tasks"
     
     def as_dict():
         return {i.name: i.value for i in QuerySetEnum}
@@ -297,7 +299,35 @@ def get_user_with_message_to_admin():
     unread_senders_ids = unread_messages.values("sender")
     sender_users = User.objects.filter(id__in=Subquery(unread_senders_ids))
     return sender_users
+
+def get_user_with_message_to_admin_that_are_read_but_not_replied():
+    from django.db.models import Subquery, OuterRef, Count, F
+    admin_pk = controller.get_base_management_user().pk
+
+    # All dialogs with the management user
+    dialogs_with_the_management_user = DialogsModel.objects.filter(
+        Q(user1=admin_pk) | Q(user2=admin_pk)
+    )
     
+    last_message_per_user = MessageModel.objects.filter(
+        # Message was sent by the user and received by the admin
+        (Q(sender_id=OuterRef('id'), recipient_id=admin_pk) 
+        # OR Message was sent by the admin and received by the user
+        | Q(sender_id=admin_pk, recipient_id=OuterRef('id')))
+    ).order_by('-created').values('created')[:1]
+
+    users_in_dialog_with_management_user = User.objects.annotate(
+        # The last message sent by the user or received by the user
+        last_message_id=Subquery(last_message_per_user.values('id')[:1])
+
+    ).filter(
+        # The last message was sent to the management user AND has been read
+        Q(last_message_id__in=MessageModel.objects.filter(sender_id=F('id'), recipient_id=admin_pk, read=True)) 
+        # OR The last message was from the management user AND has not been read
+        | Q(last_message_id__in=MessageModel.objects.filter(sender_id=admin_pk, recipient_id=F('id'), read=False))
+    )
+
+    return users_in_dialog_with_management_user    
 
 def get_quality_match_querry_set():
     
@@ -326,6 +356,17 @@ def get_quality_match_querry_set():
     ).distinct().order_by('-date_joined')
     return filtered_users
 
+def users_with_open_tasks():
+    from management.models import MangementTask
+    # This has to return a query set of users
+    # that have open tasks
+
+    # First we get all the open tasks
+    open_tasks = MangementTask.objects.filter(state=MangementTask.MangementTaskStates.OPEN)
+    # Then we get all the users that have open tasks
+    users_with_open_tasks = User.objects.filter(id__in=open_tasks.values("user"))
+    return users_with_open_tasks
+
     
 def get_QUERY_SETS():
     return {
@@ -341,7 +382,8 @@ def get_QUERY_SETS():
             last_login__gte=three_weeks_ago()).order_by('-date_joined'),
         QuerySetEnum.highquality_matching.name: get_quality_match_querry_set(),
         QuerySetEnum.message_reply_required.name: get_user_with_message_to_admin(),
-        
+        QuerySetEnum.read_message_but_not_replied.name: get_user_with_message_to_admin_that_are_read_but_not_replied(),
+        QuerySetEnum.users_with_open_tasks.name: users_with_open_tasks(),
     }
 
 def get_staff_queryset(query_set, request):
@@ -423,7 +465,10 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
             
         # Now we can check if the user has unread messages from that user
         from chat.django_private_chat2.models import MessageModel
-        message = MessageModel.get_messages_for_dialog(request.user, obj).get(id=message_id)
+        messages = MessageModel.get_messages_for_dialog(request.user, obj)
+        print("Filtered messages", messages)
+
+        message = messages.get(id=message_id)
         message.read = True
         message.save()
 
