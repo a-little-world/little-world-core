@@ -49,14 +49,24 @@ make_tim_mangement_admin = {
   }
 }
 
-@api_view(['POST'])
-@permission_classes([IsAdminOrMatchingUser])
-def make_tim_mangement_admin_action(request):
+delete_user_censor_profile = {
+    "title": "Delete User Censor Profile", 
+    "description": "Delete the user and censor their profile.",
+    "type": "object",
+    "required": [
+        "user_id"
+    ],
+    "properties": {
+        "user_id": {
+            "type": "integer",
+            "description": "The user id of the user to delete."
+        }
+    }
+}
+
+
+def check_management_access_right(request, user):
     from management.models import State
-    from management.controller import get_user_by_pk, make_tim_support_user
-
-    user = get_user_by_pk(request.data["user_id"])
-
     if not request.user.is_staff and not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
         return Response({
             "msg": "You are not allowed to access this user!"
@@ -68,6 +78,66 @@ def make_tim_mangement_admin_action(request):
             "msg": "You are not allowed to access this user!"
         }, status=401)
     
+    return True
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminOrMatchingUser])
+def delete_user(request):
+    """
+    Sets a user to in-active and overwrites all the personal infor for that user
+    This assures the user data can still be recovered with some effort but the user cannot:
+    - login anymore
+    """
+    from management.models import State, Profile
+    from management.controller import get_user_by_pk, make_tim_support_user
+    
+    user = get_user_by_pk(request.data["user_id"])
+
+    access = check_management_access_right(request, user)
+    if access != True:
+        return access
+    
+    assert not (user.is_staff or user.is_superuser), "You can't delete a staff or superuser!"
+    assert not user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER), "You can't delete a matching user!"
+    
+    user.is_active = False
+    user.email = f"deleted_{user.email}"
+    user.first_name = "deleted"
+    user.set_unusable_password()
+    user.save()
+    
+    from management.models import MangementTask
+    task = MangementTask.create_task(
+        user=user,
+        description="Cleanup user delete data",
+        management_user=request.user,
+    )
+    user.state.management_tasks.add(task)
+    user.state.save()
+    
+    
+    user.profile.first_name = f"deleted, {user.profile.first_name}"
+    user.profile.second_name = f"deleted, {user.profile.second_name}"
+    user.profile.image_type = Profile.ImageTypeChoice.AVATAR
+    user.profile.avatar_config = {}
+    user.profile.save()
+    
+    return Response({"success": True})
+    
+
+@api_view(['POST'])
+@permission_classes([IsAdminOrMatchingUser])
+def make_tim_mangement_admin_action(request):
+    from management.models import State
+    from management.controller import get_user_by_pk, make_tim_support_user
+
+    user = get_user_by_pk(request.data["user_id"])
+    
+    access = check_management_access_right(request, user)
+    if access != True:
+        return access
+
     make_tim_support_user(
         user, 
         old_management_mail=request.data.get("old_management_mail", "littleworld.management@gmail.com"),
@@ -88,10 +158,16 @@ def admin_panel_v2_actions(request):
                     "ui:widget": "textarea"
                 }
             }
+        },
+        "delete_user": {
+            "route": "/api/admin/quick_actions/delete_user/",    
+            "schema": delete_user_censor_profile,
+            "ui_schema": {}
         }
     })
 
 action_routes = [
     path(_api_url('quick_actions', admin=True), admin_panel_v2_actions),
     path(_api_url('quick_actions/make_tim_mangement_admin', admin=True), make_tim_mangement_admin_action),
+    path(_api_url('quick_actions/delete_user', admin=True), delete_user),
 ]
