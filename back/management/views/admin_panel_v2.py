@@ -1,4 +1,5 @@
 from django.contrib.auth.decorators import user_passes_test
+from twilio.rest import Client
 from rest_framework import viewsets, serializers
 from rest_framework.permissions import IsAdminUser, BasePermission
 from django.core.paginator import Paginator
@@ -394,7 +395,7 @@ def get_staff_queryset(query_set, request):
     else:
         # Otherwise we filter for all users that are in the responsible user group for that management user
         qs = get_QUERY_SETS()[query_set]
-        filtered_users_qs = qs.filter(id__in=request.user.state.managed_users.all())
+        filtered_users_qs = qs.filter(id__in=request.user.state.managed_users.all(), is_active=True)
         return filtered_users_qs
 
 class AdvancedMatchingScoreSerializer(serializers.ModelSerializer):
@@ -615,7 +616,7 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
             "task_id": task.task_id,
             "view": f"/admin/django_celery_results/taskresult/?q={task.task_id}"
         })
-        
+
 def check_task_status(task_id):
     from celery.result import AsyncResult
     task = AsyncResult(task_id)
