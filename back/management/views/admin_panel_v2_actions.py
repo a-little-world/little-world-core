@@ -3,6 +3,7 @@ from back.utils import _api_url
 from django.urls import path, re_path
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
+from management.twilio_handler import _get_client
 
 default_tim_management_changed_message = """
 Hallo {first_name}, ich bin Tim, Mitbegründer und CTO von Little World!
@@ -64,6 +65,46 @@ delete_user_censor_profile = {
     }
 }
 
+_send_sms_to_user = {
+    "title": "Send SMS To User",
+    "description": "Send an SMS to a user or a number.",
+    "type": "object",
+    "required": [
+        "user_id",
+        "message"
+    ],
+    "properties": {
+        "user_id": {
+            "type": "integer",
+            "description": "The user id of the user to send the sms to."
+        },
+        "message": {
+            "type": "string",
+            "description": "The message to send to the user."
+        }
+    }
+}
+
+_send_sms_to_number = {
+    "title": "Send SMS To Number",
+    "description": "Send an SMS to a number.",
+    "type": "object",
+    "required": [
+        "number",
+        "message"
+    ],
+    "properties": {
+        "number": {
+            "type": "string",
+            "description": "The number to send the sms to."
+        },
+        "message": {
+            "type": "string",
+            "description": "The message to send to the user."
+        }
+    }
+}
+
 
 def check_management_access_right(request, user):
     from management.models import State
@@ -121,10 +162,60 @@ def delete_user(request):
     user.profile.second_name = f"deleted, {user.profile.second_name}"
     user.profile.image_type = Profile.ImageTypeChoice.AVATAR
     user.profile.avatar_config = {}
+    user.profile.phone_mobile = f"deleted, {user.profile.phone_mobile}"
     user.profile.save()
     
     return Response({"success": True})
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminOrMatchingUser])
+def send_sms_to_number(request):
+    # TODO: Shouldn't be accessible for matching users
+    from django.conf import settings
+
+    client = _get_client() 
+    response = client.messages.create(
+        body=request.data["message"],
+        from_=settings.TWILIO_SMS_NUMBER,
+        to=request.data["number"]
+    )
     
+    return Response({"success": True})
+    
+@api_view(['POST'])
+@permission_classes([IsAdminOrMatchingUser])
+def send_sms_to_user(request):
+    from management.models import State
+    from management.controller import get_user_by_pk, make_tim_support_user
+    
+    user = get_user_by_pk(request.data["user_id"])
+    
+    access = check_management_access_right(request, user)
+    if access != True:
+        return access
+    
+    from management.models import SmsModel, SmsSerializer
+
+    sms_obj = SmsModel.send_sms(
+        recipient=user, 
+        send_initator=request.user, 
+        message=request.data["message"]
+    )
+    
+    from django.conf import settings
+
+    client = _get_client() 
+    response = client.messages.create(
+        body=request.data["message"],
+        from_=settings.TWILIO_SMS_NUMBER,
+        to=user.profile.phone_mobile
+    )
+    
+    sms_obj.twilio_response = response.__dict__
+    sms_obj.save()
+    
+    return Response(SmsSerializer(sms_obj).data)
 
 @api_view(['POST'])
 @permission_classes([IsAdminOrMatchingUser])
@@ -163,6 +254,16 @@ def admin_panel_v2_actions(request):
             "route": "/api/admin/quick_actions/delete_user/",    
             "schema": delete_user_censor_profile,
             "ui_schema": {}
+        },
+        "send_sms_to_user": {
+            "route": "/api/admin/quick_actions/send_sms_to_user/",
+            "schema": _send_sms_to_user,
+            "ui_schema": {}
+        },
+        "send_sms_to_number": {
+            "route": "/api/admin/quick_actions/send_sms_to_number/",
+            "schema": _send_sms_to_number,
+            "ui_schema": {}
         }
     })
 
@@ -170,4 +271,6 @@ action_routes = [
     path(_api_url('quick_actions', admin=True), admin_panel_v2_actions),
     path(_api_url('quick_actions/make_tim_mangement_admin', admin=True), make_tim_mangement_admin_action),
     path(_api_url('quick_actions/delete_user', admin=True), delete_user),
+    path(_api_url('quick_actions/send_sms_to_user', admin=True), send_sms_to_user),
+    path(_api_url('quick_actions/send_sms_to_number', admin=True), send_sms_to_number),
 ]

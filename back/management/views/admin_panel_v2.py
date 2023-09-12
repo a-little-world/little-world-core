@@ -394,7 +394,7 @@ def get_staff_queryset(query_set, request):
     else:
         # Otherwise we filter for all users that are in the responsible user group for that management user
         qs = get_QUERY_SETS()[query_set]
-        filtered_users_qs = qs.filter(id__in=request.user.state.managed_users.all())
+        filtered_users_qs = qs.filter(id__in=request.user.state.managed_users.all(), is_active=True)
         return filtered_users_qs
 
 class AdvancedMatchingScoreSerializer(serializers.ModelSerializer):
@@ -481,7 +481,31 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
     def messages(self, request, pk=None):
         self.kwargs['pk'] = pk
         obj = self.get_object()
+
         return Response(AdvancedAdminUserSerializer(obj).data['messages'])
+        
+    @action(detail=True, methods=['get'])
+    def sms(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        # First we check if the user is_staff or has matching permission and is responsible for that user
+        if not request.user.is_staff and not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+            return Response({
+                "msg": "You are not allowed to access this user!"
+            }, status=401)
+        
+        # Now we can check if 'obj'-user is in request.user.state.managed_users ( only if not staff )
+        if not request.user.is_staff and not request.user.state.managed_users.filter(pk=obj.pk).exists():
+            return Response({
+                "msg": "You are not allowed to access this user!"
+            }, status=401)
+            
+        from management.models import SmsModel, SmsSerializer
+
+        sms = SmsModel.objects.filter(recipient=obj).order_by('-created_at')
+        
+        return Response(SmsSerializer(sms, many=True).data)
         
 
     @action(detail=True, methods=['get'])
@@ -615,7 +639,7 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
             "task_id": task.task_id,
             "view": f"/admin/django_celery_results/taskresult/?q={task.task_id}"
         })
-        
+
 def check_task_status(task_id):
     from celery.result import AsyncResult
     task = AsyncResult(task_id)
