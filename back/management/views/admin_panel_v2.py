@@ -247,7 +247,7 @@ class AdvancedAdminUserSerializer(serializers.ModelSerializer):
         email_logs["items"] = AdvancedEmailLogSerializer(email_logs["items"], many=True).data
         
         representation['email_logs'] = email_logs
-
+        
         return representation
             
 

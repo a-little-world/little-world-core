@@ -259,11 +259,6 @@ def admin_panel_v2_actions(request):
             "route": "/api/admin/quick_actions/send_sms_to_user/",
             "schema": _send_sms_to_user,
             "ui_schema": {}
-        },
-        "send_sms_to_number": {
-            "route": "/api/admin/quick_actions/send_sms_to_number/",
-            "schema": _send_sms_to_number,
-            "ui_schema": {}
         }
     })
 
@@ -272,5 +267,4 @@ action_routes = [
     path(_api_url('quick_actions/make_tim_mangement_admin', admin=True), make_tim_mangement_admin_action),
     path(_api_url('quick_actions/delete_user', admin=True), delete_user),
     path(_api_url('quick_actions/send_sms_to_user', admin=True), send_sms_to_user),
-    path(_api_url('quick_actions/send_sms_to_number', admin=True), send_sms_to_number),
 ]
