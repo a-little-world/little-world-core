@@ -28,3 +28,7 @@ class SmsModel(models.Model):
         return sms
     
     
+class SmsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SmsModel
+        fields = '__all__'
