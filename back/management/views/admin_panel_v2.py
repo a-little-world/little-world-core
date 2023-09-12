@@ -1,5 +1,4 @@
 from django.contrib.auth.decorators import user_passes_test
-from twilio.rest import Client
 from rest_framework import viewsets, serializers
 from rest_framework.permissions import IsAdminUser, BasePermission
 from django.core.paginator import Paginator
@@ -482,7 +481,31 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
     def messages(self, request, pk=None):
         self.kwargs['pk'] = pk
         obj = self.get_object()
+
         return Response(AdvancedAdminUserSerializer(obj).data['messages'])
+        
+    @action(detail=True, methods=['get'])
+    def sms(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        # First we check if the user is_staff or has matching permission and is responsible for that user
+        if not request.user.is_staff and not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+            return Response({
+                "msg": "You are not allowed to access this user!"
+            }, status=401)
+        
+        # Now we can check if 'obj'-user is in request.user.state.managed_users ( only if not staff )
+        if not request.user.is_staff and not request.user.state.managed_users.filter(pk=obj.pk).exists():
+            return Response({
+                "msg": "You are not allowed to access this user!"
+            }, status=401)
+            
+        from management.models import SmsModel, SmsSerializer
+
+        sms = SmsModel.objects.filter(recipient=obj).order_by('-created_at')
+        
+        return Response(SmsSerializer(sms, many=True).data)
         
 
     @action(detail=True, methods=['get'])

@@ -195,7 +195,7 @@ def send_sms_to_user(request):
     if access != True:
         return access
     
-    from management.models import SmsModel
+    from management.models import SmsModel, SmsSerializer
 
     sms_obj = SmsModel.send_sms(
         recipient=user, 
@@ -209,13 +209,13 @@ def send_sms_to_user(request):
     response = client.messages.create(
         body=request.data["message"],
         from_=settings.TWILIO_SMS_NUMBER,
-        to=user.profile.phone_number
+        to=user.profile.phone_mobile
     )
     
     sms_obj.twilio_response = response.__dict__
     sms_obj.save()
     
-    return Response({"success": True})
+    return Response(SmsSerializer(sms_obj).data)
 
 @api_view(['POST'])
 @permission_classes([IsAdminOrMatchingUser])
