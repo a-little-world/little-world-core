@@ -279,6 +279,7 @@ class QuerySetEnum(Enum):
     message_reply_required = "Users who have a unread message to the admin user"
     read_message_but_not_replied = "Read messages to the management user that have not been replied to"
     users_with_open_tasks = "Users who have open tasks"
+    users_with_open_proposals = "Users who have open proposals"
     
     def as_dict():
         return {i.name: i.value for i in QuerySetEnum}
@@ -328,6 +329,24 @@ def get_user_with_message_to_admin_that_are_read_but_not_replied():
     )
 
     return users_in_dialog_with_management_user    
+
+def users_with_open_proposals():
+    from management.models import UnconfirmedMatch
+    # This has to return a query set of users
+    # that have open proposals
+
+    # First we get all the open proposals
+    open_proposals = UnconfirmedMatch.objects.filter(closed=False)
+    
+    # Then we get all the users that have open proposals
+    # Basicly wee need all users that are open_proposals[X] .user1 or .user2
+    users_with_open_proposals = User.objects.filter(
+        Q(pk__in=open_proposals.values("user1")) | 
+        Q(pk__in=open_proposals.values("user2"))
+    ).distinct().order_by('-date_joined')
+    
+    return users_with_open_proposals
+
 
 def get_quality_match_querry_set():
     
@@ -384,6 +403,7 @@ def get_QUERY_SETS():
         QuerySetEnum.message_reply_required.name: get_user_with_message_to_admin(),
         QuerySetEnum.read_message_but_not_replied.name: get_user_with_message_to_admin_that_are_read_but_not_replied(),
         QuerySetEnum.users_with_open_tasks.name: users_with_open_tasks(),
+        QuerySetEnum.users_with_open_proposals.name: users_with_open_proposals(),
     }
 
 def get_staff_queryset(query_set, request):
