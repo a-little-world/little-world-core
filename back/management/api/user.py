@@ -534,3 +534,18 @@ def still_active_callback(request):
     us.save()
     
     return HttpResponseRedirect(redirect_to="/app/chat")
+
+@login_required
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def delete_account(request):
+    from management.models import State
+    # Cannot delete staff or matching users with this api!
+    assert not request.user.is_staff
+    assert not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+    
+    from management.views.admin_panel_v2_actions import perform_user_deletion
+    perform_user_deletion(request.user)
+    logout(request)
+
+    return Response({"success": True})

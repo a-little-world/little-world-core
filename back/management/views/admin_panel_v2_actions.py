@@ -122,26 +122,9 @@ def check_management_access_right(request, user):
     return True
 
 
-@api_view(['POST'])
-@permission_classes([IsAdminOrMatchingUser])
-def delete_user(request):
-    """
-    Sets a user to in-active and overwrites all the personal infor for that user
-    This assures the user data can still be recovered with some effort but the user cannot:
-    - login anymore
-    """
+def perform_user_deletion(user):
     from management.models import State, Profile
-    from management.controller import get_user_by_pk, make_tim_support_user
-    
-    user = get_user_by_pk(request.data["user_id"])
 
-    access = check_management_access_right(request, user)
-    if access != True:
-        return access
-    
-    assert not (user.is_staff or user.is_superuser), "You can't delete a staff or superuser!"
-    assert not user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER), "You can't delete a matching user!"
-    
     user.is_active = False
     user.email = f"deleted_{user.email}"
     user.first_name = "deleted"
@@ -164,6 +147,28 @@ def delete_user(request):
     user.profile.avatar_config = {}
     user.profile.phone_mobile = f"deleted, {user.profile.phone_mobile}"
     user.profile.save()
+
+@api_view(['POST'])
+@permission_classes([IsAdminOrMatchingUser])
+def delete_user(request):
+    """
+    Sets a user to in-active and overwrites all the personal infor for that user
+    This assures the user data can still be recovered with some effort but the user cannot:
+    - login anymore
+    """
+    from management.models import State, Profile
+    from management.controller import get_user_by_pk, make_tim_support_user
+    
+    user = get_user_by_pk(request.data["user_id"])
+
+    access = check_management_access_right(request, user)
+    if access != True:
+        return access
+    
+    assert not (user.is_staff or user.is_superuser), "You can't delete a staff or superuser!"
+    assert not user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER), "You can't delete a matching user!"
+    
+    perform_user_deletion(user)
     
     return Response({"success": True})
 
