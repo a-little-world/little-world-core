@@ -122,7 +122,7 @@ def check_management_access_right(request, user):
     return True
 
 
-def perform_user_deletion(user):
+def perform_user_deletion(user, management_user=None):
     from management.models import State, Profile
 
     user.is_active = False
@@ -135,7 +135,7 @@ def perform_user_deletion(user):
     task = MangementTask.create_task(
         user=user,
         description="Cleanup user delete data",
-        management_user=request.user,
+        management_user=management_user
     )
     user.state.management_tasks.add(task)
     user.state.save()
@@ -168,7 +168,7 @@ def delete_user(request):
     assert not (user.is_staff or user.is_superuser), "You can't delete a staff or superuser!"
     assert not user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER), "You can't delete a matching user!"
     
-    perform_user_deletion(user)
+    perform_user_deletion(user, management_user=request.user)
     
     return Response({"success": True})
 
