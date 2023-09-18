@@ -2,6 +2,7 @@
 This is a controller for any userform related actions
 e.g.: Creating a new user, sending a notification to a users etc...
 """
+from django.db import transaction
 from typing import Dict, Callable
 from management.models.unconfirmed_matches import UnconfirmedMatch
 from dataclasses import dataclass, fields, field
@@ -85,6 +86,62 @@ def get_user_models(user):
         d[k] = elem
     return d
 
+def send_still_active_question_message(user):
+    user.message(pgettext_lazy("api.are-you-still-searching", """
+Hallo {first_name}, ich bin Tim, Mitbegründer und CTO von Little World!
+
+Entschuldige, dass du warten musstest. Wir überarbeiten gerade einige Dinge an unserer Plattform und unserem Matching-Verfahren. Ich bin dein neuer Support-Nutzer und werde dir bei allen Fragen und Problemen helfen.
+
+Da du dich schon vor einiger Zeit registriert hast, wollte ich dich fragen, ob du noch aktiv auf der Suche bist? Antworte mir gerne mit einer schnellen Nachricht oder drücke kurz auf diesen Knopf: <a href="/user/still_active/">Ich suche noch ein Match!</a>
+
+Solange du auf dein Match wartest, kannst du dir schon mal den <a href="https://home.little-world.com/leitfaden">Gesprächsleitfaden</a> anschauen. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
+
+Viele Grüße aus Aachen 👋🏼
+""".format(first_name=user.first_name)), auto_mark_read=False)
+
+
+def make_tim_support_user(
+        user, 
+        old_management_mail="littleworld.management@gmail.com", 
+        send_message=True,
+        custom_message=None
+    ):
+    # 1. We need to remove oliver as matching user
+    from management.models import Match
+    from management import controller
+    
+    admin_user = controller.get_user_by_email(old_management_mail)
+    old_support_matching = Match.get_match(user1=admin_user, user2=user)
+    if old_support_matching.exists():
+        controller.unmatch_users({admin_user, user}, unmatcher=admin_user)
+        
+    # 2. make the new admin matching
+    base_management_user = get_base_management_user()
+    
+    match_users({ base_management_user, user },
+                send_notification=False,
+                send_message=False,
+                send_email=False,
+                set_unconfirmed=False)
+    
+    # 2.5 add that user to the managed users by Tim
+    base_management_user.state.managed_users.add(user)
+    base_management_user.state.save()
+    
+    # 3. set that user to 'not searching'
+    us = user.state
+    us.still_active_reminder_send = True
+    us.matching_state = State.MatchingStateChoices.IDLE
+    us.save()
+    
+    # 4. send the 'still active' question message
+    if send_message:
+        if not (custom_message is None):
+            user.message(custom_message, auto_mark_read=False)
+        else:
+            send_still_active_question_message(user)
+
+
 
 def create_user(
     email,
@@ -95,6 +152,7 @@ def create_user(
     send_verification_mail=True,
     send_welcome_notification=True,
     send_welcome_message=True,
+    catch_email_send_errors=True
 ):
     """ 
     This should be used when creating a new user, it may throw validations errors!
@@ -132,7 +190,7 @@ def create_user(
 
     # Step 4 send mail
     if send_verification_mail:
-        try:
+        def send_verify_link():
             link_route = 'mailverify_link'  # api/user/verify/email
             verifiaction_url = f"{settings.BASE_URL}/{link_route}/{usr.state.get_email_auth_code_b64()}"
             mails.send_email(
@@ -146,46 +204,59 @@ def create_user(
                     verification_code=str(usr.state.get_email_auth_pin())
                 )
             )
-        except:
-            # TODO: actualy return an error and log this
-            print("Email sending failed!")
+        if catch_email_send_errors:
+            try:
+                send_verify_link()
+            except Exception as e:
+                print("Email sending failed!" + str(e))
+        else:
+            send_verify_link()
     else:
         print("Not sending verification mail!")
 
-    # Step 5 Match with admin user
-    # Do *not* send an matching mail, or notification or message!
-    # Also no need to set the admin user as unconfirmed,
-    # there is no popup message required about being matched to the admin!
-    
-    # TODO: since this was just updated and we now have 'matcher' users
-    # this doesn't always have to be the same management user anymore
-    # Generay how we handle management users needs to be significantly improved!
-    base_management_user = get_base_management_user()
-    
-    match_users({ base_management_user, usr },
-                send_notification=False,
-                send_message=False,
-                send_email=False,
-                set_unconfirmed=False)
+    def finish_up_user_creation():
+        # Step 5 Match with admin user
+        # Do *not* send an matching mail, or notification or message!
+        # Also no need to set the admin user as unconfirmed,
+        # there is no popup message required about being matched to the admin!
+        
+        # TODO: since this was just updated and we now have 'matcher' users
+        # this doesn't always have to be the same management user anymore
+        # Generay how we handle management users needs to be significantly improved!
+        base_management_user = get_base_management_user()
+        
+        match_users({ base_management_user, usr },
+                    send_notification=False,
+                    send_message=False,
+                    send_email=False,
+                    set_unconfirmed=False)
 
-    if not base_management_user.is_staff:
-        # Must be a mather user now TODO
-        # Add that user to the list of users managed by this management user!
-        base_management_user.state.managed_users.add(usr)
+        if not base_management_user.is_staff:
+            # Must be a mather user now TODO
+            # Add that user to the list of users managed by this management user!
+            base_management_user.state.managed_users.add(usr)
 
-    # Step 7 Notify the user
-    if send_welcome_notification:
-        usr.notify(title=_("Welcome Notification"))
+        # Step 7 Notify the user
+        if send_welcome_notification:
+            usr.notify(title=_("Welcome Notification"))
 
-    # Step 8 Message the user from the admin account
-    if send_welcome_message:
-        usr.message(pgettext_lazy("api.register-welcome-message-text", """Hallo {first_name}
+        # Step 8 Message the user from the admin account
+        if send_welcome_message:
+            usr.message(pgettext_lazy("api.register-welcome-message-text", """
+Hallo {first_name} und herzlich willkommen bei Little World!
 
-ich bin Oliver, einer der Gründer von Little World. Wir freuen uns riesig, Dich als einer der ersten Nutzer:innen unserer Plattform begrüßen zu dürfen! Da wir täglich daran arbeiten, unsere neue Plattform zu verbessern, ist Dein Feedback besonders wertvoll! Hast du vielleicht schon Anregungen zur Verbesserung? Dann schreib mir einfach!
+Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil unserer Plattform geworden bist!
 
-Wir freuen uns über Deine Unterstützung und senden ganz liebe Grüße aus Aachen,
-Oliver  
-        """.format(first_name=first_name)), auto_mark_read=True)
+Aktuell arbeiten wir an einigen Aktualisierungen unserer Plattform und unseres Matching-Verfahrens und schätzen daher jedes <a href="/app/help">Feedback</a>, das wir von dir erhalten.
+
+Während wir für dich ein passendes Match finden, kannst du gerne in unserem <a href="https://home.little-world.com/leitfaden">Gesprächsleitfaden</a> stöbern. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
+
+Falls du Lust und Zeit hast, uns weiter zu unterstützen, würden wir uns sehr über deine Teilnahme an unserer Umfrage freuen. 
+Zwei Studentinnen der Uni Siegen, Natalia und Sandra, würden dich gerne zur Verbesserung von Little World interviewen. Das Interview dauert etwa 30-45 Minuten und dient dazu, uns dabei zu helfen, unseren Service zu verbessern. Natürlich bleiben deine Antworten anonym und werden nicht veröffentlicht. Wenn du interessiert bist, kannst du Natalia unter <a href="mailto:natalia.romancheva@student.uni-siegen.de?subject=Interview">natalia.romancheva@student.uni-siegen.de</a> oder Sandra unter <a href="mailto:sandra.butzek@student.uni-siegen.de?subject=Interview">sandra.butzek@student.uni-siegen.de</a> kontaktieren.
+
+Vielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!
+    """.format(first_name=first_name)), auto_mark_read=True)
+    transaction.on_commit(finish_up_user_creation)
     return usr
 
 
@@ -230,11 +301,16 @@ def match_users(
     usr1.match(usr2, set_unconfirmed=set_unconfirmed)
     usr2.match(usr1, set_unconfirmed=set_unconfirmed)
     
+    # It can also be a support matching with a 'management' user
+    is_support_matching = (usr1.is_staff or usr2.is_staff) \
+        or (usr1.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER) or \
+            usr2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER))
+    
     # This is the new way:
     matching_obj = Match.objects.create(
         user1=usr1,
         user2=usr2,
-        support_matching=usr1.is_staff or usr2.is_staff
+        support_matching=is_support_matching
     )
 
     if create_dialog:
@@ -398,7 +474,14 @@ def create_base_admin_and_add_standart_db_values():
         )
         usr.state.set_user_form_completed()  # Admin doesn't have to fill the userform
         usr.notify("You are the admin master!")
-    #print("BASE ADMIN USER CREATED!")
+    print("BASE ADMIN USER CREATED!")
+    
+    def update_profile():
+        usr_tim = get_user_by_email(TIM_MANAGEMENT_USER_MAIL)
+        usr_tim.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.MATCHING_USER)
+        usr_tim.state.save()
+        usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
+        usr_tim.notify("You are the bese management user with less permissions.")
     
     # Tim Schupp is the new base admin user, we will now create a match with hin instead:
     TIM_MANAGEMENT_USER_MAIL = "tim.timschupp+420@gmail.com"
@@ -412,12 +495,11 @@ def create_base_admin_and_add_standart_db_values():
             first_name="Tim",
             last_name="Schupp",
         )
-        us = usr_tim.state
+        
+    transaction.on_commit(update_profile)
         # The tim user should always get the matching permission
-        us.extra_user_permissions.add(State.ExtraUserPermissionChoices.MATCHING_USER)
-        us.save()
-        usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
-        usr_tim.notify("You are the bese management user with less permissions.")
+
+    print("TIM ADMIN USER CREATED!")
     
     # Now we create some default database elements that should be part of all setups!
     from management.tasks import (

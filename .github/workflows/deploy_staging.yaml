@@ -1,7 +1,14 @@
 name: Deploy temporary env
-
+    
 on:
   pull_request:
+    types:
+      - synchronize
+      - opened
+
+concurrency:
+  group: ${{ github.event.pull_request.id }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -58,6 +65,7 @@ jobs:
           touch .env
           RANDOM_STRING="$( openssl rand -hex 3 )"
           IMAGE_URL="ghcr.io/a-little-world/little-world-backend/littleworld-epherial-backend:tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}-$RANDOM_STRING"
+          touch .env; rm .env; touch .env
           echo "APP_IMAGE_URL=\"$IMAGE_URL\"" >> .env
           NAMESPACE="lw-tmp-env-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}"
           REDIS_URL="redis://redis-service.$NAMESPACE.svc.cluster.local:6379"
@@ -156,8 +164,8 @@ jobs:
             <details>
             <summary> Details </summary>
              
-            - 30 users: `herrduenschnate+$i@gmail.com` for `$i in {1..30}`
-            e.g.: `herrduenschnate+17@gmail.com:Test123!`
+            - 30 users: `herrduenschnlate+$i@gmail.com` for `$i in {1..30}`
+            e.g.: `herrduenschnlate+17@gmail.com:Test123!`
             at `${{ steps.cluster_connection.outputs.STAGING_URL  }}/login`
             - checkout the new user form `${{ steps.cluster_connection.outputs.STAGING_URL  }}/from_v2/userType`
             - admin: `admin@user.com:Admin123!`

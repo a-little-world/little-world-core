@@ -1,5 +1,6 @@
 from django.db import models
 from .user import User
+from .management_tasks import MangementTask
 import json
 import base64
 import zlib
@@ -48,6 +49,9 @@ class State(models.Model):
         default=utils._rand_int5)
 
     email_authenticated = models.BooleanField(default=False)
+    
+    still_active_reminder_send = models.BooleanField(default=False)
+    still_active_reminder_confirmed = models.BooleanField(default=False)
 
     """
     These are referense to the actual user model of this persons matches 
@@ -107,6 +111,8 @@ class State(models.Model):
 
     # Stores a users past emails ...
     past_emails = models.JSONField(blank=True, default=list)
+    
+    notes = models.TextField(blank=True, null=True)
 
     class ExtraUserPermissionChoices(models.TextChoices):
         API_SCHEMAS = "view-api-schema", _("Is allowed to view API schemas")
@@ -147,9 +153,12 @@ class State(models.Model):
     tags = MultiSelectField(
         choices=TagChoices.choices, max_choices=20,
         max_length=1000, blank=True, null=True)  # type: ignore
+    
+    management_tasks = models.ManyToManyField(MangementTask, related_name='management_tasks', blank=True)
 
     def has_extra_user_permission(self, permission):
-        return permission in self.extra_user_permissions
+
+        return (self.extra_user_permissions is None) or (permission in self.extra_user_permissions)
 
     def regnerate_email_auth_code(self, set_to_unauthenticated=True):
         # We do not log old auth codes, donsnt realy matter

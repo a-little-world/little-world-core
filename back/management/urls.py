@@ -29,6 +29,7 @@ from management.views.user_form_frontend import (
 )
 from management.views.admin_panel_frontend import admin_panel, stats_panel, graph_panel, fetch_graph, user_list_frontend, fetch_list
 from management.views import admin_panel_v2
+from management.views import admin_panel_v2_actions
 
 from rest_framework.routers import DefaultRouter
 from django_rest_passwordreset.views import ResetPasswordValidateTokenViewSet, ResetPasswordConfirmViewSet, \
@@ -182,14 +183,40 @@ view_routes = [
     re_path(fr'^app/(?P<path>.*)$',
             views.MainFrontendView.as_view(), name="main_frontend_w_path"),
 
+    path(f"user/still_active/", api.user.still_active_callback, name="still_active_callback"),
+
     path(f"admin_panel/", admin_panel, name="admin_panel"),
     path(f"admin_panel_v2/", admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
     path(f"admin_panel_v2_login/", admin_panel_v2.admin_panel_v2_login, name="admin_panel_v2_login"),
     path(f"admin_panel_v2/<str:query_set>/", admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
     
     path(_api_url('user_advanced/<str:pk>', admin=True), admin_panel_v2.root_user_viewset.as_view({'get': 'retrieve'})),
+    path(_api_url('user_advanced/<str:pk>/notes', admin=True), 
+         admin_panel_v2.root_user_viewset.as_view({'get': 'notes', 'post': 'notes'})),
     path(_api_url('user_advanced/<str:pk>/scores', admin=True), 
          admin_panel_v2.root_user_viewset.as_view({'get': 'scores'})),
+
+    path(_api_url('user_advanced/<str:pk>/tasks', admin=True), 
+         admin_panel_v2.root_user_viewset.as_view({'get': 'tasks', 'post': 'tasks'})),
+
+    path(_api_url('user_advanced/<str:pk>/sms', admin=True), 
+         admin_panel_v2.root_user_viewset.as_view({'get': 'sms'})),
+
+    path(_api_url('user_advanced/<str:pk>/message_read', admin=True), 
+         admin_panel_v2.root_user_viewset.as_view({'post': 'messages_mark_read'})),
+
+    path(_api_url('user_advanced/<str:pk>/resend_email', admin=True), 
+         admin_panel_v2.root_user_viewset.as_view({'post': 'resend_email'})),
+
+    path(_api_url('user_advanced/<str:pk>/messages', admin=True), 
+         admin_panel_v2.root_user_viewset.as_view({'get': 'messages'})),
+
+    path(_api_url('user_advanced/<str:pk>/message_reply', admin=True), 
+         admin_panel_v2.root_user_viewset.as_view({'post': 'messages_reply'})),
+
+    path(_api_url('user_advanced/<str:pk>/tasks/complete', admin=True), 
+         admin_panel_v2.root_user_viewset.as_view({'post': 'complete_task'})),
+
     path(_api_url('user_advanced/<str:pk>/request_score_update', admin=True), 
          admin_panel_v2.root_user_viewset.as_view({'get': 'request_score_update'})),
     path(_api_url('user_listing_advanced/<str:list>', admin=True), admin_panel_v2.advanced_user_listing),
@@ -198,6 +225,8 @@ view_routes = [
     path(f"manage/", user_list_frontend, name="management_panel"),
     path(f"stats/graph/<str:slug>", graph_panel, name="graph_dashboard"),
     path(f"stats/<str:regrouped_by>", stats_panel, name="stats_dashboard"),
+
+    *admin_panel_v2_actions.action_routes
 
 ]
 

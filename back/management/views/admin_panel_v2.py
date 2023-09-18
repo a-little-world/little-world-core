@@ -13,7 +13,7 @@ from management import models
 from management import controller
 from enum import Enum
 import json
-from ..models import (
+from management.models import (
     User,
     State,
     ProfileSerializer,
@@ -21,7 +21,6 @@ from ..models import (
     ProposalProfileSerializer,
     MatchinScore
 )
-from emails.models import EmailLog, EmailLogSerializer, AdvancedEmailLogSerializer
 from typing import OrderedDict
 from django.core.serializers.json import DjangoJSONEncoder
 from rest_framework.utils import serializer_helpers
@@ -192,6 +191,41 @@ class AdminUserSerializer(serializers.ModelSerializer):
         
         return update_representation(representation, instance)
     
+def serialize_messages_for_matching(instance, representation):
+
+    def get_messages(match):
+        partner = controller.get_user_by_pk(match['partner']['id'])
+        print("TBS", partner, instance)
+        _msgs = MessageModel.objects.filter(
+            Q(sender=partner, recipient=instance) | Q(sender=instance, recipient=partner)
+        )
+        messages = get_paginated(_msgs, 10, 1)
+        if not DialogsModel.get_dialog_for_user_as_object(partner, instance).exists():
+            messages["no_dialog"] = True # prop means it has been deleted
+        return messages
+    
+    confirmed = representation['matches']['confirmed']['items']
+    support = representation['matches']['support']['items']
+    unconfirmed = representation['matches']['unconfirmed']['items']
+    
+    messages = {}
+    for match in [*confirmed, *support, *unconfirmed]:
+        print("TBS", match["partner"]["id"], match["partner"]["first_name"])
+        partner = controller.get_user_by_pk(match['partner']['id'])
+        print("PARTNER", partner)
+        _msg = get_messages(match)
+        if _msg is None:
+            continue
+        messages[match['id']] = _msg
+        messages[match['id']]["match"] = {
+            "match_id": match['id'],
+            "profile": match['partner'],
+            "with_management": True if match in support else False
+        }
+        messages[match['id']]["items"] = [serialize_message_model(item, instance.pk) for item in _msg["items"]]
+        
+    return messages
+    
 class AdvancedAdminUserSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -199,51 +233,21 @@ class AdvancedAdminUserSerializer(serializers.ModelSerializer):
         fields = ['hash', 'id', 'email', 'date_joined', 'last_login']
     
     def to_representation(self, instance):
+        from emails.models import EmailLog, EmailLogSerializer, AdvancedEmailLogSerializer
         print("SERIALIZING", instance)
         representation = super().to_representation(instance)
         representation = update_representation(representation, instance)
         
         # Now also add the matches messages
         # And the chat with that user
-        
-        def get_messages(match):
-            partner = controller.get_user_by_pk(match['partner']['id'])
-            print("TBS", partner, instance)
-            _msgs = MessageModel.objects.filter(
-                Q(sender=partner, recipient=instance) | Q(sender=instance, recipient=partner)
-            )
-            messages = get_paginated(_msgs, 10, 1)
-            if not DialogsModel.get_dialog_for_user_as_object(partner, instance).exists():
-                messages["no_dialog"] = True # prop means it has been deleted
-            return messages
-        
-        confirmed = representation['matches']['confirmed']['items']
-        support = representation['matches']['support']['items']
-        unconfirmed = representation['matches']['unconfirmed']['items']
-        
-        messages = {}
-        for match in [*confirmed, *support, *unconfirmed]:
-            print("TBS", match["partner"]["id"], match["partner"]["first_name"])
-            partner = controller.get_user_by_pk(match['partner']['id'])
-            print("PARTNER", partner)
-            _msg = get_messages(match)
-            if _msg is None:
-                continue
-            messages[match['id']] = _msg
-            messages[match['id']]["match"] = {
-                "match_id": match['id'],
-                "profile": match['partner']
-            }
-            messages[match['id']]["items"] = [serialize_message_model(item, instance.pk) for item in _msg["items"]]
-            
-        representation['messages'] = messages
+        representation['messages'] = serialize_messages_for_matching(instance, representation)
 
         # Also get the email logs
         email_logs = get_paginated(EmailLog.objects.filter(receiver=instance), 10, 1)
         email_logs["items"] = AdvancedEmailLogSerializer(email_logs["items"], many=True).data
         
         representation['email_logs'] = email_logs
-
+        
         return representation
             
 
@@ -273,6 +277,9 @@ class QuerySetEnum(Enum):
     active_within_3weeks = "Users who have been active within the last 3 weeks!"
     highquality_matching = "Users who have at least one matching with 20+ Messages"
     message_reply_required = "Users who have a unread message to the admin user"
+    read_message_but_not_replied = "Read messages to the management user that have not been replied to"
+    users_with_open_tasks = "Users who have open tasks"
+    users_with_open_proposals = "Users who have open proposals"
     
     def as_dict():
         return {i.name: i.value for i in QuerySetEnum}
@@ -293,7 +300,53 @@ def get_user_with_message_to_admin():
     unread_senders_ids = unread_messages.values("sender")
     sender_users = User.objects.filter(id__in=Subquery(unread_senders_ids))
     return sender_users
+
+def get_user_with_message_to_admin_that_are_read_but_not_replied():
+    from django.db.models import Subquery, OuterRef, Count, F
+    admin_pk = controller.get_base_management_user().pk
+
+    # All dialogs with the management user
+    dialogs_with_the_management_user = DialogsModel.objects.filter(
+        Q(user1=admin_pk) | Q(user2=admin_pk)
+    )
     
+    last_message_per_user = MessageModel.objects.filter(
+        # Message was sent by the user and received by the admin
+        (Q(sender_id=OuterRef('id'), recipient_id=admin_pk) 
+        # OR Message was sent by the admin and received by the user
+        | Q(sender_id=admin_pk, recipient_id=OuterRef('id')))
+    ).order_by('-created').values('created')[:1]
+
+    users_in_dialog_with_management_user = User.objects.annotate(
+        # The last message sent by the user or received by the user
+        last_message_id=Subquery(last_message_per_user.values('id')[:1])
+
+    ).filter(
+        # The last message was sent to the management user AND has been read
+        Q(last_message_id__in=MessageModel.objects.filter(sender_id=F('id'), recipient_id=admin_pk, read=True)) 
+        # OR The last message was from the management user AND has not been read
+        | Q(last_message_id__in=MessageModel.objects.filter(sender_id=admin_pk, recipient_id=F('id'), read=False))
+    )
+
+    return users_in_dialog_with_management_user    
+
+def users_with_open_proposals():
+    from management.models import UnconfirmedMatch
+    # This has to return a query set of users
+    # that have open proposals
+
+    # First we get all the open proposals
+    open_proposals = UnconfirmedMatch.objects.filter(closed=False)
+    
+    # Then we get all the users that have open proposals
+    # Basicly wee need all users that are open_proposals[X] .user1 or .user2
+    users_with_open_proposals = User.objects.filter(
+        Q(pk__in=open_proposals.values("user1")) | 
+        Q(pk__in=open_proposals.values("user2"))
+    ).distinct().order_by('-date_joined')
+    
+    return users_with_open_proposals
+
 
 def get_quality_match_querry_set():
     
@@ -322,6 +375,17 @@ def get_quality_match_querry_set():
     ).distinct().order_by('-date_joined')
     return filtered_users
 
+def users_with_open_tasks():
+    from management.models import MangementTask
+    # This has to return a query set of users
+    # that have open tasks
+
+    # First we get all the open tasks
+    open_tasks = MangementTask.objects.filter(state=MangementTask.MangementTaskStates.OPEN)
+    # Then we get all the users that have open tasks
+    users_with_open_tasks = User.objects.filter(id__in=open_tasks.values("user"))
+    return users_with_open_tasks
+
     
 def get_QUERY_SETS():
     return {
@@ -337,7 +401,9 @@ def get_QUERY_SETS():
             last_login__gte=three_weeks_ago()).order_by('-date_joined'),
         QuerySetEnum.highquality_matching.name: get_quality_match_querry_set(),
         QuerySetEnum.message_reply_required.name: get_user_with_message_to_admin(),
-        
+        QuerySetEnum.read_message_but_not_replied.name: get_user_with_message_to_admin_that_are_read_but_not_replied(),
+        QuerySetEnum.users_with_open_tasks.name: users_with_open_tasks(),
+        QuerySetEnum.users_with_open_proposals.name: users_with_open_proposals(),
     }
 
 def get_staff_queryset(query_set, request):
@@ -348,7 +414,7 @@ def get_staff_queryset(query_set, request):
     else:
         # Otherwise we filter for all users that are in the responsible user group for that management user
         qs = get_QUERY_SETS()[query_set]
-        filtered_users_qs = qs.filter(id__in=request.user.state.managed_users.all())
+        filtered_users_qs = qs.filter(id__in=request.user.state.managed_users.all(), is_active=True)
         return filtered_users_qs
 
 class AdvancedMatchingScoreSerializer(serializers.ModelSerializer):
@@ -391,8 +457,190 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         self.kwargs['pk'] = pk
         obj = self.get_object()
         
+        # TODO: use the IfHasControlOverUser permission here
+        # TODO: if 'matching' user check if he has access to this user!
+        
         scores = matching_suggestion_from_database_paginated(request, obj)
         return Response(scores)
+    
+    
+    @action(detail=True, methods=['get'])
+    def messages_mark_read(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+
+        message_id = request.data['message_id']
+        
+        # First we check if the user is_staff or has matching permission and is responsible for that user
+        if not request.user.is_staff and not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+            return Response({
+                "msg": "You are not allowed to access this user!"
+            }, status=401)
+            
+        # Now we can check if 'obj'-user is in request.user.state.managed_users ( only if not staff )
+        if not request.user.is_staff and not request.user.state.managed_users.filter(pk=obj.pk).exists():
+            return Response({
+                "msg": "You are not allowed to access this user!"
+            }, status=401)
+            
+        # Now we can check if the user has unread messages from that user
+        from chat.django_private_chat2.models import MessageModel
+        messages = MessageModel.get_messages_for_dialog(request.user, obj)
+        print("Filtered messages", messages)
+
+        message = messages.get(id=message_id)
+        message.read = True
+        message.save()
+
+        return Response({
+            "msg": "Message marked as read"
+        })
+        
+        
+    @action(detail=True, methods=['get'])
+    def messages(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+
+        return Response(AdvancedAdminUserSerializer(obj).data['messages'])
+        
+    @action(detail=True, methods=['get'])
+    def sms(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        # First we check if the user is_staff or has matching permission and is responsible for that user
+        if not request.user.is_staff and not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+            return Response({
+                "msg": "You are not allowed to access this user!"
+            }, status=401)
+        
+        # Now we can check if 'obj'-user is in request.user.state.managed_users ( only if not staff )
+        if not request.user.is_staff and not request.user.state.managed_users.filter(pk=obj.pk).exists():
+            return Response({
+                "msg": "You are not allowed to access this user!"
+            }, status=401)
+            
+        from management.models import SmsModel, SmsSerializer
+
+        sms = SmsModel.objects.filter(recipient=obj).order_by('-created_at')
+        
+        return Response(SmsSerializer(sms, many=True).data)
+        
+
+    @action(detail=True, methods=['get'])
+    def messages_reply(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        # First we check if the user is_staff or has matching permission and is responsible for that user
+        if not request.user.is_staff and not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+            return Response({
+                "msg": "You are not allowed to access this user!"
+            }, status=401)
+            
+        # Now we can check if 'obj'-user is in request.user.state.managed_users ( only if not staff )
+        if not request.user.is_staff and not request.user.state.managed_users.filter(pk=obj.pk).exists():
+            return Response({
+                "msg": "You are not allowed to access this user!"
+            }, status=401)
+            
+        message = obj.message(request.data['message'], sender=request.user)
+        
+        serialized = serialize_message_model(message, obj.pk)
+
+        return Response(serialized)
+    
+    
+    @action(detail=True, methods=['get', 'post'])
+    def resend_email(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        email_id = request.data['email_id']
+        
+        # First we check if the user is_staff or has matching permission and is responsible for that user
+        if not request.user.is_staff and not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+            return Response({
+                "msg": "You are not allowed to access this user!"
+            }, status=401)
+            
+        # Now we can check if 'obj'-user is in request.user.state.managed_users ( only if not staff )
+        if not request.user.is_staff and not request.user.state.managed_users.filter(pk=obj.pk).exists():
+            return Response({
+                "msg": "You are not allowed to access this user!"
+            }, status=401)
+            
+        from emails.models import EmailLog
+        from emails.mails import get_mail_data_by_name
+        
+        email_log = EmailLog.objects.filter(receiver=obj, pk=email_id).first()
+        subject = email_log.data["subject"] if "subject" in email_log.data else None
+        
+        if (subject is None):
+            if (not ("subject" in request.data)):
+                return Response({
+                    "msg": "Cannot determine subject, please set one via 'subject' param"
+                }, status=404)
+            else:
+                subject = request.data["subject"]
+
+        params = email_log.data["params"]
+        mail_data = get_mail_data_by_name(email_log.template)
+        mail_params = mail_data.params(**params)
+        
+        obj.send_email(
+            subject=subject,
+            mail_data=mail_data,
+            mail_params=mail_params,
+        )
+        
+        return Response("Tried resending email")
+    
+    @action(detail=True, methods=['get', 'post'])
+    def tasks(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        from management.models import MangementTask, ManagementTaskSerializer
+        if request.method == 'POST':
+            task = MangementTask.create_task(obj, request.data['description'], request.user)
+            return Response(ManagementTaskSerializer(task).data)
+        
+        tasks = MangementTask.objects.filter(
+            user=obj,
+            state=MangementTask.MangementTaskStates.OPEN
+        )
+
+        return Response(ManagementTaskSerializer(tasks, many=True).data)
+
+    @action(detail=True, methods=['post'])
+    def complete_task(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        from management.models import MangementTask, ManagementTaskSerializer
+        task = MangementTask.objects.get(pk=request.data['task_id'])
+        task.state = MangementTask.MangementTaskStates.FINISHED
+        task.save()
+        return Response(ManagementTaskSerializer(task).data)
+    
+    @action(detail=True, methods=['get', 'post'])
+    def notes(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        _os = obj.state
+        
+        if request.method == 'POST':
+            _os.notes = request.data['notes']
+            _os.save()
+            return Response(_os.notes)
+        else:
+            if not _os.notes:
+                _os.notes = ""
+                _os.save()
+            return Response(_os.notes)
+
     
     @action(detail=True, methods=['get'])
     def request_score_update(self, request, pk=None):
@@ -411,7 +659,7 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
             "task_id": task.task_id,
             "view": f"/admin/django_celery_results/taskresult/?q={task.task_id}"
         })
-        
+
 def check_task_status(task_id):
     from celery.result import AsyncResult
     task = AsyncResult(task_id)

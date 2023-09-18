@@ -2,6 +2,7 @@
 Contains all the admin apis
 generally all APIViews here are required to have: permission_classes = [ IsAdminUser ]
 """
+from management.views import admin_panel_v2
 from rest_framework.views import APIView
 from django.conf import settings
 from typing import List, Optional
@@ -154,6 +155,7 @@ class TwoUserInputData:
     send_email: Optional[bool] = True
     send_message: Optional[bool] = True
     send_notification: Optional[bool] = True
+    proposal_only: Optional[bool] = False
     recalc_matching_score: Optional[bool] = True
 
 
@@ -165,6 +167,7 @@ class TwoUserInputSerializer(serializers.Serializer):
     send_email = serializers.BooleanField(required=False)
     send_message = serializers.BooleanField(required=False)
     send_notification = serializers.BooleanField(required=False)
+    proposal_only = serializers.BooleanField(required=False)
     recalc_matching_score = serializers.BooleanField(required=False)
 
     def create(self, validated_data):
@@ -183,7 +186,7 @@ MATCH_BY_FORCE_MSG = _(
 
 
 class MakeMatch(APIView):
-    permission_classes = [permissions.IsAdminUser]
+    permission_classes = [admin_panel_v2.IsAdminOrMatchingUser]
 
     @extend_schema(
         request=TwoUserInputSerializer(many=False),
@@ -195,6 +198,14 @@ class MakeMatch(APIView):
         users = get_two_users(params.user1, params.user2, params.lookup)
 
         from ..models.matching_scores import MatchinScore
+        
+        # TODO: there should also be a test for this:
+        # We check if this is not a staff user then it **has** to be a matching user
+        # If it is a matching user we **need** to check if that usee is allowed to manage the requested user! TODO
+        if not request.user.is_staff:
+            assert request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER), "User is not allowed to match users"
+            assert users[0] in request.user.state.managed_users.all(), "User is not allowed to match users"
+            assert users[1] in request.user.state.managed_users.all(), "User is not allowed to match users"
 
         # Load the current matching state and repond with an error if they are not matchable
         dir1 = None
@@ -242,20 +253,31 @@ class MakeMatch(APIView):
         if controller.are_users_matched({users[0], users[1]}):
             return Response(_("Users are already matched"), status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            controller.match_users({users[0], users[1]},
-                                   send_email=params.send_email,
-                                   send_message=params.send_message,
-                                   send_notification=params.send_notification)
+        if params.proposal_only:
+            # If proposal_only = True, we create a proposed match instead!
+            # TODO: does this correctly check for already existing proposals?
+            controller.create_user_matching_proposal(
+                {users[0], users[1]},
+                send_confirm_match_email=params.send_email,
+            )
+            return Response("Matching Proposal Created")
+        else:
+            # Perform an actual matching!
+            try:
+                controller.match_users({users[0], users[1]},
+                                       send_email=params.send_email,
+                                       send_message=params.send_message,
+                                       send_notification=params.send_notification)
 
-            # Now we still need to set the user to no searching anymore
-            users[0].state.change_searching_state(
-                State.MatchingStateChoices.IDLE)
-            users[1].state.change_searching_state(
-                State.MatchingStateChoices.IDLE)
-        except Exception as e:
-            return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
-        return Response(_("Users sucessfully matched"))
+                # Now we still need to set the user to no searching anymore
+                users[0].state.change_searching_state(
+                    State.MatchingStateChoices.IDLE)
+                users[1].state.change_searching_state(
+                    State.MatchingStateChoices.IDLE)
+            except Exception as e:
+                return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
+            return Response(_("Users sucessfully matched"))
+
 
 
 @dataclass

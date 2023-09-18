@@ -16,6 +16,8 @@ services:
       - ./front/user_form_frontend.webpack-stats.json:/front/user_form_frontend.webpack-stats.json
       - ./back/static/dist/user_form_frontend/:/back/static/dist/user_form_frontend/
       - ./front/apps/user_form_frontend/src/:/front/apps/user_form_frontend/src/
+      - ./front/apps/user_form_frontend/package.json:/front/apps/user_form_frontend/package.json
+      - ./front/apps/user_form_frontend/package-lock.json:/front/apps/user_form_frontend/package-lock.json
   frontend__main_frontend:
     profiles: ["main_frontend", "all"]
     build:
@@ -33,6 +35,8 @@ services:
       - ./back/static/dist/main_frontend/:/back/static/dist/main_frontend/
       - ./front/main_frontend.webpack-stats.json:/front/main_frontend.webpack-stats.json
       - ./front/apps/main_frontend/src/:/front/apps/main_frontend/src/
+      - ./front/apps/main_frontend/package.json:/front/apps/main_frontend/package.json
+      - ./front/apps/main_frontend/package-lock.json:/front/apps/main_frontend/package-lock.json
   frontend__admin_panel_frontend:
     profiles: ["admin_panel_frontend", "all"]
     build:
@@ -50,11 +54,13 @@ services:
       - ./back/static/dist/admin_panel_frontend/:/back/static/dist/admin_panel_frontend/
       - ./front/admin_panel_frontend.webpack-stats.json:/front/admin_panel_frontend.webpack-stats.json
       - ./front/apps/admin_panel_frontend/src/:/front/apps/admin_panel_frontend/src/
+      - ./front/apps/admin_panel_frontend/package.json:/front/apps/admin_panel_frontend/package.json
+      - ./front/apps/admin_panel_frontend/package-lock.json:/front/apps/admin_panel_frontend/package-lock.json
   frontend__user_form_v2:
     profiles: ["user_form_v2", "user_form_frontend", "all"]
     build:
       context: .
-      target: admin_panel_frontend_image
+      target: user_form_v2_frontend_image
       dockerfile: ./Dockerfile.full
       args:
         DOCKER_BUILDKIT: 1
@@ -67,11 +73,13 @@ services:
       - ./back/static/dist/user_form/:/back/static/dist/user_form/
       - ./front/user_form.webpack-stats.json:/front/user_form.webpack-stats.json
       - ./front/apps/user_form/src/:/front/apps/user_form/src/
+      - ./front/apps/user_form/package.json:/front/apps/user_form/package.json
+      - ./front/apps/user_form/package-lock.json:/front/apps/user_form/package-lock.json
   frontend__cookie_banner:
     profiles: ["cookie_banner_frontend", "all"]
     build:
       context: .
-      target: admin_panel_frontend_image
+      target: cookie_banner_frontend_image
       dockerfile: ./Dockerfile.full
       args:
         DOCKER_BUILDKIT: 1
@@ -84,8 +92,10 @@ services:
       - ./back/static/dist/cookie_banner_frontend/:/back/static/dist/cookie_banner_frontend/
       - ./front/cookie_banner_frontend.webpack-stats.json:/front/cookie_banner_frontend.webpack-stats.json
       - ./front/apps/cookie_banner_frontend/src/:/front/apps/cookie_banner_frontend/src/
+      - ./front/apps/cookie_banner_frontend/package.json:/front/apps/cookie_banner_frontend/package.json
+      - ./front/apps/cookie_banner_frontend/package-lock.json:/front/apps/cookie_banner_frontend/package-lock.json
   backend:
-    profiles: ["backend", "user_form", "admin_panel_frontend", "main_frontend", "user_form_frontend", "cookie_banner_frontend", "all"]
+    profiles: ["backend", "user_form", "user_form_v2", "admin_panel_frontend", "main_frontend", "user_form_frontend", "cookie_banner_frontend", "all"]
     build:
       context: .
       dockerfile: ./Dockerfile.full
@@ -102,6 +112,7 @@ services:
       REDIS_URL: "${REDIS_URL}"
     volumes:
       - ./back/:/back/
+      - ./front/env_apps/:/front/env_apps/
       - ./front/user_form_frontend.webpack-stats.json:/front/user_form_frontend.webpack-stats.json
       - ./front/user_form.webpack-stats.json:/front/user_form.webpack-stats.json
       - ./front/main_frontend.webpack-stats.json:/front/main_frontend.webpack-stats.json
@@ -110,7 +121,7 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
   redis:
-    profiles: ["backend", "user_form", "admin_panel_frontend", "main_frontend", "user_form_frontend", "cookie_banner_frontend", "all"]
+    profiles: ["backend", "user_form", "user_form_v2", "admin_panel_frontend", "main_frontend", "user_form_frontend", "cookie_banner_frontend", "all"]
     image: redis:5
     ports:
       - "6379:6379"

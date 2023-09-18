@@ -1,4 +1,10 @@
 {
+  "hostRequirements": {
+     "cpus": 4,
+     "memory": "8gb",
+     "storage": "16gb"
+  },
+  "postCreateCommand": "bash ./.devcontainer/postCreateCommand.sh",
   "customizations": {
     "codespaces": {
       "repositories": {
@@ -9,6 +15,9 @@
           "permissions": "write-all"
         },
         "a-little-world/little-world-user-form": {
+          "permissions": "write-all"
+        },
+        "a-little-world/little-world-user-form-v2": {
           "permissions": "write-all"
         },
         "a-little-world/little-world-private-chat": {

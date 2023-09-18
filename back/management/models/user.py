@@ -218,6 +218,7 @@ class User(AbstractUser):
         if auto_mark_read:
             msg.read = True
             msg.save()
+        return msg
 
     def send_email(self,
                    subject: str,

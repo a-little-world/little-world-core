@@ -13,7 +13,7 @@ Want to test a feature quickly locally:
 ```
 git clone <your-feature-branch> && cd little-world-backend
 git submodule update --init --recursive
-DOCKER_BUILDKIT=1 docker-compose up
+DOCKER_BUILDKIT=1 docker-compose build
 ```
 
 > Quciker build meant for testing, check below for development setup
@@ -40,7 +40,16 @@ setup:
 ```
 git clone <backend> && cd little-world-backend
 git submodule update --init --recursive
+COMPOSE_PROFILES=all DOCKER_BUILDKIT=1 docker-compose -f docker-compose.dev.yaml build
+for frontend in main_frontend user_form user_form_frontend admin_panel_frontend cookie_banner_frontend; do touch ./front/$frontend.webpack-stats.json ; done
 COMPOSE_PROFILES=all DOCKER_BUILDKIT=1 docker-compose -f docker-compose.dev.yaml up
+```
+
+Once you have run `docker-compose up` with the `=all` flag at least once you can also run only specific frontends with auto-update:
+
+e.g.:
+```
+COMPOSE_PROFILES=main_frontend DOCKER_BUILDKIT=1 docker-compose -f docker-compose.dev.yaml up
 ```
 
 That's it! Any code changed in `/front/apps/*/src/*` or in `/back/*` will cause a hot-reload for the specific frontend, or backend.
@@ -108,3 +117,4 @@ watch microk8s kubectl get pods
 ```
 
 once ready visit `http://localhost`
+
