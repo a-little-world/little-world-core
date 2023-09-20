@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-09-20 15:52+0000\n"
+"POT-Creation-Date: 2023-09-20 17:29+0000\n"
 "PO-Revision-Date: 2023-09-03 15:59+0000\n"
 "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
 "Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
@@ -107,1990 +107,6 @@ msgstr "Nachricht"
 #| msgid "message"
 msgid "Messages"
 msgstr "Nachricht"
-
-#: emails/api.py:88
-#, python-brace-format
-msgid "Can't find email template '{name}'"
-msgstr ""
-
-#: emails/api.py:93
-#, python-brace-format
-msgid "Missing param '{name}'"
-msgstr ""
-
-#: emails/mails.py:341
-msgid "Mail data with name not found"
-msgstr ""
-
-#: emails/templates.py:85
-msgctxt "email.welcome.subject-header-text"
-msgid "Willkommen bei Little World"
-msgstr ""
-
-#: emails/templates.py:88
-#, python-brace-format
-msgctxt "email.welcome.greeting"
-msgid "Hallo {first_name}"
-msgstr ""
-
-#: emails/templates.py:91
-msgctxt "email.welcome.content-start-text"
-msgid "Wir freuen uns, dass du dich bei Little World registriert hast!"
-msgstr ""
-
-#: emails/templates.py:94
-msgctxt "email.welcome.content-body-text"
-msgid ""
-"Damit wir wissen, dass deine E-Mail-Adresse wirklich dir gehört,bestätige "
-"diese bitte mit einem Klick auf den Knopf unten, oder gib den Code: "
-msgstr ""
-
-#: emails/templates.py:98
-#, python-brace-format
-msgctxt "email.welcome.link-box-text"
-msgid "{verification_code}"
-msgstr ""
-
-#: emails/templates.py:101
-msgctxt "email.welcome.button-text"
-msgid "E-Mail bestätigen"
-msgstr ""
-
-#: emails/templates.py:104
-#, fuzzy, python-brace-format
-#| msgctxt "email.verify-failure-get"
-#| msgid "Email verification failed"
-msgctxt "email.welcome.button-link"
-msgid "{verification_url}"
-msgstr "Email verifizierung fehlgeschlagen"
-
-#: emails/templates.py:107
-msgctxt "email.welcome.below-link-text"
-msgid "auf unserer Website ein. "
-msgstr ""
-
-#: emails/templates.py:110
-msgctxt "email.welcome.footer-text"
-msgid ""
-"Solltest du dich nicht bei Little World registriert haben, kannst du diese E-"
-"Mail ignorieren."
-msgstr ""
-
-#: emails/templates.py:114
-msgctxt "email.welcome.goodbye"
-msgid "Beste Grüße,"
-msgstr ""
-
-#: emails/templates.py:117
-msgctxt "email.welcome.goodbye-name"
-msgid "Dein Little World Team"
-msgstr ""
-
-#: emails/templates.py:127
-#, python-brace-format
-msgctxt "email.match.subject-header-text"
-msgid ""
-"Glückwunsch!\n"
-"Lerne jetzt {match_first_name} kennen"
-msgstr ""
-
-#: emails/templates.py:131
-#, python-brace-format
-msgctxt "email.match.greeting"
-msgid "Hallo {first_name}"
-msgstr ""
-
-#: emails/templates.py:134
-#, python-brace-format
-msgctxt "email.match.content-start-text"
-msgid ""
-"wir freuen uns, dir mitteilen zu können, dass wir {match_first_name} als "
-"Gesprächspartner:in für dich gefunden haben!"
-msgstr ""
-
-#: emails/templates.py:138
-#, python-brace-format
-msgctxt "email.match.content-body-text"
-msgid ""
-"Kontaktiere {match_first_name} einfach über Little World um ein erstes "
-"Gespräch zum Kennenlernen zu vereinbaren."
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:142
-#, fuzzy
-#| msgid ""
-msgctxt "email.match.link-box-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:145
-#, python-brace-format
-msgctxt "email.match.button-text"
-msgid "{match_first_name} kennenlernen"
-msgstr ""
-
-#: emails/templates.py:148
-#, python-brace-format
-msgctxt "email.match.button-link"
-msgid "{profile_link_url}"
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:151
-#, fuzzy
-#| msgid ""
-msgctxt "email.match.below-link-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:154
-msgctxt "email.match.footer-text"
-msgid ""
-"Eines unserer Teammitglieder kann euch dabei gerne begleiten. Schreib Oliver "
-"(Support) dafür einfach eine kurze Nachricht."
-msgstr ""
-
-#: emails/templates.py:158
-msgctxt "email.match.goodbye"
-msgid "Beste Grüße,"
-msgstr ""
-
-#: emails/templates.py:161
-msgctxt "email.match.goodbye-name"
-msgid "Dein Little World Team"
-msgstr ""
-
-#: emails/templates.py:171
-msgctxt "email.account_deleted.subject-header-text"
-msgid "Account erfolgreich gelöscht"
-msgstr ""
-
-#: emails/templates.py:174
-#, python-brace-format
-msgctxt "email.account_deleted.greeting"
-msgid "Hallo {first_name}"
-msgstr ""
-
-#: emails/templates.py:177
-msgctxt "email.account_deleted.content-start-text"
-msgid ""
-"Wir möchten dich darüber informieren, dass dein Account erfolgreich gelöscht "
-"wurde."
-msgstr ""
-
-#: emails/templates.py:180
-msgctxt "email.account_deleted.content-body-text"
-msgid ""
-"Bitte beachte, dass diese Aktion nicht rückgängig gemacht werden kann und "
-"alle deine verbleibenden Benutzerdaten dauerhaft gelöscht wurden."
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:183
-#, fuzzy
-#| msgid ""
-msgctxt "email.account_deleted.link-box-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:186
-msgctxt "email.account_deleted.button-text"
-msgid "Neuen Account erstellen"
-msgstr ""
-
-#: emails/templates.py:189
-#, python-brace-format
-msgctxt "email.account_deleted.button-link"
-msgid "{registration_link_url}"
-msgstr ""
-
-#: emails/templates.py:192
-msgctxt "email.account_deleted.below-link-text"
-msgid ""
-"Falls du dich entscheidest, einen neuen Account zu registrieren, beachte "
-"bitte, dass du einen neuen Account von Grund auf erstellen musst."
-msgstr ""
-
-#: emails/templates.py:195
-msgctxt "email.account_deleted.footer-text"
-msgid "Bei Fragen oder Anliegen wende dich bitte an unser Support-Team."
-msgstr ""
-
-#: emails/templates.py:198
-msgctxt "email.account_deleted.goodbye"
-msgid "Viele Grüße,"
-msgstr ""
-
-#: emails/templates.py:201
-msgctxt "email.account_deleted.goodbye-name"
-msgid "Dein Little World Team"
-msgstr ""
-
-#: emails/templates.py:209
-#, fuzzy
-#| msgctxt "tasks.unread-notifications-email-subject"
-#| msgid "Neue Nachricht(en) auf Little World"
-msgctxt "email.new-match-search.subject-header-text"
-msgid "Neue Bekanntschaften suchen auf Little World"
-msgstr "Neue Nachricht(en) auf Little World"
-
-#: emails/templates.py:212
-#, python-brace-format
-msgctxt "email.new-match-search.greeting"
-msgid "Hallo {first_name}"
-msgstr ""
-
-#: emails/templates.py:215
-msgctxt "email.new-match-search.content-start-text"
-msgid ""
-"Du hast dich entschieden, deinen aktuellen Vorschlag nicht anzunehmen. Kein "
-"Problem! Es warten noch viele andere interessante Bekanntschaften auf dich. "
-"Melde dich einfach wieder bei Little World an und starte deine Suche nach "
-"neuen Bekanntschaften aus aller Welt."
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:217
-#, fuzzy
-#| msgid ""
-msgctxt "email.new-match-search.content-body-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:220
-#, fuzzy
-#| msgid ""
-msgctxt "email.new-match-search.link-box-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:223
-msgctxt "email.new-match-search.button-text"
-msgid "Neue Suche starten"
-msgstr ""
-
-#: emails/templates.py:226
-msgctxt "email.new-match-search.button-link"
-msgid "https://little-world.com/login/"
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:229
-#, fuzzy
-#| msgid ""
-msgctxt "email.new-match-search.below-link-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:232
-#, fuzzy
-#| msgid ""
-msgctxt "email.new-match-search.footer-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:235
-msgctxt "email.new-match-search.goodbye"
-msgid "Beste Grüße,"
-msgstr ""
-
-#: emails/templates.py:238
-msgctxt "email.email.new-match-search.goodbye.goodbye-name"
-msgid "Dein Little World Team"
-msgstr ""
-
-#: emails/templates.py:248
-msgctxt "email.interview-invitation-email.subject-header-text"
-msgid "Einladung zu einem Online-Interview mit Natalia"
-msgstr ""
-
-#: emails/templates.py:251
-#, python-brace-format
-msgctxt "email.interview-invitation-email.greeting"
-msgid "Hallo {first_name}!"
-msgstr ""
-
-#: emails/templates.py:254
-msgctxt "email.interview-invitation-email.content-start-text"
-msgid ""
-"Mein Name ist Natalia und ich bin derzeit Studentin an der Universität "
-"Siegen im Bereich         Human Computer Interaction. Im Rahmen meiner "
-"Projektarbeit mit Little World führe ich         Online-Interviews (auf "
-"Englisch) durch. Das Thema der Interviews ist deine Motivation zur         "
-"Teilnahme auf und Erweiterungen von Little World."
-msgstr ""
-
-#: emails/templates.py:260
-msgctxt "email.interview-invitation-email.content-body-text"
-msgid ""
-"Wenn du helfen möchtest die Plattform für andere Benutzer:innen zu "
-"verbessern oder du         mich einfach in meiner Projektarbeit unterstützen "
-"möchtest, dann melde dich bitte bei mir.         Nimm gerne einen Kaffee "
-"oder Tee zum Online-Interview mit, es wird alles ganz entspannt         und "
-"dauert 60-80 Minuten. Ich freue mich auf einen lebhaften Ideenaustausch mit "
-"dir!         Bitte hilf mir in der Projektarbeit und schreibe mir unter:"
-msgstr ""
-
-#: emails/templates.py:270
-msgctxt "email.interview-invitation-email.button-text"
-msgid "Natalia helfen (E-Mail)"
-msgstr ""
-
-#: emails/templates.py:273
-msgctxt "email.interview-invitation-email.button-link"
-msgid "mailto:natalia.romancheva@student.uni-siegen.de"
-msgstr ""
-
-#: emails/templates.py:276
-msgctxt "email.interview-invitation-email.below-link-text"
-msgid ""
-"PS: das Team von Little World hat diese E-Mail im Namen von Natalia an dich "
-"weitergeleitet.         Solltest du in Zukunft keine Interview-Bitten mehr "
-"erhalten wollen, so klicke bitte auf E-Mail Abmelden."
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:280
-#, fuzzy
-#| msgid ""
-msgctxt "email.interview-invitation-email.footer-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:283
-#, fuzzy
-#| msgid ""
-msgctxt "email.interview-invitation-email.goodbye"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:286
-msgctxt "email.interview-invitation-email.goodbye.goodbye-name"
-msgid "Natalia Romancheva"
-msgstr ""
-
-#: emails/templates.py:298
-msgctxt "email.interview-request-email.subject-header-text"
-msgid "Interviewanfrage für ein Universitätsprojekt"
-msgstr ""
-
-#: emails/templates.py:301
-#, python-brace-format
-msgctxt "email.interview-request-email.greeting"
-msgid "Hallo {first_name},"
-msgstr ""
-
-#: emails/templates.py:304
-msgctxt "email.interview-request-email.content-start-text"
-msgid ""
-"Unsere zwei Studentinnen Natalia und Sandra suchen noch 5 weitere "
-"Ehrenamtliche für ein Interview.         Hast du zwischen 30 und 60 Minuten "
-"Zeit, ihnen zu helfen?"
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:322
-#, fuzzy
-#| msgid ""
-msgctxt "email.interview-request-email.link-box-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:325
-msgctxt "email.interview-request-email.button-text"
-msgid "E-Mail an Sandra und Natalia senden"
-msgstr ""
-
-#: emails/templates.py:328
-msgctxt "email.interview-request-email.button-link"
-msgid ""
-"mailto:sandra.butzek@student.uni-siegen.de;natalia.romancheva@student.uni-"
-"siegen.de"
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:331
-#, fuzzy
-#| msgid ""
-msgctxt "email.interview-request-email.below-link-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:334
-#, fuzzy
-#| msgid ""
-msgctxt "email.interview-request-email.footer-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:337
-msgctxt "email.interview-request-email.goodbye"
-msgid "Sommerliche Grüße"
-msgstr ""
-
-#: emails/templates.py:340
-msgctxt "email.interview-request-email.goodbye.goodbye-name"
-msgid "Oliver vom Team Little World"
-msgstr ""
-
-#: emails/templates.py:353
-msgctxt "email.unfinished-user-form-1.subject-header-text"
-msgid "Umfrage beenden für Bekanntschaften aus aller Welt"
-msgstr ""
-
-#: emails/templates.py:356
-#, python-brace-format
-msgctxt "email.unfinished-user-form-1.greeting"
-msgid "Hallo {first_name}"
-msgstr ""
-
-#: emails/templates.py:359
-msgctxt "email.unfinished-user-form-1.content-start-text"
-msgid ""
-"nur fünf weitere Minuten trennen dich von neuen Bekanntschaften und "
-"interessanten Geschichten aus aller Welt. Beende jetzt deine Umfrage auf "
-"Little World. Dann kannst du kostenlos und flexibel mitmachen! Schon 30 "
-"Minuten pro Woche machen einen großen Unterschied."
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:361
-#, fuzzy
-#| msgid ""
-msgctxt "email.unfinished-user-form-1.content-body-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:364
-#, fuzzy
-#| msgid ""
-msgctxt "email.unfinished-user-form-1.link-box-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:367
-msgctxt "email.unfinished-user-form-1.button-text"
-msgid "Umfrage abschließen"
-msgstr ""
-
-#: emails/templates.py:370
-msgctxt "email.unfinished-user-form-1.button-link"
-msgid "https://little-world.com/form/"
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:373
-#, fuzzy
-#| msgid ""
-msgctxt "email.unfinished-user-form-1.below-link-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:376
-#, fuzzy
-#| msgid ""
-msgctxt "email.unfinished-user-form-1.footer-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:379
-msgctxt "email.unfinished-user-form-1.goodbye"
-msgid "Beste Grüße,"
-msgstr ""
-
-#: emails/templates.py:382
-msgctxt "email.email.unfinished-user-form-1.goodbye.goodbye-name"
-msgid "Dein Little World Team"
-msgstr ""
-
-#: emails/templates.py:395
-msgctxt "email.unfinished-user-form-2.subject-header-text"
-msgid "Mit 30 Minuten helfen - Umfrage beenden"
-msgstr ""
-
-#: emails/templates.py:398
-#, python-brace-format
-msgctxt "email.unfinished-user-form-2.greeting"
-msgid "Hallo {first_name}"
-msgstr ""
-
-#: emails/templates.py:401
-msgctxt "email.unfinished-user-form-2.content-start-text"
-msgid ""
-"Dein Engagement zählt! Willst du Teil der Gemeinschaft von Little World "
-"werden und tolle Menschen aus aller Welt kennenlernen? Beende dafür in nur 5 "
-"Minuten unsere Umfrage:"
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:403
-#, fuzzy
-#| msgid ""
-msgctxt "email.unfinished-user-form-2.content-body-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:406
-#, fuzzy
-#| msgid ""
-msgctxt "email.unfinished-user-form-2.link-box-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:409
-msgctxt "email.unfinished-user-form-2.button-text"
-msgid "Umfrage abschließen"
-msgstr ""
-
-#: emails/templates.py:412
-msgctxt "email.unfinished-user-form-2.button-link"
-msgid "https://little-world.com/form/"
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:415
-#, fuzzy
-#| msgid ""
-msgctxt "email.unfinished-user-form-2.below-link-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:418
-#, python-brace-format
-msgctxt "email.unfinished-user-form-2.footer-text"
-msgid ""
-"Du hast Fragen? Wir sind für dich da! Ruf an unter {team_phone} oder schreib "
-"uns unter {team_email}. Wir helfen dir gerne"
-msgstr ""
-
-#: emails/templates.py:421
-msgctxt "email.unfinished-user-form-2.goodbye"
-msgid "Beste Grüße,"
-msgstr ""
-
-#: emails/templates.py:424
-msgctxt "email.email.unfinished-user-form-2.goodbye.goodbye-name"
-msgid "Dein Little World Team"
-msgstr ""
-
-#: emails/templates.py:436
-#, python-brace-format
-msgctxt "email.still-in-contact.subject-header-text"
-msgid "Noch in Kontakt mit {match_name}?"
-msgstr ""
-
-#: emails/templates.py:439
-#, python-brace-format
-msgctxt "email.still-in-contact.greeting"
-msgid "Hallo {first_name},"
-msgstr ""
-
-#: emails/templates.py:442
-#, python-brace-format
-msgctxt "email.still-in-contact.content-start-text"
-msgid ""
-"wie geht es dir und {match_name}? Wir hoffen, eure Gespräche bereiten euch "
-"weiterhin viel Freude. Bitte gib uns eine kurze Rückmeldung für unsere "
-"Wirkungsmessung: Unterhältst du dich noch mit {match_name}?"
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:444
-#, fuzzy
-#| msgid ""
-msgctxt "email.still-in-contact.content-body-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:447
-#, fuzzy
-#| msgid ""
-msgctxt "email.still-in-contact.link-box-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:450
-msgctxt "email.still-in-contact.button-text"
-msgid "Ja"
-msgstr ""
-
-#: emails/templates.py:453
-msgctxt "email.still-in-contact.button-link"
-msgid "https://little-world.com/contact-yes/"
-msgstr ""
-
-#: emails/templates.py:456
-msgctxt "email.still-in-contact.button-text-alt"
-msgid "Nein"
-msgstr ""
-
-#: emails/templates.py:459
-msgctxt "email.still-in-contact.button-link-alt"
-msgid "https://little-world.com/contact-no/"
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:462
-#, fuzzy
-#| msgid ""
-msgctxt "email.still-in-contact.below-link-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:465
-#, fuzzy
-#| msgid ""
-msgctxt "email.still-in-contact.footer-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:468
-msgctxt "email.still-in-contact.goodbye"
-msgid "Beste Grüße,"
-msgstr ""
-
-#: emails/templates.py:471
-msgctxt "email.still-in-contact.goodbye.goodbye-name"
-msgid "Dein Little World Team"
-msgstr ""
-
-#: emails/templates.py:480
-msgctxt "email.email-verification-reminder.subject-header-text"
-msgid "Bitte bestätige deine E-Mail-Adresse für Little World"
-msgstr ""
-
-#: emails/templates.py:483
-#, python-brace-format
-msgctxt "email.email-verification-reminder.greeting"
-msgid "Hallo {first_name}"
-msgstr ""
-
-#: emails/templates.py:486
-msgctxt "email.email-verification-reminder.content-start-text"
-msgid ""
-"du hast dich kürzlich bei Little World registriert, aber deine E-Mail-"
-"Adresse noch nicht bestätigt. Um alle Funktionen unserer Plattform nutzen zu "
-"können und mit Menschen aus aller Welt in Kontakt zu treten, bitten wir "
-"dich, deine E-Mail-Adresse zu bestätigen."
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:488
-#, fuzzy
-#| msgid ""
-msgctxt "email.email-verification-reminder.content-body-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:491
-#, fuzzy
-#| msgid ""
-msgctxt "email.email-verification-reminder.link-box-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:494
-msgctxt "email.email-verification-reminder.button-text"
-msgid "E-Mail-Adresse bestätigen"
-msgstr ""
-
-#: emails/templates.py:497
-msgctxt "email.email-verification-reminder.button-link"
-msgid "https://little-world.com/verify-email/"
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:500
-#, fuzzy
-#| msgid ""
-msgctxt "email.email-verification-reminder.below-link-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:503
-#, fuzzy
-#| msgid ""
-msgctxt "email.email-verification-reminder.footer-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:506
-msgctxt "email.email-verification-reminder.goodbye"
-msgid "Beste Grüße,"
-msgstr ""
-
-#: emails/templates.py:509
-msgctxt "email.email-verification-reminder.goodbye.goodbye-name"
-msgid "Dein Little World Team"
-msgstr ""
-
-#: emails/templates.py:522
-msgctxt "email.confirm-match-1.subject-header-text"
-msgid "Match gefunden - jetzt bestätigen"
-msgstr ""
-
-#: emails/templates.py:525
-#, python-brace-format
-msgctxt "email.confirm-match-1.greeting"
-msgid "Hallo {first_name}"
-msgstr ""
-
-#: emails/templates.py:528
-#, python-brace-format
-msgctxt "email.confirm-match-1.content-start-text"
-msgid ""
-"{match_first_name} freut sich schon darauf, dich kennenzulernen! Ihr scheint "
-"auch schon eine Menge gemeinsam zu haben. Was das ist, erfährst Du hier:"
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:530
-#, fuzzy
-#| msgid ""
-msgctxt "email.confirm-match-1.content-body-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:533
-#, fuzzy
-#| msgid ""
-msgctxt "email.confirm-match-1.link-box-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:536
-msgctxt "email.confirm-match-1.button-text"
-msgid "Jetzt match bestätigen"
-msgstr ""
-
-#: emails/templates.py:539
-msgctxt "email.confirm-match-1.button-link"
-msgid "https://little-world.com/app/"
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:542
-#, fuzzy
-#| msgid ""
-msgctxt "email.confirm-match-1.below-link-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:545
-#, python-brace-format
-msgctxt "email.confirm-match-1.footer-text"
-msgid ""
-"Dort kannst du auch den Gesprächsvorschlag mit {match_first_name} "
-"annehmen. \n"
-"Du hast Fragen? Wir sind für dich da! Ruf an unter 015234777471 oder schreib "
-"uns unter support@little-world.com. Wir helfen dir gerne"
-msgstr ""
-
-#: emails/templates.py:549
-msgctxt "email.confirm-match-1.goodbye"
-msgid "Beste Grüße,"
-msgstr ""
-
-#: emails/templates.py:552
-msgctxt "email.email.confirm-match-1.goodbye.goodbye-name"
-msgid "Dein Little World Team"
-msgstr ""
-
-#: emails/templates.py:562
-msgctxt "email.confirm-match-2.subject-header-text"
-msgid "Dein match wartet - höchste Zeit zu bestätigen"
-msgstr ""
-
-#: emails/templates.py:565
-#, python-brace-format
-msgctxt "email.confirm-match-2.greeting"
-msgid "Hallo {first_name}"
-msgstr ""
-
-#: emails/templates.py:568
-#, python-brace-format
-msgctxt "email.confirm-match-2.content-start-text"
-msgid ""
-"du hattest vor Kurzem eine Übereinstimmung auf der Plattform Little World. "
-"Gerne würde sich {match_first_name} mit dir unterhalten! Um ihn/sie "
-"allerdings nicht zu lange warten zu lassen, werden wir {match_first_name} "
-"weitervermitteln, sollten wir nichts von dir hören.\n"
-"Du möchtest mehr über {match_first_name} erfahren? Dann klicke hier: "
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:571
-#, fuzzy
-#| msgid ""
-msgctxt "email.confirm-match-2.content-body-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:574
-#, fuzzy
-#| msgid ""
-msgctxt "email.confirm-match-2.link-box-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:577
-msgctxt "email.confirm-match-2.button-text"
-msgid "Mehr Info"
-msgstr ""
-
-#: emails/templates.py:580
-msgctxt "email.confirm-match-2.button-link"
-msgid "https://little-world.com/app/"
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:583
-#, fuzzy
-#| msgid ""
-msgctxt "email.confirm-match-2.below-link-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:586
-#, python-brace-format
-msgctxt "email.confirm-match-2.footer-text"
-msgid ""
-"Dort kannst du auch den Gesprächsvorschlag mit {match_first_name} "
-"annehmen. \n"
-"Du hast Fragen? Wir sind für dich da! Ruf an unter {team_phone} oder schreib "
-"uns unter {team_email}. Wir helfen dir gerne"
-msgstr ""
-
-#: emails/templates.py:590
-msgctxt "email.confirm-match-2.goodbye"
-msgid "Beste Grüße,"
-msgstr ""
-
-#: emails/templates.py:593
-msgctxt "email.email.confirm-match-2.goodbye.goodbye-name"
-msgid "Dein Little World Team"
-msgstr ""
-
-#: emails/templates.py:602
-msgctxt "email.match-expired.subject-header-text"
-msgid "Dein Match ist abgelaufen - Finde einen neuen Partner"
-msgstr ""
-
-#: emails/templates.py:605
-#, python-brace-format
-msgctxt "email.match-expired.greeting"
-msgid "Hallo {first_name}"
-msgstr ""
-
-#: emails/templates.py:608
-#, python-brace-format
-msgctxt "email.match-expired.content-start-text"
-msgid ""
-"leider ist die Zeit abgelaufen, um {match_first_name} auf der Plattform "
-"Little World zu bestätigen. Aber keine Sorge, du kannst dich einloggen und "
-"nach einem neuen Match suchen.\n"
-"Möchtest du jetzt nach einem neuen Match suchen? Dann klicke hier: "
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:611
-#, fuzzy
-#| msgid ""
-msgctxt "email.match-expired.content-body-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:614
-#, fuzzy
-#| msgid ""
-msgctxt "email.match-expired.link-box-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:617
-msgctxt "email.match-expired.button-text"
-msgid "Neues Match finden"
-msgstr ""
-
-#: emails/templates.py:620
-msgctxt "email.match-expired.button-link"
-msgid "https://little-world.com/app/"
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:623
-#, fuzzy
-#| msgid ""
-msgctxt "email.match-expired.below-link-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:626
-#, python-brace-format
-msgctxt "email.match-expired.footer-text"
-msgid ""
-"Du hast Fragen? Wir sind für dich da! Ruf an unter {team_phone} oder schreib "
-"uns unter {team_email}. Wir helfen dir gerne"
-msgstr ""
-
-#: emails/templates.py:629
-msgctxt "email.match-expired.goodbye"
-msgid "Beste Grüße,"
-msgstr ""
-
-#: emails/templates.py:632
-msgctxt "email.match-expired.goodbye.goodbye-name"
-msgid "Dein Little World Team"
-msgstr ""
-
-#: emails/templates.py:641
-msgctxt "email.interview-invitation.subject-header-text"
-msgid "Einladung zum Online-Interview mit Aniqa"
-msgstr ""
-
-#: emails/templates.py:644
-#, python-brace-format
-msgctxt "email.interview-invitation.greeting"
-msgid "Hallo {first_name}!"
-msgstr ""
-
-#: emails/templates.py:647
-msgctxt "email.interview-invitation.content-start-text"
-msgid ""
-"Mein Name ist Aniqa und ich bin derzeit Studentin an der Universität Siegen "
-"im Bereich Human Computer Interaction. Im Rahmen meiner Projektarbeit mit "
-"Little World führe ich Online-Interviews mit (englischsprachigen) "
-"Ehrenamtlichen durch, um die Nutzererfahrungen mit Little World besser zu "
-"verstehen."
-msgstr ""
-
-#: emails/templates.py:662
-msgctxt "email.interview-invitation.button-text"
-msgid "Interview-Termin buchen"
-msgstr ""
-
-#: emails/templates.py:665
-#, python-brace-format
-msgctxt "email.interview-invitation.button-link"
-msgid "{link_url}"
-msgstr ""
-
-#: emails/templates.py:668
-msgctxt "email.interview-invitation.below-link-text"
-msgid "Thank you so much for your time,"
-msgstr ""
-
-#: emails/templates.py:671
-msgctxt "email.interview-invitation.footer-text"
-msgid ""
-"PS: das Team von Little World hat diese E-Mail im Namen von Aniqa an dich "
-"weitergeleitet. Solltest du in Zukunft keine Interview-Bitten mehr erhalten "
-"wollen, so klicke bitte auf E-Mail Abmelden."
-msgstr ""
-
-#: emails/templates.py:676
-msgctxt "email.interview-invitation.goodbye"
-msgid "Aniqa Rahman"
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:679
-#, fuzzy
-#| msgid ""
-msgctxt "email.email.interview-invitation.goodbye.goodbye-name"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:693
-msgctxt "email.survey-invitation.subject-header-text"
-msgid "Studentin bittet um Unterstützung – Umfrage bei Little World"
-msgstr ""
-
-#: emails/templates.py:696
-#, python-brace-format
-msgctxt "email.survey-invitation.greeting"
-msgid "Hallo {first_name},"
-msgstr ""
-
-#: emails/templates.py:698
-msgctxt "email.survey-invitation.content-start-text"
-msgid ""
-"Möchtest du uns helfen unsere Little World Plattform zu verbessern oder "
-"Aniqa bei ihrer Projektarbeit?"
-msgstr ""
-
-#: emails/templates.py:702
-msgctxt "email.survey-invitation.content-body-text"
-msgid ""
-" Dann lade ich dich herzlich ein, an der 10-15-minütigen Umfrage von der "
-"Studentin Aniqa teilzunehmen unter "
-msgstr ""
-
-#: emails/templates.py:705
-msgctxt "email.survey-invitation.button-text"
-msgid "Zur Umfrage"
-msgstr ""
-
-#: emails/templates.py:708
-#, python-brace-format
-msgctxt "email.survey-invitation.button-link"
-msgid "{link_url}"
-msgstr ""
-
-#: emails/templates.py:720
-msgctxt "email.survey-invitation.footer-text"
-msgid "Herzliche Grüße,"
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:726
-#, fuzzy
-#| msgid ""
-msgctxt "email.survey-invitation.goodbye-name"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:740
-msgctxt "email.survey.subject-header-text"
-msgid "Umfrage zur Verbesserung von Little World"
-msgstr ""
-
-#: emails/templates.py:743
-#, python-brace-format
-msgctxt "email.survey.greeting"
-msgid "Hallo {first_name},"
-msgstr ""
-
-#: emails/templates.py:746
-msgctxt "email.survey.content-start-text"
-msgid ""
-"wir möchten Little World für dich und andere Mitglieder weiter verbessern. "
-"Du kannst uns dabei helfen, indem du unsere kurze 3-minütige Umfrage "
-"ausfüllst und uns mitteilst, welche Gruppenangebote du dir noch wünschst.Auf "
-"die Ergebnisse musst du aber nicht warten. Schon jetzt kannst du dich jeden "
-"Dienstag ab 18 Uhr austauschen oder einfach nur zuhören – unverbindlich und "
-"in einer kleinen Gruppe. Die beliebtesten Angebote aus unserer Umfrage "
-"kommen dann Schritt für Schritt hinzu."
-msgstr ""
-
-#: emails/templates.py:750
-msgctxt "email.survey.button-text"
-msgid "ZUR UMFRAGE (google form)"
-msgstr ""
-
-#: emails/templates.py:753
-#, python-brace-format
-msgctxt "email.survey.button-link"
-msgid "{link_url}"
-msgstr ""
-
-#: emails/templates.py:756
-msgctxt "email.survey.content-body-text"
-msgid ""
-"<br></br>Den Austausch am Dienstag findest du nach dem Einloggen unter "
-"\"Start\" und dann unter \"Kaffeeklatsch\" oder einfach über folgenden Link:"
-msgstr ""
-
-#: emails/templates.py:759
-msgctxt "email.survey.link-box-text"
-msgid ""
-"<a href=\"https://rwth.zoom.us/j/95770913582?"
-"pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09\" style=\"color: blue;\">https://rwth."
-"zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09</a>"
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:762
-#, fuzzy
-#| msgid ""
-msgctxt "email.survey.below-link-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:765
-msgctxt "email.survey.footer-text"
-msgid ""
-"Du hast noch Fragen? Melde dich gerne jederzeit - unsere Kontaktdaten "
-"findest du in der Signatur. Wir helfen dir gerne weiter."
-msgstr ""
-
-#: emails/templates.py:768
-msgctxt "email.survey.goodbye"
-msgid "Dein Team von Little World"
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:771
-#, fuzzy
-#| msgid ""
-msgctxt "email.email.survey.goodbye.goodbye-name"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:786
-#, fuzzy
-#| msgctxt "tasks.unread-notifications-email-subject"
-#| msgid "Neue Nachricht(en) auf Little World"
-msgctxt "email.new-unread-messages.subject-header-text"
-msgid "Neue Nachrichten"
-msgstr "Neue Nachricht(en) auf Little World"
-
-#: emails/templates.py:789
-#, python-brace-format
-msgctxt "email.new-unread-messages.greeting"
-msgid "Hallo {first_name}"
-msgstr ""
-
-#: emails/templates.py:792
-msgctxt "email.new-unread-messages.content-start-text"
-msgid ""
-"Du hast neue Nachricht(en) auf Little World erhalten. Du kannst deine "
-"Nachrichten in dem Chat von Little World ansehen, indem du auf folgenden "
-"Knopf drückst:"
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:794
-#, fuzzy
-#| msgid ""
-msgctxt "email.new-unread-messages.content-body-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:797
-#, fuzzy
-#| msgid ""
-msgctxt "email.new-unread-messages.link-box-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:800
-#, fuzzy
-#| msgctxt "tasks.unread-notifications-email-subject"
-#| msgid "Neue Nachricht(en) auf Little World"
-msgctxt "email.new-unread-messages.button-text"
-msgid "Neue Nachrichten anzeigen"
-msgstr "Neue Nachricht(en) auf Little World"
-
-#: emails/templates.py:803
-msgctxt "email.new-unread-messages.button-link"
-msgid "https://little-world.com/app/chat"
-msgstr ""
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:806
-#, fuzzy
-#| msgid ""
-msgctxt "email.new-unread-messages.below-link-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#: emails/templates.py:809
-#, fuzzy
-#| msgid ""
-msgctxt "email.new-unread-messages.footer-text"
-msgid ""
-msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
-"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
-"world/backend/de/>\n"
-"Language: de\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15\n"
-
-#: emails/templates.py:812
-msgctxt "email.new-unread-messages.goodbye"
-msgid "Beste Grüße,"
-msgstr ""
-
-#: emails/templates.py:815
-msgctxt "email.email.new-unread-messages.goodbye.goodbye-name"
-msgid "Dein Little World Team"
-msgstr ""
-
-#: emails/templates.py:822
-msgctxt "email.password-reset.reset-subject"
-msgid " Macht doch nichts! "
-msgstr ""
-
-#: emails/templates.py:825
-msgctxt "email.password-reset.reset-body-start"
-msgid "Hier kannst du dein Passwort zurück setzen"
-msgstr ""
-
-#: emails/templates.py:828
-msgctxt "email.password-reset.reset-button-text"
-msgid "Passwort zurücksetzen"
-msgstr ""
-
-#: emails/templates.py:831
-#, python-brace-format
-msgctxt "email.password-reset.reset-button-url"
-msgid "{password_reset_url}"
-msgstr ""
-
-#: emails/views.py:37
-msgid "No Template Name provided!"
-msgstr ""
 
 #: tracking/models.py:21
 msgid "Misc event"
@@ -3447,70 +1463,11 @@ msgid "Email authentication data missing"
 msgstr "Email authentifizierungsdaten fehlen"
 
 #, fuzzy, python-brace-format
-#~| msgctxt "api.register-welcome-message-text"
-#~| msgid ""
-#~| "\n"
-#~| "Hallo {first_name}\n"
-#~| "\n"
-#~| "ich bin Oliver, einer der Gründer von Little World. Wir freuen uns "
-#~| "riesig, Dich als einer der ersten Nutzer:innen unserer Plattform "
-#~| "begrüßen zu dürfen! Da wir täglich daran arbeiten, unsere neue Plattform "
-#~| "zu verbessern, ist Dein Feedback besonders wertvoll! Hast du vielleicht "
-#~| "schon Anregungen zur Verbesserung? Dann schreib mir einfach!\n"
-#~| "\n"
-#~| "Wir freuen uns über Deine Unterstützung und senden ganz liebe Grüße aus "
-#~| "Aachen,\n"
-#~| "Oliver  \n"
-#~| "        "
-#~ msgctxt "api.register-welcome-message-text"
-#~ msgid ""
-#~ "Hallo {first_name}\n"
-#~ "\n"
-#~ "ich bin Oliver, einer der Gründer von Little World. Wir freuen uns "
-#~ "riesig, Dich als einer der ersten Nutzer:innen unserer Plattform begrüßen "
-#~ "zu dürfen! Da wir täglich daran arbeiten, unsere neue Plattform zu "
-#~ "verbessern, ist Dein Feedback besonders wertvoll! Hast du vielleicht "
-#~ "schon Anregungen zur Verbesserung? Dann schreib mir einfach!\n"
-#~ "\n"
-#~ "Wir freuen uns über Deine Unterstützung und senden ganz liebe Grüße aus "
-#~ "Aachen,\n"
-#~ "Oliver  \n"
-#~ "        "
-#~ msgstr ""
-#~ "Hallo {first_name}\n"
-#~ "\n"
-#~ "ich bin Oliver, einer der Gründer von Little World. Wir freuen uns "
-#~ "riesig, Dich als einer der ersten Nutzer:innen unserer Plattform begrüßen "
-#~ "zu dürfen! Da wir täglich daran arbeiten, unsere neue Plattform zu "
-#~ "verbessern, ist Dein Feedback besonders wertvoll! Hast du vielleicht "
-#~ "schon Anregungen zur Verbesserung? Dann schreib mir einfach!\n"
-#~ "\n"
-#~ "Wir freuen uns über Deine Unterstützung und senden ganz liebe Grüße aus "
-#~ "Aachen,\n"
-#~ "Oliver  \n"
-#~ "        "
-
-#, python-format
-#~ msgid "Notification %(hash)s for user"
-#~ msgstr "Benachrichtigung %(hash)s für Benutzer"
-
-#~ msgctxt "register.birth-year-over-2024"
-#~ msgid "Sorry we don't allow people from the future yet"
-#~ msgstr ""
-#~ "Entschuldigen Sie, aber wir erlauben noch keine Menschen aus der Zukunft"
-
-#~ msgid "Welcome Message..."
-#~ msgstr "Willkommensnachricht..."
-
-#, python-format
-#~ msgid "New match found! Checkout %s's profile now"
-#~ msgstr "Neuer Match gefunden! Schau dir jetzt das Profil von %s an"
-
-#~ msgctxt "profile.notify-channel.call"
-#~ msgid "Notify by calling"
-#~ msgstr ""
-#~ "zusätzlich einen kurzen Anruf erhalten? Du kannst uns hier alle deine "
-#~ "Fragen stellen, bevor es los geht."
+#~| msgctxt "email.verify-failure-get"
+#~| msgid "Email verification failed"
+#~ msgctxt "email.welcome.button-link"
+#~ msgid "{verification_url}"
+#~ msgstr "Email verifizierung fehlgeschlagen"
 
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
@@ -3518,17 +1475,1073 @@ msgstr "Email authentifizierungsdaten fehlen"
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
 #, fuzzy
-#~ msgctxt "api.user-resetpw.mail-subject"
+#~| msgid ""
+#~ msgctxt "email.match.link-box-text"
 #~ msgid ""
 #~ msgstr ""
 #~ "Project-Id-Version: PACKAGE VERSION\n"
 #~ "Report-Msgid-Bugs-To: \n"
-#~ "POT-Creation-Date: 2022-11-28 14:11+0000\n"
-#~ "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-#~ "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-#~ "Language-Team: LANGUAGE <LL@li.org>\n"
-#~ "Language: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
 #~ "MIME-Version: 1.0\n"
 #~ "Content-Type: text/plain; charset=UTF-8\n"
 #~ "Content-Transfer-Encoding: 8bit\n"
-#~ "Plural-Forms: nplurals=2; plural=(n != 1);\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.match.below-link-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.account_deleted.link-box-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+#, fuzzy
+#~| msgctxt "tasks.unread-notifications-email-subject"
+#~| msgid "Neue Nachricht(en) auf Little World"
+#~ msgctxt "email.new-match-search.subject-header-text"
+#~ msgid "Neue Bekanntschaften suchen auf Little World"
+#~ msgstr "Neue Nachricht(en) auf Little World"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.new-match-search.content-body-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.new-match-search.link-box-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.new-match-search.below-link-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.new-match-search.footer-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.interview-invitation-email.footer-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.interview-invitation-email.goodbye"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.interview-request-email.link-box-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.interview-request-email.below-link-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.interview-request-email.footer-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.unfinished-user-form-1.content-body-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.unfinished-user-form-1.link-box-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.unfinished-user-form-1.below-link-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.unfinished-user-form-1.footer-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.unfinished-user-form-2.content-body-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.unfinished-user-form-2.link-box-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.unfinished-user-form-2.below-link-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.still-in-contact.content-body-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.still-in-contact.link-box-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.still-in-contact.below-link-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.still-in-contact.footer-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.email-verification-reminder.content-body-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.email-verification-reminder.link-box-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.email-verification-reminder.below-link-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.email-verification-reminder.footer-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.confirm-match-1.content-body-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.confirm-match-1.link-box-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.confirm-match-1.below-link-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.confirm-match-2.content-body-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.confirm-match-2.link-box-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.confirm-match-2.below-link-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.match-expired.content-body-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.match-expired.link-box-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.match-expired.below-link-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.email.interview-invitation.goodbye.goodbye-name"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.survey-invitation.goodbye-name"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.survey.below-link-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.email.survey.goodbye.goodbye-name"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+#, fuzzy
+#~| msgctxt "tasks.unread-notifications-email-subject"
+#~| msgid "Neue Nachricht(en) auf Little World"
+#~ msgctxt "email.new-unread-messages.subject-header-text"
+#~ msgid "Neue Nachrichten"
+#~ msgstr "Neue Nachricht(en) auf Little World"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.new-unread-messages.content-body-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.new-unread-messages.link-box-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+#, fuzzy
+#~| msgctxt "tasks.unread-notifications-email-subject"
+#~| msgid "Neue Nachricht(en) auf Little World"
+#~ msgctxt "email.new-unread-messages.button-text"
+#~ msgid "Neue Nachrichten anzeigen"
+#~ msgstr "Neue Nachricht(en) auf Little World"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.new-unread-messages.below-link-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+#~| msgid ""
+#~ msgctxt "email.new-unread-messages.footer-text"
+#~ msgid ""
+#~ msgstr ""
+#~ "Project-Id-Version: PACKAGE VERSION\n"
+#~ "Report-Msgid-Bugs-To: \n"
+#~ "POT-Creation-Date: 2023-04-21 13:08+0000\n"
+#~ "PO-Revision-Date: 2023-09-03 15:59+0000\n"
+#~ "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+#~ "Language-Team: German <https://weblate.littleworld-test.com/projects/"
+#~ "little-world/backend/de/>\n"
+#~ "Language: de\n"
+#~ "MIME-Version: 1.0\n"
+#~ "Content-Type: text/plain; charset=UTF-8\n"
+#~ "Content-Transfer-Encoding: 8bit\n"
+#~ "Plural-Forms: nplurals=2; plural=n != 1;\n"
+#~ "X-Generator: Weblate 4.15\n"
