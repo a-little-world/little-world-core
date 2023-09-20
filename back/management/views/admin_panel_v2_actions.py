@@ -61,6 +61,10 @@ delete_user_censor_profile = {
         "user_id": {
             "type": "integer",
             "description": "The user id of the user to delete."
+        },
+        "send_deletion_email": {
+            "type": "boolean",
+            "default": False
         }
     }
 }
@@ -122,8 +126,18 @@ def check_management_access_right(request, user):
     return True
 
 
-def perform_user_deletion(user, management_user=None):
+def perform_user_deletion(user, management_user=None, send_deletion_email=False):
     from management.models import State, Profile
+    from emails import mails
+    
+    if send_deletion_email:
+        user.send_email(
+           subject="Dein Account wurde gelöscht", 
+           mail_data=mails.get_mail_data_by_name("account_deleted"),
+           mail_params=mails.AccountDeletedEmailParams(
+            first_name=user.profile.first_name,
+           )
+        )
 
     user.is_active = False
     user.email = f"deleted_{user.email}"
@@ -147,6 +161,8 @@ def perform_user_deletion(user, management_user=None):
     user.profile.avatar_config = {}
     user.profile.phone_mobile = f"deleted, {user.profile.phone_mobile}"
     user.profile.save()
+    
+
 
 @api_view(['POST'])
 @permission_classes([IsAdminOrMatchingUser])
@@ -168,7 +184,7 @@ def delete_user(request):
     assert not (user.is_staff or user.is_superuser), "You can't delete a staff or superuser!"
     assert not user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER), "You can't delete a matching user!"
     
-    perform_user_deletion(user, management_user=request.user)
+    perform_user_deletion(user, management_user=request.user, send_deletion_email=request.data.get("send_deletion_email", False))
     
     return Response({"success": True})
 

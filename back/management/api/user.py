@@ -545,7 +545,7 @@ def delete_account(request):
     assert not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
     
     from management.views.admin_panel_v2_actions import perform_user_deletion
-    perform_user_deletion(request.user)
+    perform_user_deletion(request.user, management_user=None, send_deletion_email=True)
     logout(request)
 
     return Response({"success": True})
