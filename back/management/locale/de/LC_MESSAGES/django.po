@@ -35,161 +35,129 @@ msgstr "Deutsch"
 
 #: back/settings.py:351
 msgid "Tag"
-msgstr ""
+msgstr "Schlagwort"
 
 #: chat/django_private_chat2/models.py:24
 msgid "Uploaded_by"
-msgstr ""
+msgstr "Hochgeladen_von"
 
 #: chat/django_private_chat2/models.py:26
 #: chat/django_private_chat2/models.py:79
 msgid "File"
-msgstr ""
+msgstr "Datei"
 
 #: chat/django_private_chat2/models.py:27
 msgid "Upload date"
-msgstr ""
+msgstr "Upload-Datum"
 
 #: chat/django_private_chat2/models.py:34
 #: chat/django_private_chat2/models.py:72
 msgid "Id"
-msgstr ""
+msgstr "Id"
 
 #: chat/django_private_chat2/models.py:35
 msgid "User1"
-msgstr ""
+msgstr "Nutzer1"
 
 #: chat/django_private_chat2/models.py:37
 msgid "User2"
-msgstr ""
+msgstr "Nutzer2"
 
 #: chat/django_private_chat2/models.py:42
 msgid "Dialog"
-msgstr ""
+msgstr "Dialog"
 
 #: chat/django_private_chat2/models.py:43
 msgid "Dialogs"
-msgstr ""
+msgstr "Dialoge"
 
 #: chat/django_private_chat2/models.py:46
 msgid "Dialog between "
-msgstr ""
+msgstr "Dialog zwischen "
 
 #: chat/django_private_chat2/models.py:73
 msgid "Author"
-msgstr ""
+msgstr "Autor"
 
 #: chat/django_private_chat2/models.py:75
 msgid "Recipient"
-msgstr ""
+msgstr "Empfänger"
 
 #: chat/django_private_chat2/models.py:77
 msgid "Text"
-msgstr ""
+msgstr "Text"
 
 #: chat/django_private_chat2/models.py:81
-#, fuzzy
-#| msgctxt "notification.state.read"
-#| msgid "Read"
 msgid "Read"
 msgstr "Gelesen"
 
-#: chat/django_private_chat2/models.py:124
-#, fuzzy
-#| msgctxt "notification.type.message"
-#| msgid "message"
-msgid "Message"
-msgstr "Nachricht"
-
-#: chat/django_private_chat2/models.py:125
-#, fuzzy
-#| msgctxt "notification.type.message"
-#| msgid "message"
-msgid "Messages"
-msgstr "Nachricht"
-
 #: tracking/models.py:21
 msgid "Misc event"
-msgstr ""
+msgstr "Verschiedene Ereignisse"
 
 #: tracking/models.py:22
 msgid "Request event"
-msgstr ""
+msgstr "Request-Ereignisse"
 
 #: tracking/models.py:23
 msgid "Database event"
-msgstr ""
+msgstr "Datenbank Ereignis"
 
 #: tracking/models.py:24
 msgid "Admin event"
-msgstr ""
+msgstr "Admin-Ereignis"
 
 #: tracking/models.py:29
 msgid "Flow event"
-msgstr ""
+msgstr "Fluss-Ereignis"
 
 #: tracking/models.py:30
 msgid "Email event"
-msgstr ""
+msgstr "E-Mail-Ereignis"
 
 #: tracking/models.py:35
 msgid "Frontend event"
-msgstr ""
+msgstr "Frontend-Ereignis"
 
 #: tracking/models.py:90
 msgid "Hourly"
-msgstr ""
+msgstr "Stündlich"
 
 #: tracking/models.py:91
 msgid "Daily"
-msgstr ""
-
-#: tracking/models.py:92
-#, fuzzy
-#| msgctxt "model.community-event.frequency-weekly"
-#| msgid "Weekly"
-msgid "Weekly"
-msgstr "Wöchentlich"
+msgstr "Täglich"
 
 #: tracking/models.py:93
 msgid "Monthly"
-msgstr ""
+msgstr "Monatlich"
 
 #: tracking/utils.py:62
 msgid "tracking: could not determine IP"
-msgstr ""
+msgstr "Tracking: IP konnte nicht ermittelt werden"
 
 #: tracking/utils.py:67
 msgid "traking: could not deterine user"
-msgstr ""
+msgstr "Tracking: Nutzer konnte nicht ermittelt werden"
 
 #: tracking/utils.py:77
 msgid "request.data 1 not existing"
-msgstr ""
+msgstr "request.data 1 existiert nicht"
 
 #: tracking/utils.py:87
 msgid "request.data 2 not existing"
-msgstr ""
+msgstr "request.data 2 existiert nicht"
 
 #: tracking/utils.py:98
 msgid "couldn't convert to drf request"
-msgstr ""
-
-#: management/admin.py:122
-msgid "User form filled"
-msgstr "Nutzerformular ausgefüllt"
-
-#: management/admin.py:136
-msgid "User category"
-msgstr "Nutzerkategorie"
+msgstr "Konnte nicht in drf-Anfrage konvertiert werden"
 
 #: management/api/admin.py:72
 msgid "at least one field required"
-msgstr "Mindestens ein Feld erforderlich"
+msgstr "Mindestens ein Feld ist erforderlich"
 
 #: management/api/admin.py:77
 msgid "maximum one field allowed"
-msgstr "Maximal ein Feld ist erlaubt"
+msgstr "Maximal ein Feld ist zulässig"
 
 #: management/api/admin.py:185
 msgid ""
@@ -197,10 +165,12 @@ msgid ""
 "If you are sure you want to match these users anyways, please set the "
 "'force' flag to true"
 msgstr ""
+"\n"
+"Wenn Sie sicher sind, dass Sie diese Benutzer trotzdem zusammenführen möchten, setzen Sie bitte das 'force'-Flag auf true"
 
 #: management/api/admin.py:226
 msgid "Unable to recalucate matching score! Error: "
-msgstr ""
+msgstr "Matching-Score kann nicht neu berechnet werden! Fehler: "
 
 #: management/api/admin.py:236
 msgid ""
@@ -208,6 +178,9 @@ msgid ""
 "failed. This is an idicator that the users are possible unmatchable, if you "
 "are sure you want to continue use: "
 msgstr ""
+"Kann keine passenden Informationen für Nutzer extrahieren, es scheint als hätte die Score-Berechnung "
+"fehlgeschlagen. Dies ist ein Indikator dafür, dass die Nutzer möglicherweise nicht zusammengeführt werden können, wenn Sie "
+"sicher sind, dass Sie fortfahren möchten, verwenden Sie: "
 
 #: management/api/admin.py:242
 msgid ""
@@ -215,57 +188,60 @@ msgid ""
 "matchable. Either request to calculate it or set the 'force' flag to true "
 "and match anyways"
 msgstr ""
+"Richtungs-Matching-Score scheint nicht zu existieren, nicht sicher, ob Nutzer "
+"zusammengeführt werden können. Entweder fordern Sie die Berechnung an oder setzen Sie das 'force'-Flag auf true "
+"und führen Sie das Matching trotzdem durch"
 
 #: management/api/admin.py:246
 msgid "Users score marks users as not matchable with message"
-msgstr ""
+msgstr "Benutzerscore markiert Benutzer als nicht zusammenführbar mit Nachricht"
 
 #: management/api/admin.py:254
 msgid "Users are already matched"
-msgstr ""
+msgstr "Benutzer sind bereits zusammengeführt"
 
 #: management/api/admin.py:279
 msgid "Users sucessfully matched"
-msgstr ""
+msgstr "Benutzer erfolgreich zusammengeführt"
 
 #: management/api/admin.py:320
 msgid "Users sucessfully un-matched"
-msgstr ""
+msgstr "Benutzer erfolgreich getrennt"
 
 #: management/api/confirm_match.py:53
 msgctxt "confirm_match.unconfimed_match_not_found"
 msgid "This unconfirmed match does not exist, or is already closed"
-msgstr ""
+msgstr "Diese unbestätigte Übereinstimmung existiert nicht oder ist bereits abgeschlossen"
 
 #: management/api/confirm_match.py:63
 msgctxt "confirm_match.unconfimed_match_expired"
 msgid "This unconfirmed match is expired"
-msgstr ""
+msgstr "Die unbestätigte Übereinstimmung ist abgelaufen"
 
 #: management/api/confirm_match.py:74
 msgctxt "confirm_match.match_confirmed"
 msgid "The match has been confirmed, your match has been made!"
-msgstr ""
+msgstr "Die Übereinstimmung wurde bestätigt, Ihre Übereinstimmung wurde gefunden!"
 
 #: management/api/confirm_match.py:88
 msgctxt "confirm_match.match_rejected"
 msgid "The match has been rejected."
-msgstr ""
+msgstr "Die Übereinstimmung wurde abgelehnt."
 
 #: management/api/email_settings.py:48
 msgctxt "unsubscribe_email.success"
 msgid "You have been unsubscribed from this email type"
-msgstr ""
+msgstr "Sie wurden von diesem E-Mail-Typ abgemeldet"
 
 #: management/api/email_settings.py:53
 msgctxt "unsubscribe_email.success"
 msgid "You have been subscribed to this email type"
-msgstr ""
+msgstr "Sie wurden für diesen E-Mail-Typ angemeldet"
 
 #: management/api/email_settings.py:55
 msgctxt "unsubscribe_email.success"
 msgid "No email settings where changed"
-msgstr ""
+msgstr "Es wurden keine E-Mail-Einstellungen geändert"
 
 #: management/api/profile.py:83
 msgctxt "profile.completion-check.sucessfull"
