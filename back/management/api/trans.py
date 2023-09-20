@@ -52,7 +52,10 @@ def get_trans_as_tag_catalogue(request, _set_lang):
             if _set_lang == "en":
                 # "\u0004"
                 print("WARNING: 'aka' tag is not translated in english!", k)
-                _data[context_aka[k]] = k.split("\u0004")[1]
+                try:
+                    _data[context_aka[k]] = k.split("\u0004")[1]
+                except:
+                    _data[context_aka[k]] = k
             elif k in context_other_lang:
                 # Or we could use 'from django.utils.text import slugify' <--use-flag
                 _data[context_aka[k]] = context_other_lang[k]

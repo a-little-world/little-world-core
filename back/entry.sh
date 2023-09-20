@@ -18,6 +18,9 @@ fi
 if [ "$EMPHIRIAL" = "1" ]; then
     python3 manage.py migrate --noinput
     python3 manage.py collectstatic --noinput
+    # python3 manage.py makemessages -a Only if new translations where added
+    python3 manage.py add_tag_translations
+    python3 manage.py compilemessages --use-fuzzy
     python3 manage.py shell --command 'from management.controller import create_base_admin_and_add_standart_db_values; create_base_admin_and_add_standart_db_values()'
     python3 manage.py shell --command 'from management.random_test_users import create_abunch_of_users; create_abunch_of_users()'
 fi
