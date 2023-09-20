@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-09-20 15:16+0000\n"
+"POT-Creation-Date: 2023-09-20 15:52+0000\n"
 "PO-Revision-Date: 2023-09-03 15:59+0000\n"
 "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
 "Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
@@ -2437,7 +2437,7 @@ msgctxt "api.user-unmatch-self.success"
 msgid "Unmatched!"
 msgstr "Match aufgehoben!"
 
-#: management/api/user.py:490 management/controller.py:199
+#: management/api/user.py:490 management/controller.py:198
 #, python-brace-format
 msgctxt "api.register-welcome-mail-subject"
 msgid "{code} - Verifizierungscode zur E-Mail Bestätigun"
@@ -2456,7 +2456,6 @@ msgstr "Nutzer existiert nicht"
 #, python-brace-format
 msgctxt "api.are-you-still-searching"
 msgid ""
-"\n"
 "Hallo {first_name}, ich bin Tim, Mitbegründer und CTO von Little World!\n"
 "\n"
 "Entschuldige, dass du warten musstest. Wir überarbeiten gerade einige Dinge "
@@ -2476,15 +2475,14 @@ msgid ""
 "Viele Grüße aus Aachen 👋🏼\n"
 msgstr ""
 
-#: management/controller.py:241
+#: management/controller.py:240
 msgid "Welcome Notification"
 msgstr "Willkommensbenachrichtigung"
 
-#: management/controller.py:245
+#: management/controller.py:244
 #, python-brace-format
 msgctxt "api.register-welcome-message-text"
 msgid ""
-"\n"
 "Hallo {first_name} und herzlich willkommen bei Little World!\n"
 "\n"
 "Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil "
@@ -2511,16 +2509,15 @@ msgid ""
 "sandra.butzek@student.uni-siegen.de?subject=Interview\">sandra."
 "butzek@student.uni-siegen.de</a> kontaktieren.\n"
 "\n"
-"Vielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!\n"
-"    "
+"Vielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!"
 msgstr ""
 
-#: management/controller.py:328 management/controller.py:329
+#: management/controller.py:325 management/controller.py:326
 #, python-format
 msgid "New match: %s"
 msgstr "Neuer Match: %s"
 
-#: management/controller.py:332
+#: management/controller.py:329
 #, fuzzy, python-brace-format
 #| msgctxt "api.match-made-message-text"
 #| msgid ""
@@ -2558,7 +2555,7 @@ msgstr ""
 "\n"
 "Damit euch viel Spaß! Schöne Grüße vom Team Little World"
 
-#: management/controller.py:348 management/controller.py:358
+#: management/controller.py:345 management/controller.py:355
 msgctxt "api.match-made-email-subject"
 msgid "Glückwunsch! Gesprächspartner:in gefunden auf Little World"
 msgstr "Glückwunsch! Gesprächspartner:in gefunden auf Little World"
