@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-09-20 17:29+0000\n"
+"POT-Creation-Date: 2023-09-20 19:08+0000\n"
 "PO-Revision-Date: 2023-09-03 15:59+0000\n"
 "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
 "Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
@@ -91,6 +91,20 @@ msgstr "Text"
 msgid "Read"
 msgstr "Gelesen"
 
+#: chat/django_private_chat2/models.py:124
+#, fuzzy
+#| msgctxt "notification.type.message"
+#| msgid "message"
+msgid "Message"
+msgstr "Nachricht"
+
+#: chat/django_private_chat2/models.py:125
+#, fuzzy
+#| msgctxt "notification.type.message"
+#| msgid "message"
+msgid "Messages"
+msgstr "Nachricht"
+
 #: tracking/models.py:21
 msgid "Misc event"
 msgstr "Verschiedene Ereignisse"
@@ -127,6 +141,13 @@ msgstr "Stündlich"
 msgid "Daily"
 msgstr "Täglich"
 
+#: tracking/models.py:92
+#, fuzzy
+#| msgctxt "model.community-event.frequency-weekly"
+#| msgid "Weekly"
+msgid "Weekly"
+msgstr "Wöchentlich"
+
 #: tracking/models.py:93
 msgid "Monthly"
 msgstr "Monatlich"
@@ -151,6 +172,14 @@ msgstr "request.data 2 existiert nicht"
 msgid "couldn't convert to drf request"
 msgstr "Konnte nicht in drf-Anfrage konvertiert werden"
 
+#: management/admin.py:122
+msgid "User form filled"
+msgstr ""
+
+#: management/admin.py:136
+msgid "User category"
+msgstr ""
+
 #: management/api/admin.py:72
 msgid "at least one field required"
 msgstr "Mindestens ein Feld ist erforderlich"
@@ -166,7 +195,8 @@ msgid ""
 "'force' flag to true"
 msgstr ""
 "\n"
-"Wenn Sie sicher sind, dass Sie diese Benutzer trotzdem zusammenführen möchten, setzen Sie bitte das 'force'-Flag auf true"
+"Wenn Sie sicher sind, dass Sie diese Benutzer trotzdem zusammenführen "
+"möchten, setzen Sie bitte das 'force'-Flag auf true"
 
 #: management/api/admin.py:226
 msgid "Unable to recalucate matching score! Error: "
@@ -178,8 +208,9 @@ msgid ""
 "failed. This is an idicator that the users are possible unmatchable, if you "
 "are sure you want to continue use: "
 msgstr ""
-"Kann keine passenden Informationen für Nutzer extrahieren, es scheint als hätte die Score-Berechnung "
-"fehlgeschlagen. Dies ist ein Indikator dafür, dass die Nutzer möglicherweise nicht zusammengeführt werden können, wenn Sie "
+"Kann keine passenden Informationen für Nutzer extrahieren, es scheint als "
+"hätte die Score-Berechnung fehlgeschlagen. Dies ist ein Indikator dafür, "
+"dass die Nutzer möglicherweise nicht zusammengeführt werden können, wenn Sie "
 "sicher sind, dass Sie fortfahren möchten, verwenden Sie: "
 
 #: management/api/admin.py:242
@@ -188,13 +219,15 @@ msgid ""
 "matchable. Either request to calculate it or set the 'force' flag to true "
 "and match anyways"
 msgstr ""
-"Richtungs-Matching-Score scheint nicht zu existieren, nicht sicher, ob Nutzer "
-"zusammengeführt werden können. Entweder fordern Sie die Berechnung an oder setzen Sie das 'force'-Flag auf true "
-"und führen Sie das Matching trotzdem durch"
+"Richtungs-Matching-Score scheint nicht zu existieren, nicht sicher, ob "
+"Nutzer zusammengeführt werden können. Entweder fordern Sie die Berechnung an "
+"oder setzen Sie das 'force'-Flag auf true und führen Sie das Matching "
+"trotzdem durch"
 
 #: management/api/admin.py:246
 msgid "Users score marks users as not matchable with message"
-msgstr "Benutzerscore markiert Benutzer als nicht zusammenführbar mit Nachricht"
+msgstr ""
+"Benutzerscore markiert Benutzer als nicht zusammenführbar mit Nachricht"
 
 #: management/api/admin.py:254
 msgid "Users are already matched"
@@ -211,7 +244,9 @@ msgstr "Benutzer erfolgreich getrennt"
 #: management/api/confirm_match.py:53
 msgctxt "confirm_match.unconfimed_match_not_found"
 msgid "This unconfirmed match does not exist, or is already closed"
-msgstr "Diese unbestätigte Übereinstimmung existiert nicht oder ist bereits abgeschlossen"
+msgstr ""
+"Diese unbestätigte Übereinstimmung existiert nicht oder ist bereits "
+"abgeschlossen"
 
 #: management/api/confirm_match.py:63
 msgctxt "confirm_match.unconfimed_match_expired"
@@ -221,7 +256,8 @@ msgstr "Die unbestätigte Übereinstimmung ist abgelaufen"
 #: management/api/confirm_match.py:74
 msgctxt "confirm_match.match_confirmed"
 msgid "The match has been confirmed, your match has been made!"
-msgstr "Die Übereinstimmung wurde bestätigt, Ihre Übereinstimmung wurde gefunden!"
+msgstr ""
+"Die Übereinstimmung wurde bestätigt, Ihre Übereinstimmung wurde gefunden!"
 
 #: management/api/confirm_match.py:88
 msgctxt "confirm_match.match_rejected"
@@ -466,6 +502,23 @@ msgid ""
 "\n"
 "Viele Grüße aus Aachen 👋🏼\n"
 msgstr ""
+"Hallo {first_name}, ich bin Tim, Mitbegründer und CTO von Little World!\n"
+"\n"
+"Entschuldige, dass du warten musstest. Wir überarbeiten gerade einige Dinge "
+"an unserer Plattform und unserem Matching-Verfahren. Ich bin dein neuer "
+"Support-Nutzer und werde dir bei allen Fragen und Problemen helfen.\n"
+"\n"
+"Da du dich schon vor einiger Zeit registriert hast, wollte ich dich fragen, "
+"ob du noch aktiv auf der Suche bist? Antworte mir gerne mit einer schnellen "
+"Nachricht oder drücke kurz auf diesen Knopf: <a href=\"/user/still_active/"
+"\">Ich suche noch ein Match!</a>\n"
+"\n"
+"Solange du auf dein Match wartest, kannst du dir schon mal den <a "
+"href=\"https://home.little-world.com/leitfaden\">Gesprächsleitfaden</a> "
+"anschauen. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche "
+"Fragen.\n"
+"\n"
+"Viele Grüße aus Aachen 👋🏼\n"
 
 #: management/controller.py:240
 msgid "Welcome Notification"
@@ -503,6 +556,33 @@ msgid ""
 "\n"
 "Vielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!"
 msgstr ""
+"Hallo {first_name} und herzlich willkommen bei Little World!\n"
+"\n"
+"Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil "
+"unserer Plattform geworden bist!\n"
+"\n"
+"Aktuell arbeiten wir an einigen Aktualisierungen unserer Plattform und "
+"unseres Matching-Verfahrens und schätzen daher jedes <a href=\"/app/"
+"help\">Feedback</a>, das wir von dir erhalten.\n"
+"\n"
+"Während wir für dich ein passendes Match finden, kannst du gerne in unserem "
+"<a href=\"https://home.little-world.com/leitfaden\">Gesprächsleitfaden</a> "
+"stöbern. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche "
+"Fragen.\n"
+"\n"
+"Falls du Lust und Zeit hast, uns weiter zu unterstützen, würden wir uns sehr "
+"über deine Teilnahme an unserer Umfrage freuen. \n"
+"Zwei Studentinnen der Uni Siegen, Natalia und Sandra, würden dich gerne zur "
+"Verbesserung von Little World interviewen. Das Interview dauert etwa 30-45 "
+"Minuten und dient dazu, uns dabei zu helfen, unseren Service zu verbessern. "
+"Natürlich bleiben deine Antworten anonym und werden nicht veröffentlicht. "
+"Wenn du interessiert bist, kannst du Natalia unter <a href=\"mailto:natalia."
+"romancheva@student.uni-siegen.de?subject=Interview\">natalia."
+"romancheva@student.uni-siegen.de</a> oder Sandra unter <a href=\"mailto:"
+"sandra.butzek@student.uni-siegen.de?subject=Interview\">sandra."
+"butzek@student.uni-siegen.de</a> kontaktieren.\n"
+"\n"
+"Vielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!"
 
 #: management/controller.py:325 management/controller.py:326
 #, python-format
