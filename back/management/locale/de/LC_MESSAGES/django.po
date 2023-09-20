@@ -8,7 +8,7 @@ msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2023-04-21 13:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
+"PO-Revision-Date: 2023-09-21 08:54+0000\n"
 "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
 "Language-Team: German <https://weblate.littleworld-test.com/projects/"
 "little-world/backend/de/>\n"
@@ -89,22 +89,22 @@ msgstr "Dies ist keine valide E-Mail"
 #: api/register.py:45
 msgctxt "register.first-name-blank-err"
 msgid "Please enter your first name"
-msgstr "Bitte geben Sie einen Vornamen ein"
+msgstr "Bitte gib einen Vornamen ein"
 
 #: api/register.py:48
 msgctxt "register.second-name-blank-err"
 msgid "Please enter your second name"
-msgstr "Bitte geben Sie einen zweiten Namen ein"
+msgstr "Bitte gib einen zweiten Namen ein"
 
 #: api/register.py:53
 msgctxt "register.birth-year-invalid"
 msgid "Please enter a valid year"
-msgstr "Bitte geben Sie ein gültiges Geburtsjahr ein"
+msgstr "Bitte gib ein gültiges Geburtsjahr ein"
 
 #: api/register.py:54
 msgctxt "register.birth-year-under-1900"
 msgid "I'm sorry but you can't be that old"
-msgstr "Entschuldigen Sie, aber Sie können nicht so alt sein"
+msgstr "Entschuldige aber du kannst nicht so alt sein"
 
 #: api/register.py:55
 msgctxt "register.birth-year-over-2024"
@@ -128,12 +128,12 @@ msgstr "Video raum ist nicht aktiv, kann nicht authentifiziert werden!"
 #: api/twilio.py:75
 msgctxt "api.twilio-room-auth-failure"
 msgid "Room authentication failed!"
-msgstr "Video raum authentifizierung fehlgeschlagen!"
+msgstr "Videoraum Authentifizierung fehlgeschlagen!"
 
 #: api/user.py:60
 msgctxt "email.verify-auth-data-missing-get"
 msgid "Email authentication data missing"
-msgstr "Email-Authentifizierungsdaten fehlen"
+msgstr "Email-Authentifizierungsdaten fehlen!"
 
 #: api/user.py:64
 msgctxt "email.verify-success-get"
@@ -143,17 +143,17 @@ msgstr "Email erfolgreich verifiziert"
 #: api/user.py:67
 msgctxt "email.verify-failure-get"
 msgid "Email verification failed"
-msgstr "Email verifizierung fehlgeschlagen"
+msgstr "Email Verifizierung fehlgeschlagen"
 
 #: api/user.py:82
 msgctxt "email.verify-auth-data-missing-post"
 msgid "Email authentication data missing"
-msgstr "Email authentifizierungsdaten fehlen"
+msgstr "Email Authentifizierungsdaten fehlen"
 
 #: api/user.py:88
 msgctxt "email.verify-failure-not-numeric"
 msgid "Enter a 5 digit pin please"
-msgstr "Bitte geben Sie einen 5-stelligen Pin ein"
+msgstr "Bitte gib einen 5-stelligen Pin ein"
 
 #: api/user.py:91
 msgctxt "email.verify-success-post"
@@ -163,7 +163,7 @@ msgstr "Email erfolgreich verifiziert"
 #: api/user.py:93
 msgctxt "email.verify-failure-post"
 msgid "Email verification failed, wrong code."
-msgstr "Email verifizierung fehlgeschlagen, falscher Code."
+msgstr "Email Verifizierung fehlgeschlagen, falscher Code."
 
 #: api/user.py:158
 msgctxt "api.login-failed-staff"
@@ -217,7 +217,7 @@ msgstr ""
 #: api/user.py:329
 msgctxt "api.user.change-email-failed.same-email"
 msgid "This is your current email!"
-msgstr "Das ist Ihre aktuelle E-Mail!"
+msgstr "Das ist deine aktuelle E-Mail!"
 
 #: api/user.py:342
 #, python-brace-format
@@ -319,7 +319,7 @@ msgstr ""
 #: controller.py:219 controller.py:220
 #, python-format
 msgid "New match: %s"
-msgstr "Neuer Match: %s"
+msgstr "Neues Match: %s"
 
 #: controller.py:223
 #, fuzzy, python-brace-format
@@ -445,22 +445,22 @@ msgstr "Geflüchtete (u.a. Ukraine, Jemen, Syrien)"
 #: models/profile.py:141
 msgctxt "profile.target-group.student-vol"
 msgid "Students only"
-msgstr "Nur Studenten"
+msgstr "Nur Studierende"
 
 #: models/profile.py:144
 msgctxt "profile.target-group.student-ler"
 msgid "Students only"
-msgstr "Studierenden"
+msgstr "Nur Studierende"
 
 #: models/profile.py:147
 msgctxt "profile.target-group.worker-vol"
 msgid "Workers only"
-msgstr "Fachkräften aus dem Ausland"
+msgstr "Fachkräfte aus dem Ausland"
 
 #: models/profile.py:150
 msgctxt "profile.target-group.worker-ler"
 msgid "Workers only"
-msgstr "Arbeitenden"
+msgstr "Arbeitende"
 
 #: models/profile.py:161
 msgctxt "profile.partner-sex.any"
@@ -535,12 +535,12 @@ msgstr "Video oder Telefon"
 #: models/profile.py:205
 msgctxt "profile.speech-medium.video-vol"
 msgid "Video only"
-msgstr "nur Videotelefonie (auch ohne Video)"
+msgstr "nur Videotelefonie"
 
 #: models/profile.py:208
 msgctxt "profile.speech-medium.video-ler"
 msgid "Video only"
-msgstr "nur Videotelefonie (auch ohne Video)"
+msgstr "nur Videotelefonie"
 
 #: models/profile.py:211
 msgctxt "profile.speech-medium.phone-vol"
@@ -988,7 +988,7 @@ msgstr "Du hast ein Bild ausgewählt, aber kein Bild hochgeladen"
 #: models/profile.py:642
 msgctxt "profile.avatar-missing"
 msgid "You have selected avatar but not uploaded an avatar"
-msgstr "Du hast ein Avatar ausgewählt, aber kein Avatar erstellt"
+msgstr "Du hast einen Avatar ausgewählt, aber keinen Avatar erstellt"
 
 #: models/profile.py:672
 msgctxt "profile.lang-level-invalid"
@@ -1003,7 +1003,7 @@ msgstr "Du musst mindestens Deutsch als Sprache auswählen"
 #: models/profile.py:684
 msgctxt "profile.descr-to-short"
 msgid "must have at least 10 characters"
-msgstr "muss mindestend 10 characters haben"
+msgstr "muss mindestens 10 Zeichen haben"
 
 #: models/state.py:33
 msgid "Unfilled user form"
@@ -1065,7 +1065,7 @@ msgstr "Anzeigen von Datenbank Schemata erlaubt"
 
 #: models/user.py:189
 msgid "description"
-msgstr "description"
+msgstr "Beschreibung"
 
 #: tasks.py:31
 msgctxt "community-event.coffe-chillout"
@@ -1094,7 +1094,7 @@ msgstr ""
 #: validators.py:77
 msgctxt "val.second-name-unallowed-chars"
 msgid "Second name contains invalid characters"
-msgstr "Zweiter Name enthält ungültige Zeichen"
+msgstr "Nachname enthält ungültige Zeichen"
 
 #: validators.py:86
 msgctxt "val.postal-code-not-numeric"
