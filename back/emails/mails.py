@@ -29,7 +29,8 @@ from emails.templates import (
     NewServerMail,
     RAWTemplateMail,
     UserSurveyInvitationEmailNatalia,
-    UserInterviewRequestEmail
+    UserInterviewRequestEmail,
+    AccountDeletedEmailTexts
 )
 from django.core.mail import EmailMessage
 import json
@@ -52,6 +53,10 @@ class SurveyInvitation2AniqParams:
     first_name: str
     link_url: str
     unsubscribe_url1: str
+    
+@dataclass
+class AccountDeletedEmailParams:
+    first_name: str
     
 @dataclass
 class SurveryInvitation3Natalia:
@@ -318,7 +323,14 @@ templates = [
         params=MultiUserInterviewRequestEmail_5,
         texts=UserInterviewRequestEmail,
         defaults=UserInterviewRequestEmail
-    )
+    ),
+    MailMeta(
+        name="account_deleted",
+        template="emails/welcome.html",
+        params=AccountDeletedEmailParams,
+        texts=AccountDeletedEmailTexts,
+        defaults=AccountDeletedEmailTexts
+    ),
 ]
 
 
