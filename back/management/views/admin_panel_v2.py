@@ -273,6 +273,7 @@ def make_user_viewset(_queryset, _serializer_class=AdminUserSerializer, items_pe
 class QuerySetEnum(Enum):
     all = "All users ordered by date joined!"
     searching = "Users who are searching for a match! Exlude users that have not finished the user form or verified their email!"
+    needs_matching = "All users in 'searching' without any user that has a open poposal!"
     in_registration = "Users who have not finished the user form or verified their email!"
     active_within_3weeks = "Users who have been active within the last 3 weeks!"
     highquality_matching = "Users who have at least one matching with 20+ Messages"
@@ -386,6 +387,21 @@ def users_with_open_tasks():
     users_with_open_tasks = User.objects.filter(id__in=open_tasks.values("user"))
     return users_with_open_tasks
 
+def users_that_are_searching_but_have_no_proposal():
+    from management.models import UnconfirmedMatch
+    unconfirmed_matches = UnconfirmedMatch.objects.filter(closed=False)
+    
+    return User.objects.filter(
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
+        state__matching_state=State.MatchingStateChoices.SEARCHING
+    ).exclude(
+        Q(pk__in=unconfirmed_matches.values("user1")) |
+        Q(pk__in=unconfirmed_matches.values("user2"))
+    ).order_by('-date_joined')
+    
+
+
     
 def get_QUERY_SETS():
     return {
@@ -395,6 +411,7 @@ def get_QUERY_SETS():
             state__email_authenticated=True,
             state__matching_state=State.MatchingStateChoices.SEARCHING
         ).order_by('-date_joined'),
+        QuerySetEnum.needs_matching.name: users_that_are_searching_but_have_no_proposal(),
         QuerySetEnum.in_registration.name: User.objects.filter(
             Q(state__user_form_state=State.UserFormStateChoices.UNFILLED) | Q(state__email_authenticated=False)).order_by('-date_joined'),
         QuerySetEnum.active_within_3weeks.name: User.objects.filter(
