@@ -52,6 +52,10 @@ auto_emails = {
         'task': 'management.tasks.check_registration_reminders',
         'schedule': 60.0 * 60.0,  # Every hour
     },
+    'check-still-in-contact-emails': {
+        'task': 'management.tasks.check_match_still_in_contact_emails',
+        'schedule': 60.0 * 60.0 * 12.0,  # Every 12 hours
+    },
 }
 
 prod_shedules = {

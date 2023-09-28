@@ -160,6 +160,46 @@ class MatchFoundEmailTexts:
         'email.match.goodbye-name',
         'Dein Little World Team')
     
+
+@dataclass
+class AccountDeletedEmailTexts:
+    """
+    ---------------> ACCOUNT_DELETED_MAIL <--------------
+    """
+    subject_header_text: str = pgettext_lazy(
+        "email.account_deleted.subject-header-text",
+        "Account erfolgreich gelöscht")
+    greeting: str = pgettext_lazy(
+        'email.account_deleted.greeting',
+        'Hallo {first_name}')
+    content_start_text: str = pgettext_lazy(
+        'email.account_deleted.content-start-text',
+        'Wir möchten dich darüber informieren, dass dein Account erfolgreich gelöscht wurde.')
+    content_body_text: str = pgettext_lazy(
+        'email.account_deleted.content-body-text',
+        'Bitte beachte, dass diese Aktion nicht rückgängig gemacht werden kann und alle deine verbleibenden Benutzerdaten dauerhaft gelöscht wurden.')
+    link_box_text: str = pgettext_lazy(
+        'email.account_deleted.link-box-text',
+        '')  # Leer -> bedeutet, dass dieser Abschnitt automatisch aus der Vorlage entfernt wird
+    button_text: str = pgettext_lazy(
+        'email.account_deleted.button-text',
+        'Neuen Account erstellen')
+    button_link: str = pgettext_lazy(
+        'email.account_deleted.button-link',
+        '{registration_link_url}')
+    below_link_text: str = pgettext_lazy(
+        'email.account_deleted.below-link-text',
+        'Falls du dich entscheidest, einen neuen Account zu registrieren, beachte bitte, dass du einen neuen Account von Grund auf erstellen musst.')
+    footer_text: str = pgettext_lazy(
+        'email.account_deleted.footer-text',
+        'Bei Fragen oder Anliegen wende dich bitte an unser Support-Team.')
+    goodbye: str = pgettext_lazy(
+        'email.account_deleted.goodbye',
+        'Viele Grüße,')
+    goodbye_name: str = pgettext_lazy(
+        'email.account_deleted.goodbye-name',
+        'Dein Little World Team')
+
 @dataclass
 class MatchRejectedEmailTexts:
     """

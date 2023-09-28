@@ -226,7 +226,8 @@ class User(AbstractUser):
                    # I'm importing below TODO this can be fixed
                    mail_params: object,
                    attachments=[],
-                   overwrite_mail=None):
+                   overwrite_mail=None,
+                   **kwargs):
         """
         Just a wrapper for emails.mails.send_email
         Send to a user by usr.send_email(...)
@@ -238,7 +239,8 @@ class User(AbstractUser):
             recivers=recivers,
             mail_data=mail_data,
             mail_params=mail_params,
-            attachments=attachments
+            attachments=attachments,
+            **kwargs
         )
 
 

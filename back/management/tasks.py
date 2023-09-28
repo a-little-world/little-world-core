@@ -2405,6 +2405,44 @@ def check_registration_reminders():
         ems = user.settings.email_settings
         ems.send_user_form_unfinished_reminder2(user)
     
+@shared_task
+def check_match_still_in_contact_emails():
+    from management.models import Match
+    from django.db.models import Q
+    from django.utils import timezone
+    from emails import mails
+    
+    matches_older_than_3_weeks = Match.objects.filter(
+        Q(created_at__lte=timezone.now() - timezone.timedelta(days=21)),
+        still_in_contact_mail_send=False,
+    )
+    
+    report = []
+    
+    for match in matches_older_than_3_weeks:
+        
+        for comb in [(match.user1, match.user2), (match.user2, match.user1)]:
+            comb[0].send_email(
+                subject=pgettext_lazy(
+                    "api.match-still-in-contact-email-subject", ""),
+                mail_data=mails.get_mail_data_by_name("still_in_contact"),
+                mail_params=mails.StillInContactParams(
+                    first_name=comb[0].profile.first_name,
+                    partner_first_name=comb[1].profile.first_name,
+                ),
+                emulated_send=True
+            )
+        report.append({
+            "kind" : "send_still_in_contanct_email",
+            "match": str(match.pk),
+            "user1": str(match.user1.hash),
+            "user2": str(match.user2.hash)
+        })
+        match.still_in_contact_mail_send = True
+        match.save()
+    return report
+    
+    
 
 @shared_task
 def dispatch_admin_email_notification(subject, message):
