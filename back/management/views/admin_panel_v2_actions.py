@@ -109,6 +109,26 @@ _send_sms_to_number = {
     }
 }
 
+change_user_matching_state = {
+    "title": "Change User Matching State",
+    "description": "Change the matching state of a user.",
+    "type": "object",
+    "required": [
+        "user_id",
+        "searching"
+    ],
+    "properties": {
+        "user_id": {
+            "type": "integer",
+            "description": "The user id of the user to change the matching state for."
+        },
+        "searching": {
+            "type": "boolean",
+            "description": "The new matching state of the user."
+        }
+    }
+}
+
 
 def check_management_access_right(request, user):
     from management.models import State
@@ -163,6 +183,25 @@ def perform_user_deletion(user, management_user=None, send_deletion_email=False)
     user.profile.save()
     
 
+
+@api_view(['POST'])
+@permission_classes([IsAdminOrMatchingUser])
+def change_user_matching_state(request):
+
+    from management.models import State, Profile
+    from management.controller import get_user_by_pk, make_tim_support_user
+    
+    user = get_user_by_pk(request.data["user_id"])
+
+    access = check_management_access_right(request, user)
+    if access != True:
+        return access
+    
+    assert not (user.is_staff or user.is_superuser), "You can't delete a staff or superuser!"
+    assert not user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER), "You can't delete a matching user!"
+    user.state.matching_state = State.MatchingStateChoices.SEARCHING if request.data["searching"] else State.MatchingStateChoices.NOT_SEARCHING
+    user.state.save()
+    return Response({"success": True})
 
 @api_view(['POST'])
 @permission_classes([IsAdminOrMatchingUser])
@@ -288,4 +327,5 @@ action_routes = [
     path(_api_url('quick_actions/make_tim_mangement_admin', admin=True), make_tim_mangement_admin_action),
     path(_api_url('quick_actions/delete_user', admin=True), delete_user),
     path(_api_url('quick_actions/send_sms_to_user', admin=True), send_sms_to_user),
+    path(_api_url('quick_actions/change_user_matching_state', admin=True), change_user_matching_state),
 ]
