@@ -668,7 +668,8 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         task = calculate_directional_matching_score_v2_static.delay(
             obj.pk,
             catch_exceptions=True,
-            invalidate_other_scores=True
+            invalidate_other_scores=True,
+            consider_only_registered_within_last_x_days=100
         )
         
         return Response({
