@@ -29,6 +29,8 @@ class Match(models.Model):
     
     report_unmatch = models.JSONField(default=list)
     
+    still_in_contact_mail_send = models.BooleanField(default=False)
+    
     @classmethod
     def get_match(cls, user1, user2):
         return cls.objects.filter(Q(user1=user1, user2=user2, active=True) | Q(user1=user2, user2=user1, active=True))
