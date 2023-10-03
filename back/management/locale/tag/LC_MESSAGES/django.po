@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-09-20 17:29+0000\n"
+"POT-Creation-Date: 2023-10-03 17:55+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1200,38 +1200,54 @@ msgctxt "profile.image-type.image"
 msgid "Image"
 msgstr "profile.image-type.image"
 
-#: management/models/profile.py:486
+#: management/models/profile.py:488
 #, python-brace-format
 msgctxt "profile.completion-check.missing-value"
 msgid "'{val}' is not completed"
 msgstr "profile.completion-check.missing-value|{val}"
 
-#: management/models/profile.py:608
+#: management/models/profile.py:611
 msgctxt "profile.lskill-descr-to-long"
 msgid "must have a maximum of 300 characters"
 msgstr "profile.lskill-descr-to-long"
 
-#: management/models/profile.py:614
+#: management/models/profile.py:617
 msgctxt "profile.descr-to-long"
 msgid "must have a maximum of 300 characters"
 msgstr "profile.descr-to-long"
 
-#: management/models/profile.py:630
+#: management/models/profile.py:633
 msgctxt "profile.image-missing"
 msgid "You have selected profile image but not uploaded an image"
 msgstr "profile.image-missing"
 
-#: management/models/profile.py:642
+#: management/models/profile.py:644
+#, fuzzy
+#| msgctxt "profile.image-missing"
+#| msgid "You have selected profile image but not uploaded an image"
+msgctxt "profile.image-removal-without-avatar"
+msgid "You are removing the profile image but have not selected to use avatar"
+msgstr "profile.image-removal-without-avatar"
+
+#: management/models/profile.py:652
 msgctxt "profile.avatar-missing"
 msgid "You have selected avatar but not uploaded an avatar"
 msgstr "profile.avatar-missing"
 
-#: management/models/profile.py:673
+#: management/models/profile.py:675
+#, fuzzy
+#| msgctxt "profile.liability.accepted"
+#| msgid "Accepted Liability"
+msgctxt "profile.liability-declined"
+msgid "You must accept the liability"
+msgstr "profile.liability-declined"
+
+#: management/models/profile.py:690
 msgctxt "profile.lang-level-invalid"
 msgid "Invalid language level selected"
 msgstr "profile.lang-level-invalid"
 
-#: management/models/profile.py:678
+#: management/models/profile.py:695
 #, fuzzy
 #| msgctxt "profile.lang-level-invalid"
 #| msgid "Invalid language level selected"
@@ -1239,7 +1255,7 @@ msgctxt "profile.lang-invalid"
 msgid "Invalid language selected"
 msgstr "profile.lang-invalid"
 
-#: management/models/profile.py:688
+#: management/models/profile.py:705
 #, fuzzy
 #| msgctxt "profile.image-missing"
 #| msgid "You have selected profile image but not uploaded an image"
@@ -1247,12 +1263,12 @@ msgctxt "profile.lang-duplicate"
 msgid "You have selected a language multiple times"
 msgstr "profile.lang-duplicate"
 
-#: management/models/profile.py:693
+#: management/models/profile.py:710
 msgctxt "profile.lang-de-missing"
 msgid "You must select at least german as a language"
 msgstr "profile.lang-de-missing"
 
-#: management/models/profile.py:700
+#: management/models/profile.py:717
 msgctxt "profile.descr-to-short"
 msgid "must have at least 10 characters"
 msgstr "profile.descr-to-short"
@@ -1328,10 +1344,21 @@ msgctxt "community-event.coffe-chillout"
 msgid "Kaffeerunden"
 msgstr "community-event.coffe-chillout"
 
-#: management/tasks.py:483
+#: management/tasks.py:491
 msgctxt "tasks.unread-notifications-email-subject"
 msgid "Neue Nachricht(en) auf Little World"
 msgstr "tasks.unread-notifications-email-subject"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# 
+#: management/tasks.py:2435
+#, fuzzy
+msgctxt "api.match-still-in-contact-email-subject"
+msgid ""
+msgstr "api.match-still-in-contact-email-subject"
 
 #: management/validators.py:61
 #, fuzzy, python-brace-format

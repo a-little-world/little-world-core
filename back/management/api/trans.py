@@ -49,7 +49,7 @@ def get_trans_as_tag_catalogue(request, _set_lang):
             # For english we can just use the deafault catalogue!
             if _set_lang == "en":
                 # "\u0004"
-                print("WARNING: 'aka' tag is not translated in english!", k)
+                # print("WARNING: 'aka' tag is not translated in english!", k)
                 try:
                     _data[context_aka[k]] = k.split("\u0004")[1]
                 except:
