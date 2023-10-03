@@ -42,16 +42,14 @@ def get_trans_as_tag_catalogue(request, _set_lang):
     context_other_lang = _view._get_context(
         request, set_lang=_set_lang)['catalog']
     # Perdefault we only return the keys that have an aka,
-    print("context_aka: ", list(context_aka.keys()))
     #print("context_other_lang: ", context_other_lang)
     _data = {}
     for k in context_aka:
-        print("PROCESSING", k, context_aka[k])
         if isinstance(context_aka[k], str):
             # For english we can just use the deafault catalogue!
             if _set_lang == "en":
                 # "\u0004"
-                print("WARNING: 'aka' tag is not translated in english!", k)
+                # print("WARNING: 'aka' tag is not translated in english!", k)
                 try:
                     _data[context_aka[k]] = k.split("\u0004")[1]
                 except:

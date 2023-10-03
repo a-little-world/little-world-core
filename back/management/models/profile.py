@@ -442,6 +442,8 @@ class ProfileBase(models.Model):
         default=dict, blank=True)  # Contains the avatar builder config
 
     gender_prediction = models.JSONField(null=True, blank=True)
+    
+    liability_accepted = models.BooleanField(default=False)
 
     @classmethod
     def normalize_choice(obj, choice: str):
@@ -562,6 +564,7 @@ class ProfileSerializer(serializers.ModelSerializer):
     options = serializers.SerializerMethodField()
     interests = serializers.MultipleChoiceField(
         choices=Profile.InterestChoices.choices)
+    image = serializers.ImageField(max_length=None, allow_empty_file=True, allow_null=True, required=False)
 
     def get_options(self, obj):
         d = get_options_serializer(self, obj)
@@ -599,7 +602,7 @@ class SelfProfileSerializer(ProfileSerializer):
                   'user_type', 'target_group', 'partner_sex', 'speech_medium',
                   'partner_location', 'postal_code', 'interests', 'availability',
                   'lang_level', 'additional_interests', 'language_skill_description', 'birth_year', 'description',
-                  'notify_channel', 'phone_mobile', 'image_type', 'avatar_config', 'image', 'lang_skill', 'gender', 'partner_gender']
+                  'notify_channel', 'phone_mobile', 'image_type', 'avatar_config', 'image', 'lang_skill', 'gender', 'partner_gender', 'liability_accepted']
 
         extra_kwargs = dict(
             language_skill_description={
@@ -632,6 +635,13 @@ class SelfProfileSerializer(ProfileSerializer):
                     if not self.instance.image:
                         # If the image is not present we only proceede if there is already an image set
                         __no_img()
+                elif data['image'] is None:
+                    # Only allow removing the image if then the avatar config is set
+                    if not 'image_type' in data or not (data['image_type'] == Profile.ImageTypeChoice.AVATAR):
+                        raise serializers.ValidationError({"image":
+                                                           pgettext_lazy(
+                                                               "profile.image-removal-without-avatar",
+                                                               "You are removing the profile image but have not selected to use avatar")})
                 elif not data['image']:
                     __no_img()
             if data['image_type'] == Profile.ImageTypeChoice.AVATAR:
@@ -657,6 +667,13 @@ class SelfProfileSerializer(ProfileSerializer):
                 data['phone_mobile'] = "parse_error"
 
         return super(SelfProfileSerializer, self).to_internal_value(data)
+    
+    def validate_liability_accepted(self, value):
+        if not value:
+            raise serializers.ValidationError(
+                pgettext_lazy("profile.liability-declined",
+                              "You must accept the liability"))
+        return value
 
     def validate_postal_code(self, value):
         return validate_postal_code(value)

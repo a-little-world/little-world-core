@@ -7,9 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-09-20 19:08+0000\n"
-"PO-Revision-Date: 2023-09-03 15:59+0000\n"
-"POT-Creation-Date: 2023-04-21 13:08+0000\n"
+"POT-Creation-Date: 2023-10-03 17:55+0000\n"
 "PO-Revision-Date: 2023-09-21 08:54+0000\n"
 "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
 "Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
@@ -1249,38 +1247,54 @@ msgctxt "profile.image-type.image"
 msgid "Image"
 msgstr "Bild"
 
-#: management/models/profile.py:486
+#: management/models/profile.py:488
 #, python-brace-format
 msgctxt "profile.completion-check.missing-value"
 msgid "'{val}' is not completed"
 msgstr "'{val}' ist nicht ausgefüllt"
 
-#: management/models/profile.py:608
+#: management/models/profile.py:611
 msgctxt "profile.lskill-descr-to-long"
 msgid "must have a maximum of 300 characters"
 msgstr "Darf maximal 300 Zeichen haben"
 
-#: management/models/profile.py:614
+#: management/models/profile.py:617
 msgctxt "profile.descr-to-long"
 msgid "must have a maximum of 300 characters"
 msgstr "Darf maximal 300 Zeichen haben"
 
-#: management/models/profile.py:630
+#: management/models/profile.py:633
 msgctxt "profile.image-missing"
 msgid "You have selected profile image but not uploaded an image"
 msgstr "Du hast ein Bild ausgewählt, aber kein Bild hochgeladen"
 
-#: management/models/profile.py:642
+#: management/models/profile.py:644
+#, fuzzy
+#| msgctxt "profile.image-missing"
+#| msgid "You have selected profile image but not uploaded an image"
+msgctxt "profile.image-removal-without-avatar"
+msgid "You are removing the profile image but have not selected to use avatar"
+msgstr "Du hast ein Bild ausgewählt, aber kein Bild hochgeladen"
+
+#: management/models/profile.py:652
 msgctxt "profile.avatar-missing"
 msgid "You have selected avatar but not uploaded an avatar"
 msgstr "Du hast einen Avatar ausgewählt, aber keinen Avatar erstellt"
 
-#: management/models/profile.py:673
+#: management/models/profile.py:675
+#, fuzzy
+#| msgctxt "profile.liability.accepted"
+#| msgid "Accepted Liability"
+msgctxt "profile.liability-declined"
+msgid "You must accept the liability"
+msgstr "Annahme der Haftungserklärung"
+
+#: management/models/profile.py:690
 msgctxt "profile.lang-level-invalid"
 msgid "Invalid language level selected"
 msgstr "Invalid language level selected"
 
-#: management/models/profile.py:678
+#: management/models/profile.py:695
 #, fuzzy
 #| msgctxt "profile.lang-level-invalid"
 #| msgid "Invalid language level selected"
@@ -1288,7 +1302,7 @@ msgctxt "profile.lang-invalid"
 msgid "Invalid language selected"
 msgstr "Invalid language level selected"
 
-#: management/models/profile.py:688
+#: management/models/profile.py:705
 #, fuzzy
 #| msgctxt "profile.image-missing"
 #| msgid "You have selected profile image but not uploaded an image"
@@ -1296,12 +1310,12 @@ msgctxt "profile.lang-duplicate"
 msgid "You have selected a language multiple times"
 msgstr "Du hast ein Bild ausgewählt, aber kein Bild hochgeladen"
 
-#: management/models/profile.py:693
+#: management/models/profile.py:710
 msgctxt "profile.lang-de-missing"
 msgid "You must select at least german as a language"
 msgstr "Du musst mindestens Deutsch als Sprache auswählen"
 
-#: management/models/profile.py:700
+#: management/models/profile.py:717
 msgctxt "profile.descr-to-short"
 msgid "must have at least 10 characters"
 msgstr "muss mindestens 10 Zeichen haben"
@@ -1385,10 +1399,37 @@ msgctxt "community-event.coffe-chillout"
 msgid "Kaffeerunden"
 msgstr "Kaffeerunden"
 
-#: management/tasks.py:483
+#: management/tasks.py:491
 msgctxt "tasks.unread-notifications-email-subject"
 msgid "Neue Nachricht(en) auf Little World"
 msgstr "Neue Nachricht(en) auf Little World"
+
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#: management/tasks.py:2435
+#, fuzzy
+#| msgid ""
+msgctxt "api.match-still-in-contact-email-subject"
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-09-20 19:08+0000\n"
+"PO-Revision-Date: 2023-09-03 15:59+0000\n"
+"POT-Creation-Date: 2023-04-21 13:08+0000\n"
+"PO-Revision-Date: 2023-09-21 08:54+0000\n"
+"Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
+"Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
+"world/backend/de/>\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 4.15\n"
 
 #: management/validators.py:61
 #, python-brace-format
