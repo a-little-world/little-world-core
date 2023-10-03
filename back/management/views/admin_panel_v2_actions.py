@@ -129,6 +129,27 @@ change_user_matching_state = {
     }
 }
 
+flag_user_test_spam_legit = {
+    "title": "Flag User As Test Spam Legit",
+    "description": "Flag a user as test spam legit.",
+    "type": "object",
+    "required": [
+        "user_id",
+        "spam_test_legit"
+    ],
+    "properties": {
+        "user_id": {
+            "type": "integer",
+            "description": "The user id of the user to flag."
+        },
+        "spam_test_legit": {
+            "type": "string",
+            "choices": ["spam", "legit", "test"],
+            "description": "The new spam legit state of the user."
+        }
+    }
+}
+
 
 def check_management_access_right(request, user):
     from management.models import State
@@ -144,6 +165,7 @@ def check_management_access_right(request, user):
         }, status=401)
     
     return True
+
 
 
 def perform_user_deletion(user, management_user=None, send_deletion_email=False):
@@ -182,6 +204,29 @@ def perform_user_deletion(user, management_user=None, send_deletion_email=False)
     user.profile.phone_mobile = f"deleted, {user.profile.phone_mobile}"
     user.profile.save()
     
+@api_view(['POST'])
+@permission_classes([IsAdminOrMatchingUser])
+def flag_user_spam_test_legit(request):
+
+    from management.models import State, Profile
+    from management.controller import get_user_by_pk, make_tim_support_user
+    
+    user = get_user_by_pk(request.data["user_id"])
+
+    access = check_management_access_right(request, user)
+    if access != True:
+        return access
+    
+    us = request.user.state
+    
+    if request.data["spam_test_legit"] == "spam":
+        us.user_category = State.UserCategoryChoices.SPAM
+    elif request.data["spam_test_legit"] == "test":
+        us.user_category = State.UserCategoryChoices.TEST
+    elif request.data["spam_test_legit"] == "legit":
+        us.user_category = State.UserCategoryChoices.LEGIT
+    us.save()
+    return Response({"success": True})
 
 
 @api_view(['POST'])

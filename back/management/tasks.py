@@ -150,7 +150,8 @@ I'll take the time to answer all your messages but I might take a little time to
 def calculate_directional_matching_score_v2_static(
     user_pk,
     catch_exceptions=True,
-    invalidate_other_scores=True
+    invalidate_other_scores=True,
+    consider_only_registered_within_last_x_days=None
 ):
     from .controller import get_user_by_pk
     from management.models import State, User, MatchinScore
@@ -165,6 +166,13 @@ def calculate_directional_matching_score_v2_static(
         state__email_authenticated=True,
         is_staff=False
     )
+    
+    if not (consider_only_registered_within_last_x_days is None):
+        from django.utils import timezone
+        today = timezone.now()
+        x_days_ago = today - datetime.timedelta(days=consider_only_registered_within_last_x_days)
+        all_users_to_consider = all_users_to_consider.filter(date_joined__gte=x_days_ago)
+
     
     amnt_users = all_users_to_consider.count()
     print(f"Found {amnt_users} users to consider")
