@@ -667,6 +667,13 @@ class SelfProfileSerializer(ProfileSerializer):
                 data['phone_mobile'] = "parse_error"
 
         return super(SelfProfileSerializer, self).to_internal_value(data)
+    
+    def validate_liability_accepted(self, value):
+        if not value:
+            raise serializers.ValidationError(
+                pgettext_lazy("profile.liability-declined",
+                              "You must accept the liability"))
+        return value
 
     def validate_postal_code(self, value):
         return validate_postal_code(value)
