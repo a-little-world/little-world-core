@@ -562,6 +562,7 @@ class ProfileSerializer(serializers.ModelSerializer):
     options = serializers.SerializerMethodField()
     interests = serializers.MultipleChoiceField(
         choices=Profile.InterestChoices.choices)
+    image = serializers.ImageField(max_length=None, allow_empty_file=True, allow_null=True, required=False)
 
     def get_options(self, obj):
         d = get_options_serializer(self, obj)
