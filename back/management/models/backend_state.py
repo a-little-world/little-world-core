@@ -66,7 +66,7 @@ class BackendState(models.Model):
     def get_prematch_callinvitations_state(cls):
         backend_state = cls.objects.filter(slug=cls.BackendStateEnum.pre_matching_call_active)
         if backend_state.exists():
-            return backend_state
+            return backend_state.first()
         else:
             backend_state = cls.objects.create(
                 slug=cls.BackendStateEnum.pre_matching_call_active,
