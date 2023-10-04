@@ -66,14 +66,14 @@ class BackendState(models.Model):
     def get_prematch_callinvitations_state(cls):
         backend_state = cls.objects.filter(slug=cls.BackendStateEnum.pre_matching_call_active)
         if backend_state.exists():
-            return backend_state.meta
+            return backend_state
         else:
             backend_state = cls.objects.create(
                 slug=cls.BackendStateEnum.pre_matching_call_active,
                 name="Pre Match Video Calls",
                 meta={
-                    "active": True
-                    "volunteers_to_invite" : 5,
-                    "learners_to_invite": 5
+                    "active": False,
+                    "invitations_remaining": 10
                 }
             )
+            return backend_state
