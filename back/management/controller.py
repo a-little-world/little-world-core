@@ -251,9 +251,6 @@ Aktuell arbeiten wir an einigen Aktualisierungen unserer Plattform und unseres M
 
 Während wir für dich ein passendes Match finden, kannst du gerne in unserem <a href="https://home.little-world.com/leitfaden">Gesprächsleitfaden</a> stöbern. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
 
-Falls du Lust und Zeit hast, uns weiter zu unterstützen, würden wir uns sehr über deine Teilnahme an unserer Umfrage freuen. 
-Zwei Studentinnen der Uni Siegen, Natalia und Sandra, würden dich gerne zur Verbesserung von Little World interviewen. Das Interview dauert etwa 30-45 Minuten und dient dazu, uns dabei zu helfen, unseren Service zu verbessern. Natürlich bleiben deine Antworten anonym und werden nicht veröffentlicht. Wenn du interessiert bist, kannst du Natalia unter <a href="mailto:natalia.romancheva@student.uni-siegen.de?subject=Interview">natalia.romancheva@student.uni-siegen.de</a> oder Sandra unter <a href="mailto:sandra.butzek@student.uni-siegen.de?subject=Interview">sandra.butzek@student.uni-siegen.de</a> kontaktieren.
-
 Vielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!""".format(first_name=first_name))
             
             if check_prematching_invitations:
