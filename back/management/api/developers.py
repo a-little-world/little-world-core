@@ -74,7 +74,7 @@ class DevLoginAPI(APIView):
             from ..api.user_data import frontend_data
             
             with translation.override("tag"):
-                _frontend_data = frontend_data(request.user)
+                _frontend_data = frontend_data(usr)
                 return Response({
                     "data": _frontend_data
                 })
