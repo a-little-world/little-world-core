@@ -64,6 +64,20 @@ class DevLoginAPI(APIView):
 
             from ..templatetags.temp_utils import get_api_translations
             return Response({"profile_data": json.dumps(profile_data, cls=CoolerJson), "api_translations": get_api_translations(request)})
+        if params.dev_dataset == "main_frontend_v2":
+            try:
+                usr = authenticate(username=params.username,
+                                   password=params.password)
+                login(request, usr)
+            except:
+                return Response("Authentication failed", status=403)
+            from ..api.user_data import frontend_data
+            
+            with translation.override("tag"):
+                _frontend_data = frontend_data(request.user)
+                return Response({
+                    "data": _frontend_data
+                })
         elif params.dev_dataset == "user_form_frontend":
 
             try:

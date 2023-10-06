@@ -2,6 +2,7 @@
 This is a controller for any userform related actions
 e.g.: Creating a new user, sending a notification to a users etc...
 """
+import urllib.parse
 from django.db import transaction
 from typing import Dict, Callable
 from management.models.unconfirmed_matches import UnconfirmedMatch
@@ -272,9 +273,12 @@ Bevors richtig los geht musst du mit mir einen 15 minuetigen video call termin v
 Dort werden wir zusmmen deine such angaben ueberpruefen und ich werde dir die nachsten schritte zur teilnahme bei little world erklaern.
                                                     
 Bitte buche dafuer einen termin in dem volgenden kalender: 
-<button data-cal-link="tim-schupp-o8evyj/15min?email={email}&notes=user-id-{hash}"  data-cal-config='{"layout":"month_view"}'>Book a meeting</button>
+<button data-cal-link="tim-schupp-o8evyj/15min?{encoded_params}"  data-cal-config='{{"layout":"month_view"}}'>Book a meeting</button>
 
-Falls hier garnix passt oder du andere fragen hast schreib mir einfach hier eine Nachricht.""".format(first_name=first_name, email=email, hash=usr.hash))
+Falls hier garnix passt oder du andere fragen hast schreib mir einfach hier eine Nachricht.""".format(first_name=first_name,encoded_params=urllib.parse.urlencode({
+                        "email": str(usr.email),
+                        "hash": str(usr.hash)
+                    }), hash=usr.hash))
                     usr.state.require_pre_matching_call = True
                     usr.state.save()
                 

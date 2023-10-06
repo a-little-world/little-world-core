@@ -1,3 +1,3 @@
-from . import user_data, register, admin, user, profile, notify, trans, community_events, twilio, cookies, developers, help, translation_requests, confirm_match, email_settings, report_unmatch
+from . import user_data, register, admin, user, profile, notify, trans, community_events, twilio, cookies, developers, help, translation_requests, confirm_match, email_settings, report_unmatch, calcom
 __all__ = ["user_data", "register", "admin",
-           "user", "profile", "notify", "trans", "twilio", "cookies", "developers", "help", "translation_requests", "confirm_match", "email_settings", "report_unmatch"]
+           "user", "profile", "notify", "trans", "twilio", "cookies", "developers", "help", "translation_requests", "confirm_match", "email_settings", "report_unmatch", "calcom"]
