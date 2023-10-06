@@ -52,6 +52,12 @@ class State(models.Model):
     
     still_active_reminder_send = models.BooleanField(default=False)
     still_active_reminder_confirmed = models.BooleanField(default=False)
+    
+    """
+    For Tims experient of talking to all participants first 
+    If this flag is set to 'True' Tim has to make an appointment with that user first.
+    """
+    require_pre_matching_call = models.BooleanField(default=False)
 
     """
     These are referense to the actual user model of this persons matches 

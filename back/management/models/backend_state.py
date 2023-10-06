@@ -19,6 +19,7 @@ class BackendState(models.Model):
         default_cookies = "db-created-default-cookies-and-cookiegroups"
         base_management_user_profile = "db-filled-base-management-user-profile"
         default_score_source_created = "db-created-default-score-source"
+        pre_matching_call_active = "pre-matching-call-active"
 
     slug = models.CharField(null=False, blank=False,
                             choices=BackendStateEnum.choices, unique=True, max_length=255)
@@ -60,3 +61,19 @@ class BackendState(models.Model):
     def is_default_score_source_created(cls, set_true=False):
         return cls.exists_or_create(
             cls.BackendStateEnum.default_score_source_created, set_true=set_true)
+        
+    @classmethod
+    def get_prematch_callinvitations_state(cls):
+        backend_state = cls.objects.filter(slug=cls.BackendStateEnum.pre_matching_call_active)
+        if backend_state.exists():
+            return backend_state.first()
+        else:
+            backend_state = cls.objects.create(
+                slug=cls.BackendStateEnum.pre_matching_call_active,
+                name="Pre Match Video Calls",
+                meta={
+                    "active": False,
+                    "invitations_remaining": 10
+                }
+            )
+            return backend_state

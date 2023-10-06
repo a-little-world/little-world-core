@@ -128,7 +128,7 @@ class Register(APIView):
         # create_user will trow seralization error per default
         # also performs registration, send email etc...
         usr = controller.create_user(**{k: getattr(registration_data, k) for k in registration_data.__annotations__},
-                                     send_verification_mail=True)
+                                     send_verification_mail=True, check_prematching_invitations=True)
 
         if settings.IS_PROD:
             from ..tasks import dispatch_admin_email_notification

@@ -227,6 +227,8 @@ view_routes = [
     path(f"stats/graph/<str:slug>", graph_panel, name="graph_dashboard"),
     path(f"stats/<str:regrouped_by>", stats_panel, name="stats_dashboard"),
 
+    path(_api_url('calcom', admin=False), api.calcom.callcom_websocket_callback),
+
     *admin_panel_v2_actions.action_routes
 
 ]
