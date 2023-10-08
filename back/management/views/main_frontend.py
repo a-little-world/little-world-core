@@ -1,4 +1,4 @@
-from ..api.user_data import get_full_frontend_data
+from ..api.user_data import get_full_frontend_data, frontend_data
 from django.contrib.auth.mixins import LoginRequiredMixin
 from back.utils import CoolerJson
 from django.conf import settings
@@ -88,6 +88,5 @@ class MainFrontendView(LoginRequiredMixin, View):
         # the frontend also receives all api translations!
         # This way it can switch the language without reloading
         with translation.override("tag"):
-            profile_data = get_full_frontend_data(
-                request.user, options=True, **_kwargs, admin=request.user.is_staff)
-        return render(request, "main_frontend.html", {"profile_data": json.dumps(profile_data, cls=CoolerJson)})
+            data = frontend_data(request.user)
+        return render(request, "main_frontend.html", {"data": json.dumps(data, cls=CoolerJson)})
