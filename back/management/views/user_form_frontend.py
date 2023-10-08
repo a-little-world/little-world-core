@@ -134,7 +134,7 @@ def subsection_of_user_form(request):
     return _render_user_form_app(request, "oneformpageonly", use_cookie_banner=False, pages=pages)
 
 
-@ login_required
+@login_required
 def user_form(request, path=None):
     """
     Renders the main user form app, this data is used for matching the users
