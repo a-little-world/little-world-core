@@ -22,7 +22,7 @@
 </body>
 {% render_bundle 'staticfiles' 'js' 'main_frontend' %}
 <script>
-  const data = JSON.parse('{{ profile_data | escapejs }}');
+  const data = JSON.parse('{{ data | escapejs }}');
   const apiTranslations = JSON.parse('{{ api_translations | escapejs }}');
   renderApp({ initData : data }, { apiTranslations })
 </script>
