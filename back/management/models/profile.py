@@ -425,7 +425,18 @@ class ProfileBase(models.Model):
             "profile.lang-level.level-3", "C1/C2 = (complex topics, hardly searching for words)")
 
     lang_skill = models.JSONField(default=base_lang_skill)
+    
+    
+    class DisplayLanguageChoides(models.TextChoices):
+        GERMAN = "de", pgettext_lazy(
+            "profile.display-language.german", "Deutsch")
+        ENGLISH = "en", pgettext_lazy(
+            "profile.display-language.english", "English")
 
+    display_language = models.CharField(
+        choices=DisplayLanguageChoides.choices,
+        default=DisplayLanguageChoides.GERMAN,
+        max_length=255)
     # Profile image
 
     class ImageTypeChoice(models.TextChoices):
