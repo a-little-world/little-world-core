@@ -275,13 +275,16 @@ Bevors richtig los geht musst du mit mir einen 15 minuetigen video call termin v
 Dort werden wir zusmmen deine such angaben ueberpruefen und ich werde dir die nachsten schritte zur teilnahme bei little world erklaern.
                                                     
 Bitte buche dafuer einen termin in dem volgenden kalender: 
-<button data-cal-link="{settings.DJ_CALCOM_MEETING_ID}?{encoded_params}"  data-cal-config='{{"layout":"month_view"}}'>Book a meeting</button>
+<button data-cal-link="{calcom_meeting_id}?{encoded_params}"  data-cal-config='{{"layout":"month_view"}}'>Book a meeting</button>
 
 Falls hier garnix passt oder du andere fragen hast schreib mir einfach hier eine Nachricht.""".format(first_name=first_name,encoded_params=urllib.parse.urlencode({
                         "email": str(usr.email),
                         "hash": str(usr.hash),
                         "bookingcode": str(usr.state.prematch_booking_code)
-                    }), hash=usr.hash))
+                    }), 
+                    hash=usr.hash,
+                    calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID))
+
                     usr.state.require_pre_matching_call = True
                     usr.state.save()
                 
