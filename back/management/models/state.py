@@ -1,6 +1,7 @@
 from django.db import models
 from .user import User
 from .management_tasks import MangementTask
+import uuid
 import json
 import base64
 import zlib
@@ -81,6 +82,8 @@ class State(models.Model):
     matching_state = models.CharField(choices=MatchingStateChoices.choices,
                                       default=MatchingStateChoices.IDLE,
                                       max_length=255)
+    
+    prematch_booking_code = models.CharField(max_length=255, default=uuid.uuid4)
 
     """
     This contains a list of matches the user has not yet confirmed 
