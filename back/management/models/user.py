@@ -208,6 +208,9 @@ class User(AbstractUser):
         Sends the users a chat message
         theoreticly this could be used to send a message from any sender
         this would ofcourse require these user to have a related dialog object
+        
+        TODO: dynamicly deterine the matching user for this user!
+        Instead of always returing the same suport user!
         """
         from ..controller import get_base_management_user
         from chat.django_private_chat2.consumers.db_operations import save_text_message
