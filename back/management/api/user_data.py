@@ -343,12 +343,17 @@ def frontend_data(user, items_per_page=10):
 
     archived_notifications = get_paginated(Notification.get_archived_notifications(user), items_per_page, 1)
     archived_notifications["items"] = serialize_notifications(archived_notifications["items"])
+    
+    ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
+    profile_data = ProfileWOptions(user_profile).data
+    profile_options = profile_data["options"]
+    del profile_data["options"]
 
     return {
         "user": {
             "id": user.hash,
             "isSearching": user_state.matching_state == State.MatchingStateChoices.SEARCHING,
-            "profile": SelfProfileSerializer(user_profile).data,
+            "profile": profile_data,
             "settings": {
                "frontendLang" : ""
             }
@@ -364,6 +369,9 @@ def frontend_data(user, items_per_page=10):
             "unread": unread_notifications,
             "read": read_notifications,
             "archived": archived_notifications,
+        },
+        "apiOptions": {
+            "profile": profile_options,
         }
     }
 
