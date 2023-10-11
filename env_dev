@@ -34,3 +34,6 @@ DJ_SG_DEFAULT_FROM_EMAIL="admin@user.com"
 DJ_BASE_URL=http://localhost:8000
 DJ_TIM_MANAGEMENT_PW=Test123!
 DJ_TWILIO_SMS_NUMBER=+15005550006
+# Cal com for pre-call interviews
+DJ_CALCOM_QUERY_ACCESS_PARAM="secret"
+DJ_CALCOM_MEETING_ID="tim-schupp-o8evyj/15min"

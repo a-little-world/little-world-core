@@ -28,6 +28,9 @@ TWILIO_ACCOUNT_SID = os.environ["DJ_TWILIO_ACCOUNT_SID"]
 TWILIO_API_KEY_SID = os.environ["DJ_TWILIO_API_KEY_SID"]
 TWILIO_API_SECRET = os.environ["DJ_TWILIO_API_SECRET"]
 
+DJ_CALCOM_QUERY_ACCESS_PARAM = os.environ.get("DJ_CALCOM_QUERY_ACCESS_PARAM", "none")
+DJ_CALCOM_MEETING_ID = os.environ.get("DJ_CALCOM_MEETING_ID", "none")
+
 COOKIE_CONSENT_NAME = "backend_cookie_consent"
 
 EMPHIRIAL = os.environ.get("EMPHIRIAL", "0") == "1"

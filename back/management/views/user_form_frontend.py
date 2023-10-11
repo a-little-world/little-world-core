@@ -87,12 +87,12 @@ def register(request):
 def email_verification(request):
     if request.user.state.is_email_verified():
         return redirect(reverse("management:user_form", kwargs={}))
-    return _render_user_form_app(request, "verifymail", use_cookie_banner=True, email=request.user.email)
+    return _render_user_form_app(request, "verifymail", use_cookie_banner=False, email=request.user.email)
 
 
 @login_required
 def email_change(request):
-    return _render_user_form_app(request, "changemail", use_cookie_banner=True)
+    return _render_user_form_app(request, "changemail", use_cookie_banner=False)
 
 
 def email_verification_link_screen(request, **kwargs):
@@ -104,9 +104,9 @@ def email_verification_link_screen(request, **kwargs):
                                         "Email authentication data missing")})
 
     if verify_email_link(kwargs['auth_data']):
-        return _render_user_form_app(request, "mailverificationsucess")
+        return _render_user_form_app(request, "mailverificationsucess", use_cookie_banner=False)
     else:
-        return _render_user_form_app(request, "mailverificationfail")
+        return _render_user_form_app(request, "mailverificationfail", use_cookie_banner=False)
 
 
 @login_required
@@ -140,7 +140,7 @@ def user_form(request, path=None):
     Renders the main user form app, this data is used for matching the users
     this app is allowed to reserve all front/* paths
     """
-    return _render_user_form_app(request, localdev=settings.IS_DEV, use_cookie_banner=True)
+    return _render_user_form_app(request, localdev=settings.IS_DEV, use_cookie_banner=False)
 
 def dynamic_error_page(request, header, text="", afterErrorRoute="/login"):
     
