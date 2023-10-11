@@ -2,6 +2,21 @@ from channels_redis.core import RedisChannelLayer
 from django.utils.translation import gettext_lazy as _
 import os
 
+
+USE_SENTRY = os.environ.get(
+    "DJ_USE_SENTRY", "false").lower() in ('true', '1', 't')
+
+SENTRY_DNS = os.environ.get("DJ_SENTRY_DNS", "")
+
+# INIT sentry for error tracking
+if USE_SENTRY:
+    import sentry_sdk
+    sentry_sdk.init(
+        dsn=SENTRY_DNS,
+        traces_sample_rate=1.0,
+        profiles_sample_rate=1.0,
+    )
+
 # This can be used to exclude apps or middleware
 BUILD_TYPE = os.environ["BUILD_TYPE"]
 assert BUILD_TYPE in ['deployment', 'staging', 'development']
