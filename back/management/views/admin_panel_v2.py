@@ -677,6 +677,13 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
             "task_id": task.task_id,
             "view": f"/admin/django_celery_results/taskresult/?q={task.task_id}"
         })
+        
+        
+class SimpleUserViewSet(AdvancedAdminUserViewset):
+    queryset = User.objects.all().order_by('-date_joined')
+    serializer_class = AdminUserSerializer
+    pagination_class = DetailedPaginationMixin
+    permission_classes = [IsAdminOrMatchingUser]
 
 def check_task_status(task_id):
     from celery.result import AsyncResult
@@ -698,6 +705,7 @@ def request_task_status(request, task_id):
     return Response(check_task_status(task_id))
 
 root_user_viewset = AdvancedAdminUserViewset
+user_info_viewset = SimpleUserViewSet
 
 @api_view(['GET'])
 @permission_classes([IsAdminOrMatchingUser])
