@@ -198,6 +198,9 @@ view_routes = [
     path(_api_url('user_advanced/<str:pk>/scores', admin=True), 
          admin_panel_v2.root_user_viewset.as_view({'get': 'scores'})),
 
+    path(_api_url('user_advanced/<str:pk>/score_between', admin=True), 
+         admin_panel_v2.root_user_viewset.as_view({'post': 'score_between'})),
+
     path(_api_url('user_advanced/<str:pk>/tasks', admin=True), 
          admin_panel_v2.root_user_viewset.as_view({'get': 'tasks', 'post': 'tasks'})),
 
