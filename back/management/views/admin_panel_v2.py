@@ -463,7 +463,13 @@ def matching_suggestion_from_database_paginated(request, user):
     return pages
 
 def matching_scores_between_users(request, from_usr, to_usr):
-    matching_score = MatchinScore.objects.filter(from_usr=from_usr, current_score=True, to_usr=to_usr).order_by('-score').first()
+    matching_score = MatchinScore.objects.filter(from_usr=from_usr, current_score=True, to_usr=to_usr).order_by('-score')
+    
+    if not matching_score.exists():
+        pass #TODO calculate it
+    else:
+        matching_score = matching_score.first()
+
     return AdvancedMatchingScoreSerializer(matching_score).data
 
 
