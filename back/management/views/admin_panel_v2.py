@@ -462,6 +462,11 @@ def matching_suggestion_from_database_paginated(request, user):
     pages["results"] = AdvancedMatchingScoreSerializer(pages["results"], many=True).data
     return pages
 
+def matching_scores_between_users(request, from_usr, to_usr):
+    matching_score = MatchinScore.objects.filter(from_usr=from_usr, current_score=True, to_usr=to_usr).order_by('-score').first()
+    return AdvancedMatchingScoreSerializer(matching_score).data
+
+
 
 class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet):
     queryset = User.objects.all().order_by('-date_joined')
@@ -479,6 +484,14 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         
         scores = matching_suggestion_from_database_paginated(request, obj)
         return Response(scores)
+    
+    @action(detail=True, methods=['post'])
+    def score_between(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        score = matching_scores_between_users(request, obj, request.data["to_user"])
+        return Response(score)
     
     
     @action(detail=True, methods=['get'])
