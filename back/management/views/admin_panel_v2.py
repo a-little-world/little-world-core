@@ -462,11 +462,15 @@ def matching_suggestion_from_database_paginated(request, user):
     pages["results"] = AdvancedMatchingScoreSerializer(pages["results"], many=True).data
     return pages
 
-def matching_scores_between_users(request, from_usr, to_usr):
+def matching_scores_between_users(from_usr, to_usr):
     matching_score = MatchinScore.objects.filter(from_usr=from_usr, current_score=True, to_usr=to_usr).order_by('-score')
     
     if not matching_score.exists():
-        pass #TODO calculate it
+        from management.matching.matching_score import calculate_directional_score_write_results_to_db
+        score1 = calculate_directional_score_write_results_to_db(
+            from_usr, to_usr, return_on_nomatch=False,
+            catch_exceptions=True)
+        matching_score = score1
     else:
         matching_score = matching_score.first()
 
@@ -496,7 +500,7 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         self.kwargs['pk'] = pk
         obj = self.get_object()
         
-        score = matching_scores_between_users(request, obj, request.data["to_user"])
+        score = matching_scores_between_users(obj, request.data["to_user"])
         return Response(score)
     
     
