@@ -41,7 +41,7 @@ services:
       DJ_SG_DEFAULT_FROM_EMAIL: "admin@user.com"
       DJ_BASE_URL: http://localhost:8000
       DJ_CALCOM_QUERY_ACCESS_PARAM: "secret"
-      DJ_CALCOM_MEETING_ID: "tim-schupp-o8evyj/15min"
+      DJ_CALCOM_MEETING_ID: "herr-duenschnlate-iiscv9/15min"
       DJ_USE_SENTRY: 0
       DJ_SENTRY_DNS: ""
     extra_hosts:
