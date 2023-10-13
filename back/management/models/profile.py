@@ -451,6 +451,16 @@ class ProfileBase(models.Model):
         upload_to=PathRename("profile_pics/"), blank=True)
     avatar_config = models.JSONField(
         default=dict, blank=True)  # Contains the avatar builder config
+    
+    
+    class DisplayLanguageChoices(models.TextChoices):
+        GERMAN = "de", pgettext_lazy("profile.display-language.de", "Deutsch")
+        ENGLISH = "en", pgettext_lazy("profile.display-language.en", "English")
+        
+    display_language = models.CharField(
+        choices=DisplayLanguageChoices.choices,
+        default=DisplayLanguageChoices.GERMAN,
+        max_length=255)
 
     gender_prediction = models.JSONField(null=True, blank=True)
     
@@ -625,7 +635,7 @@ class SelfProfileSerializer(ProfileSerializer):
             description={
                 "error_messages": {
                     'max_length': pgettext_lazy("profile.descr-to-long",
-                                                "must have a maximum of 300 characters"),
+                                                "must have a maximum of 999 characters"),
                 }
             }
         )

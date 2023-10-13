@@ -462,6 +462,21 @@ def matching_suggestion_from_database_paginated(request, user):
     pages["results"] = AdvancedMatchingScoreSerializer(pages["results"], many=True).data
     return pages
 
+def matching_scores_between_users(from_usr, to_usr):
+    matching_score = MatchinScore.objects.filter(from_usr=from_usr, current_score=True, to_usr=to_usr).order_by('-score')
+    
+    if not matching_score.exists():
+        from management.matching.matching_score import calculate_directional_score_write_results_to_db
+        score1 = calculate_directional_score_write_results_to_db(
+            from_usr, to_usr, return_on_nomatch=False,
+            catch_exceptions=True)
+        matching_score = score1
+    else:
+        matching_score = matching_score.first()
+
+    return AdvancedMatchingScoreSerializer(matching_score).data
+
+
 
 class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet):
     queryset = User.objects.all().order_by('-date_joined')
@@ -479,6 +494,14 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         
         scores = matching_suggestion_from_database_paginated(request, obj)
         return Response(scores)
+    
+    @action(detail=True, methods=['post'])
+    def score_between(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        score = matching_scores_between_users(obj, request.data["to_user"])
+        return Response(score)
     
     
     @action(detail=True, methods=['get'])
@@ -677,6 +700,13 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
             "task_id": task.task_id,
             "view": f"/admin/django_celery_results/taskresult/?q={task.task_id}"
         })
+        
+        
+class SimpleUserViewSet(AdvancedAdminUserViewset):
+    queryset = User.objects.all().order_by('-date_joined')
+    serializer_class = AdminUserSerializer
+    pagination_class = DetailedPaginationMixin
+    permission_classes = [IsAdminOrMatchingUser]
 
 def check_task_status(task_id):
     from celery.result import AsyncResult
@@ -698,6 +728,7 @@ def request_task_status(request, task_id):
     return Response(check_task_status(task_id))
 
 root_user_viewset = AdvancedAdminUserViewset
+user_info_viewset = SimpleUserViewSet
 
 @api_view(['GET'])
 @permission_classes([IsAdminOrMatchingUser])

@@ -349,7 +349,6 @@ def frontend_data(user, items_per_page=10):
     profile_options = profile_data["options"]
     del profile_data["options"]
 
-
     return {
         "user": {
             "id": user.hash,

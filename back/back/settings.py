@@ -2,6 +2,21 @@ from channels_redis.core import RedisChannelLayer
 from django.utils.translation import gettext_lazy as _
 import os
 
+
+USE_SENTRY = os.environ.get(
+    "DJ_USE_SENTRY", "false").lower() in ('true', '1', 't')
+
+SENTRY_DNS = os.environ.get("DJ_SENTRY_DNS", "")
+
+# INIT sentry for error tracking
+if USE_SENTRY:
+    import sentry_sdk
+    sentry_sdk.init(
+        dsn=SENTRY_DNS,
+        traces_sample_rate=1.0,
+        profiles_sample_rate=1.0,
+    )
+
 # This can be used to exclude apps or middleware
 BUILD_TYPE = os.environ["BUILD_TYPE"]
 assert BUILD_TYPE in ['deployment', 'staging', 'development']
@@ -27,6 +42,9 @@ TWILIO_SMS_NUMBER = os.environ.get("DJ_TWILIO_SMS_NUMBER", "+1234567890")
 TWILIO_ACCOUNT_SID = os.environ["DJ_TWILIO_ACCOUNT_SID"]
 TWILIO_API_KEY_SID = os.environ["DJ_TWILIO_API_KEY_SID"]
 TWILIO_API_SECRET = os.environ["DJ_TWILIO_API_SECRET"]
+
+DJ_CALCOM_QUERY_ACCESS_PARAM = os.environ.get("DJ_CALCOM_QUERY_ACCESS_PARAM", "none")
+DJ_CALCOM_MEETING_ID = os.environ.get("DJ_CALCOM_MEETING_ID", "none")
 
 COOKIE_CONSENT_NAME = "backend_cookie_consent"
 
