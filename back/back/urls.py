@@ -74,3 +74,13 @@ if settings.IS_STAGE or settings.IS_DEV:
 if settings.DOCS_BUILD:
     # If DOCS_BUILD we only use this route!
     urlpatterns = statics
+
+if settings.USE_SENTRY:
+    from django.views.decorators.csrf import csrf_exempt
+
+    def trigger_error(request):
+        division_by_zero = 1 / 0
+
+    urlpatterns += [
+        path('sentry-debug/', trigger_error),
+    ]

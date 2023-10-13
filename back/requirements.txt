@@ -37,4 +37,5 @@ single-beat
 googletrans==3.1.0a0
 djangorestframework-dataclasses
 polib
+sentry-sdk[django]
 # django-minio-storage
