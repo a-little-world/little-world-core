@@ -34,6 +34,8 @@ from management.views import admin_panel_v2_actions
 from rest_framework.routers import DefaultRouter
 from django_rest_passwordreset.views import ResetPasswordValidateTokenViewSet, ResetPasswordConfirmViewSet, \
     ResetPasswordRequestTokenViewSet
+from .api.questions import ArchivedQuestionsApi, QuestionApi
+
 
 router = DefaultRouter()
 router.register(  # TODO: we might even wan't to exclude this api
@@ -104,6 +106,12 @@ api_routes = [
          api.notify.NotificationGetApi.as_view()),
     path(_api_url('notification/<str:action>', end_slash=False),
          api.notify.NotificationActionApi.as_view()),
+
+    path(_api_url('question'),
+         QuestionApi.as_view()),
+
+    path(_api_url('archived'),
+         ArchivedQuestionsApi.as_view()),
 
     # e.g.: /user/verify/email/Base64{d=email&u=hash&k=pin:hash}
     path(_api_url('user/verify/email/<str:auth_data>', end_slash=False),

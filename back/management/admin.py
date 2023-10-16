@@ -11,6 +11,7 @@ from phonenumber_field.widgets import PhoneNumberPrefixWidget
 from . import models
 from django.db.migrations.recorder import MigrationRecorder
 from hijack.contrib.admin import HijackUserAdminMixin
+from .models import question_deck
 
 
 @admin.register(models.backend_state.BackendState)
@@ -21,8 +22,8 @@ class BackendStateAdmin(admin.ModelAdmin):
 @admin.register(models.help_message.HelpMessage)
 class HelpMessageStateAdmin(admin.ModelAdmin):
     list_display = ('user', 'message', 'hash')
-    
-    
+
+
 @admin.register(models.settings.EmailSettings)
 class EmailSettingsAdmin(admin.ModelAdmin):
     list_display = ('hash', 'unsubscibed_options')
@@ -32,15 +33,17 @@ class EmailSettingsAdmin(admin.ModelAdmin):
 class CommunityEventAdmin(admin.ModelAdmin):
     list_display = ('title', 'active', 'description',
                     'time', 'frequency', 'link')
-    
+
 
 @admin.register(models.news_and_updates.NewsItem)
 class NewsItemAdmin(admin.ModelAdmin):
     list_display = ('title', 'active', 'description', 'time', 'link')
 
+
 @admin.register(models.matches.Match)
 class MatchModelAdmin(admin.ModelAdmin):
     list_display = ('uuid', 'created_at', 'updated_at', 'user1', 'user2')
+
 
 @admin.register(models.matching_scores.MatchinScore)
 class DirectionalMatchinScores(admin.ModelAdmin):
@@ -206,7 +209,7 @@ class UserAdmin(HijackUserAdminMixin, DjangoUserAdmin):
 
     fieldsets = (
         (None, {'fields': ('email', 'password', 'hash',
-         'is_active', 'last_login', 'first_name', 'last_name')}),
+                           'is_active', 'last_login', 'first_name', 'last_name')}),
     )
     add_fieldsets = (
         (None, {
@@ -215,7 +218,8 @@ class UserAdmin(HijackUserAdminMixin, DjangoUserAdmin):
         }),
     )
     list_display = ('_abr_hash', 'email', 'last_login', 'date_joined',
-                    'first_name', 'last_name', 'chat_with', 'show_matching_suggestions', 'show_matches_in_panel', 'view_tracked_activity', 'is_user_form_filled', 'is_staff', 'username')
+                    'first_name', 'last_name', 'chat_with', 'show_matching_suggestions', 'show_matches_in_panel',
+                    'view_tracked_activity', 'is_user_form_filled', 'is_staff', 'username')
     search_fields = ('email', 'first_name', 'last_name', 'hash')
     # fist & last names are read-only here,
     # the user can change the first / lastnames stored in profile, but not this one!
@@ -223,12 +227,25 @@ class UserAdmin(HijackUserAdminMixin, DjangoUserAdmin):
     ordering = ('email', 'is_staff')
     list_filter = (UserFormFilledFilter, UserCategory, 'is_staff',)
 
+
 @admin.register(models.unconfirmed_matches.UnconfirmedMatch)
 class UnconfirmedMatchAdmin(admin.ModelAdmin):
     list_display = ("hash", "user1", "user2", "closed", "expires_at")
+
 
 @admin.register(Session)
 class SessionAdmin(admin.ModelAdmin):
     def _session_data(self, obj):
         return obj.get_decoded()
+
     list_display = ['session_key', '_session_data', 'expire_date']
+
+
+@admin.register(question_deck.CardContent)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ('uuid', 'category_name')
+
+
+@admin.register(question_deck.UserDeck)
+class UserCategoriesAdmin(admin.ModelAdmin):
+    list_display = ['user']
