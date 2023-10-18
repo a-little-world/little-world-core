@@ -34,7 +34,7 @@ from management.views import admin_panel_v2_actions
 from rest_framework.routers import DefaultRouter
 from django_rest_passwordreset.views import ResetPasswordValidateTokenViewSet, ResetPasswordConfirmViewSet, \
     ResetPasswordRequestTokenViewSet
-from .api.questions import ArchivedQuestionsApi, QuestionApi
+from .api.questions import *
 
 
 router = DefaultRouter()
@@ -109,9 +109,12 @@ api_routes = [
 
     path(_api_url('question'),
          QuestionApi.as_view()),
-
-    path(_api_url('archived'),
+    path(_api_url('questions/archive'),
          ArchivedQuestionsApi.as_view()),
+    path(_api_url('questions-list/userarchived'),
+         ViewArchivedList.as_view()),
+    path(_api_url('questions/unarchived'),
+         UnArchivedCard.as_view()),
 
     # e.g.: /user/verify/email/Base64{d=email&u=hash&k=pin:hash}
     path(_api_url('user/verify/email/<str:auth_data>', end_slash=False),
