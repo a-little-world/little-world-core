@@ -10,12 +10,15 @@ SENTRY_DNS = os.environ.get("DJ_SENTRY_DNS", "")
 
 # INIT sentry for error tracking
 if USE_SENTRY:
-    import sentry_sdk
-    sentry_sdk.init(
-        dsn=SENTRY_DNS,
-        traces_sample_rate=1.0,
-        profiles_sample_rate=1.0,
-    )
+    try:
+        import sentry_sdk
+        sentry_sdk.init(
+            dsn=SENTRY_DNS,
+            traces_sample_rate=1.0,
+            profiles_sample_rate=1.0,
+        )
+    except Exception as e:
+        print("WARINING: unable to start sentry", str(e))
 
 # This can be used to exclude apps or middleware
 BUILD_TYPE = os.environ["BUILD_TYPE"]

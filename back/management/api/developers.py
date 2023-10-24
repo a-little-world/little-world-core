@@ -72,11 +72,13 @@ class DevLoginAPI(APIView):
             except:
                 return Response("Authentication failed", status=403)
             from ..api.user_data import frontend_data
+            from ..templatetags.temp_utils import get_api_translations
             
             with translation.override("tag"):
                 _frontend_data = frontend_data(usr)
                 return Response({
-                    "data": _frontend_data
+                    "data": _frontend_data,
+                    "api_translations": json.loads(get_api_translations(request))
                 })
         elif params.dev_dataset == "user_form_frontend":
 

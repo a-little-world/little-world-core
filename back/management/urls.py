@@ -36,7 +36,6 @@ from django_rest_passwordreset.views import ResetPasswordValidateTokenViewSet, R
     ResetPasswordRequestTokenViewSet
 from .api.questions import *
 
-
 router = DefaultRouter()
 router.register(  # TODO: we might even wan't to exclude this api
     r'api/user/resetpw/validate',
@@ -107,15 +106,12 @@ api_routes = [
     path(_api_url('notification/<str:action>', end_slash=False),
          api.notify.NotificationActionApi.as_view()),
 
-    path(_api_url('question'),
-         QuestionApi.as_view()),
     path(_api_url('questions/archive'),
          ArchivedQuestionsApi.as_view()),
     path(_api_url('questions-list/userarchived'),
          ViewArchivedList.as_view()),
     path(_api_url('questions/unarchived'),
          UnArchivedCard.as_view()),
-
     # e.g.: /user/verify/email/Base64{d=email&u=hash&k=pin:hash}
     path(_api_url('user/verify/email/<str:auth_data>', end_slash=False),
          api.user.VerifyEmail.as_view()),
