@@ -623,7 +623,8 @@ class SelfProfileSerializer(ProfileSerializer):
                   'user_type', 'target_group', 'partner_sex', 'speech_medium',
                   'partner_location', 'postal_code', 'interests', 'availability',
                   'lang_level', 'additional_interests', 'language_skill_description', 'birth_year', 'description',
-                  'notify_channel', 'phone_mobile', 'image_type', 'avatar_config', 'image', 'lang_skill', 'gender', 'partner_gender', 'liability_accepted']
+                  'notify_channel', 'phone_mobile', 'image_type', 'avatar_config', 'image', 'lang_skill', 'gender', 
+                  'partner_gender', 'liability_accepted', 'display_language']
 
         extra_kwargs = dict(
             language_skill_description={
