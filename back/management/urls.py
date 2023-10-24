@@ -106,6 +106,8 @@ api_routes = [
     path(_api_url('notification/<str:action>', end_slash=False),
          api.notify.NotificationActionApi.as_view()),
 
+   path(_api_url('question'),
+         QuestionApi.as_view()),
     path(_api_url('questions/archive'),
          ArchivedQuestionsApi.as_view()),
     path(_api_url('questions-list/userarchived'),
