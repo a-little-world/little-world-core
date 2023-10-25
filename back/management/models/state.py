@@ -137,6 +137,7 @@ class State(models.Model):
         STATS_VIEW = "view-stats", _("Is allowed to view the stats")
         
         MATCHING_USER = "matching-user", _("Is allowed to match users")
+        UNCENSORED_ADMIN_MATCHER = "uncensored-admin-matcher", _("Is allowed to match users without censorship")
 
     extra_user_permissions = MultiSelectField(
         max_length=1000,

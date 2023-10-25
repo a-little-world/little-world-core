@@ -191,7 +191,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
         
         return update_representation(representation, instance)
     
-def serialize_messages_for_matching(instance, representation):
+def serialize_messages_for_matching(instance, representation, censor_messages=True):
 
     def get_messages(match):
         partner = controller.get_user_by_pk(match['partner']['id'])
@@ -208,14 +208,13 @@ def serialize_messages_for_matching(instance, representation):
     support = representation['matches']['support']['items']
     unconfirmed = representation['matches']['unconfirmed']['items']
     
-    messages = {}
-    for match in [*confirmed, *support, *unconfirmed]:
+    def update_messages(match, messages, censor=True):
         print("TBS", match["partner"]["id"], match["partner"]["first_name"])
         partner = controller.get_user_by_pk(match['partner']['id'])
         print("PARTNER", partner)
         _msg = get_messages(match)
         if _msg is None:
-            continue
+            return messages
         messages[match['id']] = _msg
         messages[match['id']]["match"] = {
             "match_id": match['id'],
@@ -223,7 +222,16 @@ def serialize_messages_for_matching(instance, representation):
             "state": StateSerializer(partner.state).data,
             "with_management": True if match in support else False
         }
-        messages[match['id']]["items"] = [serialize_message_model(item, instance.pk) for item in _msg["items"]]
+        messages[match['id']]["items"] = [serialize_message_model(item, instance.pk, censor) for item in _msg["items"]]
+        return messages
+    
+    messages = {}
+    for match in [*confirmed, *unconfirmed]:
+        messages = update_messages(match, messages, censor=censor_messages)
+        
+        
+    for match in [*support]:
+        messages = update_messages(match, messages, censor=False)
         
     return messages
     
@@ -239,9 +247,13 @@ class AdvancedAdminUserSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         representation = update_representation(representation, instance)
         
+        censor_messages = True
+        if ('request' in self.context) and self.context['request'].user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.UNCENSORED_ADMIN_MATCHER):
+            censor_messages = False
+        
         # Now also add the matches messages
         # And the chat with that user
-        representation['messages'] = serialize_messages_for_matching(instance, representation)
+        representation['messages'] = serialize_messages_for_matching(instance, representation, censor_messages=censor_messages)
 
         # Also get the email logs
         email_logs = get_paginated(EmailLog.objects.filter(receiver=instance), 10, 1)
@@ -545,7 +557,10 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         self.kwargs['pk'] = pk
         obj = self.get_object()
 
-        return Response(AdvancedAdminUserSerializer(obj).data['messages'])
+        return Response(AdvancedAdminUserSerializer(
+            obj,
+            context={'request': request}
+        ).data['messages'])
         
     @action(detail=True, methods=['get'])
     def sms(self, request, pk=None):
