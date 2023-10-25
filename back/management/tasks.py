@@ -2425,6 +2425,8 @@ def check_match_still_in_contact_emails():
     matches_older_than_3_weeks = Match.objects.filter(
         Q(created_at__lte=timezone.now() - timezone.timedelta(days=21)),
         still_in_contact_mail_send=False,
+    ).exclude(
+        support_matching=True
     )
     
     report = []
