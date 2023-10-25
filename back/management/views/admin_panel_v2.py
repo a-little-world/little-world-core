@@ -220,6 +220,7 @@ def serialize_messages_for_matching(instance, representation):
         messages[match['id']]["match"] = {
             "match_id": match['id'],
             "profile": match['partner'],
+            "state": StateSerializer(partner.state).data,
             "with_management": True if match in support else False
         }
         messages[match['id']]["items"] = [serialize_message_model(item, instance.pk) for item in _msg["items"]]
@@ -398,6 +399,8 @@ def users_that_are_searching_but_have_no_proposal():
     ).exclude(
         Q(pk__in=unconfirmed_matches.values("user1")) |
         Q(pk__in=unconfirmed_matches.values("user2"))
+    ).filter(
+        state__unresponsive=False
     ).order_by('-date_joined')
     
 
