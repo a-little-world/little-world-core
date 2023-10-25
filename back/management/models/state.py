@@ -167,6 +167,9 @@ class State(models.Model):
         max_length=1000, blank=True, null=True)  # type: ignore
     
     management_tasks = models.ManyToManyField(MangementTask, related_name='management_tasks', blank=True)
+    
+    # If the user is unresponsive this is a flag to exclue him from matching etc
+    unresponsive = models.BooleanField(default=False)
 
     def has_extra_user_permission(self, permission):
 
