@@ -31,6 +31,8 @@ services:
     working_dir: /front
     entrypoint: sh /back/entries/frontend_hot_reload.sh main_frontend
     volumes:
+      - ./front/package.json:/front/package.json
+      - ./front/package-lock.json:/front/package-lock.json
       - ./back/entries:/back/entries/
       - ./back/static/dist/main_frontend/:/back/static/dist/main_frontend/
       - ./front/main_frontend.webpack-stats.json:/front/main_frontend.webpack-stats.json

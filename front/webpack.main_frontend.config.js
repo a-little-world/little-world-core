@@ -25,6 +25,7 @@ var config = function (env) {
         '@': path.resolve(__dirname, 'apps/main_frontend/src/'),
         '@django': path.resolve(__dirname, '../back/static/'),
       },
+      fallback: { 'process/browser': require.resolve('process/browser'), }
     },
     output: {
       path: path.join(__dirname, outputPath),

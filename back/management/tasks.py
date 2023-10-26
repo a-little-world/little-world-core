@@ -173,6 +173,8 @@ def calculate_directional_matching_score_v2_static(
         x_days_ago = today - datetime.timedelta(days=consider_only_registered_within_last_x_days)
         all_users_to_consider = all_users_to_consider.filter(date_joined__gte=x_days_ago)
 
+
+    all_users_to_consider = all_users_to_consider.filter(state__unresponsive=False)
     
     amnt_users = all_users_to_consider.count()
     print(f"Found {amnt_users} users to consider")
@@ -2423,6 +2425,8 @@ def check_match_still_in_contact_emails():
     matches_older_than_3_weeks = Match.objects.filter(
         Q(created_at__lte=timezone.now() - timezone.timedelta(days=21)),
         still_in_contact_mail_send=False,
+    ).exclude(
+        support_matching=True
     )
     
     report = []

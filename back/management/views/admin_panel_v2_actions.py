@@ -50,6 +50,25 @@ make_tim_mangement_admin = {
   }
 }
 
+_mark_user_as_unresponsive = {
+    "title": "Mark User As Unresponsive",
+    "description": "Mark a user as unresponsive.",
+    "type": "object",
+    "required": [
+        "user_id"
+    ],
+    "properties": {
+        "user_id": {
+            "type": "integer",
+            "description": "The user id of the user to mark as unresponsive."
+        },
+        "unresponsive": {
+            "type": "boolean",
+            "description": "The new unresponsive state of the user."
+        },
+    }
+}
+
 delete_user_censor_profile = {
     "title": "Delete User Censor Profile", 
     "description": "Delete the user and censor their profile.",
@@ -341,6 +360,23 @@ def make_tim_mangement_admin_action(request):
         custom_message=request.data.get("message", None) if request.data.get("custom_message", False) else None)
     return Response({"success": True})
 
+
+@api_view(['POST'])
+@permission_classes([IsAdminOrMatchingUser])
+def mark_user_as_unresponsive(request):
+    from management.models import State
+    from management.controller import get_user_by_pk, make_tim_support_user
+
+    user = get_user_by_pk(request.data["user_id"])
+    
+    access = check_management_access_right(request, user)
+    if access != True:
+        return access
+    
+    user.state.unresponsive = request.data["unresponsive"]
+    user.state.save()
+    return Response({"success": True})
+
 @api_view(['GET'])
 @permission_classes([IsAdminOrMatchingUser])
 def admin_panel_v2_actions(request):
@@ -364,11 +400,17 @@ def admin_panel_v2_actions(request):
             "route": "/api/admin/quick_actions/send_sms_to_user/",
             "schema": _send_sms_to_user,
             "ui_schema": {}
+        },
+        "mark_user_as_unresponsive": {
+            "route": "/api/admin/quick_actions/mark_user_as_unresponsive/",
+            "schema": _mark_user_as_unresponsive,
+            "ui_schema": {}
         }
     })
 
 action_routes = [
     path(_api_url('quick_actions', admin=True), admin_panel_v2_actions),
+    path(_api_url('quick_actions/mark_user_as_unresponsive', admin=True), mark_user_as_unresponsive),
     path(_api_url('quick_actions/make_tim_mangement_admin', admin=True), make_tim_mangement_admin_action),
     path(_api_url('quick_actions/delete_user', admin=True), delete_user),
     path(_api_url('quick_actions/send_sms_to_user', admin=True), send_sms_to_user),

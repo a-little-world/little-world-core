@@ -13,6 +13,8 @@ from .notifications import Notification
 from back.utils import get_options_serializer
 from back import utils
 from multiselectfield import MultiSelectField
+from .question_deck import CardContent
+
 
 
 class State(models.Model):
@@ -23,6 +25,7 @@ class State(models.Model):
     """
     # Key...
     user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user_deck = models.ManyToManyField(CardContent, related_name='state_user_decks')
 
     # We love additional Information
     created_at = models.DateTimeField(auto_now_add=True)
@@ -134,6 +137,7 @@ class State(models.Model):
         STATS_VIEW = "view-stats", _("Is allowed to view the stats")
         
         MATCHING_USER = "matching-user", _("Is allowed to match users")
+        UNCENSORED_ADMIN_MATCHER = "uncensored-admin-matcher", _("Is allowed to match users without censorship")
 
     extra_user_permissions = MultiSelectField(
         max_length=1000,
@@ -164,6 +168,9 @@ class State(models.Model):
         max_length=1000, blank=True, null=True)  # type: ignore
     
     management_tasks = models.ManyToManyField(MangementTask, related_name='management_tasks', blank=True)
+    
+    # If the user is unresponsive this is a flag to exclue him from matching etc
+    unresponsive = models.BooleanField(default=False)
 
     def has_extra_user_permission(self, permission):
 

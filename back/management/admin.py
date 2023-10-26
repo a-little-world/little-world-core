@@ -9,6 +9,7 @@ from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django import forms
 from phonenumber_field.widgets import PhoneNumberPrefixWidget
 from . import models
+from .models import question_deck
 from django.db.migrations.recorder import MigrationRecorder
 from hijack.contrib.admin import HijackUserAdminMixin
 
@@ -232,3 +233,12 @@ class SessionAdmin(admin.ModelAdmin):
     def _session_data(self, obj):
         return obj.get_decoded()
     list_display = ['session_key', '_session_data', 'expire_date']
+
+@admin.register(question_deck.CardContent)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ('uuid', 'category_name')
+
+
+@admin.register(question_deck.UserDeck)
+class UserCategoriesAdmin(admin.ModelAdmin):
+    list_display = ['user']
