@@ -242,3 +242,11 @@ class CategoryAdmin(admin.ModelAdmin):
 @admin.register(question_deck.UserDeck)
 class UserCategoriesAdmin(admin.ModelAdmin):
     list_display = ['user']
+    
+@admin.register(models.ConsumerConnections)
+class ConsumerConnectionsAdmin(admin.ModelAdmin):
+    list_display = ['user', 'uuid', 'connections']
+    
+@admin.register(models.Connections)
+class ConnectionsAdmin(admin.ModelAdmin):
+    list_display = ['user', 'channel_name', 'active', 'time_joined', 'time_left']
