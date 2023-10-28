@@ -2,6 +2,7 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 import json
 from asgiref.sync import sync_to_async
 from management.models import ConsumerConnections
+from management import models as management_models
 
 
 class CoreConsumer(AsyncWebsocketConsumer):
@@ -19,6 +20,16 @@ class CoreConsumer(AsyncWebsocketConsumer):
             # we always create the connection group, this is used to broadcast messages to all connected consumers
             await self.channel_layer.group_add(str(connection.uuid), self.channel_name)
             await sync_to_async(connection.connect_device)(self.channel_name)
+            await sync_to_async(user.broadcast_message_to_matches)(
+                event="reduction", payload={
+                    "action": "updateMatchProfile", 
+                    "payload": {
+                        "partnerId": user.hash,
+                        "profile": {
+                            "is_online": True
+                        }
+                    }
+            })
             await self.accept()
 
     async def receive(self, text_data):
@@ -53,5 +64,15 @@ class CoreConsumer(AsyncWebsocketConsumer):
             
             connection = await sync_to_async(ConsumerConnections.get_or_create)(user, escalate=True)
             await sync_to_async(connection.disconnect_device)(self.channel_name)
+            await sync_to_async(user.broadcast_message_to_matches)(
+                event="reduction", payload={
+                    "action": "updateMatchProfile", 
+                    "payload": {
+                        "partnerId": user.hash,
+                        "profile": {
+                            "is_online": False
+                        }
+                    }
+            })
             await self.close()
 
