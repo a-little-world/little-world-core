@@ -245,7 +245,7 @@ class UserCategoriesAdmin(admin.ModelAdmin):
     
 @admin.register(models.ConsumerConnections)
 class ConsumerConnectionsAdmin(admin.ModelAdmin):
-    list_display = ['user', 'uuid', 'connections']
+    list_display = ['user', 'uuid']
     
 @admin.register(models.Connections)
 class ConnectionsAdmin(admin.ModelAdmin):
