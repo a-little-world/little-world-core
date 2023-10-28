@@ -56,6 +56,10 @@ class ConsumerConnections(models.Model):
         self.save()
         
     @classmethod
+    def has_active_connections(cls, user):
+        return cls.objects.filter(user=user, connections__active=True).exists()
+        
+    @classmethod
     def async_notify_connections(cls, user, event="reduction", payload={}):
         """
         Runs notify connections in a seperate thread
