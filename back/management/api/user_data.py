@@ -35,7 +35,7 @@ from management.models import (
     UnconfirmedMatch,
     State,
     CommunityEvent,
-    CommunityEventSerializer
+    CommunityEventSerializer,
 )
 from management import models
 from management.api.community_events import get_all_comunity_events_serialized
@@ -272,10 +272,15 @@ def serialize_matches(matches, user):
     for match in matches:
         
         partner = match.get_partner(user)
+        
+        # Check if the partner is online
+        is_online = models.ConsumerConnections.has_active_connections(partner)
+
         serialized.append({
             "id": str(match.uuid),
             "partner": {
                 "id": str(partner.hash),
+                "is_online": is_online,
                 **CensoredProfileSerializer(partner.profile).data
             }
         })
