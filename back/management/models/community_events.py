@@ -45,4 +45,4 @@ class CommunityEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = CommunityEvent
         fields = ['title', 'description', 'time',
-                  'frequency', 'options', 'link']
+                  'frequency', 'options', 'link', 'id']
