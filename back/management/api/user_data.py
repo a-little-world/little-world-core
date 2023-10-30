@@ -353,6 +353,8 @@ def frontend_data(user, items_per_page=10):
     profile_data = ProfileWOptions(user_profile).data
     profile_options = profile_data["options"]
     del profile_data["options"]
+    
+    # TODO: populate incoming calls
 
     return {
         "user": {
@@ -374,7 +376,10 @@ def frontend_data(user, items_per_page=10):
         },
         "apiOptions": {
             "profile": profile_options,
-        }
+        },
+        "incomingCalls": [
+            # { "userId": "592a5cc9-77f9-4f18-8354-25fa56e1e792-c9dcfc91-865f-4371-b695-b00bd1967c27"}
+        ],
     }
 
 @dataclass
