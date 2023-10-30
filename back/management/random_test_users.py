@@ -67,7 +67,7 @@ def random_avatar():
         "noseStyle": ["long", "round", "short"],
         "mouthStyle": ["smile", "peace", "laugh"],
         "shirtStyle": ["short", "polo", "hoody"],
-        "glassesStyle": ["none", "round", "short"],
+        "glassesStyle": ["none", "round"],
         "hairColor": rand_color(),
         "hairStyle": ["womanShort", "normal", "thick", "mohawk"],
         "hatStyle": ["none", "beanie", "turban"],
