@@ -28,6 +28,8 @@ IS_DEV = BUILD_TYPE == 'development'
 IS_STAGE = BUILD_TYPE == 'staging'
 IS_PROD = BUILD_TYPE == 'deployment'
 
+PROD_ATTACH = os.environ.get("DJ_PROD_ATTACH", "false").lower() in ('true', '1', 't')
+
 DOCS_BUILD = os.environ.get(
     "DJ_DOCS_BUILD", "false").lower() in ('true', '1', 't')
 
