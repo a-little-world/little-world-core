@@ -129,3 +129,10 @@ You will need to place the credentials into `.env.prod-attach` then run:
 export $(grep -v '^#' .env.prod-attach | xargs) && docker compose -f docker-compose.prod-attach.yaml build
 export $(grep -v '^#' .env.prod-attach | xargs) && docker compose -f docker-compose.prod-attach.yaml up
 ```
+
+e.g.: Run a management command, just edit a file in `./back/management/management/commands/<command-name>.py`.
+Then run it via:
+
+```bash
+export $(grep -v '^#' .env.prod-attach | xargs) && docker compose -f docker-compose.prod-attach.yaml exec app ./manage.py <command-name>
+```
