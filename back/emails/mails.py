@@ -20,6 +20,7 @@ from emails.templates import (
     MatchRejectedEmailTexts,
     InterviewInvitation,
     GeneralSurveyMail,
+    GeneralSurveyMail_0311,
     # Currently we are using the same template as weclone
     # so MatchFoundEmailTexts has no Defaults
     SurveyInvitationAniq2,
@@ -72,6 +73,13 @@ class StillInContactParams:
 class MatchRejectedEmailParams:
     first_name: str
     partner_first_name: str
+    
+    
+@dataclass
+class GeneralSurveryMail_03_11_Params:
+    first_name: str
+    link_url: str
+    unsubscribe_url1: str
     
 @dataclass
 class GeneralSurveryMailParams:
@@ -295,6 +303,13 @@ templates = [
         params=GeneralSurveryMailParams,
         texts=GeneralSurveyMail,
         defaults=GeneralSurveyMail
+    ),
+    MailMeta(
+        name="general_interview_03_11",
+        template="emails/welcome_reversed.html",
+        params=GeneralSurveryMail_03_11_Params,
+        texts=GeneralSurveyMail_0311,
+        defaults=GeneralSurveyMail_0311
     ),
     MailMeta(
         name="confirm_match_expired_mail_1",
