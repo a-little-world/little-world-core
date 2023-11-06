@@ -17,7 +17,7 @@ from rest_framework.response import Response
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.views.decorators.vary import vary_on_cookie, vary_on_headers
-from rest_framework import serializers
+from rest_framework import serializers, status
 from rest_framework.throttling import UserRateThrottle
 from dataclasses import dataclass
 from back.utils import transform_add_options_serializer
@@ -97,7 +97,7 @@ class UserDataApiSerializer(serializers.Serializer):
 
 
 def get_user_data(user, is_self=False, admin=False, include_options=False):
-    """ 
+    """
     user: some user
     is_self: if the user is asking for himself ( or an admin is asking )
     This contains all data from all acessible user models
@@ -136,7 +136,7 @@ def get_matches_paginated(user, admin=False,
                           page=UserDataApiParams.page,
                           paginate_by=UserDataApiParams.paginate_by):
     """
-    This returns a list of matches for a user, 
+    This returns a list of matches for a user,
     this will always the censored *except* if accessed by an admin
     """
 
@@ -266,13 +266,31 @@ def get_paginated(query_set, items_per_page, page):
         "itemsPerPage": items_per_page,
         "currentPage": page,
     }
-    
+
+def get_matches_confirmed_category(page, queryset, itemsPerPage=10):
+    # page - current page's number
+    # itemsPerPage - number of posts to show on one page
+
+    if page == 1:
+        start = (page - 1) * itemsPerPage
+        end = page * itemsPerPage
+    else:
+        start = ((page - 1) * itemsPerPage)-1
+        end = (page * itemsPerPage)-1
+
+    pager = dict()
+    pager.update({'items': queryset[start:end]})
+    pager.update({'totalItems': len(queryset)})
+    pager.update({'itemsPerPage': itemsPerPage})
+    pager.update({'currentPage': page})
+    return pager
+
 def serialize_matches(matches, user):
     serialized = []
     for match in matches:
-        
+
         partner = match.get_partner(user)
-        
+
         # Check if the partner is online
         is_online = models.ConsumerConnections.has_active_connections(partner)
 
@@ -284,13 +302,13 @@ def serialize_matches(matches, user):
                 **CensoredProfileSerializer(partner.profile).data
             }
         })
-        
+
     return serialized
 
 def serialize_proposed_matches(matching_proposals, user):
     serialized = []
     for proposal in matching_proposals:
-        
+
         partner = proposal.get_partner(user)
         serialized.append({
             "id": str(proposal.hash), # TODO: rename
@@ -299,32 +317,32 @@ def serialize_proposed_matches(matching_proposals, user):
                 **ProposalProfileSerializer(partner.profile).data
             } # TODO: this want some additional fields
         })
-        
+
     return serialized
 
 def serialize_community_events(events):
     serialized = []
-    
+
     for event in events:
         serialized.append(CommunityEventSerializer(event).data)
-        
+
     return serialized
 
 def serialize_notifications(notifications):
     serialized = []
-    
+
     for notification in notifications:
         serialized.append(SelfNotificationSerializer(notification).data)
-        
+
     return serialized
 
 
 
 def frontend_data(user, items_per_page=10):
-    
+
     user_state = user.state
     user_profile = user.profile
-    
+
     community_events = get_paginated(CommunityEvent.get_all_active_events(), items_per_page, 1)
     community_events["items"] = serialize_community_events(community_events["items"])
 
@@ -336,10 +354,10 @@ def frontend_data(user, items_per_page=10):
 
     support_matches = get_paginated(models.Match.get_support_matches(user), items_per_page, 1)
     support_matches["items"] = serialize_matches(support_matches["items"], user)
-    
+
     proposed_matches = get_paginated(UnconfirmedMatch.get_open_proposals(user), items_per_page, 1)
     proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
-    
+
     read_notifications = get_paginated(Notification.get_read_notifications(user), items_per_page, 1)
     read_notifications["items"] = serialize_notifications(read_notifications["items"])
 
@@ -348,12 +366,12 @@ def frontend_data(user, items_per_page=10):
 
     archived_notifications = get_paginated(Notification.get_archived_notifications(user), items_per_page, 1)
     archived_notifications["items"] = serialize_notifications(archived_notifications["items"])
-    
+
     ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
     profile_data = ProfileWOptions(user_profile).data
     profile_options = profile_data["options"]
     del profile_data["options"]
-    
+
     # TODO: populate incoming calls
 
     return {
@@ -385,13 +403,13 @@ def frontend_data(user, items_per_page=10):
 @dataclass
 class UserDataV2Params:
     items_per_page: int = 10
-    
+
 
 class ConfirmMatchSerializer(DataclassSerializer):
     items_per_page = serializers.IntegerField(required=False, default=10)
     class Meta:
         dataclass = UserDataV2Params
-        
+
 
 @extend_schema(
     request=ConfirmMatchSerializer(many=False),
@@ -400,10 +418,60 @@ class ConfirmMatchSerializer(DataclassSerializer):
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def user_data_v2(request):
-    
+
     serializer = ConfirmMatchSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
-    
+
     params = serializer.save()
 
     return Response(frontend_data(request.user, params.items_per_page))
+
+
+@dataclass
+class ConfirmendDataApiParams:
+    page: int = 1
+    itemsPerPage: int = 10
+
+
+class ConfirmedDataApiSerializer(serializers.Serializer):
+    page = serializers.IntegerField(min_value=1, required=False)
+    itemsPerPage = serializers.IntegerField(min_value=1, required=False)
+
+    def create(self, validated_data):
+        return ConfirmendDataApiParams(**validated_data)
+
+
+class ConfirmendDataApi(APIView):
+    """
+    Returns the Confirmed matches data for a given user.
+    """
+    authentication_classes = [authentication.SessionAuthentication,
+                              authentication.BasicAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    @extend_schema(
+        request=ConfirmedDataApiSerializer(many=False),
+        parameters=[
+            OpenApiParameter(name=key, description="Page number for pagination. Default is 1 and itemPerPage is 10" if key == "options" else "",
+                             required=False, type=type(getattr(ConfirmendDataApiParams, key)))
+            for key in ConfirmendDataApiParams.__annotations__.keys()
+        ],
+    )
+
+    def get(self, request):
+
+        try:
+            serializer = ConfirmedDataApiSerializer(data=request.GET)
+            # Checking for serializer validation
+            serializer.is_valid(raise_exception=True)
+            params = serializer.save()
+
+            # This function is used to apply pagination
+            confirmed_matches = get_matches_confirmed_category(params.page, models.Match.get_confirmed_matches(request.user), params.itemsPerPage)
+            confirmed_matches["items"] = serialize_matches(confirmed_matches["items"], request.user)
+
+            return Response({"code": 200, "data":confirmed_matches}, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            # Handle other exceptions and return an appropriate response
+            return Response({"code": 500, "error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

@@ -106,7 +106,7 @@ api_routes = [
     path(_api_url('notification/<str:action>', end_slash=False),
          api.notify.NotificationActionApi.as_view()),
 
-   path(_api_url('question'),
+    path(_api_url('question'),
          QuestionApi.as_view()),
     path(_api_url('questions/archive'),
          ArchivedQuestionsApi.as_view()),
@@ -114,6 +114,8 @@ api_routes = [
          ViewArchivedList.as_view()),
     path(_api_url('questions/unarchived'),
          UnArchivedCard.as_view()),
+    path(_api_url('matches/confirmed'),
+     api.user_data.ConfirmendDataApi.as_view()),
     # e.g.: /user/verify/email/Base64{d=email&u=hash&k=pin:hash}
     path(_api_url('user/verify/email/<str:auth_data>', end_slash=False),
          api.user.VerifyEmail.as_view()),
@@ -199,39 +201,39 @@ view_routes = [
     path(f"admin_panel_v2/", admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
     path(f"admin_panel_v2_login/", admin_panel_v2.admin_panel_v2_login, name="admin_panel_v2_login"),
     path(f"admin_panel_v2/<str:query_set>/", admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
-    
+
     path(_api_url('user_advanced/<str:pk>', admin=True), admin_panel_v2.root_user_viewset.as_view({'get': 'retrieve'})),
     path(_api_url('user_info/<str:pk>', admin=True), admin_panel_v2.user_info_viewset.as_view({'get': 'retrieve'})),
-    path(_api_url('user_advanced/<str:pk>/notes', admin=True), 
+    path(_api_url('user_advanced/<str:pk>/notes', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'get': 'notes', 'post': 'notes'})),
-    path(_api_url('user_advanced/<str:pk>/scores', admin=True), 
+    path(_api_url('user_advanced/<str:pk>/scores', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'get': 'scores'})),
 
-    path(_api_url('user_advanced/<str:pk>/score_between', admin=True), 
+    path(_api_url('user_advanced/<str:pk>/score_between', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'post': 'score_between'})),
 
-    path(_api_url('user_advanced/<str:pk>/tasks', admin=True), 
+    path(_api_url('user_advanced/<str:pk>/tasks', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'get': 'tasks', 'post': 'tasks'})),
 
-    path(_api_url('user_advanced/<str:pk>/sms', admin=True), 
+    path(_api_url('user_advanced/<str:pk>/sms', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'get': 'sms'})),
 
-    path(_api_url('user_advanced/<str:pk>/message_read', admin=True), 
+    path(_api_url('user_advanced/<str:pk>/message_read', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'post': 'messages_mark_read'})),
 
-    path(_api_url('user_advanced/<str:pk>/resend_email', admin=True), 
+    path(_api_url('user_advanced/<str:pk>/resend_email', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'post': 'resend_email'})),
 
-    path(_api_url('user_advanced/<str:pk>/messages', admin=True), 
+    path(_api_url('user_advanced/<str:pk>/messages', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'get': 'messages'})),
 
-    path(_api_url('user_advanced/<str:pk>/message_reply', admin=True), 
+    path(_api_url('user_advanced/<str:pk>/message_reply', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'post': 'messages_reply'})),
 
-    path(_api_url('user_advanced/<str:pk>/tasks/complete', admin=True), 
+    path(_api_url('user_advanced/<str:pk>/tasks/complete', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'post': 'complete_task'})),
 
-    path(_api_url('user_advanced/<str:pk>/request_score_update', admin=True), 
+    path(_api_url('user_advanced/<str:pk>/request_score_update', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'get': 'request_score_update'})),
     path(_api_url('user_listing_advanced/<str:list>', admin=True), admin_panel_v2.advanced_user_listing),
     path(_api_url('tasks/<str:task_id>/status', admin=True), admin_panel_v2.request_task_status),
