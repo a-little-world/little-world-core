@@ -34,4 +34,42 @@ class Command(BaseCommand):
         print("Found ", len(learns_that_had_a_match), " learners that had a match")
         print("Found ", len(learers_that_have_unsubscibed), " learners that have unsubscibed")
         print("Found", len(learns_that_have_no_received_prev_suvery_emails), "learners that have not received the prev suvery emails")
+
+        print("Do you want to send the survey to these users? (Y/N)")
+        user_input = input()
+        
+        from emails import mails
+        
+        def get_params(user):
+            return mails.GeneralSurveryMailParams(
+                first_name=user.profile.first_name,
+                link_url="https://tally.so/r/w47d7A",
+                unsubscribe_url1="" # filled automatically
+            )
+            
+        from management import controller
+
+        if user_input == "Y":
+            print("Sending emails...")
+            users = list(learns_that_have_no_received_prev_suvery_emails)
+
+            controller.send_group_mail(
+                users=users,
+                subject="Umfrage zur Verbesserung von Little World",
+                mail_name="general_interview_03_11",
+                mail_params_func=get_params,
+                unsubscribe_group="survery_requests"
+            )
+        else:
+            print(f"Do nothing...")
+            print("Send Test Email to herrduenschnlate+test-mail@gmail.com (Y/N) ?")
+
+            users = [controller.get_user_by_email("herrduenschnlate+test-mail@gmail.com")]
+            controller.send_group_mail(
+                users=users,
+                subject="Umfrage zur Verbesserung von Little World",
+                mail_name="general_interview_03_11",
+                mail_params_func=get_params,
+                unsubscribe_group="survery_requests"
+            )
         
