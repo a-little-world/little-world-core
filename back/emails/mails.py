@@ -21,6 +21,7 @@ from emails.templates import (
     InterviewInvitation,
     GeneralSurveyMail,
     GeneralSurveyMail_0311,
+    ImpulsBeitraegeMail,
     # Currently we are using the same template as weclone
     # so MatchFoundEmailTexts has no Defaults
     SurveyInvitationAniq2,
@@ -51,6 +52,12 @@ class MailDataNotFoundErr(Exception):
 
 @dataclass
 class SurveyInvitation2AniqParams:
+    first_name: str
+    link_url: str
+    unsubscribe_url1: str
+
+@dataclass
+class ImpulseBeitraegeParams:
     first_name: str
     link_url: str
     unsubscribe_url1: str
@@ -345,6 +352,13 @@ templates = [
         params=AccountDeletedEmailParams,
         texts=AccountDeletedEmailTexts,
         defaults=AccountDeletedEmailTexts
+    ),
+    MailMeta(
+        name="impuls_beitraege",
+        template="emails/welcome.html",
+        params=ImpulseBeitraegeParams,
+        texts=ImpulsBeitraegeMail,
+        defaults=ImpulsBeitraegeMail
     ),
 ]
 

@@ -777,6 +777,48 @@ class GeneralSurveyMail:
     unsubscribe_link2: str = 'none'
     unsubscribe_link2_category: str = 'none'
     
+
+@dataclass
+class ImpulsBeitraegeMail:
+    subject_header_text: str = pgettext_lazy(
+        "email.impulse-beitraege.subject-header-text", "Impulsbeiträge zum Feierabend")
+    greeting: str = pgettext_lazy(
+        'email.impulse-beitraege.greeting',
+        'Hallo {first_name},')
+    content_start_text: str = mark_safe(pgettext_lazy(
+        'email.impulse-beitraege.content-start-text',
+        'Dienstag um 17 Uhr ist es wieder soweit: 5 Minuten Input und eine 10-minütige offene Diskussion. Sei dabei, bei den Impulsvorträgen unserer herzlichen Expertin Raquel Barros und diskutiere mit uns spannende Themen. Wir freuen uns auf einen inspirierenden Austausch mit dir!'))
+    button_text: str = pgettext_lazy(
+        'email.impulse-beitraege.button-text',
+        'ZUM ZOOM CALL (zoom)')
+    button_link: str = pgettext_lazy(
+        'email.impulse-beitraege.button-link',
+        '{link_url}')
+    content_body_text: str = mark_safe(pgettext_lazy(
+        'email.impulse-beitraege.content-body-text',
+        'Den Zoom Link für morgen findest du nach dem Einloggen unter "Start" und dann unter "Kaffeeklatsch" oder einfach über den folgenden Link:'))
+    link_box_text: str = mark_safe(pgettext_lazy(
+        'email.impulse-beitraege.link-box-text',
+        '<a href="https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09" style="color: blue;">https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09</a>'))
+    below_link_text: str = mark_safe(pgettext_lazy(
+        'email.impulse-beitraege.below-link-text',
+        ''))
+    footer_text: str = pgettext_lazy(
+        'email.impulse-beitraege.footer-text',
+        'Du hast noch Fragen? Melde dich gerne jederzeit - unsere Kontaktdaten findest du in der Signatur. Wir helfen dir gerne weiter.')
+    goodbye: str = pgettext_lazy(
+        'email.impulse-beitraege.goodbye',
+        'Dein Team von Little World')
+    goodbye_name: str = pgettext_lazy(
+        'email.email.impulse-beitraege.goodbye.goodbye-name',
+        '')
+    use_unsubscribe_footer: bool = True
+    unsubscribe_two_link: bool = False
+    unsubscribe_link1: str = '{unsubscribe_url1}'
+    unsubscribe_link1_category: str = 'Von wöchentlichen Impulsbeiträgen E-Mails abmelden'
+    unsubscribe_link2: str = 'none'
+    unsubscribe_link2_category: str = 'none'
+    
     
 @dataclass
 class GeneralSurveyMail_0311:
