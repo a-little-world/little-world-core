@@ -31,9 +31,9 @@ class Command(BaseCommand):
             )
             
         from management import controller
+        print("check which users to send to or just send a test email? (Y/N)")
         user_input = input()
         
-        print("check which users to send to or just send a test email?")
 
         if user_input == "Y":
             print("Sending emails...")
@@ -42,14 +42,19 @@ class Command(BaseCommand):
             
             print("Collected", len(users), "users to send to")
             print("\n".join(map(lambda user: user.email, users)))
+            print("send it ?( Y/N)")
 
-            controller.send_group_mail(
-                users=users,
-                subject="Impulsbeiträge zum Feierabend",
-                mail_name="impuls_beitraege",
-                mail_params_func=get_params,
-                unsubscribe_group="survery_requests"
-            )
+            user_input = input()
+            if user_input == "Y":
+                controller.send_group_mail(
+                    users=users,
+                    subject="Impulsbeiträge zum Feierabend",
+                    mail_name="impuls_beitraege",
+                    mail_params_func=get_params,
+                    unsubscribe_group="survery_requests"
+                )
+            else:
+                print("Not send")
         else:
             print(f"Do nothing...")
             print("Send Test Email to herrduenschnlate+89@gmail.com (Y/N) ?")
