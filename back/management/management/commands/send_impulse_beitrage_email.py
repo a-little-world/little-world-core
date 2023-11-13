@@ -13,6 +13,12 @@ class Command(BaseCommand):
         consider_only_registered_within_last_x_days = 40
 
         today = timezone.now()
+        all_users_to_consider = User.objects.filter(
+            ~(Q(state__user_category=State.UserCategoryChoices.SPAM) | Q(state__user_category=State.UserCategoryChoices.TEST)),
+            state__user_form_state=State.UserFormStateChoices.FILLED,
+            state__email_authenticated=True,
+            is_staff=False
+        )
         
         x_days_ago = today - datetime.timedelta(days=consider_only_registered_within_last_x_days)
         all_users_to_consider = all_users_to_consider.filter(date_joined__gte=x_days_ago)
