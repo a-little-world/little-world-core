@@ -53,11 +53,9 @@ class TrackRequestsMiddleware:
 
     def __init__(self, get_response):
         self.get_response = get_response
-
-    def __call__(self, request):
+        
+    def perform_event_tracking(request):
         path = request.path
-        # Actually this could *all* be done in a celery task, could also be a little too many celery tasks?
-        # That way we would avoid any slowdown due to tracking TODO?
         _kwargs = {}
 
         with _try():
@@ -87,4 +85,11 @@ class TrackRequestsMiddleware:
             "path": path,
             **_kwargs
         })
+
+
+    def __call__(self, request):
+        #path = request.path
+        # Actually this could *all* be done in a celery task, could also be a little too many celery tasks?
+        # That way we would avoid any slowdown due to tracking TODO?
+        # self.perform_event_tracking(request)
         return self.get_response(request)
