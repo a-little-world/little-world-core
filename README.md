@@ -119,3 +119,21 @@ watch microk8s kubectl get pods
 once ready visit `http://localhost`
 
 
+
+## Attaching to live DB
+
+Sometimes it can be convenient to use the django ORM to make queries to the DB from your local machine. Thats what `docker-compose.prod-attach.yaml` is for.
+You will need to place the credentials into `.env.prod-attach` then run:
+
+```bash
+export $(grep -v '^#' .env.prod-attach | xargs) && docker compose -f docker-compose.prod-attach.yaml build
+export $(grep -v '^#' .env.prod-attach | xargs) && docker compose -f docker-compose.prod-attach.yaml up
+```
+
+e.g.: Run a management command, just edit a file in `./back/management/management/commands/<command-name>.py`.
+Then run it via:
+
+```bash
+export $(grep -v '^#' .env.prod-attach | xargs) && docker compose -f docker-compose.prod-attach.yaml exec app ./manage.py <command-name>
+```
+

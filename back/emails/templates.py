@@ -730,7 +730,8 @@ class SurveyInvitationAniq2:
     unsubscribe_link1_category: str = 'survey request'
     unsubscribe_link2: str = 'none'
     unsubscribe_link2_category: str = 'none'
-
+    
+    
 @dataclass
 class GeneralSurveyMail:
     """
@@ -775,7 +776,95 @@ class GeneralSurveyMail:
     unsubscribe_link1_category: str = 'Von Umfrage E-Mails abmelden'
     unsubscribe_link2: str = 'none'
     unsubscribe_link2_category: str = 'none'
+    
 
+@dataclass
+class ImpulsBeitraegeMail:
+    subject_header_text: str = pgettext_lazy(
+        "email.impulse-beitraege.subject-header-text", "Impulsbeiträge zum Feierabend")
+    greeting: str = pgettext_lazy(
+        'email.impulse-beitraege.greeting',
+        'Hallo {first_name},')
+    content_start_text: str = mark_safe(pgettext_lazy(
+        'email.impulse-beitraege.content-start-text',
+        'Dienstag um 17 Uhr ist es wieder soweit: 5 Minuten Input und eine 10-minütige offene Diskussion. Sei dabei, bei den Impulsvorträgen unserer herzlichen Expertin Raquel Barros und diskutiere mit uns spannende Themen. Wir freuen uns auf einen inspirierenden Austausch mit dir!'))
+    button_text: str = pgettext_lazy(
+        'email.impulse-beitraege.button-text',
+        'ZUM ZOOM CALL (zoom)')
+    button_link: str = pgettext_lazy(
+        'email.impulse-beitraege.button-link',
+        '{link_url}')
+    content_body_text: str = mark_safe(pgettext_lazy(
+        'email.impulse-beitraege.content-body-text',
+        'Den Zoom Link für morgen findest du nach dem Einloggen unter "Start" und dann unter "Kaffeeklatsch" oder einfach über den folgenden Link:'))
+    link_box_text: str = mark_safe(pgettext_lazy(
+        'email.impulse-beitraege.link-box-text',
+        '<a href="https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09" style="color: blue;">https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09</a>'))
+    below_link_text: str = mark_safe(pgettext_lazy(
+        'email.impulse-beitraege.below-link-text',
+        ''))
+    footer_text: str = pgettext_lazy(
+        'email.impulse-beitraege.footer-text',
+        'Du hast noch Fragen? Melde dich gerne jederzeit - unsere Kontaktdaten findest du in der Signatur. Wir helfen dir gerne weiter.')
+    goodbye: str = pgettext_lazy(
+        'email.impulse-beitraege.goodbye',
+        'Dein Team von Little World')
+    goodbye_name: str = pgettext_lazy(
+        'email.email.impulse-beitraege.goodbye.goodbye-name',
+        '')
+    use_unsubscribe_footer: bool = True
+    unsubscribe_two_link: bool = False
+    unsubscribe_link1: str = '{unsubscribe_url1}'
+    unsubscribe_link1_category: str = 'Von wöchentlichen Impulsbeiträgen E-Mails abmelden'
+    unsubscribe_link2: str = 'none'
+    unsubscribe_link2_category: str = 'none'
+    
+    
+@dataclass
+class GeneralSurveyMail_0311:
+    """
+    ---------> Survey email New 03.11 <---------------
+    """
+    subject_header_text: str = pgettext_lazy(
+        "email.survey-invitation.subject-header-text", "Umfrage zur Verbesserung von Little World")
+    greeting: str = pgettext_lazy(
+        'email.survey-invitation.greeting',
+        'Hallo {first_name},')
+    content_start_text: str = pgettext_lazy(
+        'email.survey-invitation.content-start-text','Möchtest du uns helfen unsere Little World Plattform zu verbessern?')
+    link_box_text: str = mark_safe('<a href="https://tally.so/r/w47d7A" style="color: blue;">https://tally.so/r/w47d7A</a>')
+    content_body_text: str = mark_safe(pgettext_lazy(
+        'email.survey-invitation.content-body-text',
+        '<br></br>Dann laden wir dich herzlich ein, an der 10-15-minütigen Umfrage teilzunehmen unter '))
+    button_text: str = pgettext_lazy(
+        'email.survey-invitation.button-text',
+        'Zur Umfrage')
+    button_link: str = pgettext_lazy(
+        'email.survey-invitation.button-link',
+        '{link_url}')
+    below_link_text: str = pgettext_lazy(
+        'email.survey-invitation.below-link-text',
+        mark_safe(
+            'Dein wertvolles Feedback wird uns dabei helfen, die notwendigen Änderungen oder Erweiterungen an'
+            ' unserem Angebot vorzunehmen. Diese Umfrage ist völlig anonym und vertraulich, also teile uns bitte'
+            ' deine ehrlichen Gedanken und Meinungen mit. Wenn du Fragen oder Bedenken hast, wende dich gerne'
+            ' jederzeit an uns.'
+            '<br></br>Vielen Dank im Voraus für deine Unterstützung!'))
+    footer_text: str = pgettext_lazy(
+        'email.survey-invitation.footer-text',
+        'Herzliche Grüße,')
+    goodbye: str = pgettext_lazy(
+        'email.survey-invitation.goodbye',
+        mark_safe('Das Little World Team<br></br>'))
+    goodbye_name: str = pgettext_lazy(
+        'email.survey-invitation.goodbye-name',
+        '')
+    use_unsubscribe_footer:bool=True
+    unsubscribe_two_link:bool = False
+    unsubscribe_link1: str = '{unsubscribe_url1}'
+    unsubscribe_link1_category: str = 'survey request'
+    unsubscribe_link2: str = 'none'
+    unsubscribe_link2_category: str = 'none'
 
 @dataclass
 class NewUnreadMessages:

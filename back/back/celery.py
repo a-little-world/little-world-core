@@ -97,10 +97,12 @@ prod_shedules.update(auto_emails)
 All little world periodic tasks 
 e.g.: notifying users that they have new messages
 """
-app.conf.beat_schedule = {
-    'im-allive-ping': {
-        'task': 'im_allive_task',
-        'schedule': 60.0 * 5.0  # Every five minutes!
-    },
-    **(prod_shedules if settings.IS_PROD else {})
-}
+if not settings.PROD_ATTACH:
+    # If we are just atteching to the db of a prod pod we don't want any celery beat shedules
+    app.conf.beat_schedule = {
+        'im-allive-ping': {
+            'task': 'im_allive_task',
+            'schedule': 60.0 * 5.0  # Every five minutes!
+        },
+        **(prod_shedules if settings.IS_PROD else {})
+    }
