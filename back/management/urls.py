@@ -165,7 +165,7 @@ view_routes = [
     path("password_reset_mail_send/", password_reset_mail_send,
          name="password_reset_succsess"),
 
-    path("login/", login, name="login"),
+    path('login/', views.PublicMainFrontendView.as_view(), name="main_frontend_public_login"),
 
     path("formpage/", subsection_of_user_form, name="formpage"),
 
