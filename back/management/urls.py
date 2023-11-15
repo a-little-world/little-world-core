@@ -154,8 +154,6 @@ view_routes = [
     path("", RedirectView.as_view(  # Redirect all requests to "/" to "/app/" per default
          url=f"app/", permanent=True), name="frontend_redirect"),
 
-    path("register/", register, name="register"),
-    path("password_reset/", forgot_password, name="password_reset"),
     path("set_password/<str:usr_hash>/<str:token>",
          set_password_reset, name="set_password_reset"),
 
@@ -165,7 +163,10 @@ view_routes = [
     path("password_reset_mail_send/", password_reset_mail_send,
          name="password_reset_succsess"),
 
-    path("login/", login, name="login"),
+    path('login/', views.PublicMainFrontendView.as_view(), name="main_frontend_public_login"),
+    path('forgot-password/', views.PublicMainFrontendView.as_view(), name="main_frontend_public_forgot_password"),
+    path('reset-password/', views.PublicMainFrontendView.as_view(), name="main_frontend_public_reset_password"),
+    path('sign-up/', views.PublicMainFrontendView.as_view(), name="main_frontend_public_sign_up"),
 
     path("formpage/", subsection_of_user_form, name="formpage"),
 
