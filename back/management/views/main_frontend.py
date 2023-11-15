@@ -38,6 +38,28 @@ class MainFrontendParamsSerializer(serializers.Serializer):
     def create(self, validated_data):
         return MainFrontendParams(**validated_data)
 
+class PublicMainFrontendView(LoginRequiredMixin, View):
+    login_url = 'https://home.little-world.com/' if settings.IS_PROD else '/login'
+    redirect_field_name = 'next'
+
+    @utils.track_event(name=_("Render User Form"), event_type=Event.EventTypeChoices.REQUEST, tags=["frontend"])
+    def get(self, request, **kwargs):
+        from back.utils import transform_add_options_serializer
+        from management.models import SelfProfileSerializer
+        from management.controller import get_base_management_user
+        
+        
+        # TODO: we need a better way to extract the options!
+        ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
+        user_profile = get_base_management_user().profile
+        profile_data = ProfileWOptions(user_profile).data
+        profile_options = profile_data["options"]
+
+        return render(request, "main_frontend_public.html", {"data": json.dumps({
+            "apiOptions": {
+                "profile": profile_options,
+            },
+        }, cls=CoolerJson)})
 
 class MainFrontendView(LoginRequiredMixin, View):
     login_url = 'https://home.little-world.com/' if settings.IS_PROD else '/login'
