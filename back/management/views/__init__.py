@@ -1,1 +1,1 @@
-from .main_frontend import MainFrontendView
+from .main_frontend import MainFrontendView, PublicMainFrontendView
