@@ -40,16 +40,16 @@ setup:
 ```
 git clone <backend> && cd little-world-backend
 git submodule update --init --recursive
-COMPOSE_PROFILES=all docker compose -f docker compose.dev.yaml build
+COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml build
 for frontend in main_frontend user_form user_form_frontend admin_panel_frontend cookie_banner_frontend; do touch ./front/$frontend.webpack-stats.json ; done
-COMPOSE_PROFILES=all docker compose -f docker compose.dev.yaml up
+COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml up
 ```
 
 Once you have run `docker compose up` with the `=all` flag at least once you can also run only specific frontends with auto-update:
 
 e.g.:
 ```
-COMPOSE_PROFILES=main_frontend docker compose -f docker compose.dev.yaml up
+COMPOSE_PROFILES=main_frontend docker compose -f docker-compose.dev.yaml up
 ```
 
 That's it! Any code changed in `/front/apps/*/src/*` or in `/back/*` will cause a hot-reload for the specific frontend, or backend.
@@ -64,7 +64,7 @@ Or if you only work in the backend use `COMPOSE_PROFILE=backend`
 
 - Frontends are subrepos in `./front/apps/<frontend-name>`
 - `<frontend-name>` should be listed in `FR_FRONTENDS`
-- configure the environment in `docker compose.yaml:services.all.evironment`
+- configure the environment in `docker-compose.yaml:services.all.evironment`
 or `./envs/dev.env` for local development
 - specify `BUILD_TYPE=<build-type>` to change frontend environments
 `<build-type>=dev` for local developent and `<build-type>=pro` for staging
@@ -122,18 +122,18 @@ once ready visit `http://localhost`
 
 ## Attaching to live DB
 
-Sometimes it can be convenient to use the django ORM to make queries to the DB from your local machine. Thats what `docker compose.prod-attach.yaml` is for.
+Sometimes it can be convenient to use the django ORM to make queries to the DB from your local machine. Thats what `docker-compose.prod-attach.yaml` is for.
 You will need to place the credentials into `.env.prod-attach` then run:
 
 ```bash
-export $(grep -v '^#' .env.prod-attach | xargs) && docker compose -f docker compose.prod-attach.yaml build
-export $(grep -v '^#' .env.prod-attach | xargs) && docker compose -f docker compose.prod-attach.yaml up
+export $(grep -v '^#' .env.prod-attach | xargs) && docker compose -f docker-compose.prod-attach.yaml build
+export $(grep -v '^#' .env.prod-attach | xargs) && docker compose -f docker-compose.prod-attach.yaml up
 ```
 
 e.g.: Run a management command, just edit a file in `./back/management/management/commands/<command-name>.py`.
 Then run it via:
 
 ```bash
-export $(grep -v '^#' .env.prod-attach | xargs) && docker compose -f docker compose.prod-attach.yaml exec app ./manage.py <command-name>
+export $(grep -v '^#' .env.prod-attach | xargs) && docker compose -f docker-compose.prod-attach.yaml exec app ./manage.py <command-name>
 ```
 
