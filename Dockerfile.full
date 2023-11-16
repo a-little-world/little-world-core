@@ -144,5 +144,6 @@ ENV PYTHONPATH="/usr/lib/python3.11/site-packages/:${PYTHONPATH}"
 
 EXPOSE 8000
 
+RUN cp ${ENTRYPOINT} ./entry.sh
 # CMD uvicorn back.asgi:application --port $PORT --host 0.0.0.0
-CMD ["sh", "${ENTRYPOINT}"]
+CMD ["sh", "./entry.sh"]
