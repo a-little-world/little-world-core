@@ -1,6 +1,7 @@
 rootNamespace: "default"
 registryAuth:
   use: false
+  host: "ghcr.io"
   token: ""
 ingress:
   use: true
