@@ -50,8 +50,10 @@ TWILIO_API_SECRET = os.environ["DJ_TWILIO_API_SECRET"]
 
 DJ_CALCOM_QUERY_ACCESS_PARAM = os.environ.get("DJ_CALCOM_QUERY_ACCESS_PARAM", "none")
 DJ_CALCOM_MEETING_ID = os.environ.get("DJ_CALCOM_MEETING_ID", "none")
+USE_REDIS_AS_BROKER = os.environ.get("DJ_USE_REDIS_AS_BROKER", "false").lower() in ('true', '1', 't')
 
 COOKIE_CONSENT_NAME = "backend_cookie_consent"
+USE_WHITENOISE = os.environ.get("DJ_USE_WHITENOISE", "false").lower() in ('true', '1', 't')
 
 EMPHIRIAL = os.environ.get("EMPHIRIAL", "0") == "1"
 
@@ -125,7 +127,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     *([  # Whitenoise to server static only needed in development
         'whitenoise.middleware.WhiteNoiseMiddleware',
-    ] if IS_DEV or DOCS_BUILD else []),
+    ] if (IS_DEV or DOCS_BUILD or USE_WHITENOISE ) else []),
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',
     'management.middleware.OverwriteSessionLangIfAcceptLangHeaderSet',
@@ -418,7 +420,7 @@ def get_redis_connect_url_port():
     return os.environ['DJ_REDIS_HOST'], os.environ['DJ_REDIS_PORT']
 
 
-if EMPHIRIAL:
+if (EMPHIRIAL or USE_REDIS_AS_BROKER):
     CELERY_BROKER_URL = os.environ["REDIS_URL"]
 elif IS_DEV:
     # autmaticly renders index.html when entering an absolute static path
