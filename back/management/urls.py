@@ -79,7 +79,7 @@ api_routes = [
     path(_api_url('matching/unmatch'), api.report_unmatch.unmatch),
 
     *([path(_api_url('devlogin'), api.developers.DevLoginAPI.as_view())]  # Dev login only to be used in staging!
-      if settings.IS_STAGE or settings.IS_DEV else []),
+      if (settings.IS_STAGE or settings.IS_DEV or settings.EXPOSE_DEV_LOGIN) else []),
 
     path(_api_url('user/logout'), api.user.LogoutApi.as_view()),
     path(_api_url('user/checkpw'), api.user.CheckPasswordApi.as_view()),

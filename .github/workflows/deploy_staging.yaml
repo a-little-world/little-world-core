@@ -71,6 +71,7 @@ jobs:
           REDIS_URL="redis://redis-service.$NAMESPACE.svc.cluster.local:6379"
           echo "REDIS_URL=\"$REDIS_URL\"" >> .env
           echo "BUILD_TYPE=\"pro\"" >> .env
+          echo "ENTRYPOINT=\"./entry.sh\"" >> .env
           echo "REDIS_URL=$REDIS_URL" >> $GITHUB_OUTPUT
           echo "RANDOM_STRING=$RANDOM_STRING" >> $GITHUB_OUTPUT
           echo "IMAGE_URL=$IMAGE_URL" >> $GITHUB_OUTPUT

@@ -134,6 +134,8 @@ COPY --from=main_frontend_image /front/main_frontend.webpack-stats.json /front/
 RUN mkdir -p ./static/dist/main_frontend
 COPY --from=main_frontend_image /back/static/dist/main_frontend ./static/dist/main_frontend
 
+ARG ENTRYPOINT="./entry.sh"
+ENV ENTRYPOINT=$ENTRYPOINT
 
 RUN apk add gettext
 RUN apk add --update --no-cache py3-numpy
@@ -142,5 +144,6 @@ ENV PYTHONPATH="/usr/lib/python3.11/site-packages/:${PYTHONPATH}"
 
 EXPOSE 8000
 
+RUN cp ${ENTRYPOINT} ./entry.sh || true
 # CMD uvicorn back.asgi:application --port $PORT --host 0.0.0.0
 CMD ["sh", "./entry.sh"]
