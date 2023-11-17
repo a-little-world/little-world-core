@@ -489,7 +489,7 @@ if IS_DEV and (not EMPHIRIAL):
             },
         }
     }
-elif EMPHIRIAL:
+elif EMPHIRIAL or USE_REDIS_AS_BROKER:
 
     CHANNEL_LAYERS = {
         "default": {
