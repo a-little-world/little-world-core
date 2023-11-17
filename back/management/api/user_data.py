@@ -427,21 +427,7 @@ def user_data_v2(request):
     return Response(frontend_data(request.user, params.items_per_page))
 
 
-@dataclass
-class ConfirmendDataApiParams:
-    page: int = 1
-    itemsPerPage: int = 10
-
-
-class ConfirmedDataApiSerializer(serializers.Serializer):
-    page = serializers.IntegerField(min_value=1, required=False)
-    itemsPerPage = serializers.IntegerField(min_value=1, required=False)
-
-    def create(self, validated_data):
-        return ConfirmendDataApiParams(**validated_data)
-
-
-class ConfirmendDataApi(APIView):
+class ConfirmedDataApi(APIView):
     """
     Returns the Confirmed matches data for a given user.
     """
@@ -450,27 +436,36 @@ class ConfirmendDataApi(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(
-        request=ConfirmedDataApiSerializer(many=False),
         parameters=[
-            OpenApiParameter(name=key, description="Page number for pagination. Default is 1 and itemPerPage is 10" if key == "options" else "",
-                             required=False, type=type(getattr(ConfirmendDataApiParams, key)))
-            for key in ConfirmendDataApiParams.__annotations__.keys()
+            OpenApiParameter(name="page", type=int, description="Page number for pagination"),
+            OpenApiParameter(name="itemsPerPage", type=int, description="Number of items per page"),
         ],
     )
 
     def get(self, request):
-
+        """
+        Handle GET requests to retrieve confirmed matches data for the user.
+        """
         try:
-            serializer = ConfirmedDataApiSerializer(data=request.GET)
-            # Checking for serializer validation
-            serializer.is_valid(raise_exception=True)
-            params = serializer.save()
+            # Extracting pagination parameters from the request
+            page = int(request.GET.get("page", 1))
+            items_per_page = int(request.GET.get("itemsPerPage", 10))
 
-            # This function is used to apply pagination
-            confirmed_matches = get_matches_confirmed_category(params.page, models.Match.get_confirmed_matches(request.user), params.itemsPerPage)
-            confirmed_matches["items"] = serialize_matches(confirmed_matches["items"], request.user)
+            # Retrieve confirmed matches using a utility function
+            confirmed_matches = get_matches_confirmed_category(
+                page,
+                models.Match.get_confirmed_matches(request.user),
+                items_per_page
+            )
 
-            return Response({"code": 200, "data":confirmed_matches}, status=status.HTTP_200_OK)
+            # Serialize matches data for the user
+            confirmed_matches["items"] = serialize_matches(
+                confirmed_matches["items"],
+                request.user
+            )
+
+            # Return a successful response with the data
+            return Response({"code": 200, "data": confirmed_matches}, status=status.HTTP_200_OK)
 
         except Exception as e:
             # Handle other exceptions and return an appropriate response

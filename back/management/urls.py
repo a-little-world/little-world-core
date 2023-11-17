@@ -115,7 +115,7 @@ api_routes = [
     path(_api_url('questions/unarchived'),
          UnArchivedCard.as_view()),
     path(_api_url('matches/confirmed'),
-     api.user_data.ConfirmendDataApi.as_view()),
+         api.user_data.ConfirmedDataApi.as_view()),
     # e.g.: /user/verify/email/Base64{d=email&u=hash&k=pin:hash}
     path(_api_url('user/verify/email/<str:auth_data>', end_slash=False),
          api.user.VerifyEmail.as_view()),
