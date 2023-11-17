@@ -1,14 +1,16 @@
 version: '3'
 services:
   all:
+    env_file:
+      - .env.prod-attach
     build:
       context: .
-      dockerfile: ./Dockerfile.full
+      dockerfile: ./Dockerfile.prod_attach
       args:
         DOCKER_BUILDKIT: 1
         PUBLIC_FRONTEND_PATH: ""
         BUILD_TYPE: "${BUILD_TYPE}"
-        ENTRYPOINT: "${ENTRYPOINT}"
+        ENTRYPOINT: "./entry.sh"
     image: "${APP_IMAGE_URL}"
     ports:
       - "8000:8000"
@@ -16,14 +18,21 @@ services:
       BUILD_TYPE: development
       REDIS_URL: "${REDIS_URL}"
       EMPHIRIAL: "1"
+      DJ_PROD_ATTACH: 0
       DJ_DEBUG: 1
       DJ_SECRET_KEY: "bla bla"
       DJ_ALLOWED_HOSTS: "*"
       DJ_TIME_ZONE: UTC
       DJ_CELERY_TIMEZONE: Australia/Tasmania
-      DJ_MANAGEMENT_USER_MAIL: admin@user.com
-      DJ_MANAGEMENT_PW: Admin123!
-      DJ_TIM_MANAGEMENT_PW: Test123!
+      DJ_MANAGEMENT_USER_MAIL: "${DJ_MANAGEMENT_USER_MAIL}"
+      DJ_MANAGEMENT_PW: "${DJ_MANAGEMENT_PW}"
+      DJ_TIM_MANAGEMENT_PW: "${DJ_TIM_MANAGEMENT_PW}"
+      DJ_DATABASE_ENGINE: "${DJ_DATABASE_ENGINE}"
+      DJ_DATABASE_NAME: "${DJ_DATABASE_NAME}"
+      DJ_DATABASE_USERNAME: "${DJ_DATABASE_USERNAME}"
+      DJ_DATABASE_PASSWORD: "${DJ_DATABASE_PASSWORD}"
+      DJ_DATABASE_HOST: "${DJ_DATABASE_HOST}"
+      DJ_DATABASE_PORT: "${DJ_DATABASE_PORT}"
       DJ_ADMIN_OPEN_KEYPHRASE: opensesame
       DJ_USE_MINIO: 0
       DJ_MINIO_ROOT_USER: ""
@@ -47,6 +56,8 @@ services:
       DJ_SENTRY_DNS: ""
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    volumes:
+      - ./back/:/back/
   redis:
     image: redis:5
     ports:
