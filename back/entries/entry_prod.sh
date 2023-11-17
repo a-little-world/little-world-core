@@ -3,10 +3,13 @@
 # "rediss://:$DJ_REDIS_PASSWORD@$DJ_REDIS_HOST:DJ_REDIS_PORT"
 
 celery -A back worker --loglevel=info &
+
+if [ "$DJ_USE_REDIS_AS_BROKER" = "1" ]; then
 if [ "$BUILD_TYPE" = "deployment" ]; then
     SINGLE_BEAT_REDIS_SERVER="rediss://:$DJ_REDIS_PASSWORD@$DJ_REDIS_HOST:$DJ_REDIS_PORT" single-beat celery -A back beat --loglevel=info &
-elif [ "$BUILD_TYPE" = "staging" ]; then
-    SINGLE_BEAT_REDIS_SERVER="rediss://:$DJ_REDIS_PASSWORD@$DJ_REDIS_HOST:$DJ_REDIS_PORT" single-beat celery -A back beat --loglevel=info &
+else
+    celery -A back beat --loglevel=info &
+fi
 else
     celery -A back beat --loglevel=info &
 fi
