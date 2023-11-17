@@ -283,7 +283,7 @@ elif False:
     COLLECTFAST_CACHE = "collectfast"
     COLLECTFAST_THREADS = 20
 
-elif not DOCS_BUILD and (IS_PROD or IS_STAGE):
+elif (not DOCS_BUILD and (IS_PROD or IS_STAGE)) and (not USE_WHITENOISE):
     print("TRYING to push statics to bucket")
     # In production & staging we use S3 as file storage!
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
