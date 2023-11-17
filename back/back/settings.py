@@ -48,6 +48,8 @@ TWILIO_ACCOUNT_SID = os.environ["DJ_TWILIO_ACCOUNT_SID"]
 TWILIO_API_KEY_SID = os.environ["DJ_TWILIO_API_KEY_SID"]
 TWILIO_API_SECRET = os.environ["DJ_TWILIO_API_SECRET"]
 
+USE_SQLITE = os.environ.get("DJ_USE_SQLITE", "false").lower() in ('true', '1', 't')
+
 DJ_CALCOM_QUERY_ACCESS_PARAM = os.environ.get("DJ_CALCOM_QUERY_ACCESS_PARAM", "none")
 DJ_CALCOM_MEETING_ID = os.environ.get("DJ_CALCOM_MEETING_ID", "none")
 USE_REDIS_AS_BROKER = os.environ.get("DJ_USE_REDIS_AS_BROKER", "false").lower() in ('true', '1', 't')
@@ -542,7 +544,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     }
-} if (IS_DEV and (not 'DJ_DATABASE_ENGINE' in os.environ )) else {
+} if ((IS_DEV and (not 'DJ_DATABASE_ENGINE' in os.environ )) or USE_SQLITE) else {
     'default': {
         'ENGINE': 'django.db.backends.{}'.format(
             os.environ['DJ_DATABASE_ENGINE']
