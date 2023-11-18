@@ -198,8 +198,7 @@ view_routes = [
     path(f"admin_panel/", admin_panel, name="admin_panel"),
     path(f"admin_panel_v2/", admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
     path(f"admin_panel_v2_login/", admin_panel_v2.admin_panel_v2_login, name="admin_panel_v2_login"),
-    path(f"admin_panel_v2/<str:query_set>/", admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
-    
+    re_path(fr'^admin_panel_v2/(?P<menu>.*)$', admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
     path(_api_url('user_advanced/<str:pk>', admin=True), admin_panel_v2.root_user_viewset.as_view({'get': 'retrieve'})),
     path(_api_url('user_info/<str:pk>', admin=True), admin_panel_v2.user_info_viewset.as_view({'get': 'retrieve'})),
     path(_api_url('user_advanced/<str:pk>/notes', admin=True), 
@@ -245,6 +244,11 @@ view_routes = [
     *admin_panel_v2_actions.action_routes
 
 ]
+
+if settings.USE_LANDINGPAGE_PLACEHOLDER:
+    view_routes += [
+         path(f"landing/", views.landing_page, name="landing_page_placeholder"),
+    ]
 
 urlpatterns = [
     *view_routes,

@@ -60,6 +60,11 @@ USE_WHITENOISE = os.environ.get("DJ_USE_WHITENOISE", "false").lower() in ('true'
 
 EMPHIRIAL = os.environ.get("EMPHIRIAL", "0") == "1"
 
+USE_LANDINGPAGE_REDIRECT = os.environ.get("DJ_LANDINGPAGE_REDIRECT", "false").lower() in ('true', '1', 't')
+LANDINGPAGE_REDIRECT_URL = os.environ.get("DJ_LANDINGPAGE_REDIRECT_URL", "https://home.little-world.com")
+USE_LANDINGPAGE_PLACEHOLDER = os.environ.get("DJ_LANDINGPAGE_PLACEHOLDER", "false").lower() in ('true', '1', 't')
+LANDINGPAGE_PLACEHOLDER_TITLE = os.environ.get("DJ_LANDINGPAGE_PLACEHOLDER_TITLE", "Little World")
+
 if IS_PROD and 'K8_POD_IP' in os.environ:
     # So that we can further restrict access to the depoloyment kubernetes node
     ALLOWED_HOSTS.append(os.environ['K8_POD_IP'])
