@@ -769,27 +769,32 @@ def advanced_user_listing(request, list):
 
 @api_view(['GET'])
 @permission_classes([IsAdminOrMatchingUser])
-def admin_panel_v2(request):
+def admin_panel_v2(request, menu="root"):
+    print("MENU", menu)
+    
+    if menu.startswith("users"):
 
-    page = request.query_params.get('page', 1)
-    items_per_page = request.query_params.get('items_per_page', 40)
-    
-    query_set = request.query_params.get('list', QuerySetEnum.all.name)
-    
-    user_viewset = make_user_viewset(get_staff_queryset(query_set, request), items_per_page=items_per_page)
-    
-    user_lists = {}
-    user_lists[query_set] = user_viewset.emulate(request).list()
-    
-    if not ("all" in user_lists):
-        all_viewset = make_user_viewset(get_staff_queryset("all", request), items_per_page=items_per_page)
-        user_lists["all"] = all_viewset.emulate(request).list()
+        page = request.query_params.get('page', 1)
+        items_per_page = request.query_params.get('items_per_page', 40)
         
+        query_set = request.query_params.get('list', QuerySetEnum.all.name)
+        
+        user_viewset = make_user_viewset(get_staff_queryset(query_set, request), items_per_page=items_per_page)
+        
+        user_lists = {}
+        user_lists[query_set] = user_viewset.emulate(request).list()
+        
+        if not ("all" in user_lists):
+            all_viewset = make_user_viewset(get_staff_queryset("all", request), items_per_page=items_per_page)
+            user_lists["all"] = all_viewset.emulate(request).list()
+            
 
-    return render(request, "admin_pannel_v2_frontend.html", { "data" : json.dumps({
-        "query_sets": QuerySetEnum.as_dict(),
-        "user_lists": user_lists,
-    },cls=DjangoJSONEncoder, default=lambda o: str(o))})
+        return render(request, "admin_pannel_v2_frontend.html", { "data" : json.dumps({
+            "query_sets": QuerySetEnum.as_dict(),
+            "user_lists": user_lists,
+        },cls=DjangoJSONEncoder, default=lambda o: str(o))})
+    else:
+        return render(request, "admin_pannel_v2_frontend.html", { "data" : json.dumps({}, cls=DjangoJSONEncoder, default=lambda o: str(o))})
     
 
 @api_view(['GET', 'POST'])
