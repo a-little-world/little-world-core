@@ -1,6 +1,5 @@
 from channels_redis.core import RedisChannelLayer
 from django.utils.translation import gettext_lazy as _
-import json
 import os
 
 
