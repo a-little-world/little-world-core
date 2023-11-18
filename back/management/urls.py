@@ -245,6 +245,11 @@ view_routes = [
 
 ]
 
+if settings.USE_LANDINGPAGE_PLACEHOLDER:
+    view_routes += [
+         path(f"landing/", views.landing_page, name="landing_page_placeholder"),
+    ]
+
 urlpatterns = [
     *view_routes,
     *api_routes,
