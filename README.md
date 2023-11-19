@@ -146,3 +146,4 @@ Then run it via:
 ```bash
 export $(grep -v '^#' .env.prod-attach | xargs) && docker compose -f docker-compose.prod-attach.yaml exec app ./manage.py <command-name>
 ```
+
