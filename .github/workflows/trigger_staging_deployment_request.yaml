@@ -1,4 +1,4 @@
-name: 'Request Stagign Deployment'
+name: 'Request Stagigng Deployment'
 on:
   push:
     branches:
