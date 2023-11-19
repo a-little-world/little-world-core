@@ -62,7 +62,7 @@ class PublicMainFrontendView(LoginRequiredMixin, View):
         }, cls=CoolerJson)})
 
 class MainFrontendView(LoginRequiredMixin, View):
-    login_url = 'https://home.little-world.com/' if settings.IS_PROD else '/login'
+    login_url = ('https://home.little-world.com/' if settings.IS_PROD else '/login') if (not settings.USE_LANDINGPAGE_REDIRECT) else settings.LANDINGPAGE_REDIRECT_URL
     redirect_field_name = 'next'
 
     @utils.track_event(name=_("Render User Form"), event_type=Event.EventTypeChoices.REQUEST, tags=["frontend"])
