@@ -60,7 +60,7 @@ USE_WHITENOISE = os.environ.get("DJ_USE_WHITENOISE", "false").lower() in ('true'
 
 EMPHIRIAL = os.environ.get("EMPHIRIAL", "0") == "1"
 
-USE_LANDINGPAGE_REDIRECT = os.environ.get("DJ_LANDINGPAGE_REDIRECT", "false").lower() in ('true', '1', 't')
+USE_LANDINGPAGE_REDIRECT = os.environ.get("DJ_USE_LANDINGPAGE_REDIRECT", "false").lower() in ('true', '1', 't')
 LANDINGPAGE_REDIRECT_URL = os.environ.get("DJ_LANDINGPAGE_REDIRECT_URL", "https://home.little-world.com")
 USE_LANDINGPAGE_PLACEHOLDER = os.environ.get("DJ_USE_LANDINGPAGE_PLACEHOLDER", "true").lower() in ('true', '1', 't')
 LANDINGPAGE_PLACEHOLDER_TITLE = os.environ.get("DJ_LANDINGPAGE_PLACEHOLDER_TITLE", "Little World")
