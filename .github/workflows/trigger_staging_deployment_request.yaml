@@ -1,0 +1,26 @@
+name: 'Request Stagign Deployment'
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@master
+    - name: Extract issue data
+      env:
+        ISSUE_NUMBER: ${{ github.event.issue.number }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    - name:
+      id: request_run
+      env:
+        DEPLOYMENT_NAME: staging
+        COMMIT_REF: ${{ github.sha }}
+        GH_TOKEN: ${{ secrets.DEPLOYMENT_REQUEST_TOKEN }}
+      run: |
+        json_input="{\"DEPLOYMENT_NAME\":\"$DEPLOYMENT_NAME\", \"COMMIT_REF\":\"$COMMIT_REF\", \"MESSAGE\":\"Requested deployment by ${{ github.actor }}\"}"
+        echo $json_input | gh workflow run build_image_create_deployment_request.yaml --json
