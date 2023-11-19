@@ -9,10 +9,10 @@ This repo also builds all frontends using webpack and serves them via django vie
 ## Servers 
 
 1. All feature pull request starting with `staging-*` are auto-deployed. Without credentials!
-2. All commits merged into `main` are deployed to [`stage.little-world.com`](https://stage.little-world.com)
-3. All commits merged into `prod` are deployed to any production config.
+2. All commits merged into [`main`](https://github.com/a-little-world/little-world-backend/tree/main) are deployed to [`stage.little-world.com`](https://stage.little-world.com)
+3. All commits merged into [`prod`](https://github.com/a-little-world/little-world-backend/tree/prod) are deployed to any production config.
 E.g.: [`little-world.com`](https://little-world.com), [`shareami.little-world.com`](https://shareami.little-world.com)
-4. Commits merged into `form-v2` are deployed to [`form-v2.little-world.com`](https://form-v2.little-world.com).
+4. Commits merged into [`form-v2`](https://github.com/a-little-world/little-world-backend/tree/form-v2) are deployed to [`form-v2.little-world.com`](https://form-v2.little-world.com).
 
 > Production and staging deployments NEED TO BE CONFIRMED by an admin!
 
