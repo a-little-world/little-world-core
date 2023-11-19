@@ -18,6 +18,9 @@ jobs:
         COMMIT_REF: ${{ github.sha }}
         GH_TOKEN: ${{ secrets.DEPLOYMENT_REQUEST_TOKEN }}
       run: |
-        gh repo set-default ${{ secrets.DEPLOYMENT_API_GIT }}
         json_input="{\"DEPLOYMENT_NAME\":\"$DEPLOYMENT_NAME\", \"COMMIT_REF\":\"$COMMIT_REF\", \"MESSAGE\":\"Requested deployment by ${{ github.actor }}\"}"
-        echo $json_input | gh workflow run build_image_create_deployment_request.yaml --json
+        curl -X POST \
+          -H "Authorization: Bearer ${{ secrets.PAT }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          https://api.github.com/repos/${{ secrets.DEPLOYMENT_API_GIT }}/actions/workflows/build_image_create_deployment_request.yaml/dispatches \
+          --data $json_input
