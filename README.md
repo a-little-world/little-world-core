@@ -6,6 +6,16 @@ This repo also builds all frontends using webpack and serves them via django vie
 
 > It's always recomended to use `DOCKER_BUILDKIT=1` it is the future default for docker anyways and speeds up builds significantly
 
+## Servers 
+
+1. All feature pull request starting with `staging-*` are auto-deployed. Without credentials!
+2. All commits merged into `main` are deployed to [`stage.little-world.com`](https://stage.little-world.com)
+3. All commits merged into `prod` are deployed to any production contig.
+E.g.: [`little-world.com`](https://little-world.com), [`shareami.little-world.com`](https://shareami.little-world.com),
+[`form-v2.little-world.com`](https://form-v2.little-world.com)
+
+> Production and staging deployments NEED TO BE CONFIRMED by an admin!
+
 ## TL;DR full docker build
 
 Want to test a feature quickly locally:
@@ -136,4 +146,3 @@ Then run it via:
 ```bash
 export $(grep -v '^#' .env.prod-attach | xargs) && docker compose -f docker-compose.prod-attach.yaml exec app ./manage.py <command-name>
 ```
-
