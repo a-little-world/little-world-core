@@ -20,6 +20,8 @@ from emails.templates import (
     MatchRejectedEmailTexts,
     InterviewInvitation,
     GeneralSurveyMail,
+    GeneralSurveyMail_0311,
+    ImpulsBeitraegeMail,
     # Currently we are using the same template as weclone
     # so MatchFoundEmailTexts has no Defaults
     SurveyInvitationAniq2,
@@ -53,6 +55,12 @@ class SurveyInvitation2AniqParams:
     first_name: str
     link_url: str
     unsubscribe_url1: str
+
+@dataclass
+class ImpulseBeitraegeParams:
+    first_name: str
+    link_url: str
+    unsubscribe_url1: str
     
 @dataclass
 class AccountDeletedEmailParams:
@@ -72,6 +80,13 @@ class StillInContactParams:
 class MatchRejectedEmailParams:
     first_name: str
     partner_first_name: str
+    
+    
+@dataclass
+class GeneralSurveryMail_03_11_Params:
+    first_name: str
+    link_url: str
+    unsubscribe_url1: str
     
 @dataclass
 class GeneralSurveryMailParams:
@@ -297,6 +312,13 @@ templates = [
         defaults=GeneralSurveyMail
     ),
     MailMeta(
+        name="general_interview_03_11",
+        template="emails/welcome_reversed.html",
+        params=GeneralSurveryMail_03_11_Params,
+        texts=GeneralSurveyMail_0311,
+        defaults=GeneralSurveyMail_0311
+    ),
+    MailMeta(
         name="confirm_match_expired_mail_1",
         template="emails/welcome.html",
         params=MatchExpiredMailParams,
@@ -330,6 +352,13 @@ templates = [
         params=AccountDeletedEmailParams,
         texts=AccountDeletedEmailTexts,
         defaults=AccountDeletedEmailTexts
+    ),
+    MailMeta(
+        name="impuls_beitraege",
+        template="emails/welcome.html",
+        params=ImpulseBeitraegeParams,
+        texts=ImpulsBeitraegeMail,
+        defaults=ImpulsBeitraegeMail
     ),
 ]
 

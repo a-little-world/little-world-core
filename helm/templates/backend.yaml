@@ -12,7 +12,7 @@ stringData:
       (
         dict "auths"
         (
-          dict "ghcr.io"
+          dict .Values.registryAuth.host
           (
             dict "auth" .Values.registryAuth.token
           )

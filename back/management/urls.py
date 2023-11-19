@@ -79,7 +79,7 @@ api_routes = [
     path(_api_url('matching/unmatch'), api.report_unmatch.unmatch),
 
     *([path(_api_url('devlogin'), api.developers.DevLoginAPI.as_view())]  # Dev login only to be used in staging!
-      if settings.IS_STAGE or settings.IS_DEV else []),
+      if (settings.IS_STAGE or settings.IS_DEV or settings.EXPOSE_DEV_LOGIN) else []),
 
     path(_api_url('user/logout'), api.user.LogoutApi.as_view()),
     path(_api_url('user/checkpw'), api.user.CheckPasswordApi.as_view()),
@@ -244,6 +244,11 @@ view_routes = [
     *admin_panel_v2_actions.action_routes
 
 ]
+
+if settings.USE_LANDINGPAGE_PLACEHOLDER:
+    view_routes += [
+         path(f"landing/", views.landing_page, name="landing_page_placeholder"),
+    ]
 
 urlpatterns = [
     *view_routes,
