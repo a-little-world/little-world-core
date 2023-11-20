@@ -342,7 +342,7 @@ elif EXTERNAL_S3 or ((not DOCS_BUILD and (IS_PROD or IS_STAGE)) and (not USE_WHI
         }
     }
     COLLECTFAST_CACHE = "collectfast"
-    COLLECTFAST_THREADS = 20
+    COLLECTFAST_THREADS = 4
 else:
     """
     In development all staticfiles will be hosted here
