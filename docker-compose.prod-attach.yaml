@@ -59,6 +59,7 @@ services:
       DJ_CALCOM_MEETING_ID: "herr-duenschnlate-iiscv9/15min"
       DJ_USE_SENTRY: 0
       DJ_SENTRY_DNS: ""
+      SAFEMODE: "1"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
