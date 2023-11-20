@@ -3,7 +3,7 @@
 # "rediss://:$DJ_REDIS_PASSWORD@$DJ_REDIS_HOST:DJ_REDIS_PORT"
 
 if [ "$SAFEMODE" = "true" ]; then
-back.asgi:application --port 8000 --host 0.0.0.0
+uvicorn back.asgi:application --port 8000 --host 0.0.0.0
 else
 
 celery -A back worker --loglevel=info &
