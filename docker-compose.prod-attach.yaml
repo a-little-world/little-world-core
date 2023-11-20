@@ -10,7 +10,7 @@ services:
         DOCKER_BUILDKIT: 1
         PUBLIC_FRONTEND_PATH: "${WEBPACK_PUBLIC_PATH}"
         BUILD_TYPE: "${BUILD_TYPE}"
-        ENTRYPOINT: "./entries/entry_prod.sh"
+        ENTRYPOINT: "${ENTRYPOINT}"
     image: "${APP_IMAGE_URL}"
     ports:
       - "8000:8000"
