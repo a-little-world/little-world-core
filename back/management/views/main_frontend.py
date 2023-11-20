@@ -38,9 +38,7 @@ class MainFrontendParamsSerializer(serializers.Serializer):
     def create(self, validated_data):
         return MainFrontendParams(**validated_data)
 
-class PublicMainFrontendView(LoginRequiredMixin, View):
-    login_url = 'https://home.little-world.com/' if settings.IS_PROD else '/login'
-    redirect_field_name = 'next'
+class PublicMainFrontendView(View):
 
     @utils.track_event(name=_("Render User Form"), event_type=Event.EventTypeChoices.REQUEST, tags=["frontend"])
     def get(self, request, **kwargs):
