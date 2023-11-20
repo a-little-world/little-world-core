@@ -301,11 +301,11 @@ elif EXTERNAL_S3 or ((not DOCS_BUILD and (IS_PROD or IS_STAGE)) and (not USE_WHI
     COLLECTFAST_STRATEGY = "collectfast.strategies.boto3.Boto3Strategy"
     #COLLECTFAST_ENABLED = False
 
-    AWS_ACCESS_KEY_ID = os.environ['DJ_AWS_STATIC_ACCESS_KEY_ID']
-    AWS_SECRET_ACCESS_KEY = os.environ['DJ_AWS_STATIC_SECRET_KEY']
-    AWS_STORAGE_BUCKET_NAME = os.environ['DJ_AWS_STATIC_BUCKET_NAME']
+    AWS_ACCESS_KEY_ID = os.environ.get('DJ_AWS_STATIC_ACCESS_KEY_ID', "")
+    AWS_SECRET_ACCESS_KEY = os.environ.get('DJ_AWS_STATIC_SECRET_KEY', "")
+    AWS_STORAGE_BUCKET_NAME = os.environ.get('DJ_AWS_STATIC_BUCKET_NAME', "")
     AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
-    AWS_S3_REGION_NAME = os.environ['DJ_AWS_REGION_NAME']
+    AWS_S3_REGION_NAME = os.environ.get('DJ_AWS_REGION_NAME', "")
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com'
     # https: // litttle-world-staging-bucket.s3.eu-central-1.amazonaws.com/
     # AWS_S3_ENDPOINT_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}'
