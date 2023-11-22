@@ -46,6 +46,9 @@ class PublicMainFrontendView(View):
         from management.models import SelfProfileSerializer
         from management.controller import get_base_management_user
         
+        if request.user.is_authenticated:
+            return redirect("/app/")
+        
         
         # TODO: we need a better way to extract the options!
         ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
@@ -94,10 +97,10 @@ class MainFrontendView(LoginRequiredMixin, View):
         print("PRMS: " + str(params))
 
         if not request.user.state.is_email_verified():
-            return redirect(reverse("management:email_verification", kwargs={}))
+            return redirect("/verify-email/")
 
         if not request.user.state.is_user_form_filled():
-            return redirect(reverse("management:user_form", kwargs={}))
+            return redirect("/app/user-form/")
 
         _kwargs = params.__dict__
         _kwargs.pop("filters")  # TODO: they are not yet supported
