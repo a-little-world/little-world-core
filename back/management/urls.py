@@ -163,11 +163,6 @@ view_routes = [
     path("password_reset_mail_send/", password_reset_mail_send,
          name="password_reset_succsess"),
 
-    path('login/', views.PublicMainFrontendView.as_view(), name="main_frontend_public_login"),
-    path('forgot-password/', views.PublicMainFrontendView.as_view(), name="main_frontend_public_forgot_password"),
-    path('reset-password/', views.PublicMainFrontendView.as_view(), name="main_frontend_public_reset_password"),
-    path('sign-up/', views.PublicMainFrontendView.as_view(), name="main_frontend_public_sign_up"),
-
     path("formpage/", subsection_of_user_form, name="formpage"),
 
     path('mailverify/', email_verification, name="email_verification"),
@@ -180,6 +175,8 @@ view_routes = [
          name="email_verification_fail"),
 
     path('error/', error, name="error"),
+    
+
 
     # The user form ( does its own routing )
     path(f"form/", user_form, name="user_form"),
@@ -241,8 +238,10 @@ view_routes = [
     path(f"stats/<str:regrouped_by>", stats_panel, name="stats_dashboard"),
 
     path(_api_url('calcom', admin=False), api.calcom.callcom_websocket_callback),
+    
+    
+    *admin_panel_v2_actions.action_routes,
 
-    *admin_panel_v2_actions.action_routes
 
 ]
 
@@ -255,3 +254,5 @@ urlpatterns = [
     *view_routes,
     *api_routes,
 ]
+
+public_routes_wildcard = path('<str:path>/', views.PublicMainFrontendView.as_view(), name="main_frontend_public")
