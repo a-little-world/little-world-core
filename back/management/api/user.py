@@ -160,8 +160,10 @@ class LoginApi(APIView):
                     "api.login-failed-staff", "Can't log in email or password wrong!"),
                     status=status.HTTP_400_BAD_REQUEST)
             login(request, usr)
-            return Response(pgettext_lazy(
-                "api.login-sucessful", "Sucessfully logged in!"))
+            # Also pass the whole user data on a sucessfull login! 
+            from management.api.user_data import frontend_data
+            
+            return Response(frontend_data(request.user))
         else:
             return Response(pgettext_lazy(
                 "api.login-failed", "Can't log-in email or password wrong!"),
