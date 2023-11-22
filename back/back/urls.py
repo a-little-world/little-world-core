@@ -9,6 +9,7 @@ from django.urls import path, re_path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth.views import LoginView
+from management.urls import public_routes_wildcard
 
 """
 We are adding all app urls under `'/'` their paths should be set under `<app>/urls.py`
@@ -84,3 +85,6 @@ if settings.USE_SENTRY:
     urlpatterns += [
         path('sentry-debug/', trigger_error),
     ]
+    
+
+urlpatterns += [public_routes_wildcard]
