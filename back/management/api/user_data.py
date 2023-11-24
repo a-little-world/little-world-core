@@ -267,24 +267,6 @@ def get_paginated(query_set, items_per_page, page):
         "currentPage": page,
     }
 
-def get_matches_confirmed_category(page, queryset, itemsPerPage=10):
-    # page - current page's number
-    # itemsPerPage - number of posts to show on one page
-
-    if page == 1:
-        start = (page - 1) * itemsPerPage
-        end = page * itemsPerPage
-    else:
-        start = ((page - 1) * itemsPerPage)-1
-        end = (page * itemsPerPage)-1
-
-    pager = dict()
-    pager.update({'items': queryset[start:end]})
-    pager.update({'totalItems': len(queryset)})
-    pager.update({'itemsPerPage': itemsPerPage})
-    pager.update({'currentPage': page})
-    return pager
-
 def serialize_matches(matches, user):
     serialized = []
     for match in matches:
@@ -446,16 +428,15 @@ class ConfirmedDataApi(APIView):
         """
         Handle GET requests to retrieve confirmed matches data for the user.
         """
-        try:
-            # Extracting pagination parameters from the request
-            page = int(request.GET.get("page", 1))
-            items_per_page = int(request.GET.get("itemsPerPage", 10))
+        page = int(request.GET.get("page", 1))
+        items_per_page = int(request.GET.get("itemsPerPage", 10))
 
+        try:
             # Retrieve confirmed matches using a utility function
-            confirmed_matches = get_matches_confirmed_category(
-                page,
+            confirmed_matches = get_paginated(
                 models.Match.get_confirmed_matches(request.user),
-                items_per_page
+                items_per_page,
+                page
             )
 
             # Serialize matches data for the user
@@ -464,9 +445,8 @@ class ConfirmedDataApi(APIView):
                 request.user
             )
 
-            # Return a successful response with the data
-            return Response({"code": 200, "data": confirmed_matches}, status=status.HTTP_200_OK)
-
         except Exception as e:
-            # Handle other exceptions and return an appropriate response
-            return Response({"code": 500, "error": f"An error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"code":400, "error": "Page not Found"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Return a successful response with the data
+        return Response({"code": 200, "data": {"confirmed_matches": confirmed_matches}}, status=status.HTTP_200_OK)
