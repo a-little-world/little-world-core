@@ -324,6 +324,8 @@ def frontend_data(user, items_per_page=10):
 
     user_state = user.state
     user_profile = user.profile
+    
+    is_matching_user = user_state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
 
     community_events = get_paginated(CommunityEvent.get_all_active_events(), items_per_page, 1)
     community_events["items"] = serialize_community_events(community_events["items"])
@@ -355,6 +357,14 @@ def frontend_data(user, items_per_page=10):
     del profile_data["options"]
 
     # TODO: populate incoming calls
+    
+    empty_list = {
+        "items": [],
+        "totalItems": 0,
+        "itemsPerPage": 0,
+        "currentPage": 0,
+    }
+
 
     return {
         "user": {
@@ -364,8 +374,9 @@ def frontend_data(user, items_per_page=10):
         },
         "communityEvents": community_events,
         "matches": {
-            "support": support_matches,
-            "confirmed" : confirmed_matches,
+            # Switch case here cause for support users all matches are 'support' matches :D
+            "support": empty_list if is_matching_user else support_matches,
+            "confirmed" : support_matches if is_matching_user else confirmed_matches,
             "unconfirmed": unconfirmed_matches,
             "proposed": proposed_matches,
         },
@@ -431,10 +442,17 @@ class ConfirmedDataApi(APIView):
         page = int(request.GET.get("page", 1))
         items_per_page = int(request.GET.get("itemsPerPage", 10))
 
+        is_matching_user = request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+
         try:
             # Retrieve confirmed matches using a utility function
+            if is_matching_user:
+                # Cause for support users all matches are 'support' matches we return them as confirmed matches
+                matches = models.Match.get_support_matches(request.user)
+            else:
+                matches = models.Match.get_confirmed_matches(request.user)
             confirmed_matches = get_paginated(
-                models.Match.get_confirmed_matches(request.user),
+                matches,
                 items_per_page,
                 page
             )
