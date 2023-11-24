@@ -6,6 +6,16 @@ This repo also builds all frontends using webpack and serves them via django vie
 
 > It's always recomended to use `DOCKER_BUILDKIT=1` it is the future default for docker anyways and speeds up builds significantly
 
+## Servers 
+
+1. All feature pull request starting with `staging-*` are auto-deployed. Without credentials!
+2. All commits merged into [`main`](https://github.com/a-little-world/little-world-backend/tree/main) are deployed to [`stage.little-world.com`](https://stage.little-world.com)
+3. All commits merged into [`prod`](https://github.com/a-little-world/little-world-backend/tree/prod) are deployed to any production config.
+E.g.: [`little-world.com`](https://little-world.com), [`shareami.little-world.com`](https://shareami.little-world.com)
+4. Commits merged into [`form-v2`](https://github.com/a-little-world/little-world-backend/tree/form-v2) are deployed to [`form-v2.little-world.com`](https://form-v2.little-world.com).
+
+> Production and staging deployments NEED TO BE CONFIRMED by an admin!
+
 ## TL;DR full docker build
 
 Want to test a feature quickly locally:

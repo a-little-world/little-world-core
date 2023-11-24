@@ -2,6 +2,10 @@
 # TODO: in the future these procesees should be deomonized or handled by supervisord
 # "rediss://:$DJ_REDIS_PASSWORD@$DJ_REDIS_HOST:DJ_REDIS_PORT"
 
+if [ "$SAFEMODE" = "true" ]; then
+uvicorn back.asgi:application --port 8000 --host 0.0.0.0
+else
+
 celery -A back worker --loglevel=info &
 
 if [ "$DJ_USE_REDIS_AS_BROKER" = "1" ]; then
@@ -14,15 +18,8 @@ else
 fi
 fi
 
-if [ "$BUILD_TYPE" = "deployment" ]; then
-    python3 manage.py migrate --noinput
-fi
-
-if [ "$DJ_USE_WHITENOISE" = "1"]; then
-    python3 manage.py collectstatic --noinput
-fi
-
 python3 manage.py compilemessages --use-fuzzy
 python3 manage.py shell --command 'from management.controller import create_base_admin_and_add_standart_db_values; create_base_admin_and_add_standart_db_values()'
 
-uvicorn back.asgi:application --reload --port 8000 --host 0.0.0.0
+uvicorn back.asgi:application --port 8000 --host 0.0.0.0
+fi

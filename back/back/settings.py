@@ -48,6 +48,7 @@ TWILIO_SMS_NUMBER = os.environ.get("DJ_TWILIO_SMS_NUMBER", "+1234567890")
 TWILIO_ACCOUNT_SID = os.environ["DJ_TWILIO_ACCOUNT_SID"]
 TWILIO_API_KEY_SID = os.environ["DJ_TWILIO_API_KEY_SID"]
 TWILIO_API_SECRET = os.environ["DJ_TWILIO_API_SECRET"]
+EXTERNAL_S3 = os.environ.get("DJ_EXTERNAL_S3", "false").lower() in ('true', '1', 't')
 
 USE_SQLITE = os.environ.get("DJ_USE_SQLITE", "false").lower() in ('true', '1', 't')
 
@@ -60,7 +61,7 @@ USE_WHITENOISE = os.environ.get("DJ_USE_WHITENOISE", "false").lower() in ('true'
 
 EMPHIRIAL = os.environ.get("EMPHIRIAL", "0") == "1"
 
-USE_LANDINGPAGE_REDIRECT = os.environ.get("DJ_LANDINGPAGE_REDIRECT", "false").lower() in ('true', '1', 't')
+USE_LANDINGPAGE_REDIRECT = os.environ.get("DJ_USE_LANDINGPAGE_REDIRECT", "false").lower() in ('true', '1', 't')
 LANDINGPAGE_REDIRECT_URL = os.environ.get("DJ_LANDINGPAGE_REDIRECT_URL", "https://home.little-world.com")
 USE_LANDINGPAGE_PLACEHOLDER = os.environ.get("DJ_USE_LANDINGPAGE_PLACEHOLDER", "true").lower() in ('true', '1', 't')
 LANDINGPAGE_PLACEHOLDER_TITLE = os.environ.get("DJ_LANDINGPAGE_PLACEHOLDER_TITLE", "Little World")
@@ -291,19 +292,20 @@ elif False:
     COLLECTFAST_CACHE = "collectfast"
     COLLECTFAST_THREADS = 20
 
-elif (not DOCS_BUILD and (IS_PROD or IS_STAGE)) and (not USE_WHITENOISE):
+elif EXTERNAL_S3 or ((not DOCS_BUILD and (IS_PROD or IS_STAGE)) and (not USE_WHITENOISE)):
     print("TRYING to push statics to bucket")
     # In production & staging we use S3 as file storage!
+    COLLECTFAST_ENABLED = True
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
     STATICFILES_STORAGE = 'storages.backends.s3boto3.S3StaticStorage'
     COLLECTFAST_STRATEGY = "collectfast.strategies.boto3.Boto3Strategy"
     #COLLECTFAST_ENABLED = False
 
-    AWS_ACCESS_KEY_ID = os.environ['DJ_AWS_STATIC_ACCESS_KEY_ID']
-    AWS_SECRET_ACCESS_KEY = os.environ['DJ_AWS_STATIC_SECRET_KEY']
-    AWS_STORAGE_BUCKET_NAME = os.environ['DJ_AWS_STATIC_BUCKET_NAME']
+    AWS_ACCESS_KEY_ID = os.environ.get('DJ_AWS_STATIC_ACCESS_KEY_ID', "")
+    AWS_SECRET_ACCESS_KEY = os.environ.get('DJ_AWS_STATIC_SECRET_KEY', "")
+    AWS_STORAGE_BUCKET_NAME = os.environ.get('DJ_AWS_STATIC_BUCKET_NAME', "")
     AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
-    AWS_S3_REGION_NAME = os.environ['DJ_AWS_REGION_NAME']
+    AWS_S3_REGION_NAME = os.environ.get('DJ_AWS_REGION_NAME', "")
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com'
     # https: // litttle-world-staging-bucket.s3.eu-central-1.amazonaws.com/
     # AWS_S3_ENDPOINT_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}'
@@ -340,7 +342,7 @@ elif (not DOCS_BUILD and (IS_PROD or IS_STAGE)) and (not USE_WHITENOISE):
         }
     }
     COLLECTFAST_CACHE = "collectfast"
-    COLLECTFAST_THREADS = 20
+    COLLECTFAST_THREADS = 15
 else:
     """
     In development all staticfiles will be hosted here
