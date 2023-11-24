@@ -79,7 +79,7 @@ api_routes = [
     path(_api_url('matching/unmatch'), api.report_unmatch.unmatch),
 
     *([path(_api_url('devlogin'), api.developers.DevLoginAPI.as_view())]  # Dev login only to be used in staging!
-      if settings.IS_STAGE or settings.IS_DEV else []),
+      if (settings.IS_STAGE or settings.IS_DEV or settings.EXPOSE_DEV_LOGIN) else []),
 
     path(_api_url('user/logout'), api.user.LogoutApi.as_view()),
     path(_api_url('user/checkpw'), api.user.CheckPasswordApi.as_view()),
@@ -156,8 +156,6 @@ view_routes = [
     path("", RedirectView.as_view(  # Redirect all requests to "/" to "/app/" per default
          url=f"app/", permanent=True), name="frontend_redirect"),
 
-    path("register/", register, name="register"),
-    path("password_reset/", forgot_password, name="password_reset"),
     path("set_password/<str:usr_hash>/<str:token>",
          set_password_reset, name="set_password_reset"),
 
@@ -166,8 +164,6 @@ view_routes = [
 
     path("password_reset_mail_send/", password_reset_mail_send,
          name="password_reset_succsess"),
-
-    path("login/", login, name="login"),
 
     path("formpage/", subsection_of_user_form, name="formpage"),
 
@@ -181,6 +177,8 @@ view_routes = [
          name="email_verification_fail"),
 
     path('error/', error, name="error"),
+    
+
 
     # The user form ( does its own routing )
     path(f"form/", user_form, name="user_form"),
@@ -200,8 +198,7 @@ view_routes = [
     path(f"admin_panel/", admin_panel, name="admin_panel"),
     path(f"admin_panel_v2/", admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
     path(f"admin_panel_v2_login/", admin_panel_v2.admin_panel_v2_login, name="admin_panel_v2_login"),
-    path(f"admin_panel_v2/<str:query_set>/", admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
-
+    re_path(fr'^admin_panel_v2/(?P<menu>.*)$', admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
     path(_api_url('user_advanced/<str:pk>', admin=True), admin_panel_v2.root_user_viewset.as_view({'get': 'retrieve'})),
     path(_api_url('user_info/<str:pk>', admin=True), admin_panel_v2.user_info_viewset.as_view({'get': 'retrieve'})),
     path(_api_url('user_advanced/<str:pk>/notes', admin=True),
@@ -243,12 +240,21 @@ view_routes = [
     path(f"stats/<str:regrouped_by>", stats_panel, name="stats_dashboard"),
 
     path(_api_url('calcom', admin=False), api.calcom.callcom_websocket_callback),
+    
+    
+    *admin_panel_v2_actions.action_routes,
 
-    *admin_panel_v2_actions.action_routes
 
 ]
+
+if settings.USE_LANDINGPAGE_PLACEHOLDER:
+    view_routes += [
+         path(f"landing/", views.landing_page, name="landing_page_placeholder"),
+    ]
 
 urlpatterns = [
     *view_routes,
     *api_routes,
 ]
+
+public_routes_wildcard = path('<str:path>/', views.PublicMainFrontendView.as_view(), name="main_frontend_public")

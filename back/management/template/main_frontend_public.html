@@ -25,6 +25,6 @@
   const data = JSON.parse('{{ data | escapejs }}');
   const apiTranslations = JSON.parse('{{ api_translations | escapejs }}');
   window.apiTranslations = apiTranslations;
-  renderApp({ initData : data }, { apiTranslations })
+  renderApp({ initData : data }, { apiTranslations }, true)
 </script>
 <div style="display: none;">{{csrf_token}}</div>

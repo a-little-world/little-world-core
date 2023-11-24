@@ -1,7 +1,7 @@
 # Little World Backend
 
 The backend consists of a django application that is containerized using docker.
-Builds are manged using docker-compose. 
+Builds are manged using docker compose. 
 This repo also builds all frontends using webpack and serves them via django views.
 
 > It's always recomended to use `DOCKER_BUILDKIT=1` it is the future default for docker anyways and speeds up builds significantly
@@ -13,7 +13,7 @@ Want to test a feature quickly locally:
 ```
 git clone <your-feature-branch> && cd little-world-backend
 git submodule update --init --recursive
-DOCKER_BUILDKIT=1 docker-compose build
+docker compose build
 ```
 
 > Quciker build meant for testing, check below for development setup
@@ -23,14 +23,14 @@ DOCKER_BUILDKIT=1 docker-compose build
 Use this to verify locally if your features breaks anything, rather than waiting for the CI!
 
 ```
-DOCKER_BUILDKIT=1 docker-compose up -d
-docker-compose all exec python3 manage.py test
-docker-compose down
+docker compose up -d
+docker compose all exec python3 manage.py test
+docker compose down
 ```
 
 ## Backend ( + Frontend in Backend ) Development
 
-You can do all backend development using docker-compose and a few simple command.
+You can do all backend development using docker compose and a few simple command.
 You can also develop all the frontends from within the backend repo, with full code + hot reloading.
 
 ### Full Hot-Reload Back & All Frontends
@@ -40,16 +40,16 @@ setup:
 ```
 git clone <backend> && cd little-world-backend
 git submodule update --init --recursive
-COMPOSE_PROFILES=all DOCKER_BUILDKIT=1 docker-compose -f docker-compose.dev.yaml build
+COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml build
 for frontend in main_frontend user_form user_form_frontend admin_panel_frontend cookie_banner_frontend; do touch ./front/$frontend.webpack-stats.json ; done
-COMPOSE_PROFILES=all DOCKER_BUILDKIT=1 docker-compose -f docker-compose.dev.yaml up
+COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml up
 ```
 
-Once you have run `docker-compose up` with the `=all` flag at least once you can also run only specific frontends with auto-update:
+Once you have run `docker compose up` with the `=all` flag at least once you can also run only specific frontends with auto-update:
 
 e.g.:
 ```
-COMPOSE_PROFILES=main_frontend DOCKER_BUILDKIT=1 docker-compose -f docker-compose.dev.yaml up
+COMPOSE_PROFILES=main_frontend docker compose -f docker-compose.dev.yaml up
 ```
 
 That's it! Any code changed in `/front/apps/*/src/*` or in `/back/*` will cause a hot-reload for the specific frontend, or backend.
@@ -105,8 +105,8 @@ microk8s enable ingress registry helm
 touch .env
 echo "APP_IMAGE_URL=\"localhost:32000/backend:registry\"" >> .env
 echo "REDIS_URL=\"http://host.docker.internal:6379\"" >> .env
-DOCKER_BUILDKIT=1 docker-compose build
-DOCKER_BUILDKIT=1 docker-compose push
+docker compose build
+docker compose push
 microk8s helm install release-1 ./helm/
 ```
 
@@ -118,4 +118,22 @@ watch microk8s kubectl get pods
 
 once ready visit `http://localhost`
 
+
+
+## Attaching to live DB
+
+Sometimes it can be convenient to use the django ORM to make queries to the DB from your local machine. Thats what `docker-compose.prod-attach.yaml` is for.
+You will need to place the credentials into `.env.prod-attach` then run:
+
+```bash
+export $(grep -v '^#' .env.prod-attach | xargs) && docker compose -f docker-compose.prod-attach.yaml build
+export $(grep -v '^#' .env.prod-attach | xargs) && docker compose -f docker-compose.prod-attach.yaml up
+```
+
+e.g.: Run a management command, just edit a file in `./back/management/management/commands/<command-name>.py`.
+Then run it via:
+
+```bash
+export $(grep -v '^#' .env.prod-attach | xargs) && docker compose -f docker-compose.prod-attach.yaml exec app ./manage.py <command-name>
+```
 

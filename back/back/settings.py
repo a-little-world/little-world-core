@@ -28,6 +28,8 @@ IS_DEV = BUILD_TYPE == 'development'
 IS_STAGE = BUILD_TYPE == 'staging'
 IS_PROD = BUILD_TYPE == 'deployment'
 
+PROD_ATTACH = os.environ.get("DJ_PROD_ATTACH", "false").lower() in ('true', '1', 't')
+
 DOCS_BUILD = os.environ.get(
     "DJ_DOCS_BUILD", "false").lower() in ('true', '1', 't')
 
@@ -40,18 +42,28 @@ FRONTENDS = os.environ["FR_FRONTENDS"].split(",")
 MANAGEMENT_USER_MAIL = os.environ["DJ_MANAGEMENT_USER_MAIL"]
 ADMIN_OPEN_KEYPHRASE = os.environ["DJ_ADMIN_OPEN_KEYPHRASE"]
 DEFAULT_FROM_EMAIL = os.environ["DJ_SG_DEFAULT_FROM_EMAIL"]
+EXPOSE_DEV_LOGIN = os.environ.get("DJ_EXPOSE_DEV_LOGIN", "false").lower() in ('true', '1', 't')
 
 TWILIO_SMS_NUMBER = os.environ.get("DJ_TWILIO_SMS_NUMBER", "+1234567890")
 TWILIO_ACCOUNT_SID = os.environ["DJ_TWILIO_ACCOUNT_SID"]
 TWILIO_API_KEY_SID = os.environ["DJ_TWILIO_API_KEY_SID"]
 TWILIO_API_SECRET = os.environ["DJ_TWILIO_API_SECRET"]
 
+USE_SQLITE = os.environ.get("DJ_USE_SQLITE", "false").lower() in ('true', '1', 't')
+
 DJ_CALCOM_QUERY_ACCESS_PARAM = os.environ.get("DJ_CALCOM_QUERY_ACCESS_PARAM", "none")
 DJ_CALCOM_MEETING_ID = os.environ.get("DJ_CALCOM_MEETING_ID", "none")
+USE_REDIS_AS_BROKER = os.environ.get("DJ_USE_REDIS_AS_BROKER", "false").lower() in ('true', '1', 't')
 
 COOKIE_CONSENT_NAME = "backend_cookie_consent"
+USE_WHITENOISE = os.environ.get("DJ_USE_WHITENOISE", "false").lower() in ('true', '1', 't')
 
 EMPHIRIAL = os.environ.get("EMPHIRIAL", "0") == "1"
+
+USE_LANDINGPAGE_REDIRECT = os.environ.get("DJ_LANDINGPAGE_REDIRECT", "false").lower() in ('true', '1', 't')
+LANDINGPAGE_REDIRECT_URL = os.environ.get("DJ_LANDINGPAGE_REDIRECT_URL", "https://home.little-world.com")
+USE_LANDINGPAGE_PLACEHOLDER = os.environ.get("DJ_USE_LANDINGPAGE_PLACEHOLDER", "true").lower() in ('true', '1', 't')
+LANDINGPAGE_PLACEHOLDER_TITLE = os.environ.get("DJ_LANDINGPAGE_PLACEHOLDER_TITLE", "Little World")
 
 if IS_PROD and 'K8_POD_IP' in os.environ:
     # So that we can further restrict access to the depoloyment kubernetes node
@@ -123,7 +135,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     *([  # Whitenoise to server static only needed in development
         'whitenoise.middleware.WhiteNoiseMiddleware',
-    ] if IS_DEV or DOCS_BUILD else []),
+    ] if (IS_DEV or DOCS_BUILD or USE_WHITENOISE ) else []),
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.locale.LocaleMiddleware',
     'management.middleware.OverwriteSessionLangIfAcceptLangHeaderSet',
@@ -279,7 +291,7 @@ elif False:
     COLLECTFAST_CACHE = "collectfast"
     COLLECTFAST_THREADS = 20
 
-elif not DOCS_BUILD and (IS_PROD or IS_STAGE):
+elif (not DOCS_BUILD and (IS_PROD or IS_STAGE)) and (not USE_WHITENOISE):
     print("TRYING to push statics to bucket")
     # In production & staging we use S3 as file storage!
     DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
@@ -416,7 +428,7 @@ def get_redis_connect_url_port():
     return os.environ['DJ_REDIS_HOST'], os.environ['DJ_REDIS_PORT']
 
 
-if EMPHIRIAL:
+if (EMPHIRIAL or USE_REDIS_AS_BROKER):
     CELERY_BROKER_URL = os.environ["REDIS_URL"]
 elif IS_DEV:
     # autmaticly renders index.html when entering an absolute static path
@@ -485,7 +497,7 @@ if IS_DEV and (not EMPHIRIAL):
             },
         }
     }
-elif EMPHIRIAL:
+elif EMPHIRIAL or USE_REDIS_AS_BROKER:
 
     CHANNEL_LAYERS = {
         "default": {
@@ -538,7 +550,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
     }
-} if (IS_DEV and (not 'DJ_DATABASE_ENGINE' in os.environ )) else {
+} if ((IS_DEV and (not 'DJ_DATABASE_ENGINE' in os.environ )) or USE_SQLITE) else {
     'default': {
         'ENGINE': 'django.db.backends.{}'.format(
             os.environ['DJ_DATABASE_ENGINE']

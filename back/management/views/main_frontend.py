@@ -38,13 +38,43 @@ class MainFrontendParamsSerializer(serializers.Serializer):
     def create(self, validated_data):
         return MainFrontendParams(**validated_data)
 
+class PublicMainFrontendView(View):
+
+    @utils.track_event(name=_("Render User Form"), event_type=Event.EventTypeChoices.REQUEST, tags=["frontend"])
+    def get(self, request, path, **kwargs):
+        from back.utils import transform_add_options_serializer
+        from management.models import SelfProfileSerializer
+        from management.controller import get_base_management_user
+        
+        if request.user.is_authenticated and ((not request.user.state.is_email_verified()) and (not path.startswith("verify-email"))):
+            return redirect("/verify-email/")
+        
+        if request.user.is_authenticated and ((not request.user.state.is_user_form_filled()) and (not path.startswith("app/user-form"))):
+            return redirect("/app/user-form/")
+
+        if request.user.is_authenticated and (request.user.state.is_email_verified() and request.user.state.is_user_form_filled()):
+            return redirect("/app/")
+
+
+        
+        # TODO: we need a better way to extract the options!
+        ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
+        user_profile = get_base_management_user().profile
+        profile_data = ProfileWOptions(user_profile).data
+        profile_options = profile_data["options"]
+
+        return render(request, "main_frontend_public.html", {"data": json.dumps({
+            "apiOptions": {
+                "profile": profile_options,
+            },
+        }, cls=CoolerJson)})
 
 class MainFrontendView(LoginRequiredMixin, View):
-    login_url = 'https://home.little-world.com/' if settings.IS_PROD else '/login'
+    login_url = ('https://home.little-world.com/' if settings.IS_PROD else '/login') if (not settings.USE_LANDINGPAGE_REDIRECT) else settings.LANDINGPAGE_REDIRECT_URL
     redirect_field_name = 'next'
 
     @utils.track_event(name=_("Render User Form"), event_type=Event.EventTypeChoices.REQUEST, tags=["frontend"])
-    def get(self, request, **kwargs):
+    def get(self, request, path="app/", **kwargs):
         """
         Entrypoint to the main frontend react app.
         1. check if email verified, if not redirect to views.form.email_verification
@@ -53,6 +83,9 @@ class MainFrontendView(LoginRequiredMixin, View):
         TODO this **will** change, 
         at some point we will allow to use the main app even without having your email verified
         """
+        
+        if not path.startswith("app/"):
+            path = "app/" + path
 
         # This is a regular django view,
         # but since we still wan't to use serialization from DRF
@@ -73,11 +106,12 @@ class MainFrontendView(LoginRequiredMixin, View):
         params = serializer.save()
         print("PRMS: " + str(params))
 
-        if not request.user.state.is_email_verified():
-            return redirect(reverse("management:email_verification", kwargs={}))
-
-        if not request.user.state.is_user_form_filled():
-            return redirect(reverse("management:user_form", kwargs={}))
+        
+        if request.user.is_authenticated and ((not request.user.state.is_email_verified()) and (not path.startswith("verify-email"))):
+            return redirect("/verify-email/")
+        
+        if request.user.is_authenticated and ((not request.user.state.is_user_form_filled()) and (not path.startswith("app/user-form"))):
+            return redirect("/app/user-form/")
 
         _kwargs = params.__dict__
         _kwargs.pop("filters")  # TODO: they are not yet supported
