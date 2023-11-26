@@ -819,6 +819,65 @@ class ImpulsBeitraegeMail:
     unsubscribe_link2: str = 'none'
     unsubscribe_link2_category: str = 'none'
     
+@dataclass
+class ImpulsBeitraegeMail2:
+    subject_header_text: str = pgettext_lazy(
+        "email.impulse-beitraege.subject-header-text", 
+        "Kommende Impulsbeiträge und unser monatliches Come-Together")
+    
+    greeting: str = pgettext_lazy(
+        'email.impulse-beitraege.greeting',
+        'Hallo {first_name},')
+    
+    content_start_text: str = mark_safe(pgettext_lazy(
+        'email.impulse-beitraege.content-start-text',
+        'Wir möchten dich herzlich zu unseren nächsten Impulsbeiträgen einladen:'
+        '<br/><b>Dienstag, 28.11., 17:00 Uhr:</b> "Fremdreflexion - Achtsamer Umgang #2"'
+        '<br/><b>Dienstag, 05.12., 17:00 Uhr:</b> "Out of the Bubble - Achtsamer Umgang #3"'
+        '<br></br>Die Teilnahme an den Impulsbeiträgen war bisher leider gering, dabei stehen diese wertvollen Veranstaltungen allen offen.<br></br>'
+        '<b>Wir möchten dich ermuntern, teilzunehmen und die Gelegenheit zu nutzen, um dich mit anderen auszutauschen und Neues zu entdecken.</b>'
+        '<br/><br/>Jeweils 5 Minuten Input und eine 10-minütige offene Diskussion mit unserer erfahrenen Expertin Raquel Barros - '
+        'ein Raum für Austausch und Reflexion im interkulturellen Dialog. '
+        '<br></br>Außerdem laden wir dich zum <b>monatlichen Come-Together am Donnerstag, 07.12. um 18:00 Uhr</b> ein. '
+        'Am ersten Donnerstag jeden Monats vereinen wir unsere Community, um gemeinsam Erfahrungen auszutauschen, '
+        'Ideen zur Verbesserung zu besprechen und all deine Fragen zu beantworten. '))
+    
+    button_text: str = pgettext_lazy(
+        'email.impulse-beitraege.button-text',
+        'ZUM ZOOM CALL (zoom)')
+    
+    button_link: str = pgettext_lazy(
+        'email.impulse-beitraege.button-link',
+        '{link_url}')
+    
+    content_body_text: str = mark_safe(pgettext_lazy(
+        'email.impulse-beitraege.content-body-text',
+        'Den Zoom Link für die kommenden Veranstaltungen findest du nach dem Einloggen unter "Start" > "Kaffeeklatsch" oder direkt über die folgenden Links:'))
+    
+    link_box_text: str = mark_safe('<a href="https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09" style="color: blue;">https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09</a>')
+    
+    footer_text: str = pgettext_lazy(
+        'email.impulse-beitraege.footer-text',
+        'Solltest du keine weiteren Informationen zu den Impulsbeiträgen wünschen, kannst du dich unten aus dem Verteiler abmelden. Bei Fragen stehen wir dir gerne zur Verfügung - du findest unsere Kontaktdaten in der Signatur. Oder schreib einfach deinem support nutzer.')
+    
+    goodbye: str = pgettext_lazy(
+        'email.impulse-beitraege.goodbye',
+        'Wir freuen uns darauf, dich bei den Veranstaltungen zu sehen, und bis dahin – alles Gute!')
+    
+    goodbye_name: str = pgettext_lazy(
+        'email.email.impulse-beitraege.goodbye.goodbye-name',
+        'Dein Team von Little World')
+    
+    use_unsubscribe_footer: bool = True
+    
+    unsubscribe_two_link: bool = False
+    
+    unsubscribe_link1: str = '{unsubscribe_url1}'
+    unsubscribe_link1_category: str = 'interview request'
+    
+    unsubscribe_link2: str = 'none'
+    
+    unsubscribe_link2_category: str = 'none'
     
 @dataclass
 class GeneralSurveyMail_0311:
