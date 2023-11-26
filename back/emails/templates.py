@@ -873,7 +873,7 @@ class ImpulsBeitraegeMail2:
     unsubscribe_two_link: bool = False
     
     unsubscribe_link1: str = '{unsubscribe_url1}'
-    unsubscribe_link1_category: str = 'interview request'
+    unsubscribe_link1_category: str = 'event_announcement'
     
     unsubscribe_link2: str = 'none'
     
