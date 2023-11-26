@@ -67,4 +67,39 @@ class Command(BaseCommand):
                 mail_params_func=get_params,
                 unsubscribe_group="event_announcement"
             )
-        
+            
+        MESSAGE_ANNOUNCEMENT = """
+<span class="announcement-badge">Ankündigung</span>
+<div class="text-content">
+<b>Herzliche Einladung zu unseren Impulsbeiträgen</b>
+</div>
+<label for="toggle-announcement" class="show-button">Show</label>
+<input type="checkbox" id="toggle-announcement" class="toggle-checkbox">
+<div class="announcement-message">
+<div class="text-content">
+Einmal pro Woche finden bei uns Vorträge und Veranstaltungen statt. Im Moment gibt es eine Reihe an Impulsbeiträgen zu verschiedenen Themen. <br>
+• <span class="emphasis-text">Fremdreflexion - Achtsamer Umgang #2</span>: <b>Dienstag, 28.11., 17:00 Uhr</b><br>
+• <span class="emphasis-text">Out of the Bubble - Achtsamer Umgang #3</span>: <b>Dienstag, 05.12., 17:00 Uhr</b><br>
+Jeweils 5 Minuten Input und eine 10-minütige offene Diskussion mit unserer erfahrenen Expertin Raquel Barros - ein Raum für Austausch und Reflexion im interkulturellen Dialog. <br>
+<span class="strong-text">Auch ist bald unser Monatliches Come-Together:</span><br>
+• <b>Donnerstag, 07.12., 18:00 Uhr</b>: Ein Raum für Austausch in unserer Community.
+Bereitschaft zu lernen und zu teilen ist der erste Schritt zur Verbesserung. <br>
+<span class="strong-text"><b>Die Veranstaltungen sind offen für alle, Wir freuen uns auf deine Teilnahme!</b></span>
+Den Zoom Link für die kommenden Veranstaltungen findest du nach dem Einloggen unter "Start" > "Kaffeeklatsch" oder direkt über folgenden Knopf:
+</div>
+<div class="zoom-button-container">
+<a href="https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09" target="_blank" class="zoom-button">Zum Zoom Meeting</a>
+</div>
+</div>"""
+        print("Also send message announcement? (Y/N)")
+        from management.models import Match
+        if user_input == "Y":
+            for user in users:
+                tim_is_support = str(Match.get_support_matches(user).first().get_partner().email).startswith("tim.timschupp+420@gmail.com")
+                if tim_is_support:
+                   user.message(MESSAGE_ANNOUNCEMENT)
+                else:
+                    print("Not sending message announcement to", user.email, "since tim is not support")
+        else:
+            print("sending message announcement to herrduenschnlate@gmail.com	")
+            controller.get_user_by_email("herrduenschnlate@gmail.com").message(MESSAGE_ANNOUNCEMENT)
