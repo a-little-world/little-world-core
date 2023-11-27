@@ -93,14 +93,19 @@ Den Zoom Link für die kommenden Veranstaltungen findest du nach dem Einloggen u
 </div>
 </div>"""
         print("Also send message announcement? (Y/N)")
+        user_input = input()
         from management.models import Match
         if user_input == "Y":
+            total = len(users)
+            i = 0
             for user in users:
-                tim_is_support = str(Match.get_support_matches(user).first().get_partner().email).startswith("tim.timschupp+420@gmail.com")
+                print("Sending message announcement to", user.email, "(", i, "/", total, ")")
+                i+=1
+                tim_is_support = str(Match.get_support_matches(user).first().get_partner(user).email).startswith("tim.timschupp+420@gmail.com")
                 if tim_is_support:
                    user.message(MESSAGE_ANNOUNCEMENT)
                 else:
                     print("Not sending message announcement to", user.email, "since tim is not support")
         else:
-            print("sending message announcement to herrduenschnlate@gmail.com	")
+            print("sending message announcement ONLY to herrduenschnlate@gmail.com	")
             controller.get_user_by_email("herrduenschnlate@gmail.com").message(MESSAGE_ANNOUNCEMENT)
