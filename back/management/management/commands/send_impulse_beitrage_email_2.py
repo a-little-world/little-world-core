@@ -39,6 +39,7 @@ class Command(BaseCommand):
             print("Sending emails...")
             users = list(all_users_to_consider)
             users = filter(lambda user: not (("oliver" in user.email) or ("rwth" in user.email) or ("berlin" in user.email) or ("hauptstadt" in user.email)), users)
+            users = list(users)
             
             print("Collected", len(users), "users to send to")
             print("\n".join(map(lambda user: user.email, users)))
@@ -49,7 +50,7 @@ class Command(BaseCommand):
                 controller.send_group_mail(
                     users=users,
                     subject="Kommende Impulsbeiträge und unser monatliches Come-Together",
-                    mail_name="impuls_beitraege_2",
+                    mail_name="impuls_beitraege2",
                     mail_params_func=get_params,
                     unsubscribe_group="event_announcement"
                 )
@@ -63,7 +64,7 @@ class Command(BaseCommand):
             controller.send_group_mail(
                 users=users,
                 subject="Kommende Impulsbeiträge und unser monatliches Come-Together",
-                mail_name="impuls_beitraege_2",
+                mail_name="impuls_beitraege2",
                 mail_params_func=get_params,
                 unsubscribe_group="event_announcement"
             )
