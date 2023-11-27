@@ -103,7 +103,7 @@ Den Zoom Link für die kommenden Veranstaltungen findest du nach dem Einloggen u
                 i+=1
                 tim_is_support = str(Match.get_support_matches(user).first().get_partner(user).email).startswith("tim.timschupp+420@gmail.com")
                 if tim_is_support:
-                   user.message(MESSAGE_ANNOUNCEMENT)
+                    user.message(MESSAGE_ANNOUNCEMENT)
                 else:
                     print("Not sending message announcement to", user.email, "since tim is not support")
         else:
