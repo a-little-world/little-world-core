@@ -6,7 +6,7 @@ services:
       dockerfile: ./Dockerfile.full
       args:
         DOCKER_BUILDKIT: 1
-        PUBLIC_FRONTEND_PATH: ""
+        PUBLIC_FRONTEND_PATH: "${WEBPACK_PUBLIC_PATH}"
         BUILD_TYPE: "${BUILD_TYPE}"
         ENTRYPOINT: "${ENTRYPOINT}"
     image: "${APP_IMAGE_URL}"
@@ -34,8 +34,12 @@ services:
       DJ_TWILIO_ACCOUNT_SID: AccSidNotProvidedInDev
       DJ_TWILIO_API_KEY_SID: TwApiKeyNotIncludedDev
       DJ_TWILIO_API_SECRET: TwApiSecretNotIncludedDev
+      WEBPACK_PUBLIC_PATH: "${WEBPACK_PUBLIC_PATH}"
+      DJ_AWS_STATIC_ACCESS_KEY_ID: "${DJ_AWS_STATIC_ACCESS_KEY_ID}"
+      DJ_AWS_STATIC_SECRET_KEY: "${DJ_AWS_STATIC_SECRET_KEY}"
+      DJ_AWS_STATIC_BUCKET_NAME": "${DJ_AWS_STATIC_BUCKET_NAME}"
+      DJ_AWS_REGION_NAME: "${DJ_AWS_REGION_NAME}"
       FR_FRONTENDS: user_form_frontend,main_frontend,cookie_banner_frontend,admin_panel_frontend,user_form
-      WEBPACK_PUBLIC_PATH: 
       WEBPACK_DEV_TOOL: eval-cheap-module-source-map
       WEBPACK_DEBUG: 1
       DJ_SG_SENDGRID_API_KEY: "not_an_api_key"
