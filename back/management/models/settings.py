@@ -10,6 +10,7 @@ class UnsubscibeOptions(models.TextChoices):
     interview_requests = "interview_requests"
     survery_requests = "survery_requests"
     finish_reminders = "finish_reminders"
+    event_announcement = "event_announcement"
 
 class EmailSettings(models.Model):
     
