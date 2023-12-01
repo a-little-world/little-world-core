@@ -129,7 +129,7 @@ user_form_choices = {
 }
 
 
-def create_test_user(i, user_seeds=None, password=None, email=None, pass_if_exists=False):
+def create_test_user(i, user_seeds=None, password=None, email=None, pass_if_exists=False, send_verification_mail=False):
     # use user_seeds to generate redictable users
     if user_seeds:
         random.seed(user_seeds[i])  # Same user all?
@@ -158,7 +158,7 @@ def create_test_user(i, user_seeds=None, password=None, email=None, pass_if_exis
     _data['first_name'] = random_name[0]
     _data['second_name'] = random_name[1]
     usr = controller.create_user(
-        **_data, send_verification_mail=True)
+        **_data, send_verification_mail=send_verification_mail)
     assert usr
 
     # Randomly fill out the user profile:

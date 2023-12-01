@@ -161,3 +161,8 @@ back/static
 # Ignore staging environments
 env_stage
 back/webpack
+
+front/user_form.webpack-stats.json
+front/user_form_frontend.webpack-stats.json
+front/admin_panel_frontend.webpack-stats.json
+front/cookie_banner_frontend.webpack-stats.json
