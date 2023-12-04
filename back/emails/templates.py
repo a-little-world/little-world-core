@@ -834,7 +834,7 @@ class ImpulsBeitraegeMail2:
         'Wir möchten dich herzlich zu unseren nächsten Impulsbeiträgen einladen:'
         '<br/><b>Dienstag, 28.11., 17:00 Uhr:</b> "Fremdreflexion - Achtsamer Umgang #2"'
         '<br/><b>Dienstag, 05.12., 17:00 Uhr:</b> "Out of the Bubble - Achtsamer Umgang #3"'
-        '<br></br>Die Teilnahme an den Impulsbeiträgen war bisher leider gering, dabei stehen diese wertvollen Veranstaltungen allen offen.<br></br>'
+        '<br></br>Die Teilnahme an den unseren Community Veranstaltungen stehet steht allen offen.<br></br>'
         '<b>Wir möchten dich ermuntern, teilzunehmen und die Gelegenheit zu nutzen, um dich mit anderen auszutauschen und Neues zu entdecken.</b>'
         '<br/><br/>Jeweils 5 Minuten Input und eine 10-minütige offene Diskussion mit unserer erfahrenen Expertin Raquel Barros - '
         'ein Raum für Austausch und Reflexion im interkulturellen Dialog. '
@@ -873,7 +873,7 @@ class ImpulsBeitraegeMail2:
     unsubscribe_two_link: bool = False
     
     unsubscribe_link1: str = '{unsubscribe_url1}'
-    unsubscribe_link1_category: str = 'interview request'
+    unsubscribe_link1_category: str = 'event_announcement'
     
     unsubscribe_link2: str = 'none'
     
