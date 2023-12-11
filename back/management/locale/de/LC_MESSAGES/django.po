@@ -764,12 +764,13 @@ msgstr "Ehrenamtliche*r Sprachpate/patin"
 #: management/models/profile.py:129
 msgctxt "profile.target-group.any-vol"
 msgid "other"
-msgstr ""
+msgstr "Egal welcher Gruppe"
+
 
 #: management/models/profile.py:132
 msgctxt "profile.target-group.any-ler"
 msgid "other"
-msgstr ""
+msgstr "Eine Andere Gruppe"
 
 #: management/models/profile.py:135
 #, fuzzy
@@ -1708,9 +1709,6 @@ msgstr "Email authentifizierungsdaten fehlen"
 #~ msgid "Sucessfully logged in!"
 #~ msgstr "Erfolgreich angemeldet!"
 
-#~ msgctxt "profile.target-group.any-vol"
-#~ msgid "Any group"
-#~ msgstr "Egal welcher Gruppe"
 
 #~ msgctxt "profile.target-group.any-ler"
 #~ msgid "Any group"
