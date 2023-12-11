@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-12-11 14:17+0000\n"
+"POT-Creation-Date: 2023-12-11 14:31+0000\n"
 "PO-Revision-Date: 2023-09-21 08:54+0000\n"
 "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
 "Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
@@ -1035,13 +1035,13 @@ msgstr "Annahme der Haftungserklärung"
 
 #: management/models/profile.py:314
 msgctxt "profile.notify-channel.email"
-msgid "Notify per email"
-msgstr "nur per E-Mail benachrichtigt werden?"
+msgid "to be notified by e-mail only."
+msgstr "nur per E-Mail benachrichtigt werden."
 
 #: management/models/profile.py:316
 msgctxt "profile.notify-channel.sms"
-msgid "Notify per SMS"
-msgstr "zusätzlich per SMS benachrichtigt werden?"
+msgid "to be notified by e-mail & SMS."
+msgstr "per E-Mail & SMS benachrichtigt werden."
 
 #: management/models/profile.py:337
 msgctxt "profile.lang-level.level-0-vol"
@@ -1664,6 +1664,14 @@ msgstr "Query Parameter nur für Admins erlaubt!"
 msgctxt "email.verify-auth-data-missing-get-frontend"
 msgid "Email authentication data missing"
 msgstr "Email authentifizierungsdaten fehlen"
+
+#~ msgctxt "profile.notify-channel.email"
+#~ msgid "Notify per email"
+#~ msgstr "nur per E-Mail benachrichtigt werden?"
+
+#~ msgctxt "profile.notify-channel.sms"
+#~ msgid "Notify per SMS"
+#~ msgstr "zusätzlich per SMS benachrichtigt werden?"
 
 #, fuzzy
 #~| msgctxt "profile.lang-level.level-0-vol"

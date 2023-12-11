@@ -311,9 +311,9 @@ class ProfileBase(models.Model):
 
     class NotificationChannelChoices(models.TextChoices):
         EMAIL = "email", pgettext_lazy(
-            "profile.notify-channel.email", "Notify per email")
+            "profile.notify-channel.email", "to be notified by e-mail only.")
         SMS = "sms", pgettext_lazy(
-            "profile.notify-channel.sms", "Notify per SMS")
+            "profile.notify-channel.sms", "to be notified by e-mail & SMS.")
 
     notify_channel = models.CharField(
         choices=NotificationChannelChoices.choices,
