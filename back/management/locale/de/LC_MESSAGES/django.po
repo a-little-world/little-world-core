@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-12-11 13:47+0000\n"
+"POT-Creation-Date: 2023-12-11 14:00+0000\n"
 "PO-Revision-Date: 2023-09-21 08:54+0000\n"
 "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
 "Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
@@ -810,9 +810,12 @@ msgid "Male only"
 msgstr "Männlich"
 
 #: management/models/profile.py:164
+#, fuzzy
+#| msgctxt "profile.partner-sex.male"
+#| msgid "Male only"
 msgctxt "profile.partner-sex.female"
-msgid "Female"
-msgstr "Weiblich"
+msgid "Female only"
+msgstr "Männlich"
 
 #: management/models/profile.py:172
 #, fuzzy
@@ -832,16 +835,19 @@ msgstr "Männlich"
 
 #: management/models/profile.py:176
 #, fuzzy
-#| msgctxt "profile.partner-sex.female"
-#| msgid "Female only"
+#| msgctxt "profile.partner-sex.male"
+#| msgid "Male only"
 msgctxt "profile.gender.female"
-msgid "Female"
-msgstr "Weiblich"
+msgid "Female only"
+msgstr "Männlich"
 
 #: management/models/profile.py:179
+#, fuzzy
+#| msgctxt "profile.gender.any"
+#| msgid "Dont want to say"
 msgctxt "profile.gender.any"
-msgid "Dont want to say"
-msgstr "Moechte ich nicht angeben"
+msgid "Don't want to say"
+msgstr "Möchte ich nicht angeben"
 
 #: management/models/profile.py:180
 #, fuzzy
@@ -1658,6 +1664,10 @@ msgstr "Query Parameter nur für Admins erlaubt!"
 msgctxt "email.verify-auth-data-missing-get-frontend"
 msgid "Email authentication data missing"
 msgstr "Email authentifizierungsdaten fehlen"
+
+#~ msgctxt "profile.partner-sex.female"
+#~ msgid "Female"
+#~ msgstr "Weiblich"
 
 #~ msgctxt "api.login-sucessful"
 #~ msgid "Sucessfully logged in!"
