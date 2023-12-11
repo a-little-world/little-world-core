@@ -126,43 +126,46 @@ class ProfileBase(models.Model):
     class TargetGroupChoices(models.TextChoices):
 
         ANY_VOL = "any.vol", pgettext_lazy(
-            "profile.target-group.any-vol", "Any group")
+            "profile.target-group.any-vol", "other")
 
         ANY_LER = "any.ler", pgettext_lazy(
-            "profile.target-group.any-ler", "Any group")
+            "profile.target-group.any-ler", "other")
 
         REFUGEE_VOL = "refugee.vol", pgettext_lazy(
-            "profile.target-group.refugee-vol", "Refugees only")
+            "profile.target-group.refugee-vol", "Refugees")
 
         REFUGEE_LER = "refugee.ler", pgettext_lazy(
-            "profile.target-group.refugee-ler", "Refugees only")
+            "profile.target-group.refugee-ler", "Refugees")
 
         STUDENT_VOL = "student.vol", pgettext_lazy(
-            "profile.target-group.student-vol", "Students only")
+            "profile.target-group.student-vol", "Students")
 
         STUDENT_LER = "student.ler", pgettext_lazy(
-            "profile.target-group.student-ler", "Students only")
+            "profile.target-group.student-ler", "Students")
 
         WORKER_VOL = "worker.vol", pgettext_lazy(
-            "profile.target-group.worker-vol", "Workers only")
+            "profile.target-group.worker-vol", "Workers")
 
         WORKER_LER = "worker.ler", pgettext_lazy(
-            "profile.target-group.worker-ler", "Workers only")
+            "profile.target-group.worker-ler", "Workers")
 
     target_group = models.CharField(
         choices=TargetGroupChoices.choices,
         default=TargetGroupChoices.ANY_VOL,
         max_length=255)
+    
+    target_groups = MultiSelectField(
+        choices=TargetGroupChoices.choices, max_choices=20,
+        max_length=1000, blank=True)  # type: ignore
 
-    """
-    Prefered partner sex
-    """
+    # DEPRICATED!!! replaced with 'partner_gender'
     class ParterSexChoice(models.TextChoices):
         ANY = "any", pgettext_lazy("profile.partner-sex.any", "Any")
         MALE = "male", pgettext_lazy("profile.partner-sex.male", "Male only")
         FEMALE = "female", pgettext_lazy(
             "profile.partner-sex.female", "Female only")
 
+    # DEPRICATED!!! replaced with 'partner_gender'
     partner_sex = models.CharField(
         choices=ParterSexChoice.choices,
         default=ParterSexChoice.ANY,
@@ -176,7 +179,7 @@ class ProfileBase(models.Model):
             "profile.gender.female", "Female only")
 
     class GenderChoices(models.TextChoices):
-        ANY = "any", pgettext_lazy("profile.gender.any", "Dont want to say")
+        ANY = "any", pgettext_lazy("profile.gender.any", "Don't want to say")
         MALE = "male", pgettext_lazy("profile.gender.male", "Male")
         FEMALE = "female", pgettext_lazy(
             "profile.gender.female", "Female")
@@ -279,7 +282,7 @@ class ProfileBase(models.Model):
             "profile.soziologie-interest", "Sociology")
         FAMILY = "family", pgettext_lazy("profile.family-interest", "Family")
         PSYCOLOGY = "psycology", pgettext_lazy(
-            "profile.psycology-interest", "Psycology")
+            "profile.psycology-interest", "Psychology")
         PERSON_DEV = "personal-development", pgettext_lazy(
             "profile.pdev-interest", "Personal development")
 
@@ -312,9 +315,9 @@ class ProfileBase(models.Model):
 
     class NotificationChannelChoices(models.TextChoices):
         EMAIL = "email", pgettext_lazy(
-            "profile.notify-channel.email", "Notify per email")
+            "profile.notify-channel.email", "to be notified by e-mail only.")
         SMS = "sms", pgettext_lazy(
-            "profile.notify-channel.sms", "Notify per SMS")
+            "profile.notify-channel.sms", "to be notified by e-mail & SMS.")
 
     notify_channel = models.CharField(
         choices=NotificationChannelChoices.choices,
@@ -322,6 +325,8 @@ class ProfileBase(models.Model):
         max_length=255)
 
     phone_mobile = PhoneNumberField(blank=True, unique=False)
+    
+    other_target_group = models.CharField(max_length=255, blank=True)
 
     description = models.TextField(
         default="", blank=True, max_length=999)
@@ -413,7 +418,7 @@ class ProfileBase(models.Model):
 
     class LanguageSkillChoices(models.TextChoices):
         LEVEL_0 = "level-0", pgettext_lazy(
-            "profile.lang-level.level-0", "any")
+            "profile.lang-level.level-0", "A1 & A2 (Anfängerniveau)")
 
         LEVEL_1 = "level-1", pgettext_lazy(
             "profile.lang-level.level-1", "B1 = (everyday situations, stories, hopes)")
@@ -624,7 +629,7 @@ class SelfProfileSerializer(ProfileSerializer):
                   'partner_location', 'postal_code', 'interests', 'availability',
                   'lang_level', 'additional_interests', 'language_skill_description', 'birth_year', 'description',
                   'notify_channel', 'phone_mobile', 'image_type', 'avatar_config', 'image', 'lang_skill', 'gender', 
-                  'partner_gender', 'liability_accepted', 'display_language']
+                  'partner_gender', 'liability_accepted', 'display_language', 'other_target_group', 'target_groups']
 
         extra_kwargs = dict(
             language_skill_description={
