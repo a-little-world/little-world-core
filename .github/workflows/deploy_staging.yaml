@@ -182,3 +182,11 @@ jobs:
             You have the image cached loally now, use this to develop locally with pull api access.
 
             </details>
+      - name: Notify Slack Channel
+        env:
+          SLACK_API_TOKEN: ${{ secrets.SLACK_API_TOKEN }}
+          CHANNEL_ID: "C0695SSFPMM"
+          MESSAGE: "*Feature environment deployed*\nImage: ${{ steps.setup_emperial_env.outputs.IMAGE_URL }}\nUrl ${{ steps.cluster_connection.outputs.STAGING_URL }}"
+        run: |
+          pip3 install slack_sdk
+          wget -qO- https://raw.githubusercontent.com/tbscode/tims-blog-posts/main/assets/send_slack_message.py | python3 -
