@@ -153,6 +153,10 @@ class ProfileBase(models.Model):
         choices=TargetGroupChoices.choices,
         default=TargetGroupChoices.ANY_VOL,
         max_length=255)
+    
+    target_groups = MultiSelectField(
+        choices=TargetGroupChoices.choices, max_choices=20,
+        max_length=1000, blank=True)  # type: ignore
 
     # DEPRICATED!!! replaced with 'partner_gender'
     class ParterSexChoice(models.TextChoices):
@@ -321,6 +325,8 @@ class ProfileBase(models.Model):
         max_length=255)
 
     phone_mobile = PhoneNumberField(blank=True, unique=False)
+    
+    other_target_group = models.CharField(max_length=255, blank=True)
 
     description = models.TextField(
         default="", blank=True, max_length=999)
@@ -623,7 +629,7 @@ class SelfProfileSerializer(ProfileSerializer):
                   'partner_location', 'postal_code', 'interests', 'availability',
                   'lang_level', 'additional_interests', 'language_skill_description', 'birth_year', 'description',
                   'notify_channel', 'phone_mobile', 'image_type', 'avatar_config', 'image', 'lang_skill', 'gender', 
-                  'partner_gender', 'liability_accepted', 'display_language']
+                  'partner_gender', 'liability_accepted', 'display_language', 'other_target_group', 'target_groups']
 
         extra_kwargs = dict(
             language_skill_description={
