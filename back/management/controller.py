@@ -96,8 +96,7 @@ Da du dich schon vor einiger Zeit registriert hast, wollte ich dich fragen, ob d
 
 Solange du auf dein Match wartest, kannst du dir schon mal den <a href="https://home.little-world.com/leitfaden">Gesprächsleitfaden</a> anschauen. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
 
-Viele Grüße aus Aachen 👋🏼
-""".format(first_name=user.first_name)), auto_mark_read=False)
+Viele Grüße aus Aachen 👋🏼""".format(first_name=user.first_name)), auto_mark_read=False)
 
 
 def make_tim_support_user(
