@@ -154,15 +154,14 @@ class ProfileBase(models.Model):
         default=TargetGroupChoices.ANY_VOL,
         max_length=255)
 
-    """
-    Prefered partner sex
-    """
+    # DEPRICATED!!! replaced with 'partner_gender'
     class ParterSexChoice(models.TextChoices):
         ANY = "any", pgettext_lazy("profile.partner-sex.any", "Any")
         MALE = "male", pgettext_lazy("profile.partner-sex.male", "Male only")
         FEMALE = "female", pgettext_lazy(
             "profile.partner-sex.female", "Female only")
 
+    # DEPRICATED!!! replaced with 'partner_gender'
     partner_sex = models.CharField(
         choices=ParterSexChoice.choices,
         default=ParterSexChoice.ANY,
@@ -176,7 +175,7 @@ class ProfileBase(models.Model):
             "profile.gender.female", "Female only")
 
     class GenderChoices(models.TextChoices):
-        ANY = "any", pgettext_lazy("profile.gender.any", "Dont want to say")
+        ANY = "any", pgettext_lazy("profile.gender.any", "Don't want to say")
         MALE = "male", pgettext_lazy("profile.gender.male", "Male")
         FEMALE = "female", pgettext_lazy(
             "profile.gender.female", "Female")
@@ -413,7 +412,7 @@ class ProfileBase(models.Model):
 
     class LanguageSkillChoices(models.TextChoices):
         LEVEL_0 = "level-0", pgettext_lazy(
-            "profile.lang-level.level-0", "any")
+            "profile.lang-level.level-0", "A1 & A2 (Anfängerniveau)")
 
         LEVEL_1 = "level-1", pgettext_lazy(
             "profile.lang-level.level-1", "B1 = (everyday situations, stories, hopes)")
