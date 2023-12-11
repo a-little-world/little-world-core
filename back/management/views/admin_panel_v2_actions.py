@@ -14,8 +14,7 @@ Da du dich schon vor einiger Zeit registriert hast, wollte ich dich fragen, ob d
 
 Solange du auf dein Match wartest, kannst du dir schon mal den <a href="https://home.little-world.com/leitfaden">Gesprächsleitfaden</a> anschauen. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
 
-Viele Grüße aus Aachen 👋🏼
-"""
+Viele Grüße aus Aachen 👋🏼"""
 
 make_tim_mangement_admin = {
   "title": "Set Tim As Management User For User",
