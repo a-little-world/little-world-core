@@ -765,7 +765,7 @@ msgstr "Geflüchtete (u.a. Ukraine, Jemen, Syrien)"
 #| msgid "Refugees only"
 msgctxt "profile.target-group.refugee-ler"
 msgid "Refugees"
-msgstr "Geflüchtete (u.a. Ukraine, Jemen, Syrien)"
+msgstr "Geflüchteten (u.a. Ukraine, Jemen, Syrien)"
 
 #: management/models/profile.py:141
 #, fuzzy
@@ -789,7 +789,7 @@ msgstr "Studierende & Auszubildende"
 #| msgid "Workers only"
 msgctxt "profile.target-group.worker-vol"
 msgid "Workers"
-msgstr "Fachkräfte aus dem Ausland"
+msgstr "Arbeitende"
 
 #: management/models/profile.py:150
 #, fuzzy
@@ -1682,7 +1682,7 @@ msgstr "Email authentifizierungsdaten fehlen"
 
 #~ msgctxt "profile.target-group.any-vol"
 #~ msgid "Any group"
-#~ msgstr "Egal welche Gruppe"
+#~ msgstr "Egal welcher Gruppe"
 
 #~ msgctxt "profile.target-group.any-ler"
 #~ msgid "Any group"
