@@ -126,28 +126,28 @@ class ProfileBase(models.Model):
     class TargetGroupChoices(models.TextChoices):
 
         ANY_VOL = "any.vol", pgettext_lazy(
-            "profile.target-group.any-vol", "Any group")
+            "profile.target-group.any-vol", "other")
 
         ANY_LER = "any.ler", pgettext_lazy(
-            "profile.target-group.any-ler", "Any group")
+            "profile.target-group.any-ler", "other")
 
         REFUGEE_VOL = "refugee.vol", pgettext_lazy(
-            "profile.target-group.refugee-vol", "Refugees only")
+            "profile.target-group.refugee-vol", "Refugees")
 
         REFUGEE_LER = "refugee.ler", pgettext_lazy(
-            "profile.target-group.refugee-ler", "Refugees only")
+            "profile.target-group.refugee-ler", "Refugees")
 
         STUDENT_VOL = "student.vol", pgettext_lazy(
-            "profile.target-group.student-vol", "Students only")
+            "profile.target-group.student-vol", "Students")
 
         STUDENT_LER = "student.ler", pgettext_lazy(
-            "profile.target-group.student-ler", "Students only")
+            "profile.target-group.student-ler", "Students")
 
         WORKER_VOL = "worker.vol", pgettext_lazy(
-            "profile.target-group.worker-vol", "Workers only")
+            "profile.target-group.worker-vol", "Workers")
 
         WORKER_LER = "worker.ler", pgettext_lazy(
-            "profile.target-group.worker-ler", "Workers only")
+            "profile.target-group.worker-ler", "Workers")
 
     target_group = models.CharField(
         choices=TargetGroupChoices.choices,
