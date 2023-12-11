@@ -278,7 +278,7 @@ class ProfileBase(models.Model):
             "profile.soziologie-interest", "Sociology")
         FAMILY = "family", pgettext_lazy("profile.family-interest", "Family")
         PSYCOLOGY = "psycology", pgettext_lazy(
-            "profile.psycology-interest", "Psycology")
+            "profile.psycology-interest", "Psychology")
         PERSON_DEV = "personal-development", pgettext_lazy(
             "profile.pdev-interest", "Personal development")
 

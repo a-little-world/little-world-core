@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-12-11 14:06+0000\n"
+"POT-Creation-Date: 2023-12-11 14:17+0000\n"
 "PO-Revision-Date: 2023-09-21 08:54+0000\n"
 "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
 "Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
@@ -1011,8 +1011,11 @@ msgid "Family"
 msgstr "Familie"
 
 #: management/models/profile.py:281
+#, fuzzy
+#| msgctxt "profile.psycology-interest"
+#| msgid "Psycology"
 msgctxt "profile.psycology-interest"
-msgid "Psycology"
+msgid "Psychology"
 msgstr "Psychologie"
 
 #: management/models/profile.py:283
