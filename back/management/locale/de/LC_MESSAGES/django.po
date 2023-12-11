@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-10-03 17:55+0000\n"
+"POT-Creation-Date: 2023-12-11 13:47+0000\n"
 "PO-Revision-Date: 2023-09-21 08:54+0000\n"
 "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
 "Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
@@ -19,21 +19,21 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
 "X-Generator: Weblate 4.15\n"
 
-#: back/settings.py:349
+#: back/settings.py:384
 #, fuzzy
 #| msgctxt "profile.lang.english"
 #| msgid "English"
 msgid "English"
 msgstr "Englisch"
 
-#: back/settings.py:350
+#: back/settings.py:385
 #, fuzzy
 #| msgctxt "profile.lang.german"
 #| msgid "German"
 msgid "German"
 msgstr "Deutsch"
 
-#: back/settings.py:351
+#: back/settings.py:386
 msgid "Tag"
 msgstr "Schlagwort"
 
@@ -172,11 +172,11 @@ msgstr "request.data 2 existiert nicht"
 msgid "couldn't convert to drf request"
 msgstr "Konnte nicht in drf-Anfrage konvertiert werden"
 
-#: management/admin.py:122
+#: management/admin.py:123
 msgid "User form filled"
 msgstr ""
 
-#: management/admin.py:136
+#: management/admin.py:137
 msgid "User category"
 msgstr ""
 
@@ -383,37 +383,32 @@ msgctxt "api.login-failed-staff"
 msgid "Can't log in email or password wrong!"
 msgstr "Anmeldung fehlgeschlagen, E-Mail oder Passwort falsch!"
 
-#: management/api/user.py:164
-msgctxt "api.login-sucessful"
-msgid "Sucessfully logged in!"
-msgstr "Erfolgreich angemeldet!"
-
-#: management/api/user.py:167
+#: management/api/user.py:169
 msgctxt "api.login-failed"
 msgid "Can't log-in email or password wrong!"
 msgstr "Anmeldung fehlgeschlagen, E-Mail oder Passwort falsch!"
 
-#: management/api/user.py:197
+#: management/api/user.py:199
 msgctxt "api.auto-login-failed"
 msgid "Can't auto log-in!"
 msgstr "Login fehlgeschlagen!"
 
-#: management/api/user.py:214
+#: management/api/user.py:216
 msgctxt "api.logout-sucessful"
 msgid "Sucessfully logged out!"
 msgstr "Erfolgreich abgemeldet!"
 
-#: management/api/user.py:275
+#: management/api/user.py:277
 msgctxt "api.change-password-failed.incorrect-old-pw"
 msgid "Incorrect old password"
 msgstr "Falsches altes Passwort"
 
-#: management/api/user.py:279
+#: management/api/user.py:281
 msgctxt "api.change-password-failed.new-pw-not-equal"
 msgid "New passwords not equal"
 msgstr "Neue Passwörter nicht gleich"
 
-#: management/api/user.py:285
+#: management/api/user.py:287
 #, fuzzy
 #| msgctxt "api.logout-sucessful"
 #| msgid "Sucessfully logged out!"
@@ -421,66 +416,66 @@ msgctxt "api.change-password-sucessful"
 msgid "Sucessfully changed password"
 msgstr "Erfolgreich abgemeldet!"
 
-#: management/api/user.py:323
+#: management/api/user.py:325
 msgctxt "api.user.change-email-not-allowed-staff"
 msgid "Admin may never change their email! Only by the grace of @tbscode"
 msgstr ""
 "Admin darf ihre E-Mail Adresse niemals ändern! Nur durch Gnade von @tbscode"
 
-#: management/api/user.py:331
+#: management/api/user.py:333
 msgctxt "api.user.change-email-failed.same-email"
 msgid "This is your current email!"
 msgstr "Das ist deine aktuelle E-Mail!"
 
-#: management/api/user.py:344
+#: management/api/user.py:346
 #, python-brace-format
 msgctxt "api.user.change-email-failed.email-exists"
 msgid "Email {email} exists"
 msgstr "E-Mail {email} existiert bereits"
 
-#: management/api/user.py:350
+#: management/api/user.py:352
 msgctxt "api.user.change-email-successful"
 msgid "E-mail adres update, email adress must be reauthenticated."
 msgstr ""
 "Email Adresse aktualisiert, Email Adresse muss erneut authentifiziert werden."
 
-#: management/api/user.py:397
+#: management/api/user.py:399
 msgctxt "api.user-matches-successfully-confirmed"
 msgid "Matches confirmed!"
 msgstr "Matches bestätigt!"
 
-#: management/api/user.py:435
+#: management/api/user.py:437
 #, python-brace-format
 msgctxt "api.user-update-searching-state.slug-doesnt-exist"
 msgid "'{slug}' is not a possible seraching state!"
 msgstr "'{slug}' ist kein möglicher Suchstatus!"
 
-#: management/api/user.py:440
+#: management/api/user.py:442
 msgctxt "api.user-update-searching-state.state-successfully-changed"
 msgid "State updated!"
 msgstr "State aktualisiert!"
 
-#: management/api/user.py:479
+#: management/api/user.py:481
 msgctxt "api.user-unmatch-self.success"
 msgid "Unmatched!"
 msgstr "Match aufgehoben!"
 
-#: management/api/user.py:490 management/controller.py:198
+#: management/api/user.py:492 management/controller.py:200
 #, python-brace-format
 msgctxt "api.register-welcome-mail-subject"
 msgid "{code} - Verifizierungscode zur E-Mail Bestätigun"
 msgstr "{code} - Verifizierungscode zur E-Mail Bestätigung"
 
-#: management/api/user.py:519
+#: management/api/user.py:521
 msgctxt "api.user-resetpw.mail-subject"
 msgid "Password reset Little World"
 msgstr "Passwort zurücksetzen Little World"
 
-#: management/controller.py:61
+#: management/controller.py:62
 msgid "User doesn't exist"
 msgstr "Nutzer existiert nicht"
 
-#: management/controller.py:90
+#: management/controller.py:91
 #, python-brace-format
 msgctxt "api.are-you-still-searching"
 msgid ""
@@ -520,12 +515,42 @@ msgstr ""
 "\n"
 "Viele Grüße aus Aachen 👋🏼\n"
 
-#: management/controller.py:240
+#: management/controller.py:242
 msgid "Welcome Notification"
 msgstr "Willkommensbenachrichtigung"
 
-#: management/controller.py:244
-#, python-brace-format
+#: management/controller.py:247
+#, fuzzy, python-brace-format
+#| msgctxt "api.register-welcome-message-text"
+#| msgid ""
+#| "Hallo {first_name} und herzlich willkommen bei Little World!\n"
+#| "\n"
+#| "Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein "
+#| "Teil unserer Plattform geworden bist!\n"
+#| "\n"
+#| "Aktuell arbeiten wir an einigen Aktualisierungen unserer Plattform und "
+#| "unseres Matching-Verfahrens und schätzen daher jedes <a href=\"/app/"
+#| "help\">Feedback</a>, das wir von dir erhalten.\n"
+#| "\n"
+#| "Während wir für dich ein passendes Match finden, kannst du gerne in "
+#| "unserem <a href=\"https://home.little-world.com/"
+#| "leitfaden\">Gesprächsleitfaden</a> stöbern. Hier findest du viele "
+#| "hilfreiche Tipps und Antworten auf mögliche Fragen.\n"
+#| "\n"
+#| "Falls du Lust und Zeit hast, uns weiter zu unterstützen, würden wir uns "
+#| "sehr über deine Teilnahme an unserer Umfrage freuen. \n"
+#| "Zwei Studentinnen der Uni Siegen, Natalia und Sandra, würden dich gerne "
+#| "zur Verbesserung von Little World interviewen. Das Interview dauert etwa "
+#| "30-45 Minuten und dient dazu, uns dabei zu helfen, unseren Service zu "
+#| "verbessern. Natürlich bleiben deine Antworten anonym und werden nicht "
+#| "veröffentlicht. Wenn du interessiert bist, kannst du Natalia unter <a "
+#| "href=\"mailto:natalia.romancheva@student.uni-siegen.de?"
+#| "subject=Interview\">natalia.romancheva@student.uni-siegen.de</a> oder "
+#| "Sandra unter <a href=\"mailto:sandra.butzek@student.uni-siegen.de?"
+#| "subject=Interview\">sandra.butzek@student.uni-siegen.de</a> "
+#| "kontaktieren.\n"
+#| "\n"
+#| "Vielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!"
 msgctxt "api.register-welcome-message-text"
 msgid ""
 "Hallo {first_name} und herzlich willkommen bei Little World!\n"
@@ -541,18 +566,6 @@ msgid ""
 "<a href=\"https://home.little-world.com/leitfaden\">Gesprächsleitfaden</a> "
 "stöbern. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche "
 "Fragen.\n"
-"\n"
-"Falls du Lust und Zeit hast, uns weiter zu unterstützen, würden wir uns sehr "
-"über deine Teilnahme an unserer Umfrage freuen. \n"
-"Zwei Studentinnen der Uni Siegen, Natalia und Sandra, würden dich gerne zur "
-"Verbesserung von Little World interviewen. Das Interview dauert etwa 30-45 "
-"Minuten und dient dazu, uns dabei zu helfen, unseren Service zu verbessern. "
-"Natürlich bleiben deine Antworten anonym und werden nicht veröffentlicht. "
-"Wenn du interessiert bist, kannst du Natalia unter <a href=\"mailto:natalia."
-"romancheva@student.uni-siegen.de?subject=Interview\">natalia."
-"romancheva@student.uni-siegen.de</a> oder Sandra unter <a href=\"mailto:"
-"sandra.butzek@student.uni-siegen.de?subject=Interview\">sandra."
-"butzek@student.uni-siegen.de</a> kontaktieren.\n"
 "\n"
 "Vielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!"
 msgstr ""
@@ -584,12 +597,35 @@ msgstr ""
 "\n"
 "Vielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!"
 
-#: management/controller.py:325 management/controller.py:326
+#: management/controller.py:269
+#, python-brace-format
+msgctxt "api.register-invite-pre-match-interview"
+msgid ""
+"Hallo {first_name} und herzlich willkommen bei Little World!\n"
+"\n"
+"Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil "
+"unserer Plattform geworden bist!\n"
+"\n"
+"Bevors richtig los geht musst du mit mir einen 15 minuetigen video call "
+"termin vereinbaren. \n"
+"                                                    \n"
+"Dort werden wir zusmmen deine such angaben ueberpruefen und ich werde dir "
+"die nachsten schritte zur teilnahme bei little world erklaern.\n"
+"                                                    \n"
+"Bitte buche dafuer einen termin in dem volgenden kalender: \n"
+"<button data-cal-link=\"{calcom_meeting_id}?{encoded_params}\"  data-cal-"
+"config='{{\"layout\":\"month_view\"}}'>Book a meeting</button>\n"
+"\n"
+"Falls hier garnix passt oder du andere fragen hast schreib mir einfach hier "
+"eine Nachricht."
+msgstr ""
+
+#: management/controller.py:361 management/controller.py:362
 #, python-format
 msgid "New match: %s"
 msgstr "Neues Match: %s"
 
-#: management/controller.py:329
+#: management/controller.py:365
 #, fuzzy, python-brace-format
 #| msgctxt "api.match-made-message-text"
 #| msgid ""
@@ -627,7 +663,7 @@ msgstr ""
 "\n"
 "Damit euch viel Spaß! Schöne Grüße vom Team Little World"
 
-#: management/controller.py:345 management/controller.py:355
+#: management/controller.py:381 management/controller.py:391
 msgctxt "api.match-made-email-subject"
 msgid "Glückwunsch! Gesprächspartner:in gefunden auf Little World"
 msgstr "Glückwunsch! Gesprächspartner:in gefunden auf Little World"
@@ -687,7 +723,7 @@ msgctxt "notification.type.message"
 msgid "message"
 msgstr "Nachricht"
 
-#: management/models/notifications.py:45 management/models/user.py:193
+#: management/models/notifications.py:45 management/models/user.py:194
 msgid "title"
 msgstr "Titel"
 
@@ -707,42 +743,60 @@ msgstr "Ehrenamtliche*r Sprachpate/patin"
 
 #: management/models/profile.py:129
 msgctxt "profile.target-group.any-vol"
-msgid "Any group"
-msgstr "Egal welche Gruppe"
+msgid "other"
+msgstr ""
 
 #: management/models/profile.py:132
 msgctxt "profile.target-group.any-ler"
-msgid "Any group"
-msgstr "Irgendeiner Gruppe"
+msgid "other"
+msgstr ""
 
 #: management/models/profile.py:135
+#, fuzzy
+#| msgctxt "profile.target-group.refugee-vol"
+#| msgid "Refugees only"
 msgctxt "profile.target-group.refugee-vol"
-msgid "Refugees only"
+msgid "Refugees"
 msgstr "Geflüchtete (u.a. Ukraine, Jemen, Syrien)"
 
 #: management/models/profile.py:138
+#, fuzzy
+#| msgctxt "profile.target-group.refugee-ler"
+#| msgid "Refugees only"
 msgctxt "profile.target-group.refugee-ler"
-msgid "Refugees only"
+msgid "Refugees"
 msgstr "Geflüchtete (u.a. Ukraine, Jemen, Syrien)"
 
 #: management/models/profile.py:141
+#, fuzzy
+#| msgctxt "profile.target-group.student-vol"
+#| msgid "Students only"
 msgctxt "profile.target-group.student-vol"
-msgid "Students only"
-msgstr "Nur Studierende"
+msgid "Students"
+msgstr "Studierende & Auszubildende"
 
 #: management/models/profile.py:144
+#, fuzzy
+#| msgctxt "profile.target-group.student-ler"
+#| msgid "Students only"
 msgctxt "profile.target-group.student-ler"
-msgid "Students only"
-msgstr "Nur Studierende"
+msgid "Students"
+msgstr "Studierende & Auszubildende"
 
 #: management/models/profile.py:147
+#, fuzzy
+#| msgctxt "profile.target-group.worker-vol"
+#| msgid "Workers only"
 msgctxt "profile.target-group.worker-vol"
-msgid "Workers only"
+msgid "Workers"
 msgstr "Fachkräfte aus dem Ausland"
 
 #: management/models/profile.py:150
+#, fuzzy
+#| msgctxt "profile.target-group.worker-ler"
+#| msgid "Workers only"
 msgctxt "profile.target-group.worker-ler"
-msgid "Workers only"
+msgid "Workers"
 msgstr "Arbeitende"
 
 #: management/models/profile.py:161
@@ -757,7 +811,7 @@ msgstr "Männlich"
 
 #: management/models/profile.py:164
 msgctxt "profile.partner-sex.female"
-msgid "Female only"
+msgid "Female"
 msgstr "Weiblich"
 
 #: management/models/profile.py:172
@@ -781,7 +835,7 @@ msgstr "Männlich"
 #| msgctxt "profile.partner-sex.female"
 #| msgid "Female only"
 msgctxt "profile.gender.female"
-msgid "Female only"
+msgid "Female"
 msgstr "Weiblich"
 
 #: management/models/profile.py:179
@@ -1238,37 +1292,66 @@ msgid "C1/C2 = (complex topics, hardly searching for words)"
 msgstr "C1 = (komplexe Themen, kaum nach Wörtern suchen)"
 
 #: management/models/profile.py:432
+msgctxt "profile.display-language.german"
+msgid "Deutsch"
+msgstr ""
+
+#: management/models/profile.py:434
+#, fuzzy
+#| msgctxt "profile.lang.english"
+#| msgid "English"
+msgctxt "profile.display-language.english"
+msgid "English"
+msgstr "Englisch"
+
+#: management/models/profile.py:443
 msgctxt "profile.image-type.avatar"
 msgid "Avatar"
 msgstr "Avatar"
 
-#: management/models/profile.py:433
+#: management/models/profile.py:444
 msgctxt "profile.image-type.image"
 msgid "Image"
 msgstr "Bild"
 
-#: management/models/profile.py:488
+#: management/models/profile.py:457
+msgctxt "profile.display-language.de"
+msgid "Deutsch"
+msgstr ""
+
+#: management/models/profile.py:458
+#, fuzzy
+#| msgctxt "profile.lang.english"
+#| msgid "English"
+msgctxt "profile.display-language.en"
+msgid "English"
+msgstr "Englisch"
+
+#: management/models/profile.py:509
 #, python-brace-format
 msgctxt "profile.completion-check.missing-value"
 msgid "'{val}' is not completed"
 msgstr "'{val}' ist nicht ausgefüllt"
 
-#: management/models/profile.py:611
+#: management/models/profile.py:633
 msgctxt "profile.lskill-descr-to-long"
 msgid "must have a maximum of 300 characters"
 msgstr "Darf maximal 300 Zeichen haben"
 
-#: management/models/profile.py:617
+#: management/models/profile.py:639
+#, fuzzy
+#| msgctxt "profile.descr-to-long"
+#| msgid "must have a maximum of 300 characters"
 msgctxt "profile.descr-to-long"
-msgid "must have a maximum of 300 characters"
+msgid "must have a maximum of 999 characters"
 msgstr "Darf maximal 300 Zeichen haben"
 
-#: management/models/profile.py:633
+#: management/models/profile.py:655
 msgctxt "profile.image-missing"
 msgid "You have selected profile image but not uploaded an image"
 msgstr "Du hast ein Bild ausgewählt, aber kein Bild hochgeladen"
 
-#: management/models/profile.py:644
+#: management/models/profile.py:666
 #, fuzzy
 #| msgctxt "profile.image-missing"
 #| msgid "You have selected profile image but not uploaded an image"
@@ -1276,12 +1359,12 @@ msgctxt "profile.image-removal-without-avatar"
 msgid "You are removing the profile image but have not selected to use avatar"
 msgstr "Du hast ein Bild ausgewählt, aber kein Bild hochgeladen"
 
-#: management/models/profile.py:652
+#: management/models/profile.py:674
 msgctxt "profile.avatar-missing"
 msgid "You have selected avatar but not uploaded an avatar"
 msgstr "Du hast einen Avatar ausgewählt, aber keinen Avatar erstellt"
 
-#: management/models/profile.py:675
+#: management/models/profile.py:697
 #, fuzzy
 #| msgctxt "profile.liability.accepted"
 #| msgid "Accepted Liability"
@@ -1289,12 +1372,12 @@ msgctxt "profile.liability-declined"
 msgid "You must accept the liability"
 msgstr "Annahme der Haftungserklärung"
 
-#: management/models/profile.py:690
+#: management/models/profile.py:712
 msgctxt "profile.lang-level-invalid"
 msgid "Invalid language level selected"
 msgstr "Invalid language level selected"
 
-#: management/models/profile.py:695
+#: management/models/profile.py:717
 #, fuzzy
 #| msgctxt "profile.lang-level-invalid"
 #| msgid "Invalid language level selected"
@@ -1302,7 +1385,7 @@ msgctxt "profile.lang-invalid"
 msgid "Invalid language selected"
 msgstr "Invalid language level selected"
 
-#: management/models/profile.py:705
+#: management/models/profile.py:727
 #, fuzzy
 #| msgctxt "profile.image-missing"
 #| msgid "You have selected profile image but not uploaded an image"
@@ -1310,87 +1393,102 @@ msgctxt "profile.lang-duplicate"
 msgid "You have selected a language multiple times"
 msgstr "Du hast ein Bild ausgewählt, aber kein Bild hochgeladen"
 
-#: management/models/profile.py:710
+#: management/models/profile.py:732
 msgctxt "profile.lang-de-missing"
 msgid "You must select at least german as a language"
 msgstr "Du musst mindestens Deutsch als Sprache auswählen"
 
-#: management/models/profile.py:717
+#: management/models/profile.py:739
 msgctxt "profile.descr-to-short"
 msgid "must have at least 10 characters"
 msgstr "muss mindestens 10 Zeichen haben"
 
-#: management/models/state.py:34
+#: management/models/question_deck.py:16
+#, python-format
+msgid "%(value)s is already present"
+msgstr ""
+
+#: management/models/question_deck.py:24
+msgid "This Question is already present"
+msgstr ""
+
+#: management/models/state.py:38
 msgid "Unfilled user form"
 msgstr "Nicht ausgefülltes Benutzerformular"
 
-#: management/models/state.py:35
+#: management/models/state.py:39
 msgid "Filled user form"
 msgstr "Benutzerformular ausgefüllt"
 
-#: management/models/state.py:70
+#: management/models/state.py:80
 msgctxt "models.state.matching-state-idle"
 msgid "Not Searching (Idle)"
 msgstr "Nicht suchend (Idle)"
 
-#: management/models/state.py:73
+#: management/models/state.py:83
 msgctxt "models.state.matching-state-searching"
 msgid "Searching"
 msgstr "Suchend"
 
-#: management/models/state.py:103
+#: management/models/state.py:115
 msgid "Undefined"
 msgstr "Undefiniert"
 
-#: management/models/state.py:104
+#: management/models/state.py:116
 msgid "Spam"
 msgstr "Spam"
 
-#: management/models/state.py:105
+#: management/models/state.py:117
 msgid "Legit"
 msgstr "Legit"
 
-#: management/models/state.py:106
+#: management/models/state.py:118
 msgid "Test"
 msgstr "Test"
 
-#: management/models/state.py:118
+#: management/models/state.py:130
 msgid "Is allowed to view API schemas"
 msgstr "Anzeigen von API Schemata erlaubt"
 
-#: management/models/state.py:120
+#: management/models/state.py:132
 msgid "Is allowed to view database schemas"
 msgstr "Anzeigen von Datenbank Schemata erlaubt"
 
-#: management/models/state.py:122
+#: management/models/state.py:134
 msgid "Is allowed to use the auto login api (with a specific token)"
 msgstr "Darf die Auto-Login API benutzen (mit einem spezifischen Token)"
 
-#: management/models/state.py:123
+#: management/models/state.py:135
 #, fuzzy
 #| msgid "Is allowed to view database schemas"
 msgid "Is allowed to view the docs"
 msgstr "Anzeigen von Datenbank Schemata erlaubt"
 
-#: management/models/state.py:124
+#: management/models/state.py:136
 #, fuzzy
 #| msgid "Is allowed to view database schemas"
 msgid "Is allowed to view the email templates"
 msgstr "Anzeigen von Datenbank Schemata erlaubt"
 
-#: management/models/state.py:125
+#: management/models/state.py:137
 #, fuzzy
 #| msgid "Is allowed to view database schemas"
 msgid "Is allowed to view the stats"
 msgstr "Anzeigen von Datenbank Schemata erlaubt"
 
-#: management/models/state.py:127
+#: management/models/state.py:139
 #, fuzzy
 #| msgid "Is allowed to view database schemas"
 msgid "Is allowed to match users"
 msgstr "Anzeigen von Datenbank Schemata erlaubt"
 
-#: management/models/user.py:193
+#: management/models/state.py:140
+#, fuzzy
+#| msgid "Is allowed to view database schemas"
+msgid "Is allowed to match users without censorship"
+msgstr "Anzeigen von Datenbank Schemata erlaubt"
+
+#: management/models/user.py:194
 msgid "description"
 msgstr "Beschreibung"
 
@@ -1399,7 +1497,7 @@ msgctxt "community-event.coffe-chillout"
 msgid "Kaffeerunden"
 msgstr "Kaffeerunden"
 
-#: management/tasks.py:491
+#: management/tasks.py:493
 msgctxt "tasks.unread-notifications-email-subject"
 msgid "Neue Nachricht(en) auf Little World"
 msgstr "Neue Nachricht(en) auf Little World"
@@ -1409,7 +1507,7 @@ msgstr "Neue Nachricht(en) auf Little World"
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
-#: management/tasks.py:2435
+#: management/tasks.py:2439
 #, fuzzy
 #| msgid ""
 msgctxt "api.match-still-in-contact-email-subject"
@@ -1545,11 +1643,11 @@ msgstr "Tag '%s' nicht in Verfügbarkeit vorhanden!"
 msgid "Slot '%s' is unknown!"
 msgstr "Slot '%s' ist unbekannt!"
 
-#: management/views/main_frontend.py:46
+#: management/views/main_frontend.py:43 management/views/main_frontend.py:76
 msgid "Render User Form"
 msgstr "Rendere Benutzer Formular"
 
-#: management/views/main_frontend.py:65
+#: management/views/main_frontend.py:98
 msgid "Query param usage on main view only allowed for admins!"
 msgstr "Query Parameter nur für Admins erlaubt!"
 
@@ -1560,6 +1658,18 @@ msgstr "Query Parameter nur für Admins erlaubt!"
 msgctxt "email.verify-auth-data-missing-get-frontend"
 msgid "Email authentication data missing"
 msgstr "Email authentifizierungsdaten fehlen"
+
+#~ msgctxt "api.login-sucessful"
+#~ msgid "Sucessfully logged in!"
+#~ msgstr "Erfolgreich angemeldet!"
+
+#~ msgctxt "profile.target-group.any-vol"
+#~ msgid "Any group"
+#~ msgstr "Egal welche Gruppe"
+
+#~ msgctxt "profile.target-group.any-ler"
+#~ msgid "Any group"
+#~ msgstr "Irgendeiner Gruppe"
 
 #, fuzzy, python-brace-format
 #~| msgctxt "email.verify-failure-get"
