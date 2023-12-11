@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-12-11 14:31+0000\n"
+"POT-Creation-Date: 2023-12-11 14:35+0000\n"
 "PO-Revision-Date: 2023-09-21 08:54+0000\n"
 "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
 "Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
@@ -460,7 +460,7 @@ msgctxt "api.user-unmatch-self.success"
 msgid "Unmatched!"
 msgstr "Match aufgehoben!"
 
-#: management/api/user.py:492 management/controller.py:200
+#: management/api/user.py:492 management/controller.py:199
 #, python-brace-format
 msgctxt "api.register-welcome-mail-subject"
 msgid "{code} - Verifizierungscode zur E-Mail Bestätigun"
@@ -476,7 +476,27 @@ msgid "User doesn't exist"
 msgstr "Nutzer existiert nicht"
 
 #: management/controller.py:91
-#, python-brace-format
+#, fuzzy, python-brace-format
+#| msgctxt "api.are-you-still-searching"
+#| msgid ""
+#| "Hallo {first_name}, ich bin Tim, Mitbegründer und CTO von Little World!\n"
+#| "\n"
+#| "Entschuldige, dass du warten musstest. Wir überarbeiten gerade einige "
+#| "Dinge an unserer Plattform und unserem Matching-Verfahren. Ich bin dein "
+#| "neuer Support-Nutzer und werde dir bei allen Fragen und Problemen "
+#| "helfen.\n"
+#| "\n"
+#| "Da du dich schon vor einiger Zeit registriert hast, wollte ich dich "
+#| "fragen, ob du noch aktiv auf der Suche bist? Antworte mir gerne mit einer "
+#| "schnellen Nachricht oder drücke kurz auf diesen Knopf: <a href=\"/user/"
+#| "still_active/\">Ich suche noch ein Match!</a>\n"
+#| "\n"
+#| "Solange du auf dein Match wartest, kannst du dir schon mal den <a "
+#| "href=\"https://home.little-world.com/leitfaden\">Gesprächsleitfaden</a> "
+#| "anschauen. Hier findest du viele hilfreiche Tipps und Antworten auf "
+#| "mögliche Fragen.\n"
+#| "\n"
+#| "Viele Grüße aus Aachen 👋🏼\n"
 msgctxt "api.are-you-still-searching"
 msgid ""
 "Hallo {first_name}, ich bin Tim, Mitbegründer und CTO von Little World!\n"
@@ -495,7 +515,7 @@ msgid ""
 "anschauen. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche "
 "Fragen.\n"
 "\n"
-"Viele Grüße aus Aachen 👋🏼\n"
+"Viele Grüße aus Aachen 👋🏼"
 msgstr ""
 "Hallo {first_name}, ich bin Tim, Mitbegründer und CTO von Little World!\n"
 "\n"
@@ -513,13 +533,13 @@ msgstr ""
 "anschauen. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche "
 "Fragen.\n"
 "\n"
-"Viele Grüße aus Aachen 👋🏼\n"
+"Viele Grüße aus Aachen 👋🏼"
 
-#: management/controller.py:242
+#: management/controller.py:241
 msgid "Welcome Notification"
 msgstr "Willkommensbenachrichtigung"
 
-#: management/controller.py:247
+#: management/controller.py:246
 #, fuzzy, python-brace-format
 #| msgctxt "api.register-welcome-message-text"
 #| msgid ""
@@ -597,7 +617,7 @@ msgstr ""
 "\n"
 "Vielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!"
 
-#: management/controller.py:269
+#: management/controller.py:268
 #, python-brace-format
 msgctxt "api.register-invite-pre-match-interview"
 msgid ""
@@ -620,12 +640,12 @@ msgid ""
 "eine Nachricht."
 msgstr ""
 
-#: management/controller.py:361 management/controller.py:362
+#: management/controller.py:360 management/controller.py:361
 #, python-format
 msgid "New match: %s"
 msgstr "Neues Match: %s"
 
-#: management/controller.py:365
+#: management/controller.py:364
 #, fuzzy, python-brace-format
 #| msgctxt "api.match-made-message-text"
 #| msgid ""
@@ -663,7 +683,7 @@ msgstr ""
 "\n"
 "Damit euch viel Spaß! Schöne Grüße vom Team Little World"
 
-#: management/controller.py:381 management/controller.py:391
+#: management/controller.py:380 management/controller.py:390
 msgctxt "api.match-made-email-subject"
 msgid "Glückwunsch! Gesprächspartner:in gefunden auf Little World"
 msgstr "Glückwunsch! Gesprächspartner:in gefunden auf Little World"
