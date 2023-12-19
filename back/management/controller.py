@@ -148,6 +148,7 @@ def create_user(
     first_name,
     second_name,
     birth_year,
+    newsletter_subscribed=False,
     send_verification_mail=True,
     send_welcome_notification=True,
     send_welcome_message=True,
@@ -184,6 +185,7 @@ def create_user(
     usr = User.objects.create_user(**data)
 
     usr.profile.birth_year = int(birth_year)
+    usr.profile.newsletter_subscribed = newsletter_subscribed
     usr.profile.save()
     # Error if user doesn't exist, would prob already happen on is_valid
     assert isinstance(usr, User)
