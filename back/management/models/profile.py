@@ -249,6 +249,8 @@ class ProfileBase(models.Model):
         default=ConversationPartlerLocation.ANYWHERE_VOL,
         max_length=255)
 
+    newsletter_subscribed = models.BooleanField(default=False)
+
     """
     Postal code, char so we support international code for the future
     """
@@ -629,7 +631,7 @@ class SelfProfileSerializer(ProfileSerializer):
                   'partner_location', 'postal_code', 'interests', 'availability',
                   'lang_level', 'additional_interests', 'language_skill_description', 'birth_year', 'description',
                   'notify_channel', 'phone_mobile', 'image_type', 'avatar_config', 'image', 'lang_skill', 'gender', 
-                  'partner_gender', 'liability_accepted', 'display_language', 'other_target_group', 'target_groups']
+                  'partner_gender', 'liability_accepted', 'display_language', 'other_target_group', 'target_groups', 'newsletter_subscribed']
 
         extra_kwargs = dict(
             language_skill_description={

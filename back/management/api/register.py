@@ -54,6 +54,8 @@ class RegistrationSerializer(serializers.Serializer):
         'min_value': pgettext_lazy('register.birth-year-under-1900', 'I\'m sorry but you can\'t be that old'),
         'max_value': pgettext_lazy('register.birth-year-over-2024', 'Sorry currently users have to be at least 18 years old to participate'),
     })
+    
+    newsletter_subscribed = serializers.BooleanField(required=False, default=False)
 
     def create(self, validated_data):
         # Password same validation happens in 'validate()' we need only one password now
@@ -112,7 +114,7 @@ class Register(APIView):
     ]  # No authentication required, TODO: cors should still be enabled right?
     permission_classes = []  # Everyone can acess this api
     required_args = ['email', 'first_name', 'second_name',
-                     'password1', 'password2', 'birth_year']
+                     'password1', 'password2', 'birth_year', 'newsletter_subscribed']
 
     @extend_schema(
         description='Little World Registration API called with data from the registration form',
