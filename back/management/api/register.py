@@ -55,7 +55,7 @@ class RegistrationSerializer(serializers.Serializer):
         'max_value': pgettext_lazy('register.birth-year-over-2024', 'Sorry currently users have to be at least 18 years old to participate'),
     })
     
-    newsletter_subscribed = serializers.BooleanField(required=True, default=False)
+    newsletter_subscribed = serializers.BooleanField(required=False, default=False)
 
     def create(self, validated_data):
         # Password same validation happens in 'validate()' we need only one password now
