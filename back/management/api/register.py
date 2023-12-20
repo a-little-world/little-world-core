@@ -33,6 +33,7 @@ class RegistrationData:
     second_name: str
     password: str
     birth_year: str
+    newsletter_subscribed: bool
 
 
 class RegistrationSerializer(serializers.Serializer):
@@ -114,7 +115,7 @@ class Register(APIView):
     ]  # No authentication required, TODO: cors should still be enabled right?
     permission_classes = []  # Everyone can acess this api
     required_args = ['email', 'first_name', 'second_name',
-                     'password1', 'password2', 'birth_year', 'newsletter_subscribed']
+                     'password1', 'password2', 'birth_year']
 
     @extend_schema(
         description='Little World Registration API called with data from the registration form',
