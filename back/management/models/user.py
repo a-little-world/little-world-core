@@ -21,6 +21,7 @@ class UserManager(BaseUserManager):
         from . import profile
         from . import settings
         assert email and password
+        email = email.lower()
         # This will redundantly store 'first_name' and 'second_name'
         # This is nice though cause we will never change these so we always know with which name they sighned up!
         user = self.model(email=email, **kwargs)
@@ -110,7 +111,6 @@ class User(AbstractUser):
             # Then the email of that user was changed!
             # This means we have to update the username too!
             self.username = self.email
-            # TODO: also add to 'past emails' list
         super().save(*args, **kwargs)
         self.__original_username = self.username
 
@@ -185,7 +185,7 @@ class User(AbstractUser):
                 verification_code=str(self.state.get_email_auth_pin())
             )
         )
-        self.email = prms.email
+        self.email = prms.email.lower()
         # NOTE the save() method automaicly detects the email change and also changes the username
         # We do this so admins can edit emails in the admin pannel and changes are reflected as expected
         # self.username = prms.email  # <- so the user can login with that email now

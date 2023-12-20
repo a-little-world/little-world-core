@@ -44,6 +44,24 @@ class EmailSettingsTests(TestCase):
         assert response, isinstance(response, Response)
         return response  # type: ignore
     
+    
+    def test_email_correctly_normalized(self):
+        response = self._some_register_call(valid_request_data)
+        user = get_user_by_email(valid_request_data['email'])
+        orig_email = user.email
+        new_email = orig_email.replace("@", "+Test@")
+        
+        factory = APIRequestFactory(enforce_csrf_checks=True)
+        request = factory.post("/api/user/change_email/", {
+            "email": new_email
+        })
+        force_authenticate(request, user=user)
+        response = api.user.ChangeEmailApi.as_view()(request)
+        
+        assert response.status_code == 200
+        assert user.email == new_email.lower()
+        
+    
     def test_email_unsubscribe_link_get(self):
         response = self._some_register_call(valid_request_data)
         

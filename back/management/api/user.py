@@ -150,7 +150,7 @@ class LoginApi(APIView):
 
         login_data = serializer.save()
 
-        usr = authenticate(username=login_data.email,
+        usr = authenticate(username=login_data.email.lower(),
                            password=login_data.password)
 
         if usr is not None:
@@ -294,6 +294,11 @@ class ChangeEmailParams:
 
 class ChangeEmailSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
+    
+    def validate_email(self, value):
+        # we strip spaces at beginning and end ( cause many people accidently have those )
+        value = value.strip()
+        return value.lower()
 
     def create(self, validated_data):
         return ChangeEmailParams(**validated_data)
