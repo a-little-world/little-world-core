@@ -433,19 +433,6 @@ class ProfileBase(models.Model):
 
     lang_skill = models.JSONField(default=base_lang_skill)
     
-    
-    class DisplayLanguageChoides(models.TextChoices):
-        GERMAN = "de", pgettext_lazy(
-            "profile.display-language.german", "Deutsch")
-        ENGLISH = "en", pgettext_lazy(
-            "profile.display-language.english", "English")
-
-    display_language = models.CharField(
-        choices=DisplayLanguageChoides.choices,
-        default=DisplayLanguageChoides.GERMAN,
-        max_length=255)
-    # Profile image
-
     class ImageTypeChoice(models.TextChoices):
         AVATAR = "avatar", pgettext_lazy("profile.image-type.avatar", "Avatar")
         IMAGE = "image", pgettext_lazy("profile.image-type.image", "Image")
@@ -461,7 +448,7 @@ class ProfileBase(models.Model):
     
     
     class DisplayLanguageChoices(models.TextChoices):
-        GERMAN = "de", pgettext_lazy("profile.display-language.de", "Deutsch")
+        GERMAN = "de", pgettext_lazy("profile.display-language.de", "German")
         ENGLISH = "en", pgettext_lazy("profile.display-language.en", "English")
         
     display_language = models.CharField(
