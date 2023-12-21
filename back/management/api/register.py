@@ -33,6 +33,7 @@ class RegistrationData:
     second_name: str
     password: str
     birth_year: str
+    newsletter_subscribed: bool
 
 
 class RegistrationSerializer(serializers.Serializer):
@@ -54,6 +55,8 @@ class RegistrationSerializer(serializers.Serializer):
         'min_value': pgettext_lazy('register.birth-year-under-1900', 'I\'m sorry but you can\'t be that old'),
         'max_value': pgettext_lazy('register.birth-year-over-2024', 'Sorry currently users have to be at least 18 years old to participate'),
     })
+    
+    newsletter_subscribed = serializers.BooleanField(required=False, default=False)
 
     def create(self, validated_data):
         # Password same validation happens in 'validate()' we need only one password now
