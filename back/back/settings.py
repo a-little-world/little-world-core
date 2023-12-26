@@ -43,6 +43,7 @@ MANAGEMENT_USER_MAIL = os.environ["DJ_MANAGEMENT_USER_MAIL"]
 ADMIN_OPEN_KEYPHRASE = os.environ["DJ_ADMIN_OPEN_KEYPHRASE"]
 DEFAULT_FROM_EMAIL = os.environ["DJ_SG_DEFAULT_FROM_EMAIL"]
 EXPOSE_DEV_LOGIN = os.environ.get("DJ_EXPOSE_DEV_LOGIN", "false").lower() in ('true', '1', 't')
+USE_MQ_AS_BROKER = os.environ.get("DJ_USE_MQ_AS_BROKER", "false").lower() in ('true', '1', 't')
 
 TWILIO_SMS_NUMBER = os.environ.get("DJ_TWILIO_SMS_NUMBER", "+1234567890")
 TWILIO_ACCOUNT_SID = os.environ["DJ_TWILIO_ACCOUNT_SID"]
@@ -430,12 +431,12 @@ def get_redis_connect_url_port():
     return os.environ['DJ_REDIS_HOST'], os.environ['DJ_REDIS_PORT']
 
 
-if (EMPHIRIAL or USE_REDIS_AS_BROKER):
+if (EMPHIRIAL or USE_REDIS_AS_BROKER) and (not USE_MQ_AS_BROKER):
     CELERY_BROKER_URL = os.environ["REDIS_URL"]
-elif IS_DEV:
+elif IS_DEV and (not USE_MQ_AS_BROKER):
     # autmaticly renders index.html when entering an absolute static path
     CELERY_BROKER_URL = 'redis://host.docker.internal:6379'
-elif IS_STAGE or IS_PROD:
+elif IS_STAGE or IS_PROD or USE_MQ_AS_BROKER:
     # Sadly it turnsour that celery doesn't support redis clusters
     # So we will need to use Rabbit MQ instead
     # url, port = get_redis_connect_url_port()
