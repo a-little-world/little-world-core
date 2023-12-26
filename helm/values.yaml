@@ -8,6 +8,7 @@ ingress:
   certManager: true
   host: "localhost"
 backend:
+  replicas: 1
   imageURL: "localhost:32000/backend:registry"
   env:
     BUILD_TYPE: "development"
