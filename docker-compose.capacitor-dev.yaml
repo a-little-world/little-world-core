@@ -1,0 +1,21 @@
+version: '3'
+services:
+  capacitor:
+    build:
+      context: ./front/apps/main_frontend/
+      dockerfile: ./capacitor-build-base.dockerfile
+    image: android-capacitor
+  android:
+    build:
+      context: ./front/apps/main_frontend/
+      dockerfile: ./android-build-cache.dockerfile
+    volumes:
+      - ./front/apps/main_frontend/:/workdir/frontend
+    command: |
+      bash -c "
+        cd /workdir/frontend/android/ &&
+        ./gradlew assembleDebug &&
+        mkdir -p /workdir/frontend/android-builds &&
+        cp app/build/outputs/apk/debug/app-debug.apk /workdir/frontend/android-builds/\$(date +%s).apk &&
+        cp app/build/outputs/apk/debug/app-debug.apk /workdir/frontend/android-builds/latest.apk
+      "
