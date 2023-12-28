@@ -47,7 +47,7 @@ You can also develop all the frontends from within the backend repo, with full c
 
 setup:
 
-```
+```bash
 git clone <backend> && cd little-world-backend
 git submodule update --init --recursive
 COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml build
@@ -90,7 +90,7 @@ To deploy a staging version of your changes all you need to do is:
 
 e.g.: updating the user-form frontend
 
-```
+```bash
 git clone github.com/a-little-world/little-world-backend.git && cd little-world-backend
 git submodule --init --recursive
 git checkout -b staging-<your-feature-branch>
@@ -102,6 +102,28 @@ git push # Now go to github.com/a-little-world/little-world-backend/tree/<your-f
 
 Check the messages in the pull request, in a few minutes you can test your features live.
 
+### WIP Capacitor Android ( & IOS )
+
+Build android `.apk's` for local testing this process is still experiemental and will be simplified in the future.
+
+```bash
+# 1. Replace the env
+cp front/env_apps/main_frontend.capacitor.env.js front/apps/main_frontend/src/ENVIRONMENT.js
+# 2. create a frontend static build
+COMPOSE_PROFILES=main_frontend_only docker compose -f docker-compose.dev.yaml up -d
+COMPOSE_PROFILES=main_frontend_only docker compose -f docker-compose.dev.yaml exec frontend__main_frontend /bin/bash -c "
+  npm i
+  ./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=none --env DEBUG=0 --mode production --config webpack.capacitor.config.js
+  ./node_modules/.bin/cap sync
+"
+COMPOSE_PROFILES=main_frontend_only docker compose -f docker-compose.dev.yaml down
+# 3. Then build the android app in a container
+docker compose -f docker-compose.capacitor-dev.yaml up
+# 4. reset env
+cd front/apps/main_frontend && git stash -- src/ENVIRONMENT.js
+```
+
+
 ## Infrastructure
 
 The development chat, as its also used by our Ephemeral environments.
@@ -110,7 +132,7 @@ The development chat, as its also used by our Ephemeral environments.
 
 You can also run the whole infrastucture locally
 
-```
+```bash
 microk8s enable ingress registry helm
 touch .env
 echo "APP_IMAGE_URL=\"localhost:32000/backend:registry\"" >> .env
@@ -122,7 +144,7 @@ microk8s helm install release-1 ./helm/
 
 Wait for containers to deploy
 
-```
+```bash
 watch microk8s kubectl get pods
 ```
 
