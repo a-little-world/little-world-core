@@ -19,7 +19,7 @@ services:
       - ./front/apps/user_form_frontend/package.json:/front/apps/user_form_frontend/package.json
       - ./front/apps/user_form_frontend/package-lock.json:/front/apps/user_form_frontend/package-lock.json
   frontend__main_frontend:
-    profiles: ["main_frontend", "all"]
+    profiles: ["main_frontend", "all", "main_frontend_only"]
     build:
       context: .
       target: main_frontend_image
