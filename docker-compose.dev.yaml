@@ -37,6 +37,7 @@ services:
       - ./back/static/dist/main_frontend/:/back/static/dist/main_frontend/
       - ./front/main_frontend.webpack-stats.json:/front/main_frontend.webpack-stats.json
       - ./front/apps/main_frontend/src/:/front/apps/main_frontend/src/
+      - ./front/apps/main_frontend/webpack.capacitor.config.js:/front/apps/main_frontend/webpack.capacitor.config.js
       - ./front/apps/main_frontend/package.json:/front/apps/main_frontend/package.json
       - ./front/apps/main_frontend/package-lock.json:/front/apps/main_frontend/package-lock.json
   frontend__admin_panel_frontend:
