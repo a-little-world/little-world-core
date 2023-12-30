@@ -1,23 +1,4 @@
 services:
-  frontend__user_form_frontend:
-    profiles: ["user_form_frontend", "all"]
-    build:
-      context: .
-      target: user_form_frontend_image
-      dockerfile: ./Dockerfile.full
-      args:
-        DOCKER_BUILDKIT: 1
-        PUBLIC_FRONTEND_PATH: ""
-        BUILD_TYPE: "${BUILD_TYPE}"
-    working_dir: /front
-    entrypoint: sh /back/entries/frontend_hot_reload.sh user_form_frontend
-    volumes:
-      - ./back/entries:/back/entries/
-      - ./front/user_form_frontend.webpack-stats.json:/front/user_form_frontend.webpack-stats.json
-      - ./back/static/dist/user_form_frontend/:/back/static/dist/user_form_frontend/
-      - ./front/apps/user_form_frontend/src/:/front/apps/user_form_frontend/src/
-      - ./front/apps/user_form_frontend/package.json:/front/apps/user_form_frontend/package.json
-      - ./front/apps/user_form_frontend/package-lock.json:/front/apps/user_form_frontend/package-lock.json
   frontend__main_frontend:
     profiles: ["main_frontend", "all", "main_frontend_only"]
     build:
@@ -59,25 +40,6 @@ services:
       - ./front/apps/admin_panel_frontend/src/:/front/apps/admin_panel_frontend/src/
       - ./front/apps/admin_panel_frontend/package.json:/front/apps/admin_panel_frontend/package.json
       - ./front/apps/admin_panel_frontend/package-lock.json:/front/apps/admin_panel_frontend/package-lock.json
-  frontend__user_form_v2:
-    profiles: ["user_form_v2", "user_form_frontend", "all"]
-    build:
-      context: .
-      target: user_form_v2_frontend_image
-      dockerfile: ./Dockerfile.full
-      args:
-        DOCKER_BUILDKIT: 1
-        PUBLIC_FRONTEND_PATH: ""
-        BUILD_TYPE: "${BUILD_TYPE}"
-    working_dir: /front
-    entrypoint: sh /back/entries/frontend_hot_reload.sh user_form
-    volumes:
-      - ./back/entries:/back/entries/
-      - ./back/static/dist/user_form/:/back/static/dist/user_form/
-      - ./front/user_form.webpack-stats.json:/front/user_form.webpack-stats.json
-      - ./front/apps/user_form/src/:/front/apps/user_form/src/
-      - ./front/apps/user_form/package.json:/front/apps/user_form/package.json
-      - ./front/apps/user_form/package-lock.json:/front/apps/user_form/package-lock.json
   frontend__cookie_banner:
     profiles: ["cookie_banner_frontend", "all"]
     build:
