@@ -37,6 +37,17 @@ jobs:
           cp front/apps/main_frontend/android-builds/latest.apk $APK_NAME
           echo "APK_NAME=$APK_NAME" >> $GITHUB_OUTPUT
       - uses: actions/upload-artifact@v4
+        id: upload_artifact
         with:
           name: Android Apk
           path: ${{ steps.build_android_app.outputs.APK_NAME }}
+          compression-level: 0
+          retention-days: 5
+      - name: Notify Slack Channel
+        env:
+          SLACK_API_TOKEN: ${{ secrets.SLACK_API_TOKEN }}
+          CHANNEL_ID: "C0695SSFPMM"
+          MESSAGE: "*Feature App Buid*\nApk Download: https://github.com/a-little-world/little-world-backend/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload_artifact.outputs.artifact_id }}/\nCommit Ref: ${{ github.event.inputs.COMMIT_REF }}"
+        run: |
+          pip3 install slack_sdk
+          wget -qO- https://raw.githubusercontent.com/tbscode/tims-blog-posts/main/assets/send_slack_message.py | python3 -
