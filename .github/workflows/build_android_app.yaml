@@ -24,6 +24,7 @@ jobs:
           submodules: recursive
           ref: "${{ github.event.inputs.COMMIT_REF }}"
       - name: Build Android App
+        id: build_android_app
         run: |
           cp front/env_apps/main_frontend.capacitor-dev.env.js front/apps/main_frontend/src/ENVIRONMENT.js
           docker pull ghcr.io/tbscode/tims-packages_capacitor_android:latest
