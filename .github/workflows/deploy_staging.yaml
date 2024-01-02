@@ -33,7 +33,7 @@ jobs:
           curl -X POST \
             -H "Authorization: Bearer ${{ secrets.BOT_PAT }}" \
             -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/little-world-backend/actions/workflows/build_android_app.yaml/dispatches \
+            https://api.github.com/repos/a-little-world/little-world-backend/actions/workflows/build_android_app.yaml/dispatches \
             -d '{"ref": "main", "inputs": {"COMMIT_REF":"'"$COMMIT_REF"'"}}'
       - name: Extract branch name
         shell: bash
