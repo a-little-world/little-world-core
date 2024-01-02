@@ -1,0 +1,36 @@
+name: Build Android App
+    
+on:
+  workflow_dispatch:
+    inputs:
+      COMMIT_REF:
+        type: string
+        description: commit ref
+        default: 'master'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build_android_app:
+    runs-on: ubuntu-latest
+    name: Deploy emperial env
+    steps:
+      - uses: actions/checkout@master
+        with:
+          token: ${{ secrets.BOT_PAT }}
+          submodules: recursive
+          ref: "${{ github.event.inputs.COMMIT_REF }}"
+      - name: Build Android App
+        run: |
+          cp front/env_apps/main_frontend.capacitor-dev.env.js front/apps/main_frontend/src/ENVIRONMENT.js
+          docker compose -f docker-compose.capacitor-dev.yaml build
+          APK_NAME=app-\$(date +%s)-${{ github.event.inputs.COMMIT_REF }}.apk
+          docker compose -f docker-compose.capacitor-dev.yaml cp android:/workdir/frontend/android/app/build/outputs/apk/debug/app-debug.apk $APK_NAME
+          echo "APK_NAME=$APK_NAME" >> $GITHUB_OUTPUT
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Android Apk
+          path: ${{ steps.build_android_app.outputs.APK_NAME }}
