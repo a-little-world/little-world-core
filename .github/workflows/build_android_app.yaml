@@ -26,7 +26,8 @@ jobs:
       - name: Build Android App
         run: |
           cp front/env_apps/main_frontend.capacitor-dev.env.js front/apps/main_frontend/src/ENVIRONMENT.js
-          docker compose -f docker-compose.capacitor-dev.yaml build capacitor
+          docker pull ghcr.io/tbscode/tims-packages_capacitor_android:latest
+          docker tag ghcr.io/tbscode/tims-packages_capacitor_android:latest android-capacitor
           docker compose -f docker-compose.capacitor-dev.yaml build android
           APK_NAME="app-\$(date +%s)-${{ github.event.inputs.COMMIT_REF }}.apk"
           docker compose -f docker-compose.capacitor-dev.yaml cp android:/workdir/frontend/android/app/build/outputs/apk/debug/app-debug.apk $APK_NAME
