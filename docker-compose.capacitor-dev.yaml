@@ -13,6 +13,8 @@ services:
       - ./front/apps/main_frontend/android-builds:/workdir/frontend/android-builds
     command: |
       bash -c "
+        cd /workdir/frontend/ &&
+        ./node_modules/.bin/cap sync &&
         cd /workdir/frontend/android/ &&
         ./gradlew assembleDebug &&
         mkdir -p /workdir/frontend/android-builds &&
