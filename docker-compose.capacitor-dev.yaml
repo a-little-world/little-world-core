@@ -10,7 +10,7 @@ services:
       context: ./front/apps/main_frontend/
       dockerfile: ./android-build-cache.dockerfile
     volumes:
-      - ./front/apps/main_frontend/:/workdir/frontend
+      - ./front/apps/main_frontend/android-builds:/workdir/frontend/android-builds
     command: |
       bash -c "
         cd /workdir/frontend/android/ &&
