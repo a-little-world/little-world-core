@@ -107,20 +107,41 @@ Check the messages in the pull request, in a few minutes you can test your featu
 Build android `.apk's` for local testing this process is still experiemental and will be simplified in the future.
 
 ```bash
+# 0. Extract current `apiTranslations` and `apiOptions`
+COMPOSE_PROFILES=main_frontend docker compose -f docker-compose.dev.yaml up -d
+curl -X 'GET' \
+  'http://localhost:8000/api/options_translations/' \
+  -o front/apps/main_frontend/src/options_translations.json
 # 1. Replace the env
 cp front/env_apps/main_frontend.capacitor.env.js front/apps/main_frontend/src/ENVIRONMENT.js
 # 2. create a frontend static build
-COMPOSE_PROFILES=main_frontend_only docker compose -f docker-compose.dev.yaml up -d
-COMPOSE_PROFILES=main_frontend_only docker compose -f docker-compose.dev.yaml exec frontend__main_frontend /bin/bash -c "
-  npm i
-  ./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=none --env DEBUG=0 --mode production --config webpack.capacitor.config.js
-  ./node_modules/.bin/cap sync
+COMPOSE_PROFILES=main_frontend docker compose -f docker-compose.dev.yaml exec frontend__main_frontend /bin/bash -c "
+  cd /front/apps/main_frontend/ && npm i
+  cd /front/apps/main_frontend/ && ./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=none --env DEBUG=0 --mode production --config webpack.capacitor.config.js
+  cd /front/apps/main_frontend/ && ./node_modules/.bin/cap sync
 "
-COMPOSE_PROFILES=main_frontend_only docker compose -f docker-compose.dev.yaml down
-# 3. Then build the android app in a container
+COMPOSE_PROFILES=main_frontend docker compose -f docker-compose.dev.yaml down
+# 3. Then build the android app in a container ( SEE ALTERNATE )
 docker compose -f docker-compose.capacitor-dev.yaml up
+docker compose -f docker-compose.capacitor-dev.yaml down
 # 4. reset env
 cd front/apps/main_frontend && git stash -- src/ENVIRONMENT.js
+```
+
+Alternatively for hot-reload emulator development after step 2 run 
+
+```bash
+cd front/apps/main_frontend/
+./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mode development --config webpack.capacitor.config.js
+# for low footprint, non debug build use:
+# ./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=none --env DEBUG=0 --mode production --config webpack.capacitor.config.js
+./node_modules/.bin/cap sync
+
+# Start the emulator
+./node_modules/.bin/cap run android
+
+# Start the backend:
+COMPOSE_PROFILES=backend docker compose -f docker-compose.dev.yaml up
 ```
 
 
