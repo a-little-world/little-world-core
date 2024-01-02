@@ -26,7 +26,8 @@ jobs:
       - name: Build Android App
         run: |
           cp front/env_apps/main_frontend.capacitor-dev.env.js front/apps/main_frontend/src/ENVIRONMENT.js
-          docker compose -f docker-compose.capacitor-dev.yaml build
+          docker compose -f docker-compose.capacitor-dev.yaml build capacitor
+          docker compose -f docker-compose.capacitor-dev.yaml build android
           APK_NAME=app-\$(date +%s)-${{ github.event.inputs.COMMIT_REF }}.apk
           docker compose -f docker-compose.capacitor-dev.yaml cp android:/workdir/frontend/android/app/build/outputs/apk/debug/app-debug.apk $APK_NAME
           echo "APK_NAME=$APK_NAME" >> $GITHUB_OUTPUT
