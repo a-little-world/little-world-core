@@ -16,7 +16,7 @@ permissions:
 jobs:
   build_android_app:
     runs-on: ubuntu-latest
-    name: Deploy emperial env
+    name: Build Android App
     steps:
       - uses: actions/checkout@master
         with:
@@ -31,6 +31,7 @@ jobs:
           docker compose -f docker-compose.capacitor-dev.yaml build android
           export APK_NAME="app-$(date +%s)-${{ github.event.inputs.COMMIT_REF }}.apk"
           docker ps -a
+          mkdir -p ./front/apps/main_frontend/android-builds
           docker compose -f docker-compose.capacitor-dev.yaml run android
           cp front/apps/main_frontend/android-builds/latest.apk $APK_NAME
           echo "APK_NAME=$APK_NAME" >> $GITHUB_OUTPUT
