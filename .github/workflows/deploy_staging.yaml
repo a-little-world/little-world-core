@@ -150,22 +150,16 @@ jobs:
           KUBECONFIG=./kubeconfig.yaml kubectl create namespace $NAMESPACE || true
           KUBECONFIG=./kubeconfig.yaml helm install backend-tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }} ./helm
           echo "STAGING_URL=$STAGING_URL" >> $GITHUB_OUTPUT
-      - name: Build Android App
+      - name: Trigger Android App build
+        env:
+          COMMIT_REF: ${{ github.sha }}
         run: |
-          cp front/env_apps/main_frontend.capacitor-dev.env.js front/apps/main_frontend/src/ENVIRONMENT.js
-          COMPOSE_PROFILES=main_frontend docker compose -f docker-compose.dev.yaml up -d
-          curl -X 'GET' \
-            'http://localhost:8000/api/options_translations/' \
-            -o front/apps/main_frontend/src/options_translations.json
-          # 1. Replace the env
-          cp front/env_apps/main_frontend.capacitor.env.js front/apps/main_frontend/src/ENVIRONMENT.js
-          # 2. create a frontend static build
-          COMPOSE_PROFILES=main_frontend docker compose -f docker-compose.dev.yaml exec frontend__main_frontend /bin/bash -c "
-            cd /front/apps/main_frontend/ && npm i
-            cd /front/apps/main_frontend/ && ./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=none --env DEBUG=0 --mode production --config webpack.capacitor.config.js
-            cd /front/apps/main_frontend/ && ./node_modules/.bin/cap sync
-          "
-          COMPOSE_PROFILES=main_frontend docker compose -f docker-compose.dev.yaml down
+          # Triggers the build in a seperate workflow
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.BOT_PAT }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/little-world-backend/actions/workflows/build_android_app.yaml/dispatches \
+            -d '{"ref": "main", "inputs": {"COMMIT_REF":"'"$COMMIT_REF"'"}}'
       - name: Add build step comment 3
         uses: peter-evans/create-or-update-comment@v3
         id: update_comment_3
