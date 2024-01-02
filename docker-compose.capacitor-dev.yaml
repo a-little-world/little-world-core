@@ -15,7 +15,7 @@ services:
       bash -c "
         cd /workdir/frontend/ &&
         npm install &&
-        ./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=none &&
+        ./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=none --env DEBUG=0 --mode production --config webpack.capacitor.config.js &&
         ./node_modules/.bin/cap sync &&
         cd /workdir/frontend/android/ &&
         ./gradlew assembleDebug &&
