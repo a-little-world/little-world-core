@@ -61,6 +61,8 @@ api_routes = [
 
     path(_api_url('trans/<str:lang>'), api.trans.TranslationsGet.as_view()),
 
+    path(_api_url('options_translations'), api.options.get_translations_and_options),
+
 
     path(_api_url('community/events'),
          api.community_events.GetActiveEventsApi.as_view()),
