@@ -29,7 +29,7 @@ metadata:
   name: backend-container
   namespace: {{ .Values.rootNamespace }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.backend.replicas }}
   selector:
     matchLabels:
       app: backend-container

@@ -11,7 +11,14 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@master
+    - name: Get the latest commit message
+      id: get_commit_message
+      run: |
+        commit_message=$(git log -1 --pretty=format:%s)
+        echo "$commit_message"
+        echo "commit_message=$commit_message" >> $GITHUB_OUTPUT
     - name: Request run
+      if: contains(steps.get_commit_message.outputs.commit_message, '[STAGE]')
       id: request_run
       env:
         DEPLOYMENT_NAME: staging
