@@ -30,7 +30,7 @@ jobs:
       - name: Build Android App
         id: build_android_app
         run: |
-          sed 's|__BACKEND_URL__|${{ github.event.inputs.BACKEND_URL }}|g' main_frontend.capacitor-empheral.env.js > ENVIRONMENT.js
+          sed 's|__BACKEND_URL__|${{ github.event.inputs.BACKEND_URL }}|g' front/env_apps/main_frontend.capacitor-empheral.env.js > ENVIRONMENT.js
           cp ENVIRONMENT.js front/apps/main_frontend/src/ENVIRONMENT.js
           docker pull ghcr.io/tbscode/tims-packages_capacitor_android:latest
           docker tag ghcr.io/tbscode/tims-packages_capacitor_android:latest android-capacitor
