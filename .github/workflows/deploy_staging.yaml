@@ -36,9 +36,8 @@ jobs:
           pull_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
           branch=${{ steps.extract_branch.outputs.branch }}
           SHOULD_STAGE=$(echo $branch | grep -E '^staging-')
-          SHOULD_BUILD_ANDROID=$(echo $branch | grep -E '^android-')
           echo "SHOULD_STAGE=$SHOULD_STAGE" >> $GITHUB_OUTPUT
-          echo "SHOULD_BUILD_ANDROID=$SHOULD_BUILD_ANDROID" >> $GITHUB_OUTPUT
+          echo "SHOULD_BUILD_ANDROID=" >> $GITHUB_OUTPUT
           echo "PULL_NUMBER=$pull_number" >> $GITHUB_OUTPUT
       - name: Trigger Android App build
         env:
