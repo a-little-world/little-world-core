@@ -7,6 +7,7 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: 'https',
     hostname: '__BACKEND_URL__',
+    allowNavigation: []
   },
   plugins: {
     CapacitorHttp: {
