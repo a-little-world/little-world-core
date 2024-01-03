@@ -33,7 +33,9 @@ jobs:
           sed 's|__BACKEND_URL__|https://${{ github.event.inputs.BACKEND_URL }}|g' front/env_apps/main_frontend.capacitor-empheral.env.js > ENVIRONMENT.js
           sed 's|__BACKEND_URL__|${{ github.event.inputs.BACKEND_URL }}|g' front/env_apps/main_frontend.capacitor-empheral.capacitor.config.ts > capacitor.config.ts
           cp capacitor.config.ts front/apps/main_frontend/capacitor.config.ts
+          cat capacitor.config.ts
           cp ENVIRONMENT.js front/apps/main_frontend/src/ENVIRONMENT.js
+          cat ENVIRONMENT.js
           docker pull ghcr.io/tbscode/tims-packages_capacitor_android:latest
           docker tag ghcr.io/tbscode/tims-packages_capacitor_android:latest android-capacitor
           docker compose -f docker-compose.capacitor-dev.yaml build android
