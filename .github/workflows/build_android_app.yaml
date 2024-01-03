@@ -7,6 +7,10 @@ on:
         type: string
         description: commit ref
         default: 'master'
+      BACKEND_URL:
+        type: string
+        description: backend url
+        default: 'https://little-world.com'
 
 permissions:
   contents: read
@@ -26,7 +30,8 @@ jobs:
       - name: Build Android App
         id: build_android_app
         run: |
-          cp front/env_apps/main_frontend.capacitor-dev.env.js front/apps/main_frontend/src/ENVIRONMENT.js
+          sed 's|__BACKEND_URL__|${{ github.event.inputs.BACKEND_URL }}|g' main_frontend.capacitor-empheral.env.js > ENVIRONMENT.js
+          cp ENVIRONMENT.js front/apps/main_frontend/src/ENVIRONMENT.js
           docker pull ghcr.io/tbscode/tims-packages_capacitor_android:latest
           docker tag ghcr.io/tbscode/tims-packages_capacitor_android:latest android-capacitor
           docker compose -f docker-compose.capacitor-dev.yaml build android
@@ -47,7 +52,7 @@ jobs:
         env:
           SLACK_API_TOKEN: ${{ secrets.SLACK_API_TOKEN }}
           CHANNEL_ID: "C0695SSFPMM"
-          MESSAGE: "*Feature App Buid*\nApk Download: https://github.com/a-little-world/little-world-backend/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload_artifact.outputs.artifact_id }}/\nCommit Ref: ${{ github.event.inputs.COMMIT_REF }}"
+          MESSAGE: "*Feature App Buid*\nApk Download: https://github.com/a-little-world/little-world-backend/actions/runs/${{ github.run_id }}/artifacts/${{ steps.upload_artifact.outputs.artifact-id }}/\nCommit Ref: ${{ github.event.inputs.COMMIT_REF }}\nBackend: ${{ github.event.inputs.BACKEND_URL }}"
         run: |
           pip3 install slack_sdk
           wget -qO- https://raw.githubusercontent.com/tbscode/tims-blog-posts/main/assets/send_slack_message.py | python3 -
