@@ -25,16 +25,6 @@ jobs:
           token: ${{ secrets.BOT_PAT }}
           submodules: recursive
           ref: ${{ github.event.pull_request.head.sha }}
-      - name: Trigger Android App build
-        env:
-          COMMIT_REF: ${{ github.sha }}
-        run: |
-          # Triggers the build in a seperate workflow
-          curl -X POST \
-            -H "Authorization: Bearer ${{ secrets.BOT_PAT }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/a-little-world/little-world-backend/actions/workflows/build_android_app.yaml/dispatches \
-            -d '{"ref": "main", "inputs": {"COMMIT_REF":"'"$COMMIT_REF"'"}}'
       - name: Extract branch name
         shell: bash
         run: |
@@ -48,6 +38,17 @@ jobs:
           SHOULD_STAGE=$(echo $branch | grep -E '^staging-')
           echo "SHOULD_STAGE=$SHOULD_STAGE" >> $GITHUB_OUTPUT
           echo "PULL_NUMBER=$pull_number" >> $GITHUB_OUTPUT
+      - name: Trigger Android App build
+        env:
+          COMMIT_REF: ${{ github.sha }}
+        run: |
+          # Triggers the build in a seperate workflow
+          export STAGING_HOST="${{ steps.extract_branch.outputs.branch }}-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}.t1m.me"
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.BOT_PAT }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/a-little-world/little-world-backend/actions/workflows/build_android_app.yaml/dispatches \
+            -d '{"ref": "main", "inputs": {"COMMIT_REF":"'"$COMMIT_REF"'","BACKEND_URL":"'"https://$STAGING_HOST"'"}}'
       - name: Delete all littleworld-bot comments
         run: |
           comments=$(curl -s -H "Authorization: token ${{ secrets.BOT_PAT }}" https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.determine_pull_id.outputs.PULL_NUMBER }}/comments | jq -r '.[] | select(.user.login=="littleworld-bot") | .id')
