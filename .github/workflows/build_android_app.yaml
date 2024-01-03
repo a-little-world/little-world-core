@@ -10,7 +10,11 @@ on:
       BACKEND_URL:
         type: string
         description: backend url
-        default: 'https://little-world.com'
+        default: 'little-world.com'
+      CAP_URL:
+        type: string
+        description: capacitor url (has to be different to BACKEND_URL)
+        default: 'api.little-world.com'
 
 permissions:
   contents: read
@@ -31,7 +35,7 @@ jobs:
         id: build_android_app
         run: |
           sed 's|__BACKEND_URL__|https://${{ github.event.inputs.BACKEND_URL }}|g' front/env_apps/main_frontend.capacitor-empheral.env.js > ENVIRONMENT.js
-          sed 's|__BACKEND_URL__|${{ github.event.inputs.BACKEND_URL }}|g' front/env_apps/main_frontend.capacitor-empheral.capacitor.config.ts > capacitor.config.ts
+          sed 's|__BACKEND_URL__|${{ github.event.inputs.CAP_URL }}|g' front/env_apps/main_frontend.capacitor-empheral.capacitor.config.ts > capacitor.config.ts
           cp capacitor.config.ts front/apps/main_frontend/capacitor.config.ts
           cat capacitor.config.ts
           cp ENVIRONMENT.js front/apps/main_frontend/src/ENVIRONMENT.js
