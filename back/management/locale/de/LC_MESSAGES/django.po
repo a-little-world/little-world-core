@@ -847,12 +847,9 @@ msgid "Male only"
 msgstr "Männlich"
 
 #: management/models/profile.py:166
-#, fuzzy
-#| msgctxt "profile.partner-sex.male"
-#| msgid "Male only"
 msgctxt "profile.partner-sex.female"
 msgid "Female only"
-msgstr "Männlich"
+msgstr "Weiblich"
 
 #: management/models/profile.py:175
 #, fuzzy
