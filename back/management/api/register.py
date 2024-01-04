@@ -152,4 +152,4 @@ class Register(APIView):
         with translation.override("tag"):
             data = frontend_data(request.user)
         
-        return Response({"data": json.dumps(data, cls=CoolerJson)})
+        return Response(data)
