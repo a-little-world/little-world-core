@@ -49,7 +49,7 @@ class PublicMainFrontendView(View):
         if request.user.is_authenticated and ((not request.user.state.is_email_verified()) and (not path.startswith("verify-email"))):
             return redirect("/verify-email/")
         
-        if request.user.is_authenticated and ((not request.user.state.is_user_form_filled()) and (not path.startswith("app/user-form"))):
+        if request.user.state.is_email_verified() and (request.user.is_authenticated and ((not request.user.state.is_user_form_filled()) and (not path.startswith("app/user-form")))):
             return redirect("/app/user-form/")
 
         if request.user.is_authenticated and (request.user.state.is_email_verified() and request.user.state.is_user_form_filled()):
