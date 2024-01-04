@@ -258,14 +258,29 @@ class MakeMatch(APIView):
         if params.proposal_only:
             # If proposal_only = True, we create a proposed match instead!
             # TODO: does this correctly check for already existing proposals?
-            controller.create_user_matching_proposal(
+            proposal = controller.create_user_matching_proposal(
                 {users[0], users[1]},
                 send_confirm_match_email=params.send_email,
             )
+
+            from management.models import ConsumerConnections, CensoredProfileSerializer
+            from management.api.user_data import serialize_proposed_matches
+
+            learner = proposal.get_learner()
+            matches = serialize_proposed_matches([proposal], learner)
+            payload = {
+                "action": "addMatch", 
+                "payload": {
+                    "category": "proposed",
+                    "match": json.loads(json.dumps(matches[0], cls=CoolerJson))
+                }
+            }
+            ConsumerConnections.notify_connections(learner, event="reduction", payload=payload)
+            
+            # On a maching proposal we only need to notify the learner
             return Response("Matching Proposal Created")
         else:
             # Perform an actual matching!
-            payload = {}
             match_obj = controller.match_users({users[0], users[1]},
                                    send_email=params.send_email,
                                    send_message=params.send_message,
