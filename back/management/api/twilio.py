@@ -117,23 +117,35 @@ class TwilioCallbackApi(APIView):
                 assert usr in room_usrs, "User is not in this room! He should try to authenticate it!"
                 other_user = [u for u in room_usrs if u != usr][0]
                 return room, usr, other_user
+            
+            
+            from management.models import ConsumerConnections
 
             if StatusCallbackEvent == 'participant-disconnected':
                 room, caller, participant = get_room_caller_and_participant()
                 complete_room_if_empty(room)
 
-                send_websocket_callback(
-                    participant,
-                    f"exited_call:{caller.hash}"
-                )
+                payload = {
+                    "action": "blockIncomingCall", 
+                    "payload": {
+                        "userId": str(caller.hash)
+                    }
+                }
+                ConsumerConnections.notify_connections(participant, event="reduction", payload=payload)
+                
+                
                 return Response()
             elif StatusCallbackEvent == 'participant-connected':
                 room, caller, participant = get_room_caller_and_participant()
 
-                send_websocket_callback(
-                    participant,
-                    f"entered_call:{caller.hash}"
-                )
+                payload = {
+                    "action": "addIncomingCall", 
+                    "payload": {
+                        "userId": str(caller.hash)
+                    }
+                }
+                ConsumerConnections.notify_connections(participant, event="reduction", payload=payload)
+
                 return Response()
         # Means we havenet handled this callback yet!
         return Response(status=400)
