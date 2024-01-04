@@ -1,4 +1,8 @@
 from drf_spectacular.utils import OpenApiParameter, OpenApiExample
+from management.api.user_data import get_full_frontend_data, frontend_data
+from django.utils.translation import gettext_lazy as _
+from django.utils import translation
+from back.utils import CoolerJson
 import django.contrib.auth.password_validation as pw_validation
 from django.contrib.auth import authenticate, login
 from typing import Optional
@@ -24,6 +28,7 @@ from dataclasses import dataclass
 from .. import validators, controller
 from ..models.user import User
 from . import schemas
+import json
 
 
 @dataclass
@@ -142,4 +147,9 @@ class Register(APIView):
         except Exception as e:
             print("Auto login failed: {}".format(repr(e)))
             return Response("User cerated but auto login failed")
-        return Response("Sucessfully Created User")
+        
+        
+        with translation.override("tag"):
+            data = frontend_data(request.user)
+        
+        return Response({"data": json.dumps(data, cls=CoolerJson)})
