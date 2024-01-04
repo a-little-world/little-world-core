@@ -293,11 +293,11 @@ def serialize_proposed_matches(matching_proposals, user):
 
         partner = proposal.get_partner(user)
         serialized.append({
-            "id": str(proposal.hash), # TODO: rename
+            "id": str(proposal.hash),
             "partner": {
                 "id": str(partner.hash),
                 **ProposalProfileSerializer(partner.profile).data
-            } # TODO: this want some additional fields
+            }
         })
 
     return serialized
@@ -356,7 +356,8 @@ def frontend_data(user, items_per_page=10):
     profile_options = profile_data["options"]
     del profile_data["options"]
 
-    # TODO: populate incoming calls
+    # TODO: Currently incoming calls are only populated if the user was online when the incomin call was triggered
+    # This should be refactored so that we can actually tracka nd display whena user is currently in a call
     
     empty_list = {
         "items": [],
