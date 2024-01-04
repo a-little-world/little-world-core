@@ -371,6 +371,7 @@ def frontend_data(user, items_per_page=10):
         "user": {
             "id": user.hash,
             "isSearching": user_state.matching_state == State.MatchingStateChoices.SEARCHING,
+            "email": user.email,
             "profile": profile_data,
         },
         "communityEvents": community_events,
