@@ -3,6 +3,8 @@ Contains all the admin apis
 generally all APIViews here are required to have: permission_classes = [ IsAdminUser ]
 """
 from management.views import admin_panel_v2
+from back.utils import CoolerJson
+import json
 from rest_framework.views import APIView
 from django.conf import settings
 from typing import List, Optional
@@ -263,19 +265,32 @@ class MakeMatch(APIView):
             return Response("Matching Proposal Created")
         else:
             # Perform an actual matching!
-            try:
-                controller.match_users({users[0], users[1]},
-                                       send_email=params.send_email,
-                                       send_message=params.send_message,
-                                       send_notification=params.send_notification)
+            payload = {}
+            match_obj = controller.match_users({users[0], users[1]},
+                                   send_email=params.send_email,
+                                   send_message=params.send_message,
+                                   send_notification=params.send_notification)
 
-                # Now we still need to set the user to no searching anymore
-                users[0].state.change_searching_state(
-                    State.MatchingStateChoices.IDLE)
-                users[1].state.change_searching_state(
-                    State.MatchingStateChoices.IDLE)
-            except Exception as e:
-                return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
+            # Now we still need to set the user to no searching anymore
+            users[0].state.change_searching_state(
+                State.MatchingStateChoices.IDLE)
+            users[1].state.change_searching_state(
+                State.MatchingStateChoices.IDLE)
+            
+            # Now notify that users connections
+            from management.models import ConsumerConnections, CensoredProfileSerializer
+            from management.api.user_data import serialize_matches
+
+            for i in [0, 1]:
+                matches = serialize_matches([match_obj], users[i])
+                payload = {
+                    "action": "addMatch", 
+                    "payload": {
+                        "category": "unconfirmed",
+                        "match": json.loads(json.dumps(matches[0], cls=CoolerJson))
+                    }
+                }
+                ConsumerConnections.notify_connections(users[i], event="reduction", payload=payload)
             return Response(_("Users sucessfully matched"))
 
 
