@@ -56,18 +56,21 @@ class PublicMainFrontendView(View):
             return redirect("/app/")
 
 
-        
-        # TODO: we need a better way to extract the options!
-        ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
-        user_profile = get_base_management_user().profile
-        profile_data = ProfileWOptions(user_profile).data
-        profile_options = profile_data["options"]
+        if request.user.is_authenticated:
+            data = frontend_data(request.user)
+        else:
+            # TODO: we need a better way to extract the options!
+            ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
+            user_profile = get_base_management_user().profile
+            profile_data = ProfileWOptions(user_profile).data
+            profile_options = profile_data["options"]
+            data = {
+                "apiOptions": {
+                    "profile": profile_options,
+                },
+            }
 
-        return render(request, "main_frontend_public.html", {"data": json.dumps({
-            "apiOptions": {
-                "profile": profile_options,
-            },
-        }, cls=CoolerJson)})
+        return render(request, "main_frontend_public.html", {"data": json.dumps(data, cls=CoolerJson)})
 
 class MainFrontendView(LoginRequiredMixin, View):
     login_url = ('https://home.little-world.com/' if settings.IS_PROD else '/login') if (not settings.USE_LANDINGPAGE_REDIRECT) else settings.LANDINGPAGE_REDIRECT_URL
