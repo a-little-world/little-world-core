@@ -393,6 +393,8 @@ def frontend_data(user, items_per_page=10):
             "profile": profile_options,
         },
         "incomingCalls": [
+            # TODO: incoming calls should also be populated if one of the matches already is in a video call
+            # This enable the pop-up to also show after login when the match already is in the video call
             # { "userId": "592a5cc9-77f9-4f18-8354-25fa56e1e792-c9dcfc91-865f-4371-b695-b00bd1967c27"}
         ],
     }

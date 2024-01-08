@@ -69,8 +69,11 @@ class PublicMainFrontendView(View):
                     "profile": profile_options,
                 },
             }
+            
+        from management.views.cookie_banner_frontend import get_cookie_banner_template_data
+        cookie_context = get_cookie_banner_template_data(request)
 
-        return render(request, "main_frontend_public.html", {"data": json.dumps(data, cls=CoolerJson)})
+        return render(request, "main_frontend_public.html", {"data": json.dumps(data, cls=CoolerJson), **cookie_context})
 
 class MainFrontendView(LoginRequiredMixin, View):
     login_url = ('https://home.little-world.com/' if settings.IS_PROD else '/login') if (not settings.USE_LANDINGPAGE_REDIRECT) else settings.LANDINGPAGE_REDIRECT_URL
