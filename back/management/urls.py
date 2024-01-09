@@ -240,6 +240,8 @@ view_routes = [
     path(f"manage/", user_list_frontend, name="management_panel"),
     path(f"stats/graph/<str:slug>", graph_panel, name="graph_dashboard"),
     path(f"stats/<str:regrouped_by>", stats_panel, name="stats_dashboard"),
+    
+    path("info_card_debug/", views.info_card, name="info_card"),
 
     path(_api_url('calcom', admin=False), api.calcom.callcom_websocket_callback),
     
