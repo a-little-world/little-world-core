@@ -17,7 +17,7 @@ Admin paths registered last
 """
 
 
-handler404 = "management.views.user_form_frontend.handler404"
+handler404 = "management.views.main_frontend.handler404"
 
 statics = [
     *static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT),
