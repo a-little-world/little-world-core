@@ -10,7 +10,6 @@ from django.utils.translation import pgettext_lazy
 from rest_framework import serializers
 from management.controller import match_users
 from management.models.settings import UnsubscibeOptions, EmailSettings
-from management.views.user_form_frontend import dynamic_error_page
 from management.views.main_frontend import info_card
 
 @dataclass
