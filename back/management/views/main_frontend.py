@@ -1,5 +1,6 @@
 from ..api.user_data import get_full_frontend_data, frontend_data
 from django.contrib.auth.mixins import LoginRequiredMixin
+from rest_framework.decorators import api_view
 from back.utils import CoolerJson
 from django.conf import settings
 import json
@@ -130,3 +131,29 @@ class MainFrontendView(LoginRequiredMixin, View):
         with translation.override("tag"):
             data = frontend_data(request.user)
         return render(request, "main_frontend.html", {"data": json.dumps(data, cls=CoolerJson)})
+    
+def info_card(
+        request, 
+        confirm_mode=False,
+        title="",
+        content="",
+        # TODO: confirm / reject logic not yet implemented!
+        confirmText="",
+        rejectText="",
+        linkText="",
+        linkTo="",
+    ):
+    
+    # cast rest_framework request to django request
+    
+    data = {
+        "title": title,
+        "content": content,
+        "linkText": linkText,
+        "linkTo": "https://little-world.com/"
+    }
+    
+    # TODO confirm_mode = True not yet implemented
+
+    return render(request._request, "info_card.html", {"data": 
+                   json.dumps(data, cls=CoolerJson)})
