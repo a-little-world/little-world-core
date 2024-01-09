@@ -8,25 +8,6 @@ from django.conf.urls import include
 from django.views.generic.base import RedirectView
 from rest_framework import routers
 from django.contrib.auth import views as auth_views
-from management.views.user_form import (
-    user_form_v2
-)
-from management.views.user_form_frontend import (
-    login,
-    register,
-    forgot_password,
-    set_password_reset,
-    password_reset_mail_send,
-    subsection_of_user_form,
-    email_verification,
-    email_change,
-    email_verification_sucess,
-    email_verification_fail,
-    password_set_success,
-    error,
-    email_verification_link_screen,
-    user_form
-)
 from management.views.admin_panel_frontend import admin_panel, stats_panel, graph_panel, fetch_graph, user_list_frontend, fetch_list
 from management.views import admin_panel_v2
 from management.views import admin_panel_v2_actions
@@ -159,35 +140,10 @@ view_routes = [
          url=f"app/", permanent=True), name="frontend_redirect"),
 
     path("set_password/<str:usr_hash>/<str:token>",
-         set_password_reset, name="set_password_reset"),
+         views.set_password_reset, name="set_password_reset"),
 
-    path("new_password_set/", password_set_success,
-         name="password_reset_succsess"),
-
-    path("password_reset_mail_send/", password_reset_mail_send,
-         name="password_reset_succsess"),
-
-    path("formpage/", subsection_of_user_form, name="formpage"),
-
-    path('mailverify/', email_verification, name="email_verification"),
-    path('mailverify_link/<str:auth_data>', email_verification_link_screen,
+    path('mailverify_link/<str:auth_data>', views.email_verification_link,
          name="email_verification_link"),
-    path('change_email/', email_change, name="email_change"),
-    path('mailverify/sucess/', email_verification_sucess,
-         name="email_verification_sucess"),
-    path('mailverify/fail/', email_verification_fail,
-         name="email_verification_fail"),
-
-    path('error/', error, name="error"),
-    
-
-
-    # The user form ( does its own routing )
-    path(f"form/", user_form, name="user_form"),
-    re_path(fr'^form/(?P<path>.*)$', user_form),
-
-    path(f"form_v2/", user_form_v2, name="user_form_v2"),
-    re_path(fr'^form_v2/(?P<path>.*)$', user_form_v2),
 
     # The main frontend ( does its own routing )
     path('app/', views.MainFrontendView.as_view(), name="main_frontend"),
