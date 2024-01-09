@@ -155,5 +155,8 @@ def info_card(
     
     # TODO confirm_mode = True not yet implemented
 
-    return render(request._request, "info_card.html", {"data": 
-                   json.dumps(data, cls=CoolerJson)})
+    from django.utils import translation
+    # info view relies on frontend translations per default
+    with translation.override("tag"):
+        return render(request._request, "info_card.html", {"data": 
+                       json.dumps(data, cls=CoolerJson)})
