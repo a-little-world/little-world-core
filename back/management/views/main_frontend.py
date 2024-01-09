@@ -2,6 +2,7 @@ from ..api.user_data import get_full_frontend_data, frontend_data
 from django.contrib.auth.mixins import LoginRequiredMixin
 from rest_framework.decorators import api_view
 from back.utils import CoolerJson
+from django.utils.translation import pgettext_lazy
 from django.conf import settings
 import json
 from dataclasses import dataclass, field
@@ -160,3 +161,105 @@ def info_card(
     with translation.override("tag"):
         return render(request._request, "info_card.html", {"data": 
                        json.dumps(data, cls=CoolerJson)})
+        
+def email_verification_link(request, **kwargs):
+    from management.api.user import verify_email_link
+
+    if not 'auth_data' in kwargs:
+        raise serializers.ValidationError(
+            {"auth_data": pgettext_lazy("email.verify-auth-data-missing-get-frontend",
+                                        "Email authentication data missing")})
+
+    if verify_email_link(kwargs['auth_data']):
+        return info_card(
+            request,
+            title=pgettext_lazy(
+                "info-view.email-verification-link.title", 
+                "Email verification successful"),
+            content=pgettext_lazy(
+                "info-view.email-verification-link.content", 
+                "Your email has been verified successfully"),
+            linkText=pgettext_lazy(
+                "info-view.email-verification-link.linkText", 
+                "Back to home"),
+            linkTo="/app/")
+    else:
+        return info_card(
+            request,
+            title=pgettext_lazy(
+                "info-view.email-verification-link.title", 
+                "Email verification failed"),
+            content=pgettext_lazy(
+                "info-view.email-verification-link.content", 
+                "Your email verification failed"),
+            linkText=pgettext_lazy(
+                "info-view.email-verification-link.linkText", 
+                "Back to home"),
+            linkTo="/app/")
+
+def handler404(request, exception):
+    return info_card(
+        request,
+        title=pgettext_lazy(
+            "info-view.404.title", 
+            "Page not found"),
+        content=pgettext_lazy(
+            "info-view.404.content", 
+            "The page you are looking for does not exist"),
+        linkText=pgettext_lazy(
+            "info-view.404.linkText", 
+            "Back to home"),
+        linkTo="/app/"
+    )
+    
+
+
+@dataclass
+class SetPasswordResetParams:
+    usr_hash: str
+    token: str
+
+
+class SetPasswordResetSerializer(serializers.Serializer):
+    usr_hash = serializers.CharField(required=True)
+    token = serializers.CharField(required=True)
+
+    def create(self, validated_data):
+        return SetPasswordResetParams(**validated_data)  # type: ignore
+
+
+def set_password_reset(request, **kwargs):
+    # TODO: this url should only be opened with a valid topen, otherwise this should error!
+    from django_rest_passwordreset.serializers import PasswordTokenSerializer
+
+    serializer = SetPasswordResetSerializer(data={
+        "usr_hash": kwargs.get("usr_hash", None),
+        "token": kwargs.get("token", None)
+    })  # type: ignore
+
+    serializer.is_valid(raise_exception=True)
+    params = serializer.save()
+        
+    try:
+        token_serializer = PasswordTokenSerializer(data={
+            "token": params.token,
+        })
+        
+        token_serializer.is_valid(raise_exception=True)
+    except Exception as e:
+        return info_card(
+            request,
+            title=pgettext_lazy(
+                "info-view.set-password-reset.title", 
+                "Password reset failed"),
+            content=pgettext_lazy(
+                "info-view.set-password-reset.content", 
+                "Token is invalid"),
+            linkText=pgettext_lazy(
+                "info-view.set-password-reset.linkText", 
+                "Back to home"),
+            linkTo="/app/"
+        )
+        
+    # otherwise redirect to the change password frontend page
+    return redirect(f"/reset-password/{params.usr_hash}/{params.token}/")
