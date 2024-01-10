@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-12-20 11:22+0000\n"
+"POT-Creation-Date: 2024-01-09 18:21+0000\n"
 "PO-Revision-Date: 2023-09-21 08:54+0000\n"
 "Last-Translator: Weblate Admin <littleworld.management@gmail.com>\n"
 "Language-Team: German <https://weblate.littleworld-test.com/projects/little-"
@@ -19,21 +19,21 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
 "X-Generator: Weblate 4.15\n"
 
-#: back/settings.py:384
+#: back/settings.py:385
 #, fuzzy
 #| msgctxt "profile.lang.english"
 #| msgid "English"
 msgid "English"
 msgstr "Englisch"
 
-#: back/settings.py:385
+#: back/settings.py:386
 #, fuzzy
 #| msgctxt "profile.lang.german"
 #| msgid "German"
 msgid "German"
 msgstr "Deutsch"
 
-#: back/settings.py:386
+#: back/settings.py:387
 msgid "Tag"
 msgstr "Schlagwort"
 
@@ -180,15 +180,15 @@ msgstr ""
 msgid "User category"
 msgstr ""
 
-#: management/api/admin.py:72
+#: management/api/admin.py:74
 msgid "at least one field required"
 msgstr "Mindestens ein Feld ist erforderlich"
 
-#: management/api/admin.py:77
+#: management/api/admin.py:79
 msgid "maximum one field allowed"
 msgstr "Maximal ein Feld ist zulässig"
 
-#: management/api/admin.py:185
+#: management/api/admin.py:187
 msgid ""
 "\n"
 "If you are sure you want to match these users anyways, please set the "
@@ -198,11 +198,11 @@ msgstr ""
 "Wenn Sie sicher sind, dass Sie diese Benutzer trotzdem zusammenführen "
 "möchten, setzen Sie bitte das 'force'-Flag auf true"
 
-#: management/api/admin.py:226
+#: management/api/admin.py:228
 msgid "Unable to recalucate matching score! Error: "
 msgstr "Matching-Score kann nicht neu berechnet werden! Fehler: "
 
-#: management/api/admin.py:236
+#: management/api/admin.py:238
 msgid ""
 "Can't extract matchable info for users, seems like the score calulation "
 "failed. This is an idicator that the users are possible unmatchable, if you "
@@ -213,7 +213,7 @@ msgstr ""
 "dass die Nutzer möglicherweise nicht zusammengeführt werden können, wenn Sie "
 "sicher sind, dass Sie fortfahren möchten, verwenden Sie: "
 
-#: management/api/admin.py:242
+#: management/api/admin.py:244
 msgid ""
 "Directional matching score doesnt seem to exist, not sure if users are "
 "matchable. Either request to calculate it or set the 'force' flag to true "
@@ -224,59 +224,92 @@ msgstr ""
 "oder setzen Sie das 'force'-Flag auf true und führen Sie das Matching "
 "trotzdem durch"
 
-#: management/api/admin.py:246
+#: management/api/admin.py:248
 msgid "Users score marks users as not matchable with message"
 msgstr ""
 "Benutzerscore markiert Benutzer als nicht zusammenführbar mit Nachricht"
 
-#: management/api/admin.py:254
+#: management/api/admin.py:256
 msgid "Users are already matched"
 msgstr "Benutzer sind bereits zusammengeführt"
 
-#: management/api/admin.py:279
+#: management/api/admin.py:309
 msgid "Users sucessfully matched"
 msgstr "Benutzer erfolgreich zusammengeführt"
 
-#: management/api/admin.py:320
+#: management/api/admin.py:350
 msgid "Users sucessfully un-matched"
 msgstr "Benutzer erfolgreich getrennt"
 
-#: management/api/confirm_match.py:53
+#: management/api/confirm_match.py:56
 msgctxt "confirm_match.unconfimed_match_not_found"
 msgid "This unconfirmed match does not exist, or is already closed"
 msgstr ""
 "Diese unbestätigte Übereinstimmung existiert nicht oder ist bereits "
 "abgeschlossen"
 
-#: management/api/confirm_match.py:63
+#: management/api/confirm_match.py:66
 msgctxt "confirm_match.unconfimed_match_expired"
 msgid "This unconfirmed match is expired"
 msgstr "Die unbestätigte Übereinstimmung ist abgelaufen"
 
-#: management/api/confirm_match.py:74
+#: management/api/confirm_match.py:76
 msgctxt "confirm_match.match_confirmed"
 msgid "The match has been confirmed, your match has been made!"
 msgstr ""
 "Die Übereinstimmung wurde bestätigt, Ihre Übereinstimmung wurde gefunden!"
 
-#: management/api/confirm_match.py:88
+#: management/api/confirm_match.py:106
 msgctxt "confirm_match.match_rejected"
 msgid "The match has been rejected."
 msgstr "Die Übereinstimmung wurde abgelehnt."
 
-#: management/api/email_settings.py:48
-msgctxt "unsubscribe_email.success"
+#: management/api/email_settings.py:54
+#, fuzzy
+#| msgctxt "unsubscribe_email.success"
+#| msgid "You have been unsubscribed from this email type"
+msgctxt "info-view.email-settings.email-unsubscribed.content"
 msgid "You have been unsubscribed from this email type"
 msgstr "Sie wurden von diesem E-Mail-Typ abgemeldet"
 
-#: management/api/email_settings.py:53
-msgctxt "unsubscribe_email.success"
+#: management/api/email_settings.py:59
+msgctxt "info-view.email-settings.email-unsubscribed.title"
+msgid "Email type unsubscribed"
+msgstr ""
+
+#: management/api/email_settings.py:62 management/api/email_settings.py:79
+#: management/api/email_settings.py:92
+msgctxt "info-view.email-settings.linkText"
+msgid "Back to home"
+msgstr ""
+
+#: management/api/email_settings.py:71
+#, fuzzy
+#| msgctxt "unsubscribe_email.success"
+#| msgid "You have been subscribed to this email type"
+msgctxt "info-view.email-settings.email-subscribed.content"
 msgid "You have been subscribed to this email type"
 msgstr "Sie wurden für diesen E-Mail-Typ angemeldet"
 
-#: management/api/email_settings.py:55
-msgctxt "unsubscribe_email.success"
-msgid "No email settings where changed"
+#: management/api/email_settings.py:76
+msgctxt "info-view.email-settings.email-subscribed.title"
+msgid "Email type subscribed"
+msgstr ""
+
+#: management/api/email_settings.py:84
+#, fuzzy
+#| msgctxt "unsubscribe_email.success"
+#| msgid "You have been unsubscribed from this email type"
+msgctxt "info-view.email-settings.email-already-subscribed.content"
+msgid "You are already subscribed / unsubscribed from this email type"
+msgstr "Sie wurden von diesem E-Mail-Typ abgemeldet"
+
+#: management/api/email_settings.py:89
+#, fuzzy
+#| msgctxt "unsubscribe_email.success"
+#| msgid "No email settings where changed"
+msgctxt "info-view.email-settings.email-already-subscribed.title"
+msgid "No email settings changed"
 msgstr "Es wurden keine E-Mail-Einstellungen geändert"
 
 #: management/api/profile.py:83
@@ -284,42 +317,42 @@ msgctxt "profile.completion-check.sucessfull"
 msgid "Profile complete!"
 msgstr "Profil vollständig!"
 
-#: management/api/register.py:41
+#: management/api/register.py:46
 msgctxt "register.email-blank-err"
 msgid "Please enter your e-mail adress"
 msgstr "Dies ist keine valide E-Mail"
 
-#: management/api/register.py:46
+#: management/api/register.py:51
 msgctxt "register.first-name-blank-err"
 msgid "Please enter your first name"
 msgstr "Bitte gib einen Vornamen ein"
 
-#: management/api/register.py:49
+#: management/api/register.py:54
 msgctxt "register.second-name-blank-err"
 msgid "Please enter your second name"
 msgstr "Bitte gib einen zweiten Namen ein"
 
-#: management/api/register.py:54
+#: management/api/register.py:59
 msgctxt "register.birth-year-invalid"
 msgid "Please enter a valid year"
 msgstr "Bitte gib ein gültiges Geburtsjahr ein"
 
-#: management/api/register.py:55
+#: management/api/register.py:60
 msgctxt "register.birth-year-under-1900"
 msgid "I'm sorry but you can't be that old"
 msgstr "Entschuldige aber du kannst nicht so alt sein"
 
-#: management/api/register.py:56
+#: management/api/register.py:61
 msgctxt "register.birth-year-over-2024"
 msgid "Sorry currently users have to be at least 18 years old to participate"
 msgstr "Entschuldigung, derzeit müssen Nutzer mindestens 18 Jahre alt sein"
 
-#: management/api/register.py:88
+#: management/api/register.py:93
 msgctxt "api.register-user-email-exists"
 msgid "User with this email already exists"
 msgstr "Nutzer mit dieser E-Mail existiert bereits"
 
-#: management/api/register.py:105
+#: management/api/register.py:110
 msgid "Passwords must match"
 msgstr "Passwörter müssen übereinstimmen"
 
@@ -1673,11 +1706,11 @@ msgstr "Tag '%s' nicht in Verfügbarkeit vorhanden!"
 msgid "Slot '%s' is unknown!"
 msgstr "Slot '%s' ist unbekannt!"
 
-#: management/views/main_frontend.py:43 management/views/main_frontend.py:76
+#: management/views/main_frontend.py:44 management/views/main_frontend.py:83
 msgid "Render User Form"
 msgstr "Rendere Benutzer Formular"
 
-#: management/views/main_frontend.py:98
+#: management/views/main_frontend.py:105
 msgid "Query param usage on main view only allowed for admins!"
 msgstr "Query Parameter nur für Admins erlaubt!"
 
