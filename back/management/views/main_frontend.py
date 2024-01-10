@@ -200,7 +200,7 @@ def email_verification_link(request, **kwargs):
                 "Back to home"),
             linkTo="/app/")
 
-def handler404(request, exception):
+def handler404(request, exception=None):
     return info_card(
         request,
         title=pgettext_lazy(
@@ -214,6 +214,22 @@ def handler404(request, exception):
             "Back to home"),
         linkTo="/app/",
         status_code=status.HTTP_404_NOT_FOUND
+    )
+
+def handler500(request, exception=None):
+    return info_card(
+        request,
+        title=pgettext_lazy(
+            "info-view.500.title", 
+            "Internal server error"),
+        content=pgettext_lazy(
+            "info-view.500.content", 
+            "An internal server error occured\nIf you think this is a bug please contact us"),
+        linkText=pgettext_lazy(
+            "info-view.500.linkText",
+            "Back to home"),
+        linkTo="/app/",
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
     )
     
 
