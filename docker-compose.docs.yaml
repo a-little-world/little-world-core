@@ -1,0 +1,17 @@
+version: "3.8"
+
+services:
+  documentation:
+    build:
+      dockerfile: ./Dockerfile.back
+      target: backend
+      context: .
+    command: sh -c 'pip3 install pdoc &&
+      PYTHONPATH=../back:../back/management/:../back/front/:../back/tracking/:../back/emails/:../:./:$$PYTHONPATH
+      DJANGO_SETTINGS_MODULE=back.settings
+      pdoc --html --template-dir ./pdoc3 --force --html-dir ./html back front management tracking emails index.py'
+    volumes:
+      - ./_docs/:/back/html
+    env_file:
+      - envs/docs.env
+    tty: true
