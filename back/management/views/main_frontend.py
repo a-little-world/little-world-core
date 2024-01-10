@@ -143,6 +143,7 @@ def info_card(
         rejectText="",
         linkText="",
         linkTo="",
+        status_code=status.HTTP_200_OK
     ):
     
     # cast rest_framework request to django request
@@ -155,12 +156,14 @@ def info_card(
     }
     
     # TODO confirm_mode = True not yet implemented
+    if isinstance(request, Request):
+        request = request._request
 
     from django.utils import translation
     # info view relies on frontend translations per default
     with translation.override("tag"):
-        return render(request._request, "info_card.html", {"data": 
-                       json.dumps(data, cls=CoolerJson)})
+        return render(request, "info_card.html", {"data": 
+                       json.dumps(data, cls=CoolerJson)}, status=status_code)
         
 def email_verification_link(request, **kwargs):
     from management.api.user import verify_email_link
@@ -209,7 +212,8 @@ def handler404(request, exception):
         linkText=pgettext_lazy(
             "info-view.404.linkText", 
             "Back to home"),
-        linkTo="/app/"
+        linkTo="/app/",
+        status_code=status.HTTP_404_NOT_FOUND
     )
     
 
