@@ -1,5 +1,5 @@
 name: Deploy temporary env
-    
+
 on:
   pull_request:
     types:
@@ -132,12 +132,12 @@ jobs:
             3. Deploy ( to Kubernetes namespace `${{ steps.setup_emperial_env.outputs.NAMESPACE }}` )
       - uses: azure/setup-helm@v3
         with:
-           version: 'latest'
-           token: ${{ secrets.BOT_PAT }}
+          version: "latest"
+          token: ${{ secrets.BOT_PAT }}
         id: install-helm
       - uses: azure/setup-kubectl@v3
         with:
-           version: 'latest'
+          version: "latest"
         id: install-kubectl
       - name: Setup Cluster Connection
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
@@ -158,10 +158,8 @@ jobs:
             .backend.env.REDIS_URL = "${{ steps.setup_emperial_env.outputs.REDIS_URL }}"
           EOF
           NAMESPACE=lw-tmp-env-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}
-          KUBECONFIG=./kubeconfig.yaml helm uninstall backend-tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }} || true
-          KUBECONFIG=./kubeconfig.yaml kubectl delete namespace $NAMESPACE || true
           KUBECONFIG=./kubeconfig.yaml kubectl create namespace $NAMESPACE || true
-          KUBECONFIG=./kubeconfig.yaml helm install backend-tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }} ./helm
+          KUBECONFIG=./kubeconfig.yaml helm upgrade --install backend-tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }} ./helm
           echo "STAGING_URL=$STAGING_URL" >> $GITHUB_OUTPUT
       - name: Add build step comment 3
         uses: peter-evans/create-or-update-comment@v3
@@ -174,7 +172,7 @@ jobs:
             4. Done check: [`${{ steps.cluster_connection.outputs.STAGING_URL }}`](${{ steps.cluster_connection.outputs.STAGING_URL }})
 
             > **Note:** Setting up DNS and solving https challenge can take upto 5 minutes. Chill a little moment :wink:
-            
+
             <details>
             <summary> Details </summary>
              
@@ -185,7 +183,7 @@ jobs:
             - admin: `admin@user.com:Admin123!`
             at `${{ steps.cluster_connection.outputs.STAGING_URL  }}/admin`
             - checkout the new admin_panel `${{ steps.cluster_connection.outputs.STAGING_URL  }}/admin_panel_v2/`
-            
+
             Run build localy
             ```
             echo "<your-git-token>" | docker login ghcr.io -u <your-git-user> --password-stdin
