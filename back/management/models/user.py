@@ -5,7 +5,8 @@ from django.conf import settings
 from rest_framework import serializers
 from asgiref.sync import async_to_sync
 from django.contrib.auth.models import AbstractUser, BaseUserManager
-from management import models as management_models
+from management.models.consumer_connections import ConsumerConnections
+from management.models.matches import Match
 
 
 class UserManager(BaseUserManager):
@@ -226,14 +227,14 @@ class User(AbstractUser):
     
     def message_connections(self, payload, event="reduction"):
         # sends a websocket message to all connections of that user
-        management_models.ConsumerConnections.async_notify_connections(self, event=event, payload=payload)
+        ConsumerConnections.async_notify_connections(self, event=event, payload=payload)
         
     
     def broadcast_message_to_matches(self, payload, event="reduction"):
         """
         Sends a message to all matches of this user
         """
-        matches = management_models.Match.get_matches(self)
+        matches = Match.get_matches(self)
         for match in matches:
             match.message_connections(payload, event=event)
 

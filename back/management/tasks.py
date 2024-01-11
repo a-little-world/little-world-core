@@ -3,12 +3,12 @@ from cookie_consent.models import CookieGroup, Cookie
 from celery import shared_task
 from tracking.utils import inline_track_event
 from dataclasses import dataclass
-from .models import User
+from management.models.user import User
 import json
 import datetime
 from django.utils.translation import pgettext_lazy
-from .models.community_events import CommunityEvent, CommunityEventSerializer
-from .models.backend_state import BackendState
+from management.models.community_events import CommunityEvent, CommunityEventSerializer
+from management.models.backend_state import BackendState
 import operator
 from functools import reduce
 """

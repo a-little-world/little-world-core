@@ -1,9 +1,7 @@
 import glob
-from . import models
 import random
 from . import controller  # this will be used on script execution
-from management.models import Profile
-print(controller)
+from management.models import profile
 
 
 def random_names(amnt):
@@ -116,7 +114,7 @@ def random_choice(text_choices):
         random.randint(0, len(text_choices.values) - 1)]
 
 
-profile_cls = models.profile.Profile
+profile_cls = profile.Profile
 user_form_choices = {
     "notify_channel": getattr(profile_cls, 'NotificationChannelChoices'),
     "user_type": getattr(profile_cls, 'TypeChoices'),
@@ -166,7 +164,7 @@ def create_test_user(i, user_seeds=None, password=None, email=None, pass_if_exis
     usr.profile.language_skill_description = rand_descr(n=2)
     usr.profile.additional_interests = rand_descr(n=4)
 
-    c = models.Profile.InterestChoices.values
+    c = profile.Profile.InterestChoices.values
     amnt_rand_interests = random.randint(0, len(c) - 1)
     interests = []
     for x in range(amnt_rand_interests):
@@ -180,18 +178,18 @@ def create_test_user(i, user_seeds=None, password=None, email=None, pass_if_exis
         setattr(usr.profile, choice, random_choice(
             user_form_choices[choice]))
     print("TBS: image type choice", usr.profile.image_type)
-    if usr.profile.image_type == models.Profile.ImageTypeChoice.AVATAR:
+    if usr.profile.image_type == profile.Profile.ImageTypeChoice.AVATAR:
         usr.profile.avatar_config = random_avatar()
     else:
         usr.profile.add_profile_picture_from_local_path(
             pics[random.randint(0, len(pics) - 1)])
 
     if usr.profile.partner_location == \
-            models.Profile.normalize_choice(models.Profile.ConversationPartlerLocation.CLOSE_VOL):
+            profile.Profile.normalize_choice(profile.Profile.ConversationPartlerLocation.CLOSE_VOL):
         # In this case the user is required to have a postal code
         usr.profile.postal_code = str(random_postal_code())
     if usr.profile.notify_channel != \
-            models.Profile.NotificationChannelChoices.EMAIL:
+            profile.Profile.NotificationChannelChoices.EMAIL:
         usr.profile.phone_mobile = str(random_phone_number())
     usr.profile.save()
     # This will set the profile to completed

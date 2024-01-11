@@ -23,8 +23,7 @@ from dataclasses import dataclass
 from tracking.models import Event
 from tracking import utils
 from emails.mails import get_mail_data_by_name, PwResetMailParams
-from management.models import State
-from management import models
+from management.models.state import State
 """
 The public /user api's
 

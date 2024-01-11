@@ -1,9 +1,9 @@
 from django.db import models
 from django.db.models import Q
 from back.utils import _double_uuid
-from management import models as management_models
 from uuid import uuid4
 
+from management.models import user as user_model, profile
 
 
 class Match(models.Model):
@@ -41,7 +41,7 @@ class Match(models.Model):
         user2_partners_ids = cls.objects.filter(user2=user, active=True).values_list('user1', flat=True)
         user_partners_ids = user1_partners_ids.union(user2_partners_ids)
 
-        partners = management_models.User.objects.filter(id__in=user_partners_ids).exclude(id=user.pk)
+        partners = user_model.User.objects.filter(id__in=user_partners_ids).exclude(id=user.pk)
         return partners
     
     @classmethod
@@ -63,8 +63,8 @@ class Match(models.Model):
     def get_serialized(self, user):
         partner = self.get_partner(user)
         return {
-            "user": management_models.CensoredUserSerializer(partner).data,
-            "profile": management_models.CensoredProfileSerializer(partner.profile).data,
+            "user": user_model.CensoredUserSerializer(partner).data,
+            "profile": profile.CensoredProfileSerializer(partner.profile).data,
         }
 
     

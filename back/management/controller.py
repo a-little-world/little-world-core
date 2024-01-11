@@ -14,7 +14,11 @@ from asgiref.sync import async_to_sync
 from back.utils import _double_uuid
 from channels.layers import get_channel_layer
 from django.conf import settings
-from management.models import UserSerializer, User, Profile, State, Settings, Room
+from management.models.user import UserSerializer, User
+from management.models.profile import Profile
+from management.models.state import State
+from management.models.settings import Settings
+from management.models.rooms import Room
 from django.utils.translation import gettext_lazy as _, pgettext_lazy
 from emails import mails
 from tracking import utils

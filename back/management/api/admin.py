@@ -16,11 +16,19 @@ from rest_framework.response import Response
 from rest_framework import serializers
 from .user_data import get_user_data
 from .user_slug_filter_lookup import get_users_by_slug_filter
-from ..models import (
+from management.models.user import (
     User,
-    Profile,
-    State,
+)
+from management.models.rooms import (
     Room
+)
+from management.models.state import (
+    StateSerializer,
+    State
+)
+from management.models.profile import (
+    Profile,
+    ProfileSerializer,
 )
 from dataclasses import dataclass, field
 from django.core.paginator import Paginator

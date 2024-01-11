@@ -5,18 +5,24 @@ from rest_framework.decorators import api_view
 from django.shortcuts import render
 from django.http import HttpResponse
 from back.utils import CoolerJson
-from ..api.user_data import get_user_data
-from ..api.user_slug_filter_lookup import get_users_by_slug_filter, get_filter_slug_filtered_users_multiple_paginated
-from ..models import User
-from .. import controller
+from management.api.user_data import get_user_data
+from management.api.user_slug_filter_lookup import get_users_by_slug_filter, get_filter_slug_filtered_users_multiple_paginated
+from management.models.user import User
+from management import controller
 from django.core.paginator import Paginator
 import json
-from ..models import (
+from management.models.user import (
     User,
-    State,
+)
+
+from management.models.profile import (
     Profile,
     ProfileSerializer,
-    StateSerializer
+)
+
+from management.models.state import (
+    StateSerializer,
+    State
 )
 
 

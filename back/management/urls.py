@@ -2,12 +2,11 @@ from management import api
 from django.urls import path, re_path
 from django.contrib import admin
 from django.conf import settings
-from management import views
+from management.views import main_frontend, landing_page
 from back.utils import _api_url
 from django.conf.urls import include
 from django.views.generic.base import RedirectView
 from rest_framework import routers
-from django.contrib.auth import views as auth_views
 from management.views.admin_panel_frontend import admin_panel, stats_panel, graph_panel, fetch_graph, user_list_frontend, fetch_list
 from management.views import admin_panel_v2
 from management.views import admin_panel_v2_actions
@@ -140,15 +139,15 @@ view_routes = [
          url=f"app/", permanent=True), name="frontend_redirect"),
 
     path("set_password/<str:usr_hash>/<str:token>",
-         views.set_password_reset, name="set_password_reset"),
+         main_frontend.set_password_reset, name="set_password_reset"),
 
-    path('mailverify_link/<str:auth_data>', views.email_verification_link,
+    path('mailverify_link/<str:auth_data>', main_frontend.email_verification_link,
          name="email_verification_link"),
 
     # The main frontend ( does its own routing )
-    path('app/', views.MainFrontendView.as_view(), name="main_frontend"),
+    path('app/', main_frontend.MainFrontendView.as_view(), name="main_frontend"),
     re_path(fr'^app/(?P<path>.*)$',
-            views.MainFrontendView.as_view(), name="main_frontend_w_path"),
+            main_frontend.MainFrontendView.as_view(), name="main_frontend_w_path"),
 
     path(f"user/still_active/", api.user.still_active_callback, name="still_active_callback"),
     path(_api_url(f"user/delete_account", admin=False), api.user.delete_account, name="delete_account_api"),
@@ -197,7 +196,7 @@ view_routes = [
     path(f"stats/graph/<str:slug>", graph_panel, name="graph_dashboard"),
     path(f"stats/<str:regrouped_by>", stats_panel, name="stats_dashboard"),
     
-    path("info_card_debug/", views.info_card, name="info_card"),
+    path("info_card_debug/", main_frontend.info_card, name="info_card"),
 
     path(_api_url('calcom', admin=False), api.calcom.callcom_websocket_callback),
     
@@ -209,7 +208,7 @@ view_routes = [
 
 if settings.USE_LANDINGPAGE_PLACEHOLDER:
     view_routes += [
-         path(f"landing/", views.landing_page, name="landing_page_placeholder"),
+         path(f"landing/", landing_page.landing_page, name="landing_page_placeholder"),
     ]
 
 urlpatterns = [
@@ -217,4 +216,4 @@ urlpatterns = [
     *api_routes,
 ]
 
-public_routes_wildcard = path('<str:path>/', views.PublicMainFrontendView.as_view(), name="main_frontend_public")
+public_routes_wildcard = path('<str:path>/', main_frontend.PublicMainFrontendView.as_view(), name="main_frontend_public")
