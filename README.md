@@ -1,17 +1,17 @@
 # Little World Backend
 
 The backend consists of a django application that is containerized using docker.
-Builds are manged using docker compose. 
+Builds are manged using docker compose.
 This repo also builds all frontends using webpack and serves them via django views.
 
 > It's always recomended to use `DOCKER_BUILDKIT=1` it is the future default for docker anyways and speeds up builds significantly
 
-## Servers 
+## Servers
 
 1. All feature pull request starting with `staging-*` are auto-deployed. Without credentials!
 2. All commits merged into [`main`](https://github.com/a-little-world/little-world-backend/tree/main) are deployed to [`stage.little-world.com`](https://stage.little-world.com)
 3. All commits merged into [`prod`](https://github.com/a-little-world/little-world-backend/tree/prod) are deployed to any production config.
-E.g.: [`little-world.com`](https://little-world.com), [`shareami.little-world.com`](https://shareami.little-world.com)
+   E.g.: [`little-world.com`](https://little-world.com), [`shareami.little-world.com`](https://shareami.little-world.com)
 4. Commits merged into [`form-v2`](https://github.com/a-little-world/little-world-backend/tree/form-v2) are deployed to [`form-v2.little-world.com`](https://form-v2.little-world.com).
 
 > Production and staging deployments NEED TO BE CONFIRMED by an admin!
@@ -58,6 +58,7 @@ COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml up
 Once you have run `docker compose up` with the `=all` flag at least once you can also run only specific frontends with auto-update:
 
 e.g.:
+
 ```
 COMPOSE_PROFILES=main_frontend docker compose -f docker-compose.dev.yaml up
 ```
@@ -67,23 +68,28 @@ That's it! Any code changed in `/front/apps/*/src/*` or in `/back/*` will cause 
 Be sure to checkout the frontend commit or branch you want to work on!
 
 > If you wan't only one frontend to auto-update just use `COMPOSE_PROFILE=<frontend-name>` for any frontend `main_frontend`, `user_form` (v2), `user_form_frontend`, `admin_panel_frontend`, `cookie_banner_frontend`.
-Or if you only work in the backend use `COMPOSE_PROFILE=backend`
+> Or if you only work in the backend use `COMPOSE_PROFILE=backend`
 
+### Documentation
+
+```bash
+docker compose -f docker-compose.docs.yaml up
+```
 
 #### Frontend Configuration
 
 - Frontends are subrepos in `./front/apps/<frontend-name>`
 - `<frontend-name>` should be listed in `FR_FRONTENDS`
 - configure the environment in `docker-compose.yaml:services.all.evironment`
-or `./envs/dev.env` for local development
+  or `./envs/dev.env` for local development
 - specify `BUILD_TYPE=<build-type>` to change frontend environments
-`<build-type>=dev` for local developent and `<build-type>=pro` for staging
+  `<build-type>=dev` for local developent and `<build-type>=pro` for staging
 - on build; `./front/env_apps/<frontend-name>.<build-type>.env.js` replaces `./front/apps/<frontend-name>/src/ENVIRONMENT.js`
 
 ### Ephemeral Environments: Making Feature Deployments via Pull Request
-      
+
 To deploy a staging version of your changes all you need to do is:
-      
+
 1. create a feature branch starting with `staging-*`
 2. make some changes
 3. create pull request to main
@@ -128,7 +134,7 @@ docker compose -f docker-compose.capacitor-dev.yaml down
 cd front/apps/main_frontend && git stash -- src/ENVIRONMENT.js
 ```
 
-Alternatively for hot-reload emulator development after step 2 run 
+Alternatively for hot-reload emulator development after step 2 run
 
 ```bash
 cd front/apps/main_frontend/
@@ -143,7 +149,6 @@ cd front/apps/main_frontend/
 # Start the backend:
 COMPOSE_PROFILES=backend docker compose -f docker-compose.dev.yaml up
 ```
-
 
 ## Infrastructure
 
@@ -171,8 +176,6 @@ watch microk8s kubectl get pods
 
 once ready visit `http://localhost`
 
-
-
 ## Attaching to live DB
 
 Sometimes it can be convenient to use the django ORM to make queries to the DB from your local machine. Thats what `docker-compose.prod-attach.yaml` is for.
@@ -189,4 +192,3 @@ Then run it via:
 ```bash
 export $(grep -v '^#' .env.prod-attach | xargs) && docker compose -f docker-compose.prod-attach.yaml exec app ./manage.py <command-name>
 ```
-
