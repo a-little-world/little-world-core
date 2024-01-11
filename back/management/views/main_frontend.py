@@ -16,7 +16,10 @@ from django.views import View
 from rest_framework.response import Response
 from typing import List, Optional
 from tracking import utils
+from management.models.profile import SelfProfileSerializer
 from tracking.models import Event
+from management.controller import get_base_management_user
+from back.utils import transform_add_options_serializer
 
 
 # The following two are redundant with api.admin.UserListParams, api.admin.UserListApiSerializer
@@ -44,9 +47,6 @@ class PublicMainFrontendView(View):
 
     @utils.track_event(name=_("Render User Form"), event_type=Event.EventTypeChoices.REQUEST, tags=["frontend"])
     def get(self, request, path, **kwargs):
-        from back.utils import transform_add_options_serializer
-        from management.models import SelfProfileSerializer
-        from management.controller import get_base_management_user
         
         if request.user.is_authenticated and ((not request.user.state.is_email_verified()) and (not path.startswith("verify-email"))):
             return redirect("/verify-email/")
