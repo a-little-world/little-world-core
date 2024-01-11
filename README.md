@@ -73,8 +73,18 @@ Be sure to checkout the frontend commit or branch you want to work on!
 ### Documentation
 
 ```bash
+cp README.md ./back/docs_template/README.md
+docker compose -f docker-compose.docs.yaml build
 docker compose -f docker-compose.docs.yaml up
 ```
+
+Add this command block to the compose to quickly rebuild the docs on every up command
+
+```bash
+    command: sh -c 'python3 generate_docs.py && sh ./back/entries/docs_entry.sh'
+```
+
+View the local development docs at `localhost:8000/static/` ( other routes that `/static/` do not work in the docs container )
 
 #### Frontend Configuration
 
