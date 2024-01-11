@@ -14,7 +14,7 @@ docs:
   env:
     DJ_DOCS_BUILD: "1"
     USE_WHITENOISE: "1"
-    PUBLIC_FRONTEND_PATH: "${WEBPACK_PUBLIC_PATH}"
+    PUBLIC_FRONTEND_PATH: ""
     BUILD_TYPE: "development"
     DJ_SECRET_KEY: "none"
     DJ_DEBUG: "0"
