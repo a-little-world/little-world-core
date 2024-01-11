@@ -3,17 +3,12 @@ This contains all api's related to confirming or denying a match
 """
 from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import api_view, permission_classes, authentication_classes, throttle_classes
-from typing import Literal
+from management.models.consumer_connections import ConsumerConnections
 from back.utils import CoolerJson
 import json
-from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
-from django.views.i18n import JavaScriptCatalog, JSONCatalog
-from django.utils.translation.trans_real import DjangoTranslation
 from django.utils.translation import get_language
-from django.conf import settings
-from django.http import JsonResponse
 from rest_framework.response import Response
 from rest_framework_dataclasses.serializers import DataclassSerializer
 from dataclasses import dataclass
@@ -75,7 +70,6 @@ def confrim_match(request):
         
         msg = pgettext_lazy("confirm_match.match_confirmed", "The match has been confirmed, your match has been made!")
 
-        from management.models import ConsumerConnections, CensoredProfileSerializer
         from management.api.user_data import serialize_matches
         
         # Now we need to update the partner that was just accepted via callback

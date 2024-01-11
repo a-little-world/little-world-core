@@ -31,7 +31,7 @@ class AdvancedEmailLogSerializer(serializers.ModelSerializer):
         fields = '__all__'
         
     def to_representation(self, instance):
-        from management.models import MinimalProfileSerializer
+        from management.models.profile import MinimalProfileSerializer
         from emails.mails import get_mail_data_by_name, encode_mail_params
 
         representation =  super().to_representation(instance)

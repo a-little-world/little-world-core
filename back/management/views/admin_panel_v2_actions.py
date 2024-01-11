@@ -4,6 +4,10 @@ from django.urls import path, re_path
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from management.twilio_handler import _get_client
+from management.models.state import State
+from management.models.profile import Profile
+from management.models.management_tasks import MangementTask
+from management.models.sms import SmsModel, SmsSerializer
 
 default_tim_management_changed_message = """
 Hallo {first_name}, ich bin Tim, Mitbegründer und CTO von Little World!
@@ -170,7 +174,6 @@ flag_user_test_spam_legit = {
 
 
 def check_management_access_right(request, user):
-    from management.models import State
     if not request.user.is_staff and not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
         return Response({
             "msg": "You are not allowed to access this user!"
@@ -187,7 +190,6 @@ def check_management_access_right(request, user):
 
 
 def perform_user_deletion(user, management_user=None, send_deletion_email=False):
-    from management.models import State, Profile
     from emails import mails
     
     if send_deletion_email:
@@ -205,7 +207,6 @@ def perform_user_deletion(user, management_user=None, send_deletion_email=False)
     user.set_unusable_password()
     user.save()
     
-    from management.models import MangementTask
     task = MangementTask.create_task(
         user=user,
         description="Cleanup user delete data",
@@ -226,9 +227,8 @@ def perform_user_deletion(user, management_user=None, send_deletion_email=False)
 @permission_classes([IsAdminOrMatchingUser])
 def flag_user_spam_test_legit(request):
 
-    from management.models import State, Profile
-    from management.controller import get_user_by_pk, make_tim_support_user
     
+    from management.controller import get_user_by_pk, make_tim_support_user
     user = get_user_by_pk(request.data["user_id"])
 
     access = check_management_access_right(request, user)
@@ -251,7 +251,6 @@ def flag_user_spam_test_legit(request):
 @permission_classes([IsAdminOrMatchingUser])
 def change_user_matching_state(request):
 
-    from management.models import State, Profile
     from management.controller import get_user_by_pk, make_tim_support_user
     
     user = get_user_by_pk(request.data["user_id"])
@@ -274,7 +273,6 @@ def delete_user(request):
     This assures the user data can still be recovered with some effort but the user cannot:
     - login anymore
     """
-    from management.models import State, Profile
     from management.controller import get_user_by_pk, make_tim_support_user
     
     user = get_user_by_pk(request.data["user_id"])
@@ -309,7 +307,6 @@ def send_sms_to_number(request):
 @api_view(['POST'])
 @permission_classes([IsAdminOrMatchingUser])
 def send_sms_to_user(request):
-    from management.models import State
     from management.controller import get_user_by_pk, make_tim_support_user
     
     user = get_user_by_pk(request.data["user_id"])
@@ -318,7 +315,6 @@ def send_sms_to_user(request):
     if access != True:
         return access
     
-    from management.models import SmsModel, SmsSerializer
 
     sms_obj = SmsModel.send_sms(
         recipient=user, 
@@ -343,7 +339,6 @@ def send_sms_to_user(request):
 @api_view(['POST'])
 @permission_classes([IsAdminOrMatchingUser])
 def make_tim_mangement_admin_action(request):
-    from management.models import State
     from management.controller import get_user_by_pk, make_tim_support_user
 
     user = get_user_by_pk(request.data["user_id"])
@@ -363,7 +358,6 @@ def make_tim_mangement_admin_action(request):
 @api_view(['POST'])
 @permission_classes([IsAdminOrMatchingUser])
 def mark_user_as_unresponsive(request):
-    from management.models import State
     from management.controller import get_user_by_pk, make_tim_support_user
 
     user = get_user_by_pk(request.data["user_id"])

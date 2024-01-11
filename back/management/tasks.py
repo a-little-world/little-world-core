@@ -314,30 +314,6 @@ def create_default_table_score_source():
 
 
 @shared_task
-def dispatch_track_chat_channel_event(
-    message_type: str,
-    usr_hash: str,
-    meta: dict
-):
-    """
-    Automaticly triggered by some events in management.app.chat
-    types:    connected | disconnected | message-send
-    """
-    from .controller import get_user_by_hash
-    caller = "anonymous"
-    try:
-        caller = get_user_by_hash(usr_hash)
-    except:
-        print("Could not find user by hash", usr_hash)
-
-    inline_track_event(
-        caller=caller,
-        tags=["chat", "channels", message_type],
-        channel_meta=meta
-    )
-
-
-@shared_task
 def archive_current_profile_user(usr_hash):
     """
     Task is called when a user changed this searching state, it will archive the current profile

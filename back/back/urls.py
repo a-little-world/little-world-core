@@ -59,7 +59,7 @@ if settings.DOCS_PROXY:
         upstream=settings.DJ_DOCS_URL)
 
     def auth_docs(request, **kwargs):
-        from management.models import State
+        from management.models.state import State
         if request.user.is_authenticated and \
                 request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.DOCS_VIEW):
             return view(request, **kwargs)

@@ -2,14 +2,18 @@ from django.contrib.auth.decorators import user_passes_test
 from rest_framework import viewsets, serializers
 from rest_framework.permissions import IsAdminUser, BasePermission
 from django.core.paginator import Paginator
+from management.models.matches import Match
+from management.models.matching_scores import MatchinScore, MatchingScoreSerializer
+from management.models.sms import SmsModel, SmsSerializer
+from management.models.management_tasks import MangementTask, ManagementTaskSerializer
 from rest_framework.decorators import action
 from django.shortcuts import render
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from chat.django_private_chat2.models import MessageModel, DialogsModel
+from management.models.unconfirmed_matches import UnconfirmedMatch
 from chat.django_private_chat2.serializers import serialize_message_model
-from management import models
 from management import controller
 from enum import Enum
 import json
@@ -165,20 +169,20 @@ def update_representation(representation, instance):
     items_per_page = ADMIN_USER_MATCH_ITEMS
 
     print("updating representations for ", user, instance)
-    confirmed_matches = get_paginated(models.Match.get_confirmed_matches(user), items_per_page, 1)
+    confirmed_matches = get_paginated(Match.get_confirmed_matches(user), items_per_page, 1)
     confirmed_matches["items"] = serialize_matches(confirmed_matches["items"], user)
     
     print("confirmed matches", [f'{i["partner"]["id"]} m_id {i["id"]}' for i in confirmed_matches["items"]])
 
-    unconfirmed_matches = get_paginated(models.Match.get_unconfirmed_matches(user), items_per_page, 1)
+    unconfirmed_matches = get_paginated(Match.get_unconfirmed_matches(user), items_per_page, 1)
     unconfirmed_matches["items"] = serialize_matches(unconfirmed_matches["items"], user)
 
     print("unconfirmed matches", [f'{i["partner"]["id"]} m_id {i["id"]}' for i in unconfirmed_matches["items"]])
 
-    support_matches = get_paginated(models.Match.get_support_matches(user), items_per_page, 1)
+    support_matches = get_paginated(Match.get_support_matches(user), items_per_page, 1)
     support_matches["items"] = serialize_matches(support_matches["items"], user)
     
-    proposed_matches = get_paginated(models.UnconfirmedMatch.get_open_proposals(user), items_per_page, 1)
+    proposed_matches = get_paginated(UnconfirmedMatch.get_open_proposals(user), items_per_page, 1)
     proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
     
     representation['matches'] = {
@@ -354,7 +358,6 @@ def get_user_with_message_to_admin_that_are_read_but_not_replied():
     return users_in_dialog_with_management_user    
 
 def users_with_open_proposals():
-    from management.models import UnconfirmedMatch
     # This has to return a query set of users
     # that have open proposals
 
@@ -374,7 +377,6 @@ def users_with_open_proposals():
 def get_quality_match_querry_set():
     
     from django.db.models import Subquery, OuterRef, Count
-    from management.models import Match
 
     # Create a subquery object to annotate the match with msg_count
     sq = MessageModel.objects.filter(
@@ -399,7 +401,6 @@ def get_quality_match_querry_set():
     return filtered_users
 
 def users_with_open_tasks():
-    from management.models import MangementTask
     # This has to return a query set of users
     # that have open tasks
 
@@ -410,7 +411,6 @@ def users_with_open_tasks():
     return users_with_open_tasks
 
 def users_that_are_searching_but_have_no_proposal():
-    from management.models import UnconfirmedMatch
     unconfirmed_matches = UnconfirmedMatch.objects.filter(closed=False)
     
     return User.objects.filter(
@@ -479,7 +479,6 @@ class AdvancedMatchingScoreSerializer(serializers.ModelSerializer):
         return representation
 
 def matching_suggestion_from_database_paginated(request, user):
-    from ..models.matching_scores import MatchinScore, MatchingScoreSerializer
     matching_scores = MatchinScore.objects.filter(from_usr=user, current_score=True, matchable=True).order_by('-score')
     paginator = AugmentedPagination()
     pages = paginator.get_paginated_response(paginator.paginate_queryset(matching_scores, request)).data
@@ -588,7 +587,6 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
                 "msg": "You are not allowed to access this user!"
             }, status=401)
             
-        from management.models import SmsModel, SmsSerializer
 
         sms = SmsModel.objects.filter(recipient=obj).order_by('-created_at')
         
@@ -669,7 +667,6 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         self.kwargs['pk'] = pk
         obj = self.get_object()
         
-        from management.models import MangementTask, ManagementTaskSerializer
         if request.method == 'POST':
             task = MangementTask.create_task(obj, request.data['description'], request.user)
             return Response(ManagementTaskSerializer(task).data)
@@ -686,7 +683,6 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         self.kwargs['pk'] = pk
         obj = self.get_object()
         
-        from management.models import MangementTask, ManagementTaskSerializer
         task = MangementTask.objects.get(pk=request.data['task_id'])
         task.state = MangementTask.MangementTaskStates.FINISHED
         task.save()

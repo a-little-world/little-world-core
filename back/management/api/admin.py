@@ -8,7 +8,10 @@ import json
 from rest_framework.views import APIView
 from django.conf import settings
 from typing import List, Optional
+from management.models.matching_scores import MatchinScore
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+from management.models.consumer_connections import ConsumerConnections
+from management.models.profile import CensoredProfileSerializer
 from django.utils.translation import gettext_lazy as _
 from rest_framework import status
 from rest_framework import authentication, permissions
@@ -207,7 +210,6 @@ class MakeMatch(APIView):
         params = serializer.save()
         users = get_two_users(params.user1, params.user2, params.lookup)
 
-        from ..models.matching_scores import MatchinScore
         
         # TODO: there should also be a test for this:
         # We check if this is not a staff user then it **has** to be a matching user
@@ -271,7 +273,6 @@ class MakeMatch(APIView):
                 send_confirm_match_email=params.send_email,
             )
 
-            from management.models import ConsumerConnections, CensoredProfileSerializer
             from management.api.user_data import serialize_proposed_matches
 
             learner = proposal.get_learner()
@@ -301,7 +302,6 @@ class MakeMatch(APIView):
                 State.MatchingStateChoices.IDLE)
             
             # Now notify that users connections
-            from management.models import ConsumerConnections, CensoredProfileSerializer
             from management.api.user_data import serialize_matches
 
             for i in [0, 1]:
