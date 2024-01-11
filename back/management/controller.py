@@ -6,6 +6,11 @@ import urllib.parse
 from django.db import transaction
 from typing import Dict, Callable
 from management.models.unconfirmed_matches import UnconfirmedMatch
+from management.models.backend_state import BackendState
+from management.models.past_matches import PastMatch
+from management.models.matches import Match
+from chat.django_private_chat2.models import DialogsModel
+from management import controller
 from dataclasses import dataclass, fields, field
 from chat.django_private_chat2.consumers.message_types import MessageTypes, OutgoingEventNewTextMessage
 from chat.django_private_chat2.models import DialogsModel, MessageModel
@@ -25,6 +30,12 @@ from tracking import utils
 from tracking.models import Event
 import json
 import os
+from management.tasks import (
+    create_default_community_events,
+    create_default_cookie_groups,
+    fill_base_management_user_tim_profile,
+    create_default_table_score_source
+)
 
 
 class UserNotFoundErr(Exception):
@@ -110,8 +121,6 @@ def make_tim_support_user(
         custom_message=None
     ):
     # 1. We need to remove oliver as matching user
-    from management.models import Match
-    from management import controller
     
     admin_user = controller.get_user_by_email(old_management_mail)
     old_support_matching = Match.get_match(user1=admin_user, user2=user)
@@ -261,7 +270,6 @@ Vielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!""".fo
             
             if check_prematching_invitations:
                 # Now we need to check the prematching state
-                from management.models import BackendState
                 prematch_interview_state = BackendState.get_prematch_callinvitations_state()
                 if prematch_interview_state.meta["active"] and prematch_interview_state.meta["invitations_remaining"] > 0:
                     prematch_interview_state.meta["invitations_remaining"] = prematch_interview_state.meta["invitations_remaining"] - 1
@@ -323,8 +331,6 @@ def match_users(
         set_unconfirmed=True,
         set_to_idle=True):
     """ Accepts a list of two users to match """
-    from chat.django_private_chat2.models import DialogsModel
-    from management.models import Match
 
     assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
     usr1, usr2 = list(users)
@@ -444,7 +450,6 @@ def unmatch_users(
     - Messages ( or set to `deleted` )
     - Video Room
     """
-    from management.models import Match, PastMatch
     assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
 
     # Un-Match the users by removing the from their 'matches' field
@@ -540,12 +545,6 @@ def create_base_admin_and_add_standart_db_values():
     print("TIM ADMIN USER CREATED!")
     
     # Now we create some default database elements that should be part of all setups!
-    from management.tasks import (
-        create_default_community_events,
-        create_default_cookie_groups,
-        fill_base_management_user_tim_profile,
-        create_default_table_score_source
-    )
 
     # Create default cookie groups and community events
     # This is done as celery task in the background!
