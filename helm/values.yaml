@@ -7,13 +7,35 @@ ingress:
   use: true
   certManager: true
   host: "localhost"
+docs:
+  use: false
+  replicas: 1
+  imageURL: "localhost:32000/docs:registry"
+  env:
+    DJ_DOCS_BUILD: "1"
+    USE_WHITENOISE: "1"
+    PUBLIC_FRONTEND_PATH: "${WEBPACK_PUBLIC_PATH}"
+    BUILD_TYPE: "development"
+    DJ_SECRET_KEY: "none"
+    DJ_DEBUG: "0"
+    FR_FRONTENDS: ""
+    DJ_MANAGEMENT_USER_MAIL: ""
+    DJ_ADMIN_OPEN_KEYPHRASE: ""
+    DJ_SG_DEFAULT_FROM_EMAIL: ""
+    DJ_TWILIO_ACCOUNT_SID: ""
+    DJ_TWILIO_API_KEY_SID: ""
+    DJ_TWILIO_API_SECRET: ""
+    DJ_CELERY_TIMEZONE: "Australia/Tasmania"
+    DJ_TIME_ZONE: "UTC"
 backend:
   replicas: 1
   imageURL: "localhost:32000/backend:registry"
   env:
     BUILD_TYPE: "development"
-    REDIS_URL: 'redis://redis-service.default.svc.cluster.local:6379'
+    REDIS_URL: "redis://redis-service.default.svc.cluster.local:6379"
     EMPHIRIAL: "1"
+    DJ_DOCS_PROXY: "0"
+    DJ_DOCS_URL: ""
     DJ_DEBUG: "1"
     DJ_SECRET_KEY: "bla bla"
     DJ_ALLOWED_HOSTS: "*"
@@ -43,4 +65,3 @@ backend:
     DJ_CALCOM_MEETING_ID: "herr-duenschnlate-iiscv9/15min"
     DJ_USE_SENTRY: "0"
     DJ_SENTRY_DNS: ""
-
