@@ -7,11 +7,12 @@ services:
       target: backend
       context: .
     command: sh -c 'pip3 install pdoc &&
-      PYTHONPATH=../back:../back/management/:../back/front/:../back/tracking/:../back/emails/:../:./:$$PYTHONPATH
-      DJANGO_SETTINGS_MODULE=back.settings
-      pdoc --html --template-dir ./pdoc3 --force --html-dir ./html back front management tracking emails index.py'
+      mkdir -p /tmp/html &&
+      export DJANGO_SETTINGS_MODULE=back.settings &&
+      pdoc -o /tmp/html management'
     volumes:
-      - ./_docs/:/back/html
+      - ./_docs/:/tmp/html
+      - ./back/:/back/
     env_file:
       - envs/docs.env
     tty: true
