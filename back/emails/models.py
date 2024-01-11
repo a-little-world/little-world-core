@@ -1,6 +1,6 @@
 from django.db import models
 from rest_framework import serializers
-from management.models import User
+from management.models.user import User
 
 
 class EmailLog(models.Model):

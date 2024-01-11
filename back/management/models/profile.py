@@ -10,8 +10,8 @@ from rest_framework import serializers
 from multiselectfield import MultiSelectField
 from back.utils import _double_uuid
 from django.core.files import File
-from .user import User
-from ..validators import (
+from management.models.user import User
+from management.validators import (
     validate_availability,
     get_default_availability,
     validate_first_name,

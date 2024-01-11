@@ -67,7 +67,7 @@ RUN cd apps/main_frontend && \
         --config webpack.main_frontend.config.js
         
 # Now we build the main backend image
-FROM python:3.11-alpine
+FROM python:3.11-alpine as backend
 
 WORKDIR /back
 COPY ./back .

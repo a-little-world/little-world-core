@@ -23,21 +23,36 @@ from dataclasses import dataclass
 from back.utils import transform_add_options_serializer
 from rest_framework.permissions import IsAuthenticated
 from django.core.paginator import Paginator
-from management.models import (
-    SelfNotificationSerializer, NotificationSerializer, Notification,
+from management.models.profile import (
     ProfileSerializer, SelfProfileSerializer,
-    UserSerializer, SelfUserSerializer,
-    StateSerializer, SelfStateSerializer,
-    CensoredUserSerializer,
     CensoredProfileSerializer,
     ProposalProfileSerializer,
-    SelfSettingsSerializer,
+)
+from management.models.unconfirmed_matches import (
     UnconfirmedMatch,
+)
+from management.models.state import (
     State,
+    StateSerializer, SelfStateSerializer,
+)
+from management.models.community_events import (
     CommunityEvent,
     CommunityEventSerializer,
 )
-from management import models
+from management.models.settings import (
+    SelfSettingsSerializer,
+)
+from management.models.notifications import (
+    SelfNotificationSerializer, NotificationSerializer, Notification,
+)
+from management.models.user import (
+    UserSerializer, SelfUserSerializer,
+    CensoredUserSerializer,
+)
+from management.models.consumer_connections import (
+    ConsumerConnections
+)
+from management.models.matches import Match
 from management.api.community_events import get_all_comunity_events_serialized
 from management.models.unconfirmed_matches import get_unconfirmed_matches
 
@@ -142,7 +157,7 @@ def get_matches_paginated(user, admin=False,
 
     # TODO: this was the old stategy, that has since been updated to use the new 'Match' model
     # pages = Paginator(user.get_matches(), paginate_by).page(page)
-    pages = Paginator(models.Match.get_matches(user), paginate_by).page(page)
+    pages = Paginator(Match.get_matches(user), paginate_by).page(page)
     return [get_user_data(p, is_self=False, admin=admin) for p in pages]
 
 
@@ -151,7 +166,7 @@ def get_matches_paginated_extra_details(user, admin=False,
                                         paginate_by=UserDataApiParams.paginate_by):
 
     #paginator = Paginator(user.get_matches(), paginate_by)
-    paginator = Paginator(models.Match.get_matches(user), paginate_by)
+    paginator = Paginator(Match.get_matches(user), paginate_by)
     pages = paginator.page(page)
 
     return [get_user_data(p, is_self=False, admin=admin) for p in pages], {
@@ -274,7 +289,7 @@ def serialize_matches(matches, user):
         partner = match.get_partner(user)
 
         # Check if the partner is online
-        is_online = models.ConsumerConnections.has_active_connections(partner)
+        is_online = ConsumerConnections.has_active_connections(partner)
 
         serialized.append({
             "id": str(match.uuid),
@@ -330,13 +345,13 @@ def frontend_data(user, items_per_page=10):
     community_events = get_paginated(CommunityEvent.get_all_active_events(), items_per_page, 1)
     community_events["items"] = serialize_community_events(community_events["items"])
 
-    confirmed_matches = get_paginated(models.Match.get_confirmed_matches(user), items_per_page, 1)
+    confirmed_matches = get_paginated(Match.get_confirmed_matches(user), items_per_page, 1)
     confirmed_matches["items"] = serialize_matches(confirmed_matches["items"], user)
 
-    unconfirmed_matches = get_paginated(models.Match.get_unconfirmed_matches(user), items_per_page, 1)
+    unconfirmed_matches = get_paginated(Match.get_unconfirmed_matches(user), items_per_page, 1)
     unconfirmed_matches["items"] = serialize_matches(unconfirmed_matches["items"], user)
 
-    support_matches = get_paginated(models.Match.get_support_matches(user), items_per_page, 1)
+    support_matches = get_paginated(Match.get_support_matches(user), items_per_page, 1)
     support_matches["items"] = serialize_matches(support_matches["items"], user)
 
     proposed_matches = get_paginated(UnconfirmedMatch.get_open_proposals(user), items_per_page, 1)
@@ -454,9 +469,9 @@ class ConfirmedDataApi(APIView):
             # Retrieve confirmed matches using a utility function
             if is_matching_user:
                 # Cause for support users all matches are 'support' matches we return them as confirmed matches
-                matches = models.Match.get_support_matches(request.user)
+                matches = Match.get_support_matches(request.user)
             else:
-                matches = models.Match.get_confirmed_matches(request.user)
+                matches = Match.get_confirmed_matches(request.user)
             confirmed_matches = get_paginated(
                 matches,
                 items_per_page,

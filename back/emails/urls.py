@@ -1,8 +1,8 @@
 from django.urls import path, re_path
 from rest_framework import routers
-from .views import ViewEmail
+from emails.views import ViewEmail
 from back.utils import _api_url
-from . import api
+from emails import api
 
 router = routers.SimpleRouter()
 router.register(_api_url("email/logs", admin=True,

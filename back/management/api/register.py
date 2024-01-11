@@ -23,10 +23,10 @@ from django.views.decorators.cache import cache_page
 from django.views.decorators.vary import vary_on_cookie, vary_on_headers
 from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
-from ..models import ProfileSerializer, UserSerializer
+from management.models.profile import ProfileSerializer
 from dataclasses import dataclass
 from .. import validators, controller
-from ..models.user import User
+from management.models.user import User, UserSerializer
 from . import schemas
 import json
 

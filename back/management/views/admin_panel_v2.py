@@ -13,13 +13,22 @@ from management import models
 from management import controller
 from enum import Enum
 import json
-from management.models import (
-    User,
-    State,
-    ProfileSerializer,
-    StateSerializer,
-    ProposalProfileSerializer,
+from management.models.matching_scores import (
     MatchinScore
+)
+from management.models.user import (
+    User,
+)
+
+from management.models.profile import (
+    Profile,
+    ProfileSerializer,
+    ProposalProfileSerializer,
+)
+
+from management.models.state import (
+    StateSerializer,
+    State
 )
 from typing import OrderedDict
 from django.core.serializers.json import DjangoJSONEncoder

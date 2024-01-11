@@ -1,0 +1,56 @@
+{{- if .Values.docs.use }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docs-container
+  namespace: {{ .Values.rootNamespace }}
+spec:
+  replicas: {{ .Values.docs.replicas }}
+  selector:
+    matchLabels:
+      app: docs-container
+  template:
+    metadata:
+      labels:
+        app: docs-container
+    spec:
+      containers:
+        - name: docs-container
+          image: {{ .Values.docs.imageURL }}
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - secretRef:
+                name: docs-secrets
+      {{- if .Values.registryAuth.use }}
+      imagePullSecrets:
+        - name: dockerconfigjson-github-com
+      {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: docs-service
+  namespace: {{ .Values.rootNamespace }}
+  labels:
+    app: docs-container
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8000
+      targetPort: 8000
+  selector:
+    app: docs-container
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: docs-secrets
+  namespace: {{ .Values.rootNamespace }}
+type: Opaque
+data:
+{{- range $key, $value := .Values.docs.env }}
+  {{ $key }}: {{ $value | b64enc }}
+{{- end }}
+{{- end }}

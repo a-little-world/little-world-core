@@ -1,4 +1,3 @@
-from channels_redis.core import RedisChannelLayer
 from django.utils.translation import gettext_lazy as _
 import os
 
@@ -44,6 +43,9 @@ ADMIN_OPEN_KEYPHRASE = os.environ["DJ_ADMIN_OPEN_KEYPHRASE"]
 DEFAULT_FROM_EMAIL = os.environ["DJ_SG_DEFAULT_FROM_EMAIL"]
 EXPOSE_DEV_LOGIN = os.environ.get("DJ_EXPOSE_DEV_LOGIN", "false").lower() in ('true', '1', 't')
 USE_MQ_AS_BROKER = os.environ.get("DJ_USE_MQ_AS_BROKER", "false").lower() in ('true', '1', 't')
+
+DOCS_PROXY = os.environ.get("DJ_DOCS_PROXY", "false").lower() in ('true', '1', 't')
+DOCS_URL = os.environ.get("DJ_DOCS_URL", "")
 
 TWILIO_SMS_NUMBER = os.environ.get("DJ_TWILIO_SMS_NUMBER", "+1234567890")
 TWILIO_ACCOUNT_SID = os.environ["DJ_TWILIO_ACCOUNT_SID"]
