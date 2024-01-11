@@ -8,11 +8,13 @@ from management.api.user_data import get_user_models
 from django.conf import settings
 from rest_framework.test import APIRequestFactory, force_authenticate
 from management.random_test_users import create_abunch_of_users, modify_profile_to_match
-from management.models import Profile, UnconfirmedMatch, Match
+from management.models.profile import Profile
+from management.models.unconfirmed_matches import UnconfirmedMatch
+from management.models.matches import Match
 from management.models.unconfirmed_matches import get_unconfirmed_matches
 from management.matching.matching_score import calculate_directional_score_write_results_to_db
 from management.tasks import create_default_table_score_source
-from .. import api
+from management import api
 
 valid_request_data = dict(
     email='benjamin.tim@gmx.de',
