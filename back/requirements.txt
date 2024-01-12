@@ -39,3 +39,4 @@ djangorestframework-dataclasses
 polib
 sentry-sdk[django]
 # django-minio-storage
+django-revproxy

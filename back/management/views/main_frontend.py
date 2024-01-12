@@ -1,4 +1,5 @@
 from management.api.user_data import get_full_frontend_data, frontend_data
+from pdoc import cli
 from django.contrib.auth.mixins import LoginRequiredMixin
 from rest_framework.decorators import api_view
 from back.utils import CoolerJson
@@ -250,7 +251,7 @@ class SetPasswordResetSerializer(serializers.Serializer):
 
 def set_password_reset(request, **kwargs):
     # TODO: this url should only be opened with a valid topen, otherwise this should error!
-    from django_rest_passwordreset.serializers import PasswordTokenSerializer
+    from django_rest_passwordreset.serializers import ResetTokenSerializer
 
     serializer = SetPasswordResetSerializer(data={
         "usr_hash": kwargs.get("usr_hash", None),
@@ -261,7 +262,7 @@ def set_password_reset(request, **kwargs):
     params = serializer.save()
         
     try:
-        token_serializer = PasswordTokenSerializer(data={
+        token_serializer = ResetTokenSerializer(data={
             "token": params.token,
         })
         
