@@ -48,8 +48,8 @@ class PublicMainFrontendView(View):
     @utils.track_event(name=_("Render User Form"), event_type=Event.EventTypeChoices.REQUEST, tags=["frontend"])
     def get(self, request, path, **kwargs):
         
-        if request.user.is_authenticated and ((not request.user.state.is_email_verified()) and (not path.startswith("verify-email"))):
-            return redirect("/verify-email/")
+        if request.user.is_authenticated and ((not request.user.state.is_email_verified()) and (not path.startswith("app/verify-email"))):
+            return redirect("/app/verify-email/")
         
         if request.user.is_authenticated and request.user.state.is_email_verified() and ((not request.user.state.is_user_form_filled()) and (not path.startswith("app/user-form"))):
             return redirect("/app/user-form/")
@@ -115,8 +115,8 @@ class MainFrontendView(LoginRequiredMixin, View):
         print("PRMS: " + str(params))
 
         
-        if request.user.is_authenticated and ((not request.user.state.is_email_verified()) and (not path.startswith("verify-email"))):
-            return redirect("/verify-email/")
+        if request.user.is_authenticated and ((not request.user.state.is_email_verified()) and (not path.startswith("app/verify-email"))):
+            return redirect("/app/verify-email/")
         
         if request.user.is_authenticated and ((not request.user.state.is_user_form_filled()) and (not path.startswith("app/user-form"))):
             return redirect("/app/user-form/")
