@@ -57,7 +57,7 @@ def admin_panel(request):
         user = controller.get_user_by_hash(GET['suggest'])
 
         # If we have 's1' we even try to list suggestions
-        from ..models.matching_scores import MatchinScore
+        from management.models.matching_scores import MatchinScore
         suggestions = MatchinScore.matching_suggestion_from_database(user)
         suggested_users = []
         for suggestion in suggestions:
@@ -73,7 +73,7 @@ def admin_panel(request):
         user = controller.get_user_by_hash(GET['matches'])
 
         # If we have 's1' we even try to list suggestions
-        from ..models.matching_scores import MatchinScore
+        from management.models.matching_scores import MatchinScore
 
         # TODO: test needs to be updated using the new 'Match' model.
         extra_info['suggested_users'] = [{**get_user_data(

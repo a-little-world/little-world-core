@@ -96,7 +96,7 @@ Den Zoom Link für die kommenden Veranstaltungen findest du nach dem Einloggen u
 </div>"""
         print("Also send message announcement? (Y/N)")
         user_input = input()
-        from management.models import Match
+        from management.models.matches import Match
         if user_input == "Y":
             total = len(users)
             i = 0

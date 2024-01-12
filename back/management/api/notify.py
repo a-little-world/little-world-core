@@ -7,9 +7,9 @@ from django.utils.translation import gettext_lazy as _
 from dataclasses import dataclass, field
 from rest_framework import serializers
 from django.core.paginator import Paginator
-from ..models.notifications import Notification, SelfNotificationSerializer
+from management.models.notifications import Notification, SelfNotificationSerializer
 from rest_framework import status
-from ..models.user import User
+from management.models.user import User
 from drf_spectacular.utils import extend_schema
 
 

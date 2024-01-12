@@ -1,7 +1,7 @@
 import glob
 import random
 from . import controller  # this will be used on script execution
-from management.models import profile
+from management.models.profile import Profile
 
 
 def random_names(amnt):
@@ -114,7 +114,7 @@ def random_choice(text_choices):
         random.randint(0, len(text_choices.values) - 1)]
 
 
-profile_cls = profile.Profile
+profile_cls = Profile
 user_form_choices = {
     "notify_channel": getattr(profile_cls, 'NotificationChannelChoices'),
     "user_type": getattr(profile_cls, 'TypeChoices'),
@@ -164,7 +164,7 @@ def create_test_user(i, user_seeds=None, password=None, email=None, pass_if_exis
     usr.profile.language_skill_description = rand_descr(n=2)
     usr.profile.additional_interests = rand_descr(n=4)
 
-    c = profile.Profile.InterestChoices.values
+    c = Profile.InterestChoices.values
     amnt_rand_interests = random.randint(0, len(c) - 1)
     interests = []
     for x in range(amnt_rand_interests):
@@ -185,11 +185,11 @@ def create_test_user(i, user_seeds=None, password=None, email=None, pass_if_exis
             pics[random.randint(0, len(pics) - 1)])
 
     if usr.profile.partner_location == \
-            profile.Profile.normalize_choice(profile.Profile.ConversationPartlerLocation.CLOSE_VOL):
+            Profile.normalize_choice(Profile.ConversationPartlerLocation.CLOSE_VOL):
         # In this case the user is required to have a postal code
         usr.profile.postal_code = str(random_postal_code())
     if usr.profile.notify_channel != \
-            profile.Profile.NotificationChannelChoices.EMAIL:
+            Profile.NotificationChannelChoices.EMAIL:
         usr.profile.phone_mobile = str(random_phone_number())
     usr.profile.save()
     # This will set the profile to completed

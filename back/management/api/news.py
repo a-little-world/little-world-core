@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 from rest_framework import authentication, permissions, viewsets
 from rest_framework.response import Response
 from django.utils.translation import pgettext_lazy
-from ..models.news_and_updates import NewsItem, NewsItemSerializer
+from management.models.news_and_updates import NewsItem, NewsItemSerializer
 
 
 def get_all_active_news_items_serialized():

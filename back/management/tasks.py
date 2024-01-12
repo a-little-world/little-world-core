@@ -1,16 +1,17 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from cookie_consent.models import CookieGroup, Cookie
 from celery import shared_task
 from tracking.utils import inline_track_event
 from dataclasses import dataclass
 from management.models.user import User
 import json
-import datetime
 from django.utils.translation import pgettext_lazy
 from management.models.community_events import CommunityEvent, CommunityEventSerializer
 from management.models.backend_state import BackendState
 import operator
 from functools import reduce
+from tracking.models import Summaries, Event
+from management.models.user import User
 """
 also contains general startup celery tasks, most of them are automaticly run when the controller.get_base_management user is created
 some of them are managed via models.backend_state.BackendState to ensure they don't run twice!
@@ -31,8 +32,8 @@ def create_default_community_events():
     CommunityEvent.objects.create(
         title=pgettext_lazy('community-event.coffe-chillout', 'Kaffeerunden'),
         description="Zusammenkommen der Community – lerne das Team hinter Little World und andere Nutzer:innen bei einer gemütlichen Tasse Kaffee oder Tee kennen.",
-        time=datetime.datetime(2022, 11, 29, 12, 00, 00,
-                               00, datetime.timezone.utc),
+        time=datetime(2022, 11, 29, 12, 00, 00,
+                               00, timezone.utc),
         active=True,
         frequency=CommunityEvent.EventFrequencyChoices.WEEKLY
     )
@@ -140,7 +141,7 @@ I'll take the time to answer all your messages but I might take a little time to
     usr.profile.add_profile_picture_from_local_path(
         '/back/dev_test_data/tim_schupp_base_management_profile_new.jpeg')
     
-    from management.models import State
+    from management.models.state import State
     
     usr.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.MATCHING_USER)
     usr.state.save()
@@ -154,9 +155,16 @@ def calculate_directional_matching_score_v2_static(
     consider_only_registered_within_last_x_days=None
 ):
     from .controller import get_user_by_pk
-    from management.models import State, User, MatchinScore
+    from management.models.state import State
+    from management.models.user import User
+    from management.models.matching_scores import MatchinScore
+    from management.matching.matching_score import calculate_directional_score_write_results_to_db
+
+    from django.utils import timezone
+    from management import controller
+
     from django.db.models import Q
-    from .matching.matching_score import calculate_directional_score_write_results_to_db
+
     usr = get_user_by_pk(user_pk)
     all_users_to_consider = User.objects.filter(
         ~Q(id=usr.pk) & 
@@ -170,7 +178,7 @@ def calculate_directional_matching_score_v2_static(
     if not (consider_only_registered_within_last_x_days is None):
         from django.utils import timezone
         today = timezone.now()
-        x_days_ago = today - datetime.timedelta(days=consider_only_registered_within_last_x_days)
+        x_days_ago = today - timedelta(days=consider_only_registered_within_last_x_days)
         all_users_to_consider = all_users_to_consider.filter(date_joined__gte=x_days_ago)
 
 
@@ -450,7 +458,7 @@ def send_new_message_notifications_all_users(
             if send_only_if_logged_in_withing_last_3_weeks:
                 from django.utils import timezone
                 today = timezone.now()
-                tree_weeks = datetime.timedelta(days=7*3)
+                tree_weeks = timedelta(days=7*3)
                 tree_weeks_ago = today - tree_weeks
                 if user.last_login < tree_weeks_ago:
                     print("WARN, user not logged in for 3 weeks")
@@ -502,11 +510,6 @@ def write_hourly_backend_event_summary(
     - amount matches created today
     """
 
-    from tracking.models import Summaries, Event
-    from management.models import User
-    from datetime import timedelta, datetime
-    from django.utils import timezone
-    from . import controller
 
     # For that fist we extract all event within that hour
     # We calculate from 2 hours ago per default cause otherwise the task could be shedules eventhought the hour is not completed yet
@@ -791,7 +794,6 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
     actions = []
     from tracking.models import Summaries
     from management import controller
-    from datetime import datetime
 
     if start_time is None:
         first_event_logged_time = datetime(
@@ -1049,7 +1051,7 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
                             user_call_list.append(video_event["actor"])
                             user_call_length_list.append(duration)
 
-                            from management.models import Room
+                            from management.models.rooms import Room
 
                             users = []
                             import itertools
@@ -1630,7 +1632,8 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
 @ shared_task
 def collect_static_stats():
     from management import controller
-    from management.models import Profile, State
+    from management.models.profile import Profile
+    from management.models.state import State
     from tracking.models import Summaries
     from datetime import datetime
 
@@ -2218,7 +2221,8 @@ def indentify_and_mark_user_categories():
 
     """
     from datetime import timedelta, timezone, datetime
-    from management.models import State, User
+    from management.models.state import State
+    from management.models.user import User
     from tracking.models import Summaries
     now = datetime.now(timezone.utc)
 
@@ -2347,7 +2351,8 @@ def check_registration_reminders():
     - user from unfinished reminder 2
     """
     from datetime import datetime, time
-    from management.models import User, State
+    from management.models.state import State
+    from management.models.user import User
     from django.db.models import Q
     from django.utils import timezone
 
@@ -2393,7 +2398,7 @@ def check_registration_reminders():
     
 @shared_task
 def check_match_still_in_contact_emails():
-    from management.models import Match
+    from management.models.matches import Match
     from django.db.models import Q
     from django.utils import timezone
     from emails import mails

@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 from rest_framework import serializers, status
 from dataclasses import dataclass
 from back.utils import transform_add_options_serializer
+from management.models.help_message import HelpMessage
 
 
 class SendHelpMessageSerializer(serializers.Serializer):
@@ -30,7 +31,6 @@ class SendHelpMessage(APIView):
         s = SendHelpMessageSerializer(data=request.data)
         s.is_valid(raise_exception=True)
         data = s.save()
-        from ..models.help_message import HelpMessage
 
         patt = {}
         if 'file' in data:

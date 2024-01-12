@@ -166,7 +166,7 @@ def check__partner_sex_choice(usr1, usr2):
     NOTE this is currently no definaive programmatic process
     This just predicts the gender via gender api
     """
-    from ..models import Profile
+    from management.models.profile import Profile
 
     c1 = usr1.profile.partner_sex
     c2 = usr2.profile.partner_sex

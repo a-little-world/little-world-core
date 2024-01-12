@@ -109,7 +109,7 @@ e.g.: _generate_table_scoring()
 
 
 def get_scoring_from_latest_table_model():
-    from ..models.matching_scores import ScoreTableSource
+    from management.models.matching_scores import ScoreTableSource
     scores = ScoreTableSource.get_latest()
     # TODO fallback to default if no latest table is found
     assert scores, "No 'latests' scoring table!"
@@ -206,7 +206,7 @@ def calculate_directional_score_write_results_to_db(
     This is the main function that calculates the directional score
     and writes the results to the db
     """
-    from ..models import MatchinScore
+    from management.models.matching_scores import MatchinScore
     res = None
     err_msg = ""
     if catch_exceptions:

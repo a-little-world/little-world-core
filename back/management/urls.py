@@ -216,4 +216,4 @@ urlpatterns = [
     *api_routes,
 ]
 
-public_routes_wildcard = path('<str:path>/', main_frontend.PublicMainFrontendView.as_view(), name="main_frontend_public")
+public_routes_wildcard = re_path(r'^(?P<path>.+?)/?$', main_frontend.PublicMainFrontendView.as_view(), name="main_frontend_public")
