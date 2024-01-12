@@ -48,3 +48,7 @@ if (document.readyState !== 'loading') {
         initCode();
     });
 }
+
+window.unloadCookieBanner = () => {
+    document.getElementById("shadow-root").remove();
+}
