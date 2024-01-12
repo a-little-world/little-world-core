@@ -56,7 +56,7 @@ if settings.DOCS_PROXY:
     from revproxy.views import ProxyView
 
     view = ProxyView.as_view(
-        upstream=settings.DJ_DOCS_URL)
+        upstream=settings.DOCS_URL)
 
     def auth_docs(request, **kwargs):
         from management.models.state import State
