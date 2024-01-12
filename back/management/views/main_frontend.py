@@ -1,5 +1,4 @@
 from management.api.user_data import get_full_frontend_data, frontend_data
-from pdoc import cli
 from django.contrib.auth.mixins import LoginRequiredMixin
 from rest_framework.decorators import api_view
 from back.utils import CoolerJson
