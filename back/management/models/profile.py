@@ -668,22 +668,6 @@ class SelfProfileSerializer(ProfileSerializer):
                                                            "You have selected avatar but not uploaded an avatar")})
         return data
 
-    def to_internal_value(self, data):
-
-        # If a phone number is present we try to converty it to e164 *before* we validate it
-        # This allowes users to make small format erros that we can still correct our selves
-        if 'phone_mobile' in data:
-            try:
-                phone = PhoneNumber.from_string(
-                    phone_number=data['phone_mobile'], region='DE').as_e164
-                print(
-                    f"Reparsed phone number {data['phone_mobile']} -> {phone}")
-                data['phone_mobile'] = phone
-            except Exception as e:
-                data['phone_mobile'] = "parse_error"
-
-        return super(SelfProfileSerializer, self).to_internal_value(data)
-    
     def validate_liability_accepted(self, value):
         if not value:
             raise serializers.ValidationError(
