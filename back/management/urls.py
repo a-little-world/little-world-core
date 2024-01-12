@@ -49,7 +49,7 @@ api_routes = [
 
     path(_api_url('register'), api.register.Register.as_view()),
     path(_api_url('user'), api.user_data.SelfInfo.as_view()),
-    path(_api_url('cookies/cookie_banner.js'),
+    path(_api_url('cookies/cookie_banner.js', end_slash=False),
          api.cookies.get_dynamic_cookie_banner_js),
     path(_api_url('user/confirm_match'), api.user.ConfirmMatchesApi.as_view()),
     path(_api_url('user/unmatch_self'), api.user.unmatch_self),
