@@ -3,12 +3,12 @@ from cookie_consent.models import CookieGroup, Cookie
 from celery import shared_task
 from tracking.utils import inline_track_event
 from dataclasses import dataclass
-from .models import User
+from management.models.user import User
 import json
 import datetime
 from django.utils.translation import pgettext_lazy
-from .models.community_events import CommunityEvent, CommunityEventSerializer
-from .models.backend_state import BackendState
+from management.models.community_events import CommunityEvent, CommunityEventSerializer
+from management.models.backend_state import BackendState
 import operator
 from functools import reduce
 """
@@ -311,30 +311,6 @@ def create_default_table_score_source():
         function_scoring_selection=list(SCORING_FUNCTIONS.keys())
     )
     return "default score source created"
-
-
-@shared_task
-def dispatch_track_chat_channel_event(
-    message_type: str,
-    usr_hash: str,
-    meta: dict
-):
-    """
-    Automaticly triggered by some events in management.app.chat
-    types:    connected | disconnected | message-send
-    """
-    from .controller import get_user_by_hash
-    caller = "anonymous"
-    try:
-        caller = get_user_by_hash(usr_hash)
-    except:
-        print("Could not find user by hash", usr_hash)
-
-    inline_track_event(
-        caller=caller,
-        tags=["chat", "channels", message_type],
-        channel_meta=meta
-    )
 
 
 @shared_task

@@ -2,7 +2,9 @@ from django.core.management.base import BaseCommand
 
 class Command(BaseCommand):
     def handle(self, **options):
-        from management.models import Match, State, User
+        from management.models.matches import Match
+        from management.models.state import State
+        from management.models.user import User
         from emails.models import EmailLog
         from django.db.models import Q
         from django.utils import timezone

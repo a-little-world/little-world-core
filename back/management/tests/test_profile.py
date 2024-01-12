@@ -8,7 +8,7 @@ from management.api.user_data import get_user_models
 from django.conf import settings
 from management.models import profile
 from rest_framework.test import APIRequestFactory, force_authenticate
-from .. import api
+from management import api
 
 valid_request_data = dict(
     email='benjamin.tim@gmx.de',

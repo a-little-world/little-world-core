@@ -6,9 +6,10 @@ from django.utils.translation import pgettext_lazy
 from dataclasses import dataclass
 from rest_framework.response import Response
 from tracking.utils import track_event
-from ..twilio_handler import get_usr_auth_token, get_room_or_create, complete_room_if_empty
-from ..models.rooms import get_rooms_user, Room, get_rooms_match
-from ..controller import get_user_by_hash, send_websocket_callback
+from management.twilio_handler import get_usr_auth_token, get_room_or_create, complete_room_if_empty
+from management.models.rooms import get_rooms_user, Room, get_rooms_match
+from management.controller import get_user_by_hash, send_websocket_callback
+from management.models.consumer_connections import ConsumerConnections
 
 
 @dataclass
@@ -119,7 +120,6 @@ class TwilioCallbackApi(APIView):
                 return room, usr, other_user
             
             
-            from management.models import ConsumerConnections
 
             if StatusCallbackEvent == 'participant-disconnected':
                 room, caller, participant = get_room_caller_and_participant()

@@ -12,7 +12,7 @@ from rest_framework import serializers
 from django.core.paginator import Paginator
 from rest_framework import status
 from drf_spectacular.utils import extend_schema
-from management.models import SelfProfileSerializer
+from management.models.profile import SelfProfileSerializer
 from management.controller import get_base_management_user
 from django.conf import settings
 from management.api.trans import get_trans_as_tag_catalogue

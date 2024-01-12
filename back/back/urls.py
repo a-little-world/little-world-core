@@ -52,18 +52,14 @@ urlpatterns += [
          SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 ]
 
-# In staging we also add and proxy pass to 'http://little-world-staging-docs-clusterip-service:8000/static/docs/'
-# This routs can only be accessed from within the cluster
-
-
-if settings.IS_STAGE or settings.IS_DEV:
+if settings.DOCS_PROXY:
     from revproxy.views import ProxyView
 
     view = ProxyView.as_view(
-        upstream='http://little-world-staging-docs-clusterip-service:8000/')
+        upstream=settings.DOCS_URL)
 
     def auth_docs(request, **kwargs):
-        from management.models import State
+        from management.models.state import State
         if request.user.is_authenticated and \
                 request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.DOCS_VIEW):
             return view(request, **kwargs)

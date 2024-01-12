@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Callable, Optional, Union
-from ..models import Profile
+from management.models.profile import Profile
 
 TARGET_GROUP_SCORES: str = r"""
 | y:volunteer, x:learner | any.ler | refugee.ler | student.ler | worker.ler  |

@@ -1,4 +1,4 @@
-from ..api.user_data import get_full_frontend_data, frontend_data
+from management.api.user_data import get_full_frontend_data, frontend_data
 from django.contrib.auth.mixins import LoginRequiredMixin
 from rest_framework.decorators import api_view
 from back.utils import CoolerJson
@@ -16,7 +16,10 @@ from django.views import View
 from rest_framework.response import Response
 from typing import List, Optional
 from tracking import utils
+from management.models.profile import SelfProfileSerializer
 from tracking.models import Event
+from management.controller import get_base_management_user
+from back.utils import transform_add_options_serializer
 
 
 # The following two are redundant with api.admin.UserListParams, api.admin.UserListApiSerializer
@@ -44,9 +47,6 @@ class PublicMainFrontendView(View):
 
     @utils.track_event(name=_("Render User Form"), event_type=Event.EventTypeChoices.REQUEST, tags=["frontend"])
     def get(self, request, path, **kwargs):
-        from back.utils import transform_add_options_serializer
-        from management.models import SelfProfileSerializer
-        from management.controller import get_base_management_user
         
         if request.user.is_authenticated and ((not request.user.state.is_email_verified()) and (not path.startswith("verify-email"))):
             return redirect("/verify-email/")
@@ -250,7 +250,7 @@ class SetPasswordResetSerializer(serializers.Serializer):
 
 def set_password_reset(request, **kwargs):
     # TODO: this url should only be opened with a valid topen, otherwise this should error!
-    from django_rest_passwordreset.serializers import PasswordTokenSerializer
+    from django_rest_passwordreset.serializers import ResetTokenSerializer
 
     serializer = SetPasswordResetSerializer(data={
         "usr_hash": kwargs.get("usr_hash", None),
@@ -261,7 +261,7 @@ def set_password_reset(request, **kwargs):
     params = serializer.save()
         
     try:
-        token_serializer = PasswordTokenSerializer(data={
+        token_serializer = ResetTokenSerializer(data={
             "token": params.token,
         })
         

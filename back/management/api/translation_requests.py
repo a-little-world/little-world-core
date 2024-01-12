@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from googletrans import Translator
 from rest_framework import serializers, status
 from drf_spectacular.utils import extend_schema
-from management.models import TranslationLog
+from management.models.translation_logs import TranslationLog
 
 
 class TranslationRequestSerializer(serializers.Serializer):

@@ -2,7 +2,9 @@ from django.core.management.base import BaseCommand
 
 class Command(BaseCommand):
     def handle(self, **options):
-        from management.models import Match, State
+        from management.models.matches import Match
+        from management.models.state import State
+
         from django.db.models import Q
         
         # Get all matches where at least one user has matching user permission

@@ -3,14 +3,20 @@ from django.core.paginator import Paginator
 from .user_data import get_user_data
 from django.utils import translation
 from multiselectfield.db.fields import MSFList
-from ..models import (
+from management.models.user import (
     User,
+    UserSerializer,
+)
+from management.models.profile import (
     Profile,
     ProfileSerializer,
-    StateSerializer,
-    State,
-    UserSerializer,
+)
+from management.models.rooms import (
     Room
+)
+from management.models.state import (
+    StateSerializer,
+    State
 )
 _filter_slug_meta = {
     "is": {"kind": "single"},

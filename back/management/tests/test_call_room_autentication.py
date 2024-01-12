@@ -9,9 +9,9 @@ from management.api.user_data import get_user_models
 from django.conf import settings
 from management.models import profile
 from rest_framework.test import APIRequestFactory, force_authenticate
-from ..controller import match_users
-from ..models.rooms import get_rooms_match
-from .. import api
+from management.controller import match_users
+from management.models.rooms import get_rooms_match
+from management import api
 
 valid_request_data = dict(
     email='benjamin.tim@gmx.de',
