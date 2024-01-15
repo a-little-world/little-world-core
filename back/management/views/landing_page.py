@@ -27,4 +27,4 @@ def landing_page(request):
             title=settings.LANDINGPAGE_PLACEHOLDER_TITLE,
             content="here could be a landing page",
             linkText="Go to the app",
-            linkTo="/app")
+            linkTo="/login")

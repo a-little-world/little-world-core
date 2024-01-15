@@ -124,7 +124,7 @@ class UserFormFilledFilter(admin.SimpleListFilter):
     parameter_name = 'is_form_filled'
 
     def lookups(self, request, model_admin):
-        return models.State.UserFormStateChoices.choices
+        return models.state.State.UserFormStateChoices.choices
 
     def queryset(self, request, queryset):
         _val = self.value()
