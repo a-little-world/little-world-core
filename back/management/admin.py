@@ -138,7 +138,7 @@ class UserCategory(admin.SimpleListFilter):
     parameter_name = 'user_category'
 
     def lookups(self, request, model_admin):
-        return models.State.UserCategoryChoices.choices
+        return models.state.State.UserCategoryChoices.choices
 
     def queryset(self, request, queryset):
         _val = self.value()
