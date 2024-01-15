@@ -152,10 +152,12 @@ def info_card(
         "title": title,
         "content": content,
         "linkText": linkText,
-        "linkTo": "https://little-world.com/"
+        "linkTo": linkTo
     }
     
-    # TODO confirm_mode = True not yet implemented
+    if confirm_mode:
+        raise NotImplementedError("confirm mode not yet implemented")
+    
     if isinstance(request, Request):
         request = request._request
 
