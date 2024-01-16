@@ -770,7 +770,11 @@ def advanced_user_listing(request, list):
         "user_lists": user_lists
     })
     
-    
+
+def default_admin_data(user):
+    return {
+        "is_admin": user.is_staff,
+    } 
 
 @api_view(['GET'])
 @permission_classes([IsAdminOrMatchingUser])
@@ -799,7 +803,7 @@ def admin_panel_v2(request, menu="root"):
             "user_lists": user_lists,
         },cls=DjangoJSONEncoder, default=lambda o: str(o))})
     else:
-        return render(request, "admin_pannel_v2_frontend.html", { "data" : json.dumps({}, cls=DjangoJSONEncoder, default=lambda o: str(o))})
+        return render(request, "admin_pannel_v2_frontend.html", { "data" : json.dumps(default_admin_data(request.user), cls=DjangoJSONEncoder, default=lambda o: str(o))})
     
 
 @api_view(['GET', 'POST'])

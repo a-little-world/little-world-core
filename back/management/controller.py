@@ -3,6 +3,7 @@ This is a controller for any userform related actions
 e.g.: Creating a new user, sending a notification to a users etc...
 """
 import urllib.parse
+from django.utils import translation
 from django.db import transaction
 from typing import Dict, Callable
 from management.models.unconfirmed_matches import UnconfirmedMatch
@@ -373,13 +374,14 @@ def match_users(
         usr2.notify(title=_("New match: %s" % usr1.profile.first_name))
 
     if send_message:
-        match_message = pgettext_lazy("api.match-made-message-text", """Glückwunsch, wir haben jemanden für dich gefunden! 
+        with translation.override("en"):
+            match_message = pgettext_lazy("api.match-made-message-text", """Glückwunsch, wir haben jemanden für dich gefunden! 
 
-Am besten vereinbarst du direkt einen Termin mit {other_name} für euer erstes Gespräch – das klappt meist besser als viele Nachrichten. 
-Unterhalten könnt ihr euch zur vereinbarten Zeit auf Little World indem du oben rechts auf das Anruf-Symbol drückt. 
-Schau dir gerne schon vorher das Profil von {other_name} an, indem du auf den Namen drückst. 
+    Am besten vereinbarst du direkt einen Termin mit {other_name} für euer erstes Gespräch – das klappt meist besser als viele Nachrichten. 
+    Unterhalten könnt ihr euch zur vereinbarten Zeit auf Little World indem du oben rechts auf das Anruf-Symbol drückt. 
+    Schau dir gerne schon vorher das Profil von {other_name} an, indem du auf den Namen drückst. 
 
-Damit euch viel Spaß! Schöne Grüße vom Team Little World""")
+    Damit euch viel Spaß! Schöne Grüße vom Team Little World""")
         # Sends a message from the admin model
         usr1.message(match_message.format(
             other_name=usr2.profile.first_name), auto_mark_read=True)
@@ -515,6 +517,8 @@ def create_base_admin_and_add_standart_db_values():
             second_name=os.environ.get(
                 'DJ_MANAGEMENT_SECOND_NAME', ''),
         )
+        usr.state.email_authenticated = True
+        usr.state.save()
         usr.state.set_user_form_completed()  # Admin doesn't have to fill the userform
         usr.notify("You are the admin master!")
     print("BASE ADMIN USER CREATED!")
@@ -522,6 +526,7 @@ def create_base_admin_and_add_standart_db_values():
     def update_profile():
         usr_tim = get_user_by_email(TIM_MANAGEMENT_USER_MAIL)
         usr_tim.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.MATCHING_USER)
+        usr_tim.state.email_authenticated = True
         usr_tim.state.save()
         usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
         usr_tim.notify("You are the bese management user with less permissions.")
