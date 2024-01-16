@@ -11,9 +11,9 @@ from django.shortcuts import render
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from chat.django_private_chat2.models import MessageModel, DialogsModel
+from chat_old.django_private_chat2.models import MessageModel, DialogsModel
 from management.models.unconfirmed_matches import UnconfirmedMatch
-from chat.django_private_chat2.serializers import serialize_message_model
+from chat_old.django_private_chat2.serializers import serialize_message_model
 from management import controller
 from enum import Enum
 import json

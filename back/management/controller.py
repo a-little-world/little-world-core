@@ -9,11 +9,11 @@ from management.models.unconfirmed_matches import UnconfirmedMatch
 from management.models.backend_state import BackendState
 from management.models.past_matches import PastMatch
 from management.models.matches import Match
-from chat.django_private_chat2.models import DialogsModel
+from chat_old.django_private_chat2.models import DialogsModel
 from management import controller
 from dataclasses import dataclass, fields, field
-from chat.django_private_chat2.consumers.message_types import MessageTypes, OutgoingEventNewTextMessage
-from chat.django_private_chat2.models import DialogsModel, MessageModel
+from chat_old.django_private_chat2.consumers.message_types import MessageTypes, OutgoingEventNewTextMessage
+from chat_old.django_private_chat2.models import DialogsModel, MessageModel
 from django.utils import timezone
 from asgiref.sync import async_to_sync
 from back.utils import _double_uuid

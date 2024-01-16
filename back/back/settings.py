@@ -85,7 +85,7 @@ INSTALLED_APPS = [
 
     'management',  # Main backend application
 
-    'chat.django_private_chat2.apps.DjangoPrivateChat2Config',  # Our chat
+    'chat_old.django_private_chat2.apps.DjangoPrivateChat2Config',  # Our chat
 
     'corsheaders',
     'rest_framework',
