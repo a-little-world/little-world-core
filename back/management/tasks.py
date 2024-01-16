@@ -353,7 +353,7 @@ def send_new_message_notifications_all_users(
     from django.conf import settings
     from back.utils import CoolerJson
     # user = controller.get_user_by_hash(user_hash)
-    from chat.django_private_chat2.models import MessageModel, DialogsModel
+    from chat_old.django_private_chat2.models import MessageModel, DialogsModel
     from . import controller
     from emails import mails
     from .models import User

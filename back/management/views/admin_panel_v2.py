@@ -11,9 +11,9 @@ from django.shortcuts import render
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from chat.django_private_chat2.models import MessageModel, DialogsModel
+from chat_old.django_private_chat2.models import MessageModel, DialogsModel
 from management.models.unconfirmed_matches import UnconfirmedMatch
-from chat.django_private_chat2.serializers import serialize_message_model
+from chat_old.django_private_chat2.serializers import serialize_message_model
 from management import controller
 from enum import Enum
 import json
@@ -547,7 +547,7 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
             }, status=401)
             
         # Now we can check if the user has unread messages from that user
-        from chat.django_private_chat2.models import MessageModel
+        from chat_old.django_private_chat2.models import MessageModel
         messages = MessageModel.get_messages_for_dialog(request.user, obj)
         print("Filtered messages", messages)
 
