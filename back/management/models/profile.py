@@ -420,16 +420,16 @@ class ProfileBase(models.Model):
 
     class LanguageSkillChoices(models.TextChoices):
         LEVEL_0 = "level-0", pgettext_lazy(
-            "profile.lang-level.level-0", "A1 & A2 (Anfängerniveau)")
+            "profile.lang-level.level-0", "A1 & A2 (beginner level)")
 
         LEVEL_1 = "level-1", pgettext_lazy(
-            "profile.lang-level.level-1", "B1 = (everyday situations, stories, hopes)")
+            "profile.lang-level.level-1", "B1 (everyday situations, stories)")
 
         LEVEL_2 = "level-2", pgettext_lazy(
-            "profile.lang-level.level-2", "B2 = (fluent & spontaneous conversations, current events)")
+            "profile.lang-level.level-2", "B2 (fluent & spontaneous conversations)")
 
         LEVEL_3 = "level-3", pgettext_lazy(
-            "profile.lang-level.level-3", "C1/C2 = (complex topics, hardly searching for words)")
+            "profile.lang-level.level-3", "C1/C2 (complex topics)")
 
     lang_skill = models.JSONField(default=base_lang_skill)
     
