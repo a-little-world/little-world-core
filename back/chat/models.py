@@ -1,22 +1,21 @@
 from uuid import uuid4
 from django.db import models
 from django.db.models import Q
-from management.models.user import User
-from management.models.profile import ProfileSerializer
 from rest_framework import serializers
 from django.core.paginator import Paginator
+from management import models as management_models
 
 class Chat(models.Model):
     
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
     
-    u1 = models.ForeignKey(User, on_delete=models.CASCADE, related_name="u1")
-    u2 = models.ForeignKey(User, on_delete=models.CASCADE, related_name="u2")
+    u1 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u1")
+    u2 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u2")
     
     created = models.DateTimeField(auto_now_add=True)
     messages = models.ManyToManyField("Message", related_name="chat_messages", null=True, blank=True)
     
-    def get_partner(self, user) -> User:
+    def get_partner(self, user):
         return self.u1 if self.u2 == user else self.u2
     
     def is_participant(self, user):
@@ -57,7 +56,7 @@ class ChatSerializer(serializers.ModelSerializer):
         if 'request' in self.context:
             user = self.context['request'].user
             partner = instance.get_partner(user)
-            profile = ProfileSerializer(partner.profile).data
+            profile = management_models.profile.ProfileSerializer(partner.profile).data
             username = partner.username
             profile['uuid'] = str(partner.uuid)
             representation['partner'] = profile
@@ -77,8 +76,8 @@ class Message(models.Model):
     
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
     
-    sender = models.ForeignKey(User, on_delete=models.CASCADE, related_name="message_sender")
-    recipient = models.ForeignKey(User, on_delete=models.CASCADE, related_name="message_recipient")
+    sender = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="message_sender")
+    recipient = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="message_recipient")
     
     text = models.TextField()
     
