@@ -24,6 +24,7 @@ from management.models.profile import Profile
 from management.models.state import State
 from management.models.settings import Settings
 from management.models.rooms import Room
+from chat.models import Chat
 from django.utils.translation import gettext_lazy as _, pgettext_lazy
 from emails import mails
 from tracking import utils
@@ -360,6 +361,10 @@ def match_users(
     if create_dialog:
         # After the users are registered as matches
         # we still need to create a dialog for them
+        
+        chat = Chat.get_or_create_chat(usr1, usr2)
+        
+        # TODO: old depricated way to create dialog:
         DialogsModel.create_if_not_exists(usr1, usr2)
 
     if create_video_room:
@@ -476,7 +481,7 @@ def unmatch_users(
 
     # Delte the dialog
     if delete_dialog:
-        from chat.django_private_chat2.models import DialogsModel
+        from chat_old.django_private_chat2.models import DialogsModel
         dia = DialogsModel.dialog_exists(usr1, usr2)
         if dia:
             dia.delete()

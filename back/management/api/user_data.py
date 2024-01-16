@@ -298,9 +298,12 @@ def serialize_matches(matches, user):
 
         # Check if the partner is online
         is_online = ConsumerConnections.has_active_connections(partner)
+        
+        chat = Chat.get_or_create_chat(user, partner)
 
         serialized.append({
             "id": str(match.uuid),
+            "chatId": str(chat.uuid),
             "partner": {
                 "id": str(partner.hash),
                 "is_online": is_online,
@@ -383,7 +386,7 @@ def frontend_data(user, items_per_page=10, request=None):
     # This should be refactored so that we can actually tracka nd display whena user is currently in a call
     
     
-    chats = ChatSerializer(Paginator(Chat.get_chats(user), items_per_page).page(1), many=True).data
+    #chats = ChatSerializer(Paginator(Chat.get_chats(user), items_per_page).page(1), many=True).data
     
     empty_list = {
         "items": [],
@@ -422,7 +425,6 @@ def frontend_data(user, items_per_page=10, request=None):
             # This enable the pop-up to also show after login when the match already is in the video call
             # { "userId": "592a5cc9-77f9-4f18-8354-25fa56e1e792-c9dcfc91-865f-4371-b695-b00bd1967c27"}
         ],
-        "chats": chats
     }
 
 

@@ -7,6 +7,8 @@ from asgiref.sync import async_to_sync
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from management.models.consumer_connections import ConsumerConnections
 from management.models.matches import Match
+from chat.models import Message, MessageSerializer
+from chat.api import callbacks
 
 
 class UserManager(BaseUserManager):
@@ -215,7 +217,9 @@ class User(AbstractUser):
         Instead of always returing the same suport user!
         """
         from ..controller import get_base_management_user
-        from chat.django_private_chat2.consumers.db_operations import save_text_message
+
+        # TODO: depricated message send implementation -------------------------------------------
+        from chat_old.django_private_chat2.consumers.db_operations import save_text_message
         if not sender:
             sender = get_base_management_user()
 
@@ -223,6 +227,19 @@ class User(AbstractUser):
         if auto_mark_read:
             msg.read = True
             msg.save()
+            
+        # --------------------- new message send implemetation below ------------------------------
+        Message.objects.create(
+            sender=sender,
+            recipient=self,
+            text=msg.text
+        )
+        
+        callbacks.message_incoming(self, MessageSerializer(msg).data)
+        
+        # -----------------------------------------------------------------------------------------
+            
+
         return msg
     
     def message_connections(self, payload, event="reduction"):

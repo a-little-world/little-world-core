@@ -85,14 +85,16 @@ INSTALLED_APPS = [
 
     'management',  # Main backend application
 
-    'chat_old.django_private_chat2.apps.DjangoPrivateChat2Config',  # Our chat
+    'chat_old.django_private_chat2.apps.DjangoPrivateChat2Config',  # Our old chat TODO to be depricated
+
+    'chat',  # Our chat
 
     'corsheaders',
     'rest_framework',
     # A convenient multiselect field for db objects ( used e.g.: in profile.interests )
     'multiselectfield',
     'phonenumber_field',  # Conevnient handler for phone numbers with admin prefix
-    'django_rest_passwordreset',  # TODO: could also be used for MFA via email
+    'django_rest_passwordreset',
 
     'jazzmin',  # The waaaaaay nicer admin interface
 
