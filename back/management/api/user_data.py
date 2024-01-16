@@ -4,9 +4,12 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExampl
 from rest_framework.decorators import api_view, permission_classes, authentication_classes, throttle_classes
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework_dataclasses.serializers import DataclassSerializer
+from chat.models import ChatSerializer, Chat
+from django.core.paginator import Paginator
 from drf_spectacular.types import OpenApiTypes
 from datetime import datetime
 from django.conf import settings
+from chat.api.chats import ChatsModelViewSet
 from copy import deepcopy
 from django.core import exceptions
 from django.utils.module_loading import import_string
@@ -220,7 +223,7 @@ def get_full_frontend_data(user, options=False, admin=False,
                            page=UserDataApiParams.page,
                            paginate_by=UserDataApiParams.paginate_by,
                            noti_page=UserDataApiParams.page,
-                           noti_paginate_by=UserDataApiParams.paginate_by):
+                           noti_paginate_by=UserDataApiParams.paginate_by, request=None):
     """
     Gathers *all* data for the frontend in addition to matches and self info
     there is also data like community_events, frontend_state
@@ -230,13 +233,18 @@ def get_full_frontend_data(user, options=False, admin=False,
                                                       page=page, paginate_by=paginate_by,
                                                       noti_page=noti_page, noti_paginate_by=noti_paginate_by)
     extra_infos = user_data_and_matches.pop("extra_info", {})
+    
 
     frontend_data = {
         **user_data_and_matches,
         "community_events": get_all_comunity_events_serialized(),
         "unconfirmed_matches": get_unconfirmed_matches(user),
+        "chats": [],
         # "frontend_state": "",
     }
+    if request:
+        chats_paginated = ChatsModelViewSet.emulate(request).list()
+        frontend_data["chats"] = chats_paginated
 
     if admin:
         frontend_data["admin_infos"] = {
@@ -335,7 +343,7 @@ def serialize_notifications(notifications):
 
 
 
-def frontend_data(user, items_per_page=10):
+def frontend_data(user, items_per_page=10, request=None):
 
     user_state = user.state
     user_profile = user.profile
@@ -374,6 +382,9 @@ def frontend_data(user, items_per_page=10):
     # TODO: Currently incoming calls are only populated if the user was online when the incomin call was triggered
     # This should be refactored so that we can actually tracka nd display whena user is currently in a call
     
+    
+    chats = ChatSerializer(Paginator(Chat.get_chats(user), items_per_page).page(1), many=True).data
+    
     empty_list = {
         "items": [],
         "totalItems": 0,
@@ -381,8 +392,7 @@ def frontend_data(user, items_per_page=10):
         "currentPage": 0,
     }
 
-
-    return {
+    frontend_data = {
         "user": {
             "id": user.hash,
             "isSearching": user_state.matching_state == State.MatchingStateChoices.SEARCHING,
@@ -412,7 +422,13 @@ def frontend_data(user, items_per_page=10):
             # This enable the pop-up to also show after login when the match already is in the video call
             # { "userId": "592a5cc9-77f9-4f18-8354-25fa56e1e792-c9dcfc91-865f-4371-b695-b00bd1967c27"}
         ],
+        "chats": chats
     }
+
+
+    return frontend_data
+
+
 
 @dataclass
 class UserDataV2Params:
