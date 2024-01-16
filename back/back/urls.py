@@ -28,11 +28,12 @@ statics = [
 urlpatterns = [
     path('', include(('management.urls', 'management'), namespace="management")),
     path('', include('emails.urls')),
+    path('', include('chat.urls')),
     path('', include('tracking.urls')),
     path('admin/', admin.site.urls),
     path("cookies/", include("cookie_consent.urls")),
     path('hijack/', include('hijack.urls')),
-    path("", include("chat.django_private_chat2.urls")),
+    path("", include("chat_old.django_private_chat2.urls")),
 
     # In staging and production we are serving statics from an aws bucket!
     *(statics if settings.IS_DEV else [])

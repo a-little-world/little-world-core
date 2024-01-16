@@ -178,7 +178,7 @@ def create_test_user(i, user_seeds=None, password=None, email=None, pass_if_exis
         setattr(usr.profile, choice, random_choice(
             user_form_choices[choice]))
     print("TBS: image type choice", usr.profile.image_type)
-    if usr.profile.image_type == profile.Profile.ImageTypeChoice.AVATAR:
+    if usr.profile.image_type == Profile.ImageTypeChoice.AVATAR:
         usr.profile.avatar_config = random_avatar()
     else:
         usr.profile.add_profile_picture_from_local_path(
@@ -214,7 +214,11 @@ def create_abunch_of_users(amnt=30, user_seeds=[42]*20):
     users = []
     for i in range(amnt):
         users.append(create_test_user(i, user_seeds, pass_if_exists=True))
+        
 
+    # Match them all with each other
+    # Randomly match some of the users:
+        
     return users
 
 
