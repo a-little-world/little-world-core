@@ -32,6 +32,12 @@ class Chat(models.Model):
             return chat.first()
         return None
     
+    def get_unread_count(self, user):
+        return self.messages.filter(read=False, recipient=user).count()
+    
+    def get_newest_message(self):
+        return self.messages.order_by("-created").first()
+    
     @classmethod
     def get_or_create_chat(cls, user1, user2):
         chat = cls.get_chat([user1, user2])
@@ -43,6 +49,22 @@ class Chat(models.Model):
     def get_past_messages_openai(self, message_depth):
         return OpenAiChatSerializer(self, message_depth=message_depth).data
 
+class ChatInModelSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = Chat
+        fields = ['uuid']
+        
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['id'] = instance.uuid
+        del representation['uuid']
+
+        representation['unread_count'] = instance.get_unread_count(self.context['user'])
+        representation['newest_message'] = MessageSerializer(instance.get_newest_message()).data
+
+        return representation
+    
 
 class ChatSerializer(serializers.ModelSerializer):
     
@@ -58,14 +80,14 @@ class ChatSerializer(serializers.ModelSerializer):
             partner = instance.get_partner(user)
             profile = management_models.profile.ProfileSerializer(partner.profile).data
             username = partner.username
-            profile['uuid'] = str(partner.uuid)
+            profile['uuid'] = partner.hash
             representation['partner'] = profile
             representation['partner']['username'] = username
             del representation['u1']
             del representation['u2']
         else:
-            representation['u1'] = str(instance.u1.uuid)
-            representation['u2'] = str(instance.u2.uuid)
+            representation['u1'] = instance.u1.hash
+            representation['u2'] = instance.u2.hash
             
         
         return representation
@@ -90,13 +112,11 @@ class MessageSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Message
-        fields = ['uuid', 'sender', 'recipient', 'created', 'text']
+        fields = ['uuid', 'sender', 'created', 'text', 'read']
         
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation['sender'] = str(instance.sender.uuid)
-        representation['recipient'] = str(instance.recipient.uuid)
-        representation['chat_uuid'] = str(instance.chat.uuid)
+        representation['sender'] = instance.sender.hash
         
         return representation
     

@@ -4,7 +4,7 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExampl
 from rest_framework.decorators import api_view, permission_classes, authentication_classes, throttle_classes
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework_dataclasses.serializers import DataclassSerializer
-from chat.models import ChatSerializer, Chat
+from chat.models import ChatSerializer, Chat, ChatInModelSerializer
 from django.core.paginator import Paginator
 from drf_spectacular.types import OpenApiTypes
 from datetime import datetime
@@ -300,9 +300,13 @@ def serialize_matches(matches, user):
         is_online = ConsumerConnections.has_active_connections(partner)
         
         chat = Chat.get_or_create_chat(user, partner)
+        chat_serialized = ChatInModelSerializer(chat, context={'user': user}).data
 
         serialized.append({
             "id": str(match.uuid),
+            "chat": {
+                **chat_serialized
+            },
             "chatId": str(chat.uuid),
             "partner": {
                 "id": str(partner.hash),

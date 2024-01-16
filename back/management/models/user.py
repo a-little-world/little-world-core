@@ -7,7 +7,7 @@ from asgiref.sync import async_to_sync
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from management.models.consumer_connections import ConsumerConnections
 from management.models.matches import Match
-from chat.models import Message, MessageSerializer
+from chat.models import Message, MessageSerializer, Chat
 from chat.api import callbacks
 
 
@@ -228,14 +228,19 @@ class User(AbstractUser):
             msg.read = True
             msg.save()
             
+        chat = Chat.get_or_create_chat(sender, self)
         # --------------------- new message send implemetation below ------------------------------
-        Message.objects.create(
+        message = Message.objects.create(
+            chat=chat,
             sender=sender,
             recipient=self,
             text=msg.text
         )
         
-        callbacks.message_incoming(self, MessageSerializer(msg).data)
+        chat.messages.add(message)
+        chat.save()
+        
+        callbacks.message_incoming(self, MessageSerializer(message).data)
         
         # -----------------------------------------------------------------------------------------
             
