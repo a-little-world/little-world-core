@@ -34,7 +34,6 @@ pytablewriter # For generating goodlooking markdown tables
 Collectfast # Faster static file collection
 django-hijack # Can be used by admin to login as another user
 single-beat
-googletrans==3.1.0a0
 djangorestframework-dataclasses
 polib
 sentry-sdk[django]
