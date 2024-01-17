@@ -33,8 +33,22 @@ router.register(
     basename='reset-password-request'
 )
 
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+@permission_classes([])
+@authentication_classes([])
+@api_view(['POST'])
+def challenge(request):
+    print(request.data)
+    if "challenge"  in request.data:
+         return Response(request.data["challenge"])
+    return Response()
+
+
+from django.views.decorators.csrf import csrf_exempt
+
 
 api_routes = [
+    path("challenge", csrf_exempt(challenge)),
     # User
     path(_api_url('user_data'), api.user_data.UserData.as_view()),
     path(_api_url('user_data_v2'), api.user_data.user_data_v2),

@@ -40,3 +40,5 @@ polib
 sentry-sdk[django]
 # django-minio-storage
 django-revproxy
+slack_sdk
+openai
