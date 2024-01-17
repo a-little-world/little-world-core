@@ -42,7 +42,6 @@ def notify_communication_channel(message):
 
 def process_slack_ai_response(message):
 
-    from openai import OpenAI
     client = get_base_ai_client()    
     
     res = client.chat.completions.create(
@@ -74,7 +73,6 @@ def slack_callbacks(request, secret="false"):
 
     return Response()
     
-
 api_routes = [
     path("/api/slack/event_callbacks/<str:secret>/", csrf_exempt(slack_callbacks)),
 ] if settings.USE_SLACK_INTEGRATION else []
