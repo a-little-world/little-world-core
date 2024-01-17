@@ -58,7 +58,7 @@ def process_slack_ai_response(message):
 
 @permission_classes([])
 @authentication_classes([])
-@api_view(['POST'])
+@api_view(['GET', 'POST'])
 def slack_callbacks(request, secret="false"):
     if secret != settings.SLACK_CALLBACK_SECRET:
         return Response("Invalid secret", status=403)
@@ -72,7 +72,8 @@ def slack_callbacks(request, secret="false"):
             process_slack_ai_response(message)
 
     return Response()
-    
+
+# http://localhost:8000/api/slack/event_callbacks/test/    
 api_routes = [
-    path("/api/slack/event_callbacks/<str:secret>/", csrf_exempt(slack_callbacks)),
+    path("api/slack/event_callbacks/<str:secret>/", csrf_exempt(slack_callbacks)),
 ] if settings.USE_SLACK_INTEGRATION else []
