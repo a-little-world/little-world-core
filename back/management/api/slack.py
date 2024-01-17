@@ -45,15 +45,16 @@ def process_slack_ai_response(message):
     from openai import OpenAI
     client = get_base_ai_client()    
     
-    client.chat.completions.create(
+    res = client.chat.completions.create(
         model=settings.AI_LANGUAGE_MODEL,
         messages=[{
             "role": "user",
             "content": message
         }],
     )
-
-    notify_communication_channel(message)
+    
+    response_message = res.choices[0].text
+    notify_communication_channel(response_message)
 
 
 @permission_classes([])
@@ -64,7 +65,6 @@ def slack_callbacks(request, secret="false"):
         return Response("Invalid secret", status=403)
     if "challenge"  in request.data:
          return Response(request.data["challenge"])
-     # TODO: process event
     if request.data["event"]["type"] == "message":
         message = request.data["event"]["text"]
         if message.startswith("/ask "):

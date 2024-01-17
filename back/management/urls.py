@@ -10,6 +10,7 @@ from rest_framework import routers
 from management.views.admin_panel_frontend import admin_panel, stats_panel, graph_panel, fetch_graph, user_list_frontend, fetch_list
 from management.views import admin_panel_v2
 from management.views import admin_panel_v2_actions
+from management.api import slack
 
 from rest_framework.routers import DefaultRouter
 from django_rest_passwordreset.views import ResetPasswordValidateTokenViewSet, ResetPasswordConfirmViewSet, \
@@ -33,22 +34,10 @@ router.register(
     basename='reset-password-request'
 )
 
-from rest_framework.decorators import api_view, authentication_classes, permission_classes
-@permission_classes([])
-@authentication_classes([])
-@api_view(['POST'])
-def challenge(request):
-    print(request.data)
-    if "challenge"  in request.data:
-         return Response(request.data["challenge"])
-    return Response()
-
-
-from django.views.decorators.csrf import csrf_exempt
 
 
 api_routes = [
-    path("challenge", csrf_exempt(challenge)),
+    *slack.api_routes,
     # User
     path(_api_url('user_data'), api.user_data.UserData.as_view()),
     path(_api_url('user_data_v2'), api.user_data.user_data_v2),
