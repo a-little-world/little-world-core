@@ -41,4 +41,4 @@ sentry-sdk[django]
 # django-minio-storage
 django-revproxy
 slack_sdk
-openai
+openai==1.8.0

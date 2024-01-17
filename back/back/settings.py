@@ -83,6 +83,8 @@ USE_AI = os.environ.get("DJ_USE_AI", "false").lower() in ('true', '1', 't')
 AI_BASE_URL = os.environ.get("DJ_AI_BASE_URL", "http://localhost:8000")
 AI_API_KEY = os.environ.get("DJ_AI_API_KEY", "none")
 AI_LANGUAGE_MODEL = os.environ.get("DJ_AI_LANGUAGE_MODEL", "none")
+AI_OPENAI_MODEL = os.environ.get("DJ_AI_OPENAI_MODEL", "none")
+AI_OPENAI_API_KEY  = os.environ.get("DJ_AI_OPENAI_API_KEY", "none")
 
 """
 Own applications:
