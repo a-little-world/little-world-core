@@ -72,6 +72,7 @@ class ImpulseBeitraegeParams2:
 @dataclass
 class AccountDeletedEmailParams:
     first_name: str
+    registration_link_url : str = 'https://little-world.org/sign-up'
     
 @dataclass
 class SurveryInvitation3Natalia:

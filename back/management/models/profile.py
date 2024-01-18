@@ -10,7 +10,6 @@ from rest_framework import serializers
 from multiselectfield import MultiSelectField
 from back.utils import _double_uuid
 from django.core.files import File
-from management.models.user import User
 from management.validators import (
     validate_availability,
     get_default_availability,
@@ -544,7 +543,7 @@ class ProfileBase(models.Model):
 
 class Profile(ProfileBase):
 
-    user = models.OneToOneField(User, on_delete=models.CASCADE)  # Key...
+    user = models.OneToOneField("management.User", on_delete=models.CASCADE)  # Key...
 
 
 def _date_string():
