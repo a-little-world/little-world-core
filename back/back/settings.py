@@ -1,4 +1,3 @@
-from channels_redis.core import RedisChannelLayer
 from django.utils.translation import gettext_lazy as _
 import os
 
@@ -45,6 +44,9 @@ DEFAULT_FROM_EMAIL = os.environ["DJ_SG_DEFAULT_FROM_EMAIL"]
 EXPOSE_DEV_LOGIN = os.environ.get("DJ_EXPOSE_DEV_LOGIN", "false").lower() in ('true', '1', 't')
 USE_MQ_AS_BROKER = os.environ.get("DJ_USE_MQ_AS_BROKER", "false").lower() in ('true', '1', 't')
 
+DOCS_PROXY = os.environ.get("DJ_DOCS_PROXY", "false").lower() in ('true', '1', 't')
+DOCS_URL = os.environ.get("DJ_DOCS_URL", "")
+
 TWILIO_SMS_NUMBER = os.environ.get("DJ_TWILIO_SMS_NUMBER", "+1234567890")
 TWILIO_ACCOUNT_SID = os.environ["DJ_TWILIO_ACCOUNT_SID"]
 TWILIO_API_KEY_SID = os.environ["DJ_TWILIO_API_KEY_SID"]
@@ -70,6 +72,19 @@ LANDINGPAGE_PLACEHOLDER_TITLE = os.environ.get("DJ_LANDINGPAGE_PLACEHOLDER_TITLE
 if IS_PROD and 'K8_POD_IP' in os.environ:
     # So that we can further restrict access to the depoloyment kubernetes node
     ALLOWED_HOSTS.append(os.environ['K8_POD_IP'])
+    
+    
+USE_SLACK_INTEGRATION = os.environ.get("DJ_USE_SLACK_INTEGRATION",  "false").lower() in ('true', '1', 't')
+SLACK_API_TOKEN = os.environ.get("DJ_SLACK_API_TOKEN",  "")
+SLACK_REPORT_CHANNEL_ID = os.environ.get("DJ_SLACK_REPORT_CHANNEL_ID",  "")
+SLACK_CALLBACK_SECRET = os.environ.get("DJ_SLACK_CALLBACK_SECRET",  "")
+
+USE_AI = os.environ.get("DJ_USE_AI", "false").lower() in ('true', '1', 't')
+AI_BASE_URL = os.environ.get("DJ_AI_BASE_URL", "http://localhost:8000")
+AI_API_KEY = os.environ.get("DJ_AI_API_KEY", "none")
+AI_LANGUAGE_MODEL = os.environ.get("DJ_AI_LANGUAGE_MODEL", "none")
+AI_OPENAI_MODEL = os.environ.get("DJ_AI_OPENAI_MODEL", "none")
+AI_OPENAI_API_KEY  = os.environ.get("DJ_AI_OPENAI_API_KEY", "none")
 
 """
 Own applications:
@@ -83,14 +98,16 @@ INSTALLED_APPS = [
 
     'management',  # Main backend application
 
-    'chat.django_private_chat2.apps.DjangoPrivateChat2Config',  # Our chat
+    'chat_old.django_private_chat2.apps.DjangoPrivateChat2Config',  # Our old chat TODO to be depricated
+
+    'chat',  # Our chat
 
     'corsheaders',
     'rest_framework',
     # A convenient multiselect field for db objects ( used e.g.: in profile.interests )
     'multiselectfield',
     'phonenumber_field',  # Conevnient handler for phone numbers with admin prefix
-    'django_rest_passwordreset',  # TODO: could also be used for MFA via email
+    'django_rest_passwordreset',
 
     'jazzmin',  # The waaaaaay nicer admin interface
 

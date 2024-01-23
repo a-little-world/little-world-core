@@ -1,2 +1,9 @@
-from .main_frontend import MainFrontendView, PublicMainFrontendView
-from .landing_page import landing_page
+from . import main_frontend, landing_page, admin_panel_frontend, admin_panel_v2, admin_panel_v2_actions
+
+__all__ = [
+    "main_frontend",
+    "landing_page",
+    "admin_panel_frontend",
+    "admin_panel_v2",
+    "admin_panel_v2_actions"
+]

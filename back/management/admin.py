@@ -8,8 +8,8 @@ from django.contrib import messages
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django import forms
 from phonenumber_field.widgets import PhoneNumberPrefixWidget
-from . import models
-from .models import question_deck
+from management import models
+from management.models import question_deck
 from django.db.migrations.recorder import MigrationRecorder
 from hijack.contrib.admin import HijackUserAdminMixin
 
@@ -79,7 +79,7 @@ class StateAdmin(HijackUserAdminMixin, admin.ModelAdmin):
         return obj.user
 
 
-@admin.register(models.Room)
+@admin.register(models.rooms.Room)
 class VideoRoomAdmin(admin.ModelAdmin):
     list_display = ("name", "usr1", "usr2",
                     "active", "updated_at", "created_at")
@@ -124,7 +124,7 @@ class UserFormFilledFilter(admin.SimpleListFilter):
     parameter_name = 'is_form_filled'
 
     def lookups(self, request, model_admin):
-        return models.State.UserFormStateChoices.choices
+        return models.state.State.UserFormStateChoices.choices
 
     def queryset(self, request, queryset):
         _val = self.value()
@@ -138,7 +138,7 @@ class UserCategory(admin.SimpleListFilter):
     parameter_name = 'user_category'
 
     def lookups(self, request, model_admin):
-        return models.State.UserCategoryChoices.choices
+        return models.state.State.UserCategoryChoices.choices
 
     def queryset(self, request, queryset):
         _val = self.value()
@@ -147,7 +147,7 @@ class UserCategory(admin.SimpleListFilter):
         return queryset.filter(state__user_category=self.value())
 
 
-@admin.register(models.Notification)
+@admin.register(models.notifications.Notification)
 class NotificationAdmin(admin.ModelAdmin):
     list_display = ("user", "created_at", "time_read",
                     "state", "type", "title", "meta")
@@ -243,10 +243,10 @@ class CategoryAdmin(admin.ModelAdmin):
 class UserCategoriesAdmin(admin.ModelAdmin):
     list_display = ['user']
     
-@admin.register(models.ConsumerConnections)
+@admin.register(models.consumer_connections.ConsumerConnections)
 class ConsumerConnectionsAdmin(admin.ModelAdmin):
     list_display = ['user', 'uuid']
     
-@admin.register(models.Connections)
+@admin.register(models.consumer_connections.Connections)
 class ConnectionsAdmin(admin.ModelAdmin):
     list_display = ['user', 'channel_name', 'active', 'time_joined', 'time_left']

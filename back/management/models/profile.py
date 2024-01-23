@@ -10,8 +10,7 @@ from rest_framework import serializers
 from multiselectfield import MultiSelectField
 from back.utils import _double_uuid
 from django.core.files import File
-from .user import User
-from ..validators import (
+from management.validators import (
     validate_availability,
     get_default_availability,
     validate_first_name,
@@ -420,16 +419,16 @@ class ProfileBase(models.Model):
 
     class LanguageSkillChoices(models.TextChoices):
         LEVEL_0 = "level-0", pgettext_lazy(
-            "profile.lang-level.level-0", "A1 & A2 (Anfängerniveau)")
+            "profile.lang-level.level-0", "A1 & A2 (beginner level)")
 
         LEVEL_1 = "level-1", pgettext_lazy(
-            "profile.lang-level.level-1", "B1 = (everyday situations, stories, hopes)")
+            "profile.lang-level.level-1", "B1 (everyday situations, stories)")
 
         LEVEL_2 = "level-2", pgettext_lazy(
-            "profile.lang-level.level-2", "B2 = (fluent & spontaneous conversations, current events)")
+            "profile.lang-level.level-2", "B2 (fluent & spontaneous conversations)")
 
         LEVEL_3 = "level-3", pgettext_lazy(
-            "profile.lang-level.level-3", "C1/C2 = (complex topics, hardly searching for words)")
+            "profile.lang-level.level-3", "C1/C2 (complex topics)")
 
     lang_skill = models.JSONField(default=base_lang_skill)
     
@@ -544,7 +543,7 @@ class ProfileBase(models.Model):
 
 class Profile(ProfileBase):
 
-    user = models.OneToOneField(User, on_delete=models.CASCADE)  # Key...
+    user = models.OneToOneField("management.User", on_delete=models.CASCADE)  # Key...
 
 
 def _date_string():
@@ -614,7 +613,7 @@ class SelfProfileSerializer(ProfileSerializer):
     class Meta:
         model = Profile
         fields = ['first_name', 'second_name', 'target_group', 'speech_medium',
-                  'user_type', 'target_group', 'partner_sex', 'speech_medium',
+                  'user_type', 'target_group', 'speech_medium',
                   'partner_location', 'postal_code', 'interests', 'availability',
                   'lang_level', 'additional_interests', 'language_skill_description', 'birth_year', 'description',
                   'notify_channel', 'phone_mobile', 'image_type', 'avatar_config', 'image', 'lang_skill', 'gender', 
@@ -668,22 +667,6 @@ class SelfProfileSerializer(ProfileSerializer):
                                                            "You have selected avatar but not uploaded an avatar")})
         return data
 
-    def to_internal_value(self, data):
-
-        # If a phone number is present we try to converty it to e164 *before* we validate it
-        # This allowes users to make small format erros that we can still correct our selves
-        if 'phone_mobile' in data:
-            try:
-                phone = PhoneNumber.from_string(
-                    phone_number=data['phone_mobile'], region='DE').as_e164
-                print(
-                    f"Reparsed phone number {data['phone_mobile']} -> {phone}")
-                data['phone_mobile'] = phone
-            except Exception as e:
-                data['phone_mobile'] = "parse_error"
-
-        return super(SelfProfileSerializer, self).to_internal_value(data)
-    
     def validate_liability_accepted(self, value):
         if not value:
             raise serializers.ValidationError(

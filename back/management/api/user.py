@@ -23,8 +23,8 @@ from dataclasses import dataclass
 from tracking.models import Event
 from tracking import utils
 from emails.mails import get_mail_data_by_name, PwResetMailParams
-from management.models import State
-from management import models
+from management.models.state import State
+from management.views.admin_panel_v2_actions import perform_user_deletion
 """
 The public /user api's
 
@@ -534,7 +534,6 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def still_active_callback(request):
-    from management.models import State
     us = request.user.state
     us.matching_state = State.MatchingStateChoices.SEARCHING
     us.still_active_reminder_confirmed = True
@@ -546,12 +545,10 @@ def still_active_callback(request):
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def delete_account(request):
-    from management.models import State
     # Cannot delete staff or matching users with this api!
     assert not request.user.is_staff
     assert not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
     
-    from management.views.admin_panel_v2_actions import perform_user_deletion
     perform_user_deletion(request.user, management_user=None, send_deletion_email=True)
     logout(request)
 

@@ -67,7 +67,7 @@ RUN cd apps/main_frontend && \
         --config webpack.main_frontend.config.js
         
 # Now we build the main backend image
-FROM python:3.11-alpine
+FROM python:3.11-alpine as backend
 
 WORKDIR /back
 COPY ./back .
@@ -77,7 +77,6 @@ RUN pip install "Cython<3.0" pyyaml --no-build-isolation
 
 RUN pip install --no-cache-dir -r requirements.txt
 RUN apk add --no-cache git
-RUN pip install git+https://github.com/jazzband/django-revproxy.git
 RUN pip cache purge
 
 # Copy all the backend files

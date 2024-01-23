@@ -5,7 +5,10 @@ from django.conf import settings
 from rest_framework import serializers
 from asgiref.sync import async_to_sync
 from django.contrib.auth.models import AbstractUser, BaseUserManager
-from management import models as management_models
+from management.models.consumer_connections import ConsumerConnections
+from management.models.matches import Match
+from chat.models import Message, MessageSerializer, Chat
+from chat.api import callbacks
 
 
 class UserManager(BaseUserManager):
@@ -214,7 +217,9 @@ class User(AbstractUser):
         Instead of always returing the same suport user!
         """
         from ..controller import get_base_management_user
-        from chat.django_private_chat2.consumers.db_operations import save_text_message
+
+        # TODO: depricated message send implementation -------------------------------------------
+        from chat_old.django_private_chat2.consumers.db_operations import save_text_message
         if not sender:
             sender = get_base_management_user()
 
@@ -222,18 +227,36 @@ class User(AbstractUser):
         if auto_mark_read:
             msg.read = True
             msg.save()
+            
+        chat = Chat.get_or_create_chat(sender, self)
+        # --------------------- new message send implemetation below ------------------------------
+        message = Message.objects.create(
+            chat=chat,
+            sender=sender,
+            recipient=self,
+            text=msg.text
+        )
+        
+        chat.messages.add(message)
+        chat.save()
+        
+        callbacks.message_incoming(self, MessageSerializer(message).data)
+        
+        # -----------------------------------------------------------------------------------------
+            
+
         return msg
     
     def message_connections(self, payload, event="reduction"):
         # sends a websocket message to all connections of that user
-        management_models.ConsumerConnections.async_notify_connections(self, event=event, payload=payload)
+        ConsumerConnections.async_notify_connections(self, event=event, payload=payload)
         
     
     def broadcast_message_to_matches(self, payload, event="reduction"):
         """
         Sends a message to all matches of this user
         """
-        matches = management_models.Match.get_matches(self)
+        matches = Match.get_matches(self)
         for match in matches:
             match.message_connections(payload, event=event)
 

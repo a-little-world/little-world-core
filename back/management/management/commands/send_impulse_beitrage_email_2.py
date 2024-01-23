@@ -2,7 +2,9 @@ from django.core.management.base import BaseCommand
 
 class Command(BaseCommand):
     def handle(self, **options):
-        from management.models import Match, State, User
+        from management.models.matches import Match
+        from management.models.state import State
+        from management.models.user import User
         from emails.models import EmailLog
         from django.db.models import Q
         from django.utils import timezone
@@ -94,7 +96,7 @@ Den Zoom Link für die kommenden Veranstaltungen findest du nach dem Einloggen u
 </div>"""
         print("Also send message announcement? (Y/N)")
         user_input = input()
-        from management.models import Match
+        from management.models.matches import Match
         if user_input == "Y":
             total = len(users)
             i = 0

@@ -5,18 +5,24 @@ from rest_framework.decorators import api_view
 from django.shortcuts import render
 from django.http import HttpResponse
 from back.utils import CoolerJson
-from ..api.user_data import get_user_data
-from ..api.user_slug_filter_lookup import get_users_by_slug_filter, get_filter_slug_filtered_users_multiple_paginated
-from ..models import User
-from .. import controller
+from management.api.user_data import get_user_data
+from management.api.user_slug_filter_lookup import get_users_by_slug_filter, get_filter_slug_filtered_users_multiple_paginated
+from management.models.user import User
+from management import controller
 from django.core.paginator import Paginator
 import json
-from ..models import (
+from management.models.user import (
     User,
-    State,
+)
+
+from management.models.profile import (
     Profile,
     ProfileSerializer,
-    StateSerializer
+)
+
+from management.models.state import (
+    StateSerializer,
+    State
 )
 
 
@@ -51,7 +57,7 @@ def admin_panel(request):
         user = controller.get_user_by_hash(GET['suggest'])
 
         # If we have 's1' we even try to list suggestions
-        from ..models.matching_scores import MatchinScore
+        from management.models.matching_scores import MatchinScore
         suggestions = MatchinScore.matching_suggestion_from_database(user)
         suggested_users = []
         for suggestion in suggestions:
@@ -67,7 +73,7 @@ def admin_panel(request):
         user = controller.get_user_by_hash(GET['matches'])
 
         # If we have 's1' we even try to list suggestions
-        from ..models.matching_scores import MatchinScore
+        from management.models.matching_scores import MatchinScore
 
         # TODO: test needs to be updated using the new 'Match' model.
         extra_info['suggested_users'] = [{**get_user_data(

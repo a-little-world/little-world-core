@@ -4,9 +4,9 @@ from django.views import View
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.utils.translation import gettext_lazy as _
 from tracking.models import Event
-from management.models import State
-from .mails import get_mail_data_by_name, decode_mail_params
-from .templates import inject_template_data
+from management.models.state import State
+from emails.mails import get_mail_data_by_name, decode_mail_params
+from emails.templates import inject_template_data
 
 
 class ViewEmail(UserPassesTestMixin, View):

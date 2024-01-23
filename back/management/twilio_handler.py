@@ -36,10 +36,13 @@ def make_room(name):
     """
     client = _get_client()
     room_type = 'go'  # TODO: we can have max 245 of these
-    client.video.rooms.create(unique_name=name,
-                              type=room_type,
-                              media_region='de1',
-                              status_callback=_get_status_url())
+    try:
+        client.video.rooms.create(unique_name=name,
+                                  type=room_type,
+                                  media_region='de1',
+                                  status_callback=_get_status_url())
+    except Exception as e:
+        print(e)
 
 
 def complete_room(name):

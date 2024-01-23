@@ -4,9 +4,12 @@ from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExampl
 from rest_framework.decorators import api_view, permission_classes, authentication_classes, throttle_classes
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework_dataclasses.serializers import DataclassSerializer
+from chat.models import ChatSerializer, Chat, ChatInModelSerializer
+from django.core.paginator import Paginator
 from drf_spectacular.types import OpenApiTypes
 from datetime import datetime
 from django.conf import settings
+from chat.api.chats import ChatsModelViewSet
 from copy import deepcopy
 from django.core import exceptions
 from django.utils.module_loading import import_string
@@ -23,21 +26,36 @@ from dataclasses import dataclass
 from back.utils import transform_add_options_serializer
 from rest_framework.permissions import IsAuthenticated
 from django.core.paginator import Paginator
-from management.models import (
-    SelfNotificationSerializer, NotificationSerializer, Notification,
+from management.models.profile import (
     ProfileSerializer, SelfProfileSerializer,
-    UserSerializer, SelfUserSerializer,
-    StateSerializer, SelfStateSerializer,
-    CensoredUserSerializer,
     CensoredProfileSerializer,
     ProposalProfileSerializer,
-    SelfSettingsSerializer,
+)
+from management.models.unconfirmed_matches import (
     UnconfirmedMatch,
+)
+from management.models.state import (
     State,
+    StateSerializer, SelfStateSerializer,
+)
+from management.models.community_events import (
     CommunityEvent,
     CommunityEventSerializer,
 )
-from management import models
+from management.models.settings import (
+    SelfSettingsSerializer,
+)
+from management.models.notifications import (
+    SelfNotificationSerializer, NotificationSerializer, Notification,
+)
+from management.models.user import (
+    UserSerializer, SelfUserSerializer,
+    CensoredUserSerializer,
+)
+from management.models.consumer_connections import (
+    ConsumerConnections
+)
+from management.models.matches import Match
 from management.api.community_events import get_all_comunity_events_serialized
 from management.models.unconfirmed_matches import get_unconfirmed_matches
 
@@ -142,7 +160,7 @@ def get_matches_paginated(user, admin=False,
 
     # TODO: this was the old stategy, that has since been updated to use the new 'Match' model
     # pages = Paginator(user.get_matches(), paginate_by).page(page)
-    pages = Paginator(models.Match.get_matches(user), paginate_by).page(page)
+    pages = Paginator(Match.get_matches(user), paginate_by).page(page)
     return [get_user_data(p, is_self=False, admin=admin) for p in pages]
 
 
@@ -151,7 +169,7 @@ def get_matches_paginated_extra_details(user, admin=False,
                                         paginate_by=UserDataApiParams.paginate_by):
 
     #paginator = Paginator(user.get_matches(), paginate_by)
-    paginator = Paginator(models.Match.get_matches(user), paginate_by)
+    paginator = Paginator(Match.get_matches(user), paginate_by)
     pages = paginator.page(page)
 
     return [get_user_data(p, is_self=False, admin=admin) for p in pages], {
@@ -205,7 +223,7 @@ def get_full_frontend_data(user, options=False, admin=False,
                            page=UserDataApiParams.page,
                            paginate_by=UserDataApiParams.paginate_by,
                            noti_page=UserDataApiParams.page,
-                           noti_paginate_by=UserDataApiParams.paginate_by):
+                           noti_paginate_by=UserDataApiParams.paginate_by, request=None):
     """
     Gathers *all* data for the frontend in addition to matches and self info
     there is also data like community_events, frontend_state
@@ -215,13 +233,18 @@ def get_full_frontend_data(user, options=False, admin=False,
                                                       page=page, paginate_by=paginate_by,
                                                       noti_page=noti_page, noti_paginate_by=noti_paginate_by)
     extra_infos = user_data_and_matches.pop("extra_info", {})
+    
 
     frontend_data = {
         **user_data_and_matches,
         "community_events": get_all_comunity_events_serialized(),
         "unconfirmed_matches": get_unconfirmed_matches(user),
+        "chats": [],
         # "frontend_state": "",
     }
+    if request:
+        chats_paginated = ChatsModelViewSet.emulate(request).list()
+        frontend_data["chats"] = chats_paginated
 
     if admin:
         frontend_data["admin_infos"] = {
@@ -274,10 +297,17 @@ def serialize_matches(matches, user):
         partner = match.get_partner(user)
 
         # Check if the partner is online
-        is_online = models.ConsumerConnections.has_active_connections(partner)
+        is_online = ConsumerConnections.has_active_connections(partner)
+        
+        chat = Chat.get_or_create_chat(user, partner)
+        chat_serialized = ChatInModelSerializer(chat, context={'user': user}).data
 
         serialized.append({
             "id": str(match.uuid),
+            "chat": {
+                **chat_serialized
+            },
+            "chatId": str(chat.uuid),
             "partner": {
                 "id": str(partner.hash),
                 "is_online": is_online,
@@ -293,11 +323,11 @@ def serialize_proposed_matches(matching_proposals, user):
 
         partner = proposal.get_partner(user)
         serialized.append({
-            "id": str(proposal.hash), # TODO: rename
+            "id": str(proposal.hash),
             "partner": {
                 "id": str(partner.hash),
                 **ProposalProfileSerializer(partner.profile).data
-            } # TODO: this want some additional fields
+            }
         })
 
     return serialized
@@ -320,7 +350,7 @@ def serialize_notifications(notifications):
 
 
 
-def frontend_data(user, items_per_page=10):
+def frontend_data(user, items_per_page=10, request=None):
 
     user_state = user.state
     user_profile = user.profile
@@ -330,13 +360,13 @@ def frontend_data(user, items_per_page=10):
     community_events = get_paginated(CommunityEvent.get_all_active_events(), items_per_page, 1)
     community_events["items"] = serialize_community_events(community_events["items"])
 
-    confirmed_matches = get_paginated(models.Match.get_confirmed_matches(user), items_per_page, 1)
+    confirmed_matches = get_paginated(Match.get_confirmed_matches(user), items_per_page, 1)
     confirmed_matches["items"] = serialize_matches(confirmed_matches["items"], user)
 
-    unconfirmed_matches = get_paginated(models.Match.get_unconfirmed_matches(user), items_per_page, 1)
+    unconfirmed_matches = get_paginated(Match.get_unconfirmed_matches(user), items_per_page, 1)
     unconfirmed_matches["items"] = serialize_matches(unconfirmed_matches["items"], user)
 
-    support_matches = get_paginated(models.Match.get_support_matches(user), items_per_page, 1)
+    support_matches = get_paginated(Match.get_support_matches(user), items_per_page, 1)
     support_matches["items"] = serialize_matches(support_matches["items"], user)
 
     proposed_matches = get_paginated(UnconfirmedMatch.get_open_proposals(user), items_per_page, 1)
@@ -356,7 +386,11 @@ def frontend_data(user, items_per_page=10):
     profile_options = profile_data["options"]
     del profile_data["options"]
 
-    # TODO: populate incoming calls
+    # TODO: Currently incoming calls are only populated if the user was online when the incomin call was triggered
+    # This should be refactored so that we can actually tracka nd display whena user is currently in a call
+    
+    
+    #chats = ChatSerializer(Paginator(Chat.get_chats(user), items_per_page).page(1), many=True).data
     
     empty_list = {
         "items": [],
@@ -365,11 +399,13 @@ def frontend_data(user, items_per_page=10):
         "currentPage": 0,
     }
 
-
-    return {
+    frontend_data = {
         "user": {
             "id": user.hash,
             "isSearching": user_state.matching_state == State.MatchingStateChoices.SEARCHING,
+            "email": user.email,
+            "emailVerified": user.state.email_authenticated,
+            "userFormCompleted": user_state.user_form_state == State.UserFormStateChoices.FILLED,
             "profile": profile_data,
         },
         "communityEvents": community_events,
@@ -389,9 +425,16 @@ def frontend_data(user, items_per_page=10):
             "profile": profile_options,
         },
         "incomingCalls": [
+            # TODO: incoming calls should also be populated if one of the matches already is in a video call
+            # This enable the pop-up to also show after login when the match already is in the video call
             # { "userId": "592a5cc9-77f9-4f18-8354-25fa56e1e792-c9dcfc91-865f-4371-b695-b00bd1967c27"}
         ],
     }
+
+
+    return frontend_data
+
+
 
 @dataclass
 class UserDataV2Params:
@@ -448,9 +491,9 @@ class ConfirmedDataApi(APIView):
             # Retrieve confirmed matches using a utility function
             if is_matching_user:
                 # Cause for support users all matches are 'support' matches we return them as confirmed matches
-                matches = models.Match.get_support_matches(request.user)
+                matches = Match.get_support_matches(request.user)
             else:
-                matches = models.Match.get_confirmed_matches(request.user)
+                matches = Match.get_confirmed_matches(request.user)
             confirmed_matches = get_paginated(
                 matches,
                 items_per_page,

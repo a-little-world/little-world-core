@@ -1,8 +1,7 @@
 from channels.generic.websocket import AsyncWebsocketConsumer
 import json
 from asgiref.sync import sync_to_async
-from management.models import ConsumerConnections
-from management import models as management_models
+from management.models.consumer_connections import ConsumerConnections
 
 
 class CoreConsumer(AsyncWebsocketConsumer):
