@@ -1,4 +1,4 @@
-# Little World Backend
+# Little World Backend (v 0.92)
 
 The backend consists of a django application that is containerized using docker.
 Builds are manged using docker compose. 
