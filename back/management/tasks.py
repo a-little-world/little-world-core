@@ -2454,7 +2454,7 @@ def dispatch_admin_email_notification(subject, message):
     )
 
 @shared_task
-def request_streamed_ai_response(messages):
+def request_streamed_ai_response(messages, model="gpt-3.5-turbo", backend="default"):
     from openai import OpenAI
     from django.conf import settings
     from django.http import StreamingHttpResponse
@@ -2470,15 +2470,20 @@ def request_streamed_ai_response(messages):
     
     
     def get_base_ai_client():
-        return OpenAI(
-            api_key=settings.AI_OPENAI_API_KEY,
-        )
+        if backend == "default":
+            return OpenAI(
+                api_key=settings.AI_OPENAI_API_KEY,
+            )
+        else:
+            return OpenAI(
+                api_key=settings.AI_API_KEY
+            )
 
 
     client = get_base_ai_client()
 
     completion = client.chat.completions.create(
-        model='gpt-4',
+        model=model,
         messages=messages,
         temperature=0,
         stream=True  # this time, we set stream=True
