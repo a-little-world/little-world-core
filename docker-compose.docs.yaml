@@ -19,7 +19,7 @@ services:
         DJ_TWILIO_API_SECRET: ""
         DJ_CELERY_TIMEZONE: "Australia/Tasmania"
         DJ_TIME_ZONE: "UTC"
-      target: backend
+      target: docs-frontend
       context: .
     ports:
       - "8000:8000"

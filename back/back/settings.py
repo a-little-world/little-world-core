@@ -72,6 +72,19 @@ LANDINGPAGE_PLACEHOLDER_TITLE = os.environ.get("DJ_LANDINGPAGE_PLACEHOLDER_TITLE
 if IS_PROD and 'K8_POD_IP' in os.environ:
     # So that we can further restrict access to the depoloyment kubernetes node
     ALLOWED_HOSTS.append(os.environ['K8_POD_IP'])
+    
+    
+USE_SLACK_INTEGRATION = os.environ.get("DJ_USE_SLACK_INTEGRATION",  "false").lower() in ('true', '1', 't')
+SLACK_API_TOKEN = os.environ.get("DJ_SLACK_API_TOKEN",  "")
+SLACK_REPORT_CHANNEL_ID = os.environ.get("DJ_SLACK_REPORT_CHANNEL_ID",  "")
+SLACK_CALLBACK_SECRET = os.environ.get("DJ_SLACK_CALLBACK_SECRET",  "")
+
+USE_AI = os.environ.get("DJ_USE_AI", "false").lower() in ('true', '1', 't')
+AI_BASE_URL = os.environ.get("DJ_AI_BASE_URL", "http://localhost:8000")
+AI_API_KEY = os.environ.get("DJ_AI_API_KEY", "none")
+AI_LANGUAGE_MODEL = os.environ.get("DJ_AI_LANGUAGE_MODEL", "none")
+AI_OPENAI_MODEL = os.environ.get("DJ_AI_OPENAI_MODEL", "none")
+AI_OPENAI_API_KEY  = os.environ.get("DJ_AI_OPENAI_API_KEY", "none")
 
 """
 Own applications:
