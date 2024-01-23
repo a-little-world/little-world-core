@@ -175,7 +175,7 @@ class ProfileBase(models.Model):
         MALE = "male", pgettext_lazy(
             "profile.partner-gender.male", "Male only")
         FEMALE = "female", pgettext_lazy(
-            "profile.gender.female", "Female only")
+            "profile.partner-gender.female", "Female only")
 
     class GenderChoices(models.TextChoices):
         ANY = "any", pgettext_lazy("profile.gender.any", "Don't want to say")
@@ -334,6 +334,7 @@ class ProfileBase(models.Model):
     language_skill_description = models.TextField(
         default="", blank=True, max_length=300)
 
+    # TODO: depricated!!!
     class LanguageLevelChoices(models.TextChoices):
         """
         For all choices we allow to version a version for a volunteer 
@@ -342,24 +343,47 @@ class ProfileBase(models.Model):
         """
         LEVEL_0_VOL = "level-0.vol", pgettext_lazy(
             "profile.lang-level.level-0-vol", "any")
+
         LEVEL_0_LER = "level-0.ler", pgettext_lazy(
             "profile.lang-level.level-0-ler", "any")
 
         LEVEL_1_VOL = "level-1.vol", pgettext_lazy(
             "profile.lang-level.level-1-vol", "B1 = (everyday situations, stories, hopes)")
+
         LEVEL_1_LER = "level-1.ler", pgettext_lazy(
             "profile.lang-level.level-1-ler", "B1 = (everyday situations, stories, hopes)")
 
         LEVEL_2_VOL = "level-2.vol", pgettext_lazy(
             "profile.lang-level.level-2-vol", "B2 = (fluent & spontaneous conversations, current events)")
+
         LEVEL_2_LER = "level-2.ler", pgettext_lazy(
             "profile.lang-level.level-2-ler", "B2 = (fluent & spontaneous conversations, current events)")
 
         LEVEL_3_VOL = "level-3.vol", pgettext_lazy(
             "profile.lang-level.level-3-vol", "C1/C2 = (complex topics, hardly searching for words)")
+
         LEVEL_3_LER = "level-3.ler", pgettext_lazy(
             "profile.lang-level.level-3-ler", "C1/C2 = (complex topics, hardly searching for words)")
+        
+    class MinLangLevelPartnerChoices(models.TextChoices):
+        LEVEL_0 = "level-0", pgettext_lazy(
+            "profile.lang-level.level-0", "A1 & A2 (beginner level)")
 
+        LEVEL_1 = "level-1", pgettext_lazy(
+            "profile.lang-level.level-1", "B1 (everyday situations, stories)")
+
+        LEVEL_2 = "level-2", pgettext_lazy(
+            "profile.lang-level.level-2", "B2 (fluent & spontaneous conversations)")
+
+        LEVEL_3 = "level-3", pgettext_lazy(
+            "profile.lang-level.level-3", "C1/C2 (complex topics)")
+
+    min_lang_level_partner = models.CharField(
+        choices=MinLangLevelPartnerChoices.choices,
+        default=MinLangLevelPartnerChoices.LEVEL_0,
+        max_length=255)
+
+    # TODO: depricated!!!
     lang_level = models.CharField(
         choices=LanguageLevelChoices.choices,
         default=LanguageLevelChoices.LEVEL_0_VOL,
@@ -429,6 +453,9 @@ class ProfileBase(models.Model):
 
         LEVEL_3 = "level-3", pgettext_lazy(
             "profile.lang-level.level-3", "C1/C2 (complex topics)")
+
+        LEVEL_NATIVE_VOL = "level-4", pgettext_lazy(
+            "profile.lang-level.level-4-native.vol", "Native speaker")
 
     lang_skill = models.JSONField(default=base_lang_skill)
     
@@ -615,7 +642,7 @@ class SelfProfileSerializer(ProfileSerializer):
         fields = ['first_name', 'second_name', 'target_group', 'speech_medium',
                   'user_type', 'target_group', 'speech_medium',
                   'partner_location', 'postal_code', 'interests', 'availability',
-                  'lang_level', 'additional_interests', 'language_skill_description', 'birth_year', 'description',
+                  'lang_level', 'min_lang_level_partner', 'additional_interests', 'language_skill_description', 'birth_year', 'description',
                   'notify_channel', 'phone_mobile', 'image_type', 'avatar_config', 'image', 'lang_skill', 'gender', 
                   'partner_gender', 'liability_accepted', 'display_language', 'other_target_group', 'target_groups', 'newsletter_subscribed']
 
