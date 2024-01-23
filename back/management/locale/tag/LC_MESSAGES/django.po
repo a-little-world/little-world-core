@@ -192,7 +192,8 @@ msgstr ""
 #: management/api/admin.py:198
 msgid ""
 "\n"
-"If you are sure you want to match these users anyways, please set the 'force' flag to true"
+"If you are sure you want to match these users anyways, please set the "
+"'force' flag to true"
 msgstr ""
 
 #: management/api/admin.py:238
@@ -511,22 +512,39 @@ msgstr ""
 #| "\n"
 #| "Hallo {first_name}, ich bin Tim, Mitbegründer und CTO von Little World!\n"
 #| "\n"
-#| "Entschuldige, dass du warten musstest. Wir überarbeiten gerade einige Dinge an unserer Plattform und unserem Matching-Verfahren. Ich bin dein neuer Support-Nutzer und werde dir bei allen Fragen und Problemen helfen.\n"
+#| "Entschuldige, dass du warten musstest. Wir überarbeiten gerade einige "
+#| "Dinge an unserer Plattform und unserem Matching-Verfahren. Ich bin dein "
+#| "neuer Support-Nutzer und werde dir bei allen Fragen und Problemen "
+#| "helfen.\n"
 #| "\n"
-#| "Da du dich schon vor einiger Zeit registriert hast, wollte ich dich fragen, ob du noch aktiv auf der Suche bist? Antworte mir gerne mit einer schnellen Nachricht oder drücke kurz auf diesen Knopf: <a href=\"/user/still_active/\">Ich suche noch ein Match!</a>\n"
+#| "Da du dich schon vor einiger Zeit registriert hast, wollte ich dich "
+#| "fragen, ob du noch aktiv auf der Suche bist? Antworte mir gerne mit einer "
+#| "schnellen Nachricht oder drücke kurz auf diesen Knopf: <a href=\"/user/"
+#| "still_active/\">Ich suche noch ein Match!</a>\n"
 #| "\n"
-#| "Solange du auf dein Match wartest, kannst du dir schon mal den <a href=\"https://home.little-world.com/leitfaden\">Gesprächsleitfaden</a> anschauen. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.\n"
+#| "Solange du auf dein Match wartest, kannst du dir schon mal den <a href="
+#| "\"https://home.little-world.com/leitfaden\">Gesprächsleitfaden</a> "
+#| "anschauen. Hier findest du viele hilfreiche Tipps und Antworten auf "
+#| "mögliche Fragen.\n"
 #| "\n"
 #| "Viele Grüße aus Aachen 👋🏼\n"
 msgctxt "api.are-you-still-searching"
 msgid ""
 "Hallo {first_name}, ich bin Tim, Mitbegründer und CTO von Little World!\n"
 "\n"
-"Entschuldige, dass du warten musstest. Wir überarbeiten gerade einige Dinge an unserer Plattform und unserem Matching-Verfahren. Ich bin dein neuer Support-Nutzer und werde dir bei allen Fragen und Problemen helfen.\n"
+"Entschuldige, dass du warten musstest. Wir überarbeiten gerade einige Dinge "
+"an unserer Plattform und unserem Matching-Verfahren. Ich bin dein neuer "
+"Support-Nutzer und werde dir bei allen Fragen und Problemen helfen.\n"
 "\n"
-"Da du dich schon vor einiger Zeit registriert hast, wollte ich dich fragen, ob du noch aktiv auf der Suche bist? Antworte mir gerne mit einer schnellen Nachricht oder drücke kurz auf diesen Knopf: <a href=\"/user/still_active/\">Ich suche noch ein Match!</a>\n"
+"Da du dich schon vor einiger Zeit registriert hast, wollte ich dich fragen, "
+"ob du noch aktiv auf der Suche bist? Antworte mir gerne mit einer schnellen "
+"Nachricht oder drücke kurz auf diesen Knopf: <a href=\"/user/still_active/"
+"\">Ich suche noch ein Match!</a>\n"
 "\n"
-"Solange du auf dein Match wartest, kannst du dir schon mal den <a href=\"https://home.little-world.com/leitfaden\">Gesprächsleitfaden</a> anschauen. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.\n"
+"Solange du auf dein Match wartest, kannst du dir schon mal den <a href="
+"\"https://home.little-world.com/leitfaden\">Gesprächsleitfaden</a> "
+"anschauen. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche "
+"Fragen.\n"
 "\n"
 "Viele Grüße aus Aachen 👋🏼"
 msgstr "api.are-you-still-searching|{first_name}"
@@ -542,14 +560,29 @@ msgstr ""
 #| "\n"
 #| "Hallo {first_name} und herzlich willkommen bei Little World!\n"
 #| "\n"
-#| "Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil unserer Plattform geworden bist!\n"
+#| "Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein "
+#| "Teil unserer Plattform geworden bist!\n"
 #| "\n"
-#| "Aktuell arbeiten wir an einigen Aktualisierungen unserer Plattform und unseres Matching-Verfahrens und schätzen daher jedes <a href=\"/app/help\">Feedback</a>, das wir von dir erhalten.\n"
+#| "Aktuell arbeiten wir an einigen Aktualisierungen unserer Plattform und "
+#| "unseres Matching-Verfahrens und schätzen daher jedes <a href=\"/app/help"
+#| "\">Feedback</a>, das wir von dir erhalten.\n"
 #| "\n"
-#| "Während wir für dich ein passendes Match finden, kannst du gerne in unserem <a href=\"https://home.little-world.com/leitfaden\">Gesprächsleitfaden</a> stöbern. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.\n"
+#| "Während wir für dich ein passendes Match finden, kannst du gerne in "
+#| "unserem <a href=\"https://home.little-world.com/leitfaden"
+#| "\">Gesprächsleitfaden</a> stöbern. Hier findest du viele hilfreiche Tipps "
+#| "und Antworten auf mögliche Fragen.\n"
 #| "\n"
-#| "Falls du Lust und Zeit hast, uns weiter zu unterstützen, würden wir uns sehr über deine Teilnahme an unserer Umfrage freuen. \n"
-#| "Zwei Studentinnen der Uni Siegen, Natalia und Sandra, würden dich gerne zur Verbesserung von Little World interviewen. Das Interview dauert etwa 30-45 Minuten und dient dazu, uns dabei zu helfen, unseren Service zu verbessern. Natürlich bleiben deine Antworten anonym und werden nicht veröffentlicht. Wenn du interessiert bist, kannst du Natalia unter <a href=\"mailto:natalia.romancheva@student.uni-siegen.de?subject=Interview\">natalia.romancheva@student.uni-siegen.de</a> oder Sandra unter <a href=\"mailto:sandra.butzek@student.uni-siegen.de?subject=Interview\">sandra.butzek@student.uni-siegen.de</a> kontaktieren.\n"
+#| "Falls du Lust und Zeit hast, uns weiter zu unterstützen, würden wir uns "
+#| "sehr über deine Teilnahme an unserer Umfrage freuen. \n"
+#| "Zwei Studentinnen der Uni Siegen, Natalia und Sandra, würden dich gerne "
+#| "zur Verbesserung von Little World interviewen. Das Interview dauert etwa "
+#| "30-45 Minuten und dient dazu, uns dabei zu helfen, unseren Service zu "
+#| "verbessern. Natürlich bleiben deine Antworten anonym und werden nicht "
+#| "veröffentlicht. Wenn du interessiert bist, kannst du Natalia unter <a "
+#| "href=\"mailto:natalia.romancheva@student.uni-siegen.de?subject=Interview"
+#| "\">natalia.romancheva@student.uni-siegen.de</a> oder Sandra unter <a href="
+#| "\"mailto:sandra.butzek@student.uni-siegen.de?subject=Interview\">sandra."
+#| "butzek@student.uni-siegen.de</a> kontaktieren.\n"
 #| "\n"
 #| "Vielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!\n"
 #| "    "
@@ -557,11 +590,17 @@ msgctxt "api.register-welcome-message-text"
 msgid ""
 "Hallo {first_name} und herzlich willkommen bei Little World!\n"
 "\n"
-"Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil unserer Plattform geworden bist!\n"
+"Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil "
+"unserer Plattform geworden bist!\n"
 "\n"
-"Aktuell arbeiten wir an einigen Aktualisierungen unserer Plattform und unseres Matching-Verfahrens und schätzen daher jedes <a href=\"/app/help\">Feedback</a>, das wir von dir erhalten.\n"
+"Aktuell arbeiten wir an einigen Aktualisierungen unserer Plattform und "
+"unseres Matching-Verfahrens und schätzen daher jedes <a href=\"/app/help"
+"\">Feedback</a>, das wir von dir erhalten.\n"
 "\n"
-"Während wir für dich ein passendes Match finden, kannst du gerne in unserem <a href=\"https://home.little-world.com/leitfaden\">Gesprächsleitfaden</a> stöbern. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.\n"
+"Während wir für dich ein passendes Match finden, kannst du gerne in unserem "
+"<a href=\"https://home.little-world.com/leitfaden\">Gesprächsleitfaden</a> "
+"stöbern. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche "
+"Fragen.\n"
 "\n"
 "Vielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!"
 msgstr "api.register-welcome-message-text|{first_name}"
@@ -572,19 +611,24 @@ msgctxt "api.register-invite-pre-match-interview"
 msgid ""
 "Hallo {first_name} und herzlich willkommen bei Little World!\n"
 "\n"
-"Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil unserer Plattform geworden bist!\n"
+"Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil "
+"unserer Plattform geworden bist!\n"
 "\n"
-"Bevors richtig los geht musst du mit mir einen 15 minuetigen video call termin vereinbaren. \n"
+"Bevors richtig los geht musst du mit mir einen 15 minuetigen video call "
+"termin vereinbaren. \n"
 "                                                    \n"
-"Dort werden wir zusmmen deine such angaben ueberpruefen und ich werde dir die nachsten schritte zur teilnahme bei little world erklaern.\n"
+"Dort werden wir zusmmen deine such angaben ueberpruefen und ich werde dir "
+"die nachsten schritte zur teilnahme bei little world erklaern.\n"
 "                                                    \n"
 "Bitte buche dafuer einen termin in dem volgenden kalender: \n"
-"<button data-cal-link=\"{calcom_meeting_id}?{encoded_params}\"  data-cal-config='{{\"layout\":\"month_view\"}}'>Book a meeting</button>\n"
+"<button data-cal-link=\"{calcom_meeting_id}?{encoded_params}\"  data-cal-"
+"config='{{\"layout\":\"month_view\"}}'>Book a meeting</button>\n"
 "\n"
-"Falls hier garnix passt oder du andere fragen hast schreib mir einfach hier eine Nachricht."
+"Falls hier garnix passt oder du andere fragen hast schreib mir einfach hier "
+"eine Nachricht."
 msgstr ""
-"api.register-invite-pre-match-"
-"interview|{first_name},{calcom_meeting_id},{encoded_params}"
+"api.register-invite-pre-match-interview|{first_name},{calcom_meeting_id},"
+"{encoded_params}"
 
 #: management/controller.py:378 management/controller.py:379
 #, python-format
@@ -597,18 +641,24 @@ msgstr ""
 #| msgid ""
 #| "Glückwunsch, wir haben jemanden für dich gefunden! \n"
 #| "\n"
-#| "Am besten vereinbarst du direkt einen Termin mit {other_name} für euer erstes Gespräch – das klappt meist besser als viele Nachrichten. \n"
-#| "Unterhalten könnt ihr euch zur vereinbarten Zeit auf Little World indem du oben rechts auf das Anruf-Symbol drückt. \n"
-#| "Schau dir gerne schon vorher das Profil von {other_name} an, indem du auf den Namen drückst. \n"
+#| "Am besten vereinbarst du direkt einen Termin mit {other_name} für euer "
+#| "erstes Gespräch – das klappt meist besser als viele Nachrichten. \n"
+#| "Unterhalten könnt ihr euch zur vereinbarten Zeit auf Little World indem "
+#| "du oben rechts auf das Anruf-Symbol drückt. \n"
+#| "Schau dir gerne schon vorher das Profil von {other_name} an, indem du auf "
+#| "den Namen drückst. \n"
 #| "\n"
 #| "Damit euch viel Spaß! Schöne Grüße vom Team Little World"
 msgctxt "api.match-made-message-text"
 msgid ""
 "Glückwunsch, wir haben jemanden für dich gefunden! \n"
 "\n"
-"    Am besten vereinbarst du direkt einen Termin mit {other_name} für euer erstes Gespräch – das klappt meist besser als viele Nachrichten. \n"
-"    Unterhalten könnt ihr euch zur vereinbarten Zeit auf Little World indem du oben rechts auf das Anruf-Symbol drückt. \n"
-"    Schau dir gerne schon vorher das Profil von {other_name} an, indem du auf den Namen drückst. \n"
+"    Am besten vereinbarst du direkt einen Termin mit {other_name} für euer "
+"erstes Gespräch – das klappt meist besser als viele Nachrichten. \n"
+"    Unterhalten könnt ihr euch zur vereinbarten Zeit auf Little World indem "
+"du oben rechts auf das Anruf-Symbol drückt. \n"
+"    Schau dir gerne schon vorher das Profil von {other_name} an, indem du "
+"auf den Namen drückst. \n"
 "\n"
 "    Damit euch viel Spaß! Schöne Grüße vom Team Little World"
 msgstr "api.match-made-message-text|{other_name},{other_name}"
@@ -1454,7 +1504,7 @@ msgstr "tasks.unread-notifications-email-subject"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #: management/tasks.py:2420
 #, fuzzy
 msgctxt "api.match-still-in-contact-email-subject"
@@ -1472,8 +1522,7 @@ msgstr "val.first-name-unallowed-chars|{chars}"
 #: management/validators.py:72
 #, fuzzy, python-brace-format
 #| msgctxt "val.second-name-too-many-spaces"
-#| msgid ""
-#| "It is maximum one space allowed in the Second Name, but you have %i"
+#| msgid "It is maximum one space allowed in the Second Name, but you have %i"
 msgctxt "val.second-name-too-many-spaces"
 msgid ""
 "It is maximum one space allowed in the Second Name, but you have {count}"
@@ -1734,7 +1783,6 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgid "Willkommen bei Little World"
 #~ msgstr "email.welcome.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.welcome.greeting"
 #~ msgid "Hallo {first_name}"
 #~ msgstr "email.welcome.greeting|{first_name}"
@@ -1749,7 +1797,6 @@ msgstr "info-view.set-password-reset.linkText"
 #~ "diese bitte mit einem Klick auf den Knopf unten, oder gib den Code: "
 #~ msgstr "email.welcome.content-body-text"
 
-#, python-brace-format
 #~ msgctxt "email.welcome.link-box-text"
 #~ msgid "{verification_code}"
 #~ msgstr "email.welcome.link-box-text|{verification_code}"
@@ -1758,7 +1805,7 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgid "E-Mail bestätigen"
 #~ msgstr "email.welcome.button-text"
 
-#, fuzzy, python-brace-format
+#, fuzzy
 #~ msgctxt "email.welcome.button-link"
 #~ msgid "{verification_url}"
 #~ msgstr "email.welcome.button-link|{verification_url}"
@@ -1769,8 +1816,8 @@ msgstr "info-view.set-password-reset.linkText"
 
 #~ msgctxt "email.welcome.footer-text"
 #~ msgid ""
-#~ "Solltest du dich nicht bei Little World registriert haben, kannst du diese "
-#~ "E-Mail ignorieren."
+#~ "Solltest du dich nicht bei Little World registriert haben, kannst du "
+#~ "diese E-Mail ignorieren."
 #~ msgstr "email.welcome.footer-text"
 
 #~ msgctxt "email.welcome.goodbye"
@@ -1781,26 +1828,22 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgid "Dein Little World Team"
 #~ msgstr "email.welcome.goodbye-name"
 
-#, python-brace-format
 #~ msgctxt "email.match.subject-header-text"
 #~ msgid ""
 #~ "Glückwunsch!\n"
 #~ "Lerne jetzt {match_first_name} kennen"
 #~ msgstr "email.match.subject-header-text|{match_first_name}"
 
-#, python-brace-format
 #~ msgctxt "email.match.greeting"
 #~ msgid "Hallo {first_name}"
 #~ msgstr "email.match.greeting|{first_name}"
 
-#, python-brace-format
 #~ msgctxt "email.match.content-start-text"
 #~ msgid ""
 #~ "wir freuen uns, dir mitteilen zu können, dass wir {match_first_name} als "
 #~ "Gesprächspartner:in für dich gefunden haben!"
 #~ msgstr "email.match.content-start-text|{match_first_name}"
 
-#, python-brace-format
 #~ msgctxt "email.match.content-body-text"
 #~ msgid ""
 #~ "Kontaktiere {match_first_name} einfach über Little World um ein erstes "
@@ -1811,18 +1854,16 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.match.link-box-text"
 #~ msgid ""
 #~ msgstr "email.match.link-box-text"
 
-#, python-brace-format
 #~ msgctxt "email.match.button-text"
 #~ msgid "{match_first_name} kennenlernen"
 #~ msgstr "email.match.button-text|{match_first_name}"
 
-#, python-brace-format
 #~ msgctxt "email.match.button-link"
 #~ msgid "{profile_link_url}"
 #~ msgstr "email.match.button-link|{profile_link_url}"
@@ -1831,7 +1872,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.match.below-link-text"
 #~ msgid ""
@@ -1839,8 +1880,8 @@ msgstr "info-view.set-password-reset.linkText"
 
 #~ msgctxt "email.match.footer-text"
 #~ msgid ""
-#~ "Eines unserer Teammitglieder kann euch dabei gerne begleiten. Schreib Oliver"
-#~ " (Support) dafür einfach eine kurze Nachricht."
+#~ "Eines unserer Teammitglieder kann euch dabei gerne begleiten. Schreib "
+#~ "Oliver (Support) dafür einfach eine kurze Nachricht."
 #~ msgstr "email.match.footer-text"
 
 #~ msgctxt "email.match.goodbye"
@@ -1855,15 +1896,14 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgid "Account erfolgreich gelöscht"
 #~ msgstr "email.account_deleted.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.account_deleted.greeting"
 #~ msgid "Hallo {first_name}"
 #~ msgstr "email.account_deleted.greeting|{first_name}"
 
 #~ msgctxt "email.account_deleted.content-start-text"
 #~ msgid ""
-#~ "Wir möchten dich darüber informieren, dass dein Account erfolgreich gelöscht"
-#~ " wurde."
+#~ "Wir möchten dich darüber informieren, dass dein Account erfolgreich "
+#~ "gelöscht wurde."
 #~ msgstr "email.account_deleted.content-start-text"
 
 #~ msgctxt "email.account_deleted.content-body-text"
@@ -1876,7 +1916,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.account_deleted.link-box-text"
 #~ msgid ""
@@ -1886,7 +1926,6 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgid "Neuen Account erstellen"
 #~ msgstr "email.account_deleted.button-text"
 
-#, python-brace-format
 #~ msgctxt "email.account_deleted.button-link"
 #~ msgid "{registration_link_url}"
 #~ msgstr "email.account_deleted.button-link|{registration_link_url}"
@@ -1914,24 +1953,23 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgid "Neue Bekanntschaften suchen auf Little World"
 #~ msgstr "email.new-match-search.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.new-match-search.greeting"
 #~ msgid "Hallo {first_name}"
 #~ msgstr "email.new-match-search.greeting|{first_name}"
 
 #~ msgctxt "email.new-match-search.content-start-text"
 #~ msgid ""
-#~ "Du hast dich entschieden, deinen aktuellen Vorschlag nicht anzunehmen. Kein "
-#~ "Problem! Es warten noch viele andere interessante Bekanntschaften auf dich. "
-#~ "Melde dich einfach wieder bei Little World an und starte deine Suche nach "
-#~ "neuen Bekanntschaften aus aller Welt."
+#~ "Du hast dich entschieden, deinen aktuellen Vorschlag nicht anzunehmen. "
+#~ "Kein Problem! Es warten noch viele andere interessante Bekanntschaften "
+#~ "auf dich. Melde dich einfach wieder bei Little World an und starte deine "
+#~ "Suche nach neuen Bekanntschaften aus aller Welt."
 #~ msgstr "email.new-match-search.content-start-text"
 
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.new-match-search.content-body-text"
 #~ msgid ""
@@ -1941,7 +1979,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.new-match-search.link-box-text"
 #~ msgid ""
@@ -1959,7 +1997,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.new-match-search.below-link-text"
 #~ msgid ""
@@ -1969,7 +2007,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.new-match-search.footer-text"
 #~ msgid ""
@@ -1987,7 +2025,6 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgid "Einladung zu einem Online-Interview mit Natalia"
 #~ msgstr "email.interview-invitation-email.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.interview-invitation-email.greeting"
 #~ msgid "Hallo {first_name}!"
 #~ msgstr "email.interview-invitation-email.greeting|{first_name}"
@@ -1997,18 +2034,19 @@ msgstr "info-view.set-password-reset.linkText"
 #~ "Mein Name ist Natalia und ich bin derzeit Studentin an der Universität "
 #~ "Siegen im Bereich         Human Computer Interaction. Im Rahmen meiner "
 #~ "Projektarbeit mit Little World führe ich         Online-Interviews (auf "
-#~ "Englisch) durch. Das Thema der Interviews ist deine Motivation zur         "
-#~ "Teilnahme auf und Erweiterungen von Little World."
+#~ "Englisch) durch. Das Thema der Interviews ist deine Motivation "
+#~ "zur         Teilnahme auf und Erweiterungen von Little World."
 #~ msgstr "email.interview-invitation-email.content-start-text"
 
 #~ msgctxt "email.interview-invitation-email.content-body-text"
 #~ msgid ""
 #~ "Wenn du helfen möchtest die Plattform für andere Benutzer:innen zu "
-#~ "verbessern oder du         mich einfach in meiner Projektarbeit unterstützen"
-#~ " möchtest, dann melde dich bitte bei mir.         Nimm gerne einen Kaffee "
-#~ "oder Tee zum Online-Interview mit, es wird alles ganz entspannt         und "
-#~ "dauert 60-80 Minuten. Ich freue mich auf einen lebhaften Ideenaustausch mit "
-#~ "dir!         Bitte hilf mir in der Projektarbeit und schreibe mir unter:"
+#~ "verbessern oder du         mich einfach in meiner Projektarbeit "
+#~ "unterstützen möchtest, dann melde dich bitte bei mir.         Nimm gerne "
+#~ "einen Kaffee oder Tee zum Online-Interview mit, es wird alles ganz "
+#~ "entspannt         und dauert 60-80 Minuten. Ich freue mich auf einen "
+#~ "lebhaften Ideenaustausch mit dir!         Bitte hilf mir in der "
+#~ "Projektarbeit und schreibe mir unter:"
 #~ msgstr "email.interview-invitation-email.content-body-text"
 
 #~ msgctxt "email.interview-invitation-email.button-text"
@@ -2021,16 +2059,16 @@ msgstr "info-view.set-password-reset.linkText"
 
 #~ msgctxt "email.interview-invitation-email.below-link-text"
 #~ msgid ""
-#~ "PS: das Team von Little World hat diese E-Mail im Namen von Natalia an dich "
-#~ "weitergeleitet.         Solltest du in Zukunft keine Interview-Bitten mehr "
-#~ "erhalten wollen, so klicke bitte auf E-Mail Abmelden."
+#~ "PS: das Team von Little World hat diese E-Mail im Namen von Natalia an "
+#~ "dich weitergeleitet.         Solltest du in Zukunft keine Interview-"
+#~ "Bitten mehr erhalten wollen, so klicke bitte auf E-Mail Abmelden."
 #~ msgstr "email.interview-invitation-email.below-link-text"
 
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.interview-invitation-email.footer-text"
 #~ msgid ""
@@ -2040,7 +2078,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.interview-invitation-email.goodbye"
 #~ msgid ""
@@ -2054,7 +2092,6 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgid "Interviewanfrage für ein Universitätsprojekt"
 #~ msgstr "email.interview-request-email.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.interview-request-email.greeting"
 #~ msgid "Hallo {first_name},"
 #~ msgstr "email.interview-request-email.greeting|{first_name}"
@@ -2062,15 +2099,15 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgctxt "email.interview-request-email.content-start-text"
 #~ msgid ""
 #~ "Unsere zwei Studentinnen Natalia und Sandra suchen noch 5 weitere "
-#~ "Ehrenamtliche für ein Interview.         Hast du zwischen 30 und 60 Minuten "
-#~ "Zeit, ihnen zu helfen?"
+#~ "Ehrenamtliche für ein Interview.         Hast du zwischen 30 und 60 "
+#~ "Minuten Zeit, ihnen zu helfen?"
 #~ msgstr "email.interview-request-email.content-start-text"
 
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.interview-request-email.link-box-text"
 #~ msgid ""
@@ -2090,7 +2127,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.interview-request-email.below-link-text"
 #~ msgid ""
@@ -2100,7 +2137,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.interview-request-email.footer-text"
 #~ msgid ""
@@ -2118,7 +2155,6 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgid "Umfrage beenden für Bekanntschaften aus aller Welt"
 #~ msgstr "email.unfinished-user-form-1.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.unfinished-user-form-1.greeting"
 #~ msgid "Hallo {first_name}"
 #~ msgstr "email.unfinished-user-form-1.greeting|{first_name}"
@@ -2135,7 +2171,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.unfinished-user-form-1.content-body-text"
 #~ msgid ""
@@ -2145,7 +2181,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.unfinished-user-form-1.link-box-text"
 #~ msgid ""
@@ -2163,7 +2199,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.unfinished-user-form-1.below-link-text"
 #~ msgid ""
@@ -2173,7 +2209,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.unfinished-user-form-1.footer-text"
 #~ msgid ""
@@ -2191,7 +2227,6 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgid "Mit 30 Minuten helfen - Umfrage beenden"
 #~ msgstr "email.unfinished-user-form-2.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.unfinished-user-form-2.greeting"
 #~ msgid "Hallo {first_name}"
 #~ msgstr "email.unfinished-user-form-2.greeting|{first_name}"
@@ -2199,15 +2234,15 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgctxt "email.unfinished-user-form-2.content-start-text"
 #~ msgid ""
 #~ "Dein Engagement zählt! Willst du Teil der Gemeinschaft von Little World "
-#~ "werden und tolle Menschen aus aller Welt kennenlernen? Beende dafür in nur 5"
-#~ " Minuten unsere Umfrage:"
+#~ "werden und tolle Menschen aus aller Welt kennenlernen? Beende dafür in "
+#~ "nur 5 Minuten unsere Umfrage:"
 #~ msgstr "email.unfinished-user-form-2.content-start-text"
 
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.unfinished-user-form-2.content-body-text"
 #~ msgid ""
@@ -2217,7 +2252,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.unfinished-user-form-2.link-box-text"
 #~ msgid ""
@@ -2235,17 +2270,16 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.unfinished-user-form-2.below-link-text"
 #~ msgid ""
 #~ msgstr "email.unfinished-user-form-2.below-link-text"
 
-#, python-brace-format
 #~ msgctxt "email.unfinished-user-form-2.footer-text"
 #~ msgid ""
-#~ "Du hast Fragen? Wir sind für dich da! Ruf an unter {team_phone} oder schreib"
-#~ " uns unter {team_email}. Wir helfen dir gerne"
+#~ "Du hast Fragen? Wir sind für dich da! Ruf an unter {team_phone} oder "
+#~ "schreib uns unter {team_email}. Wir helfen dir gerne"
 #~ msgstr "email.unfinished-user-form-2.footer-text|{team_phone},{team_email}"
 
 #~ msgctxt "email.unfinished-user-form-2.goodbye"
@@ -2256,29 +2290,26 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgid "Dein Little World Team"
 #~ msgstr "email.email.unfinished-user-form-2.goodbye.goodbye-name"
 
-#, python-brace-format
 #~ msgctxt "email.still-in-contact.subject-header-text"
 #~ msgid "Noch in Kontakt mit {match_name}?"
 #~ msgstr "email.still-in-contact.subject-header-text|{match_name}"
 
-#, python-brace-format
 #~ msgctxt "email.still-in-contact.greeting"
 #~ msgid "Hallo {first_name},"
 #~ msgstr "email.still-in-contact.greeting|{first_name}"
 
-#, python-brace-format
 #~ msgctxt "email.still-in-contact.content-start-text"
 #~ msgid ""
-#~ "wie geht es dir und {match_name}? Wir hoffen, eure Gespräche bereiten euch "
-#~ "weiterhin viel Freude. Bitte gib uns eine kurze Rückmeldung für unsere "
-#~ "Wirkungsmessung: Unterhältst du dich noch mit {match_name}?"
+#~ "wie geht es dir und {match_name}? Wir hoffen, eure Gespräche bereiten "
+#~ "euch weiterhin viel Freude. Bitte gib uns eine kurze Rückmeldung für "
+#~ "unsere Wirkungsmessung: Unterhältst du dich noch mit {match_name}?"
 #~ msgstr "email.still-in-contact.content-start-text|{match_name},{match_name}"
 
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.still-in-contact.content-body-text"
 #~ msgid ""
@@ -2288,7 +2319,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.still-in-contact.link-box-text"
 #~ msgid ""
@@ -2314,7 +2345,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.still-in-contact.below-link-text"
 #~ msgid ""
@@ -2324,7 +2355,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.still-in-contact.footer-text"
 #~ msgid ""
@@ -2342,7 +2373,6 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgid "Bitte bestätige deine E-Mail-Adresse für Little World"
 #~ msgstr "email.email-verification-reminder.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.email-verification-reminder.greeting"
 #~ msgid "Hallo {first_name}"
 #~ msgstr "email.email-verification-reminder.greeting|{first_name}"
@@ -2350,16 +2380,16 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgctxt "email.email-verification-reminder.content-start-text"
 #~ msgid ""
 #~ "du hast dich kürzlich bei Little World registriert, aber deine E-Mail-"
-#~ "Adresse noch nicht bestätigt. Um alle Funktionen unserer Plattform nutzen zu"
-#~ " können und mit Menschen aus aller Welt in Kontakt zu treten, bitten wir "
-#~ "dich, deine E-Mail-Adresse zu bestätigen."
+#~ "Adresse noch nicht bestätigt. Um alle Funktionen unserer Plattform nutzen "
+#~ "zu können und mit Menschen aus aller Welt in Kontakt zu treten, bitten "
+#~ "wir dich, deine E-Mail-Adresse zu bestätigen."
 #~ msgstr "email.email-verification-reminder.content-start-text"
 
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.email-verification-reminder.content-body-text"
 #~ msgid ""
@@ -2369,7 +2399,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.email-verification-reminder.link-box-text"
 #~ msgid ""
@@ -2387,7 +2417,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.email-verification-reminder.below-link-text"
 #~ msgid ""
@@ -2397,7 +2427,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.email-verification-reminder.footer-text"
 #~ msgid ""
@@ -2415,23 +2445,22 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgid "Match gefunden - jetzt bestätigen"
 #~ msgstr "email.confirm-match-1.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.confirm-match-1.greeting"
 #~ msgid "Hallo {first_name}"
 #~ msgstr "email.confirm-match-1.greeting|{first_name}"
 
-#, python-brace-format
 #~ msgctxt "email.confirm-match-1.content-start-text"
 #~ msgid ""
-#~ "{match_first_name} freut sich schon darauf, dich kennenzulernen! Ihr scheint"
-#~ " auch schon eine Menge gemeinsam zu haben. Was das ist, erfährst Du hier:"
+#~ "{match_first_name} freut sich schon darauf, dich kennenzulernen! Ihr "
+#~ "scheint auch schon eine Menge gemeinsam zu haben. Was das ist, erfährst "
+#~ "Du hier:"
 #~ msgstr "email.confirm-match-1.content-start-text|{match_first_name}"
 
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.confirm-match-1.content-body-text"
 #~ msgid ""
@@ -2441,7 +2470,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.confirm-match-1.link-box-text"
 #~ msgid ""
@@ -2459,17 +2488,18 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.confirm-match-1.below-link-text"
 #~ msgid ""
 #~ msgstr "email.confirm-match-1.below-link-text"
 
-#, python-brace-format
 #~ msgctxt "email.confirm-match-1.footer-text"
 #~ msgid ""
-#~ "Dort kannst du auch den Gesprächsvorschlag mit {match_first_name} annehmen. \n"
-#~ "Du hast Fragen? Wir sind für dich da! Ruf an unter 015234777471 oder schreib uns unter support@little-world.com. Wir helfen dir gerne"
+#~ "Dort kannst du auch den Gesprächsvorschlag mit {match_first_name} "
+#~ "annehmen. \n"
+#~ "Du hast Fragen? Wir sind für dich da! Ruf an unter 015234777471 oder "
+#~ "schreib uns unter support@little-world.com. Wir helfen dir gerne"
 #~ msgstr "email.confirm-match-1.footer-text|{match_first_name}"
 
 #~ msgctxt "email.confirm-match-1.goodbye"
@@ -2484,25 +2514,26 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgid "Dein match wartet - höchste Zeit zu bestätigen"
 #~ msgstr "email.confirm-match-2.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.confirm-match-2.greeting"
 #~ msgid "Hallo {first_name}"
 #~ msgstr "email.confirm-match-2.greeting|{first_name}"
 
-#, python-brace-format
 #~ msgctxt "email.confirm-match-2.content-start-text"
 #~ msgid ""
-#~ "du hattest vor Kurzem eine Übereinstimmung auf der Plattform Little World. Gerne würde sich {match_first_name} mit dir unterhalten! Um ihn/sie allerdings nicht zu lange warten zu lassen, werden wir {match_first_name} weitervermitteln, sollten wir nichts von dir hören.\n"
+#~ "du hattest vor Kurzem eine Übereinstimmung auf der Plattform Little "
+#~ "World. Gerne würde sich {match_first_name} mit dir unterhalten! Um ihn/"
+#~ "sie allerdings nicht zu lange warten zu lassen, werden wir "
+#~ "{match_first_name} weitervermitteln, sollten wir nichts von dir hören.\n"
 #~ "Du möchtest mehr über {match_first_name} erfahren? Dann klicke hier: "
 #~ msgstr ""
-#~ "email.confirm-match-2.content-start-"
-#~ "text|{match_first_name},{match_first_name},{match_first_name}"
+#~ "email.confirm-match-2.content-start-text|{match_first_name},"
+#~ "{match_first_name},{match_first_name}"
 
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.confirm-match-2.content-body-text"
 #~ msgid ""
@@ -2512,7 +2543,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.confirm-match-2.link-box-text"
 #~ msgid ""
@@ -2530,20 +2561,21 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.confirm-match-2.below-link-text"
 #~ msgid ""
 #~ msgstr "email.confirm-match-2.below-link-text"
 
-#, python-brace-format
 #~ msgctxt "email.confirm-match-2.footer-text"
 #~ msgid ""
-#~ "Dort kannst du auch den Gesprächsvorschlag mit {match_first_name} annehmen. \n"
-#~ "Du hast Fragen? Wir sind für dich da! Ruf an unter {team_phone} oder schreib uns unter {team_email}. Wir helfen dir gerne"
+#~ "Dort kannst du auch den Gesprächsvorschlag mit {match_first_name} "
+#~ "annehmen. \n"
+#~ "Du hast Fragen? Wir sind für dich da! Ruf an unter {team_phone} oder "
+#~ "schreib uns unter {team_email}. Wir helfen dir gerne"
 #~ msgstr ""
-#~ "email.confirm-match-2.footer-"
-#~ "text|{match_first_name},{team_phone},{team_email}"
+#~ "email.confirm-match-2.footer-text|{match_first_name},{team_phone},"
+#~ "{team_email}"
 
 #~ msgctxt "email.confirm-match-2.goodbye"
 #~ msgid "Beste Grüße,"
@@ -2557,15 +2589,15 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgid "Dein Match ist abgelaufen - Finde einen neuen Partner"
 #~ msgstr "email.match-expired.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.match-expired.greeting"
 #~ msgid "Hallo {first_name}"
 #~ msgstr "email.match-expired.greeting|{first_name}"
 
-#, python-brace-format
 #~ msgctxt "email.match-expired.content-start-text"
 #~ msgid ""
-#~ "leider ist die Zeit abgelaufen, um {match_first_name} auf der Plattform Little World zu bestätigen. Aber keine Sorge, du kannst dich einloggen und nach einem neuen Match suchen.\n"
+#~ "leider ist die Zeit abgelaufen, um {match_first_name} auf der Plattform "
+#~ "Little World zu bestätigen. Aber keine Sorge, du kannst dich einloggen "
+#~ "und nach einem neuen Match suchen.\n"
 #~ "Möchtest du jetzt nach einem neuen Match suchen? Dann klicke hier: "
 #~ msgstr "email.match-expired.content-start-text|{match_first_name}"
 
@@ -2573,7 +2605,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.match-expired.content-body-text"
 #~ msgid ""
@@ -2583,7 +2615,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.match-expired.link-box-text"
 #~ msgid ""
@@ -2601,17 +2633,16 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.match-expired.below-link-text"
 #~ msgid ""
 #~ msgstr "email.match-expired.below-link-text"
 
-#, python-brace-format
 #~ msgctxt "email.match-expired.footer-text"
 #~ msgid ""
-#~ "Du hast Fragen? Wir sind für dich da! Ruf an unter {team_phone} oder schreib"
-#~ " uns unter {team_email}. Wir helfen dir gerne"
+#~ "Du hast Fragen? Wir sind für dich da! Ruf an unter {team_phone} oder "
+#~ "schreib uns unter {team_email}. Wir helfen dir gerne"
 #~ msgstr "email.match-expired.footer-text|{team_phone},{team_email}"
 
 #~ msgctxt "email.match-expired.goodbye"
@@ -2626,25 +2657,23 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgid "Einladung zum Online-Interview mit Aniqa"
 #~ msgstr "email.interview-invitation.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.interview-invitation.greeting"
 #~ msgid "Hallo {first_name}!"
 #~ msgstr "email.interview-invitation.greeting|{first_name}"
 
 #~ msgctxt "email.interview-invitation.content-start-text"
 #~ msgid ""
-#~ "Mein Name ist Aniqa und ich bin derzeit Studentin an der Universität Siegen "
-#~ "im Bereich Human Computer Interaction. Im Rahmen meiner Projektarbeit mit "
-#~ "Little World führe ich Online-Interviews mit (englischsprachigen) "
-#~ "Ehrenamtlichen durch, um die Nutzererfahrungen mit Little World besser zu "
-#~ "verstehen."
+#~ "Mein Name ist Aniqa und ich bin derzeit Studentin an der Universität "
+#~ "Siegen im Bereich Human Computer Interaction. Im Rahmen meiner "
+#~ "Projektarbeit mit Little World führe ich Online-Interviews mit "
+#~ "(englischsprachigen) Ehrenamtlichen durch, um die Nutzererfahrungen mit "
+#~ "Little World besser zu verstehen."
 #~ msgstr "email.interview-invitation.content-start-text"
 
 #~ msgctxt "email.interview-invitation.button-text"
 #~ msgid "Interview-Termin buchen"
 #~ msgstr "email.interview-invitation.button-text"
 
-#, python-brace-format
 #~ msgctxt "email.interview-invitation.button-link"
 #~ msgid "{link_url}"
 #~ msgstr "email.interview-invitation.button-link|{link_url}"
@@ -2656,8 +2685,8 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgctxt "email.interview-invitation.footer-text"
 #~ msgid ""
 #~ "PS: das Team von Little World hat diese E-Mail im Namen von Aniqa an dich "
-#~ "weitergeleitet. Solltest du in Zukunft keine Interview-Bitten mehr erhalten "
-#~ "wollen, so klicke bitte auf E-Mail Abmelden."
+#~ "weitergeleitet. Solltest du in Zukunft keine Interview-Bitten mehr "
+#~ "erhalten wollen, so klicke bitte auf E-Mail Abmelden."
 #~ msgstr "email.interview-invitation.footer-text"
 
 #~ msgctxt "email.interview-invitation.goodbye"
@@ -2668,7 +2697,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.email.interview-invitation.goodbye.goodbye-name"
 #~ msgid ""
@@ -2678,7 +2707,6 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgid "Studentin bittet um Unterstützung – Umfrage bei Little World"
 #~ msgstr "email.survey-invitation.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.survey-invitation.greeting"
 #~ msgid "Hallo {first_name},"
 #~ msgstr "email.survey-invitation.greeting|{first_name}"
@@ -2699,7 +2727,6 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgid "Zur Umfrage"
 #~ msgstr "email.survey-invitation.button-text"
 
-#, python-brace-format
 #~ msgctxt "email.survey-invitation.button-link"
 #~ msgid "{link_url}"
 #~ msgstr "email.survey-invitation.button-link|{link_url}"
@@ -2712,7 +2739,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.survey-invitation.goodbye-name"
 #~ msgid ""
@@ -2722,27 +2749,25 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgid "Umfrage zur Verbesserung von Little World"
 #~ msgstr "email.survey.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.survey.greeting"
 #~ msgid "Hallo {first_name},"
 #~ msgstr "email.survey.greeting|{first_name}"
 
 #~ msgctxt "email.survey.content-start-text"
 #~ msgid ""
-#~ "wir möchten Little World für dich und andere Mitglieder weiter verbessern. "
-#~ "Du kannst uns dabei helfen, indem du unsere kurze 3-minütige Umfrage "
-#~ "ausfüllst und uns mitteilst, welche Gruppenangebote du dir noch wünschst.Auf"
-#~ " die Ergebnisse musst du aber nicht warten. Schon jetzt kannst du dich jeden"
-#~ " Dienstag ab 18 Uhr austauschen oder einfach nur zuhören – unverbindlich und"
-#~ " in einer kleinen Gruppe. Die beliebtesten Angebote aus unserer Umfrage "
-#~ "kommen dann Schritt für Schritt hinzu."
+#~ "wir möchten Little World für dich und andere Mitglieder weiter "
+#~ "verbessern. Du kannst uns dabei helfen, indem du unsere kurze 3-minütige "
+#~ "Umfrage ausfüllst und uns mitteilst, welche Gruppenangebote du dir noch "
+#~ "wünschst.Auf die Ergebnisse musst du aber nicht warten. Schon jetzt "
+#~ "kannst du dich jeden Dienstag ab 18 Uhr austauschen oder einfach nur "
+#~ "zuhören – unverbindlich und in einer kleinen Gruppe. Die beliebtesten "
+#~ "Angebote aus unserer Umfrage kommen dann Schritt für Schritt hinzu."
 #~ msgstr "email.survey.content-start-text"
 
 #~ msgctxt "email.survey.button-text"
 #~ msgid "ZUR UMFRAGE (google form)"
 #~ msgstr "email.survey.button-text"
 
-#, python-brace-format
 #~ msgctxt "email.survey.button-link"
 #~ msgid "{link_url}"
 #~ msgstr "email.survey.button-link|{link_url}"
@@ -2750,22 +2775,22 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgctxt "email.survey.content-body-text"
 #~ msgid ""
 #~ "<br></br>Den Austausch am Dienstag findest du nach dem Einloggen unter "
-#~ "\"Start\" und dann unter \"Kaffeeklatsch\" oder einfach über folgenden Link:"
+#~ "\"Start\" und dann unter \"Kaffeeklatsch\" oder einfach über folgenden "
+#~ "Link:"
 #~ msgstr "email.survey.content-body-text"
 
 #~ msgctxt "email.survey.link-box-text"
 #~ msgid ""
-#~ "<a "
-#~ "href=\"https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09\""
-#~ " style=\"color: "
-#~ "blue;\">https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09</a>"
+#~ "<a href=\"https://rwth.zoom.us/j/95770913582?"
+#~ "pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09\" style=\"color: blue;\">https://"
+#~ "rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09</a>"
 #~ msgstr "email.survey.link-box-text"
 
 # SOME DESCRIPTIVE TITLE.
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.survey.below-link-text"
 #~ msgid ""
@@ -2785,7 +2810,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.email.survey.goodbye.goodbye-name"
 #~ msgid ""
@@ -2796,7 +2821,6 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgid "Neue Nachrichten"
 #~ msgstr "email.new-unread-messages.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.new-unread-messages.greeting"
 #~ msgid "Hallo {first_name}"
 #~ msgstr "email.new-unread-messages.greeting|{first_name}"
@@ -2812,7 +2836,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.new-unread-messages.content-body-text"
 #~ msgid ""
@@ -2822,7 +2846,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.new-unread-messages.link-box-text"
 #~ msgid ""
@@ -2841,7 +2865,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.new-unread-messages.below-link-text"
 #~ msgid ""
@@ -2851,7 +2875,7 @@ msgstr "info-view.set-password-reset.linkText"
 # Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-# 
+#
 #, fuzzy
 #~ msgctxt "email.new-unread-messages.footer-text"
 #~ msgid ""
@@ -2877,7 +2901,6 @@ msgstr "info-view.set-password-reset.linkText"
 #~ msgid "Passwort zurücksetzen"
 #~ msgstr "email.password-reset.reset-button-text"
 
-#, python-brace-format
 #~ msgctxt "email.password-reset.reset-button-url"
 #~ msgid "{password_reset_url}"
 #~ msgstr "email.password-reset.reset-button-url|{password_reset_url}"
