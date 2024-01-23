@@ -334,6 +334,7 @@ class ProfileBase(models.Model):
     language_skill_description = models.TextField(
         default="", blank=True, max_length=300)
 
+    # TODO: depricated!!!
     class LanguageLevelChoices(models.TextChoices):
         """
         For all choices we allow to version a version for a volunteer 
@@ -363,6 +364,24 @@ class ProfileBase(models.Model):
 
         LEVEL_3_LER = "level-3.ler", pgettext_lazy(
             "profile.lang-level.level-3-ler", "C1/C2 = (complex topics, hardly searching for words)")
+        
+    class MinLangLevelPartnerChoices(models.TextChoices):
+        LEVEL_0 = "level-0", pgettext_lazy(
+            "profile.lang-level.level-0", "A1 & A2 (beginner level)")
+
+        LEVEL_1 = "level-1", pgettext_lazy(
+            "profile.lang-level.level-1", "B1 (everyday situations, stories)")
+
+        LEVEL_2 = "level-2", pgettext_lazy(
+            "profile.lang-level.level-2", "B2 (fluent & spontaneous conversations)")
+
+        LEVEL_3 = "level-3", pgettext_lazy(
+            "profile.lang-level.level-3", "C1/C2 (complex topics)")
+
+    min_lang_level_partner = models.CharField(
+        choices=MinLangLevelPartnerChoices.choices,
+        default=MinLangLevelPartnerChoices.LEVEL_0,
+        max_length=255)
 
     # TODO: depricated!!!
     lang_level = models.CharField(
@@ -620,7 +639,7 @@ class SelfProfileSerializer(ProfileSerializer):
         fields = ['first_name', 'second_name', 'target_group', 'speech_medium',
                   'user_type', 'target_group', 'speech_medium',
                   'partner_location', 'postal_code', 'interests', 'availability',
-                  'lang_level', 'additional_interests', 'language_skill_description', 'birth_year', 'description',
+                  'lang_level', 'min_lang_level_partner', 'additional_interests', 'language_skill_description', 'birth_year', 'description',
                   'notify_channel', 'phone_mobile', 'image_type', 'avatar_config', 'image', 'lang_skill', 'gender', 
                   'partner_gender', 'liability_accepted', 'display_language', 'other_target_group', 'target_groups', 'newsletter_subscribed']
 
