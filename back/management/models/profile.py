@@ -175,7 +175,7 @@ class ProfileBase(models.Model):
         MALE = "male", pgettext_lazy(
             "profile.partner-gender.male", "Male only")
         FEMALE = "female", pgettext_lazy(
-            "profile.gender.female", "Female only")
+            "profile.partner-gender.female", "Female only")
 
     class GenderChoices(models.TextChoices):
         ANY = "any", pgettext_lazy("profile.gender.any", "Don't want to say")
@@ -342,24 +342,29 @@ class ProfileBase(models.Model):
         """
         LEVEL_0_VOL = "level-0.vol", pgettext_lazy(
             "profile.lang-level.level-0-vol", "any")
+
         LEVEL_0_LER = "level-0.ler", pgettext_lazy(
             "profile.lang-level.level-0-ler", "any")
 
         LEVEL_1_VOL = "level-1.vol", pgettext_lazy(
             "profile.lang-level.level-1-vol", "B1 = (everyday situations, stories, hopes)")
+
         LEVEL_1_LER = "level-1.ler", pgettext_lazy(
             "profile.lang-level.level-1-ler", "B1 = (everyday situations, stories, hopes)")
 
         LEVEL_2_VOL = "level-2.vol", pgettext_lazy(
             "profile.lang-level.level-2-vol", "B2 = (fluent & spontaneous conversations, current events)")
+
         LEVEL_2_LER = "level-2.ler", pgettext_lazy(
             "profile.lang-level.level-2-ler", "B2 = (fluent & spontaneous conversations, current events)")
 
         LEVEL_3_VOL = "level-3.vol", pgettext_lazy(
             "profile.lang-level.level-3-vol", "C1/C2 = (complex topics, hardly searching for words)")
+
         LEVEL_3_LER = "level-3.ler", pgettext_lazy(
             "profile.lang-level.level-3-ler", "C1/C2 = (complex topics, hardly searching for words)")
 
+    # TODO: depricated!!!
     lang_level = models.CharField(
         choices=LanguageLevelChoices.choices,
         default=LanguageLevelChoices.LEVEL_0_VOL,

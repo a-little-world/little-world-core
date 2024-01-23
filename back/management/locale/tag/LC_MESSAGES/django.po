@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2024-01-23 19:59+0000\n"
+"POT-Creation-Date: 2024-01-23 20:27+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -784,9 +784,9 @@ msgstr "profile.partner-gender.male"
 #, fuzzy
 #| msgctxt "profile.partner-sex.female"
 #| msgid "Female only"
-msgctxt "profile.gender.female"
+msgctxt "profile.partner-gender.female"
 msgid "Female only"
-msgstr "profile.gender.female"
+msgstr "profile.partner-gender.female"
 
 #: management/models/profile.py:181
 #, fuzzy
@@ -1004,112 +1004,112 @@ msgctxt "profile.lang-level.level-0-vol"
 msgid "any"
 msgstr "profile.lang-level.level-0-vol"
 
-#: management/models/profile.py:346
+#: management/models/profile.py:347
 msgctxt "profile.lang-level.level-0-ler"
 msgid "any"
 msgstr "profile.lang-level.level-0-ler"
 
-#: management/models/profile.py:349
+#: management/models/profile.py:350
 msgctxt "profile.lang-level.level-1-vol"
 msgid "B1 = (everyday situations, stories, hopes)"
 msgstr "profile.lang-level.level-1-vol"
 
-#: management/models/profile.py:351
+#: management/models/profile.py:353
 msgctxt "profile.lang-level.level-1-ler"
 msgid "B1 = (everyday situations, stories, hopes)"
 msgstr "profile.lang-level.level-1-ler"
 
-#: management/models/profile.py:354
+#: management/models/profile.py:356
 msgctxt "profile.lang-level.level-2-vol"
 msgid "B2 = (fluent & spontaneous conversations, current events)"
 msgstr "profile.lang-level.level-2-vol"
 
-#: management/models/profile.py:356
+#: management/models/profile.py:359
 msgctxt "profile.lang-level.level-2-ler"
 msgid "B2 = (fluent & spontaneous conversations, current events)"
 msgstr "profile.lang-level.level-2-ler"
 
-#: management/models/profile.py:359
+#: management/models/profile.py:362
 msgctxt "profile.lang-level.level-3-vol"
 msgid "C1/C2 = (complex topics, hardly searching for words)"
 msgstr "profile.lang-level.level-3-vol"
 
-#: management/models/profile.py:361
+#: management/models/profile.py:365
 msgctxt "profile.lang-level.level-3-ler"
 msgid "C1/C2 = (complex topics, hardly searching for words)"
 msgstr "profile.lang-level.level-3-ler"
 
-#: management/models/profile.py:369
+#: management/models/profile.py:374
 msgctxt "profile.lang.english"
 msgid "English"
 msgstr "profile.lang.english"
 
-#: management/models/profile.py:370
+#: management/models/profile.py:375
 msgctxt "profile.lang.german"
 msgid "German"
 msgstr "profile.lang.german"
 
-#: management/models/profile.py:371
+#: management/models/profile.py:376
 msgctxt "profile.lang.spanish"
 msgid "Spanish"
 msgstr "profile.lang.spanish"
 
-#: management/models/profile.py:372
+#: management/models/profile.py:377
 msgctxt "profile.lang.french"
 msgid "French"
 msgstr "profile.lang.french"
 
-#: management/models/profile.py:373
+#: management/models/profile.py:378
 msgctxt "profile.lang.italian"
 msgid "Italian"
 msgstr "profile.lang.italian"
 
-#: management/models/profile.py:374
+#: management/models/profile.py:379
 msgctxt "profile.lang.dutch"
 msgid "Dutch"
 msgstr "profile.lang.dutch"
 
-#: management/models/profile.py:376
+#: management/models/profile.py:381
 msgctxt "profile.lang.portuguese"
 msgid "Portuguese"
 msgstr "profile.lang.portuguese"
 
-#: management/models/profile.py:377
+#: management/models/profile.py:382
 msgctxt "profile.lang.russian"
 msgid "Russian"
 msgstr "profile.lang.russian"
 
-#: management/models/profile.py:378
+#: management/models/profile.py:383
 msgctxt "profile.lang.chinese"
 msgid "Chinese"
 msgstr "profile.lang.chinese"
 
-#: management/models/profile.py:380
+#: management/models/profile.py:385
 msgctxt "profile.lang.japanese"
 msgid "Japanese"
 msgstr "profile.lang.japanese"
 
-#: management/models/profile.py:381
+#: management/models/profile.py:386
 msgctxt "profile.lang.korean"
 msgid "Korean"
 msgstr "profile.lang.korean"
 
-#: management/models/profile.py:382
+#: management/models/profile.py:387
 msgctxt "profile.lang.arabic"
 msgid "Arabic"
 msgstr "profile.lang.arabic"
 
-#: management/models/profile.py:383
+#: management/models/profile.py:388
 msgctxt "profile.lang.turkish"
 msgid "Turkish"
 msgstr "profile.lang.turkish"
 
-#: management/models/profile.py:384
+#: management/models/profile.py:389
 msgctxt "profile.lang.swedish"
 msgid "Swedish"
 msgstr "profile.lang.swedish"
 
-#: management/models/profile.py:385
+#: management/models/profile.py:390
 #, fuzzy
 #| msgctxt "profile.politics-interest"
 #| msgid "Politics"
@@ -1117,117 +1117,117 @@ msgctxt "profile.lang.polish"
 msgid "Polish"
 msgstr "profile.lang.polish"
 
-#: management/models/profile.py:386
+#: management/models/profile.py:391
 msgctxt "profile.lang.danish"
 msgid "Danish"
 msgstr "profile.lang.danish"
 
-#: management/models/profile.py:388
+#: management/models/profile.py:393
 msgctxt "profile.lang.norwegian"
 msgid "Norwegian"
 msgstr "profile.lang.norwegian"
 
-#: management/models/profile.py:389
+#: management/models/profile.py:394
 msgctxt "profile.lang.finnish"
 msgid "Finnish"
 msgstr "profile.lang.finnish"
 
-#: management/models/profile.py:390
+#: management/models/profile.py:395
 msgctxt "profile.lang.greek"
 msgid "Greek"
 msgstr "profile.lang.greek"
 
-#: management/models/profile.py:391
+#: management/models/profile.py:396
 msgctxt "profile.lang.czech"
 msgid "Czech"
 msgstr "profile.lang.czech"
 
-#: management/models/profile.py:393
+#: management/models/profile.py:398
 msgctxt "profile.lang.hungarian"
 msgid "Hungarian"
 msgstr "profile.lang.hungarian"
 
-#: management/models/profile.py:395
+#: management/models/profile.py:400
 msgctxt "profile.lang.romanian"
 msgid "Romanian"
 msgstr "profile.lang.romanian"
 
-#: management/models/profile.py:397
+#: management/models/profile.py:402
 msgctxt "profile.lang.indonesian"
 msgid "Indonesian"
 msgstr "profile.lang.indonesian"
 
-#: management/models/profile.py:398
+#: management/models/profile.py:403
 msgctxt "profile.lang.hebrew"
 msgid "Hebrew"
 msgstr "profile.lang.hebrew"
 
-#: management/models/profile.py:399
+#: management/models/profile.py:404
 msgctxt "profile.lang.thai"
 msgid "Thai"
 msgstr "profile.lang.thai"
 
-#: management/models/profile.py:401
+#: management/models/profile.py:406
 msgctxt "profile.lang.vietnamese"
 msgid "Vietnamese"
 msgstr "profile.lang.vietnamese"
 
-#: management/models/profile.py:403
+#: management/models/profile.py:408
 msgctxt "profile.lang.ukrainian"
 msgid "Ukrainian"
 msgstr "profile.lang.ukrainian"
 
-#: management/models/profile.py:404
+#: management/models/profile.py:409
 msgctxt "profile.lang.slovak"
 msgid "Slovak"
 msgstr "profile.lang.slovak"
 
-#: management/models/profile.py:406
+#: management/models/profile.py:411
 msgctxt "profile.lang.croatian"
 msgid "Croatian"
 msgstr "profile.lang.croatian"
 
-#: management/models/profile.py:407
+#: management/models/profile.py:412
 msgctxt "profile.lang.serbian"
 msgid "Serbian"
 msgstr "profile.lang.serbian"
 
-#: management/models/profile.py:409
+#: management/models/profile.py:414
 msgctxt "profile.lang.bulgarian"
 msgid "Bulgarian"
 msgstr "profile.lang.bulgarian"
 
-#: management/models/profile.py:411
+#: management/models/profile.py:416
 msgctxt "profile.lang.lithuanian"
 msgid "Lithuanian"
 msgstr "profile.lang.lithuanian"
 
-#: management/models/profile.py:412
+#: management/models/profile.py:417
 msgctxt "profile.lang.latvian"
 msgid "Latvian"
 msgstr "profile.lang.latvian"
 
-#: management/models/profile.py:414
+#: management/models/profile.py:419
 msgctxt "profile.lang.estonian"
 msgid "Estonian"
 msgstr "profile.lang.estonian"
 
-#: management/models/profile.py:415
+#: management/models/profile.py:420
 msgctxt "profile.lang.persian"
 msgid "Persian"
 msgstr "profile.lang.persian"
 
-#: management/models/profile.py:417
+#: management/models/profile.py:422
 msgctxt "profile.lang.afrikaans"
 msgid "Afrikaans"
 msgstr "profile.lang.afrikaans"
 
-#: management/models/profile.py:418
+#: management/models/profile.py:423
 msgctxt "profile.lang.swahili"
 msgid "Swahili"
 msgstr "profile.lang.swahili"
 
-#: management/models/profile.py:422
+#: management/models/profile.py:427
 #, fuzzy
 #| msgctxt "profile.lang-level.level-0"
 #| msgid "A1 & A2 (Anfängerniveau)"
@@ -1235,7 +1235,7 @@ msgctxt "profile.lang-level.level-0"
 msgid "A1 & A2 (beginner level)"
 msgstr "profile.lang-level.level-0"
 
-#: management/models/profile.py:425
+#: management/models/profile.py:430
 #, fuzzy
 #| msgctxt "profile.lang-level.level-1-vol"
 #| msgid "B1 = (everyday situations, stories, hopes)"
@@ -1243,7 +1243,7 @@ msgctxt "profile.lang-level.level-1"
 msgid "B1 (everyday situations, stories)"
 msgstr "profile.lang-level.level-1"
 
-#: management/models/profile.py:428
+#: management/models/profile.py:433
 #, fuzzy
 #| msgctxt "profile.lang-level.level-2-vol"
 #| msgid "B2 = (fluent & spontaneous conversations, current events)"
@@ -1251,7 +1251,7 @@ msgctxt "profile.lang-level.level-2"
 msgid "B2 (fluent & spontaneous conversations)"
 msgstr "profile.lang-level.level-2"
 
-#: management/models/profile.py:431
+#: management/models/profile.py:436
 #, fuzzy
 #| msgctxt "profile.lang-level.level-3-vol"
 #| msgid "C1/C2 = (complex topics, hardly searching for words)"
@@ -1259,17 +1259,17 @@ msgctxt "profile.lang-level.level-3"
 msgid "C1/C2 (complex topics)"
 msgstr "profile.lang-level.level-3"
 
-#: management/models/profile.py:436
+#: management/models/profile.py:441
 msgctxt "profile.image-type.avatar"
 msgid "Avatar"
 msgstr "profile.image-type.avatar"
 
-#: management/models/profile.py:437
+#: management/models/profile.py:442
 msgctxt "profile.image-type.image"
 msgid "Image"
 msgstr "profile.image-type.image"
 
-#: management/models/profile.py:450
+#: management/models/profile.py:455
 #, fuzzy
 #| msgctxt "profile.lang.german"
 #| msgid "German"
@@ -1277,7 +1277,7 @@ msgctxt "profile.display-language.de"
 msgid "German"
 msgstr "profile.display-language.de"
 
-#: management/models/profile.py:451
+#: management/models/profile.py:456
 #, fuzzy
 #| msgctxt "profile.lang.english"
 #| msgid "English"
@@ -1285,18 +1285,18 @@ msgctxt "profile.display-language.en"
 msgid "English"
 msgstr "profile.display-language.en"
 
-#: management/models/profile.py:502
+#: management/models/profile.py:507
 #, python-brace-format
 msgctxt "profile.completion-check.missing-value"
 msgid "'{val}' is not completed"
 msgstr "profile.completion-check.missing-value|{val}"
 
-#: management/models/profile.py:626
+#: management/models/profile.py:631
 msgctxt "profile.lskill-descr-to-long"
 msgid "must have a maximum of 300 characters"
 msgstr "profile.lskill-descr-to-long"
 
-#: management/models/profile.py:632
+#: management/models/profile.py:637
 #, fuzzy
 #| msgctxt "profile.descr-to-long"
 #| msgid "must have a maximum of 300 characters"
@@ -1304,12 +1304,12 @@ msgctxt "profile.descr-to-long"
 msgid "must have a maximum of 999 characters"
 msgstr "profile.descr-to-long"
 
-#: management/models/profile.py:648
+#: management/models/profile.py:653
 msgctxt "profile.image-missing"
 msgid "You have selected profile image but not uploaded an image"
 msgstr "profile.image-missing"
 
-#: management/models/profile.py:659
+#: management/models/profile.py:664
 #, fuzzy
 #| msgctxt "profile.image-missing"
 #| msgid "You have selected profile image but not uploaded an image"
@@ -1317,12 +1317,12 @@ msgctxt "profile.image-removal-without-avatar"
 msgid "You are removing the profile image but have not selected to use avatar"
 msgstr "profile.image-removal-without-avatar"
 
-#: management/models/profile.py:667
+#: management/models/profile.py:672
 msgctxt "profile.avatar-missing"
 msgid "You have selected avatar but not uploaded an avatar"
 msgstr "profile.avatar-missing"
 
-#: management/models/profile.py:674
+#: management/models/profile.py:679
 #, fuzzy
 #| msgctxt "profile.liability.accepted"
 #| msgid "Accepted Liability"
@@ -1330,12 +1330,12 @@ msgctxt "profile.liability-declined"
 msgid "You must accept the liability"
 msgstr "profile.liability-declined"
 
-#: management/models/profile.py:689
+#: management/models/profile.py:694
 msgctxt "profile.lang-level-invalid"
 msgid "Invalid language level selected"
 msgstr "profile.lang-level-invalid"
 
-#: management/models/profile.py:694
+#: management/models/profile.py:699
 #, fuzzy
 #| msgctxt "profile.lang-level-invalid"
 #| msgid "Invalid language level selected"
@@ -1343,7 +1343,7 @@ msgctxt "profile.lang-invalid"
 msgid "Invalid language selected"
 msgstr "profile.lang-invalid"
 
-#: management/models/profile.py:704
+#: management/models/profile.py:709
 #, fuzzy
 #| msgctxt "profile.image-missing"
 #| msgid "You have selected profile image but not uploaded an image"
@@ -1351,12 +1351,12 @@ msgctxt "profile.lang-duplicate"
 msgid "You have selected a language multiple times"
 msgstr "profile.lang-duplicate"
 
-#: management/models/profile.py:709
+#: management/models/profile.py:714
 msgctxt "profile.lang-de-missing"
 msgid "You must select at least german as a language"
 msgstr "profile.lang-de-missing"
 
-#: management/models/profile.py:716
+#: management/models/profile.py:721
 msgctxt "profile.descr-to-short"
 msgid "must have at least 10 characters"
 msgstr "profile.descr-to-short"
@@ -1690,6 +1690,11 @@ msgstr "info-view.set-password-reset.content"
 msgctxt "info-view.set-password-reset.linkText"
 msgid "Back to home"
 msgstr "info-view.set-password-reset.linkText"
+
+#, fuzzy
+#~ msgctxt "profile.gender.female"
+#~ msgid "Female only"
+#~ msgstr "profile.gender.female"
 
 #, fuzzy
 #~ msgctxt "profile.display-language.english"
