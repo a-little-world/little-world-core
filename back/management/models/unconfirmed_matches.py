@@ -134,7 +134,6 @@ class UnconfirmedMatch(models.Model):
             mail_name="confirm_match_expired_mail_1",
             mail_params_func=get_params,
             unsubscribe_group=None, # You can not unsubscribe from this!
-            emulated_send=True # TODO Just debug for now
         )
     
     def get_partner(self, user):

@@ -353,7 +353,7 @@ def send_new_message_notifications_all_users(
     from django.conf import settings
     from back.utils import CoolerJson
     # user = controller.get_user_by_hash(user_hash)
-    from chat.django_private_chat2.models import MessageModel, DialogsModel
+    from chat_old.django_private_chat2.models import MessageModel, DialogsModel
     from . import controller
     from emails import mails
     from .models import User
@@ -2451,4 +2451,67 @@ def dispatch_admin_email_notification(subject, message):
             greeting=message,
             content_start_text=message
         )
+    )
+
+@shared_task
+def request_streamed_ai_response(messages, model="gpt-3.5-turbo", backend="default"):
+    from openai import OpenAI
+    from django.conf import settings
+    from django.http import StreamingHttpResponse
+    from rest_framework.decorators import api_view, authentication_classes
+    from management.models.state import State
+    from django.views import View
+    from django.urls import path, re_path
+    from django.contrib.auth.mixins import LoginRequiredMixin
+    from rest_framework.authentication import SessionAuthentication
+    from django.http import HttpResponseBadRequest
+    import json
+    import time
+    
+    
+    def get_base_ai_client():
+        if backend == "default":
+            return OpenAI(
+                api_key=settings.AI_OPENAI_API_KEY,
+            )
+        else:
+            return OpenAI(
+                api_key=settings.AI_API_KEY
+            )
+
+
+    client = get_base_ai_client()
+
+    completion = client.chat.completions.create(
+        model=model,
+        messages=messages,
+        temperature=0,
+        stream=True  # this time, we set stream=True
+    )
+    
+    print("COMP", completion)
+    
+    message_dt = ""
+    message_ft = ""
+    
+    c = 0
+    update_mod = 1
+
+    for chunk in completion:
+        content = chunk.choices[0].delta.content
+        print("C",content, flush=True)
+        message_dt = content if content else ""
+        message_ft += message_dt
+        
+
+        c+=1
+        if c % update_mod == 0:
+            request_streamed_ai_response.backend.mark_as_started(
+                request_streamed_ai_response.request.id,
+                progress=message_ft
+            )
+            c = 0
+    request_streamed_ai_response.backend.mark_as_started(
+        request_streamed_ai_response.request.id,
+        progress=message_ft
     )

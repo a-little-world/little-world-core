@@ -1,4 +1,4 @@
-# Little World Backend
+# Little World Backend (v 0.92)
 
 The backend consists of a django application that is containerized using docker.
 Builds are manged using docker compose.
@@ -202,3 +202,4 @@ Then run it via:
 ```bash
 export $(grep -v '^#' .env.prod-attach | xargs) && docker compose -f docker-compose.prod-attach.yaml exec app ./manage.py <command-name>
 ```
+
