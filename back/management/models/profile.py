@@ -454,6 +454,9 @@ class ProfileBase(models.Model):
         LEVEL_3 = "level-3", pgettext_lazy(
             "profile.lang-level.level-3", "C1/C2 (complex topics)")
 
+        LEVEL_NATIVE_VOL = "level-4", pgettext_lazy(
+            "profile.lang-level.level-4-native.vol", "Native speaker")
+
     lang_skill = models.JSONField(default=base_lang_skill)
     
     class ImageTypeChoice(models.TextChoices):
