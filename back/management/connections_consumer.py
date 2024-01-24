@@ -74,4 +74,26 @@ class CoreConsumer(AsyncWebsocketConsumer):
                     }
             })
             await self.close()
+            
+
+    async def websocket_disconnect(self, message):
+        if self.scope["user"].is_anonymous:
+            await self.close()
+        else:
+            user = self.scope["user"]
+            
+            connection = await sync_to_async(ConsumerConnections.get_or_create)(user, escalate=True)
+            await sync_to_async(connection.disconnect_device)(self.channel_name)
+            await sync_to_async(user.broadcast_message_to_matches)(
+                event="reduction", payload={
+                    "action": "updateMatchProfile", 
+                    "payload": {
+                        "partnerId": user.hash,
+                        "profile": {
+                            "is_online": False
+                        }
+                    }
+            })
+            await self.close()
+        await super().websocket_disconnect(message)
 

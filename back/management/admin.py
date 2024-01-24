@@ -18,6 +18,9 @@ from hijack.contrib.admin import HijackUserAdminMixin
 class BackendStateAdmin(admin.ModelAdmin):
     list_display = ('slug', 'name', 'hash', 'meta', 'created_at')
 
+@admin.register(models.scores.TwoUserMatchingScore)
+class BackendStateAdmin(admin.ModelAdmin):
+    list_display = ('user1', 'user2', 'score', 'scoring_results', 'latest_update')
 
 @admin.register(models.help_message.HelpMessage)
 class HelpMessageStateAdmin(admin.ModelAdmin):
