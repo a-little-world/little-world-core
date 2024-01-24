@@ -2476,7 +2476,8 @@ def request_streamed_ai_response(messages, model="gpt-3.5-turbo", backend="defau
             )
         else:
             return OpenAI(
-                api_key=settings.AI_API_KEY
+                api_key=settings.AI_API_KEY,
+                base_url=settings.AI_BASE_URL,
             )
 
 
@@ -2489,7 +2490,6 @@ def request_streamed_ai_response(messages, model="gpt-3.5-turbo", backend="defau
         stream=True  # this time, we set stream=True
     )
     
-    print("COMP", completion)
     
     message_dt = ""
     message_ft = ""
@@ -2499,7 +2499,6 @@ def request_streamed_ai_response(messages, model="gpt-3.5-turbo", backend="defau
 
     for chunk in completion:
         content = chunk.choices[0].delta.content
-        print("C",content, flush=True)
         message_dt = content if content else ""
         message_ft += message_dt
         
