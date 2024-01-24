@@ -2597,3 +2597,15 @@ def matching_algo_v2(
             'progress': 0,
             "state": "starting"
         }))
+        
+    for user in all_users_to_consider:
+        matching_algo_v2.backend.mark_as_started(
+            matching_algo_v2.request.id,
+            progress=json.dumps({
+                'total_considered_users': total_considered_users,
+                'total_unconsidered_users': total_unconsidered_users,
+                'scores_cleaned': count_cleaned_scores,
+                'progress': 0,
+                "state": "processing",
+                "current_user": user.pk
+            }))
