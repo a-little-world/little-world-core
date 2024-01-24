@@ -44,9 +44,9 @@ class Command(BaseCommand):
             if profile.user_type == Profile.TypeChoices.VOLUNTEER:
                 print("Updating Volunteer Profile")
                 profile.min_lang_level_partner = value_map["lang_level"][profile.lang_level] # (3)
-                profile.lang_skill = { Profile.LanguageChoices.GERMAN: Profile.LanguageSkillChoices.LEVEL_3 } # (4)
+                profile.lang_skill = [{ "lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_3 }] # (4)
             if profile.user_type == Profile.TypeChoices.LEARNER:
                 print("Updating Learner Profile")
-                profile.lang_skill = { Profile.LanguageChoices.GERMAN: value_map["lang_level"][profile.lang_level] } # (5)
+                profile.lang_skill = [{ "lang": Profile.LanguageChoices.GERMAN, "level": value_map["lang_level"][profile.lang_level] }] # (5)
             profile.save()
             c += 1

@@ -14,13 +14,21 @@ import time
 availabol_model_configs = {
     "mixtral8x7B": {
         "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
-        "backend": "https://api.deepinfra.com/v1/openai/"
+        "backend": settings.AI_BASE_URL
     },
     "gpt-4-turbo": {
-        "model": "mistralai/Mixtral-8x7B-Instruct-v0.1",
+        "model": "gpt-4-1106-preview",
+        "backend": "default"
+    },
+    "gpt-4": {
+        "model": "gpt-4",
         "backend": "default"
     }
 }
+
+@api_view(['GET'])
+def model_config_options(request):
+    return Response(list(availabol_model_configs.keys()))
 
 
     
@@ -46,5 +54,6 @@ def request_streamed_api_response(request):
 
 
 api_routes = [
+    path("api/ai/models/", model_config_options),
     path("api/ai/prompt/", request_streamed_api_response),
 ] if settings.USE_AI else []
