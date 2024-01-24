@@ -3,6 +3,7 @@ This is a controller for any userform related actions
 e.g.: Creating a new user, sending a notification to a users etc...
 """
 import urllib.parse
+from uuid import uuid4
 from django.utils import translation
 from django.db import transaction
 from typing import Dict, Callable
@@ -505,6 +506,47 @@ def get_base_management_user():
         return get_user_by_email(TIM_MANAGEMENT_USER_MAIL)
     except UserNotFoundErr:
         return create_base_admin_and_add_standart_db_values()
+    
+def get_or_create_default_docs_user():
+    if not settings.CREATE_DOCS_USER:
+        return None
+    if not settings.DOCS_USER:
+        raise Exception("DOCS_USER not set!")
+    if not settings.DOCS_PASSWORD:
+        raise Exception("DOCS_USER_PW not set!")
+    
+    user = None
+    try:
+        return get_user_by_email(settings.DOCS_USER)
+    except UserNotFoundErr:
+        create_user(
+            email=settings.DOCS_USER,
+            password=settings.DOCS_PASSWORD,
+            first_name="Docs",
+            second_name="User",
+            birth_year=2000,
+            newsletter_subscribed=False,
+            send_verification_mail=False,
+            send_welcome_notification=False,
+            send_welcome_message=False,
+            catch_email_send_errors=False,
+            check_prematching_invitations=False
+        )
+        
+    def finish_up_user_creation():
+        user = get_user_by_email(settings.DOCS_USER)
+        user.state.email_authenticated = True
+        user.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.DOCS_VIEW)
+        user.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.API_SCHEMAS)
+        user.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.AUTO_LOGIN)
+        user.state.auto_login_api_token = settings.DOCS_USER_LOGIN_TOKEN
+        user.state.save()
+        user.state.set_user_form_completed()
+        
+    transaction.on_commit(finish_up_user_creation)
+
+    return get_user_by_email(settings.DOCS_USER)
+
 
 
 def create_base_admin_and_add_standart_db_values():
@@ -562,6 +604,8 @@ def create_base_admin_and_add_standart_db_values():
     create_default_community_events.delay()
     fill_base_management_user_tim_profile.delay()
     create_default_table_score_source.delay()
+    
+    get_or_create_default_docs_user()
 
     return usr_tim
 

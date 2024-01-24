@@ -154,6 +154,7 @@ def calculate_directional_matching_score_v2_static(
     invalidate_other_scores=True,
     consider_only_registered_within_last_x_days=None
 ):
+    # TODO: depricated
     from .controller import get_user_by_pk
     from management.models.state import State
     from management.models.user import User
@@ -2514,3 +2515,85 @@ def request_streamed_ai_response(messages, model="gpt-3.5-turbo", backend="defau
         request_streamed_ai_response.request.id,
         progress=message_ft
     )
+    
+
+
+def matching_algo_v2(
+    user_pk,
+    consider_only_registered_within_last_x_days=None
+):
+    """
+    New way to calculate the matching score 
+    """
+    from management import controller
+    from management.models.state import State
+    from management.models.unconfirmed_matches import UnconfirmedMatch
+    from django.db.models import Q
+    from django.db.models import Exists, OuterRef
+
+    usr = controller.get_user_by_pk(user_pk)
+    
+    all_users = User.objects.all()
+    
+    # don't consider:
+    # - 'self'
+    # - spam and test users
+    # - users that are not searching
+    # - users that have not filled out their user form
+    # - users that have not verified their email
+    # - users that are 'staff'
+    # - users that have the State.ExtraUserPermissionChoices.MATCHING_USER in state.extra_user_permissions
+    # - user has no open proposals
+    
+    open_proposals = UnconfirmedMatch.objects.filter(
+        Q(user1=OuterRef('pk')) | Q(user2=OuterRef('pk')), closed=False
+    )
+
+    all_users_to_consider = User.objects.annotate(
+        has_open_proposal=Exists(open_proposals)
+    ).filter(
+        ~Q(id=usr.pk) & 
+        ~(Q(state__user_category=State.UserCategoryChoices.SPAM) | Q(state__user_category=State.UserCategoryChoices.TEST)),
+        state__matching_state=State.MatchingStateChoices.SEARCHING,
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
+        is_staff=False,
+        state__extra_user_permissions__contains=State.ExtraUserPermissionChoices.MATCHING_USER,
+        has_open_proposal=False
+    )
+
+    if not (consider_only_registered_within_last_x_days is None):
+        from django.utils import timezone
+        today = timezone.now()
+        x_days_ago = today - timedelta(days=consider_only_registered_within_last_x_days)
+        all_users_to_consider = all_users_to_consider.filter(date_joined__gte=x_days_ago)
+        
+    
+    # - We have to set the score of all users not to consider to 0
+    all_users_not_to_consider = User.objects.annotate(
+        to_consider=Exists(
+            all_users_to_consider.filter(pk=OuterRef('id'))
+        )
+    ).filter(to_consider=False)
+
+    total_considered_users = all_users_to_consider.count()
+    total_unconsidered_users = all_users_not_to_consider.count()
+    
+    # we always delete all scores of unconsidered users, that way we assure that we don't blow database sizes!
+    from management.models.scores import TwoUserMatchingScore
+    cleaned_scores = TwoUserMatchingScore.objects.filter(
+        (~Q(user1__in=all_users_to_consider) and Q(user2=usr)) | (~Q(user2__in=all_users_to_consider) and Q(user1=usr))
+    )
+    count_cleaned_scores = cleaned_scores.count()
+    cleaned_scores.delete()
+    
+
+    matching_algo_v2.backend.mark_as_started(
+        matching_algo_v2.request.id,
+        progress=json.dumps({
+            'total_considered_users': total_considered_users,
+            'total_unconsidered_users': total_unconsidered_users,
+            'scores_cleaned': count_cleaned_scores,
+            'progress': 0,
+            "state": "starting"
+        }))
