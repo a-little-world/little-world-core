@@ -5,6 +5,10 @@ from django.conf import settings
 from rest_framework import serializers
 from asgiref.sync import async_to_sync
 from django.contrib.auth.models import AbstractUser, BaseUserManager
+from management.models.consumer_connections import ConsumerConnections
+from management.models.matches import Match
+from chat.models import Message, MessageSerializer, Chat
+from chat.api import callbacks
 
 
 class UserManager(BaseUserManager):
@@ -20,6 +24,7 @@ class UserManager(BaseUserManager):
         from . import profile
         from . import settings
         assert email and password
+        email = email.lower()
         # This will redundantly store 'first_name' and 'second_name'
         # This is nice though cause we will never change these so we always know with which name they sighned up!
         user = self.model(email=email, **kwargs)
@@ -109,7 +114,6 @@ class User(AbstractUser):
             # Then the email of that user was changed!
             # This means we have to update the username too!
             self.username = self.email
-            # TODO: also add to 'past emails' list
         super().save(*args, **kwargs)
         self.__original_username = self.username
 
@@ -184,7 +188,7 @@ class User(AbstractUser):
                 verification_code=str(self.state.get_email_auth_pin())
             )
         )
-        self.email = prms.email
+        self.email = prms.email.lower()
         # NOTE the save() method automaicly detects the email change and also changes the username
         # We do this so admins can edit emails in the admin pannel and changes are reflected as expected
         # self.username = prms.email  # <- so the user can login with that email now
@@ -213,7 +217,9 @@ class User(AbstractUser):
         Instead of always returing the same suport user!
         """
         from ..controller import get_base_management_user
-        from chat.django_private_chat2.consumers.db_operations import save_text_message
+
+        # TODO: depricated message send implementation -------------------------------------------
+        from chat_old.django_private_chat2.consumers.db_operations import save_text_message
         if not sender:
             sender = get_base_management_user()
 
@@ -221,7 +227,38 @@ class User(AbstractUser):
         if auto_mark_read:
             msg.read = True
             msg.save()
+            
+        chat = Chat.get_or_create_chat(sender, self)
+        # --------------------- new message send implemetation below ------------------------------
+        message = Message.objects.create(
+            chat=chat,
+            sender=sender,
+            recipient=self,
+            text=msg.text
+        )
+        
+        chat.messages.add(message)
+        chat.save()
+        
+        callbacks.message_incoming(self, MessageSerializer(message).data)
+        
+        # -----------------------------------------------------------------------------------------
+            
+
         return msg
+    
+    def message_connections(self, payload, event="reduction"):
+        # sends a websocket message to all connections of that user
+        ConsumerConnections.async_notify_connections(self, event=event, payload=payload)
+        
+    
+    def broadcast_message_to_matches(self, payload, event="reduction"):
+        """
+        Sends a message to all matches of this user
+        """
+        matches = Match.get_matches(self)
+        for match in matches:
+            match.message_connections(payload, event=event)
 
     def send_email(self,
                    subject: str,

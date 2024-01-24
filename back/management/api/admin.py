@@ -3,10 +3,15 @@ Contains all the admin apis
 generally all APIViews here are required to have: permission_classes = [ IsAdminUser ]
 """
 from management.views import admin_panel_v2
+from back.utils import CoolerJson
+import json
 from rest_framework.views import APIView
 from django.conf import settings
 from typing import List, Optional
+from management.models.matching_scores import MatchinScore
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+from management.models.consumer_connections import ConsumerConnections
+from management.models.profile import CensoredProfileSerializer
 from django.utils.translation import gettext_lazy as _
 from rest_framework import status
 from rest_framework import authentication, permissions
@@ -14,11 +19,19 @@ from rest_framework.response import Response
 from rest_framework import serializers
 from .user_data import get_user_data
 from .user_slug_filter_lookup import get_users_by_slug_filter
-from ..models import (
+from management.models.user import (
     User,
-    Profile,
-    State,
+)
+from management.models.rooms import (
     Room
+)
+from management.models.state import (
+    StateSerializer,
+    State
+)
+from management.models.profile import (
+    Profile,
+    ProfileSerializer,
 )
 from dataclasses import dataclass, field
 from django.core.paginator import Paginator
@@ -197,7 +210,6 @@ class MakeMatch(APIView):
         params = serializer.save()
         users = get_two_users(params.user1, params.user2, params.lookup)
 
-        from ..models.matching_scores import MatchinScore
         
         # TODO: there should also be a test for this:
         # We check if this is not a staff user then it **has** to be a matching user
@@ -256,26 +268,52 @@ class MakeMatch(APIView):
         if params.proposal_only:
             # If proposal_only = True, we create a proposed match instead!
             # TODO: does this correctly check for already existing proposals?
-            controller.create_user_matching_proposal(
+            proposal = controller.create_user_matching_proposal(
                 {users[0], users[1]},
                 send_confirm_match_email=params.send_email,
             )
+
+            from management.api.user_data import serialize_proposed_matches
+
+            learner = proposal.get_learner()
+            matches = serialize_proposed_matches([proposal], learner)
+            payload = {
+                "action": "addMatch", 
+                "payload": {
+                    "category": "proposed",
+                    "match": json.loads(json.dumps(matches[0], cls=CoolerJson))
+                }
+            }
+            ConsumerConnections.notify_connections(learner, event="reduction", payload=payload)
+            
+            # On a maching proposal we only need to notify the learner
             return Response("Matching Proposal Created")
         else:
             # Perform an actual matching!
-            try:
-                controller.match_users({users[0], users[1]},
-                                       send_email=params.send_email,
-                                       send_message=params.send_message,
-                                       send_notification=params.send_notification)
+            match_obj = controller.match_users({users[0], users[1]},
+                                   send_email=params.send_email,
+                                   send_message=params.send_message,
+                                   send_notification=params.send_notification)
 
-                # Now we still need to set the user to no searching anymore
-                users[0].state.change_searching_state(
-                    State.MatchingStateChoices.IDLE)
-                users[1].state.change_searching_state(
-                    State.MatchingStateChoices.IDLE)
-            except Exception as e:
-                return Response(str(e), status=status.HTTP_400_BAD_REQUEST)
+            # Now we still need to set the user to no searching anymore
+            users[0].state.change_searching_state(
+                State.MatchingStateChoices.IDLE)
+            users[1].state.change_searching_state(
+                State.MatchingStateChoices.IDLE)
+            
+            # Now notify that users connections
+            from management.api.user_data import serialize_matches
+
+            for i in [0, 1]:
+                matches = serialize_matches([match_obj], users[i])
+                payload = {
+                    "action": "addMatch", 
+                    "payload": {
+                        "category": "unconfirmed",
+                        "match": json.loads(json.dumps(matches[0], cls=CoolerJson))
+                    }
+                }
+                ConsumerConnections.notify_connections(users[i], event="reduction", payload=payload)
             return Response(_("Users sucessfully matched"))
 
 

@@ -8,7 +8,7 @@ from management.api.user_data import get_user_models
 from django.conf import settings
 from rest_framework.test import APIRequestFactory, force_authenticate
 from management.random_test_users import create_abunch_of_users, modify_profile_to_match
-from management.models import EmailSettings
+from management.models.settings import EmailSettings
 from management.models.unconfirmed_matches import get_unconfirmed_matches
 from management.matching.matching_score import calculate_directional_score_write_results_to_db
 from management.tasks import create_default_table_score_source
@@ -43,6 +43,24 @@ class EmailSettingsTests(TestCase):
         response = api.register.Register.as_view()(request)
         assert response, isinstance(response, Response)
         return response  # type: ignore
+    
+    
+    def test_email_correctly_normalized(self):
+        response = self._some_register_call(valid_request_data)
+        user = get_user_by_email(valid_request_data['email'])
+        orig_email = user.email
+        new_email = orig_email.replace("@", "+Test@")
+        
+        factory = APIRequestFactory(enforce_csrf_checks=True)
+        request = factory.post("/api/user/change_email/", {
+            "email": new_email
+        })
+        force_authenticate(request, user=user)
+        response = api.user.ChangeEmailApi.as_view()(request)
+        
+        assert response.status_code == 200
+        assert user.email == new_email.lower()
+        
     
     def test_email_unsubscribe_link_get(self):
         response = self._some_register_call(valid_request_data)

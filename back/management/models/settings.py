@@ -10,6 +10,7 @@ class UnsubscibeOptions(models.TextChoices):
     interview_requests = "interview_requests"
     survery_requests = "survery_requests"
     finish_reminders = "finish_reminders"
+    event_announcement = "event_announcement"
 
 class EmailSettings(models.Model):
     
@@ -48,7 +49,6 @@ class EmailSettings(models.Model):
             mail_name="unfinished_user_form_1",
             mail_params_func=get_params,
             unsubscribe_group=UnsubscibeOptions.finish_reminders,
-            emulated_send=True # TODO Just debug for now
         )
         
         self.save()
@@ -74,7 +74,6 @@ class EmailSettings(models.Model):
             mail_name="unfinished_user_form_2",
             mail_params_func=get_params,
             unsubscribe_group=UnsubscibeOptions.finish_reminders,
-            emulated_send=True # TODO Just debug for now
         )
         
         self.save()

@@ -1,0 +1,26 @@
+{% extends "default/index.html.jinja2" %}
+
+{% block title %}Hello World{% endblock %}
+
+{% block nav %}
+    <img src="https://pdoc.dev/logo.svg" class="logo" alt="project logo"/>
+    <input type="search" placeholder="Search..." role="searchbox" aria-label="search"
+                   pattern=".+" required>
+    {{ super() }}
+{% endblock %}
+
+{% block content %}
+    <main class="pdoc">
+
+    {% filter to_html %}
+# Hello World!
+This is a test page with Markdown contents.
+
+    {% include "README.md" %}
+
+    {% endfilter %}
+    <strong>You can also write plain HTML here!</strong>
+
+    </main>
+    {% include "search.html.jinja2" %}
+{% endblock %}

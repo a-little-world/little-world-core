@@ -42,31 +42,6 @@ RUN cd apps/admin_panel_frontend && \
         --env DEBUG=0 --no-devtool --mode production \
         --config webpack.admin_panel_frontend.config.js
 
-# Old User Form
-FROM front_base_image as user_form_frontend_image
-
-RUN cp ./env_apps/user_form_frontend.${BUILD_TYPE}.env.js ./apps/user_form_frontend/src/ENVIRONMENT.js
-
-RUN cd apps/user_form_frontend && \
-    npm ci && cd ../../ && ./node_modules/.bin/webpack \
-        --env PUBLIC_PATH=$PUBLIC_FRONTEND_PATH \
-        --env DEV_TOOL=none \
-        --env DEBUG=0 --no-devtool --mode production \
-        --config webpack.user_form_frontend.config.js
-        
-
-# New User Form V2 (sean)
-FROM front_base_image as user_form_v2_frontend_image
-
-RUN cp ./env_apps/user_form.${BUILD_TYPE}.env.js ./apps/user_form/src/ENVIRONMENT.js
-
-RUN cd apps/user_form && \
-    npm ci && cd ../../ && ./node_modules/.bin/webpack \
-        --env PUBLIC_PATH=$PUBLIC_FRONTEND_PATH \
-        --env DEV_TOOL=none \
-        --env DEBUG=0 --no-devtool --mode production \
-        --config webpack.user_form.config.js
-        
 # Cookie Banner
 FROM front_base_image as cookie_banner_frontend_image
 
@@ -92,7 +67,7 @@ RUN cd apps/main_frontend && \
         --config webpack.main_frontend.config.js
         
 # Now we build the main backend image
-FROM python:3.11-alpine
+FROM python:3.11-alpine as backend
 
 WORKDIR /back
 COPY ./back .
@@ -102,7 +77,6 @@ RUN pip install "Cython<3.0" pyyaml --no-build-isolation
 
 RUN pip install --no-cache-dir -r requirements.txt
 RUN apk add --no-cache git
-RUN pip install git+https://github.com/jazzband/django-revproxy.git
 RUN pip cache purge
 
 # Copy all the backend files
@@ -115,16 +89,6 @@ RUN mkdir -p /front
 COPY --from=admin_panel_frontend_image /front/admin_panel_frontend.webpack-stats.json /front/
 RUN mkdir -p ./static/dist/admin_panel_frontend
 COPY --from=admin_panel_frontend_image /back/static/dist/admin_panel_frontend ./static/dist/admin_panel_frontend
-
-COPY --from=user_form_frontend_image /front/user_form_frontend.webpack-stats.json /front/
-RUN mkdir -p ./static/dist/user_form_frontend
-COPY --from=user_form_frontend_image /back/static/dist/user_form_frontend ./static/dist/user_form_frontend
-
-
-COPY --from=user_form_v2_frontend_image /front/user_form.webpack-stats.json /front/
-RUN mkdir -p ./static/dist/user_form
-COPY --from=user_form_v2_frontend_image /back/static/dist/user_form ./static/dist/user_form
-
 
 COPY --from=cookie_banner_frontend_image /front/cookie_banner_frontend.webpack-stats.json /front/
 RUN mkdir -p ./static/dist/cookie_banner_frontend

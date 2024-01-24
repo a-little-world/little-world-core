@@ -1,7 +1,7 @@
 import networkx as nx  # Tim loves graphs and networks and this is heck of a lib for it
 import numpy as np  # Tim likes math too but graphs are even cooler
-from ..models import Profile
-from .score_tables import (
+from management.models.profile import Profile
+from management.matching.score_tables import (
     helping_group,
     helping_group_msg,
     language_level,
@@ -10,7 +10,7 @@ from .score_tables import (
     partner_location_msg
 )
 
-from .score_table_lookup import (
+from management.matching.score_table_lookup import (
     check__plz_distance_matching_score,
     check__volunteer_vs_learner,
     check__time_slot_overlap,
@@ -109,7 +109,7 @@ e.g.: _generate_table_scoring()
 
 
 def get_scoring_from_latest_table_model():
-    from ..models.matching_scores import ScoreTableSource
+    from management.models.matching_scores import ScoreTableSource
     scores = ScoreTableSource.get_latest()
     # TODO fallback to default if no latest table is found
     assert scores, "No 'latests' scoring table!"
@@ -206,7 +206,7 @@ def calculate_directional_score_write_results_to_db(
     This is the main function that calculates the directional score
     and writes the results to the db
     """
-    from ..models import MatchinScore
+    from management.models.matching_scores import MatchinScore
     res = None
     err_msg = ""
     if catch_exceptions:

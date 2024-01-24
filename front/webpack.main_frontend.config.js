@@ -68,30 +68,8 @@ var config = function (env) {
           ],
         },
         {
-          test: /\.svg$/,
-          issuer: /\.jsx?$/,
-          use: [
-            'babel-loader',
-            {
-              loader: 'react-svg-loader',
-              options: {
-                svgo: {
-                  plugins: [{ removeTitle: false }],
-                  floatPrecision: 2,
-                },
-                jsx: true,
-              },
-            },
-          ],
-        },
-        {
-          test: /\.(png|jpg|gif|ttf)$/,
-          use: {
-            loader: 'file-loader',
-            options: {
-              name: '[name].[hash:8].[ext]',
-            },
-          },
+          test: /\.(jpg|png|svg|gif|tff)$/,
+          type: 'asset/resource',
         },
         {
           test: /\.css$/,

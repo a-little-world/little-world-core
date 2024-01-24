@@ -3,7 +3,7 @@ from django.core.management.base import BaseCommand
 import csv , sys
 from management.models.question_deck import CardContent, UserDeck
 from management.models.state import State
-from ...models.user import User
+from management.models.user import User
 
 class Command(BaseCommand):
     def handle(self, *args, **options):

@@ -1,4 +1,8 @@
 from drf_spectacular.utils import OpenApiParameter, OpenApiExample
+from management.api.user_data import get_full_frontend_data, frontend_data
+from django.utils.translation import gettext_lazy as _
+from django.utils import translation
+from back.utils import CoolerJson
 import django.contrib.auth.password_validation as pw_validation
 from django.contrib.auth import authenticate, login
 from typing import Optional
@@ -19,11 +23,12 @@ from django.views.decorators.cache import cache_page
 from django.views.decorators.vary import vary_on_cookie, vary_on_headers
 from rest_framework import serializers
 from rest_framework.permissions import IsAuthenticated
-from ..models import ProfileSerializer, UserSerializer
+from management.models.profile import ProfileSerializer
 from dataclasses import dataclass
 from .. import validators, controller
-from ..models.user import User
+from management.models.user import User, UserSerializer
 from . import schemas
+import json
 
 
 @dataclass
@@ -33,6 +38,7 @@ class RegistrationData:
     second_name: str
     password: str
     birth_year: str
+    newsletter_subscribed: bool
 
 
 class RegistrationSerializer(serializers.Serializer):
@@ -54,6 +60,8 @@ class RegistrationSerializer(serializers.Serializer):
         'min_value': pgettext_lazy('register.birth-year-under-1900', 'I\'m sorry but you can\'t be that old'),
         'max_value': pgettext_lazy('register.birth-year-over-2024', 'Sorry currently users have to be at least 18 years old to participate'),
     })
+    
+    newsletter_subscribed = serializers.BooleanField(required=False, default=False)
 
     def create(self, validated_data):
         # Password same validation happens in 'validate()' we need only one password now
@@ -139,4 +147,9 @@ class Register(APIView):
         except Exception as e:
             print("Auto login failed: {}".format(repr(e)))
             return Response("User cerated but auto login failed")
-        return Response("Sucessfully Created User")
+        
+        
+        with translation.override("tag"):
+            data = frontend_data(request.user)
+        
+        return Response(data)

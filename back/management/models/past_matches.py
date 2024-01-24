@@ -1,5 +1,5 @@
 from django.db import models
-from management.models import User
+from management.models.user import User
 
 
 class PastMatch(models.Model):

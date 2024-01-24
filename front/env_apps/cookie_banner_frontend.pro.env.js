@@ -6,5 +6,6 @@ exports.DEFAULT_LOGIN_USERNAME = this.DEVELOPMENT
 exports.DEFAULT_LOGIN_PASSWORD = this.DEVELOPMENT
   ? 'Test123'
   : 'aPassYouCantUse:)';
-exports.BACKEND_URL = this.DEVELOPMENT ? 'http://localhost:3333' : '';
+// We HAVE TO explicitly specify `https://little-world.com` here, because it can be served via sub domain
+exports.BACKEND_URL = this.DEVELOPMENT ? 'http://localhost:3333' : 'https://little-world.com';
 exports.STORYBOOK = false;

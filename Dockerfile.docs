@@ -1,13 +1,83 @@
-FROM python:3.10.0-bullseye
+FROM python:3.11-alpine as backend
 
-WORKDIR /docs
+WORKDIR /back
+COPY ./back/requirements.txt .
 
-COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+RUN apk add --no-cache git
+RUN pip install git+https://github.com/jazzband/django-revproxy.git
+RUN pip cache purge
 
-RUN python3 -m pip install --no-cache-dir -r requirements.txt
+ARG ENTRYPOINT="./entry.sh"
+ENV ENTRYPOINT=$ENTRYPOINT
 
-COPY . .
+RUN apk add gettext
+RUN apk add --update --no-cache py3-numpy
+
+COPY ./back/ .
+
+ARG PUBLIC_FRONTEND_PATH
+ENV PUBLIC_FRONTEND_PATH=$PUBLIC_FRONTEND_PATH
+
+# local / dev / pro | defines some of the logic of the build process
+ARG BUILD_TYPE
+ENV BUILD_TYPE=${BUILD_TYPE:-deployment}
+
+ARG DJ_SECRET_KEY
+ENV DJ_SECRET_KEY=${DJ_SECRET_KEY:-none}
+
+
+ARG DJ_DEBUG
+ENV DJ_DEBUG=${DJ_DEBUG:-0}
+
+ARG FR_FRONTENDS
+ENV FR_FRONTENDS=${FR_FRONTENDS:-}
+
+ARG DJ_MANAGEMENT_USER_MAIL
+ENV DJ_MANAGEMENT_USER_MAIL=${DJ_MANAGEMENT_USER_MAIL:-}
+
+ARG DJ_ADMIN_OPEN_KEYPHRASE
+ENV DJ_ADMIN_OPEN_KEYPHRASE=${DJ_ADMIN_OPEN_KEYPHRASE:-}
+
+ARG DJ_SG_DEFAULT_FROM_EMAIL
+ENV DJ_SG_DEFAULT_FROM_EMAIL=${DJ_SG_DEFAULT_FROM_EMAIL:-}
+
+ARG DJ_TWILIO_ACCOUNT_SID
+ENV DJ_TWILIO_ACCOUNT_SID=${DJ_TWILIO_ACCOUNT_SID:-}
+
+ARG DJ_TWILIO_API_KEY_SID
+ENV DJ_TWILIO_API_KEY_SID=${DJ_TWILIO_API_KEY_SID:-}
+
+ARG DJ_TWILIO_API_SECRET
+ENV DJ_TWILIO_API_SECRET=${DJ_TWILIO_API_SECRET:-}
+
+ARG DJ_CELERY_TIMEZONE
+ENV DJ_CELERY_TIMEZONE=${DJ_CELERY_TIMEZONE:-}
+
+ARG DJ_TIME_ZONE
+ENV DJ_TIME_ZONE=${DJ_TIME_ZONE:-}
+
+# link the numpy installation
+ENV PYTHONPATH="/usr/lib/python3.11/site-packages/:${PYTHONPATH}"
 
 EXPOSE 8000
 
-ENTRYPOINT [ "python3", "serve.py" ]
+RUN cp ${ENTRYPOINT} ./entry.sh || true
+
+# build the docs
+RUN pip install pdoc
+RUN mkdir -p /tmp/html
+RUN python3 generate_docs.py
+RUN cp -r /tmp/html/* /back/static/
+
+FROM node:16-alpine as docs-frontend
+
+WORKDIR /docs
+
+RUN mkdir ./static
+
+COPY --from=backend /tmp/html/ ./static
+
+RUN npm install -g http-server
+
+ENTRYPOINT [ "http-server", "-p", "8000", "." ]

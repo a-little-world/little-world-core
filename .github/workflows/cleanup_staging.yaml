@@ -70,3 +70,11 @@ jobs:
           issue-number: ${{ steps.determine_pull_id.outputs.PULL_NUMBER }}
           body: |
             Cleaned Up Feature Environment `${{ steps.cluster_connection.outputs.STAGING_URL }}`
+      - name: Notify Slack Channel
+        env:
+          SLACK_API_TOKEN: ${{ secrets.SLACK_API_TOKEN }}
+          CHANNEL_ID: "C0695SSFPMM"
+          MESSAGE: "*Feature environment deleted*\nUrl ${{ steps.cluster_connection.outputs.STAGING_URL }}"
+        run: |
+          pip3 install slack_sdk
+          wget -qO- https://raw.githubusercontent.com/tbscode/tims-blog-posts/main/assets/send_slack_message.py | python3 -

@@ -17,13 +17,14 @@ from typing import List, Optional
 from tracking import utils
 from tracking.models import Event
 from rest_framework.decorators import api_view, permission_classes
+from management.views.main_frontend import info_card
 
 @api_view(['GET'])
 @permission_classes([])
 def landing_page(request):
-    return render(
-        request, 
-        "landing_page_frontend.html", { 
-            "data" : json.dumps({
-               "title" : settings.LANDINGPAGE_PLACEHOLDER_TITLE
-            }, cls=DjangoJSONEncoder, default=lambda o: str(o))})
+    
+    return info_card(request,
+            title=settings.LANDINGPAGE_PLACEHOLDER_TITLE,
+            content="here could be a landing page",
+            linkText="Go to the app",
+            linkTo="/login")

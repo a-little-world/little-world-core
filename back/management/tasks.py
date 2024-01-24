@@ -1,16 +1,17 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from cookie_consent.models import CookieGroup, Cookie
 from celery import shared_task
 from tracking.utils import inline_track_event
 from dataclasses import dataclass
-from .models import User
+from management.models.user import User
 import json
-import datetime
 from django.utils.translation import pgettext_lazy
-from .models.community_events import CommunityEvent, CommunityEventSerializer
-from .models.backend_state import BackendState
+from management.models.community_events import CommunityEvent, CommunityEventSerializer
+from management.models.backend_state import BackendState
 import operator
 from functools import reduce
+from tracking.models import Summaries, Event
+from management.models.user import User
 """
 also contains general startup celery tasks, most of them are automaticly run when the controller.get_base_management user is created
 some of them are managed via models.backend_state.BackendState to ensure they don't run twice!
@@ -31,8 +32,8 @@ def create_default_community_events():
     CommunityEvent.objects.create(
         title=pgettext_lazy('community-event.coffe-chillout', 'Kaffeerunden'),
         description="Zusammenkommen der Community – lerne das Team hinter Little World und andere Nutzer:innen bei einer gemütlichen Tasse Kaffee oder Tee kennen.",
-        time=datetime.datetime(2022, 11, 29, 12, 00, 00,
-                               00, datetime.timezone.utc),
+        time=datetime(2022, 11, 29, 12, 00, 00,
+                               00, timezone.utc),
         active=True,
         frequency=CommunityEvent.EventFrequencyChoices.WEEKLY
     )
@@ -140,7 +141,7 @@ I'll take the time to answer all your messages but I might take a little time to
     usr.profile.add_profile_picture_from_local_path(
         '/back/dev_test_data/tim_schupp_base_management_profile_new.jpeg')
     
-    from management.models import State
+    from management.models.state import State
     
     usr.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.MATCHING_USER)
     usr.state.save()
@@ -153,10 +154,18 @@ def calculate_directional_matching_score_v2_static(
     invalidate_other_scores=True,
     consider_only_registered_within_last_x_days=None
 ):
+    # TODO: depricated
     from .controller import get_user_by_pk
-    from management.models import State, User, MatchinScore
+    from management.models.state import State
+    from management.models.user import User
+    from management.models.matching_scores import MatchinScore
+    from management.matching.matching_score import calculate_directional_score_write_results_to_db
+
+    from django.utils import timezone
+    from management import controller
+
     from django.db.models import Q
-    from .matching.matching_score import calculate_directional_score_write_results_to_db
+
     usr = get_user_by_pk(user_pk)
     all_users_to_consider = User.objects.filter(
         ~Q(id=usr.pk) & 
@@ -170,7 +179,7 @@ def calculate_directional_matching_score_v2_static(
     if not (consider_only_registered_within_last_x_days is None):
         from django.utils import timezone
         today = timezone.now()
-        x_days_ago = today - datetime.timedelta(days=consider_only_registered_within_last_x_days)
+        x_days_ago = today - timedelta(days=consider_only_registered_within_last_x_days)
         all_users_to_consider = all_users_to_consider.filter(date_joined__gte=x_days_ago)
 
 
@@ -314,30 +323,6 @@ def create_default_table_score_source():
 
 
 @shared_task
-def dispatch_track_chat_channel_event(
-    message_type: str,
-    usr_hash: str,
-    meta: dict
-):
-    """
-    Automaticly triggered by some events in management.app.chat
-    types:    connected | disconnected | message-send
-    """
-    from .controller import get_user_by_hash
-    caller = "anonymous"
-    try:
-        caller = get_user_by_hash(usr_hash)
-    except:
-        print("Could not find user by hash", usr_hash)
-
-    inline_track_event(
-        caller=caller,
-        tags=["chat", "channels", message_type],
-        channel_meta=meta
-    )
-
-
-@shared_task
 def archive_current_profile_user(usr_hash):
     """
     Task is called when a user changed this searching state, it will archive the current profile
@@ -369,7 +354,7 @@ def send_new_message_notifications_all_users(
     from django.conf import settings
     from back.utils import CoolerJson
     # user = controller.get_user_by_hash(user_hash)
-    from chat.django_private_chat2.models import MessageModel, DialogsModel
+    from chat_old.django_private_chat2.models import MessageModel, DialogsModel
     from . import controller
     from emails import mails
     from .models import User
@@ -474,7 +459,7 @@ def send_new_message_notifications_all_users(
             if send_only_if_logged_in_withing_last_3_weeks:
                 from django.utils import timezone
                 today = timezone.now()
-                tree_weeks = datetime.timedelta(days=7*3)
+                tree_weeks = timedelta(days=7*3)
                 tree_weeks_ago = today - tree_weeks
                 if user.last_login < tree_weeks_ago:
                     print("WARN, user not logged in for 3 weeks")
@@ -526,11 +511,6 @@ def write_hourly_backend_event_summary(
     - amount matches created today
     """
 
-    from tracking.models import Summaries, Event
-    from management.models import User
-    from datetime import timedelta, datetime
-    from django.utils import timezone
-    from . import controller
 
     # For that fist we extract all event within that hour
     # We calculate from 2 hours ago per default cause otherwise the task could be shedules eventhought the hour is not completed yet
@@ -815,7 +795,6 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
     actions = []
     from tracking.models import Summaries
     from management import controller
-    from datetime import datetime
 
     if start_time is None:
         first_event_logged_time = datetime(
@@ -1073,7 +1052,7 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
                             user_call_list.append(video_event["actor"])
                             user_call_length_list.append(duration)
 
-                            from management.models import Room
+                            from management.models.rooms import Room
 
                             users = []
                             import itertools
@@ -1654,7 +1633,8 @@ def create_series(start_time=None, end_time=None, regroup_by="hour"):
 @ shared_task
 def collect_static_stats():
     from management import controller
-    from management.models import Profile, State
+    from management.models.profile import Profile
+    from management.models.state import State
     from tracking.models import Summaries
     from datetime import datetime
 
@@ -2242,7 +2222,8 @@ def indentify_and_mark_user_categories():
 
     """
     from datetime import timedelta, timezone, datetime
-    from management.models import State, User
+    from management.models.state import State
+    from management.models.user import User
     from tracking.models import Summaries
     now = datetime.now(timezone.utc)
 
@@ -2371,7 +2352,8 @@ def check_registration_reminders():
     - user from unfinished reminder 2
     """
     from datetime import datetime, time
-    from management.models import User, State
+    from management.models.state import State
+    from management.models.user import User
     from django.db.models import Q
     from django.utils import timezone
 
@@ -2417,7 +2399,7 @@ def check_registration_reminders():
     
 @shared_task
 def check_match_still_in_contact_emails():
-    from management.models import Match
+    from management.models.matches import Match
     from django.db.models import Q
     from django.utils import timezone
     from emails import mails
@@ -2471,3 +2453,159 @@ def dispatch_admin_email_notification(subject, message):
             content_start_text=message
         )
     )
+
+@shared_task
+def request_streamed_ai_response(messages, model="gpt-3.5-turbo", backend="default"):
+    from openai import OpenAI
+    from django.conf import settings
+    from django.http import StreamingHttpResponse
+    from rest_framework.decorators import api_view, authentication_classes
+    from management.models.state import State
+    from django.views import View
+    from django.urls import path, re_path
+    from django.contrib.auth.mixins import LoginRequiredMixin
+    from rest_framework.authentication import SessionAuthentication
+    from django.http import HttpResponseBadRequest
+    import json
+    import time
+    
+    
+    def get_base_ai_client():
+        if backend == "default":
+            return OpenAI(
+                api_key=settings.AI_OPENAI_API_KEY,
+            )
+        else:
+            return OpenAI(
+                api_key=settings.AI_API_KEY,
+                base_url=settings.AI_BASE_URL,
+            )
+
+
+    client = get_base_ai_client()
+
+    completion = client.chat.completions.create(
+        model=model,
+        messages=messages,
+        temperature=0,
+        stream=True  # this time, we set stream=True
+    )
+    
+    
+    message_dt = ""
+    message_ft = ""
+    
+    c = 0
+    update_mod = 1
+
+    for chunk in completion:
+        content = chunk.choices[0].delta.content
+        message_dt = content if content else ""
+        message_ft += message_dt
+        
+
+        c+=1
+        if c % update_mod == 0:
+            request_streamed_ai_response.backend.mark_as_started(
+                request_streamed_ai_response.request.id,
+                progress=message_ft
+            )
+            c = 0
+    request_streamed_ai_response.backend.mark_as_started(
+        request_streamed_ai_response.request.id,
+        progress=message_ft
+    )
+    
+
+
+def matching_algo_v2(
+    user_pk,
+    consider_only_registered_within_last_x_days=None
+):
+    """
+    New way to calculate the matching score 
+    """
+    from management import controller
+    from management.models.state import State
+    from management.models.unconfirmed_matches import UnconfirmedMatch
+    from django.db.models import Q
+    from django.db.models import Exists, OuterRef
+
+    usr = controller.get_user_by_pk(user_pk)
+    
+    all_users = User.objects.all()
+    
+    # don't consider:
+    # - 'self'
+    # - spam and test users
+    # - users that are not searching
+    # - users that have not filled out their user form
+    # - users that have not verified their email
+    # - users that are 'staff'
+    # - users that have the State.ExtraUserPermissionChoices.MATCHING_USER in state.extra_user_permissions
+    # - user has no open proposals
+    
+    open_proposals = UnconfirmedMatch.objects.filter(
+        Q(user1=OuterRef('pk')) | Q(user2=OuterRef('pk')), closed=False
+    )
+
+    all_users_to_consider = User.objects.annotate(
+        has_open_proposal=Exists(open_proposals)
+    ).filter(
+        ~Q(id=usr.pk) & 
+        ~(Q(state__user_category=State.UserCategoryChoices.SPAM) | Q(state__user_category=State.UserCategoryChoices.TEST)),
+        state__matching_state=State.MatchingStateChoices.SEARCHING,
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
+        is_staff=False,
+        state__extra_user_permissions__contains=State.ExtraUserPermissionChoices.MATCHING_USER,
+        has_open_proposal=False
+    )
+
+    if not (consider_only_registered_within_last_x_days is None):
+        from django.utils import timezone
+        today = timezone.now()
+        x_days_ago = today - timedelta(days=consider_only_registered_within_last_x_days)
+        all_users_to_consider = all_users_to_consider.filter(date_joined__gte=x_days_ago)
+        
+    
+    # - We have to set the score of all users not to consider to 0
+    all_users_not_to_consider = User.objects.annotate(
+        to_consider=Exists(
+            all_users_to_consider.filter(pk=OuterRef('id'))
+        )
+    ).filter(to_consider=False)
+
+    total_considered_users = all_users_to_consider.count()
+    total_unconsidered_users = all_users_not_to_consider.count()
+    
+    # we always delete all scores of unconsidered users, that way we assure that we don't blow database sizes!
+    from management.models.scores import TwoUserMatchingScore
+    cleaned_scores = TwoUserMatchingScore.objects.filter(
+        (~Q(user1__in=all_users_to_consider) and Q(user2=usr)) | (~Q(user2__in=all_users_to_consider) and Q(user1=usr))
+    )
+    count_cleaned_scores = cleaned_scores.count()
+    cleaned_scores.delete()
+    
+
+    matching_algo_v2.backend.mark_as_started(
+        matching_algo_v2.request.id,
+        progress=json.dumps({
+            'total_considered_users': total_considered_users,
+            'total_unconsidered_users': total_unconsidered_users,
+            'scores_cleaned': count_cleaned_scores,
+            'progress': 0,
+            "state": "starting"
+        }))
+        
+    for user in all_users_to_consider:
+        matching_algo_v2.backend.mark_as_started(
+            matching_algo_v2.request.id,
+            progress=json.dumps({
+                'total_considered_users': total_considered_users,
+                'total_unconsidered_users': total_unconsidered_users,
+                'scores_cleaned': count_cleaned_scores,
+                'progress': 0,
+                "state": "processing",
+                "current_user": user.pk
+            }))

@@ -1,5 +1,5 @@
 from rest_framework import viewsets, authentication, permissions
-from ..models import SelfProfileSerializer, Profile
+from management.models.profile import SelfProfileSerializer, Profile
 from django.utils.translation import pgettext_lazy
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample

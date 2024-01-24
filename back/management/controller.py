@@ -3,24 +3,42 @@ This is a controller for any userform related actions
 e.g.: Creating a new user, sending a notification to a users etc...
 """
 import urllib.parse
+from uuid import uuid4
+from django.utils import translation
 from django.db import transaction
 from typing import Dict, Callable
 from management.models.unconfirmed_matches import UnconfirmedMatch
+from management.models.backend_state import BackendState
+from management.models.past_matches import PastMatch
+from management.models.matches import Match
+from chat_old.django_private_chat2.models import DialogsModel
+from management import controller
 from dataclasses import dataclass, fields, field
-from chat.django_private_chat2.consumers.message_types import MessageTypes, OutgoingEventNewTextMessage
-from chat.django_private_chat2.models import DialogsModel, MessageModel
+from chat_old.django_private_chat2.consumers.message_types import MessageTypes, OutgoingEventNewTextMessage
+from chat_old.django_private_chat2.models import DialogsModel, MessageModel
 from django.utils import timezone
 from asgiref.sync import async_to_sync
 from back.utils import _double_uuid
 from channels.layers import get_channel_layer
 from django.conf import settings
-from management.models import UserSerializer, User, Profile, State, Settings, Room
+from management.models.user import UserSerializer, User
+from management.models.profile import Profile
+from management.models.state import State
+from management.models.settings import Settings
+from management.models.rooms import Room
+from chat.models import Chat
 from django.utils.translation import gettext_lazy as _, pgettext_lazy
 from emails import mails
 from tracking import utils
 from tracking.models import Event
 import json
 import os
+from management.tasks import (
+    create_default_community_events,
+    create_default_cookie_groups,
+    fill_base_management_user_tim_profile,
+    create_default_table_score_source
+)
 
 
 class UserNotFoundErr(Exception):
@@ -96,8 +114,7 @@ Da du dich schon vor einiger Zeit registriert hast, wollte ich dich fragen, ob d
 
 Solange du auf dein Match wartest, kannst du dir schon mal den <a href="https://home.little-world.com/leitfaden">Gesprächsleitfaden</a> anschauen. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
 
-Viele Grüße aus Aachen 👋🏼
-""".format(first_name=user.first_name)), auto_mark_read=False)
+Viele Grüße aus Aachen 👋🏼""".format(first_name=user.first_name)), auto_mark_read=False)
 
 
 def make_tim_support_user(
@@ -107,8 +124,6 @@ def make_tim_support_user(
         custom_message=None
     ):
     # 1. We need to remove oliver as matching user
-    from management.models import Match
-    from management import controller
     
     admin_user = controller.get_user_by_email(old_management_mail)
     old_support_matching = Match.get_match(user1=admin_user, user2=user)
@@ -149,6 +164,7 @@ def create_user(
     first_name,
     second_name,
     birth_year,
+    newsletter_subscribed=False,
     send_verification_mail=True,
     send_welcome_notification=True,
     send_welcome_message=True,
@@ -185,6 +201,7 @@ def create_user(
     usr = User.objects.create_user(**data)
 
     usr.profile.birth_year = int(birth_year)
+    usr.profile.newsletter_subscribed = newsletter_subscribed
     usr.profile.save()
     # Error if user doesn't exist, would prob already happen on is_valid
     assert isinstance(usr, User)
@@ -256,7 +273,6 @@ Vielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!""".fo
             
             if check_prematching_invitations:
                 # Now we need to check the prematching state
-                from management.models import BackendState
                 prematch_interview_state = BackendState.get_prematch_callinvitations_state()
                 if prematch_interview_state.meta["active"] and prematch_interview_state.meta["invitations_remaining"] > 0:
                     prematch_interview_state.meta["invitations_remaining"] = prematch_interview_state.meta["invitations_remaining"] - 1
@@ -318,8 +334,6 @@ def match_users(
         set_unconfirmed=True,
         set_to_idle=True):
     """ Accepts a list of two users to match """
-    from chat.django_private_chat2.models import DialogsModel
-    from management.models import Match
 
     assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
     usr1, usr2 = list(users)
@@ -349,6 +363,10 @@ def match_users(
     if create_dialog:
         # After the users are registered as matches
         # we still need to create a dialog for them
+        
+        chat = Chat.get_or_create_chat(usr1, usr2)
+        
+        # TODO: old depricated way to create dialog:
         DialogsModel.create_if_not_exists(usr1, usr2)
 
     if create_video_room:
@@ -362,13 +380,14 @@ def match_users(
         usr2.notify(title=_("New match: %s" % usr1.profile.first_name))
 
     if send_message:
-        match_message = pgettext_lazy("api.match-made-message-text", """Glückwunsch, wir haben jemanden für dich gefunden! 
+        with translation.override("en"):
+            match_message = pgettext_lazy("api.match-made-message-text", """Glückwunsch, wir haben jemanden für dich gefunden! 
 
-Am besten vereinbarst du direkt einen Termin mit {other_name} für euer erstes Gespräch – das klappt meist besser als viele Nachrichten. 
-Unterhalten könnt ihr euch zur vereinbarten Zeit auf Little World indem du oben rechts auf das Anruf-Symbol drückt. 
-Schau dir gerne schon vorher das Profil von {other_name} an, indem du auf den Namen drückst. 
+    Am besten vereinbarst du direkt einen Termin mit {other_name} für euer erstes Gespräch – das klappt meist besser als viele Nachrichten. 
+    Unterhalten könnt ihr euch zur vereinbarten Zeit auf Little World indem du oben rechts auf das Anruf-Symbol drückt. 
+    Schau dir gerne schon vorher das Profil von {other_name} an, indem du auf den Namen drückst. 
 
-Damit euch viel Spaß! Schöne Grüße vom Team Little World""")
+    Damit euch viel Spaß! Schöne Grüße vom Team Little World""")
         # Sends a message from the admin model
         usr1.message(match_message.format(
             other_name=usr2.profile.first_name), auto_mark_read=True)
@@ -439,7 +458,6 @@ def unmatch_users(
     - Messages ( or set to `deleted` )
     - Video Room
     """
-    from management.models import Match, PastMatch
     assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
 
     # Un-Match the users by removing the from their 'matches' field
@@ -466,7 +484,7 @@ def unmatch_users(
 
     # Delte the dialog
     if delete_dialog:
-        from chat.django_private_chat2.models import DialogsModel
+        from chat_old.django_private_chat2.models import DialogsModel
         dia = DialogsModel.dialog_exists(usr1, usr2)
         if dia:
             dia.delete()
@@ -488,6 +506,47 @@ def get_base_management_user():
         return get_user_by_email(TIM_MANAGEMENT_USER_MAIL)
     except UserNotFoundErr:
         return create_base_admin_and_add_standart_db_values()
+    
+def get_or_create_default_docs_user():
+    if not settings.CREATE_DOCS_USER:
+        return None
+    if not settings.DOCS_USER:
+        raise Exception("DOCS_USER not set!")
+    if not settings.DOCS_PASSWORD:
+        raise Exception("DOCS_USER_PW not set!")
+    
+    user = None
+    try:
+        return get_user_by_email(settings.DOCS_USER)
+    except UserNotFoundErr:
+        create_user(
+            email=settings.DOCS_USER,
+            password=settings.DOCS_PASSWORD,
+            first_name="Docs",
+            second_name="User",
+            birth_year=2000,
+            newsletter_subscribed=False,
+            send_verification_mail=False,
+            send_welcome_notification=False,
+            send_welcome_message=False,
+            catch_email_send_errors=False,
+            check_prematching_invitations=False
+        )
+        
+    def finish_up_user_creation():
+        user = get_user_by_email(settings.DOCS_USER)
+        user.state.email_authenticated = True
+        user.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.DOCS_VIEW)
+        user.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.API_SCHEMAS)
+        user.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.AUTO_LOGIN)
+        user.state.auto_login_api_token = settings.DOCS_USER_LOGIN_TOKEN
+        user.state.save()
+        user.state.set_user_form_completed()
+        
+    transaction.on_commit(finish_up_user_creation)
+
+    return get_user_by_email(settings.DOCS_USER)
+
 
 
 def create_base_admin_and_add_standart_db_values():
@@ -505,6 +564,8 @@ def create_base_admin_and_add_standart_db_values():
             second_name=os.environ.get(
                 'DJ_MANAGEMENT_SECOND_NAME', ''),
         )
+        usr.state.email_authenticated = True
+        usr.state.save()
         usr.state.set_user_form_completed()  # Admin doesn't have to fill the userform
         usr.notify("You are the admin master!")
     print("BASE ADMIN USER CREATED!")
@@ -512,6 +573,7 @@ def create_base_admin_and_add_standart_db_values():
     def update_profile():
         usr_tim = get_user_by_email(TIM_MANAGEMENT_USER_MAIL)
         usr_tim.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.MATCHING_USER)
+        usr_tim.state.email_authenticated = True
         usr_tim.state.save()
         usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
         usr_tim.notify("You are the bese management user with less permissions.")
@@ -535,12 +597,6 @@ def create_base_admin_and_add_standart_db_values():
     print("TIM ADMIN USER CREATED!")
     
     # Now we create some default database elements that should be part of all setups!
-    from management.tasks import (
-        create_default_community_events,
-        create_default_cookie_groups,
-        fill_base_management_user_tim_profile,
-        create_default_table_score_source
-    )
 
     # Create default cookie groups and community events
     # This is done as celery task in the background!
@@ -548,6 +604,8 @@ def create_base_admin_and_add_standart_db_values():
     create_default_community_events.delay()
     fill_base_management_user_tim_profile.delay()
     create_default_table_score_source.delay()
+    
+    get_or_create_default_docs_user()
 
     return usr_tim
 

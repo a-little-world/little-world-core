@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 from rest_framework import authentication, permissions, viewsets
 from rest_framework.response import Response
 from django.utils.translation import pgettext_lazy
-from ..models.community_events import CommunityEvent, CommunityEventSerializer
+from management.models.community_events import CommunityEvent, CommunityEventSerializer
 
 
 def get_all_comunity_events_serialized():

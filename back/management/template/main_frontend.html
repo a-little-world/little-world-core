@@ -1,20 +1,26 @@
 {% load get_api_translations from temp_utils %}
 {% load render_bundle from webpack_loader %}
+{% load get_base_page_url from temp_utils %}
 {% get_api_translations request=request as api_translations %}
 <!DOCTYPE html>
 <head>
-    {% include "react_app_head_base.html" with app_name='main_frontend' title='Little World' %}    
+    {% include "react_app_head_base.html" with app_name='main_frontend' title='Little World' %}
+
+    {% if use_cookie_banner %}
+        {% get_base_page_url as BASE_PAGE_URL %}
+        <script type='text/javascript' async src='{{ BASE_PAGE_URL }}/api/cookies/cookie_banner.js'></script>
+    {% endif %}
     <script type="text/javascript">
       (function (C, A, L) { let p = function (a, ar) { a.q.push(ar); }; let d = C.document; C.Cal = C.Cal || function () { let cal = C.Cal; let ar = arguments; if (!cal.loaded) { cal.ns = {}; cal.q = cal.q || []; d.head.appendChild(d.createElement("script")).src = A; cal.loaded = true; } if (ar[0] === L) { const api = function () { p(api, arguments); }; const namespace = ar[1]; api.q = api.q || []; typeof namespace === "string" ? (cal.ns[namespace] = api) && p(api, ar) : p(cal, ar); return; } p(cal, ar); }; })(window, "https://app.cal.com/embed/embed.js", "init");
     Cal("init", {origin:"https://cal.com"});
-    
-      
+
+
       // Important: Please add following attributes to the element you want to open Cal on click
       // `data-cal-link="tim-schupp-o8evyj/15min"`
       // `data-cal-config='{"layout":"month_view"}'`
-      
+
       Cal("ui", {"styles":{"branding":{"brandColor":"#000000"}},"hideEventTypeDetails":false,"layout":"month_view"});
-      </script>
+    </script>
 </head>
 {% render_bundle 'staticfiles' 'css' 'main_frontend' %}
 <body>
@@ -22,8 +28,9 @@
 </body>
 {% render_bundle 'staticfiles' 'js' 'main_frontend' %}
 <script>
-  const data = JSON.parse('{{ profile_data | escapejs }}');
+  const data = JSON.parse('{{ data | escapejs }}');
   const apiTranslations = JSON.parse('{{ api_translations | escapejs }}');
+  window.apiTranslations = apiTranslations;
   renderApp({ initData : data }, { apiTranslations })
 </script>
 <div style="display: none;">{{csrf_token}}</div>

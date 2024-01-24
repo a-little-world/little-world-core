@@ -10,7 +10,7 @@ from django.utils.translation import pgettext_lazy
 from rest_framework import serializers
 from management.controller import match_users
 from management.models.settings import UnsubscibeOptions, EmailSettings
-from management.views.user_form_frontend import dynamic_error_page
+from management.views.main_frontend import info_card
 
 @dataclass
 class UnsubscribeParams:
@@ -41,18 +41,55 @@ class UnsubscribeParamsLinkSerializer(DataclassSerializer):
     class Meta:
         dataclass = UnsubscribeLinkParams
 
-def update_email_settings(data, email_settings):
+def update_email_settings(data, email_settings, request=None):
+    
+
     if (not data.choice) and (not (data.unsubscribe_type in email_settings.unsubscibed_options)):
         email_settings.unsubscibed_options.append(data.unsubscribe_type)
         email_settings.save()
-        return Response(pgettext_lazy("unsubscribe_email.success", "You have been unsubscribed from this email type"))
+        
+        response_text = pgettext_lazy("info-view.email-settings.email-unsubscribed.content", "You have been unsubscribed from this email type")
+
+        if request:
+            return info_card(request,
+                             title=pgettext_lazy("info-view.email-settings.email-unsubscribed.title", 
+                                                 "Email type unsubscribed"),
+                             content=response_text,
+                             linkText=pgettext_lazy("info-view.email-settings.linkText",
+                                                    "Back to home"),
+                             )
+        else:
+            return Response(response_text)
 
     elif data.choice and (data.unsubscribe_type in email_settings.unsubscibed_options):
         email_settings.unsubscibed_options.remove(data.unsubscribe_type)
         email_settings.save()
-        return Response(pgettext_lazy("unsubscribe_email.success", "You have been subscribed to this email type"))
+
+        response_text = pgettext_lazy("info-view.email-settings.email-subscribed.content", "You have been subscribed to this email type")
+        
+        if request:
+            return info_card(request,
+                             title=pgettext_lazy("info-view.email-settings.email-subscribed.title", 
+                                                 "Email type subscribed"),
+                             content=response_text,
+                             linkText=pgettext_lazy("info-view.email-settings.linkText",
+                                                    "Back to home"),
+                             )
+        else:
+            return Response(response_text)
+        
+    response_text = pgettext_lazy("info-view.email-settings.email-already-subscribed.content", "You are already subscribed / unsubscribed from this email type")
     
-    return Response(pgettext_lazy("unsubscribe_email.success", "No email settings where changed"))
+    if request:
+        return info_card(request,
+                         title=pgettext_lazy("info-view.email-settings.email-already-subscribed.title", 
+                                             "No email settings changed"),
+                         content=response_text,
+                         linkText=pgettext_lazy("info-view.email-settings.linkText",
+                                                "Back to home"),
+                         )
+    else:
+        return Response(response_text)
     
 @extend_schema(
     request=UnsubscribeParamsSerializer(many=False),
@@ -106,10 +143,7 @@ def unsubscribe_link(request):
     
     data = serializer.save()
     
-    
     email_settings = EmailSettings.objects.get(hash=data.settings_hash)
-    res =  update_email_settings(data, email_settings)
-
-    return dynamic_error_page(request, str(res.data))
     
+    return update_email_settings(data, email_settings, request=request)
     

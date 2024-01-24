@@ -9,6 +9,7 @@ from django.urls import path, re_path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth.views import LoginView
+from management.urls import public_routes_wildcard
 
 """
 We are adding all app urls under `'/'` their paths should be set under `<app>/urls.py`
@@ -16,7 +17,8 @@ Admin paths registered last
 """
 
 
-handler404 = "management.views.user_form_frontend.handler404"
+handler404 = "management.views.main_frontend.handler404"
+handler500 = "management.views.main_frontend.handler500"
 
 statics = [
     *static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT),
@@ -26,11 +28,12 @@ statics = [
 urlpatterns = [
     path('', include(('management.urls', 'management'), namespace="management")),
     path('', include('emails.urls')),
+    path('', include('chat.urls')),
     path('', include('tracking.urls')),
     path('admin/', admin.site.urls),
     path("cookies/", include("cookie_consent.urls")),
     path('hijack/', include('hijack.urls')),
-    path("", include("chat.django_private_chat2.urls")),
+    path("", include("chat_old.django_private_chat2.urls")),
 
     # In staging and production we are serving statics from an aws bucket!
     *(statics if settings.IS_DEV else [])
@@ -50,18 +53,14 @@ urlpatterns += [
          SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 ]
 
-# In staging we also add and proxy pass to 'http://little-world-staging-docs-clusterip-service:8000/static/docs/'
-# This routs can only be accessed from within the cluster
-
-
-if settings.IS_STAGE or settings.IS_DEV:
+if settings.DOCS_PROXY:
     from revproxy.views import ProxyView
 
     view = ProxyView.as_view(
-        upstream='http://little-world-staging-docs-clusterip-service:8000/')
+        upstream=settings.DOCS_URL)
 
     def auth_docs(request, **kwargs):
-        from management.models import State
+        from management.models.state import State
         if request.user.is_authenticated and \
                 request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.DOCS_VIEW):
             return view(request, **kwargs)
@@ -84,3 +83,6 @@ if settings.USE_SENTRY:
     urlpatterns += [
         path('sentry-debug/', trigger_error),
     ]
+    
+
+urlpatterns += [public_routes_wildcard]

@@ -2,34 +2,15 @@ from management import api
 from django.urls import path, re_path
 from django.contrib import admin
 from django.conf import settings
-from management import views
+from management.views import main_frontend, landing_page
 from back.utils import _api_url
 from django.conf.urls import include
 from django.views.generic.base import RedirectView
 from rest_framework import routers
-from django.contrib.auth import views as auth_views
-from management.views.user_form import (
-    user_form_v2
-)
-from management.views.user_form_frontend import (
-    login,
-    register,
-    forgot_password,
-    set_password_reset,
-    password_reset_mail_send,
-    subsection_of_user_form,
-    email_verification,
-    email_change,
-    email_verification_sucess,
-    email_verification_fail,
-    password_set_success,
-    error,
-    email_verification_link_screen,
-    user_form
-)
 from management.views.admin_panel_frontend import admin_panel, stats_panel, graph_panel, fetch_graph, user_list_frontend, fetch_list
 from management.views import admin_panel_v2
 from management.views import admin_panel_v2_actions
+from management.api import slack, ai
 
 from rest_framework.routers import DefaultRouter
 from django_rest_passwordreset.views import ResetPasswordValidateTokenViewSet, ResetPasswordConfirmViewSet, \
@@ -54,12 +35,17 @@ router.register(
 )
 
 
+
 api_routes = [
+    *slack.api_routes,
+    *ai.api_routes,
     # User
     path(_api_url('user_data'), api.user_data.UserData.as_view()),
     path(_api_url('user_data_v2'), api.user_data.user_data_v2),
 
     path(_api_url('trans/<str:lang>'), api.trans.TranslationsGet.as_view()),
+
+    path(_api_url('options_translations'), api.options.get_translations_and_options),
 
 
     path(_api_url('community/events'),
@@ -67,7 +53,7 @@ api_routes = [
 
     path(_api_url('register'), api.register.Register.as_view()),
     path(_api_url('user'), api.user_data.SelfInfo.as_view()),
-    path(_api_url('cookies/cookie_banner.js'),
+    path(_api_url('cookies/cookie_banner.js', end_slash=False),
          api.cookies.get_dynamic_cookie_banner_js),
     path(_api_url('user/confirm_match'), api.user.ConfirmMatchesApi.as_view()),
     path(_api_url('user/unmatch_self'), api.user.unmatch_self),
@@ -106,7 +92,7 @@ api_routes = [
     path(_api_url('notification/<str:action>', end_slash=False),
          api.notify.NotificationActionApi.as_view()),
 
-   path(_api_url('question'),
+    path(_api_url('question'),
          QuestionApi.as_view()),
     path(_api_url('questions/archive'),
          ArchivedQuestionsApi.as_view()),
@@ -114,6 +100,8 @@ api_routes = [
          ViewArchivedList.as_view()),
     path(_api_url('questions/unarchived'),
          UnArchivedCard.as_view()),
+    path(_api_url('matches/confirmed'),
+         api.user_data.ConfirmedDataApi.as_view()),
     # e.g.: /user/verify/email/Base64{d=email&u=hash&k=pin:hash}
     path(_api_url('user/verify/email/<str:auth_data>', end_slash=False),
          api.user.VerifyEmail.as_view()),
@@ -154,43 +142,16 @@ view_routes = [
     path("", RedirectView.as_view(  # Redirect all requests to "/" to "/app/" per default
          url=f"app/", permanent=True), name="frontend_redirect"),
 
-    path("register/", register, name="register"),
-    path("password_reset/", forgot_password, name="password_reset"),
     path("set_password/<str:usr_hash>/<str:token>",
-         set_password_reset, name="set_password_reset"),
+         main_frontend.set_password_reset, name="set_password_reset"),
 
-    path("new_password_set/", password_set_success,
-         name="password_reset_succsess"),
-
-    path("password_reset_mail_send/", password_reset_mail_send,
-         name="password_reset_succsess"),
-
-    path("login/", login, name="login"),
-
-    path("formpage/", subsection_of_user_form, name="formpage"),
-
-    path('mailverify/', email_verification, name="email_verification"),
-    path('mailverify_link/<str:auth_data>', email_verification_link_screen,
+    path('mailverify_link/<str:auth_data>', main_frontend.email_verification_link,
          name="email_verification_link"),
-    path('change_email/', email_change, name="email_change"),
-    path('mailverify/sucess/', email_verification_sucess,
-         name="email_verification_sucess"),
-    path('mailverify/fail/', email_verification_fail,
-         name="email_verification_fail"),
-
-    path('error/', error, name="error"),
-
-    # The user form ( does its own routing )
-    path(f"form/", user_form, name="user_form"),
-    re_path(fr'^form/(?P<path>.*)$', user_form),
-
-    path(f"form_v2/", user_form_v2, name="user_form_v2"),
-    re_path(fr'^form_v2/(?P<path>.*)$', user_form_v2),
 
     # The main frontend ( does its own routing )
-    path('app/', views.MainFrontendView.as_view(), name="main_frontend"),
+    path('app/', main_frontend.MainFrontendView.as_view(), name="main_frontend"),
     re_path(fr'^app/(?P<path>.*)$',
-            views.MainFrontendView.as_view(), name="main_frontend_w_path"),
+            main_frontend.MainFrontendView.as_view(), name="main_frontend_w_path"),
 
     path(f"user/still_active/", api.user.still_active_callback, name="still_active_callback"),
     path(_api_url(f"user/delete_account", admin=False), api.user.delete_account, name="delete_account_api"),
@@ -201,36 +162,36 @@ view_routes = [
     re_path(fr'^admin_panel_v2/(?P<menu>.*)$', admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
     path(_api_url('user_advanced/<str:pk>', admin=True), admin_panel_v2.root_user_viewset.as_view({'get': 'retrieve'})),
     path(_api_url('user_info/<str:pk>', admin=True), admin_panel_v2.user_info_viewset.as_view({'get': 'retrieve'})),
-    path(_api_url('user_advanced/<str:pk>/notes', admin=True), 
+    path(_api_url('user_advanced/<str:pk>/notes', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'get': 'notes', 'post': 'notes'})),
-    path(_api_url('user_advanced/<str:pk>/scores', admin=True), 
+    path(_api_url('user_advanced/<str:pk>/scores', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'get': 'scores'})),
 
-    path(_api_url('user_advanced/<str:pk>/score_between', admin=True), 
+    path(_api_url('user_advanced/<str:pk>/score_between', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'post': 'score_between'})),
 
-    path(_api_url('user_advanced/<str:pk>/tasks', admin=True), 
+    path(_api_url('user_advanced/<str:pk>/tasks', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'get': 'tasks', 'post': 'tasks'})),
 
-    path(_api_url('user_advanced/<str:pk>/sms', admin=True), 
+    path(_api_url('user_advanced/<str:pk>/sms', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'get': 'sms'})),
 
-    path(_api_url('user_advanced/<str:pk>/message_read', admin=True), 
+    path(_api_url('user_advanced/<str:pk>/message_read', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'post': 'messages_mark_read'})),
 
-    path(_api_url('user_advanced/<str:pk>/resend_email', admin=True), 
+    path(_api_url('user_advanced/<str:pk>/resend_email', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'post': 'resend_email'})),
 
-    path(_api_url('user_advanced/<str:pk>/messages', admin=True), 
+    path(_api_url('user_advanced/<str:pk>/messages', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'get': 'messages'})),
 
-    path(_api_url('user_advanced/<str:pk>/message_reply', admin=True), 
+    path(_api_url('user_advanced/<str:pk>/message_reply', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'post': 'messages_reply'})),
 
-    path(_api_url('user_advanced/<str:pk>/tasks/complete', admin=True), 
+    path(_api_url('user_advanced/<str:pk>/tasks/complete', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'post': 'complete_task'})),
 
-    path(_api_url('user_advanced/<str:pk>/request_score_update', admin=True), 
+    path(_api_url('user_advanced/<str:pk>/request_score_update', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'get': 'request_score_update'})),
     path(_api_url('user_listing_advanced/<str:list>', admin=True), admin_panel_v2.advanced_user_listing),
     path(_api_url('tasks/<str:task_id>/status', admin=True), admin_panel_v2.request_task_status),
@@ -238,19 +199,25 @@ view_routes = [
     path(f"manage/", user_list_frontend, name="management_panel"),
     path(f"stats/graph/<str:slug>", graph_panel, name="graph_dashboard"),
     path(f"stats/<str:regrouped_by>", stats_panel, name="stats_dashboard"),
+    
+    path("info_card_debug/", main_frontend.info_card, name="info_card"),
 
     path(_api_url('calcom', admin=False), api.calcom.callcom_websocket_callback),
+    
+    
+    *admin_panel_v2_actions.action_routes,
 
-    *admin_panel_v2_actions.action_routes
 
 ]
 
 if settings.USE_LANDINGPAGE_PLACEHOLDER:
     view_routes += [
-         path(f"landing/", views.landing_page, name="landing_page_placeholder"),
+         path(f"landing/", landing_page.landing_page, name="landing_page_placeholder"),
     ]
 
 urlpatterns = [
     *view_routes,
     *api_routes,
 ]
+
+public_routes_wildcard = re_path(r'^(?P<path>.+?)/?$', main_frontend.PublicMainFrontendView.as_view(), name="main_frontend_public")

@@ -10,8 +10,11 @@ django_asgi_app = get_asgi_application()
 
 
 def get_urls_patterns():
-    from chat.django_private_chat2 import urls
-    return urls.websocket_urlpatterns
+    from chat_old.django_private_chat2 import urls
+    from management.connections_consumer import CoreConsumer
+
+    return [*urls.websocket_urlpatterns, re_path(
+        rf'^api/core/ws$', CoreConsumer.as_asgi())]
 
 
 application = ProtocolTypeRouter({

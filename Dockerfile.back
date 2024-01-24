@@ -1,0 +1,31 @@
+FROM python:3.11-alpine as backend
+
+ARG PUBLIC_FRONTEND_PATH
+ENV PUBLIC_FRONTEND_PATH=$PUBLIC_FRONTEND_PATH
+
+# local / dev / pro | defines some of the logic of the build process
+ARG BUILD_TYPE
+ENV BUILD_TYPE=${BUILD_TYPE:-dev}
+
+WORKDIR /app
+COPY ./back/ .
+
+RUN pip install --no-cache-dir -r requirements.txt
+RUN apk add --no-cache git
+RUN pip install git+https://github.com/jazzband/django-revproxy.git
+RUN pip cache purge
+
+ARG ENTRYPOINT="./entry.sh"
+ENV ENTRYPOINT=$ENTRYPOINT
+
+RUN apk add gettext
+RUN apk add --update --no-cache py3-numpy
+
+# link the numpy installation
+ENV PYTHONPATH="/usr/lib/python3.11/site-packages/:${PYTHONPATH}"
+
+EXPOSE 8000
+
+RUN cp ${ENTRYPOINT} ./entry.sh || true
+# CMD uvicorn back.asgi:application --port $PORT --host 0.0.0.0
+CMD ["sh", "./entry.sh"]

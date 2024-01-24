@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-10-03 17:55+0000\n"
+"POT-Creation-Date: 2024-01-23 21:51+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,139 +17,139 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: back/settings.py:349
+#: back/settings.py:402
 #, fuzzy
 #| msgctxt "profile.lang.english"
 #| msgid "English"
 msgid "English"
 msgstr "profile.lang.english"
 
-#: back/settings.py:350
+#: back/settings.py:403
 #, fuzzy
 #| msgctxt "profile.lang.german"
 #| msgid "German"
 msgid "German"
 msgstr "profile.lang.german"
 
-#: back/settings.py:351
+#: back/settings.py:404
 msgid "Tag"
 msgstr ""
 
-#: chat/django_private_chat2/models.py:24
+#: chat_old/django_private_chat2/models.py:24
 msgid "Uploaded_by"
 msgstr ""
 
-#: chat/django_private_chat2/models.py:26
-#: chat/django_private_chat2/models.py:79
+#: chat_old/django_private_chat2/models.py:26
+#: chat_old/django_private_chat2/models.py:79
 msgid "File"
 msgstr ""
 
-#: chat/django_private_chat2/models.py:27
+#: chat_old/django_private_chat2/models.py:27
 msgid "Upload date"
 msgstr ""
 
-#: chat/django_private_chat2/models.py:34
-#: chat/django_private_chat2/models.py:72
+#: chat_old/django_private_chat2/models.py:34
+#: chat_old/django_private_chat2/models.py:72
 msgid "Id"
 msgstr ""
 
-#: chat/django_private_chat2/models.py:35
+#: chat_old/django_private_chat2/models.py:35
 msgid "User1"
 msgstr ""
 
-#: chat/django_private_chat2/models.py:37
+#: chat_old/django_private_chat2/models.py:37
 msgid "User2"
 msgstr ""
 
-#: chat/django_private_chat2/models.py:42
+#: chat_old/django_private_chat2/models.py:42
 msgid "Dialog"
 msgstr ""
 
-#: chat/django_private_chat2/models.py:43
+#: chat_old/django_private_chat2/models.py:43
 msgid "Dialogs"
 msgstr ""
 
-#: chat/django_private_chat2/models.py:46
+#: chat_old/django_private_chat2/models.py:46
 msgid "Dialog between "
 msgstr ""
 
-#: chat/django_private_chat2/models.py:73
+#: chat_old/django_private_chat2/models.py:73
 msgid "Author"
 msgstr ""
 
-#: chat/django_private_chat2/models.py:75
+#: chat_old/django_private_chat2/models.py:75
 msgid "Recipient"
 msgstr ""
 
-#: chat/django_private_chat2/models.py:77
+#: chat_old/django_private_chat2/models.py:77
 msgid "Text"
 msgstr ""
 
-#: chat/django_private_chat2/models.py:81
+#: chat_old/django_private_chat2/models.py:81
 #, fuzzy
 #| msgctxt "notification.state.read"
 #| msgid "Read"
 msgid "Read"
 msgstr "notification.state.read"
 
-#: chat/django_private_chat2/models.py:124
+#: chat_old/django_private_chat2/models.py:124
 #, fuzzy
 #| msgctxt "notification.type.message"
 #| msgid "message"
 msgid "Message"
 msgstr "notification.type.message"
 
-#: chat/django_private_chat2/models.py:125
+#: chat_old/django_private_chat2/models.py:125
 #, fuzzy
 #| msgctxt "notification.type.message"
 #| msgid "message"
 msgid "Messages"
 msgstr "notification.type.message"
 
-#: tracking/models.py:21
+#: tracking/models.py:20
 msgid "Misc event"
 msgstr ""
 
-#: tracking/models.py:22
+#: tracking/models.py:21
 msgid "Request event"
 msgstr ""
 
-#: tracking/models.py:23
+#: tracking/models.py:22
 msgid "Database event"
 msgstr ""
 
-#: tracking/models.py:24
+#: tracking/models.py:23
 msgid "Admin event"
 msgstr ""
 
-#: tracking/models.py:29
+#: tracking/models.py:28
 msgid "Flow event"
 msgstr ""
 
-#: tracking/models.py:30
+#: tracking/models.py:29
 msgid "Email event"
 msgstr ""
 
-#: tracking/models.py:35
+#: tracking/models.py:34
 msgid "Frontend event"
 msgstr ""
 
-#: tracking/models.py:90
+#: tracking/models.py:89
 msgid "Hourly"
 msgstr ""
 
-#: tracking/models.py:91
+#: tracking/models.py:90
 msgid "Daily"
 msgstr ""
 
-#: tracking/models.py:92
+#: tracking/models.py:91
 #, fuzzy
 #| msgctxt "model.community-event.frequency-weekly"
 #| msgid "Weekly"
 msgid "Weekly"
 msgstr "model.community-event.frequency-weekly"
 
-#: tracking/models.py:93
+#: tracking/models.py:92
 msgid "Monthly"
 msgstr ""
 
@@ -173,103 +173,136 @@ msgstr ""
 msgid "couldn't convert to drf request"
 msgstr ""
 
-#: management/admin.py:122
+#: management/admin.py:123
 msgid "User form filled"
 msgstr ""
 
-#: management/admin.py:136
+#: management/admin.py:137
 msgid "User category"
 msgstr ""
 
-#: management/api/admin.py:72
+#: management/api/admin.py:85
 msgid "at least one field required"
 msgstr ""
 
-#: management/api/admin.py:77
+#: management/api/admin.py:90
 msgid "maximum one field allowed"
 msgstr ""
 
-#: management/api/admin.py:185
+#: management/api/admin.py:198
 msgid ""
 "\n"
 "If you are sure you want to match these users anyways, please set the 'force' flag to true"
 msgstr ""
 
-#: management/api/admin.py:226
+#: management/api/admin.py:238
 msgid "Unable to recalucate matching score! Error: "
 msgstr ""
 
-#: management/api/admin.py:236
+#: management/api/admin.py:248
 msgid ""
 "Can't extract matchable info for users, seems like the score calulation "
 "failed. This is an idicator that the users are possible unmatchable, if you "
 "are sure you want to continue use: "
 msgstr ""
 
-#: management/api/admin.py:242
+#: management/api/admin.py:254
 msgid ""
 "Directional matching score doesnt seem to exist, not sure if users are "
 "matchable. Either request to calculate it or set the 'force' flag to true "
 "and match anyways"
 msgstr ""
 
-#: management/api/admin.py:246
+#: management/api/admin.py:258
 msgid "Users score marks users as not matchable with message"
 msgstr ""
 
-#: management/api/admin.py:254
+#: management/api/admin.py:266
 msgid "Users are already matched"
 msgstr ""
 
-#: management/api/admin.py:279
+#: management/api/admin.py:317
 msgid "Users sucessfully matched"
 msgstr ""
 
-#: management/api/admin.py:320
+#: management/api/admin.py:358
 msgid "Users sucessfully un-matched"
 msgstr ""
 
-#: management/api/confirm_match.py:53
+#: management/api/confirm_match.py:51
 msgctxt "confirm_match.unconfimed_match_not_found"
 msgid "This unconfirmed match does not exist, or is already closed"
 msgstr "confirm_match.unconfimed_match_not_found"
 
-#: management/api/confirm_match.py:63
+#: management/api/confirm_match.py:61
 msgctxt "confirm_match.unconfimed_match_expired"
 msgid "This unconfirmed match is expired"
 msgstr "confirm_match.unconfimed_match_expired"
 
-#: management/api/confirm_match.py:74
+#: management/api/confirm_match.py:71
 msgctxt "confirm_match.match_confirmed"
 msgid "The match has been confirmed, your match has been made!"
 msgstr "confirm_match.match_confirmed"
 
-#: management/api/confirm_match.py:88
+#: management/api/confirm_match.py:100
 msgctxt "confirm_match.match_rejected"
 msgid "The match has been rejected."
 msgstr "confirm_match.match_rejected"
 
-#: management/api/email_settings.py:48
-msgctxt "unsubscribe_email.success"
+#: management/api/email_settings.py:51
+#, fuzzy
+#| msgctxt "unsubscribe_email.success"
+#| msgid "You have been unsubscribed from this email type"
+msgctxt "info-view.email-settings.email-unsubscribed.content"
 msgid "You have been unsubscribed from this email type"
-msgstr "unsubscribe_email.success"
+msgstr "info-view.email-settings.email-unsubscribed.content"
 
-#: management/api/email_settings.py:53
-msgctxt "unsubscribe_email.success"
+#: management/api/email_settings.py:56
+msgctxt "info-view.email-settings.email-unsubscribed.title"
+msgid "Email type unsubscribed"
+msgstr "info-view.email-settings.email-unsubscribed.title"
+
+#: management/api/email_settings.py:59 management/api/email_settings.py:76
+#: management/api/email_settings.py:89
+msgctxt "info-view.email-settings.linkText"
+msgid "Back to home"
+msgstr "info-view.email-settings.linkText"
+
+#: management/api/email_settings.py:68
+#, fuzzy
+#| msgctxt "unsubscribe_email.success"
+#| msgid "You have been subscribed to this email type"
+msgctxt "info-view.email-settings.email-subscribed.content"
 msgid "You have been subscribed to this email type"
-msgstr "unsubscribe_email.success"
+msgstr "info-view.email-settings.email-subscribed.content"
 
-#: management/api/email_settings.py:55
-msgctxt "unsubscribe_email.success"
-msgid "No email settings where changed"
-msgstr "unsubscribe_email.success"
+#: management/api/email_settings.py:73
+msgctxt "info-view.email-settings.email-subscribed.title"
+msgid "Email type subscribed"
+msgstr "info-view.email-settings.email-subscribed.title"
+
+#: management/api/email_settings.py:81
+#, fuzzy
+#| msgctxt "unsubscribe_email.success"
+#| msgid "You have been unsubscribed from this email type"
+msgctxt "info-view.email-settings.email-already-subscribed.content"
+msgid "You are already subscribed / unsubscribed from this email type"
+msgstr "info-view.email-settings.email-already-subscribed.content"
+
+#: management/api/email_settings.py:86
+#, fuzzy
+#| msgctxt "unsubscribe_email.success"
+#| msgid "No email settings where changed"
+msgctxt "info-view.email-settings.email-already-subscribed.title"
+msgid "No email settings changed"
+msgstr "info-view.email-settings.email-already-subscribed.title"
 
 #: management/api/profile.py:83
 msgctxt "profile.completion-check.sucessfull"
 msgid "Profile complete!"
 msgstr "profile.completion-check.sucessfull"
 
-#: management/api/register.py:40
+#: management/api/register.py:46
 #, fuzzy
 #| msgctxt "register.first-name-blank-err"
 #| msgid "Please enter your name"
@@ -277,7 +310,7 @@ msgctxt "register.email-blank-err"
 msgid "Please enter your e-mail adress"
 msgstr "register.email-blank-err"
 
-#: management/api/register.py:45
+#: management/api/register.py:51
 #, fuzzy
 #| msgctxt "register.first-name-blank-err"
 #| msgid "Please enter your name"
@@ -285,7 +318,7 @@ msgctxt "register.first-name-blank-err"
 msgid "Please enter your first name"
 msgstr "register.first-name-blank-err"
 
-#: management/api/register.py:48
+#: management/api/register.py:54
 #, fuzzy
 #| msgctxt "register.first-name-blank-err"
 #| msgid "Please enter your name"
@@ -293,7 +326,7 @@ msgctxt "register.second-name-blank-err"
 msgid "Please enter your second name"
 msgstr "register.second-name-blank-err"
 
-#: management/api/register.py:53
+#: management/api/register.py:59
 #, fuzzy
 #| msgctxt "register.first-name-blank-err"
 #| msgid "Please enter your name"
@@ -301,22 +334,22 @@ msgctxt "register.birth-year-invalid"
 msgid "Please enter a valid year"
 msgstr "register.birth-year-invalid"
 
-#: management/api/register.py:54
+#: management/api/register.py:60
 msgctxt "register.birth-year-under-1900"
 msgid "I'm sorry but you can't be that old"
 msgstr "register.birth-year-under-1900"
 
-#: management/api/register.py:55
+#: management/api/register.py:61
 msgctxt "register.birth-year-over-2024"
 msgid "Sorry currently users have to be at least 18 years old to participate"
 msgstr "register.birth-year-over-2024"
 
-#: management/api/register.py:85
+#: management/api/register.py:93
 msgctxt "api.register-user-email-exists"
 msgid "User with this email already exists"
 msgstr "api.register-user-email-exists"
 
-#: management/api/register.py:102
+#: management/api/register.py:110
 msgid "Passwords must match"
 msgstr ""
 
@@ -328,12 +361,12 @@ msgstr ""
 msgid "You can not report a support match!"
 msgstr ""
 
-#: management/api/twilio.py:56
+#: management/api/twilio.py:57
 msgctxt "api.twilio-room-inactive-err"
 msgid "Room is marked as inactive, cant authenticate!"
 msgstr "api.twilio-room-inactive-err"
 
-#: management/api/twilio.py:75
+#: management/api/twilio.py:76
 msgctxt "api.twilio-room-auth-failure"
 msgid "Room authentication failed!"
 msgstr "api.twilio-room-auth-failure"
@@ -378,22 +411,17 @@ msgctxt "api.login-failed-staff"
 msgid "Can't log in email or password wrong!"
 msgstr "api.login-failed-staff"
 
-#: management/api/user.py:164
-msgctxt "api.login-sucessful"
-msgid "Sucessfully logged in!"
-msgstr "api.login-sucessful"
-
-#: management/api/user.py:167
+#: management/api/user.py:169
 msgctxt "api.login-failed"
 msgid "Can't log-in email or password wrong!"
 msgstr "api.login-failed"
 
-#: management/api/user.py:197
+#: management/api/user.py:199
 msgctxt "api.auto-login-failed"
 msgid "Can't auto log-in!"
 msgstr "api.auto-login-failed"
 
-#: management/api/user.py:214
+#: management/api/user.py:216
 #, fuzzy
 #| msgctxt "api.login-sucessful"
 #| msgid "Sucessfully logged in!"
@@ -401,17 +429,17 @@ msgctxt "api.logout-sucessful"
 msgid "Sucessfully logged out!"
 msgstr "api.logout-sucessful"
 
-#: management/api/user.py:275
+#: management/api/user.py:277
 msgctxt "api.change-password-failed.incorrect-old-pw"
 msgid "Incorrect old password"
 msgstr "api.change-password-failed.incorrect-old-pw"
 
-#: management/api/user.py:279
+#: management/api/user.py:281
 msgctxt "api.change-password-failed.new-pw-not-equal"
 msgid "New passwords not equal"
 msgstr "api.change-password-failed.new-pw-not-equal"
 
-#: management/api/user.py:285
+#: management/api/user.py:287
 #, fuzzy
 #| msgctxt "api.login-sucessful"
 #| msgid "Sucessfully logged in!"
@@ -419,64 +447,64 @@ msgctxt "api.change-password-sucessful"
 msgid "Sucessfully changed password"
 msgstr "api.change-password-sucessful"
 
-#: management/api/user.py:323
+#: management/api/user.py:330
 msgctxt "api.user.change-email-not-allowed-staff"
 msgid "Admin may never change their email! Only by the grace of @tbscode"
 msgstr "api.user.change-email-not-allowed-staff"
 
-#: management/api/user.py:331
+#: management/api/user.py:338
 msgctxt "api.user.change-email-failed.same-email"
 msgid "This is your current email!"
 msgstr "api.user.change-email-failed.same-email"
 
-#: management/api/user.py:344
+#: management/api/user.py:351
 #, python-brace-format
 msgctxt "api.user.change-email-failed.email-exists"
 msgid "Email {email} exists"
 msgstr "api.user.change-email-failed.email-exists|{email}"
 
-#: management/api/user.py:350
+#: management/api/user.py:357
 msgctxt "api.user.change-email-successful"
 msgid "E-mail adres update, email adress must be reauthenticated."
 msgstr "api.user.change-email-successful"
 
-#: management/api/user.py:397
+#: management/api/user.py:404
 msgctxt "api.user-matches-successfully-confirmed"
 msgid "Matches confirmed!"
 msgstr "api.user-matches-successfully-confirmed"
 
-#: management/api/user.py:435
+#: management/api/user.py:442
 #, python-brace-format
 msgctxt "api.user-update-searching-state.slug-doesnt-exist"
 msgid "'{slug}' is not a possible seraching state!"
 msgstr "api.user-update-searching-state.slug-doesnt-exist|{slug}"
 
-#: management/api/user.py:440
+#: management/api/user.py:447
 msgctxt "api.user-update-searching-state.state-successfully-changed"
 msgid "State updated!"
 msgstr "api.user-update-searching-state.state-successfully-changed"
 
-#: management/api/user.py:479
+#: management/api/user.py:486
 msgctxt "api.user-unmatch-self.success"
 msgid "Unmatched!"
 msgstr "api.user-unmatch-self.success"
 
-#: management/api/user.py:490 management/controller.py:198
+#: management/api/user.py:497 management/controller.py:216
 #, python-brace-format
 msgctxt "api.register-welcome-mail-subject"
 msgid "{code} - Verifizierungscode zur E-Mail Bestätigun"
 msgstr "api.register-welcome-mail-subject|{code}"
 
-#: management/api/user.py:519
+#: management/api/user.py:526
 msgctxt "api.user-resetpw.mail-subject"
 msgid "Password reset Little World"
 msgstr "api.user-resetpw.mail-subject"
 
-#: management/controller.py:61
+#: management/controller.py:79
 msgid "User doesn't exist"
 msgstr ""
 
-#: management/controller.py:90
+#: management/controller.py:108
 #, fuzzy, python-brace-format
 #| msgctxt "api.are-you-still-searching"
 #| msgid ""
@@ -500,14 +528,14 @@ msgid ""
 "\n"
 "Solange du auf dein Match wartest, kannst du dir schon mal den <a href=\"https://home.little-world.com/leitfaden\">Gesprächsleitfaden</a> anschauen. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.\n"
 "\n"
-"Viele Grüße aus Aachen 👋🏼\n"
+"Viele Grüße aus Aachen 👋🏼"
 msgstr "api.are-you-still-searching|{first_name}"
 
-#: management/controller.py:240
+#: management/controller.py:258
 msgid "Welcome Notification"
 msgstr ""
 
-#: management/controller.py:244
+#: management/controller.py:263
 #, fuzzy, python-brace-format
 #| msgctxt "api.register-welcome-message-text"
 #| msgid ""
@@ -535,18 +563,35 @@ msgid ""
 "\n"
 "Während wir für dich ein passendes Match finden, kannst du gerne in unserem <a href=\"https://home.little-world.com/leitfaden\">Gesprächsleitfaden</a> stöbern. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.\n"
 "\n"
-"Falls du Lust und Zeit hast, uns weiter zu unterstützen, würden wir uns sehr über deine Teilnahme an unserer Umfrage freuen. \n"
-"Zwei Studentinnen der Uni Siegen, Natalia und Sandra, würden dich gerne zur Verbesserung von Little World interviewen. Das Interview dauert etwa 30-45 Minuten und dient dazu, uns dabei zu helfen, unseren Service zu verbessern. Natürlich bleiben deine Antworten anonym und werden nicht veröffentlicht. Wenn du interessiert bist, kannst du Natalia unter <a href=\"mailto:natalia.romancheva@student.uni-siegen.de?subject=Interview\">natalia.romancheva@student.uni-siegen.de</a> oder Sandra unter <a href=\"mailto:sandra.butzek@student.uni-siegen.de?subject=Interview\">sandra.butzek@student.uni-siegen.de</a> kontaktieren.\n"
-"\n"
 "Vielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!"
 msgstr "api.register-welcome-message-text|{first_name}"
 
-#: management/controller.py:325 management/controller.py:326
+#: management/controller.py:284
+#, python-brace-format
+msgctxt "api.register-invite-pre-match-interview"
+msgid ""
+"Hallo {first_name} und herzlich willkommen bei Little World!\n"
+"\n"
+"Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil unserer Plattform geworden bist!\n"
+"\n"
+"Bevors richtig los geht musst du mit mir einen 15 minuetigen video call termin vereinbaren. \n"
+"                                                    \n"
+"Dort werden wir zusmmen deine such angaben ueberpruefen und ich werde dir die nachsten schritte zur teilnahme bei little world erklaern.\n"
+"                                                    \n"
+"Bitte buche dafuer einen termin in dem volgenden kalender: \n"
+"<button data-cal-link=\"{calcom_meeting_id}?{encoded_params}\"  data-cal-config='{{\"layout\":\"month_view\"}}'>Book a meeting</button>\n"
+"\n"
+"Falls hier garnix passt oder du andere fragen hast schreib mir einfach hier eine Nachricht."
+msgstr ""
+"api.register-invite-pre-match-"
+"interview|{first_name},{calcom_meeting_id},{encoded_params}"
+
+#: management/controller.py:378 management/controller.py:379
 #, python-format
 msgid "New match: %s"
 msgstr ""
 
-#: management/controller.py:329
+#: management/controller.py:383
 #, fuzzy, python-brace-format
 #| msgctxt "api.match-made-message-text"
 #| msgid ""
@@ -561,14 +606,14 @@ msgctxt "api.match-made-message-text"
 msgid ""
 "Glückwunsch, wir haben jemanden für dich gefunden! \n"
 "\n"
-"Am besten vereinbarst du direkt einen Termin mit {other_name} für euer erstes Gespräch – das klappt meist besser als viele Nachrichten. \n"
-"Unterhalten könnt ihr euch zur vereinbarten Zeit auf Little World indem du oben rechts auf das Anruf-Symbol drückt. \n"
-"Schau dir gerne schon vorher das Profil von {other_name} an, indem du auf den Namen drückst. \n"
+"    Am besten vereinbarst du direkt einen Termin mit {other_name} für euer erstes Gespräch – das klappt meist besser als viele Nachrichten. \n"
+"    Unterhalten könnt ihr euch zur vereinbarten Zeit auf Little World indem du oben rechts auf das Anruf-Symbol drückt. \n"
+"    Schau dir gerne schon vorher das Profil von {other_name} an, indem du auf den Namen drückst. \n"
 "\n"
-"Damit euch viel Spaß! Schöne Grüße vom Team Little World"
+"    Damit euch viel Spaß! Schöne Grüße vom Team Little World"
 msgstr "api.match-made-message-text|{other_name},{other_name}"
 
-#: management/controller.py:345 management/controller.py:355
+#: management/controller.py:399 management/controller.py:409
 msgctxt "api.match-made-email-subject"
 msgid "Glückwunsch! Gesprächspartner:in gefunden auf Little World"
 msgstr "api.match-made-email-subject"
@@ -628,7 +673,7 @@ msgctxt "notification.type.message"
 msgid "message"
 msgstr "notification.type.message"
 
-#: management/models/notifications.py:45 management/models/user.py:193
+#: management/models/notifications.py:45 management/models/user.py:197
 msgid "title"
 msgstr ""
 
@@ -636,72 +681,90 @@ msgstr ""
 msgid "no-description"
 msgstr ""
 
-#: management/models/profile.py:106
+#: management/models/profile.py:105
 msgctxt "profile.user-type.learner"
 msgid "Language learner"
 msgstr "profile.user-type.learner"
 
-#: management/models/profile.py:108
+#: management/models/profile.py:107
 msgctxt "profile.user-type.volunteer"
 msgid "Volunteer"
 msgstr "profile.user-type.volunteer"
 
-#: management/models/profile.py:129
+#: management/models/profile.py:128
 msgctxt "profile.target-group.any-vol"
-msgid "Any group"
+msgid "other"
 msgstr "profile.target-group.any-vol"
 
-#: management/models/profile.py:132
+#: management/models/profile.py:131
 msgctxt "profile.target-group.any-ler"
-msgid "Any group"
+msgid "other"
 msgstr "profile.target-group.any-ler"
 
-#: management/models/profile.py:135
+#: management/models/profile.py:134
+#, fuzzy
+#| msgctxt "profile.target-group.refugee-vol"
+#| msgid "Refugees only"
 msgctxt "profile.target-group.refugee-vol"
-msgid "Refugees only"
+msgid "Refugees"
 msgstr "profile.target-group.refugee-vol"
 
-#: management/models/profile.py:138
+#: management/models/profile.py:137
+#, fuzzy
+#| msgctxt "profile.target-group.refugee-ler"
+#| msgid "Refugees only"
 msgctxt "profile.target-group.refugee-ler"
-msgid "Refugees only"
+msgid "Refugees"
 msgstr "profile.target-group.refugee-ler"
 
-#: management/models/profile.py:141
+#: management/models/profile.py:140
+#, fuzzy
+#| msgctxt "profile.target-group.student-vol"
+#| msgid "Students only"
 msgctxt "profile.target-group.student-vol"
-msgid "Students only"
+msgid "Students"
 msgstr "profile.target-group.student-vol"
 
-#: management/models/profile.py:144
+#: management/models/profile.py:143
+#, fuzzy
+#| msgctxt "profile.target-group.student-ler"
+#| msgid "Students only"
 msgctxt "profile.target-group.student-ler"
-msgid "Students only"
+msgid "Students"
 msgstr "profile.target-group.student-ler"
 
-#: management/models/profile.py:147
+#: management/models/profile.py:146
+#, fuzzy
+#| msgctxt "profile.target-group.worker-vol"
+#| msgid "Workers only"
 msgctxt "profile.target-group.worker-vol"
-msgid "Workers only"
+msgid "Workers"
 msgstr "profile.target-group.worker-vol"
 
-#: management/models/profile.py:150
+#: management/models/profile.py:149
+#, fuzzy
+#| msgctxt "profile.target-group.worker-ler"
+#| msgid "Workers only"
 msgctxt "profile.target-group.worker-ler"
-msgid "Workers only"
+msgid "Workers"
 msgstr "profile.target-group.worker-ler"
 
-#: management/models/profile.py:161
+#: management/models/profile.py:162
 msgctxt "profile.partner-sex.any"
 msgid "Any"
 msgstr "profile.partner-sex.any"
 
-#: management/models/profile.py:162
+#: management/models/profile.py:163
 msgctxt "profile.partner-sex.male"
 msgid "Male only"
 msgstr "profile.partner-sex.male"
 
-#: management/models/profile.py:164
+#: management/models/profile.py:165
 msgctxt "profile.partner-sex.female"
 msgid "Female only"
 msgstr "profile.partner-sex.female"
 
-#: management/models/profile.py:172
+#: management/models/profile.py:174
 #, fuzzy
 #| msgctxt "profile.partner-sex.any"
 #| msgid "Any"
@@ -709,7 +772,7 @@ msgctxt "profile.partner-gender.any"
 msgid "Any"
 msgstr "profile.partner-gender.any"
 
-#: management/models/profile.py:174
+#: management/models/profile.py:176
 #, fuzzy
 #| msgctxt "profile.partner-sex.male"
 #| msgid "Male only"
@@ -717,20 +780,23 @@ msgctxt "profile.partner-gender.male"
 msgid "Male only"
 msgstr "profile.partner-gender.male"
 
-#: management/models/profile.py:176
+#: management/models/profile.py:178
 #, fuzzy
 #| msgctxt "profile.partner-sex.female"
 #| msgid "Female only"
-msgctxt "profile.gender.female"
+msgctxt "profile.partner-gender.female"
 msgid "Female only"
-msgstr "profile.gender.female"
+msgstr "profile.partner-gender.female"
 
-#: management/models/profile.py:179
+#: management/models/profile.py:181
+#, fuzzy
+#| msgctxt "profile.gender.any"
+#| msgid "Dont want to say"
 msgctxt "profile.gender.any"
-msgid "Dont want to say"
+msgid "Don't want to say"
 msgstr "profile.gender.any"
 
-#: management/models/profile.py:180
+#: management/models/profile.py:182
 #, fuzzy
 #| msgctxt "profile.partner-sex.male"
 #| msgid "Male only"
@@ -738,7 +804,7 @@ msgctxt "profile.gender.male"
 msgid "Male"
 msgstr "profile.gender.male"
 
-#: management/models/profile.py:182
+#: management/models/profile.py:184
 #, fuzzy
 #| msgctxt "profile.partner-sex.female"
 #| msgid "Female only"
@@ -746,17 +812,17 @@ msgctxt "profile.gender.female"
 msgid "Female"
 msgstr "profile.gender.female"
 
-#: management/models/profile.py:199
+#: management/models/profile.py:201
 msgctxt "profile.speech-medium.any-vol"
 msgid "Any"
 msgstr "profile.speech-medium.any-vol"
 
-#: management/models/profile.py:202
+#: management/models/profile.py:204
 msgctxt "profile.speech-medium.any-ler"
 msgid "Any"
 msgstr "profile.speech-medium.any-ler"
 
-#: management/models/profile.py:205
+#: management/models/profile.py:207
 #, fuzzy
 #| msgctxt "profile.video-interest"
 #| msgid "Video"
@@ -764,7 +830,7 @@ msgctxt "profile.speech-medium.video-vol"
 msgid "Video only"
 msgstr "profile.speech-medium.video-vol"
 
-#: management/models/profile.py:208
+#: management/models/profile.py:210
 #, fuzzy
 #| msgctxt "profile.video-interest"
 #| msgid "Video"
@@ -772,97 +838,97 @@ msgctxt "profile.speech-medium.video-ler"
 msgid "Video only"
 msgstr "profile.speech-medium.video-ler"
 
-#: management/models/profile.py:211
+#: management/models/profile.py:213
 msgctxt "profile.speech-medium.phone-vol"
 msgid "Phone only"
 msgstr "profile.speech-medium.phone-vol"
 
-#: management/models/profile.py:214
+#: management/models/profile.py:216
 msgctxt "profile.speech-medium.phone-ler"
 msgid "Phone only"
 msgstr "profile.speech-medium.phone-ler"
 
-#: management/models/profile.py:227
+#: management/models/profile.py:229
 msgctxt "profile.partner-location.anywhere-vol"
 msgid "Anywhere"
 msgstr "profile.partner-location.anywhere-vol"
 
-#: management/models/profile.py:230
+#: management/models/profile.py:232
 msgctxt "profile.partner-location.anywhere-ler"
 msgid "Anywhere"
 msgstr "profile.partner-location.anywhere-ler"
 
-#: management/models/profile.py:233
+#: management/models/profile.py:235
 msgctxt "profile.partner-location.close-vol"
 msgid "Close"
 msgstr "profile.partner-location.close-vol"
 
-#: management/models/profile.py:236
+#: management/models/profile.py:238
 msgctxt "profile.partner-location.close-ler"
 msgid "Close"
 msgstr "profile.partner-location.close-ler"
 
-#: management/models/profile.py:239
+#: management/models/profile.py:241
 msgctxt "profile.partner-location.far-vol"
 msgid "Far"
 msgstr "profile.partner-location.far-vol"
 
-#: management/models/profile.py:242
+#: management/models/profile.py:244
 msgctxt "profile.partner-location.far-ler"
 msgid "Far"
 msgstr "profile.partner-location.far-ler"
 
-#: management/models/profile.py:255
+#: management/models/profile.py:259
 msgctxt "profile.sport-interest"
 msgid "Sport"
 msgstr "profile.sport-interest"
 
-#: management/models/profile.py:256
+#: management/models/profile.py:260
 msgctxt "profile.art-interest"
 msgid "Art"
 msgstr "profile.art-interest"
 
-#: management/models/profile.py:257
+#: management/models/profile.py:261
 msgctxt "profile.music-interest"
 msgid "Music"
 msgstr "profile.music-interest"
 
-#: management/models/profile.py:259
+#: management/models/profile.py:263
 msgctxt "profile.literature-interest"
 msgid "Literature"
 msgstr "profile.literature-interest"
 
-#: management/models/profile.py:260
+#: management/models/profile.py:264
 msgctxt "profile.video-interest"
 msgid "Video"
 msgstr "profile.video-interest"
 
-#: management/models/profile.py:262
+#: management/models/profile.py:266
 msgctxt "profile.fashion-interest"
 msgid "Fashion"
 msgstr "profile.fashion-interest"
 
-#: management/models/profile.py:264
+#: management/models/profile.py:268
 msgctxt "profile.culture-interest"
 msgid "Culture"
 msgstr "profile.culture-interest"
 
-#: management/models/profile.py:265
+#: management/models/profile.py:269
 msgctxt "profile.travel-interest"
 msgid "Travel"
 msgstr "profile.travel-interest"
 
-#: management/models/profile.py:266
+#: management/models/profile.py:270
 msgctxt "profile.food-interest"
 msgid "Food"
 msgstr "profile.food-interest"
 
-#: management/models/profile.py:268
+#: management/models/profile.py:272
 msgctxt "profile.politics-interest"
 msgid "Politics"
 msgstr "profile.politics-interest"
 
-#: management/models/profile.py:269
+#: management/models/profile.py:273
 #, fuzzy
 #| msgctxt "profile.literature-interest"
 #| msgid "Literature"
@@ -870,177 +936,212 @@ msgctxt "profile.nature-interest"
 msgid "Nature"
 msgstr "profile.nature-interest"
 
-#: management/models/profile.py:271
+#: management/models/profile.py:275
 msgctxt "profile.science-interest"
 msgid "Science"
 msgstr "profile.science-interest"
 
-#: management/models/profile.py:273
+#: management/models/profile.py:277
 msgctxt "profile.tech-interest"
 msgid "Technology"
 msgstr "profile.tech-interest"
 
-#: management/models/profile.py:275
+#: management/models/profile.py:279
 msgctxt "profile.history-interest"
 msgid "History"
 msgstr "profile.history-interest"
 
-#: management/models/profile.py:277
+#: management/models/profile.py:281
 msgctxt "profile.religion-interest"
 msgid "Religion"
 msgstr "profile.religion-interest"
 
-#: management/models/profile.py:279
+#: management/models/profile.py:283
 msgctxt "profile.soziologie-interest"
 msgid "Sociology"
 msgstr "profile.soziologie-interest"
 
-#: management/models/profile.py:280
+#: management/models/profile.py:284
 msgctxt "profile.family-interest"
 msgid "Family"
 msgstr "profile.family-interest"
 
-#: management/models/profile.py:282
+#: management/models/profile.py:286
+#, fuzzy
+#| msgctxt "profile.psycology-interest"
+#| msgid "Psycology"
 msgctxt "profile.psycology-interest"
-msgid "Psycology"
+msgid "Psychology"
 msgstr "profile.psycology-interest"
 
-#: management/models/profile.py:284
+#: management/models/profile.py:288
 msgctxt "profile.pdev-interest"
 msgid "Personal development"
 msgstr "profile.pdev-interest"
 
-#: management/models/profile.py:303
+#: management/models/profile.py:307
 msgctxt "profile.liability.declined"
 msgid "Declined Liability"
 msgstr "profile.liability.declined"
 
-#: management/models/profile.py:306
+#: management/models/profile.py:310
 msgctxt "profile.liability.accepted"
 msgid "Accepted Liability"
 msgstr "profile.liability.accepted"
 
-#: management/models/profile.py:315
+#: management/models/profile.py:319
 msgctxt "profile.notify-channel.email"
-msgid "Notify per email"
+msgid "to be notified by e-mail only."
 msgstr "profile.notify-channel.email"
 
-#: management/models/profile.py:317
+#: management/models/profile.py:321
 msgctxt "profile.notify-channel.sms"
-msgid "Notify per SMS"
+msgid "to be notified by e-mail & SMS."
 msgstr "profile.notify-channel.sms"
 
-#: management/models/profile.py:338
+#: management/models/profile.py:345
 msgctxt "profile.lang-level.level-0-vol"
 msgid "any"
 msgstr "profile.lang-level.level-0-vol"
 
-#: management/models/profile.py:340
+#: management/models/profile.py:348
 msgctxt "profile.lang-level.level-0-ler"
 msgid "any"
 msgstr "profile.lang-level.level-0-ler"
 
-#: management/models/profile.py:343
+#: management/models/profile.py:351
 msgctxt "profile.lang-level.level-1-vol"
 msgid "B1 = (everyday situations, stories, hopes)"
 msgstr "profile.lang-level.level-1-vol"
 
-#: management/models/profile.py:345
+#: management/models/profile.py:354
 msgctxt "profile.lang-level.level-1-ler"
 msgid "B1 = (everyday situations, stories, hopes)"
 msgstr "profile.lang-level.level-1-ler"
 
-#: management/models/profile.py:348
+#: management/models/profile.py:357
 msgctxt "profile.lang-level.level-2-vol"
 msgid "B2 = (fluent & spontaneous conversations, current events)"
 msgstr "profile.lang-level.level-2-vol"
 
-#: management/models/profile.py:350
+#: management/models/profile.py:360
 msgctxt "profile.lang-level.level-2-ler"
 msgid "B2 = (fluent & spontaneous conversations, current events)"
 msgstr "profile.lang-level.level-2-ler"
 
-#: management/models/profile.py:353
+#: management/models/profile.py:363
 msgctxt "profile.lang-level.level-3-vol"
 msgid "C1/C2 = (complex topics, hardly searching for words)"
 msgstr "profile.lang-level.level-3-vol"
 
-#: management/models/profile.py:355
+#: management/models/profile.py:366
 msgctxt "profile.lang-level.level-3-ler"
 msgid "C1/C2 = (complex topics, hardly searching for words)"
 msgstr "profile.lang-level.level-3-ler"
 
-#: management/models/profile.py:363
+#: management/models/profile.py:370 management/models/profile.py:446
+#, fuzzy
+#| msgctxt "profile.lang-level.level-0"
+#| msgid "A1 & A2 (Anfängerniveau)"
+msgctxt "profile.lang-level.level-0"
+msgid "A1 & A2 (beginner level)"
+msgstr "profile.lang-level.level-0"
+
+#: management/models/profile.py:373 management/models/profile.py:449
+#, fuzzy
+#| msgctxt "profile.lang-level.level-1-vol"
+#| msgid "B1 = (everyday situations, stories, hopes)"
+msgctxt "profile.lang-level.level-1"
+msgid "B1 (everyday situations, stories)"
+msgstr "profile.lang-level.level-1"
+
+#: management/models/profile.py:376 management/models/profile.py:452
+#, fuzzy
+#| msgctxt "profile.lang-level.level-2-vol"
+#| msgid "B2 = (fluent & spontaneous conversations, current events)"
+msgctxt "profile.lang-level.level-2"
+msgid "B2 (fluent & spontaneous conversations)"
+msgstr "profile.lang-level.level-2"
+
+#: management/models/profile.py:379 management/models/profile.py:455
+#, fuzzy
+#| msgctxt "profile.lang-level.level-3-vol"
+#| msgid "C1/C2 = (complex topics, hardly searching for words)"
+msgctxt "profile.lang-level.level-3"
+msgid "C1/C2 (complex topics)"
+msgstr "profile.lang-level.level-3"
+
+#: management/models/profile.py:393
 msgctxt "profile.lang.english"
 msgid "English"
 msgstr "profile.lang.english"
 
-#: management/models/profile.py:364
+#: management/models/profile.py:394
 msgctxt "profile.lang.german"
 msgid "German"
 msgstr "profile.lang.german"
 
-#: management/models/profile.py:365
+#: management/models/profile.py:395
 msgctxt "profile.lang.spanish"
 msgid "Spanish"
 msgstr "profile.lang.spanish"
 
-#: management/models/profile.py:366
+#: management/models/profile.py:396
 msgctxt "profile.lang.french"
 msgid "French"
 msgstr "profile.lang.french"
 
-#: management/models/profile.py:367
+#: management/models/profile.py:397
 msgctxt "profile.lang.italian"
 msgid "Italian"
 msgstr "profile.lang.italian"
 
-#: management/models/profile.py:368
+#: management/models/profile.py:398
 msgctxt "profile.lang.dutch"
 msgid "Dutch"
 msgstr "profile.lang.dutch"
 
-#: management/models/profile.py:370
+#: management/models/profile.py:400
 msgctxt "profile.lang.portuguese"
 msgid "Portuguese"
 msgstr "profile.lang.portuguese"
 
-#: management/models/profile.py:371
+#: management/models/profile.py:401
 msgctxt "profile.lang.russian"
 msgid "Russian"
 msgstr "profile.lang.russian"
 
-#: management/models/profile.py:372
+#: management/models/profile.py:402
 msgctxt "profile.lang.chinese"
 msgid "Chinese"
 msgstr "profile.lang.chinese"
 
-#: management/models/profile.py:374
+#: management/models/profile.py:404
 msgctxt "profile.lang.japanese"
 msgid "Japanese"
 msgstr "profile.lang.japanese"
 
-#: management/models/profile.py:375
+#: management/models/profile.py:405
 msgctxt "profile.lang.korean"
 msgid "Korean"
 msgstr "profile.lang.korean"
 
-#: management/models/profile.py:376
+#: management/models/profile.py:406
 msgctxt "profile.lang.arabic"
 msgid "Arabic"
 msgstr "profile.lang.arabic"
 
-#: management/models/profile.py:377
+#: management/models/profile.py:407
 msgctxt "profile.lang.turkish"
 msgid "Turkish"
 msgstr "profile.lang.turkish"
 
-#: management/models/profile.py:378
+#: management/models/profile.py:408
 msgctxt "profile.lang.swedish"
 msgid "Swedish"
 msgstr "profile.lang.swedish"
 
-#: management/models/profile.py:379
+#: management/models/profile.py:409
 #, fuzzy
 #| msgctxt "profile.politics-interest"
 #| msgid "Politics"
@@ -1048,180 +1149,172 @@ msgctxt "profile.lang.polish"
 msgid "Polish"
 msgstr "profile.lang.polish"
 
-#: management/models/profile.py:380
+#: management/models/profile.py:410
 msgctxt "profile.lang.danish"
 msgid "Danish"
 msgstr "profile.lang.danish"
 
-#: management/models/profile.py:382
+#: management/models/profile.py:412
 msgctxt "profile.lang.norwegian"
 msgid "Norwegian"
 msgstr "profile.lang.norwegian"
 
-#: management/models/profile.py:383
+#: management/models/profile.py:413
 msgctxt "profile.lang.finnish"
 msgid "Finnish"
 msgstr "profile.lang.finnish"
 
-#: management/models/profile.py:384
+#: management/models/profile.py:414
 msgctxt "profile.lang.greek"
 msgid "Greek"
 msgstr "profile.lang.greek"
 
-#: management/models/profile.py:385
+#: management/models/profile.py:415
 msgctxt "profile.lang.czech"
 msgid "Czech"
 msgstr "profile.lang.czech"
 
-#: management/models/profile.py:387
+#: management/models/profile.py:417
 msgctxt "profile.lang.hungarian"
 msgid "Hungarian"
 msgstr "profile.lang.hungarian"
 
-#: management/models/profile.py:389
+#: management/models/profile.py:419
 msgctxt "profile.lang.romanian"
 msgid "Romanian"
 msgstr "profile.lang.romanian"
 
-#: management/models/profile.py:391
+#: management/models/profile.py:421
 msgctxt "profile.lang.indonesian"
 msgid "Indonesian"
 msgstr "profile.lang.indonesian"
 
-#: management/models/profile.py:392
+#: management/models/profile.py:422
 msgctxt "profile.lang.hebrew"
 msgid "Hebrew"
 msgstr "profile.lang.hebrew"
 
-#: management/models/profile.py:393
+#: management/models/profile.py:423
 msgctxt "profile.lang.thai"
 msgid "Thai"
 msgstr "profile.lang.thai"
 
-#: management/models/profile.py:395
+#: management/models/profile.py:425
 msgctxt "profile.lang.vietnamese"
 msgid "Vietnamese"
 msgstr "profile.lang.vietnamese"
 
-#: management/models/profile.py:397
+#: management/models/profile.py:427
 msgctxt "profile.lang.ukrainian"
 msgid "Ukrainian"
 msgstr "profile.lang.ukrainian"
 
-#: management/models/profile.py:398
+#: management/models/profile.py:428
 msgctxt "profile.lang.slovak"
 msgid "Slovak"
 msgstr "profile.lang.slovak"
 
-#: management/models/profile.py:400
+#: management/models/profile.py:430
 msgctxt "profile.lang.croatian"
 msgid "Croatian"
 msgstr "profile.lang.croatian"
 
-#: management/models/profile.py:401
+#: management/models/profile.py:431
 msgctxt "profile.lang.serbian"
 msgid "Serbian"
 msgstr "profile.lang.serbian"
 
-#: management/models/profile.py:403
+#: management/models/profile.py:433
 msgctxt "profile.lang.bulgarian"
 msgid "Bulgarian"
 msgstr "profile.lang.bulgarian"
 
-#: management/models/profile.py:405
+#: management/models/profile.py:435
 msgctxt "profile.lang.lithuanian"
 msgid "Lithuanian"
 msgstr "profile.lang.lithuanian"
 
-#: management/models/profile.py:406
+#: management/models/profile.py:436
 msgctxt "profile.lang.latvian"
 msgid "Latvian"
 msgstr "profile.lang.latvian"
 
-#: management/models/profile.py:408
+#: management/models/profile.py:438
 msgctxt "profile.lang.estonian"
 msgid "Estonian"
 msgstr "profile.lang.estonian"
 
-#: management/models/profile.py:409
+#: management/models/profile.py:439
 msgctxt "profile.lang.persian"
 msgid "Persian"
 msgstr "profile.lang.persian"
 
-#: management/models/profile.py:411
+#: management/models/profile.py:441
 msgctxt "profile.lang.afrikaans"
 msgid "Afrikaans"
 msgstr "profile.lang.afrikaans"
 
-#: management/models/profile.py:412
+#: management/models/profile.py:442
 msgctxt "profile.lang.swahili"
 msgid "Swahili"
 msgstr "profile.lang.swahili"
 
-#: management/models/profile.py:416
-#, fuzzy
-#| msgctxt "profile.lang-level.level-0-vol"
-#| msgid "any"
-msgctxt "profile.lang-level.level-0"
-msgid "any"
-msgstr "profile.lang-level.level-0"
+#: management/models/profile.py:458
+msgctxt "profile.lang-level.level-4-native.vol"
+msgid "Native speaker"
+msgstr "profile.lang-level.level-4-native.vol"
 
-#: management/models/profile.py:419
-#, fuzzy
-#| msgctxt "profile.lang-level.level-1-vol"
-#| msgid "B1 = (everyday situations, stories, hopes)"
-msgctxt "profile.lang-level.level-1"
-msgid "B1 = (everyday situations, stories, hopes)"
-msgstr "profile.lang-level.level-1"
-
-#: management/models/profile.py:422
-#, fuzzy
-#| msgctxt "profile.lang-level.level-2-vol"
-#| msgid "B2 = (fluent & spontaneous conversations, current events)"
-msgctxt "profile.lang-level.level-2"
-msgid "B2 = (fluent & spontaneous conversations, current events)"
-msgstr "profile.lang-level.level-2"
-
-#: management/models/profile.py:425
-#, fuzzy
-#| msgctxt "profile.lang-level.level-3-vol"
-#| msgid "C1/C2 = (complex topics, hardly searching for words)"
-msgctxt "profile.lang-level.level-3"
-msgid "C1/C2 = (complex topics, hardly searching for words)"
-msgstr "profile.lang-level.level-3"
-
-#: management/models/profile.py:432
+#: management/models/profile.py:463
 msgctxt "profile.image-type.avatar"
 msgid "Avatar"
 msgstr "profile.image-type.avatar"
 
-#: management/models/profile.py:433
+#: management/models/profile.py:464
 msgctxt "profile.image-type.image"
 msgid "Image"
 msgstr "profile.image-type.image"
 
-#: management/models/profile.py:488
+#: management/models/profile.py:477
+#, fuzzy
+#| msgctxt "profile.lang.german"
+#| msgid "German"
+msgctxt "profile.display-language.de"
+msgid "German"
+msgstr "profile.display-language.de"
+
+#: management/models/profile.py:478
+#, fuzzy
+#| msgctxt "profile.lang.english"
+#| msgid "English"
+msgctxt "profile.display-language.en"
+msgid "English"
+msgstr "profile.display-language.en"
+
+#: management/models/profile.py:529
 #, python-brace-format
 msgctxt "profile.completion-check.missing-value"
 msgid "'{val}' is not completed"
 msgstr "profile.completion-check.missing-value|{val}"
 
-#: management/models/profile.py:611
+#: management/models/profile.py:653
 msgctxt "profile.lskill-descr-to-long"
 msgid "must have a maximum of 300 characters"
 msgstr "profile.lskill-descr-to-long"
 
-#: management/models/profile.py:617
+#: management/models/profile.py:659
+#, fuzzy
+#| msgctxt "profile.descr-to-long"
+#| msgid "must have a maximum of 300 characters"
 msgctxt "profile.descr-to-long"
-msgid "must have a maximum of 300 characters"
+msgid "must have a maximum of 999 characters"
 msgstr "profile.descr-to-long"
 
-#: management/models/profile.py:633
+#: management/models/profile.py:675
 msgctxt "profile.image-missing"
 msgid "You have selected profile image but not uploaded an image"
 msgstr "profile.image-missing"
 
-#: management/models/profile.py:644
+#: management/models/profile.py:686
 #, fuzzy
 #| msgctxt "profile.image-missing"
 #| msgid "You have selected profile image but not uploaded an image"
@@ -1229,12 +1322,12 @@ msgctxt "profile.image-removal-without-avatar"
 msgid "You are removing the profile image but have not selected to use avatar"
 msgstr "profile.image-removal-without-avatar"
 
-#: management/models/profile.py:652
+#: management/models/profile.py:694
 msgctxt "profile.avatar-missing"
 msgid "You have selected avatar but not uploaded an avatar"
 msgstr "profile.avatar-missing"
 
-#: management/models/profile.py:675
+#: management/models/profile.py:701
 #, fuzzy
 #| msgctxt "profile.liability.accepted"
 #| msgid "Accepted Liability"
@@ -1242,12 +1335,12 @@ msgctxt "profile.liability-declined"
 msgid "You must accept the liability"
 msgstr "profile.liability-declined"
 
-#: management/models/profile.py:690
+#: management/models/profile.py:716
 msgctxt "profile.lang-level-invalid"
 msgid "Invalid language level selected"
 msgstr "profile.lang-level-invalid"
 
-#: management/models/profile.py:695
+#: management/models/profile.py:721
 #, fuzzy
 #| msgctxt "profile.lang-level-invalid"
 #| msgid "Invalid language level selected"
@@ -1255,7 +1348,7 @@ msgctxt "profile.lang-invalid"
 msgid "Invalid language selected"
 msgstr "profile.lang-invalid"
 
-#: management/models/profile.py:705
+#: management/models/profile.py:731
 #, fuzzy
 #| msgctxt "profile.image-missing"
 #| msgid "You have selected profile image but not uploaded an image"
@@ -1263,88 +1356,101 @@ msgctxt "profile.lang-duplicate"
 msgid "You have selected a language multiple times"
 msgstr "profile.lang-duplicate"
 
-#: management/models/profile.py:710
+#: management/models/profile.py:736
 msgctxt "profile.lang-de-missing"
 msgid "You must select at least german as a language"
 msgstr "profile.lang-de-missing"
 
-#: management/models/profile.py:717
+#: management/models/profile.py:743
 msgctxt "profile.descr-to-short"
 msgid "must have at least 10 characters"
 msgstr "profile.descr-to-short"
 
-#: management/models/state.py:34
+#: management/models/question_deck.py:16
+#, python-format
+msgid "%(value)s is already present"
+msgstr ""
+
+#: management/models/question_deck.py:24
+msgid "This Question is already present"
+msgstr ""
+
+#: management/models/state.py:38
 msgid "Unfilled user form"
 msgstr ""
 
-#: management/models/state.py:35
+#: management/models/state.py:39
 msgid "Filled user form"
 msgstr ""
 
-#: management/models/state.py:70
+#: management/models/state.py:80
 msgctxt "models.state.matching-state-idle"
 msgid "Not Searching (Idle)"
 msgstr "models.state.matching-state-idle"
 
-#: management/models/state.py:73
+#: management/models/state.py:83
 msgctxt "models.state.matching-state-searching"
 msgid "Searching"
 msgstr "models.state.matching-state-searching"
 
-#: management/models/state.py:103
+#: management/models/state.py:115
 msgid "Undefined"
 msgstr ""
 
-#: management/models/state.py:104
+#: management/models/state.py:116
 msgid "Spam"
 msgstr ""
 
-#: management/models/state.py:105
+#: management/models/state.py:117
 msgid "Legit"
 msgstr ""
 
-#: management/models/state.py:106
+#: management/models/state.py:118
 msgid "Test"
 msgstr ""
 
-#: management/models/state.py:118
+#: management/models/state.py:130
 msgid "Is allowed to view API schemas"
 msgstr ""
 
-#: management/models/state.py:120
+#: management/models/state.py:132
 msgid "Is allowed to view database schemas"
 msgstr ""
 
-#: management/models/state.py:122
+#: management/models/state.py:134
 msgid "Is allowed to use the auto login api (with a specific token)"
 msgstr ""
 
-#: management/models/state.py:123
+#: management/models/state.py:135
 msgid "Is allowed to view the docs"
 msgstr ""
 
-#: management/models/state.py:124
+#: management/models/state.py:136
 msgid "Is allowed to view the email templates"
 msgstr ""
 
-#: management/models/state.py:125
+#: management/models/state.py:137
 msgid "Is allowed to view the stats"
 msgstr ""
 
-#: management/models/state.py:127
+#: management/models/state.py:139
 msgid "Is allowed to match users"
 msgstr ""
 
-#: management/models/user.py:193
+#: management/models/state.py:140
+msgid "Is allowed to match users without censorship"
+msgstr ""
+
+#: management/models/user.py:197
 msgid "description"
 msgstr ""
 
-#: management/tasks.py:32
+#: management/tasks.py:33
 msgctxt "community-event.coffe-chillout"
 msgid "Kaffeerunden"
 msgstr "community-event.coffe-chillout"
 
-#: management/tasks.py:491
+#: management/tasks.py:477
 msgctxt "tasks.unread-notifications-email-subject"
 msgid "Neue Nachricht(en) auf Little World"
 msgstr "tasks.unread-notifications-email-subject"
@@ -1354,7 +1460,7 @@ msgstr "tasks.unread-notifications-email-subject"
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 # 
-#: management/tasks.py:2435
+#: management/tasks.py:2420
 #, fuzzy
 msgctxt "api.match-still-in-contact-email-subject"
 msgid ""
@@ -1478,15 +1584,15 @@ msgstr ""
 msgid "Slot '%s' is unknown!"
 msgstr ""
 
-#: management/views/main_frontend.py:46
+#: management/views/main_frontend.py:83
 msgid "Render User Form"
 msgstr ""
 
-#: management/views/main_frontend.py:65
+#: management/views/main_frontend.py:105
 msgid "Query param usage on main view only allowed for admins!"
 msgstr ""
 
-#: management/views/user_form_frontend.py:104
+#: management/views/main_frontend.py:172
 #, fuzzy
 #| msgctxt "email.verify-auth-data-missing-get"
 #| msgid "Email authentication data missing"
@@ -1494,11 +1600,145 @@ msgctxt "email.verify-auth-data-missing-get-frontend"
 msgid "Email authentication data missing"
 msgstr "email.verify-auth-data-missing-get-frontend"
 
+#: management/views/main_frontend.py:179
+#, fuzzy
+#| msgctxt "email.verify-failure-get"
+#| msgid "Email verification failed"
+msgctxt "info-view.email-verification-link.title"
+msgid "Email verification successful"
+msgstr "info-view.email-verification-link.title"
+
+#: management/views/main_frontend.py:182
+msgctxt "info-view.email-verification-link.content"
+msgid "Your email has been verified successfully"
+msgstr "info-view.email-verification-link.content"
+
+#: management/views/main_frontend.py:185 management/views/main_frontend.py:198
+#, fuzzy
+#| msgctxt "info-view.email-settings.linkText"
+#| msgid "Back to home"
+msgctxt "info-view.email-verification-link.linkText"
+msgid "Back to home"
+msgstr "info-view.email-verification-link.linkText"
+
+#: management/views/main_frontend.py:192
+#, fuzzy
+#| msgctxt "email.verify-failure-get"
+#| msgid "Email verification failed"
+msgctxt "info-view.email-verification-link.title"
+msgid "Email verification failed"
+msgstr "info-view.email-verification-link.title"
+
+#: management/views/main_frontend.py:195
+#, fuzzy
+#| msgctxt "email.verify-failure-get"
+#| msgid "Email verification failed"
+msgctxt "info-view.email-verification-link.content"
+msgid "Your email verification failed"
+msgstr "info-view.email-verification-link.content"
+
+#: management/views/main_frontend.py:206
+msgctxt "info-view.404.title"
+msgid "Page not found"
+msgstr "info-view.404.title"
+
+#: management/views/main_frontend.py:209
+msgctxt "info-view.404.content"
+msgid "The page you are looking for does not exist"
+msgstr "info-view.404.content"
+
+#: management/views/main_frontend.py:212
+#, fuzzy
+#| msgctxt "info-view.email-settings.linkText"
+#| msgid "Back to home"
+msgctxt "info-view.404.linkText"
+msgid "Back to home"
+msgstr "info-view.404.linkText"
+
+#: management/views/main_frontend.py:222
+msgctxt "info-view.500.title"
+msgid "Internal server error"
+msgstr "info-view.500.title"
+
+#: management/views/main_frontend.py:225
+msgctxt "info-view.500.content"
+msgid ""
+"An internal server error occured\n"
+"If you think this is a bug please contact us"
+msgstr "info-view.500.content"
+
+#: management/views/main_frontend.py:228
+#, fuzzy
+#| msgctxt "info-view.email-settings.linkText"
+#| msgid "Back to home"
+msgctxt "info-view.500.linkText"
+msgid "Back to home"
+msgstr "info-view.500.linkText"
+
+#: management/views/main_frontend.py:272
+#, fuzzy
+#| msgctxt "api.user-resetpw.mail-subject"
+#| msgid "Password reset Little World"
+msgctxt "info-view.set-password-reset.title"
+msgid "Password reset failed"
+msgstr "info-view.set-password-reset.title"
+
+#: management/views/main_frontend.py:275
+msgctxt "info-view.set-password-reset.content"
+msgid "Token is invalid"
+msgstr "info-view.set-password-reset.content"
+
+#: management/views/main_frontend.py:278
+#, fuzzy
+#| msgctxt "info-view.email-settings.linkText"
+#| msgid "Back to home"
+msgctxt "info-view.set-password-reset.linkText"
+msgid "Back to home"
+msgstr "info-view.set-password-reset.linkText"
+
+#, fuzzy
+#~ msgctxt "profile.gender.female"
+#~ msgid "Female only"
+#~ msgstr "profile.gender.female"
+
+#, fuzzy
+#~ msgctxt "profile.display-language.english"
+#~ msgid "English"
+#~ msgstr "profile.display-language.english"
+
+#~ msgctxt "profile.display-language.de"
+#~ msgid "Deutsch"
+#~ msgstr "profile.display-language.de"
+
+#~ msgctxt "profile.notify-channel.email"
+#~ msgid "Notify per email"
+#~ msgstr "profile.notify-channel.email"
+
+#~ msgctxt "profile.notify-channel.sms"
+#~ msgid "Notify per SMS"
+#~ msgstr "profile.notify-channel.sms"
+
+#, fuzzy
+#~ msgctxt "profile.lang-level.level-0"
+#~ msgid "any"
+#~ msgstr "profile.lang-level.level-0"
+
+#~ msgctxt "api.login-sucessful"
+#~ msgid "Sucessfully logged in!"
+#~ msgstr "api.login-sucessful"
+
+#~ msgctxt "profile.target-group.any-vol"
+#~ msgid "Any group"
+#~ msgstr "profile.target-group.any-vol"
+
+#~ msgctxt "profile.target-group.any-ler"
+#~ msgid "Any group"
+#~ msgstr "profile.target-group.any-ler"
+
 #~ msgctxt "email.welcome.subject-header-text"
 #~ msgid "Willkommen bei Little World"
 #~ msgstr "email.welcome.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.welcome.greeting"
 #~ msgid "Hallo {first_name}"
 #~ msgstr "email.welcome.greeting|{first_name}"
@@ -1513,7 +1753,6 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ "diese bitte mit einem Klick auf den Knopf unten, oder gib den Code: "
 #~ msgstr "email.welcome.content-body-text"
 
-#, python-brace-format
 #~ msgctxt "email.welcome.link-box-text"
 #~ msgid "{verification_code}"
 #~ msgstr "email.welcome.link-box-text|{verification_code}"
@@ -1522,7 +1761,7 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid "E-Mail bestätigen"
 #~ msgstr "email.welcome.button-text"
 
-#, fuzzy, python-brace-format
+#, fuzzy
 #~ msgctxt "email.welcome.button-link"
 #~ msgid "{verification_url}"
 #~ msgstr "email.welcome.button-link|{verification_url}"
@@ -1545,26 +1784,22 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid "Dein Little World Team"
 #~ msgstr "email.welcome.goodbye-name"
 
-#, python-brace-format
 #~ msgctxt "email.match.subject-header-text"
 #~ msgid ""
 #~ "Glückwunsch!\n"
 #~ "Lerne jetzt {match_first_name} kennen"
 #~ msgstr "email.match.subject-header-text|{match_first_name}"
 
-#, python-brace-format
 #~ msgctxt "email.match.greeting"
 #~ msgid "Hallo {first_name}"
 #~ msgstr "email.match.greeting|{first_name}"
 
-#, python-brace-format
 #~ msgctxt "email.match.content-start-text"
 #~ msgid ""
 #~ "wir freuen uns, dir mitteilen zu können, dass wir {match_first_name} als "
 #~ "Gesprächspartner:in für dich gefunden haben!"
 #~ msgstr "email.match.content-start-text|{match_first_name}"
 
-#, python-brace-format
 #~ msgctxt "email.match.content-body-text"
 #~ msgid ""
 #~ "Kontaktiere {match_first_name} einfach über Little World um ein erstes "
@@ -1581,12 +1816,10 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid ""
 #~ msgstr "email.match.link-box-text"
 
-#, python-brace-format
 #~ msgctxt "email.match.button-text"
 #~ msgid "{match_first_name} kennenlernen"
 #~ msgstr "email.match.button-text|{match_first_name}"
 
-#, python-brace-format
 #~ msgctxt "email.match.button-link"
 #~ msgid "{profile_link_url}"
 #~ msgstr "email.match.button-link|{profile_link_url}"
@@ -1619,7 +1852,6 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid "Account erfolgreich gelöscht"
 #~ msgstr "email.account_deleted.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.account_deleted.greeting"
 #~ msgid "Hallo {first_name}"
 #~ msgstr "email.account_deleted.greeting|{first_name}"
@@ -1650,7 +1882,6 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid "Neuen Account erstellen"
 #~ msgstr "email.account_deleted.button-text"
 
-#, python-brace-format
 #~ msgctxt "email.account_deleted.button-link"
 #~ msgid "{registration_link_url}"
 #~ msgstr "email.account_deleted.button-link|{registration_link_url}"
@@ -1678,7 +1909,6 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid "Neue Bekanntschaften suchen auf Little World"
 #~ msgstr "email.new-match-search.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.new-match-search.greeting"
 #~ msgid "Hallo {first_name}"
 #~ msgstr "email.new-match-search.greeting|{first_name}"
@@ -1751,7 +1981,6 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid "Einladung zu einem Online-Interview mit Natalia"
 #~ msgstr "email.interview-invitation-email.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.interview-invitation-email.greeting"
 #~ msgid "Hallo {first_name}!"
 #~ msgstr "email.interview-invitation-email.greeting|{first_name}"
@@ -1818,7 +2047,6 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid "Interviewanfrage für ein Universitätsprojekt"
 #~ msgstr "email.interview-request-email.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.interview-request-email.greeting"
 #~ msgid "Hallo {first_name},"
 #~ msgstr "email.interview-request-email.greeting|{first_name}"
@@ -1882,7 +2110,6 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid "Umfrage beenden für Bekanntschaften aus aller Welt"
 #~ msgstr "email.unfinished-user-form-1.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.unfinished-user-form-1.greeting"
 #~ msgid "Hallo {first_name}"
 #~ msgstr "email.unfinished-user-form-1.greeting|{first_name}"
@@ -1955,7 +2182,6 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid "Mit 30 Minuten helfen - Umfrage beenden"
 #~ msgstr "email.unfinished-user-form-2.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.unfinished-user-form-2.greeting"
 #~ msgid "Hallo {first_name}"
 #~ msgstr "email.unfinished-user-form-2.greeting|{first_name}"
@@ -2005,7 +2231,6 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid ""
 #~ msgstr "email.unfinished-user-form-2.below-link-text"
 
-#, python-brace-format
 #~ msgctxt "email.unfinished-user-form-2.footer-text"
 #~ msgid ""
 #~ "Du hast Fragen? Wir sind für dich da! Ruf an unter {team_phone} oder schreib"
@@ -2020,17 +2245,14 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid "Dein Little World Team"
 #~ msgstr "email.email.unfinished-user-form-2.goodbye.goodbye-name"
 
-#, python-brace-format
 #~ msgctxt "email.still-in-contact.subject-header-text"
 #~ msgid "Noch in Kontakt mit {match_name}?"
 #~ msgstr "email.still-in-contact.subject-header-text|{match_name}"
 
-#, python-brace-format
 #~ msgctxt "email.still-in-contact.greeting"
 #~ msgid "Hallo {first_name},"
 #~ msgstr "email.still-in-contact.greeting|{first_name}"
 
-#, python-brace-format
 #~ msgctxt "email.still-in-contact.content-start-text"
 #~ msgid ""
 #~ "wie geht es dir und {match_name}? Wir hoffen, eure Gespräche bereiten euch "
@@ -2106,7 +2328,6 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid "Bitte bestätige deine E-Mail-Adresse für Little World"
 #~ msgstr "email.email-verification-reminder.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.email-verification-reminder.greeting"
 #~ msgid "Hallo {first_name}"
 #~ msgstr "email.email-verification-reminder.greeting|{first_name}"
@@ -2179,12 +2400,10 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid "Match gefunden - jetzt bestätigen"
 #~ msgstr "email.confirm-match-1.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.confirm-match-1.greeting"
 #~ msgid "Hallo {first_name}"
 #~ msgstr "email.confirm-match-1.greeting|{first_name}"
 
-#, python-brace-format
 #~ msgctxt "email.confirm-match-1.content-start-text"
 #~ msgid ""
 #~ "{match_first_name} freut sich schon darauf, dich kennenzulernen! Ihr scheint"
@@ -2229,7 +2448,6 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid ""
 #~ msgstr "email.confirm-match-1.below-link-text"
 
-#, python-brace-format
 #~ msgctxt "email.confirm-match-1.footer-text"
 #~ msgid ""
 #~ "Dort kannst du auch den Gesprächsvorschlag mit {match_first_name} annehmen. \n"
@@ -2248,12 +2466,10 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid "Dein match wartet - höchste Zeit zu bestätigen"
 #~ msgstr "email.confirm-match-2.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.confirm-match-2.greeting"
 #~ msgid "Hallo {first_name}"
 #~ msgstr "email.confirm-match-2.greeting|{first_name}"
 
-#, python-brace-format
 #~ msgctxt "email.confirm-match-2.content-start-text"
 #~ msgid ""
 #~ "du hattest vor Kurzem eine Übereinstimmung auf der Plattform Little World. Gerne würde sich {match_first_name} mit dir unterhalten! Um ihn/sie allerdings nicht zu lange warten zu lassen, werden wir {match_first_name} weitervermitteln, sollten wir nichts von dir hören.\n"
@@ -2300,7 +2516,6 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid ""
 #~ msgstr "email.confirm-match-2.below-link-text"
 
-#, python-brace-format
 #~ msgctxt "email.confirm-match-2.footer-text"
 #~ msgid ""
 #~ "Dort kannst du auch den Gesprächsvorschlag mit {match_first_name} annehmen. \n"
@@ -2321,12 +2536,10 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid "Dein Match ist abgelaufen - Finde einen neuen Partner"
 #~ msgstr "email.match-expired.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.match-expired.greeting"
 #~ msgid "Hallo {first_name}"
 #~ msgstr "email.match-expired.greeting|{first_name}"
 
-#, python-brace-format
 #~ msgctxt "email.match-expired.content-start-text"
 #~ msgid ""
 #~ "leider ist die Zeit abgelaufen, um {match_first_name} auf der Plattform Little World zu bestätigen. Aber keine Sorge, du kannst dich einloggen und nach einem neuen Match suchen.\n"
@@ -2371,7 +2584,6 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid ""
 #~ msgstr "email.match-expired.below-link-text"
 
-#, python-brace-format
 #~ msgctxt "email.match-expired.footer-text"
 #~ msgid ""
 #~ "Du hast Fragen? Wir sind für dich da! Ruf an unter {team_phone} oder schreib"
@@ -2390,7 +2602,6 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid "Einladung zum Online-Interview mit Aniqa"
 #~ msgstr "email.interview-invitation.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.interview-invitation.greeting"
 #~ msgid "Hallo {first_name}!"
 #~ msgstr "email.interview-invitation.greeting|{first_name}"
@@ -2408,7 +2619,6 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid "Interview-Termin buchen"
 #~ msgstr "email.interview-invitation.button-text"
 
-#, python-brace-format
 #~ msgctxt "email.interview-invitation.button-link"
 #~ msgid "{link_url}"
 #~ msgstr "email.interview-invitation.button-link|{link_url}"
@@ -2442,7 +2652,6 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid "Studentin bittet um Unterstützung – Umfrage bei Little World"
 #~ msgstr "email.survey-invitation.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.survey-invitation.greeting"
 #~ msgid "Hallo {first_name},"
 #~ msgstr "email.survey-invitation.greeting|{first_name}"
@@ -2463,7 +2672,6 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid "Zur Umfrage"
 #~ msgstr "email.survey-invitation.button-text"
 
-#, python-brace-format
 #~ msgctxt "email.survey-invitation.button-link"
 #~ msgid "{link_url}"
 #~ msgstr "email.survey-invitation.button-link|{link_url}"
@@ -2486,7 +2694,6 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid "Umfrage zur Verbesserung von Little World"
 #~ msgstr "email.survey.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.survey.greeting"
 #~ msgid "Hallo {first_name},"
 #~ msgstr "email.survey.greeting|{first_name}"
@@ -2506,7 +2713,6 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid "ZUR UMFRAGE (google form)"
 #~ msgstr "email.survey.button-text"
 
-#, python-brace-format
 #~ msgctxt "email.survey.button-link"
 #~ msgid "{link_url}"
 #~ msgstr "email.survey.button-link|{link_url}"
@@ -2560,7 +2766,6 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid "Neue Nachrichten"
 #~ msgstr "email.new-unread-messages.subject-header-text"
 
-#, python-brace-format
 #~ msgctxt "email.new-unread-messages.greeting"
 #~ msgid "Hallo {first_name}"
 #~ msgstr "email.new-unread-messages.greeting|{first_name}"
@@ -2641,7 +2846,6 @@ msgstr "email.verify-auth-data-missing-get-frontend"
 #~ msgid "Passwort zurücksetzen"
 #~ msgstr "email.password-reset.reset-button-text"
 
-#, python-brace-format
 #~ msgctxt "email.password-reset.reset-button-url"
 #~ msgid "{password_reset_url}"
 #~ msgstr "email.password-reset.reset-button-url|{password_reset_url}"

@@ -11,6 +11,12 @@ from django.utils.translation import pgettext_lazy
 from dataclasses import dataclass
 from django.contrib.auth import authenticate, login
 from drf_spectacular.utils import extend_schema
+from management.api.user_data import get_full_frontend_data
+from management.api.user_data import frontend_data
+from management.templatetags.temp_utils import get_api_translations
+from management.models.profile import Profile, SelfProfileSerializer
+from management.templatetags.temp_utils import get_api_translations
+from management.views.cookie_banner_frontend import get_cookie_banner_template_data
 
 
 @dataclass
@@ -55,14 +61,12 @@ class DevLoginAPI(APIView):
             except:
                 return Response("Authentication failed", status=403)
 
-            from ..api.user_data import get_full_frontend_data
 
             with translation.override("tag"):
                 profile_data = get_full_frontend_data(
                     request.user, options=True, **request.query_params,
                     admin=request.user.is_staff)
 
-            from ..templatetags.temp_utils import get_api_translations
             return Response({"profile_data": json.dumps(profile_data, cls=CoolerJson), "api_translations": get_api_translations(request)})
         if params.dev_dataset == "main_frontend_v2":
             try:
@@ -71,8 +75,6 @@ class DevLoginAPI(APIView):
                 login(request, usr)
             except:
                 return Response("Authentication failed", status=403)
-            from ..api.user_data import frontend_data
-            from ..templatetags.temp_utils import get_api_translations
             
             with translation.override("tag"):
                 _frontend_data = frontend_data(usr)
@@ -89,8 +91,6 @@ class DevLoginAPI(APIView):
             except:
                 return Response("Authentication failed", status=403)
 
-            from ..models import Profile, SelfProfileSerializer
-            from ..templatetags.temp_utils import get_api_translations
 
             with translation.override("tag"):
                 return Response({
@@ -99,7 +99,6 @@ class DevLoginAPI(APIView):
                     "form_options": SelfProfileSerializer(request.user.profile).get_options(request.user.profile)
                 })
         elif params.dev_dataset == "user_form_frontend_old":
-            from ..views.cookie_banner_frontend import get_cookie_banner_template_data
             try:
                 usr = authenticate(username=params.username,
                                    password=params.password)
