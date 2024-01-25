@@ -586,7 +586,7 @@ DATABASES = {
         'HOST': os.environ['DJ_DATABASE_HOST'],
         'PORT': os.environ['DJ_DATABASE_PORT'],
         'OPTIONS': {'sslmode': 'require'},
-        'CONN_MAX_AGE': 60,
+        'CONN_MAX_AGE': 10,
     },
 }
 
