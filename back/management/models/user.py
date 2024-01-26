@@ -7,7 +7,6 @@ from asgiref.sync import async_to_sync
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from management.models.matches import Match
 from chat.models import Message, MessageSerializer, Chat
-from chat.api import callbacks
 
 
 class UserManager(BaseUserManager):
@@ -239,7 +238,8 @@ class User(AbstractUser):
         chat.messages.add(message)
         chat.save()
         
-        callbacks.message_incoming(self, MessageSerializer(message).data)
+        # TODO:
+        # callbacks.message_incoming(self, MessageSerializer(message).data)
         
         # -----------------------------------------------------------------------------------------
             

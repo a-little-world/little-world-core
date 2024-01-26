@@ -30,12 +30,17 @@ class MessageBase:
     def json(self):
         return json.dumps(self.dict())
     
+    def action_dict(self):
+        # basicly 'send_message' requires dict that json serializable, 
+        # so sadly dumping and parsing is required to assure that
+        return json.loads(self.action_json())
+    
     def action_json(self):
         assert hasattr(self, "build_redux_action"), "Message must have a build_redux_action method"
         return json.dumps(self.build_redux_action(), cls=CoolerJson)
     
     def send(self, user_id):
-        send_message(user_id, self.type, self.json())
+        send_message(user_id, self.type, self.action_dict())
     
 @dataclass
 class OutUserWentOnline(MessageBase):

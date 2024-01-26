@@ -164,3 +164,7 @@ class ChatConnections(models.Model):
     is_online = models.BooleanField(default=False)
     last_seen = models.DateTimeField(auto_now=True)
     time_created = models.DateTimeField(auto_now_add=True)
+    
+    @classmethod
+    def is_user_online(cls, user):
+        return cls.objects.filter(user=user, is_online=True).exists()

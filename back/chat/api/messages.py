@@ -6,8 +6,6 @@ from rest_framework.pagination import PageNumberPagination
 from chat.api.viewsets import UserStaffRestricedModelViewsetMixin
 from rest_framework.decorators import action
 from drf_spectacular.utils import extend_schema
-from chat.api import callbacks
-
 
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 20

@@ -294,7 +294,8 @@ def serialize_matches(matches, user):
         partner = match.get_partner(user)
 
         # Check if the partner is online
-        is_online = False # TODO: re-add is online indicator!
+        from chat.models import ChatConnections
+        is_online = ChatConnections.is_user_online(partner)
         
         chat = Chat.get_or_create_chat(user, partner)
         chat_serialized = ChatInModelSerializer(chat, context={'user': user}).data

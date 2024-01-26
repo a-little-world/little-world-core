@@ -1,7 +1,7 @@
 from channels.generic.websocket import AsyncWebsocketConsumer
 import json
 from asgiref.sync import sync_to_async
-from .messages import OutUserWentOnline
+from .messages import OutUserWentOnline, OutUserWentOffline
 from .db_ops import is_staff_or_matching, get_all_chat_user_ids, connect_user, disconnect_user
 from .control import get_user_channel_name
 
@@ -56,9 +56,12 @@ Every user that connects joins:
             for user_id in user_ids:
                 if user_id != self.group_name:
                     await self.channel_layer.group_send(
-                        user_id, OutUserWentOnline(sender_id=user_id).dict())
+                        user_id, OutUserWentOnline(sender_id=self.group_name).dict())
                     
     async def disconnect(self, close_code):
+        print(f"User {self.user} disconnected from {self.channel_name} ({self.group_name})", flush=True)
+        user = getattr(self, 'user', None)
+        print(f"{user} disconnected, with code {close_code}", flush=True)
         if (close_code != UNAUTH_REJECT_CODE) and (getattr(self, 'user', None) is not None):
             # a user has disconnected, we can safly discard that users group ( stored in self.group_name )
             await self.channel_layer.group_discard(self.group_name, self.channel_name)
@@ -66,13 +69,20 @@ Every user that connects joins:
             await disconnect_user(self.user)
             # then we notify all the other users that this user went offline
             user_ids = await get_all_chat_user_ids(self.user)
+            print(f"Sending offline to {len(user_ids)} users, {user_ids}", flush=True)
             for user_id in user_ids:
-                if str(user_id) != self.group_name:
+                if user_id != self.group_name:
                     await self.channel_layer.group_send(
-                        str(user_id), OutUserWentOnline(sender_id=str(user_id)).dict())
+                        user_id, OutUserWentOffline(sender_id=self.group_name).dict())
+                    
+    async def websocket_disconnect(self, event):
+        await super().websocket_disconnect(event)
                     
     async def user_went_online(self, event):
         await self.send(text_data=OutUserWentOnline(**event).action_json())
+        
+    async def user_went_offline(self, event):
+        await self.send(text_data=OutUserWentOffline(**event).action_json())
                     
     async def receive(self, text_data=None, bytes_data=None):
         print(f"User {self.user} received message: {text_data}")
