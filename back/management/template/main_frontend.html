@@ -8,6 +8,11 @@
   src="https://js.sentry-cdn.com/5b7832a26c656c8d809e8a3b26f57756.min.js"
   crossorigin="anonymous"
 ></script>
+  {% if sentry_user_id %}
+  <script>
+    Sentry.setUser({ id: '{{ sentry_user_id }}' });
+  </script>
+  {% endif %}
     {% include "react_app_head_base.html" with app_name='main_frontend' title='Little World' %}
 
     {% if use_cookie_banner %}
