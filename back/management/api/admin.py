@@ -2,6 +2,7 @@
 Contains all the admin apis
 generally all APIViews here are required to have: permission_classes = [ IsAdminUser ]
 """
+from chat.consumers.messages import InMatchProposalAdded, InUnconfirmedMatchAdded
 from management.views import admin_panel_v2
 from back.utils import CoolerJson
 import json
@@ -10,7 +11,6 @@ from django.conf import settings
 from typing import List, Optional
 from management.models.matching_scores import MatchinScore
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
-from management.models.consumer_connections import ConsumerConnections
 from management.models.profile import CensoredProfileSerializer
 from django.utils.translation import gettext_lazy as _
 from rest_framework import status
@@ -277,14 +277,8 @@ class MakeMatch(APIView):
 
             learner = proposal.get_learner()
             matches = serialize_proposed_matches([proposal], learner)
-            payload = {
-                "action": "addMatch", 
-                "payload": {
-                    "category": "proposed",
-                    "match": json.loads(json.dumps(matches[0], cls=CoolerJson))
-                }
-            }
-            ConsumerConnections.notify_connections(learner, event="reduction", payload=payload)
+            
+            InMatchProposalAdded(matches[0]).send(learner.hash)
             
             # On a maching proposal we only need to notify the learner
             return Response("Matching Proposal Created")
@@ -306,14 +300,8 @@ class MakeMatch(APIView):
 
             for i in [0, 1]:
                 matches = serialize_matches([match_obj], users[i])
-                payload = {
-                    "action": "addMatch", 
-                    "payload": {
-                        "category": "unconfirmed",
-                        "match": json.loads(json.dumps(matches[0], cls=CoolerJson))
-                    }
-                }
-                ConsumerConnections.notify_connections(users[i], event="reduction", payload=payload)
+                InUnconfirmedMatchAdded(matches[0]).send(users[i].hash)
+
             return Response(_("Users sucessfully matched"))
 
 

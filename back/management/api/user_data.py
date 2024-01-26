@@ -52,9 +52,6 @@ from management.models.user import (
     UserSerializer, SelfUserSerializer,
     CensoredUserSerializer,
 )
-from management.models.consumer_connections import (
-    ConsumerConnections
-)
 from management.models.matches import Match
 from management.api.community_events import get_all_comunity_events_serialized
 from management.models.unconfirmed_matches import get_unconfirmed_matches
@@ -297,7 +294,7 @@ def serialize_matches(matches, user):
         partner = match.get_partner(user)
 
         # Check if the partner is online
-        is_online = ConsumerConnections.has_active_connections(partner)
+        is_online = False # TODO: re-add is online indicator!
         
         chat = Chat.get_or_create_chat(user, partner)
         chat_serialized = ChatInModelSerializer(chat, context={'user': user}).data
