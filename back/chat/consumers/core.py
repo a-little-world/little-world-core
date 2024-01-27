@@ -63,10 +63,9 @@ Every user that connects joins:
         user = getattr(self, 'user', None)
         print(f"{user} disconnected, with code {close_code}", flush=True)
         if (close_code != UNAUTH_REJECT_CODE) and (getattr(self, 'user', None) is not None):
-            # a user has disconnected, we can safly discard that users group ( stored in self.group_name )
-            await self.channel_layer.group_discard(self.group_name, self.channel_name)
             # we mark the user as 'offline' in the database
             await disconnect_user(self.user)
+
             # then we notify all the other users that this user went offline
             user_ids = await get_all_chat_user_ids(self.user)
             print(f"Sending offline to {len(user_ids)} users, {user_ids}", flush=True)
@@ -74,6 +73,9 @@ Every user that connects joins:
                 if user_id != self.group_name:
                     await self.channel_layer.group_send(
                         user_id, OutUserWentOffline(sender_id=self.group_name).dict())
+
+            # a user has disconnected, we can safly discard that users group ( stored in self.group_name )
+            await self.channel_layer.group_discard(self.group_name, self.channel_name)
                     
     async def websocket_disconnect(self, event):
         await super().websocket_disconnect(event)
@@ -82,6 +84,7 @@ Every user that connects joins:
         await self.send(text_data=OutUserWentOnline(**event).action_json())
         
     async def user_went_offline(self, event):
+        print(f"Offline {self.user} received offline message: {event}")
         await self.send(text_data=OutUserWentOffline(**event).action_json())
                     
     async def receive(self, text_data=None, bytes_data=None):
