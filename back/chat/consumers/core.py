@@ -1,7 +1,10 @@
 from channels.generic.websocket import AsyncWebsocketConsumer
 import json
 from asgiref.sync import sync_to_async
-from .messages import OutUserWentOnline, OutUserWentOffline
+from .messages import (
+    OutUserWentOnline, OutUserWentOffline, MessageTypes, 
+    InMatchProposalAdded, InUnconfirmedMatchAdded, InBlockIncomingCall, InNewIncomingCall
+)
 from .db_ops import is_staff_or_matching, get_all_chat_user_ids, connect_user, disconnect_user
 from .control import get_user_channel_name
 
@@ -79,13 +82,31 @@ Every user that connects joins:
                     
     async def websocket_disconnect(self, event):
         await super().websocket_disconnect(event)
+
+    async def receive(self, text_data=None, bytes_data=None):
+        print(f"User {self.user} received message: {text_data}")
                     
     async def user_went_online(self, event):
+        assert event['type'] == MessageTypes.user_went_online.value
         await self.send(text_data=OutUserWentOnline(**event).action_json())
         
     async def user_went_offline(self, event):
-        print(f"Offline {self.user} received offline message: {event}")
+        assert event['type'] == MessageTypes.user_went_offline.value
         await self.send(text_data=OutUserWentOffline(**event).action_json())
+    
+    async def match_proposal_added(self, event):
+        assert event['type'] == MessageTypes.match_proposal_added.value
+        await self.send(text_data=InMatchProposalAdded(**event).action_json())
+        
+    async def unconfirmed_match_added(self, event):
+        assert event['type'] == MessageTypes.unconfirmed_match_added.value
+        await self.send(text_data=InUnconfirmedMatchAdded(**event).action_json())
+        
+    async def block_incoming_call(self, event):
+        assert event['type'] == MessageTypes.block_incoming_call.value
+        await self.send(text_data=InBlockIncomingCall(**event).action_json())
+        
+    async def new_incoming_call(self, event):
+        assert event['type'] == MessageTypes.new_incoming_call.value
+        await self.send(text_data=InNewIncomingCall(**event).action_json())
                     
-    async def receive(self, text_data=None, bytes_data=None):
-        print(f"User {self.user} received message: {text_data}")

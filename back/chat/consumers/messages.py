@@ -16,16 +16,16 @@ class MessageTypes(Enum):
     
 def send_message(user_id, type: MessageTypes, data):
     channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(user_id, {
-        "type": type,
-        "data": data    
-    })
+    async_to_sync(channel_layer.group_send)(user_id, data)
 
 @dataclass
 class MessageBase:
 
     def dict(self):
         return self.__dict__.copy()
+    
+    def dict_valid(self):
+        return json.loads(json.dumps(self.dict(), cls=CoolerJson))
     
     def json(self):
         return json.dumps(self.dict())
@@ -40,7 +40,7 @@ class MessageBase:
         return json.dumps(self.build_redux_action(), cls=CoolerJson)
     
     def send(self, user_id):
-        send_message(user_id, self.type, self.action_dict())
+        send_message(user_id, self.type, self.dict_valid())
     
 @dataclass
 class OutUserWentOnline(MessageBase):

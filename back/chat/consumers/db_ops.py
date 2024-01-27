@@ -26,14 +26,19 @@ def connect_user(user):
 @database_sync_to_async
 def disconnect_user(user):
     connection = ChatConnections.objects.filter(user=user)
+    last_seen = None
     if connection.exists():
         connection = connection.first()
+        last_seen = connection.last_seen
         connection.is_online = False
         connection.save()
+    else:
+        raise Exception("User was not connected, but still disconnected")
+
     # then we also create a new chat session ( a log of the ongoing connection for that user)
     ChatSessions.objects.create(
         user=user, 
-        start_time=connection.last_seen,
+        start_time=last_seen,
         end_time=timezone.now()
     )
 
