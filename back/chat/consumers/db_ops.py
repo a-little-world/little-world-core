@@ -43,5 +43,5 @@ def get_all_chat_user_ids(user):
 Retruns a list of all raw user_ids that have a chat with that user 
 NOTE: also returns the owns user user_id!
     """
-    chat_uuids = list(sum(Chat.get_chats(user).values_list('u1__hash', 'u2__hash'), ()))
+    chat_uuids = set(list(sum(Chat.get_chats(user).values_list('u1__hash', 'u2__hash'), ())))
     return chat_uuids

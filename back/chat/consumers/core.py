@@ -52,7 +52,7 @@ Every user that connects joins:
             
             # For regular users, join all matches groups
             user_ids = await get_all_chat_user_ids(self.user)
-            print(f"User {self.user} joined {len(user_ids)} groups")
+            print(f"User {self.user} joined {len(user_ids)} groups {user_ids}", flush=True)
             for user_id in user_ids:
                 if user_id != self.group_name:
                     await self.channel_layer.group_send(
