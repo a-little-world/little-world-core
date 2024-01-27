@@ -152,6 +152,19 @@ class OpenAiChatSerializer(serializers.ModelSerializer):
         
         representation['messages'] = OpenAiMessageSerializer(Paginator(instance.messages, self.message_depth).page(1), many=True).data
         
+        
+class ChatSessions(models.Model):
+    user = models.ForeignKey("management.User", on_delete=models.CASCADE)
+    start_time = models.DateTimeField()
+    end_time = models.DateTimeField()
 
-        
-        
+class ChatConnections(models.Model):
+    
+    user = models.ForeignKey("management.User", on_delete=models.CASCADE)
+    is_online = models.BooleanField(default=False)
+    last_seen = models.DateTimeField(auto_now=True)
+    time_created = models.DateTimeField(auto_now_add=True)
+    
+    @classmethod
+    def is_user_online(cls, user):
+        return cls.objects.filter(user=user, is_online=True).exists()

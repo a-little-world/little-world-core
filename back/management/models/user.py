@@ -5,10 +5,8 @@ from django.conf import settings
 from rest_framework import serializers
 from asgiref.sync import async_to_sync
 from django.contrib.auth.models import AbstractUser, BaseUserManager
-from management.models.consumer_connections import ConsumerConnections
 from management.models.matches import Match
 from chat.models import Message, MessageSerializer, Chat
-from chat.api import callbacks
 
 
 class UserManager(BaseUserManager):
@@ -240,25 +238,13 @@ class User(AbstractUser):
         chat.messages.add(message)
         chat.save()
         
-        callbacks.message_incoming(self, MessageSerializer(message).data)
+        # TODO:
+        # callbacks.message_incoming(self, MessageSerializer(message).data)
         
         # -----------------------------------------------------------------------------------------
             
 
         return msg
-    
-    def message_connections(self, payload, event="reduction"):
-        # sends a websocket message to all connections of that user
-        ConsumerConnections.async_notify_connections(self, event=event, payload=payload)
-        
-    
-    def broadcast_message_to_matches(self, payload, event="reduction"):
-        """
-        Sends a message to all matches of this user
-        """
-        matches = Match.get_matches(self)
-        for match in matches:
-            match.message_connections(payload, event=event)
 
     def send_email(self,
                    subject: str,

@@ -357,7 +357,7 @@ def send_new_message_notifications_all_users(
     from chat_old.django_private_chat2.models import MessageModel, DialogsModel
     from . import controller
     from emails import mails
-    from .models import User
+    from management.models.user import User
 
     if settings.IS_STAGE or settings.IS_DEV:
         return "Not caluculating or sending new messages cause in dev or in staging environment"
@@ -514,7 +514,8 @@ def write_hourly_backend_event_summary(
 
     # For that fist we extract all event within that hour
     # We calculate from 2 hours ago per default cause otherwise the task could be shedules eventhought the hour is not completed yet
-    time = timezone.now() - timedelta(hours=1)
+    from django.utils import timezone as dj_tz
+    time = dj_tz.now() - timedelta(hours=1)
     if start_time is not None:
         time = datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S.%f')
 
