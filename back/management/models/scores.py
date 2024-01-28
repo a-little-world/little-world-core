@@ -19,13 +19,33 @@ class TwoUserMatchingScore(models.Model):
         super().__save__(*args, **kwargs)
     
     @classmethod
-    def get_or_create(user1, user2):
+    def get_score(cls, user1, user2):
         if user1.id > user2.id:
             user1, user2 = user2, user1
-        return TwoUserMatchingScore.objects.get_or_create(
+        score = cls.objects.filter(
             user1=user1, 
             user2=user2
         )
+        if score.exists():
+            return score.first()
+        return None
+        
+    @classmethod
+    def get_or_create(cls, user1, user2):
+        if user1.id > user2.id:
+            user1, user2 = user2, user1
+            
+        score = cls.objects.filter(
+            user1=user1, 
+            user2=user2
+        )
+        if score.exists():
+            return score.first()
+        score = cls.objects.create(
+            user1=user1, 
+            user2=user2
+        )
+        return score
         
     @classmethod
     def get_matching_scores(cls, user):

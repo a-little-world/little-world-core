@@ -2519,6 +2519,7 @@ def request_streamed_ai_response(messages, model="gpt-3.5-turbo", backend="defau
     
 
 
+@shared_task
 def matching_algo_v2(
     user_pk,
     consider_only_registered_within_last_x_days=None
@@ -2546,9 +2547,15 @@ def matching_algo_v2(
     # - users that have the State.ExtraUserPermissionChoices.MATCHING_USER in state.extra_user_permissions
     # - user has no open proposals
     
+    from management.api.scores import score_between_db_update
+    
     open_proposals = UnconfirmedMatch.objects.filter(
         Q(user1=OuterRef('pk')) | Q(user2=OuterRef('pk')), closed=False
     )
+    
+    print("open_proposals", open_proposals.query)
+    
+    #~Q(state__extra_user_permissions__contains=State.ExtraUserPermissionChoices.MATCHING_USER),
 
     all_users_to_consider = User.objects.annotate(
         has_open_proposal=Exists(open_proposals)
@@ -2559,7 +2566,6 @@ def matching_algo_v2(
         state__user_form_state=State.UserFormStateChoices.FILLED,
         state__email_authenticated=True,
         is_staff=False,
-        state__extra_user_permissions__contains=State.ExtraUserPermissionChoices.MATCHING_USER,
         has_open_proposal=False
     )
 
@@ -2600,6 +2606,7 @@ def matching_algo_v2(
         }))
         
     for user in all_users_to_consider:
+        score_between_db_update(usr, user)
         matching_algo_v2.backend.mark_as_started(
             matching_algo_v2.request.id,
             progress=json.dumps({
@@ -2610,3 +2617,11 @@ def matching_algo_v2(
                 "state": "processing",
                 "current_user": user.pk
             }))
+            
+    return {
+        'total_considered_users': total_considered_users,
+        'total_unconsidered_users': total_unconsidered_users,
+        'scores_cleaned': count_cleaned_scores,
+        'progress': 0,
+        'state': 'finished'
+    }

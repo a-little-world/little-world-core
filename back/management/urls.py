@@ -113,23 +113,11 @@ api_routes = [
     path(_api_url('user/match/confirm_deny'),
          api.confirm_match.confrim_match),
     # Admin
-    path(_api_url('user/get', admin=True), api.admin.GetUser.as_view()),
-    path(_api_url('user/list', admin=True), api.admin.UserList.as_view()),
-
     path(_api_url('graph/get', admin=True), fetch_graph),
     path(_api_url('user_list/get', admin=True), fetch_list),
 
-    path(_api_url('user/tag/<str:action>', admin=True),
-         api.admin.UserTaggingApi.as_view()),
-
-    path(_api_url('user/update_score', admin=True),
-         api.admin.RequestMatchingScoreUpdate.as_view()),
-
     path(_api_url('user/match', admin=True),
-         api.admin.MakeMatch.as_view()),
-
-    path(_api_url('user/unmatch', admin=True),
-         api.admin.UnmatchUsers.as_view()),
+         api.matches.make_match),
     #    path(_api_url('user/match', admin=True), api.admin.MakeMatch.as_view()),
     #    path(_api_url('user/suggest_match', admin=True),
     #         api.admin.MatchingSuggestion.as_view()),

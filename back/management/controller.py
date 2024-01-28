@@ -319,11 +319,6 @@ def are_users_matched(
     return usr1.is_matched(usr2) and usr2.is_matched(usr1)
 
 
-# 'set' No one can put two identical users
-@utils.track_event(
-    name="Users Matched",
-    event_type=Event.EventTypeChoices.FLOW,
-    tags=["backend", "function", "db"])
 def match_users(
         users: set,
         send_notification=True,

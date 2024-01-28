@@ -42,24 +42,6 @@ class NewsItemAdmin(admin.ModelAdmin):
 class MatchModelAdmin(admin.ModelAdmin):
     list_display = ('uuid', 'created_at', 'updated_at', 'user1', 'user2')
 
-@admin.register(models.matching_scores.MatchinScore)
-class DirectionalMatchinScores(admin.ModelAdmin):
-    list_display = ('from_usr', 'current_score',
-                    'to_usr', 'score', 'matchable', 'messages')
-    search_fields = ('from_usr__email', 'from_usr__hash')
-    list_filter = ('matchable', 'current_score')
-    formfield_overrides = {
-        dj_models.TextField: {'widget': AdminMartorWidget},
-    }
-
-
-@admin.register(models.matching_scores.ScoreTableSource)
-class ScoreTableAdmin(admin.ModelAdmin):
-    list_display = ('tag', 'hash', 'created_at')
-    formfield_overrides = {
-        dj_models.TextField: {'widget': AdminMartorWidget},
-    }
-
 
 @admin.register(models.profile.ProfileAtMatchRequest)
 class ProfileAtMatchRequestAdmin(admin.ModelAdmin):
@@ -239,7 +221,7 @@ class CategoryAdmin(admin.ModelAdmin):
     
 @admin.register(scores.TwoUserMatchingScore)
 class TwoUserMatchingScoreAdmin(admin.ModelAdmin):
-    list_display = ('user1', 'user2', 'score', 'scoring_results', 'latest_update')
+    list_display = ('user1', 'user2', 'score', 'latest_update')
 
 
 @admin.register(question_deck.UserDeck)
