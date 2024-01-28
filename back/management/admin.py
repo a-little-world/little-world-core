@@ -9,7 +9,7 @@ from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django import forms
 from phonenumber_field.widgets import PhoneNumberPrefixWidget
 from management import models
-from management.models import question_deck
+from management.models import question_deck, scores
 from django.db.migrations.recorder import MigrationRecorder
 from hijack.contrib.admin import HijackUserAdminMixin
 
@@ -17,10 +17,6 @@ from hijack.contrib.admin import HijackUserAdminMixin
 @admin.register(models.backend_state.BackendState)
 class BackendStateAdmin(admin.ModelAdmin):
     list_display = ('slug', 'name', 'hash', 'meta', 'created_at')
-
-@admin.register(models.scores.TwoUserMatchingScore)
-class BackendStateAdmin(admin.ModelAdmin):
-    list_display = ('user1', 'user2', 'score', 'scoring_results', 'latest_update')
 
 @admin.register(models.help_message.HelpMessage)
 class HelpMessageStateAdmin(admin.ModelAdmin):
@@ -240,6 +236,10 @@ class SessionAdmin(admin.ModelAdmin):
 @admin.register(question_deck.CardContent)
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ('uuid', 'category_name')
+    
+@admin.register(scores.TwoUserMatchingScore)
+class TwoUserMatchingScoreAdmin(admin.ModelAdmin):
+    list_display = ('user1', 'user2', 'score', 'scoring_results', 'latest_update')
 
 
 @admin.register(question_deck.UserDeck)
