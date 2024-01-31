@@ -88,6 +88,9 @@ class ScoringFuctionResult:
     weight: float = 1.0
     markdown_info: str = ""
     
+    def dict(self):
+        return dataclasses.asdict(self)
+    
 class ScoringFunctionsEnum(Enum):
     language_level = "language_level"
     learner_vs_volunteer = "learner_vs_volunteer"
@@ -109,12 +112,12 @@ class ScoringBase():
         self.user2 = user2
         # register scoring functions
         self.scoring_fuctions = {
-            ScoringFunctionsEnum.language_level: self.score__language_level,
-            ScoringFunctionsEnum.learner_vs_volunteer: self.score__volunteer_vs_learner,
-            ScoringFunctionsEnum.time_slot_overlap: self.score__time_slot_overlap,
-            ScoringFunctionsEnum.postal_code_distance: self.score__postal_code_distance,
-            ScoringFunctionsEnum.gender: self.score__gender,
-            ScoringFunctionsEnum.interest_overlap: self.score__interest_overlap,
+            ScoringFunctionsEnum.language_level.value: self.score__language_level,
+            ScoringFunctionsEnum.learner_vs_volunteer.value: self.score__volunteer_vs_learner,
+            ScoringFunctionsEnum.time_slot_overlap.value: self.score__time_slot_overlap,
+            ScoringFunctionsEnum.postal_code_distance.value: self.score__postal_code_distance,
+            ScoringFunctionsEnum.gender.value: self.score__gender,
+            ScoringFunctionsEnum.interest_overlap.value: self.score__interest_overlap,
         }
     
     def score__time_slot_overlap(self):
@@ -157,6 +160,14 @@ Simple chat the we match only volunteers and learners!
         learner = self.user1 if self.user1.profile.user_type == Profile.TypeChoices.LEARNER else self.user2
         
         map_level_to_int = {
+            Profile.LanguageLevelChoices.LEVEL_0_VOL: 0,
+            Profile.LanguageLevelChoices.LEVEL_0_LER: 0,
+            Profile.LanguageLevelChoices.LEVEL_1_VOL: 1,
+            Profile.LanguageLevelChoices.LEVEL_1_LER: 1,
+            Profile.LanguageLevelChoices.LEVEL_2_VOL: 2,
+            Profile.LanguageLevelChoices.LEVEL_2_LER: 2,
+            Profile.LanguageLevelChoices.LEVEL_3_VOL: 3,
+            Profile.LanguageLevelChoices.LEVEL_3_LER: 3,
             Profile.LanguageSkillChoices.LEVEL_0: 0,
             Profile.LanguageSkillChoices.LEVEL_1: 1,
             Profile.LanguageSkillChoices.LEVEL_2: 2,
@@ -286,12 +297,12 @@ while `user.gender.MALE (or FEMALE)` with `user.gender_partne.ANY` will give a s
                 res = ScoringFuctionResult(matchable=False, score=0, weight=1.0, markdown_info=f"ERROR in score function {score_function}: {e}")
             results.append({
                 "score_function": score_function,
-                "res": res
+                "res": res.dict()
             })
             
         print("Results:", results) 
-        total_score = sum([res["res"].score * res["res"].weight for res in results])
-        matchable = all([res["res"].matchable for res in results])
+        total_score = sum([res["res"]["score"] * res["res"]["weight"] for res in results])
+        matchable = all([res["res"]["matchable"] for res in results])
         return total_score, matchable, results
 
 def score_between_db_update(user1, user2):
@@ -355,7 +366,7 @@ def calculate_score_between(request):
     
 
     
-def calculate_scores_user(user_pk, consider_only_registered_within_last_x_days=None):
+def calculate_scores_user(user_pk, consider_only_registered_within_last_x_days=None, report = lambda data: print(data)):
     from management import controller
     from management.models.state import State
     from management.models.unconfirmed_matches import UnconfirmedMatch
@@ -407,22 +418,30 @@ def calculate_scores_user(user_pk, consider_only_registered_within_last_x_days=N
     cleaned_scores.delete()
     
 
-    print({
+    matchable_count = 0
+    c = 0
+    report({
             'total_considered_users': total_considered_users,
             'total_unconsidered_users': total_unconsidered_users,
             'scores_cleaned': count_cleaned_scores,
             'progress': 0,
+            'matchable_count': matchable_count,
             "state": "starting"
         })
         
     for user in all_users_to_consider:
-        score_between_db_update(usr, user)
+        c += 1
+        total_score, matchable, results, score = score_between_db_update(usr, user)
+        
+        if matchable:
+            matchable_count += 1
 
-        print({
+        report({
                 'total_considered_users': total_considered_users,
                 'total_unconsidered_users': total_unconsidered_users,
                 'scores_cleaned': count_cleaned_scores,
-                'progress': 0,
+                'progress': c,
+                'matchable_count': matchable_count,
                 "state": "processing",
                 "current_user": user.pk
             })
@@ -431,6 +450,7 @@ def calculate_scores_user(user_pk, consider_only_registered_within_last_x_days=N
         'total_considered_users': total_considered_users,
         'total_unconsidered_users': total_unconsidered_users,
         'scores_cleaned': count_cleaned_scores,
-        'progress': 0,
+        'matchable_count': matchable_count,
+        'progress': c,
         'state': 'finished'
     }
