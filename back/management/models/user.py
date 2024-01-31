@@ -234,16 +234,10 @@ class User(AbstractUser):
             recipient=self,
             text=msg.text
         )
-        
-        chat.messages.add(message)
-        chat.save()
-        
-        # TODO:
-        # callbacks.message_incoming(self, MessageSerializer(message).data)
-        
-        # -----------------------------------------------------------------------------------------
-            
-
+        # TODO: enable new message in when new chat is anabled
+        #from chat.consumers.messages import In
+        #from chat.models import MessageSerializer
+        #InNewMessage(**MessageSerializer(message).data).send()
         return msg
 
     def send_email(self,

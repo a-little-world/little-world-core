@@ -20,6 +20,9 @@ class _MakeMatchSerializer:
     user2: int
     proposal: bool = True
     force: bool = False
+    send_email: bool = True
+    send_message: bool = True
+    send_notification: bool = True
     
 class MakeMatchSerializer(DataclassSerializer):
     class Meta:

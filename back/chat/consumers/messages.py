@@ -13,6 +13,7 @@ class MessageTypes(Enum):
     unconfirmed_match_added = "unconfirmed_match_added" # A new match but hasn't been viewed yet
     block_incoming_call = "block_incoming_call"
     new_incoming_call = "new_incoming_call"
+    new_message = "new_message"
     
 def send_message(user_id, type: MessageTypes, data):
     channel_layer = get_channel_layer()
