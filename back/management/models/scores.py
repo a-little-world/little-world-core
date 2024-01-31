@@ -49,7 +49,9 @@ class TwoUserMatchingScore(models.Model):
         return score
         
     @classmethod
-    def get_matching_scores(cls, user):
+    def get_matching_scores(cls, user, matchable_only=True):
+        if matchable_only:
+            return cls.objects.filter(Q(user1=user) | Q(user2=user), matchable=True)
         return cls.objects.filter(Q(user1=user) | Q(user2=user))
         
     @classmethod

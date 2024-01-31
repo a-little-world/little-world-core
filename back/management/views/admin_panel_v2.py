@@ -467,6 +467,16 @@ class AdvancedMatchingScoreSerializer(serializers.ModelSerializer):
         assert 'user' in self.context
         user = self.context['user']
         partner = instance.user2 if user == instance.user1 else instance.user1
+        
+        markdown_info = ""
+        for score in instance.scoring_results:
+            markdown_info += f"## Function `{score['score_function']}`\n"
+            try:
+                markdown_info += f"{score['res']['markdown_info']}\n\n"
+            except:
+                markdown_info += "No markdown info available\n\n"
+        
+        representation['markdown_info'] = markdown_info
 
         representation['from_usr'] = {
             "uuid" : user.hash,
@@ -710,25 +720,17 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         self.kwargs['pk'] = pk
         obj = self.get_object()
         
+        consider_within_days = request.query_params.get('consider_within_days', 400)
+        
+        from management.tasks import matching_algo_v2
         from management.api.scores import calculate_scores_user
-        scores = calculate_scores_user(
+        task = matching_algo_v2.delay(
             pk,
-            400
+            consider_within_days
         )
-        return Response({})
-        
-        #from management.tasks import matching_algo_v2
-        #task = matching_algo_v2.delay(
-        #    obj.pk,
-        #    consider_only_registered_within_last_x_days=400
-        #)
-        
-        #return Response({
-        #    "msg": "Task dispatched scores will be written to db on task completion",
-        #    "task_id": task.task_id,
-        #    "view": f"/admin/django_celery_results/taskresult/?q={task.task_id}"
-        #})
-        
+        return Response({
+            "task_id": task.id
+        })
         
 class SimpleUserViewSet(AdvancedAdminUserViewset):
     queryset = User.objects.all().order_by('-date_joined')

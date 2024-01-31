@@ -33,7 +33,7 @@ PROFILE_MODEL_VERSION = "1"
 
 
 def base_lang_skill():
-    return [{'lang': 'german', 'level': 'level-0.vol'}]
+    return [{'lang': 'german', 'level': 'level-0'}]
 
 
 @deconstructible
