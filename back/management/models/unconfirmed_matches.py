@@ -58,6 +58,10 @@ class UnconfirmedMatch(models.Model):
         for prop in proposals:
             prop.is_expired(close_if_expired=True, send_mail_if_expired=True)
         return cls.objects.filter(Q(user1=user) | Q(user2=user), closed=False).order_by(order_by)
+    
+    @classmethod
+    def get_proposal_between(cls, user1, user2):
+        return cls.objects.filter(Q(user1=user1, user2=user2) | Q(user1=user2, user2=user1))
 
     def is_expired(self, close_if_expired=True, send_mail_if_expired=False):
         expired = self.expires_at < timezone.now()

@@ -335,6 +335,13 @@ def match_users(
     # Only match if they are not already matched!
     matching = Match.get_match(usr1, usr2)
     if matching.exists():
+        # Before we raise the exception we check for 'dangeling' matches 
+        from management.models.unconfirmed_matches import UnconfirmedMatch
+        dangeling = UnconfirmedMatch.get_proposal_between(usr1, usr2)
+        if dangeling.exists():
+            dangeling.delete()
+            raise Exception("Users are already matched, but dangeling proposals found, DELETED!")
+
         raise Exception("Users are already matched!")
     
     # TODO: this is the old way to match to be removed one our frontend strategy updated
