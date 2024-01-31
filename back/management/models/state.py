@@ -191,17 +191,6 @@ class State(models.Model):
         self.matching_state = slug
         self.save()
 
-        if trigger_score_update and slug == 'searching':
-            # TODO: also check that the slug has changed otherwise there is no need to recalculate
-            print("Triggering score update")
-            from ..tasks import calculate_directional_matching_score_background, archive_current_profile_user
-            # This was too calculation heavy
-            # calculate_directional_matching_score_background.delay(
-            #    self.user.hash)
-
-            # Also we will now archive the current user profile
-            archive_current_profile_user.delay(self.user.hash)
-
     def set_idle(self):
         # TODO: here we might need to update some matching scores
         # especially remove all suggestion of this user

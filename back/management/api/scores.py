@@ -207,20 +207,36 @@ while `user.gender.MALE (or FEMALE)` with `user.gender_partne.ANY` will give a s
             Profile.PartnerGenderChoices.MALE: "male"
         } 
 
+        def male_or_female(gender):
+            return (gender == "male") or (gender == "female")
+
+        def whish_granted(gender, whish):
+            granted = gender == whish
+            still_ok = granted or (whish == "any")
+            return granted, still_ok
+
         gender1 = normalize_gender_choices[self.user1.profile.gender]
         partner_gender1 = normalize_gender_choices[self.user1.profile.partner_gender]
         gender2 = normalize_gender_choices[self.user2.profile.gender]
         partner_gender2 = normalize_gender_choices[self.user2.profile.partner_gender]
         
-        if (gender1 == "female" and partner_gender2 == "male") or (gender2 == "female" and partner_gender1 == "male"):
-            return ScoringFuctionResult(matchable=False, score=0, weight=1.0, markdown_info=f"Male but Female requested or vice versa :x: (score: 0)")
-        if (partner_gender1 == "any") and (partner_gender2 == "any"):
-            return ScoringFuctionResult(matchable=True, score=10.0, weight=1.0, markdown_info=f"Bot requested 'any' gender :white_check_mark: (score: 30)")
-        if (((partner_gender1 == "male") and (gender2 == "male")) or ((partner_gender1 == "female") and (gender2 == "female"))) \
-            and (((partner_gender2 == "male") and (gender1 == "male")) or ((partner_gender2 == "female") and (gender1 == "female"))):
+
+        # disallow when any gender whish is broken:
+        # e.g.: whish = "male" -> other = "female", but also whish = "female" -> other = "any"
+        if (male_or_female(partner_gender1) and gender2 == "any") \
+                or (male_or_female(partner_gender2) and gender1 == "any"):
+            return ScoringFuctionResult(matchable=False, score=0, weight=1.0, markdown_info=f"Whish for specific gender cannot be full fillsed since patner has 'any' gender")
+
+        whish1, sok1 = whish_granted(gender1, partner_gender2)
+        whish2, sok2 = whish_granted(gender2, partner_gender1)
+        # all get exatly what they whish for
+        if whish1 and whish2:
             return ScoringFuctionResult(matchable=True, score=20.0, weight=1.0, markdown_info=f"All gender requests presisely fullfilled :white_check_mark: (score: 20)")
-        if ((partner_gender1 == "any") and ((gender2 == "male") or (gender2 == "female"))) and ((partner_gender2 == "any") and ((gender1 == "male") or (gender1 == "female"))):
-            return ScoringFuctionResult(matchable=True, score=5.0, weight=1.0, markdown_info=f"All gender requests fullfilledi ( some gender -> any match also contained ) :white_check_mark: (score: 5)")
+
+        if sok1 and sok2:
+            return ScoringFuctionResult(matchable=True, score=10.0, weight=1.0, markdown_info=f"All gender choices ok, some 'any' (score: 10.0)")
+
+        return ScoringFuctionResult(matchable=False, score=0.0, weight=1.0, markdown_info=f"Gender reuests chant be fullfilled (g:{gender1},w:{partner_gender1})<->(g:{gender2},w:{partner_gender2})")
 
     def score__interest_overlap(self):
         """

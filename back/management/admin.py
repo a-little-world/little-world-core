@@ -221,7 +221,7 @@ class CategoryAdmin(admin.ModelAdmin):
     
 @admin.register(scores.TwoUserMatchingScore)
 class TwoUserMatchingScoreAdmin(admin.ModelAdmin):
-    list_display = ('user1', 'user2', 'score', 'latest_update')
+    list_display = ('user1', 'user2', 'matchable', 'score', 'latest_update')
 
 
 @admin.register(question_deck.UserDeck)

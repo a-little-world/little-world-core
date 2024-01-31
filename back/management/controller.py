@@ -37,7 +37,6 @@ from management.tasks import (
     create_default_community_events,
     create_default_cookie_groups,
     fill_base_management_user_tim_profile,
-    create_default_table_score_source
 )
 
 
@@ -598,7 +597,6 @@ def create_base_admin_and_add_standart_db_values():
     create_default_cookie_groups.delay()
     create_default_community_events.delay()
     fill_base_management_user_tim_profile.delay()
-    create_default_table_score_source.delay()
     
     get_or_create_default_docs_user()
 

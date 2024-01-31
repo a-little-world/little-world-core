@@ -8,6 +8,7 @@ class TwoUserMatchingScore(models.Model):
     user2 = models.ForeignKey(User, on_delete=models.CASCADE, related_name="two_user_matching_score_user2")
     
     score = models.FloatField(default=0)
+    matchable = models.BooleanField(default=False)
     scoring_results = models.JSONField(default=dict)
     latest_update = models.DateTimeField(auto_now=True)
     
