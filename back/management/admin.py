@@ -9,7 +9,7 @@ from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django import forms
 from phonenumber_field.widgets import PhoneNumberPrefixWidget
 from management import models
-from management.models import question_deck
+from management.models import question_deck, scores
 from django.db.migrations.recorder import MigrationRecorder
 from hijack.contrib.admin import HijackUserAdminMixin
 
@@ -17,10 +17,6 @@ from hijack.contrib.admin import HijackUserAdminMixin
 @admin.register(models.backend_state.BackendState)
 class BackendStateAdmin(admin.ModelAdmin):
     list_display = ('slug', 'name', 'hash', 'meta', 'created_at')
-
-@admin.register(models.scores.TwoUserMatchingScore)
-class BackendStateAdmin(admin.ModelAdmin):
-    list_display = ('user1', 'user2', 'score', 'scoring_results', 'latest_update')
 
 @admin.register(models.help_message.HelpMessage)
 class HelpMessageStateAdmin(admin.ModelAdmin):
@@ -45,24 +41,6 @@ class NewsItemAdmin(admin.ModelAdmin):
 @admin.register(models.matches.Match)
 class MatchModelAdmin(admin.ModelAdmin):
     list_display = ('uuid', 'created_at', 'updated_at', 'user1', 'user2')
-
-@admin.register(models.matching_scores.MatchinScore)
-class DirectionalMatchinScores(admin.ModelAdmin):
-    list_display = ('from_usr', 'current_score',
-                    'to_usr', 'score', 'matchable', 'messages')
-    search_fields = ('from_usr__email', 'from_usr__hash')
-    list_filter = ('matchable', 'current_score')
-    formfield_overrides = {
-        dj_models.TextField: {'widget': AdminMartorWidget},
-    }
-
-
-@admin.register(models.matching_scores.ScoreTableSource)
-class ScoreTableAdmin(admin.ModelAdmin):
-    list_display = ('tag', 'hash', 'created_at')
-    formfield_overrides = {
-        dj_models.TextField: {'widget': AdminMartorWidget},
-    }
 
 
 @admin.register(models.profile.ProfileAtMatchRequest)
@@ -240,6 +218,10 @@ class SessionAdmin(admin.ModelAdmin):
 @admin.register(question_deck.CardContent)
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ('uuid', 'category_name')
+    
+@admin.register(scores.TwoUserMatchingScore)
+class TwoUserMatchingScoreAdmin(admin.ModelAdmin):
+    list_display = ('user1', 'user2', 'matchable', 'score', 'latest_update')
 
 
 @admin.register(question_deck.UserDeck)

@@ -127,6 +127,7 @@ class TwilioCallbackApi(APIView):
                 
                 return Response()
             elif StatusCallbackEvent == 'participant-connected':
+                room, caller, participant = get_room_caller_and_participant()
 
                 InNewIncomingCall(participant.hash).send(caller.hash)
 

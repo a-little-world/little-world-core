@@ -7,7 +7,7 @@ from back.utils import _api_url
 from django.conf.urls import include
 from django.views.generic.base import RedirectView
 from rest_framework import routers
-from management.views.admin_panel_frontend import admin_panel, stats_panel, graph_panel, fetch_graph, user_list_frontend, fetch_list
+from management.views.admin_panel_frontend import stats_panel, graph_panel, fetch_graph, user_list_frontend, fetch_list
 from management.views import admin_panel_v2
 from management.views import admin_panel_v2_actions
 from management.api import slack, ai
@@ -113,23 +113,11 @@ api_routes = [
     path(_api_url('user/match/confirm_deny'),
          api.confirm_match.confrim_match),
     # Admin
-    path(_api_url('user/get', admin=True), api.admin.GetUser.as_view()),
-    path(_api_url('user/list', admin=True), api.admin.UserList.as_view()),
-
     path(_api_url('graph/get', admin=True), fetch_graph),
     path(_api_url('user_list/get', admin=True), fetch_list),
 
-    path(_api_url('user/tag/<str:action>', admin=True),
-         api.admin.UserTaggingApi.as_view()),
-
-    path(_api_url('user/update_score', admin=True),
-         api.admin.RequestMatchingScoreUpdate.as_view()),
-
     path(_api_url('user/match', admin=True),
-         api.admin.MakeMatch.as_view()),
-
-    path(_api_url('user/unmatch', admin=True),
-         api.admin.UnmatchUsers.as_view()),
+         api.matches.make_match),
     #    path(_api_url('user/match', admin=True), api.admin.MakeMatch.as_view()),
     #    path(_api_url('user/suggest_match', admin=True),
     #         api.admin.MatchingSuggestion.as_view()),
@@ -156,10 +144,9 @@ view_routes = [
     path(f"user/still_active/", api.user.still_active_callback, name="still_active_callback"),
     path(_api_url(f"user/delete_account", admin=False), api.user.delete_account, name="delete_account_api"),
 
-    path(f"admin_panel/", admin_panel, name="admin_panel"),
-    path(f"admin_panel_v2/", admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
-    path(f"admin_panel_v2_login/", admin_panel_v2.admin_panel_v2_login, name="admin_panel_v2_login"),
-    re_path(fr'^admin_panel_v2/(?P<menu>.*)$', admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
+    path(f"matching/", admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
+    path(f"matching/login/", admin_panel_v2.admin_panel_v2_login, name="admin_panel_v2_login"),
+    re_path(fr'^matching/(?P<menu>.*)$', admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
     path(_api_url('user_advanced/<str:pk>', admin=True), admin_panel_v2.root_user_viewset.as_view({'get': 'retrieve'})),
     path(_api_url('user_info/<str:pk>', admin=True), admin_panel_v2.user_info_viewset.as_view({'get': 'retrieve'})),
     path(_api_url('user_advanced/<str:pk>/notes', admin=True),

@@ -37,7 +37,6 @@ from management.tasks import (
     create_default_community_events,
     create_default_cookie_groups,
     fill_base_management_user_tim_profile,
-    create_default_table_score_source
 )
 
 
@@ -319,11 +318,6 @@ def are_users_matched(
     return usr1.is_matched(usr2) and usr2.is_matched(usr1)
 
 
-# 'set' No one can put two identical users
-@utils.track_event(
-    name="Users Matched",
-    event_type=Event.EventTypeChoices.FLOW,
-    tags=["backend", "function", "db"])
 def match_users(
         users: set,
         send_notification=True,
@@ -341,6 +335,13 @@ def match_users(
     # Only match if they are not already matched!
     matching = Match.get_match(usr1, usr2)
     if matching.exists():
+        # Before we raise the exception we check for 'dangeling' matches 
+        from management.models.unconfirmed_matches import UnconfirmedMatch
+        dangeling = UnconfirmedMatch.get_proposal_between(usr1, usr2)
+        if dangeling.exists():
+            dangeling.delete()
+            raise Exception("Users are already matched, but dangeling proposals found, DELETED!")
+
         raise Exception("Users are already matched!")
     
     # TODO: this is the old way to match to be removed one our frontend strategy updated
@@ -603,7 +604,6 @@ def create_base_admin_and_add_standart_db_values():
     create_default_cookie_groups.delay()
     create_default_community_events.delay()
     fill_base_management_user_tim_profile.delay()
-    create_default_table_score_source.delay()
     
     get_or_create_default_docs_user()
 

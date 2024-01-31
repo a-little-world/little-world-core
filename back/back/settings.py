@@ -773,7 +773,6 @@ JAZZMIN_SETTINGS = {
         "management.BackendState": "fas fa-code",
         "management.User": "fas fa-user",
         "management.State": "fas fa-user-cog",
-        "management.MatchinScore": "fas fa-project-diagram",
         "management.ScoreTableSource": "fas fa-digital-tachograph",
         "management.Profile": "fas fa-user-circle",
         "management.Room": "fas fa-video",

@@ -13,7 +13,6 @@ class Chat(models.Model):
     u2 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u2")
     
     created = models.DateTimeField(auto_now_add=True)
-    messages = models.ManyToManyField("Message", related_name="chat_messages", null=True, blank=True)
     
     def get_partner(self, user):
         return self.u1 if self.u2 == user else self.u2
@@ -24,6 +23,9 @@ class Chat(models.Model):
     @classmethod
     def get_chats(cls, user):
         return Chat.objects.filter(Q(u1=user) | Q(u2=user)).order_by("-created")
+
+    def get_messages(self):
+        return Message.objects.filter(chat=self).order_by("-created")
     
     @classmethod
     def get_chat(cls, users):
@@ -33,10 +35,10 @@ class Chat(models.Model):
         return None
     
     def get_unread_count(self, user):
-        return self.messages.filter(read=False, recipient=user).count()
+        return self.get_messages().filter(read=False, recipient=user).count()
     
     def get_newest_message(self):
-        return self.messages.order_by("-created").first()
+        return self.get_messages().order_by("-created").first()
     
     @classmethod
     def get_or_create_chat(cls, user1, user2):
@@ -149,8 +151,9 @@ class OpenAiChatSerializer(serializers.ModelSerializer):
         
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        
-        representation['messages'] = OpenAiMessageSerializer(Paginator(instance.messages, self.message_depth).page(1), many=True).data
+
+        messages = instance.get_messages()
+        representation['messages'] = OpenAiMessageSerializer(Paginator(messages, self.message_depth).page(1), many=True).data
         
         
 class ChatSessions(models.Model):

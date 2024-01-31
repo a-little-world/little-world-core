@@ -3,7 +3,6 @@ from rest_framework import viewsets, serializers
 from rest_framework.permissions import IsAdminUser, BasePermission
 from django.core.paginator import Paginator
 from management.models.matches import Match
-from management.models.matching_scores import MatchinScore, MatchingScoreSerializer
 from management.models.sms import SmsModel, SmsSerializer
 from management.models.management_tasks import MangementTask, ManagementTaskSerializer
 from rest_framework.decorators import action
@@ -14,12 +13,11 @@ from rest_framework.response import Response
 from chat_old.django_private_chat2.models import MessageModel, DialogsModel
 from management.models.unconfirmed_matches import UnconfirmedMatch
 from chat_old.django_private_chat2.serializers import serialize_message_model
+from management.models.scores import TwoUserMatchingScore
+from management.api.scores import score_between_db_update
 from management import controller
 from enum import Enum
 import json
-from management.models.matching_scores import (
-    MatchinScore
-)
 from management.models.user import (
     User,
 )
@@ -460,44 +458,54 @@ def get_staff_queryset(query_set, request):
 
 class AdvancedMatchingScoreSerializer(serializers.ModelSerializer):
     class Meta:
-        model = MatchinScore
+        model = TwoUserMatchingScore
         fields = '__all__'
         
     def to_representation(self, instance):
         representation =  super().to_representation(instance)
+
+        assert 'user' in self.context
+        user = self.context['user']
+        partner = instance.user2 if user == instance.user1 else instance.user1
         
+        markdown_info = ""
+        for score in instance.scoring_results:
+            markdown_info += f"## Function `{score['score_function']}`\n"
+            try:
+                markdown_info += f"{score['res']['markdown_info']}\n\n"
+            except:
+                markdown_info += "No markdown info available\n\n"
+        
+        representation['markdown_info'] = markdown_info
+
         representation['from_usr'] = {
-            "uuid" : instance.from_usr.hash,
-            "id" : instance.from_usr.id,
-            **AdminUserSerializer(instance.from_usr).data
+            "uuid" : user.hash,
+            "id" : user.id,
+            **AdminUserSerializer(user).data
         }
         representation['to_usr'] = {
-            "uuid" : instance.to_usr.hash,
-            "id" : instance.to_usr.id,
-            **AdminUserSerializer(instance.to_usr).data
+            "uuid" : partner.hash,
+            "id" : partner.id,
+            **AdminUserSerializer(partner).data
         }
         return representation
 
 def matching_suggestion_from_database_paginated(request, user):
-    matching_scores = MatchinScore.objects.filter(from_usr=user, current_score=True, matchable=True).order_by('-score')
+    matching_scores = TwoUserMatchingScore.get_matching_scores(user).order_by('-score')
     paginator = AugmentedPagination()
     pages = paginator.get_paginated_response(paginator.paginate_queryset(matching_scores, request)).data
-    pages["results"] = AdvancedMatchingScoreSerializer(pages["results"], many=True).data
+    pages["results"] = AdvancedMatchingScoreSerializer(pages["results"], many=True, context={
+        "user": user
+    }).data
     return pages
 
 def matching_scores_between_users(from_usr, to_usr):
-    matching_score = MatchinScore.objects.filter(from_usr=from_usr, current_score=True, to_usr=to_usr).order_by('-score')
-    
-    if not matching_score.exists():
-        from management.matching.matching_score import calculate_directional_score_write_results_to_db
-        score1 = calculate_directional_score_write_results_to_db(
-            from_usr, to_usr, return_on_nomatch=False,
-            catch_exceptions=True)
-        matching_score = score1
-    else:
-        matching_score = matching_score.first()
+    matching_score = TwoUserMatchingScore.get_score(from_usr, to_usr)
+    if matching_score is None:
+        total_score, matchable, results, score = score_between_db_update(from_usr, to_usr)
+        matching_score = score
 
-    return AdvancedMatchingScoreSerializer(matching_score).data
+    return AdvancedMatchingScoreSerializer(matching_score, context={"user": from_usr}).data
 
 
 
@@ -515,6 +523,7 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         # TODO: use the IfHasControlOverUser permission here
         # TODO: if 'matching' user check if he has access to this user!
         
+        # TODO: depricated new matching scores!!!
         scores = matching_suggestion_from_database_paginated(request, obj)
         return Response(scores)
     
@@ -523,6 +532,7 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         self.kwargs['pk'] = pk
         obj = self.get_object()
         
+        # TODO: depricated
         score = matching_scores_between_users(obj, request.data["to_user"])
         return Response(score)
     
@@ -710,20 +720,17 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         self.kwargs['pk'] = pk
         obj = self.get_object()
         
-        from management.tasks import calculate_directional_matching_score_v2_static
-        task = calculate_directional_matching_score_v2_static.delay(
-            obj.pk,
-            catch_exceptions=True,
-            invalidate_other_scores=True,
-            consider_only_registered_within_last_x_days=100
+        consider_within_days = request.query_params.get('consider_within_days', 400)
+        
+        from management.tasks import matching_algo_v2
+        from management.api.scores import calculate_scores_user
+        task = matching_algo_v2.delay(
+            pk,
+            consider_within_days
         )
-        
         return Response({
-            "msg": "Task dispatched scores will be written to db on task completion",
-            "task_id": task.task_id,
-            "view": f"/admin/django_celery_results/taskresult/?q={task.task_id}"
+            "task_id": task.id
         })
-        
         
 class SimpleUserViewSet(AdvancedAdminUserViewset):
     queryset = User.objects.all().order_by('-date_joined')
