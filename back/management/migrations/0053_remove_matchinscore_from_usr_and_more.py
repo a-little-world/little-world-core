@@ -10,14 +10,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name='MatchinScore',
-            name='from_usr',
-        ),
-        migrations.RemoveField(
-            model_name='MatchinScore',
-            name='to_usr',
-        ),
         migrations.DeleteModel(
             name='ScoreTableSource',
         ),
