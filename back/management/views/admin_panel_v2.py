@@ -720,7 +720,7 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         self.kwargs['pk'] = pk
         obj = self.get_object()
         
-        consider_within_days = request.query_params.get('consider_within_days', 400)
+        consider_within_days = int(request.query_params.get('days_searching', 60))
         
         from management.tasks import matching_algo_v2
         from management.api.scores import calculate_scores_user

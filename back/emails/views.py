@@ -27,10 +27,6 @@ class ViewEmail(UserPassesTestMixin, View):
             return True
         return False
 
-    @utils.track_event(
-        name="Email Viewed",
-        event_type=Event.EventTypeChoices.REQUEST,
-        tags=["frontend"], track_arguments=["mail_name"])
     def get(self, request, **kwargs):
 
         if not 'mail_name' in kwargs:
