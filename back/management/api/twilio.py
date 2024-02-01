@@ -90,11 +90,6 @@ class TwilioCallbackApi(APIView):
     authentication_classes = []
     permission_classes = []
 
-    @extend_schema(request=TwilioCallbackApiSerializer(many=False))
-    @track_event(
-        name="twilio_callback_received",
-        tags=["remote", "twilio"]
-    )
     def post(self, request):
         """
         This is the api twilio sends callbacks to 
