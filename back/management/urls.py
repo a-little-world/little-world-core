@@ -11,6 +11,8 @@ from management.views.admin_panel_frontend import stats_panel, graph_panel, fetc
 from management.views import admin_panel_v2
 from management.views import admin_panel_v2_actions
 from management.api import slack, ai
+from management.api.scores import list_top_scores, score_maximization_matching
+from management.api.matching_stats import get_quick_statistics
 
 from rest_framework.routers import DefaultRouter
 from django_rest_passwordreset.views import ResetPasswordValidateTokenViewSet, ResetPasswordConfirmViewSet, \
@@ -181,6 +183,9 @@ view_routes = [
     path(_api_url('user_advanced/<str:pk>/request_score_update', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'get': 'request_score_update'})),
     path(_api_url('user_listing_advanced/<str:list>', admin=True), admin_panel_v2.advanced_user_listing),
+    path(_api_url('quick_matching_statistics', admin=True), get_quick_statistics),
+    path(_api_url('optimize_possible_matches', admin=True), score_maximization_matching),
+    path(_api_url('top_scores', admin=True), list_top_scores),
     path(_api_url('tasks/<str:task_id>/status', admin=True), admin_panel_v2.request_task_status),
 
     path(f"manage/", user_list_frontend, name="management_panel"),
