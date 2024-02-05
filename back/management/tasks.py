@@ -2316,7 +2316,8 @@ def request_streamed_ai_response(messages, model="gpt-3.5-turbo", backend="defau
 @shared_task
 def matching_algo_v2(
     user_pk,
-    consider_only_registered_within_last_x_days=None
+    consider_only_registered_within_last_x_days=None,
+    exlude_user_ids=[]
 ):
     
     from management.api.scores import calculate_scores_user
@@ -2324,13 +2325,64 @@ def matching_algo_v2(
     def report_progress(progress):
         matching_algo_v2.backend.mark_as_started(
             matching_algo_v2.request.id,
-            progress=json.dumps(progress)
+            progress=progress
         )
         
     res = calculate_scores_user(
         user_pk,
         consider_only_registered_within_last_x_days=consider_only_registered_within_last_x_days,
-        report=report_progress
+        report=report_progress,
+        exlude_user_ids=exlude_user_ids
     )
     
     return res
+
+@shared_task
+def burst_calulate_matching_scores(
+    user_combinations = []
+):
+    from management.models.scores import TwoUserMatchingScore
+    from management.api.scores import score_between_db_update
+    from management.models.user import User
+    """
+    Calculates the matching scores for all users requiring a match at the moment 
+    """
+    print("combination")
+    
+    def report_progress(progress):
+        burst_calulate_matching_scores.backend.mark_as_started(
+            burst_calulate_matching_scores.request.id,
+            progress=progress
+        )
+        
+    total_combinations = len(user_combinations)
+    combinations_processed = 0
+    
+    report_progress({
+        "total_combinations": total_combinations,
+        "combinations_processed": combinations_processed,
+    })
+        
+    for comb in user_combinations:
+        user1 = User.objects.get(pk=comb[0])
+        user2 = User.objects.get(pk=comb[1])
+        score_between_db_update(
+            user1,
+            user2
+        )
+        combinations_processed += 1
+        
+        report_progress({
+            "total_combinations": total_combinations,
+            "combinations_processed": combinations_processed,
+        })
+        
+    return {
+        "total_combinations": total_combinations,
+        "combinations_processed": combinations_processed,
+    }
+        
+    
+        
+    
+    
