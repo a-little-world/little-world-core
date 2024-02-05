@@ -2316,7 +2316,8 @@ def request_streamed_ai_response(messages, model="gpt-3.5-turbo", backend="defau
 @shared_task
 def matching_algo_v2(
     user_pk,
-    consider_only_registered_within_last_x_days=None
+    consider_only_registered_within_last_x_days=None,
+    exlude_user_ids=[]
 ):
     
     from management.api.scores import calculate_scores_user
@@ -2330,7 +2331,34 @@ def matching_algo_v2(
     res = calculate_scores_user(
         user_pk,
         consider_only_registered_within_last_x_days=consider_only_registered_within_last_x_days,
-        report=report_progress
+        report=report_progress,
+        exlude_user_ids=exlude_user_ids
     )
     
     return res
+
+
+def burst_calulate_matching_scores(
+        paralel_buckets = 4,
+        bucket_size = 4):
+    from management.api.scores import get_users_to_consider
+    """
+    Calculates the matching scores for all users requiring a match at the moment 
+    """
+    users = get_users_to_consider(None, 200)
+    
+    
+    def report_progress(progress):
+        burst_calulate_matching_scores.backend.mark_as_started(
+            burst_calulate_matching_scores.request.id,
+            progress=json.dumps(progress)
+        )
+    
+    # Now we want to calulate all possible combinations for these users
+    # we can dispatch as many tasks in paralel as there are users:
+    # Say there are 5 users : [1, 2, 3, 4, 5]
+    # Then we dispatch 5 tasks:
+    # score_with([2, 3, 4, 5], exlude=[1])
+    # score_with([3, 4, 5], exlude=[1, 2])
+    # score_with([4, 5], exlude=[1, 2, 3])
+    # ...
