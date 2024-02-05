@@ -2325,7 +2325,7 @@ def matching_algo_v2(
     def report_progress(progress):
         matching_algo_v2.backend.mark_as_started(
             matching_algo_v2.request.id,
-            progress=json.dumps(progress)
+            progress=progress
         )
         
     res = calculate_scores_user(
@@ -2337,28 +2337,52 @@ def matching_algo_v2(
     
     return res
 
-
+@shared_task
 def burst_calulate_matching_scores(
-        paralel_buckets = 4,
-        bucket_size = 4):
-    from management.api.scores import get_users_to_consider
+    user_combinations = []
+):
+    from management.models.scores import TwoUserMatchingScore
+    from management.api.scores import score_between_db_update
+    from management.models.user import User
     """
     Calculates the matching scores for all users requiring a match at the moment 
     """
-    users = get_users_to_consider(None, 200)
-    
+    print("combination")
     
     def report_progress(progress):
         burst_calulate_matching_scores.backend.mark_as_started(
             burst_calulate_matching_scores.request.id,
-            progress=json.dumps(progress)
+            progress=progress
         )
+        
+    total_combinations = len(user_combinations)
+    combinations_processed = 0
     
-    # Now we want to calulate all possible combinations for these users
-    # we can dispatch as many tasks in paralel as there are users:
-    # Say there are 5 users : [1, 2, 3, 4, 5]
-    # Then we dispatch 5 tasks:
-    # score_with([2, 3, 4, 5], exlude=[1])
-    # score_with([3, 4, 5], exlude=[1, 2])
-    # score_with([4, 5], exlude=[1, 2, 3])
-    # ...
+    report_progress({
+        "total_combinations": total_combinations,
+        "combinations_processed": combinations_processed,
+    })
+        
+    for comb in user_combinations:
+        user1 = User.objects.get(pk=comb[0])
+        user2 = User.objects.get(pk=comb[1])
+        score_between_db_update(
+            user1,
+            user2
+        )
+        combinations_processed += 1
+        
+        report_progress({
+            "total_combinations": total_combinations,
+            "combinations_processed": combinations_processed,
+        })
+        
+    return {
+        "total_combinations": total_combinations,
+        "combinations_processed": combinations_processed,
+    }
+        
+    
+        
+    
+    

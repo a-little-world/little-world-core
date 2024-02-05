@@ -13,6 +13,9 @@ class ScoringFunctionsEnum(Enum):
     users_waiting_for_match = "Users ( for current matching user ) that need a match."
     learners_waiting_for_match = "learners_waiting_for_match"
     percentage_of_learners_waiting_for_match = "percentage_of_learners_waiting_for_match"
+    matchable_scores = "matchable_scores"
+    unmatchable_scores = "unmatchable_scores"
+    considerable_match_permutations = "considerable_match_permutations"
     
 class ScoreTypesEnum(Enum):
     value = "value"
@@ -51,7 +54,33 @@ def get_matching_statictic_score_function(request, scoring_function):
         return MatchingStatisticScore(scoring_function=ScoringFunctionsEnum.percentage_of_learners_waiting_for_match.value,score_type=ScoreTypesEnum.percentage.value,data={
             "value": (learners_needs_matching.count() / all_count) * 100
         })
+    if scoring_function == ScoringFunctionsEnum.matchable_scores.name:
+        
+        from management.models.scores import TwoUserMatchingScore
+        count_matchable = TwoUserMatchingScore.objects.filter(matchable=True).count()
+        return MatchingStatisticScore(
+            scoring_function=ScoringFunctionsEnum.matchable_scores.value,
+            score_type=ScoreTypesEnum.value.value,
+            data={ "value": count_matchable })
+    if scoring_function == ScoringFunctionsEnum.unmatchable_scores.name:
+        
+        from management.models.scores import TwoUserMatchingScore
+        count_unmatchable = TwoUserMatchingScore.objects.filter(matchable=False).count()
+        return MatchingStatisticScore(
+            scoring_function=ScoringFunctionsEnum.unmatchable_scores.value,
+            score_type=ScoreTypesEnum.value.value,
+            data={ "value": count_unmatchable })
 
+    if scoring_function == ScoringFunctionsEnum.considerable_match_permutations.name:
+        from management.models.scores import TwoUserMatchingScore
+        needs_matching = get_staff_queryset(QuerySetEnum.needs_matching.name, request)
+        # we we need to annotate user1.id and user2.id, get a set of that and count possible matches of two
+        user_id_set = set(needs_matching.values_list('id', flat=True))
+        combinations = len(user_id_set) * (len(user_id_set) - 1) / 2
+        return MatchingStatisticScore(
+            scoring_function=ScoringFunctionsEnum.considerable_match_permutations.value,
+            score_type=ScoreTypesEnum.value.value,
+            data={ "value": combinations })
     else:
         raise ValueError("Invalid scoring function")
 

@@ -65,6 +65,15 @@ def make_match(request):
         learner = proposal.get_learner()
         matches = serialize_proposed_matches([proposal], learner)
         
+        # Cleanup old matching scores
+        from management.models.scores import TwoUserMatchingScore
+        from django.db.models import Q
+
+        TwoUserMatchingScore.objects.filter(user1=user1, user2=user2).delete()
+        # Now update all matchable = False scores entries that have user1 or user2 as a user and are matchable = True
+        TwoUserMatchingScore.objects.filter(
+            (Q(user1=user1) | Q(user2=user1) | Q(user1=user2) | Q(user2=user2)) & Q(matchable=True)).update(matchable=False) 
+        
         InMatchProposalAdded(matches[0]).send(learner.hash)
         return Response("Matching Proposal Created")
     else:

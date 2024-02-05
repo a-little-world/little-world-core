@@ -485,15 +485,54 @@ class SimpleMatchingScoreSerializer(serializers.ModelSerializer):
     class Meta:
         model = scores.TwoUserMatchingScore
         fields = ['id', 'user1', 'user2', 'score']
-
-    
+        
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def score_maximization_matching(request):
+def burst_calulate_matching_scores(request):
     assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+    from management.views.admin_panel_v2 import get_staff_queryset, QuerySetEnum
+    from management.tasks import burst_calulate_matching_scores
+    import math
+    import itertools
+    needs_matching = get_staff_queryset(QuerySetEnum.needs_matching.name, request)
+    
+    # calculate all possible combinations that we need to cacluate a score for
+    user_id_set = set(needs_matching.values_list('id', flat=True))
+    list_combinations = list(itertools.combinations(user_id_set, 2))
+    
+    created_tasks = []
+    task_count = int(request.query_params.get('task_count', 10))
+    pt = 0
+    paralel_tasks = int(request.query_params.get('paralel_tasks', 2))
+    delay_between_tasks = int(request.query_params.get('delay_between_tasks', 20))
+    total_delay = 0
+    matches_per_task = math.ceil(len(list_combinations) / task_count)
+    for i in range(0, len(list_combinations), matches_per_task):
+        
+        pt += 1
+        if pt > paralel_tasks:
+            pt = 0
+            total_delay += delay_between_tasks
+
+        upper_bound = i + matches_per_task
+        if upper_bound > len(list_combinations):
+            upper_bound = len(list_combinations)
+        batch = list_combinations[i:upper_bound]
+
+        task = burst_calulate_matching_scores.apply_async(kwargs={
+            "user_combinations": batch,
+        }, countdown=total_delay)
+        created_tasks.append({
+            "task_id": task.task_id,
+        })
+        
+    return Response(created_tasks)
+        
+        
+
+def instantly_possible_matches():
     import networkx as nx
     from management.models.scores import TwoUserMatchingScore
-    
     matches = SimpleMatchingScoreSerializer(
         TwoUserMatchingScore.objects.filter(matchable=True).order_by("-score"), many=True).data
     
@@ -505,14 +544,58 @@ def score_maximization_matching(request):
         G.add_edge(match['user1'], match['user2'], weight=float(match['score']))
 
     # Use the max_weight_matching function of NetworkX
-    matches = nx.max_weight_matching(G)
+    matches = nx.max_weight_matching(G, maxcardinality=True)
 
     # max_weight_matching returns a set of frozensets, convert to list of tuples
     matches = [tuple(match) for match in matches]
+    return matches
     
-    print("HEAdsdasda", matches)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def score_maximization_matching(request):
+    assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+    from management.models.scores import TwoUserMatchingScore
+    from management.views.admin_panel_v2 import AdvancedMatchingScoreSerializer
+    from django.db.models import Q
+    
+    matches = instantly_possible_matches()
+    
+    print("MATCHES", matches)
+    
+    # perform a finaly check if not users are matched twice
+    user_pks = []
+    for match in matches:
+        if match[0] in user_pks or match[1] in user_pks:
+            # Fow now if the user was already matched we just ignore that score
+            pass
+            # TODO: make ignoring this case optional
+            # raise ValueError("User matched twice")
+        else:
+            user_pks.append(match[0])
+            user_pks.append(match[1])
+    
+    
+    items_per_page = int(request.query_params.get('items_per_page', 50))
+    page = int(request.query_params.get('page', 1))
+    
+    scores = []
+    for match in matches:
+        user1 = User.objects.get(id=match[0])
+        user2 = User.objects.get(id=match[1])
+        score = TwoUserMatchingScore.get_score(user1, user2)
+        scores.append(score)
+    
+    paginator = Paginator(scores, items_per_page)
+    pages = paginator.page(page)
+    serialized = [ AdvancedMatchingScoreSerializer(p, many=False, context={'user': p.user1}).data for p in list(pages) ]
 
-    return Response("ok")
+    return Response(SimplePagination(
+        page=page,
+        items_per_page=items_per_page,
+        total_pages=paginator.num_pages,
+        total_items=len(scores),
+        results=serialized
+    ).dict())
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
