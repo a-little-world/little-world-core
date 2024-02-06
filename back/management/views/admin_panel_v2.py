@@ -166,16 +166,15 @@ def update_representation(representation, instance):
     user = instance
     items_per_page = ADMIN_USER_MATCH_ITEMS
 
-    print("updating representations for ", user, instance)
     confirmed_matches = get_paginated(Match.get_confirmed_matches(user), items_per_page, 1)
     confirmed_matches["items"] = serialize_matches(confirmed_matches["items"], user)
     
-    print("confirmed matches", [f'{i["partner"]["id"]} m_id {i["id"]}' for i in confirmed_matches["items"]])
+    #print("confirmed matches", [f'{i["partner"]["id"]} m_id {i["id"]}' for i in confirmed_matches["items"]])
 
     unconfirmed_matches = get_paginated(Match.get_unconfirmed_matches(user), items_per_page, 1)
     unconfirmed_matches["items"] = serialize_matches(unconfirmed_matches["items"], user)
 
-    print("unconfirmed matches", [f'{i["partner"]["id"]} m_id {i["id"]}' for i in unconfirmed_matches["items"]])
+    #print("unconfirmed matches", [f'{i["partner"]["id"]} m_id {i["id"]}' for i in unconfirmed_matches["items"]])
 
     support_matches = get_paginated(Match.get_support_matches(user), items_per_page, 1)
     support_matches["items"] = serialize_matches(support_matches["items"], user)
