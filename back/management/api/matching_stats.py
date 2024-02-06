@@ -16,6 +16,7 @@ class ScoringFunctionsEnum(Enum):
     matchable_scores = "matchable_scores"
     unmatchable_scores = "unmatchable_scores"
     considerable_match_permutations = "considerable_match_permutations"
+    total_matching_score_count = "total_matching_score_count"
     
 class ScoreTypesEnum(Enum):
     value = "value"
@@ -81,6 +82,14 @@ def get_matching_statictic_score_function(request, scoring_function):
             scoring_function=ScoringFunctionsEnum.considerable_match_permutations.value,
             score_type=ScoreTypesEnum.value.value,
             data={ "value": combinations })
+        
+    if scoring_function == ScoringFunctionsEnum.total_matching_score_count.name:
+        from management.models.scores import TwoUserMatchingScore
+        count = TwoUserMatchingScore.objects.count()
+        return MatchingStatisticScore(
+            scoring_function=ScoringFunctionsEnum.total_matching_score_count.value,
+            score_type=ScoreTypesEnum.value.value,
+            data={ "value": count })
     else:
         raise ValueError("Invalid scoring function")
 

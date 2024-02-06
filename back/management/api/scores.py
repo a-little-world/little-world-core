@@ -599,6 +599,17 @@ def score_maximization_matching(request):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def delete_all_matching_scores(request):
+    assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+    from management.models.scores import TwoUserMatchingScore
+    total_count = TwoUserMatchingScore.objects.count()
+    TwoUserMatchingScore.objects.all().delete()
+    return Response({
+        "msg": f"All {total_count} matching scores deleted"
+    })
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def list_top_scores(request):
     assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
     from management.views.admin_panel_v2 import AdvancedMatchingScoreSerializer
