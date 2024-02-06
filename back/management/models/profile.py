@@ -750,7 +750,7 @@ class CensoredProfileSerializer(SelfProfileSerializer):
         fields = ["first_name", 'interests', 'availability',
                   'notify_channel', 'phone_mobile', 'image_type',
                   'avatar_config', 'image', 'description',
-                  'additional_interests', 'language_skill_description']
+                  'additional_interests', 'language_skill_description', 'user_type']
         
         
 class MinimalProfileSerializer(serializers.ModelSerializer):
