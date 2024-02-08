@@ -26,7 +26,7 @@ class State(models.Model):
     # Key...
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     
-    question_card_deck = models.ForeignKey(QuestionCardsDeck, on_delete=models.CASCADE, null=True, blank=True)
+    question_card_deck = models.ForeignKey(QuestionCardsDeck, on_delete=models.SET_NULL, null=True, blank=True)
 
     # We love additional Information
     created_at = models.DateTimeField(auto_now_add=True)

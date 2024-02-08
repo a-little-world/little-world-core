@@ -5,6 +5,7 @@ from rest_framework import serializers
 from rest_framework import status, permissions
 from drf_spectacular.utils import extend_schema
 from management.models.state import State
+from drf_spectacular.utils import extend_schema
 from collections import OrderedDict
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework.decorators import api_view, permission_classes
@@ -26,10 +27,50 @@ class GetQuestionCards:
 class GetQuestionCardsSerializer(DataclassSerializer):
     class Meta:
         dataclass = GetQuestionCards
+        
+        
+@dataclass
+class ArchiveCard:
+    uuid: str
+    archive: bool = False
+
+class ArchiveCardSeralizer(DataclassSerializer):
+    class Meta:
+        dataclass = ArchiveCard
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+@extend_schema(
+    methods=["POST"],
+    request=GetQuestionCardsSerializer(many=False)
+)
+def archive_card(request):
+    
+    serializer = ArchiveCardSeralizer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    data = serializer.save()
+    
+    user = request.user
+    
+    if data.archive == True:
+
+        card = user.state.question_card_deck.cards.get(uuid=data.uuid)
+        user.state.question_card_deck.archive_card(card)
+    else:
+        card = user.state.question_card_deck.cards_archived.get(uuid=data.uuid)
+        user.state.question_card_deck.unarchive_card(card)
+        
+    return Response({})
+    
 
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
+@extend_schema(
+    methods=["GET"],
+    request=GetQuestionCardsSerializer(many=False)
+)
 def get_question_cards(request):
     
 
@@ -45,16 +86,27 @@ def get_question_cards(request):
         "categories": QuestionCardsCategoriesSerializer(all_categories, many=True).data,
         "cards" : {}
     }
+    
+    archived_category = {
+        "uuid": "archived",
+        "content": {
+            "de": "Archiviert",
+            "en": "Archived"
+        },
+        "ref_id": 0
+    }
 
     if data.category == "all":
         
         for category in all_categories:
-            if data.archived:
-                cards = user.state.question_card_deck.cards_archived.filter(category=category)
-            else: 
-                cards = user.state.question_card_deck.cards.filter(category=category)
-            
+            cards = user.state.question_card_deck.cards.filter(category=category)
             resp["cards"][str(category.uuid)] = QuestionCardSerializer(cards, many=True).data
+            
+        if data.archived:
+            cards = user.state.question_card_deck.cards_archived.all()
+            resp["cards"]["archived"] = QuestionCardSerializer(cards, many=True).data
+            
+            resp["categories"].append(archived_category)
     else:
         raise serializers.ValidationError("Not implemented")
     
