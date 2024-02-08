@@ -215,15 +215,18 @@ class SessionAdmin(admin.ModelAdmin):
         return obj.get_decoded()
     list_display = ['session_key', '_session_data', 'expire_date']
 
-@admin.register(question_deck.CardContent)
-class CategoryAdmin(admin.ModelAdmin):
-    list_display = ('uuid', 'category_name')
+@admin.register(question_deck.QuestionCardsDeck)
+class QuestionCardDeckAdmin(admin.ModelAdmin):
+    list_display = ('uuid', 'user')
+
+@admin.register(question_deck.QuestionCardCategories)
+class QuestionCardCategoryAdmin(admin.ModelAdmin):
+    list_display = ('uuid', 'ref_id', 'content')
+
+@admin.register(question_deck.QuestionCard)
+class QuestionCardAdmin(admin.ModelAdmin):
+    list_display = ('uuid', 'ref_id','category', 'content')
     
 @admin.register(scores.TwoUserMatchingScore)
 class TwoUserMatchingScoreAdmin(admin.ModelAdmin):
     list_display = ('user1', 'user2', 'matchable', 'score', 'latest_update')
-
-
-@admin.register(question_deck.UserDeck)
-class UserCategoriesAdmin(admin.ModelAdmin):
-    list_display = ['user']

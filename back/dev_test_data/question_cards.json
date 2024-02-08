@@ -1,0 +1,480 @@
+{
+  "categories": [
+    {
+      "id": 1,
+      "tag": "Personal",
+      "de": "Persönlich",
+      "en": "Personal"
+    },
+    {
+      "id": 2,
+      "tag": "Culture",
+      "de": "Kultur",
+      "en": "Culture"
+    },
+    {
+      "id": 3,
+      "tag": "Family",
+      "de": "Familie",
+      "en": "Family"
+    },
+    {
+      "id": 4,
+      "tag": "Self",
+      "de": "Selbst",
+      "en": "Self"
+    },
+    {
+      "id": 5,
+      "tag": "Work",
+      "de": "Arbeit",
+      "en": "Work"
+    },
+    {
+      "id": 6,
+      "tag": "Travel",
+      "de": "Reisen",
+      "en": "Travel"
+    },
+    {
+      "id": 7,
+      "tag": "Live & Death",
+      "de": "Leben & Tod",
+      "en": "Live & Death"
+    },
+    {
+      "id": 8,
+      "tag": "Past 12 months",
+      "de": "Rückblick 12 Monate",
+      "en": "Past 12 months"
+    },
+    {
+      "id": 9,
+      "tag": "Future 12 months",
+      "de": "Vorausblick 12 Monate",
+      "en": "Future 12 months"
+    }
+  ],
+  "cards": [
+    {
+      "id": 1,
+      "category": 1,
+      "de": "Gibt es etwas, das du bereust aus Angst nicht getan zu haben?",
+      "en": "Have you ever missed out on something because of fear?"
+    },
+    {
+      "id": 2,
+      "category": 2,
+      "de": "Beschreibe ein Kunstwerk, das du wirklich magst, und warum?",
+      "en": "What is a piece of art that you admire and why do you like it?"
+    },
+    {
+      "id": 3,
+      "category": 3,
+      "de": "Bevorzugst du es, Menschen aus deinen verschiedenen Lebensbereichen zu trennen oder miteinander zu verbinden?",
+      "en": "Are you willing to connect people from different parts of your life, or do you prefer to keep them separate?"
+    },
+    {
+      "id": 4,
+      "category": 4,
+      "de": "Wenn du in den Spiegel schaust, was überprüfst du dann als erstes?",
+      "en": "What is the first thing you typically check when you look in the mirror?"
+    },
+    {
+      "id": 5,
+      "category": 5,
+      "de": "Wer ist der beste Chef, den du je hattest? Und was zeichnete ihn aus?",
+      "en": "Who was the best boss you've ever had, and what made them stand out?"
+    },
+    {
+      "id": 6,
+      "category": 6,
+      "de": "Bist du schon einmal allein verreist?",
+      "en": "Have you ever travelled on your own?"
+    },
+    {
+      "id": 7,
+      "category": 7,
+      "de": "Wie könnten wir älteren Menschen mehr Wertschätzung entgegenbringen?",
+      "en": "In what ways could society show greater appreciation for the elderly?"
+    },
+    {
+      "id": 8,
+      "category": 8,
+      "de": "Was war der beste Kauf, den du für unter 100€ getätigt hast?",
+      "en": "What was the best thing you bought for under 100€?"
+    },
+    {
+      "id": 9,
+      "category": 9,
+      "de": "Was wirst du auf deinen Fotos zeigen können?",
+      "en": "What will be in your photos?"
+    },
+    {
+      "id": 10,
+      "category": 1,
+      "de": "In welchen Situationen fühlst du dich schüchtern?",
+      "en": "What situations make you feel shy?"
+    },
+    {
+      "id": 11,
+      "category": 2,
+      "de": "Wenn du ein beliebiges Kunstwerk besitzen könntest, welches wäre es und warum?",
+      "en": "What piece of art would you choose to own if you could pick only one and why?"
+    },
+    {
+      "id": 12,
+      "category": 3,
+      "de": "Was sind die besten Dinge, die du deinen Eltern verdankst?",
+      "en": "What are some of the best things that you feel you owe to your parents?"
+    },
+    {
+      "id": 13,
+      "category": 4,
+      "de": "Wer ist dein größter Fan?",
+      "en": "Who is the person who supports you the most or is your biggest fan?"
+    },
+    {
+      "id": 14,
+      "category": 5,
+      "de": "Wäre es okay für dich, deinen Freunden dein Gehalt zu nennen?",
+      "en": "Are you comfortable sharing your salary with your friends?"
+    },
+    {
+      "id": 15,
+      "category": 6,
+      "de": "Was macht eine Person zu einem guten Reisebegleiter?",
+      "en": "What qualities make for a good travel companion?"
+    },
+    {
+      "id": 16,
+      "category": 7,
+      "de": "Was wäre für dich ein guter Tod?",
+      "en": "What does a meaningful or positive death mean to you?"
+    },
+    {
+      "id": 17,
+      "category": 8,
+      "de": "Auf welche Leistung oder Errungenschaft bist du besonders stolz?",
+      "en": "Which achievement are you most proud of?"
+    },
+    {
+      "id": 18,
+      "category": 9,
+      "de": "Welche unerwünschte Gewohnheit möchtest du ablegen?",
+      "en": "What bad habit would you like to get rid of?"
+    },
+    {
+      "id": 19,
+      "category": 1,
+      "de": "Bist du gut darin, dich zu entschuldigen?",
+      "en": "Are you skilled at apologizing?"
+    },
+    {
+      "id": 20,
+      "category": 2,
+      "de": "Welche Fähigkeiten hat der ideale Gastgeber oder die ideale Gastgeberin?",
+      "en": "What qualities make for an ideal host or hostess?"
+    },
+    {
+      "id": 21,
+      "category": 3,
+      "de": "Was ist das Netteste, was jemand für dich getan hat?",
+      "en": "What is the kindest thing that someone has ever done for you?"
+    },
+    {
+      "id": 22,
+      "category": 4,
+      "de": "Hattest du jemals eine religiöse Erfahrung?",
+      "en": "Have you ever had a religious or spiritual experience?"
+    },
+    {
+      "id": 23,
+      "category": 5,
+      "de": "Inwiefern könntest du eine schwierige Person sein, mit oder für die man arbeitet?",
+      "en": "In what ways do you think you could be a challenging person to work with or for?"
+    },
+    {
+      "id": 24,
+      "category": 6,
+      "de": "Würdest du lieber in einem schlechten Hotel mit einer guten Mahlzeit oder in einem guten Hotel mit einer schlechten Mahlzeit übernachten?",
+      "en": "Would you rather stay in a bad hotel with a good meal or a good hotel with a bad meal?"
+    },
+    {
+      "id": 25,
+      "category": 7,
+      "de": "Wenn du wüsstest, dass du nur noch ein Jahr zu leben hättest, wie würdest du die nächsten 12 Monate verbringen?",
+      "en": "If you had only one year left to live, how would you choose to spend that time?"
+    },
+    {
+      "id": 26,
+      "category": 8,
+      "de": "Was ist die wertvollste Lektion, die du gelernt hast?",
+      "en": "What is your most valuable lesson?"
+    },
+    {
+      "id": 27,
+      "category": 9,
+      "de": "Was wirst du tun, womit niemand rechnen würde?",
+      "en": "What will you do that no one would expect you to do?"
+    },
+    {
+      "id": 28,
+      "category": 1,
+      "de": "Was macht dich neidisch?",
+      "en": "What makes you feel envious?"
+    },
+    {
+      "id": 29,
+      "category": 2,
+      "de": "Kannst du deinen eigenen Geschmack in Bezug auf Interieur und Design beschreiben?",
+      "en": "Can you describe your personal style and preferences when it comes to interior design?"
+    },
+    {
+      "id": 30,
+      "category": 3,
+      "de": "Was sind deine schönsten Erinnerungen mit deinen Eltern?",
+      "en": "What are some of your happiest memories with your parents?"
+    },
+    {
+      "id": 31,
+      "category": 4,
+      "de": "Hast du eine Technik, um ruhig zu bleiben?",
+      "en": "Do you have any techniques for staying calm or managing stress?"
+    },
+    {
+      "id": 32,
+      "category": 5,
+      "de": "Wenn du die Stiftung von Bill Gates leiten würdest, aber die Mittel nur für ein einziges Problem ausgeben könntest, welches wäre das?",
+      "en": "If you could use the resources of the Bill Gates Foundation to address only one issue, which one would you choose?"
+    },
+    {
+      "id": 33,
+      "category": 6,
+      "de": "Fühlst du dich eher zu einem nomadischen oder einem sesshaften Leben hingezogen?",
+      "en": "Do you prefer a settled or nomadic lifestyle?"
+    },
+    {
+      "id": 34,
+      "category": 7,
+      "de": "Was sind deiner Meinung nach die besten Eigenschaften des mittleren Alters?",
+      "en": "What do you consider to be the most positive aspects of middle age?"
+    },
+    {
+      "id": 35,
+      "category": 8,
+      "de": "Welchen Moment würdest du gerne noch einmal erleben?",
+      "en": "What moment would you most like to relive?"
+    },
+    {
+      "id": 36,
+      "category": 9,
+      "de": "Für was möchtest du weniger Zeit aufwenden?",
+      "en": "What would you like to spend less time on?"
+    },
+    {
+      "id": 37,
+      "category": 1,
+      "de": "Was stresst dich am meisten?",
+      "en": "What causes you the most stress?"
+    },
+    {
+      "id": 38,
+      "category": 2,
+      "de": "Wie hat Musik deine Sicht auf das Leben beeinflusst?",
+      "en": "How has music influenced your perspective on life?"
+    },
+    {
+      "id": 39,
+      "category": 3,
+      "de": "Inwiefern machen deine Eltern dir das Leben schwer, auch wenn das nicht ihre Intention ist?",
+      "en": "Do you believe that the saying 'they fuck you up, your mum and dad' holds any truth?"
+    },
+    {
+      "id": 40,
+      "category": 4,
+      "de": "Bist du da, wo du in dieser Phase deines Lebens sein wolltest?",
+      "en": "Are you currently in the place in life that you wanted to be at this point?"
+    },
+    {
+      "id": 41,
+      "category": 5,
+      "de": "Welcher Arbeit bist du nachgegangen, als du das letzte Mal die Zeit ganz vergessen hast?",
+      "en": "What task were you working on the last time you completely lost track of time?"
+    },
+    {
+      "id": 42,
+      "category": 6,
+      "de": "Gibt es Fehler, die du von Reise zu Reise wiederholst?",
+      "en": "Are there travel mistakes you tend to make repeatedly?"
+    },
+    {
+      "id": 43,
+      "category": 7,
+      "de": "Wann hast du am lautesten gelacht?",
+      "en": "When did you laugh the loudest?"
+    },
+    {
+      "id": 44,
+      "category": 8,
+      "de": "Auf was freust du dich am meisten?",
+      "en": "What are you looking forward to the most?"
+    },
+    {
+      "id": 45,
+      "category": 9,
+      "de": "Welche Gewohnheit möchtest du beibehalten?",
+      "en": "What habit would you like to keep?"
+    },
+    {
+      "id": 46,
+      "category": 1,
+      "de": "In welcher Hinsicht bist du immer noch dieselbe Person, die du als Kind warst?",
+      "en": "In what ways are you still the same as you were in your childhood?"
+    },
+    {
+      "id": 47,
+      "category": 2,
+      "de": "Spiegelt der Preis eines Kunstwerks jemals seine Qualität wider?",
+      "en": "Is the quality of a work of art reflected in its price?"
+    },
+    {
+      "id": 48,
+      "category": 3,
+      "de": "Wer von den Menschen, mit denen du Zeit verbringst, bringt deine besten Eigenschaften zum Vorschein?",
+      "en": "Among the people you spend time with, who brings out your best qualities?"
+    },
+    {
+      "id": 49,
+      "category": 4,
+      "de": "Was war der schönste Abend, den du je erlebt hast?",
+      "en": "What was the best evening you have ever experienced?"
+    },
+    {
+      "id": 50,
+      "category": 5,
+      "de": "Was wäre das Erste, was du tun würdest, wenn du im Lotto gewinnen würdest?",
+      "en": "If you won the lottery, what would be the first thing you'd do with the money?"
+    },
+    {
+      "id": 51,
+      "category": 6,
+      "de": "Würdest du den Blick auf die Wüste oder auf das Meer bevorzugen - und warum?",
+      "en": "Would you rather have a view of the sea or the desert, and why?"
+    },
+    {
+      "id": 52,
+      "category": 7,
+      "de": "Wer oder was hat dich besonders inspiriert?",
+      "en": "Who or what has inspired you the most?"
+    },
+    {
+      "id": 53,
+      "category": 8,
+      "de": "Welche drei Dinge haben dir besonders viel Energie gegeben?",
+      "en": "What three things gave you the most energy?"
+    },
+    {
+      "id": 54,
+      "category": 9,
+      "de": "Was wirst du tun (oder nicht tun), um die nächsten zwölf Monate genauso wundervoll oder noch besser als die letzten zwölf Monate zu machen?",
+      "en": "What will you do (or leave undone) to achieve YOUR GOALS AND DREAMS?"
+    },
+    {
+      "id": 55,
+      "category": 1,
+      "de": "Was denkst du, was die Leute sagen, wenn sie über dich lästern?",
+      "en": "What do you think people say about you when they gossip?"
+    },
+    {
+      "id": 56,
+      "category": 2,
+      "de": "Wenn du nur ein Medium haben könntest, welches würdest du wählen: Kunst, Film, Literatur oder Musik?",
+      "en": "If you had to choose only one, which medium would you prefer: art, film, literature, or music?"
+    },
+    {
+      "id": 57,
+      "category": 3,
+      "de": "Welches ist das überraschendste Gespräch, das du je geführt hast?",
+      "en": "What is the most surprising conversation you have ever had?"
+    },
+    {
+      "id": 58,
+      "category": 4,
+      "de": "Warum hast du die Ambitionen, die du hast?",
+      "en": "Why do you have the ambitions that you currently hold?"
+    },
+    {
+      "id": 59,
+      "category": 5,
+      "de": "Hast du jemals deinen eigenen Erfolg sabotiert?",
+      "en": "Have you ever undermined your own success?"
+    },
+    {
+      "id": 60,
+      "category": 6,
+      "de": "Inwieweit neigst du dazu zu denken, dass das Leben woanders besser ist?",
+      "en": "To what degree do you feel that life is better elsewhere?"
+    },
+    {
+      "id": 61,
+      "category": 7,
+      "de": "Inwieweit neigst du zu Abhängigkeiten?",
+      "en": "How susceptible are you to addiction?"
+    },
+    {
+      "id": 62,
+      "category": 8,
+      "de": "Beschreibe einen wichtigen Lehrer in deinem Leben - außerhalb der Schule.",
+      "en": "Describe an important teacher in your life who was not associated with school."
+    },
+    {
+      "id": 63,
+      "category": 9,
+      "de": "Würdest du gerne an eine höhere Macht oder Gott glauben?",
+      "en": "Would you like to have faith in a higher power or God?"
+    },
+    {
+      "id": 64,
+      "category": 1,
+      "de": "Wer hat dir die nützlichsten Karriereratschläge gegeben?",
+      "en": "Who has given you the most helpful advice about your career?"
+    },
+    {
+      "id": 65,
+      "category": 2,
+      "de": "Würdest du eine Psychotherapie in Betracht ziehen und was würdest du dir davon erhoffen?",
+      "en": "Would you ever consider psychotherapy and what do you hope to gain from it?"
+    },
+    {
+      "id": 66,
+      "category": 3,
+      "de": "Fühlst du dich glücklicher, wenn du Geld ausgibst oder sparst?",
+      "en": "Do you feel happier spending or saving money?"
+    },
+    {
+      "id": 67,
+      "category": 4,
+      "de": "Wann hast du das letzte Mal Tränen oder richtig herzhaft gelacht und warum?",
+      "en": "When was the last time you laughed uncontrollably or threw your head back in laughter?"
+    },
+    {
+      "id": 68,
+      "category": 5,
+      "de": "Wer hatte in der Vergangenheit einen schlechten Einfluss auf dich?",
+      "en": "Who has had a negative or harmful influence on you in the past?"
+    },
+    {
+      "id": 69,
+      "category": 6,
+      "de": "Beschreibe ein einfaches Vergnügen, das dich glücklich macht.",
+      "en": "Describe a simple pleasure that brings you happiness."
+    },
+    {
+      "id": 70,
+      "category": 7,
+      "de": "Wo fühlst du dich am meisten zu Hause?",
+      "en": "Where do you feel most comfortable or at home?"
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+from typing import Any
 from django.db import models
 from django.utils.text import slugify
 from uuid import uuid4
@@ -6,57 +7,56 @@ import time
 import base64
 import random
 from django.core.exceptions import ValidationError
+from rest_framework.serializers import ModelSerializer
 from django.utils.translation import gettext_lazy as _
 
-def validate_unique(value):
-    cleaned_string = slugify(value)
-    hashed_string = base64.b64encode(cleaned_string.encode()).decode()
-    if hashed_string in CardContent.objects.all().values_list("slug", flat=True):
-        raise ValidationError(
-            _("%(value)s is already present"),
-            params={"value": value},
-        )
 
-def validate_unique_content(value):
+def _base_translations_dict(
+        en="",
+        de=""
+):
+    return {
+        "de": de,
+        "en": en
+    }
     
-    if value in CardContent.objects.all().values_list("content", flat=True):
-        raise ValidationError(
-            _("This Question is already present"),
-            params={"value": value},
-        )
 
-class CardContent(models.Model):
-    """
-    Store Categories and their slug
-    """
-    uuid = models.UUIDField(default=uuid4, editable=False, unique=True, validators=[validate_unique_content])
-    content = models.JSONField(null=True, blank=True, unique=True)
-    is_archived = models.BooleanField(default=False)
-    category_name = models.JSONField(null=True, blank=True)
-    slug = models.SlugField(unique=True, validators=[validate_unique])
-
-    def __str__(self):
-        return str(self.category_name)
-
-    def save(self, *args, **kwargs):
-        if not self.slug:
-            values_list = list(self.content.values())
-            result_string = ' '.join(values_list)
-            cleaned_string = slugify(result_string)
-            hashed_string = base64.b64encode(cleaned_string.encode()).decode()
-            self.slug = hashed_string
-        else:
-            cleaned_string = slugify(self.slug)
-            hashed_string = base64.b64encode(cleaned_string.encode()).decode()
-            self.slug = hashed_string
-        super(CardContent, self).save(*args, **kwargs)
+class QuestionCardCategories(models.Model):
+    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    ref_id = models.IntegerField(unique=True, editable=False, default=0)
+    content = models.JSONField(default=_base_translations_dict)
     
-class UserDeck(models.Model):
-    """
-    Store Card content data according to User
-    """
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
-    content_id = models.ManyToManyField(CardContent, related_name='user_decks')
+class QuestionCardsCategoriesSerializer(ModelSerializer):
+    class Meta:
+        model = QuestionCardCategories
+        fields = '__all__'
 
-    def __str__(self):
-        return str(self.user)
+class QuestionCard(models.Model):
+    
+    category = models.ForeignKey(QuestionCardCategories, on_delete=models.CASCADE)
+    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    ref_id = models.IntegerField(unique=True, editable=False, default=0)
+    content = models.JSONField(default=_base_translations_dict)
+    
+class QuestionCardSerializer(ModelSerializer):
+    class Meta:
+        model = QuestionCard
+        fields = '__all__'
+
+class QuestionCardsDeck(models.Model):
+    
+    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    cards = models.ManyToManyField(QuestionCard, related_name='cards', blank=True)
+    cards_archived = models.ManyToManyField(QuestionCard, related_name='cards_archived', blank=True)
+
+    def archive_card(self, card):
+        self.cards.remove(card)
+        self.cards_archived.add(card)
+        self.save()
+        
+    def unarchive_card(self, card):
+        self.cards.add(card)
+        self.cards_archived.remove(card)
+        self.save()
+    

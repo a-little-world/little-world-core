@@ -18,11 +18,11 @@ class Migration(migrations.Migration):
             name='CardContent',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('uuid', models.UUIDField(default=uuid.uuid4, editable=False, unique=True, validators=[management.models.question_deck.validate_unique_content])),
+                ('uuid', models.UUIDField(default=uuid.uuid4, editable=False, unique=True, validators=[])),
                 ('content', models.JSONField(blank=True, null=True, unique=True)),
                 ('is_archived', models.BooleanField(default=False)),
                 ('category_name', models.JSONField(blank=True, null=True)),
-                ('slug', models.SlugField(unique=True, validators=[management.models.question_deck.validate_unique])),
+                ('slug', models.SlugField(unique=True, validators=[])),
             ],
         ),
         migrations.CreateModel(
