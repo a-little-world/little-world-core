@@ -5,6 +5,7 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
 from rest_framework_dataclasses.serializers import DataclassSerializer
 from chat.models import ChatSerializer, Chat, ChatInModelSerializer
+from management.models.state import FrontendStatusSerializer
 from django.core.paginator import Paginator
 from drf_spectacular.types import OpenApiTypes
 from datetime import datetime
@@ -390,6 +391,7 @@ def frontend_data(user, items_per_page=10, request=None):
     
     #chats = ChatSerializer(Paginator(Chat.get_chats(user), items_per_page).page(1), many=True).data
     
+    
     empty_list = {
         "items": [],
         "totalItems": 0,
@@ -400,10 +402,12 @@ def frontend_data(user, items_per_page=10, request=None):
     frontend_data = {
         "user": {
             "id": user.hash,
-            "isSearching": user_state.matching_state == State.MatchingStateChoices.SEARCHING,
+            "isSearching": user_state.matching_state == State.MatchingStateChoices.SEARCHING, # TODO: depricate
+            "status": FrontendStatusSerializer(user_state).data["status"],
             "email": user.email,
-            "emailVerified": user.state.email_authenticated,
-            "userFormCompleted": user_state.user_form_state == State.UserFormStateChoices.FILLED,
+            "hadPreMatchingCall": user_state.had_pre_matching_call,
+            "emailVerified": user_state.email_authenticated,
+            "userFormCompleted": user_state.user_form_state == State.UserFormStateChoices.FILLED, # TODO: depricate
             "profile": profile_data,
         },
         "communityEvents": community_events,
