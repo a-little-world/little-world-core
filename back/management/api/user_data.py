@@ -309,7 +309,8 @@ def serialize_matches(matches, user):
             "chatId": str(chat.uuid),
             "partner": {
                 "id": str(partner.hash),
-                "is_online": is_online,
+                "isOnline": is_online,
+                "isSupport": partner.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER) or partner.is_staff,
                 **CensoredProfileSerializer(partner.profile).data
             }
         })
@@ -402,8 +403,9 @@ def frontend_data(user, items_per_page=10, request=None):
     frontend_data = {
         "user": {
             "id": user.hash,
-            "isSearching": user_state.matching_state == State.MatchingStateChoices.SEARCHING, # TODO: depricate
             "status": FrontendStatusSerializer(user_state).data["status"],
+            "isSupport": is_matching_user,
+            "isSearching": user_state.matching_state == State.MatchingStateChoices.SEARCHING,
             "email": user.email,
             "hadPreMatchingCall": user_state.had_pre_matching_call,
             "emailVerified": user_state.email_authenticated,

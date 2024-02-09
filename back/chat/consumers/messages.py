@@ -54,7 +54,7 @@ class OutUserWentOnline(MessageBase):
             "payload": {
                 "partnerId": self.sender_id,
                 "profile": {
-                    "is_online": True
+                    "isOnline": True
                 }
             }
         }
@@ -70,7 +70,7 @@ class OutUserWentOffline(MessageBase):
             "payload": {
                 "partnerId": self.sender_id,
                 "profile": {
-                    "is_online": False
+                    "isOnline": False
                 }
             }
         }
