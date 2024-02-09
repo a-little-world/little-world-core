@@ -407,7 +407,7 @@ def frontend_data(user, items_per_page=10, request=None):
             "isSupport": is_matching_user,
             "isSearching": user_state.matching_state == State.MatchingStateChoices.SEARCHING,
             "email": user.email,
-            "hadPreMatchingCall": user_state.had_pre_matching_call,
+            "hadPreMatchingCall": user_state.had_prematching_call,
             "emailVerified": user_state.email_authenticated,
             "userFormCompleted": user_state.user_form_state == State.UserFormStateChoices.FILLED, # TODO: depricate
             "profile": profile_data,
