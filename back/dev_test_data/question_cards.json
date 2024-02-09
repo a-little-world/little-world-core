@@ -37,12 +37,6 @@
       "en": "Travel"
     },
     {
-      "id": 7,
-      "tag": "Live & Death",
-      "de": "Leben & Tod",
-      "en": "Live & Death"
-    },
-    {
       "id": 8,
       "tag": "Past 12 months",
       "de": "Rückblick 12 Monate",
@@ -93,22 +87,10 @@
       "en": "Have you ever travelled on your own?"
     },
     {
-      "id": 7,
-      "category": 7,
-      "de": "Wie könnten wir älteren Menschen mehr Wertschätzung entgegenbringen?",
-      "en": "In what ways could society show greater appreciation for the elderly?"
-    },
-    {
       "id": 8,
       "category": 8,
       "de": "Was war der beste Kauf, den du für unter 100€ getätigt hast?",
       "en": "What was the best thing you bought for under 100€?"
-    },
-    {
-      "id": 9,
-      "category": 9,
-      "de": "Was wirst du auf deinen Fotos zeigen können?",
-      "en": "What will be in your photos?"
     },
     {
       "id": 10,
@@ -145,12 +127,6 @@
       "category": 6,
       "de": "Was macht eine Person zu einem guten Reisebegleiter?",
       "en": "What qualities make for a good travel companion?"
-    },
-    {
-      "id": 16,
-      "category": 7,
-      "de": "Was wäre für dich ein guter Tod?",
-      "en": "What does a meaningful or positive death mean to you?"
     },
     {
       "id": 17,
@@ -201,12 +177,6 @@
       "en": "Would you rather stay in a bad hotel with a good meal or a good hotel with a bad meal?"
     },
     {
-      "id": 25,
-      "category": 7,
-      "de": "Wenn du wüsstest, dass du nur noch ein Jahr zu leben hättest, wie würdest du die nächsten 12 Monate verbringen?",
-      "en": "If you had only one year left to live, how would you choose to spend that time?"
-    },
-    {
       "id": 26,
       "category": 8,
       "de": "Was ist die wertvollste Lektion, die du gelernt hast?",
@@ -255,12 +225,6 @@
       "en": "Do you prefer a settled or nomadic lifestyle?"
     },
     {
-      "id": 34,
-      "category": 7,
-      "de": "Was sind deiner Meinung nach die besten Eigenschaften des mittleren Alters?",
-      "en": "What do you consider to be the most positive aspects of middle age?"
-    },
-    {
       "id": 35,
       "category": 8,
       "de": "Welchen Moment würdest du gerne noch einmal erleben?",
@@ -288,7 +252,7 @@
       "id": 39,
       "category": 3,
       "de": "Inwiefern machen deine Eltern dir das Leben schwer, auch wenn das nicht ihre Intention ist?",
-      "en": "Do you believe that the saying 'they fuck you up, your mum and dad' holds any truth?"
+      "en": "Do you believe that the saying 'they messed you up, your mum and dad' holds any truth?"
     },
     {
       "id": 40,
@@ -307,12 +271,6 @@
       "category": 6,
       "de": "Gibt es Fehler, die du von Reise zu Reise wiederholst?",
       "en": "Are there travel mistakes you tend to make repeatedly?"
-    },
-    {
-      "id": 43,
-      "category": 7,
-      "de": "Wann hast du am lautesten gelacht?",
-      "en": "When did you laugh the loudest?"
     },
     {
       "id": 44,
@@ -363,12 +321,6 @@
       "en": "Would you rather have a view of the sea or the desert, and why?"
     },
     {
-      "id": 52,
-      "category": 7,
-      "de": "Wer oder was hat dich besonders inspiriert?",
-      "en": "Who or what has inspired you the most?"
-    },
-    {
       "id": 53,
       "category": 8,
       "de": "Welche drei Dinge haben dir besonders viel Energie gegeben?",
@@ -377,8 +329,8 @@
     {
       "id": 54,
       "category": 9,
-      "de": "Was wirst du tun (oder nicht tun), um die nächsten zwölf Monate genauso wundervoll oder noch besser als die letzten zwölf Monate zu machen?",
-      "en": "What will you do (or leave undone) to achieve YOUR GOALS AND DREAMS?"
+      "de": "Was wirst du tun (oder nicht tun), um die Träume und Ziele zu erreichen?",
+      "en": "What will you do (or leave undone) to achieve your goals and dreams?"
     },
     {
       "id": 55,
@@ -415,12 +367,6 @@
       "category": 6,
       "de": "Inwieweit neigst du dazu zu denken, dass das Leben woanders besser ist?",
       "en": "To what degree do you feel that life is better elsewhere?"
-    },
-    {
-      "id": 61,
-      "category": 7,
-      "de": "Inwieweit neigst du zu Abhängigkeiten?",
-      "en": "How susceptible are you to addiction?"
     },
     {
       "id": 62,
@@ -469,12 +415,6 @@
       "category": 6,
       "de": "Beschreibe ein einfaches Vergnügen, das dich glücklich macht.",
       "en": "Describe a simple pleasure that brings you happiness."
-    },
-    {
-      "id": 70,
-      "category": 7,
-      "de": "Wo fühlst du dich am meisten zu Hause?",
-      "en": "Where do you feel most comfortable or at home?"
     }
   ]
 }
