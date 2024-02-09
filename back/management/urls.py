@@ -13,6 +13,7 @@ from management.views import admin_panel_v2_actions
 from management.api import slack, ai
 from management.api.scores import list_top_scores, score_maximization_matching, burst_calulate_matching_scores, delete_all_matching_scores
 from management.api.matching_stats import get_quick_statistics
+from management.api.questions import get_question_cards, archive_card
 
 from rest_framework.routers import DefaultRouter
 from django_rest_passwordreset.views import ResetPasswordValidateTokenViewSet, ResetPasswordConfirmViewSet, \
@@ -94,14 +95,6 @@ api_routes = [
     path(_api_url('notification/<str:action>', end_slash=False),
          api.notify.NotificationActionApi.as_view()),
 
-    path(_api_url('question'),
-         QuestionApi.as_view()),
-    path(_api_url('questions/archive'),
-         ArchivedQuestionsApi.as_view()),
-    path(_api_url('questions-list/userarchived'),
-         ViewArchivedList.as_view()),
-    path(_api_url('questions/unarchived'),
-         UnArchivedCard.as_view()),
     path(_api_url('matches/confirmed'),
          api.user_data.ConfirmedDataApi.as_view()),
     # e.g.: /user/verify/email/Base64{d=email&u=hash&k=pin:hash}
@@ -144,6 +137,9 @@ view_routes = [
             main_frontend.MainFrontendView.as_view(), name="main_frontend_w_path"),
 
     path(f"user/still_active/", api.user.still_active_callback, name="still_active_callback"),
+    path(f"api/user/question_cards/",get_question_cards, name="question_cards"),
+    path(f"api/user/archive_card/",archive_card, name="question_cards_archive"),
+
     path(_api_url(f"user/delete_account", admin=False), api.user.delete_account, name="delete_account_api"),
 
     path(f"matching/", admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),

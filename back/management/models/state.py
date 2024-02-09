@@ -13,7 +13,7 @@ from .notifications import Notification
 from back.utils import get_options_serializer
 from back import utils
 from multiselectfield import MultiSelectField
-from .question_deck import CardContent
+from management.models.question_deck import QuestionCardsDeck
 
 
 
@@ -25,7 +25,8 @@ class State(models.Model):
     """
     # Key...
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    user_deck = models.ManyToManyField(CardContent, related_name='state_user_decks')
+    
+    question_card_deck = models.ForeignKey(QuestionCardsDeck, on_delete=models.SET_NULL, null=True, blank=True)
 
     # We love additional Information
     created_at = models.DateTimeField(auto_now_add=True)
