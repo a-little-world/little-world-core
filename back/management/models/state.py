@@ -14,6 +14,9 @@ from back.utils import get_options_serializer
 from back import utils
 from multiselectfield import MultiSelectField
 from management.models.question_deck import QuestionCardsDeck
+from enum import Enum
+from management.models.matches import Match
+from django.db.models import Q
 
 
 
@@ -63,6 +66,7 @@ class State(models.Model):
     If this flag is set to 'True' Tim has to make an appointment with that user first.
     """
     require_pre_matching_call = models.BooleanField(default=False)
+    had_prematching_call = models.BooleanField(default=False)
 
     """
     These are referense to the actual user model of this persons matches 
@@ -277,6 +281,48 @@ class StateSerializer(serializers.ModelSerializer):
     class Meta:
         model = State
         fields = '__all__'
+        
+        
+class FrontendStatusEnum(Enum):
+    user_form_incomplete = "user_form_incomplete"
+    pre_matching = "pre_matching"
+    searching_no_match = "searching_no_match"
+    matched = "matched"
+    matched_searching = "matched_searching"
+        
+class FrontendStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = State
+        fields = []
+        
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        
+        # TODO: some state for user has open poposals?
+        
+        if instance.user_form_state == State.UserFormStateChoices.UNFILLED:
+            rep["status"] = FrontendStatusEnum.user_form_incomplete.value
+            return rep
+        elif instance.require_pre_matching_call and (not instance.had_prematching_call):
+            rep["status"] = FrontendStatusEnum.pre_matching.value
+            return rep
+            
+        # Now check if the user is matched
+        has_atleast_one_match = Match.objects.filter(
+           Q(user1=instance.user) | Q(user2=instance.user),
+            support_matching=False,
+        ).count() > 0
+        
+        if has_atleast_one_match:
+            if instance.matching_state == State.MatchingStateChoices.IDLE:
+                rep["status"] = FrontendStatusEnum.matched.value
+                return rep
+            elif instance.matching_state == State.MatchingStateChoices.SEARCHING:
+                rep["status"] = FrontendStatusEnum.matched_searching.value
+                return rep
+        else:
+            rep["status"] = FrontendStatusEnum.searching_no_match.value
+        return rep
 
 
 class SelfStateSerializer(StateSerializer):

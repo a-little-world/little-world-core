@@ -42,12 +42,15 @@ class QuestionCardSerializer(ModelSerializer):
     class Meta:
         model = QuestionCard
         fields = '__all__'
+        
+def _default_cards():
+    return QuestionCard.objects.all()
 
 class QuestionCardsDeck(models.Model):
     
     uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    cards = models.ManyToManyField(QuestionCard, related_name='cards', blank=True)
+    cards = models.ManyToManyField(QuestionCard, related_name='cards', default=_default_cards)
     cards_archived = models.ManyToManyField(QuestionCard, related_name='cards_archived', blank=True)
 
     def archive_card(self, card):
