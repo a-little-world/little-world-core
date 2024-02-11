@@ -17,6 +17,8 @@ from management.models.question_deck import QuestionCardsDeck
 from enum import Enum
 from management.models.matches import Match
 from django.db.models import Q
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 class State(models.Model):
     """
@@ -71,13 +73,6 @@ class State(models.Model):
     """
     matches = models.ManyToManyField(User, related_name='+', blank=True)
     
-    def __save__(self, *args, **kwargs):
-        if self.question_card_deck is None:
-            self.question_card_deck = QuestionCardsDeck.objects.create(
-                user=self.user
-            )
-        super(State, self).save(*args, **kwargs)
-
     class MatchingStateChoices(models.TextChoices):
         """
         All matching states! 
@@ -271,6 +266,14 @@ class State(models.Model):
     def decode_email_auth_code_b64(cls, str_b64):
         return json.loads(zlib.decompress(
             base64.urlsafe_b64decode(str_b64.encode())).decode())
+
+@receiver(post_save, sender=State)
+def populate_parents(sender, instance, created, **kwargs):
+    if created:
+        instance.question_card_deck = QuestionCardsDeck.objects.create(
+            user=instance.user
+        )
+        instance.save()
 
 
 class StateSerializer(serializers.ModelSerializer):
