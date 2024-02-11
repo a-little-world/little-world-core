@@ -62,10 +62,10 @@ Every user that connects joins:
                         user_id, OutUserWentOnline(sender_id=self.group_name).dict())
                     
     async def disconnect(self, close_code):
-        print(f"User {self.user} disconnected from {self.channel_name} ({self.group_name})", flush=True)
         user = getattr(self, 'user', None)
-        print(f"{user} disconnected, with code {close_code}", flush=True)
-        if (close_code != UNAUTH_REJECT_CODE) and (getattr(self, 'user', None) is not None):
+        if (close_code != UNAUTH_REJECT_CODE) and (user is not None):
+            print(f"User {self.user} disconnected from {self.channel_name} ({self.group_name})", flush=True)
+            print(f"{self.user} disconnected, with code {close_code}", flush=True)
             # we mark the user as 'offline' in the database
             await disconnect_user(self.user)
 
