@@ -19,6 +19,8 @@ from management.models.matches import Match
 from django.db.models import Q
 
 
+def _inital_question_card_deck():
+    return QuestionCardsDeck.objects.create()
 
 class State(models.Model):
     """
@@ -29,7 +31,7 @@ class State(models.Model):
     # Key...
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     
-    question_card_deck = models.ForeignKey(QuestionCardsDeck, on_delete=models.SET_NULL, null=True, blank=True)
+    question_card_deck = models.ForeignKey(QuestionCardsDeck, on_delete=models.SET_NULL, null=True, blank=True, default=_inital_question_card_deck)
 
     # We love additional Information
     created_at = models.DateTimeField(auto_now_add=True)
