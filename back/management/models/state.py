@@ -18,10 +18,6 @@ from enum import Enum
 from management.models.matches import Match
 from django.db.models import Q
 
-
-def _inital_question_card_deck():
-    return QuestionCardsDeck.objects.create()
-
 class State(models.Model):
     """
     This is the base state model for every user
@@ -31,7 +27,7 @@ class State(models.Model):
     # Key...
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     
-    question_card_deck = models.ForeignKey(QuestionCardsDeck, on_delete=models.SET_NULL, null=True, blank=True, default=_inital_question_card_deck)
+    question_card_deck = models.ForeignKey(QuestionCardsDeck, on_delete=models.SET_NULL, null=True, blank=True)
 
     # We love additional Information
     created_at = models.DateTimeField(auto_now_add=True)
@@ -74,6 +70,13 @@ class State(models.Model):
     These are referense to the actual user model of this persons matches 
     """
     matches = models.ManyToManyField(User, related_name='+', blank=True)
+    
+    def __save__(self, *args, **kwargs):
+        if self.question_card_deck is None:
+            self.question_card_deck = QuestionCardsDeck.objects.create(
+                user=self.user
+            )
+        super(State, self).save(*args, **kwargs)
 
     class MatchingStateChoices(models.TextChoices):
         """
