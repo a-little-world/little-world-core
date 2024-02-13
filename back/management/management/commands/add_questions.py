@@ -52,5 +52,9 @@ class Command(BaseCommand):
                     question_card_deck.save()
                     user.state.question_card_deck = question_card_deck
                     user.state.save()
+                elif user.state.question_card_deck.cards.count() == 0:
+                    question_card_deck = user.state.question_card_deck
+                    question_card_deck.cards.set(QuestionCard.objects.all())
+                    question_card_deck.save()
             except:
                 print(f"error with user {user.email}")
