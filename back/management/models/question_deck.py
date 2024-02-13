@@ -9,6 +9,8 @@ import random
 from django.core.exceptions import ValidationError
 from rest_framework.serializers import ModelSerializer
 from django.utils.translation import gettext_lazy as _
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 
 def _base_translations_dict(
@@ -50,7 +52,7 @@ class QuestionCardsDeck(models.Model):
     
     uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    cards = models.ManyToManyField(QuestionCard, related_name='cards', default=_default_cards)
+    cards = models.ManyToManyField(QuestionCard, related_name='cards')
     cards_archived = models.ManyToManyField(QuestionCard, related_name='cards_archived', blank=True)
 
     def archive_card(self, card):
@@ -63,3 +65,9 @@ class QuestionCardsDeck(models.Model):
         self.cards_archived.remove(card)
         self.save()
     
+
+@receiver(post_save, sender=QuestionCardsDeck)
+def populate_question_cards(sender, instance, created, **kwargs):
+    if created:
+        instance.cards.set(QuestionCard.objects.all())
+        instance.save()
