@@ -14,6 +14,7 @@ class MessageTypes(Enum):
     block_incoming_call = "block_incoming_call"
     new_incoming_call = "new_incoming_call"
     new_message = "new_message"
+    pre_matching_appointment_booked = "pre_matching_appointment_booked"
     
 def send_message(user_id, type: MessageTypes, data):
     channel_layer = get_channel_layer()
@@ -129,4 +130,15 @@ class InNewIncomingCall(MessageBase):
             "payload": {
                 "userId": self.sender_id
             }
+        }
+        
+@dataclass
+class PreMatchingAppointmentBooked(MessageBase):
+    appointment: dict
+    type: str = MessageTypes.pre_matching_appointment_booked.value
+    
+    def build_redux_action(self):
+        return {
+            "action": "preMatchingAppointmentBooked", 
+            "payload": self.appointment
         }
