@@ -1,8 +1,10 @@
 import django.contrib.auth.password_validation as pw_validation
+import urllib.parse
 from copy import deepcopy
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 from rest_framework.decorators import api_view, permission_classes, authentication_classes, throttle_classes
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from rest_framework_dataclasses.serializers import DataclassSerializer
 from chat.models import ChatSerializer, Chat, ChatInModelSerializer
 from management.models.state import FrontendStatusSerializer
@@ -399,6 +401,19 @@ def frontend_data(user, items_per_page=10, request=None):
         "itemsPerPage": 0,
         "currentPage": 0,
     }
+    
+    cal_data_link = "{calcom_meeting_id}?{encoded_params}".format(first_name=user.profile.first_name,encoded_params=urllib.parse.urlencode({
+                        "email": str(user.email),
+                        "hash": str(user.hash),
+                        "bookingcode": str(user.state.prematch_booking_code)
+    }), calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID)
+    
+    
+    pre_match_appointent = PreMatchingAppointment.objects.filter(user=user).order_by("created")
+    if pre_match_appointent.exists():
+        pre_match_appointent = PreMatchingAppointmentSerializer(pre_match_appointent.first()).data
+    else:
+        pre_match_appointent = None
 
     frontend_data = {
         "user": {
@@ -407,6 +422,8 @@ def frontend_data(user, items_per_page=10, request=None):
             "isSupport": is_matching_user,
             "isSearching": user_state.matching_state == State.MatchingStateChoices.SEARCHING,
             "email": user.email,
+            "preMatchingAppointment": pre_match_appointent,
+            "calComAppointmentLink": cal_data_link,
             "hadPreMatchingCall": user_state.had_prematching_call,
             "emailVerified": user_state.email_authenticated,
             "userFormCompleted": user_state.user_form_state == State.UserFormStateChoices.FILLED, # TODO: depricate
