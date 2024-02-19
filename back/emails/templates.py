@@ -1105,7 +1105,7 @@ class GermanImprovementBabbelInvitation:
         '{link_url1}')
     below_link_text: str = pgettext_lazy(
         'email.german-improvement.below-link-text',
-        'Was wollen wir wissen? Wir stellen Fragen, um einen Einblick von deinen derzeitigen Erfahrungen beim Deutschlernen und deinem Leben in Deutschland zu erhalten.<br><br>Warum wollen wir das wissen? Wir wollen eine Plattform aufbauen, die sich an deinen Bedürfnissen und Erfahrungen orientiert, und dazu möchten wir dir zuhören, um das umzusetzen, was benötigt wird.')
+        'Was wollen wir wissen? Wir stellen Fragen, um einen Einblick von deinen derzeitigen Erfahrungen beim Deutschlernen und deinem Leben in Deutschland zu erhalten.Warum wollen wir das wissen? Wir wollen eine Plattform aufbauen, die sich an deinen Bedürfnissen und Erfahrungen orientiert, und dazu möchten wir dir zuhören, um das umzusetzen, was benötigt wird.')
     footer_text: str = pgettext_lazy(
         'email.german-improvement.footer-text',
         'Herzliche Grüße,')
