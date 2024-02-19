@@ -9,7 +9,7 @@ from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django import forms
 from phonenumber_field.widgets import PhoneNumberPrefixWidget
 from management import models
-from management.models import question_deck, scores, pre_matching_appointment
+from management.models import question_deck, scores, pre_matching_appointment, newsletter
 from django.db.migrations.recorder import MigrationRecorder
 from hijack.contrib.admin import HijackUserAdminMixin
 
@@ -234,3 +234,8 @@ class TwoUserMatchingScoreAdmin(admin.ModelAdmin):
 @admin.register(pre_matching_appointment.PreMatchingAppointment)
 class PreMatchingAppointmentAdmin(admin.ModelAdmin):
     list_display = ('user', 'start_time', 'end_time', 'created')
+    
+
+@admin.register(newsletter.NewsLetterSubscription)
+class NewsLetterSubscriptionAdmin(admin.ModelAdmin):
+    list_display = ('email', 'two_step_verification', 'created', 'active')
