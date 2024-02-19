@@ -54,6 +54,8 @@ This contains all api's related to confirming or denying a match
 -212-91-248-146.ngrok-free.app', 'HTTP_USER_AGENT': 'undici', 'CONTENT_LENGTH': '2931', 'HTTP_ACCEPT': '*/*', 'HTTP_ACCEPT_ENCODING': 'br, gzip, deflate', 'HTTP_ACCEPT_LANGUAGE': '*', 'CONTENT_TYPE': 'application/json', 'HTTP_SEC_FETCH_MODE': 'cors', 'HTTP_X_CAL_SIGNATURE_256': '7705e2a78e21089611cb48c8b1aae6bbfd61c3b99465c275ecc7ab
 bd34b6821b', 'HTTP_X_FORWARDED_FOR': '3.238.174.157', 'HTTP_X_FORWARDED_PROTO': 'https', 'HTTP_X_VERCEL_ID': 'fra1::67l8j-1697028209487-020e577bdc4d'}
 """
+from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
+from django.utils.dateparse import parse_datetime
 from drf_spectacular.utils import extend_schema
 from rest_framework.decorators import api_view, permission_classes, authentication_classes, throttle_classes
 from typing import Literal
@@ -110,10 +112,32 @@ def callcom_websocket_callback(request):
            f"Der Termin für dein Einführungsgespräch wurde gebucht von <b>{start_time}</b> bis <b>{end_time}</b> mit Tim Schupp.\nFalls du den Termin absagen oder umbuchen möchtest, sage den termin ab und buche einen neuen, oder schreibe mir bitte eine kurze Nachricht." 
         )
         
-        send_websocket_callback(
-            user,
-            f"reload"
-        )
+        
+        appointment = PreMatchingAppointment.objects.get(user=user)
+
+        start_time_parsed = parse_datetime(request.data["payload"]["startTime"])
+        end_time_parsed = parse_datetime(request.data["payload"]["endTime"])
+        if appointment:
+
+            #'startTime': '2023-10-12T09:00:00Z', 
+            #'endTime': '2023-10-12T09:15:00Z', 
+            # we need to parse the date string and convert it to a datetime object
+            appointment.end_time = end_time_parsed
+            appointment.start_time = start_time_parsed
+            appointment.save()
+        else:
+            appointment = PreMatchingAppointment(
+                user=user,
+                start_time=start_time_parsed,
+                end_time=end_time_parsed
+            )
+            appointment.save()
+        
+        from chat.consumers.messages import PreMatchingAppointmentBooked
+        
+        PreMatchingAppointmentBooked(
+            appointment=PreMatchingAppointmentSerializer(appointment).data
+        ).send(user)
 
     
     return Response("ok")

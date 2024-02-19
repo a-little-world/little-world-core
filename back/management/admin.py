@@ -9,7 +9,7 @@ from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django import forms
 from phonenumber_field.widgets import PhoneNumberPrefixWidget
 from management import models
-from management.models import question_deck, scores
+from management.models import question_deck, scores, pre_matching_appointment
 from django.db.migrations.recorder import MigrationRecorder
 from hijack.contrib.admin import HijackUserAdminMixin
 
@@ -230,3 +230,7 @@ class QuestionCardAdmin(admin.ModelAdmin):
 @admin.register(scores.TwoUserMatchingScore)
 class TwoUserMatchingScoreAdmin(admin.ModelAdmin):
     list_display = ('user1', 'user2', 'matchable', 'score', 'latest_update')
+
+@admin.register(pre_matching_appointment.PreMatchingAppointment)
+class PreMatchingAppointmentAdmin(admin.ModelAdmin):
+    list_display = ('user', 'start_time', 'end_time', 'created')
