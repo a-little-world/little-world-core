@@ -139,7 +139,7 @@ def callcom_websocket_callback(request):
         
         PreMatchingAppointmentBooked(
             appointment=PreMatchingAppointmentSerializer(appointment).data
-        ).send(user)
+        ).send(user.pk)
 
     
     return Response("ok")
