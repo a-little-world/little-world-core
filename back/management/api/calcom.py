@@ -113,11 +113,13 @@ def callcom_websocket_callback(request):
         )
         
         
-        appointment = PreMatchingAppointment.objects.get(user=user)
+        appointment = PreMatchingAppointment.objects.filter(user=user)
 
         start_time_parsed = parse_datetime(request.data["payload"]["startTime"])
         end_time_parsed = parse_datetime(request.data["payload"]["endTime"])
-        if appointment:
+        if appointment.exists():
+            
+            appointment = appointment.first()
 
             #'startTime': '2023-10-12T09:00:00Z', 
             #'endTime': '2023-10-12T09:15:00Z', 
@@ -137,7 +139,7 @@ def callcom_websocket_callback(request):
         
         PreMatchingAppointmentBooked(
             appointment=PreMatchingAppointmentSerializer(appointment).data
-        ).send(user)
+        ).send(user.hash)
 
     
     return Response("ok")

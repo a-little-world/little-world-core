@@ -30,10 +30,12 @@ from emails.templates import (
     MatchFoundEmailTexts,
     SorryWeStillNeedALittleMail,
     NewServerMail,
+GermanImprovementBabbelInvitation,
     RAWTemplateMail,
     UserSurveyInvitationEmailNatalia,
     UserInterviewRequestEmail,
-    AccountDeletedEmailTexts
+    AccountDeletedEmailTexts,
+    BabbelSubscriptionMail_Winner
 )
 from django.core.mail import EmailMessage
 import json
@@ -50,6 +52,19 @@ and it is easy to tell which parameters are available
 
 class MailDataNotFoundErr(Exception):
     pass
+
+@dataclass
+class GermanImprovementBabbelInvitationParams:
+    first_name: str
+    link_url: str
+    link_url1: str
+    unsubscribe_url1: str
+
+@dataclass
+class BabbelSubscriptionMailWinnerParams:
+    first_name: str
+    link_url: str
+    unsubscribe_url1: str
 
 @dataclass
 class SurveyInvitation2AniqParams:
@@ -375,6 +390,20 @@ templates = [
         texts=ImpulsBeitraegeMail2,
         defaults=ImpulsBeitraegeMail2
     ),
+    MailMeta(
+        name="babbel_subscription_winner",
+        template="emails/welcome.html",
+        params=BabbelSubscriptionMailWinnerParams,
+        texts=BabbelSubscriptionMail_Winner,
+        defaults=BabbelSubscriptionMail_Winner
+    ),
+    MailMeta(
+        name="german_improvement_babbel_invitation",
+        template="emails/welcome.html",
+        params=GermanImprovementBabbelInvitationParams,
+        texts=GermanImprovementBabbelInvitation,
+        defaults=GermanImprovementBabbelInvitation
+    )
 ]
 
 

@@ -14,6 +14,7 @@ from management.api import slack, ai
 from management.api.scores import list_top_scores, score_maximization_matching, burst_calulate_matching_scores, delete_all_matching_scores
 from management.api.matching_stats import get_quick_statistics
 from management.api.questions import get_question_cards, archive_card
+from management.api.newsletter_subscribe import public_newsletter_subscribe
 
 from rest_framework.routers import DefaultRouter
 from django_rest_passwordreset.views import ResetPasswordValidateTokenViewSet, ResetPasswordConfirmViewSet, \
@@ -145,6 +146,8 @@ view_routes = [
     path(f"matching/", admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
     path(f"matching/login/", admin_panel_v2.admin_panel_v2_login, name="admin_panel_v2_login"),
     re_path(fr'^matching/(?P<menu>.*)$', admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
+    
+    path("api/newsletter_subscribe", public_newsletter_subscribe, name="newsletter_subscribe"),
     path(_api_url('user_advanced/<str:pk>', admin=True), admin_panel_v2.root_user_viewset.as_view({'get': 'retrieve'})),
     path(_api_url('user_info/<str:pk>', admin=True), admin_panel_v2.user_info_viewset.as_view({'get': 'retrieve'})),
     path(_api_url('user_advanced/<str:pk>/notes', admin=True),

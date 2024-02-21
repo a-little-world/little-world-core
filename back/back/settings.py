@@ -186,6 +186,20 @@ We overwirte the default user model, and add an 'hash' parmameter
 """
 AUTH_USER_MODEL = 'management.User'
 
+EXTRA_CORS_ALLOWED_ORIGINS = os.environ.get("DJ_EXTRA_CORS_ALLOWED_ORIGINS", "")
+if EXTRA_CORS_ALLOWED_ORIGINS != "":
+    EXTRA_CORS_ALLOWED_ORIGINS = EXTRA_CORS_ALLOWED_ORIGINS.split(',')
+else:
+    EXTRA_CORS_ALLOWED_ORIGINS = []
+    
+    
+EXTRA_CSRF_ALLOWED_ORIGINS = os.environ.get("DJ_EXTRA_CSRF_ALLOWED_ORIGINS", "")
+if EXTRA_CSRF_ALLOWED_ORIGINS != "":
+    EXTRA_CSRF_ALLOWED_ORIGINS = EXTRA_CSRF_ALLOWED_ORIGINS.split(',')
+else:
+    EXTRA_CSRF_ALLOWED_ORIGINS = []
+
+
 CORS_ALLOWED_ORIGINS = []
 if IS_STAGE or IS_PROD:
     # TODO: figure out which of these actually is the correct one!
@@ -200,6 +214,9 @@ if IS_STAGE or IS_PROD:
     CSRF_TRUSTED_ORIGINS = [
         BASE_URL
     ]
+    
+    CORS_ORIGIN_WHITELIST += EXTRA_CORS_ALLOWED_ORIGINS
+    CSRF_TRUSTED_ORIGINS += EXTRA_CSRF_ALLOWED_ORIGINS
 elif DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
     CSRF_TRUSTED_ORIGINS = ["https://*.github.dev"]
