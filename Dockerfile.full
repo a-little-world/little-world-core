@@ -74,7 +74,7 @@ COPY ./back .
 
 # Fix: https://github.com/yaml/pyyaml/issues/601
 RUN pip install "Cython<3.0" pyyaml --no-build-isolation
-
+RUN apk add git
 RUN pip install --no-cache-dir -r requirements.txt
 RUN apk add --no-cache git
 RUN pip cache purge
