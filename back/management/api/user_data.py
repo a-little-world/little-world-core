@@ -415,6 +415,11 @@ def frontend_data(user, items_per_page=10, request=None):
     else:
         pre_match_appointent = None
 
+    # Prematching join link depends on the support user
+    pre_call_join_link = None
+    if len(support_matches['items']) > 0:
+        pre_call_join_link = f"/app/call-setup/{support_matches['items'][0]['partner']['id']}/"
+
     frontend_data = {
         "user": {
             "id": user.hash,
@@ -423,6 +428,7 @@ def frontend_data(user, items_per_page=10, request=None):
             "isSearching": user_state.matching_state == State.MatchingStateChoices.SEARCHING,
             "email": user.email,
             "preMatchingAppointment": pre_match_appointent,
+            'preMatchingCallJoinLink': pre_call_join_link,
             "calComAppointmentLink": cal_data_link,
             "hadPreMatchingCall": user_state.had_prematching_call,
             "emailVerified": user_state.email_authenticated,

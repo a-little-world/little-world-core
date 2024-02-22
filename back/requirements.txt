@@ -1,4 +1,4 @@
-Django==4.1.2
+Django==5.0.2
 channels==4.0.0
 channels-redis==4.0.0 # For using channels with redis
 celery==5.2.7
@@ -17,7 +17,8 @@ django-jazzmin # Waaay better admin UI
 ipython # With this we can use the IPython shell on manage.py shell
 django-model-utils # this package is required for our chat backend!
 django-appconf # Required for django-cookie-consent
-django-multiselectfield # For multiple choice fields
+django-multiselectfield @ git+https://github.com/tbscode/django-multiselectfield@master
+# I maintain a fork, this is a much used django package but the maintainer doesn't seem to be active & does't merge pr's so I forked...
 django-phonenumber-field[phonenumbers]
 Babel # Required for the widged of the phone number field
 Pillow # Required for django image field
