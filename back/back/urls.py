@@ -30,6 +30,13 @@ urlpatterns = [
     path('', include('emails.urls')),
     path('', include('chat.urls')),
     path('', include('tracking.urls')),
+]
+
+from tbs_django_auto_reload.api import urlpatters as auto_reload_urlpatters
+if settings.USE_AUTO_RELOAD:
+    urlpatterns += auto_reload_urlpatters
+
+urlpatterns += [
     path('admin/', admin.site.urls),
     path("cookies/", include("cookie_consent.urls")),
     path('hijack/', include('hijack.urls')),
@@ -38,7 +45,6 @@ urlpatterns = [
     # In staging and production we are serving statics from an aws bucket!
     *(statics if settings.IS_DEV else [])
 ]
-
 
 # These view have extra accesibility control via 'management.middleware'
 urlpatterns += [

@@ -32,6 +32,9 @@ PROD_ATTACH = os.environ.get("DJ_PROD_ATTACH", "false").lower() in ('true', '1',
 DOCS_BUILD = os.environ.get(
     "DJ_DOCS_BUILD", "false").lower() in ('true', '1', 't')
 
+USE_AUTO_RELOAD = os.environ.get(
+    "DJ_USE_AUTO_RELOAD", "false").lower() in ('true', '1', 't')
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = os.environ['DJ_SECRET_KEY']
 DEBUG = os.environ["DJ_DEBUG"].lower() in ('true', '1', 't')
@@ -113,6 +116,7 @@ INSTALLED_APPS = [
     'multiselectfield',
     'phonenumber_field',  # Conevnient handler for phone numbers with admin prefix
     'django_rest_passwordreset',
+    'tbs_django_auto_reload',
 
     'jazzmin',  # The waaaaaay nicer admin interface
 
