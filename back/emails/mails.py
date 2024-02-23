@@ -194,6 +194,12 @@ class MailMeta:
     params: object
     defaults: object
     texts: object
+    
+    def serialized(self):
+        return {
+            "name": self.name,
+            "template": self.template,
+        }
 
 
 @dataclass
