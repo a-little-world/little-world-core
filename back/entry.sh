@@ -15,6 +15,10 @@ if [ "$BUILD_TYPE" = "deployment" ]; then
     python3 manage.py migrate --noinput
 fi
 
+if [ "$DJ_USE_AUTO_RELOAD" = "1" ]; then
+    python3 /back/tbs_django_auto_reload/update_watcher.py &
+fi
+
 if [ "$EMPHIRIAL" = "1" ]; then
     python3 manage.py migrate --noinput
     python3 manage.py collectstatic --noinput
