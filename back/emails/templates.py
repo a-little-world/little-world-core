@@ -1093,7 +1093,7 @@ class GermanImprovementBabbelInvitation:
         'email.german-improvement.content-start-text',
         'Ein Schwerpunkt bei Little World ist es, dir zu helfen, selbstbewusster Deutsch zu sprechen, und wir sind immer auf der Suche nach Möglichkeiten, das zu erreichen... Nun, wir haben uns mit Babbel, einer der führenden Sprach-Apps, zusammengetan und können unseren Nutzern eine Reihe von Gutscheinen kostenlos zur Verfügung stellen.')
     link_box_text: str = mark_safe(
-        '<a href="{link_url}" style="color: blue;">Survey Link</a>')
+        '{link_url}')
     content_body_text: str = pgettext_lazy(
         'email.german-improvement.content-body-text',
         'Mit diesem Gutschein erhältst du 6 Monate lang Zugang zum Deutschkurs von Babbel. Um einen dieser Gutscheine zu gewinnen, musst du nur diese kurze 3-Minuten-Umfrage ausfüllen.')
