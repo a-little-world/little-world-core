@@ -4,6 +4,7 @@ from rest_framework import serializers, status
 from django.template.loader import render_to_string
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
+from django.core.paginator import Paginator
 from back.utils import dataclass_as_dict
 from back.utils import _api_url
 from django.urls import path, re_path
@@ -60,6 +61,37 @@ def render_as_email(request, template_name=None):
         status=status.HTTP_200_OK
     )
     
+@api_view(['POST'])
+@permission_classes([IsAdminOrMatchingUser])
+def send_email_rendered(request, template_name=None):
+
+    template = list(filter(lambda x: x.name == template_name, templates))[0]
+    if not template:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+    
+    subject, receiver = request.data.get("subject"), request.data.get("receiver")
+    
+    del request.data["subject"]
+    del request.data["receiver"]
+    
+    from emails.mails import send_email, get_mail_data_by_name
+    
+    mail_data = get_mail_data_by_name(template_name)
+    params = mail_data.params(**request.data)
+    
+    send_email(
+        recivers=[receiver],
+        subject=subject,
+        mail_data=mail_data,
+        mail_params=params
+    )
+    return Response({
+        "status": "ok",
+        "message": "Email sent"
+    })
+    
+
+    
 
     
 
@@ -75,12 +107,16 @@ def list_email_logs(request):
         managed_users = request.user.state.managed_users.all()
         logs = logs.filter(receiver__in=managed_users)
         
-    serialized = AdvancedEmailLogSerializer(logs, many=True).data
+    # now paginate
+    page = Paginator(logs, 20).page(1)
+        
+    serialized = AdvancedEmailLogSerializer(page, many=True).data
     return Response(serialized)
 
 email_view_routes = [
     path(_api_url('list_emails/logs', admin=True), list_email_logs),
     path(_api_url('list_emails/<str:template_name>/render', admin=True), render_as_email),
+    path(_api_url('list_emails/<str:template_name>/send', admin=True), send_email_rendered),
     path(_api_url('list_emails/templates', admin=True), list_email_templates),
     path(_api_url('list_emails/<str:template_name>/params', admin=True), get_email_template_params),
 ]

@@ -28,7 +28,6 @@ from rest_framework.throttling import UserRateThrottle
 from dataclasses import dataclass
 from back.utils import transform_add_options_serializer
 from rest_framework.permissions import IsAuthenticated
-from django.core.paginator import Paginator
 from management.models.profile import (
     ProfileSerializer, SelfProfileSerializer,
     CensoredProfileSerializer,
