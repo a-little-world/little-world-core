@@ -1,6 +1,8 @@
 {% load render_bundle from webpack_loader %}
+{% load get_reload_script_tag from reload_script_utils %}
 <!DOCTYPE html>
 <head>
+  {% get_reload_script_tag %}
     {% include "react_app_head_base.html" with app_name='admin_panel_frontend' title='Admin Pannel' %}    
      <meta http-equiv="refresh" content="900">
 </head>
