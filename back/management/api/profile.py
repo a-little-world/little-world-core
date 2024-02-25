@@ -84,6 +84,10 @@ class ProfileCompletedApi(APIView):
             state.set_user_form_completed()
             state.matching_state = State.MatchingStateChoices.SEARCHING
             state.save()
-            return Response(pgettext_lazy("profile.completion-check.sucessfull", "Profile complete!"))
+            
+            from management.api.user_data import user_data
+            
+            ud = user_data(request.user)
+            return Response(ud)
         else:
             return Response(info, status=status.HTTP_400_BAD_REQUEST)
