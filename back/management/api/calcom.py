@@ -75,10 +75,11 @@ from rest_framework import serializers
 from babel.dates import format_date, format_datetime, format_time
 from datetime import datetime
 from django.utils import timezone
+from pytz import utc
 
 def translate_to_german_date(date_str):
     date_format = "%Y-%m-%dT%H:%M:%SZ"
-    date_object = datetime.strptime(date_str, date_format)
+    date_object = datetime.strptime(date_str, date_format).replace(tzinfo=utc)
 
     local_datetime = timezone.localtime(date_object)
     german_date_string = format_datetime(local_datetime, 'full', locale='de_DE')
