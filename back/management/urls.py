@@ -10,6 +10,7 @@ from rest_framework import routers
 from management.views.admin_panel_frontend import stats_panel, graph_panel, fetch_graph, user_list_frontend, fetch_list
 from management.views import admin_panel_v2
 from management.views import admin_panel_v2_actions
+from management.views import admin_panel_devkit
 from management.views import admin_panel_emails
 from management.api import slack, ai
 from management.api.scores import list_top_scores, score_maximization_matching, burst_calulate_matching_scores, delete_all_matching_scores
@@ -199,7 +200,8 @@ view_routes = [
     path(_api_url('calcom', admin=False), api.calcom.callcom_websocket_callback),
     
     *admin_panel_v2_actions.action_routes,
-    *admin_panel_emails.email_view_routes
+    *admin_panel_emails.email_view_routes,
+    *admin_panel_devkit.devkit_urls
 ]
 
 if settings.USE_LANDINGPAGE_PLACEHOLDER:
