@@ -74,14 +74,22 @@ from django.utils.translation import pgettext_lazy
 from rest_framework import serializers
 from babel.dates import format_date, format_datetime, format_time
 from datetime import datetime
+from django.utils import timezone
 
 def translate_to_german_date(date_str):
     date_format = "%Y-%m-%dT%H:%M:%SZ"
     date_object = datetime.strptime(date_str, date_format)
 
-    german_date_string = format_datetime(date_object, 'full', locale='de_DE')
+    local_datetime = timezone.localtime(date_object)
+    german_date_string = format_datetime(local_datetime, 'full', locale='de_DE')
     
     return german_date_string
+
+BOOKING_MESSAGE = """
+Der Termin für dein Einführungsgespräch mit einem Teammitglied ist für das {appointment_time} gebucht.
+Falls du den Termin absagen oder umbuchen möchtest, so kannst du dies unter "Start" tun. Solltest du die Option nicht finden, schreibe mir gerne alternativ eine kurze Nachricht. Wir freuen uns auf dich, bis dann!
+LG, Tim
+"""
 
 
 @api_view(['POST'])
@@ -108,12 +116,12 @@ def callcom_websocket_callback(request):
         assert str(user.state.prematch_booking_code) == str(booking_code)
         # TODO: correctly insert the support user name
         
-        user.message(
-           f"Der Termin für dein Einführungsgespräch wurde gebucht von <b>{start_time}</b> bis <b>{end_time}</b> mit Tim Schupp.\nFalls du den Termin absagen oder umbuchen möchtest, sage den termin ab und buche einen neuen, oder schreibe mir bitte eine kurze Nachricht." 
-        )
+        from django.utils import timezone
         
-        
+        user.message(BOOKING_MESSAGE.format(appointment_time=start_time))
+
         appointment = PreMatchingAppointment.objects.filter(user=user)
+        from management.api.slack import notify_communication_channel
 
         start_time_parsed = parse_datetime(request.data["payload"]["startTime"])
         end_time_parsed = parse_datetime(request.data["payload"]["endTime"])
@@ -124,9 +132,14 @@ def callcom_websocket_callback(request):
             #'startTime': '2023-10-12T09:00:00Z', 
             #'endTime': '2023-10-12T09:15:00Z', 
             # we need to parse the date string and convert it to a datetime object
+            previous_start_time = format_datetime(appointment.start_time, 'full', locale='de_DE')
             appointment.end_time = end_time_parsed
             appointment.start_time = start_time_parsed
             appointment.save()
+            
+            notify_communication_channel(
+               f"\Appointment Updated {previous_start_time} -> {start_time}\nCall link: https://little-world.com/app/call-setup/{user.hash}/" 
+            )
         else:
             appointment = PreMatchingAppointment(
                 user=user,
@@ -134,12 +147,14 @@ def callcom_websocket_callback(request):
                 end_time=end_time_parsed
             )
             appointment.save()
+            notify_communication_channel(
+               f"A new appointment was booked by a user.\nWhen: {start_time}\nCall link: https://little-world.com/app/call-setup/{user.hash}/" 
+            )
         
         from chat.consumers.messages import PreMatchingAppointmentBooked
         
         PreMatchingAppointmentBooked(
             appointment=PreMatchingAppointmentSerializer(appointment).data
         ).send(user.hash)
-
-    
+        
     return Response("ok")

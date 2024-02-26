@@ -25,6 +25,8 @@ def notify_communication_channel(message):
     from slack_sdk import WebClient
     from slack_sdk.errors import SlackApiError
     
+    if not settings.USE_SLACK_INTEGRATION:
+        return
 
     SLACK_API_TOKEN = settings.SLACK_API_TOKEN
     CHANNEL_ID = settings.SLACK_REPORT_CHANNEL_ID
