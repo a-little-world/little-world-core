@@ -53,6 +53,25 @@ make_tim_mangement_admin = {
   }
 }
 
+_mark_pre_matching_call_completed = {
+    "title": "Mark Pre Matching Call Completed",
+    "description": "Mark the pre matching call as completed for a user.",
+    "type": "object",
+    "required": [
+        "user_id"
+    ],
+    "properties": {
+        "user_id": {
+            "type": "integer",
+            "description": "The user id of the user to mark the pre matching call as completed for."
+        },
+        "completed": {
+            "type": "boolean",
+            "description": "The new state of the pre matching call."
+        },
+    }
+}
+
 _mark_user_as_unresponsive = {
     "title": "Mark User As Unresponsive",
     "description": "Mark a user as unresponsive.",
@@ -398,8 +417,29 @@ def admin_panel_v2_actions(request):
             "route": "/api/admin/quick_actions/mark_user_as_unresponsive/",
             "schema": _mark_user_as_unresponsive,
             "ui_schema": {}
-        }
+        },
+        "mark_pre_matching_call_completed": {
+            "route": "/api/admin/quick_actions/mark_pre_matching_call_completed/",
+            "schema": _mark_pre_matching_call_completed,
+            "ui_schema": {}
+        },
     })
+
+@api_view(['POST'])
+@permission_classes([IsAdminOrMatchingUser])
+def mark_pre_matching_call_completed(request):
+    from management.controller import get_user_by_pk, make_tim_support_user
+
+    user = get_user_by_pk(request.data["user_id"])
+    
+    access = check_management_access_right(request, user)
+    if access != True:
+        return access
+    
+    user.state.had_prematching_call = request.data["completed"]
+    user.state.save()
+
+    return Response({"success": True})
 
 action_routes = [
     path(_api_url('quick_actions', admin=True), admin_panel_v2_actions),
