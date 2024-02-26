@@ -154,6 +154,8 @@ view_routes = [
     path(_api_url('user_info/<str:pk>', admin=True), admin_panel_v2.user_info_viewset.as_view({'get': 'retrieve'})),
     path(_api_url('user_advanced/<str:pk>/notes', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'get': 'notes', 'post': 'notes'})),
+    path(_api_url('user_advanced/<str:pk>/prematching_appointments', admin=True),
+         admin_panel_v2.root_user_viewset.as_view({'get': 'prematching_appointment'})),
     path(_api_url('user_advanced/<str:pk>/scores', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'get': 'scores'})),
 

@@ -555,6 +555,14 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         # TODO: depricated new matching scores!!!
         scores = matching_suggestion_from_database_paginated(request, obj)
         return Response(scores)
+
+    @action(detail=True, methods=['get'])
+    def prematching_appointment(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
+        return Response(PreMatchingAppointmentSerializer(PreMatchingAppointment.objects.filter(user=obj).first(), many=False).data)
     
     @action(detail=True, methods=['post'])
     def score_between(self, request, pk=None):
