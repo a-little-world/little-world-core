@@ -85,6 +85,12 @@ def translate_to_german_date(date_str):
     
     return german_date_string
 
+BOOKING_MESSAGE = """
+Der Termin für dein Einführungsgespräch mit einem Teammitglied ist für das {appointment_time} gebucht.
+Falls du den Termin absagen oder umbuchen möchtest, so kannst du dies unter "Start" tun. Solltest du die Option nicht finden, schreibe mir gerne alternativ eine kurze Nachricht. Wir freuen uns auf dich, bis dann!
+LG, Tim
+"""
+
 
 @api_view(['POST'])
 @authentication_classes([])
@@ -112,11 +118,8 @@ def callcom_websocket_callback(request):
         
         from django.utils import timezone
         
-        user.message(
-           f"Der Termin für dein Einführungsgespräch wurde gebucht von <b>{start_time}</b> bis <b>{end_time}</b> mit Tim Schupp.\nFalls du den Termin absagen oder umbuchen möchtest, sage den termin ab und buche einen neuen, oder schreibe mir bitte eine kurze Nachricht." 
-        )
-        
-        
+        user.message(BOOKING_MESSAGE.format(appointment_time=start_time))
+
         appointment = PreMatchingAppointment.objects.filter(user=user)
         from management.api.slack import notify_communication_channel
 
@@ -154,7 +157,4 @@ def callcom_websocket_callback(request):
             appointment=PreMatchingAppointmentSerializer(appointment).data
         ).send(user.hash)
         
-        
-
-    
     return Response("ok")
