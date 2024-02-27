@@ -148,8 +148,7 @@ class Register(APIView):
             print("Auto login failed: {}".format(repr(e)))
             return Response("User cerated but auto login failed")
         
-        
         with translation.override("tag"):
-            data = frontend_data(request.user)
+            data = frontend_data(usr)
         
         return Response(data)

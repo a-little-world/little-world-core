@@ -178,8 +178,11 @@ class State(models.Model):
     unresponsive = models.BooleanField(default=False)
 
     def has_extra_user_permission(self, permission):
+        
+        if self.extra_user_permissions is None:
+            return False
 
-        return (self.extra_user_permissions is None) or (permission in self.extra_user_permissions)
+        return permission in self.extra_user_permissions
 
     def regnerate_email_auth_code(self, set_to_unauthenticated=True):
         # We do not log old auth codes, donsnt realy matter

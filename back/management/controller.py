@@ -231,36 +231,39 @@ def create_user(
     else:
         print("Not sending verification mail!")
 
-    def finish_up_user_creation():
-        # Step 5 Match with admin user
-        # Do *not* send an matching mail, or notification or message!
-        # Also no need to set the admin user as unconfirmed,
-        # there is no popup message required about being matched to the admin!
-        
-        # TODO: since this was just updated and we now have 'matcher' users
-        # this doesn't always have to be the same management user anymore
-        # Generay how we handle management users needs to be significantly improved!
-        base_management_user = get_base_management_user()
-        
-        match_users({ base_management_user, usr },
-                    send_notification=False,
-                    send_message=False,
-                    send_email=False,
-                    set_unconfirmed=False)
+    base_management_user = get_base_management_user()
+    
+    matching = match_users({ base_management_user, usr },
+                send_notification=False,
+                send_message=False,
+                send_email=False,
+                set_unconfirmed=False)
+    
+    print("Created matching", matching,"is_support:", matching.support_matching)
 
-        if not base_management_user.is_staff:
-            # Must be a mather user now TODO
-            # Add that user to the list of users managed by this management user!
-            base_management_user.state.managed_users.add(usr)
+    if not base_management_user.is_staff:
+        # Must be a mather user now TODO
+        # Add that user to the list of users managed by this management user!
+        base_management_user.state.managed_users.add(usr)
+        base_management_user.state.save()
 
-        # Step 7 Notify the user
-        if send_welcome_notification:
-            usr.notify(title=_("Welcome Notification"))
+    # Step 5 Match with admin user
+    # Do *not* send an matching mail, or notification or message!
+    # Also no need to set the admin user as unconfirmed,
+    # there is no popup message required about being matched to the admin!
+    
+    # TODO: since this was just updated and we now have 'matcher' users
+    # this doesn't always have to be the same management user anymore
+    # Generay how we handle management users needs to be significantly improved!
 
-        # Step 8 Message the user from the admin account
-        if send_welcome_message:
+    # Step 7 Notify the user
+    if send_welcome_notification:
+        usr.notify(title=_("Welcome Notification"))
 
-            default_message = pgettext_lazy("api.register-welcome-message-text", """Hallo {first_name} und herzlich willkommen bei Little World!
+    # Step 8 Message the user from the admin account
+    if send_welcome_message:
+
+        default_message = pgettext_lazy("api.register-welcome-message-text", """Hallo {first_name} und herzlich willkommen bei Little World!
 
 Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil unserer Plattform geworden bist!
 
@@ -270,41 +273,34 @@ Während wir für dich ein passendes Match finden, kannst du gerne in unserem <a
 
 Vielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!""".format(first_name=first_name))
             
-            if check_prematching_invitations:
-                # Now we need to check the prematching state
-                prematch_interview_state = BackendState.get_prematch_callinvitations_state()
-                if prematch_interview_state.meta["active"] and prematch_interview_state.meta["invitations_remaining"] > 0:
-                    prematch_interview_state.meta["invitations_remaining"] = prematch_interview_state.meta["invitations_remaining"] - 1
-                    prematch_interview_state.save()
-                    
-                    # TODO: there is a bug here if the user decides to change the email, then the booking will be made from the wrong email.
-                    
-                    usr.state.prematch_booking_code
-                    
-                    default_message = pgettext_lazy("api.register-invite-pre-match-interview", """Hallo {first_name} und herzlich willkommen bei Little World!
+    if check_prematching_invitations:
+        # Now we need to check the prematching state
+        # TODO: there is a bug here if the user decides to change the email, then the booking will be made from the wrong email.
+        
+        default_message = pgettext_lazy("api.register-invite-pre-match-interview", """Hallo {first_name} und herzlich willkommen bei Little World!
 
 Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil unserer Plattform geworden bist!
 
 Bevors richtig los geht musst du mit mir einen 15 minuetigen video call termin vereinbaren. 
-                                                    
+                                            
 Dort werden wir zusmmen deine such angaben ueberpruefen und ich werde dir die nachsten schritte zur teilnahme bei little world erklaern.
-                                                    
+                                            
 Bitte buche dafuer einen termin in dem volgenden kalender: 
 <button data-cal-link="{calcom_meeting_id}?{encoded_params}"  data-cal-config='{{"layout":"month_view"}}'>Book a meeting</button>
 
 Falls hier garnix passt oder du andere fragen hast schreib mir einfach hier eine Nachricht.""".format(first_name=first_name,encoded_params=urllib.parse.urlencode({
-                        "email": str(usr.email),
-                        "hash": str(usr.hash),
-                        "bookingcode": str(usr.state.prematch_booking_code)
-                    }), 
-                    hash=usr.hash,
-                    calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID))
+            "email": str(usr.email),
+            "hash": str(usr.hash),
+            "bookingcode": str(usr.state.prematch_booking_code)
+        }), 
+        hash=usr.hash,
+        calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID))
 
-                    usr.state.require_pre_matching_call = True
-                    usr.state.save()
-                
-            usr.message(default_message, auto_mark_read=True)
-    transaction.on_commit(finish_up_user_creation)
+        usr.state.require_pre_matching_call = True
+        usr.state.save()
+        
+    usr.message(default_message, auto_mark_read=True)
+    
     return usr
 
 
@@ -358,6 +354,7 @@ def match_users(
     matching_obj = Match.objects.create(
         user1=usr1,
         user2=usr2,
+        confirmed=is_support_matching, # if support matching always confimed = true prevents it from showing up in 'unconfirmed' initally 
         support_matching=is_support_matching
     )
 
