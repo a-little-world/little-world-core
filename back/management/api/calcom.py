@@ -139,7 +139,7 @@ def callcom_websocket_callback(request):
             appointment.save()
             
             notify_communication_channel(
-               f"\Appointment Updated {previous_start_time} -> {start_time}\nCall link: https://little-world.com/app/call-setup/{user.hash}/" 
+               f"Appointment Updated {previous_start_time} -> {start_time}\nBy {user.profile.first_name}\nCall link: https://little-world.com/app/call-setup/{user.hash}/" 
             )
         else:
             appointment = PreMatchingAppointment(
@@ -149,7 +149,7 @@ def callcom_websocket_callback(request):
             )
             appointment.save()
             notify_communication_channel(
-               f"A new appointment was booked by a user.\nWhen: {start_time}\nCall link: https://little-world.com/app/call-setup/{user.hash}/" 
+               f"A new appointment was booked by a user.\nBy {user.profile.first_name}\nWhen: {start_time}\nCall link: https://little-world.com/app/call-setup/{user.hash}/" 
             )
         
         from chat.consumers.messages import PreMatchingAppointmentBooked
