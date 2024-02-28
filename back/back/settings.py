@@ -151,7 +151,7 @@ print(f'Installed apps:\n' + '\n- '.join(INSTALLED_APPS))
 
 if BUILD_TYPE in ['staging', 'development']:
     SPAGHETTI_SAUCE = {
-        'apps': ['auth', 'management', 'tracking', 'emails'],
+        'apps': ['auth', 'management', 'tracking', 'emails', 'chat', 'django_private_chat2'],
         'show_fields': False,
         'exclude': {'auth': ['user']},
     }

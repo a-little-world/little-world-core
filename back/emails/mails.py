@@ -57,7 +57,6 @@ class MailDataNotFoundErr(Exception):
 class GermanImprovementBabbelInvitationParams:
     first_name: str
     link_url: str
-    link_url1: str
     unsubscribe_url1: str
 
 @dataclass

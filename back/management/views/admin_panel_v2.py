@@ -1,4 +1,6 @@
 from django.contrib.auth.decorators import user_passes_test
+from django.utils import timezone
+from datetime import timedelta, datetime
 from rest_framework import viewsets, serializers
 from rest_framework.permissions import IsAdminUser, BasePermission
 from django.core.paginator import Paginator
@@ -299,6 +301,7 @@ class QuerySetEnum(Enum):
     needs_matching = "All users in 'searching' without any user that has a open poposal!"
     in_registration = "Users who have not finished the user form or verified their email!"
     active_within_3weeks = "Users who have been active within the last 3 weeks!"
+    active_match = "Users who have communicated with their match in the last 4 weeks"
     highquality_matching = "Users who have at least one matching with 20+ Messages"
     message_reply_required = "Users who have a unread message to the admin user"
     read_message_but_not_replied = "Read messages to the management user that have not been replied to"
@@ -311,7 +314,6 @@ class QuerySetEnum(Enum):
         return {i.name: i.value for i in QuerySetEnum}
     
 def three_weeks_ago():
-    from datetime import datetime, timedelta
     return datetime.now() - timedelta(weeks=3)
 
 def get_user_with_message_to_admin():
@@ -371,6 +373,18 @@ def users_with_open_proposals():
     ).distinct().order_by('-date_joined')
     
     return users_with_open_proposals
+
+def get_active_match_query_set():
+    # Calculate the date 4 weeks ago from now
+    four_weeks_ago = timezone.now() - timedelta(weeks=4)
+
+    # Get distinct users from sender and recipient fields in MessageModel
+    senders = MessageModel.objects.filter(created__gte=four_weeks_ago).values_list('sender', flat=True).distinct()
+
+
+    # Now you have the users who have sent a message within the last 4 weeks
+    print(senders)
+    return User.objects.filter(pk__in=senders)
 
 
 def get_quality_match_querry_set():
@@ -465,6 +479,7 @@ def get_QUERY_SETS():
             Q(state__user_form_state=State.UserFormStateChoices.UNFILLED) | Q(state__email_authenticated=False)).order_by('-date_joined'),
         QuerySetEnum.active_within_3weeks.name: User.objects.filter(
             last_login__gte=three_weeks_ago()).order_by('-date_joined'),
+        QuerySetEnum.active_match.name: get_active_match_query_set(),
         QuerySetEnum.highquality_matching.name: get_quality_match_querry_set(),
         QuerySetEnum.message_reply_required.name: get_user_with_message_to_admin(),
         QuerySetEnum.read_message_but_not_replied.name: get_user_with_message_to_admin_that_are_read_but_not_replied(),

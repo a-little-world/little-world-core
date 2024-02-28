@@ -1092,8 +1092,6 @@ class GermanImprovementBabbelInvitation:
     content_start_text: str = pgettext_lazy(
         'email.german-improvement.content-start-text',
         'Ein Schwerpunkt bei Little World ist es, dir zu helfen, selbstbewusster Deutsch zu sprechen, und wir sind immer auf der Suche nach Möglichkeiten, das zu erreichen... Nun, wir haben uns mit Babbel, einer der führenden Sprach-Apps, zusammengetan und können unseren Nutzern eine Reihe von Gutscheinen kostenlos zur Verfügung stellen.')
-    link_box_text: str = mark_safe(
-        '{link_url}')
     content_body_text: str = pgettext_lazy(
         'email.german-improvement.content-body-text',
         'Mit diesem Gutschein erhältst du 6 Monate lang Zugang zum Deutschkurs von Babbel. Um einen dieser Gutscheine zu gewinnen, musst du nur diese kurze 3-Minuten-Umfrage ausfüllen.')
@@ -1102,7 +1100,7 @@ class GermanImprovementBabbelInvitation:
         'Zur Umfrage')
     button_link: str = pgettext_lazy(
         'email.german-improvement.button-link',
-        '{link_url1}')
+        '{link_url}')
     below_link_text: str = pgettext_lazy(
         'email.german-improvement.below-link-text',
         'Was wollen wir wissen? Wir stellen Fragen, um einen Einblick von deinen derzeitigen Erfahrungen beim Deutschlernen und deinem Leben in Deutschland zu erhalten.Warum wollen wir das wissen? Wir wollen eine Plattform aufbauen, die sich an deinen Bedürfnissen und Erfahrungen orientiert, und dazu möchten wir dir zuhören, um das umzusetzen, was benötigt wird.')
