@@ -397,14 +397,14 @@ templates = [
     ),
     MailMeta(
         name="babbel_subscription_winner",
-        template="emails/survey.html",
+        template="emails/welcome.html",
         params=BabbelSubscriptionMailWinnerParams,
         texts=BabbelSubscriptionMail_Winner,
         defaults=BabbelSubscriptionMail_Winner
     ),
     MailMeta(
         name="german_improvement_babbel_invitation",
-        template="emails/welcome.html",
+        template="emails/survey.html",
         params=GermanImprovementBabbelInvitationParams,
         texts=GermanImprovementBabbelInvitation,
         defaults=GermanImprovementBabbelInvitation
