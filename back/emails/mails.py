@@ -57,7 +57,6 @@ class MailDataNotFoundErr(Exception):
 class GermanImprovementBabbelInvitationParams:
     first_name: str
     link_url: str
-    link_url1: str
     unsubscribe_url1: str
 
 @dataclass
@@ -405,7 +404,7 @@ templates = [
     ),
     MailMeta(
         name="german_improvement_babbel_invitation",
-        template="emails/welcome.html",
+        template="emails/survey.html",
         params=GermanImprovementBabbelInvitationParams,
         texts=GermanImprovementBabbelInvitation,
         defaults=GermanImprovementBabbelInvitation
