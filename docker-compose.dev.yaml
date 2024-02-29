@@ -1,6 +1,6 @@
 services:
   frontend__main_frontend:
-    profiles: ["main_frontend", "all", "main_frontend_only"]
+    profiles: [ "main_frontend", "all", "main_frontend_only" ]
     build:
       context: .
       target: main_frontend_image
@@ -22,7 +22,7 @@ services:
       - ./front/apps/main_frontend/package.json:/front/apps/main_frontend/package.json
       - ./front/apps/main_frontend/package-lock.json:/front/apps/main_frontend/package-lock.json
   frontend__admin_panel_frontend:
-    profiles: ["admin_panel_frontend", "all"]
+    profiles: [ "admin_panel_frontend", "all" ]
     build:
       context: .
       target: admin_panel_frontend_image
@@ -41,7 +41,7 @@ services:
       - ./front/apps/admin_panel_frontend/package.json:/front/apps/admin_panel_frontend/package.json
       - ./front/apps/admin_panel_frontend/package-lock.json:/front/apps/admin_panel_frontend/package-lock.json
   frontend__cookie_banner:
-    profiles: ["cookie_banner_frontend", "all"]
+    profiles: [ "cookie_banner_frontend", "all" ]
     build:
       context: .
       target: cookie_banner_frontend_image
@@ -69,7 +69,7 @@ services:
         "main_frontend",
         "user_form_frontend",
         "cookie_banner_frontend",
-        "all",
+        "all"
       ]
     build:
       context: .
@@ -104,7 +104,7 @@ services:
         "main_frontend",
         "user_form_frontend",
         "cookie_banner_frontend",
-        "all",
+        "all"
       ]
     image: redis:5
     ports:
