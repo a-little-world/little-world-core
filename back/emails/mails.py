@@ -397,7 +397,7 @@ templates = [
     ),
     MailMeta(
         name="babbel_subscription_winner",
-        template="emails/welcome.html",
+        template="emails/survey.html",
         params=BabbelSubscriptionMailWinnerParams,
         texts=BabbelSubscriptionMail_Winner,
         defaults=BabbelSubscriptionMail_Winner
