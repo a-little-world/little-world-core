@@ -43,3 +43,4 @@ django-revproxy
 slack_sdk
 openai==1.8.0
 pgeocode
+django-filter
