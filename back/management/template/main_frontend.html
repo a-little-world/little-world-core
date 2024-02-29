@@ -1,14 +1,18 @@
 {% load get_api_translations from temp_utils %}
+{% load get_base_matomo_script_tag from temp_utils %}
+{% get_base_matomo_script_tag as MATOMO_TAG_SCRIPT %}
+{% load get_sentry_init_script from temp_utils %}
+{% get_sentry_init_script as SENTRY_INIT_SCRIPT %}
 {% load get_reload_script_tag from reload_script_utils %}
 {% load render_bundle from webpack_loader %}
 {% load get_base_page_url from temp_utils %}
 {% get_api_translations request=request as api_translations %}
 <!DOCTYPE html>
 <head>
-  <script
-  src="https://js.sentry-cdn.com/5b7832a26c656c8d809e8a3b26f57756.min.js"
-  crossorigin="anonymous"
-></script>
+  {{ SENTRY_INIT_SCRIPT | safe }}
+  <script>
+    {{ MATOMO_TAG_SCRIPT | safe }}
+  </script>
   {% get_reload_script_tag %}
   {% if sentry_user_id %}
   <script>

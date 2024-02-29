@@ -7,6 +7,8 @@ USE_SENTRY = os.environ.get(
 
 SENTRY_DNS = os.environ.get("DJ_SENTRY_DNS", "")
 
+SENTRY_ID = os.environ.get("DJ_SENTRY_ID", "")
+
 # INIT sentry for error tracking
 if USE_SENTRY:
     try:
@@ -28,6 +30,8 @@ IS_STAGE = BUILD_TYPE == 'staging'
 IS_PROD = BUILD_TYPE == 'deployment'
 
 PROD_ATTACH = os.environ.get("DJ_PROD_ATTACH", "false").lower() in ('true', '1', 't')
+
+MATOMO_CONTAINER_ID = os.environ.get("DJ_MATOMO_CONTAINER_ID", "container_TFKaHyie")
 
 DOCS_BUILD = os.environ.get(
     "DJ_DOCS_BUILD", "false").lower() in ('true', '1', 't')
@@ -112,6 +116,7 @@ INSTALLED_APPS = [
 
     'corsheaders',
     'rest_framework',
+    'django_filters',
     # A convenient multiselect field for db objects ( used e.g.: in profile.interests )
     'multiselectfield',
     'phonenumber_field',  # Conevnient handler for phone numbers with admin prefix
@@ -151,7 +156,7 @@ print(f'Installed apps:\n' + '\n- '.join(INSTALLED_APPS))
 
 if BUILD_TYPE in ['staging', 'development']:
     SPAGHETTI_SAUCE = {
-        'apps': ['auth', 'management', 'tracking', 'emails'],
+        'apps': ['auth', 'management', 'tracking', 'emails', 'chat', 'django_private_chat2'],
         'show_fields': False,
         'exclude': {'auth': ['user']},
     }
