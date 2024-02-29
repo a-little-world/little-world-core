@@ -7,6 +7,8 @@ USE_SENTRY = os.environ.get(
 
 SENTRY_DNS = os.environ.get("DJ_SENTRY_DNS", "")
 
+SENTRY_ID = os.environ.get("DJ_SENTRY_ID", "")
+
 # INIT sentry for error tracking
 if USE_SENTRY:
     try:
@@ -28,6 +30,8 @@ IS_STAGE = BUILD_TYPE == 'staging'
 IS_PROD = BUILD_TYPE == 'deployment'
 
 PROD_ATTACH = os.environ.get("DJ_PROD_ATTACH", "false").lower() in ('true', '1', 't')
+
+MATOMO_CONTAINER_ID = os.environ.get("DJ_MATOMO_CONTAINER_ID", "container_TFKaHyie")
 
 DOCS_BUILD = os.environ.get(
     "DJ_DOCS_BUILD", "false").lower() in ('true', '1', 't')
@@ -112,6 +116,7 @@ INSTALLED_APPS = [
 
     'corsheaders',
     'rest_framework',
+    'django_filters',
     # A convenient multiselect field for db objects ( used e.g.: in profile.interests )
     'multiselectfield',
     'phonenumber_field',  # Conevnient handler for phone numbers with admin prefix
@@ -220,6 +225,7 @@ if IS_STAGE or IS_PROD:
     ]
     
     CORS_ORIGIN_WHITELIST += EXTRA_CORS_ALLOWED_ORIGINS
+    CORS_ALLOWED_ORIGINS += EXTRA_CORS_ALLOWED_ORIGINS
     CSRF_TRUSTED_ORIGINS += EXTRA_CSRF_ALLOWED_ORIGINS
 elif DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True

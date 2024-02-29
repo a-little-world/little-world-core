@@ -1,5 +1,6 @@
 from django import template
 from django.conf import settings
+from django.utils.safestring import mark_safe
 import json
 register = template.Library()
 
@@ -11,12 +12,24 @@ def create_dict(str_dict):
 
 @register.simple_tag
 def get_base_matomo_script_tag():
-    return """
+    CONTAINER_ID = settings.MATOMO_CONTAINER_ID
+    return ("""
 var _mtm = window._mtm = window._mtm || [];
 _mtm.push({'mtm.startTime': (new Date().getTime()), 'event': 'mtm.Start'});
 var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
-g.async=true; g.src='https://matomo.little-world.com/js/container_TFKaHyie.js'; s.parentNode.insertBefore(g,s);
-"""
+""" + f"""g.async=true; g.src='https://matomo.little-world.com/js/{CONTAINER_ID}.js'; s.parentNode.insertBefore(g,s);
+""")
+
+@register.simple_tag
+def get_sentry_init_script():
+    if not settings.USE_SENTRY:
+        return ""
+    return mark_safe(f"""
+<script
+  src="https://js.sentry-cdn.com/{settings.SENTRY_ID}.min.js"
+  crossorigin="anonymous"
+></script>
+""")
 
 
 @register.simple_tag
