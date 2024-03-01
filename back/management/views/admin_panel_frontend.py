@@ -4,24 +4,7 @@ from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from django.shortcuts import render
 from django.http import HttpResponse
-from back.utils import CoolerJson
-from management.models.user import User
-from management import controller
-from django.core.paginator import Paginator
 import json
-from management.models.user import (
-    User,
-)
-
-from management.models.profile import (
-    Profile,
-    ProfileSerializer,
-)
-
-from management.models.state import (
-    StateSerializer,
-    State
-)
 
 @user_passes_test(lambda u: u.state.has_extra_user_permission("view-stats") or u.is_staff)
 def stats_panel(request, regrouped_by="day"):
@@ -29,8 +12,6 @@ def stats_panel(request, regrouped_by="day"):
     Display backend stats
     """
     from tracking.models import Summaries
-
-    print("RENDER STATA")
 
     all_series = Summaries.objects.filter(
         label=f"time-series-summary-{regrouped_by}").order_by("-time_created").first().meta
