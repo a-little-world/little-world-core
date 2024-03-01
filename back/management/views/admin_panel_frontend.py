@@ -5,7 +5,6 @@ from rest_framework.decorators import api_view
 from django.shortcuts import render
 from django.http import HttpResponse
 from back.utils import CoolerJson
-from management.api.user_slug_filter_lookup import get_users_by_slug_filter, get_filter_slug_filtered_users_multiple_paginated
 from management.models.user import User
 from management import controller
 from django.core.paginator import Paginator
