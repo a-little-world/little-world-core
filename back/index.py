@@ -18,7 +18,6 @@ Little World components can be developed independently, e.g., developing fronten
 - Cookie Consent Management System: [`back/cookie_consent`](https://github.com/a-little-world/little-world-cookie-consent)
 - Chat: [`back/chat`](https://github.com/a-little-world/little-world-private-chat.git)
 - Main Frontend: [`front/apps/main_frontend`](https://github.com/a-little-world/little-world-frontend.git)
-- User Form: [`front/apps/user_form_frontend`](https://github.com/a-little-world/little-world-user-form.git)
 - Cookie Banner: [`front/apps/cookie_banner_frontend`](https://github.com/a-little-world/little-world-cookie-banner.git)
 
 Most tasks will not require access to all these; we should always strive to keep necessary access to a minimum.

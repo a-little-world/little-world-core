@@ -22,7 +22,7 @@ DJ_TWILIO_ACCOUNT_SID=AccSidNotProvidedInDev
 DJ_TWILIO_API_KEY_SID=TwApiKeyNotIncludedDev
 DJ_TWILIO_API_SECRET=TwApiSecretNotIncludedDev
 # List of apps under /front/apps/* to try to build and bundle
-FR_FRONTENDS=user_form_frontend,main_frontend,cookie_banner_frontend,admin_panel_frontend,user_form
+FR_FRONTENDS=main_frontend,cookie_banner_frontend,admin_panel_frontend
 # WEBPACK_PUBLIC_PATH Put static bucked url here in production
 WEBPACK_PUBLIC_PATH=
 # WEBPACK_DEV_TOOL Set to 'none' for production

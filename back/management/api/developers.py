@@ -82,33 +82,4 @@ class DevLoginAPI(APIView):
                     "data": _frontend_data,
                     "api_translations": json.loads(get_api_translations(request))
                 })
-        elif params.dev_dataset == "user_form_frontend":
-
-            try:
-                usr = authenticate(username=params.username,
-                                   password=params.password)
-                login(request, usr)
-            except:
-                return Response("Authentication failed", status=403)
-
-
-            with translation.override("tag"):
-                return Response({
-                    "api_translations": json.loads(get_api_translations(request)),
-                    "user_data": SelfProfileSerializer(request.user.profile).data,
-                    "form_options": SelfProfileSerializer(request.user.profile).get_options(request.user.profile)
-                })
-        elif params.dev_dataset == "user_form_frontend_old":
-            try:
-                usr = authenticate(username=params.username,
-                                   password=params.password)
-                login(request, usr)
-            except:
-                return Response("Authentication failed", status=403)
-
-            data = {
-                "app_name": "",
-                **get_cookie_banner_template_data(request)
-            }
-            pass
         return Response("Error, maybe dev_dataset doesn't exist?", status=400)

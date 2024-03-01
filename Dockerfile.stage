@@ -19,9 +19,7 @@ ADD . .
 RUN mkdir /front
 ADD ./webpack/cookie_banner_frontend.webpack-stats.json /front/cookie_banner_frontend.webpack-stats.json
 ADD ./webpack/admin_panel_frontend.webpack-stats.json /front/admin_panel_frontend.webpack-stats.json
-ADD ./webpack/user_form_frontend.webpack-stats.json /front/user_form_frontend.webpack-stats.json
 ADD ./webpack/main_frontend.webpack-stats.json /front/main_frontend.webpack-stats.json
-ADD ./webpack/user_form.webpack-stats.json /front/user_form.webpack-stats.json
 
 EXPOSE 8000
 

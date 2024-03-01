@@ -63,11 +63,8 @@ services:
     profiles:
       [
         "backend",
-        "user_form",
-        "user_form_v2",
         "admin_panel_frontend",
         "main_frontend",
-        "user_form_frontend",
         "cookie_banner_frontend",
         "all"
       ]
@@ -98,11 +95,8 @@ services:
     profiles:
       [
         "backend",
-        "user_form",
-        "user_form_v2",
         "admin_panel_frontend",
         "main_frontend",
-        "user_form_frontend",
         "cookie_banner_frontend",
         "all"
       ]

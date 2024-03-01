@@ -4,9 +4,6 @@
   "description": "Building frontends",
   "main": "index.js",
   "scripts": {
-    "watch_user_form_frontend": "./node_modules/.bin/webpack --watch --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mode development --config webpack.user_form_frontend.config.js",
-    "build_user_form_frontend_dev": "./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mode development --config webpack.user_form_frontend.config.js",
-    "build_user_form_frontend_prod": "./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=0 --mode production --config webpack.user_form_frontend.config.js",
     "watch_main_frontend": "./node_modules/.bin/webpack --watch --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mode development --config webpack.main_frontend.config.js",
     "build_main_frontend_dev": "./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mode development --config webpack.main_frontend.config.js",
     "build_main_frontend_prod": "./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=0 --mode production --config webpack.main_frontend.config.js",
@@ -16,9 +13,6 @@
     "watch_admin_panel_frontend": "./node_modules/.bin/webpack --watch --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mode development --config webpack.admin_panel_frontend.config.js",
     "build_admin_panel_frontend_dev": "./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mode development --config webpack.admin_panel_frontend.config.js",
     "build_admin_panel_frontend_prod": "./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=0 --mode production --config webpack.admin_panel_frontend.config.js",
-    "watch_user_form": "./node_modules/.bin/webpack --watch --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mode development --config webpack.user_form.config.js",
-    "build_user_form_dev": "./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mode development --config webpack.user_form.config.js",
-    "build_user_form_prod": "./node_modules/.bin/webpack --env PUBLIC_PATH= --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=0 --no-devtool --mode production --config webpack.user_form.config.js"
   },
   "author": "",
   "license": "ISC",
