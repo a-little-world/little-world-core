@@ -1,6 +1,5 @@
 from typing import List, Optional
 from django.core.paginator import Paginator
-from .user_data import get_user_data
 from django.utils import translation
 from multiselectfield.db.fields import MSFList
 from management.models.user import (
@@ -84,32 +83,6 @@ def get_filter_slug_filtered_users_multiple(
             filter_slug=filter, user_to_filter=filtered_user_list)
     return filtered_user_list
 
-
-def get_filter_slug_filtered_users_multiple_paginated(
-        filtered_user_list=None,
-        filters=[],
-        paginate_by=50,
-        page=1,
-):
-    from ..controller import get_base_management_user
-    filtered_user_list = get_filter_slug_filtered_users_multiple(
-        filtered_user_list=filtered_user_list,
-        filters=filters
-    )
-    paginator = Paginator(filtered_user_list, paginate_by)
-    pages = paginator.page(page)
-
-    user_list_data = [get_user_data(
-        p, is_self=True, admin=True, include_options=False) for p in pages]
-
-    extra_info = {
-        "paginate_by": paginate_by,
-        "page": page,
-        "num_pages": pages.paginator.num_pages,
-        "results_total": len(filtered_user_list),
-    }
-
-    return user_list_data, extra_info
 
 
 def get_users_by_slug_filter(

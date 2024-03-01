@@ -11,7 +11,6 @@ from django.utils.translation import pgettext_lazy
 from dataclasses import dataclass
 from django.contrib.auth import authenticate, login
 from drf_spectacular.utils import extend_schema
-from management.api.user_data import get_full_frontend_data
 from management.api.user_data import frontend_data
 from management.templatetags.temp_utils import get_api_translations
 from management.models.profile import Profile, SelfProfileSerializer
@@ -53,22 +52,6 @@ class DevLoginAPI(APIView):
         params = serializer.save()
 
         if params.dev_dataset == "main_frontend":
-
-            try:
-                usr = authenticate(username=params.username,
-                                   password=params.password)
-                login(request, usr)
-            except:
-                return Response("Authentication failed", status=403)
-
-
-            with translation.override("tag"):
-                profile_data = get_full_frontend_data(
-                    request.user, options=True, **request.query_params,
-                    admin=request.user.is_staff)
-
-            return Response({"profile_data": json.dumps(profile_data, cls=CoolerJson), "api_translations": get_api_translations(request)})
-        if params.dev_dataset == "main_frontend_v2":
             try:
                 usr = authenticate(username=params.username,
                                    password=params.password)
