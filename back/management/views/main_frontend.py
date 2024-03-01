@@ -103,10 +103,12 @@ class MainFrontendView(LoginRequiredMixin, View):
         # We will wrap the 'request' into a DRF.request
         # This gives us json parsed .data and .query_set options
         drf_request = Request(request=request)
-
+        
+        WHITELISTED_USER_PARAMS = ["gtm_debug"]
+        
         if not request.user.is_staff and len(drf_request.query_params) != 0:
-            # TODO: this check doesn't seems to work
-            return Response(_('Query param usage on main view only allowed for admins!'), status=status.HTTP_403_FORBIDDEN)
+            if not all([param in WHITELISTED_USER_PARAMS for param in drf_request.query_params.keys()]):
+                return Response(_('Query param usage on main view only allowed for admins!'), status=status.HTTP_403_FORBIDDEN)
 
         serializer = MainFrontendParamsSerializer(
             data=drf_request.query_params)  # type: ignore
