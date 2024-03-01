@@ -40,7 +40,7 @@ services:
       DJ_AWS_STATIC_SECRET_KEY: "${DJ_AWS_STATIC_SECRET_KEY}"
       DJ_AWS_STATIC_BUCKET_NAME": "${DJ_AWS_STATIC_BUCKET_NAME}"
       DJ_AWS_REGION_NAME: "${DJ_AWS_REGION_NAME}"
-      FR_FRONTENDS: user_form_frontend,main_frontend,cookie_banner_frontend,admin_panel_frontend,user_form
+      FR_FRONTENDS: main_frontend,cookie_banner_frontend,admin_panel_frontend
       WEBPACK_DEV_TOOL: eval-cheap-module-source-map
       WEBPACK_DEBUG: 1
       DJ_SG_SENDGRID_API_KEY: "not_an_api_key"

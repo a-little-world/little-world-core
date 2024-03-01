@@ -46,7 +46,6 @@ api_routes = [
     *slack.api_routes,
     *ai.api_routes,
     # User
-    path(_api_url('user_data'), api.user_data.UserData.as_view()),
     path(_api_url('user_data_v2'), api.user_data.user_data_v2),
 
     path(_api_url('trans/<str:lang>'), api.trans.TranslationsGet.as_view()),
@@ -58,7 +57,7 @@ api_routes = [
          api.community_events.GetActiveEventsApi.as_view()),
 
     path(_api_url('register'), api.register.Register.as_view()),
-    path(_api_url('user'), api.user_data.SelfInfo.as_view()),
+    path(_api_url('user'), api.user_data.user_data_api),
     path(_api_url('cookies/cookie_banner.js', end_slash=False),
          api.cookies.get_dynamic_cookie_banner_js),
     path(_api_url('user/confirm_match'), api.user.ConfirmMatchesApi.as_view()),

@@ -1,5 +1,5 @@
 from drf_spectacular.utils import OpenApiParameter, OpenApiExample
-from management.api.user_data import get_full_frontend_data, frontend_data
+from management.api.user_data import frontend_data
 from django.utils.translation import gettext_lazy as _
 from django.utils import translation
 from back.utils import CoolerJson
