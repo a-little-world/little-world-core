@@ -38,6 +38,8 @@ from typing import OrderedDict
 from django.core.serializers.json import DjangoJSONEncoder
 from rest_framework.utils import serializer_helpers
 from django.db.models import Q
+from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiExample
+from rest_framework import serializers
 
 class IsAdminOrMatchingUser(BasePermission):
     """
@@ -809,6 +811,30 @@ def request_task_status(request, task_id):
     # But they generaly never contain sensitive information
     return Response(check_task_status(task_id))
 
+@extend_schema(
+    responses=inline_serializer(
+        name="UserListQuerySetEnum",
+        fields={
+            "count": serializers.IntegerField(),
+            "page": serializers.IntegerField(),
+            "next": serializers.URLField(),
+            "previous": serializers.URLField(),
+            "results": AdvancedAdminUserSerializer(many=True)
+        }
+    )
+)
+@api_view(['GET'])
+@permission_classes([IsAdminOrMatchingUser])
+def get_user_list_users(request, query_set):
+
+    page = request.query_params.get('page', 1)
+    items_per_page = request.query_params.get('items_per_page', 40)
+
+    user_viewset = make_user_viewset(get_staff_queryset(query_set, request), items_per_page=items_per_page)
+    user_lists = user_viewset.emulate(request).list()
+
+    return Response(user_lists)
+
 root_user_viewset = AdvancedAdminUserViewset
 user_info_viewset = SimpleUserViewSet
 
@@ -834,6 +860,20 @@ def default_admin_data(user):
     return {
         "is_admin": user.is_staff,
     } 
+    
+
+@extend_schema(
+    responses=inline_serializer(
+        name="UserListQuerySetOptionsEnum",
+        fields={
+            "lists": serializers.DictField()
+        }
+    )
+)
+@api_view(['GET'])
+@permission_classes([IsAdminOrMatchingUser])
+def get_user_list_query_sets(request):
+    return Response({"lists": QuerySetEnum.as_dict()})
 
 @api_view(['GET'])
 @permission_classes([IsAdminOrMatchingUser])
