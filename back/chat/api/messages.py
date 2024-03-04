@@ -16,8 +16,6 @@ class StandardResultsSetPagination(PageNumberPagination):
 class SendMessageSerializer(serializers.Serializer):
     text = serializers.CharField()
 
-
-
 class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelViewSet):
     """
     Simple Viewset messages CREATE, LIST, UPDATE, DELETE
@@ -89,8 +87,10 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         
         serialized_message = self.serializer_class(message).data
         
-        #TODO: re-integrate callbacks
-        #callbacks.message_incoming(request.user, message)
-        #callbacks.message_send(partner, message)
+        from chat.consumers.messages import NewMessage, MessageTypes
+        
+        NewMessage(
+            message=serialized_message
+        ).send(request.user.id)
         
         return Response(serialized_message, status=200)

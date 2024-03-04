@@ -261,6 +261,7 @@ def create_user(
         usr.notify(title=_("Welcome Notification"))
 
     # Step 8 Message the user from the admin account
+    default_message = ""
     if send_welcome_message:
 
         default_message = pgettext_lazy("api.register-welcome-message-text", """Hallo {first_name} und herzlich willkommen bei Little World!
