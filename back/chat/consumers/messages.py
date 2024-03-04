@@ -153,12 +153,16 @@ class PreMatchingAppointmentBooked(MessageBase):
 @dataclass
 class NewMessage(MessageBase):
     message: dict
+    chat_id: str
     type: str = MessageTypes.new_message.value
     
     def build_redux_action(self):
         return {
             "action": "addMessage", 
-            "payload": self.message
+            "payload": {
+                "message": self.message,
+                "chatId": self.chat_id
+            }
         }
 
 CALLBACKS = {

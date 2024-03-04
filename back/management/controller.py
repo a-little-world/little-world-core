@@ -793,11 +793,6 @@ def send_email(
         report.out += f"Error sending email: {e}" + str(e)
         
     return report
-        
-    
-        
-    
-
 
 def send_group_mail(
     users,

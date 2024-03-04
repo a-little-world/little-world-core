@@ -83,10 +83,14 @@ class ChatSerializer(serializers.ModelSerializer):
             profile = management_models.profile.ProfileSerializer(partner.profile).data
             username = partner.username
             profile['uuid'] = partner.hash
+            del profile['options']
             representation['partner'] = profile
             representation['partner']['username'] = username
             del representation['u1']
             del representation['u2']
+
+            representation['unread_count'] = instance.get_unread_count(user)
+            representation['newest_message'] = MessageSerializer(instance.get_newest_message()).data
         else:
             representation['u1'] = instance.u1.hash
             representation['u2'] = instance.u2.hash

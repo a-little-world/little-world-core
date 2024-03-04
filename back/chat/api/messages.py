@@ -90,7 +90,8 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         from chat.consumers.messages import NewMessage, MessageTypes
         
         NewMessage(
-            message=serialized_message
-        ).send(request.user.id)
+            message=serialized_message,
+            chat_id=chat.uuid
+        ).send(partner.hash)
         
         return Response(serialized_message, status=200)
