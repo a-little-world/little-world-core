@@ -1,4 +1,5 @@
 from django.urls import path, include, re_path
+from .consumers import messages
 from . import api
 
 messages_api_user_list = api.messages.MessagesModelViewSet.as_view({
@@ -34,7 +35,8 @@ chat_api_user = api.chats.ChatsModelViewSet.as_view({
 urlpatterns = [
     path("api/chats/", chat_api_user_list),
     path("api/chats/<str:pk>/", chat_api_user),
-
+    path("api/callbacks/", messages.get_all_websocket_callback_messsages),
+    path("api/callbacks/send/<str:callback_name>/<str:user_id>/", messages.send_test_callback),
     path("api/messages/", messages_api_user_list),
     path("api/messages/<str:chat_uuid>/send/", messages_api_user_send),
     path("api/messages/<str:chat_uuid>/", messages_api_user_list),
