@@ -80,7 +80,7 @@ class ChatSerializer(serializers.ModelSerializer):
         if 'request' in self.context:
             user = self.context['request'].user
             partner = instance.get_partner(user)
-            profile = management_models.profile.CensoredProfileSerializer(partner.profile).data
+            profile = management_models.profile.MinimalProfileSerializer(partner.profile).data
             representation['partner'] = profile
             representation['partner']['id'] = partner.hash
             del representation['u1']
