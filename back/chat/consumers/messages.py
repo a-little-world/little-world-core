@@ -19,6 +19,7 @@ class MessageTypes(Enum):
     block_incoming_call = "block_incoming_call"
     new_incoming_call = "new_incoming_call"
     new_message = "new_message"
+    messages_read_chat = "messages_read_chat"
     pre_matching_appointment_booked = "pre_matching_appointment_booked"
     
     
@@ -151,6 +152,19 @@ class PreMatchingAppointmentBooked(MessageBase):
         }
         
 @dataclass
+class MessagesReadChat(MessageBase):
+    chat_id: str
+    type: str = MessageTypes.messages_read_chat.value
+    
+    def build_redux_action(self):
+        return {
+            "action": "markMessagesReadChat", 
+            "payload": {
+                "chatId": self.chat_id
+            }
+        }
+        
+@dataclass
 class NewMessage(MessageBase):
     message: dict
     chat_id: str
@@ -173,7 +187,8 @@ CALLBACKS = {
     MessageTypes.block_incoming_call.value: InBlockIncomingCall,
     MessageTypes.new_incoming_call.value: InNewIncomingCall,
     MessageTypes.pre_matching_appointment_booked.value: PreMatchingAppointmentBooked,
-    MessageTypes.new_message.value: NewMessage
+    MessageTypes.new_message.value: NewMessage,
+    MessageTypes.messages_read_chat.value: MessagesReadChat
 }
         
 @api_view(['POST'])
