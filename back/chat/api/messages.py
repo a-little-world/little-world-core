@@ -59,6 +59,32 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         obj.read = True
         obj.save()
         return Response(self.serializer_class(obj).data, status=200)
+    
+    
+    @extend_schema(request=SendMessageSerializer)
+    @action(detail=False, methods=['post'])
+    def chat_read(self, request, chat_uuid=None):
+        if not chat_uuid:
+            return Response({'error': 'chat_uuid is required'}, status=400)
+
+        chat = Chat.objects.filter(uuid=chat_uuid)
+        if not chat.exists():
+            return self.resp_chat_403
+        chat = chat.first()
+        if not chat.is_participant(request.user):       
+            return self.resp_chat_403
+        
+        partner = chat.get_partner(request.user)
+        
+        messages = chat.get_messages().filter(read=False, recipient=request.user)
+        messages.update(read=True)
+        
+        from chat.consumers.messages import MessagesReadChat
+        MessagesReadChat(
+            chat_id=chat.uuid
+        ).send(partner.hash)
+        
+        return Response({'status': 'ok'}, status=200)
 
         
     @extend_schema(request=SendMessageSerializer)

@@ -20,6 +20,10 @@ messages_api_user_read = api.messages.MessagesModelViewSet.as_view({
     'post': 'read',
 })
 
+chat_messages_api_user_read = api.messages.MessagesModelViewSet.as_view({
+    'post': 'chat_read',
+})
+
 chat_api_user_list = api.chats.ChatsModelViewSet.as_view({
     'get': 'list',
 })
@@ -42,6 +46,7 @@ urlpatterns = [
     path("api/callbacks/", messages.get_all_websocket_callback_messsages),
     path("api/callbacks/send/<str:callback_name>/<str:user_id>/", messages.send_test_callback),
     path("api/messages/", messages_api_user_list),
+    path("api/messages/<str:chat_uuid>/chat_read/", chat_messages_api_user_read),
     path("api/messages/<str:chat_uuid>/send/", messages_api_user_send),
     path("api/messages/<str:chat_uuid>/", messages_api_user_list),
     path("api/messages/<str:pk>/read/", messages_api_user_send),
