@@ -81,6 +81,7 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         
         from chat.consumers.messages import MessagesReadChat
         MessagesReadChat(
+            user_id=request.user.hash, # all messages with receiver=user.hash will be marked 'read'
             chat_id=chat.uuid
         ).send(partner.hash)
         

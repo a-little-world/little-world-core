@@ -154,13 +154,15 @@ class PreMatchingAppointmentBooked(MessageBase):
 @dataclass
 class MessagesReadChat(MessageBase):
     chat_id: str
+    user_id: str
     type: str = MessageTypes.messages_read_chat.value
     
     def build_redux_action(self):
         return {
-            "action": "markMessagesReadChat", 
+            "action": "markChatMessagesRead", 
             "payload": {
-                "chatId": self.chat_id
+                "chatId": self.chat_id,
+                "userId": self.user_id
             }
         }
         
