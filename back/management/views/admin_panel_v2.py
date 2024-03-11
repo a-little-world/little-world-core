@@ -429,6 +429,7 @@ def users_that_are_searching_but_have_no_proposal():
     return User.objects.filter(
         state__user_form_state=State.UserFormStateChoices.FILLED,
         state__email_authenticated=True,
+        state__had_prematching_call=True, # TODO: filter should only be applied, if require_prematching_call = True
         state__matching_state=State.MatchingStateChoices.SEARCHING
     ).exclude(
         Q(pk__in=unconfirmed_matches.values("user1")) |
@@ -472,11 +473,12 @@ def get_QUERY_SETS():
         QuerySetEnum.searching.name: User.objects.filter(
             state__user_form_state=State.UserFormStateChoices.FILLED,
             state__email_authenticated=True,
+            state__had_prematching_call=False,
             state__matching_state=State.MatchingStateChoices.SEARCHING
         ).order_by('-date_joined'),
         QuerySetEnum.needs_matching.name: users_that_are_searching_but_have_no_proposal(),
         QuerySetEnum.in_registration.name: User.objects.filter(
-            Q(state__user_form_state=State.UserFormStateChoices.UNFILLED) | Q(state__email_authenticated=False)).order_by('-date_joined'),
+            Q(state__user_form_state=State.UserFormStateChoices.UNFILLED) | Q(state__email_authenticated=False) | Q(state__had_prematching_call=False) ).order_by('-date_joined'),
         QuerySetEnum.active_within_3weeks.name: User.objects.filter(
             last_login__gte=three_weeks_ago()).order_by('-date_joined'),
         QuerySetEnum.active_match.name: get_active_match_query_set(),
