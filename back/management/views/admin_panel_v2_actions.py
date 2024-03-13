@@ -444,6 +444,7 @@ def mark_pre_matching_call_completed(request):
 action_routes = [
     path(_api_url('quick_actions', admin=True), admin_panel_v2_actions),
     path(_api_url('quick_actions/mark_user_as_unresponsive', admin=True), mark_user_as_unresponsive),
+    path(_api_url('quick_actions/mark_pre_matching_call_completed', admin=True), mark_pre_matching_call_completed),
     path(_api_url('quick_actions/make_tim_mangement_admin', admin=True), make_tim_mangement_admin_action),
     path(_api_url('quick_actions/delete_user', admin=True), delete_user),
     path(_api_url('quick_actions/send_sms_to_user', admin=True), send_sms_to_user),
