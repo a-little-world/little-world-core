@@ -1,5 +1,6 @@
 from enum import Enum
 import json
+from typing import Optional
 from back.utils import CoolerJson
 from dataclasses import dataclass
 from channels.layers import get_channel_layer
@@ -170,6 +171,7 @@ class MessagesReadChat(MessageBase):
 class NewMessage(MessageBase):
     message: dict
     chat_id: str
+    meta_chat_obj: Optional[dict] = None # holds additional 'chatObject' such that the frontend can hidrate it if it's not present
     type: str = MessageTypes.new_message.value
     
     def build_redux_action(self):
@@ -177,7 +179,8 @@ class NewMessage(MessageBase):
             "action": "addMessage", 
             "payload": {
                 "message": self.message,
-                "chatId": self.chat_id
+                "chatId": self.chat_id,
+                "metaChatObj": self.meta_chat_obj
             }
         }
 

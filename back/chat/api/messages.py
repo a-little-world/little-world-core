@@ -1,7 +1,7 @@
 from rest_framework import serializers, viewsets
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
-from chat.models import Message, MessageSerializer, Chat
+from chat.models import ChatSerializer, Message, MessageSerializer, Chat
 from rest_framework.pagination import PageNumberPagination
 from chat.api.viewsets import UserStaffRestricedModelViewsetMixin, DetailedPaginationMixin
 from rest_framework.decorators import action
@@ -118,7 +118,10 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         
         NewMessage(
             message=serialized_message,
-            chat_id=chat.uuid
+            chat_id=chat.uuid,
+            meta_chat_obj=ChatSerializer(chat, context={
+                'request': request,               
+            }).data
         ).send(partner.hash)
         
         return Response(serialized_message, status=200)
