@@ -71,7 +71,8 @@ class Command(BaseCommand):
         from management.models.state import State
 
         matching_users = User.objects.filter(
-            Q(is_staff=True) | Q(user2__state__extra_user_permissions__contains=State.ExtraUserPermissionChoices.MATCHING_USER)
+            Q(is_staff=True) | 
+            Q(state__extra_user_permissions__contains=State.ExtraUserPermissionChoices.MATCHING_USER)
         ).values_list('id', flat=True)
         print(f"Found {matching_users.count()} matching users who's messages will be specificly transformed")
         
