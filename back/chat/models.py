@@ -104,6 +104,8 @@ class Message(models.Model):
     sender = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="message_sender")
     recipient = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="message_recipient")
     
+    recipient_notified = models.BooleanField(default=False)
+    
     text = models.TextField()
     
     read = models.BooleanField(default=False)
