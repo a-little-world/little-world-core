@@ -78,7 +78,7 @@ class Command(BaseCommand):
         
         c = 0
         for message in messages_old:
-            message_text = message.message
+            message_text = message.text
             chat = Chat.get_chat([message.sender, message.recipient])
 
             if str(message.sender.id) in matching_users:
