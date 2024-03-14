@@ -138,11 +138,11 @@ def send_new_message_notifications():
         recipient_notified=True
     )
     
-    # 3 - bundle unreads by user
+    # 3 - getall 'unread' & 'unnofified' messages and get all recipients
     unread_unnotified_messages = unnotified_messages.filter(
         read=False
     )
-    recipients_to_notify = unnotified_messages.values_list('recipient', flat=True).distinct()
+    recipients_to_notify = unread_unnotified_messages.values_list('recipient', flat=True).distinct()
     
     # 4 - send notifications to users
     send_emails = not (settings.IS_STAGE or settings.IS_DEV)
