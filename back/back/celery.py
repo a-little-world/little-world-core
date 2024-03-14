@@ -59,10 +59,7 @@ auto_emails = {
 }
 
 prod_shedules = {
-    'new-message-notification': {
-        'task': 'management.tasks.send_new_message_notifications_all_users',
-        'schedule': 60.0 * 60.0  # Every hour
-    },
+    # TODO: new shedule to send out the new message notificaitons utelizing the new message model
     'generate-hourly-event-summary': {
         'task': 'management.tasks.write_hourly_backend_event_summary',
         'schedule': 60.0 * 60.0,  # Every hour

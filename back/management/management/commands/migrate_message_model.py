@@ -88,6 +88,7 @@ class Command(BaseCommand):
                 chat=chat,
                 sender=message.sender,
                 text=message_text,
+                recipient_notified=True, # Default 'true' for all messages so body is notified double
                 recipient=message.recipient,
                 created=message.created,
                 read=message.read,
