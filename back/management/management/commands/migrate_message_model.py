@@ -1,9 +1,33 @@
 
 from django.core.management.base import BaseCommand
-import csv , sys
 import json
+from bs4 import BeautifulSoup
 from chat_old.django_private_chat2.models import DialogsModel, MessageModel
 from chat.models import Chat, Message
+
+def transfor_old_to_new_messageformat(message_text):
+    soup = BeautifulSoup(message_text, "html.parser")
+    all_tags = [tag for tag in soup.find_all()]
+    
+    placeholders = {}
+
+    def convert_old_tag_to_datatag(old_tag):
+        attributes = old_tag.attrs
+        print("ARGS", json.dumps(attributes))
+        
+        new_tag = f'<{old_tag.name} {json.dumps(attributes)}></{old_tag.name}>'
+        placeholder = f"||||{len(placeholders)}||||"
+        return new_tag, placeholder
+
+    for tag in all_tags:
+        new_tag, placeholder = convert_old_tag_to_datatag(tag)
+        placeholders[placeholder] = new_tag
+        tag.replaceWith(placeholder)
+        
+    for placeholder, tag in placeholders.items():
+        new_message = new_message.replace(placeholder, tag)
+
+    return new_message
 
 class Command(BaseCommand):
     def handle(self, *args, **options):
@@ -41,12 +65,29 @@ class Command(BaseCommand):
             print(f"Created chat {c}/{counts['dialogs']}")
         print(f"Created {c} chats, continuing with messages")
         
+        # some id's messages are considered to format migration
+        from django.db.models import Q
+        from management.models.user import User
+        from management.models.state import State
+
+        matching_users = User.objects.filter(
+            Q(is_staff=True) | Q(user2__state__extra_user_permissions__contains=State.ExtraUserPermissionChoices.MATCHING_USER)
+        ).values_list('id', flat=True)
+        print(f"Found {matching_users.count()} matching users who's messages will be specificly transformed")
+        
         c = 0
         for message in messages_old:
+            message_text = message.message
             chat = Chat.get_chat([message.sender, message.recipient])
+
+            if str(message.sender.id) in matching_users:
+                print("Matching users message found transforming format")
+                message_text = transfor_old_to_new_messageformat(message_text)
+
             Message.objects.create(
                 chat=chat,
                 sender=message.sender,
+                text=message_text,
                 recipient=message.recipient,
                 created=message.created,
                 read=message.read,
@@ -63,9 +104,10 @@ class Command(BaseCommand):
         user_input = input()
 
         if user_input == "Y":
-            messages_old.delete()
-            dialogs_old.delete()
-            print(f"Deleting All old messages")
+            print("Sorry this option is fully disabled in this deployment")
+            #messages_old.delete()
+            #dialogs_old.delete()
+            #print(f"Deleting All old messages")
         else:
             print(f"Did not delete old messages")
         
