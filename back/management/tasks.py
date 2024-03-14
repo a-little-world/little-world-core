@@ -119,6 +119,50 @@ Selbst habe ich vier Jahre im Ausland gelebt, von Frankreich bis nach China. Den
     return "sucessfully filled base management user profile"
 
 @shared_task
+def send_new_message_notifications():
+    from management.models.user import User
+    from chat.models import Message
+    from django.conf import settings
+    from emails import mails
+    
+    # 1 - get all unitified messages
+    unnotified_messages = Message.objects.filter(
+        recipient_notified=False
+    )
+    
+    # 2 - mark all 'read' unnotified messages as 'notified'
+    read_unnotified_messages = unnotified_messages.filter(
+        read=True
+    )
+    read_unnotified_messages.update(
+        recipient_notified=True
+    )
+    
+    # 3 - bundle unreads by user
+    unread_unnotified_messages = unnotified_messages.filter(
+        read=False
+    )
+    recipients_to_notify = unnotified_messages.values_list('recipient', flat=True).distinct()
+    
+    # 4 - send notifications to users
+    send_emails = not (settings.IS_STAGE or settings.IS_DEV)
+    if send_emails:
+        for u in User.objects.filter(id__in=recipients_to_notify):
+            u.send_email(
+                subject=pgettext_lazy(
+                    "tasks.unread-notifications-email-subject", "Neue Nachricht(en) auf Little World"),
+                mail_data=mails.get_mail_data_by_name("new_messages"),
+                mail_params=mails.NewUreadMessagesParams(
+                    first_name=u.profile.first_name,
+                )
+            )
+    
+    # 5 - mark all unnotified messages as 'notified'
+    unread_unnotified_messages.update(
+        recipient_notified=True
+    )
+
+@shared_task
 def fill_base_management_user_tim_profile():
     if BackendState.is_base_management_user_profile_filled(set_true=True):
         return  # Allready filled base management user profile
