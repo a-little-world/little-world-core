@@ -15,7 +15,7 @@ def transfor_old_to_new_messageformat(message_text):
         attributes = old_tag.attrs
         print("ARGS", json.dumps(attributes))
         
-        new_tag = f'<{old_tag.name} {json.dumps(attributes)}></{old_tag.name}>'
+        new_tag = f'<{old_tag.name} {json.dumps(attributes)}>{old_tag.text}</{old_tag.name}>'
         placeholder = f"||||{len(placeholders)}||||"
         return new_tag, placeholder
 
@@ -23,6 +23,8 @@ def transfor_old_to_new_messageformat(message_text):
         new_tag, placeholder = convert_old_tag_to_datatag(tag)
         placeholders[placeholder] = new_tag
         tag.replaceWith(placeholder)
+        
+    new_message = str(soup)
         
     for placeholder, tag in placeholders.items():
         new_message = new_message.replace(placeholder, tag)
@@ -94,7 +96,7 @@ class Command(BaseCommand):
                 read=message.read,
             )
             # Have to modify the 'created' field after as it would otherwise
-            message_new.created = message.created,
+            message_new.created = message.created
             message_new.save()
             c += 1
             print(f"Created message {c}/{counts['messages']}")
