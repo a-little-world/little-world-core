@@ -81,19 +81,21 @@ class Command(BaseCommand):
             message_text = message.text
             chat = Chat.get_chat([message.sender, message.recipient])
 
-            if str(message.sender.id) in matching_users:
+            if str(message.sender.id) in [str(x) for x in list(matching_users)]:
                 print("Matching users message found transforming format")
                 message_text = transfor_old_to_new_messageformat(message_text)
 
-            Message.objects.create(
+            message_new = Message.objects.create(
                 chat=chat,
                 sender=message.sender,
                 text=message_text,
                 recipient_notified=True, # Default 'true' for all messages so body is notified double
                 recipient=message.recipient,
-                created=message.created,
                 read=message.read,
             )
+            # Have to modify the 'created' field after as it would otherwise
+            message_new.created = message.created,
+            message_new.save()
             c += 1
             print(f"Created message {c}/{counts['messages']}")
         print(f"Created {c} messages")
