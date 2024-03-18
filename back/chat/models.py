@@ -83,6 +83,9 @@ class ChatSerializer(serializers.ModelSerializer):
             profile = management_models.profile.MinimalProfileSerializer(partner.profile).data
             representation['partner'] = profile
             representation['partner']['id'] = partner.hash
+            from management.models.state import State
+            representation['partner']['isSupport'] = (partner.is_staff or partner.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER))
+
             del representation['u1']
             del representation['u2']
 
