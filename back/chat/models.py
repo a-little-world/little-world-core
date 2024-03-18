@@ -83,8 +83,6 @@ class ChatSerializer(serializers.ModelSerializer):
             profile = management_models.profile.MinimalProfileSerializer(partner.profile).data
             representation['partner'] = profile
             representation['partner']['id'] = partner.hash
-            from management.models.state import State
-            representation['partner']['isSupport'] = (partner.is_staff or partner.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER))
 
             del representation['u1']
             del representation['u2']
@@ -125,6 +123,12 @@ class MessageSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation['sender'] = instance.sender.hash
+
+        from management.models.state import State
+        sender_staff = instance.sender.is_staff or instance.sender.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+        
+        if sender_staff:
+            representation['parsable'] = True
         
         return representation
     
