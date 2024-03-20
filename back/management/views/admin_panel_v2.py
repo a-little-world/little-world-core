@@ -243,6 +243,8 @@ def serialize_messages_for_matching(instance, representation, censor_messages=Tr
             "with_management": True if match in support else False
         }
         messages[match['id']]["items"] = [MessageSerializer(item).data for item in _msg["items"]]
+        if censor:
+            messages[match['id']]["items"] = [{**i, "text": "CENSORED"} for i in messages[match['id']]["items"]]
         return messages
     
     messages = {}
