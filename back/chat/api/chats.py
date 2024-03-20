@@ -48,21 +48,12 @@ class ChatsModelViewSet(viewsets.ModelViewSet):
         return super().list(request, *args, **kwargs)
     
     def get_queryset(self):
-        if not self.request.user.is_staff:
-            return Chat.objects.filter(Q(u1 = self.request.user) | Q(u2 = self.request.user)).annotate(
-                unread_count=Count(
-                    Case(
-                        When(message__read=False, then=1),
-                        default=0,
-                        output_field=IntegerField()))).order_by('-unread_count', '-created') 
-        else:
-            return self.queryset.annotate(
-                unread_count=Count(
-                    Case(
-                        When(message__read=False, then=1),
-                        default=0,
-                        output_field=IntegerField()
-                    ))).order_by('-unread_count', '-created')
+        return Chat.objects.filter(Q(u1 = self.request.user) | Q(u2 = self.request.user)).annotate(
+            unread_count=Count(
+                Case(
+                    When(message__read=False, then=1),
+                    default=0,
+                    output_field=IntegerField()))).order_by('-unread_count', '-created') 
         
 
     @extend_schema(responses={200: chat_res_seralizer(many=False)})

@@ -12,9 +12,12 @@ from django.shortcuts import render
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from chat_old.django_private_chat2.models import MessageModel, DialogsModel
+#from chat_old.django_private_chat2.models import MessageModel, DialogsModel
+#from chat_old.django_private_chat2.serializers import serialize_message_model
+
+from chat.models import Chat, Message, ChatSerializer, MessageSerializer
+
 from management.models.unconfirmed_matches import UnconfirmedMatch
-from chat_old.django_private_chat2.serializers import serialize_message_model
 from management.models.scores import TwoUserMatchingScore
 from management.api.scores import score_between_db_update
 from management import controller
@@ -210,11 +213,14 @@ def serialize_messages_for_matching(instance, representation, censor_messages=Tr
     def get_messages(match):
         partner = controller.get_user_by_pk(match['partner']['id'])
         print("TBS", partner, instance)
-        _msgs = MessageModel.objects.filter(
+
+        _msgs = Message.objects.filter(
             Q(sender=partner, recipient=instance) | Q(sender=instance, recipient=partner)
         )
         messages = get_paginated(_msgs, 10, 1)
-        if not DialogsModel.get_dialog_for_user_as_object(partner, instance).exists():
+        
+        
+        if not Chat.get_chat([instance, partner]):
             messages["no_dialog"] = True # prop means it has been deleted
         return messages
     
@@ -236,7 +242,9 @@ def serialize_messages_for_matching(instance, representation, censor_messages=Tr
             "state": StateSerializer(partner.state).data,
             "with_management": True if match in support else False
         }
-        messages[match['id']]["items"] = [serialize_message_model(item, instance.pk, censor) for item in _msg["items"]]
+        messages[match['id']]["items"] = [MessageSerializer(item).data for item in _msg["items"]]
+        if censor:
+            messages[match['id']]["items"] = [{**i, "text": "CENSORED"} for i in messages[match['id']]["items"]]
         return messages
     
     messages = {}
@@ -261,13 +269,21 @@ class AdvancedAdminUserSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         representation = update_representation(representation, instance)
         
+        
         censor_messages = True
         if ('request' in self.context) and self.context['request'].user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.UNCENSORED_ADMIN_MATCHER):
             censor_messages = False
         
         # Now also add the matches messages
         # And the chat with that user
-        representation['messages'] = serialize_messages_for_matching(instance, representation, censor_messages=censor_messages)
+        include_messages = False
+        if ('request' in self.context) and self.context['request'].query_params.get('messages', False) == "include":
+            include_messages = True
+        if ('messages' in self.context) and self.context['messages']:
+            include_messages = True
+        
+        if include_messages:    
+            representation['messages'] = serialize_messages_for_matching(instance, representation, censor_messages=censor_messages)
 
         # Also get the email logs
         email_logs = get_paginated(EmailLog.objects.filter(receiver=instance), 10, 1)
@@ -322,9 +338,9 @@ def get_user_with_message_to_admin():
     # TODO: in the future each staff mover has to be filtered here individually
     
     from django.db.models import Subquery, OuterRef, Count
-    admin_pk = controller.get_base_management_user().pk
-    unread_messages = MessageModel.objects.filter(
-        recipient_id=admin_pk,
+    admin = controller.get_base_management_user()
+    unread_messages = Message.objects.filter(
+        recipient=admin,
         read=False
     )
     unread_senders_ids = unread_messages.values("sender")
@@ -333,14 +349,14 @@ def get_user_with_message_to_admin():
 
 def get_user_with_message_to_admin_that_are_read_but_not_replied():
     from django.db.models import Subquery, OuterRef, Count, F
-    admin_pk = controller.get_base_management_user().pk
+    admin_pk = controller.get_base_management_user()
 
     # All dialogs with the management user
-    dialogs_with_the_management_user = DialogsModel.objects.filter(
-        Q(user1=admin_pk) | Q(user2=admin_pk)
+    dialogs_with_the_management_user = Chat.objects.filter(
+        Q(u1=admin_pk) | Q(u2=admin_pk)
     )
     
-    last_message_per_user = MessageModel.objects.filter(
+    last_message_per_user = Message.objects.filter(
         # Message was sent by the user and received by the admin
         (Q(sender_id=OuterRef('id'), recipient_id=admin_pk) 
         # OR Message was sent by the admin and received by the user
@@ -353,9 +369,9 @@ def get_user_with_message_to_admin_that_are_read_but_not_replied():
 
     ).filter(
         # The last message was sent to the management user AND has been read
-        Q(last_message_id__in=MessageModel.objects.filter(sender_id=F('id'), recipient_id=admin_pk, read=True)) 
+        Q(last_message_id__in=Message.objects.filter(sender_id=F('id'), recipient_id=admin_pk, read=True)) 
         # OR The last message was from the management user AND has not been read
-        | Q(last_message_id__in=MessageModel.objects.filter(sender_id=admin_pk, recipient_id=F('id'), read=False))
+        | Q(last_message_id__in=Message.objects.filter(sender_id=admin_pk, recipient_id=F('id'), read=False))
     )
 
     return users_in_dialog_with_management_user    
@@ -381,7 +397,7 @@ def get_active_match_query_set():
     four_weeks_ago = timezone.now() - timedelta(weeks=4)
 
     # Get distinct users from sender and recipient fields in MessageModel
-    senders = MessageModel.objects.filter(created__gte=four_weeks_ago).values_list('sender', flat=True).distinct()
+    senders = Message.objects.filter(created__gte=four_weeks_ago).values_list('sender', flat=True).distinct()
 
 
     # Now you have the users who have sent a message within the last 4 weeks
@@ -394,7 +410,7 @@ def get_quality_match_querry_set():
     from django.db.models import Subquery, OuterRef, Count
 
     # Create a subquery object to annotate the match with msg_count
-    sq = MessageModel.objects.filter(
+    sq = Message.objects.filter(
         Q(sender=OuterRef('user1'), recipient=OuterRef('user2')) | 
         Q(sender=OuterRef('user2'), recipient=OuterRef('user1'))
     ).values('sender')
@@ -612,12 +628,13 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
                 "msg": "You are not allowed to access this user!"
             }, status=401)
             
+            
         # Now we can check if the user has unread messages from that user
-        from chat_old.django_private_chat2.models import MessageModel
-        messages = MessageModel.get_messages_for_dialog(request.user, obj)
-        print("Filtered messages", messages)
+        message = Message.objects.get(
+            uuid=message_id
+        )
+        print("Filtered messages", message)
 
-        message = messages.get(id=message_id)
         message.read = True
         message.save()
 
@@ -633,7 +650,7 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
 
         return Response(AdvancedAdminUserSerializer(
             obj,
-            context={'request': request}
+            context={'request': request, 'messages': True}
         ).data['messages'])
         
     @action(detail=True, methods=['get'])
@@ -678,7 +695,7 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
             
         message = obj.message(request.data['message'], sender=request.user)
         
-        serialized = serialize_message_model(message, obj.pk)
+        serialized = MessageSerializer(message).data
 
         return Response(serialized)
     
@@ -891,17 +908,10 @@ def admin_panel_v2(request, menu="root"):
         
         user_viewset = make_user_viewset(get_staff_queryset(query_set, request), items_per_page=items_per_page)
         
-        user_lists = {}
-        user_lists[query_set] = user_viewset.emulate(request).list()
-        
-        if not ("all" in user_lists):
-            all_viewset = make_user_viewset(get_staff_queryset("all", request), items_per_page=items_per_page)
-            user_lists["all"] = all_viewset.emulate(request).list()
-            
 
         return render(request, "admin_pannel_v2_frontend.html", { "data" : json.dumps({
             "query_sets": QuerySetEnum.as_dict(),
-            "user_lists": user_lists,
+            "user_lists": {},
         },cls=DjangoJSONEncoder, default=lambda o: str(o))})
     else:
         return render(request, "admin_pannel_v2_frontend.html", { "data" : json.dumps(default_admin_data(request.user), cls=DjangoJSONEncoder, default=lambda o: str(o))})
