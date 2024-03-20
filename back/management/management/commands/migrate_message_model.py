@@ -1,9 +1,9 @@
-
 from django.core.management.base import BaseCommand
 import json
 from bs4 import BeautifulSoup
 from chat_old.django_private_chat2.models import DialogsModel, MessageModel
 from chat.models import Chat, Message
+import json
 
 def transfor_old_to_new_messageformat(message_text):
     soup = BeautifulSoup(message_text, "html.parser")
@@ -79,27 +79,35 @@ class Command(BaseCommand):
         print(f"Found {matching_users.count()} matching users who's messages will be specificly transformed")
         
         c = 0
+        unmigrated = []
         for message in messages_old:
             message_text = message.text
-            chat = Chat.get_chat([message.sender, message.recipient])
+            try:
+                chat = Chat.get_chat([message.sender, message.recipient])
 
-            if str(message.sender.id) in [str(x) for x in list(matching_users)]:
-                print("Matching users message found transforming format")
-                message_text = transfor_old_to_new_messageformat(message_text)
+                if str(message.sender.id) in [str(x) for x in list(matching_users)]:
+                    print("Matching users message found transforming format")
+                    message_text = transfor_old_to_new_messageformat(message_text)
 
-            message_new = Message.objects.create(
-                chat=chat,
-                sender=message.sender,
-                text=message_text,
-                recipient_notified=True, # Default 'true' for all messages so body is notified double
-                recipient=message.recipient,
-                read=message.read,
-            )
-            # Have to modify the 'created' field after as it would otherwise
-            message_new.created = message.created
-            message_new.save()
+                message_new = Message.objects.create(
+                    chat=chat,
+                    sender=message.sender,
+                    text=message_text,
+                    recipient_notified=True, # Default 'true' for all messages so body is notified double
+                    recipient=message.recipient,
+                    read=message.read,
+                )
+                # Have to modify the 'created' field after as it would otherwise
+                message_new.created = message.created
+                message_new.save()
+            except Exception as e:
+                unmigrated.append({"sender":message.sender.email, "recipient": message.recipient.email, "text": message.text, "read": message.read, "created": str(message.created)})
+                print(f"\n\n=====> ERROR creating Message for chat:\n\n{message.sender.email} >>> {message.recipient.email}\n\n{e}")
+
+                with open("unmigrated.json", "w+") as f:
+                    json.dump(unmigrated, f)
             c += 1
-            print(f"Created message {c}/{counts['messages']}")
+            print(f"Created message {c}/{counts['messages']} (chat: {message.sender.email}->{message.recipient.email}")
         print(f"Created {c} messages")
         
         print(f"Messages before {counts['messages']} and after {Message.objects.all().count()}")
@@ -116,4 +124,3 @@ class Command(BaseCommand):
             #print(f"Deleting All old messages")
         else:
             print(f"Did not delete old messages")
-        
