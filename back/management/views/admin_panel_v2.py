@@ -269,13 +269,21 @@ class AdvancedAdminUserSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         representation = update_representation(representation, instance)
         
+        
         censor_messages = True
         if ('request' in self.context) and self.context['request'].user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.UNCENSORED_ADMIN_MATCHER):
             censor_messages = False
         
         # Now also add the matches messages
         # And the chat with that user
-        representation['messages'] = serialize_messages_for_matching(instance, representation, censor_messages=censor_messages)
+        include_messages = False
+        if ('request' in self.context) and self.context['request'].query_params.get('messages', False) == "include":
+            include_messages = True
+        if ('messages' in self.context) and self.context['messages']:
+            include_messages = True
+        
+        if include_messages:    
+            representation['messages'] = serialize_messages_for_matching(instance, representation, censor_messages=censor_messages)
 
         # Also get the email logs
         email_logs = get_paginated(EmailLog.objects.filter(receiver=instance), 10, 1)
@@ -642,7 +650,7 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
 
         return Response(AdvancedAdminUserSerializer(
             obj,
-            context={'request': request}
+            context={'request': request, 'messages': True}
         ).data['messages'])
         
     @action(detail=True, methods=['get'])
