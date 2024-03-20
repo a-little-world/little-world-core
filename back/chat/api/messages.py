@@ -40,10 +40,7 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         return super().list(request, *args, **kwargs)
     
     def get_queryset(self):
-        if not self.request.user.is_staff:
-            return Message.objects.filter(chat__in=Chat.get_chats(self.request.user)).order_by("created")
-        else:
-            return self.queryset
+        return Message.objects.filter(chat__in=Chat.get_chats(self.request.user)).order_by("created")
         
         
     @action(detail=True, methods=['post'])
