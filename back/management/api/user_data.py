@@ -130,28 +130,26 @@ def serialize_notifications(notifications):
 
     return serialized
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
 @extend_schema(
-    responses={
-        200: inline_serializer(
-            name="UserData",
-            fields={
-                "id": serializers.UUIDField(),
-                "status": serializers.CharField(),
-                "isSupport": serializers.BooleanField(),
-                "isSearching": serializers.BooleanField(),
-                "email": serializers.EmailField(),
-                "preMatchingAppointment": PreMatchingAppointmentSerializer(),
-                "calComAppointmentLink": serializers.CharField(),
-                "hadPreMatchingCall": serializers.BooleanField(),
-                "emailVerified": serializers.BooleanField(),
-                "userFormCompleted": serializers.BooleanField(),
-                "profile": SelfProfileSerializer(),
-            }
-        )
-    }
+    responses=inline_serializer(
+        name="UserData",
+        fields={
+            "id": serializers.UUIDField(),
+            "status": serializers.CharField(),
+            "isSupport": serializers.BooleanField(),
+            "isSearching": serializers.BooleanField(),
+            "email": serializers.EmailField(),
+            "preMatchingAppointment": PreMatchingAppointmentSerializer(required=False),
+            "calComAppointmentLink": serializers.CharField(),
+            "hadPreMatchingCall": serializers.BooleanField(),
+            "emailVerified": serializers.BooleanField(),
+            "userFormCompleted": serializers.BooleanField(),
+            "profile": SelfProfileSerializer(),
+        }
+    ),
 )
+@permission_classes([IsAuthenticated])
+@api_view(['GET'])
 def user_data_api(request):
     return Response(user_data(request.user))
 

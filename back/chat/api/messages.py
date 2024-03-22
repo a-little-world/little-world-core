@@ -1,7 +1,7 @@
 from rest_framework import serializers, viewsets
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
-from chat.models import Message, MessageSerializer, Chat
+from chat.models import ChatSerializer, Message, MessageSerializer, Chat
 from rest_framework.pagination import PageNumberPagination
 from chat.api.viewsets import UserStaffRestricedModelViewsetMixin, DetailedPaginationMixin
 from rest_framework.decorators import action
@@ -15,8 +15,6 @@ class StandardResultsSetPagination(PageNumberPagination):
     
 class SendMessageSerializer(serializers.Serializer):
     text = serializers.CharField()
-
-
 
 class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelViewSet):
     """
@@ -42,10 +40,7 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         return super().list(request, *args, **kwargs)
     
     def get_queryset(self):
-        if not self.request.user.is_staff:
-            return Message.objects.filter(chat__in=Chat.get_chats(self.request.user)).order_by("created")
-        else:
-            return self.queryset
+        return Message.objects.filter(chat__in=Chat.get_chats(self.request.user)).order_by("created")
         
         
     @action(detail=True, methods=['post'])
@@ -61,6 +56,33 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         obj.read = True
         obj.save()
         return Response(self.serializer_class(obj).data, status=200)
+    
+    
+    @extend_schema(request=SendMessageSerializer)
+    @action(detail=False, methods=['post'])
+    def chat_read(self, request, chat_uuid=None):
+        if not chat_uuid:
+            return Response({'error': 'chat_uuid is required'}, status=400)
+
+        chat = Chat.objects.filter(uuid=chat_uuid)
+        if not chat.exists():
+            return self.resp_chat_403
+        chat = chat.first()
+        if not chat.is_participant(request.user):       
+            return self.resp_chat_403
+        
+        partner = chat.get_partner(request.user)
+        
+        messages = chat.get_messages().filter(read=False, recipient=request.user)
+        messages.update(read=True)
+        
+        from chat.consumers.messages import MessagesReadChat
+        MessagesReadChat(
+            user_id=request.user.hash, # all messages with receiver=user.hash will be marked 'read'
+            chat_id=chat.uuid
+        ).send(partner.hash)
+        
+        return Response({'status': 'ok'}, status=200)
 
         
     @extend_schema(request=SendMessageSerializer)
@@ -89,8 +111,14 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         
         serialized_message = self.serializer_class(message).data
         
-        #TODO: re-integrate callbacks
-        #callbacks.message_incoming(request.user, message)
-        #callbacks.message_send(partner, message)
+        from chat.consumers.messages import NewMessage, MessageTypes
+        
+        NewMessage(
+            message=serialized_message,
+            chat_id=chat.uuid,
+            meta_chat_obj=ChatSerializer(chat, context={
+                'request': request,               
+            }).data
+        ).send(partner.hash)
         
         return Response(serialized_message, status=200)

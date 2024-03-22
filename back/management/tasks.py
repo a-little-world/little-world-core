@@ -119,6 +119,50 @@ Selbst habe ich vier Jahre im Ausland gelebt, von Frankreich bis nach China. Den
     return "sucessfully filled base management user profile"
 
 @shared_task
+def send_new_message_notifications():
+    from management.models.user import User
+    from chat.models import Message
+    from django.conf import settings
+    from emails import mails
+    
+    # 1 - get all unitified messages
+    unnotified_messages = Message.objects.filter(
+        recipient_notified=False
+    )
+    
+    # 2 - mark all 'read' unnotified messages as 'notified'
+    read_unnotified_messages = unnotified_messages.filter(
+        read=True
+    )
+    read_unnotified_messages.update(
+        recipient_notified=True
+    )
+    
+    # 3 - getall 'unread' & 'unnofified' messages and get all recipients
+    unread_unnotified_messages = unnotified_messages.filter(
+        read=False
+    )
+    recipients_to_notify = unread_unnotified_messages.values_list('recipient', flat=True).distinct()
+    
+    # 4 - send notifications to users
+    send_emails = not (settings.IS_STAGE or settings.IS_DEV)
+    if send_emails:
+        for u in User.objects.filter(id__in=recipients_to_notify):
+            u.send_email(
+                subject=pgettext_lazy(
+                    "tasks.unread-notifications-email-subject", "Neue Nachricht(en) auf Little World"),
+                mail_data=mails.get_mail_data_by_name("new_messages"),
+                mail_params=mails.NewUreadMessagesParams(
+                    first_name=u.profile.first_name,
+                )
+            )
+    
+    # 5 - mark all unnotified messages as 'notified'
+    unread_unnotified_messages.update(
+        recipient_notified=True
+    )
+
+@shared_task
 def fill_base_management_user_tim_profile():
     if BackendState.is_base_management_user_profile_filled(set_true=True):
         return  # Allready filled base management user profile
@@ -146,157 +190,6 @@ I'll take the time to answer all your messages but I might take a little time to
     usr.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.MATCHING_USER)
     usr.state.save()
     usr.profile.save()
-
-
-@shared_task
-def send_new_message_notifications_all_users(
-    filter_out_base_user_messages=False,
-    do_send_emails=True,
-    do_write_new_state_to_db=True,
-    send_only_if_logged_in_withing_last_3_weeks=False
-):
-    """
-    First we need to caluculate how many new messages per chat there are
-    Then we check if this are more unread messages than before
-    """
-    from django.conf import settings
-    from back.utils import CoolerJson
-    # user = controller.get_user_by_hash(user_hash)
-    from chat_old.django_private_chat2.models import MessageModel, DialogsModel
-    from . import controller
-    from emails import mails
-    from management.models.user import User
-
-    if settings.IS_STAGE or settings.IS_DEV:
-        return "Not caluculating or sending new messages cause in dev or in staging environment"
-
-    def is_dialog_in_old_unread_stack(dialog_id, old_unread_stack):
-        for urstd in old_unread_stack:
-            if urstd["dialog_id"] == dialog_id:
-                return urstd
-        return None
-
-    base_management_user = controller.get_base_management_user()
-    # test1_user = controller.get_user_by_email("test1@user.de")
-    users_to_send_update_to = []
-    users_to_old_unread_stack = {}
-    users_to_new_unread_stack = {}
-
-    users = User.objects.all()
-    # users = users.filter(email="jimmyhendrix1024@gmail.com")
-    print("Prefiltered users", users.count())
-    for user in users:
-        print("==== checking ===> ", user.email, user.hash)
-        dialogs = DialogsModel.get_dialogs_for_user_as_object(user)
-        print("DIAZZZ", dialogs)
-        new_unread_stack = []
-        for dialog in dialogs:
-
-            other_user = dialog.user1 if dialog.user1 != user else dialog.user2
-            print("THE other guy is", other_user.email)
-
-            unread = MessageModel.get_unread_count_for_dialog_with_user(
-                other_user, user)
-            last_message = MessageModel.get_last_message_object_for_dialog(
-                dialog.user1, dialog.user2)
-            if last_message is None:
-                print("WARN, mesasge object empty")
-                continue
-            print("UNREAD OF THAT", unread, last_message.text)
-
-            if unread > 0:
-
-                urstd = {
-                    "unread_count": unread,
-                    "dialog_id": dialog.id,
-                    "other_user_hash": user.hash,
-                    "last_message_id": last_message.id,
-                }
-
-                if filter_out_base_user_messages and base_management_user.hash == other_user.hash:
-                    print("Not added since from base admin", urstd)
-                else:
-                    new_unread_stack.append(urstd)
-                    print("updated unread", urstd)
-                    print("\n NEW UNREAD STATE", new_unread_stack, "\n")
-
-        # Now we can load the old unread stack
-        print("Checking last unread state", user.state.unread_messages_state)
-        current_unread_state = user.state.unread_messages_state
-        users_to_old_unread_stack[user.email] = current_unread_state
-        print("SCANNING OLD STATES: \n")
-
-        new_unread_stack_copy = new_unread_stack.copy()
-        for unread_state in new_unread_stack:
-            print("\nNEW DIA", unread_state, "\n")
-            old_dialog = is_dialog_in_old_unread_stack(
-                unread_state["dialog_id"], current_unread_state)
-
-            if old_dialog is None:
-                # Then we know this is definately a new dialog, we need to notifiy about
-                print("Completely new dialog unread state", unread_state)
-            else:
-                print("OLD DIA ", old_dialog)
-                if old_dialog["last_message_id"] != unread_state["last_message_id"]:
-                    # Then we know there is another new mesasage in a disalog we need to notify about
-                    # So wee need to delete the old dialog refernce in the current model
-                    current_unread_state.remove(old_dialog)
-                    print(
-                        "Found new unread state for dialog that already had unreads", unread_state)
-                else:
-                    # Then this is not a new unread message so we need to remove it from the stack
-                    print("Found old unread state",
-                          unread_state, ", removing...")
-                    print("\nBREFORE DELETE", new_unread_stack)
-                    new_unread_stack_copy.remove(unread_state)
-                    print("\nAFTER DELETE", new_unread_stack_copy, "\n")
-
-        new_unread_stack = new_unread_stack_copy
-        print("\n UNREAD AFTER", new_unread_stack, "\n")
-
-        print("Filtered for new unread states: ",
-              new_unread_stack, current_unread_state)
-        users_to_new_unread_stack[user.email] = new_unread_stack
-        if do_write_new_state_to_db:
-            user.state.unread_messages_state = current_unread_state + new_unread_stack
-            user.state.save()
-            print("Saved updated state", user.state.unread_messages_state)
-        if len(new_unread_stack) > 0:
-            # Now we can sendout the notifications email
-            print("\n\nSEND update to", user.email, user.hash)
-            if send_only_if_logged_in_withing_last_3_weeks:
-                from django.utils import timezone
-                today = timezone.now()
-                tree_weeks = timedelta(days=7*3)
-                tree_weeks_ago = today - tree_weeks
-                if user.last_login < tree_weeks_ago:
-                    print("WARN, user not logged in for 3 weeks")
-                    continue
-                else:
-                    users_to_send_update_to.append(user)
-            else:
-                users_to_send_update_to.append(user)
-
-    for u in users_to_send_update_to:
-        print("Notifying ", u.email)
-        # do_send_emails:
-        if not (settings.IS_STAGE or settings.IS_DEV) and do_send_emails:
-            u.send_email(
-                subject=pgettext_lazy(
-                    "tasks.unread-notifications-email-subject", "Neue Nachricht(en) auf Little World"),
-                mail_data=mails.get_mail_data_by_name("new_messages"),
-                mail_params=mails.NewUreadMessagesParams(
-                    first_name=u.profile.first_name,
-                )
-            )
-    print("Summary: ",
-          f"\namount notifications: {len(users_to_send_update_to)}")
-    import json
-    return {
-        "emailed_users": [u.email for u in users_to_send_update_to],
-        "stack": json.loads(json.dumps(users_to_new_unread_stack, cls=CoolerJson)),
-        "stack_old": json.loads(json.dumps(users_to_old_unread_stack, cls=CoolerJson))
-    }
 
 
 @shared_task
