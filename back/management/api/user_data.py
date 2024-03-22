@@ -4,6 +4,7 @@ from copy import deepcopy
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 from rest_framework.decorators import api_view, permission_classes, authentication_classes, throttle_classes
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+from chat.models import ChatConnections
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from rest_framework_dataclasses.serializers import DataclassSerializer
 from chat.models import ChatSerializer, Chat, ChatInModelSerializer
@@ -69,22 +70,24 @@ def get_paginated(query_set, items_per_page, page):
         "itemsPerPage": items_per_page,
         "currentPage": page,
     }
-
-def serialize_matches(matches, user):
-    serialized = []
-    for match in matches:
-
-        partner = match.get_partner(user)
-
-        # Check if the partner is online
-        from chat.models import ChatConnections
-        is_online = ChatConnections.is_user_online(partner)
+    
+class AdvancedUserMatchSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Match
+        fields = ['uuid']
         
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        assert 'user' in self.context, "User must be passed in context"
+        user = self.context['user']
+        partner = instance.get_partner(user)
+
+        is_online = ChatConnections.is_user_online(partner)
         chat = Chat.get_or_create_chat(user, partner)
         chat_serialized = ChatInModelSerializer(chat, context={'user': user}).data
-
-        serialized.append({
-            "id": str(match.uuid),
+        
+        representation = {
+            "id": str(instance.uuid),
             "chat": {
                 **chat_serialized
             },
@@ -94,10 +97,9 @@ def serialize_matches(matches, user):
                 "isOnline": is_online,
                 "isSupport": partner.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER) or partner.is_staff,
                 **CensoredProfileSerializer(partner.profile).data
-            }
-        })
-
-    return serialized
+            },
+        }
+        return representation
 
 def serialize_proposed_matches(matching_proposals, user):
     serialized = []
@@ -165,7 +167,7 @@ def user_data(user):
 
     
     support_matches = get_paginated(Match.get_support_matches(user), 10, 1)
-    support_matches["items"] = serialize_matches(support_matches["items"], user)
+    support_matches["items"] = AdvancedUserMatchSerializer(support_matches["items"], many=True, context={'user': user}).data
     
     
     cal_data_link = "{calcom_meeting_id}?{encoded_params}".format(first_name=user.profile.first_name,encoded_params=urllib.parse.urlencode({
@@ -212,13 +214,13 @@ def frontend_data(user, items_per_page=10, request=None):
     community_events["items"] = serialize_community_events(community_events["items"])
 
     confirmed_matches = get_paginated(Match.get_confirmed_matches(user), items_per_page, 1)
-    confirmed_matches["items"] = serialize_matches(confirmed_matches["items"], user)
+    confirmed_matches["items"] = AdvancedUserMatchSerializer(confirmed_matches["items"], many=True, context={'user': user}).data
 
     unconfirmed_matches = get_paginated(Match.get_unconfirmed_matches(user), items_per_page, 1)
-    unconfirmed_matches["items"] = serialize_matches(unconfirmed_matches["items"], user)
+    unconfirmed_matches["items"] = AdvancedUserMatchSerializer(unconfirmed_matches["items"], many=True, context={'user': user}).data
 
     support_matches = get_paginated(Match.get_support_matches(user), items_per_page, 1)
-    support_matches["items"] = serialize_matches(support_matches["items"], user)
+    support_matches["items"] = AdvancedUserMatchSerializer(support_matches["items"], many=True, context={'user': user}).data
 
     proposed_matches = get_paginated(UnconfirmedMatch.get_open_proposals(user), items_per_page, 1)
     proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
@@ -341,10 +343,11 @@ class ConfirmedDataApi(APIView):
             )
 
             # Serialize matches data for the user
-            confirmed_matches["items"] = serialize_matches(
+            confirmed_matches["items"] = AdvancedUserMatchSerializer(
                 confirmed_matches["items"],
-                request.user
-            )
+                many=True,
+                context={'user': request.user}
+            ).data
 
         except Exception as e:
             return Response({"code":400, "error": "Page not Found"}, status=status.HTTP_400_BAD_REQUEST)
