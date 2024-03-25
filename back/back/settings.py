@@ -81,6 +81,10 @@ LANDINGPAGE_REDIRECT_URL = os.environ.get("DJ_LANDINGPAGE_REDIRECT_URL", "https:
 USE_LANDINGPAGE_PLACEHOLDER = os.environ.get("DJ_USE_LANDINGPAGE_PLACEHOLDER", "true").lower() in ('true', '1', 't')
 LANDINGPAGE_PLACEHOLDER_TITLE = os.environ.get("DJ_LANDINGPAGE_PLACEHOLDER_TITLE", "Little World")
 
+LIVEKIT_API_KEY = os.environ.get("DJ_LIVEKIT_API_KEY", "")
+LIVEKIT_API_SECRET = os.environ.get("DJ_LIVEKIT_API_SECRET", "")
+LIVEKIT_WEBHOOK_SECRET = os.environ.get("DJ_LIVEKIT_WEBHOOK_SECRET", "")
+
 if IS_PROD and 'K8_POD_IP' in os.environ:
     # So that we can further restrict access to the depoloyment kubernetes node
     ALLOWED_HOSTS.append(os.environ['K8_POD_IP'])
