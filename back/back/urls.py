@@ -30,6 +30,7 @@ urlpatterns = [
     path('', include('emails.urls')),
     path('', include('chat.urls')),
     path('', include('tracking.urls')),
+    path('', include('video.urls')),
 ]
 
 from tbs_django_auto_reload.api import urlpatters as auto_reload_urlpatters
