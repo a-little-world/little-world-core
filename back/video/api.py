@@ -4,9 +4,13 @@ from rest_framework.authentication import SessionAuthentication
 from video.models import LiveKitRoom
 from management.models.user import User
 from rest_framework.response import Response
+from rest_framework import serializers
 from django.conf import settings
 from dataclasses import dataclass
 from livekit import api as livekit_api
+from django.urls import path
+from drf_spectacular.utils import extend_schema
+from rest_framework_dataclasses.serializers import DataclassSerializer
 import asyncio
 
 @api_view(['POST'])
@@ -16,9 +20,8 @@ def livekit_webhook(request):
     assert request.query_params["secret"] == settings.LIVEKIT_WEBHOOK_SECRET, "Invalid secret"
     pass
 
-@dataclass
-class AuthenticateRoomParams:
-    partner_id: str
+class AuthenticateRoomParams(serializers.Serializer):
+    partner_id = serializers.CharField()
     
 async def create_livekit_room(room_name):
     lkapi = livekit_api.LiveKitAPI(
@@ -29,9 +32,13 @@ async def create_livekit_room(room_name):
         room_info = await lkapi.room.create_room(
             livekit_api.CreateRoomRequest(name=room_name),
         )
-        print("Created room that didn't exist:", room_name)
+        print("Created room that didn't exist:", room_name, room_info)
     await lkapi.aclose()
 
+@extend_schema(
+    request=AuthenticateRoomParams(many=False),
+    responses={200: {"token": "string"}}
+)
 @api_view(['POST'])
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -60,4 +67,8 @@ def authenticate_live_kit_room(request):
 
     return Response({"token": str(token)})
 
+api_urls = [
+    path('api/livekit/authenticate', authenticate_live_kit_room),
+    path('api/livekit/webhook', livekit_webhook),
+]
 
