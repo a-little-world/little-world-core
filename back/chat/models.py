@@ -80,13 +80,15 @@ class ChatSerializer(serializers.ModelSerializer):
         if 'request' in self.context:
             user = self.context['request'].user
             partner = instance.get_partner(user)
-            profile = management_models.profile.ProfileSerializer(partner.profile).data
-            username = partner.username
-            profile['uuid'] = partner.hash
+            profile = management_models.profile.MinimalProfileSerializer(partner.profile).data
             representation['partner'] = profile
-            representation['partner']['username'] = username
+            representation['partner']['id'] = partner.hash
+
             del representation['u1']
             del representation['u2']
+
+            representation['unread_count'] = instance.get_unread_count(user)
+            representation['newest_message'] = MessageSerializer(instance.get_newest_message()).data
         else:
             representation['u1'] = instance.u1.hash
             representation['u2'] = instance.u2.hash
@@ -102,6 +104,8 @@ class Message(models.Model):
     
     sender = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="message_sender")
     recipient = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="message_recipient")
+    
+    recipient_notified = models.BooleanField(default=False)
     
     text = models.TextField()
     
@@ -119,6 +123,12 @@ class MessageSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation['sender'] = instance.sender.hash
+
+        from management.models.state import State
+        sender_staff = instance.sender.is_staff or instance.sender.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+        
+        if sender_staff:
+            representation['parsable'] = True
         
         return representation
     

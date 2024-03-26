@@ -1,9 +1,15 @@
 from enum import Enum
 import json
+from typing import Optional
 from back.utils import CoolerJson
 from dataclasses import dataclass
 from channels.layers import get_channel_layer
 from asgiref.sync import sync_to_async, async_to_sync
+from dataclasses import dataclass, asdict, fields, MISSING
+from rest_framework.decorators import api_view, permission_classes
+from management.views.admin_panel_v2 import IsAdminOrMatchingUser
+from rest_framework.response import Response
+
 
 class MessageTypes(Enum):
     no_type = "no_type"
@@ -14,7 +20,10 @@ class MessageTypes(Enum):
     block_incoming_call = "block_incoming_call"
     new_incoming_call = "new_incoming_call"
     new_message = "new_message"
+    messages_read_chat = "messages_read_chat"
     pre_matching_appointment_booked = "pre_matching_appointment_booked"
+    
+    
     
 def send_message(user_id, type: MessageTypes, data):
     channel_layer = get_channel_layer()
@@ -142,3 +151,82 @@ class PreMatchingAppointmentBooked(MessageBase):
             "action": "preMatchingAppointmentBooked", 
             "payload": self.appointment
         }
+        
+@dataclass
+class MessagesReadChat(MessageBase):
+    chat_id: str
+    user_id: str
+    type: str = MessageTypes.messages_read_chat.value
+    
+    def build_redux_action(self):
+        return {
+            "action": "markChatMessagesRead", 
+            "payload": {
+                "chatId": self.chat_id,
+                "userId": self.user_id
+            }
+        }
+        
+@dataclass
+class NewMessage(MessageBase):
+    message: dict
+    chat_id: str
+    meta_chat_obj: Optional[dict] = None # holds additional 'chatObject' such that the frontend can hidrate it if it's not present
+    type: str = MessageTypes.new_message.value
+    
+    def build_redux_action(self):
+        return {
+            "action": "addMessage", 
+            "payload": {
+                "message": self.message,
+                "chatId": self.chat_id,
+                "metaChatObj": self.meta_chat_obj
+            }
+        }
+
+CALLBACKS = {
+    MessageTypes.user_went_online.value: OutUserWentOnline,
+    MessageTypes.user_went_offline.value: OutUserWentOffline,
+    MessageTypes.match_proposal_added.value: InMatchProposalAdded,
+    MessageTypes.unconfirmed_match_added.value: InUnconfirmedMatchAdded,
+    MessageTypes.block_incoming_call.value: InBlockIncomingCall,
+    MessageTypes.new_incoming_call.value: InNewIncomingCall,
+    MessageTypes.pre_matching_appointment_booked.value: PreMatchingAppointmentBooked,
+    MessageTypes.new_message.value: NewMessage,
+    MessageTypes.messages_read_chat.value: MessagesReadChat
+}
+        
+@api_view(['POST'])
+@permission_classes([IsAdminOrMatchingUser])
+def send_test_callback(request, callback_name, user_id):
+    params = request.data
+    callback = CALLBACKS[callback_name]
+    callback(**params).send(user_id)
+    from management.controller import get_user_by_hash
+    try:
+        get_user_by_hash(user_id)
+    except:
+        return Response({"status": "error", "message": "User not found"}, status=404)
+    return Response({"status": "ok"})
+    
+@api_view(['GET'])
+@permission_classes([IsAdminOrMatchingUser])
+def get_all_websocket_callback_messsages(request):
+    
+    def extract_annotations(class_obj):
+        annotations = {field.name: {
+            "type" : field.type.__name__,
+            "default": field.default if field.default != MISSING else None,
+        } for field in fields(class_obj)}
+        return annotations
+    
+    
+    annotations = {key: extract_annotations(CALLBACKS[key]) for key, callback in CALLBACKS.items()}
+
+    list_annotations = []
+    for key in annotations:
+        list_annotations.append({
+            "type": key,
+            "fields": annotations[key]
+        })
+    return Response(list_annotations)
