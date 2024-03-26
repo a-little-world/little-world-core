@@ -14,7 +14,7 @@ class Command(BaseCommand):
         
         c = 0
         for maching in all_matches:
-            room = LiveKitRoom.objects.filter(Q(u1=maching.user1) | Q(u2=maching.user2))
+            room = LiveKitRoom.objects.filter(Q(u1=maching.user1 , u2=maching.user2) | Q(u1=maching.user2 , u2=maching.user1))
             print(f"( {c}/{total} ) Checking match {maching.uuid}...")
             if not room.exists():
                 room = LiveKitRoom.objects.create(

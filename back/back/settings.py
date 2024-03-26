@@ -84,6 +84,7 @@ LANDINGPAGE_PLACEHOLDER_TITLE = os.environ.get("DJ_LANDINGPAGE_PLACEHOLDER_TITLE
 LIVEKIT_API_KEY = os.environ.get("DJ_LIVEKIT_API_KEY", "")
 LIVEKIT_API_SECRET = os.environ.get("DJ_LIVEKIT_API_SECRET", "")
 LIVEKIT_WEBHOOK_SECRET = os.environ.get("DJ_LIVEKIT_WEBHOOK_SECRET", "")
+LIVEKIT_URL = os.environ.get("DJ_LIVEKIT_URL", "")
 
 if IS_PROD and 'K8_POD_IP' in os.environ:
     # So that we can further restrict access to the depoloyment kubernetes node

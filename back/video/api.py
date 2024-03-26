@@ -25,9 +25,17 @@ class AuthenticateRoomParams(serializers.Serializer):
     
 async def create_livekit_room(room_name):
     lkapi = livekit_api.LiveKitAPI(
-        settings.LIVEKIT_URL
+        url=settings.LIVEKIT_URL,
+        api_key=settings.LIVEKIT_API_KEY,
+        api_secret=settings.LIVEKIT_API_SECRET
     )
     results = await lkapi.room.list_rooms(livekit_api.ListRoomsRequest())
+    print("Rooms:", results, )
+    
+async def other(room_name):
+    lkapi = livekit_api.LiveKitAPI(
+        settings.LIVEKIT_URL,
+    )
     if not room_name in [room.name for room in results.rooms]: 
         room_info = await lkapi.room.create_room(
             livekit_api.CreateRoomRequest(name=room_name),
@@ -52,7 +60,9 @@ def authenticate_live_kit_room(request):
     livekit_room = LiveKitRoom.get_room(user, partner)
     
     # 3 make sure the livekit room is active
-    asyncio.get_event_loop().run_until_complete(create_livekit_room(str(livekit_room.uuid)))
+    loop = asyncio.new_event_loop()
+    loop.run_until_complete(create_livekit_room(str(livekit_room.uuid)))
+    loop.close()
     
     # 4 - generate autenticaton token
     token = livekit_api.AccessToken(
