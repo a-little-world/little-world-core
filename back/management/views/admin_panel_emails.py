@@ -9,6 +9,7 @@ from back.utils import dataclass_as_dict
 from back.utils import _api_url
 from django.urls import path, re_path
 from dataclasses import dataclass, asdict, fields, MISSING
+from management.models.user import User
 from back.utils import CoolerJson
 import json
 
@@ -70,24 +71,40 @@ def send_email_rendered(request, template_name=None):
         return Response(status=status.HTTP_404_NOT_FOUND)
     
     subject, receiver = request.data.get("subject"), request.data.get("receiver")
+    receivers = receiver.split(",")
     
     del request.data["subject"]
     del request.data["receiver"]
     
     from emails.mails import send_email, get_mail_data_by_name
     
-    mail_data = get_mail_data_by_name(template_name)
-    params = mail_data.params(**request.data)
+    send_emails = []
     
-    send_email(
-        recivers=[receiver],
-        subject=subject,
-        mail_data=mail_data,
-        mail_params=params
-    )
+    for to in receivers:
+        mail_params_data = request.data
+        if 'first_name' in mail_params_data:
+            mail_params_data['first_name'] = User.objects.get(email=to).profile.first_name
+    
+        mail_data = get_mail_data_by_name(template_name)
+        params = mail_data.params(**mail_params_data)
+    
+        send_email(
+            recivers=[to],
+            subject=subject,
+            mail_data=mail_data,
+            mail_params=params
+        )
+        
+        send_emails.append({
+            "to": to,
+            "subject": subject,
+            "template": template_name,
+            "params": mail_params_data.copy()
+        })
     return Response({
         "status": "ok",
-        "message": "Email sent"
+        "message": "Email sent",
+        "info": send_emails
     })
     
 
