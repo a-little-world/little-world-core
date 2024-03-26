@@ -86,10 +86,10 @@ def send_email_rendered(request, template_name=None):
             mail_params_data['first_name'] = User.objects.get(email=to).profile.first_name
     
         mail_data = get_mail_data_by_name(template_name)
-        params = mail_data.params(**request.data)
+        params = mail_data.params(**mail_params_data)
     
         send_email(
-            recivers=[receivers],
+            recivers=[to],
             subject=subject,
             mail_data=mail_data,
             mail_params=params
@@ -99,7 +99,7 @@ def send_email_rendered(request, template_name=None):
             "to": to,
             "subject": subject,
             "template": template_name,
-            "params": mail_params_data
+            "params": mail_params_data.copy()
         })
     return Response({
         "status": "ok",
