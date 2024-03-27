@@ -1085,7 +1085,7 @@ class GermanImprovementBabbelInvitation:
     ---------> German Improvement with Babbel Code Email <---------------
     """
     subject_header_text: str = pgettext_lazy(
-        "email.german-improvement.subject-header-text", "Verbessere dein Deutsch mit einem kostenlosen 6-monatigen Babbel Code")
+        "email.german-improvement.subject-header-text", "Verbessere dein Deutsch mit einem kostenloser 6-monatiger Babbel Code")
     greeting: str = pgettext_lazy(
         'email.german-improvement.greeting',
         'Hallo {first_name},')
