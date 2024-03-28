@@ -69,7 +69,7 @@ def authenticate_live_kit_room(request):
         api_key=settings.LIVEKIT_API_KEY,
         api_secret=settings.LIVEKIT_API_SECRET
     ).with_identity(user.hash) \
-        .with_name(f"{user.profile.fist_name} {user.profile.second_name[:1]}") \
+        .with_name(f"{user.profile.first_name} {user.profile.second_name[:1]}") \
         .with_grants(livekit_api.VideoGrants(
             room_join=True,
             room=str(livekit_room.uuid),

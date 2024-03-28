@@ -5,6 +5,7 @@ e.g.: Creating a new user, sending a notification to a users etc...
 import urllib.parse
 from uuid import uuid4
 from django.utils import translation
+from django.db.models import Q
 from django.db import transaction
 from typing import Dict, Callable
 from management.models.unconfirmed_matches import UnconfirmedMatch
@@ -321,6 +322,7 @@ def match_users(
         send_email=True,
         create_dialog=True,
         create_video_room=True,
+        create_livekit_room=True,
         set_unconfirmed=True,
         set_to_idle=True):
     """ Accepts a list of two users to match """
@@ -357,6 +359,14 @@ def match_users(
         confirmed=is_support_matching, # if support matching always confimed = true prevents it from showing up in 'unconfirmed' initally 
         support_matching=is_support_matching
     )
+    
+    if create_livekit_room:
+        from video.models import LiveKitRoom
+        if not (LiveKitRoom.objects.filter(Q(u1=usr1, u2=usr2) | Q(u1=usr2, u2=usr1)).exists()):
+            LiveKitRoom.objects.create(
+                u1=usr1,
+                u2=usr2, 
+            )
 
     if create_dialog:
         # After the users are registered as matches
