@@ -1,24 +1,89 @@
 from rest_framework.decorators import api_view, permission_classes, authentication_classes, throttle_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import SessionAuthentication
-from video.models import LiveKitRoom
+from video.models import LiveKitRoom, LivekitSession, LivekitWebhookEvent
 from management.models.user import User
 from rest_framework.response import Response
-from rest_framework import serializers
+from rest_framework import serializers, request
+from rest_framework.request import Request
 from django.conf import settings
+from django.utils import timezone
 from dataclasses import dataclass
 from livekit import api as livekit_api
 from django.urls import path
 from drf_spectacular.utils import extend_schema
 from rest_framework_dataclasses.serializers import DataclassSerializer
+from django.views.decorators.csrf import csrf_exempt
+import json
+from django.http import JsonResponse
 import asyncio
 
-@api_view(['POST'])
-@authentication_classes([])
-@permission_classes([])
+@csrf_exempt
 def livekit_webhook(request):
-    assert request.query_params["secret"] == settings.LIVEKIT_WEBHOOK_SECRET, "Invalid secret"
-    pass
+    
+    print("Webhook received:", request)
+    data = json.loads(request.body)
+    print(data)
+    
+    event = LivekitWebhookEvent.objects.create(data=data)
+    
+    # Events to track: ['participant_joined', 'participant_left']
+    if data["event"] == "participant_joined":
+        # 1 - we determine the Room
+        room_id = data["room"]["name"]
+        room = LiveKitRoom.objects.get(uuid=room_id)
+    
+        # 2 - we determine the user that just joined
+        participant_id = data["participant"]["identity"]
+        user = User.objects.get(hash=participant_id)
+        
+        # 4 - we determine if a session is already active for that room
+        active_session = LivekitSession.objects.filter(room=room, is_active=True)
+        if active_session.exists():
+            session = active_session.first()
+            if user == room.u1:
+                session.u1_active = True
+                session.both_have_been_active = session.both_have_been_active or session.u2_active
+            elif user == room.u2:
+                session.u2_active = True
+                session.both_have_been_active = session.both_have_been_active or session.u1_active
+        else:
+            session = LivekitSession.objects.create(
+                room=room,
+                u1=room.u1,
+                u2=room.u2,
+                u1_active=(user == room.u1),
+                u2_active=(user == room.u2),
+            )
+        session.webhook_events.add(event)
+        session.save()
+        
+    if data["event"] == "participant_left":
+        # 1 - we determine the Room
+        room_id = data["room"]["name"]
+        room = LiveKitRoom.objects.get(uuid=room_id)
+    
+        # 2 - we determine the user that just joined
+        participant_id = data["participant"]["identity"]
+        user = User.objects.get(hash=participant_id)
+        
+        # 4 - we determine if a session is already active for that room
+        active_session = LivekitSession.objects.filter(room=room, is_active=True)
+        if active_session.exists():
+            session = active_session.first()
+            if user == room.u1:
+                session.u1_active = False
+            elif user == room.u2:
+                session.u2_active = False
+            if (not session.u1_active) and (not session.u2_active):
+                session.is_active = False
+                session.end_time = timezone.now()
+        session.webhook_events.add(event)
+        session.save()
+    
+    return JsonResponse({
+        "status": "ok"
+    })
 
 class AuthenticateRoomParams(serializers.Serializer):
     partner_id = serializers.CharField()
@@ -30,12 +95,7 @@ async def create_livekit_room(room_name):
         api_secret=settings.LIVEKIT_API_SECRET
     )
     results = await lkapi.room.list_rooms(livekit_api.ListRoomsRequest())
-    print("Rooms:", results, )
-    
-async def other(room_name):
-    lkapi = livekit_api.LiveKitAPI(
-        settings.LIVEKIT_URL,
-    )
+    print("Rooms:", results)
     if not room_name in [room.name for room in results.rooms]: 
         room_info = await lkapi.room.create_room(
             livekit_api.CreateRoomRequest(name=room_name),

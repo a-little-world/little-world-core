@@ -16,17 +16,29 @@ class LiveKitRoom(models.Model):
     def get_room(cls, user1, user2):
         return cls.objects.get(Q(u1=user1, u2=user2) | Q(u1=user2, u2=user1))
     
+class LivekitWebhookEvent(models.Model):
+    created_at = models.DateTimeField(auto_now_add=True)
+    data = models.JSONField()
 
 class LivekitSession(models.Model):
     
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
+    room = models.ForeignKey("video.LiveKitRoom", on_delete=models.CASCADE, related_name="livekit_session", null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
+    end_time = models.DateTimeField(null=True, blank=True)
     
-    start_time = models.DateTimeField()
-    end_time = models.DateTimeField()
+    # a session is created when a user first joins a specific room
+    # a session is 'stopped' when both participants have left the room
+    is_active = models.BooleanField(default=True)
+    
+    u1_active = models.BooleanField(default=False)
+    u2_active = models.BooleanField(default=False)
+    
+    both_have_been_active = models.BooleanField(default=False)
     
     u1 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u1_livekit_session")
     u2 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u2_livekit_session")
     
-    events = models.JSONField(default=list)
+    webhook_events = models.ManyToManyField("video.LivekitWebhookEvent", related_name="livekit_session")
     
