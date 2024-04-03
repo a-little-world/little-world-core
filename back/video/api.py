@@ -75,7 +75,10 @@ def authenticate_live_kit_room(request):
             room=str(livekit_room.uuid),
         )).to_jwt()
 
-    return Response({"token": str(token)})
+    return Response({
+        "token": str(token),
+        "server_url": settings.LIVEKIT_URL,
+    })
 
 api_urls = [
     path('api/livekit/authenticate', authenticate_live_kit_room),
