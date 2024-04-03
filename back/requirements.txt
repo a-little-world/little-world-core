@@ -46,3 +46,4 @@ pgeocode
 django-filter
 bs4
 livekit-api
+google-cloud-translate
