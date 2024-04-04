@@ -574,7 +574,7 @@ def create_base_admin_and_add_standart_db_values():
         usr_tim.state.email_authenticated = True
         usr_tim.state.save()
         usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
-        usr_tim.notify("You are the bese management user with less permissions.")
+        usr_tim.notify(description="You are the bese management user with less permissions.")
     
     # Tim Schupp is the new base admin user, we will now create a match with hin instead:
     TIM_MANAGEMENT_USER_MAIL = "tim.timschupp+420@gmail.com"
