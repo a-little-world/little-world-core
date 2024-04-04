@@ -193,17 +193,7 @@ class User(AbstractUser):
         self.save()
 
     def notify(self, title=_('title'), description=_('description')):
-        """
-        Sends a notifcation to that user ( or rater creates a notifcation for that user )
-        """
-        from .notifications import Notification
-        notification = Notification.objects.create(
-            user=self,
-            title=title,
-            description=description
-        )
-        self.state.notifications.add(notification)
-        # TODO: in the future also send a websocked 'notification' object!
+        pass # TODO: depricated, replace all occurences
 
     def message(self, msg, sender=None, auto_mark_read=False):
         """
