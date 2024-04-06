@@ -163,6 +163,7 @@ def create_user(
     first_name,
     second_name,
     birth_year,
+    company=None,
     newsletter_subscribed=False,
     send_verification_mail=True,
     send_welcome_notification=True,
@@ -204,6 +205,11 @@ def create_user(
     usr.profile.save()
     # Error if user doesn't exist, would prob already happen on is_valid
     assert isinstance(usr, User)
+    
+    # Step 3.5 - Check if the user has a 'comany' field
+    if company is not None:
+        usr.state.company = company
+        usr.state.save()
 
     # Step 4 send mail
     if send_verification_mail:
