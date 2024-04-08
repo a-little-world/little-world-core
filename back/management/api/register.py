@@ -39,6 +39,8 @@ class RegistrationData:
     password: str
     birth_year: str
     newsletter_subscribed: bool
+    
+    company: str = ""
 
 
 class RegistrationSerializer(serializers.Serializer):
@@ -62,6 +64,7 @@ class RegistrationSerializer(serializers.Serializer):
     })
     
     newsletter_subscribed = serializers.BooleanField(required=False, default=False)
+    company = serializers.CharField(max_length=255, required=False, allow_blank=True, allow_null=True)
 
     def create(self, validated_data):
         # Password same validation happens in 'validate()' we need only one password now
