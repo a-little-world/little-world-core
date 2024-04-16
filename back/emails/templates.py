@@ -1047,22 +1047,11 @@ class BabbelSubscriptionMail_Winner:
         'Du hast einen Babbel-Gutschein gewonnen!')
     content_start_text: str = pgettext_lazy(
         'email.babbel-subscription-winner.content-start-text','Alle tollen Funktionen und Inhalte von Babbel kannst du jetzt 6 Monate lang kostenlos nutzen.')
-    link_box_text: str = pgettext_lazy(
-        'email.babbel-subscription-winner.link-box-text',
-        mark_safe('<strong>BABBEL CODE</strong>'))
     content_body_text: str = mark_safe(pgettext_lazy(
         'email.babbel-subscription-winner.content-body-text',
-        'Nochmals vielen Dank, dass du an unserer Umfrage teilgenommen hast. Um einen kleinen Gefallen möchten wir dich noch bitten: bei Aktivierung des Codes, müsstest du die gleiche Umfrage in 3 Monaten nochmal ausfüllen. Nur so können wir die Auswirkungen der Nutzung von Babbel und Little World messen.<br><br>Aber das ist was für die Zukunft, jetzt konzentrieren wir uns auf die Gegenwart und verraten dir lieber deinen Code...<br><br>'))
-    button_text: str = pgettext_lazy(
-        'email.babbel-subscription-winner.button-text',
-        '*Anleitung zur Verwendung deines Codes*')
-    button_link: str = pgettext_lazy(
-        'email.babbel-subscription-winner.button-link',
-        '{link_url}')
-    below_link_text: str = mark_safe(pgettext_lazy(
-        'email.babbel-subscription-winner.below-link-text',
-        'Wenn du Schwierigkeiten mit der Validierung deines Codes hast, melde dich bei uns und wir helfen dir weiter.'
-        '<br></br>'))
+        'Nochmals vielen Dank, dass du an unserer Umfrage teilgenommen hast. Um einen kleinen Gefallen möchten wir dich noch bitten: bei Aktivierung des Codes, müsstest du die gleiche Umfrage in 3 Monaten nochmal ausfüllen. Nur so können wir die Auswirkungen der Nutzung von Babbel und Little World messen.<br><br>Du erhältst eine weitere E-Mail von Babbel mit deinem Code und Anweisungen, wie du ihn aktivieren kannst.<br></br>Wenn du Schwierigkeiten mit der Validierung deines Codes hast, melde dich bei uns und wir helfen dir weiter.',
+        ))
+
     footer_text: str = pgettext_lazy(
         'email.babbel-subscription-winner.footer-text',
         'Herzliche Grüße,')
