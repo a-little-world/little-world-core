@@ -13,7 +13,6 @@ from management.models.unconfirmed_matches import UnconfirmedMatch
 from management.models.matches import Match
 from management.models.unconfirmed_matches import get_unconfirmed_matches
 from management.matching.matching_score import calculate_directional_score_write_results_to_db
-from management.tasks import create_default_table_score_source
 from management import api
 
 valid_request_data = dict(
@@ -61,6 +60,7 @@ class MatchConfirmationTests(TestCase):
         response = self._some_register_call(valid_request_data)
         assert response.status_code == 200
         
+    # TODO: user match creation depricated possibly sinc ethe score cacluation has been depricate 
     def _create_two_user_prematching(self):
         users = create_abunch_of_users(2)
         # these test users are fully random, so I'll adjust their profile in a way that they match
@@ -69,8 +69,8 @@ class MatchConfirmationTests(TestCase):
         # make both users be match-able
         modify_profile_to_match(u1, u2)
         
-        # to even perform the scoring we need to create a default scoring table source
-        create_default_table_score_source()
+
+        # TODO have new wayt to test matchability
 
         # calculate matching score
         score = calculate_directional_score_write_results_to_db(

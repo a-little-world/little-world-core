@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 from rest_framework.views import APIView
 from rest_framework import serializers, status
+from management.models.state import State
 from dataclasses import dataclass
 from back.utils import transform_add_options_serializer
 
@@ -79,7 +80,14 @@ class ProfileCompletedApi(APIView):
         completed, info = request.user.profile.check_form_completion()
         if completed:
             # If it is completed we store set the state to completet asual!
-            request.user.state.set_user_form_completed()
-            return Response(pgettext_lazy("profile.completion-check.sucessfull", "Profile complete!"))
+            state = request.user.state
+            state.set_user_form_completed()
+            state.matching_state = State.MatchingStateChoices.SEARCHING
+            state.save()
+            
+            from management.api.user_data import user_data
+            
+            ud = user_data(request.user)
+            return Response(ud)
         else:
             return Response(info, status=status.HTTP_400_BAD_REQUEST)

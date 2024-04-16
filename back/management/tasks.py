@@ -119,6 +119,50 @@ Selbst habe ich vier Jahre im Ausland gelebt, von Frankreich bis nach China. Den
     return "sucessfully filled base management user profile"
 
 @shared_task
+def send_new_message_notifications():
+    from management.models.user import User
+    from chat.models import Message
+    from django.conf import settings
+    from emails import mails
+    
+    # 1 - get all unitified messages
+    unnotified_messages = Message.objects.filter(
+        recipient_notified=False
+    )
+    
+    # 2 - mark all 'read' unnotified messages as 'notified'
+    read_unnotified_messages = unnotified_messages.filter(
+        read=True
+    )
+    read_unnotified_messages.update(
+        recipient_notified=True
+    )
+    
+    # 3 - getall 'unread' & 'unnofified' messages and get all recipients
+    unread_unnotified_messages = unnotified_messages.filter(
+        read=False
+    )
+    recipients_to_notify = unread_unnotified_messages.values_list('recipient', flat=True).distinct()
+    
+    # 4 - send notifications to users
+    send_emails = not (settings.IS_STAGE or settings.IS_DEV)
+    if send_emails:
+        for u in User.objects.filter(id__in=recipients_to_notify):
+            u.send_email(
+                subject=pgettext_lazy(
+                    "tasks.unread-notifications-email-subject", "Neue Nachricht(en) auf Little World"),
+                mail_data=mails.get_mail_data_by_name("new_messages"),
+                mail_params=mails.NewUreadMessagesParams(
+                    first_name=u.profile.first_name,
+                )
+            )
+    
+    # 5 - mark all unnotified messages as 'notified'
+    unread_unnotified_messages.update(
+        recipient_notified=True
+    )
+
+@shared_task
 def fill_base_management_user_tim_profile():
     if BackendState.is_base_management_user_profile_filled(set_true=True):
         return  # Allready filled base management user profile
@@ -147,349 +191,6 @@ I'll take the time to answer all your messages but I might take a little time to
     usr.state.save()
     usr.profile.save()
 
-@shared_task
-def calculate_directional_matching_score_v2_static(
-    user_pk,
-    catch_exceptions=True,
-    invalidate_other_scores=True,
-    consider_only_registered_within_last_x_days=None
-):
-    # TODO: depricated
-    from .controller import get_user_by_pk
-    from management.models.state import State
-    from management.models.user import User
-    from management.models.matching_scores import MatchinScore
-    from management.matching.matching_score import calculate_directional_score_write_results_to_db
-
-    from django.utils import timezone
-    from management import controller
-
-    from django.db.models import Q
-
-    usr = get_user_by_pk(user_pk)
-    all_users_to_consider = User.objects.filter(
-        ~Q(id=usr.pk) & 
-        ~(Q(state__user_category=State.UserCategoryChoices.SPAM) | Q(state__user_category=State.UserCategoryChoices.TEST)),
-        state__matching_state=State.MatchingStateChoices.SEARCHING,
-        state__user_form_state=State.UserFormStateChoices.FILLED,
-        state__email_authenticated=True,
-        is_staff=False
-    )
-    
-    if not (consider_only_registered_within_last_x_days is None):
-        from django.utils import timezone
-        today = timezone.now()
-        x_days_ago = today - timedelta(days=consider_only_registered_within_last_x_days)
-        all_users_to_consider = all_users_to_consider.filter(date_joined__gte=x_days_ago)
-
-
-    all_users_to_consider = all_users_to_consider.filter(state__unresponsive=False)
-    
-    amnt_users = all_users_to_consider.count()
-    print(f"Found {amnt_users} users to consider")
-    calculate_directional_matching_score_v2_static.backend.mark_as_started(
-        calculate_directional_matching_score_v2_static.request.id,
-        progress=f"json:" + json.dumps({
-            'amnt_users': amnt_users,
-            'progress': 0,
-            "state": "starting"
-        }))
-
-    
-    i = 0
-
-    for other_usr in all_users_to_consider:
-        i += 1
-        print(f"Calculating score {usr} -> {other_usr}")
-        score1 = calculate_directional_score_write_results_to_db(
-            usr, other_usr, return_on_nomatch=False,
-            catch_exceptions=catch_exceptions)
-        print(f"Calculating score {other_usr} -> {usr}")
-        score2 = calculate_directional_score_write_results_to_db(
-            other_usr, usr, return_on_nomatch=False,
-            catch_exceptions=catch_exceptions)
-        
-        calculate_directional_matching_score_v2_static.backend.mark_as_started(
-            calculate_directional_matching_score_v2_static.request.id,
-            progress=f"json:" + json.dumps({
-                'amnt_users': amnt_users,
-                'progress': i,
-                "state": "calculating"
-            }))
-
-    if invalidate_other_scores:
-
-        calculate_directional_matching_score_v2_static.backend.mark_as_started(
-            calculate_directional_matching_score_v2_static.request.id,
-            progress=f"json:" + json.dumps({
-                'amnt_users': amnt_users,
-                'progress': amnt_users,
-                "state": "cleaning"
-            }))
-
-        for other_user in User.objects.exclude(id=usr.id):
-            if other_user not in all_users_to_consider:
-                cur_score = MatchinScore.get_current_directional_score(
-                    from_usr=usr,
-                    to_usr=other_user,
-                    raise_exeption=False
-                )
-                print(f"Invalidating score {usr.id}")
-                if not cur_score is None:
-                    cur_score.set_to_old()
-    
-
-
-@shared_task
-def calculate_directional_matching_score_background(
-    usr_hash,
-    catch_exceptions=True,
-    filter_slugs=None,
-    invalidate_other_scores=False
-):
-    """
-    This is the backend task for calculating a matching score.
-    This will *automaticly* be executed everytime a users changes his user form
-    run with calculate_directional_matching_score_background.delay(usr)
-    """
-    print(f"Calculating score for {usr_hash}")
-    from .controller import get_user_by_hash
-    from .matching.matching_score import calculate_directional_score_write_results_to_db
-    from .models import State, MatchinScore
-
-    usr = get_user_by_hash(usr_hash)
-
-    # We only search for all users that are searching
-    # But since the search is generally triggered by the user searching
-    # -> this will keep all matching scores up to date always
-    if filter_slugs is None:
-        all_users_to_consider = User.objects.all() \
-            .exclude(id=usr.id) \
-            .exclude(state__matching_state=State.MatchingStateChoices.IDLE)
-    else:
-        from .api.user_slug_filter_lookup import get_filter_slug_filtered_users_multiple
-        all_users_to_consider = get_filter_slug_filtered_users_multiple(
-            filters=filter_slugs
-        )
-    print("CONSIDERING", all_users_to_consider)
-    for other_usr in all_users_to_consider:
-        print(f"Calculating score {usr} -> {other_usr}")
-        score1 = calculate_directional_score_write_results_to_db(
-            usr, other_usr, return_on_nomatch=False,
-            catch_exceptions=catch_exceptions)
-        print(f"Calculating score {other_usr} -> {usr}")
-        score2 = calculate_directional_score_write_results_to_db(
-            other_usr, usr, return_on_nomatch=False,
-            catch_exceptions=catch_exceptions)
-
-    if invalidate_other_scores:
-        for other_user in User.objects.exclude(id=usr.id):
-            if other_user not in all_users_to_consider:
-                cur_score = MatchinScore.get_current_directional_score(
-                    from_usr=usr,
-                    to_usr=other_user,
-                    raise_exeption=False
-                )
-                print(f"Invalidating score {usr.id}")
-                if not cur_score is None:
-                    cur_score.set_to_old()
-
-
-@shared_task
-def create_default_table_score_source():
-    if BackendState.is_default_score_source_created(set_true=True):
-        return "default score source already created"
-
-    from .models.matching_scores import ScoreTableSource
-    from .matching.matching_score import SCORING_FUNCTIONS
-    from .matching.score_table_lookup import (
-        TARGET_GROUP_SCORES,
-        TARGET_GROUP_MESSAGES,
-        PARTNER_LOCATION_SCORES,
-        LANGUAGE_LEVEL_SCORES,
-        SPEECH_MEDIUM_SCORES
-    )
-
-    ScoreTableSource.objects.create(
-        target_group_scores=TARGET_GROUP_SCORES,
-        target_group_messages=TARGET_GROUP_MESSAGES,
-        partner_location_scores=PARTNER_LOCATION_SCORES,
-        language_level_scores=LANGUAGE_LEVEL_SCORES,
-        speech_medium_scores=SPEECH_MEDIUM_SCORES,
-        # Per default select **all** scoring functions
-        function_scoring_selection=list(SCORING_FUNCTIONS.keys())
-    )
-    return "default score source created"
-
-
-@shared_task
-def archive_current_profile_user(usr_hash):
-    """
-    Task is called when a user changed this searching state, it will archive the current profile
-    """
-
-    from .models.profile import ProfileAtMatchRequest, SelfProfileSerializer
-    from .controller import get_user_by_hash
-    profile = get_user_by_hash(usr_hash).profile
-    data = SelfProfileSerializer(profile).data
-    _d = {k: data[k]
-          for k in data if not k in ["options"]}  # Filter out options
-    ProfileAtMatchRequest.objects.create(
-        usr_hash=usr_hash,
-        **data
-    )
-
-
-@shared_task
-def send_new_message_notifications_all_users(
-    filter_out_base_user_messages=False,
-    do_send_emails=True,
-    do_write_new_state_to_db=True,
-    send_only_if_logged_in_withing_last_3_weeks=False
-):
-    """
-    First we need to caluculate how many new messages per chat there are
-    Then we check if this are more unread messages than before
-    """
-    from django.conf import settings
-    from back.utils import CoolerJson
-    # user = controller.get_user_by_hash(user_hash)
-    from chat_old.django_private_chat2.models import MessageModel, DialogsModel
-    from . import controller
-    from emails import mails
-    from .models import User
-
-    if settings.IS_STAGE or settings.IS_DEV:
-        return "Not caluculating or sending new messages cause in dev or in staging environment"
-
-    def is_dialog_in_old_unread_stack(dialog_id, old_unread_stack):
-        for urstd in old_unread_stack:
-            if urstd["dialog_id"] == dialog_id:
-                return urstd
-        return None
-
-    base_management_user = controller.get_base_management_user()
-    # test1_user = controller.get_user_by_email("test1@user.de")
-    users_to_send_update_to = []
-    users_to_old_unread_stack = {}
-    users_to_new_unread_stack = {}
-
-    users = User.objects.all()
-    # users = users.filter(email="jimmyhendrix1024@gmail.com")
-    print("Prefiltered users", users.count())
-    for user in users:
-        print("==== checking ===> ", user.email, user.hash)
-        dialogs = DialogsModel.get_dialogs_for_user_as_object(user)
-        print("DIAZZZ", dialogs)
-        new_unread_stack = []
-        for dialog in dialogs:
-
-            other_user = dialog.user1 if dialog.user1 != user else dialog.user2
-            print("THE other guy is", other_user.email)
-
-            unread = MessageModel.get_unread_count_for_dialog_with_user(
-                other_user, user)
-            last_message = MessageModel.get_last_message_object_for_dialog(
-                dialog.user1, dialog.user2)
-            if last_message is None:
-                print("WARN, mesasge object empty")
-                continue
-            print("UNREAD OF THAT", unread, last_message.text)
-
-            if unread > 0:
-
-                urstd = {
-                    "unread_count": unread,
-                    "dialog_id": dialog.id,
-                    "other_user_hash": user.hash,
-                    "last_message_id": last_message.id,
-                }
-
-                if filter_out_base_user_messages and base_management_user.hash == other_user.hash:
-                    print("Not added since from base admin", urstd)
-                else:
-                    new_unread_stack.append(urstd)
-                    print("updated unread", urstd)
-                    print("\n NEW UNREAD STATE", new_unread_stack, "\n")
-
-        # Now we can load the old unread stack
-        print("Checking last unread state", user.state.unread_messages_state)
-        current_unread_state = user.state.unread_messages_state
-        users_to_old_unread_stack[user.email] = current_unread_state
-        print("SCANNING OLD STATES: \n")
-
-        new_unread_stack_copy = new_unread_stack.copy()
-        for unread_state in new_unread_stack:
-            print("\nNEW DIA", unread_state, "\n")
-            old_dialog = is_dialog_in_old_unread_stack(
-                unread_state["dialog_id"], current_unread_state)
-
-            if old_dialog is None:
-                # Then we know this is definately a new dialog, we need to notifiy about
-                print("Completely new dialog unread state", unread_state)
-            else:
-                print("OLD DIA ", old_dialog)
-                if old_dialog["last_message_id"] != unread_state["last_message_id"]:
-                    # Then we know there is another new mesasage in a disalog we need to notify about
-                    # So wee need to delete the old dialog refernce in the current model
-                    current_unread_state.remove(old_dialog)
-                    print(
-                        "Found new unread state for dialog that already had unreads", unread_state)
-                else:
-                    # Then this is not a new unread message so we need to remove it from the stack
-                    print("Found old unread state",
-                          unread_state, ", removing...")
-                    print("\nBREFORE DELETE", new_unread_stack)
-                    new_unread_stack_copy.remove(unread_state)
-                    print("\nAFTER DELETE", new_unread_stack_copy, "\n")
-
-        new_unread_stack = new_unread_stack_copy
-        print("\n UNREAD AFTER", new_unread_stack, "\n")
-
-        print("Filtered for new unread states: ",
-              new_unread_stack, current_unread_state)
-        users_to_new_unread_stack[user.email] = new_unread_stack
-        if do_write_new_state_to_db:
-            user.state.unread_messages_state = current_unread_state + new_unread_stack
-            user.state.save()
-            print("Saved updated state", user.state.unread_messages_state)
-        if len(new_unread_stack) > 0:
-            # Now we can sendout the notifications email
-            print("\n\nSEND update to", user.email, user.hash)
-            if send_only_if_logged_in_withing_last_3_weeks:
-                from django.utils import timezone
-                today = timezone.now()
-                tree_weeks = timedelta(days=7*3)
-                tree_weeks_ago = today - tree_weeks
-                if user.last_login < tree_weeks_ago:
-                    print("WARN, user not logged in for 3 weeks")
-                    continue
-                else:
-                    users_to_send_update_to.append(user)
-            else:
-                users_to_send_update_to.append(user)
-
-    for u in users_to_send_update_to:
-        print("Notifying ", u.email)
-        # do_send_emails:
-        if not (settings.IS_STAGE or settings.IS_DEV) and do_send_emails:
-            u.send_email(
-                subject=pgettext_lazy(
-                    "tasks.unread-notifications-email-subject", "Neue Nachricht(en) auf Little World"),
-                mail_data=mails.get_mail_data_by_name("new_messages"),
-                mail_params=mails.NewUreadMessagesParams(
-                    first_name=u.profile.first_name,
-                )
-            )
-    print("Summary: ",
-          f"\namount notifications: {len(users_to_send_update_to)}")
-    import json
-    return {
-        "emailed_users": [u.email for u in users_to_send_update_to],
-        "stack": json.loads(json.dumps(users_to_new_unread_stack, cls=CoolerJson)),
-        "stack_old": json.loads(json.dumps(users_to_old_unread_stack, cls=CoolerJson))
-    }
-
 
 @shared_task
 def write_hourly_backend_event_summary(
@@ -514,7 +215,8 @@ def write_hourly_backend_event_summary(
 
     # For that fist we extract all event within that hour
     # We calculate from 2 hours ago per default cause otherwise the task could be shedules eventhought the hour is not completed yet
-    time = timezone.now() - timedelta(hours=1)
+    from django.utils import timezone as dj_tz
+    time = dj_tz.now() - timedelta(hours=1)
     if start_time is not None:
         time = datetime.strptime(start_time, '%Y-%m-%d %H:%M:%S.%f')
 
@@ -2153,20 +1855,6 @@ def collect_match_quality_stats():
     pass
 
 
-@ shared_task
-def delete_all_old_matching_scores():
-    from .models import MatchinScore
-    count = MatchinScore.objects.all().count()
-    c = 0
-    for s in range(count):
-        score = MatchinScore.objects.filter(pk=s).first()
-        if score is not None:
-            print(f"Check score for deletion {c}/{count}")
-            if not score.current_score:
-                c += 1
-                score.delete()
-
-
 @shared_task
 def indentify_and_mark_user_categories():
     """
@@ -2518,94 +2206,76 @@ def request_streamed_ai_response(messages, model="gpt-3.5-turbo", backend="defau
     
 
 
+@shared_task
 def matching_algo_v2(
     user_pk,
-    consider_only_registered_within_last_x_days=None
+    consider_only_registered_within_last_x_days=None,
+    exlude_user_ids=[]
 ):
-    """
-    New way to calculate the matching score 
-    """
-    from management import controller
-    from management.models.state import State
-    from management.models.unconfirmed_matches import UnconfirmedMatch
-    from django.db.models import Q
-    from django.db.models import Exists, OuterRef
-
-    usr = controller.get_user_by_pk(user_pk)
     
-    all_users = User.objects.all()
+    from management.api.scores import calculate_scores_user
     
-    # don't consider:
-    # - 'self'
-    # - spam and test users
-    # - users that are not searching
-    # - users that have not filled out their user form
-    # - users that have not verified their email
-    # - users that are 'staff'
-    # - users that have the State.ExtraUserPermissionChoices.MATCHING_USER in state.extra_user_permissions
-    # - user has no open proposals
-    
-    open_proposals = UnconfirmedMatch.objects.filter(
-        Q(user1=OuterRef('pk')) | Q(user2=OuterRef('pk')), closed=False
-    )
-
-    all_users_to_consider = User.objects.annotate(
-        has_open_proposal=Exists(open_proposals)
-    ).filter(
-        ~Q(id=usr.pk) & 
-        ~(Q(state__user_category=State.UserCategoryChoices.SPAM) | Q(state__user_category=State.UserCategoryChoices.TEST)),
-        state__matching_state=State.MatchingStateChoices.SEARCHING,
-        state__user_form_state=State.UserFormStateChoices.FILLED,
-        state__email_authenticated=True,
-        is_staff=False,
-        state__extra_user_permissions__contains=State.ExtraUserPermissionChoices.MATCHING_USER,
-        has_open_proposal=False
-    )
-
-    if not (consider_only_registered_within_last_x_days is None):
-        from django.utils import timezone
-        today = timezone.now()
-        x_days_ago = today - timedelta(days=consider_only_registered_within_last_x_days)
-        all_users_to_consider = all_users_to_consider.filter(date_joined__gte=x_days_ago)
-        
-    
-    # - We have to set the score of all users not to consider to 0
-    all_users_not_to_consider = User.objects.annotate(
-        to_consider=Exists(
-            all_users_to_consider.filter(pk=OuterRef('id'))
-        )
-    ).filter(to_consider=False)
-
-    total_considered_users = all_users_to_consider.count()
-    total_unconsidered_users = all_users_not_to_consider.count()
-    
-    # we always delete all scores of unconsidered users, that way we assure that we don't blow database sizes!
-    from management.models.scores import TwoUserMatchingScore
-    cleaned_scores = TwoUserMatchingScore.objects.filter(
-        (~Q(user1__in=all_users_to_consider) and Q(user2=usr)) | (~Q(user2__in=all_users_to_consider) and Q(user1=usr))
-    )
-    count_cleaned_scores = cleaned_scores.count()
-    cleaned_scores.delete()
-    
-
-    matching_algo_v2.backend.mark_as_started(
-        matching_algo_v2.request.id,
-        progress=json.dumps({
-            'total_considered_users': total_considered_users,
-            'total_unconsidered_users': total_unconsidered_users,
-            'scores_cleaned': count_cleaned_scores,
-            'progress': 0,
-            "state": "starting"
-        }))
-        
-    for user in all_users_to_consider:
+    def report_progress(progress):
         matching_algo_v2.backend.mark_as_started(
             matching_algo_v2.request.id,
-            progress=json.dumps({
-                'total_considered_users': total_considered_users,
-                'total_unconsidered_users': total_unconsidered_users,
-                'scores_cleaned': count_cleaned_scores,
-                'progress': 0,
-                "state": "processing",
-                "current_user": user.pk
-            }))
+            progress=progress
+        )
+        
+    res = calculate_scores_user(
+        user_pk,
+        consider_only_registered_within_last_x_days=consider_only_registered_within_last_x_days,
+        report=report_progress,
+        exlude_user_ids=exlude_user_ids
+    )
+    
+    return res
+
+@shared_task
+def burst_calulate_matching_scores(
+    user_combinations = []
+):
+    from management.models.scores import TwoUserMatchingScore
+    from management.api.scores import score_between_db_update
+    from management.models.user import User
+    """
+    Calculates the matching scores for all users requiring a match at the moment 
+    """
+    print("combination")
+    
+    def report_progress(progress):
+        burst_calulate_matching_scores.backend.mark_as_started(
+            burst_calulate_matching_scores.request.id,
+            progress=progress
+        )
+        
+    total_combinations = len(user_combinations)
+    combinations_processed = 0
+    
+    report_progress({
+        "total_combinations": total_combinations,
+        "combinations_processed": combinations_processed,
+    })
+        
+    for comb in user_combinations:
+        user1 = User.objects.get(pk=comb[0])
+        user2 = User.objects.get(pk=comb[1])
+        score_between_db_update(
+            user1,
+            user2
+        )
+        combinations_processed += 1
+        
+        report_progress({
+            "total_combinations": total_combinations,
+            "combinations_processed": combinations_processed,
+        })
+        
+    return {
+        "total_combinations": total_combinations,
+        "combinations_processed": combinations_processed,
+    }
+        
+    
+        
+    
+    

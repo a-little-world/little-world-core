@@ -134,11 +134,6 @@ class LoginApi(APIView):
     permission_classes = []
     authentication_classes = []
 
-    @utils.track_event(
-        name="User Logged in",
-        event_type=Event.EventTypeChoices.REQUEST,
-        tags=["frontend", "login", "sensitive"],
-        censor_kwargs=["password"])
     @extend_schema(request=LoginSerializer(many=False))
     def post(self, request):
         """
@@ -169,11 +164,6 @@ class LoginApi(APIView):
                 "api.login-failed", "Can't log-in email or password wrong!"),
                 status=status.HTTP_400_BAD_REQUEST)
 
-    @utils.track_event(
-        name="User used auto log-in",
-        event_type=Event.EventTypeChoices.REQUEST,
-        tags=["frontend", "auto-login", "sensitive"],
-        censor_kwargs=["token"])
     @extend_schema(request=AutoLoginSerializer(many=False))
     def get(self, request):
         """
@@ -375,7 +365,7 @@ class ConfirmMatchesApi(APIView):
                               authentication.BasicAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
-    @ extend_schema(request=ConfirmMatchesSerializer(many=False))
+    @extend_schema(request=ConfirmMatchesSerializer(many=False))
     def post(self, request):
         serializer = ConfirmMatchesSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -384,13 +374,18 @@ class ConfirmMatchesApi(APIView):
         try:
             # TODO: this is the old strategy, we should use the new stragegy
             request.user.state.confirm_matches(params.matches)
+        except Exception as e:
+            pass
             
+        try:
             # In order to keep things working while we deploy the new strategy this api will also populate all db-fileds required for the new strategy
             # This is a little more involved than it has to be, this will once finished be replaced by 'ConfirmMatchesApi2'
             for match_hash in params.matches:
                 partner = get_user_by_hash(match_hash)
                 
-                match = models.Match.get_match(request.user, partner)
+                from management.models.matches import Match
+                
+                match = Match.get_match(request.user, partner)
                 assert match.exists()
                 match = match.first()
                 match.confirm(request.user)

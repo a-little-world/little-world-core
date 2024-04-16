@@ -1,4 +1,3 @@
-from ..api.user_data import get_full_frontend_data
 from django.contrib.auth.mixins import LoginRequiredMixin
 from back.utils import CoolerJson
 from django.core.serializers.json import DjangoJSONEncoder

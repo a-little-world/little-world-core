@@ -1,4 +1,6 @@
 from django.utils.translation import gettext_lazy as _
+import json
+import base64
 import os
 
 
@@ -6,6 +8,8 @@ USE_SENTRY = os.environ.get(
     "DJ_USE_SENTRY", "false").lower() in ('true', '1', 't')
 
 SENTRY_DNS = os.environ.get("DJ_SENTRY_DNS", "")
+
+SENTRY_ID = os.environ.get("DJ_SENTRY_ID", "")
 
 # INIT sentry for error tracking
 if USE_SENTRY:
@@ -29,8 +33,13 @@ IS_PROD = BUILD_TYPE == 'deployment'
 
 PROD_ATTACH = os.environ.get("DJ_PROD_ATTACH", "false").lower() in ('true', '1', 't')
 
+MATOMO_CONTAINER_ID = os.environ.get("DJ_MATOMO_CONTAINER_ID", "container_TFKaHyie")
+
 DOCS_BUILD = os.environ.get(
     "DJ_DOCS_BUILD", "false").lower() in ('true', '1', 't')
+
+USE_AUTO_RELOAD = os.environ.get(
+    "DJ_USE_AUTO_RELOAD", "false").lower() in ('true', '1', 't')
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = os.environ['DJ_SECRET_KEY']
@@ -74,6 +83,11 @@ LANDINGPAGE_REDIRECT_URL = os.environ.get("DJ_LANDINGPAGE_REDIRECT_URL", "https:
 USE_LANDINGPAGE_PLACEHOLDER = os.environ.get("DJ_USE_LANDINGPAGE_PLACEHOLDER", "true").lower() in ('true', '1', 't')
 LANDINGPAGE_PLACEHOLDER_TITLE = os.environ.get("DJ_LANDINGPAGE_PLACEHOLDER_TITLE", "Little World")
 
+LIVEKIT_API_KEY = os.environ.get("DJ_LIVEKIT_API_KEY", "")
+LIVEKIT_API_SECRET = os.environ.get("DJ_LIVEKIT_API_SECRET", "")
+LIVEKIT_WEBHOOK_SECRET = os.environ.get("DJ_LIVEKIT_WEBHOOK_SECRET", "")
+LIVEKIT_URL = os.environ.get("DJ_LIVEKIT_URL", "")
+
 if IS_PROD and 'K8_POD_IP' in os.environ:
     # So that we can further restrict access to the depoloyment kubernetes node
     ALLOWED_HOSTS.append(os.environ['K8_POD_IP'])
@@ -90,6 +104,12 @@ AI_API_KEY = os.environ.get("DJ_AI_API_KEY", "none")
 AI_LANGUAGE_MODEL = os.environ.get("DJ_AI_LANGUAGE_MODEL", "none")
 AI_OPENAI_MODEL = os.environ.get("DJ_AI_OPENAI_MODEL", "none")
 AI_OPENAI_API_KEY  = os.environ.get("DJ_AI_OPENAI_API_KEY", "none")
+
+# yeah google creds are annying to handle, 'e30=' is just an empty json '{}'
+try:
+    GOOGLE_CLOUD_CREDENTIALS = json.loads(base64.b64decode(os.environ.get("DJ_GOOGLE_CLOUD_CREDENTIALS", "e30=")))
+except Exception as e:
+    GOOGLE_CLOUD_CREDENTIALS = {}
 
 """
 Own applications:
@@ -109,10 +129,13 @@ INSTALLED_APPS = [
 
     'corsheaders',
     'rest_framework',
+    'django_filters',
+    'video',
     # A convenient multiselect field for db objects ( used e.g.: in profile.interests )
     'multiselectfield',
     'phonenumber_field',  # Conevnient handler for phone numbers with admin prefix
     'django_rest_passwordreset',
+    'tbs_django_auto_reload',
 
     'jazzmin',  # The waaaaaay nicer admin interface
 
@@ -147,7 +170,7 @@ print(f'Installed apps:\n' + '\n- '.join(INSTALLED_APPS))
 
 if BUILD_TYPE in ['staging', 'development']:
     SPAGHETTI_SAUCE = {
-        'apps': ['auth', 'management', 'tracking', 'emails'],
+        'apps': ['auth', 'management', 'tracking', 'emails', 'chat', 'django_private_chat2'],
         'show_fields': False,
         'exclude': {'auth': ['user']},
     }
@@ -186,6 +209,20 @@ We overwirte the default user model, and add an 'hash' parmameter
 """
 AUTH_USER_MODEL = 'management.User'
 
+EXTRA_CORS_ALLOWED_ORIGINS = os.environ.get("DJ_EXTRA_CORS_ALLOWED_ORIGINS", "")
+if EXTRA_CORS_ALLOWED_ORIGINS != "":
+    EXTRA_CORS_ALLOWED_ORIGINS = EXTRA_CORS_ALLOWED_ORIGINS.split(',')
+else:
+    EXTRA_CORS_ALLOWED_ORIGINS = []
+    
+    
+EXTRA_CSRF_ALLOWED_ORIGINS = os.environ.get("DJ_EXTRA_CSRF_ALLOWED_ORIGINS", "")
+if EXTRA_CSRF_ALLOWED_ORIGINS != "":
+    EXTRA_CSRF_ALLOWED_ORIGINS = EXTRA_CSRF_ALLOWED_ORIGINS.split(',')
+else:
+    EXTRA_CSRF_ALLOWED_ORIGINS = []
+
+
 CORS_ALLOWED_ORIGINS = []
 if IS_STAGE or IS_PROD:
     # TODO: figure out which of these actually is the correct one!
@@ -200,6 +237,10 @@ if IS_STAGE or IS_PROD:
     CSRF_TRUSTED_ORIGINS = [
         BASE_URL
     ]
+    
+    CORS_ORIGIN_WHITELIST += EXTRA_CORS_ALLOWED_ORIGINS
+    CORS_ALLOWED_ORIGINS += EXTRA_CORS_ALLOWED_ORIGINS
+    CSRF_TRUSTED_ORIGINS += EXTRA_CSRF_ALLOWED_ORIGINS
 elif DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
     CSRF_TRUSTED_ORIGINS = ["https://*.github.dev"]
@@ -586,6 +627,7 @@ DATABASES = {
         'HOST': os.environ['DJ_DATABASE_HOST'],
         'PORT': os.environ['DJ_DATABASE_PORT'],
         'OPTIONS': {'sslmode': 'require'},
+        # 'CONN_MAX_AGE': 10,
     },
 }
 
@@ -772,7 +814,6 @@ JAZZMIN_SETTINGS = {
         "management.BackendState": "fas fa-code",
         "management.User": "fas fa-user",
         "management.State": "fas fa-user-cog",
-        "management.MatchinScore": "fas fa-project-diagram",
         "management.ScoreTableSource": "fas fa-digital-tachograph",
         "management.Profile": "fas fa-user-circle",
         "management.Room": "fas fa-video",

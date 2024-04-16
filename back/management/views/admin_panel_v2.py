@@ -1,9 +1,10 @@
 from django.contrib.auth.decorators import user_passes_test
+from django.utils import timezone
+from datetime import timedelta, datetime
 from rest_framework import viewsets, serializers
 from rest_framework.permissions import IsAdminUser, BasePermission
 from django.core.paginator import Paginator
 from management.models.matches import Match
-from management.models.matching_scores import MatchinScore, MatchingScoreSerializer
 from management.models.sms import SmsModel, SmsSerializer
 from management.models.management_tasks import MangementTask, ManagementTaskSerializer
 from rest_framework.decorators import action
@@ -11,15 +12,17 @@ from django.shortcuts import render
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from chat_old.django_private_chat2.models import MessageModel, DialogsModel
+#from chat_old.django_private_chat2.models import MessageModel, DialogsModel
+#from chat_old.django_private_chat2.serializers import serialize_message_model
+
+from chat.models import Chat, Message, ChatSerializer, MessageSerializer
+
 from management.models.unconfirmed_matches import UnconfirmedMatch
-from chat_old.django_private_chat2.serializers import serialize_message_model
+from management.models.scores import TwoUserMatchingScore
+from management.api.scores import score_between_db_update
 from management import controller
 from enum import Enum
 import json
-from management.models.matching_scores import (
-    MatchinScore
-)
 from management.models.user import (
     User,
 )
@@ -38,6 +41,8 @@ from typing import OrderedDict
 from django.core.serializers.json import DjangoJSONEncoder
 from rest_framework.utils import serializer_helpers
 from django.db.models import Q
+from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiExample
+from rest_framework import serializers
 
 class IsAdminOrMatchingUser(BasePermission):
     """
@@ -168,16 +173,15 @@ def update_representation(representation, instance):
     user = instance
     items_per_page = ADMIN_USER_MATCH_ITEMS
 
-    print("updating representations for ", user, instance)
     confirmed_matches = get_paginated(Match.get_confirmed_matches(user), items_per_page, 1)
     confirmed_matches["items"] = serialize_matches(confirmed_matches["items"], user)
     
-    print("confirmed matches", [f'{i["partner"]["id"]} m_id {i["id"]}' for i in confirmed_matches["items"]])
+    #print("confirmed matches", [f'{i["partner"]["id"]} m_id {i["id"]}' for i in confirmed_matches["items"]])
 
     unconfirmed_matches = get_paginated(Match.get_unconfirmed_matches(user), items_per_page, 1)
     unconfirmed_matches["items"] = serialize_matches(unconfirmed_matches["items"], user)
 
-    print("unconfirmed matches", [f'{i["partner"]["id"]} m_id {i["id"]}' for i in unconfirmed_matches["items"]])
+    #print("unconfirmed matches", [f'{i["partner"]["id"]} m_id {i["id"]}' for i in unconfirmed_matches["items"]])
 
     support_matches = get_paginated(Match.get_support_matches(user), items_per_page, 1)
     support_matches["items"] = serialize_matches(support_matches["items"], user)
@@ -209,11 +213,14 @@ def serialize_messages_for_matching(instance, representation, censor_messages=Tr
     def get_messages(match):
         partner = controller.get_user_by_pk(match['partner']['id'])
         print("TBS", partner, instance)
-        _msgs = MessageModel.objects.filter(
+
+        _msgs = Message.objects.filter(
             Q(sender=partner, recipient=instance) | Q(sender=instance, recipient=partner)
         )
         messages = get_paginated(_msgs, 10, 1)
-        if not DialogsModel.get_dialog_for_user_as_object(partner, instance).exists():
+        
+        
+        if not Chat.get_chat([instance, partner]):
             messages["no_dialog"] = True # prop means it has been deleted
         return messages
     
@@ -235,7 +242,9 @@ def serialize_messages_for_matching(instance, representation, censor_messages=Tr
             "state": StateSerializer(partner.state).data,
             "with_management": True if match in support else False
         }
-        messages[match['id']]["items"] = [serialize_message_model(item, instance.pk, censor) for item in _msg["items"]]
+        messages[match['id']]["items"] = [MessageSerializer(item).data for item in _msg["items"]]
+        if censor:
+            messages[match['id']]["items"] = [{**i, "text": "CENSORED"} for i in messages[match['id']]["items"]]
         return messages
     
     messages = {}
@@ -260,13 +269,21 @@ class AdvancedAdminUserSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         representation = update_representation(representation, instance)
         
+        
         censor_messages = True
         if ('request' in self.context) and self.context['request'].user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.UNCENSORED_ADMIN_MATCHER):
             censor_messages = False
         
         # Now also add the matches messages
         # And the chat with that user
-        representation['messages'] = serialize_messages_for_matching(instance, representation, censor_messages=censor_messages)
+        include_messages = False
+        if ('request' in self.context) and self.context['request'].query_params.get('messages', False) == "include":
+            include_messages = True
+        if ('messages' in self.context) and self.context['messages']:
+            include_messages = True
+        
+        if include_messages:    
+            representation['messages'] = serialize_messages_for_matching(instance, representation, censor_messages=censor_messages)
 
         # Also get the email logs
         email_logs = get_paginated(EmailLog.objects.filter(receiver=instance), 10, 1)
@@ -302,26 +319,28 @@ class QuerySetEnum(Enum):
     needs_matching = "All users in 'searching' without any user that has a open poposal!"
     in_registration = "Users who have not finished the user form or verified their email!"
     active_within_3weeks = "Users who have been active within the last 3 weeks!"
+    active_match = "Users who have communicated with their match in the last 4 weeks"
     highquality_matching = "Users who have at least one matching with 20+ Messages"
     message_reply_required = "Users who have a unread message to the admin user"
     read_message_but_not_replied = "Read messages to the management user that have not been replied to"
     users_with_open_tasks = "Users who have open tasks"
     users_with_open_proposals = "Users who have open proposals"
+    users_require_prematching_call = "Users that still require a pre-matching call before matching"
+    users_with_booked_prematching_call = "Users that have booked a pre-matching call"
     
     def as_dict():
         return {i.name: i.value for i in QuerySetEnum}
     
 def three_weeks_ago():
-    from datetime import datetime, timedelta
     return datetime.now() - timedelta(weeks=3)
 
 def get_user_with_message_to_admin():
     # TODO: in the future each staff mover has to be filtered here individually
     
     from django.db.models import Subquery, OuterRef, Count
-    admin_pk = controller.get_base_management_user().pk
-    unread_messages = MessageModel.objects.filter(
-        recipient_id=admin_pk,
+    admin = controller.get_base_management_user()
+    unread_messages = Message.objects.filter(
+        recipient=admin,
         read=False
     )
     unread_senders_ids = unread_messages.values("sender")
@@ -330,14 +349,14 @@ def get_user_with_message_to_admin():
 
 def get_user_with_message_to_admin_that_are_read_but_not_replied():
     from django.db.models import Subquery, OuterRef, Count, F
-    admin_pk = controller.get_base_management_user().pk
+    admin_pk = controller.get_base_management_user()
 
     # All dialogs with the management user
-    dialogs_with_the_management_user = DialogsModel.objects.filter(
-        Q(user1=admin_pk) | Q(user2=admin_pk)
+    dialogs_with_the_management_user = Chat.objects.filter(
+        Q(u1=admin_pk) | Q(u2=admin_pk)
     )
     
-    last_message_per_user = MessageModel.objects.filter(
+    last_message_per_user = Message.objects.filter(
         # Message was sent by the user and received by the admin
         (Q(sender_id=OuterRef('id'), recipient_id=admin_pk) 
         # OR Message was sent by the admin and received by the user
@@ -350,9 +369,9 @@ def get_user_with_message_to_admin_that_are_read_but_not_replied():
 
     ).filter(
         # The last message was sent to the management user AND has been read
-        Q(last_message_id__in=MessageModel.objects.filter(sender_id=F('id'), recipient_id=admin_pk, read=True)) 
+        Q(last_message_id__in=Message.objects.filter(sender_id=F('id'), recipient_id=admin_pk, read=True)) 
         # OR The last message was from the management user AND has not been read
-        | Q(last_message_id__in=MessageModel.objects.filter(sender_id=admin_pk, recipient_id=F('id'), read=False))
+        | Q(last_message_id__in=Message.objects.filter(sender_id=admin_pk, recipient_id=F('id'), read=False))
     )
 
     return users_in_dialog_with_management_user    
@@ -373,13 +392,25 @@ def users_with_open_proposals():
     
     return users_with_open_proposals
 
+def get_active_match_query_set():
+    # Calculate the date 4 weeks ago from now
+    four_weeks_ago = timezone.now() - timedelta(weeks=4)
+
+    # Get distinct users from sender and recipient fields in MessageModel
+    senders = Message.objects.filter(created__gte=four_weeks_ago).values_list('sender', flat=True).distinct()
+
+
+    # Now you have the users who have sent a message within the last 4 weeks
+    print(senders)
+    return User.objects.filter(pk__in=senders)
+
 
 def get_quality_match_querry_set():
     
     from django.db.models import Subquery, OuterRef, Count
 
     # Create a subquery object to annotate the match with msg_count
-    sq = MessageModel.objects.filter(
+    sq = Message.objects.filter(
         Q(sender=OuterRef('user1'), recipient=OuterRef('user2')) | 
         Q(sender=OuterRef('user2'), recipient=OuterRef('user1'))
     ).values('sender')
@@ -416,6 +447,7 @@ def users_that_are_searching_but_have_no_proposal():
     return User.objects.filter(
         state__user_form_state=State.UserFormStateChoices.FILLED,
         state__email_authenticated=True,
+        state__had_prematching_call=True, # TODO: filter should only be applied, if require_prematching_call = True
         state__matching_state=State.MatchingStateChoices.SEARCHING
     ).exclude(
         Q(pk__in=unconfirmed_matches.values("user1")) |
@@ -423,6 +455,32 @@ def users_that_are_searching_but_have_no_proposal():
     ).filter(
         state__unresponsive=False
     ).order_by('-date_joined')
+
+def users_with_booked_prematching_call():
+    from management.models.pre_matching_appointment import PreMatchingAppointment
+
+    user_with_prematching_booked = PreMatchingAppointment.objects.all().values("user")
+
+    return User.objects.filter(
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
+        state__matching_state=State.MatchingStateChoices.SEARCHING,
+        state__had_prematching_call=False,
+        state__unresponsive=False,
+        pk__in=user_with_prematching_booked
+    ).order_by('-date_joined')
+
+
+def users_require_prematching_call():
+
+    return User.objects.filter(
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
+        state__matching_state=State.MatchingStateChoices.SEARCHING,
+        state__had_prematching_call=False,
+        state__unresponsive=False
+    ).order_by('-date_joined')
+
     
 
 
@@ -433,18 +491,22 @@ def get_QUERY_SETS():
         QuerySetEnum.searching.name: User.objects.filter(
             state__user_form_state=State.UserFormStateChoices.FILLED,
             state__email_authenticated=True,
+            state__had_prematching_call=False,
             state__matching_state=State.MatchingStateChoices.SEARCHING
         ).order_by('-date_joined'),
         QuerySetEnum.needs_matching.name: users_that_are_searching_but_have_no_proposal(),
         QuerySetEnum.in_registration.name: User.objects.filter(
-            Q(state__user_form_state=State.UserFormStateChoices.UNFILLED) | Q(state__email_authenticated=False)).order_by('-date_joined'),
+            Q(state__user_form_state=State.UserFormStateChoices.UNFILLED) | Q(state__email_authenticated=False) | Q(state__had_prematching_call=False) ).order_by('-date_joined'),
         QuerySetEnum.active_within_3weeks.name: User.objects.filter(
             last_login__gte=three_weeks_ago()).order_by('-date_joined'),
+        QuerySetEnum.active_match.name: get_active_match_query_set(),
         QuerySetEnum.highquality_matching.name: get_quality_match_querry_set(),
         QuerySetEnum.message_reply_required.name: get_user_with_message_to_admin(),
         QuerySetEnum.read_message_but_not_replied.name: get_user_with_message_to_admin_that_are_read_but_not_replied(),
         QuerySetEnum.users_with_open_tasks.name: users_with_open_tasks(),
         QuerySetEnum.users_with_open_proposals.name: users_with_open_proposals(),
+        QuerySetEnum.users_require_prematching_call.name: users_require_prematching_call(),
+        QuerySetEnum.users_with_booked_prematching_call.name: users_with_booked_prematching_call(),
     }
 
 def get_staff_queryset(query_set, request):
@@ -460,44 +522,54 @@ def get_staff_queryset(query_set, request):
 
 class AdvancedMatchingScoreSerializer(serializers.ModelSerializer):
     class Meta:
-        model = MatchinScore
+        model = TwoUserMatchingScore
         fields = '__all__'
         
     def to_representation(self, instance):
         representation =  super().to_representation(instance)
+
+        assert 'user' in self.context
+        user = self.context['user']
+        partner = instance.user2 if user == instance.user1 else instance.user1
         
+        markdown_info = ""
+        for score in instance.scoring_results:
+            markdown_info += f"## Function `{score['score_function']}`\n"
+            try:
+                markdown_info += f"{score['res']['markdown_info']}\n\n"
+            except:
+                markdown_info += "No markdown info available\n\n"
+        
+        representation['markdown_info'] = markdown_info
+
         representation['from_usr'] = {
-            "uuid" : instance.from_usr.hash,
-            "id" : instance.from_usr.id,
-            **AdminUserSerializer(instance.from_usr).data
+            "uuid" : user.hash,
+            "id" : user.id,
+            **AdminUserSerializer(user).data
         }
         representation['to_usr'] = {
-            "uuid" : instance.to_usr.hash,
-            "id" : instance.to_usr.id,
-            **AdminUserSerializer(instance.to_usr).data
+            "uuid" : partner.hash,
+            "id" : partner.id,
+            **AdminUserSerializer(partner).data
         }
         return representation
 
 def matching_suggestion_from_database_paginated(request, user):
-    matching_scores = MatchinScore.objects.filter(from_usr=user, current_score=True, matchable=True).order_by('-score')
+    matching_scores = TwoUserMatchingScore.get_matching_scores(user).order_by('-score')
     paginator = AugmentedPagination()
     pages = paginator.get_paginated_response(paginator.paginate_queryset(matching_scores, request)).data
-    pages["results"] = AdvancedMatchingScoreSerializer(pages["results"], many=True).data
+    pages["results"] = AdvancedMatchingScoreSerializer(pages["results"], many=True, context={
+        "user": user
+    }).data
     return pages
 
 def matching_scores_between_users(from_usr, to_usr):
-    matching_score = MatchinScore.objects.filter(from_usr=from_usr, current_score=True, to_usr=to_usr).order_by('-score')
-    
-    if not matching_score.exists():
-        from management.matching.matching_score import calculate_directional_score_write_results_to_db
-        score1 = calculate_directional_score_write_results_to_db(
-            from_usr, to_usr, return_on_nomatch=False,
-            catch_exceptions=True)
-        matching_score = score1
-    else:
-        matching_score = matching_score.first()
+    matching_score = TwoUserMatchingScore.get_score(from_usr, to_usr)
+    if matching_score is None:
+        total_score, matchable, results, score = score_between_db_update(from_usr, to_usr)
+        matching_score = score
 
-    return AdvancedMatchingScoreSerializer(matching_score).data
+    return AdvancedMatchingScoreSerializer(matching_score, context={"user": from_usr}).data
 
 
 
@@ -515,14 +587,24 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         # TODO: use the IfHasControlOverUser permission here
         # TODO: if 'matching' user check if he has access to this user!
         
+        # TODO: depricated new matching scores!!!
         scores = matching_suggestion_from_database_paginated(request, obj)
         return Response(scores)
+
+    @action(detail=True, methods=['get'])
+    def prematching_appointment(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
+        return Response(PreMatchingAppointmentSerializer(PreMatchingAppointment.objects.filter(user=obj).first(), many=False).data)
     
     @action(detail=True, methods=['post'])
     def score_between(self, request, pk=None):
         self.kwargs['pk'] = pk
         obj = self.get_object()
         
+        # TODO: depricated
         score = matching_scores_between_users(obj, request.data["to_user"])
         return Response(score)
     
@@ -546,12 +628,13 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
                 "msg": "You are not allowed to access this user!"
             }, status=401)
             
+            
         # Now we can check if the user has unread messages from that user
-        from chat_old.django_private_chat2.models import MessageModel
-        messages = MessageModel.get_messages_for_dialog(request.user, obj)
-        print("Filtered messages", messages)
+        message = Message.objects.get(
+            uuid=message_id
+        )
+        print("Filtered messages", message)
 
-        message = messages.get(id=message_id)
         message.read = True
         message.save()
 
@@ -567,7 +650,7 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
 
         return Response(AdvancedAdminUserSerializer(
             obj,
-            context={'request': request}
+            context={'request': request, 'messages': True}
         ).data['messages'])
         
     @action(detail=True, methods=['get'])
@@ -612,7 +695,7 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
             
         message = obj.message(request.data['message'], sender=request.user)
         
-        serialized = serialize_message_model(message, obj.pk)
+        serialized = MessageSerializer(message).data
 
         return Response(serialized)
     
@@ -710,20 +793,17 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         self.kwargs['pk'] = pk
         obj = self.get_object()
         
-        from management.tasks import calculate_directional_matching_score_v2_static
-        task = calculate_directional_matching_score_v2_static.delay(
-            obj.pk,
-            catch_exceptions=True,
-            invalidate_other_scores=True,
-            consider_only_registered_within_last_x_days=100
+        consider_within_days = int(request.query_params.get('days_searching', 60))
+        
+        from management.tasks import matching_algo_v2
+        from management.api.scores import calculate_scores_user
+        task = matching_algo_v2.delay(
+            pk,
+            consider_within_days
         )
-        
         return Response({
-            "msg": "Task dispatched scores will be written to db on task completion",
-            "task_id": task.task_id,
-            "view": f"/admin/django_celery_results/taskresult/?q={task.task_id}"
+            "task_id": task.id
         })
-        
         
 class SimpleUserViewSet(AdvancedAdminUserViewset):
     queryset = User.objects.all().order_by('-date_joined')
@@ -750,6 +830,30 @@ def request_task_status(request, task_id):
     # But they generaly never contain sensitive information
     return Response(check_task_status(task_id))
 
+@extend_schema(
+    responses=inline_serializer(
+        name="UserListQuerySetEnum",
+        fields={
+            "count": serializers.IntegerField(),
+            "page": serializers.IntegerField(),
+            "next": serializers.URLField(),
+            "previous": serializers.URLField(),
+            "results": AdvancedAdminUserSerializer(many=True)
+        }
+    )
+)
+@api_view(['GET'])
+@permission_classes([IsAdminOrMatchingUser])
+def get_user_list_users(request, query_set):
+
+    page = request.query_params.get('page', 1)
+    items_per_page = request.query_params.get('items_per_page', 40)
+
+    user_viewset = make_user_viewset(get_staff_queryset(query_set, request), items_per_page=items_per_page)
+    user_lists = user_viewset.emulate(request).list()
+
+    return Response(user_lists)
+
 root_user_viewset = AdvancedAdminUserViewset
 user_info_viewset = SimpleUserViewSet
 
@@ -775,6 +879,20 @@ def default_admin_data(user):
     return {
         "is_admin": user.is_staff,
     } 
+    
+
+@extend_schema(
+    responses=inline_serializer(
+        name="UserListQuerySetOptionsEnum",
+        fields={
+            "lists": serializers.DictField()
+        }
+    )
+)
+@api_view(['GET'])
+@permission_classes([IsAdminOrMatchingUser])
+def get_user_list_query_sets(request):
+    return Response({"lists": QuerySetEnum.as_dict()})
 
 @api_view(['GET'])
 @permission_classes([IsAdminOrMatchingUser])
@@ -790,17 +908,10 @@ def admin_panel_v2(request, menu="root"):
         
         user_viewset = make_user_viewset(get_staff_queryset(query_set, request), items_per_page=items_per_page)
         
-        user_lists = {}
-        user_lists[query_set] = user_viewset.emulate(request).list()
-        
-        if not ("all" in user_lists):
-            all_viewset = make_user_viewset(get_staff_queryset("all", request), items_per_page=items_per_page)
-            user_lists["all"] = all_viewset.emulate(request).list()
-            
 
         return render(request, "admin_pannel_v2_frontend.html", { "data" : json.dumps({
             "query_sets": QuerySetEnum.as_dict(),
-            "user_lists": user_lists,
+            "user_lists": {},
         },cls=DjangoJSONEncoder, default=lambda o: str(o))})
     else:
         return render(request, "admin_pannel_v2_frontend.html", { "data" : json.dumps(default_admin_data(request.user), cls=DjangoJSONEncoder, default=lambda o: str(o))})

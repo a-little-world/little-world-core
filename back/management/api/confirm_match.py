@@ -2,8 +2,9 @@
 This contains all api's related to confirming or denying a match
 """
 from drf_spectacular.utils import extend_schema
+from management.api.user_data import AdvancedUserMatchSerializer
 from rest_framework.decorators import api_view, permission_classes, authentication_classes, throttle_classes
-from management.models.consumer_connections import ConsumerConnections
+from chat.consumers.messages import InUnconfirmedMatchAdded
 from back.utils import CoolerJson
 import json
 from rest_framework.authentication import SessionAuthentication
@@ -69,20 +70,10 @@ def confrim_match(request):
         partner = unconfirmed_match.get_partner(request.user)
         
         msg = pgettext_lazy("confirm_match.match_confirmed", "The match has been confirmed, your match has been made!")
-
-        from management.api.user_data import serialize_matches
         
         # Now we need to update the partner that was just accepted via callback
-
-        matches = serialize_matches([matching], partner)
-        payload = {
-            "action": "addMatch", 
-            "payload": {
-                "category": "unconfirmed",
-                "match": json.loads(json.dumps(matches[0], cls=CoolerJson))
-            }
-        }
-        ConsumerConnections.notify_connections(partner, event="reduction", payload=payload)
+        matches = AdvancedUserMatchSerializer([matching], many=True, context={"user": partner}).data
+        InUnconfirmedMatchAdded(matches[0]).send(partner.hash)
 
 
         return Response({
@@ -95,6 +86,4 @@ def confrim_match(request):
         unconfirmed_match.closed = True
         unconfirmed_match.save()
 
-        # TODO: send a to the user that tha match has been expired
-        
         return Response(pgettext_lazy("confirm_match.match_rejected", "The match has been rejected."))

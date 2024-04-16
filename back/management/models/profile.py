@@ -33,7 +33,7 @@ PROFILE_MODEL_VERSION = "1"
 
 
 def base_lang_skill():
-    return [{'lang': 'german', 'level': 'level-0.vol'}]
+    return [{'lang': 'german', 'level': 'level-0'}]
 
 
 @deconstructible
@@ -748,9 +748,9 @@ class CensoredProfileSerializer(SelfProfileSerializer):
     class Meta:
         model = Profile
         fields = ["first_name", 'interests', 'availability',
-                  'notify_channel', 'phone_mobile', 'image_type',
+                  'notify_channel', 'phone_mobile', 'image_type', 'lang_skill',
                   'avatar_config', 'image', 'description',
-                  'additional_interests', 'language_skill_description']
+                  'additional_interests', 'language_skill_description', 'user_type']
         
         
 class MinimalProfileSerializer(serializers.ModelSerializer):

@@ -51,7 +51,7 @@ setup:
 git clone <backend> && cd little-world-backend
 git submodule update --init --recursive
 COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml build
-for frontend in main_frontend user_form user_form_frontend admin_panel_frontend cookie_banner_frontend; do touch ./front/$frontend.webpack-stats.json ; done
+for frontend in main_frontend admin_panel_frontend cookie_banner_frontend; do touch ./front/$frontend.webpack-stats.json ; done
 COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml up
 ```
 
@@ -67,7 +67,7 @@ That's it! Any code changed in `/front/apps/*/src/*` or in `/back/*` will cause 
 
 Be sure to checkout the frontend commit or branch you want to work on!
 
-> If you wan't only one frontend to auto-update just use `COMPOSE_PROFILE=<frontend-name>` for any frontend `main_frontend`, `user_form` (v2), `user_form_frontend`, `admin_panel_frontend`, `cookie_banner_frontend`.
+> If you wan't only one frontend to auto-update just use `COMPOSE_PROFILE=<frontend-name>` for any frontend `main_frontend`, `admin_panel_frontend`, `cookie_banner_frontend`.
 > Or if you only work in the backend use `COMPOSE_PROFILE=backend`
 
 ### Documentation
@@ -110,9 +110,9 @@ e.g.: updating the user-form frontend
 git clone github.com/a-little-world/little-world-backend.git && cd little-world-backend
 git submodule --init --recursive
 git checkout -b staging-<your-feature-branch>
-cd ./front/apps/user_form/
+cd ./front/apps/main_frontend/
 git pull && git switch <your-feature-branch> # or 'main'
-cd ../ && git add ./user_form && git commit -m "update user form" # update commit refence
+cd ../ && git add ./main_frontend && git commit -m "update user form" # update commit refence
 git push # Now go to github.com/a-little-world/little-world-backend/tree/<your-feature-branch> & create a pull request
 ```
 
@@ -201,4 +201,22 @@ Then run it via:
 
 ```bash
 export $(grep -v '^#' .env.prod-attach | xargs) && docker compose -f docker-compose.prod-attach.yaml exec app ./manage.py <command-name>
+```
+
+### Setting up pylint locally
+
+1. create a venv `python3 -m venv ./venv` then source it `source /venv/bin/activate`
+2. install all backend packages `pip install -r back/requirements.txt`
+3. setup vscode linting config
+
+```json
+  "python.pythonPath": "/home/tim-schupp/Data/local/development/little-world/little-world-backend/pythonenv/bin",
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": true,
+  "python.linting.pylintUseMinimalCheckers": false,
+  "python.linting.pylintArgs": [
+    "--load-plugins",
+    "pylint_django",
+    "--django-settings-module=example.settings"
+  ]
 ```

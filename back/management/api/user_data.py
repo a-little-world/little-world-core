@@ -1,10 +1,14 @@
 import django.contrib.auth.password_validation as pw_validation
+import urllib.parse
 from copy import deepcopy
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 from rest_framework.decorators import api_view, permission_classes, authentication_classes, throttle_classes
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+from chat.models import ChatConnections
+from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from rest_framework_dataclasses.serializers import DataclassSerializer
 from chat.models import ChatSerializer, Chat, ChatInModelSerializer
+from management.models.state import FrontendStatusSerializer
 from django.core.paginator import Paginator
 from drf_spectacular.types import OpenApiTypes
 from datetime import datetime
@@ -25,7 +29,7 @@ from rest_framework.throttling import UserRateThrottle
 from dataclasses import dataclass
 from back.utils import transform_add_options_serializer
 from rest_framework.permissions import IsAuthenticated
-from django.core.paginator import Paginator
+from drf_spectacular.utils import inline_serializer
 from management.models.profile import (
     ProfileSerializer, SelfProfileSerializer,
     CensoredProfileSerializer,
@@ -52,234 +56,11 @@ from management.models.user import (
     UserSerializer, SelfUserSerializer,
     CensoredUserSerializer,
 )
-from management.models.consumer_connections import (
-    ConsumerConnections
-)
 from management.models.matches import Match
 from management.api.community_events import get_all_comunity_events_serialized
 from management.models.unconfirmed_matches import get_unconfirmed_matches
 
 from management.controller import get_user_models
-
-# For the current user
-"""
-Serializers to be used by the current user or an admin
-user -> models.user.User
-profile -> models.profile.Profile
-state -> models.state.State
-settings -> models.settings.Settings
-"""
-self_serializers = {
-    "user": SelfUserSerializer,
-    "profile": SelfProfileSerializer,
-    "state": SelfStateSerializer,
-    # Serializers with '_' wont be included in the standart user data serialization
-    # --> notifications for example are handled and paginated seperately
-    "_notifications": SelfNotificationSerializer,
-    "settings": SelfSettingsSerializer
-}
-
-admin_serializers = {
-    "user": UserSerializer,
-    "profile": ProfileSerializer,
-    "state": StateSerializer,
-    "_notifications": NotificationSerializer
-}
-
-# For 'other' users
-other_serializers = {
-    "user": CensoredUserSerializer,
-    "profile": CensoredProfileSerializer
-    # They do not get the user state at all!
-}
-
-
-@dataclass
-class UserDataApiParams:
-    page: int = 1  # todo should me "m_page"
-    paginate_by: int = 20
-    noti_paginate_by: int = 20
-    noti_page: int = 1
-    options: bool = False
-
-
-class UserDataApiSerializer(serializers.Serializer):
-    page = serializers.IntegerField(min_value=1, required=False)
-    paginate_by = serializers.IntegerField(min_value=1, required=False)
-    noti_page = serializers.IntegerField(min_value=1, required=False)
-    noti_paginate_by = serializers.IntegerField(min_value=1, required=False)
-    options = serializers.BooleanField(required=False)
-
-    def create(self, validated_data):
-        return UserDataApiParams(**validated_data)  # type: ignore
-
-
-def get_user_data(user, is_self=False, admin=False, include_options=False):
-    """
-    user: some user
-    is_self: if the user is asking for himself ( or an admin is asking )
-    This contains all data from all acessible user models
-    if the request user is not the same user we censor the profile data by usin another serializer
-    """
-    _serializers = other_serializers
-    if is_self:
-        _serializers = self_serializers
-    if admin:
-        _serializers = admin_serializers
-    if include_options:
-        # This is a simple hack to create a clone of the standart serializer that included the 'options' field
-        _serializers = _serializers.copy()
-        for _model in ["profile", "state"]:
-            _serializers[_model] = transform_add_options_serializer(
-                _serializers[_model])
-    models = get_user_models(user)  # user, profile, state
-
-    def _maybe_delete_options(d):
-        # The admin model included options by default so we can delte them here
-        # TODO: there might a sligh performance gain if we have another serializer without the options
-        # But that would make the code a bunch longer
-        if not include_options and 'options' in d:
-            del d['options']
-            return d
-        return d
-    user_data = {}
-    for k in _serializers:
-        if not k.startswith("_"):
-            user_data[k] = _maybe_delete_options(
-                _serializers[k](models[k]).data)
-    return user_data
-
-
-def get_matches_paginated(user, admin=False,
-                          page=UserDataApiParams.page,
-                          paginate_by=UserDataApiParams.paginate_by):
-    """
-    This returns a list of matches for a user,
-    this will always the censored *except* if accessed by an admin
-    """
-
-    # TODO: this was the old stategy, that has since been updated to use the new 'Match' model
-    # pages = Paginator(user.get_matches(), paginate_by).page(page)
-    pages = Paginator(Match.get_matches(user), paginate_by).page(page)
-    return [get_user_data(p, is_self=False, admin=admin) for p in pages]
-
-
-def get_matches_paginated_extra_details(user, admin=False,
-                                        page=UserDataApiParams.page,
-                                        paginate_by=UserDataApiParams.paginate_by):
-
-    #paginator = Paginator(user.get_matches(), paginate_by)
-    paginator = Paginator(Match.get_matches(user), paginate_by)
-    pages = paginator.page(page)
-
-    return [get_user_data(p, is_self=False, admin=admin) for p in pages], {
-        "page": page,
-        "num_pages": paginator.num_pages,
-        "paginate_by": paginate_by,
-    }
-
-
-def get_notifications_paginated(user,
-                                admin=False,
-                                page=UserDataApiParams.noti_page,
-                                paginate_by=UserDataApiParams.noti_paginate_by):
-    """
-    This returns a list of notifications for that user
-    """
-    _serializer = (admin_serializers if admin else self_serializers)[
-        "_notifications"]
-    return [_serializer(p).data for p in Paginator(user.get_notifications(), paginate_by).page(page)]
-
-
-class SelfInfo(APIView):
-    authentication_classes = [authentication.SessionAuthentication]
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request, format=None):
-        """ simple api to fetch your own user info """
-        return Response(get_user_data(request.user, is_self=True))
-
-
-def get_user_data_and_matches(user, options=False, admin=False,
-                              page=UserDataApiParams.page,
-                              paginate_by=UserDataApiParams.paginate_by,
-                              noti_page=UserDataApiParams.page,
-                              noti_paginate_by=UserDataApiParams.paginate_by):
-    match_data, extra_info = get_matches_paginated_extra_details(
-        user, admin=admin, page=page, paginate_by=paginate_by)
-    user_and_match_data = {
-        **get_user_data(user, is_self=True, include_options=options),
-        "matches": match_data,
-        "notifications": get_notifications_paginated(user, admin=admin, page=noti_page, paginate_by=noti_paginate_by)
-    }
-
-    if admin:
-        user_and_match_data["extra_info"] = extra_info
-
-    return user_and_match_data
-
-
-def get_full_frontend_data(user, options=False, admin=False,
-                           page=UserDataApiParams.page,
-                           paginate_by=UserDataApiParams.paginate_by,
-                           noti_page=UserDataApiParams.page,
-                           noti_paginate_by=UserDataApiParams.paginate_by, request=None):
-    """
-    Gathers *all* data for the frontend in addition to matches and self info
-    there is also data like community_events, frontend_state
-    """
-
-    user_data_and_matches = get_user_data_and_matches(user, options=options, admin=admin,
-                                                      page=page, paginate_by=paginate_by,
-                                                      noti_page=noti_page, noti_paginate_by=noti_paginate_by)
-    extra_infos = user_data_and_matches.pop("extra_info", {})
-    
-
-    frontend_data = {
-        **user_data_and_matches,
-        "community_events": get_all_comunity_events_serialized(),
-        "unconfirmed_matches": get_unconfirmed_matches(user),
-        "chats": [],
-        # "frontend_state": "",
-    }
-    if request:
-        chats_paginated = ChatsModelViewSet.emulate(request).list()
-        frontend_data["chats"] = chats_paginated
-
-    if admin:
-        frontend_data["admin_infos"] = {
-            **extra_infos
-        }
-
-    return frontend_data
-
-
-class UserData(APIView):
-    """
-    Returns the main application data for a given user.
-    Basicly this is the data the main frontend app receives ( there have been some additions check 'get_all_frontend_data' above )
-    optional params for paginating the matches:
-        page: what page to return, default 1
-        paginate_by: what number of users per page ( realy only relevant for admins )
-    """
-    authentication_classes = [authentication.SessionAuthentication,
-                              authentication.BasicAuthentication]
-    permission_classes = [permissions.IsAuthenticated]
-
-    @extend_schema(
-        request=UserDataApiSerializer(many=False),
-        parameters=[
-            OpenApiParameter(name=k, description="Use this and every self field will contain possible choices in 'options'" if k == "options" else "",
-                             required=False, type=type(getattr(UserDataApiParams, k)))
-            for k in UserDataApiParams.__annotations__.keys()
-        ],
-    )
-    def get(self, request, format=None):
-        serializer = UserDataApiSerializer(data=request.query_params)
-        serializer.is_valid(raise_exception=True)
-        params = serializer.save()
-
-        return Response(get_user_data_and_matches(request.user, admin=request.user.is_staff, **{k: getattr(params, k) for k in params.__annotations__}))
 
 def get_paginated(query_set, items_per_page, page):
     pages = Paginator(query_set, items_per_page).page(page)
@@ -289,33 +70,36 @@ def get_paginated(query_set, items_per_page, page):
         "itemsPerPage": items_per_page,
         "currentPage": page,
     }
-
-def serialize_matches(matches, user):
-    serialized = []
-    for match in matches:
-
-        partner = match.get_partner(user)
-
-        # Check if the partner is online
-        is_online = ConsumerConnections.has_active_connections(partner)
+    
+class AdvancedUserMatchSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Match
+        fields = ['uuid']
         
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        assert 'user' in self.context, "User must be passed in context"
+        user = self.context['user']
+        partner = instance.get_partner(user)
+
+        is_online = ChatConnections.is_user_online(partner)
         chat = Chat.get_or_create_chat(user, partner)
         chat_serialized = ChatInModelSerializer(chat, context={'user': user}).data
-
-        serialized.append({
-            "id": str(match.uuid),
+        
+        representation = {
+            "id": str(instance.uuid),
             "chat": {
                 **chat_serialized
             },
             "chatId": str(chat.uuid),
             "partner": {
                 "id": str(partner.hash),
-                "is_online": is_online,
+                "isOnline": is_online,
+                "isSupport": partner.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER) or partner.is_staff,
                 **CensoredProfileSerializer(partner.profile).data
-            }
-        })
-
-    return serialized
+            },
+        }
+        return representation
 
 def serialize_proposed_matches(matching_proposals, user):
     serialized = []
@@ -348,7 +132,76 @@ def serialize_notifications(notifications):
 
     return serialized
 
+@extend_schema(
+    responses=inline_serializer(
+        name="UserData",
+        fields={
+            "id": serializers.UUIDField(),
+            "status": serializers.CharField(),
+            "isSupport": serializers.BooleanField(),
+            "isSearching": serializers.BooleanField(),
+            "email": serializers.EmailField(),
+            "preMatchingAppointment": PreMatchingAppointmentSerializer(required=False),
+            "calComAppointmentLink": serializers.CharField(),
+            "hadPreMatchingCall": serializers.BooleanField(),
+            "emailVerified": serializers.BooleanField(),
+            "userFormCompleted": serializers.BooleanField(),
+            "profile": SelfProfileSerializer(),
+        }
+    ),
+)
+@permission_classes([IsAuthenticated])
+@api_view(['GET'])
+def user_data_api(request):
+    return Response(user_data(request.user))
 
+def user_data(user):
+    user_state = user.state
+    user_profile = user.profile
+    
+    is_matching_user = user_state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+
+    ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
+    profile_data = ProfileWOptions(user_profile).data
+    del profile_data["options"]
+
+    
+    support_matches = get_paginated(Match.get_support_matches(user), 10, 1)
+    support_matches["items"] = AdvancedUserMatchSerializer(support_matches["items"], many=True, context={'user': user}).data
+    
+    
+    cal_data_link = "{calcom_meeting_id}?{encoded_params}".format(first_name=user.profile.first_name,encoded_params=urllib.parse.urlencode({
+                        "email": str(user.email),
+                        "hash": str(user.hash),
+                        "bookingcode": str(user.state.prematch_booking_code)
+    }), calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID)
+    
+    
+    pre_match_appointent = PreMatchingAppointment.objects.filter(user=user).order_by("created")
+    if pre_match_appointent.exists():
+        pre_match_appointent = PreMatchingAppointmentSerializer(pre_match_appointent.first()).data
+    else:
+        pre_match_appointent = None
+
+    # Prematching join link depends on the support user
+    pre_call_join_link = None
+    if len(support_matches['items']) > 0:
+        pre_call_join_link = f"/app/call-setup/{support_matches['items'][0]['partner']['id']}/"
+    
+    return {
+            "id": user.hash,
+            "status": FrontendStatusSerializer(user_state).data["status"],
+            "isSupport": is_matching_user,
+            "isSearching": user_state.matching_state == State.MatchingStateChoices.SEARCHING,
+            "email": user.email,
+            "preMatchingAppointment": pre_match_appointent,
+            'preMatchingCallJoinLink': pre_call_join_link,
+            "calComAppointmentLink": cal_data_link,
+            "hadPreMatchingCall": user_state.had_prematching_call,
+            "emailVerified": user_state.email_authenticated,
+            "userFormCompleted": user_state.user_form_state == State.UserFormStateChoices.FILLED, # TODO: depricate
+            "profile": profile_data,
+    }
 
 def frontend_data(user, items_per_page=10, request=None):
 
@@ -361,13 +214,13 @@ def frontend_data(user, items_per_page=10, request=None):
     community_events["items"] = serialize_community_events(community_events["items"])
 
     confirmed_matches = get_paginated(Match.get_confirmed_matches(user), items_per_page, 1)
-    confirmed_matches["items"] = serialize_matches(confirmed_matches["items"], user)
+    confirmed_matches["items"] = AdvancedUserMatchSerializer(confirmed_matches["items"], many=True, context={'user': user}).data
 
     unconfirmed_matches = get_paginated(Match.get_unconfirmed_matches(user), items_per_page, 1)
-    unconfirmed_matches["items"] = serialize_matches(unconfirmed_matches["items"], user)
+    unconfirmed_matches["items"] = AdvancedUserMatchSerializer(unconfirmed_matches["items"], many=True, context={'user': user}).data
 
     support_matches = get_paginated(Match.get_support_matches(user), items_per_page, 1)
-    support_matches["items"] = serialize_matches(support_matches["items"], user)
+    support_matches["items"] = AdvancedUserMatchSerializer(support_matches["items"], many=True, context={'user': user}).data
 
     proposed_matches = get_paginated(UnconfirmedMatch.get_open_proposals(user), items_per_page, 1)
     proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
@@ -381,17 +234,6 @@ def frontend_data(user, items_per_page=10, request=None):
     archived_notifications = get_paginated(Notification.get_archived_notifications(user), items_per_page, 1)
     archived_notifications["items"] = serialize_notifications(archived_notifications["items"])
 
-    ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
-    profile_data = ProfileWOptions(user_profile).data
-    profile_options = profile_data["options"]
-    del profile_data["options"]
-
-    # TODO: Currently incoming calls are only populated if the user was online when the incomin call was triggered
-    # This should be refactored so that we can actually tracka nd display whena user is currently in a call
-    
-    
-    #chats = ChatSerializer(Paginator(Chat.get_chats(user), items_per_page).page(1), many=True).data
-    
     empty_list = {
         "items": [],
         "totalItems": 0,
@@ -399,15 +241,15 @@ def frontend_data(user, items_per_page=10, request=None):
         "currentPage": 0,
     }
 
+    ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
+    profile_data = ProfileWOptions(user_profile).data
+
+    profile_options = profile_data["options"]
+    
+    ud = user_data(user)
+
     frontend_data = {
-        "user": {
-            "id": user.hash,
-            "isSearching": user_state.matching_state == State.MatchingStateChoices.SEARCHING,
-            "email": user.email,
-            "emailVerified": user.state.email_authenticated,
-            "userFormCompleted": user_state.user_form_state == State.UserFormStateChoices.FILLED,
-            "profile": profile_data,
-        },
+        "user": ud,
         "communityEvents": community_events,
         "matches": {
             # Switch case here cause for support users all matches are 'support' matches :D
@@ -501,10 +343,11 @@ class ConfirmedDataApi(APIView):
             )
 
             # Serialize matches data for the user
-            confirmed_matches["items"] = serialize_matches(
+            confirmed_matches["items"] = AdvancedUserMatchSerializer(
                 confirmed_matches["items"],
-                request.user
-            )
+                many=True,
+                context={'user': request.user}
+            ).data
 
         except Exception as e:
             return Response({"code":400, "error": "Page not Found"}, status=status.HTTP_400_BAD_REQUEST)

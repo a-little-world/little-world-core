@@ -3,8 +3,8 @@ FROM python:3.11-alpine as backend
 WORKDIR /back
 COPY ./back/requirements.txt .
 
-RUN pip install --no-cache-dir -r requirements.txt
 RUN apk add --no-cache git
+RUN pip install --no-cache-dir -r requirements.txt
 RUN pip install git+https://github.com/jazzband/django-revproxy.git
 RUN pip cache purge
 

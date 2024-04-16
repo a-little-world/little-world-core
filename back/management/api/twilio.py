@@ -9,7 +9,7 @@ from tracking.utils import track_event
 from management.twilio_handler import get_usr_auth_token, get_room_or_create, complete_room_if_empty
 from management.models.rooms import get_rooms_user, Room, get_rooms_match
 from management.controller import get_user_by_hash, send_websocket_callback
-from management.models.consumer_connections import ConsumerConnections
+from chat.consumers.messages import InBlockIncomingCall, InNewIncomingCall
 
 
 @dataclass
@@ -90,11 +90,6 @@ class TwilioCallbackApi(APIView):
     authentication_classes = []
     permission_classes = []
 
-    @extend_schema(request=TwilioCallbackApiSerializer(many=False))
-    @track_event(
-        name="twilio_callback_received",
-        tags=["remote", "twilio"]
-    )
     def post(self, request):
         """
         This is the api twilio sends callbacks to 
@@ -118,33 +113,18 @@ class TwilioCallbackApi(APIView):
                 assert usr in room_usrs, "User is not in this room! He should try to authenticate it!"
                 other_user = [u for u in room_usrs if u != usr][0]
                 return room, usr, other_user
-            
-            
 
             if StatusCallbackEvent == 'participant-disconnected':
                 room, caller, participant = get_room_caller_and_participant()
                 complete_room_if_empty(room)
-
-                payload = {
-                    "action": "blockIncomingCall", 
-                    "payload": {
-                        "userId": str(caller.hash)
-                    }
-                }
-                ConsumerConnections.notify_connections(participant, event="reduction", payload=payload)
                 
+                InBlockIncomingCall(participant.hash).send(caller.hash)
                 
                 return Response()
             elif StatusCallbackEvent == 'participant-connected':
                 room, caller, participant = get_room_caller_and_participant()
 
-                payload = {
-                    "action": "addIncomingCall", 
-                    "payload": {
-                        "userId": str(caller.hash)
-                    }
-                }
-                ConsumerConnections.notify_connections(participant, event="reduction", payload=payload)
+                InNewIncomingCall(caller.hash).send(participant.hash)
 
                 return Response()
         # Means we havenet handled this callback yet!

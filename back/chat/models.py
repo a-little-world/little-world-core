@@ -13,7 +13,6 @@ class Chat(models.Model):
     u2 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u2")
     
     created = models.DateTimeField(auto_now_add=True)
-    messages = models.ManyToManyField("Message", related_name="chat_messages", null=True, blank=True)
     
     def get_partner(self, user):
         return self.u1 if self.u2 == user else self.u2
@@ -24,6 +23,9 @@ class Chat(models.Model):
     @classmethod
     def get_chats(cls, user):
         return Chat.objects.filter(Q(u1=user) | Q(u2=user)).order_by("-created")
+
+    def get_messages(self):
+        return Message.objects.filter(chat=self).order_by("-created")
     
     @classmethod
     def get_chat(cls, users):
@@ -33,10 +35,10 @@ class Chat(models.Model):
         return None
     
     def get_unread_count(self, user):
-        return self.messages.filter(read=False, recipient=user).count()
+        return self.get_messages().filter(read=False, recipient=user).count()
     
     def get_newest_message(self):
-        return self.messages.order_by("-created").first()
+        return self.get_messages().order_by("-created").first()
     
     @classmethod
     def get_or_create_chat(cls, user1, user2):
@@ -78,13 +80,15 @@ class ChatSerializer(serializers.ModelSerializer):
         if 'request' in self.context:
             user = self.context['request'].user
             partner = instance.get_partner(user)
-            profile = management_models.profile.ProfileSerializer(partner.profile).data
-            username = partner.username
-            profile['uuid'] = partner.hash
+            profile = management_models.profile.MinimalProfileSerializer(partner.profile).data
             representation['partner'] = profile
-            representation['partner']['username'] = username
+            representation['partner']['id'] = partner.hash
+
             del representation['u1']
             del representation['u2']
+
+            representation['unread_count'] = instance.get_unread_count(user)
+            representation['newest_message'] = MessageSerializer(instance.get_newest_message()).data
         else:
             representation['u1'] = instance.u1.hash
             representation['u2'] = instance.u2.hash
@@ -100,6 +104,8 @@ class Message(models.Model):
     
     sender = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="message_sender")
     recipient = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="message_recipient")
+    
+    recipient_notified = models.BooleanField(default=False)
     
     text = models.TextField()
     
@@ -117,6 +123,12 @@ class MessageSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation['sender'] = instance.sender.hash
+
+        from management.models.state import State
+        sender_staff = instance.sender.is_staff or instance.sender.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+        
+        if sender_staff:
+            representation['parsable'] = True
         
         return representation
     
@@ -149,9 +161,23 @@ class OpenAiChatSerializer(serializers.ModelSerializer):
         
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        
-        representation['messages'] = OpenAiMessageSerializer(Paginator(instance.messages, self.message_depth).page(1), many=True).data
-        
 
+        messages = instance.get_messages()
+        representation['messages'] = OpenAiMessageSerializer(Paginator(messages, self.message_depth).page(1), many=True).data
         
         
+class ChatSessions(models.Model):
+    user = models.ForeignKey("management.User", on_delete=models.CASCADE)
+    start_time = models.DateTimeField()
+    end_time = models.DateTimeField()
+
+class ChatConnections(models.Model):
+    
+    user = models.ForeignKey("management.User", on_delete=models.CASCADE)
+    is_online = models.BooleanField(default=False)
+    last_seen = models.DateTimeField(auto_now=True)
+    time_created = models.DateTimeField(auto_now_add=True)
+    
+    @classmethod
+    def is_user_online(cls, user):
+        return cls.objects.filter(user=user, is_online=True).exists()

@@ -9,7 +9,7 @@ from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django import forms
 from phonenumber_field.widgets import PhoneNumberPrefixWidget
 from management import models
-from management.models import question_deck
+from management.models import question_deck, scores, pre_matching_appointment, newsletter
 from django.db.migrations.recorder import MigrationRecorder
 from hijack.contrib.admin import HijackUserAdminMixin
 
@@ -17,10 +17,6 @@ from hijack.contrib.admin import HijackUserAdminMixin
 @admin.register(models.backend_state.BackendState)
 class BackendStateAdmin(admin.ModelAdmin):
     list_display = ('slug', 'name', 'hash', 'meta', 'created_at')
-
-@admin.register(models.scores.TwoUserMatchingScore)
-class BackendStateAdmin(admin.ModelAdmin):
-    list_display = ('user1', 'user2', 'score', 'scoring_results', 'latest_update')
 
 @admin.register(models.help_message.HelpMessage)
 class HelpMessageStateAdmin(admin.ModelAdmin):
@@ -45,24 +41,6 @@ class NewsItemAdmin(admin.ModelAdmin):
 @admin.register(models.matches.Match)
 class MatchModelAdmin(admin.ModelAdmin):
     list_display = ('uuid', 'created_at', 'updated_at', 'user1', 'user2')
-
-@admin.register(models.matching_scores.MatchinScore)
-class DirectionalMatchinScores(admin.ModelAdmin):
-    list_display = ('from_usr', 'current_score',
-                    'to_usr', 'score', 'matchable', 'messages')
-    search_fields = ('from_usr__email', 'from_usr__hash')
-    list_filter = ('matchable', 'current_score')
-    formfield_overrides = {
-        dj_models.TextField: {'widget': AdminMartorWidget},
-    }
-
-
-@admin.register(models.matching_scores.ScoreTableSource)
-class ScoreTableAdmin(admin.ModelAdmin):
-    list_display = ('tag', 'hash', 'created_at')
-    formfield_overrides = {
-        dj_models.TextField: {'widget': AdminMartorWidget},
-    }
 
 
 @admin.register(models.profile.ProfileAtMatchRequest)
@@ -237,19 +215,27 @@ class SessionAdmin(admin.ModelAdmin):
         return obj.get_decoded()
     list_display = ['session_key', '_session_data', 'expire_date']
 
-@admin.register(question_deck.CardContent)
-class CategoryAdmin(admin.ModelAdmin):
-    list_display = ('uuid', 'category_name')
+@admin.register(question_deck.QuestionCardsDeck)
+class QuestionCardDeckAdmin(admin.ModelAdmin):
+    list_display = ('uuid', 'user')
 
+@admin.register(question_deck.QuestionCardCategories)
+class QuestionCardCategoryAdmin(admin.ModelAdmin):
+    list_display = ('uuid', 'ref_id', 'content')
 
-@admin.register(question_deck.UserDeck)
-class UserCategoriesAdmin(admin.ModelAdmin):
-    list_display = ['user']
+@admin.register(question_deck.QuestionCard)
+class QuestionCardAdmin(admin.ModelAdmin):
+    list_display = ('uuid', 'ref_id','category', 'content')
     
-@admin.register(models.consumer_connections.ConsumerConnections)
-class ConsumerConnectionsAdmin(admin.ModelAdmin):
-    list_display = ['user', 'uuid']
+@admin.register(scores.TwoUserMatchingScore)
+class TwoUserMatchingScoreAdmin(admin.ModelAdmin):
+    list_display = ('user1', 'user2', 'matchable', 'score', 'latest_update')
+
+@admin.register(pre_matching_appointment.PreMatchingAppointment)
+class PreMatchingAppointmentAdmin(admin.ModelAdmin):
+    list_display = ('user', 'start_time', 'end_time', 'created')
     
-@admin.register(models.consumer_connections.Connections)
-class ConnectionsAdmin(admin.ModelAdmin):
-    list_display = ['user', 'channel_name', 'active', 'time_joined', 'time_left']
+
+@admin.register(newsletter.NewsLetterSubscription)
+class NewsLetterSubscriptionAdmin(admin.ModelAdmin):
+    list_display = ('email', 'two_step_verification', 'created', 'active')

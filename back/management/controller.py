@@ -5,6 +5,7 @@ e.g.: Creating a new user, sending a notification to a users etc...
 import urllib.parse
 from uuid import uuid4
 from django.utils import translation
+from django.db.models import Q
 from django.db import transaction
 from typing import Dict, Callable
 from management.models.unconfirmed_matches import UnconfirmedMatch
@@ -37,7 +38,6 @@ from management.tasks import (
     create_default_community_events,
     create_default_cookie_groups,
     fill_base_management_user_tim_profile,
-    create_default_table_score_source
 )
 
 
@@ -232,80 +232,76 @@ def create_user(
     else:
         print("Not sending verification mail!")
 
-    def finish_up_user_creation():
-        # Step 5 Match with admin user
-        # Do *not* send an matching mail, or notification or message!
-        # Also no need to set the admin user as unconfirmed,
-        # there is no popup message required about being matched to the admin!
-        
-        # TODO: since this was just updated and we now have 'matcher' users
-        # this doesn't always have to be the same management user anymore
-        # Generay how we handle management users needs to be significantly improved!
-        base_management_user = get_base_management_user()
-        
-        match_users({ base_management_user, usr },
-                    send_notification=False,
-                    send_message=False,
-                    send_email=False,
-                    set_unconfirmed=False)
+    base_management_user = get_base_management_user()
+    
+    matching = match_users({ base_management_user, usr },
+                send_notification=False,
+                send_message=False,
+                send_email=False,
+                set_unconfirmed=False)
+    
+    print("Created matching", matching,"is_support:", matching.support_matching)
 
-        if not base_management_user.is_staff:
-            # Must be a mather user now TODO
-            # Add that user to the list of users managed by this management user!
-            base_management_user.state.managed_users.add(usr)
+    if not base_management_user.is_staff:
+        # Must be a mather user now TODO
+        # Add that user to the list of users managed by this management user!
+        base_management_user.state.managed_users.add(usr)
+        base_management_user.state.save()
 
-        # Step 7 Notify the user
-        if send_welcome_notification:
-            usr.notify(title=_("Welcome Notification"))
+    # Step 5 Match with admin user
+    # Do *not* send an matching mail, or notification or message!
+    # Also no need to set the admin user as unconfirmed,
+    # there is no popup message required about being matched to the admin!
+    
+    # TODO: since this was just updated and we now have 'matcher' users
+    # this doesn't always have to be the same management user anymore
+    # Generay how we handle management users needs to be significantly improved!
 
-        # Step 8 Message the user from the admin account
-        if send_welcome_message:
+    # Step 7 Notify the user
+    if send_welcome_notification:
+        usr.notify(title=_("Welcome Notification"))
 
-            default_message = pgettext_lazy("api.register-welcome-message-text", """Hallo {first_name} und herzlich willkommen bei Little World!
+    # Step 8 Message the user from the admin account
+    default_message = ""
+    if send_welcome_message:
+
+        default_message = pgettext_lazy("api.register-welcome-message-text", """Hallo {first_name} und herzlich willkommen bei Little World!
 
 Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil unserer Plattform geworden bist!
 
-Aktuell arbeiten wir an einigen Aktualisierungen unserer Plattform und unseres Matching-Verfahrens und schätzen daher jedes <a href="/app/help">Feedback</a>, das wir von dir erhalten.
+Aktuell arbeiten wir an einigen Aktualisierungen unserer Plattform und unseres Matching-Verfahrens und schätzen daher jedes <a {{"href": "/app/help"}}>Feedback</a>, das wir von dir erhalten.
 
-Während wir für dich ein passendes Match finden, kannst du gerne in unserem <a href="https://home.little-world.com/leitfaden">Gesprächsleitfaden</a> stöbern. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
+Während wir für dich ein passendes Match finden, kannst du gerne in unserem <a {{"href" : "https://home.little-world.com/leitfaden"}}>Gesprächsleitfaden</a> stöbern. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
 
 Vielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!""".format(first_name=first_name))
             
-            if check_prematching_invitations:
-                # Now we need to check the prematching state
-                prematch_interview_state = BackendState.get_prematch_callinvitations_state()
-                if prematch_interview_state.meta["active"] and prematch_interview_state.meta["invitations_remaining"] > 0:
-                    prematch_interview_state.meta["invitations_remaining"] = prematch_interview_state.meta["invitations_remaining"] - 1
-                    prematch_interview_state.save()
-                    
-                    # TODO: there is a bug here if the user decides to change the email, then the booking will be made from the wrong email.
-                    
-                    usr.state.prematch_booking_code
-                    
-                    default_message = pgettext_lazy("api.register-invite-pre-match-interview", """Hallo {first_name} und herzlich willkommen bei Little World!
+    if check_prematching_invitations:
+        # Now we need to check the prematching state
+        # TODO: there is a bug here if the user decides to change the email, then the booking will be made from the wrong email.
+        
+        default_message = pgettext_lazy("api.register-invite-pre-match-interview", """Hallo {first_name} und herzlich willkommen bei Little World!
 
 Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil unserer Plattform geworden bist!
 
-Bevors richtig los geht musst du mit mir einen 15 minuetigen video call termin vereinbaren. 
-                                                    
-Dort werden wir zusmmen deine such angaben ueberpruefen und ich werde dir die nachsten schritte zur teilnahme bei little world erklaern.
-                                                    
-Bitte buche dafuer einen termin in dem volgenden kalender: 
-<button data-cal-link="{calcom_meeting_id}?{encoded_params}"  data-cal-config='{{"layout":"month_view"}}'>Book a meeting</button>
+Aktuell arbeiten wir an einigen Aktualisierungen unserer Plattform und unseres Matching-Verfahrens und schätzen daher jedes Feedback, das wir von dir erhalten. Du kannst deine Gedanken und Erfahrungen jederzeit über diesen Link mit uns teilen: <a {{"href": "/app/help"}}>Feedback</a>.
 
-Falls hier garnix passt oder du andere fragen hast schreib mir einfach hier eine Nachricht.""".format(first_name=first_name,encoded_params=urllib.parse.urlencode({
-                        "email": str(usr.email),
-                        "hash": str(usr.hash),
-                        "bookingcode": str(usr.state.prematch_booking_code)
-                    }), 
-                    hash=usr.hash,
-                    calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID))
+Bevor es richtig losgeht, musst du einen 15-minütigen Videocall-Termin mit mir vereinbaren. In diesem Gespräch werden wir gemeinsam deine Suchangaben überprüfen, und ich werde dir die nächsten Schritte zur Teilnahme bei Little World erklären. Bitte buche dafür einen Termin in dem folgenden Kalender: <button {{"data-cal-link" : "{calcom_meeting_id}?{encoded_params}", "data-cal-config" : "{{"layout":"month_view"}}"}}>Buche ein Meeting</button>.
 
-                    usr.state.require_pre_matching_call = True
-                    usr.state.save()
-                
-            usr.message(default_message, auto_mark_read=True)
-    transaction.on_commit(finish_up_user_creation)
+Während wir für dich ein passendes Match finden, kannst du gerne in unserem Gesprächsleitfaden unter diesem Link stöbern: <a {{"href" : "https://home.little-world.com/leitfaden"}}>Gesprächsleitfaden</a>. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
+
+Vielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!""".format(first_name=first_name,encoded_params=urllib.parse.urlencode({
+            "email": str(usr.email),
+            "hash": str(usr.hash),
+            "bookingcode": str(usr.state.prematch_booking_code)
+        }), 
+        hash=usr.hash,
+        calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID))
+
+        usr.state.require_pre_matching_call = True
+        usr.state.save()
+        
+    usr.message(default_message, auto_mark_read=True)
+    
     return usr
 
 
@@ -319,11 +315,6 @@ def are_users_matched(
     return usr1.is_matched(usr2) and usr2.is_matched(usr1)
 
 
-# 'set' No one can put two identical users
-@utils.track_event(
-    name="Users Matched",
-    event_type=Event.EventTypeChoices.FLOW,
-    tags=["backend", "function", "db"])
 def match_users(
         users: set,
         send_notification=True,
@@ -331,6 +322,7 @@ def match_users(
         send_email=True,
         create_dialog=True,
         create_video_room=True,
+        create_livekit_room=True,
         set_unconfirmed=True,
         set_to_idle=True):
     """ Accepts a list of two users to match """
@@ -341,6 +333,13 @@ def match_users(
     # Only match if they are not already matched!
     matching = Match.get_match(usr1, usr2)
     if matching.exists():
+        # Before we raise the exception we check for 'dangeling' matches 
+        from management.models.unconfirmed_matches import UnconfirmedMatch
+        dangeling = UnconfirmedMatch.get_proposal_between(usr1, usr2)
+        if dangeling.exists():
+            dangeling.delete()
+            raise Exception("Users are already matched, but dangeling proposals found, DELETED!")
+
         raise Exception("Users are already matched!")
     
     # TODO: this is the old way to match to be removed one our frontend strategy updated
@@ -357,8 +356,17 @@ def match_users(
     matching_obj = Match.objects.create(
         user1=usr1,
         user2=usr2,
+        confirmed=is_support_matching, # if support matching always confimed = true prevents it from showing up in 'unconfirmed' initally 
         support_matching=is_support_matching
     )
+    
+    if create_livekit_room:
+        from video.models import LiveKitRoom
+        if not (LiveKitRoom.objects.filter(Q(u1=usr1, u2=usr2) | Q(u1=usr2, u2=usr1)).exists()):
+            LiveKitRoom.objects.create(
+                u1=usr1,
+                u2=usr2, 
+            )
 
     if create_dialog:
         # After the users are registered as matches
@@ -603,7 +611,6 @@ def create_base_admin_and_add_standart_db_values():
     create_default_cookie_groups.delay()
     create_default_community_events.delay()
     fill_base_management_user_tim_profile.delay()
-    create_default_table_score_source.delay()
     
     get_or_create_default_docs_user()
 
@@ -795,11 +802,6 @@ def send_email(
         report.out += f"Error sending email: {e}" + str(e)
         
     return report
-        
-    
-        
-    
-
 
 def send_group_mail(
     users,

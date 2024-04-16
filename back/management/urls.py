@@ -7,10 +7,17 @@ from back.utils import _api_url
 from django.conf.urls import include
 from django.views.generic.base import RedirectView
 from rest_framework import routers
-from management.views.admin_panel_frontend import admin_panel, stats_panel, graph_panel, fetch_graph, user_list_frontend, fetch_list
+from management.views.admin_panel_frontend import stats_panel, graph_panel, fetch_graph, user_list_frontend, fetch_list
 from management.views import admin_panel_v2
 from management.views import admin_panel_v2_actions
+from management.views import admin_panel_devkit
+from management.views import admin_panel_emails
 from management.api import slack, ai
+from management.api.scores import list_top_scores, score_maximization_matching, burst_calulate_matching_scores, delete_all_matching_scores
+from management.api.matching_stats import get_quick_statistics
+from management.api.questions import get_question_cards, archive_card
+from management.api.newsletter_subscribe import public_newsletter_subscribe
+from management.api.user_data import user_data_api
 
 from rest_framework.routers import DefaultRouter
 from django_rest_passwordreset.views import ResetPasswordValidateTokenViewSet, ResetPasswordConfirmViewSet, \
@@ -40,7 +47,6 @@ api_routes = [
     *slack.api_routes,
     *ai.api_routes,
     # User
-    path(_api_url('user_data'), api.user_data.UserData.as_view()),
     path(_api_url('user_data_v2'), api.user_data.user_data_v2),
 
     path(_api_url('trans/<str:lang>'), api.trans.TranslationsGet.as_view()),
@@ -52,7 +58,7 @@ api_routes = [
          api.community_events.GetActiveEventsApi.as_view()),
 
     path(_api_url('register'), api.register.Register.as_view()),
-    path(_api_url('user'), api.user_data.SelfInfo.as_view()),
+    path(_api_url('user'), user_data_api, name="user_data_api"),
     path(_api_url('cookies/cookie_banner.js', end_slash=False),
          api.cookies.get_dynamic_cookie_banner_js),
     path(_api_url('user/confirm_match'), api.user.ConfirmMatchesApi.as_view()),
@@ -71,6 +77,7 @@ api_routes = [
     path(_api_url('user/checkpw'), api.user.CheckPasswordApi.as_view()),
     path(_api_url('user/changepw'), api.user.ChangePasswordApi.as_view()),
     path(_api_url('user/translate'), api.translation_requests.translate),
+    path(_api_url('googletrans/translate'), api.googletrans.translate),
     path(_api_url('user/change_email'), api.user.ChangeEmailApi.as_view()),
 
     path(_api_url('emails/toggle_sub'), api.email_settings.unsubscribe_link),
@@ -92,14 +99,6 @@ api_routes = [
     path(_api_url('notification/<str:action>', end_slash=False),
          api.notify.NotificationActionApi.as_view()),
 
-    path(_api_url('question'),
-         QuestionApi.as_view()),
-    path(_api_url('questions/archive'),
-         ArchivedQuestionsApi.as_view()),
-    path(_api_url('questions-list/userarchived'),
-         ViewArchivedList.as_view()),
-    path(_api_url('questions/unarchived'),
-         UnArchivedCard.as_view()),
     path(_api_url('matches/confirmed'),
          api.user_data.ConfirmedDataApi.as_view()),
     # e.g.: /user/verify/email/Base64{d=email&u=hash&k=pin:hash}
@@ -113,23 +112,11 @@ api_routes = [
     path(_api_url('user/match/confirm_deny'),
          api.confirm_match.confrim_match),
     # Admin
-    path(_api_url('user/get', admin=True), api.admin.GetUser.as_view()),
-    path(_api_url('user/list', admin=True), api.admin.UserList.as_view()),
-
     path(_api_url('graph/get', admin=True), fetch_graph),
     path(_api_url('user_list/get', admin=True), fetch_list),
 
-    path(_api_url('user/tag/<str:action>', admin=True),
-         api.admin.UserTaggingApi.as_view()),
-
-    path(_api_url('user/update_score', admin=True),
-         api.admin.RequestMatchingScoreUpdate.as_view()),
-
     path(_api_url('user/match', admin=True),
-         api.admin.MakeMatch.as_view()),
-
-    path(_api_url('user/unmatch', admin=True),
-         api.admin.UnmatchUsers.as_view()),
+         api.matches.make_match),
     #    path(_api_url('user/match', admin=True), api.admin.MakeMatch.as_view()),
     #    path(_api_url('user/suggest_match', admin=True),
     #         api.admin.MatchingSuggestion.as_view()),
@@ -154,16 +141,24 @@ view_routes = [
             main_frontend.MainFrontendView.as_view(), name="main_frontend_w_path"),
 
     path(f"user/still_active/", api.user.still_active_callback, name="still_active_callback"),
+    path(f"api/user/question_cards/",get_question_cards, name="question_cards"),
+    path(f"api/user/archive_card/",archive_card, name="question_cards_archive"),
+
     path(_api_url(f"user/delete_account", admin=False), api.user.delete_account, name="delete_account_api"),
 
-    path(f"admin_panel/", admin_panel, name="admin_panel"),
-    path(f"admin_panel_v2/", admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
-    path(f"admin_panel_v2_login/", admin_panel_v2.admin_panel_v2_login, name="admin_panel_v2_login"),
-    re_path(fr'^admin_panel_v2/(?P<menu>.*)$', admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
+    path(f"matching/", admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
+    path(f"matching/login/", admin_panel_v2.admin_panel_v2_login, name="admin_panel_v2_login"),
+    re_path(fr'^matching/(?P<menu>.*)$', admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
+    
+    path("api/newsletter_subscribe", public_newsletter_subscribe, name="newsletter_subscribe"),
     path(_api_url('user_advanced/<str:pk>', admin=True), admin_panel_v2.root_user_viewset.as_view({'get': 'retrieve'})),
+    path(_api_url('user_list_query_sets', admin=True), admin_panel_v2.get_user_list_query_sets),
+    path(_api_url('user_list/<str:query_set>', admin=True), admin_panel_v2.get_user_list_users, name="matching_user_list_users"),
     path(_api_url('user_info/<str:pk>', admin=True), admin_panel_v2.user_info_viewset.as_view({'get': 'retrieve'})),
     path(_api_url('user_advanced/<str:pk>/notes', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'get': 'notes', 'post': 'notes'})),
+    path(_api_url('user_advanced/<str:pk>/prematching_appointments', admin=True),
+         admin_panel_v2.root_user_viewset.as_view({'get': 'prematching_appointment'})),
     path(_api_url('user_advanced/<str:pk>/scores', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'get': 'scores'})),
 
@@ -194,6 +189,11 @@ view_routes = [
     path(_api_url('user_advanced/<str:pk>/request_score_update', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'get': 'request_score_update'})),
     path(_api_url('user_listing_advanced/<str:list>', admin=True), admin_panel_v2.advanced_user_listing),
+    path(_api_url('quick_matching_statistics', admin=True), get_quick_statistics),
+    path(_api_url('optimize_possible_matches', admin=True), score_maximization_matching),
+    path(_api_url('burst_calulate_matching_scores', admin=True), burst_calulate_matching_scores),
+    path(_api_url('delete_all_matching_scores', admin=True), delete_all_matching_scores),
+    path(_api_url('top_scores', admin=True), list_top_scores),
     path(_api_url('tasks/<str:task_id>/status', admin=True), admin_panel_v2.request_task_status),
 
     path(f"manage/", user_list_frontend, name="management_panel"),
@@ -204,10 +204,9 @@ view_routes = [
 
     path(_api_url('calcom', admin=False), api.calcom.callcom_websocket_callback),
     
-    
     *admin_panel_v2_actions.action_routes,
-
-
+    *admin_panel_emails.email_view_routes,
+    *admin_panel_devkit.devkit_urls
 ]
 
 if settings.USE_LANDINGPAGE_PLACEHOLDER:

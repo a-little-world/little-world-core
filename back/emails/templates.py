@@ -1033,3 +1033,89 @@ class NewServerMail:
     footer_text: str = ''
     goodbye: str = 'Vielen Dank für eure Unterstützung!'
     goodbye_name: str = 'Das gesamte Team von Little World wünscht euch frohe Feiertage und einen guten Rutsch ins neue Jahr!'
+
+
+@dataclass
+class BabbelSubscriptionMail_Winner:
+    """
+    ---------> Babbel Subscription Winning Email <---------------
+    """
+    subject_header_text: str = pgettext_lazy(
+        "email.babbel-subscription-winner.subject-header-text", "Herzlichen Glückwunsch! Du hast ein 6-monatiges Babbel-Abonnement gewonnen")
+    greeting: str = pgettext_lazy(
+        'email.babbel-subscription-winner.greeting',
+        'Du hast einen Babbel-Gutschein gewonnen!')
+    content_start_text: str = pgettext_lazy(
+        'email.babbel-subscription-winner.content-start-text','Alle tollen Funktionen und Inhalte von Babbel kannst du jetzt 6 Monate lang kostenlos nutzen.')
+    link_box_text: str = pgettext_lazy(
+        'email.babbel-subscription-winner.link-box-text',
+        mark_safe('<strong>BABBEL CODE</strong>'))
+    content_body_text: str = mark_safe(pgettext_lazy(
+        'email.babbel-subscription-winner.content-body-text',
+        'Nochmals vielen Dank, dass du an unserer Umfrage teilgenommen hast. Um einen kleinen Gefallen möchten wir dich noch bitten: bei Aktivierung des Codes, müsstest du die gleiche Umfrage in 3 Monaten nochmal ausfüllen. Nur so können wir die Auswirkungen der Nutzung von Babbel und Little World messen.<br><br>Aber das ist was für die Zukunft, jetzt konzentrieren wir uns auf die Gegenwart und verraten dir lieber deinen Code...<br><br>'))
+    button_text: str = pgettext_lazy(
+        'email.babbel-subscription-winner.button-text',
+        '*Anleitung zur Verwendung deines Codes*')
+    button_link: str = pgettext_lazy(
+        'email.babbel-subscription-winner.button-link',
+        '{link_url}')
+    below_link_text: str = mark_safe(pgettext_lazy(
+        'email.babbel-subscription-winner.below-link-text',
+        'Wenn du Schwierigkeiten mit der Validierung deines Codes hast, melde dich bei uns und wir helfen dir weiter.'
+        '<br></br>'))
+    footer_text: str = pgettext_lazy(
+        'email.babbel-subscription-winner.footer-text',
+        'Herzliche Grüße,')
+    goodbye: str = pgettext_lazy(
+        'email.babbel-subscription-winner.goodbye',
+        'Dein Little World Team')
+    goodbye_name: str = pgettext_lazy(
+        'email.babbel-subscription-winner.goodbye-name',
+        '')
+    use_unsubscribe_footer:bool = False
+    unsubscribe_two_link:bool = False
+    unsubscribe_link1: str = '{unsubscribe_url1}'
+    unsubscribe_link1_category: str = 'subscription award'
+    unsubscribe_link2: str = 'none'
+    unsubscribe_link2_category: str = 'none'
+    
+@dataclass
+class GermanImprovementBabbelInvitation:
+    """
+    ---------> German Improvement with Babbel Code Email <---------------
+    """
+    subject_header_text: str = pgettext_lazy(
+        "email.german-improvement.subject-header-text", "Verbessere dein Deutsch mit einem kostenloser 6-monatiger Babbel Code")
+    greeting: str = pgettext_lazy(
+        'email.german-improvement.greeting',
+        'Hallo {first_name},')
+    content_start_text: str = pgettext_lazy(
+        'email.german-improvement.content-start-text',
+        'Ein Schwerpunkt bei Little World ist es, dir zu helfen, selbstbewusster Deutsch zu sprechen, und wir sind immer auf der Suche nach Möglichkeiten, das zu erreichen... Nun, wir haben uns mit Babbel, einer der führenden Sprach-Apps, zusammengetan und können unseren Nutzern eine Reihe von Gutscheinen kostenlos zur Verfügung stellen.')
+    content_body_text: str = pgettext_lazy(
+        'email.german-improvement.content-body-text',
+        'Mit diesem Gutschein erhältst du 6 Monate lang Zugang zum Deutschkurs von Babbel. Um einen dieser Gutscheine zu gewinnen, musst du nur diese kurze 3-Minuten-Umfrage ausfüllen.')
+    button_text: str = pgettext_lazy(
+        'email.german-improvement.button-text',
+        'Zur Umfrage')
+    button_link: str = pgettext_lazy(
+        'email.german-improvement.button-link',
+        '{link_url}')
+    below_link_text: str = pgettext_lazy(
+        'email.german-improvement.below-link-text',
+        'Was wollen wir wissen? Wir stellen Fragen, um einen Einblick von deinen derzeitigen Erfahrungen beim Deutschlernen und deinem Leben in Deutschland zu erhalten.Warum wollen wir das wissen? Wir wollen eine Plattform aufbauen, die sich an deinen Bedürfnissen und Erfahrungen orientiert, und dazu möchten wir dir zuhören, um das umzusetzen, was benötigt wird.')
+    footer_text: str = pgettext_lazy(
+        'email.german-improvement.footer-text',
+        'Herzliche Grüße,')
+    goodbye: str = pgettext_lazy(
+        'email.german-improvement.goodbye',
+        'Dein Little World Team')
+    goodbye_name: str = pgettext_lazy(
+        'email.german-improvement.goodbye-name',
+        '')
+    use_unsubscribe_footer:bool = False
+    unsubscribe_two_link:bool = False
+    unsubscribe_link1: str = '{unsubscribe_url1}'
+    unsubscribe_link1_category: str = 'german improvement'
+    unsubscribe_link2: str = 'none'
+    unsubscribe_link2_category: str = 'none'

@@ -18,7 +18,6 @@ jobs:
         echo "$commit_message"
         echo "commit_message=$commit_message" >> $GITHUB_OUTPUT
     - name: Request run
-      if: contains(steps.get_commit_message.outputs.commit_message, '[STAGE]')
       id: request_run
       env:
         DEPLOYMENT_NAME: staging

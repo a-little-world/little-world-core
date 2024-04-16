@@ -13,9 +13,12 @@ from .notifications import Notification
 from back.utils import get_options_serializer
 from back import utils
 from multiselectfield import MultiSelectField
-from .question_deck import CardContent
-
-
+from management.models.question_deck import QuestionCardsDeck
+from enum import Enum
+from management.models.matches import Match
+from django.db.models import Q
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 class State(models.Model):
     """
@@ -25,7 +28,8 @@ class State(models.Model):
     """
     # Key...
     user = models.OneToOneField(User, on_delete=models.CASCADE)
-    user_deck = models.ManyToManyField(CardContent, related_name='state_user_decks')
+    
+    question_card_deck = models.ForeignKey(QuestionCardsDeck, on_delete=models.SET_NULL, null=True, blank=True)
 
     # We love additional Information
     created_at = models.DateTimeField(auto_now_add=True)
@@ -62,12 +66,13 @@ class State(models.Model):
     If this flag is set to 'True' Tim has to make an appointment with that user first.
     """
     require_pre_matching_call = models.BooleanField(default=False)
+    had_prematching_call = models.BooleanField(default=False)
 
     """
     These are referense to the actual user model of this persons matches 
     """
     matches = models.ManyToManyField(User, related_name='+', blank=True)
-
+    
     class MatchingStateChoices(models.TextChoices):
         """
         All matching states! 
@@ -173,8 +178,11 @@ class State(models.Model):
     unresponsive = models.BooleanField(default=False)
 
     def has_extra_user_permission(self, permission):
+        
+        if self.extra_user_permissions is None:
+            return False
 
-        return (self.extra_user_permissions is None) or (permission in self.extra_user_permissions)
+        return permission in self.extra_user_permissions
 
     def regnerate_email_auth_code(self, set_to_unauthenticated=True):
         # We do not log old auth codes, donsnt realy matter
@@ -190,17 +198,6 @@ class State(models.Model):
         assert slug in allowed_usr_change_search_states
         self.matching_state = slug
         self.save()
-
-        if trigger_score_update and slug == 'searching':
-            # TODO: also check that the slug has changed otherwise there is no need to recalculate
-            print("Triggering score update")
-            from ..tasks import calculate_directional_matching_score_background, archive_current_profile_user
-            # This was too calculation heavy
-            # calculate_directional_matching_score_background.delay(
-            #    self.user.hash)
-
-            # Also we will now archive the current user profile
-            archive_current_profile_user.delay(self.user.hash)
 
     def set_idle(self):
         # TODO: here we might need to update some matching scores
@@ -273,6 +270,14 @@ class State(models.Model):
         return json.loads(zlib.decompress(
             base64.urlsafe_b64decode(str_b64.encode())).decode())
 
+@receiver(post_save, sender=State)
+def populate_parents(sender, instance, created, **kwargs):
+    if created:
+        instance.question_card_deck = QuestionCardsDeck.objects.create(
+            user=instance.user
+        )
+        instance.save()
+
 
 class StateSerializer(serializers.ModelSerializer):
     """
@@ -287,6 +292,48 @@ class StateSerializer(serializers.ModelSerializer):
     class Meta:
         model = State
         fields = '__all__'
+        
+        
+class FrontendStatusEnum(Enum):
+    user_form_incomplete = "user_form_incomplete"
+    pre_matching = "pre_matching"
+    searching_no_match = "searching_no_match"
+    matched = "matched"
+    matched_searching = "matched_searching"
+        
+class FrontendStatusSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = State
+        fields = []
+        
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        
+        # TODO: some state for user has open poposals?
+        
+        if instance.user_form_state == State.UserFormStateChoices.UNFILLED:
+            rep["status"] = FrontendStatusEnum.user_form_incomplete.value
+            return rep
+        elif instance.require_pre_matching_call and (not instance.had_prematching_call):
+            rep["status"] = FrontendStatusEnum.pre_matching.value
+            return rep
+            
+        # Now check if the user is matched
+        has_atleast_one_match = Match.objects.filter(
+           Q(user1=instance.user) | Q(user2=instance.user),
+            support_matching=False,
+        ).count() > 0
+        
+        if has_atleast_one_match:
+            if instance.matching_state == State.MatchingStateChoices.IDLE:
+                rep["status"] = FrontendStatusEnum.matched.value
+                return rep
+            elif instance.matching_state == State.MatchingStateChoices.SEARCHING:
+                rep["status"] = FrontendStatusEnum.matched_searching.value
+                return rep
+        else:
+            rep["status"] = FrontendStatusEnum.searching_no_match.value
+        return rep
 
 
 class SelfStateSerializer(StateSerializer):

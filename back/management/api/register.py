@@ -1,5 +1,5 @@
 from drf_spectacular.utils import OpenApiParameter, OpenApiExample
-from management.api.user_data import get_full_frontend_data, frontend_data
+from management.api.user_data import frontend_data
 from django.utils.translation import gettext_lazy as _
 from django.utils import translation
 from back.utils import CoolerJson
@@ -148,8 +148,7 @@ class Register(APIView):
             print("Auto login failed: {}".format(repr(e)))
             return Response("User cerated but auto login failed")
         
-        
         with translation.override("tag"):
-            data = frontend_data(request.user)
+            data = frontend_data(usr)
         
         return Response(data)

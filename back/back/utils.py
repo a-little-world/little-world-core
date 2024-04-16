@@ -1,6 +1,6 @@
 import random
 import json
-from uuid import uuid4
+from uuid import uuid4, UUID
 from rest_framework.metadata import SimpleMetadata
 from copy import deepcopy
 
@@ -28,6 +28,8 @@ class CoolerJson(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, set):
             return list(obj)
+        if isinstance(obj, UUID):
+            return str(obj)
         try:
             # But especially for __proxy__ elements this is the only way I found
             # I would love to type check for proxy instead but I can't find the __proxy__ type!

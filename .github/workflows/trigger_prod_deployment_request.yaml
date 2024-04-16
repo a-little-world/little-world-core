@@ -22,7 +22,7 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.DEPLOYMENT_REQUEST_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/${{ secrets.DEPLOYMENT_API_GIT }}/actions/workflows/build_image_create_deployment_request.yaml/dispatches \
-            -d '{"ref": "prod", "inputs": {"DEPLOYMENT_NAME":"'"$DEPLOYMENT_NAME"'", "COMMIT_REF":"'"$COMMIT_REF"'", "MESSAGE":"'"$MESSAGE"'"}}'
+            -d '{"ref": "main", "inputs": {"DEPLOYMENT_NAME":"'"$DEPLOYMENT_NAME"'", "COMMIT_REF":"'"$COMMIT_REF"'", "MESSAGE":"'"$MESSAGE"'"}}'
       - name: Request Run Production
         id: request_run_2
         env:
@@ -34,4 +34,4 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.DEPLOYMENT_REQUEST_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/${{ secrets.DEPLOYMENT_API_GIT }}/actions/workflows/build_image_create_deployment_request.yaml/dispatches \
-            -d '{"ref": "prod", "inputs": {"DEPLOYMENT_NAME":"'"$DEPLOYMENT_NAME"'", "COMMIT_REF":"'"$COMMIT_REF"'", "MESSAGE":"'"$MESSAGE"'"}}'
+            -d '{"ref": "main", "inputs": {"DEPLOYMENT_NAME":"'"$DEPLOYMENT_NAME"'", "COMMIT_REF":"'"$COMMIT_REF"'", "MESSAGE":"'"$MESSAGE"'"}}'

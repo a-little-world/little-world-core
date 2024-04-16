@@ -1,7 +1,6 @@
-from . import callbacks, chats, messages, viewsets
+from . import chats, messages, viewsets
 
 __all__ = [
-    'callbacks',
     'chats',
     'messages',
     'viewsets',
