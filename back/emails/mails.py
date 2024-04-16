@@ -62,7 +62,6 @@ class GermanImprovementBabbelInvitationParams:
 @dataclass
 class BabbelSubscriptionMailWinnerParams:
     first_name: str
-    link_url: str
     unsubscribe_url1: str
 
 @dataclass
