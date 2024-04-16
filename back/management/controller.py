@@ -164,6 +164,7 @@ def create_user(
     first_name,
     second_name,
     birth_year,
+    company=None,
     newsletter_subscribed=False,
     send_verification_mail=True,
     send_welcome_notification=True,
@@ -205,6 +206,11 @@ def create_user(
     usr.profile.save()
     # Error if user doesn't exist, would prob already happen on is_valid
     assert isinstance(usr, User)
+    
+    # Step 3.5 - Check if the user has a 'comany' field
+    if company is not None:
+        usr.state.company = company
+        usr.state.save()
 
     # Step 4 send mail
     if send_verification_mail:
@@ -584,7 +590,7 @@ def create_base_admin_and_add_standart_db_values():
         usr_tim.state.email_authenticated = True
         usr_tim.state.save()
         usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
-        usr_tim.notify("You are the bese management user with less permissions.")
+        usr_tim.notify(description="You are the bese management user with less permissions.")
     
     # Tim Schupp is the new base admin user, we will now create a match with hin instead:
     TIM_MANAGEMENT_USER_MAIL = "tim.timschupp+420@gmail.com"

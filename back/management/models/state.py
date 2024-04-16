@@ -73,6 +73,8 @@ class State(models.Model):
     """
     matches = models.ManyToManyField(User, related_name='+', blank=True)
     
+    company = models.CharField(max_length=255, blank=True, null=True)
+    
     class MatchingStateChoices(models.TextChoices):
         """
         All matching states! 

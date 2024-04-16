@@ -8,14 +8,10 @@ else
 
 celery -A back worker --loglevel=info &
 
-if [ "$DJ_USE_REDIS_AS_BROKER" = "1" ]; then
-celery -A back beat --loglevel=info &
-else
 if [ "$BUILD_TYPE" = "deployment" ]; then
-    SINGLE_BEAT_REDIS_SERVER="rediss://:$DJ_REDIS_PASSWORD@$DJ_REDIS_HOST:$DJ_REDIS_PORT" single-beat celery -A back beat --loglevel=info &
+    SINGLE_BEAT_REDIS_SERVER="$FULL_ACCESS_REDIS_URL" single-beat celery -A back beat --loglevel=info &
 else
     celery -A back beat --loglevel=info &
-fi
 fi
 
 python3 manage.py compilemessages --use-fuzzy
