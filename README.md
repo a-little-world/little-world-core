@@ -220,3 +220,4 @@ export $(grep -v '^#' .env.prod-attach | xargs) && docker compose -f docker-comp
     "--django-settings-module=example.settings"
   ]
 ```
+
