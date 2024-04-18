@@ -37,10 +37,10 @@ RUN cp ./env_apps/admin_panel_frontend.${BUILD_TYPE}.env.js ./apps/admin_panel_f
 # npm install for all apps
 RUN cd apps/admin_panel_frontend && \
     npm ci && cd ../../ && ./node_modules/.bin/webpack \
-        --env PUBLIC_PATH=$PUBLIC_FRONTEND_PATH \
-        --env DEV_TOOL=none \
-        --env DEBUG=0 --no-devtool --mode production \
-        --config webpack.admin_panel_frontend.config.js
+    --env PUBLIC_PATH=$PUBLIC_FRONTEND_PATH \
+    --env DEV_TOOL=none \
+    --env DEBUG=0 --no-devtool --mode production \
+    --config webpack.admin_panel_frontend.config.js
 
 # Cookie Banner
 FROM front_base_image as cookie_banner_frontend_image
@@ -49,11 +49,11 @@ RUN cp ./env_apps/cookie_banner_frontend.${BUILD_TYPE}.env.js ./apps/cookie_bann
 
 RUN cd apps/cookie_banner_frontend && \
     npm ci && cd ../../ && ./node_modules/.bin/webpack \
-        --env PUBLIC_PATH=$PUBLIC_FRONTEND_PATH \
-        --env DEV_TOOL=none \
-        --env DEBUG=0 --no-devtool --mode production \
-        --config webpack.cookie_banner_frontend.config.js
-        
+    --env PUBLIC_PATH=$PUBLIC_FRONTEND_PATH \
+    --env DEV_TOOL=none \
+    --env DEBUG=0 --no-devtool --mode production \
+    --config webpack.cookie_banner_frontend.config.js
+
 # Main Frontend
 FROM front_base_image as main_frontend_image
 
@@ -61,22 +61,18 @@ RUN cp ./env_apps/main_frontend.${BUILD_TYPE}.env.js ./apps/main_frontend/src/EN
 
 RUN cd apps/main_frontend && \
     npm ci && cd ../../ && ./node_modules/.bin/webpack \
-        --env PUBLIC_PATH=$PUBLIC_FRONTEND_PATH \
-        --env DEV_TOOL=none \
-        --env DEBUG=0 --no-devtool --mode production \
-        --config webpack.main_frontend.config.js
-        
+    --env PUBLIC_PATH=$PUBLIC_FRONTEND_PATH \
+    --env DEV_TOOL=none \
+    --env DEBUG=0 --no-devtool --mode production \
+    --config webpack.main_frontend.config.js
+
 # Now we build the main backend image
-FROM python:3.11-alpine as backend
+FROM ghcr.io/tbscode/tims-packages/alpine-django-python:latest as backend
 
 WORKDIR /back
 COPY ./back .
 
-# Fix: https://github.com/yaml/pyyaml/issues/601
-RUN pip install "Cython<3.0" pyyaml --no-build-isolation
-RUN apk add git
 RUN pip install --no-cache-dir -r requirements.txt
-RUN apk add --no-cache git
 RUN pip cache purge
 
 # Copy all the backend files
