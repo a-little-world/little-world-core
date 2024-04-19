@@ -1,7 +1,7 @@
 from rest_framework.decorators import api_view, permission_classes, authentication_classes, throttle_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import SessionAuthentication
-from video.models import LiveKitRoom, LivekitSession, LivekitWebhookEvent
+from video.models import LiveKitRoom, LivekitSession, LivekitWebhookEvent, SerializeLivekitSession
 from management.models.user import User
 from rest_framework.response import Response
 from rest_framework import serializers, request
@@ -13,6 +13,7 @@ from livekit import api as livekit_api
 from django.urls import path
 from drf_spectacular.utils import extend_schema
 from rest_framework_dataclasses.serializers import DataclassSerializer
+from chat.consumers.messages import NewActiveCallRoom, InBlockIncomingCall
 from django.views.decorators.csrf import csrf_exempt
 import json
 from django.http import JsonResponse
@@ -58,6 +59,14 @@ def livekit_webhook(request):
         session.webhook_events.add(event)
         session.save()
         
+        # 5 - send 'NewActiveCall' event to the partner of the user that joined
+        partner = room.u1 if user == room.u2 else room.u2
+        NewActiveCallRoom(
+            call_room=SerializeLivekitSession(session, context={
+                'user': partner
+            }).data
+        ).send(partner.hash)
+        
     if data["event"] == "participant_left":
         # 1 - we determine the Room
         room_id = data["room"]["name"]
@@ -67,7 +76,7 @@ def livekit_webhook(request):
         participant_id = data["participant"]["identity"]
         user = User.objects.get(hash=participant_id)
         
-        # 4 - we determine if a session is already active for that room
+        # 3 - we determine if a session is already active for that room
         active_session = LivekitSession.objects.filter(room=room, is_active=True)
         if active_session.exists():
             session = active_session.first()
@@ -80,6 +89,13 @@ def livekit_webhook(request):
                 session.end_time = timezone.now()
         session.webhook_events.add(event)
         session.save()
+        
+        # 4 - send 'BlockIncomingCall' enent to the parter of the user that left
+        partner = room.u1 if user == room.u2 else room.u2
+        InBlockIncomingCall(
+            sender_id=participant_id
+        ).send(partner.hash)
+
     
     return JsonResponse({
         "status": "ok"

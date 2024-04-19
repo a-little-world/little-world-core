@@ -269,10 +269,8 @@ def frontend_data(user, items_per_page=10, request=None):
     
     # find all active calls
     all_active_rooms = LivekitSession.objects.filter(
-        Q(room__u1=user, is_active=True, u1_active=True) |
-        Q(room__u1=user, is_active=True, u2_active=True) |
-        Q(room__u2=user, is_active=True, u1_active=True) |
-        Q(room__u2=user, is_active=True, u2_active=True)
+        Q(room__u1=user, is_active=True, u2_active=True, u1_active=False) |
+        Q(room__u2=user, is_active=True, u1_active=True, u2_active=False)
     )
     
 
