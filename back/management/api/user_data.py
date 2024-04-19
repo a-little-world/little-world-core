@@ -30,11 +30,14 @@ from dataclasses import dataclass
 from back.utils import transform_add_options_serializer
 from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import inline_serializer
+from video.models import SerializeLivekitSession, LivekitSession
 from management.models.profile import (
     ProfileSerializer, SelfProfileSerializer,
     CensoredProfileSerializer,
     ProposalProfileSerializer,
 )
+
+from django.db.models import Q
 from management.models.unconfirmed_matches import (
     UnconfirmedMatch,
 )
@@ -86,12 +89,26 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
         chat = Chat.get_or_create_chat(user, partner)
         chat_serialized = ChatInModelSerializer(chat, context={'user': user}).data
         
+        # check for active calls 
+        # fetch incoming calls that are currently active
+        active_call_room = None
+        active_sessions = LivekitSession.objects.filter(
+                Q(room__u1=user, room__u2=partner, is_active=True, u1_active=True, u2_active=True) |
+                Q(room__u1=partner, room__u2=user, is_active=True, u1_active=True, u2_active=True) |
+                Q(room__u1=partner, room__u2=user, is_active=True, u1_active=True, u2_active=False) | 
+                Q(room__u1=partner, room__u2=user, is_active=True, u1_active=False, u2_active=True)
+        )
+        if active_sessions.exists():
+            active_session = active_sessions.first()
+            active_call_room = SerializeLivekitSession(active_session).data
+        
         representation = {
             "id": str(instance.uuid),
             "chat": {
                 **chat_serialized
             },
             "chatId": str(chat.uuid),
+            "activeCallRoom": active_call_room,
             "partner": {
                 "id": str(partner.hash),
                 "isOnline": is_online,
@@ -247,6 +264,15 @@ def frontend_data(user, items_per_page=10, request=None):
     profile_options = profile_data["options"]
     
     ud = user_data(user)
+    
+    # find all active calls
+    all_active_rooms = LivekitSession.objects.filter(
+        Q(room__u1=user, is_active=True, u1_active=True) |
+        Q(room__u1=user, is_active=True, u2_active=True) |
+        Q(room__u2=user, is_active=True, u1_active=True) |
+        Q(room__u2=user, is_active=True, u2_active=True)
+    )
+    
 
     frontend_data = {
         "user": ud,
@@ -266,11 +292,9 @@ def frontend_data(user, items_per_page=10, request=None):
         "apiOptions": {
             "profile": profile_options,
         },
-        "incomingCalls": [
-            # TODO: incoming calls should also be populated if one of the matches already is in a video call
-            # This enable the pop-up to also show after login when the match already is in the video call
-            # { "userId": "592a5cc9-77f9-4f18-8354-25fa56e1e792-c9dcfc91-865f-4371-b695-b00bd1967c27"}
-        ],
+        "activeCallRooms": SerializeLivekitSession(all_active_rooms, context={
+            'user': user
+        }, many=True).data
     }
 
 
