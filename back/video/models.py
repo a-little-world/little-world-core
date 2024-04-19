@@ -1,6 +1,8 @@
 from django.db import models
 from django.db.models import Q
+from rest_framework.serializers import Serializer, ModelSerializer
 from uuid import uuid4
+from management.models.profile import CensoredProfileSerializer
 
 class LiveKitRoom(models.Model):
     
@@ -19,6 +21,7 @@ class LiveKitRoom(models.Model):
 class LivekitWebhookEvent(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     data = models.JSONField()
+    
 
 class LivekitSession(models.Model):
     
@@ -42,3 +45,34 @@ class LivekitSession(models.Model):
     
     webhook_events = models.ManyToManyField("video.LivekitWebhookEvent", related_name="livekit_session")
     
+
+class SerializeLivekitSession(ModelSerializer):
+    class Meta:
+        model = LivekitSession
+        fields = ['uuid', 'created_at']
+        
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        
+        rep['activeUsers'] = []
+        
+        if instance.u1_active:
+            rep['activeUsers'].append(instance.u1.hash)
+        if instance.u2_active:
+            rep['activeUsers'].append(instance.u2.hash)
+            
+        user = None
+        if 'user' in self.context:
+            user = self.context['user']
+        elif 'request' in self.context:
+            user = self.context['request'].user
+        
+        if user:
+            if user == instance.u1:
+                rep['partner'] = CensoredProfileSerializer(instance.u2.profile).data
+                rep['partner']['id'] = instance.u2.hash
+            else:
+                rep['partner'] = CensoredProfileSerializer(instance.u1.profile).data
+                rep['partner']['id'] = instance.u1.hash
+        
+        return rep
