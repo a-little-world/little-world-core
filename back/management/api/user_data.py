@@ -94,9 +94,11 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
         active_call_room = None
         active_sessions = LivekitSession.objects.filter(
                 Q(room__u1=user, room__u2=partner, is_active=True, u1_active=True, u2_active=True) |
-                Q(room__u1=partner, room__u2=user, is_active=True, u1_active=True, u2_active=True) |
+                Q(room__u1=user, room__u2=partner, is_active=True, u1_active=True, u2_active=True) |
                 Q(room__u1=partner, room__u2=user, is_active=True, u1_active=True, u2_active=False) | 
-                Q(room__u1=partner, room__u2=user, is_active=True, u1_active=False, u2_active=True)
+                Q(room__u1=partner, room__u2=user, is_active=True, u1_active=False, u2_active=True) |
+                Q(room__u1=user, room__u2=partner, is_active=True, u1_active=True, u2_active=False) | 
+                Q(room__u1=user, room__u2=partner, is_active=True, u1_active=False, u2_active=True)
         )
         if active_sessions.exists():
             active_session = active_sessions.first()
