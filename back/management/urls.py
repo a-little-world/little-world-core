@@ -126,8 +126,6 @@ api_routes = [
 ]
 
 view_routes = [
-    path("", RedirectView.as_view(  # Redirect all requests to "/" to "/app/" per default
-         url=f"app/", permanent=True), name="frontend_redirect"),
 
     path("set_password/<str:usr_hash>/<str:token>",
          main_frontend.set_password_reset, name="set_password_reset"),
@@ -136,9 +134,9 @@ view_routes = [
          name="email_verification_link"),
 
     # The main frontend ( does its own routing )
-    path('app/', main_frontend.MainFrontendView.as_view(), name="main_frontend"),
+    path('app/', main_frontend.MainFrontendRouter.as_view(), name="main_frontend"),
     re_path(fr'^app/(?P<path>.*)$',
-            main_frontend.MainFrontendView.as_view(), name="main_frontend_w_path"),
+            main_frontend.MainFrontendRouter.as_view(), name="main_frontend_w_path"),
 
     path(f"user/still_active/", api.user.still_active_callback, name="still_active_callback"),
     path(f"api/user/question_cards/",get_question_cards, name="question_cards"),
@@ -219,4 +217,4 @@ urlpatterns = [
     *api_routes,
 ]
 
-public_routes_wildcard = re_path(r'^(?P<path>.+?)/?$', main_frontend.PublicMainFrontendView.as_view(), name="main_frontend_public")
+public_routes_wildcard = re_path(r'^(?P<path>.+?)/?$', main_frontend.MainFrontendRouter.as_view(), name="main_frontend_public")
