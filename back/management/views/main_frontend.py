@@ -51,7 +51,7 @@ class MainFrontendRouter(View):
         "login", "sign-up", "forgot-password"
     ]
 
-    def get(self, request, path="/app/", **kwargs):
+    def get(self, request, path="", **kwargs):
 
         login_url_redirect = ('https://home.little-world.com/' if settings.IS_PROD else '/login') if (not settings.USE_LANDINGPAGE_REDIRECT) else settings.LANDINGPAGE_REDIRECT_URL
         

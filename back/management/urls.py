@@ -126,17 +126,14 @@ api_routes = [
 ]
 
 view_routes = [
+          
+    path('', main_frontend.MainFrontendRouter.as_view(), name="base_route"),
 
     path("set_password/<str:usr_hash>/<str:token>",
          main_frontend.set_password_reset, name="set_password_reset"),
 
     path('mailverify_link/<str:auth_data>', main_frontend.email_verification_link,
          name="email_verification_link"),
-
-    # The main frontend ( does its own routing )
-    path('app/', main_frontend.MainFrontendRouter.as_view(), name="main_frontend"),
-    re_path(fr'^app/(?P<path>.*)$',
-            main_frontend.MainFrontendRouter.as_view(), name="main_frontend_w_path"),
 
     path(f"user/still_active/", api.user.still_active_callback, name="still_active_callback"),
     path(f"api/user/question_cards/",get_question_cards, name="question_cards"),
