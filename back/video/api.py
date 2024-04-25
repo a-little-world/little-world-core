@@ -87,6 +87,20 @@ def livekit_webhook(request):
             if (not session.u1_active) and (not session.u2_active):
                 session.is_active = False
                 session.end_time = timezone.now()
+                
+                # session ended, now we could trigger either
+                # 1) a 'CallEnded' event to the partner of the user that left
+                # 2) a 'MissedCall' event to the partner of the user that left
+                # Both these evenents should have a 'time_threshold' to determine if the call was missed or ended
+                
+                if session.both_have_been_active:
+                    # 1 - send 'CallEnded' event to the partner of the user that left
+                    # TOOD: do we want a minimum time threshold for a call to be considered 'ended/successful'?
+                    partner = room.u1 if user == room.u2 else room.u2
+                    # TODO:
+                else:
+                    # 2 - send 'MissedCall' event to the partner of the user that left
+                    partner = room.u1 if user == room.u2 else room.u2
         session.webhook_events.add(event)
         session.save()
         
