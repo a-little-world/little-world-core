@@ -47,11 +47,19 @@ class MainFrontendParamsSerializer(serializers.Serializer):
 
 class MainFrontendRouter(View):
     
+    # react frontend public paths
     PUBLIC_PATHS = [
-        "login", "sign-up", "forgot-password"
+        "login", 
+        "sign-up", 
+        "forgot-password", 
+        "reset-password",
     ]
 
     def get(self, request, path="", **kwargs):
+        
+        # normalize path, no trailing slash
+        if path.endswith("/"):
+            path = path[:-1]
 
         login_url_redirect = ('https://home.little-world.com/' if settings.IS_PROD else '/login') if (not settings.USE_LANDINGPAGE_REDIRECT) else settings.LANDINGPAGE_REDIRECT_URL
         
