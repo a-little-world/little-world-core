@@ -92,7 +92,7 @@ class MainFrontendRouter(View):
         if request.user.state.is_email_verified() and ((not request.user.state.is_user_form_filled()) and (not path.startswith("app/user-form"))):
             return redirect("/app/user-form/")
 
-        if request.user.state.is_email_verified() and request.user.state.is_user_form_filled():
+        if request.user.state.is_email_verified() and request.user.state.is_user_form_filled() and (not path.startswith("app")):
             return redirect("/app/")
 
 
@@ -101,7 +101,7 @@ class MainFrontendRouter(View):
             data = frontend_data(request.user)
         extra_template_data["sentry_user_id"] = request.user.hash
 
-        return render(request, "main_frontend_public.html", {"data": json.dumps(data, cls=CoolerJson), **cookie_context, **extra_template_data})
+        return render(request, "main_frontend_public.html", {"data": json.dumps(data, cls=CoolerJson), **extra_template_data})
 
 def info_card(
         request, 
