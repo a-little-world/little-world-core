@@ -810,6 +810,17 @@ class SimpleUserViewSet(AdvancedAdminUserViewset):
     serializer_class = AdminUserSerializer
     pagination_class = DetailedPaginationMixin
     permission_classes = [IsAdminOrMatchingUser]
+    
+    def get_object(self):
+        if isinstance(self.kwargs["pk"], int):
+            return super().get_object()
+        elif self.kwargs["pk"].isnumeric():
+            self.kwargs["pk"] = int(self.kwargs["pk"])
+            # assume uuid
+            return super().get_object()
+        else:
+            return super().get_queryset().get(hash=self.kwargs["pk"])
+
 
 def check_task_status(task_id):
     from celery.result import AsyncResult
@@ -856,6 +867,22 @@ def get_user_list_users(request, query_set):
 
 root_user_viewset = AdvancedAdminUserViewset
 user_info_viewset = SimpleUserViewSet
+
+@api_view(['GET'])
+@permission_classes([IsAdminOrMatchingUser])
+def user_info_by_id_or_hash(request, id: str):
+    
+    # check if Id is a parsable int, otherwise assume a hash
+    if not id.isnumeric():
+        return Response(AdvancedAdminUserSerializer(
+            User.objects.get(hash=id),
+            context={'request': request}
+        ).data)
+    else:
+        return Response(AdvancedAdminUserSerializer(
+            User.objects.get(pk=int(id)),
+            context={'request': request}
+        ).data)
 
 @api_view(['GET'])
 @permission_classes([IsAdminOrMatchingUser])
