@@ -216,7 +216,7 @@ def serialize_messages_for_matching(instance, representation, censor_messages=Tr
 
         _msgs = Message.objects.filter(
             Q(sender=partner, recipient=instance) | Q(sender=instance, recipient=partner)
-        )
+        ).order_by("created")
         messages = get_paginated(_msgs, 10, 1)
         
         
@@ -342,7 +342,7 @@ def get_user_with_message_to_admin():
     unread_messages = Message.objects.filter(
         recipient=admin,
         read=False
-    )
+    ).order_by('created')
     unread_senders_ids = unread_messages.values("sender")
     sender_users = User.objects.filter(id__in=Subquery(unread_senders_ids))
     return sender_users
@@ -361,7 +361,7 @@ def get_user_with_message_to_admin_that_are_read_but_not_replied():
         (Q(sender_id=OuterRef('id'), recipient_id=admin_pk) 
         # OR Message was sent by the admin and received by the user
         | Q(sender_id=admin_pk, recipient_id=OuterRef('id')))
-    ).order_by('-created').values('created')[:1]
+    ).order_by('created').values('created')[:1]
 
     users_in_dialog_with_management_user = User.objects.annotate(
         # The last message sent by the user or received by the user
@@ -810,6 +810,17 @@ class SimpleUserViewSet(AdvancedAdminUserViewset):
     serializer_class = AdminUserSerializer
     pagination_class = DetailedPaginationMixin
     permission_classes = [IsAdminOrMatchingUser]
+    
+    def get_object(self):
+        if isinstance(self.kwargs["pk"], int):
+            return super().get_object()
+        elif self.kwargs["pk"].isnumeric():
+            self.kwargs["pk"] = int(self.kwargs["pk"])
+            # assume uuid
+            return super().get_object()
+        else:
+            return super().get_queryset().get(hash=self.kwargs["pk"])
+
 
 def check_task_status(task_id):
     from celery.result import AsyncResult
@@ -859,6 +870,22 @@ user_info_viewset = SimpleUserViewSet
 
 @api_view(['GET'])
 @permission_classes([IsAdminOrMatchingUser])
+def user_info_by_id_or_hash(request, id: str):
+    
+    # check if Id is a parsable int, otherwise assume a hash
+    if not id.isnumeric():
+        return Response(AdvancedAdminUserSerializer(
+            User.objects.get(hash=id),
+            context={'request': request}
+        ).data)
+    else:
+        return Response(AdvancedAdminUserSerializer(
+            User.objects.get(pk=int(id)),
+            context={'request': request}
+        ).data)
+
+@api_view(['GET'])
+@permission_classes([IsAdminOrMatchingUser])
 def advanced_user_listing(request, list):
 
     page = request.query_params.get('page', 1)
@@ -900,14 +927,6 @@ def admin_panel_v2(request, menu="root"):
     print("MENU", menu)
     
     if menu.startswith("users"):
-
-        page = request.query_params.get('page', 1)
-        items_per_page = request.query_params.get('items_per_page', 40)
-        
-        query_set = request.query_params.get('list', QuerySetEnum.all.name)
-        
-        user_viewset = make_user_viewset(get_staff_queryset(query_set, request), items_per_page=items_per_page)
-        
 
         return render(request, "admin_pannel_v2_frontend.html", { "data" : json.dumps({
             "query_sets": QuerySetEnum.as_dict(),

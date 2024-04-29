@@ -291,7 +291,7 @@ Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil uns
 
 Aktuell arbeiten wir an einigen Aktualisierungen unserer Plattform und unseres Matching-Verfahrens und schätzen daher jedes Feedback, das wir von dir erhalten. Du kannst deine Gedanken und Erfahrungen jederzeit über diesen Link mit uns teilen: <a {{"href": "/app/help"}}>Feedback</a>.
 
-Bevor es richtig losgeht, musst du einen 15-minütigen Videocall-Termin mit mir vereinbaren. In diesem Gespräch werden wir gemeinsam deine Suchangaben überprüfen, und ich werde dir die nächsten Schritte zur Teilnahme bei Little World erklären. Bitte buche dafür einen Termin in dem folgenden Kalender: <button {{"data-cal-link" : "{calcom_meeting_id}?{encoded_params}", "data-cal-config" : "{{"layout":"month_view"}}"}}>Buche ein Meeting</button>.
+Bevor es richtig losgeht, musst du einen 15-minütigen Videocall-Termin mit mir vereinbaren. In diesem Gespräch werden wir gemeinsam deine Suchangaben überprüfen, und ich werde dir die nächsten Schritte zur Teilnahme bei Little World erklären. Bitte buche dafür einen Termin in dem folgenden Kalender: <button {{"data-cal-link" : "{calcom_meeting_id}?{encoded_params}", "data-cal-config" : "{{'layout':'month_view'}}"}}>Buche ein Meeting</button>.
 
 Während wir für dich ein passendes Match finden, kannst du gerne in unserem Gesprächsleitfaden unter diesem Link stöbern: <a {{"href" : "https://home.little-world.com/leitfaden"}}>Gesprächsleitfaden</a>. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
 
@@ -394,14 +394,12 @@ def match_users(
         usr2.notify(title=_("New match: %s" % usr1.profile.first_name))
 
     if send_message:
-        with translation.override("en"):
-            match_message = pgettext_lazy("api.match-made-message-text", """Glückwunsch, wir haben jemanden für dich gefunden! 
+        match_message = """Glückwunsch, wir haben jemanden für dich gefunden! 
+        Am besten vereinbarst du direkt einen Termin mit {other_name} für euer erstes Gespräch – das klappt meist besser als viele Nachrichten. 
+        Unterhalten könnt ihr euch zur vereinbarten Zeit auf Little World indem du oben rechts auf das Anruf-Symbol drückt. 
+        Schau dir gerne schon vorher das Profil von {other_name} an, indem du auf den Namen drückst. 
 
-    Am besten vereinbarst du direkt einen Termin mit {other_name} für euer erstes Gespräch – das klappt meist besser als viele Nachrichten. 
-    Unterhalten könnt ihr euch zur vereinbarten Zeit auf Little World indem du oben rechts auf das Anruf-Symbol drückt. 
-    Schau dir gerne schon vorher das Profil von {other_name} an, indem du auf den Namen drückst. 
-
-    Damit euch viel Spaß! Schöne Grüße vom Team Little World""")
+        Damit euch viel Spaß! Schöne Grüße vom Team Little World"""
         # Sends a message from the admin model
         usr1.message(match_message.format(
             other_name=usr2.profile.first_name), auto_mark_read=True)
