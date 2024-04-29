@@ -58,6 +58,13 @@ class UnconfirmedMatch(models.Model):
         for prop in proposals:
             prop.is_expired(close_if_expired=True, send_mail_if_expired=True)
         return cls.objects.filter(Q(user1=user) | Q(user2=user), closed=False).order_by(order_by)
+
+    @classmethod
+    def get_open_proposals_learner(cls, user, order_by='potential_matching_created_at'):
+        proposals = cls.objects.filter(Q(user1=user, learner_when_created=user) | Q(user2=user, learner_when_created=user), closed=False)
+        for prop in proposals:
+            prop.is_expired(close_if_expired=True, send_mail_if_expired=True)
+        return cls.objects.filter(Q(user1=user, learner_when_created=user) | Q(user2=user, learner_when_created=user), closed=False).order_by(order_by)
     
     @classmethod
     def get_proposal_between(cls, user1, user2):
