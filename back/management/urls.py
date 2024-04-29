@@ -153,7 +153,7 @@ view_routes = [
     path(_api_url('user_advanced/<str:pk>', admin=True), admin_panel_v2.root_user_viewset.as_view({'get': 'retrieve'})),
     path(_api_url('user_list_query_sets', admin=True), admin_panel_v2.get_user_list_query_sets),
     path(_api_url('user_list/<str:query_set>', admin=True), admin_panel_v2.get_user_list_users, name="matching_user_list_users"),
-    path(_api_url('user_info/<str:pk>', admin=True), admin_panel_v2.user_info_viewset.as_view({'get': 'retrieve'})),
+    path(_api_url('user_info/<str:id>', admin=True), admin_panel_v2.user_info_by_id_or_hash),
     path(_api_url('user_advanced/<str:pk>/notes', admin=True),
          admin_panel_v2.root_user_viewset.as_view({'get': 'notes', 'post': 'notes'})),
     path(_api_url('user_advanced/<str:pk>/prematching_appointments', admin=True),

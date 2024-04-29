@@ -53,7 +53,7 @@ class ChatsModelViewSet(viewsets.ModelViewSet):
                 Case(
                     When(message__read=False, then=1),
                     default=0,
-                    output_field=IntegerField()))).order_by('-unread_count', '-created') 
+                    output_field=IntegerField()))).order_by('created') 
         
 
     @extend_schema(responses={200: chat_res_seralizer(many=False)})
