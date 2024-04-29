@@ -290,7 +290,7 @@ Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil uns
 
 Aktuell arbeiten wir an einigen Aktualisierungen unserer Plattform und unseres Matching-Verfahrens und schätzen daher jedes Feedback, das wir von dir erhalten. Du kannst deine Gedanken und Erfahrungen jederzeit über diesen Link mit uns teilen: <a {{"href": "/app/help"}}>Feedback</a>.
 
-Bevor es richtig losgeht, musst du einen 15-minütigen Videocall-Termin mit mir vereinbaren. In diesem Gespräch werden wir gemeinsam deine Suchangaben überprüfen, und ich werde dir die nächsten Schritte zur Teilnahme bei Little World erklären. Bitte buche dafür einen Termin in dem folgenden Kalender: <button {{"data-cal-link" : "{calcom_meeting_id}?{encoded_params}", "data-cal-config" : "{{"layout":"month_view"}}"}}>Buche ein Meeting</button>.
+Bevor es richtig losgeht, musst du einen 15-minütigen Videocall-Termin mit mir vereinbaren. In diesem Gespräch werden wir gemeinsam deine Suchangaben überprüfen, und ich werde dir die nächsten Schritte zur Teilnahme bei Little World erklären. Bitte buche dafür einen Termin in dem folgenden Kalender: <button {{"data-cal-link" : "{calcom_meeting_id}?{encoded_params}", "data-cal-config" : "{{'layout':'month_view'}}"}}>Buche ein Meeting</button>.
 
 Während wir für dich ein passendes Match finden, kannst du gerne in unserem Gesprächsleitfaden unter diesem Link stöbern: <a {{"href" : "https://home.little-world.com/leitfaden"}}>Gesprächsleitfaden</a>. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
 
