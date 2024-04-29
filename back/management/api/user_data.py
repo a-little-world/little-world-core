@@ -220,7 +220,7 @@ def frontend_data(user, items_per_page=10, request=None):
     support_matches = get_paginated(Match.get_support_matches(user), items_per_page, 1)
     support_matches["items"] = serialize_matches(support_matches["items"], user)
 
-    proposed_matches = get_paginated(UnconfirmedMatch.get_open_proposals(user), items_per_page, 1)
+    proposed_matches = get_paginated(UnconfirmedMatch.get_open_proposals_learner(user), items_per_page, 1)
     proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
 
     read_notifications = get_paginated(Notification.get_read_notifications(user), items_per_page, 1)
