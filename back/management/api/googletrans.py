@@ -6,6 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_dataclasses.serializers import DataclassSerializer
 from rest_framework import serializers
 from drf_spectacular.utils import extend_schema
+from rest_framework.response import Response
 from django.conf import settings
 import json
 import base64
@@ -17,6 +18,7 @@ class TranslateTextData:
 class TranslateTextSerializer(serializers.Serializer):
     target = serializers.CharField(required=True)
     text = serializers.CharField(required=True)
+    source = serializers.CharField(required=False)
     
 
 @extend_schema(
@@ -35,6 +37,7 @@ def translate(request):
     
     target = serializer.data['target']
     text = serializer.data['text']
+    source = serializer.data.get('source', None)
     
     credentials = service_account.Credentials.from_service_account_info(
         settings.GOOGLE_CLOUD_CREDENTIALS
@@ -45,6 +48,6 @@ def translate(request):
     if isinstance(text, bytes):
         text = text.decode("utf-8")
 
-    result = translate_client.translate(text, target_language=target)
+    result = translate_client.translate(text, target_language=target, source_language=source)
 
-    return result
+    return Response(result)
