@@ -107,6 +107,8 @@ AI_OPENAI_API_KEY  = os.environ.get("DJ_AI_OPENAI_API_KEY", "none")
 
 # yeah google creds are annying to handle, 'e30=' is just an empty json '{}'
 try:
+    # They can be endoced as base64 strings:
+    # base64.b64encode(json.dumps(creds).encode("utf-8")).decode("utf-8")
     GOOGLE_CLOUD_CREDENTIALS = json.loads(base64.b64decode(os.environ.get("DJ_GOOGLE_CLOUD_CREDENTIALS", "e30=")))
 except Exception as e:
     GOOGLE_CLOUD_CREDENTIALS = {}
