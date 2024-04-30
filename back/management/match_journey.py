@@ -1,16 +1,17 @@
-
+from management.models.matches import Match
 from management.user_journey import Bucket
 
 class PerMatchBuckets:
     """
     Per-Matching-States
-        Pre-Matching: ( TODO CANNOT actually be measured in there as it's not part of the 'Match' model )
-            2.L) 'Learner Pending Matching Confirm'
-            - (b) [instantly] send match confirm mail 1 - asking the learner to accept the matching
-                  [after 2 days] we send matching confirm reminder1
-                  [after 5 days] send matching suggestion expired email
-            2.V) 'Volunteer Waiting For Matching Confirm / Denial or Expire'
-            - (b): Volunteer is blocked from matching, only unblocked if the matching is out of 'Pre-Matching'
+        Pre-Matching:
+            1.L) 'Learner Pending Matching Confirm, or Volunteer Waiting For Matching Confirm / Denial or Expire'
+                learner path
+                    - (b) [instantly] send match confirm mail 1 - asking the learner to accept the matching
+                          [after 2 days] we send matching confirm reminder1
+                          [after 5 days] send matching suggestion expired email
+                volunteer path
+                    - (b): Volunteer is blocked from matching, only unblocked if the matching is out of 'Pre-Matching'
 
         Kickoff-Matching:
             1) 'Match confirmed no contact'
@@ -21,7 +22,7 @@ class PerMatchBuckets:
             - (b): [after XX] days still no video call, set to 'No Contact' [TODO]
 
         Ongoing-Matching:
-            1) 'Match Ongoing' ( they had at least one video call, with both attending and last message or video call less than 14 days ago )        
+            1) 'Match Ongoing' ( they had at least one video call, with both attending and last message or video call less than 14 days ago )
             2) 'Free Play' ( Basicly a 'Completed' match that is still on-going, still 'Ongoing' after 12 weeks )
             
         Finished-Matching [END]
@@ -43,4 +44,98 @@ class PerMatchBuckets:
         )        
     ]
     
-    pass
+    queryset = Match.objects.all()
+
+    @classmethod
+    def categorize_match(cls, match = None):
+        return cls(match).check_all_buckets_single_match()
+    
+    @classmethod
+    def categorize_all_matches(cls):
+        return cls().query_all_buckets()
+    
+    @classmethod
+    def create(cls, queryset = None):
+        return cls(queryset)
+
+    def __init__(self, queryset = None):
+        if queryset is not None:
+            self.queryset = queryset
+            
+    def query_all_buckets(self):
+        res = {}
+        for i, bucket in enumerate(self.BUCKETS):
+            print(f"Checking Bucket: {bucket.name}")
+            qs = getattr(self, bucket.query)()
+            res[bucket.name] = qs.values_list('uuid', flat=True)
+            print(f"Bucket ({i+1}/{len(self.BUCKETS)}) has {len(res[bucket.name])} users")
+        return res
+            
+    def check_all_buckets_single_match(self):
+        assert self.queryset.count() == 1, "This method is only for single user queries"
+        results = []
+        for bucket in self.BUCKETS:
+            print(f"Checking Bucket: {bucket.name}")
+            qs = getattr(self, bucket.query)()
+            if qs.exists():
+                results.append(bucket.name)
+        # a user should only be in one bucket
+        assert len(results) <= 1, f"User in multiple buckets: {results}"
+        assert len(results) > 0, "User in no bucket"
+        return results[0]
+    
+    BUCKETS = [
+        Bucket(
+            "Match No Confirm",
+            "match_no_confirm",
+            "Match-Kickoff",
+        ),
+        Bucket(
+            "Match Single Party Confirm",
+            "match_single_party_confirm",
+            "Match-Kickoff",
+        ),
+        Bucket(
+            "Match Confirmed",
+            "match_confirmed",
+            "Match-Kickoff",
+        ),
+    ]
+    
+    def match_no_confirm(self):
+        # confirmed_by.count() == 0
+
+        return self.queryset.filter(
+            support_matching=False, # ignore support matches always
+            confirmed=False,
+            confirmed_by__count=0,
+            active=True, # 'acive=False' ignored match
+        )
+        
+    def match_single_party_confirm(self):
+        # confirmed_by.count() == 1
+
+        return self.queryset.filter(
+            support_matching=False, # ignore support matches always
+            confirmed=False,
+            confirmed_by__count=1,
+            active=True, # 'acive=False' ignored match
+        )
+        
+    def match_confirmed(self):
+
+        return self.queryset.filter(
+            support_matching=False, # ignore support matches always
+            confirmed=True,
+            active=True, # 'acive=False' ignored match
+        )
+        
+    def match_ongoing(self):
+        # last_message or video_call less than 14 days ago
+        # TODO: need the video call models for this
+            
+        return self.queryset.filter(
+            support_matching=False,
+            confirmed=True,
+            active=True,
+        )
