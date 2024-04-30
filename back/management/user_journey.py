@@ -77,12 +77,7 @@ Per-User-States:
             res[bucket.name] = qs.values_list('hash', flat=True)
             print(f"Bucket ({i+1}/{len(self.BUCKETS)}) has {len(res[bucket.name])} users")
         # assert no two users in same bucket
-        for bucket_name, user_hashes in res.items():
-            for other_bucket_name, other_user_hashes in res.items():
-                if bucket_name == other_bucket_name:
-                    continue
-                intersection = set(user_hashes).intersection(other_user_hashes)
-                assert len(intersection) == 0, f"Users {intersection} in multiple buckets: {bucket_name} and {other_bucket_name}"
+        self.assert_no_duplicate_buckets(res)
         return res
             
     def check_all_buckets_single_user(self):
@@ -97,6 +92,14 @@ Per-User-States:
         assert len(results) <= 1, f"User in multiple buckets: {results}"
         assert len(results) > 0, "User in no bucket"
         return results[0]
+
+    def assert_no_duplicate_buckets(self, res):
+        for bucket_name, user_hashes in res.items():
+            for other_bucket_name, other_user_hashes in res.items():
+                if bucket_name == other_bucket_name:
+                    continue
+                intersection = set(user_hashes).intersection(other_user_hashes)
+                assert len(intersection) == 0, f"Users {intersection} in multiple buckets: {bucket_name} and {other_bucket_name}"
 
     # ==================== Sign-Up =====================
     BUCKETS = [
