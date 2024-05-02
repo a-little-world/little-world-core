@@ -234,3 +234,5 @@ This will:
 - extract and increase the patch version number of the react components package `0.0.XXX`
 - bundle the react package `pnpm bundle` ( in `./components-js/packages/react` )
 - copy the bundle to `./front/apps/main_frontend/prebuild/` and update the `package.json` there with the new version
+
+
