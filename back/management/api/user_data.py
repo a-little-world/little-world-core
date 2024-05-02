@@ -4,6 +4,7 @@ from copy import deepcopy
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 from rest_framework.decorators import api_view, permission_classes, authentication_classes, throttle_classes
 from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+from chat.models import ChatConnections
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from rest_framework_dataclasses.serializers import DataclassSerializer
 from chat.models import ChatSerializer, Chat, ChatInModelSerializer
@@ -29,11 +30,14 @@ from dataclasses import dataclass
 from back.utils import transform_add_options_serializer
 from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import inline_serializer
+from video.models import SerializeLivekitSession, LivekitSession
 from management.models.profile import (
     ProfileSerializer, SelfProfileSerializer,
     CensoredProfileSerializer,
     ProposalProfileSerializer,
 )
+
+from django.db.models import Q
 from management.models.unconfirmed_matches import (
     UnconfirmedMatch,
 )
@@ -69,35 +73,52 @@ def get_paginated(query_set, items_per_page, page):
         "itemsPerPage": items_per_page,
         "currentPage": page,
     }
-
-def serialize_matches(matches, user):
-    serialized = []
-    for match in matches:
-
-        partner = match.get_partner(user)
-
-        # Check if the partner is online
-        from chat.models import ChatConnections
-        is_online = ChatConnections.is_user_online(partner)
+    
+class AdvancedUserMatchSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Match
+        fields = ['uuid']
         
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        assert 'user' in self.context, "User must be passed in context"
+        user = self.context['user']
+        partner = instance.get_partner(user)
+
+        is_online = ChatConnections.is_user_online(partner)
         chat = Chat.get_or_create_chat(user, partner)
         chat_serialized = ChatInModelSerializer(chat, context={'user': user}).data
-
-        serialized.append({
-            "id": str(match.uuid),
+        
+        # check for active calls 
+        # fetch incoming calls that are currently active
+        active_call_room = None
+        active_sessions = LivekitSession.objects.filter(
+                Q(room__u1=user, room__u2=partner, is_active=True, u1_active=True, u2_active=True) |
+                Q(room__u1=user, room__u2=partner, is_active=True, u1_active=True, u2_active=True) |
+                Q(room__u1=partner, room__u2=user, is_active=True, u1_active=True, u2_active=False) | 
+                Q(room__u1=partner, room__u2=user, is_active=True, u1_active=False, u2_active=True) |
+                Q(room__u1=user, room__u2=partner, is_active=True, u1_active=True, u2_active=False) | 
+                Q(room__u1=user, room__u2=partner, is_active=True, u1_active=False, u2_active=True)
+        )
+        if active_sessions.exists():
+            active_session = active_sessions.first()
+            active_call_room = SerializeLivekitSession(active_session).data
+        
+        representation = {
+            "id": str(instance.uuid),
             "chat": {
                 **chat_serialized
             },
             "chatId": str(chat.uuid),
+            "activeCallRoom": active_call_room,
             "partner": {
                 "id": str(partner.hash),
                 "isOnline": is_online,
                 "isSupport": partner.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER) or partner.is_staff,
                 **CensoredProfileSerializer(partner.profile).data
-            }
-        })
-
-    return serialized
+            },
+        }
+        return representation
 
 def serialize_proposed_matches(matching_proposals, user):
     serialized = []
@@ -165,7 +186,7 @@ def user_data(user):
 
     
     support_matches = get_paginated(Match.get_support_matches(user), 10, 1)
-    support_matches["items"] = serialize_matches(support_matches["items"], user)
+    support_matches["items"] = AdvancedUserMatchSerializer(support_matches["items"], many=True, context={'user': user}).data
     
     
     cal_data_link = "{calcom_meeting_id}?{encoded_params}".format(first_name=user.profile.first_name,encoded_params=urllib.parse.urlencode({
@@ -212,13 +233,13 @@ def frontend_data(user, items_per_page=10, request=None):
     community_events["items"] = serialize_community_events(community_events["items"])
 
     confirmed_matches = get_paginated(Match.get_confirmed_matches(user), items_per_page, 1)
-    confirmed_matches["items"] = serialize_matches(confirmed_matches["items"], user)
+    confirmed_matches["items"] = AdvancedUserMatchSerializer(confirmed_matches["items"], many=True, context={'user': user}).data
 
     unconfirmed_matches = get_paginated(Match.get_unconfirmed_matches(user), items_per_page, 1)
-    unconfirmed_matches["items"] = serialize_matches(unconfirmed_matches["items"], user)
+    unconfirmed_matches["items"] = AdvancedUserMatchSerializer(unconfirmed_matches["items"], many=True, context={'user': user}).data
 
     support_matches = get_paginated(Match.get_support_matches(user), items_per_page, 1)
-    support_matches["items"] = serialize_matches(support_matches["items"], user)
+    support_matches["items"] = AdvancedUserMatchSerializer(support_matches["items"], many=True, context={'user': user}).data
 
     proposed_matches = get_paginated(UnconfirmedMatch.get_open_proposals_learner(user), items_per_page, 1)
     proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
@@ -245,6 +266,13 @@ def frontend_data(user, items_per_page=10, request=None):
     profile_options = profile_data["options"]
     
     ud = user_data(user)
+    
+    # find all active calls
+    all_active_rooms = LivekitSession.objects.filter(
+        Q(room__u1=user, is_active=True, u2_active=True, u1_active=False) |
+        Q(room__u2=user, is_active=True, u1_active=True, u2_active=False)
+    )
+    
 
     frontend_data = {
         "user": ud,
@@ -264,11 +292,9 @@ def frontend_data(user, items_per_page=10, request=None):
         "apiOptions": {
             "profile": profile_options,
         },
-        "incomingCalls": [
-            # TODO: incoming calls should also be populated if one of the matches already is in a video call
-            # This enable the pop-up to also show after login when the match already is in the video call
-            # { "userId": "592a5cc9-77f9-4f18-8354-25fa56e1e792-c9dcfc91-865f-4371-b695-b00bd1967c27"}
-        ],
+        "activeCallRooms": SerializeLivekitSession(all_active_rooms, context={
+            'user': user
+        }, many=True).data
     }
 
 
@@ -341,10 +367,11 @@ class ConfirmedDataApi(APIView):
             )
 
             # Serialize matches data for the user
-            confirmed_matches["items"] = serialize_matches(
+            confirmed_matches["items"] = AdvancedUserMatchSerializer(
                 confirmed_matches["items"],
-                request.user
-            )
+                many=True,
+                context={'user': request.user}
+            ).data
 
         except Exception as e:
             return Response({"code":400, "error": "Page not Found"}, status=status.HTTP_400_BAD_REQUEST)

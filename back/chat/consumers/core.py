@@ -3,7 +3,7 @@ import json
 from asgiref.sync import sync_to_async
 from .messages import (
     OutUserWentOnline, OutUserWentOffline, MessageTypes, 
-    InMatchProposalAdded, InUnconfirmedMatchAdded, InBlockIncomingCall, InNewIncomingCall, PreMatchingAppointmentBooked, NewMessage, MessagesReadChat
+    InMatchProposalAdded, InUnconfirmedMatchAdded, InBlockIncomingCall, NewActiveCallRoom, PreMatchingAppointmentBooked, NewMessage, MessagesReadChat
 )
 from .db_ops import is_staff_or_matching, get_all_chat_user_ids, connect_user, disconnect_user
 from .control import get_user_channel_name
@@ -106,9 +106,9 @@ Every user that connects joins:
         assert event['type'] == MessageTypes.block_incoming_call.value
         await self.send(text_data=InBlockIncomingCall(**event).action_json())
         
-    async def new_incoming_call(self, event):
-        assert event['type'] == MessageTypes.new_incoming_call.value
-        await self.send(text_data=InNewIncomingCall(**event).action_json())
+    async def new_active_call(self, event):
+        assert event['type'] == MessageTypes.new_active_call.value
+        await self.send(text_data=NewActiveCallRoom(**event).action_json())
         
     async def new_message(self, event):
         assert event['type'] == MessageTypes.new_message.value

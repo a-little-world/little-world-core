@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from management.api.scores import score_between_db_update
 from management import controller
-from management.api.user_data import serialize_matches
+from management.api.user_data import AdvancedUserMatchSerializer
 from management.api.user_data import serialize_proposed_matches
 from chat.consumers.messages import InMatchProposalAdded, InUnconfirmedMatchAdded
 
@@ -91,7 +91,7 @@ def make_match(request):
         InUnconfirmedMatchAdded(matches[0]).send(user.hash)
 
         for user in [user1, user2]:
-            matches = serialize_matches([match_obj], user)
+            matches = AdvancedUserMatchSerializer([match_obj], many=True, context={"user": user}).data
             InUnconfirmedMatchAdded(matches[0]).send(user.hash)
 
         return Response("Users sucessfully matched")

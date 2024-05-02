@@ -2,7 +2,7 @@
 This contains all api's related to confirming or denying a match
 """
 from drf_spectacular.utils import extend_schema
-from management.api.user_data import serialize_matches
+from management.api.user_data import AdvancedUserMatchSerializer
 from rest_framework.decorators import api_view, permission_classes, authentication_classes, throttle_classes
 from chat.consumers.messages import InUnconfirmedMatchAdded
 from back.utils import CoolerJson
@@ -72,7 +72,7 @@ def confrim_match(request):
         msg = pgettext_lazy("confirm_match.match_confirmed", "The match has been confirmed, your match has been made!")
         
         # Now we need to update the partner that was just accepted via callback
-        matches = serialize_matches([matching], partner)
+        matches = AdvancedUserMatchSerializer([matching], many=True, context={"user": partner}).data
         InUnconfirmedMatchAdded(matches[0]).send(partner.hash)
 
 

@@ -216,7 +216,7 @@ def serialize_messages_for_matching(instance, representation, censor_messages=Tr
 
         _msgs = Message.objects.filter(
             Q(sender=partner, recipient=instance) | Q(sender=instance, recipient=partner)
-        ).order_by("created")
+        ).order_by("-created")
         messages = get_paginated(_msgs, 10, 1)
         
         
@@ -242,7 +242,7 @@ def serialize_messages_for_matching(instance, representation, censor_messages=Tr
             "state": StateSerializer(partner.state).data,
             "with_management": True if match in support else False
         }
-        messages[match['id']]["items"] = [MessageSerializer(item).data for item in _msg["items"]]
+        messages[match['id']]["items"] = reversed([MessageSerializer(item).data for item in _msg["items"]])
         if censor:
             messages[match['id']]["items"] = [{**i, "text": "CENSORED"} for i in messages[match['id']]["items"]]
         return messages

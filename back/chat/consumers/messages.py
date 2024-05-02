@@ -18,7 +18,7 @@ class MessageTypes(Enum):
     match_proposal_added = "match_proposal_added"
     unconfirmed_match_added = "unconfirmed_match_added" # A new match but hasn't been viewed yet
     block_incoming_call = "block_incoming_call"
-    new_incoming_call = "new_incoming_call"
+    new_active_call = "new_active_call"
     new_message = "new_message"
     messages_read_chat = "messages_read_chat"
     pre_matching_appointment_booked = "pre_matching_appointment_booked"
@@ -129,16 +129,14 @@ class InBlockIncomingCall(MessageBase):
         }
         
 @dataclass
-class InNewIncomingCall(MessageBase):
-    sender_id: str
-    type: str = MessageTypes.new_incoming_call.value
+class NewActiveCallRoom(MessageBase):
+    call_room: dict
+    type: str = MessageTypes.new_active_call.value
     
     def build_redux_action(self):
         return {
-            "action": "addIncomingCall", 
-            "payload": {
-                "userId": self.sender_id
-            }
+            "action": "addActiveCallRoom", 
+            "payload": self.call_room
         }
         
 @dataclass
@@ -190,7 +188,7 @@ CALLBACKS = {
     MessageTypes.match_proposal_added.value: InMatchProposalAdded,
     MessageTypes.unconfirmed_match_added.value: InUnconfirmedMatchAdded,
     MessageTypes.block_incoming_call.value: InBlockIncomingCall,
-    MessageTypes.new_incoming_call.value: InNewIncomingCall,
+    MessageTypes.new_active_call.value: NewActiveCallRoom,
     MessageTypes.pre_matching_appointment_booked.value: PreMatchingAppointmentBooked,
     MessageTypes.new_message.value: NewMessage,
     MessageTypes.messages_read_chat.value: MessagesReadChat
