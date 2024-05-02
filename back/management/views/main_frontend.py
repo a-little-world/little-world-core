@@ -3,6 +3,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from rest_framework.decorators import api_view
 from back.utils import CoolerJson
 from django.utils.translation import pgettext_lazy
+from management.views.cookie_banner_frontend import get_cookie_banner_template_data
 from django.utils import translation
 from django.conf import settings
 import json
@@ -44,99 +45,64 @@ class MainFrontendParamsSerializer(serializers.Serializer):
     def create(self, validated_data):
         return MainFrontendParams(**validated_data)
 
-class PublicMainFrontendView(View):
+class MainFrontendRouter(View):
+    
+    # react frontend public paths
+    PUBLIC_PATHS = [
+        "login", 
+        "sign-up", 
+        "forgot-password", 
+        "reset-password",
+    ]
 
-    def get(self, request, path, **kwargs):
+    def get(self, request, path="", **kwargs):
         
-        if request.user.is_authenticated and ((not request.user.state.is_email_verified()) and (not path.startswith("app/verify-email"))):
+        # normalize path, no trailing slash
+        if path.endswith("/"):
+            path = path[:-1]
+
+        login_url_redirect = ('https://home.little-world.com/' if settings.IS_PROD else '/login') if (not settings.USE_LANDINGPAGE_REDIRECT) else settings.LANDINGPAGE_REDIRECT_URL
+        
+        if not request.user.is_authenticated:
+            if path in self.PUBLIC_PATHS:
+                # TODO: we need a better way to extract the options!
+                ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
+                user_profile = get_base_management_user().profile
+                profile_data = ProfileWOptions(user_profile).data
+                profile_options = profile_data["options"]
+                data = {
+                    "apiOptions": {
+                        "profile": profile_options,
+                    },
+                }
+
+                cookie_context = get_cookie_banner_template_data(request)
+                return render(request, "main_frontend_public.html", {
+                        "data": json.dumps(data, cls=CoolerJson), **cookie_context})
+            if path == "":
+                # the root path is generally redirected to `little-world.com` in production ( otherwise to an app intern landing page )
+                return redirect(login_url_redirect)
+            return redirect(f"{login_url_redirect}?next={path}")
+        
+        # authenticated users
+        
+        if (not request.user.state.is_email_verified()) and (not path.startswith("app/verify-email")):
             return redirect("/app/verify-email/")
         
-        if request.user.is_authenticated and request.user.state.is_email_verified() and ((not request.user.state.is_user_form_filled()) and (not path.startswith("app/user-form"))):
+        if request.user.state.is_email_verified() and ((not request.user.state.is_user_form_filled()) and (not path.startswith("app/user-form"))):
             return redirect("/app/user-form/")
 
-        if request.user.is_authenticated and (request.user.state.is_email_verified() and request.user.state.is_user_form_filled()):
+        if request.user.state.is_email_verified() and request.user.state.is_user_form_filled() and (not path.startswith("app")):
             return redirect("/app/")
 
 
         extra_template_data = {}
-        if request.user.is_authenticated:
-            with translation.override("tag"):
-                data = frontend_data(request.user)
-            extra_template_data["sentry_user_id"] = request.user.hash
-        else:
-            # TODO: we need a better way to extract the options!
-            ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
-            user_profile = get_base_management_user().profile
-            profile_data = ProfileWOptions(user_profile).data
-            profile_options = profile_data["options"]
-            data = {
-                "apiOptions": {
-                    "profile": profile_options,
-                },
-            }
-            
-        from management.views.cookie_banner_frontend import get_cookie_banner_template_data
-        cookie_context = get_cookie_banner_template_data(request)
-
-        return render(request, "main_frontend_public.html", {"data": json.dumps(data, cls=CoolerJson), **cookie_context, **extra_template_data})
-
-class MainFrontendView(LoginRequiredMixin, View):
-    login_url = ('https://home.little-world.com/' if settings.IS_PROD else '/login') if (not settings.USE_LANDINGPAGE_REDIRECT) else settings.LANDINGPAGE_REDIRECT_URL
-    redirect_field_name = 'next'
-
-    @utils.track_event(name=_("Render User Form"), event_type=Event.EventTypeChoices.REQUEST, tags=["frontend"])
-    def get(self, request, path="app/", **kwargs):
-        """
-        Entrypoint to the main frontend react app.
-        1. check if email verified, if not redirect to views.form.email_verification
-        2. check if user form filled, if not redirect to views.from.user_form
-
-        TODO this **will** change, 
-        at some point we will allow to use the main app even without having your email verified
-        """
-        
-        if not path.startswith("app/"):
-            path = "app/" + path
-
-        # This is a regular django view,
-        # but since we still wan't to use serialization from DRF
-        # We will wrap the 'request' into a DRF.request
-        # This gives us json parsed .data and .query_set options
-        drf_request = Request(request=request)
-        
-        WHITELISTED_USER_PARAMS = ["gtm_debug"]
-        
-        if not request.user.is_staff and len(drf_request.query_params) != 0:
-            if not all([param in WHITELISTED_USER_PARAMS for param in drf_request.query_params.keys()]):
-                return Response(_('Query param usage on main view only allowed for admins!'), status=status.HTTP_403_FORBIDDEN)
-
-        serializer = MainFrontendParamsSerializer(
-            data=drf_request.query_params)  # type: ignore
-
-        if not serializer.is_valid():
-            # Since this is a regular django view we have to return the erros manually
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        params = serializer.save()
-        if request.user.is_authenticated and ((not request.user.state.is_email_verified()) and (not path.startswith("app/verify-email"))):
-            return redirect("/app/verify-email/")
-        
-        if request.user.is_authenticated and request.user.state.is_email_verified() and ((not request.user.state.is_user_form_filled()) and (not path.startswith("app/user-form"))):
-            return redirect("/app/user-form/")
-
-        _kwargs = params.__dict__
-        _kwargs.pop("filters")  # TODO: they are not yet supported
-        _kwargs.pop("order_by")  # TODO: they are not yet supported
-
-        extra_template_data = {}
-        extra_template_data["sentry_user_id"] = request.user.hash
-
-        # we want this view to pass tags by default,
-        # the frontend also receives all api translations!
-        # This way it can switch the language without reloading
         with translation.override("tag"):
             data = frontend_data(request.user)
-        return render(request, "main_frontend.html", {"data": json.dumps(data, cls=CoolerJson), **extra_template_data})
-    
+        extra_template_data["sentry_user_id"] = request.user.hash
+
+        return render(request, "main_frontend_public.html", {"data": json.dumps(data, cls=CoolerJson), **extra_template_data})
+
 def info_card(
         request, 
         confirm_mode=False,

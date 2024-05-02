@@ -221,3 +221,16 @@ export $(grep -v '^#' .env.prod-attach | xargs) && docker compose -f docker-comp
   ]
 ```
 
+## Installing or updating our livekit components
+
+Use: [`./_scripts/update_livekit_components.sh`](./_scripts/update_livekit_components.sh)
+
+This will:
+
+- if not present clone [our livekit fork](https://github.com/a-little-world/components-js) into `./components-js`
+- if present clear some build files
+- install dependencies `pnpm install`
+- build the react package `pnpm build`
+- extract and increase the patch version number of the react components package `0.0.XXX`
+- bundle the react package `pnpm bundle` ( in `./components-js/packages/react` )
+- copy the bundle to `./front/apps/main_frontend/prebuild/` and update the `package.json` there with the new version

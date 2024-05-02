@@ -1,4 +1,6 @@
 from django.utils.translation import gettext_lazy as _
+import json
+import base64
 import os
 
 
@@ -81,6 +83,11 @@ LANDINGPAGE_REDIRECT_URL = os.environ.get("DJ_LANDINGPAGE_REDIRECT_URL", "https:
 USE_LANDINGPAGE_PLACEHOLDER = os.environ.get("DJ_USE_LANDINGPAGE_PLACEHOLDER", "true").lower() in ('true', '1', 't')
 LANDINGPAGE_PLACEHOLDER_TITLE = os.environ.get("DJ_LANDINGPAGE_PLACEHOLDER_TITLE", "Little World")
 
+LIVEKIT_API_KEY = os.environ.get("DJ_LIVEKIT_API_KEY", "")
+LIVEKIT_API_SECRET = os.environ.get("DJ_LIVEKIT_API_SECRET", "")
+LIVEKIT_WEBHOOK_SECRET = os.environ.get("DJ_LIVEKIT_WEBHOOK_SECRET", "")
+LIVEKIT_URL = os.environ.get("DJ_LIVEKIT_URL", "")
+
 if IS_PROD and 'K8_POD_IP' in os.environ:
     # So that we can further restrict access to the depoloyment kubernetes node
     ALLOWED_HOSTS.append(os.environ['K8_POD_IP'])
@@ -97,6 +104,14 @@ AI_API_KEY = os.environ.get("DJ_AI_API_KEY", "none")
 AI_LANGUAGE_MODEL = os.environ.get("DJ_AI_LANGUAGE_MODEL", "none")
 AI_OPENAI_MODEL = os.environ.get("DJ_AI_OPENAI_MODEL", "none")
 AI_OPENAI_API_KEY  = os.environ.get("DJ_AI_OPENAI_API_KEY", "none")
+
+# yeah google creds are annying to handle, 'e30=' is just an empty json '{}'
+try:
+    # They can be endoced as base64 strings:
+    # base64.b64encode(json.dumps(creds).encode("utf-8")).decode("utf-8")
+    GOOGLE_CLOUD_CREDENTIALS = json.loads(base64.b64decode(os.environ.get("DJ_GOOGLE_CLOUD_CREDENTIALS", "e30=")))
+except Exception as e:
+    GOOGLE_CLOUD_CREDENTIALS = {}
 
 """
 Own applications:
@@ -117,6 +132,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'django_filters',
+    'video',
     # A convenient multiselect field for db objects ( used e.g.: in profile.interests )
     'multiselectfield',
     'phonenumber_field',  # Conevnient handler for phone numbers with admin prefix
@@ -229,7 +245,7 @@ if IS_STAGE or IS_PROD:
     CSRF_TRUSTED_ORIGINS += EXTRA_CSRF_ALLOWED_ORIGINS
 elif DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
-    CSRF_TRUSTED_ORIGINS = ["https://*.github.dev"]
+    CSRF_TRUSTED_ORIGINS = ["https://*.github.dev"] + EXTRA_CSRF_ALLOWED_ORIGINS
     CSRF_ORIGIN_ALLOW_ALL = True
 
 if IS_STAGE:

@@ -77,6 +77,7 @@ api_routes = [
     path(_api_url('user/checkpw'), api.user.CheckPasswordApi.as_view()),
     path(_api_url('user/changepw'), api.user.ChangePasswordApi.as_view()),
     path(_api_url('user/translate'), api.translation_requests.translate),
+    path(_api_url('googletrans/translate'), api.googletrans.translate),
     path(_api_url('user/change_email'), api.user.ChangeEmailApi.as_view()),
 
     path(_api_url('emails/toggle_sub'), api.email_settings.unsubscribe_link),
@@ -125,19 +126,14 @@ api_routes = [
 ]
 
 view_routes = [
-    path("", RedirectView.as_view(  # Redirect all requests to "/" to "/app/" per default
-         url=f"app/", permanent=True), name="frontend_redirect"),
+          
+    path('', main_frontend.MainFrontendRouter.as_view(), name="base_route"),
 
     path("set_password/<str:usr_hash>/<str:token>",
          main_frontend.set_password_reset, name="set_password_reset"),
 
     path('mailverify_link/<str:auth_data>', main_frontend.email_verification_link,
          name="email_verification_link"),
-
-    # The main frontend ( does its own routing )
-    path('app/', main_frontend.MainFrontendView.as_view(), name="main_frontend"),
-    re_path(fr'^app/(?P<path>.*)$',
-            main_frontend.MainFrontendView.as_view(), name="main_frontend_w_path"),
 
     path(f"user/still_active/", api.user.still_active_callback, name="still_active_callback"),
     path(f"api/user/question_cards/",get_question_cards, name="question_cards"),
@@ -218,4 +214,4 @@ urlpatterns = [
     *api_routes,
 ]
 
-public_routes_wildcard = re_path(r'^(?P<path>.+?)/?$', main_frontend.PublicMainFrontendView.as_view(), name="main_frontend_public")
+public_routes_wildcard = re_path(r'^(?P<path>.+?)/?$', main_frontend.MainFrontendRouter.as_view(), name="main_frontend_public")

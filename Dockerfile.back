@@ -10,6 +10,7 @@ ENV BUILD_TYPE=${BUILD_TYPE:-dev}
 WORKDIR /app
 COPY ./back/ .
 
+RUN apk add --no-cache g++
 RUN pip install --no-cache-dir -r requirements.txt
 RUN apk add --no-cache git
 RUN pip install git+https://github.com/jazzband/django-revproxy.git
