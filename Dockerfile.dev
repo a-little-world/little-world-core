@@ -10,6 +10,7 @@ COPY ./requirements.txt ./
 # RUN apk add postgres
 # Fix: https://github.com/yaml/pyyaml/issues/601
 RUN pip install "Cython<3.0" pyyaml --no-build-isolation
+RUN apk add --no-cache g++
 RUN pip install --no-cache-dir -r requirements.txt
 RUN apk add --no-cache git
 RUN pip install git+https://github.com/jazzband/django-revproxy.git

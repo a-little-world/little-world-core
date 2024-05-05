@@ -9,7 +9,7 @@ from tracking.utils import track_event
 from management.twilio_handler import get_usr_auth_token, get_room_or_create, complete_room_if_empty
 from management.models.rooms import get_rooms_user, Room, get_rooms_match
 from management.controller import get_user_by_hash, send_websocket_callback
-from chat.consumers.messages import InBlockIncomingCall, InNewIncomingCall
+from chat.consumers.messages import InBlockIncomingCall, NewActiveCallRoom
 
 
 @dataclass
@@ -124,7 +124,7 @@ class TwilioCallbackApi(APIView):
             elif StatusCallbackEvent == 'participant-connected':
                 room, caller, participant = get_room_caller_and_participant()
 
-                InNewIncomingCall(caller.hash).send(participant.hash)
+                NewActiveCallRoom(caller.hash).send(participant.hash)
 
                 return Response()
         # Means we havenet handled this callback yet!

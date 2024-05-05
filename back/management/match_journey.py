@@ -36,7 +36,14 @@ class PerMatchBuckets:
             3) 'User Ghosted' ( X days in 'Single Party Contact' )
             4) 'Contact stopped' ( X days no messages, X days no video calls, less than XX weeks active matching )
     """
-
+    
+    BUCKETS = [
+        Bucket(
+            "Learner Pending Matching Confirm",
+            ""
+        )        
+    ]
+    
     queryset = Match.objects.all()
 
     @classmethod
