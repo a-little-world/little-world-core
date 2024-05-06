@@ -128,7 +128,8 @@ def get_match(request, partner_hash):
     
     # 2 - categorize the match, the frontend needs to know if it's a 'confirmed', 'unconfirmed' or 'support' match
     category = "confirmed" if match.confirmed else "unconfirmed"
-    if match.support_matching:
+    if match.support_matching and (not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)):
+        # A match isn't shown as 'support' if the requesting user him self is a support user
         category = "support"
     
     serialized = AdvancedUserMatchSerializer(match, context={"user": request.user}).data
