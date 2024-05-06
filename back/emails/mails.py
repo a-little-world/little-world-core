@@ -23,6 +23,7 @@ from emails.templates import (
     GeneralSurveyMail_0311,
     ImpulsBeitraegeMail,
     ImpulsBeitraegeMail2,
+    CommunityGetTogetherInvitation,
     # Currently we are using the same template as weclone
     # so MatchFoundEmailTexts has no Defaults
     SurveyInvitationAniq2,
@@ -81,6 +82,10 @@ class ImpulseBeitraegeParams2:
     first_name: str
     link_url: str
     unsubscribe_url1: str
+
+@dataclass
+class CommunityGetTogetherMailParams:
+    first_name: str
     
 @dataclass
 class AccountDeletedEmailParams:
@@ -407,7 +412,14 @@ templates = [
         params=GermanImprovementBabbelInvitationParams,
         texts=GermanImprovementBabbelInvitation,
         defaults=GermanImprovementBabbelInvitation
-    )
+    ),
+    MailMeta(
+        name="community_get_together",
+        template="emails/welcome.html",
+        params=CommunityGetTogetherMailParams,
+        texts=CommunityGetTogetherInvitation,
+        defaults=CommunityGetTogetherInvitation
+    ),
 ]
 
 
