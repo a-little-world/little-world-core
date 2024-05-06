@@ -94,6 +94,8 @@ api_routes = [
          api.profile.ProfileViewSet.as_view({"post": "partial_update", "get": "_get"})),
     path(_api_url('profile/completed'),
          api.profile.ProfileCompletedApi.as_view()),
+    path(_api_url('profile/<str:partner_hash>/match', end_slash=False),
+         api.matches.get_match),
 
     path(_api_url('notification'),
          api.notify.NotificationGetApi.as_view()),

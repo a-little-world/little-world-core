@@ -2,17 +2,21 @@
 # implement: 
 from management.views.admin_panel_v2 import IsAdminOrMatchingUser
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework_dataclasses.serializers import DataclassSerializer
 from management.models.state import State
 from management.models.user import User
 from dataclasses import dataclass
+from django.db.models import Q
 from rest_framework.response import Response
 from rest_framework import status
 from management.api.scores import score_between_db_update
 from management import controller
+from management.models.matches import Match
 from management.api.user_data import AdvancedUserMatchSerializer
 from management.api.user_data import serialize_proposed_matches
 from chat.consumers.messages import InMatchProposalAdded, InUnconfirmedMatchAdded
+from drf_spectacular.utils import extend_schema, inline_serializer
 
 @dataclass
 class _MakeMatchSerializer:
@@ -95,3 +99,41 @@ def make_match(request):
             InUnconfirmedMatchAdded(matches[0]).send(user.hash)
 
         return Response("Users sucessfully matched")
+
+@extend_schema(
+    summary="Get a match",
+    description="Get a match by the partner's hash",
+    responses={
+        200: inline_serializer("ProfileGetMatch", {
+            "category": "string",
+            "match": AdvancedUserMatchSerializer
+        }),
+        400: "Bad request"
+    }
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_match(request, partner_hash):
+    # 1 - get the match
+    match = Match.objects.filter(
+        Q(user1=request.user, user2__hash=partner_hash) |
+        Q(user2=request.user, user1__hash=partner_hash),
+        active=True
+    )
+    
+    if not match.exists():
+        return Response("Match not found", status=status.HTTP_400_BAD_REQUEST)
+    else:
+        match = match.first()
+    
+    # 2 - categorize the match, the frontend needs to know if it's a 'confirmed', 'unconfirmed' or 'support' match
+    category = "confirmed" if match.confirmed else "unconfirmed"
+    if match.support_matching:
+        category = "support"
+    
+    serialized = AdvancedUserMatchSerializer(match, context={"user": request.user}).data
+    
+    return Response({
+        "category": category,
+        "match": serialized
+    })
