@@ -1108,3 +1108,48 @@ class GermanImprovementBabbelInvitation:
     unsubscribe_link1_category: str = 'german improvement'
     unsubscribe_link2: str = 'none'
     unsubscribe_link2_category: str = 'none'
+
+@dataclass
+class CommunityGetTogetherInvitation:
+    """
+    ---------> Community Get-Together Invitation Template <---------------
+    """
+    subject_header_text: str = pgettext_lazy(
+        "email.get-together.subject-header-text",
+        "Wir laden dich zu unserem Community Get-Together ein!")
+    greeting: str = pgettext_lazy(
+        'email.get-together.greeting',
+        'Hallo {first_name},')
+    content_start_text: str = pgettext_lazy(
+        'email.get-together.content-start-text',
+        'möchtest du dich am Donnerstag, den 9. Mai, um 18 Uhr unserem Get-Together anschließen? Als wertvolles Mitglied unserer Little World Community möchten wir mit dir einige Updates teilen und gemeinsam feiern, wie unsere Community wächst.')
+    content_body_text: str = pgettext_lazy(
+        'email.get-together.content-body-text',
+        'Mit mittlerweile über 3.000 Mitgliedern bei Little World trägst du maßgeblich dazu bei, eine inklusive Gesellschaft zu gestalten. Deine Investition von Zeit und Engagement, um Gespräche zu führen und andere zu unterstützen, ist von unschätzbarem Wert, damit wir uns alle wohl und geschätzt fühlen. Gemeinsam haben wir bereits über 160 multikulturelle Gespräche in 2024 geführt, mit über 120 wirkungsvollen Stunden! Als Community zeigen wir, wie aus demokratischen Werten konkrete Taten werden. Im Call möchten wir teilen, wo wir heute als gemeinnütziges Start-up dank deiner Mitwirkung stehen und was wir für 2024 vorhaben, um gemeinsam weiter zu wachsen. Wir sind sehr gespannt darauf, deine Ideen und deine Erfahrungen zu hören. Denn nur durch deine wertvolle Mitwirkung können wir Little World gemeinsam noch besser machen.')
+    button_text: str = pgettext_lazy(
+        'email.get-together.button-text',
+        'Zum Call beitreten')
+    button_link: str = pgettext_lazy(
+        'email.get-together.button-link',
+        'https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09')
+    link_box_text: str = mark_safe(pgettext_lazy(
+        'email.survey.link-box-text',
+        '<a href="https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09" style="color: blue;">https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09</a>'))
+    below_link_text: str = pgettext_lazy(
+        'email.get-together.below-link-text',
+        'Wir freuen uns schon riesig auf dich und deinen Beitrag!')
+    footer_text: str = pgettext_lazy(
+        'email.get-together.footer-text',
+        'Liebe Grüße,')
+    goodbye: str = pgettext_lazy(
+        'email.get-together.goodbye',
+        'Oliver, Tim, Sean und Melina')
+    goodbye_name: str = pgettext_lazy(
+        'email.get-together.goodbye-name',
+        '')
+    use_unsubscribe_footer: bool = False
+    unsubscribe_two_link: bool = False
+    unsubscribe_link1: str = 'none'
+    unsubscribe_link1_category: str = 'none'
+    unsubscribe_link2: str = 'none'
+    unsubscribe_link2_category: str = 'none'
