@@ -82,6 +82,8 @@ class MainFrontendRouter(View):
             if path == "":
                 # the root path is generally redirected to `little-world.com` in production ( otherwise to an app intern landing page )
                 return redirect(login_url_redirect)
+            if not path.startswith("/"):
+                path = f"/{path}"
             return redirect(f"{login_url_redirect}?next={path}")
         
         # authenticated users
