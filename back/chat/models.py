@@ -77,8 +77,8 @@ class ChatSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         
-        if 'request' in self.context:
-            user = self.context['request'].user
+        if ('request' in self.context) or ('user' in self.context):
+            user = self.context['request'].user if 'request' in self.context else self.context['user']
             partner = instance.get_partner(user)
             profile = management_models.profile.MinimalProfileSerializer(partner.profile).data
             representation['partner'] = profile
