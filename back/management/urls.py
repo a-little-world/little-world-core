@@ -2,6 +2,7 @@ from management import api
 from django.urls import path, re_path
 from django.contrib import admin
 from django.conf import settings
+from management.api import user_journey_api
 from management.views import main_frontend, landing_page
 from back.utils import _api_url
 from django.conf.urls import include
@@ -93,6 +94,8 @@ api_routes = [
          api.profile.ProfileViewSet.as_view({"post": "partial_update", "get": "_get"})),
     path(_api_url('profile/completed'),
          api.profile.ProfileCompletedApi.as_view()),
+    path(_api_url('profile/<str:partner_hash>/match', end_slash=False),
+         api.matches.get_match),
 
     path(_api_url('notification'),
          api.notify.NotificationGetApi.as_view()),
@@ -201,8 +204,10 @@ view_routes = [
     
     *admin_panel_v2_actions.action_routes,
     *admin_panel_emails.email_view_routes,
-    *admin_panel_devkit.devkit_urls
+    *admin_panel_devkit.devkit_urls,
+    *user_journey_api.api_routes,
 ]
+
 
 if settings.USE_LANDINGPAGE_PLACEHOLDER:
     view_routes += [

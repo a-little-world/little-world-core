@@ -11,6 +11,13 @@ class Bucket:
     name: str
     query: str
     category: str
+    
+    def to_dict(self):
+        return {
+            'name': self.name,
+            'query': self.query,
+            'category': self.category,
+        }
 
 class PerUserBuckets:
     """
@@ -100,6 +107,17 @@ Per-User-States:
                     continue
                 intersection = set(user_hashes).intersection(other_user_hashes)
                 assert len(intersection) == 0, f"Users {intersection} in multiple buckets: {bucket_name} and {other_bucket_name}"
+                
+    @classmethod
+    def get_schema(self):
+        # serialize all buckets,
+        serialized = []
+        for bucket in self.BUCKETS:
+            serialized.append({
+                **bucket.to_dict(),
+                "description": getattr(self, bucket.query).__doc__,
+            })
+        return serialized
 
     # ==================== Sign-Up =====================
     BUCKETS = [
