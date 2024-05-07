@@ -74,6 +74,18 @@ def get_paginated(query_set, items_per_page, page):
         "currentPage": page,
     }
     
+def get_paginated_format_v2(query_set, items_per_page, page):
+    pages = Paginator(query_set, items_per_page).page(page)
+    return {
+        "results": list(pages),
+        "page_size": items_per_page,
+        "pages_total": pages.paginator.num_pages,
+        "page": page,
+        "first_page": 1,
+        "next_page": pages.next_page_number() if pages.has_next() else None,
+        "previous_page": pages.previous_page_number() if pages.has_previous() else None,
+    }
+    
 class AdvancedUserMatchSerializer(serializers.ModelSerializer):
     class Meta:
         model = Match
@@ -267,6 +279,11 @@ def frontend_data(user, items_per_page=10, request=None):
     
     ud = user_data(user)
     
+    chats = Chat.get_chats(user)
+    paginated_chats = get_paginated_format_v2(chats, items_per_page, 1)
+    paginated_chats["results"] = ChatSerializer(paginated_chats["results"], many=True, context={'user': user}).data
+
+    
     # find all active calls
     all_active_rooms = LivekitSession.objects.filter(
         Q(room__u1=user, is_active=True, u2_active=True, u1_active=False) |
@@ -292,6 +309,7 @@ def frontend_data(user, items_per_page=10, request=None):
         "apiOptions": {
             "profile": profile_options,
         },
+        "chats": paginated_chats,
         "activeCallRooms": SerializeLivekitSession(all_active_rooms, context={
             'user': user
         }, many=True).data
