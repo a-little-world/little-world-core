@@ -11,11 +11,9 @@ else
   git clone https://github.com/a-little-world/components-js
 fi
 
+VERSION=$(python3 -c "import json; f=open('./front/apps/main_frontend/package.json'); data=json.load(f); v=(data['dependencies']['@livekit/components-react']).replace('file:prebuild/livekit-components-react-', '').replace('.tgz','').split('.'); v[-1]=str(int(v[-1])+1); print('.'.join(v)); f.close()")
+echo "New version: $VERSION"
 cd components-js
-pnpm install
-pnpm build:react
-# add a random version number to the package.json
-VERSION=$(python3 -c "import json; f=open('./packages/react/package.json'); data=json.load(f); v=data['version'].split('.'); v[-1]=str(int(v[-1])+1); print('.'.join(v)); f.close()")
 python3 -c """
 import json
 f = open('./packages/react/package.json', 'r+')
@@ -26,6 +24,9 @@ json.dump(data, f, indent=4)
 f.truncate()
 f.close()
 """
+pnpm install
+pnpm build:react
+# add a random version number to the package.json
 cd ./packages/react && pnpm pack
 echo "Created ./components-js/packages/react/livekit-components-react-$VERSION.tgz"
 cd ../../..
