@@ -1,4 +1,5 @@
 from rest_framework.decorators import api_view, permission_classes, authentication_classes, throttle_classes
+from chat.models import Chat, ChatSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import SessionAuthentication
 from video.models import LiveKitRoom, LivekitSession, LivekitWebhookEvent, SerializeLivekitSession
@@ -146,6 +147,8 @@ def authenticate_live_kit_room(request):
     user = request.user
     partner = User.objects.get(hash=request.data["partner_id"])
     
+    chat = ChatSerializer(Chat.get_chat([user, partner]), context={'user': user}).data
+    
     # 2 - the room MUST exist for the user and the partner ( will error if not )
     livekit_room = LiveKitRoom.get_room(user, partner)
     
@@ -168,6 +171,7 @@ def authenticate_live_kit_room(request):
     return Response({
         "token": str(token),
         "server_url": settings.LIVEKIT_URL,
+        "chat": chat
     })
 
 api_urls = [
