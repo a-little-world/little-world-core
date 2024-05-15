@@ -64,7 +64,8 @@ class MainFrontendRouter(View):
         login_url_redirect = ('https://home.little-world.com/' if settings.IS_PROD else '/login') if (not settings.USE_LANDINGPAGE_REDIRECT) else settings.LANDINGPAGE_REDIRECT_URL
         
         if not request.user.is_authenticated:
-            if path in self.PUBLIC_PATHS:
+            if any([path.startswith(p) for p in self.PUBLIC_PATHS]):
+                
                 # TODO: we need a better way to extract the options!
                 ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
                 user_profile = get_base_management_user().profile

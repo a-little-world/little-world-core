@@ -185,7 +185,8 @@ class ProfileBase(models.Model):
 
     gender = models.CharField(
         choices=GenderChoices.choices,
-        default=GenderChoices.ANY,
+        default=None,
+        null=True,
         max_length=255)
 
     partner_gender = models.CharField(
