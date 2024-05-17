@@ -147,7 +147,8 @@ def send_new_message_notifications():
     # 4 - send notifications to users
     send_emails = not (settings.IS_STAGE or settings.IS_DEV)
     if send_emails:
-        for u in User.objects.filter(id__in=recipients_to_notify):
+        users = User.objects.filter(id__in=recipients_to_notify).distinct()
+        for u in users:
             u.send_email(
                 subject=pgettext_lazy(
                     "tasks.unread-notifications-email-subject", "Neue Nachricht(en) auf Little World"),
@@ -156,6 +157,11 @@ def send_new_message_notifications():
                     first_name=u.profile.first_name,
                 )
             )
+        user_ids = list(users.values_list('id', flat=True))
+        return {
+            "sent_emails": len(user_ids),
+            "user_ids": user_ids
+        }
     
     # 5 - mark all unnotified messages as 'notified'
     unread_unnotified_messages.update(
