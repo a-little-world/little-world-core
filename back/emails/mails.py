@@ -24,11 +24,13 @@ from emails.templates import (
     ImpulsBeitraegeMail,
     ImpulsBeitraegeMail2,
     CommunityGetTogetherInvitation,
+    TrainingSeriesInvitation,
     # Currently we are using the same template as weclone
     # so MatchFoundEmailTexts has no Defaults
     SurveyInvitationAniq2,
     NewUnreadMessages,
     MatchFoundEmailTexts,
+    CulturalAwarenessInvitation,
     SorryWeStillNeedALittleMail,
     NewServerMail,
 GermanImprovementBabbelInvitation,
@@ -86,11 +88,19 @@ class ImpulseBeitraegeParams2:
 @dataclass
 class CommunityGetTogetherMailParams:
     first_name: str
+
+@dataclass
+class CulturalAwarenessInvitationParams:
+    first_name: str
     
 @dataclass
 class AccountDeletedEmailParams:
     first_name: str
     registration_link_url : str = 'https://little-world.org/sign-up'
+    
+@dataclass
+class TrainingInvitationParams:
+    first_name: str
     
 @dataclass
 class SurveryInvitation3Natalia:
@@ -420,6 +430,20 @@ templates = [
         texts=CommunityGetTogetherInvitation,
         defaults=CommunityGetTogetherInvitation
     ),
+    MailMeta(
+        name="training_series",
+        template="emails/welcome.html",
+        params=TrainingInvitationParams,
+        texts=TrainingSeriesInvitation,
+        defaults=TrainingSeriesInvitation
+    ),
+    MailMeta(
+        name="cultural_awareness",
+        template="emails/welcome.html",
+        params=CulturalAwarenessInvitationParams,
+        texts=CulturalAwarenessInvitation,
+        defaults=CulturalAwarenessInvitation
+    )
 ]
 
 
