@@ -1153,3 +1153,114 @@ class CommunityGetTogetherInvitation:
     unsubscribe_link1_category: str = 'none'
     unsubscribe_link2: str = 'none'
     unsubscribe_link2_category: str = 'none'
+    
+@dataclass
+class TrainingSeriesInvitation:
+    """
+    ---------> Community Training Series Invitation Template <---------------
+    """
+    subject_header_text: str = pgettext_lazy(
+        "email.get-together.subject-header-text",
+        "Dankeschön für deine Teilnahme am Get-together & Ankündigung der interkulturellen Trainingsserie!")
+    greeting: str = pgettext_lazy(
+        'email.get-together.greeting',
+        'Liebe {first_name},')
+    content_start_text: str = pgettext_lazy(
+        'email.get-together.content-start-text',
+        'wir hoffen, dass diese Woche für dich gut begonnen hat! Letzten Donnerstag hatten wir unser Get-Together. '
+        'Es war großartig, gemeinsam mit vielen Mitgliedern unserer Little World Community unsere Erfolge zu feiern. '
+        'In unserer Community trägt jedes Gespräch dazu bei, eine Gesellschaft zu gestalten, die von Verständnis und Empathie geprägt ist, '
+        'in der sich jeder willkommen und geschätzt fühlt.')
+    content_body_text: str = mark_safe(pgettext_lazy(
+        'email.get-together.content-body-text',
+        'Nun freuen wir uns, dir eine aufregende neue Initiative anzukündigen: Ab nächster Woche starten wir eine interkulturelle Trainingsserie für unsere Community! '
+        'Wir haben Raquel Barros, die Leiterin der Werkstatt der Kulturen beim Diakonischen Werk im Kirchenkreis Aachen e.V., eingeladen, und sie wird uns durch 6 Trainings führen. '
+        'Diese Serie zielt darauf ab, unsere Fähigkeit zu entwickeln, kulturelle Unterschiede und Vielfalt in einem globalen Kontext zu verstehen, anzuerkennen und damit umzugehen. '
+        'Auch wenn du nicht an allen 6 Terminen teilnehmen kannst, ist das kein Problem, denn jede Session bietet ein vollständiges Training für sich allein.<br><br>'
+        'Hier sind die Termine für die interkulturelle Trainingsserie:<br><br>'
+        '<ul>'
+        '<li>Montag, 20. Mai, 18 Uhr - 1: Interkulturelle Begegnung - Achtsamer Umgang</li>'
+        '<li>Montag, 27. Mai, 18 Uhr - 2: Selbstreflexion - Achtsamer Umgang</li>'
+        '<li>Montag, 3. Juni, 18 Uhr - 3: Fremdreflexion - Achtsamer Umgang</li>'
+        '<li>Montag, 10. Juni, 18 Uhr - 4: Achtsamer Umgang miteinander – Out of the Bubble</li>'
+        '<li>Montag, 17. Juni, 18 Uhr - 5: Theorie muss sein: Kulturdimensionen</li>'
+        '<li>Montag, 24. Juni, 18 Uhr - 6: Interkulturelles Training – Sensibilisierung</li>'
+        '</ul>'
+        'Alle Termine sind auf unserer Plattform verfügbar und können im Bereich "Gruppengespräche" unter "Start" gefunden werden. '
+        'Wir hoffen, dass du dabei sein kannst, denn man lernt nie aus! Diese Impulse werden uns allen helfen, uns weiterzuentwickeln.<br><br>'
+        'Wir möchten uns noch einmal herzlich bei dir für deine Unterstützung und deine wertvollen Beiträge zur Little World Community bedanken. '
+        'Gemeinsam machen wir Little World zu einem besseren Ort für alle.'
+    ))
+    button_text: str = ''
+    button_link: str = ''
+    link_box_text: str = ''
+    below_link_text: str = ''
+    footer_text: str = pgettext_lazy(
+        'email.get-together.footer-text',
+        'Mit herzlichen Grüßen,')
+    goodbye: str = pgettext_lazy(
+        'email.get-together.goodbye',
+        'Oliver, Tim, Sean und Melina')
+    goodbye_name: str = pgettext_lazy(
+        'email.get-together.goodbye-name',
+        '')
+    use_unsubscribe_footer: bool = False
+    unsubscribe_two_link: bool = False
+    unsubscribe_link1: str = 'none'
+    unsubscribe_link1_category: str = 'none'
+    unsubscribe_link2: str = 'none'
+    unsubscribe_link2_category: str = 'none'
+    
+
+@dataclass
+class CulturalAwarenessInvitation:
+    """
+    ---------> Community Cultural Awareness Invitation Template <---------------
+    """
+    subject_header_text: str = pgettext_lazy(
+        "email.get-together.subject-header-text",
+        "Einladung zu unseren interkulturellen Treffen!")
+    greeting: str = pgettext_lazy(
+        'email.get-together.greeting',
+        'Hallo {first_name},')
+    content_start_text: str = pgettext_lazy(
+        'email.get-together.content-start-text',
+        'wir bei Little World wollen, dass alle Menschen sich gut verstehen, auch wenn sie aus verschiedenen Ländern kommen. '
+        'Deshalb haben wir mehrere Treffen organisiert, bei denen wir lernen, wie wir die Unterschiede zwischen den Kulturen verstehen und schätzen können.')
+    content_body_text: str = mark_safe(pgettext_lazy(
+        'email.get-together.content-body-text',
+        'Jeden Montag wird uns Raquel Barros von der Werkstatt der Kulturen besuchen. Sie wird uns in ganz einfacher Sprache erklären, worum es geht. '
+        'Wenn du B1 Deutsch verstehen kannst, wirst du sicher alles verstehen! Es ist auch eine gute Möglichkeit, dein Deutsch zu üben. '
+        'Und wenn du Fragen hast, kannst du uns alles fragen. Wir sind hier, um alle gemeinsam zu lernen.<br><br>'
+        'Nach dem kurzen Vortrag gibt es Zeit für Fragen und zum Reden. Du kannst dich gerne beteiligen! '
+        'Bei Little World sind wir wie eine große Community und wir machen alle mal Fehler. Also keine Angst, nutze die Chance, um etwas zu lernen und dein Deutsch zu verbessern.<br><br>'
+        'Hier sind die Termine für die interkulturellen Treffen:<br><br>'
+        '<ul>'
+        '<li>Montag, 20. Mai, 18 Uhr - 1: Interkulturelle Begegnung - Achtsamer Umgang</li>'
+        '<li>Montag, 27. Mai, 18 Uhr - 2: Selbstreflexion - Achtsamer Umgang</li>'
+        '<li>Montag, 3. Juni, 18 Uhr - 3: Fremdreflexion - Achtsamer Umgang</li>'
+        '<li>Montag, 10. Juni, 18 Uhr - 4: Achtsamer Umgang miteinander – Out of the Bubble</li>'
+        '<li>Montag, 17. Juni, 18 Uhr - 5: Theorie muss sein: Kulturdimensionen</li>'
+        '<li>Montag, 24. Juni, 18 Uhr - 6: Interkulturelles Training – Sensibilisierung</li>'
+        '</ul>'
+        'Merke sie dir in deinem Kalender und du kannst einfach über den Link auf unserer Website an den Treffen teilnehmen. Da stehen alle Termine.<br><br>'
+        'PS: Möchtest du dich auf das Gespräch vorbereiten? Wir haben ein kleines Glossar mit typischen Worten in diesem Thema, die vielleicht schwierig sein können. '
+        'So kennst du sie alle, bevor es startet. <a href="https://example.com/glossary" style="color: blue;">(Link)</a>.'
+    ))
+    button_text: str = ''
+    button_link: str = ''
+    link_box_text: str = ''
+    below_link_text: str = ''
+    footer_text: str = pgettext_lazy(
+        'email.get-together.footer-text',
+        'Liebe Grüße,')
+    goodbye: str = pgettext_lazy(
+        'email.get-together.goodbye',
+        'Oliver, Tim, Sean und Melina')
+    goodbye_name: str = ''
+    use_unsubscribe_footer: bool = False
+    unsubscribe_two_link: bool = False
+    unsubscribe_link1: str = 'none'
+    unsubscribe_link1_category: str = 'none'
+    unsubscribe_link2: str = 'none'
+    unsubscribe_link2_category: str = 'none'
