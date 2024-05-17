@@ -1245,7 +1245,7 @@ class CulturalAwarenessInvitation:
         '</ul>'
         'Merke sie dir in deinem Kalender und du kannst einfach über den Link auf unserer Website an den Treffen teilnehmen. Da stehen alle Termine.<br><br>'
         'PS: Möchtest du dich auf das Gespräch vorbereiten? Wir haben ein kleines Glossar mit typischen Worten in diesem Thema, die vielleicht schwierig sein können. '
-        'So kennst du sie alle, bevor es startet. <a href="https://example.com/glossary" style="color: blue;">(Link)</a>.'
+        'So kennst du sie alle, bevor es startet. <a href="https://home.little-world.com/wp-content/uploads/2024/05/Glossar-Trainings.pdf" style="color: blue;">(Link)</a>.'
     ))
     button_text: str = ''
     button_link: str = ''
