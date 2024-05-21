@@ -2,7 +2,6 @@ from rest_framework.views import APIView
 from rest_framework import serializers, status
 from drf_spectacular.utils import extend_schema
 from rest_framework import authentication, permissions
-from django.utils.translation import pgettext_lazy
 from dataclasses import dataclass
 from rest_framework.response import Response
 from tracking.utils import track_event
@@ -10,6 +9,7 @@ from management.twilio_handler import get_usr_auth_token, get_room_or_create, co
 from management.models.rooms import get_rooms_user, Room, get_rooms_match
 from management.controller import get_user_by_hash, send_websocket_callback
 from chat.consumers.messages import InBlockIncomingCall, NewActiveCallRoom
+from translations import get_translation
 
 
 @dataclass
