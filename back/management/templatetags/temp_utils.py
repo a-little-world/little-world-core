@@ -1,6 +1,7 @@
 from django import template
 from django.conf import settings
 from django.utils.safestring import mark_safe
+from translations import get_translation_catalog
 import json
 register = template.Library()
 
@@ -54,13 +55,11 @@ def get_base_page_url():
     return ""  # settings.BASE_URL
 
 
+
 @register.simple_tag
 def get_api_translations(request):
-    from ..api.trans import get_trans_as_tag_catalogue
     """
     A helper tag that returns the api trasnlations  
     This can be used by frontends to dynamicly change error translation lanugages without resending requrests
     """
-    return json.dumps({
-        lang: get_trans_as_tag_catalogue(request, lang) for lang in settings.FRONTEND_LANGS
-    })
+    return json.dumps(get_translation_catalog())

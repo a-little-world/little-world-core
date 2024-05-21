@@ -25,7 +25,7 @@ from management.validators import (
 from django.utils.deconstruct import deconstructible
 import sys
 import os
-from back.utils import get_translation
+from translations import get_translation
 
 # This can be used to handle changes in the api from the frontend
 PROFILE_MODEL_VERSION = "1"

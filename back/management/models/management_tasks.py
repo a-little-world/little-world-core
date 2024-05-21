@@ -10,6 +10,7 @@ from back.utils import get_options_serializer
 from rest_framework import serializers
 from back import utils
 from multiselectfield import MultiSelectField
+from django.utils.translation import gettext_lazy as _
 
 
 class MangementTask(models.Model):

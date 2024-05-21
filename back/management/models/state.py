@@ -18,6 +18,7 @@ from management.models.matches import Match
 from django.db.models import Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils.translation import gettext_lazy as _
 from translations import get_translation
 
 class State(models.Model):

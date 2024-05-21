@@ -15,7 +15,7 @@ from drf_spectacular.utils import extend_schema
 from management.models.profile import SelfProfileSerializer
 from management.controller import get_base_management_user
 from django.conf import settings
-from management.api.trans import get_trans_as_tag_catalogue
+from translations import get_translation_catalog
 
 
 @api_view(['GET'])
@@ -29,9 +29,7 @@ def get_translations_and_options(request):
     A helper tag that returns the api trasnlations  
     This can be used by frontends to dynamicly change error translation lanugages without resending requrests
     """
-    translations = json.dumps({
-        lang: get_trans_as_tag_catalogue(request, lang) for lang in settings.FRONTEND_LANGS
-    })
+    translations = json.dumps(get_translation_catalog())
     
     bmu = get_base_management_user()
 
