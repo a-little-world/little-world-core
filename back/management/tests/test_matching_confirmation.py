@@ -8,7 +8,6 @@ from management.models.profile import Profile
 from management.models.unconfirmed_matches import UnconfirmedMatch
 from management.models.matches import Match
 from management.models.unconfirmed_matches import get_unconfirmed_matches
-from management.matching.matching_score import calculate_directional_score_write_results_to_db
 from management import api
 
 valid_request_data = dict(

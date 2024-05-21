@@ -53,7 +53,7 @@ api_routes = [
     path(_api_url('trans'), api.trans.get_translation_catalogue),
     path(_api_url('trans/<str:lang>'), api.trans.get_translation_catalogue),
 
-    path(_api_url('options_translations'), api.options.get_translations_and_options),
+    path(_api_url('options'), api.options.get_options),
 
 
     path(_api_url('community/events'),

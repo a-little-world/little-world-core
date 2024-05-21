@@ -64,11 +64,6 @@ class MatchConfirmationTasksTests(TestCase):
         
         # to even perform the scoring we need to create a default scoring table source
 
-        # calculate matching score
-        # TODO: test depricated we have new way to check matchability
-        score = calculate_directional_score_write_results_to_db(
-            u1, u2, return_on_nomatch=False, catch_exceptions=True)
-
         # make the matching proposal
         proposal = create_user_matching_proposal({u1, u2}, send_confirm_match_email=True)
 
