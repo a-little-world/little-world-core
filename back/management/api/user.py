@@ -189,7 +189,7 @@ class LogoutApi(APIView):
                               authentication.BasicAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
-    @ utils.track_event(
+    @utils.track_event(
         name="User Logged out",
         event_type=Event.EventTypeChoices.REQUEST,
         tags=["frontend", "log-out", "sensitive"])
@@ -200,7 +200,7 @@ class LogoutApi(APIView):
             "api.logout_sucessful"))
 
 
-@ dataclass
+@dataclass
 class CheckPwParams:
     password: str
 
@@ -218,17 +218,17 @@ class CheckPasswordApi(APIView):
                               authentication.BasicAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
-    @ extend_schema(request=CheckPwSerializer(many=False))
+    @extend_schema(request=CheckPwSerializer(many=False))
     def post(self, request):
         serializer = CheckPwSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         params = serializer.save()
 
         _check = request.user.check_password(params.password)
-        return Response(status=status.HTTP_200_OK if _check else status=status.HTTP_400_BAD_REQUEST)
+        return Response(status=status.HTTP_200_OK if _check else status.HTTP_400_BAD_REQUEST)
 
 
-@ dataclass
+@dataclass
 class ChangePwParams:
     password_old: str
     password_new: str
