@@ -21,7 +21,7 @@ from translations import get_translation_catalog
 @api_view(['GET'])
 @authentication_classes([])
 @permission_classes([])
-def get_translations_and_options(request):
+def get_options(request):
     """
     Get all notifications for the current user
     """
@@ -38,6 +38,5 @@ def get_translations_and_options(request):
     profile_options = profile_data["options"]
 
     return Response({
-        "apiOptions": profile_options,
-        "apiTranslations": translations,
+        "profile": profile_options,
     })
