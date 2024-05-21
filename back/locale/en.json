@@ -55,8 +55,6 @@
     "api.user_update_searching_state_slug_doesnt_exist": "'{slug}' is not a possible searching state!",
     "api.user_update_searching_state_state_successfully_changed": "State updated!",
     "api.user_unmatch_self_success": "Unmatched!",
-    "api.register_welcome_mail_subject": "{code} - Verifizierungscode zur E-Mail Bestätigung",
-    "api.user_resetpw_mail_subject": "Password reset Little World",
     "register.email_blank_err": "Please enter your e-mail address",
     "register.first_name_blank_err": "Please enter your first name",
     "register.second_name_blank_err": "Please enter your second name",

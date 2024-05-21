@@ -1,16 +1,32 @@
 import json
 
 LOCALE_DIR = "./locale"
-LANGS = ["de", "en"]
-FALLBACK_LANG = "de"
+LANGS = ["de", "en", "tag"]
+FALLBACK_LANG = "tag"
 
 translations = {}
 
-for lang in LANGS:
-    translations[lang] = {}
+def setup_translations():
+    global translations
+    translations = {}
+
+    for lang in filter(lambda x: x != "tag", LANGS):
+        translations[lang] = {}
+        
+        with open(f"{LOCALE_DIR}/{lang}.json", "r") as f:
+            translations[lang] = json.load(f)
     
-    with open(f"{LOCALE_DIR}/{lang}.json", "r") as f:
-        translations[lang] = json.load(f)
+    translations[FALLBACK_LANG] = {
+        key: key
+        for key in translations["en"]
+    }
+            
+    # check that keys are the same in all languages
+    for lang in LANGS:
+        for key in translations[FALLBACK_LANG]:
+            assert key in translations[lang], f"Key {key} not found in {lang}.json"
+            
+setup_translations()
         
 def get_context_translations(request, key):
     lang = request.session.get("lang", "en")
