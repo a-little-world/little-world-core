@@ -2,9 +2,6 @@ from django.test import TestCase
 from rest_framework.test import RequestsClient
 import json
 from rest_framework.response import Response
-from management.api.trans import get_trans_as_tag_catalogue
-from management.controller import create_user, get_user_by_email, match_users
-from management.api.user_data import get_user_models
 from django.conf import settings
 from management.models import profile
 from rest_framework.test import APIRequestFactory, force_authenticate
@@ -27,20 +24,12 @@ valid_create_data = dict(
     birth_year=valid_request_data['birth_year'],
 )
 
+from translations import get_translation_catalog
 
 class TestTranslations(TestCase):
 
     def _get_translations(self):
-        context = {}
-        for lang in settings.LANGUAGES:
-            lang_code = lang[0]
-
-            factory = APIRequestFactory(enforce_csrf_checks=True)
-            request = factory.get(f'/api/trans/{lang}')
-            context[lang_code] = get_trans_as_tag_catalogue(request, lang_code)
-            print("TRANS", context)
-            assert context[lang_code], "Translation dict emtpy!"
-        return context
+        return get_translation_catalog()
 
     def test_all_tags_translated(self):
         """ 
