@@ -5,7 +5,6 @@ import base64
 import zlib
 import random
 from datetime import datetime
-from django.utils.translation import pgettext_lazy, gettext_lazy as _
 from rest_framework import serializers
 from back.utils import get_options_serializer
 from rest_framework import serializers

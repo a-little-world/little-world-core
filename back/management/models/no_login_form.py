@@ -1,7 +1,6 @@
 from back import utils
 from django.db import models
 from rest_framework import serializers
-from django.utils.translation import gettext_lazy as _, pgettext_lazy
 from django.conf import settings
 from management.api.no_login_form import StillInContactFormDataSerializer
 
