@@ -1,15 +1,11 @@
-from django.utils.translation import pgettext_lazy, gettext_lazy as _
+from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 from django.core.exceptions import ValidationError
 import contextlib
+from translations import get_translation
 
 
 def as_djv(validator):
-    """
-    Converts a rest framework validator to a django model validator
-    Does this by siply cating rest validaton erros and outputing them as django validation errors
-    ---> Will display same validation messages in admin pannel, as on registration form
-    """
     def _validate(value):
         try:
             validator(value)
@@ -46,10 +42,6 @@ def dajango_validation():
 
 
 def validate_first_name(value: str):
-    """
-    Normalize a first_name and check if it is valid
-    """
-
     value = value.strip()
     value = value.title()
 
@@ -57,8 +49,7 @@ def validate_first_name(value: str):
         invalid_chars = [c for c in value if not c.isalpha()]
         print(invalid_chars)
         raise serializers.ValidationError(
-            pgettext_lazy("val.first-name-unallowed-chars",
-                          "First name contains invalid characters: {chars}".format(chars=','.join(invalid_chars))))
+            get_translation("val.first_name_unallowed_chars").format(chars=','.join(invalid_chars)))
     return value
 
 
@@ -68,13 +59,11 @@ def validate_second_name(value: str):
     amnt_spaces = value.count(" ")
     if amnt_spaces > 1:
         raise serializers.ValidationError(
-            pgettext_lazy("val.second-name-too-many-spaces",
-                          "It is maximum one space allowed in the Second Name, but you have {count}".format(count=amnt_spaces)))
-    _value = value.replace(" ", "")  # <-- So this doesn't error on spaces
+            get_translation("val.second_name_too_many_spaces").format(count=amnt_spaces))
+    _value = value.replace(" ", "")
     if not _value.isalpha():
         raise serializers.ValidationError(
-            pgettext_lazy("val.second-name-unallowed-chars",
-                          "Second name contains invalid characters"))
+            get_translation("val.second_name_unallowed_chars"))
     return value
 
 
@@ -82,18 +71,15 @@ def validate_postal_code(value: str):
     value = value.strip()
     if not value.isnumeric():
         raise serializers.ValidationError(
-            pgettext_lazy("val.postal-code-not-numeric",
-                          "German postalcode should be a number"))
+            get_translation("val.postal_code_not_numeric"))
     as_int = int(value)
     print("TBS", as_int)
     if as_int > 99999:
         raise serializers.ValidationError(
-            pgettext_lazy("val.postal-code-too-big",
-                          "German postalcode should have maximum 5 digits"))
+            get_translation("val.postal_code_too_big"))
     if as_int < 1000:
         raise serializers.ValidationError(
-            pgettext_lazy("val.postal-code-too-small",
-                          "Postalcode impossibly small"))
+            get_translation("val.postal_code_too_small"))
     return value
 
 
@@ -106,23 +92,23 @@ DAYS = ["mo", "tu", "we", "th", "fr", "sa", "su"]
 SLOTS = ["08_10", "10_12", "12_14", "14_16", "16_18", "18_20", "20_22"]
 
 SLOT_TRANS = {
-    "08_10": pgettext_lazy("val.availability.time-slot-08-10", "8 to 10 a.m."),
-    "10_12": pgettext_lazy("val.availability.time-slot-10-12", "10 to 12 p.m."),
-    "12_14": pgettext_lazy("val.availability.time-slot-12-14", "12 to 2 p.m."),
-    "14_16": pgettext_lazy("val.availability.time-slot-14-16", "2 to 4 p.m."),
-    "16_18": pgettext_lazy("val.availability.time-slot-16-18", "4 to 6 p.m."),
-    "18_20": pgettext_lazy("val.availability.time-slot-18-20", "6 to 8 p.m."),
-    "20_22": pgettext_lazy("val.availability.time-slot-20-22", "8 to 10 p.m.")
+    "08_10": get_translation("val.availability.time_slot_08_10"),
+    "10_12": get_translation("val.availability.time_slot_10_12"),
+    "12_14": get_translation("val.availability.time_slot_12_14"),
+    "14_16": get_translation("val.availability.time_slot_14_16"),
+    "16_18": get_translation("val.availability.time_slot_16_18"),
+    "18_20": get_translation("val.availability.time_slot_18_20"),
+    "20_22": get_translation("val.availability.time_slot_20_22")
 }
 
 DAY_TRANS = {
-    "mo": pgettext_lazy("val.availability.week-day-mo", "Monday"),
-    "tu": pgettext_lazy("val.availability.week-day-tu", "Tuesday"),
-    "we": pgettext_lazy("val.availability.week-day-we", "Wednesday"),
-    "th": pgettext_lazy("val.availability.week-day-th", "Thursday"),
-    "fr": pgettext_lazy("val.availability.week-day-fr", "Friday"),
-    "sa": pgettext_lazy("val.availability.week-day-sa", "Saturday"),
-    "su": pgettext_lazy("val.availability.week-day-su", "Sunday")
+    "mo": get_translation("val.availability.week_day_mo"),
+    "tu": get_translation("val.availability.week_day_tu"),
+    "we": get_translation("val.availability.week_day_we"),
+    "th": get_translation("val.availability.week_day_th"),
+    "fr": get_translation("val.availability.week_day_fr"),
+    "sa": get_translation("val.availability.week_day_sa"),
+    "su": get_translation("val.availability.week_day_su")
 }
 
 
@@ -131,18 +117,13 @@ def get_default_availability():
 
 
 def validate_availability(value: dict):
-    """
-    Validates the availability field
-    1 - check that all the day keys are availabol
-    2 - check that all time slots are possible
-    """
     for day in DAYS:
         assert day in value
         if not day in value:
             raise serializers.ValidationError(
-                _("Day '%s' not present in availability!" % day))
+                get_translation("val.availability.day_not_in_availability").format(day=day))
         for slot in value[day]:
             if not slot in SLOTS:
                 raise serializers.ValidationError(
-                    _("Slot '%s' is unknown!" % day))
+                    get_translation("val.availability.slot_unknown").format(day=day))
     return value
