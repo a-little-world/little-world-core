@@ -1,4 +1,3 @@
-{% load get_api_translations from temp_utils %}
 {% load get_base_matomo_script_tag from temp_utils %}
 {% get_base_matomo_script_tag as MATOMO_TAG_SCRIPT %}
 {% load get_sentry_init_script from temp_utils %}
@@ -6,7 +5,6 @@
 {% load get_reload_script_tag from reload_script_utils %}
 {% load render_bundle from webpack_loader %}
 {% load get_base_page_url from temp_utils %}
-{% get_api_translations request=request as api_translations %}
 <!DOCTYPE html>
 <head>
   {{ SENTRY_INIT_SCRIPT | safe }}
@@ -37,8 +35,6 @@
 {% render_bundle 'staticfiles' 'js' 'main_frontend' %}
 <script>
   const data = JSON.parse('{{ data | escapejs }}');
-  const apiTranslations = JSON.parse('{{ api_translations | escapejs }}');
-  window.apiTranslations = apiTranslations;
-  renderApp({ initData : data }, { apiTranslations })
+  renderApp({ initData : data })
 </script>
 <div style="display: none;">{{csrf_token}}</div>
