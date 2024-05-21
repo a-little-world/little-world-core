@@ -22,10 +22,10 @@ from management.models.profile import SelfProfileSerializer
 from tracking.models import Event
 from management.controller import get_base_management_user
 from back.utils import transform_add_options_serializer
-
+from translations import get_translation
 
 # The following two are redundant with api.admin.UserListParams, api.admin.UserListApiSerializer
-# But that is desired I wan't to always handle admin logic seperately this might come in handy in the future
+# But that is desired I wan't to always handle admin logic separately this might come in handy in the future
 
 @dataclass
 class MainFrontendParams:
@@ -44,6 +44,7 @@ class MainFrontendParamsSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         return MainFrontendParams(**validated_data)
+
 
 class MainFrontendRouter(View):
     
@@ -106,12 +107,12 @@ class MainFrontendRouter(View):
 
         return render(request, "main_frontend_public.html", {"data": json.dumps(data, cls=CoolerJson), **extra_template_data})
 
+
 def info_card(
         request, 
         confirm_mode=False,
         title="",
         content="",
-        # TODO: confirm / reject logic not yet implemented!
         confirmText="",
         rejectText="",
         linkText="",
@@ -134,79 +135,55 @@ def info_card(
     if isinstance(request, Request):
         request = request._request
 
-    from django.utils import translation
     # info view relies on frontend translations per default
     with translation.override("tag"):
         return render(request, "info_card.html", {"data": 
                        json.dumps(data, cls=CoolerJson)}, status=status_code)
-        
+
+
 def email_verification_link(request, **kwargs):
     from management.api.user import verify_email_link
 
     if not 'auth_data' in kwargs:
         raise serializers.ValidationError(
-            {"auth_data": pgettext_lazy("email.verify-auth-data-missing-get-frontend",
-                                        "Email authentication data missing")})
+            {"auth_data": get_translation("errors.missing_email_auth_data_get_frontend")})
 
     if verify_email_link(kwargs['auth_data']):
         return info_card(
             request,
-            title=pgettext_lazy(
-                "info-view.email-verification-link.title", 
-                "Email verification successful"),
-            content=pgettext_lazy(
-                "info-view.email-verification-link.content", 
-                "Your email has been verified successfully"),
-            linkText=pgettext_lazy(
-                "info-view.email-verification-link.linkText", 
-                "Back to home"),
+            title=get_translation("info_view.email_verification_link_success.title"),
+            content=get_translation("info_view.email_verification_link_success.content"),
+            linkText=get_translation("info_view.email_verification_link_success.linkText"),
             linkTo="/app/")
     else:
         return info_card(
             request,
-            title=pgettext_lazy(
-                "info-view.email-verification-link.title", 
-                "Email verification failed"),
-            content=pgettext_lazy(
-                "info-view.email-verification-link.content", 
-                "Your email verification failed"),
-            linkText=pgettext_lazy(
-                "info-view.email-verification-link.linkText", 
-                "Back to home"),
+            title=get_translation("info_view.email_verification_link_failure.title"),
+            content=get_translation("info_view.email_verification_link_failure.content"),
+            linkText=get_translation("info_view.email_verification_link_failure.linkText"),
             linkTo="/app/")
+
 
 def handler404(request, exception=None):
     return info_card(
         request,
-        title=pgettext_lazy(
-            "info-view.404.title", 
-            "Page not found"),
-        content=pgettext_lazy(
-            "info-view.404.content", 
-            "The page you are looking for does not exist"),
-        linkText=pgettext_lazy(
-            "info-view.404.linkText", 
-            "Back to home"),
+        title=get_translation("info_view.404.title"),
+        content=get_translation("info_view.404.content"),
+        linkText=get_translation("info_view.404.linkText"),
         linkTo="/app/",
         status_code=status.HTTP_404_NOT_FOUND
     )
 
+
 def handler500(request, exception=None):
     return info_card(
         request,
-        title=pgettext_lazy(
-            "info-view.500.title", 
-            "Internal server error"),
-        content=pgettext_lazy(
-            "info-view.500.content", 
-            "An internal server error occured\nIf you think this is a bug please contact us"),
-        linkText=pgettext_lazy(
-            "info-view.500.linkText",
-            "Back to home"),
+        title=get_translation("info_view.500.title"),
+        content=get_translation("info_view.500.content"),
+        linkText=get_translation("info_view.500.linkText"),
         linkTo="/app/",
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
     )
-    
 
 
 @dataclass
@@ -224,7 +201,7 @@ class SetPasswordResetSerializer(serializers.Serializer):
 
 
 def set_password_reset(request, **kwargs):
-    # TODO: this url should only be opened with a valid topen, otherwise this should error!
+    # TODO: this url should only be opened with a valid token, otherwise this should error!
     from django_rest_passwordreset.serializers import ResetTokenSerializer
 
     serializer = SetPasswordResetSerializer(data={
@@ -244,15 +221,9 @@ def set_password_reset(request, **kwargs):
     except Exception as e:
         return info_card(
             request,
-            title=pgettext_lazy(
-                "info-view.set-password-reset.title", 
-                "Password reset failed"),
-            content=pgettext_lazy(
-                "info-view.set-password-reset.content", 
-                "Token is invalid"),
-            linkText=pgettext_lazy(
-                "info-view.set-password-reset.linkText", 
-                "Back to home"),
+            title=get_translation("info_view.set_password_reset_failure.title"),
+            content=get_translation("info_view.set_password_reset_failure.content"),
+            linkText=get_translation("info_view.set_password_reset_failure.linkText"),
             linkTo="/app/"
         )
         
