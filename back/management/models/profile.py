@@ -25,8 +25,7 @@ from management.validators import (
 from django.utils.deconstruct import deconstructible
 import sys
 import os
-#from back.utils import tt
-from django.utils.translation import pgettext_lazy
+from back.utils import get_translation
 
 # This can be used to handle changes in the api from the frontend
 PROFILE_MODEL_VERSION = "1"
@@ -101,10 +100,8 @@ class ProfileBase(models.Model):
     therefore we store changes of this choice in `past_user_types`
     """
     class TypeChoices(models.TextChoices):
-        LEARNER = "learner", pgettext_lazy(
-            "profile.user-type.learner", "Language learner")
-        VOLUNTEER = "volunteer", pgettext_lazy(
-            "profile.user-type.volunteer", "Volunteer")
+        LEARNER = "learner", get_translation("profile.user_type.learner")
+        VOLUNTEER = "volunteer", get_translation("profile.user_type.volunteer")
 
     user_type = models.CharField(
         choices=TypeChoices.choices,
@@ -124,29 +121,14 @@ class ProfileBase(models.Model):
     """
     class TargetGroupChoices(models.TextChoices):
 
-        ANY_VOL = "any.vol", pgettext_lazy(
-            "profile.target-group.any-vol", "other")
-
-        ANY_LER = "any.ler", pgettext_lazy(
-            "profile.target-group.any-ler", "other")
-
-        REFUGEE_VOL = "refugee.vol", pgettext_lazy(
-            "profile.target-group.refugee-vol", "Refugees")
-
-        REFUGEE_LER = "refugee.ler", pgettext_lazy(
-            "profile.target-group.refugee-ler", "Refugees")
-
-        STUDENT_VOL = "student.vol", pgettext_lazy(
-            "profile.target-group.student-vol", "Students")
-
-        STUDENT_LER = "student.ler", pgettext_lazy(
-            "profile.target-group.student-ler", "Students")
-
-        WORKER_VOL = "worker.vol", pgettext_lazy(
-            "profile.target-group.worker-vol", "Workers")
-
-        WORKER_LER = "worker.ler", pgettext_lazy(
-            "profile.target-group.worker-ler", "Workers")
+        ANY_VOL = "any.vol", get_translation("profile.target_group.any_vol")
+        ANY_LER = "any.ler", get_translation("profile.target_group.any_ler")
+        REFUGEE_VOL = "refugee.vol", get_translation("profile.target_group.refugee_vol")
+        REFUGEE_LER = "refugee.ler", get_translation("profile.target_group.refugee_ler")
+        STUDENT_VOL = "student.vol", get_translation("profile.target_group.student_vol")
+        STUDENT_LER = "student.ler", get_translation("profile.target_group.student_ler")
+        WORKER_VOL = "worker.vol", get_translation("profile.target_group.worker_vol")
+        WORKER_LER = "worker.ler", get_translation("profile.target_group.worker_ler")
 
     target_group = models.CharField(
         choices=TargetGroupChoices.choices,
@@ -159,10 +141,9 @@ class ProfileBase(models.Model):
 
     # DEPRICATED!!! replaced with 'partner_gender'
     class ParterSexChoice(models.TextChoices):
-        ANY = "any", pgettext_lazy("profile.partner-sex.any", "Any")
-        MALE = "male", pgettext_lazy("profile.partner-sex.male", "Male only")
-        FEMALE = "female", pgettext_lazy(
-            "profile.partner-sex.female", "Female only")
+        ANY = "any", get_translation("profile.partner_sex.any")
+        MALE = "male", get_translation("profile.partner_sex.male")
+        FEMALE = "female", get_translation("profile.partner_sex.female")
 
     # DEPRICATED!!! replaced with 'partner_gender'
     partner_sex = models.CharField(
@@ -171,17 +152,14 @@ class ProfileBase(models.Model):
         max_length=255)
 
     class PartnerGenderChoices(models.TextChoices):
-        ANY = "any", pgettext_lazy("profile.partner-gender.any", "Any")
-        MALE = "male", pgettext_lazy(
-            "profile.partner-gender.male", "Male only")
-        FEMALE = "female", pgettext_lazy(
-            "profile.partner-gender.female", "Female only")
+        ANY = "any", get_translation("profile.partner_gender.any")
+        MALE = "male", get_translation("profile.partner_gender.male")
+        FEMALE = "female", get_translation("profile.partner_gender.female")
 
     class GenderChoices(models.TextChoices):
-        ANY = "any", pgettext_lazy("profile.gender.any", "Don't want to say")
-        MALE = "male", pgettext_lazy("profile.gender.male", "Male")
-        FEMALE = "female", pgettext_lazy(
-            "profile.gender.female", "Female")
+        ANY = "any", get_translation("profile.gender.any")
+        MALE = "male", get_translation("profile.gender.male")
+        FEMALE = "female", get_translation("profile.gender.female")
 
     gender = models.CharField(
         choices=GenderChoices.choices,
@@ -197,23 +175,12 @@ class ProfileBase(models.Model):
     Which medium the user preferes for
     """
     class SpeechMediumChoices(models.TextChoices):
-        ANY_VOL = "any.vol", pgettext_lazy(
-            "profile.speech-medium.any-vol", "Any")
-
-        ANY_LER = "any.ler", pgettext_lazy(
-            "profile.speech-medium.any-ler", "Any")
-
-        VIDEO_VOL = "video.vol", pgettext_lazy(
-            "profile.speech-medium.video-vol", "Video only")
-
-        VIDEO_LER = "video.ler", pgettext_lazy(
-            "profile.speech-medium.video-ler", "Video only")
-
-        PHONE_VOL = "phone.vol", pgettext_lazy(
-            "profile.speech-medium.phone-vol", "Phone only")
-
-        PHONE_LER = "phone.ler", pgettext_lazy(
-            "profile.speech-medium.phone-ler", "Phone only")
+        ANY_VOL = "any.vol", get_translation("profile.speech_medium.any_vol")
+        ANY_LER = "any.ler", get_translation("profile.speech_medium.any_ler")
+        VIDEO_VOL = "video.vol", get_translation("profile.speech_medium.video_vol")
+        VIDEO_LER = "video.ler", get_translation("profile.speech_medium.video_ler")
+        PHONE_VOL = "phone.vol", get_translation("profile.speech_medium.phone_vol")
+        PHONE_LER = "phone.ler", get_translation("profile.speech_medium.phone_ler")
 
     speech_medium = models.CharField(
         choices=SpeechMediumChoices.choices,
@@ -225,23 +192,12 @@ class ProfileBase(models.Model):
     WE ARE CURRENTLY NOT ASKING THIS!
     """
     class ConversationPartlerLocation(models.TextChoices):
-        ANYWHERE_VOL = "anywhere.vol", pgettext_lazy(
-            "profile.partner-location.anywhere-vol", "Anywhere")
-
-        ANYWHERE_LER = "anywhere.ler", pgettext_lazy(
-            "profile.partner-location.anywhere-ler", "Anywhere")
-
-        CLOSE_VOL = "close.vol", pgettext_lazy(
-            "profile.partner-location.close-vol", "Close")
-
-        CLOSE_LER = "close.ler", pgettext_lazy(
-            "profile.partner-location.close-ler", "Close")
-
-        FAR_VOL = "far.vol", pgettext_lazy(
-            "profile.partner-location.far-vol", "Far")
-
-        FAR_LER = "far.ler", pgettext_lazy(
-            "profile.partner-location.far-ler", "Far")
+        ANYWHERE_VOL = "anywhere.vol", get_translation("profile.partner_location.anywhere_vol")
+        ANYWHERE_LER = "anywhere.ler", get_translation("profile.partner_location.anywhere_ler")
+        CLOSE_VOL = "close.vol", get_translation("profile.partner_location.close_vol")
+        CLOSE_LER = "close.ler", get_translation("profile.partner_location.close_ler")
+        FAR_VOL = "far.vol", get_translation("profile.partner_location.far_vol")
+        FAR_LER = "far.ler", get_translation("profile.partner_location.far_ler")
 
     partner_location = models.CharField(
         choices=ConversationPartlerLocation.choices,
@@ -256,36 +212,25 @@ class ProfileBase(models.Model):
     postal_code = models.CharField(max_length=255, blank=True)
 
     class InterestChoices(models.TextChoices):
-        SPORT = "sport", pgettext_lazy("profile.sport-interest", "Sport")
-        ART = "art", pgettext_lazy("profile.art-interest", "Art")
-        MUSIC = "music", pgettext_lazy("profile.music-interest", "Music")
-        LITERATURE = "literature", pgettext_lazy(
-            "profile.literature-interest", "Literature")
-        VIDEO = "video", pgettext_lazy("profile.video-interest", "Video")
-        FASHION = "fashion", pgettext_lazy(
-            "profile.fashion-interest", "Fashion")
-        KULTURE = "culture", pgettext_lazy(
-            "profile.culture-interest", "Culture")
-        TRAVEL = "travel", pgettext_lazy("profile.travel-interest", "Travel")
-        FOOD = "food", pgettext_lazy("profile.food-interest", "Food")
-        POLITICS = "politics", pgettext_lazy(
-            "profile.politics-interest", "Politics")
-        NATURE = "nature", pgettext_lazy("profile.nature-interest", "Nature")
-        SCIENCE = "science", pgettext_lazy(
-            "profile.science-interest", "Science")
-        TECHNOLOGIE = "technology", pgettext_lazy(
-            "profile.tech-interest", "Technology")
-        HISTORY = "history", pgettext_lazy(
-            "profile.history-interest", "History")
-        RELIGION = "religion", pgettext_lazy(
-            "profile.religion-interest", "Religion")
-        SOZIOLOGIE = "sociology", pgettext_lazy(
-            "profile.soziologie-interest", "Sociology")
-        FAMILY = "family", pgettext_lazy("profile.family-interest", "Family")
-        PSYCOLOGY = "psycology", pgettext_lazy(
-            "profile.psycology-interest", "Psychology")
-        PERSON_DEV = "personal-development", pgettext_lazy(
-            "profile.pdev-interest", "Personal development")
+        SPORT = "sport", get_translation("profile.interest.sport")
+        ART = "art", get_translation("profile.interest.art")
+        MUSIC = "music", get_translation("profile.interest.music")
+        LITERATURE = "literature", get_translation("profile.interest.literature")
+        VIDEO = "video", get_translation("profile.interest.video")
+        FASHION = "fashion", get_translation("profile.interest.fashion")
+        KULTURE = "culture", get_translation("profile.interest.culture")
+        TRAVEL = "travel", get_translation("profile.interest.travel")
+        FOOD = "food", get_translation("profile.interest.food")
+        POLITICS = "politics", get_translation("profile.interest.politics")
+        NATURE = "nature", get_translation("profile.interest.nature")
+        SCIENCE = "science", get_translation("profile.interest.science")
+        TECHNOLOGIE = "technology", get_translation("profile.interest.technology")
+        HISTORY = "history", get_translation("profile.interest.history")
+        RELIGION = "religion", get_translation("profile.interest.religion")
+        SOZIOLOGIE = "sociology", get_translation("profile.interest.sociology")
+        FAMILY = "family", get_translation("profile.interest.family")
+        PSYCOLOGY = "psycology", get_translation("profile.interest.psycology")
+        PERSON_DEV = "personal-development", get_translation("profile.interest.personal_development")
 
     interests = MultiSelectField(
         choices=InterestChoices.choices, max_choices=20,
@@ -303,11 +248,8 @@ class ProfileBase(models.Model):
         validators=[validate_availability])  # type: ignore
 
     class LiabilityChoices(models.TextChoices):
-        DECLINED = "declined", pgettext_lazy(
-            "profile.liability.declined", "Declined Liability")
-
-        ACCEPTED = "accepted", pgettext_lazy(
-            "profile.liability.accepted", "Accepted Liability")
+        DECLINED = "declined", get_translation("profile.liability.declined")
+        ACCEPTED = "accepted", get_translation("profile.liability.accepted")
 
     liability = models.CharField(
         choices=LiabilityChoices.choices,
@@ -315,10 +257,8 @@ class ProfileBase(models.Model):
         max_length=255)
 
     class NotificationChannelChoices(models.TextChoices):
-        EMAIL = "email", pgettext_lazy(
-            "profile.notify-channel.email", "to be notified by e-mail only.")
-        SMS = "sms", pgettext_lazy(
-            "profile.notify-channel.sms", "to be notified by e-mail & SMS.")
+        EMAIL = "email", get_translation("profile.notification_channel.email")
+        SMS = "sms", get_translation("profile.notification_channel.sms")
 
     notify_channel = models.CharField(
         choices=NotificationChannelChoices.choices,
@@ -341,42 +281,20 @@ class ProfileBase(models.Model):
         and a version for a lanaguage learer
         NOTE: this means we *need* to update selection if a users switches from learner to volunteer or vice versa
         """
-        LEVEL_0_VOL = "level-0.vol", pgettext_lazy(
-            "profile.lang-level.level-0-vol", "any")
-
-        LEVEL_0_LER = "level-0.ler", pgettext_lazy(
-            "profile.lang-level.level-0-ler", "any")
-
-        LEVEL_1_VOL = "level-1.vol", pgettext_lazy(
-            "profile.lang-level.level-1-vol", "B1 = (everyday situations, stories, hopes)")
-
-        LEVEL_1_LER = "level-1.ler", pgettext_lazy(
-            "profile.lang-level.level-1-ler", "B1 = (everyday situations, stories, hopes)")
-
-        LEVEL_2_VOL = "level-2.vol", pgettext_lazy(
-            "profile.lang-level.level-2-vol", "B2 = (fluent & spontaneous conversations, current events)")
-
-        LEVEL_2_LER = "level-2.ler", pgettext_lazy(
-            "profile.lang-level.level-2-ler", "B2 = (fluent & spontaneous conversations, current events)")
-
-        LEVEL_3_VOL = "level-3.vol", pgettext_lazy(
-            "profile.lang-level.level-3-vol", "C1/C2 = (complex topics, hardly searching for words)")
-
-        LEVEL_3_LER = "level-3.ler", pgettext_lazy(
-            "profile.lang-level.level-3-ler", "C1/C2 = (complex topics, hardly searching for words)")
+        LEVEL_0_VOL = "level-0.vol", get_translation("profile.lang_level.level_0_vol")
+        LEVEL_0_LER = "level-0.ler", get_translation("profile.lang_level.level_0_ler")
+        LEVEL_1_VOL = "level-1.vol", get_translation("profile.lang_level.level_1_vol")
+        LEVEL_1_LER = "level-1.ler", get_translation("profile.lang_level.level_1_ler")
+        LEVEL_2_VOL = "level-2.vol", get_translation("profile.lang_level.level_2_vol")
+        LEVEL_2_LER = "level-2.ler", get_translation("profile.lang_level.level_2_ler")
+        LEVEL_3_VOL = "level-3.vol", get_translation("profile.lang_level.level_3_vol")
+        LEVEL_3_LER = "level-3.ler", get_translation("profile.lang_level.level_3_ler")
         
     class MinLangLevelPartnerChoices(models.TextChoices):
-        LEVEL_0 = "level-0", pgettext_lazy(
-            "profile.lang-level.level-0", "A1 & A2 (beginner level)")
-
-        LEVEL_1 = "level-1", pgettext_lazy(
-            "profile.lang-level.level-1", "B1 (everyday situations, stories)")
-
-        LEVEL_2 = "level-2", pgettext_lazy(
-            "profile.lang-level.level-2", "B2 (fluent & spontaneous conversations)")
-
-        LEVEL_3 = "level-3", pgettext_lazy(
-            "profile.lang-level.level-3", "C1/C2 (complex topics)")
+        LEVEL_0 = "level-0", get_translation("profile.min_lang_level_partner.level_0")
+        LEVEL_1 = "level-1", get_translation("profile.min_lang_level_partner.level_1")
+        LEVEL_2 = "level-2", get_translation("profile.min_lang_level_partner.level_2")
+        LEVEL_3 = "level-3", get_translation("profile.min_lang_level_partner.level_3")
 
     min_lang_level_partner = models.CharField(
         choices=MinLangLevelPartnerChoices.choices,
@@ -390,78 +308,56 @@ class ProfileBase(models.Model):
         max_length=255)
 
     class LanguageChoices(models.TextChoices):
-        ENGLISH = "english", pgettext_lazy("profile.lang.english", "English")
-        GERMAN = "german", pgettext_lazy("profile.lang.german", "German")
-        SPANISH = "spanish", pgettext_lazy("profile.lang.spanish", "Spanish")
-        FRENCH = "french", pgettext_lazy("profile.lang.french", "French")
-        ITALIAN = "italian", pgettext_lazy("profile.lang.italian", "Italian")
-        DUTCH = "dutch", pgettext_lazy("profile.lang.dutch", "Dutch")
-        PORTUGUESE = "portuguese", pgettext_lazy(
-            "profile.lang.portuguese", "Portuguese")
-        RUSSIAN = "russian", pgettext_lazy("profile.lang.russian", "Russian")
-        CHINESE = "chinese", pgettext_lazy("profile.lang.chinese", "Chinese")
-        JAPANESE = "japanese", pgettext_lazy(
-            "profile.lang.japanese", "Japanese")
-        KOREAN = "korean", pgettext_lazy("profile.lang.korean", "Korean")
-        ARABIC = "arabic", pgettext_lazy("profile.lang.arabic", "Arabic")
-        TURKISH = "turkish", pgettext_lazy("profile.lang.turkish", "Turkish")
-        SWEDISH = "swedish", pgettext_lazy("profile.lang.swedish", "Swedish")
-        POLISH = "polish", pgettext_lazy("profile.lang.polish", "Polish")
-        DANISH = "danish", pgettext_lazy("profile.lang.danish", "Danish")
-        NORWEGIAN = "norwegian", pgettext_lazy(
-            "profile.lang.norwegian", "Norwegian")
-        FINNISH = "finnish", pgettext_lazy("profile.lang.finnish", "Finnish")
-        GREEK = "greek", pgettext_lazy("profile.lang.greek", "Greek")
-        CZECH = "czech", pgettext_lazy("profile.lang.czech", "Czech")
-        HUNGARIAN = "hungarian", pgettext_lazy(
-            "profile.lang.hungarian", "Hungarian")
-        ROMANIAN = "romanian", pgettext_lazy(
-            "profile.lang.romanian", "Romanian")
-        INDONESIAN = "indonesian", pgettext_lazy(
-            "profile.lang.indonesian", "Indonesian")
-        HEBREW = "hebrew", pgettext_lazy("profile.lang.hebrew", "Hebrew")
-        THAI = "thai", pgettext_lazy("profile.lang.thai", "Thai")
-        VIETNAMESE = "vietnamese", pgettext_lazy(
-            "profile.lang.vietnamese", "Vietnamese")
-        UKRAINIAN = "ukrainian", pgettext_lazy(
-            "profile.lang.ukrainian", "Ukrainian")
-        SLOVAK = "slovak", pgettext_lazy("profile.lang.slovak", "Slovak")
-        CROATIAN = "croatian", pgettext_lazy(
-            "profile.lang.croatian", "Croatian")
-        SERBIAN = "serbian", pgettext_lazy("profile.lang.serbian", "Serbian")
-        BULGARIAN = "bulgarian", pgettext_lazy(
-            "profile.lang.bulgarian", "Bulgarian")
-        LITHUANIAN = "lithuanian", pgettext_lazy(
-            "profile.lang.lithuanian", "Lithuanian")
-        LATVIAN = "latvian", pgettext_lazy("profile.lang.latvian", "Latvian")
-        ESTONIAN = "estonian", pgettext_lazy(
-            "profile.lang.estonian", "Estonian")
-        PERSIAN = "persian", pgettext_lazy("profile.lang.persian", "Persian")
-        AFRIKAANS = "afrikaans", pgettext_lazy(
-            "profile.lang.afrikaans", "Afrikaans")
-        SWAHILI = "swahili", pgettext_lazy("profile.lang.swahili", "Swahili")
+        ENGLISH = "english", get_translation("profile.lang.english")
+        GERMAN = "german", get_translation("profile.lang.german")
+        SPANISH = "spanish", get_translation("profile.lang.spanish")
+        FRENCH = "french", get_translation("profile.lang.french")
+        ITALIAN = "italian", get_translation("profile.lang.italian")
+        DUTCH = "dutch", get_translation("profile.lang.dutch")
+        PORTUGUESE = "portuguese", get_translation("profile.lang.portuguese")
+        RUSSIAN = "russian", get_translation("profile.lang.russian")
+        CHINESE = "chinese", get_translation("profile.lang.chinese")
+        JAPANESE = "japanese", get_translation("profile.lang.japanese")
+        KOREAN = "korean", get_translation("profile.lang.korean")
+        ARABIC = "arabic", get_translation("profile.lang.arabic")
+        TURKISH = "turkish", get_translation("profile.lang.turkish")
+        SWEDISH = "swedish", get_translation("profile.lang.swedish")
+        POLISH = "polish", get_translation("profile.lang.polish")
+        DANISH = "danish", get_translation("profile.lang.danish")
+        NORWEGIAN = "norwegian", get_translation("profile.lang.norwegian")
+        FINNISH = "finnish", get_translation("profile.lang.finnish")
+        GREEK = "greek", get_translation("profile.lang.greek")
+        CZECH = "czech", get_translation("profile.lang.czech")
+        HUNGARIAN = "hungarian", get_translation("profile.lang.hungarian")
+        ROMANIAN = "romanian", get_translation("profile.lang.romanian")
+        INDONESIAN = "indonesian", get_translation("profile.lang.indonesian")
+        HEBREW = "hebrew", get_translation("profile.lang.hebrew")
+        THAI = "thai", get_translation("profile.lang.thai")
+        VIETNAMESE = "vietnamese", get_translation("profile.lang.vietnamese")
+        UKRAINIAN = "ukrainian", get_translation("profile.lang.ukrainian")
+        SLOVAK = "slovak", get_translation("profile.lang.slovak")
+        CROATIAN = "croatian", get_translation("profile.lang.croatian")
+        SERBIAN = "serbian", get_translation("profile.lang.serbian")
+        BULGARIAN = "bulgarian", get_translation("profile.lang.bulgarian")
+        LITHUANIAN = "lithuanian", get_translation("profile.lang.lithuanian")
+        LATVIAN = "latvian", get_translation("profile.lang.latvian")
+        ESTONIAN = "estonian", get_translation("profile.lang.estonian")
+        PERSIAN = "persian", get_translation("profile.lang.persian")
+        AFRIKAANS = "afrikaans", get_translation("profile.lang.afrikaans")
+        SWAHILI = "swahili", get_translation("profile.lang.swahili")
 
     class LanguageSkillChoices(models.TextChoices):
-        LEVEL_0 = "level-0", pgettext_lazy(
-            "profile.lang-level.level-0", "A1 & A2 (beginner level)")
-
-        LEVEL_1 = "level-1", pgettext_lazy(
-            "profile.lang-level.level-1", "B1 (everyday situations, stories)")
-
-        LEVEL_2 = "level-2", pgettext_lazy(
-            "profile.lang-level.level-2", "B2 (fluent & spontaneous conversations)")
-
-        LEVEL_3 = "level-3", pgettext_lazy(
-            "profile.lang-level.level-3", "C1/C2 (complex topics)")
-
-        LEVEL_NATIVE_VOL = "level-4", pgettext_lazy(
-            "profile.lang-level.level-4-native.vol", "Native speaker")
+        LEVEL_0 = "level-0", get_translation("profile.lang_level.level_0")
+        LEVEL_1 = "level-1", get_translation("profile.lang_level.level_1")
+        LEVEL_2 = "level-2", get_translation("profile.lang_level.level_2")
+        LEVEL_3 = "level-3", get_translation("profile.lang_level.level_3")
+        LEVEL_NATIVE_VOL = "level-4", get_translation("profile.lang_level.level_4_native.vol")
 
     lang_skill = models.JSONField(default=base_lang_skill)
     
     class ImageTypeChoice(models.TextChoices):
-        AVATAR = "avatar", pgettext_lazy("profile.image-type.avatar", "Avatar")
-        IMAGE = "image", pgettext_lazy("profile.image-type.image", "Image")
+        AVATAR = "avatar", get_translation("profile.image_type.avatar")
+        IMAGE = "image", get_translation("profile.image_type.image")
 
     image_type = models.CharField(
         choices=ImageTypeChoice.choices,
@@ -473,13 +369,10 @@ class ProfileBase(models.Model):
         default=dict, blank=True)  # Contains the avatar builder config
     
     
-    class DisplayLanguageChoices(models.TextChoices):
-        GERMAN = "de", pgettext_lazy("profile.display-language.de", "German")
-        ENGLISH = "en", pgettext_lazy("profile.display-language.en", "English")
-        
     display_language = models.CharField(
-        choices=DisplayLanguageChoices.choices,
-        default=DisplayLanguageChoices.GERMAN,
+        choices=[("de", get_translation("profile.display_language.de")),
+                 ("en", get_translation("profile.display_language.en"))],
+        default="de",
         max_length=255)
 
     gender_prediction = models.JSONField(null=True, blank=True)
@@ -504,7 +397,7 @@ class ProfileBase(models.Model):
             set_searching_if_completed=True,
             trigger_score_calulation=True):
         """
-        Checks if the userform is completed 
+           Checks if the userform is completed 
         TODO this could be a little more consize and extract better on which user form page
         the user is currently
         """
@@ -525,8 +418,7 @@ class ProfileBase(models.Model):
         for field in fields_required_for_completion:
             value = getattr(self, field)
             if value == "":  # TODO: we should also run the serializer
-                msgs.append(pgettext_lazy("profile.completion-check.missing-value",
-                            "'{val}' is not completed".format(val=field)))
+                msgs.append(get_translation("profile.completion_check.missing_value").format(val=field))
                 is_completed = False
 
         if is_completed and mark_completed:
@@ -548,7 +440,7 @@ class ProfileBase(models.Model):
         def __ending(vol=True):
             cfield = self.TypeChoices.VOLUNTEER if vol else self.TypeChoices.LEARNER
             return ".vol" if self.user_type == cfield else ".ler"
-        choices_different = [  # All choice fields that differe for learners vs volunteers
+        choices_different = [  # All choice fields that differ for learners vs volunteers
             'lang_level',
             'partner_location',
             'speech_medium',
@@ -561,7 +453,7 @@ class ProfileBase(models.Model):
         for field in choices_different:
             value = getattr(self, field)
             if value.endswith(disallowed_ending):
-                # Now we basicly replace disallowed ending with allowed ending
+                # Now we basically replace disallowed ending with allowed ending
                 setattr(self, field, value.replace(
                     disallowed_ending, allowed_ending))
 
@@ -574,23 +466,23 @@ class Profile(ProfileBase):
 
 
 def _date_string():
-    # TODO maybe we should add seconds since were using this in combination with unique together
+    # TODO maybe we should add seconds since we're using this in combination with unique together
     return datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
 
 
 class ProfileAtMatchRequest(ProfileBase):
     """
-    This model is created everytime a users request a match
-    It basicly stores a full copy of the profile when the user asks for a match
+    This model is created every time a user requests a match
+    It basically stores a full copy of the profile when the user asks for a match
     """
     usr_hash = models.CharField(
         max_length=255, unique=False, blank=True, null=True)
-    # Sadly we cant use a date field here cause it is not json serializable
+    # Sadly we can't use a date field here because it is not JSON serializable
     # See https://stackoverflow.com/questions/11875770/how-to-overcome-datetime-datetime-not-json-serializable
     sdate = models.CharField(default=_date_string, max_length=255)
 
-    # But we can add a read date time field without the unique contraint
-    # This is convenient for e.g.: sorting in django admin
+    # But we can add a read date time field without the unique constraint
+    # This is convenient for e.g., sorting in django admin
     date = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -610,11 +502,11 @@ class ProfileSerializer(serializers.ModelSerializer):
     def get_options(self, obj):
         d = get_options_serializer(self, obj)
         # There is no way the serializer can determine the options for our availability
-        # so lets just add it now, sice availability is stored as json anyways
+        # so let's just add it now, since availability is stored as JSON anyways
         # we can easily change the choices here in the future
 
-        if 'availability' in self.Meta.fields:  # <- TODO: does this check work with inheritence?
-            d.update({  # Ourcourse there is no need to do this for the Censored profile view
+        if 'availability' in self.Meta.fields:  # <- TODO: does this check work with inheritance?
+            d.update({  # Our course there is no need to do this for the Censored profile view
                 'availability': {day: [
                     {"value": slot,
                      "tag": SLOT_TRANS[slot]} for slot in SLOTS
@@ -628,7 +520,7 @@ class ProfileSerializer(serializers.ModelSerializer):
                     'lang': [{'value': l0, 'tag': force_str(l1, strings_only=True)} for l0, l1 in Profile.LanguageChoices.choices]
                 }})
 
-        # TODO: we might want to update the options for than language skill choices also
+        # TODO: we might want to update the options for the language skill choices also
         return d
 
     class Meta:
@@ -649,14 +541,12 @@ class SelfProfileSerializer(ProfileSerializer):
         extra_kwargs = dict(
             language_skill_description={
                 "error_messages": {
-                    'max_length': pgettext_lazy("profile.lskill-descr-to-long",
-                                                "must have a maximum of 300 characters"),
+                    'max_length': get_translation("profile.lskill_descr_too_long"),
                 }
             },
             description={
                 "error_messages": {
-                    'max_length': pgettext_lazy("profile.descr-to-long",
-                                                "must have a maximum of 999 characters"),
+                    'max_length': get_translation("profile.descr_too_long"),
                 }
             }
         )
@@ -664,41 +554,34 @@ class SelfProfileSerializer(ProfileSerializer):
     def validate(self, data):
         """
         Additional model validation for the profile 
-        this is especialy important for the image vs avatar!
+        this is especially important for the image vs. avatar!
         """
         if 'image_type' in data:
             if data['image_type'] == Profile.ImageTypeChoice.IMAGE:
                 def __no_img():
                     raise serializers.ValidationError({"image":
-                                                       pgettext_lazy(
-                                                           "profile.image-missing",
-                                                           "You have selected profile image but not uploaded an image")})
+                                                       get_translation("profile.image_missing")})
                 if not 'image' in data:
                     if not self.instance.image:
-                        # If the image is not present we only proceede if there is already an image set
+                        # If the image is not present we only proceed if there is already an image set
                         __no_img()
                 elif data['image'] is None:
                     # Only allow removing the image if then the avatar config is set
                     if not 'image_type' in data or not (data['image_type'] == Profile.ImageTypeChoice.AVATAR):
                         raise serializers.ValidationError({"image":
-                                                           pgettext_lazy(
-                                                               "profile.image-removal-without-avatar",
-                                                               "You are removing the profile image but have not selected to use avatar")})
+                                                           get_translation("profile.image_removal_without_avatar")})
                 elif not data['image']:
                     __no_img()
             if data['image_type'] == Profile.ImageTypeChoice.AVATAR:
                 if not 'avatar_config' in data or not data['avatar_config']:
                     raise serializers.ValidationError({"avatar_config":
-                                                       pgettext_lazy(
-                                                           "profile.avatar-missing",
-                                                           "You have selected avatar but not uploaded an avatar")})
+                                                       get_translation("profile.avatar_missing")})
         return data
 
     def validate_liability_accepted(self, value):
         if not value:
             raise serializers.ValidationError(
-                pgettext_lazy("profile.liability-declined",
-                              "You must accept the liability"))
+                get_translation("profile.liability_declined"))
         return value
 
     def validate_postal_code(self, value):
@@ -712,13 +595,11 @@ class SelfProfileSerializer(ProfileSerializer):
                 german_level_present = True
             if not (lang['level'] in Profile.LanguageSkillChoices.values):
                 raise serializers.ValidationError(
-                    pgettext_lazy("profile.lang-level-invalid",
-                                  "Invalid language level selected"))
+                    get_translation("profile.lang_level_invalid"))
 
             if not (lang['lang'] in Profile.LanguageChoices.values):
                 raise serializers.ValidationError(
-                    pgettext_lazy("profile.lang-invalid",
-                                  "Invalid language selected"))
+                    get_translation("profile.lang_invalid"))
 
             if not lang['lang'] in language_count_map:
                 language_count_map[lang['lang']] = 1
@@ -727,20 +608,17 @@ class SelfProfileSerializer(ProfileSerializer):
 
         if not all([v <= 1 for v in language_count_map.values()]):
             raise serializers.ValidationError(
-                pgettext_lazy("profile.lang-duplicate",
-                              "You have selected a language multiple times"))
+                get_translation("profile.lang_duplicate"))
 
         if not german_level_present:
             raise serializers.ValidationError(
-                pgettext_lazy("profile.lang-de-missing",
-                              "You must select at least german as a language"))
+                get_translation("profile.lang_de_missing"))
         return value
 
     def validate_description(self, value):
         if len(value) < 10:  # TODO: higher?
             raise serializers.ValidationError(
-                pgettext_lazy("profile.descr-to-short",
-                              "must have at least 10 characters"))
+                get_translation("profile.descr_too_short"))
         return value
 
 
@@ -763,4 +641,4 @@ class ProposalProfileSerializer(SelfProfileSerializer):
     class Meta:
         model = Profile
         fields = ["first_name", 'availability', 'image_type',
-                  'avatar_config', 'image', 'description']
+                  'avatar_config', 'image', 'description'] 
