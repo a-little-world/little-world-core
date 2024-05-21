@@ -28,7 +28,6 @@ from management.models.state import State
 from management.models.settings import Settings
 from management.models.rooms import Room
 from chat.models import Chat
-from django.utils.translation import gettext_lazy as _, pgettext_lazy
 from emails import mails
 from tracking import utils
 from tracking.models import Event
@@ -107,7 +106,7 @@ def get_user_models(user):
     return d
 
 def send_still_active_question_message(user):
-    user.message(get_translation("de", "auto_messages.are_you_still_in_contact").format(first_name=user.first_name), auto_mark_read=False)
+    user.message(get_translation("auto_messages.are_you_still_in_contact").format(first_name=user.first_name), auto_mark_read=False)
 
 def make_tim_support_user(
         user, 
@@ -211,8 +210,7 @@ def create_user(
             verifiaction_url = f"{settings.BASE_URL}/{link_route}/{usr.state.get_email_auth_code_b64()}"
             mails.send_email(
                 recivers=[email],
-                subject=pgettext_lazy(
-                    "api.register-welcome-mail-subject", "{code} - Verifizierungscode zur E-Mail Bestätigun".format(code=usr.state.get_email_auth_pin())),
+                subject=get_translation("emails.subjects.verify_email").format(code=usr.state.get_email_auth_pin()),
                 mail_data=mails.get_mail_data_by_name("welcome"),
                 mail_params=mails.WelcomeEmailParams(
                     first_name=usr.profile.first_name,
@@ -261,39 +259,19 @@ def create_user(
 
     # Step 8 Message the user from the admin account
     default_message = ""
-    if send_welcome_message:
 
-        default_message = pgettext_lazy("api.register-welcome-message-text", """Hallo {first_name} und herzlich willkommen bei Little World!
-
-Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil unserer Plattform geworden bist!
-
-Aktuell arbeiten wir an einigen Aktualisierungen unserer Plattform und unseres Matching-Verfahrens und schätzen daher jedes <a {{"href": "/app/help"}}>Feedback</a>, das wir von dir erhalten.
-
-Während wir für dich ein passendes Match finden, kannst du gerne in unserem <a {{"href" : "https://home.little-world.com/leitfaden"}}>Gesprächsleitfaden</a> stöbern. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
-
-Vielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!""".format(first_name=first_name))
-            
-    if check_prematching_invitations:
+    if check_prematching_invitations or send_welcome_message:
         # Now we need to check the prematching state
         # TODO: there is a bug here if the user decides to change the email, then the booking will be made from the wrong email.
         
-        default_message = pgettext_lazy("api.register-invite-pre-match-interview", """Hallo {first_name} und herzlich willkommen bei Little World!
-
-Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil unserer Plattform geworden bist!
-
-Aktuell arbeiten wir an einigen Aktualisierungen unserer Plattform und unseres Matching-Verfahrens und schätzen daher jedes Feedback, das wir von dir erhalten. Du kannst deine Gedanken und Erfahrungen jederzeit über diesen Link mit uns teilen: <a {{"href": "/app/help"}}>Feedback</a>.
-
-Bevor es richtig losgeht, musst du einen 15-minütigen Videocall-Termin mit mir vereinbaren. In diesem Gespräch werden wir gemeinsam deine Suchangaben überprüfen, und ich werde dir die nächsten Schritte zur Teilnahme bei Little World erklären. Bitte buche dafür einen Termin in dem folgenden Kalender: <button {{"data-cal-link" : "{calcom_meeting_id}?{encoded_params}", "data-cal-config" : "{{'layout':'month_view'}}"}}>Buche ein Meeting</button>.
-
-Während wir für dich ein passendes Match finden, kannst du gerne in unserem Gesprächsleitfaden unter diesem Link stöbern: <a {{"href" : "https://home.little-world.com/leitfaden"}}>Gesprächsleitfaden</a>. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
-
-Vielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!""".format(first_name=first_name,encoded_params=urllib.parse.urlencode({
-            "email": str(usr.email),
-            "hash": str(usr.hash),
-            "bookingcode": str(usr.state.prematch_booking_code)
-        }), 
-        hash=usr.hash,
-        calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID))
+        default_message = get_translation("auto_messages.prematching_invitation").format(
+            first_name=first_name,encoded_params=urllib.parse.urlencode({
+                "email": str(usr.email),
+                "hash": str(usr.hash),
+                "bookingcode": str(usr.state.prematch_booking_code)
+            }), 
+            hash=usr.hash,
+            calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID)
 
         usr.state.require_pre_matching_call = True
         usr.state.save()
@@ -400,8 +378,7 @@ def match_users(
 
     if send_email:
         usr1.send_email(
-            subject=pgettext_lazy(
-                "api.match-made-email-subject", "Glückwunsch! Gesprächspartner:in gefunden auf Little World"),
+            subject=get_translation("emails.subjects.match_made"),
             mail_data=mails.get_mail_data_by_name("match"),
             mail_params=mails.MatchMailParams(
                 first_name=usr1.profile.first_name,
@@ -410,8 +387,7 @@ def match_users(
             )
         )
         usr2.send_email(
-            subject=pgettext_lazy(
-                "api.match-made-email-subject", "Glückwunsch! Gesprächspartner:in gefunden auf Little World"),
+            subject=get_translation("emails.subjects.match_made"),
             mail_data=mails.get_mail_data_by_name("match"),
             mail_params=mails.MatchMailParams(
                 first_name=usr2.profile.first_name,
