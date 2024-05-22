@@ -1,6 +1,4 @@
 from django.db import models
-from django.utils.translation import pgettext_lazy
-from back.utils import get_options_serializer
 from rest_framework import serializers
 
 class NewsLetterSubscription(models.Model):

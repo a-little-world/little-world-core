@@ -1,7 +1,7 @@
 from django.db import models
-from django.utils.translation import pgettext_lazy
 from back.utils import get_options_serializer
 from rest_framework import serializers
+from translations import get_translation
 
 
 class CommunityEvent(models.Model):
@@ -17,10 +17,8 @@ class CommunityEvent(models.Model):
     link = models.CharField(default="", max_length=255)
 
     class EventFrequencyChoices(models.TextChoices):
-        WEEKLY = "weekly", pgettext_lazy(
-            'model.community-event.frequency-weekly', "Weekly")
-        ONCE = "once", pgettext_lazy(
-            'model.community-event.frequency-once', "Once")
+        WEEKLY = "weekly", get_translation("model.community_event.frequency.weekly")
+        ONCE = "once", get_translation("model.community_event.frequency.once")
 
     frequency = models.CharField(
         max_length=255, choices=EventFrequencyChoices.choices,

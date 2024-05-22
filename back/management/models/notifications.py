@@ -1,13 +1,13 @@
 from back import utils
 from django.db import models
 from rest_framework import serializers
-from django.utils.translation import gettext_lazy as _, pgettext_lazy
 from .user import User
+from translations import get_translation
 
 
 class Notification(models.Model):
     """ 
-    A models for an abitray notification notifications can be read by:
+    A models for an arbitrary notification. Notifications can be read by:
     calling POST api/v1/notification/list (this info is also provided in user data)
     calling POST api/v1/notification/read - mark notification as read
     calling POST api/v1/notification/archive - mark message as 'archived'
@@ -24,26 +24,25 @@ class Notification(models.Model):
     time_read = models.DateTimeField(null=True, blank=True)
 
     class NotificationState(models.TextChoices):
-        UNREAD = "unread", pgettext_lazy("notification.state.unread", "Unread")
-        READ = "read", pgettext_lazy("notification.state.read", "Read")
-        ARCHIVED = "archived", pgettext_lazy(
-            "notification.state.archived", "Archived")
+        UNREAD = "unread", get_translation("notification.state.unread")
+        READ = "read", get_translation("notification.state.read")
+        ARCHIVED = "archived", get_translation("notification.state.archived")
+        
     state = models.CharField(choices=NotificationState.choices,
                              default=NotificationState.UNREAD,
                              max_length=255)
 
     class NotificationType(models.TextChoices):
-        NONE = "none", pgettext_lazy("notification.type.none", "No Type")
-        MATCH = "match", pgettext_lazy("notification.type.match", "Match")
-        MESSAGE = "message", pgettext_lazy(
-            "notification.type.message", "message")
+        NONE = "none", get_translation("notification.type.none")
+        MATCH = "match", get_translation("notification.type.match")
+        MESSAGE = "message", get_translation("notification.type.message")
 
     type = models.CharField(
         choices=NotificationType.choices, default=NotificationType.NONE,
         max_length=255)
 
-    title = models.CharField(max_length=255, default=_("title"))
-    description = models.TextField(default=_("no-description"))
+    title = models.CharField(max_length=255, default=get_translation("notification.title"))
+    description = models.TextField(default=get_translation("notification.no_description"))
 
     meta = models.JSONField(default=dict, blank=True)
     

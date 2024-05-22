@@ -25,6 +25,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django.views.decorators.vary import vary_on_cookie, vary_on_headers
 from rest_framework import serializers, status
+from management.api.options import get_options_dict
 from rest_framework.throttling import UserRateThrottle
 from dataclasses import dataclass
 from back.utils import transform_add_options_serializer
@@ -272,11 +273,6 @@ def frontend_data(user, items_per_page=10, request=None):
         "currentPage": 0,
     }
 
-    ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
-    profile_data = ProfileWOptions(user_profile).data
-
-    profile_options = profile_data["options"]
-    
     ud = user_data(user)
     
     chats = Chat.get_chats(user)
@@ -289,6 +285,7 @@ def frontend_data(user, items_per_page=10, request=None):
         Q(room__u1=user, is_active=True, u2_active=True, u1_active=False) |
         Q(room__u2=user, is_active=True, u1_active=True, u2_active=False)
     )
+    
     
 
     frontend_data = {
@@ -306,9 +303,7 @@ def frontend_data(user, items_per_page=10, request=None):
             "read": read_notifications,
             "archived": archived_notifications,
         },
-        "apiOptions": {
-            "profile": profile_options,
-        },
+        "apiOptions": get_options_dict(),
         "chats": paginated_chats,
         "activeCallRooms": SerializeLivekitSession(all_active_rooms, context={
             'user': user
