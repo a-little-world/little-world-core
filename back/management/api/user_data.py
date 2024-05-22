@@ -217,7 +217,10 @@ def user_data(user):
 
     # Prematching join link depends on the support user
     pre_call_join_link = None
-    if len(support_matches['items']) > 0:
+    overwrite_pre_join_link = settings.PREMATCHING_CALL_JOIN_LINK
+    if overwrite_pre_join_link:
+        pre_call_join_link = overwrite_pre_join_link
+    elif len(support_matches['items']) > 0:
         pre_call_join_link = f"/app/call-setup/{support_matches['items'][0]['partner']['id']}/"
     
     return {

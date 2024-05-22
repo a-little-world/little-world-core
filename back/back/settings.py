@@ -66,6 +66,7 @@ TWILIO_ACCOUNT_SID = os.environ["DJ_TWILIO_ACCOUNT_SID"]
 TWILIO_API_KEY_SID = os.environ["DJ_TWILIO_API_KEY_SID"]
 TWILIO_API_SECRET = os.environ["DJ_TWILIO_API_SECRET"]
 EXTERNAL_S3 = os.environ.get("DJ_EXTERNAL_S3", "false").lower() in ('true', '1', 't')
+PREMATCHING_CALL_JOIN_LINK = os.environ.get("PREMATCHING_CALL_JOIN_LINK", None) 
 
 USE_SQLITE = os.environ.get("DJ_USE_SQLITE", "false").lower() in ('true', '1', 't')
 
