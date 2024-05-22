@@ -18,6 +18,16 @@ from django.conf import settings
 from translations import get_translation_catalog
 
 
+def get_options_dict():
+    bmu = get_base_management_user()
+
+    ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
+    profile_data = ProfileWOptions(bmu.profile).data
+    profile_options = profile_data["options"]
+    return {
+        "profile": profile_options,
+    }
+
 @api_view(['GET'])
 @authentication_classes([])
 @permission_classes([])
@@ -29,14 +39,5 @@ def get_options(request):
     A helper tag that returns the api trasnlations  
     This can be used by frontends to dynamicly change error translation lanugages without resending requrests
     """
-    translations = json.dumps(get_translation_catalog())
-    
-    bmu = get_base_management_user()
 
-    ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
-    profile_data = ProfileWOptions(bmu.profile).data
-    profile_options = profile_data["options"]
-
-    return Response({
-        "profile": profile_options,
-    })
+    return Response(get_options_dict())
