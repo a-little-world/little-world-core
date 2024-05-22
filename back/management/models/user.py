@@ -5,11 +5,7 @@ from django.conf import settings
 from rest_framework import serializers
 from asgiref.sync import async_to_sync
 from django.contrib.auth.models import AbstractUser, BaseUserManager
-from management.models.matches import Match
-from chat.models import Message, MessageSerializer, Chat
-from chat.consumers.messages import NewMessage
-from chat.models import ChatSerializer
-from chat.models import MessageSerializer
+from chat.models import Message, MessageSerializer, Chat, ChatSerializer
 
 
 class UserManager(BaseUserManager):
@@ -229,6 +225,7 @@ class User(AbstractUser):
         serialized_message = MessageSerializer(message).data
 
         if not auto_mark_read:
+            from chat.consumers.messages import NewMessage
             NewMessage(
                 message=serialized_message,
                 chat_id=chat.uuid,
