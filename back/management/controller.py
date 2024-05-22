@@ -77,7 +77,7 @@ def __user_get_catch(**kwargs):
         # We should throw an error if a user was looked up that doesn't exist
         # If this error occurs we most likely forgot to delte the user from someones matches
         # But we still allow this to be caught with 'try' and returned as a parsed error
-        raise UserNotFoundErr(_("User doesn't exist"))
+        raise UserNotFoundErr("User doesn't exist")
 
 
 def get_user_by_email(email):
@@ -265,7 +265,7 @@ def create_user(
 
     # Step 7 Notify the user
     if send_welcome_notification:
-        usr.notify(title=_("Welcome Notification"))
+        usr.notify(title="Welcome Notification")
 
     # Step 8 Message the user from the admin account
     default_message = ""
@@ -390,8 +390,8 @@ def match_users(
         )
 
     if send_notification:
-        usr1.notify(title=_("New match: %s" % usr2.profile.first_name))
-        usr2.notify(title=_("New match: %s" % usr1.profile.first_name))
+        usr1.notify(title="New match: %s" % usr2.profile.first_name)
+        usr2.notify(title="New match: %s" % usr1.profile.first_name)
 
     if send_message:
         match_message = """Glückwunsch, wir haben jemanden für dich gefunden! 
