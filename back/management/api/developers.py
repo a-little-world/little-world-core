@@ -7,7 +7,6 @@ from rest_framework import authentication, permissions, viewsets
 from django.utils.translation import gettext_lazy as _
 from django.utils import translation
 from rest_framework.response import Response
-from django.utils.translation import pgettext_lazy
 from dataclasses import dataclass
 from django.contrib.auth import authenticate, login
 from drf_spectacular.utils import extend_schema

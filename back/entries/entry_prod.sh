@@ -14,7 +14,6 @@ else
     celery -A back beat --loglevel=info &
 fi
 
-python3 manage.py compilemessages --use-fuzzy
 python3 manage.py shell --command 'from management.controller import create_base_admin_and_add_standart_db_values; create_base_admin_and_add_standart_db_values()'
 
 uvicorn back.asgi:application --port 8000 --host 0.0.0.0

@@ -15,13 +15,23 @@ from drf_spectacular.utils import extend_schema
 from management.models.profile import SelfProfileSerializer
 from management.controller import get_base_management_user
 from django.conf import settings
-from management.api.trans import get_trans_as_tag_catalogue
+from translations import get_translation_catalog
 
+
+def get_options_dict():
+    bmu = get_base_management_user()
+
+    ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
+    profile_data = ProfileWOptions(bmu.profile).data
+    profile_options = profile_data["options"]
+    return {
+        "profile": profile_options,
+    }
 
 @api_view(['GET'])
 @authentication_classes([])
 @permission_classes([])
-def get_translations_and_options(request):
+def get_options(request):
     """
     Get all notifications for the current user
     """
@@ -29,17 +39,5 @@ def get_translations_and_options(request):
     A helper tag that returns the api trasnlations  
     This can be used by frontends to dynamicly change error translation lanugages without resending requrests
     """
-    translations = json.dumps({
-        lang: get_trans_as_tag_catalogue(request, lang) for lang in settings.FRONTEND_LANGS
-    })
-    
-    bmu = get_base_management_user()
 
-    ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
-    profile_data = ProfileWOptions(bmu.profile).data
-    profile_options = profile_data["options"]
-
-    return Response({
-        "apiOptions": profile_options,
-        "apiTranslations": translations,
-    })
+    return Response(get_options_dict())
