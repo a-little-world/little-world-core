@@ -198,10 +198,6 @@ class User(AbstractUser):
         """
         Sends the users a chat message
         theoreticly this could be used to send a message from any sender
-        this would ofcourse require these user to have a related dialog object
-        
-        TODO: dynamicly deterine the matching user for this user!
-        Instead of always returing the same suport user!
         """
         from ..controller import get_base_management_user
 
@@ -209,17 +205,15 @@ class User(AbstractUser):
         if not sender:
             sender = get_base_management_user()
 
-        if auto_mark_read:
-            msg.read = True
-            msg.save()
-            
         chat = Chat.get_or_create_chat(sender, self)
         # --------------------- new message send implemetation below ------------------------------
         message = Message.objects.create(
             chat=chat,
             sender=sender,
             recipient=self,
-            text=msg.text
+            read=auto_mark_read,
+            recipient_notified=auto_mark_read,
+            text=msg
         )
         
         serialized_message = MessageSerializer(message).data
@@ -233,7 +227,7 @@ class User(AbstractUser):
                     'user': sender,               
                 }).data
             ).send(self.hash)
-        return msg
+        return message
 
     def send_email(self,
                    subject: str,
