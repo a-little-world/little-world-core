@@ -7,6 +7,9 @@ from asgiref.sync import async_to_sync
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from management.models.matches import Match
 from chat.models import Message, MessageSerializer, Chat
+from chat.consumers.messages import NewMessage
+from chat.models import ChatSerializer
+from chat.models import MessageSerializer
 
 
 class UserManager(BaseUserManager):
@@ -210,7 +213,6 @@ class User(AbstractUser):
         if not sender:
             sender = get_base_management_user()
 
-        msg = async_to_sync(save_text_message)(msg, sender, self)
         if auto_mark_read:
             msg.read = True
             msg.save()
@@ -223,10 +225,17 @@ class User(AbstractUser):
             recipient=self,
             text=msg.text
         )
-        # TODO: enable new message in when new chat is anabled
-        #from chat.consumers.messages import In
-        #from chat.models import MessageSerializer
-        #InNewMessage(**MessageSerializer(message).data).send()
+        
+        serialized_message = MessageSerializer(message).data
+
+        if not auto_mark_read:
+            NewMessage(
+                message=serialized_message,
+                chat_id=chat.uuid,
+                meta_chat_obj=ChatSerializer(chat, context={
+                    'user': sender,               
+                }).data
+            ).send(self.hash)
         return msg
 
     def send_email(self,
