@@ -229,7 +229,7 @@ class ProfileBase(models.Model):
         RELIGION = "religion", get_translation("profile.interest.religion")
         SOZIOLOGIE = "sociology", get_translation("profile.interest.sociology")
         FAMILY = "family", get_translation("profile.interest.family")
-        PSYCOLOGY = "psycology", get_translation("profile.interest.psycology")
+        PSYCOLOGY = "psycology", get_translation("profile.interest.pychology")
         PERSON_DEV = "personal-development", get_translation("profile.interest.personal_development")
 
     interests = MultiSelectField(
