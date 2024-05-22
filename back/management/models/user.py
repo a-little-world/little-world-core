@@ -207,7 +207,6 @@ class User(AbstractUser):
         from ..controller import get_base_management_user
 
         # TODO: depricated message send implementation -------------------------------------------
-        from chat_old.django_private_chat2.consumers.db_operations import save_text_message
         if not sender:
             sender = get_base_management_user()
 

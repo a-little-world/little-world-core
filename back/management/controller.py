@@ -12,11 +12,8 @@ from management.models.unconfirmed_matches import UnconfirmedMatch
 from management.models.backend_state import BackendState
 from management.models.past_matches import PastMatch
 from management.models.matches import Match
-from chat_old.django_private_chat2.models import DialogsModel
 from management import controller
 from dataclasses import dataclass, fields, field
-from chat_old.django_private_chat2.consumers.message_types import MessageTypes, OutgoingEventNewTextMessage
-from chat_old.django_private_chat2.models import DialogsModel, MessageModel
 from django.utils import timezone
 from asgiref.sync import async_to_sync
 from back.utils import _double_uuid
@@ -349,9 +346,6 @@ def match_users(
         # we still need to create a dialog for them
         
         chat = Chat.get_or_create_chat(usr1, usr2)
-        
-        # TODO: old depricated way to create dialog:
-        DialogsModel.create_if_not_exists(usr1, usr2)
 
     if create_video_room:
         room = Room.objects.create(
@@ -461,13 +455,6 @@ def unmatch_users(
     if delete_video_room:
         from .models.rooms import get_rooms_match
         get_rooms_match(usr1, usr2).delete()
-
-    # Delte the dialog
-    if delete_dialog:
-        from chat_old.django_private_chat2.models import DialogsModel
-        dia = DialogsModel.dialog_exists(usr1, usr2)
-        if dia:
-            dia.delete()
 
     return PastMatch.objects.create(
         user1=usr1,
@@ -624,100 +611,6 @@ def send_chat_message(to_user, from_user, message):
     """
     # Send a chat message ... TODO
     pass
-
-def extract_user_activity_info(user):
-    """
-    A general function to generate an overview of a users activity
-    
-    email-verified: XX
-    user-type: XX
-    email-changes: XX
-    from-finished: XX
-    user-searching: XX
-    logins-total: XX
-    matches-total (past & present): XX
-    currnet-matches: XX
-    messages-send-total: XX
-    last-activity: XX days ago
-    
-    matches:
-        last-time-active: XX
-        match-messages-total: XX
-        
-        TODO: we can sorta measure this but extracting this infor is resource intensive
-        video-calls-total: XX
-
-    """
-    
-    # TODO: normally we would also want to check how many actually sucessfull attempts the user did
-
-    login_event_count = Event.objects.filter(
-        tags__contains=["frontend", "login", "sensitive"], 
-        type=Event.EventTypeChoices.REQUEST, 
-        name="User Logged in",
-        caller=user
-    ).count()
-    
-    def get_match_tag(u1, u2):
-        if u1.pk == u2.pk:
-            print("User matched with self", u1.email, u2.email)
-            return False
-        if(u1.pk > u2.pk):
-            return f"match-{u2.pk}-{u1.pk}"
-        else:
-            return f"match-{u1.pk}-{u2.pk}"
-        
-    MATCH_DATA = {}
-    def add_match_data(u1, u2, data):
-        match_tag = get_match_tag(u1, u2)
-        if not match_tag in MATCH_DATA:
-            MATCH_DATA[match_tag] = {**data}
-        else:
-            MATCH_DATA[match_tag] = {**MATCH_DATA[match_tag], **data} 
-        
-    
-    user_dialogs = DialogsModel.get_dialogs_for_user_as_object(user)
-    total_messages = 0
-
-    current_time = timezone.now()
-
-    for dialog in user_dialogs:
-        other_user = dialog.user1 if dialog.user1 != user else dialog.user2
-        if get_match_tag(user, other_user):
-            message_count = MessageModel.get_message_count_for_dialog_with_user(dialog.user1, dialog.user2)
-            last_message = MessageModel.get_last_message_object_for_dialog(dialog.user1, dialog.user2)
-            first_message = MessageModel.get_first_message_object_for_dialog(dialog.user1, dialog.user2)
-            add_match_data(user, other_user, {
-                "match_messages_total": message_count,
-            })
-            if first_message:
-                add_match_data(user, other_user, {
-                    "first_message": str(first_message.created) + f" ({first_message.created - current_time} days ago)",
-                })
-            if last_message:
-                add_match_data(user, other_user, {
-                    "last_message" : str(last_message.created) + f" ({last_message.created - current_time} days ago)",
-                })
-            total_messages += message_count
-        
-    data = {
-        "email" : user.email,
-        "first_name": user.profile.first_name,
-        "email_verified": user.state.email_authenticated,
-        "email_changes": len(user.state.past_emails),
-        "user_type": user.profile.user_type,
-        "form_finished": user.state.user_form_state == State.UserFormStateChoices.FILLED,
-        "user_searching": user.state.matching_state,
-        "logins_total": login_event_count,
-        # TODO: there is actually no goodway to measure amount of past matches
-        # "matches_total": user.matches.count() - 1, # - default match
-        # TODO: the matches count calculation needs to be updated with the new user model
-        "current_matches": user.state.matches.count(),
-        "messages_send_total": total_messages,
-        "match_activity": MATCH_DATA,
-    }
-    #print(json.dumps(data, indent=2, default=str))
-    return data
 
         
 @dataclass
