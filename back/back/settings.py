@@ -125,8 +125,6 @@ INSTALLED_APPS = [
 
     'management',  # Main backend application
 
-    'chat_old.django_private_chat2.apps.DjangoPrivateChat2Config',  # Our old chat TODO to be depricated
-
     'chat',  # Our chat
 
     'corsheaders',
