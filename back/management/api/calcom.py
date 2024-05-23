@@ -69,6 +69,8 @@ from rest_framework_dataclasses.serializers import DataclassSerializer
 from dataclasses import dataclass
 from rest_framework import serializers
 from babel.dates import format_date, format_datetime, format_time
+import pytz
+# from django.utils.timezone import utc doesnt work impor from elsewhere
 from datetime import datetime
 from django.utils import timezone
 from management.controller import get_user_by_hash, send_websocket_callback
@@ -76,8 +78,7 @@ from management.api.slack import notify_communication_channel
 from translations import get_translation
 
 def translate_to_german_date(date_str):
-    date_format = "%Y-%m-%dT%H:%M:%SZ"
-    date_object = datetime.strptime(date_str, date_format).replace(tzinfo=utc)
+    date_object = parse_datetime(date_str)
     local_datetime = timezone.localtime(date_object)
     german_date_string = format_datetime(local_datetime, "EEEE, d. MMMM yyyy, 'um' HH:mm 'Uhr (deutsche Zeit)'", locale='de_DE')
     return german_date_string
@@ -93,7 +94,7 @@ def callcom_websocket_callback(request):
     assert request.query_params["secret"] == settings.DJ_CALCOM_QUERY_ACCESS_PARAM
     
     event_type = request.data["triggerEvent"]
-    start_time = translate_to_german_date(request.data["payload"]["startTime"])
+    start_time_normalized = translate_to_german_date(request.data["payload"]["startTime"])
     # end_time = translate_to_german_date(request.data["payload"]["endTime"])
     # organizer_email = request.data["payload"]["organizer"]["email"]
     user_hash = request.data["payload"]["userFieldsResponses"]["hash"]["value"]
@@ -104,7 +105,7 @@ def callcom_websocket_callback(request):
     if event_type == "BOOKING_CREATED":
         assert str(user.state.prematch_booking_code) == str(booking_code)
 
-        user.message(get_translation("auto_messages.appointment_booked", lang="de").format(appointment_time=start_time))
+        user.message(get_translation("auto_messages.appointment_booked", lang="de").format(appointment_time=start_time_normalized))
 
         appointment = PreMatchingAppointment.objects.filter(user=user)
         start_time_parsed = parse_datetime(request.data["payload"]["startTime"])
