@@ -451,14 +451,6 @@ def unmatch_self(request):
     if other_user.is_staff or other_user.pk == controller.get_base_management_user().pk:
         return Response(status=403)
 
-    # TODO: remove this check replace with new 'Match' model
-    if not other_user in request.user.state.matches.all():
-        raise serializers.ValidationError(
-            {"other_user_hash": "User is not matched with you!"})
-        
-    # TODO: the old unmatch strategy, to be removed
-    # But unmatch_users is already udated to also use the new strategy
-    # TODO: the past match can also be removed, instead we just set a match to be active=False!
     past_match = controller.unmatch_users({request.user, other_user})
     past_match.reason = params['reason']
     past_match.save()
