@@ -32,7 +32,18 @@ def get_context_translations(request, key):
     lang = request.session.get("lang", "en")
     return get_translation(lang, key)
 
-def get_translation_catalog():
+EXCLUDE_PREFIXES = ["auto_messages"]
+
+def get_translation_catalog(filter_prefixes=True):
+    if filter_prefixes:
+        return {
+            lang: {
+                key: translations[lang][key]
+                for key in translations[lang]
+                if not any(key.startswith(prefix) for prefix in EXCLUDE_PREFIXES)
+            }
+            for lang in LANGS
+        }
     return {
         lang: translations[lang]
         for lang in LANGS

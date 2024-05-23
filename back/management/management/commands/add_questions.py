@@ -43,18 +43,20 @@ class Command(BaseCommand):
                 )
                 
         # 3 - create a deck for all users ( that don't yet have one )
-        for user in User.objects.all():
-            print(f"checking user {user.email}")
-            try:
-                if not user.state.question_card_deck:
-                    question_card_deck = QuestionCardsDeck.objects.create(user=user)
-                    question_card_deck.cards.set(QuestionCard.objects.all())
-                    question_card_deck.save()
-                    user.state.question_card_deck = question_card_deck
-                    user.state.save()
-                elif user.state.question_card_deck.cards.count() == 0:
-                    question_card_deck = user.state.question_card_deck
-                    question_card_deck.cards.set(QuestionCard.objects.all())
-                    question_card_deck.save()
-            except:
-                print(f"error with user {user.email}")
+        if False:
+            # Just needed in migration
+            for user in User.objects.all():
+                print(f"checking user {user.email}")
+                try:
+                    if not user.state.question_card_deck:
+                        question_card_deck = QuestionCardsDeck.objects.create(user=user)
+                        question_card_deck.cards.set(QuestionCard.objects.all())
+                        question_card_deck.save()
+                        user.state.question_card_deck = question_card_deck
+                        user.state.save()
+                    elif user.state.question_card_deck.cards.count() == 0:
+                        question_card_deck = user.state.question_card_deck
+                        question_card_deck.cards.set(QuestionCard.objects.all())
+                        question_card_deck.save()
+                except:
+                    print(f"error with user {user.email}")
