@@ -684,7 +684,6 @@ We use django internalization to enable use of 'django_language' cookie
 And the use of Accept-Language: <lang> headers
 this e.g.: enables frontends to request api translation before calling the apis!
 They would request the pseudo language 'tag' as reference
-`tag` are the translation contexts for all `pgettext_lazy` calls
 """
 USE_I18N = True
 USE_L10N = True
