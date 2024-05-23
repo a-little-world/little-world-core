@@ -62,6 +62,6 @@ class DevLoginAPI(APIView):
             _frontend_data = frontend_data(usr)
             return Response({
                 "data": _frontend_data,
-                "api_translations": json.loads(get_translation_catalog())
+                "api_translations": get_translation_catalog()
             })
         return Response("Error, maybe dev_dataset doesn't exist?", status=400)
