@@ -261,7 +261,7 @@ def create_user(
         # Now we need to check the prematching state
         # TODO: there is a bug here if the user decides to change the email, then the booking will be made from the wrong email.
         
-        default_message = get_translation("auto_messages.prematching_invitation").format(
+        default_message = get_translation("auto_messages.prematching_invitation", lang="de").format(
             first_name=first_name,encoded_params=urllib.parse.urlencode({
                 "email": str(usr.email),
                 "hash": str(usr.hash),
@@ -372,7 +372,7 @@ def match_users(
 
     if send_email:
         usr1.send_email(
-            subject=get_translation("emails.subjects.match_made"),
+            subject="Glückwunsch! Gesprächspartner:in gefunden auf Little World",
             mail_data=mails.get_mail_data_by_name("match"),
             mail_params=mails.MatchMailParams(
                 first_name=usr1.profile.first_name,
@@ -381,7 +381,7 @@ def match_users(
             )
         )
         usr2.send_email(
-            subject=get_translation("emails.subjects.match_made"),
+            subject="Glückwunsch! Gesprächspartner:in gefunden auf Little World",
             mail_data=mails.get_mail_data_by_name("match"),
             mail_params=mails.MatchMailParams(
                 first_name=usr2.profile.first_name,
