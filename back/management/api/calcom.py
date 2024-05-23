@@ -69,19 +69,29 @@ from rest_framework_dataclasses.serializers import DataclassSerializer
 from dataclasses import dataclass
 from rest_framework import serializers
 from babel.dates import format_date, format_datetime, format_time
-import pytz
-# from django.utils.timezone import utc doesnt work impor from elsewhere
 from datetime import datetime
 from django.utils import timezone
 from management.controller import get_user_by_hash, send_websocket_callback
-from management.api.slack import notify_communication_channel
 from translations import get_translation
+from django.utils import timezone
+from dateutil import parser
+from babel.dates import format_datetime
+import pytz
 
-def translate_to_german_date(date_str):
-    date_object = parse_datetime(date_str)
-    local_datetime = timezone.localtime(date_object)
-    german_date_string = format_datetime(local_datetime, "EEEE, d. MMMM yyyy, 'um' HH:mm 'Uhr (deutsche Zeit)'", locale='de_DE')
+def translate_to_german_date(date_str, target_timezone='Europe/Berlin'):
+    date_object = parser.parse(date_str)
+    
+    # Ensure the datetime is timezone-aware, set to the source timezone if it's naive
+    if timezone.is_naive(date_object):
+        date_object = timezone.make_aware(date_object, timezone.utc)
+
+    target_tz = pytz.timezone(target_timezone)
+    localized_date_object = date_object.astimezone(target_tz)
+
+    german_date_string = format_datetime(localized_date_object, "EEEE, d. MMMM yyyy, 'um' HH:mm 'Uhr (deutsche Zeit)'", locale='de_DE')
+
     return german_date_string
+
 
 @api_view(['POST'])
 @authentication_classes([])
@@ -101,6 +111,9 @@ def callcom_websocket_callback(request):
     booking_code = request.data["payload"]["userFieldsResponses"]["bookingcode"]["value"]
     
     user = get_user_by_hash(user_hash)
+    
+    print("EVENT TYPE", event_type, user, booking_code, start_time_normalized, request.data["payload"]["startTime"])
+    print(request.data)
     
     if event_type == "BOOKING_CREATED":
         assert str(user.state.prematch_booking_code) == str(booking_code)

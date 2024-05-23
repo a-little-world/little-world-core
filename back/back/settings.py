@@ -677,7 +677,7 @@ as default language the user will always have a fallback langugae
 english no matter if frontent translation failes
 """
 LANGUAGE_CODE = 'en'
-TIME_ZONE = os.environ.get('DJ_TIME_ZONE', 'UTC+1')  # UTC+1 = Berlin
+TIME_ZONE = os.environ.get('DJ_TIME_ZONE', 'UTC')
 
 """
 We use django internalization to enable use of 'django_language' cookie 
