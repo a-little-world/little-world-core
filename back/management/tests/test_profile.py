@@ -1,10 +1,7 @@
 from django.test import TestCase
-from rest_framework.test import RequestsClient
 import json
 from rest_framework.response import Response
-from management.api.trans import get_trans_as_tag_catalogue
-from management.controller import create_user, get_user_by_email, match_users
-from management.api.user_data import get_user_models
+from management.controller import get_user_by_email
 from django.conf import settings
 from management.models import profile
 from rest_framework.test import APIRequestFactory, force_authenticate

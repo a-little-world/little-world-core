@@ -7,7 +7,6 @@ import base64
 import zlib
 import random
 from datetime import datetime
-from django.utils.translation import pgettext_lazy, gettext_lazy as _
 from rest_framework import serializers
 from .notifications import Notification
 from back.utils import get_options_serializer
@@ -19,6 +18,8 @@ from management.models.matches import Match
 from django.db.models import Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils.translation import gettext_lazy as _
+from translations import get_translation
 
 class State(models.Model):
     """
@@ -82,12 +83,8 @@ class State(models.Model):
         but we do (currently) automaticly set it to searching 
         when the userform was finished.
         """
-        IDLE = "idle", pgettext_lazy(
-            "models.state.matching-state-idle",
-            "Not Searching (Idle)")
-        SEARCHING = "searching", pgettext_lazy(
-            "models.state.matching-state-searching",
-            "Searching")
+        IDLE = "idle", get_translation("models.state.matching_state.idle")
+        SEARCHING = "searching", get_translation("models.state.matching_state.searching")
 
     matching_state = models.CharField(choices=MatchingStateChoices.choices,
                                       default=MatchingStateChoices.IDLE,

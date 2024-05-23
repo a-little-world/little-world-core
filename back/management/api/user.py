@@ -4,7 +4,6 @@ from django.contrib.auth.decorators import login_required
 from emails import mails
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
-from django.utils.translation import pgettext_lazy
 from typing import Optional
 from django.contrib.auth import logout
 from django.urls import reverse
@@ -25,6 +24,8 @@ from tracking import utils
 from emails.mails import get_mail_data_by_name, PwResetMailParams
 from management.models.state import State
 from management.views.admin_panel_v2_actions import perform_user_deletion
+from translations import get_translation
+
 """
 The public /user api's
 
@@ -58,15 +59,12 @@ class VerifyEmail(APIView):
         """
         if not 'auth_data' in kwargs:
             raise serializers.ValidationError(
-                {"auth_data": pgettext_lazy("email.verify-auth-data-missing-get",
-                                            "Email authentication data missing")})
+                {"auth_data": get_translation("email.verify_auth_data_missing_get")})
 
         if verify_email_link(kwargs['auth_data']):
-            return Response(pgettext_lazy("email.verify-success-get",
-                                          "Email sucessfully verified"))
+            return Response(get_translation("email.verify_success_get"))
 
-        return Response(pgettext_lazy("email.verify-failure-get",
-                                      "Email verification failed"),
+        return Response(get_translation("email.verify_failure_get"),
                         status=status.HTTP_400_BAD_REQUEST)
 
     def post(self, request, **kwargs):
@@ -80,19 +78,15 @@ class VerifyEmail(APIView):
             return Response(status=status.HTTP_403_FORBIDDEN)
         if not 'auth_data' in kwargs:
             raise serializers.ValidationError(
-                {"auth_data": pgettext_lazy("email.verify-auth-data-missing-post",
-                                            "Email authentication data missing")})
+                {"auth_data": get_translation("email.verify_auth_data_missing_post")})
         try:
             auth_pin = int(kwargs['auth_data'])
         except:
             raise serializers.ValidationError({"auth_data":
-                                               pgettext_lazy("email.verify-failure-not-numeric",
-                                                             "Enter a 5 digit pin please")})
+                                               get_translation("email.verify_failure_not_numeric")})
         if request.user.state.check_email_auth_pin(auth_pin):
-            return Response(pgettext_lazy("email.verify-success-post",
-                                          "Email sucessfully verified"))
-        return Response(pgettext_lazy("email.verify-failure-post",
-                                      "Email verification failed, wrong code."),
+            return Response(get_translation("email.verify_success_post"))
+        return Response(get_translation("email.verify_failure_post"),
                         status=status.HTTP_400_BAD_REQUEST)
 
 
@@ -151,8 +145,8 @@ class LoginApi(APIView):
         if usr is not None:
             if usr.is_staff:  # type: ignore
                 # pylint thinks this is a AbsUsr but we have overwritten it models.user.User
-                return Response(pgettext_lazy(
-                    "api.login-failed-staff", "Can't log in email or password wrong!"),
+                return Response(get_translation(
+                    "api.login_failed_staff"),
                     status=status.HTTP_400_BAD_REQUEST)
             login(request, usr)
             # Also pass the whole user data on a sucessfull login! 
@@ -160,8 +154,8 @@ class LoginApi(APIView):
             
             return Response(frontend_data(request.user))
         else:
-            return Response(pgettext_lazy(
-                "api.login-failed", "Can't log-in email or password wrong!"),
+            return Response(get_translation(
+                "api.login_failed"),
                 status=status.HTTP_400_BAD_REQUEST)
 
     @extend_schema(request=AutoLoginSerializer(many=False))
@@ -186,7 +180,7 @@ class LoginApi(APIView):
                     return redirect(reverse("management:main_frontend"))
                 else:
                     return HttpResponseRedirect(redirect_to=params.n)
-        return Response(pgettext_lazy("api.auto-login-failed", "Can't auto log-in!")),
+        return Response(get_translation("api.auto_login_failed"))
 
 
 class LogoutApi(APIView):
@@ -195,18 +189,18 @@ class LogoutApi(APIView):
                               authentication.BasicAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
-    @ utils.track_event(
+    @utils.track_event(
         name="User Logged out",
         event_type=Event.EventTypeChoices.REQUEST,
         tags=["frontend", "log-out", "sensitive"])
     def get(self, request):
 
         logout(request)
-        return Response(pgettext_lazy(
-            "api.logout-sucessful", "Sucessfully logged out!"))
+        return Response(get_translation(
+            "api.logout_sucessful"))
 
 
-@ dataclass
+@dataclass
 class CheckPwParams:
     password: str
 
@@ -224,7 +218,7 @@ class CheckPasswordApi(APIView):
                               authentication.BasicAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
-    @ extend_schema(request=CheckPwSerializer(many=False))
+    @extend_schema(request=CheckPwSerializer(many=False))
     def post(self, request):
         serializer = CheckPwSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -234,7 +228,7 @@ class CheckPasswordApi(APIView):
         return Response(status=status.HTTP_200_OK if _check else status.HTTP_400_BAD_REQUEST)
 
 
-@ dataclass
+@dataclass
 class ChangePwParams:
     password_old: str
     password_new: str
@@ -264,17 +258,17 @@ class ChangePasswordApi(APIView):
 
         _check = request.user.check_password(params.password_old)
         if not _check:
-            return Response(pgettext_lazy("api.change-password-failed.incorrect-old-pw", "Incorrect old password"),
+            return Response(get_translation("api.change_password_failed_incorrect_old_pw"),
                             status=status.HTTP_400_BAD_REQUEST)
 
         if params.password_new != params.password_new2:
-            return Response(pgettext_lazy("api.change-password-failed.new-pw-not-equal", "New passwords not equal"),
+            return Response(get_translation("api.change_password_failed_new_pw_not_equal"),
                             status=status.HTTP_400_BAD_REQUEST)
 
         request.user.set_password(params.password_new)
         request.user.save()
 
-        return Response(pgettext_lazy("api.change-password-sucessful", "Sucessfully changed password"), status=status.HTTP_200_OK)
+        return Response(get_translation("api.change_password_sucessful"), status=status.HTTP_200_OK)
 
 
 @ dataclass
@@ -315,18 +309,14 @@ class ChangeEmailApi(APIView):
 
         if request.user.is_staff:
             raise serializers.ValidationError({
-                "email": pgettext_lazy(
-                    "api.user.change-email-not-allowed-staff",
-                    "Admin may never change their email! Only by the grace of @tbscode"
-                )
+                "email": get_translation(
+                    "api.user.change_email_not_allowed_staff")
             })
 
         if params.email == request.user.email:
             raise serializers.ValidationError({
-                "email": pgettext_lazy(
-                    "api.user.change-email-failed.same-email",
-                    "This is your current email!"
-                )
+                "email": get_translation(
+                    "api.user.change_email_failed_same_email")
             })
         else:
             # Maybe a user with this email already exista anyways?
@@ -337,14 +327,12 @@ class ChangeEmailApi(APIView):
                 email_exists = False
             if email_exists:
                 raise serializers.ValidationError({"email":  # TODO: now we are exposing us to email enumeration this APIView should be throttled!
-                                                   pgettext_lazy("api.user.change-email-failed.email-exists",
-                                                                 "Email {email} exists".format(email=params.email))})
+                                                   get_translation("api.user.change_email_failed_email_exists").format(email=params.email)})
 
         # Now we change the email, change the auto code & pin, send another verification mail
         request.user.change_email(params.email)
-        return Response(pgettext_lazy(
-            "api.user.change-email-successful",
-            "E-mail adres update, email adress must be reauthenticated."))
+        return Response(get_translation(
+            "api.user.change_email_successful"))
 
 
 @ dataclass
@@ -395,8 +383,7 @@ class ConfirmMatchesApi(APIView):
         except Exception as e:
             raise serializers.ValidationError({"matches": str(e)})
 
-        return Response(pgettext_lazy("api.user-matches-successfully-confirmed",
-                                      "Matches confirmed!"))
+        return Response(get_translation("api.user_matches_successfully_confirmed"))
 
 
 @ dataclass
@@ -432,14 +419,12 @@ class UpdateSearchingStateApi(APIView):
 
         if not params.state_slug in State.MatchingStateChoices.values:
             raise serializers.ValidationError(
-                {"state_slug": pgettext_lazy(
-                    "api.user-update-searching-state.slug-doesnt-exist",
-                    "'{slug}' is not a possible seraching state!".format(slug=params.state_slug))}
+                {"state_slug": get_translation(
+                    "api.user_update_searching_state_slug_doesnt_exist").format(slug=params.state_slug)}
             )
 
         request.user.state.change_searching_state(params.state_slug)
-        return Response(pgettext_lazy("api.user-update-searching-state.state-successfully-changed",
-                                      "State updated!"))
+        return Response(get_translation("api.user_update_searching_state_state_successfully_changed"))
 
 
 class UnmatchSelfSerializer(serializers.Serializer):
@@ -466,19 +451,11 @@ def unmatch_self(request):
     if other_user.is_staff or other_user.pk == controller.get_base_management_user().pk:
         return Response(status=403)
 
-    # TODO: remove this check replace with new 'Match' model
-    if not other_user in request.user.state.matches.all():
-        raise serializers.ValidationError(
-            {"other_user_hash": "User is not matched with you!"})
-        
-    # TODO: the old unmatch strategy, to be removed
-    # But unmatch_users is already udated to also use the new strategy
-    # TODO: the past match can also be removed, instead we just set a match to be active=False!
     past_match = controller.unmatch_users({request.user, other_user})
     past_match.reason = params['reason']
     past_match.save()
 
-    return Response(pgettext_lazy("api.user-unmatch-self.success", "Unmatched!"))
+    return Response(get_translation("api.user_unmatch_self_success"))
 
 
 @login_required
@@ -488,8 +465,7 @@ def resend_verification_mail(request):
     verifiaction_url = f"{settings.BASE_URL}/{link_route}/{request.user.state.get_email_auth_code_b64()}"
     mails.send_email(
         recivers=[request.user.email],
-        subject=pgettext_lazy(
-            "api.register-welcome-mail-subject", "{code} - Verifizierungscode zur E-Mail Bestätigun".format(code=request.user.state.get_email_auth_pin())),
+        subject="{code} - Verifizierungscode zur E-Mail Bestätigung".format(code=request.user.state.get_email_auth_pin()),
         mail_data=mails.get_mail_data_by_name("welcome"),
         mail_params=mails.WelcomeEmailParams(
             first_name=request.user.profile.first_name,
@@ -517,8 +493,7 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
 
     mail_data = get_mail_data_by_name("password_reset")
     reset_password_token.user.send_email(
-        subject=pgettext_lazy("api.user-resetpw.mail-subject",
-                              "Password reset Little World"),
+        subject=get_translation("api.user_resetpw_mail_subject"),
         mail_data=mail_data,
         mail_params=PwResetMailParams(
             password_reset_url=reset_password_url

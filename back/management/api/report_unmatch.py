@@ -36,10 +36,10 @@ def process_report_unmatch(request, kind="report"):
     matching = management_models.Match.get_matching(request.user, data.match_id)
     
     if not matching.exists():
-        raise serializers.ValidationError(_("This match does not exist"))
+        raise serializers.ValidationError("This match does not exist")
     
     if matching.support_matching:
-        raise serializers.ValidationError(_("You can not report a support match!"))
+        raise serializers.ValidationError("You can not report a support match!")
     
     matching = matching.first()
     

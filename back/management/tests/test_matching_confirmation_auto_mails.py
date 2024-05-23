@@ -1,19 +1,11 @@
 from django.test import TestCase
-from rest_framework.test import RequestsClient
-import json
 from rest_framework.response import Response
-from management.api.trans import get_trans_as_tag_catalogue
-from management.controller import create_user, get_user_by_email, match_users, create_user_matching_proposal
-from management.api.user_data import get_user_models
-from django.conf import settings
+from management.controller import create_user_matching_proposal
 from rest_framework.test import APIRequestFactory, force_authenticate
 from management.random_test_users import create_abunch_of_users, modify_profile_to_match
 from management.models.profile import Profile
-from management.models.unconfirmed_matches import UnconfirmedMatch
-from management.models.matches import Match
 
 from management.models.unconfirmed_matches import get_unconfirmed_matches
-from management.matching.matching_score import calculate_directional_score_write_results_to_db
 from .. import api
 
 valid_request_data = dict(
@@ -71,11 +63,6 @@ class MatchConfirmationTasksTests(TestCase):
         modify_profile_to_match(u1, u2)
         
         # to even perform the scoring we need to create a default scoring table source
-
-        # calculate matching score
-        # TODO: test depricated we have new way to check matchability
-        score = calculate_directional_score_write_results_to_db(
-            u1, u2, return_on_nomatch=False, catch_exceptions=True)
 
         # make the matching proposal
         proposal = create_user_matching_proposal({u1, u2}, send_confirm_match_email=True)

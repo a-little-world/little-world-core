@@ -50,9 +50,10 @@ api_routes = [
     # User
     path(_api_url('user_data_v2'), api.user_data.user_data_v2),
 
-    path(_api_url('trans/<str:lang>'), api.trans.TranslationsGet.as_view()),
+    path(_api_url('trans'), api.trans.get_translation_catalogue),
+    path(_api_url('trans/<str:lang>'), api.trans.get_translation_catalogue),
 
-    path(_api_url('options_translations'), api.options.get_translations_and_options),
+    path(_api_url('options'), api.options.get_options),
 
 
     path(_api_url('community/events'),
@@ -83,12 +84,6 @@ api_routes = [
 
     path(_api_url('emails/toggle_sub'), api.email_settings.unsubscribe_link),
     path(_api_url('emails/settings_update/'), api.email_settings.unsubscribe_email),
-
-    path(_api_url('video_rooms/authenticate_call'),
-         api.twilio.AuthenticateCallRoom.as_view()),
-
-    path(_api_url('video_rooms/twillio_callback', end_slash=True),
-         api.twilio.TwilioCallbackApi.as_view()),
 
     path(_api_url('profile'),
          api.profile.ProfileViewSet.as_view({"post": "partial_update", "get": "_get"})),

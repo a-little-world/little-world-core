@@ -10,12 +10,11 @@ django_asgi_app = get_asgi_application()
 
 
 def get_urls_patterns():
-    from chat_old.django_private_chat2 import urls
     from chat.consumers.core import CoreConsumer
     
     from django.conf import settings
     
-    _urls = [*urls.websocket_urlpatterns, re_path(
+    _urls = [re_path(
         rf'^api/core/ws$', CoreConsumer.as_asgi())]
 
     if settings.USE_AUTO_RELOAD:

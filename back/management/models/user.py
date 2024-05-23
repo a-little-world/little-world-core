@@ -5,8 +5,7 @@ from django.conf import settings
 from rest_framework import serializers
 from asgiref.sync import async_to_sync
 from django.contrib.auth.models import AbstractUser, BaseUserManager
-from management.models.matches import Match
-from chat.models import Message, MessageSerializer, Chat
+from chat.models import Message, MessageSerializer, Chat, ChatSerializer
 
 
 class UserManager(BaseUserManager):
@@ -177,8 +176,7 @@ class User(AbstractUser):
         self.send_email(
             # We use this here so the models doesnt have to be saved jet
             overwrite_mail=prms.email,
-            subject="undefined",  # TODO set!
-            # TODO this should be different email!
+            subject="Email Changed, Please verify your new email",
             mail_data=mails.get_mail_data_by_name("welcome"),
             mail_params=mails.WelcomeEmailParams(
                 first_name=self.profile.first_name,
@@ -199,36 +197,36 @@ class User(AbstractUser):
         """
         Sends the users a chat message
         theoreticly this could be used to send a message from any sender
-        this would ofcourse require these user to have a related dialog object
-        
-        TODO: dynamicly deterine the matching user for this user!
-        Instead of always returing the same suport user!
         """
         from ..controller import get_base_management_user
 
         # TODO: depricated message send implementation -------------------------------------------
-        from chat_old.django_private_chat2.consumers.db_operations import save_text_message
         if not sender:
             sender = get_base_management_user()
 
-        msg = async_to_sync(save_text_message)(msg, sender, self)
-        if auto_mark_read:
-            msg.read = True
-            msg.save()
-            
         chat = Chat.get_or_create_chat(sender, self)
         # --------------------- new message send implemetation below ------------------------------
         message = Message.objects.create(
             chat=chat,
             sender=sender,
             recipient=self,
-            text=msg.text
+            read=auto_mark_read,
+            recipient_notified=auto_mark_read,
+            text=msg
         )
-        # TODO: enable new message in when new chat is anabled
-        #from chat.consumers.messages import In
-        #from chat.models import MessageSerializer
-        #InNewMessage(**MessageSerializer(message).data).send()
-        return msg
+        
+        serialized_message = MessageSerializer(message).data
+
+        if not auto_mark_read:
+            from chat.consumers.messages import NewMessage
+            NewMessage(
+                message=serialized_message,
+                chat_id=chat.uuid,
+                meta_chat_obj=ChatSerializer(chat, context={
+                    'user': sender,               
+                }).data
+            ).send(self.hash)
+        return message
 
     def send_email(self,
                    subject: str,

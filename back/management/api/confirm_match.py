@@ -14,9 +14,9 @@ from rest_framework.response import Response
 from rest_framework_dataclasses.serializers import DataclassSerializer
 from dataclasses import dataclass
 from management.models.unconfirmed_matches import UnconfirmedMatch
-from django.utils.translation import pgettext_lazy
 from rest_framework import serializers
 from management.controller import match_users
+from translations import get_translation
 
 
 @dataclass
@@ -46,10 +46,10 @@ def confrim_match(request):
     unconfirmed_match = UnconfirmedMatch.objects.filter(
         hash=data.unconfirmed_match_hash, closed=False)
 
-    # First check if that unconfimed match exists
+    # First check if that unconfirmed match exists
     if not unconfirmed_match.exists():
         raise serializers.ValidationError(
-            pgettext_lazy("confirm_match.unconfimed_match_not_found", "This unconfirmed match does not exist, or is already closed"))
+            get_translation("confirm_match.unconfimed_match_not_found"))
 
     unconfirmed_match = unconfirmed_match.first()
     assert unconfirmed_match
@@ -59,7 +59,7 @@ def confrim_match(request):
         # auto close if expired, do send mail if not send
 
         raise serializers.ValidationError(
-            pgettext_lazy("confirm_match.unconfimed_match_expired", "This unconfirmed match is expired"))
+            get_translation("confirm_match.unconfimed_match_expired"))
 
     # now check the user choice
     if data.confirm:
@@ -69,7 +69,7 @@ def confrim_match(request):
         
         partner = unconfirmed_match.get_partner(request.user)
         
-        msg = pgettext_lazy("confirm_match.match_confirmed", "The match has been confirmed, your match has been made!")
+        msg = get_translation("confirm_match.match_confirmed")
         
         # Now we need to update the partner that was just accepted via callback
         matches = AdvancedUserMatchSerializer([matching], many=True, context={"user": partner}).data
@@ -86,4 +86,4 @@ def confrim_match(request):
         unconfirmed_match.closed = True
         unconfirmed_match.save()
 
-        return Response(pgettext_lazy("confirm_match.match_rejected", "The match has been rejected."))
+        return Response(get_translation("confirm_match.match_rejected"))
