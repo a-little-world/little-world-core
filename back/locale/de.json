@@ -1,13 +1,7 @@
 {
-    "api.register_welcome_mail_subject": "{code} - Verifizierungscode zur E-Mail Bestätigung",
     "auto_messages.register_welcome": "Hallo {first_name} und herzlich willkommen bei Little World!\n\nIch bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil unserer Plattform geworden bist!\n\nAktuell arbeiten wir an einigen Aktualisierungen unserer Plattform und unseres Matching-Verfahrens und schätzen daher jedes Feedback, das wir von dir erhalten. Du kannst deine Gedanken und Erfahrungen jederzeit über diesen Link mit uns teilen: <a {\"href\": \"/app/help\"}>Feedback</a>.\n\nBevor es richtig losgeht, musst du einen 15-minütigen Videocall-Termin mit mir vereinbaren. In diesem Gespräch werden wir gemeinsam deine Suchangaben überprüfen, und ich werde dir die nächsten Schritte zur Teilnahme bei Little World erklären. Bitte buche dafür einen Termin in dem folgenden Kalender: <button {\"data-cal-link\": \"{calcom_meeting_id}?{encoded_params}\", \"data-cal-config\": \"{{'layout':'month_view'}}\"}>Buche ein Meeting</button>.\n\nWährend wir für dich ein passendes Match finden, kannst du gerne in unserem Gesprächsleitfaden unter diesem Link stöbern: <a {\"href\": \"https://home.little-world.com/leitfaden\"}>Gesprächsleitfaden</a>. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.\n\nVielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!",
     "community_event.coffe_break": "Kaffeerunden",
-    "emails.subjects.prematching_invitation": "{code} - Verifizierungscode zur E-Mail Bestätigung",
-    "emails.subjects.register_welcome": "willkommen bei little world! 🌍",
     "api.user_resetpw_mail_subject": "Password reset Little World",
-    "emails.subjects.match_made": "Glückwunsch! Gesprächspartner:in gefunden auf Little World",
-    "emails.subjects.still_in_contact": "Matching noch aktiv?",
-    "emails.subjects.new_messages": "Neue Nachricht(en) auf Little World",
     "val.first_name_unallowed_chars": "Vorname enthält ungültige Zeichen: {chars}",
     "val.second_name_too_many_spaces": "Es ist maximal ein Leerzeichen im Nachnamen erlaubt, aber du hast {count}",
     "val.second_name_unallowed_chars": "Nachname enthält ungültige Zeichen",

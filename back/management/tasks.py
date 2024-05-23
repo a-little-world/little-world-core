@@ -30,7 +30,7 @@ def create_default_community_events():
         return "events already set, sais backend state! If they where deleted you should delete the state!"
 
     CommunityEvent.objects.create(
-        title=get_translation("community_event.coffe_break"),
+        title=get_translation("de", "community_event.coffe_break"),
         description="Zusammenkommen der Community – lerne das Team hinter Little World und andere Nutzer:innen bei einer gemütlichen Tasse Kaffee oder Tee kennen.",
         time=datetime(2022, 11, 29, 12, 00, 00,
                                00, timezone.utc),
@@ -150,7 +150,7 @@ def send_new_message_notifications():
         users = User.objects.filter(id__in=recipients_to_notify).distinct()
         for u in users:
             u.send_email(
-                subject=get_translation("emails.subjects.new_messages"),
+                subject="Neue Nachricht(en) auf Little World",
                 mail_data=mails.get_mail_data_by_name("new_messages"),
                 mail_params=mails.NewUreadMessagesParams(
                     first_name=u.profile.first_name,
@@ -289,7 +289,7 @@ def check_match_still_in_contact_emails():
         
         for comb in [(match.user1, match.user2), (match.user2, match.user1)]:
             comb[0].send_email(
-                subject=get_translation("emails.subjects.still_in_contact"),
+                subject="Matching noch aktiv?",
                 mail_data=mails.get_mail_data_by_name("still_in_contact"),
                 mail_params=mails.StillInContactParams(
                     first_name=comb[0].profile.first_name,

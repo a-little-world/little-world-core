@@ -473,7 +473,7 @@ def resend_verification_mail(request):
     verifiaction_url = f"{settings.BASE_URL}/{link_route}/{request.user.state.get_email_auth_code_b64()}"
     mails.send_email(
         recivers=[request.user.email],
-        subject=get_translation("api.register_welcome_mail_subject").format(code=request.user.state.get_email_auth_pin()),
+        subject="{code} - Verifizierungscode zur E-Mail Bestätigung".format(code=request.user.state.get_email_auth_pin()),
         mail_data=mails.get_mail_data_by_name("welcome"),
         mail_params=mails.WelcomeEmailParams(
             first_name=request.user.profile.first_name,
