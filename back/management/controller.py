@@ -272,7 +272,7 @@ def create_user(
         usr.state.require_pre_matching_call = True
         usr.state.save()
         
-    usr.message(default_message, auto_mark_read=True)
+    usr.message(default_message, auto_mark_read=True, send_message_incoming=True)
     
     return usr
 

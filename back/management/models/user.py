@@ -193,7 +193,7 @@ class User(AbstractUser):
     def notify(self, title=_('title'), description=_('description')):
         pass # TODO: depricated, replace all occurences
 
-    def message(self, msg, sender=None, auto_mark_read=False):
+    def message(self, msg, sender=None, auto_mark_read=False, send_message_incoming=True):
         """
         Sends the users a chat message
         theoreticly this could be used to send a message from any sender
@@ -217,7 +217,7 @@ class User(AbstractUser):
         
         serialized_message = MessageSerializer(message).data
 
-        if not auto_mark_read:
+        if (not auto_mark_read) or send_message_incoming:
             from chat.consumers.messages import NewMessage
             NewMessage(
                 message=serialized_message,
