@@ -358,12 +358,8 @@ def match_users(
         usr2.notify(title="New match: %s" % usr1.profile.first_name)
 
     if send_message:
-        match_message = """Glückwunsch, wir haben jemanden für dich gefunden! 
-        Am besten vereinbarst du direkt einen Termin mit {other_name} für euer erstes Gespräch – das klappt meist besser als viele Nachrichten. 
-        Unterhalten könnt ihr euch zur vereinbarten Zeit auf Little World indem du oben rechts auf das Anruf-Symbol drückt. 
-        Schau dir gerne schon vorher das Profil von {other_name} an, indem du auf den Namen drückst. 
-
-        Damit euch viel Spaß! Schöne Grüße vom Team Little World"""
+        match_message = get_translation("auto_messages.match_message", lang="de")
+        
         # Sends a message from the admin model
         usr1.message(match_message.format(
             other_name=usr2.profile.first_name), auto_mark_read=True)
