@@ -126,28 +126,23 @@ def send_new_message_notifications():
     from emails import mails
     
     # 1 - get all unitified messages
-    unnotified_messages = Message.objects.filter(
-        recipient_notified=False
-    )
+    unnotified_messages_unread = Message.objects.filter(
+        recipient_notified=False,
+        read=False
+    ).values_list("recipient", flat=True)
     
-    # 2 - mark all 'read' unnotified messages as 'notified'
-    read_unnotified_messages = unnotified_messages.filter(
+    unnotified_messages_read = Message.objects.filter(
+        recipient_notified=False,
         read=True
-    )
-    read_unnotified_messages.update(
+    ).update(
         recipient_notified=True
     )
     
-    # 3 - getall 'unread' & 'unnofified' messages and get all recipients
-    unread_unnotified_messages = unnotified_messages.filter(
-        read=False
-    )
-    recipients_to_notify = unread_unnotified_messages.values_list('recipient', flat=True).distinct()
     
     # 4 - send notifications to users
     send_emails = not (settings.IS_STAGE or settings.IS_DEV)
     if send_emails:
-        users = User.objects.filter(id__in=recipients_to_notify).distinct()
+        users = User.objects.filter(id__in=unnotified_messages_unread).distinct()
         for u in users:
             u.send_email(
                 subject="Neue Nachricht(en) auf Little World",
@@ -157,15 +152,12 @@ def send_new_message_notifications():
                 )
             )
         user_ids = list(users.values_list('id', flat=True))
+        unnotified_messages_unread.update(recipient_notified=True)
+
         return {
             "sent_emails": len(user_ids),
             "user_ids": user_ids
         }
-    
-    # 5 - mark all unnotified messages as 'notified'
-    unread_unnotified_messages.update(
-        recipient_notified=True
-    )
 
 @shared_task
 def fill_base_management_user_tim_profile():
