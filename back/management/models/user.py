@@ -176,8 +176,7 @@ class User(AbstractUser):
         self.send_email(
             # We use this here so the models doesnt have to be saved jet
             overwrite_mail=prms.email,
-            subject="undefined",  # TODO set!
-            # TODO this should be different email!
+            subject="Email Changed, Please verify your new email",
             mail_data=mails.get_mail_data_by_name("welcome"),
             mail_params=mails.WelcomeEmailParams(
                 first_name=self.profile.first_name,
