@@ -207,7 +207,7 @@ def create_user(
             verifiaction_url = f"{settings.BASE_URL}/{link_route}/{usr.state.get_email_auth_code_b64()}"
             mails.send_email(
                 recivers=[email],
-                subject=get_translation("emails.subjects.verify_email").format(code=usr.state.get_email_auth_pin()),
+                subject="{code} - Verifizierungscode zur E-Mail Bestätigung".format(code=usr.state.get_email_auth_pin()),
                 mail_data=mails.get_mail_data_by_name("welcome"),
                 mail_params=mails.WelcomeEmailParams(
                     first_name=usr.profile.first_name,
