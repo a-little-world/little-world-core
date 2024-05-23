@@ -103,7 +103,6 @@ def callcom_websocket_callback(request):
     
     if event_type == "BOOKING_CREATED":
         assert str(user.state.prematch_booking_code) == str(booking_code)
-        # TODO: correctly insert the support user name
 
         user.message(get_translation("auto_messages.appointment_booked", lang="de").format(appointment_time=start_time))
 
@@ -112,14 +111,10 @@ def callcom_websocket_callback(request):
         end_time_parsed = parse_datetime(request.data["payload"]["endTime"])
         if appointment.exists():
             appointment = appointment.first()
-            previous_start_time = format_datetime(appointment.start_time, "EEEE, d. MMMM yyyy, 'um' HH:mm 'Uhr (deutsche Zeit)'", locale='de_DE')
             appointment.end_time = end_time_parsed
             appointment.start_time = start_time_parsed
             appointment.save()
 
-            notify_communication_channel(
-                f"Appointment Updated {previous_start_time} -> {start_time}\nBy {user.profile.first_name}\nCall link: https://little-world.com/app/call-setup/{user.hash}/"
-            )
         else:
             appointment = PreMatchingAppointment(
                 user=user,
@@ -127,12 +122,8 @@ def callcom_websocket_callback(request):
                 end_time=end_time_parsed
             )
             appointment.save()
-            notify_communication_channel(
-                f"A new appointment was booked by a user.\nBy {user.profile.first_name}\nWhen: {start_time}\nCall link: https://little-world.com/app/call-setup/{user.hash}/"
-            )
             
         from chat.consumers.messages import PreMatchingAppointmentBooked
-        
         PreMatchingAppointmentBooked(
             appointment=PreMatchingAppointmentSerializer(appointment).data
         ).send(user.hash)
