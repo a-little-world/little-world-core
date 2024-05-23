@@ -118,7 +118,7 @@ def callcom_websocket_callback(request):
     if event_type == "BOOKING_CREATED":
         assert str(user.state.prematch_booking_code) == str(booking_code)
 
-        user.message(get_translation("auto_messages.appointment_booked", lang="de").format(appointment_time=start_time_normalized))
+        user.message(get_translation("auto_messages.appointment_booked", lang="de").format(appointment_time=start_time_normalized), auto_mark_read=True)
 
         appointment = PreMatchingAppointment.objects.filter(user=user)
         start_time_parsed = parse_datetime(request.data["payload"]["startTime"])
