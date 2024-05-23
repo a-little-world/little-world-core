@@ -267,9 +267,8 @@ def create_user(
                 "hash": str(usr.hash),
                 "bookingcode": str(usr.state.prematch_booking_code)
             }), 
-            hash=usr.hash,
             calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID)
-
+        
         usr.state.require_pre_matching_call = True
         usr.state.save()
         
