@@ -15,6 +15,7 @@ from management.templatetags.temp_utils import get_api_translations
 from management.models.profile import Profile, SelfProfileSerializer
 from management.templatetags.temp_utils import get_api_translations
 from management.views.cookie_banner_frontend import get_cookie_banner_template_data
+from translations import get_translation_catalog
 
 
 @dataclass
@@ -58,10 +59,9 @@ class DevLoginAPI(APIView):
             except:
                 return Response("Authentication failed", status=403)
             
-            with translation.override("tag"):
-                _frontend_data = frontend_data(usr)
-                return Response({
-                    "data": _frontend_data,
-                    "api_translations": json.loads(get_api_translations(request))
-                })
+            _frontend_data = frontend_data(usr)
+            return Response({
+                "data": _frontend_data,
+                "api_translations": json.loads(get_translation_catalog())
+            })
         return Response("Error, maybe dev_dataset doesn't exist?", status=400)
