@@ -103,7 +103,7 @@ def get_user_models(user):
     return d
 
 def send_still_active_question_message(user):
-    user.message(get_translation("auto_messages.are_you_still_in_contact").format(first_name=user.first_name), auto_mark_read=False)
+    user.message(get_translation("auto_messages.are_you_still_in_contact", lang="de").format(first_name=user.first_name), auto_mark_read=False)
 
 def make_tim_support_user(
         user, 
