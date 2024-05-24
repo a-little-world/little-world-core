@@ -42,9 +42,9 @@ class Chat(models.Model):
     
     @classmethod
     def get_or_create_chat(cls, user1, user2):
-        chat = cls.get_chat([user1, user2])
-        if chat:
-            return chat
+        chat  = cls.objects.filter(Q(u1=user1, u2=user2) | Q(u1=user2, u2=user1))
+        if chat.exists():
+            return chat.first()
         else:
             return cls.objects.create(u1=user1, u2=user2)
         
