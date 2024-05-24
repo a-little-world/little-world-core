@@ -66,6 +66,7 @@ TWILIO_ACCOUNT_SID = os.environ["DJ_TWILIO_ACCOUNT_SID"]
 TWILIO_API_KEY_SID = os.environ["DJ_TWILIO_API_KEY_SID"]
 TWILIO_API_SECRET = os.environ["DJ_TWILIO_API_SECRET"]
 EXTERNAL_S3 = os.environ.get("DJ_EXTERNAL_S3", "false").lower() in ('true', '1', 't')
+PREMATCHING_CALL_JOIN_LINK = os.environ.get("PREMATCHING_CALL_JOIN_LINK", None) 
 
 USE_SQLITE = os.environ.get("DJ_USE_SQLITE", "false").lower() in ('true', '1', 't')
 
@@ -124,8 +125,6 @@ INSTALLED_APPS = [
     'cookie_consent',  # Our cookie consent management system
 
     'management',  # Main backend application
-
-    'chat_old.django_private_chat2.apps.DjangoPrivateChat2Config',  # Our old chat TODO to be depricated
 
     'chat',  # Our chat
 
@@ -678,14 +677,13 @@ as default language the user will always have a fallback langugae
 english no matter if frontent translation failes
 """
 LANGUAGE_CODE = 'en'
-TIME_ZONE = os.environ.get('DJ_TIME_ZONE', 'UTC+1')  # UTC+1 = Berlin
+TIME_ZONE = os.environ.get('DJ_TIME_ZONE', 'UTC')
 
 """
 We use django internalization to enable use of 'django_language' cookie 
 And the use of Accept-Language: <lang> headers
 this e.g.: enables frontends to request api translation before calling the apis!
 They would request the pseudo language 'tag' as reference
-`tag` are the translation contexts for all `pgettext_lazy` calls
 """
 USE_I18N = True
 USE_L10N = True

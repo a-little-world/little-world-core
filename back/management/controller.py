@@ -12,11 +12,8 @@ from management.models.unconfirmed_matches import UnconfirmedMatch
 from management.models.backend_state import BackendState
 from management.models.past_matches import PastMatch
 from management.models.matches import Match
-from chat_old.django_private_chat2.models import DialogsModel
 from management import controller
 from dataclasses import dataclass, fields, field
-from chat_old.django_private_chat2.consumers.message_types import MessageTypes, OutgoingEventNewTextMessage
-from chat_old.django_private_chat2.models import DialogsModel, MessageModel
 from django.utils import timezone
 from asgiref.sync import async_to_sync
 from back.utils import _double_uuid
@@ -28,10 +25,10 @@ from management.models.state import State
 from management.models.settings import Settings
 from management.models.rooms import Room
 from chat.models import Chat
-from django.utils.translation import gettext_lazy as _, pgettext_lazy
 from emails import mails
 from tracking import utils
 from tracking.models import Event
+from translations import get_translation
 import json
 import os
 from management.tasks import (
@@ -77,7 +74,7 @@ def __user_get_catch(**kwargs):
         # We should throw an error if a user was looked up that doesn't exist
         # If this error occurs we most likely forgot to delte the user from someones matches
         # But we still allow this to be caught with 'try' and returned as a parsed error
-        raise UserNotFoundErr(_("User doesn't exist"))
+        raise UserNotFoundErr("User doesn't exist")
 
 
 def get_user_by_email(email):
@@ -106,16 +103,7 @@ def get_user_models(user):
     return d
 
 def send_still_active_question_message(user):
-    user.message(pgettext_lazy("api.are-you-still-searching", """Hallo {first_name}, ich bin Tim, Mitbegründer und CTO von Little World!
-
-Entschuldige, dass du warten musstest. Wir überarbeiten gerade einige Dinge an unserer Plattform und unserem Matching-Verfahren. Ich bin dein neuer Support-Nutzer und werde dir bei allen Fragen und Problemen helfen.
-
-Da du dich schon vor einiger Zeit registriert hast, wollte ich dich fragen, ob du noch aktiv auf der Suche bist? Antworte mir gerne mit einer schnellen Nachricht oder drücke kurz auf diesen Knopf: <a href="/user/still_active/">Ich suche noch ein Match!</a>
-
-Solange du auf dein Match wartest, kannst du dir schon mal den <a href="https://home.little-world.com/leitfaden">Gesprächsleitfaden</a> anschauen. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
-
-Viele Grüße aus Aachen 👋🏼""".format(first_name=user.first_name)), auto_mark_read=False)
-
+    user.message(get_translation("auto_messages.are_you_still_in_contact", lang="de").format(first_name=user.first_name), auto_mark_read=False)
 
 def make_tim_support_user(
         user, 
@@ -219,8 +207,7 @@ def create_user(
             verifiaction_url = f"{settings.BASE_URL}/{link_route}/{usr.state.get_email_auth_code_b64()}"
             mails.send_email(
                 recivers=[email],
-                subject=pgettext_lazy(
-                    "api.register-welcome-mail-subject", "{code} - Verifizierungscode zur E-Mail Bestätigun".format(code=usr.state.get_email_auth_pin())),
+                subject="{code} - Verifizierungscode zur E-Mail Bestätigung".format(code=usr.state.get_email_auth_pin()),
                 mail_data=mails.get_mail_data_by_name("welcome"),
                 mail_params=mails.WelcomeEmailParams(
                     first_name=usr.profile.first_name,
@@ -265,48 +252,27 @@ def create_user(
 
     # Step 7 Notify the user
     if send_welcome_notification:
-        usr.notify(title=_("Welcome Notification"))
+        usr.notify(title="Welcome Notification")
 
     # Step 8 Message the user from the admin account
     default_message = ""
-    if send_welcome_message:
 
-        default_message = pgettext_lazy("api.register-welcome-message-text", """Hallo {first_name} und herzlich willkommen bei Little World!
-
-Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil unserer Plattform geworden bist!
-
-Aktuell arbeiten wir an einigen Aktualisierungen unserer Plattform und unseres Matching-Verfahrens und schätzen daher jedes <a {{"href": "/app/help"}}>Feedback</a>, das wir von dir erhalten.
-
-Während wir für dich ein passendes Match finden, kannst du gerne in unserem <a {{"href" : "https://home.little-world.com/leitfaden"}}>Gesprächsleitfaden</a> stöbern. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
-
-Vielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!""".format(first_name=first_name))
-            
-    if check_prematching_invitations:
+    if check_prematching_invitations or send_welcome_message:
         # Now we need to check the prematching state
         # TODO: there is a bug here if the user decides to change the email, then the booking will be made from the wrong email.
         
-        default_message = pgettext_lazy("api.register-invite-pre-match-interview", """Hallo {first_name} und herzlich willkommen bei Little World!
-
-Ich bin Tim, Mitbegründer und CTO von Little World. Danke, dass du ein Teil unserer Plattform geworden bist!
-
-Aktuell arbeiten wir an einigen Aktualisierungen unserer Plattform und unseres Matching-Verfahrens und schätzen daher jedes Feedback, das wir von dir erhalten. Du kannst deine Gedanken und Erfahrungen jederzeit über diesen Link mit uns teilen: <a {{"href": "/app/help"}}>Feedback</a>.
-
-Bevor es richtig losgeht, musst du einen 15-minütigen Videocall-Termin mit mir vereinbaren. In diesem Gespräch werden wir gemeinsam deine Suchangaben überprüfen, und ich werde dir die nächsten Schritte zur Teilnahme bei Little World erklären. Bitte buche dafür einen Termin in dem folgenden Kalender: <button {{"data-cal-link" : "{calcom_meeting_id}?{encoded_params}", "data-cal-config" : "{{'layout':'month_view'}}"}}>Buche ein Meeting</button>.
-
-Während wir für dich ein passendes Match finden, kannst du gerne in unserem Gesprächsleitfaden unter diesem Link stöbern: <a {{"href" : "https://home.little-world.com/leitfaden"}}>Gesprächsleitfaden</a>. Hier findest du viele hilfreiche Tipps und Antworten auf mögliche Fragen.
-
-Vielen Dank im Voraus für deine Hilfe und herzlichste Grüße aus Aachen!""".format(first_name=first_name,encoded_params=urllib.parse.urlencode({
-            "email": str(usr.email),
-            "hash": str(usr.hash),
-            "bookingcode": str(usr.state.prematch_booking_code)
-        }), 
-        hash=usr.hash,
-        calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID))
-
+        default_message = get_translation("auto_messages.prematching_invitation", lang="de").format(
+            first_name=first_name,encoded_params=urllib.parse.urlencode({
+                "email": str(usr.email),
+                "hash": str(usr.hash),
+                "bookingcode": str(usr.state.prematch_booking_code)
+            }), 
+            calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID)
+        
         usr.state.require_pre_matching_call = True
         usr.state.save()
         
-    usr.message(default_message, auto_mark_read=True)
+    usr.message(default_message, auto_mark_read=True, send_message_incoming=True)
     
     return usr
 
@@ -379,9 +345,6 @@ def match_users(
         # we still need to create a dialog for them
         
         chat = Chat.get_or_create_chat(usr1, usr2)
-        
-        # TODO: old depricated way to create dialog:
-        DialogsModel.create_if_not_exists(usr1, usr2)
 
     if create_video_room:
         room = Room.objects.create(
@@ -390,16 +353,12 @@ def match_users(
         )
 
     if send_notification:
-        usr1.notify(title=_("New match: %s" % usr2.profile.first_name))
-        usr2.notify(title=_("New match: %s" % usr1.profile.first_name))
+        usr1.notify(title="New match: %s" % usr2.profile.first_name)
+        usr2.notify(title="New match: %s" % usr1.profile.first_name)
 
     if send_message:
-        match_message = """Glückwunsch, wir haben jemanden für dich gefunden! 
-        Am besten vereinbarst du direkt einen Termin mit {other_name} für euer erstes Gespräch – das klappt meist besser als viele Nachrichten. 
-        Unterhalten könnt ihr euch zur vereinbarten Zeit auf Little World indem du oben rechts auf das Anruf-Symbol drückt. 
-        Schau dir gerne schon vorher das Profil von {other_name} an, indem du auf den Namen drückst. 
-
-        Damit euch viel Spaß! Schöne Grüße vom Team Little World"""
+        match_message = get_translation("auto_messages.match_message", lang="de")
+        
         # Sends a message from the admin model
         usr1.message(match_message.format(
             other_name=usr2.profile.first_name), auto_mark_read=True)
@@ -408,8 +367,7 @@ def match_users(
 
     if send_email:
         usr1.send_email(
-            subject=pgettext_lazy(
-                "api.match-made-email-subject", "Glückwunsch! Gesprächspartner:in gefunden auf Little World"),
+            subject="Glückwunsch! Gesprächspartner:in gefunden auf Little World",
             mail_data=mails.get_mail_data_by_name("match"),
             mail_params=mails.MatchMailParams(
                 first_name=usr1.profile.first_name,
@@ -418,8 +376,7 @@ def match_users(
             )
         )
         usr2.send_email(
-            subject=pgettext_lazy(
-                "api.match-made-email-subject", "Glückwunsch! Gesprächspartner:in gefunden auf Little World"),
+            subject="Glückwunsch! Gesprächspartner:in gefunden auf Little World",
             mail_data=mails.get_mail_data_by_name("match"),
             mail_params=mails.MatchMailParams(
                 first_name=usr2.profile.first_name,
@@ -493,13 +450,6 @@ def unmatch_users(
     if delete_video_room:
         from .models.rooms import get_rooms_match
         get_rooms_match(usr1, usr2).delete()
-
-    # Delte the dialog
-    if delete_dialog:
-        from chat_old.django_private_chat2.models import DialogsModel
-        dia = DialogsModel.dialog_exists(usr1, usr2)
-        if dia:
-            dia.delete()
 
     return PastMatch.objects.create(
         user1=usr1,
@@ -620,138 +570,6 @@ def create_base_admin_and_add_standart_db_values():
 
     return usr_tim
 
-
-def send_websocket_callback(
-        to_usr,
-        message: str,
-        from_user=None):
-    """
-    This sends a websocket chat message without saving it 
-    this can be used for simple frontend callbacks 
-    such as there is a twilio call incomming!
-    """
-    if not from_user:
-        from_user = get_base_management_user()
-
-    assert (from_user.is_staff or from_user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER))
-    admin = from_user
-
-    channel_layer = get_channel_layer()
-    dialog = DialogsModel.dialog_exists(admin, to_usr)
-    async_to_sync(channel_layer.group_send)(str(to_usr.pk), {
-        "type": "send_message_dialog_def",
-        "dialog_id": str(to_usr.pk),
-        "message": f"[TMPADMIN]({message})]",
-        "admin_pk": str(admin.pk),
-        "user_pk": str(to_usr.pk),
-        "admin_h256_pk": str(admin.hash),
-    })
-
-
-def send_chat_message(to_user, from_user, message):
-    """
-    This can send a chat message from any user to any user
-    this is intended to the used by the BASE_MANAGEMENT_USER
-    so usualy the from_user would be 'get_base_management_user'
-    """
-    # Send a chat message ... TODO
-    pass
-
-def extract_user_activity_info(user):
-    """
-    A general function to generate an overview of a users activity
-    
-    email-verified: XX
-    user-type: XX
-    email-changes: XX
-    from-finished: XX
-    user-searching: XX
-    logins-total: XX
-    matches-total (past & present): XX
-    currnet-matches: XX
-    messages-send-total: XX
-    last-activity: XX days ago
-    
-    matches:
-        last-time-active: XX
-        match-messages-total: XX
-        
-        TODO: we can sorta measure this but extracting this infor is resource intensive
-        video-calls-total: XX
-
-    """
-    
-    # TODO: normally we would also want to check how many actually sucessfull attempts the user did
-
-    login_event_count = Event.objects.filter(
-        tags__contains=["frontend", "login", "sensitive"], 
-        type=Event.EventTypeChoices.REQUEST, 
-        name="User Logged in",
-        caller=user
-    ).count()
-    
-    def get_match_tag(u1, u2):
-        if u1.pk == u2.pk:
-            print("User matched with self", u1.email, u2.email)
-            return False
-        if(u1.pk > u2.pk):
-            return f"match-{u2.pk}-{u1.pk}"
-        else:
-            return f"match-{u1.pk}-{u2.pk}"
-        
-    MATCH_DATA = {}
-    def add_match_data(u1, u2, data):
-        match_tag = get_match_tag(u1, u2)
-        if not match_tag in MATCH_DATA:
-            MATCH_DATA[match_tag] = {**data}
-        else:
-            MATCH_DATA[match_tag] = {**MATCH_DATA[match_tag], **data} 
-        
-    
-    user_dialogs = DialogsModel.get_dialogs_for_user_as_object(user)
-    total_messages = 0
-
-    current_time = timezone.now()
-
-    for dialog in user_dialogs:
-        other_user = dialog.user1 if dialog.user1 != user else dialog.user2
-        if get_match_tag(user, other_user):
-            message_count = MessageModel.get_message_count_for_dialog_with_user(dialog.user1, dialog.user2)
-            last_message = MessageModel.get_last_message_object_for_dialog(dialog.user1, dialog.user2)
-            first_message = MessageModel.get_first_message_object_for_dialog(dialog.user1, dialog.user2)
-            add_match_data(user, other_user, {
-                "match_messages_total": message_count,
-            })
-            if first_message:
-                add_match_data(user, other_user, {
-                    "first_message": str(first_message.created) + f" ({first_message.created - current_time} days ago)",
-                })
-            if last_message:
-                add_match_data(user, other_user, {
-                    "last_message" : str(last_message.created) + f" ({last_message.created - current_time} days ago)",
-                })
-            total_messages += message_count
-        
-    data = {
-        "email" : user.email,
-        "first_name": user.profile.first_name,
-        "email_verified": user.state.email_authenticated,
-        "email_changes": len(user.state.past_emails),
-        "user_type": user.profile.user_type,
-        "form_finished": user.state.user_form_state == State.UserFormStateChoices.FILLED,
-        "user_searching": user.state.matching_state,
-        "logins_total": login_event_count,
-        # TODO: there is actually no goodway to measure amount of past matches
-        # "matches_total": user.matches.count() - 1, # - default match
-        # TODO: the matches count calculation needs to be updated with the new user model
-        "current_matches": user.state.matches.count(),
-        "messages_send_total": total_messages,
-        "match_activity": MATCH_DATA,
-    }
-    #print(json.dumps(data, indent=2, default=str))
-    return data
-
-        
 @dataclass
 class EmailSendReport:
     send: bool = False

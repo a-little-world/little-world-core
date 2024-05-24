@@ -1,7 +1,4 @@
 """
-This contains all api's related to confirming or denying a match
-
-
 {
     'triggerEvent': 'BOOKING_CREATED', 
     'createdAt': '2023-10-10T16:49:50.991Z', 
@@ -70,27 +67,30 @@ from django.http import JsonResponse
 from rest_framework.response import Response
 from rest_framework_dataclasses.serializers import DataclassSerializer
 from dataclasses import dataclass
-from django.utils.translation import pgettext_lazy
 from rest_framework import serializers
 from babel.dates import format_date, format_datetime, format_time
 from datetime import datetime
 from django.utils import timezone
-from pytz import utc
+from management.controller import get_user_by_hash
+from translations import get_translation
+from django.utils import timezone
+from dateutil import parser
+from babel.dates import format_datetime
+import pytz
 
-def translate_to_german_date(date_str):
-    date_format = "%Y-%m-%dT%H:%M:%SZ"
-    date_object = datetime.strptime(date_str, date_format).replace(tzinfo=utc)
-
-    local_datetime = timezone.localtime(date_object)
-    german_date_string = format_datetime(local_datetime, 'full', locale='de_DE')
+def translate_to_german_date(date_str, target_timezone='Europe/Berlin'):
+    date_object = parser.parse(date_str)
     
-    return german_date_string
+    # Ensure the datetime is timezone-aware, set to the source timezone if it's naive
+    if timezone.is_naive(date_object):
+        date_object = timezone.make_aware(date_object, timezone.utc)
 
-BOOKING_MESSAGE = """
-Der Termin für dein Einführungsgespräch mit einem Teammitglied ist für das {appointment_time} gebucht.
-Falls du den Termin absagen oder umbuchen möchtest, so kannst du dies unter "Start" tun. Solltest du die Option nicht finden, schreibe mir gerne alternativ eine kurze Nachricht. Wir freuen uns auf dich, bis dann!
-LG, Tim
-"""
+    target_tz = pytz.timezone(target_timezone)
+    localized_date_object = date_object.astimezone(target_tz)
+
+    german_date_string = format_datetime(localized_date_object, "EEEE, d. MMMM yyyy, 'um' HH:mm 'Uhr (deutsche Zeit)'", locale='de_DE')
+
+    return german_date_string
 
 
 @api_view(['POST'])
@@ -101,46 +101,34 @@ def callcom_websocket_callback(request):
     Received callcom event callbacks, this should simply send a message in the admin chat if an appointment was booked.
     """
     
-    from management.controller import get_user_by_hash, send_websocket_callback
     assert request.query_params["secret"] == settings.DJ_CALCOM_QUERY_ACCESS_PARAM
     
     event_type = request.data["triggerEvent"]
-    start_time = translate_to_german_date(request.data["payload"]["startTime"])
-    end_time = translate_to_german_date(request.data["payload"]["endTime"])
-    organizer_email = request.data["payload"]["organizer"]["email"]
+    start_time_normalized = translate_to_german_date(request.data["payload"]["startTime"])
+    # end_time = translate_to_german_date(request.data["payload"]["endTime"])
+    # organizer_email = request.data["payload"]["organizer"]["email"]
     user_hash = request.data["payload"]["userFieldsResponses"]["hash"]["value"]
     booking_code = request.data["payload"]["userFieldsResponses"]["bookingcode"]["value"]
     
     user = get_user_by_hash(user_hash)
     
+    print("EVENT TYPE", event_type, user, booking_code, start_time_normalized, request.data["payload"]["startTime"])
+    print(request.data)
+    
     if event_type == "BOOKING_CREATED":
         assert str(user.state.prematch_booking_code) == str(booking_code)
-        # TODO: correctly insert the support user name
-        
-        from django.utils import timezone
-        
-        user.message(BOOKING_MESSAGE.format(appointment_time=start_time))
+
+        user.message(get_translation("auto_messages.appointment_booked", lang="de").format(appointment_time=start_time_normalized), auto_mark_read=True, send_message_incoming=True)
 
         appointment = PreMatchingAppointment.objects.filter(user=user)
-        from management.api.slack import notify_communication_channel
-
         start_time_parsed = parse_datetime(request.data["payload"]["startTime"])
         end_time_parsed = parse_datetime(request.data["payload"]["endTime"])
         if appointment.exists():
-            
             appointment = appointment.first()
-
-            #'startTime': '2023-10-12T09:00:00Z', 
-            #'endTime': '2023-10-12T09:15:00Z', 
-            # we need to parse the date string and convert it to a datetime object
-            previous_start_time = format_datetime(appointment.start_time, 'full', locale='de_DE')
             appointment.end_time = end_time_parsed
             appointment.start_time = start_time_parsed
             appointment.save()
-            
-            notify_communication_channel(
-               f"Appointment Updated {previous_start_time} -> {start_time}\nBy {user.profile.first_name}\nCall link: https://little-world.com/app/call-setup/{user.hash}/" 
-            )
+
         else:
             appointment = PreMatchingAppointment(
                 user=user,
@@ -148,12 +136,8 @@ def callcom_websocket_callback(request):
                 end_time=end_time_parsed
             )
             appointment.save()
-            notify_communication_channel(
-               f"A new appointment was booked by a user.\nBy {user.profile.first_name}\nWhen: {start_time}\nCall link: https://little-world.com/app/call-setup/{user.hash}/" 
-            )
-        
+            
         from chat.consumers.messages import PreMatchingAppointmentBooked
-        
         PreMatchingAppointmentBooked(
             appointment=PreMatchingAppointmentSerializer(appointment).data
         ).send(user.hash)

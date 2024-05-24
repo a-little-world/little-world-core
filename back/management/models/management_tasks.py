@@ -1,16 +1,9 @@
 from django.db import models
 from .user import User
-import json
-import base64
-import zlib
-import random
-from datetime import datetime
-from django.utils.translation import pgettext_lazy, gettext_lazy as _
 from rest_framework import serializers
 from back.utils import get_options_serializer
 from rest_framework import serializers
-from back import utils
-from multiselectfield import MultiSelectField
+from django.utils.translation import gettext_lazy as _
 
 
 class MangementTask(models.Model):

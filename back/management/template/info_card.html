@@ -1,7 +1,9 @@
 {% load get_api_translations from temp_utils %}
+{% load get_api_options from temp_utils %}
 {% load render_bundle from webpack_loader %}
 {% load get_base_page_url from temp_utils %}
-{% get_api_translations request=request as api_translations %}
+{% get_api_translations as api_translations %}
+{% get_api_options as api_options %}
 <!DOCTYPE html>
 <head>
     {% include "react_app_head_base.html" with app_name='main_frontend' title='Little World' %}
@@ -30,9 +32,10 @@
 <script>
   const data = JSON.parse('{{ data | escapejs }}');
   const apiTranslations = JSON.parse('{{ api_translations | escapejs }}');
+  const apiOptions = JSON.parse('{{ api_options | escapejs }}');
   window.apiTranslations = apiTranslations;
   renderMessageView(
-    data, { apiTranslations }
+    data, { apiTranslations, apiOptions }
   )
 </script>
 <div style="display: none;">{{csrf_token}}</div>

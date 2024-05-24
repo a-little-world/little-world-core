@@ -59,37 +59,10 @@ auto_emails = {
 }
 
 prod_shedules = {
-    # TODO: new shedule to send out the new message notificaitons utelizing the new message model
     'send-new-message-notifications': {
         'task': 'management.tasks.send_new_message_notifications',
-        'schedule': 60.0 * 60.0,  # Every hour
+        'schedule': 60.0 * 60.0,
     },
-    'generate-hourly-event-summary': {
-        'task': 'management.tasks.write_hourly_backend_event_summary',
-        'schedule': 60.0 * 60.0,  # Every hour
-    },
-    'generate-stats-series-day-grouped': {
-        'task': 'management.tasks.create_series',
-        'schedule': 60.0 * 60.0,  # Every hour
-        'kwargs': {
-            "regroup_by": "day"
-        }
-    },
-    # 'generate-stats-series-hour-grouped': {
-    #    'task': 'management.tasks.create_series',
-    #    'schedule': 60.0 * 60.0,
-    #    'kwargs': {
-    #        "regroup_by": "hour"
-    #    }
-    # },
-    'generate-user-lists': {
-        'task': 'management.tasks.indentify_and_mark_user_categories',
-        'schedule': 60.0 * 60.0 * 12.0,  # Every 12 hours
-    },
-    'generate-static-stats': {
-        'task': 'management.tasks.collect_static_stats',
-        'schedule': 60.0 * 60.0,  # Every hour
-    }
 }
 
 prod_shedules.update(auto_emails)

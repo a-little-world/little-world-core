@@ -6,9 +6,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_dataclasses.serializers import DataclassSerializer
 from dataclasses import dataclass, fields, field
-from django.utils.translation import pgettext_lazy
 from rest_framework import serializers
-from management.controller import match_users
+from management.controller import match_users,get_translation
 from management.models.settings import UnsubscibeOptions, EmailSettings
 from management.views.main_frontend import info_card
 
@@ -48,15 +47,13 @@ def update_email_settings(data, email_settings, request=None):
         email_settings.unsubscibed_options.append(data.unsubscribe_type)
         email_settings.save()
         
-        response_text = pgettext_lazy("info-view.email-settings.email-unsubscribed.content", "You have been unsubscribed from this email type")
+        response_text = get_translation("info_view.email_unsubscribed")
 
         if request:
             return info_card(request,
-                             title=pgettext_lazy("info-view.email-settings.email-unsubscribed.title", 
-                                                 "Email type unsubscribed"),
+                             title=get_translation("info_view.email_unsubscribed.title"), 
                              content=response_text,
-                             linkText=pgettext_lazy("info-view.email-settings.linkText",
-                                                    "Back to home"),
+                             linkText=get_translation("info_view.back_to_home"),
                              )
         else:
             return Response(response_text)
@@ -65,28 +62,24 @@ def update_email_settings(data, email_settings, request=None):
         email_settings.unsubscibed_options.remove(data.unsubscribe_type)
         email_settings.save()
 
-        response_text = pgettext_lazy("info-view.email-settings.email-subscribed.content", "You have been subscribed to this email type")
+        response_text = get_translation("info_view.email_subscribed")
         
         if request:
             return info_card(request,
-                             title=pgettext_lazy("info-view.email-settings.email-subscribed.title", 
-                                                 "Email type subscribed"),
+                             title=get_translation("info_view.email_subscribed.title"), 
                              content=response_text,
-                             linkText=pgettext_lazy("info-view.email-settings.linkText",
-                                                    "Back to home"),
+                             linkText=get_translation("info_view.back_to_home"),
                              )
         else:
             return Response(response_text)
         
-    response_text = pgettext_lazy("info-view.email-settings.email-already-subscribed.content", "You are already subscribed / unsubscribed from this email type")
+    response_text = get_translation("info_view.email_already_subscribed")
     
     if request:
         return info_card(request,
-                         title=pgettext_lazy("info-view.email-settings.email-already-subscribed.title", 
-                                             "No email settings changed"),
+                         title=get_translation("info_view.email_already_subscribed.title"), 
                          content=response_text,
-                         linkText=pgettext_lazy("info-view.email-settings.linkText",
-                                                "Back to home"),
+                         linkText=get_translation("info_view.back_to_home"),
                          )
     else:
         return Response(response_text)
@@ -146,4 +139,3 @@ def unsubscribe_link(request):
     email_settings = EmailSettings.objects.get(hash=data.settings_hash)
     
     return update_email_settings(data, email_settings, request=request)
-    

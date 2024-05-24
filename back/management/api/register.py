@@ -1,12 +1,10 @@
 from drf_spectacular.utils import OpenApiParameter, OpenApiExample
 from management.api.user_data import frontend_data
-from django.utils.translation import gettext_lazy as _
 from django.utils import translation
 from back.utils import CoolerJson
 import django.contrib.auth.password_validation as pw_validation
 from django.contrib.auth import authenticate, login
 from typing import Optional
-from django.utils.translation import pgettext_lazy, gettext_lazy as _
 from drf_spectacular.utils import extend_schema
 from drf_spectacular.types import OpenApiTypes
 from datetime import datetime
@@ -29,6 +27,7 @@ from .. import validators, controller
 from management.models.user import User, UserSerializer
 from . import schemas
 import json
+from translations import get_translation
 
 
 @dataclass
@@ -45,22 +44,21 @@ class RegistrationData:
 
 class RegistrationSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True, error_messages={
-        'blank': pgettext_lazy('register.email-blank-err', 'Please enter your e-mail adress'),
-        # 'invalid' --> The message here is quite ok, so I'll just keep using it!
+        'blank': get_translation('register.email_blank_err'),  # Updated key
     })
 
     first_name = serializers.CharField(max_length=150, required=True, error_messages={
-        'blank': pgettext_lazy('register.first-name-blank-err', 'Please enter your first name'),
+        'blank': get_translation('register.first_name_blank_err'),  # Updated key
     })
     second_name = serializers.CharField(max_length=150, required=True, error_messages={
-        'blank': pgettext_lazy('register.second-name-blank-err', 'Please enter your second name'),
+        'blank': get_translation('register.second_name_blank_err'),  # Updated key
     })
     password1 = serializers.CharField(max_length=100, required=True)
     password2 = serializers.CharField(max_length=100, required=True)
     birth_year = serializers.IntegerField(min_value=1900, max_value=(datetime.now().year - 17), error_messages={
-        'invalid': pgettext_lazy('register.birth-year-invalid', 'Please enter a valid year'),
-        'min_value': pgettext_lazy('register.birth-year-under-1900', 'I\'m sorry but you can\'t be that old'),
-        'max_value': pgettext_lazy('register.birth-year-over-2024', 'Sorry currently users have to be at least 18 years old to participate'),
+        'invalid': get_translation('register.birth_year_invalid'),  # Updated key
+        'min_value': get_translation('register.birth_year_under_1900'),  # Updated key
+        'max_value': get_translation('register.birth_year_over_2024'),  # Updated key
     })
     
     newsletter_subscribed = serializers.BooleanField(required=False, default=False)
@@ -93,7 +91,7 @@ class RegistrationSerializer(serializers.Serializer):
 
         if not usr is None:
             raise serializers.ValidationError(
-                {"email": pgettext_lazy("api.register-user-email-exists", "User with this email already exists")})
+                {"email": get_translation("api.register_user_email_exists")})  # Updated key
 
         user = User(
             username=data['email'],
@@ -110,7 +108,7 @@ class RegistrationSerializer(serializers.Serializer):
 
         if data['password1'] != data['password2']:
             raise serializers.ValidationError(
-                {"password1": _("Passwords must match")})
+                {"password1": get_translation("api.passwords_must_match")})  # Updated key
 
         return super(RegistrationSerializer, self).validate(data)
 
