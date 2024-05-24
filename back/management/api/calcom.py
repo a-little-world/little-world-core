@@ -71,16 +71,27 @@ from rest_framework import serializers
 from babel.dates import format_date, format_datetime, format_time
 from datetime import datetime
 from django.utils import timezone
-from management.controller import get_user_by_hash, send_websocket_callback
-from management.api.slack import notify_communication_channel
+from management.controller import get_user_by_hash
 from translations import get_translation
+from django.utils import timezone
+from dateutil import parser
+from babel.dates import format_datetime
+import pytz
 
-def translate_to_german_date(date_str):
-    date_format = "%Y-%m-%dT%H:%M:%SZ"
-    date_object = datetime.strptime(date_str, date_format).replace(tzinfo=utc)
-    local_datetime = timezone.localtime(date_object)
-    german_date_string = format_datetime(local_datetime, "EEEE, d. MMMM yyyy, 'um' HH:mm 'Uhr (deutsche Zeit)'", locale='de_DE')
+def translate_to_german_date(date_str, target_timezone='Europe/Berlin'):
+    date_object = parser.parse(date_str)
+    
+    # Ensure the datetime is timezone-aware, set to the source timezone if it's naive
+    if timezone.is_naive(date_object):
+        date_object = timezone.make_aware(date_object, timezone.utc)
+
+    target_tz = pytz.timezone(target_timezone)
+    localized_date_object = date_object.astimezone(target_tz)
+
+    german_date_string = format_datetime(localized_date_object, "EEEE, d. MMMM yyyy, 'um' HH:mm 'Uhr (deutsche Zeit)'", locale='de_DE')
+
     return german_date_string
+
 
 @api_view(['POST'])
 @authentication_classes([])
@@ -93,7 +104,7 @@ def callcom_websocket_callback(request):
     assert request.query_params["secret"] == settings.DJ_CALCOM_QUERY_ACCESS_PARAM
     
     event_type = request.data["triggerEvent"]
-    start_time = translate_to_german_date(request.data["payload"]["startTime"])
+    start_time_normalized = translate_to_german_date(request.data["payload"]["startTime"])
     # end_time = translate_to_german_date(request.data["payload"]["endTime"])
     # organizer_email = request.data["payload"]["organizer"]["email"]
     user_hash = request.data["payload"]["userFieldsResponses"]["hash"]["value"]
@@ -101,10 +112,13 @@ def callcom_websocket_callback(request):
     
     user = get_user_by_hash(user_hash)
     
+    print("EVENT TYPE", event_type, user, booking_code, start_time_normalized, request.data["payload"]["startTime"])
+    print(request.data)
+    
     if event_type == "BOOKING_CREATED":
         assert str(user.state.prematch_booking_code) == str(booking_code)
 
-        user.message(get_translation("auto_messages.appointment_booked", lang="de").format(appointment_time=start_time))
+        user.message(get_translation("auto_messages.appointment_booked", lang="de").format(appointment_time=start_time_normalized), auto_mark_read=True, send_message_incoming=True)
 
         appointment = PreMatchingAppointment.objects.filter(user=user)
         start_time_parsed = parse_datetime(request.data["payload"]["startTime"])

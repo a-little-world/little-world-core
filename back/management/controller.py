@@ -272,7 +272,7 @@ def create_user(
         usr.state.require_pre_matching_call = True
         usr.state.save()
         
-    usr.message(default_message, auto_mark_read=True)
+    usr.message(default_message, auto_mark_read=True, send_message_incoming=True)
     
     return usr
 
@@ -570,44 +570,6 @@ def create_base_admin_and_add_standart_db_values():
 
     return usr_tim
 
-
-def send_websocket_callback(
-        to_usr,
-        message: str,
-        from_user=None):
-    """
-    This sends a websocket chat message without saving it 
-    this can be used for simple frontend callbacks 
-    such as there is a twilio call incomming!
-    """
-    if not from_user:
-        from_user = get_base_management_user()
-
-    assert (from_user.is_staff or from_user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER))
-    admin = from_user
-
-    channel_layer = get_channel_layer()
-    dialog = DialogsModel.dialog_exists(admin, to_usr)
-    async_to_sync(channel_layer.group_send)(str(to_usr.pk), {
-        "type": "send_message_dialog_def",
-        "dialog_id": str(to_usr.pk),
-        "message": f"[TMPADMIN]({message})]",
-        "admin_pk": str(admin.pk),
-        "user_pk": str(to_usr.pk),
-        "admin_h256_pk": str(admin.hash),
-    })
-
-
-def send_chat_message(to_user, from_user, message):
-    """
-    This can send a chat message from any user to any user
-    this is intended to the used by the BASE_MANAGEMENT_USER
-    so usualy the from_user would be 'get_base_management_user'
-    """
-    # Send a chat message ... TODO
-    pass
-
-        
 @dataclass
 class EmailSendReport:
     send: bool = False
