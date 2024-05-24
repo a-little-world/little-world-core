@@ -71,7 +71,7 @@ from rest_framework import serializers
 from babel.dates import format_date, format_datetime, format_time
 from datetime import datetime
 from django.utils import timezone
-from management.controller import get_user_by_hash, send_websocket_callback
+from management.controller import get_user_by_hash
 from translations import get_translation
 from django.utils import timezone
 from dateutil import parser
