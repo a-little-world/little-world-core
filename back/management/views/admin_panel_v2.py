@@ -323,8 +323,9 @@ class QuerySetEnum(Enum):
     read_message_but_not_replied = "Read messages to the management user that have not been replied to"
     users_with_open_tasks = "Users who have open tasks"
     users_with_open_proposals = "Users who have open proposals"
-    users_require_prematching_call = "Users that still require a pre-matching call before matching"
+    users_require_prematching_call_not_booked = "Users that still require a pre-matching call before matching, but haven't booked one yet"
     users_with_booked_prematching_call = "Users that have booked a pre-matching call"
+    users_with_booked_prematching_call_exculde_had = "Users that have booked a pre-matching call but have not had one yet"
     
     def as_dict():
         return {i.name: i.value for i in QuerySetEnum}
@@ -469,7 +470,10 @@ def users_with_booked_prematching_call():
     ).order_by('-date_joined')
 
 
-def users_require_prematching_call():
+def users_require_prematching_call_not_booked():
+    from management.models.pre_matching_appointment import PreMatchingAppointment
+
+    user_with_prematching_booked = PreMatchingAppointment.objects.all().values("user")
 
     return User.objects.filter(
         state__user_form_state=State.UserFormStateChoices.FILLED,
@@ -477,6 +481,8 @@ def users_require_prematching_call():
         state__matching_state=State.MatchingStateChoices.SEARCHING,
         state__had_prematching_call=False,
         state__unresponsive=False
+    ).exclude(
+        pk__in=user_with_prematching_booked
     ).order_by('-date_joined')
 
     
@@ -503,7 +509,7 @@ def get_QUERY_SETS():
         QuerySetEnum.read_message_but_not_replied.name: get_user_with_message_to_admin_that_are_read_but_not_replied(),
         QuerySetEnum.users_with_open_tasks.name: users_with_open_tasks(),
         QuerySetEnum.users_with_open_proposals.name: users_with_open_proposals(),
-        QuerySetEnum.users_require_prematching_call.name: users_require_prematching_call(),
+        QuerySetEnum.users_require_prematching_call_not_booked.name: users_require_prematching_call_not_booked(),
         QuerySetEnum.users_with_booked_prematching_call.name: users_with_booked_prematching_call(),
     }
 
