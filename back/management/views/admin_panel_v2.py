@@ -328,7 +328,11 @@ class QuerySetEnum(Enum):
     users_with_booked_prematching_call_exculde_had = "Users that have booked a pre-matching call but have not had one yet"
     
     def as_dict():
-        return {i.name: i.value for i in QuerySetEnum}
+        # TODO: atm we augment this with the query set for `user_journey:` e.g.: `user_journey:email_verified`
+        from management.user_journey import PerUserBuckets
+        bucket_dict = {i.query: f"User Journey V2: {i.name}" for i in PerUserBuckets.BUCKETS}
+        base_query_set = {i.name: i.value for i in QuerySetEnum}
+        return {**base_query_set, **bucket_dict}
     
 def three_weeks_ago():
     return datetime.now() - timedelta(weeks=3)
