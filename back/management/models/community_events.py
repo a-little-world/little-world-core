@@ -13,6 +13,7 @@ class CommunityEvent(models.Model):
     description = models.CharField(max_length=255, null=False, blank=False)
 
     time = models.DateTimeField(null=False, blank=False)
+    end_time = models.DateTimeField(null=True, blank=True)
 
     link = models.CharField(default="", max_length=255)
 
@@ -42,5 +43,5 @@ class CommunityEventSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CommunityEvent
-        fields = ['title', 'description', 'time',
+        fields = ['title', 'description', 'time', 'end_time',
                   'frequency', 'options', 'link', 'id']
