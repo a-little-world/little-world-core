@@ -18,6 +18,7 @@ class CommunityEvent(models.Model):
     link = models.CharField(default="", max_length=255)
 
     class EventFrequencyChoices(models.TextChoices):
+        MONTHLY = "monthly", get_translation("model.community_event.frequency.monthly")
         WEEKLY = "weekly", get_translation("model.community_event.frequency.weekly")
         ONCE = "once", get_translation("model.community_event.frequency.once")
 

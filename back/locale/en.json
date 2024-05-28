@@ -216,6 +216,7 @@
     "notification.title": "Title",
     "notification.no_description": "No Description",
     "models.state.matching_state.idle": "Idle",
+    "model.community_event.frequency.monthly": "Monthly",
     "model.community_event.frequency.weekly": "Weekly",
     "model.community_event.frequency.once": "Once"
 }
