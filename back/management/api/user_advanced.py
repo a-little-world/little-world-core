@@ -9,21 +9,67 @@ from management.views.admin_panel_v2 import DetailedPaginationMixin, IsAdminOrMa
 from rest_framework import serializers
 from drf_spectacular.openapi import AutoSchema
 from drf_spectacular.utils import extend_schema_view, extend_schema
+from dataclasses import dataclass
 
 class AdvancedUserSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
         fields = ['hash', 'id', 'email', 'date_joined', 'last_login']
+        
+
+@dataclass
+class FilterListEntry:
+    name: str
+    description: str
+    queryset = None
+    
+    def to_dict(self):
+        return {
+            "name": self.name,
+            "description": self.description,
+        }
+        
+FILTER_LISTS = [
+   FilterListEntry(
+       "all",
+       "All users that are managed by this matching user ( all users you have access too )"
+   ),
+]
 
 class UserFilter(filters.FilterSet):
     
-    profile__user_type = filters.ChoiceFilter(field_name='profile__user_type', choices=Profile.TypeChoices.choices)
-    state__email_authenticated = filters.BooleanFilter(field_name='state__email_authenticated')
-    state__had_prematching_call = filters.BooleanFilter(field_name='state__had_prematching_call')
-    joined_between = filters.DateFromToRangeFilter(field_name='date_joined')
-    loggedin_between = filters.DateFromToRangeFilter(field_name='last_login')
-    state__company = filters.ChoiceFilter(field_name='state__company', choices=[("null", None), ("accenture", "accenture")])
+    profile__user_type = filters.ChoiceFilter(
+        field_name='profile__user_type', 
+        choices=Profile.TypeChoices.choices, 
+        help_text='Filter for learner or volunteers'
+    )
+
+    state__email_authenticated = filters.BooleanFilter(
+        field_name='state__email_authenticated',
+        help_text='Filter for users that have authenticated their email'
+    )
+
+    state__had_prematching_call = filters.BooleanFilter(
+        field_name='state__had_prematching_call',
+        help_text='Filter for users that had a prematching call'
+    )
+
+    joined_between = filters.DateFromToRangeFilter(
+        field_name='date_joined',
+        help_text='Range filter for when the user joined the platform, accepts string datetimes'
+    )
+
+    loggedin_between = filters.DateFromToRangeFilter(
+        field_name='last_login',
+        help_text='Range filter for when the user last logged in, accepts string datetimes'
+    )
+
+    state__company = filters.ChoiceFilter(
+        field_name='state__company', 
+        choices=[("null", None), ("accenture", "accenture")],
+        help_text='Filter for users that are part of a company'
+    )
 
     class Meta:
         model = User
@@ -36,6 +82,7 @@ class DynamicFilterSerializer(serializers.Serializer):
     name = serializers.CharField()
     nullable = serializers.BooleanField(default=False)
     value_type = serializers.CharField(required=False)
+    description = serializers.CharField(required=False)
     choices = serializers.ListField(child=serializers.DictField(), required=False)
     lookup_expr = serializers.ListField(child=serializers.CharField(), required=False)
 
@@ -71,6 +118,8 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
                     "value": choice[0]
                 } for choice in choices]
 
+            if 'help_text' in filter_instance.extra:
+                filter_data['description'] = filter_instance.extra['help_text']
             
             if include_lookup_expr:
                 if isinstance(filter_instance, filters.RangeFilter):
@@ -98,7 +147,8 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
                     filter_data['nullable'] = filter_schema['schema'].get('nullable', False)
                     break
         return Response({
-            "filters": _filters
+            "filters": _filters,
+            "lists": [entry.to_dict() for entry in FILTER_LISTS]
         })
 
     def get_object(self):

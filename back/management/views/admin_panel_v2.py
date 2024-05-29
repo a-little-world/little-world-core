@@ -936,12 +936,9 @@ def admin_panel_v2(request, menu="root"):
     
     if menu.startswith("users"):
 
-        return render(request, "admin_pannel_v2_frontend.html", { "data" : json.dumps({
-            "query_sets": QuerySetEnum.as_dict(),
-            "user_lists": {},
-        },cls=DjangoJSONEncoder, default=lambda o: str(o))})
+        return render(request, "admin_pannel_v3_frontend.html")
     else:
-        return render(request, "admin_pannel_v2_frontend.html", { "data" : json.dumps(default_admin_data(request.user), cls=DjangoJSONEncoder, default=lambda o: str(o))})
+        return render(request, "admin_pannel_v3_frontend.html")
     
 
 @api_view(['GET', 'POST'])
