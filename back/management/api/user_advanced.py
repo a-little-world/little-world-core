@@ -12,6 +12,10 @@ from drf_spectacular.utils import extend_schema_view, extend_schema
 from dataclasses import dataclass
 from drf_spectacular.utils import extend_schema, inline_serializer
 from management.api.user_advanced_filter_lists import FILTER_LISTS, FilterListEntry
+from management.api.user_data import get_paginated, serialize_proposed_matches, AdvancedUserMatchSerializer
+from management.models.matches import Match
+from management.models.unconfirmed_matches import UnconfirmedMatch
+from management.models.state import State, StateSerializer
 
 class AdvancedUserSerializer(serializers.ModelSerializer):
     
@@ -22,6 +26,30 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation['profile'] = MinimalProfileSerializer(instance.profile).data
+        
+        items_per_page = 5
+        user = instance
+        confirmed_matches = get_paginated(Match.get_confirmed_matches(user), items_per_page, 1)
+        confirmed_matches["items"] = AdvancedUserMatchSerializer(confirmed_matches["items"], many=True, context={'user': user}).data
+
+        unconfirmed_matches = get_paginated(Match.get_unconfirmed_matches(user), items_per_page, 1)
+        unconfirmed_matches["items"] = AdvancedUserMatchSerializer(unconfirmed_matches["items"], many=True, context={'user': user}).data
+
+        support_matches = get_paginated(Match.get_support_matches(user), items_per_page, 1)
+        support_matches["items"] = AdvancedUserMatchSerializer(support_matches["items"], many=True, context={'user': user}).data
+
+        proposed_matches = get_paginated(UnconfirmedMatch.get_open_proposals_learner(user), items_per_page, 1)
+        proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
+        
+        representation['matches'] = {
+            "confirmed": confirmed_matches,
+            "unconfirmed": unconfirmed_matches,
+            "support": support_matches,
+            "proposed": proposed_matches
+        }
+        
+        representation['state'] = StateSerializer(instance.state).data
+
         return representation
     
 
