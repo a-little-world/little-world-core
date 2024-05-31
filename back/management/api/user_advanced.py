@@ -4,12 +4,14 @@ from rest_framework import viewsets
 from django.urls import path
 from django_filters import rest_framework as filters
 from management.models.user import User
-from management.models.profile import Profile
+from management.models.profile import Profile, MinimalProfileSerializer
 from management.views.admin_panel_v2 import DetailedPaginationMixin, IsAdminOrMatchingUser
 from rest_framework import serializers
 from drf_spectacular.openapi import AutoSchema
 from drf_spectacular.utils import extend_schema_view, extend_schema
 from dataclasses import dataclass
+from drf_spectacular.utils import extend_schema, inline_serializer
+from management.api.user_advanced_filter_lists import FILTER_LISTS, FilterListEntry
 
 class AdvancedUserSerializer(serializers.ModelSerializer):
     
@@ -17,25 +19,11 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['hash', 'id', 'email', 'date_joined', 'last_login']
         
-
-@dataclass
-class FilterListEntry:
-    name: str
-    description: str
-    queryset = None
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation['profile'] = MinimalProfileSerializer(instance.profile).data
+        return representation
     
-    def to_dict(self):
-        return {
-            "name": self.name,
-            "description": self.description,
-        }
-        
-FILTER_LISTS = [
-   FilterListEntry(
-       "all",
-       "All users that are managed by this matching user ( all users you have access too )"
-   ),
-]
 
 class UserFilter(filters.FilterSet):
     
@@ -70,6 +58,20 @@ class UserFilter(filters.FilterSet):
         choices=[("null", None), ("accenture", "accenture")],
         help_text='Filter for users that are part of a company'
     )
+    
+    list = filters.ChoiceFilter(
+        field_name='list',
+        choices=[(entry.name, entry.description) for entry in FILTER_LISTS],
+        method='filter_list',
+        help_text='Filter for users that are part of a list'
+    )
+    
+    def filter_list(self, queryset, name, value):
+        selected_filter = next(filter(lambda entry: entry.name == value, FILTER_LISTS))
+        if selected_filter.queryset:
+            return selected_filter.queryset(queryset)
+        else:
+            return queryset
 
     class Meta:
         model = User
@@ -100,6 +102,13 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     pagination_class = DetailedPaginationMixin
     permission_classes = [IsAdminOrMatchingUser]
     
+    def get_queryset(self):
+        is_staff = self.request.user.is_staff
+        if is_staff:
+            return User.objects.all()
+        else:
+            return User.objects.filter(id__in=self.request.user.state.managed_users.all(), is_active=True)
+        
     @action(detail=False, methods=['get'])
     def get_filter_schema(self, request, include_lookup_expr=False):
         # 1 - retrieve all the filters
