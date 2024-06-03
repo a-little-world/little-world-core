@@ -14,6 +14,7 @@ from drf_spectacular.utils import extend_schema, inline_serializer
 from management.api.user_advanced_filter_lists import FILTER_LISTS, FilterListEntry
 from management.api.user_data import get_paginated, serialize_proposed_matches, AdvancedUserMatchSerializer
 from management.models.unconfirmed_matches import UnconfirmedMatch
+from management.models.profile import MinimalProfileSerializer
 from management.models.state import State, StateSerializer
 from drf_spectacular.generators import SchemaGenerator
 from django.db.models import Q
