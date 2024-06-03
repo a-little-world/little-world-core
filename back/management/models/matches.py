@@ -8,8 +8,6 @@ from management.models import user as user_model, profile
 
 class Match(models.Model):
     
-    ## TODO: ensure no dumplicate entries can exist!
-
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     

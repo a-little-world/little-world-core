@@ -166,3 +166,4 @@ front/admin_panel_frontend.webpack-stats.json
 front/cookie_banner_frontend.webpack-stats.json
 back/media/*
 components-js
+.aider*

@@ -11,7 +11,6 @@ from drf_spectacular.openapi import AutoSchema
 from drf_spectacular.utils import extend_schema_view, extend_schema
 from dataclasses import dataclass
 from drf_spectacular.utils import extend_schema, inline_serializer
-from management.api.user_advanced_filter_lists import FILTER_LISTS, FilterListEntry
 from management.api.user_data import get_paginated, serialize_proposed_matches, AdvancedUserMatchSerializer
 from management.models.unconfirmed_matches import UnconfirmedMatch
 from management.models.profile import MinimalProfileSerializer
@@ -170,7 +169,6 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
                     break
         return Response({
             "filters": _filters,
-            "lists": [entry.to_dict() for entry in FILTER_LISTS]
         })
 
     def get_object(self):
