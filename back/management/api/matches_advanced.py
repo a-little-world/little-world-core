@@ -112,11 +112,15 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
     permission_classes = [IsAdminOrMatchingUser]
     
     def get_queryset(self):
-        is_staff = self.request.user.is_staff
-        if is_staff:
+        user = self.request.user
+        if user.is_staff:
             return Match.objects.all()
+        elif user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+            return Match.objects.filter(
+                Q(user1__in=user.state.managed_users.all()) | Q(user2__in=user.state.managed_users.all())
+            )
         else:
-            return Match.objects.filter(Q(user1=self.request.user) | Q(user2=self.request.user))
+            return Match.objects.filter(Q(user1=user) | Q(user2=user))
         
     @action(detail=False, methods=['get'])
     def get_filter_schema(self, request, include_lookup_expr=False):
