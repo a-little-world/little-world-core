@@ -31,11 +31,13 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
         user2 = User.objects.get(id=instance.user2.id)
         
         representation['user1'] = {
+            'id': user1.id,
             'hash': user1.hash,
             'email': user1.email,
             'profile': MinimalProfileSerializer(user1.profile).data
         }
         representation['user2'] = {
+            'id': user2.id,
             'hash': user2.hash,
             'email': user2.email,
             'profile': MinimalProfileSerializer(user2.profile).data
