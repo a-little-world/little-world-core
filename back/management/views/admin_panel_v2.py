@@ -15,7 +15,7 @@ from rest_framework.response import Response
 
 from chat.models import Chat, Message, ChatSerializer, MessageSerializer
 
-from management.models.unconfirmed_matches import UnconfirmedMatch
+from management.models.unconfirmed_matches import ProposedMatch
 from management.models.scores import TwoUserMatchingScore
 from management.api.scores import score_between_db_update
 from management import controller
@@ -184,7 +184,7 @@ def update_representation(representation, instance):
     support_matches = get_paginated(Match.get_support_matches(user), items_per_page, 1)
     support_matches["items"] = serialize_matches(support_matches["items"], user)
     
-    proposed_matches = get_paginated(UnconfirmedMatch.get_open_proposals(user), items_per_page, 1)
+    proposed_matches = get_paginated(ProposedMatch.get_open_proposals(user), items_per_page, 1)
     proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
     
     representation['matches'] = {
@@ -384,7 +384,7 @@ def users_with_open_proposals():
     # that have open proposals
 
     # First we get all the open proposals
-    open_proposals = UnconfirmedMatch.objects.filter(closed=False)
+    open_proposals = ProposedMatch.objects.filter(closed=False)
     
     # Then we get all the users that have open proposals
     # Basicly wee need all users that are open_proposals[X] .user1 or .user2
@@ -445,7 +445,7 @@ def users_with_open_tasks():
     return users_with_open_tasks
 
 def users_that_are_searching_but_have_no_proposal():
-    unconfirmed_matches = UnconfirmedMatch.objects.filter(closed=False)
+    unconfirmed_matches = ProposedMatch.objects.filter(closed=False)
     
     return User.objects.filter(
         state__user_form_state=State.UserFormStateChoices.FILLED,

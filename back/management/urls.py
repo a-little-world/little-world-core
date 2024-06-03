@@ -20,6 +20,7 @@ from management.api.questions import get_question_cards, archive_card
 from management.api.newsletter_subscribe import public_newsletter_subscribe
 from management.api.user_data import user_data_api
 from management.api.user_advanced import api_urls as user_advanced_api_urls
+from management.api.matches_advanced import api_urls as matches_advanced_api_urls
 
 from rest_framework.routers import DefaultRouter
 from django_rest_passwordreset.views import ResetPasswordValidateTokenViewSet, ResetPasswordConfirmViewSet, \
@@ -49,6 +50,7 @@ api_routes = [
     *slack.api_routes,
     *ai.api_routes,
     *user_advanced_api_urls,
+    *matches_advanced_api_urls,
     # User
     path(_api_url('user_data_v2'), api.user_data.user_data_v2),
 

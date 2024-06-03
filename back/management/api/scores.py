@@ -369,11 +369,11 @@ def calculate_score_between(request):
 def get_users_to_consider(usr=None, consider_only_registered_within_last_x_days=None, exlude_user_ids=[]):
     from django.db.models import Q
     from django.db.models import Exists, OuterRef
-    from management.models.unconfirmed_matches import UnconfirmedMatch
+    from management.models.unconfirmed_matches import ProposedMatch
 
     all_users_to_consider = User.objects.annotate(
         has_open_proposal=Exists(
-            UnconfirmedMatch.objects.filter(
+            ProposedMatch.objects.filter(
                 Q(user1=OuterRef('pk')) | Q(user2=OuterRef('pk')), closed=False
             )
         )

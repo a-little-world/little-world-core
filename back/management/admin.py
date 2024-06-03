@@ -205,8 +205,8 @@ class UserAdmin(HijackUserAdminMixin, DjangoUserAdmin):
     ordering = ('email', 'is_staff')
     list_filter = (UserFormFilledFilter, UserCategory, 'is_staff',)
 
-@admin.register(models.unconfirmed_matches.UnconfirmedMatch)
-class UnconfirmedMatchAdmin(admin.ModelAdmin):
+@admin.register(models.unconfirmed_matches.ProposedMatch)
+class ProposedMatchAdmin(admin.ModelAdmin):
     list_display = ("hash", "user1", "user2", "closed", "expires_at")
 
 @admin.register(Session)

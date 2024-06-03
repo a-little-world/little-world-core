@@ -16,7 +16,7 @@ def three_days_from_now():
     return timezone.now() + timedelta(days=7)
 
 
-class UnconfirmedMatch(models.Model):
+class ProposedMatch(models.Model):
     """ One object stored for every jet unconfirmed match"""
 
     hash = models.UUIDField(
@@ -205,11 +205,11 @@ class UnconfirmedMatch(models.Model):
     def save(self, *args, **kwargs):
         if self._state.adding is True:
             self.learner_when_created = self.user1 if self.user1.profile.user_type == Profile.TypeChoices.LEARNER else self.user2
-        super(UnconfirmedMatch, self).save(*args, **kwargs)
+        super(ProposedMatch, self).save(*args, **kwargs)
 
         
 # We automaticly send the new-match proposal mail when a new proposal is created
-@receiver(models.signals.post_save, sender=UnconfirmedMatch)
+@receiver(models.signals.post_save, sender=ProposedMatch)
 def execute_after_save(sender, instance, created, *args, **kwargs):
     if created:
         # Send the new match proposal email
@@ -222,7 +222,7 @@ def get_unconfirmed_matches(user):
     if user.profile.user_type == Profile.TypeChoices.VOLUNTEER:
         return []
 
-    unconfirmed = list(UnconfirmedMatch.objects.filter(
+    unconfirmed = list(ProposedMatch.objects.filter(
         Q(user1=user, learner_when_created=user) | Q(user2=user, learner_when_created=user)).filter(closed=False))
 
     # Remove expired matches & get the shared data

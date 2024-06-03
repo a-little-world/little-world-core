@@ -8,7 +8,7 @@ from django.utils import translation
 from django.db.models import Q
 from django.db import transaction
 from typing import Dict, Callable
-from management.models.unconfirmed_matches import UnconfirmedMatch
+from management.models.unconfirmed_matches import ProposedMatch
 from management.models.backend_state import BackendState
 from management.models.past_matches import PastMatch
 from management.models.matches import Match
@@ -306,8 +306,8 @@ def match_users(
     matching = Match.get_match(usr1, usr2)
     if matching.exists():
         # Before we raise the exception we check for 'dangeling' matches 
-        from management.models.unconfirmed_matches import UnconfirmedMatch
-        dangeling = UnconfirmedMatch.get_proposal_between(usr1, usr2)
+        from management.models.unconfirmed_matches import ProposedMatch
+        dangeling = ProposedMatch.get_proposal_between(usr1, usr2)
         if dangeling.exists():
             dangeling.delete()
             raise Exception("Users are already matched, but dangeling proposals found, DELETED!")
@@ -403,7 +403,7 @@ def create_user_matching_proposal(
     TODO or is it the learner im still not sure on this?
     """
     u1, u2 = list(users)
-    proposal = UnconfirmedMatch.objects.create(
+    proposal = ProposedMatch.objects.create(
         user1=u1,
         user2=u2,
         # When this is faulse the create signal will not send an email!

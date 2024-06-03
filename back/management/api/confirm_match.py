@@ -13,7 +13,7 @@ from django.utils.translation import get_language
 from rest_framework.response import Response
 from rest_framework_dataclasses.serializers import DataclassSerializer
 from dataclasses import dataclass
-from management.models.unconfirmed_matches import UnconfirmedMatch
+from management.models.unconfirmed_matches import ProposedMatch
 from rest_framework import serializers
 from management.controller import match_users
 from translations import get_translation
@@ -43,7 +43,7 @@ def confrim_match(request):
 
     data = serializer.save()
 
-    unconfirmed_match = UnconfirmedMatch.objects.filter(
+    unconfirmed_match = ProposedMatch.objects.filter(
         hash=data.unconfirmed_match_hash, closed=False)
 
     # First check if that unconfirmed match exists

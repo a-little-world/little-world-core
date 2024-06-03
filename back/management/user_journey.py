@@ -42,7 +42,7 @@ Per-User-States:
         1) 'Searching' ( User that is searching and has at least one Match )
         - (b): [after XX days] sorry that we dindn't find you a match yet [TODO]
         2) 'Pre Matching' user has `Pre-Matching` Match ( Volunteers cannot be matched while the Learner hasn't confirmed the match )
-            --> based of the existend of the 'UnconfirmedMatch' model
+            --> based of the existend of the 'ProposedMatch' model
         3) 'Match Takeoff' `Kickoff-Matching` Match.
         4) 'Active Match': User has matchi in 'Ongoing' or 'Free Play'
     
