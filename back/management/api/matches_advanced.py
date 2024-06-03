@@ -22,12 +22,28 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Match
-        fields = ['uuid', 'created_at', 'updated_at', 'active', 'confirmed', 'user1', 'user2']
+        fields = ['uuid', 'created_at', 'updated_at', 'active', 'confirmed', 'user1', 'user2', 'state']
         
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation['user1'] = User.objects.get(id=instance.user1.id).email
-        representation['user2'] = User.objects.get(id=instance.user2.id).email
+        user1 = User.objects.get(id=instance.user1.id)
+        user2 = User.objects.get(id=instance.user2.id)
+        
+        representation['user1'] = {
+            'hash': user1.hash,
+            'email': user1.email,
+            'profile': MinimalProfileSerializer(user1.profile).data
+        }
+        representation['user2'] = {
+            'hash': user2.hash,
+            'email': user2.email,
+            'profile': MinimalProfileSerializer(user2.profile).data
+        }
+        
+        if instance.confirmed:
+            representation['state'] = 'confirmed'
+        else:
+            representation['state'] = 'unconfirmed'
         return representation
 
 class MatchFilter(filters.FilterSet):
