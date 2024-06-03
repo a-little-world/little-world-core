@@ -22,7 +22,7 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Match
-        fields = ['uuid', 'created_at', 'updated_at', 'active', 'confirmed', 'user1', 'user2']
+        fields = ['uuid', 'created_at', 'updated_at', 'active', 'confirmed', 'user1', 'user2', 'status']
         
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -42,10 +42,14 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
             'profile': MinimalProfileSerializer(user2.profile).data
         }
         
-        if instance.confirmed:
-            representation['state'] = 'confirmed'
+        if isinstance(instance, ProposedMatch):
+            representation['status'] = 'proposed'
+        elif instance.confirmed:
+            representation['status'] = 'confirmed'
+        elif instance.support_matching:
+            representation['status'] = 'support'
         else:
-            representation['state'] = 'unconfirmed'
+            representation['status'] = 'unconfirmed'
         return representation
 
 class MatchFilter(filters.FilterSet):
@@ -113,13 +117,16 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.is_staff:
-            return Match.objects.all()
+            matches = Match.objects.all()
+            proposed_matches = ProposedMatch.objects.all()
+            return list(matches) + list(proposed_matches)
         elif user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
-            return Match.objects.filter(
+            matches = Match.objects.filter(
                 Q(user1__in=user.state.managed_users.all()) | Q(user2__in=user.state.managed_users.all())
             )
         else:
-            return Match.objects.filter(Q(user1=user) | Q(user2=user))
+            proposed_matches = ProposedMatch.objects.filter(Q(user1=user) | Q(user2=user))
+            return list(matches) + list(proposed_matches)
         
     @action(detail=False, methods=['get'])
     def get_filter_schema(self, request, include_lookup_expr=False):
