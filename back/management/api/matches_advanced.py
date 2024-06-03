@@ -15,6 +15,8 @@ from management.api.user_advanced_filter_lists import FILTER_LISTS, FilterListEn
 from management.api.user_data import get_paginated, serialize_proposed_matches, AdvancedUserMatchSerializer
 from management.models.unconfirmed_matches import UnconfirmedMatch
 from management.models.state import State, StateSerializer
+from drf_spectacular.generators import SchemaGenerator
+from django.db.models import Q
 
 class AdvancedMatchSerializer(serializers.ModelSerializer):
     
@@ -27,7 +29,6 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
         representation['user1'] = User.objects.get(id=instance.user1.id).email
         representation['user2'] = User.objects.get(id=instance.user2.id).email
         return representation
-    
 
 class MatchFilter(filters.FilterSet):
     
@@ -67,7 +68,6 @@ class MatchFilter(filters.FilterSet):
         model = Match
         fields = ['uuid', 'created_at', 'updated_at', 'active', 'confirmed', 'user1', 'user2']
         
-from drf_spectacular.generators import SchemaGenerator
 
 class DynamicFilterSerializer(serializers.Serializer):
     filter_type = serializers.CharField()
