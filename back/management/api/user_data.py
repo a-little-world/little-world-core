@@ -131,6 +131,8 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
                 **CensoredProfileSerializer(partner.profile).data
             },
         }
+        if "status" in self.context:
+            representation["status"] = self.context["status"]
         return representation
 
 def serialize_proposed_matches(matching_proposals, user):
@@ -143,7 +145,8 @@ def serialize_proposed_matches(matching_proposals, user):
             "partner": {
                 "id": str(partner.hash),
                 **ProposalProfileSerializer(partner.profile).data
-            }
+            },
+            "status": "proposed",
         })
 
     return serialized

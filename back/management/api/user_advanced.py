@@ -30,13 +30,31 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
         items_per_page = 5
         user = instance
         confirmed_matches = get_paginated(Match.get_confirmed_matches(user), items_per_page, 1)
-        confirmed_matches["items"] = AdvancedUserMatchSerializer(confirmed_matches["items"], many=True, context={'user': user}).data
+        confirmed_matches["items"] = AdvancedUserMatchSerializer(
+            confirmed_matches["items"], 
+            many=True, 
+            context={
+                'user': user,
+                'status': 'confirmed'
+        }).data
 
         unconfirmed_matches = get_paginated(Match.get_unconfirmed_matches(user), items_per_page, 1)
-        unconfirmed_matches["items"] = AdvancedUserMatchSerializer(unconfirmed_matches["items"], many=True, context={'user': user}).data
+        unconfirmed_matches["items"] = AdvancedUserMatchSerializer(
+            unconfirmed_matches["items"], 
+            many=True, 
+            context={
+                'user': user,
+                'status': 'unconfirmed'
+        }).data
 
         support_matches = get_paginated(Match.get_support_matches(user), items_per_page, 1)
-        support_matches["items"] = AdvancedUserMatchSerializer(support_matches["items"], many=True, context={'user': user}).data
+        support_matches["items"] = AdvancedUserMatchSerializer(
+            support_matches["items"], 
+            many=True, 
+            context={
+                'user': user,
+                'status': 'support'
+        }).data
 
         proposed_matches = get_paginated(ProposedMatch.get_open_proposals_learner(user), items_per_page, 1)
         proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
