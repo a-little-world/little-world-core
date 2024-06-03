@@ -12,7 +12,7 @@ from drf_spectacular.utils import extend_schema_view, extend_schema
 from dataclasses import dataclass
 from drf_spectacular.utils import extend_schema, inline_serializer
 from management.api.user_data import get_paginated, serialize_proposed_matches, AdvancedUserMatchSerializer
-from management.models.unconfirmed_matches import UnconfirmedMatch
+from management.models.unconfirmed_matches import ProposedMatch
 from management.models.profile import MinimalProfileSerializer
 from management.models.state import State, StateSerializer
 from drf_spectacular.generators import SchemaGenerator

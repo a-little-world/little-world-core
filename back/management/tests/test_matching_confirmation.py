@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.test import APIRequestFactory, force_authenticate
 from management.random_test_users import create_abunch_of_users, modify_profile_to_match
 from management.models.profile import Profile
-from management.models.unconfirmed_matches import UnconfirmedMatch
+from management.models.unconfirmed_matches import ProposedMatch
 from management.models.matches import Match
 from management.models.unconfirmed_matches import get_unconfirmed_matches
 from management import api
@@ -127,7 +127,7 @@ class MatchConfirmationTests(TestCase):
         assert not matching.exists(), "The match must not exist"
         
         # the unconfirmed match must be closed now
-        unconf_match_obj = UnconfirmedMatch.objects.get(hash=unconf_hash)
+        unconf_match_obj = ProposedMatch.objects.get(hash=unconf_hash)
         assert unconf_match_obj.closed, "The unconfirmed match must be closed now"
 
     def test_making_accept_pre_matching(self):
@@ -163,5 +163,5 @@ class MatchConfirmationTests(TestCase):
         assert Match.get_match(u1, u2).exists(), "The match must exist"
         
         # the unconfirmed match must be closed now
-        unconf_match_obj = UnconfirmedMatch.objects.get(hash=unconf_hash)
+        unconf_match_obj = ProposedMatch.objects.get(hash=unconf_hash)
         assert unconf_match_obj.closed, "The unconfirmed match must be closed now"

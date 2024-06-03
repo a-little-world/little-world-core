@@ -195,8 +195,8 @@ def check_prematch_email_reminders_and_expirations():
     Reoccuring task to check for email reminders that should be send out
     also check if there are expired unconfirmed_matches
     """
-    from management.models.unconfirmed_matches import UnconfirmedMatch
-    all_unclosed_unconfirmed = UnconfirmedMatch.objects.filter(closed=False)
+    from management.models.unconfirmed_matches import ProposedMatch
+    all_unclosed_unconfirmed = ProposedMatch.objects.filter(closed=False)
     
     # unconfirmed matches reminders
     for unclosed in all_unclosed_unconfirmed:

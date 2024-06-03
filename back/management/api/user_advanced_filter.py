@@ -1,7 +1,7 @@
 from datetime import timedelta
 from django.utils import timezone
 from django.db.models import Q, Subquery, OuterRef, Count, F
-from management.models.unconfirmed_matches import UnconfirmedMatch
+from management.models.unconfirmed_matches import ProposedMatch
 from management.models.state import State
 from management.models.user import User
 from management.models.scores import TwoUserMatchingScore
@@ -18,7 +18,7 @@ def all_users(qs=User.objects.all()):
     return qs.order_by('-date_joined')
 
 def users_that_are_searching_but_have_no_proposal(qs=User.objects.all()):
-    unconfirmed_matches = UnconfirmedMatch.objects.filter(closed=False)
+    unconfirmed_matches = ProposedMatch.objects.filter(closed=False)
     return qs.filter(
         state__user_form_state=State.UserFormStateChoices.FILLED,
         state__email_authenticated=True,
@@ -94,7 +94,7 @@ def get_user_with_message_to_admin_that_are_read_but_not_replied(qs=User.objects
     return users_in_dialog_with_management_user
 
 def users_with_open_proposals(qs=User.objects.all()):
-    open_proposals = UnconfirmedMatch.objects.filter(closed=False)
+    open_proposals = ProposedMatch.objects.filter(closed=False)
     return qs.filter(
         Q(pk__in=open_proposals.values("user1")) | 
         Q(pk__in=open_proposals.values("user2"))
