@@ -23,7 +23,7 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Match
-        fields = ['uuid', 'created_at', 'updated_at', 'active', 'confirmed', 'user1', 'user2', 'state']
+        fields = ['uuid', 'created_at', 'updated_at', 'active', 'confirmed', 'user1', 'user2']
         
     def to_representation(self, instance):
         representation = super().to_representation(instance)
