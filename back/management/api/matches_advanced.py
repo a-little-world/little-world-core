@@ -7,14 +7,10 @@ from management.models.matches import Match
 from management.models.user import User
 from management.views.admin_panel_v2 import DetailedPaginationMixin, IsAdminOrMatchingUser
 from rest_framework import serializers
-from drf_spectacular.openapi import AutoSchema
 from drf_spectacular.utils import extend_schema_view, extend_schema
-from dataclasses import dataclass
-from drf_spectacular.utils import extend_schema, inline_serializer
-from management.api.user_data import get_paginated, serialize_proposed_matches, AdvancedUserMatchSerializer
-from management.models.unconfirmed_matches import ProposedMatch
+from drf_spectacular.utils import extend_schema
 from management.models.profile import MinimalProfileSerializer
-from management.models.state import State, StateSerializer
+from management.models.state import State
 from drf_spectacular.generators import SchemaGenerator
 from django.db.models import Q
 
@@ -42,9 +38,7 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
             'profile': MinimalProfileSerializer(user2.profile).data
         }
         
-        if isinstance(instance, ProposedMatch):
-            representation['status'] = 'proposed'
-        elif instance.confirmed:
+        if instance.confirmed:
             representation['status'] = 'confirmed'
         elif instance.support_matching:
             representation['status'] = 'support'
@@ -117,16 +111,11 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.is_staff:
-            matches = Match.objects.all()
-            proposed_matches = ProposedMatch.objects.all()
-            return list(matches) + list(proposed_matches)
+            return Match.objects.all()
         elif user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
-            matches = Match.objects.filter(
+            return Match.objects.filter(
                 Q(user1__in=user.state.managed_users.all()) | Q(user2__in=user.state.managed_users.all())
             )
-        else:
-            proposed_matches = ProposedMatch.objects.filter(Q(user1=user) | Q(user2=user))
-            return list(matches) + list(proposed_matches)
         
     @action(detail=False, methods=['get'])
     def get_filter_schema(self, request, include_lookup_expr=False):
