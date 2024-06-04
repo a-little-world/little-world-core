@@ -59,7 +59,7 @@ def booked_onboarding_call(qs=User.objects.all()):
         state__user_form_state=State.UserFormStateChoices.FILLED,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=True,
+        state__had_prematching_call=False, # TODO: check if this is correct
     ).annotate(
         num_appointments=Count(
             'prematchingappointment', 

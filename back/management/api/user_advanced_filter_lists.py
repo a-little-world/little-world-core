@@ -45,7 +45,7 @@ class FilterListEntry:
             "description": self.description,
         }
 
-FILTER_LISTS = [
+PANEL_V1_FILTER_LISTS = [
     FilterListEntry(
         "all",
         "All users ordered by date joined!",
@@ -116,6 +116,9 @@ FILTER_LISTS = [
         "Users that have booked a pre-matching call but have not had one yet",
         users_with_booked_prematching_call
     ),
+]
+
+USER_JOURNEY_FILTER_LISTS = [
     FilterListEntry(
         "ujv2_user_created",
         "User Journey V2: User was created, but still has to verify mail, fill form and have a prematching call",
@@ -197,3 +200,5 @@ FILTER_LISTS = [
         gave_up_searching
     )
 ]
+
+FILTER_LISTS = PANEL_V1_FILTER_LISTS + USER_JOURNEY_FILTER_LISTS
