@@ -175,6 +175,8 @@ class State(models.Model):
     
     # If the user is unresponsive this is a flag to exclue him from matching etc
     unresponsive = models.BooleanField(default=False)
+    
+    to_low_german_level = models.BooleanField(default=False)
 
     def has_extra_user_permission(self, permission):
         

@@ -214,10 +214,7 @@ def too_low_german_level(qs=User.objects.all()):
     4) 'Too Low german level': User never active, but was flagged with a 'state.to_low_german_level=True'
     """
     return qs.filter(
-        state__to_low_german_level=True,
-        state__user_form_state=State.UserFormStateChoices.UNFILLED,
-        state__email_authenticated=False,
-        state__had_prematching_call=False
+        state__to_low_german_level=True, # TODO: the flag has to be properly set
     )
 
 def unmatched(qs=User.objects.all()):

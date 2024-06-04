@@ -1,13 +1,8 @@
 from management import api
 from django.urls import path, re_path
-from django.contrib import admin
 from django.conf import settings
-from management.api import user_journey_api
 from management.views import main_frontend, landing_page
 from back.utils import _api_url
-from django.conf.urls import include
-from django.views.generic.base import RedirectView
-from rest_framework import routers
 from management.views.admin_panel_frontend import stats_panel, graph_panel, fetch_graph, user_list_frontend, fetch_list
 from management.views import admin_panel_v2
 from management.views import admin_panel_v2_actions
@@ -204,7 +199,6 @@ view_routes = [
     *admin_panel_v2_actions.action_routes,
     *admin_panel_emails.email_view_routes,
     *admin_panel_devkit.devkit_urls,
-    *user_journey_api.api_routes,
 ]
 
 
