@@ -179,12 +179,14 @@ def contact_stopped(qs=Match.objects.all(), stop_x_days_before_desired=21, desir
         active=True,
         confirmed=True,
         created_at__gt=days_ago(DESIRED_MATCH_DURATION_WEEKS * 7),
-        updated_at__lt=days_ago(stop_x_days_before_desired)
     ).annotate(
         u1_messages=Count('user1__message_sender', filter=Q(message__sender=F('user1'))),
         u2_messages=Count('user2__message_sender', filter=Q(message__sender=F('user2'))),
         mutual_video_calls=Count('livekitsession', filter=Q(livekitsession__both_have_been_active=True))
     ).filter(
         Q(u1_messages__gte=desired_x_messages) & Q(u2_messages__gte=desired_x_messages) &
-        Q(mutual_video_calls__gte=desired_x_video_calls)
+        Q(mutual_video_calls__gte=desired_x_video_calls) &
+        (Q(user1__message_sender__created__lt=days_ago(stop_x_days_before_desired)) | 
+         Q(user2__message_sender__created__lt=days_ago(stop_x_days_before_desired)) | 
+         Q(livekitsession__end_time__lt=days_ago(stop_x_days_before_desired)))
     )
