@@ -1,6 +1,6 @@
 from datetime import timedelta
 from django.utils import timezone
-from django.db.models import Q, Count
+from django.db.models import Q, Count, F
 from management.models.matches import Match
 from video.models import LivekitSession
 from chat.models import Message
@@ -38,7 +38,7 @@ def match_one_user_viewed(qs=Match.objects.all()):
 def match_confirmed_no_contact(qs=Match.objects.all()):
     """
     3. Match Confirmed No Contact
-    Filters matches that are active, confirmed by both users, no unmatch reports, and neither user has sent messages or participated in video calls in the last 7 days.
+    Filters matches that are active, confirmed by both users, no unmatch reports, and neither user has sent messages or participated in video calls at all.
     """
     return qs.filter(
         active=True,
@@ -47,8 +47,8 @@ def match_confirmed_no_contact(qs=Match.objects.all()):
         created_at__lt=days_ago(NO_CONTACT_DAYS),
     ).exclude(
         Q(user1__u1_livekit_session__is_active=True) | Q(user2__u2_livekit_session__is_active=True) |
-        Q(user1__message_sender__created__gte=days_ago(NO_CONTACT_DAYS)) | # TODO: no message should be send between them at all
-        Q(user2__message_sender__created__gte=days_ago(NO_CONTACT_DAYS))
+        Q(user1__message_sender__isnull=False) | # No message should be sent between them at all
+        Q(user2__message_sender__isnull=False)
     )
 
 def match_confirmed_single_party_contact(qs=Match.objects.all()):
@@ -60,7 +60,7 @@ def match_confirmed_single_party_contact(qs=Match.objects.all()):
         active=True,
         confirmed=True,
     ).annotate(
-        u1_messages=Count('user1__message_sender', filter=Q(user1__message_sender__recipient=F('user2'))), # TODO: think you are missing an import here
+        u1_messages=Count('user1__message_sender', filter=Q(user1__message_sender__recipient=F('user2'))),
         u2_messages=Count('user2__message_sender', filter=Q(user2__message_sender__recipient=F('user1')))
     ).filter(
         Q(report_unmatch__len=1) | Q(u1_messages=0) | Q(u2_messages=0)
@@ -90,8 +90,8 @@ def match_ongoing(qs=Match.objects.all()):
         confirmed=True,
         created_at__gt=days_ago(DESIRED_MATCH_DURATION_WEEKS * 7)
     ).annotate(
-        recent_messages=Count('message', filter=Q(message__created__gte=days_ago(14))), # TODO: use globals
-        recent_video_calls=Count('livekitsession', filter=Q(livekitsession__end_time__gte=days_ago(14))) # TODO: use globals
+        recent_messages=Count('message', filter=Q(message__created__gte=days_ago(NO_CONTACT_DAYS))),
+        recent_video_calls=Count('livekitsession', filter=Q(livekitsession__end_time__gte=days_ago(NO_CONTACT_DAYS)))
     ).filter(
         Q(recent_messages__gte=1) | Q(recent_video_calls__gte=1)
     )
@@ -100,12 +100,17 @@ def match_free_play(qs=Match.objects.all()):
     """
     7. Free Play
     Filters matches that are over 10 weeks old and still active.
-    # TODO: Alsso ensure the match is still 'ongoing' like above
+    Also ensure the match is still 'ongoing' like above.
     """
     return qs.filter(
         active=True,
         confirmed=True,
         created_at__lt=days_ago(DESIRED_MATCH_DURATION_WEEKS * 7)
+    ).annotate(
+        recent_messages=Count('message', filter=Q(message__created__gte=days_ago(NO_CONTACT_DAYS))),
+        recent_video_calls=Count('livekitsession', filter=Q(livekitsession__end_time__gte=days_ago(NO_CONTACT_DAYS)))
+    ).filter(
+        Q(recent_messages__gte=1) | Q(recent_video_calls__gte=1)
     )
 
 def completed_match(qs=Match.objects.all(), desired_x_messages=2, desired_x_video_calls=2):
