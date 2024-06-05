@@ -13,6 +13,7 @@ from management.models.profile import MinimalProfileSerializer
 from management.models.state import State
 from drf_spectacular.generators import SchemaGenerator
 from django.db.models import Q
+from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS
 
 class AdvancedMatchSerializer(serializers.ModelSerializer):
     
@@ -165,6 +166,7 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
                     break
         return Response({
             "filters": _filters,
+            "lists": [entry.to_dict() for entry in MATCH_JOURNEY_FILTERS]
         })
 
     def get_object(self):
