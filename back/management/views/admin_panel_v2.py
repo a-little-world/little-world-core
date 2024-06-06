@@ -400,7 +400,6 @@ def get_active_match_query_set():
     # Get distinct users from sender and recipient fields in MessageModel
     senders = Message.objects.filter(created__gte=four_weeks_ago).values_list('sender', flat=True).distinct()
 
-
     # Now you have the users who have sent a message within the last 4 weeks
     print(senders)
     return User.objects.filter(pk__in=senders)
@@ -802,7 +801,6 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         consider_within_days = int(request.query_params.get('days_searching', 60))
         
         from management.tasks import matching_algo_v2
-        from management.api.scores import calculate_scores_user
         task = matching_algo_v2.delay(
             pk,
             consider_within_days
