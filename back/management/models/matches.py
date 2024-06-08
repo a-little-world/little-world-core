@@ -70,10 +70,10 @@ class Match(models.Model):
         return self.user1 if (self.user2 == user) else self.user2
     
     def confirm(self, user):
-        if(self.user1 in self.confirmed_by.all() and self.user2 in self.confirmed_by.all()):
-            self.confirmed = True
         if(user not in self.confirmed_by.all()):
             self.confirmed_by.add(user)
+        if((self.user1 in self.confirmed_by.all()) and (self.user2 in self.confirmed_by.all())):
+            self.confirmed = True
         self.save()
     
     @classmethod

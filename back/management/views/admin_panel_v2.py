@@ -329,10 +329,8 @@ class QuerySetEnum(Enum):
     
     def as_dict():
         # TODO: atm we augment this with the query set for `user_journey:` e.g.: `user_journey:email_verified`
-        from management.user_journey import PerUserBuckets
-        bucket_dict = {i.query: f"User Journey V2: {i.name}" for i in PerUserBuckets.BUCKETS}
         base_query_set = {i.name: i.value for i in QuerySetEnum}
-        return {**base_query_set, **bucket_dict}
+        return base_query_set
     
 def three_weeks_ago():
     return datetime.now() - timedelta(weeks=3)
@@ -401,7 +399,6 @@ def get_active_match_query_set():
 
     # Get distinct users from sender and recipient fields in MessageModel
     senders = Message.objects.filter(created__gte=four_weeks_ago).values_list('sender', flat=True).distinct()
-
 
     # Now you have the users who have sent a message within the last 4 weeks
     print(senders)
@@ -804,7 +801,6 @@ class AdvancedAdminUserViewset(AdminViewSetExtensionMixin, viewsets.ModelViewSet
         consider_within_days = int(request.query_params.get('days_searching', 60))
         
         from management.tasks import matching_algo_v2
-        from management.api.scores import calculate_scores_user
         task = matching_algo_v2.delay(
             pk,
             consider_within_days
@@ -936,10 +932,12 @@ def admin_panel_v2(request, menu="root"):
     
     if menu.startswith("users"):
 
-        return render(request, "admin_pannel_v3_frontend.html")
+        return render(request, "admin_pannel_v2_frontend.html", { "data" : json.dumps({
+            "query_sets": QuerySetEnum.as_dict(),
+            "user_lists": {},
+        },cls=DjangoJSONEncoder, default=lambda o: str(o))})
     else:
-        return render(request, "admin_pannel_v3_frontend.html")
-    
+        return render(request, "admin_pannel_v2_frontend.html", { "data" : json.dumps(default_admin_data(request.user), cls=DjangoJSONEncoder, default=lambda o: str(o))})
 
 @api_view(['GET', 'POST'])
 @permission_classes([])

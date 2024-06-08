@@ -61,8 +61,6 @@ from management.models.user import (
     CensoredUserSerializer,
 )
 from management.models.matches import Match
-from management.api.community_events import get_all_comunity_events_serialized
-from management.models.unconfirmed_matches import get_unconfirmed_matches
 
 from management.controller import get_user_models
 
