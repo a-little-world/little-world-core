@@ -359,7 +359,15 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             "msg": "Message marked as read"
         })
         
-    @action(detail=True, methods=['get'])
+    @extend_schema(
+        request=inline_serializer(
+            name='DeleteMessageRequest',
+            fields={
+                'message_id': serializers.CharField()
+            }
+        )
+    )
+    @action(detail=True, methods=['post'])
     def delete_message(self, request, pk=None):
         self.kwargs['pk'] = pk
         obj = self.get_object()
