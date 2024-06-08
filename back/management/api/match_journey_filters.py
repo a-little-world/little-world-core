@@ -14,7 +14,10 @@ DESIRED_MATCH_DURATION_WEEKS = 10
 NO_CONTACT_DAYS = 7
 OLDER_THAN_DAYS = 14
 
-def match_unviewed(qs=Match.objects.all()):
+def match_unviewed(
+        qs=Match.objects.all(),
+        mutal_ghosted_days=7
+    ):
     """
     1. Match Unviewed
     Filters matches that are active and not yet confirmed by both users.
@@ -23,21 +26,30 @@ def match_unviewed(qs=Match.objects.all()):
         support_matching=False, # generally remove support matches if they are 'unviewed' user has prob not finished sign-up
         active=True,
         confirmed=False,
+        created_at__lt=days_ago(mutal_ghosted_days)
     ).distinct()
     
-def match_one_user_viewed(qs=Match.objects.all()):
+def match_one_user_viewed(
+        qs=Match.objects.all(),
+        ghosted_days=7
+):
     """
     2. Match One User Viewed
     Filters matches that are active, not yet confirmed by both users, but confirmed by at least one user.
     """
+    # TODO: means one of the users only has been ghosted, we could notify that one and ask to give him a new match
     return qs.filter(
         support_matching=False,
         active=True,
         confirmed=False,
         confirmed_by__isnull=False,
+        created_at__lt=days_ago(ghosted_days)
     ).distinct()
 
-def match_confirmed_no_contact(qs=Match.objects.all()):
+def match_confirmed_no_contact(
+        qs=Match.objects.all(),
+        mutal_ghosted_days=7
+    ):
     """
     3. Match Confirmed No Contact
     Filters matches that are active, confirmed by both users, no unmatch reports, and neither user has sent messages or participated in video calls at all.
@@ -46,12 +58,18 @@ def match_confirmed_no_contact(qs=Match.objects.all()):
         support_matching=False,
         active=True,
         confirmed=True,
-        report_unmatch__isnull=True,
-        created_at__lt=days_ago(NO_CONTACT_DAYS),
-    ).exclude(
-        Q(user1__u1_livekit_session__is_active=True) | Q(user2__u2_livekit_session__is_active=True) |
-        Q(user1__message_sender__isnull=False) | # No message should be sent between them at all
-        Q(user2__message_sender__isnull=False)
+        created_at__lt=days_ago(mutal_ghosted_days),
+    ).annotate(
+        u1_messages=Count('user1__message_sender', filter=Q(user1__message_sender__recipient=F('user2'))),
+        u2_messages=Count('user2__message_sender', filter=Q(user2__message_sender__recipient=F('user1'))),
+        u1_video_calls=Count('user1__u1_livekit_session', filter=Q(user1__u1_livekit_session__u2=F('user2'))),
+        u2_video_calls=Count('user2__u2_livekit_session', filter=Q(user2__u2_livekit_session__u1=F('user1')))
+    ).annotate(
+        mutual_messages=F('u1_messages') + F('u2_messages'),
+        mutual_video_calls=F('u1_video_calls') + F('u2_video_calls')
+    ).filter(
+        mutual_messages=0,
+        mutual_video_calls=0
     )
 
 def match_confirmed_single_party_contact(qs=Match.objects.all()):
@@ -87,9 +105,13 @@ def match_first_contact(qs=Match.objects.all()):
         mutual_messages=F('u1_messages') + F('u2_messages')
     ).filter(mutual_messages__gte=2)
 
-def match_ongoing(
+def match_ongoing( # TODO: should be a match that is still under the desired match duration
         qs=Match.objects.all(),
         last_interaction_days=14,
+        min_total_mutual_messages=2,
+        min_total_mutual_video_calls=1,
+        min_total_recent_mutual_messages=1,
+        min_total_recent_mutual_video_calls=1
     ):
     """
     6. Match Ongoing
@@ -110,14 +132,15 @@ def match_ongoing(
         both_active_calls=Count('user1__u1_livekit_session', 
             filter=Q(user1__u1_livekit_session__both_have_been_active=True)),
         recent_both_active_calls=Count('user1__u1_livekit_session', 
-            filter=Q(user1__u1_livekit_session__both_have_been_active=True, user1__u1_livekit_session__end_time__gte=days_ago(last_interaction_days)))
+            filter=Q(user1__u1_livekit_session__both_have_been_active=True, user1__u1_livekit_session__end_time__gte=days_ago(last_interaction_days))),
     ).annotate(
         mutual_messages=F('u1_messages') + F('u2_messages'),
         recent_mutual_messages=F('recent_messages_u1') + F('recent_messages_u2'),
     ).filter(
-        # mutual_messages__gte=2,
-        both_active_calls__gte=1,
-        # recent_mutual_messages__gte=1,
+        mutual_messages__gte=min_total_mutual_messages,
+        both_active_calls__gte=min_total_mutual_video_calls,
+        recent_mutual_messages__gte=min_total_recent_mutual_messages,
+        recent_both_active_calls__gte=min_total_recent_mutual_video_calls
     )
 
 def match_free_play(qs=Match.objects.all()):
@@ -137,7 +160,12 @@ def match_free_play(qs=Match.objects.all()):
         Q(recent_messages__gte=1) | Q(recent_video_calls__gte=1)
     )
 
-def completed_match(qs=Match.objects.all(), desired_x_messages=2, desired_x_video_calls=2):
+def completed_match(
+        qs=Match.objects.all(), 
+        min_mutal_messages=2,
+        min_mutal_video_calls=2,
+        min_last_to_first_interaction_days=21,
+    ):
     """
     8. Completed Match
     Filters matches that are over 10 weeks old, inactive, still in contact, and exchanged desired_x_messages and desired_x_video_calls.
@@ -167,7 +195,7 @@ def never_confirmed(qs=Match.objects.all()):
         created_at__lt=days_ago(OLDER_THAN_DAYS)
     )
 
-def no_contact(qs=Match.objects.all()):
+def no_contact(qs=Match.objects.all()): # TODO: re-name mutal ghosted?
     """
     10. No Contact
     Filters matches that are confirmed but no contact and older than a specified number of days.
@@ -182,7 +210,7 @@ def no_contact(qs=Match.objects.all()):
         Q(user2__message_sender__created__gte=days_ago(OLDER_THAN_DAYS))
     )
 
-def user_ghosted(qs=Match.objects.all()):
+def user_ghosted(qs=Match.objects.all()): # TODO: one of the has been ghosted
     """
     11. User Ghosted
     Filters matches that are confirmed, have a single party contact, and are older than a specified number of days.
