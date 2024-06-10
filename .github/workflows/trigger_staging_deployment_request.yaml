@@ -20,7 +20,7 @@ jobs:
     - name: Request run
       id: request_run
       env:
-        DEPLOYMENT_NAME: staging
+        DEPLOYMENT_NAME: userformv2
         COMMIT_REF: ${{ github.sha }}
         MESSAGE: "Requested deployment by ${{ github.actor }}"
       run: |
