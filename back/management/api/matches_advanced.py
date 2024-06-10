@@ -13,7 +13,7 @@ from management.models.state import State
 from drf_spectacular.generators import SchemaGenerator
 from django.db.models import Q
 from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS
-from utils_advanced import filterset_schema_dict
+from management.api.utils_advanced import filterset_schema_dict
 from management.controller import unmatch_users
 
 class AdvancedMatchSerializer(serializers.ModelSerializer):
