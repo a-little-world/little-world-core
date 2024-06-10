@@ -129,6 +129,10 @@ class MessageSerializer(serializers.ModelSerializer):
         
         if sender_staff:
             representation['parsable'] = True
+            
+        censor_text = self.context.get('censor_text', False)
+        if censor_text:
+            representation['text'] = "Message censored"
         
         return representation
     
