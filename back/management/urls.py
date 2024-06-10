@@ -3,7 +3,6 @@ from django.urls import path, re_path
 from django.conf import settings
 from management.views import main_frontend, landing_page
 from back.utils import _api_url
-from management.views.admin_panel_frontend import stats_panel, graph_panel, fetch_graph, user_list_frontend, fetch_list
 from management.views import admin_panel_devkit
 from management.views import admin_panel_emails
 from management.views import matching_panel
@@ -108,8 +107,6 @@ api_routes = [
     path(_api_url('user/match/confirm_deny'),
          api.confirm_match.confrim_match),
     # Admin
-    path(_api_url('graph/get', admin=True), fetch_graph),
-    path(_api_url('user_list/get', admin=True), fetch_list),
 
     path(_api_url('user/match', admin=True),
          api.matches.make_match),
@@ -145,10 +142,6 @@ view_routes = [
     path(_api_url('delete_all_matching_scores', admin=True), delete_all_matching_scores),
     path(_api_url('top_scores', admin=True), list_top_scores),
 
-    path(f"manage/", user_list_frontend, name="management_panel"),
-    path(f"stats/graph/<str:slug>", graph_panel, name="graph_dashboard"),
-    path(f"stats/<str:regrouped_by>", stats_panel, name="stats_dashboard"),
-    
     path("info_card_debug/", main_frontend.info_card, name="info_card"),
 
     path(_api_url('calcom', admin=False), api.calcom.callcom_websocket_callback),

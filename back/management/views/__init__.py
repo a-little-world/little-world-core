@@ -1,9 +1,8 @@
-from . import main_frontend, landing_page, admin_panel_frontend, admin_panel_emails, matching_panel
+from . import main_frontend, landing_page, admin_panel_emails, matching_panel
 
 __all__ = [
     "main_frontend",
     "landing_page",
-    "admin_panel_frontend",
     "admin_panel_emails",
     "matching_panel"
 ]
