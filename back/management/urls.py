@@ -4,7 +4,6 @@ from django.conf import settings
 from management.views import main_frontend, landing_page
 from back.utils import _api_url
 from management.views.admin_panel_frontend import stats_panel, graph_panel, fetch_graph, user_list_frontend, fetch_list
-from management.views import admin_panel_v2
 from management.views import admin_panel_devkit
 from management.views import admin_panel_emails
 from management.views import matching_panel
@@ -154,7 +153,6 @@ view_routes = [
 
     path(_api_url('calcom', admin=False), api.calcom.callcom_websocket_callback),
     
-    *admin_panel_v2.view_urls,
     *matching_panel.view_urls,
     
     *admin_panel_emails.email_view_routes,
