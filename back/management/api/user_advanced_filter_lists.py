@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from management.api.user_advanced_filter import (
     all_users,
-    users_that_are_searching_but_have_no_proposal,
+    needs_matching,
     searching_users,
     users_in_registration,
     active_within_3weeks,
@@ -59,7 +59,7 @@ PANEL_V1_FILTER_LISTS = [
     FilterListEntry(
         "needs_matching",
         "All users in 'searching' without any user that has an open proposal!",
-        users_that_are_searching_but_have_no_proposal
+        needs_matching
     ),
     FilterListEntry(
         "in_registration",

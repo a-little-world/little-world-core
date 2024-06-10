@@ -1,4 +1,6 @@
 from django.contrib.auth.decorators import user_passes_test
+from back.utils import _api_url
+from django.urls import path, re_path
 from django.utils import timezone
 from datetime import timedelta, datetime
 from rest_framework import viewsets, serializers
@@ -442,7 +444,7 @@ def users_with_open_tasks():
     return users_with_open_tasks
 
 def users_that_are_searching_but_have_no_proposal():
-    unconfirmed_matches = ProposedMatch.objects.filter(closed=False)
+    proposed_matches = ProposedMatch.objects.filter(closed=False)
     
     return User.objects.filter(
         state__user_form_state=State.UserFormStateChoices.FILLED,
@@ -450,8 +452,8 @@ def users_that_are_searching_but_have_no_proposal():
         state__had_prematching_call=True, # TODO: filter should only be applied, if require_prematching_call = True
         state__matching_state=State.MatchingStateChoices.SEARCHING
     ).exclude(
-        Q(pk__in=unconfirmed_matches.values("user1")) |
-        Q(pk__in=unconfirmed_matches.values("user2"))
+        Q(pk__in=proposed_matches.values("user1")) |
+        Q(pk__in=proposed_matches.values("user2"))
     ).filter(
         state__unresponsive=False
     ).order_by('-date_joined')
@@ -959,3 +961,47 @@ def admin_panel_v2_login(request):
         return render(request, "admin_pannel_v2_login.html", { 
             "data" : json.dumps({}, cls=DjangoJSONEncoder, default=lambda o: str(o))
         })
+
+view_urls = [
+    # TODO: depricated
+    # path(_api_url('user_advanced/<str:pk>', admin=True), root_user_viewset.as_view({'get': 'retrieve'})),
+    path(_api_url('user_list_query_sets', admin=True), get_user_list_query_sets),
+    path(_api_url('user_list/<str:query_set>', admin=True), get_user_list_users, name="matching_user_list_users"),
+    path(_api_url('user_info/<str:id>', admin=True), user_info_by_id_or_hash),
+
+    path(_api_url('user_advanced/<str:pk>/notes', admin=True),
+         root_user_viewset.as_view({'get': 'notes', 'post': 'notes'})),
+    path(_api_url('user_advanced/<str:pk>/prematching_appointments', admin=True),
+         root_user_viewset.as_view({'get': 'prematching_appointment'})),
+    path(_api_url('user_advanced/<str:pk>/scores', admin=True),
+         root_user_viewset.as_view({'get': 'scores'})),
+
+    path(_api_url('user_advanced/<str:pk>/score_between', admin=True),
+         root_user_viewset.as_view({'post': 'score_between'})),
+
+    path(_api_url('user_advanced/<str:pk>/tasks', admin=True),
+         root_user_viewset.as_view({'get': 'tasks', 'post': 'tasks'})),
+
+    path(_api_url('user_advanced/<str:pk>/sms', admin=True),
+         root_user_viewset.as_view({'get': 'sms'})),
+
+    path(_api_url('user_advanced/<str:pk>/message_read', admin=True),
+         root_user_viewset.as_view({'post': 'messages_mark_read'})),
+
+    path(_api_url('user_advanced/<str:pk>/resend_email', admin=True),
+         root_user_viewset.as_view({'post': 'resend_email'})),
+
+    path(_api_url('user_advanced/<str:pk>/messages', admin=True),
+         root_user_viewset.as_view({'get': 'messages'})),
+
+    path(_api_url('user_advanced/<str:pk>/message_reply', admin=True),
+         root_user_viewset.as_view({'post': 'messages_reply'})),
+
+    path(_api_url('user_advanced/<str:pk>/tasks/complete', admin=True),
+         root_user_viewset.as_view({'post': 'complete_task'})),
+
+    path(_api_url('user_advanced/<str:pk>/request_score_update', admin=True), root_user_viewset.as_view({'get': 'request_score_update'})),
+
+    path(_api_url('tasks/<str:task_id>/status', admin=True), request_task_status),
+    # path(_api_url('user_listing_advanced/<str:list>', admin=True), advanced_user_listing), TODO: depricated
+]

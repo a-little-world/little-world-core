@@ -4,6 +4,7 @@ e.g.: Creating a new user, sending a notification to a users etc...
 """
 import urllib.parse
 from uuid import uuid4
+from management.models.management_tasks import MangementTask
 from django.utils import translation
 from django.db.models import Q
 from django.db import transaction
@@ -655,4 +656,38 @@ def send_group_mail(
         )
         
     return reports
+
+def delete_user(user, management_user=None, send_deletion_email=False):
+    from emails import mails
+    
+    if send_deletion_email:
+        user.send_email(
+           subject="Dein Account wurde gelöscht", 
+           mail_data=mails.get_mail_data_by_name("account_deleted"),
+           mail_params=mails.AccountDeletedEmailParams(
+            first_name=user.profile.first_name,
+           )
+        )
+
+    user.is_active = False
+    user.email = f"deleted_{user.email}"
+    user.first_name = "deleted"
+    user.set_unusable_password()
+    user.save()
+    
+    task = MangementTask.create_task(
+        user=user,
+        description="Cleanup user delete data",
+        management_user=management_user
+    )
+    user.state.management_tasks.add(task)
+    user.state.save()
+    
+    
+    user.profile.first_name = f"deleted, {user.profile.first_name}"
+    user.profile.second_name = f"deleted, {user.profile.second_name}"
+    user.profile.image_type = Profile.ImageTypeChoice.AVATAR
+    user.profile.avatar_config = {}
+    user.profile.phone_mobile = f"deleted, {user.profile.phone_mobile}"
+    user.profile.save()
 

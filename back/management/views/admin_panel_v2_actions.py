@@ -1,12 +1,12 @@
 from .admin_panel_v2 import IsAdminOrMatchingUser
 from back.utils import _api_url
 from django.urls import path, re_path
+from management.controller import delete_user as perform_user_deletion, get_user_by_pk
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from management.twilio_handler import _get_client
 from management.models.state import State
 from management.models.profile import Profile
-from management.models.management_tasks import MangementTask
 from management.models.sms import SmsModel, SmsSerializer
 
 default_tim_management_changed_message = """
@@ -208,39 +208,6 @@ def check_management_access_right(request, user):
 
 
 
-def perform_user_deletion(user, management_user=None, send_deletion_email=False):
-    from emails import mails
-    
-    if send_deletion_email:
-        user.send_email(
-           subject="Dein Account wurde gelöscht", 
-           mail_data=mails.get_mail_data_by_name("account_deleted"),
-           mail_params=mails.AccountDeletedEmailParams(
-            first_name=user.profile.first_name,
-           )
-        )
-
-    user.is_active = False
-    user.email = f"deleted_{user.email}"
-    user.first_name = "deleted"
-    user.set_unusable_password()
-    user.save()
-    
-    task = MangementTask.create_task(
-        user=user,
-        description="Cleanup user delete data",
-        management_user=management_user
-    )
-    user.state.management_tasks.add(task)
-    user.state.save()
-    
-    
-    user.profile.first_name = f"deleted, {user.profile.first_name}"
-    user.profile.second_name = f"deleted, {user.profile.second_name}"
-    user.profile.image_type = Profile.ImageTypeChoice.AVATAR
-    user.profile.avatar_config = {}
-    user.profile.phone_mobile = f"deleted, {user.profile.phone_mobile}"
-    user.profile.save()
     
 @api_view(['POST'])
 @permission_classes([IsAdminOrMatchingUser])
@@ -292,7 +259,6 @@ def delete_user(request):
     This assures the user data can still be recovered with some effort but the user cannot:
     - login anymore
     """
-    from management.controller import get_user_by_pk, make_tim_support_user
     
     user = get_user_by_pk(request.data["user_id"])
 
@@ -443,10 +409,10 @@ def mark_pre_matching_call_completed(request):
 
 action_routes = [
     path(_api_url('quick_actions', admin=True), admin_panel_v2_actions),
-    path(_api_url('quick_actions/mark_user_as_unresponsive', admin=True), mark_user_as_unresponsive),
-    path(_api_url('quick_actions/mark_pre_matching_call_completed', admin=True), mark_pre_matching_call_completed),
+    # path(_api_url('quick_actions/mark_user_as_unresponsive', admin=True), mark_user_as_unresponsive),
+    # path(_api_url('quick_actions/mark_pre_matching_call_completed', admin=True), mark_pre_matching_call_completed),
     path(_api_url('quick_actions/make_tim_mangement_admin', admin=True), make_tim_mangement_admin_action),
-    path(_api_url('quick_actions/delete_user', admin=True), delete_user),
-    path(_api_url('quick_actions/send_sms_to_user', admin=True), send_sms_to_user),
+    # path(_api_url('quick_actions/delete_user', admin=True), delete_user),
+    # path(_api_url('quick_actions/send_sms_to_user', admin=True), send_sms_to_user),
     path(_api_url('quick_actions/change_user_matching_state', admin=True), change_user_matching_state),
 ]

@@ -17,7 +17,7 @@ def three_weeks_ago():
 def all_users(qs=User.objects.all()):
     return qs.order_by('-date_joined')
 
-def users_that_are_searching_but_have_no_proposal(qs=User.objects.all()):
+def needs_matching(qs=User.objects.all()):
     unconfirmed_matches = ProposedMatch.objects.filter(closed=False)
     return qs.filter(
         state__user_form_state=State.UserFormStateChoices.FILLED,
