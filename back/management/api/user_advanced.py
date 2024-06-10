@@ -226,6 +226,10 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         self.kwargs['pk'] = pk
         obj = self.get_object()
         
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+        
         latest_appointment = PreMatchingAppointment.objects.filter(user=obj).order_by('-created').first()
         return Response(PreMatchingAppointmentSerializer(latest_appointment, many=False).data)
     
