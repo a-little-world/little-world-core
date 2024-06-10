@@ -117,7 +117,7 @@ def make_tim_support_user(
     admin_user = controller.get_user_by_email(old_management_mail)
     old_support_matching = Match.get_match(user1=admin_user, user2=user)
     if old_support_matching.exists():
-        controller.unmatch_users({admin_user, user}, unmatcher=admin_user)
+        unmatch_users({admin_user, user}, unmatcher=admin_user)
         
     # 2. make the new admin matching
     base_management_user = get_base_management_user()
@@ -315,10 +315,10 @@ def match_users(
 
         raise Exception("Users are already matched!")
     
-    # TODO: this is the old way to match to be removed one our frontend strategy updated
+    # TODO: this WAS the old way to match to be removed one our frontend strategy updated
     # For now we deploy both ways and make then work along side, but the old-way is to be removed asap
-    usr1.match(usr2, set_unconfirmed=set_unconfirmed)
-    usr2.match(usr1, set_unconfirmed=set_unconfirmed)
+    # usr1.match(usr2, set_unconfirmed=set_unconfirmed)
+    # usr2.match(usr1, set_unconfirmed=set_unconfirmed)
     
     # It can also be a support matching with a 'management' user
     is_support_matching = (usr1.is_staff or usr2.is_staff) \
