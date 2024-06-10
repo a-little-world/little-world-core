@@ -1,6 +1,7 @@
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import viewsets
+from django.db.models import Q
 from django.conf import settings
 from management.controller import delete_user, make_tim_support_user
 from management.twilio_handler import _get_client
@@ -18,11 +19,12 @@ from drf_spectacular.utils import extend_schema_view, extend_schema, inline_seri
 from management.api.user_advanced_filter_lists import FILTER_LISTS
 from management.api.user_data import get_paginated, serialize_proposed_matches, AdvancedUserMatchSerializer
 from management.models.matches import Match
+from management.api.user_data import get_paginated_format_v2
 from management.models.unconfirmed_matches import ProposedMatch
 from management.models.state import State, StateSerializer
 from management.models.sms import SmsModel, SmsSerializer
 from management.models.management_tasks import MangementTask, ManagementTaskSerializer
-from chat.models import Message, MessageSerializer
+from chat.models import Message, MessageSerializer, Chat, ChatSerializer
 from management.api.scores import score_between_db_update
 from management.tasks import matching_algo_v2
 from drf_spectacular.generators import SchemaGenerator
@@ -358,15 +360,60 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             "msg": "Message deleted"
         })
         
+    @extend_schema(
+        request=inline_serializer(
+            name='MessagesGetRequest',
+            # description='If match_uuid is provided, the chat of the match is returned, otherwise the support user chat',
+            fields={
+                'match_uuid': serializers.CharField(required=False)
+            }
+        )
+    )
     @action(detail=True, methods=['get'])
     def messages(self, request, pk=None):
         self.kwargs['pk'] = pk
         obj = self.get_object()
+        
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+        
+        # If not match_uuid is provided per default returns the support user chat
+        match_uuid = request.query_params.get('match_uuid', None)
 
-        return Response(AdvancedUserSerializer(
-            obj,
-            context={'request': request, 'messages': True}
-        ).data['messages'])
+        censor_messages = True
+        if match_uuid is not None:
+            matching = Match.objects.filter(
+                Q(user1=obj) | Q(user2=obj),
+                uuid=match_uuid,
+            ).first()
+        else:
+            censor_messages = False
+            support_matching = Match.objects.filter(
+                Q(user1=obj) | Q(user2=obj),
+                support_matching=True
+            ).first()
+            matching = support_matching
+        
+        partner = matching.get_partner(obj)
+        chat = Chat.objects.filter(
+            Q(u1=obj, u2=partner) | Q(u1=partner, u2=obj)
+        ).first()
+        
+        page = request.query_params.get('page', 1)
+        page_size = request.query_params.get('page_size', 10)
+        
+        messages_qs = chat.get_messages()
+        
+        messages = get_paginated_format_v2(messages_qs, page_size, page)
+        messages["results"] = MessageSerializer(messages["results"], many=True, context={
+            'censor_text': censor_messages
+        }).data
+        
+        return Response({
+            "chat": ChatSerializer(chat).data,
+            "messages": messages
+        })
         
     @extend_schema(
         request=inline_serializer(
@@ -407,7 +454,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             return Response(SmsSerializer(sms, many=True).data)
 
     @action(detail=True, methods=['post'])
-    def messages_reply(self, request, pk=None):
+    def message_reply(self, request, pk=None):
         self.kwargs['pk'] = pk
         obj = self.get_object()
         
@@ -575,7 +622,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             }
         )
     )
-    @action(defail=True, methods=['post'])
+    @action(detail=True, methods=['post'])
     def delte_user(self, request, pk=None):
         self.kwargs['pk'] = pk
         obj = self.get_object()
@@ -661,7 +708,7 @@ viewset_actions = [
     path('api/matching/users/<pk>/messages_mark_read/', AdvancedUserViewset.as_view({'get': 'messages_mark_read'})),
     path('api/matching/users/<pk>/messages/', AdvancedUserViewset.as_view({'get': 'messages'})),
     path('api/matching/users/<pk>/sms/', AdvancedUserViewset.as_view({'get': 'sms', 'post': 'sms'})),
-    path('api/matching/users/<pk>/messages_reply/', AdvancedUserViewset.as_view({'post': 'messages_reply'})),
+    path('api/matching/users/<pk>/message_reply/', AdvancedUserViewset.as_view({'post': 'message_reply'})),
     path('api/matching/users/<pk>/resend_email/', AdvancedUserViewset.as_view({'get': 'resend_email', 'post': 'resend_email'})),
     path('api/matching/users/<pk>/tasks/', AdvancedUserViewset.as_view({'get': 'tasks', 'post': 'tasks'})),
     path('api/matching/users/<pk>/notes/', AdvancedUserViewset.as_view({'get': 'notes', 'post': 'notes'})),
