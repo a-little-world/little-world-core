@@ -5,7 +5,7 @@ from django.db.models import Q
 from django.conf import settings
 from management.controller import delete_user, make_tim_support_user
 from management.twilio_handler import _get_client
-from emails.models import EmailLog
+from emails.models import EmailLog, AdvancedEmailLogSerializer
 from emails.mails import get_mail_data_by_name
 from django.urls import path
 from django_filters import rest_framework as filters
@@ -632,13 +632,12 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             }
         )
     )
+    @action(detail=True, methods=['post'])
     def make_tim_support(self, request, pk=None):
         self.kwargs['pk'] = pk
         obj = self.get_object()
-
-        has_access, res = self.check_management_user_access(obj, request)
-        if not has_access:
-            return res
+        
+        # Here we skip the acess check logicly... ( at some point this api has to be replaced with a more secure procedure )
 
         make_tim_support_user(
             obj, 
@@ -649,6 +648,23 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         return Response({
             "msg": "User is now a TIM support user"
         })
+        
+    @action(detail=True, methods=['get'])
+    def emails(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+        
+        page = request.query_params.get('page', 1)
+        page_size = request.query_params.get('page_size', 10)
+
+        email_logs = get_paginated_format_v2(EmailLog.objects.filter(receiver=obj), page_size, page)
+        email_logs["results"] = AdvancedEmailLogSerializer(email_logs["results"], many=True).data
+        
+        return Response(email_logs)
         
 viewset_actions = [
     path('api/matching/users/<pk>/scores/', AdvancedUserViewset.as_view({'get': 'scores'})),
@@ -668,7 +684,8 @@ viewset_actions = [
     path('api/matching/users/<pk>/mark_prematching_call_completed/', AdvancedUserViewset.as_view({'post': 'mark_prematching_call_completed'})),
     path('api/matching/users/<pk>/delete_user/', AdvancedUserViewset.as_view({'post': 'delte_user'})),
     path('api/matching/users/<pk>/change_searching_state/', AdvancedUserViewset.as_view({'post': 'change_searching_state'})),
-    path('api/matching/users/<pk>/make_tim_support/', AdvancedUserViewset.as_view({'post': 'make_tim_support'}))
+    path('api/matching/users/<pk>/make_tim_support/', AdvancedUserViewset.as_view({'post': 'make_tim_support'})),
+    path('api/matching/users/<pk>/emails/', AdvancedUserViewset.as_view({'get': 'emails'}))
 ]
 
 api_urls = [
