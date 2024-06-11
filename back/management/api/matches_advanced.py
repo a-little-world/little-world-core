@@ -137,6 +137,7 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
     @extend_schema(
         summary='Resolve a match',
         request=inline_serializer(
+            name='ResolveMatchRequest',
             fields={
                 'match_uuid': serializers.UUIDField(),
             }
