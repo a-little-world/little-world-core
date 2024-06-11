@@ -4,6 +4,7 @@ e.g.: Creating a new user, sending a notification to a users etc...
 """
 import urllib.parse
 from uuid import uuid4
+from management.models.management_tasks import MangementTask
 from django.utils import translation
 from django.db.models import Q
 from django.db import transaction
@@ -116,7 +117,7 @@ def make_tim_support_user(
     admin_user = controller.get_user_by_email(old_management_mail)
     old_support_matching = Match.get_match(user1=admin_user, user2=user)
     if old_support_matching.exists():
-        controller.unmatch_users({admin_user, user}, unmatcher=admin_user)
+        unmatch_users({admin_user, user}, unmatcher=admin_user)
         
     # 2. make the new admin matching
     base_management_user = get_base_management_user()
@@ -314,10 +315,10 @@ def match_users(
 
         raise Exception("Users are already matched!")
     
-    # TODO: this is the old way to match to be removed one our frontend strategy updated
+    # TODO: this WAS the old way to match to be removed one our frontend strategy updated
     # For now we deploy both ways and make then work along side, but the old-way is to be removed asap
-    usr1.match(usr2, set_unconfirmed=set_unconfirmed)
-    usr2.match(usr1, set_unconfirmed=set_unconfirmed)
+    # usr1.match(usr2, set_unconfirmed=set_unconfirmed)
+    # usr2.match(usr1, set_unconfirmed=set_unconfirmed)
     
     # It can also be a support matching with a 'management' user
     is_support_matching = (usr1.is_staff or usr2.is_staff) \
@@ -655,4 +656,38 @@ def send_group_mail(
         )
         
     return reports
+
+def delete_user(user, management_user=None, send_deletion_email=False):
+    from emails import mails
+    
+    if send_deletion_email:
+        user.send_email(
+           subject="Dein Account wurde gelöscht", 
+           mail_data=mails.get_mail_data_by_name("account_deleted"),
+           mail_params=mails.AccountDeletedEmailParams(
+            first_name=user.profile.first_name,
+           )
+        )
+
+    user.is_active = False
+    user.email = f"deleted_{user.email}"
+    user.first_name = "deleted"
+    user.set_unusable_password()
+    user.save()
+    
+    task = MangementTask.create_task(
+        user=user,
+        description="Cleanup user delete data",
+        management_user=management_user
+    )
+    user.state.management_tasks.add(task)
+    user.state.save()
+    
+    
+    user.profile.first_name = f"deleted, {user.profile.first_name}"
+    user.profile.second_name = f"deleted, {user.profile.second_name}"
+    user.profile.image_type = Profile.ImageTypeChoice.AVATAR
+    user.profile.avatar_config = {}
+    user.profile.phone_mobile = f"deleted, {user.profile.phone_mobile}"
+    user.profile.save()
 

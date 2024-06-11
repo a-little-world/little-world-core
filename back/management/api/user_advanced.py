@@ -1,21 +1,33 @@
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import viewsets
+from django.db.models import Q
+from django.conf import settings
+from management.controller import delete_user, make_tim_support_user
+from management.twilio_handler import _get_client
+from emails.models import EmailLog, AdvancedEmailLogSerializer
+from emails.mails import get_mail_data_by_name
 from django.urls import path
 from django_filters import rest_framework as filters
+from management.models.scores import TwoUserMatchingScore
 from management.models.user import User
+from management.views.matching_panel import DetailedPaginationMixin, AugmentedPagination, IsAdminOrMatchingUser
 from management.models.profile import Profile, MinimalProfileSerializer
-from management.views.admin_panel_v2 import DetailedPaginationMixin, IsAdminOrMatchingUser
+from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from rest_framework import serializers
-from drf_spectacular.openapi import AutoSchema
-from drf_spectacular.utils import extend_schema_view, extend_schema
-from dataclasses import dataclass
-from drf_spectacular.utils import extend_schema, inline_serializer
-from management.api.user_advanced_filter_lists import FILTER_LISTS, FilterListEntry
+from drf_spectacular.utils import extend_schema_view, extend_schema, inline_serializer
+from management.api.user_advanced_filter_lists import FILTER_LISTS
 from management.api.user_data import get_paginated, serialize_proposed_matches, AdvancedUserMatchSerializer
 from management.models.matches import Match
+from management.api.user_data import get_paginated_format_v2
 from management.models.unconfirmed_matches import ProposedMatch
 from management.models.state import State, StateSerializer
+from management.models.sms import SmsModel, SmsSerializer
+from management.models.management_tasks import MangementTask, ManagementTaskSerializer
+from chat.models import Message, MessageSerializer, Chat, ChatSerializer
+from management.api.scores import score_between_db_update
+from management.tasks import matching_algo_v2
+from management.api.utils_advanced import filterset_schema_dict
 
 class AdvancedUserSerializer(serializers.ModelSerializer):
     
@@ -56,7 +68,7 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
                 'status': 'support'
         }).data
 
-        proposed_matches = get_paginated(ProposedMatch.get_open_proposals_learner(user), items_per_page, 1)
+        proposed_matches = get_paginated(ProposedMatch.get_open_proposals(user), items_per_page, 1)
         proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
         
         representation['matches'] = {
@@ -69,8 +81,41 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
         representation['state'] = StateSerializer(instance.state).data
 
         return representation
-    
 
+class AdvancedMatchingScoreSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TwoUserMatchingScore
+        fields = '__all__'
+        
+    def to_representation(self, instance):
+        representation =  super().to_representation(instance)
+
+        assert 'user' in self.context
+        user = self.context['user']
+        partner = instance.user2 if user == instance.user1 else instance.user1
+        
+        markdown_info = ""
+        for score in instance.scoring_results:
+            markdown_info += f"## Function `{score['score_function']}`\n"
+            try:
+                markdown_info += f"{score['res']['markdown_info']}\n\n"
+            except:
+                markdown_info += "No markdown info available\n\n"
+        
+        representation['markdown_info'] = markdown_info
+
+        representation['from_usr'] = {
+            "uuid" : user.hash,
+            "id" : user.id,
+            **AdvancedUserSerializer(user).data
+        }
+        representation['to_usr'] = {
+            "uuid" : partner.hash,
+            "id" : partner.id,
+            **AdvancedUserSerializer(partner).data
+        }
+        return representation
+    
 class UserFilter(filters.FilterSet):
     
     profile__user_type = filters.ChoiceFilter(
@@ -122,17 +167,6 @@ class UserFilter(filters.FilterSet):
     class Meta:
         model = User
         fields = ['hash', 'id', 'email']
-        
-from drf_spectacular.generators import SchemaGenerator
-
-class DynamicFilterSerializer(serializers.Serializer):
-    filter_type = serializers.CharField()
-    name = serializers.CharField()
-    nullable = serializers.BooleanField(default=False)
-    value_type = serializers.CharField(required=False)
-    description = serializers.CharField(required=False)
-    choices = serializers.ListField(child=serializers.DictField(), required=False)
-    lookup_expr = serializers.ListField(child=serializers.CharField(), required=False)
 
 @extend_schema_view(
     list=extend_schema(summary='List users'),
@@ -159,48 +193,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     def get_filter_schema(self, request, include_lookup_expr=False):
         # 1 - retrieve all the filters
         filterset = self.filterset_class()
-        _filters = []
-        for field_name, filter_instance in filterset.get_filters().items():
-            filter_data = {
-                'name': field_name,
-                'filter_type': type(filter_instance).__name__,
-            }
-            
-            choices = getattr(filter_instance, 'extra', {}).get('choices', [])
-            if len(choices):
-                filter_data['choices'] = [{
-                    "tag": choice[1],
-                    "value": choice[0]
-                } for choice in choices]
-
-            if 'help_text' in filter_instance.extra:
-                filter_data['description'] = filter_instance.extra['help_text']
-            
-            if include_lookup_expr:
-                if isinstance(filter_instance, filters.RangeFilter):
-                    filter_data['lookup_expr'] = ['exact', 'gt', 'gte', 'lt', 'lte', 'range']
-                elif isinstance(filter_instance, filters.BooleanFilter):
-                    filter_data['lookup_expr'] = ['exact']
-                else:
-                    filter_data['lookup_expr'] = [filter_instance.lookup_expr] if isinstance(filter_instance.lookup_expr, str) else filter_instance.lookup_expr
-            serializer = DynamicFilterSerializer(data=filter_data)
-
-            serializer.is_valid(raise_exception=True)
-            _filters.append(serializer.data)
-        # 2 - retrieve the query shema
-        generator = SchemaGenerator(
-            patterns=None,
-            urlconf=None
-        )
-        schema = generator.get_schema(request=request)
-        view_key = f'/api/matching/users/'  # derive the view key based on your routing
-        filter_schemas = schema['paths'].get(view_key, {}).get('get', {}).get('parameters', [])
-        for filter_schema in filter_schemas:
-            for filter_data in _filters:
-                if filter_data['name'] == filter_schema['name']:
-                    filter_data['value_type'] = filter_schema['schema']['type']
-                    filter_data['nullable'] = filter_schema['schema'].get('nullable', False)
-                    break
+        _filters = filterset_schema_dict(filterset, include_lookup_expr, "/api/matching/users/", request)
         return Response({
             "filters": _filters,
             "lists": [entry.to_dict() for entry in FILTER_LISTS]
@@ -215,8 +208,493 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         else:
             return super().get_queryset().get(hash=self.kwargs["pk"])
 
+    @action(detail=True, methods=['get'])
+    def scores(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        matching_scores = TwoUserMatchingScore.get_matching_scores(obj).order_by('-score')
+        paginator = AugmentedPagination()
+        pages = paginator.get_paginated_response(paginator.paginate_queryset(matching_scores, request)).data
+        pages["results"] = AdvancedMatchingScoreSerializer(pages["results"], many=True, context={
+            "user": obj
+        }).data
+        return Response(pages)
+
+    @action(detail=True, methods=['get'])
+    def prematching_appointment(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+        
+        latest_appointment = PreMatchingAppointment.objects.filter(user=obj).order_by('-created').first()
+        return Response(PreMatchingAppointmentSerializer(latest_appointment, many=False).data)
+    
+    @extend_schema(
+        request=inline_serializer(
+            name='ScoreBetweenRequest',
+            fields={
+                'to_user': serializers.CharField()
+            }
+        )
+    )
+    @action(detail=True, methods=['post'])
+    def score_between(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        from_usr = obj
+        to_usr = request.data['to_user']
+        matching_score = TwoUserMatchingScore.get_score(from_usr, to_usr)
+        if matching_score is None:
+            total_score, matchable, results, score = score_between_db_update(from_usr, to_usr)
+            matching_score = score
+
+        score = AdvancedMatchingScoreSerializer(matching_score, context={"user": from_usr}).data
+        return Response(score)
+    
+    def check_management_user_access(self, user, request):
+        if not request.user.is_staff and not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+            return False, Response({
+                "msg": "You are not allowed to access this user!"
+            }, status=401)
+            
+        if not request.user.is_staff and not request.user.state.managed_users.filter(pk=user.pk).exists():
+            return False, Response({
+                "msg": "You are not allowed to access this user!"
+            }, status=401)
+        return True, None
+    
+    @action(detail=True, methods=['get'])
+    def messages_mark_read(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+
+        message_id = request.data['message_id']
+        
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+            
+        message = Message.objects.get(uuid=message_id)
+        message.read = True
+        message.save()
+
+        return Response({
+            "msg": "Message marked as read"
+        })
+        
+    @extend_schema(
+        request=inline_serializer(
+            name='DeleteMessageRequest',
+            fields={
+                'message_id': serializers.CharField()
+            }
+        )
+    )
+    @action(detail=True, methods=['post'])
+    def delete_message(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+
+        message_id = request.data['message_id']
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+        
+        message = Message.objects.get(uuid=message_id)
+        message.delete()
+
+        return Response({
+            "msg": "Message deleted"
+        })
+        
+    @extend_schema(
+        request=inline_serializer(
+            name='MessagesGetRequest',
+            # description='If match_uuid is provided, the chat of the match is returned, otherwise the support user chat',
+            fields={
+                'match_uuid': serializers.CharField(required=False)
+            }
+        )
+    )
+    @action(detail=True, methods=['get'])
+    def messages(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+        
+        # If not match_uuid is provided per default returns the support user chat
+        match_uuid = request.query_params.get('match_uuid', None)
+
+        censor_messages = True
+        if match_uuid is not None:
+            matching = Match.objects.filter(
+                Q(user1=obj) | Q(user2=obj),
+                uuid=match_uuid,
+            ).first()
+        else:
+            censor_messages = False
+            support_matching = Match.objects.filter(
+                Q(user1=obj) | Q(user2=obj),
+                support_matching=True
+            ).first()
+            matching = support_matching
+        
+        partner = matching.get_partner(obj)
+        chat = Chat.objects.filter(
+            Q(u1=obj, u2=partner) | Q(u1=partner, u2=obj)
+        ).first()
+        
+        page = request.query_params.get('page', 1)
+        page_size = request.query_params.get('page_size', 10)
+        
+        messages_qs = chat.get_messages()
+        
+        messages = get_paginated_format_v2(messages_qs, page_size, page)
+        messages["results"] = MessageSerializer(messages["results"], many=True, context={
+            'censor_text': censor_messages
+        }).data
+        
+        return Response({
+            "chat": ChatSerializer(chat).data,
+            "messages": messages
+        })
+        
+    @extend_schema(
+        request=inline_serializer(
+            name='SmsRequest',
+            fields={
+                'message': serializers.CharField()
+            }
+        )
+    )
+    @action(detail=True, methods=['get', 'post'])
+    def sms(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+        
+        if request.method == 'POST':
+            sms = SmsModel.objects.create(
+                recipient=obj,
+                send_initator=request.user,
+                message=request.data['message']
+            )
+            client = _get_client() 
+            response = client.messages.create(
+                body=request.data["message"],
+                from_=settings.TWILIO_SMS_NUMBER,
+                to=obj.profile.phone_mobile
+            )
+            
+            sms.twilio_response = response.__dict__
+            sms.save()
+            return Response(SmsSerializer(sms).data)
+        else:
+            sms = SmsModel.objects.filter(recipient=obj).order_by('-created_at')
+            
+            return Response(SmsSerializer(sms, many=True).data)
+
+    @action(detail=True, methods=['post'])
+    def message_reply(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+            
+        message = obj.message(request.data['message'], sender=request.user)
+        
+        serialized = MessageSerializer(message).data
+
+        return Response(serialized)
+    
+    @action(detail=True, methods=['get', 'post'])
+    def resend_email(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        email_id = request.data['email_id']
+        
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+            
+        
+        email_log = EmailLog.objects.filter(receiver=obj, pk=email_id).first()
+        subject = email_log.data["subject"] if "subject" in email_log.data else None
+        
+        if (subject is None):
+            if (not ("subject" in request.data)):
+                return Response({
+                    "msg": "Cannot determine subject, please set one via 'subject' param"
+                }, status=404)
+            else:
+                subject = request.data["subject"]
+
+        params = email_log.data["params"]
+        mail_data = get_mail_data_by_name(email_log.template)
+        mail_params = mail_data.params(**params)
+        
+        obj.send_email(
+            subject=subject,
+            mail_data=mail_data,
+            mail_params=mail_params,
+        )
+        
+        return Response("Tried resending email")
+    
+    @action(detail=True, methods=['get', 'post'])
+    def tasks(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        if request.method == 'POST':
+            task = MangementTask.create_task(obj, request.data['description'], request.user)
+            return Response(ManagementTaskSerializer(task).data)
+        
+        tasks = MangementTask.objects.filter(
+            user=obj,
+            state=MangementTask.MangementTaskStates.OPEN
+        )
+
+        return Response(ManagementTaskSerializer(tasks, many=True).data)
+
+    
+    @action(detail=True, methods=['get', 'post'])
+    def notes(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        _os = obj.state
+        
+        if request.method == 'POST':
+            _os.notes = request.data['notes']
+            _os.save()
+            return Response(_os.notes)
+        else:
+            if not _os.notes:
+                _os.notes = ""
+                _os.save()
+            return Response(_os.notes)
+
+
+    @extend_schema(
+        request=inline_serializer(
+            name='MarkUnresponsiveRequest',
+            fields={
+                'unresponsive': serializers.BooleanField(default=True)
+            }
+        )
+    )
+    @action(detail=True, methods=['post'])
+    def mark_unresponsive(self, request, pk=None):
+
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+
+        obj.state.unresponsive = request.data.get('unresponsive', True)
+        obj.state.save()
+        return Response({"success": True})
+    
+    @extend_schema(
+        request=inline_serializer(
+            name='MarkPrematchingCallCompletedRequest',
+            fields={
+                'had_prematching_call': serializers.BooleanField(default=True)
+            }
+        )
+    )
+    @action(detail=True, methods=['post'])
+    def mark_prematching_call_completed(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+
+        obj.state.had_prematching_call = request.data.get('had_prematching_call', True)
+        obj.state.save()
+        return Response({"success": True})
+
+    @action(detail=True, methods=['get'])
+    def request_score_update(self, request, pk=None):
+        consider_within_days = int(request.query_params.get('days_searching', 60))
+        
+        task = matching_algo_v2.delay(
+            pk,
+            consider_within_days
+        )
+        return Response({
+            "task_id": task.id
+        })
+
+    @extend_schema(
+        request=inline_serializer(
+            name='CompleteTaskRequest',
+            fields={
+                'task_id': serializers.CharField()
+            }
+        )
+    )
+    @action(detail=False, methods=['post'])
+    def complete_task(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+
+        task = MangementTask.objects.get(pk=request.data['task_id'], user=obj)
+        task.state = MangementTask.MangementTaskStates.FINISHED
+        task.save()
+        return Response(ManagementTaskSerializer(task).data)
+    
+    @extend_schema(
+        request=inline_serializer(
+            name='DeleteUserRequest',
+            fields={
+                'send_deletion_email': serializers.BooleanField(default=False)
+            }
+        )
+    )
+    @action(detail=True, methods=['post'])
+    def delte_user(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+        
+        if obj.is_staff or obj.is_superuser:
+            return Response({
+                "msg": "You can't delete a staff or superuser!"
+            }, status=401)
+        
+        if obj.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+            return Response({
+                "msg": "You can't delete a matching user!"
+            }, status=401)
+            
+        delete_user(obj, request.user, self.request.data.get('send_deletion_email', False))
+        return Response({
+            "msg": "User deleted"
+        })
+        
+    @extend_schema(
+        request=inline_serializer(
+            name='ChangeSearchingStateRequest',
+            fields={
+                'searching_state': serializers.ChoiceField(
+                    choices=State.MatchingStateChoices.choices, 
+                    default=State.MatchingStateChoices.IDLE
+                )
+            }
+        )
+    )
+    @action(detail=True, methods=['post'])
+    def change_searching_state(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+
+        obj.state.matching_state = request.data.get('searching_state', State.MatchingStateChoices.IDLE)
+        obj.state.save()
+
+        return Response({
+            "msg": "State changed"
+        })
+        
+    @extend_schema(
+        request=inline_serializer(
+            name='MakeTimSupportRequest',
+            fields={
+                'old_management_mail': serializers.CharField(default="littleworld.management@gmail.com"),
+                'send_new_management_message': serializers.BooleanField(default=True),
+                'message': serializers.CharField(required=False)
+            }
+        )
+    )
+    @action(detail=True, methods=['post'])
+    def make_tim_support(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+        
+        # Here we skip the acess check logicly... ( at some point this api has to be replaced with a more secure procedure )
+
+        make_tim_support_user(
+            obj, 
+            old_management_mail=request.data.get("old_management_mail", "littleworld.management@gmail.com"),
+            send_message=request.data.get("send_new_management_message", True), 
+            custom_message=request.data.get("message", None)
+        )
+        return Response({
+            "msg": "User is now a TIM support user"
+        })
+        
+    @action(detail=True, methods=['get'])
+    def emails(self, request, pk=None):
+        self.kwargs['pk'] = pk
+        obj = self.get_object()
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+        
+        page = request.query_params.get('page', 1)
+        page_size = request.query_params.get('page_size', 10)
+
+        email_logs = get_paginated_format_v2(EmailLog.objects.filter(receiver=obj), page_size, page)
+        email_logs["results"] = AdvancedEmailLogSerializer(email_logs["results"], many=True).data
+        
+        return Response(email_logs)
+        
+viewset_actions = [
+    path('api/matching/users/<pk>/scores/', AdvancedUserViewset.as_view({'get': 'scores'})),
+    path('api/matching/users/<pk>/prematching_appointment/', AdvancedUserViewset.as_view({'get': 'prematching_appointment'})),
+    path('api/matching/users/<pk>/score_between/', AdvancedUserViewset.as_view({'post': 'score_between'})),
+    path('api/matching/users/<pk>/messages_mark_read/', AdvancedUserViewset.as_view({'get': 'messages_mark_read'})),
+    path('api/matching/users/<pk>/messages/', AdvancedUserViewset.as_view({'get': 'messages'})),
+    path('api/matching/users/<pk>/sms/', AdvancedUserViewset.as_view({'get': 'sms', 'post': 'sms'})),
+    path('api/matching/users/<pk>/message_reply/', AdvancedUserViewset.as_view({'post': 'message_reply'})),
+    path('api/matching/users/<pk>/resend_email/', AdvancedUserViewset.as_view({'get': 'resend_email', 'post': 'resend_email'})),
+    path('api/matching/users/<pk>/tasks/', AdvancedUserViewset.as_view({'get': 'tasks', 'post': 'tasks'})),
+    path('api/matching/users/<pk>/notes/', AdvancedUserViewset.as_view({'get': 'notes', 'post': 'notes'})),
+    path('api/matching/users/<pk>/delete_message/', AdvancedUserViewset.as_view({'get': 'delete_message'})),
+    path('api/matching/users/<pk>/request_score_update/', AdvancedUserViewset.as_view({'get': 'request_score_update'})),
+    path('api/matching/users/<pk>/complete_task/', AdvancedUserViewset.as_view({'post': 'complete_task'})),
+    path('api/matching/users/<pk>/mark_unresponsive/', AdvancedUserViewset.as_view({'post': 'mark_unresponsive'})),
+    path('api/matching/users/<pk>/mark_prematching_call_completed/', AdvancedUserViewset.as_view({'post': 'mark_prematching_call_completed'})),
+    path('api/matching/users/<pk>/delete_user/', AdvancedUserViewset.as_view({'post': 'delte_user'})),
+    path('api/matching/users/<pk>/change_searching_state/', AdvancedUserViewset.as_view({'post': 'change_searching_state'})),
+    path('api/matching/users/<pk>/make_tim_support/', AdvancedUserViewset.as_view({'post': 'make_tim_support'})),
+    path('api/matching/users/<pk>/emails/', AdvancedUserViewset.as_view({'get': 'emails'}))
+]
+
 api_urls = [
     path('api/matching/users/', AdvancedUserViewset.as_view({'get': 'list'})),
     path('api/matching/users/filters/', AdvancedUserViewset.as_view({'get': 'get_filter_schema'})),
     path('api/matching/users/<pk>/', AdvancedUserViewset.as_view({'get': 'retrieve'})),
+    *viewset_actions
 ]

@@ -409,7 +409,6 @@ def matching_algo_v2(
 def burst_calulate_matching_scores(
     user_combinations = []
 ):
-    from management.models.scores import TwoUserMatchingScore
     from management.api.scores import score_between_db_update
     from management.models.user import User
     """

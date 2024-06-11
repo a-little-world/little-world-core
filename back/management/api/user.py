@@ -23,7 +23,6 @@ from tracking.models import Event
 from tracking import utils
 from emails.mails import get_mail_data_by_name, PwResetMailParams
 from management.models.state import State
-from management.views.admin_panel_v2_actions import perform_user_deletion
 from translations import get_translation
 
 """

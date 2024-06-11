@@ -3,11 +3,9 @@ from django.urls import path, re_path
 from django.conf import settings
 from management.views import main_frontend, landing_page
 from back.utils import _api_url
-from management.views.admin_panel_frontend import stats_panel, graph_panel, fetch_graph, user_list_frontend, fetch_list
-from management.views import admin_panel_v2
-from management.views import admin_panel_v2_actions
 from management.views import admin_panel_devkit
 from management.views import admin_panel_emails
+from management.views import matching_panel
 from management.api import slack, ai
 from management.api.scores import list_top_scores, score_maximization_matching, burst_calulate_matching_scores, delete_all_matching_scores
 from management.api.matching_stats import get_quick_statistics
@@ -109,8 +107,6 @@ api_routes = [
     path(_api_url('user/match/confirm_deny'),
          api.confirm_match.confrim_match),
     # Admin
-    path(_api_url('graph/get', admin=True), fetch_graph),
-    path(_api_url('user_list/get', admin=True), fetch_list),
 
     path(_api_url('user/match', admin=True),
          api.matches.make_match),
@@ -138,65 +134,20 @@ view_routes = [
 
     path(_api_url(f"user/delete_account", admin=False), api.user.delete_account, name="delete_account_api"),
 
-    path(f"matching/", admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
-    path(f"matching/login/", admin_panel_v2.admin_panel_v2_login, name="admin_panel_v2_login"),
-    re_path(fr'^matching/(?P<menu>.*)$', admin_panel_v2.admin_panel_v2, name="admin_panel_v2"),
     
     path("api/newsletter_subscribe", public_newsletter_subscribe, name="newsletter_subscribe"),
-    path(_api_url('user_advanced/<str:pk>', admin=True), admin_panel_v2.root_user_viewset.as_view({'get': 'retrieve'})),
-    path(_api_url('user_list_query_sets', admin=True), admin_panel_v2.get_user_list_query_sets),
-    path(_api_url('user_list/<str:query_set>', admin=True), admin_panel_v2.get_user_list_users, name="matching_user_list_users"),
-    path(_api_url('user_info/<str:id>', admin=True), admin_panel_v2.user_info_by_id_or_hash),
-    path(_api_url('user_advanced/<str:pk>/notes', admin=True),
-         admin_panel_v2.root_user_viewset.as_view({'get': 'notes', 'post': 'notes'})),
-    path(_api_url('user_advanced/<str:pk>/prematching_appointments', admin=True),
-         admin_panel_v2.root_user_viewset.as_view({'get': 'prematching_appointment'})),
-    path(_api_url('user_advanced/<str:pk>/scores', admin=True),
-         admin_panel_v2.root_user_viewset.as_view({'get': 'scores'})),
-
-    path(_api_url('user_advanced/<str:pk>/score_between', admin=True),
-         admin_panel_v2.root_user_viewset.as_view({'post': 'score_between'})),
-
-    path(_api_url('user_advanced/<str:pk>/tasks', admin=True),
-         admin_panel_v2.root_user_viewset.as_view({'get': 'tasks', 'post': 'tasks'})),
-
-    path(_api_url('user_advanced/<str:pk>/sms', admin=True),
-         admin_panel_v2.root_user_viewset.as_view({'get': 'sms'})),
-
-    path(_api_url('user_advanced/<str:pk>/message_read', admin=True),
-         admin_panel_v2.root_user_viewset.as_view({'post': 'messages_mark_read'})),
-
-    path(_api_url('user_advanced/<str:pk>/resend_email', admin=True),
-         admin_panel_v2.root_user_viewset.as_view({'post': 'resend_email'})),
-
-    path(_api_url('user_advanced/<str:pk>/messages', admin=True),
-         admin_panel_v2.root_user_viewset.as_view({'get': 'messages'})),
-
-    path(_api_url('user_advanced/<str:pk>/message_reply', admin=True),
-         admin_panel_v2.root_user_viewset.as_view({'post': 'messages_reply'})),
-
-    path(_api_url('user_advanced/<str:pk>/tasks/complete', admin=True),
-         admin_panel_v2.root_user_viewset.as_view({'post': 'complete_task'})),
-
-    path(_api_url('user_advanced/<str:pk>/request_score_update', admin=True),
-         admin_panel_v2.root_user_viewset.as_view({'get': 'request_score_update'})),
-    path(_api_url('user_listing_advanced/<str:list>', admin=True), admin_panel_v2.advanced_user_listing),
     path(_api_url('quick_matching_statistics', admin=True), get_quick_statistics),
     path(_api_url('optimize_possible_matches', admin=True), score_maximization_matching),
     path(_api_url('burst_calulate_matching_scores', admin=True), burst_calulate_matching_scores),
     path(_api_url('delete_all_matching_scores', admin=True), delete_all_matching_scores),
     path(_api_url('top_scores', admin=True), list_top_scores),
-    path(_api_url('tasks/<str:task_id>/status', admin=True), admin_panel_v2.request_task_status),
 
-    path(f"manage/", user_list_frontend, name="management_panel"),
-    path(f"stats/graph/<str:slug>", graph_panel, name="graph_dashboard"),
-    path(f"stats/<str:regrouped_by>", stats_panel, name="stats_dashboard"),
-    
     path("info_card_debug/", main_frontend.info_card, name="info_card"),
 
     path(_api_url('calcom', admin=False), api.calcom.callcom_websocket_callback),
     
-    *admin_panel_v2_actions.action_routes,
+    *matching_panel.view_urls,
+    
     *admin_panel_emails.email_view_routes,
     *admin_panel_devkit.devkit_urls,
 ]

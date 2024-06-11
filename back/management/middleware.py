@@ -73,7 +73,7 @@ class AdminPathBlockingMiddleware:
                 return _404_if_not_staff(request, self.get_response)
         else:
             if _is_blocked_route(path):
-                if "admin_panel_v2" in path:
+                if "matching" in path:
                     return _404_if_not_staff(request, self.get_response, allow_management_user=True)
                 return _404_if_not_staff(request, self.get_response)
 

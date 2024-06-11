@@ -7,7 +7,7 @@ from channels.layers import get_channel_layer
 from asgiref.sync import sync_to_async, async_to_sync
 from dataclasses import dataclass, asdict, fields, MISSING
 from rest_framework.decorators import api_view, permission_classes
-from management.views.admin_panel_v2 import IsAdminOrMatchingUser
+from management.views.matching_panel import IsAdminOrMatchingUser
 from rest_framework.response import Response
 
 

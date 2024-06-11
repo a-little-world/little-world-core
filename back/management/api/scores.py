@@ -491,14 +491,14 @@ class SimpleMatchingScoreSerializer(serializers.ModelSerializer):
 @permission_classes([IsAuthenticated])
 def burst_calulate_matching_scores(request):
     assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-    from management.views.admin_panel_v2 import get_staff_queryset, QuerySetEnum
+    from management.api.user_advanced_filter import needs_matching
     from management.tasks import burst_calulate_matching_scores
     import math
     import itertools
-    needs_matching = get_staff_queryset(QuerySetEnum.needs_matching.name, request)
+    requires_matching = needs_matching()
     
     # calculate all possible combinations that we need to cacluate a score for
-    user_id_set = set(needs_matching.values_list('id', flat=True))
+    user_id_set = set(requires_matching.values_list('id', flat=True))
     list_combinations = list(itertools.combinations(user_id_set, 2))
     
     created_tasks = []
@@ -556,7 +556,7 @@ def instantly_possible_matches():
 def score_maximization_matching(request):
     assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
     from management.models.scores import TwoUserMatchingScore
-    from management.views.admin_panel_v2 import AdvancedMatchingScoreSerializer
+    from management.api.user_advanced import AdvancedMatchingScoreSerializer
     from django.db.models import Q
     
     matches = instantly_possible_matches()
@@ -613,7 +613,7 @@ def delete_all_matching_scores(request):
 @permission_classes([IsAuthenticated])
 def list_top_scores(request):
     assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-    from management.views.admin_panel_v2 import AdvancedMatchingScoreSerializer
+    from management.api.user_advanced import AdvancedMatchingScoreSerializer
     from management.models.scores import TwoUserMatchingScore
     top_scores = TwoUserMatchingScore.objects.filter(matchable=True).order_by("-score")
     
