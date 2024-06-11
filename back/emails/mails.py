@@ -38,7 +38,8 @@ GermanImprovementBabbelInvitation,
     UserSurveyInvitationEmailNatalia,
     UserInterviewRequestEmail,
     AccountDeletedEmailTexts,
-    BabbelSubscriptionMail_Winner
+    BabbelSubscriptionMail_Winner,
+    CommunityGetTogetherInvitation120624
 )
 from django.core.mail import EmailMessage
 import json
@@ -88,6 +89,11 @@ class ImpulseBeitraegeParams2:
 @dataclass
 class CommunityGetTogetherMailParams:
     first_name: str
+    
+@dataclass
+class CommunityGetTogetherMailParams120624:
+    first_name: str
+    unsubscribe_url1: str
 
 @dataclass
 class CulturalAwarenessInvitationParams:
@@ -443,7 +449,14 @@ templates = [
         params=CulturalAwarenessInvitationParams,
         texts=CulturalAwarenessInvitation,
         defaults=CulturalAwarenessInvitation
-    )
+    ),
+    MailMeta(
+        name="community_get_together_120624",
+        template="emails/welcome.html",
+        params=CommunityGetTogetherMailParams120624,
+        texts=CommunityGetTogetherInvitation120624,
+        defaults=CommunityGetTogetherInvitation120624
+    ),
 ]
 
 
