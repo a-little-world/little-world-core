@@ -85,6 +85,7 @@ class MatchFilter(filters.FilterSet):
     class Meta:
         model = Match
         fields = ['uuid', 'created_at', 'updated_at', 'active', 'confirmed', 'user1', 'user2']
+    
         
 @extend_schema_view(
     list=extend_schema(summary='List matches'),

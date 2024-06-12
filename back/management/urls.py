@@ -8,6 +8,7 @@ from management.views import admin_panel_emails
 from management.views import matching_panel
 from management.api import slack, ai
 from management.api.scores import list_top_scores, score_maximization_matching, burst_calulate_matching_scores, delete_all_matching_scores
+from management.api import scores_advanced
 from management.api.matching_stats import get_quick_statistics
 from management.api.questions import get_question_cards, archive_card
 from management.api.newsletter_subscribe import public_newsletter_subscribe
@@ -44,6 +45,7 @@ api_routes = [
     *ai.api_routes,
     *user_advanced_api_urls,
     *matches_advanced_api_urls,
+    *scores_advanced.api_urls,
     # User
     path(_api_url('user_data_v2'), api.user_data.user_data_v2),
 
