@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from django.db.models import Q
 from rest_framework.response import Response
 from rest_framework import status
+from management.models.unconfirmed_matches import ProposedMatch
 from management.api.scores import score_between_db_update
 from management import controller
 from management.models.matches import Match
@@ -34,6 +35,10 @@ class MakeMatchSerializer(DataclassSerializer):
 @api_view(['POST'])
 def make_match(request):
     assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER), "User is not allowed to match users"
+    
+    if (not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)) and (not request.user.is_staff):
+        return Response("User is not allowed to match users", status=status.HTTP_403_FORBIDDEN)
+
     serializer = MakeMatchSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     
@@ -42,7 +47,8 @@ def make_match(request):
     user2 = User.objects.get(pk=params.user2)
 
     for user in [user1, user2]:
-        assert user in request.user.state.managed_users.all(), "User is not allowed to match users"
+        if not (user in request.user.state.managed_users.all()):
+            return Response("User is not allowed to match these users, you don't have matching authority for them", status=status.HTTP_403_FORBIDDEN)
 
     # check if matching score exists, else calculate it
     total_score, matchable, results, score = score_between_db_update(user1, user2)
@@ -60,6 +66,12 @@ def make_match(request):
 
     # 3 - check what to send a 'proposal' or a 'direct match'
     if params.proposal:
+        
+        # 4 - check if a proposal already exists
+        if ProposedMatch.objects.filter(Q(user1=user1, user2=user2) | Q(user1=user2, user2=user1), closed=False).exists():
+            return Response("Proposal already exists", status=status.HTTP_400_BAD_REQUEST)
+        
+        # ... create the proposal
         proposal = controller.create_user_matching_proposal(
             {user1, user2},
             send_confirm_match_email=params.send_email,
@@ -90,8 +102,6 @@ def make_match(request):
         user2.state.change_searching_state(
             State.MatchingStateChoices.IDLE)
         
-        InUnconfirmedMatchAdded(matches[0]).send(user.hash)
-
         for user in [user1, user2]:
             matches = AdvancedUserMatchSerializer([match_obj], many=True, context={"user": user}).data
             InUnconfirmedMatchAdded(matches[0]).send(user.hash)

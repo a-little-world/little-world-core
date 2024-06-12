@@ -509,7 +509,7 @@ elif IS_STAGE or IS_PROD or USE_MQ_AS_BROKER:
         'DJ_RABBIT_MQ_PASSWORD'], os.environ['DJ_RABBIT_MQ_HOST'], os.environ['DJ_RABBIT_MQ_PORT']
     CELERY_BROKER_URL = f'amqps://{mb_usr}:{mb_pass}@{mb_host}:{mb_port}'
 
-CELERY_RESULT_BACKEND = 'django-db'  # 'redis://host.docker.internal:6379'
+CELERY_RESULT_BACKEND = 'django-db'
 CELERY_ACCEPT_CONTENT = ['application/json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
