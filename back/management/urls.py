@@ -105,16 +105,11 @@ api_routes = [
     path(_api_url('user/verify/email_resend'),
          api.user.resend_verification_mail),
 
-    # api that allows users to confirm or deny a pre-matching
     path(_api_url('user/match/confirm_deny'),
          api.confirm_match.confrim_match),
-    # Admin
+    
+    path("api/matching/make_match", api.matches.make_match),
 
-    path(_api_url('user/match', admin=True),
-         api.matches.make_match),
-    #    path(_api_url('user/match', admin=True), api.admin.MakeMatch.as_view()),
-    #    path(_api_url('user/suggest_match', admin=True),
-    #         api.admin.MatchingSuggestion.as_view()),
     path(_api_url('help_message'),
          api.help.SendHelpMessage.as_view()),
     *router.urls
