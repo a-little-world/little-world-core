@@ -39,7 +39,8 @@ GermanImprovementBabbelInvitation,
     UserInterviewRequestEmail,
     AccountDeletedEmailTexts,
     BabbelSubscriptionMail_Winner,
-    CommunityGetTogetherInvitation120624
+    CommunityGetTogetherInvitation120624,
+    CommunityGetTogetherInvitationToday
 )
 from django.core.mail import EmailMessage
 import json
@@ -94,6 +95,10 @@ class CommunityGetTogetherMailParams:
 class CommunityGetTogetherMailParams120624:
     first_name: str
     unsubscribe_url1: str
+    
+@dataclass
+class CommunityGetTogetherInvitationTodayParams:
+    first_name: str
 
 @dataclass
 class CulturalAwarenessInvitationParams:
@@ -456,6 +461,13 @@ templates = [
         params=CommunityGetTogetherMailParams120624,
         texts=CommunityGetTogetherInvitation120624,
         defaults=CommunityGetTogetherInvitation120624
+    ),
+    MailMeta(
+        name="community_get_together_today",
+        template="emails/welcome.html",
+        params=CommunityGetTogetherInvitationTodayParams,
+        texts=CommunityGetTogetherInvitationToday,
+        defaults=CommunityGetTogetherInvitationToday
     ),
 ]
 

@@ -722,3 +722,28 @@ class CommunityGetTogetherInvitation120624:
     unsubscribe_link1_category: str = 'none'
     unsubscribe_link2: str = 'none'
     unsubscribe_link2_category: str = 'none'
+    
+@dataclass
+class CommunityGetTogetherInvitationToday:
+    """
+    ---------> Community Get-Together Invitation Template <---------------
+    """
+    subject_header_text: str = "Wir laden dich zu unserem heutigen Community Get-Together ein!"
+    greeting: str = 'Hallo {first_name},'
+    content_start_text: str = 'heute, Donnerstag, den 13. Juni, um 18 Uhr ist unser monatliches Community Get Together. Bist du auch dabei? 😊'
+    content_body_text: str = 'Wir freuen uns auf viele Teilnehmer. Dies ist unsere Chance, zusammenzukommen und uns auszutauschen. Alle sind willkommen – Menschen, die Deutsch als Muttersprache sprechen, und auch diejenigen, die gerade Deutsch lernen. Es wird eine tolle Gelegenheit sein, unsere Erfolge zu feiern, Feedback und Ideen auszutauschen und uns besser kennenzulernen. 🥳'
+    button_text: str = 'Zum Call beitreten'
+    button_link: str = 'https://rwth.zoom.us/j/61394184102'
+    link_box_text: str = mark_safe(
+        '<a href="https://rwth.zoom.us/j/61394184102" style="color: blue;">https://rwth.zoom.us/j/61394184102</a>'
+    )
+    below_link_text: str = 'Sei dabei! Unter diesem Link kannst du direkt heute um 18 Uhr teilnehmen:'
+    footer_text: str = 'Liebe Grüße,'
+    goodbye: str = 'Oliver, Tim, Sean und Melina'
+    goodbye_name: str = ''
+    use_unsubscribe_footer: bool = False
+    unsubscribe_two_link: bool = False
+    unsubscribe_link1: str = 'none'
+    unsubscribe_link1_category: str = 'none'
+    unsubscribe_link2: str = 'none'
+    unsubscribe_link2_category: str = 'none'
