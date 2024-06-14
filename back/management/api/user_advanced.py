@@ -237,7 +237,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         request=inline_serializer(
             name='ScoreBetweenRequest',
             fields={
-                'to_user': serializers.CharField()
+                'to_user': serializers.IntegerField()
             }
         )
     )
@@ -245,9 +245,14 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     def score_between(self, request, pk=None):
         self.kwargs['pk'] = pk
         obj = self.get_object()
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
         
         from_usr = obj
         to_usr = request.data['to_user']
+        to_usr = User.objects.get(id=to_usr)
         matching_score = TwoUserMatchingScore.get_score(from_usr, to_usr)
         if matching_score is None:
             total_score, matchable, results, score = score_between_db_update(from_usr, to_usr)
