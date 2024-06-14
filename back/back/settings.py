@@ -171,7 +171,7 @@ print(f'Installed apps:\n' + '\n- '.join(INSTALLED_APPS))
 
 if BUILD_TYPE in ['staging', 'development']:
     SPAGHETTI_SAUCE = {
-        'apps': ['auth', 'management', 'tracking', 'emails', 'chat', 'django_private_chat2'],
+        'apps': ['auth', 'management', 'tracking', 'emails', 'chat', 'video'],
         'show_fields': False,
         'exclude': {'auth': ['user']},
     }
@@ -809,8 +809,6 @@ JAZZMIN_SETTINGS = {
         "auth.user": "fas fa-user",
         "auth.Group": "fas fa-users",
         "emails.EmailLog": "fas fa-envelope",
-        "django_private_chat2.DialogsModel": "fas fa-people-arrows",
-        "django_private_chat2.MessageModel": "fas fa-comments",
         "cookie_consent.Cookie": "fas fa-cookie",
         "cookie_consent.CookieGroup": "fas fa-layer-group",
         "cookie_consent.LogItem": "fas fa-stream",
