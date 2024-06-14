@@ -9,10 +9,11 @@ This repo also builds all frontends using webpack and serves them via django vie
 ## Servers
 
 1. All feature pull request starting with `staging-*` are auto-deployed. Without credentials!
-2. All commits merged into [`main`](https://github.com/a-little-world/little-world-backend/tree/main) are deployed to [`stage.little-world.com`](https://stage.little-world.com)
+2. All commits merged into [`main`](https://github.com/a-little-world/little-world-backend/tree/main) are deployed to [`from-v2.little-world.com`](https://from-v2.little-world.com) ( temorarily deploying to `from-v2.little-world.com` as `stage.little-world.com` will be used for a security check )
 3. All commits merged into [`prod`](https://github.com/a-little-world/little-world-backend/tree/prod) are deployed to any production config.
    E.g.: [`little-world.com`](https://little-world.com), [`shareami.little-world.com`](https://shareami.little-world.com)
-4. Commits merged into [`form-v2`](https://github.com/a-little-world/little-world-backend/tree/form-v2) are deployed to [`form-v2.little-world.com`](https://form-v2.little-world.com).
+
+( 4. Commits merged into [`form-v2`](https://github.com/a-little-world/little-world-backend/tree/form-v2) are deployed to [`form-v2.little-world.com`](https://form-v2.little-world.com). )
 
 > Production and staging deployments NEED TO BE CONFIRMED by an admin!
 
@@ -69,6 +70,19 @@ Be sure to checkout the frontend commit or branch you want to work on!
 
 > If you wan't only one frontend to auto-update just use `COMPOSE_PROFILE=<frontend-name>` for any frontend `main_frontend`, `admin_panel_frontend`, `cookie_banner_frontend`.
 > Or if you only work in the backend use `COMPOSE_PROFILE=backend`
+
+### Default Test Users
+
+All these should be auto-created on first backend startup ( to reset them just delete the local db `rm ./back/db.sqlite3` and restart the backend ).
+
+- 'Matching User': `tim.timschupp+420@gmail.com:Test123!` Can visit `/matching/`
+- 'Admin User': `admin@user.com:Admin123!` Can visit `/admin/` ( must login at `/admin/login` )
+- 'Test -Users': `herrduenschnlate+<id>@gmail.com:Test123!` with any `<id>` from `1` to `20` Can visit only `/app/`
+
+### Usefull Urls
+
+- Swagger UI view: `localhost:8000/api/schema/swagger-ui/`
+- DB Overview ( requires admin login ): `localhost:8000/db/`
 
 ### Documentation
 
