@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 from rest_framework import serializers
 from management.models.help_message import HelpMessage
 from django.core.validators import MaxLengthValidator, MinLengthValidator
+from django.utils.html import escape
 
 
 class SendHelpMessageSerializer(serializers.Serializer):
@@ -13,6 +14,9 @@ class SendHelpMessageSerializer(serializers.Serializer):
         validators=[MinLengthValidator(3), MaxLengthValidator(2000)],
     )
     file = serializers.ListField(child=serializers.FileField(), required=False)
+
+    def validate_message(self, value):
+        return escape(value)
 
     def create(self, validated_data):
         return validated_data
