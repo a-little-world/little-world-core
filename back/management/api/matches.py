@@ -30,7 +30,11 @@ class _MakeMatchSerializer:
 class MakeMatchSerializer(DataclassSerializer):
     class Meta:
         dataclass = _MakeMatchSerializer
-
+@extend_schema(
+    summary="Make a match",
+    description="Make a match between two users",
+    request=MakeMatchSerializer,
+)
 @permission_classes([IsAdminOrMatchingUser])
 @api_view(['POST'])
 def make_match(request):
