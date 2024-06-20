@@ -75,5 +75,6 @@ class CommunityEventSerializer(serializers.ModelSerializer):
             "frequency",
             "options",
             "link",
+            "image",
             "id",
         ]
