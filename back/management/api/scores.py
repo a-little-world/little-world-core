@@ -50,6 +50,7 @@ days searching `{"=<5": 0, "<10": 5, "<20": 10, "<30": 15, ">30": 40}
 - should match be near?
 """
 from management.views.matching_panel import IsAdminOrMatchingUser
+from management import controller
 from django.core.paginator import Paginator
 from typing import Any
 from datetime import datetime, timedelta, timezone
@@ -494,7 +495,8 @@ class SimpleMatchingScoreSerializer(serializers.ModelSerializer):
         fields = ['id', 'user1', 'user2', 'score']
         
 class BurstCalculateMatchingScoresV2RequestSerializer(serializers.Serializer):
-    parallel_tasks = serializers.IntegerField(help_text="The number of parallel tasks to run")
+    parallel_tasks = serializers.IntegerField(help_text="The number of parallel tasks to run", default=4, required=False)
+    delte_old_scores = serializers.BooleanField(help_text="Delete all old scores before starting", default=True, required=False)
 
 @extend_schema(
     request=BurstCalculateMatchingScoresV2RequestSerializer,
@@ -504,12 +506,17 @@ class BurstCalculateMatchingScoresV2RequestSerializer(serializers.Serializer):
 def burst_calculate_matching_scores_v2(request):
     assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
     
+
     serializer = BurstCalculateMatchingScoresV2RequestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     
     parallel_tasks = serializer.validated_data['parallel_tasks']
     
-    requires_matching = needs_matching()
+    if serializer.validated_data['delte_old_scores']:
+        TwoUserMatchingScore.objects.all().delete()
+    
+    bmu = controller.get_base_management_user()
+    requires_matching = needs_matching(qs=User.objects.filter(id__in=bmu.state.managed_users.all()))
     user_id_set = set(requires_matching.values_list('id', flat=True))
     list_combinations = list(itertools.combinations(user_id_set, 2))
     

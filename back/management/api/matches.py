@@ -31,6 +31,7 @@ class _MakeMatchSerializer:
 class MakeMatchSerializer(DataclassSerializer):
     class Meta:
         dataclass = _MakeMatchSerializer
+
 @extend_schema(
     summary="Make a match",
     description="Make a match between two users",

@@ -136,7 +136,7 @@ view_routes = [
     path(_api_url('quick_matching_statistics', admin=True), get_quick_statistics),
     path(_api_url('optimize_possible_matches', admin=True), score_maximization_matching),
 
-    path("api/matching/burst_update_scores", burst_calculate_matching_scores_v2), # TODO: move endpoint to api.matching
+    path("api/matching/burst_update_scores/", burst_calculate_matching_scores_v2), # TODO: move endpoint to api.matching
 
     path(_api_url('delete_all_matching_scores', admin=True), delete_all_matching_scores),
     path(_api_url('top_scores', admin=True), list_top_scores),

@@ -20,6 +20,7 @@ def all_users(qs=User.objects.all()):
 def needs_matching(qs=User.objects.all()):
     unconfirmed_matches = ProposedMatch.objects.filter(closed=False)
     return qs.filter(
+        is_active=True,
         state__user_form_state=State.UserFormStateChoices.FILLED,
         state__email_authenticated=True,
         state__had_prematching_call=True,  # TODO: filter should only be applied, if require_prematching_call = True
