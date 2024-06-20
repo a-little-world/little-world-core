@@ -406,7 +406,7 @@ def matching_algo_v2(
     return res
 
 @shared_task
-def burst_calulate_matching_scores(
+def burst_calculate_matching_scores(
     user_combinations = []
 ):
     from management.api.scores import score_between_db_update
@@ -417,8 +417,8 @@ def burst_calulate_matching_scores(
     print("combination")
     
     def report_progress(progress):
-        burst_calulate_matching_scores.backend.mark_as_started(
-            burst_calulate_matching_scores.request.id,
+        burst_calculate_matching_scores.backend.mark_as_started(
+            burst_calculate_matching_scores.request.id,
             progress=progress
         )
         

@@ -16,6 +16,7 @@ from management.api.user_data import AdvancedUserMatchSerializer
 from management.api.user_data import serialize_proposed_matches
 from chat.consumers.messages import InMatchProposalAdded, InUnconfirmedMatchAdded
 from drf_spectacular.utils import extend_schema, inline_serializer
+from management.models.scores import TwoUserMatchingScore
 
 @dataclass
 class _MakeMatchSerializer:
@@ -83,9 +84,6 @@ def make_match(request):
         learner = proposal.get_learner()
         matches = serialize_proposed_matches([proposal], learner)
         
-        # Cleanup old matching scores
-        from management.models.scores import TwoUserMatchingScore
-        from django.db.models import Q
 
         TwoUserMatchingScore.objects.filter(user1=user1, user2=user2).delete()
         # Now update all matchable = False scores entries that have user1 or user2 as a user and are matchable = True

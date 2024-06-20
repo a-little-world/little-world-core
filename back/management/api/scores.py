@@ -71,7 +71,7 @@ from dataclasses import dataclass
 from management.models.scores import TwoUserMatchingScore
 from management.models.user import User
 from rest_framework.permissions import IsAuthenticated
-from management.tasks import matching_algo_v2
+from management.tasks import matching_algo_v2, burst_calculate_matching_scores
 from drf_spectacular.utils import extend_schema, inline_serializer
 import itertools
 import math
@@ -493,51 +493,8 @@ class SimpleMatchingScoreSerializer(serializers.ModelSerializer):
         model = scores.TwoUserMatchingScore
         fields = ['id', 'user1', 'user2', 'score']
         
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def burst_calulate_matching_scores(request):
-    assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-    from management.tasks import burst_calulate_matching_scores
-    import math
-    import itertools
-    requires_matching = needs_matching()
-    
-    # calculate all possible combinations that we need to cacluate a score for
-    user_id_set = set(requires_matching.values_list('id', flat=True))
-    list_combinations = list(itertools.combinations(user_id_set, 2))
-    
-    created_tasks = []
-    task_count = int(request.query_params.get('task_count', 10))
-    pt = 0
-    paralel_tasks = int(request.query_params.get('paralel_tasks', 2))
-    delay_between_tasks = int(request.query_params.get('delay_between_tasks', 20))
-    total_delay = 0
-    matches_per_task = math.ceil(len(list_combinations) / task_count)
-    for i in range(0, len(list_combinations), matches_per_task):
-        
-        pt += 1
-        if pt > paralel_tasks:
-            pt = 0
-            total_delay += delay_between_tasks
-
-        upper_bound = i + matches_per_task
-        if upper_bound > len(list_combinations):
-            upper_bound = len(list_combinations)
-        batch = list_combinations[i:upper_bound]
-
-        task = burst_calulate_matching_scores.apply_async(kwargs={
-            "user_combinations": batch,
-        }, countdown=total_delay)
-        created_tasks.append({
-            "task_id": task.task_id,
-        })
-        
-    return Response(created_tasks)
-
-
 class BurstCalculateMatchingScoresV2RequestSerializer(serializers.Serializer):
-    max_parallel_tasks = serializers.IntegerField(help_text="The maximum number of parallel tasks")
-    max_matches_per_task = serializers.IntegerField(help_text="The maximum amount of matches to calculate per task")
+    parallel_tasks = serializers.IntegerField(help_text="The number of parallel tasks to run")
 
 @extend_schema(
     request=BurstCalculateMatchingScoresV2RequestSerializer,
@@ -550,35 +507,28 @@ def burst_calculate_matching_scores_v2(request):
     serializer = BurstCalculateMatchingScoresV2RequestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     
-    max_parallel_tasks = serializer.validated_data['max_parallel_tasks']
-    max_matches_per_task = serializer.validated_data['max_matches_per_task']
+    parallel_tasks = serializer.validated_data['parallel_tasks']
     
     requires_matching = needs_matching()
     user_id_set = set(requires_matching.values_list('id', flat=True))
     list_combinations = list(itertools.combinations(user_id_set, 2))
     
-    total_tasks = math.ceil(len(list_combinations) / max_matches_per_task)
+    total_combinations = len(list_combinations)
+    chunk_size = math.ceil(total_combinations / parallel_tasks)
     
-    task_batches = []
-    for i in range(0, len(list_combinations), max_matches_per_task):
-        upper_bound = min(i + max_matches_per_task, len(list_combinations))
-        batch = list_combinations[i:upper_bound]
-        task_batches.append(batch)
+    task_batches = [
+        list_combinations[i:i + chunk_size]
+        for i in range(0, total_combinations, chunk_size)
+    ]
     
     created_tasks = []
-    for i in range(0, total_tasks, max_parallel_tasks):
-        current_batch = task_batches[i:i + max_parallel_tasks]
-        header = [burst_calulate_matching_scores.subtask(kwargs={"user_combinations": batch}) for batch in current_batch]
-        callback = burst_calulate_matching_scores.subtask(kwargs={"user_combinations": []})  # Dummy callback
-        chord_result = chord(header)(callback)
-        
-        for async_result in chord_result.parent:
-            created_tasks.append({
-                "task_id": async_result.id,
-            })
-        
+    for batch in task_batches:
+        async_result = burst_calculate_matching_scores.delay(user_combinations=batch)
+        created_tasks.append({
+            "task_id": async_result.id,
+        })
+    
     return Response(created_tasks)
-        
         
 
 def instantly_possible_matches():
