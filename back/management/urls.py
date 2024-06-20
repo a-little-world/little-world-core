@@ -7,7 +7,7 @@ from management.views import admin_panel_devkit
 from management.views import admin_panel_emails
 from management.views import matching_panel
 from management.api import slack, ai
-from management.api.scores import list_top_scores, score_maximization_matching, burst_calulate_matching_scores, delete_all_matching_scores
+from management.api.scores import list_top_scores, score_maximization_matching, burst_calulate_matching_scores, delete_all_matching_scores, burst_calculate_matching_scores_v2
 from management.api import scores_advanced
 from management.api.matching_stats import get_quick_statistics
 from management.api.questions import get_question_cards, archive_card
@@ -136,6 +136,9 @@ view_routes = [
     path(_api_url('quick_matching_statistics', admin=True), get_quick_statistics),
     path(_api_url('optimize_possible_matches', admin=True), score_maximization_matching),
     path(_api_url('burst_calulate_matching_scores', admin=True), burst_calulate_matching_scores),
+
+    path("api/matching/burst_update_scores", burst_calculate_matching_scores_v2), # TODO: move endpoint to api.matching
+
     path(_api_url('delete_all_matching_scores', admin=True), delete_all_matching_scores),
     path(_api_url('top_scores', admin=True), list_top_scores),
 

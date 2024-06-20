@@ -5,12 +5,13 @@ from django.urls import path
 from django_filters import rest_framework as filters
 from management.models.scores import TwoUserMatchingScore
 from management.models.user import User
-from management.models.state import State
+from management.models.state import StateSerializer, State
 from management.views.matching_panel import DetailedPaginationMixin, IsAdminOrMatchingUser
 from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_view, extend_schema, inline_serializer
 from management.models.profile import MinimalProfileSerializer
 from django.db.models import Q
+from management.api.user_advanced import AdvancedUserSerializer
 from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS
 from management.api.utils_advanced import filterset_schema_dict
 from management.api.scores import instantly_possible_matches
@@ -26,18 +27,9 @@ class TwoUserMatchingScoreSerializer(serializers.ModelSerializer):
         user1 = User.objects.get(id=instance.user1.id)
         user2 = User.objects.get(id=instance.user2.id)
         
-        representation['user1'] = {
-            'id': user1.id,
-            'hash': user1.hash,
-            'email': user1.email,
-            'profile': MinimalProfileSerializer(user1.profile).data
-        }
-        representation['user2'] = {
-            'id': user2.id,
-            'hash': user2.hash,
-            'email': user2.email,
-            'profile': MinimalProfileSerializer(user2.profile).data
-        }
+        representation['user1'] = AdvancedUserSerializer(user1).data
+        representation['user2'] = AdvancedUserSerializer(user2).data
+        
         return representation
 
 class TwoUserMatchingScoreFilter(filters.FilterSet):
@@ -88,6 +80,8 @@ class TwoUserMatchingScoreFilter(filters.FilterSet):
             suggested_matches = instantly_possible_matches()
             user_pairs = [(user1, user2) for user1, user2 in suggested_matches]
             queries = [Q(user1_id=user1, user2_id=user2) | Q(user1_id=user2, user2_id=user1) for user1, user2 in user_pairs]
+            if len(queries) == 0:
+                return queryset.none()
             query = queries.pop()
             for item in queries:
                 query |= item

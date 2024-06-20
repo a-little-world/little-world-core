@@ -49,11 +49,13 @@ days searching `{"=<5": 0, "<10": 5, "<20": 10, "<30": 15, ">30": 40}
 
 - should match be near?
 """
+from management.views.matching_panel import IsAdminOrMatchingUser
 from django.core.paginator import Paginator
 from typing import Any
 from datetime import datetime, timedelta, timezone
 from back.utils import CoolerJson
 from enum import Enum
+from management.api.user_advanced_filter import needs_matching
 import json
 from django.conf import settings
 from django.urls import path, re_path
@@ -70,6 +72,10 @@ from management.models.scores import TwoUserMatchingScore
 from management.models.user import User
 from rest_framework.permissions import IsAuthenticated
 from management.tasks import matching_algo_v2
+from drf_spectacular.utils import extend_schema, inline_serializer
+import itertools
+import math
+from celery import chord
 import dataclasses
 import os
 
@@ -491,7 +497,6 @@ class SimpleMatchingScoreSerializer(serializers.ModelSerializer):
 @permission_classes([IsAuthenticated])
 def burst_calulate_matching_scores(request):
     assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-    from management.api.user_advanced_filter import needs_matching
     from management.tasks import burst_calulate_matching_scores
     import math
     import itertools
@@ -526,6 +531,51 @@ def burst_calulate_matching_scores(request):
         created_tasks.append({
             "task_id": task.task_id,
         })
+        
+    return Response(created_tasks)
+
+
+class BurstCalculateMatchingScoresV2RequestSerializer(serializers.Serializer):
+    max_parallel_tasks = serializers.IntegerField(help_text="The maximum number of parallel tasks")
+    max_matches_per_task = serializers.IntegerField(help_text="The maximum amount of matches to calculate per task")
+
+@extend_schema(
+    request=BurstCalculateMatchingScoresV2RequestSerializer,
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def burst_calculate_matching_scores_v2(request):
+    assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+    
+    serializer = BurstCalculateMatchingScoresV2RequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    
+    max_parallel_tasks = serializer.validated_data['max_parallel_tasks']
+    max_matches_per_task = serializer.validated_data['max_matches_per_task']
+    
+    requires_matching = needs_matching()
+    user_id_set = set(requires_matching.values_list('id', flat=True))
+    list_combinations = list(itertools.combinations(user_id_set, 2))
+    
+    total_tasks = math.ceil(len(list_combinations) / max_matches_per_task)
+    
+    task_batches = []
+    for i in range(0, len(list_combinations), max_matches_per_task):
+        upper_bound = min(i + max_matches_per_task, len(list_combinations))
+        batch = list_combinations[i:upper_bound]
+        task_batches.append(batch)
+    
+    created_tasks = []
+    for i in range(0, total_tasks, max_parallel_tasks):
+        current_batch = task_batches[i:i + max_parallel_tasks]
+        header = [burst_calulate_matching_scores.subtask(kwargs={"user_combinations": batch}) for batch in current_batch]
+        callback = burst_calulate_matching_scores.subtask(kwargs={"user_combinations": []})  # Dummy callback
+        chord_result = chord(header)(callback)
+        
+        for async_result in chord_result.parent:
+            created_tasks.append({
+                "task_id": async_result.id,
+            })
         
     return Response(created_tasks)
         

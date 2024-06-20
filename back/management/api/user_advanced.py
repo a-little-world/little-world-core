@@ -237,7 +237,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         request=inline_serializer(
             name='ScoreBetweenRequest',
             fields={
-                'to_user': serializers.CharField()
+                'to_user': serializers.IntegerField()
             }
         )
     )
@@ -245,9 +245,14 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     def score_between(self, request, pk=None):
         self.kwargs['pk'] = pk
         obj = self.get_object()
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
         
         from_usr = obj
         to_usr = request.data['to_user']
+        to_usr = User.objects.get(id=to_usr)
         matching_score = TwoUserMatchingScore.get_score(from_usr, to_usr)
         if matching_score is None:
             total_score, matchable, results, score = score_between_db_update(from_usr, to_usr)
@@ -268,8 +273,16 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             }, status=401)
         return True, None
     
-    @action(detail=True, methods=['get'])
-    def messages_mark_read(self, request, pk=None):
+    @extend_schema(
+        request=inline_serializer(
+            name='MarkReadMessageRequest',
+            fields={
+                'message_id': serializers.CharField()
+            }
+        )
+    )
+    @action(detail=True, methods=['post'])
+    def message_mark_read(self, request, pk=None):
         self.kwargs['pk'] = pk
         obj = self.get_object()
 
@@ -674,7 +687,7 @@ viewset_actions = [
     path('api/matching/users/<pk>/scores/', AdvancedUserViewset.as_view({'get': 'scores'})),
     path('api/matching/users/<pk>/prematching_appointment/', AdvancedUserViewset.as_view({'get': 'prematching_appointment'})),
     path('api/matching/users/<pk>/score_between/', AdvancedUserViewset.as_view({'post': 'score_between'})),
-    path('api/matching/users/<pk>/messages_mark_read/', AdvancedUserViewset.as_view({'get': 'messages_mark_read'})),
+    path('api/matching/users/<pk>/message_mark_read/', AdvancedUserViewset.as_view({'post': 'message_mark_read'})),
     path('api/matching/users/<pk>/messages/', AdvancedUserViewset.as_view({'get': 'messages'})),
     path('api/matching/users/<pk>/sms/', AdvancedUserViewset.as_view({'get': 'sms', 'post': 'sms'})),
     path('api/matching/users/<pk>/message_reply/', AdvancedUserViewset.as_view({'post': 'message_reply'})),
