@@ -194,6 +194,7 @@
   "profile.lang_duplicate": "Du hast eine Sprache mehrmals ausgewählt",
   "profile.lang_de_missing": "Du musst mindestens Deutsch als Sprache auswählen",
   "profile.descr_too_short": "muss mindestens 10 Zeichen haben",
+  "profile.interests.min_number": "Bitte wähle mindestens drei Interessen",
   "errors.missing_email_auth_data_get_frontend": "Email authentifizierungsdaten fehlen",
   "info_view.email_verification_link_success.title": "Email Verifizierung erfolgreich",
   "info_view.email_verification_link_success.content": "Ihre Email wurde erfolgreich verifiziert",
