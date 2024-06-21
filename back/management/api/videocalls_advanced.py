@@ -18,7 +18,7 @@ class AdvancedLivekitSessionSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = LivekitSession
-        fields = ['uuid', 'created_at', 'end_time', 'is_active', 'u1', 'u2']
+        fields = ['uuid', 'created_at', 'end_time', 'is_active', 'u1', 'u2', 'both_have_been_active']
         
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -42,6 +42,17 @@ class AdvancedLivekitSessionSerializer(serializers.ModelSerializer):
             representation['status'] = 'active'
         else:
             representation['status'] = 'inactive'
+            
+        representation['both_have_been_active'] = instance.both_have_been_active
+        
+        # calculate the duration of the session
+
+        if instance.end_time:
+            duration = instance.end_time - instance.created_at
+            minutes, seconds = divmod(duration.seconds, 60)
+            representation['duration'] = f"{minutes} minutes, ({seconds} s)"
+        else:
+            representation['duration'] = None
         return representation
 
 class LivekitSessionFilter(filters.FilterSet):
