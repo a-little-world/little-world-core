@@ -1,6 +1,8 @@
 from rest_framework.decorators import action, api_view, permission_classes
+from video.models import LivekitSession
 from django.db.models.functions import TruncDay, TruncWeek, ExtractDay
 from rest_framework.response import Response
+from chat.models import Message, Chat
 from rest_framework import viewsets
 from datetime import timedelta, date
 from django.db.models import Q, Count, F
@@ -86,6 +88,119 @@ def user_signups(request):
 
     return Response(data)
 
+
+@extend_schema(
+    request=inline_serializer(
+        name='MessageStatisticsCountOverTimeRequest',
+        fields={
+            'bucket_size': serializers.IntegerField(default=1),
+            'base_list': serializers.ChoiceField(
+                choices=[entry.name for entry in FILTER_LISTS],
+                default='all',
+            ),
+            'start_date': serializers.DateField(default='2022-01-01'),
+            'end_date': serializers.DateField(default=date.today())
+        }
+    ),
+)
+@api_view(['POST'])
+@permission_classes([IsAdminOrMatchingUser])
+def message_statistics(request):
+    # Validate the inputs
+    today = date.today()
+    bucket_size = request.data.get('bucket_size', 1)
+    start_date = request.data.get('start_date', '2022-01-01')
+    end_date = request.data.get('end_date', today)
+
+    list_name = request.data.get('base_list', 'all')
+    selected_filter = next(filter(lambda entry: entry.name == list_name, FILTER_LISTS))
+
+    pre_filtered_users = User.objects.all()
+    if not request.user.is_staff:
+        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+
+    queryset = selected_filter.queryset(qs=pre_filtered_users)
+
+    if bucket_size == 1:
+        trunc_func = TruncDay
+    elif bucket_size == 7:
+        trunc_func = TruncWeek
+    else:
+        return Response({
+            "msg": "Bucket size not supported only 1 & 7 days are supported"
+        }, status=400)
+    
+    message_queryset = (Message.objects.filter(
+                            sender__in=queryset, 
+                            recipient__in=queryset,
+                            created__range=[start_date, end_date])
+                        .annotate(bucket=trunc_func('created'))
+                        .values('bucket')
+                        .annotate(count=Count('id'))
+                        .order_by('bucket'))
+
+    data = [{'date': stats['bucket'], 'count': stats['count']} for stats in message_queryset]
+
+    return Response(data)
+
+
+@extend_schema(
+    request=inline_serializer(
+        name='LivekitSessionStatisticsCountOverTimeRequest',
+        fields={
+            'bucket_size': serializers.IntegerField(default=1),
+            'base_list': serializers.ChoiceField(
+                choices=[entry.name for entry in FILTER_LISTS],
+                default='all',
+            ),
+            'start_date': serializers.DateField(default='2022-01-01'),
+            'end_date': serializers.DateField(default=date.today())
+        }
+    ),
+)
+@api_view(['POST'])
+@permission_classes([IsAdminOrMatchingUser])
+def livekit_session_statistics(request):
+    # Validate the inputs
+    today = date.today()
+    bucket_size = request.data.get('bucket_size', 1)
+    start_date = request.data.get('start_date', '2022-01-01')
+    end_date = request.data.get('end_date', today)
+
+    list_name = request.data.get('base_list', 'all')
+    selected_filter = next(filter(lambda entry: entry.name == list_name, FILTER_LISTS))
+
+    pre_filtered_users = User.objects.all()
+    if not request.user.is_staff:
+        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+
+    queryset = selected_filter.queryset(qs=pre_filtered_users)
+
+    if bucket_size == 1:
+        trunc_func = TruncDay
+    elif bucket_size == 7:
+        trunc_func = TruncWeek
+    else:
+        return Response({
+            "msg": "Bucket size not supported only 1 & 7 days are supported"
+        }, status=400)
+    
+    livekit_queryset = (LivekitSession.objects.filter(
+                            u1__in=queryset, 
+                            u2__in=queryset,
+                            both_have_been_active=True,
+                            created_at__range=[start_date, end_date])
+                        .annotate(bucket=trunc_func('created_at'))
+                        .values('bucket')
+                        .annotate(count=Count('id'))
+                        .order_by('bucket'))
+
+    data = [{'date': stats['bucket'], 'count': stats['count']} for stats in livekit_queryset]
+    
+    return Response(data)
+
 api_urls = [
-    path('api/matching/users/statistics/sign-ups/', user_signups),
+    path('api/matching/users/statistics/signups/', user_signups),
+    path('api/matching/users/statistics/messages/', message_statistics),
+    path('api/matching/users/statistics/video_calls/', livekit_session_statistics),
 ]
