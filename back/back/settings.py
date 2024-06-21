@@ -630,7 +630,7 @@ DATABASES = {
         'PASSWORD': os.environ['DJ_DATABASE_PASSWORD'],
         'HOST': os.environ['DJ_DATABASE_HOST'],
         'PORT': os.environ['DJ_DATABASE_PORT'],
-        'OPTIONS': {'sslmode': 'require'},
+        'OPTIONS': {'sslmode': 'require'} if (not (os.environ.get('DJ_DATABASE_DISABLE_SSL', 'false').lower() in ('true', '1', 't'))) else {},
         # 'CONN_MAX_AGE': 10,
     },
 }
