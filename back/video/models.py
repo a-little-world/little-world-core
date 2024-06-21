@@ -38,6 +38,9 @@ class LivekitSession(models.Model):
     u1_active = models.BooleanField(default=False)
     u2_active = models.BooleanField(default=False)
     
+    u1_was_active = models.BooleanField(default=False)
+    u2_was_active = models.BooleanField(default=False)
+    
     both_have_been_active = models.BooleanField(default=False)
     
     u1 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u1_livekit_session")
