@@ -685,63 +685,6 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         
         return Response(email_logs)
     
-# API lets you select a time frame and a bucket size in days and the returns a renderable graph on some count statistic # So the time selector here is always 'date_joined' # Supported counts: # - 'user_registrations' # ( - 'user_messages_send' )
-
-@extend_schema(
-    request=inline_serializer(
-        name='UserStatisticsCountOverTimeRequest',
-        fields={
-            'time_frame': serializers.ChoiceField(
-                choices=['date_joined'], 
-                default='date_joined'
-            ),
-            'bucket_size': serializers.IntegerField(default=1),
-            'base_list': serializers.ChoiceField(
-                choices=[entry.name for entry in FILTER_LISTS],
-                default='all',
-            ),
-            'start_date': serializers.DateField(default='2022-01-01'),
-            'end_date': serializers.DateField(default=date.today())
-        }
-    ),
-)
-@api_view(['POST'])
-@permission_classes([IsAdminOrMatchingUser])
-def user_statistics_count_over_time(request):
-    # Validate the inputs
-    today = date.today()
-    time_frame = request.data.get('time_frame', 'date_joined')
-    bucket_size = request.data.get('bucket_size', 1)
-    start_date = request.data.get('start_date', '2022-01-01')
-    end_date = request.data.get('end_date', today)
-    
-    list_name = request.data.get('base_list', 'all')
-    selected_filter = next(filter(lambda entry: entry.name == list_name, FILTER_LISTS))
-    
-    pre_filtered_users = User.objects.all()
-    if not request.user.is_staff:
-        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
-    
-    queryset = selected_filter.queryset(qs=pre_filtered_users)
-
-    if bucket_size == 1:
-        trunc_func = TruncDay
-    elif bucket_size == 7:
-        trunc_func = TruncWeek
-    else:
-        return Response({
-            "msg": "Bucket size not supported only 1 & 7 days are supported"
-        }, status=400)
-
-    user_counts = (queryset.filter(date_joined__range=[start_date, end_date])
-                   .annotate(bucket=trunc_func('date_joined'))
-                   .values('bucket')
-                   .annotate(count=Count('id'))
-                   .order_by('bucket'))
-
-    data = [{'date': stats['bucket'], 'count': stats['count']} for stats in user_counts]
-
-    return Response(data)
         
 viewset_actions = [
     path('api/matching/users/<pk>/scores/', AdvancedUserViewset.as_view({'get': 'scores'})),
@@ -766,7 +709,6 @@ viewset_actions = [
 ]
 
 api_urls = [
-    path('api/matching/users/statistics/', user_statistics_count_over_time),
     path('api/matching/users/', AdvancedUserViewset.as_view({'get': 'list'})),
     path('api/matching/users/filters/', AdvancedUserViewset.as_view({'get': 'get_filter_schema'})),
     path('api/matching/users/<pk>/', AdvancedUserViewset.as_view({'get': 'retrieve'})),

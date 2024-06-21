@@ -6,7 +6,7 @@ from back.utils import _api_url
 from management.views import admin_panel_devkit
 from management.views import admin_panel_emails
 from management.views import matching_panel
-from management.api import slack, ai
+from management.api import slack, ai, user_advanced_statistics
 from management.api.scores import list_top_scores, score_maximization_matching, burst_calculate_matching_scores, delete_all_matching_scores, burst_calculate_matching_scores_v2
 from management.api import scores_advanced, videocalls_advanced
 from management.api.matching_stats import get_quick_statistics
@@ -47,6 +47,7 @@ api_routes = [
     *matches_advanced_api_urls,
     *scores_advanced.api_urls,
     *videocalls_advanced.api_urls,
+    *user_advanced_statistics.api_urls,
     # User
     path(_api_url('user_data_v2'), api.user_data.user_data_v2),
 
