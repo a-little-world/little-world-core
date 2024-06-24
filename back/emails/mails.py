@@ -31,6 +31,7 @@ from emails.templates import (
     NewUnreadMessages,
     MatchFoundEmailTexts,
     CulturalAwarenessInvitation,
+    CultureDimensionsLectureInvitationToday,
     SorryWeStillNeedALittleMail,
     NewServerMail,
 GermanImprovementBabbelInvitation,
@@ -68,6 +69,10 @@ class GermanImprovementBabbelInvitationParams:
 class BabbelSubscriptionMailWinnerParams:
     first_name: str
     unsubscribe_url1: str
+    
+@dataclass
+class CultureDimensionsLectureInvitationTodayParams:
+    first_name: str
 
 @dataclass
 class SurveyInvitation2AniqParams:
@@ -469,6 +474,13 @@ templates = [
         texts=CommunityGetTogetherInvitationToday,
         defaults=CommunityGetTogetherInvitationToday
     ),
+    MailMeta(
+        name="culture_dimensions_lecture_today",
+        template="emails/welcome.html",
+        params=CultureDimensionsLectureInvitationTodayParams,
+        texts=CultureDimensionsLectureInvitationToday,
+        defaults=CultureDimensionsLectureInvitationToday
+    )
 ]
 
 
