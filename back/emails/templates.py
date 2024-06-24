@@ -747,3 +747,32 @@ class CommunityGetTogetherInvitationToday:
     unsubscribe_link1_category: str = 'none'
     unsubscribe_link2: str = 'none'
     unsubscribe_link2_category: str = 'none'
+
+
+@dataclass
+class CultureDimensionsLectureInvitationToday:
+    """
+    ---------> Culture Dimensions Lecture Invitation Template <---------------
+    """
+    subject_header_text: str = "Einladung zum heutigen Vortrag über Kulturdimensionen 🌍"
+    greeting: str = 'Hallo {first_name},'
+    content_start_text: str = 'heute, Montag, den 24. Juni, um 18 Uhr spricht Raquel Barros über Kulturdimensionen. In ihrem 10-minütigen Vortrag erklärt sie die Theorie der Kulturdimensionen. Du musst nicht an den vorherigen Vorträgen teilgenommen haben, um dabei zu sein. Dieser Vortrag ist ein komplettes Thema für sich.'
+    content_body_text: str = 'Das ist eine tolle Chance, mehr über dieses Thema zu lernen und dein Wissen zu erweitern. Raquel Barros ist die Leiterin der Werkstatt der Kulturen beim Diakonischen Werk im Aachen e.V. und hat viel Erfahrung. Nach dem Vortrag haben wir Zeit für Fragen und eine Diskussion. So können wir das Gelernte zusammen besprechen. Wir freuen uns sehr, wenn du dabei bist!'
+    button_text: str = 'Zum Vortrag beitreten'
+    button_link: str = 'https://rwth.zoom.us/j/67464220489'
+    link_box_text: str = mark_safe(
+        '<a href="https://rwth.zoom.us/j/67464220489" style="color: blue;">https://rwth.zoom.us/j/67464220489</a>'
+    )
+    below_link_text: str = 'Klicke einfach auf diesen Link, um heute um 18 Uhr teilzunehmen. Oder logge dich bei Little World ein und du findest den Link unter “Gruppengespräche”.'
+    footer_text: str = 'Falls dir einige Begriffe nicht bekannt sind, kannst du dich mit diesem Glossar vorbereiten: '
+    glossary_link: str = mark_safe(
+        '<a href="https://home.little-world.com/wp-content/uploads/2024/05/Glossar-Trainings.pdf" style="color: blue;">Glossar (link zum Glossar)</a>'
+    )
+    goodbye: str = 'Liebe Grüße,'
+    goodbye_name: str = 'Oliver, Tim, Sean und Melina 😊'
+    use_unsubscribe_footer: bool = False
+    unsubscribe_two_link: bool = False
+    unsubscribe_link1: str = 'none'
+    unsubscribe_link1_category: str = 'none'
+    unsubscribe_link2: str = 'none'
+    unsubscribe_link2_category: str = 'none'
