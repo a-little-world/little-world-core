@@ -4,8 +4,6 @@
 
 2. Decrypt the backup
 
-ThisTheBestPasswordJus!stFor5ean
-
 ```bash
 openssl enc -aes-256-cbc -d -pbkdf2 -in localdb.sql.gz.encrypted -out localdb.sql.gz
 ```
