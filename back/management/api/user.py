@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from django.http import HttpResponse, HttpResponseRedirect
 from django.contrib.auth.decorators import login_required
+from management.controller import delete_user
 from emails import mails
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import api_view, permission_classes
@@ -518,7 +519,8 @@ def delete_account(request):
     assert not request.user.is_staff
     assert not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
     
-    perform_user_deletion(request.user, management_user=None, send_deletion_email=True)
+    
+    delete_user(request.user, management_user=None, send_deletion_email=True)
     logout(request)
 
     return Response({"success": True})
