@@ -24,6 +24,7 @@ from emails.templates import (
     ImpulsBeitraegeMail,
     ImpulsBeitraegeMail2,
     CommunityGetTogetherInvitation,
+    CommunityGetTogetherInvitation130624,
     TrainingSeriesInvitation,
     # Currently we are using the same template as weclone
     # so MatchFoundEmailTexts has no Defaults
@@ -132,6 +133,10 @@ class StillInContactParams:
 class MatchRejectedEmailParams:
     first_name: str
     partner_first_name: str
+    
+@dataclass
+class CommunityGetTogetherInvitation130624Params:
+    first_name: str
     
     
 @dataclass
@@ -480,6 +485,13 @@ templates = [
         params=CultureDimensionsLectureInvitationTodayParams,
         texts=CultureDimensionsLectureInvitationToday,
         defaults=CultureDimensionsLectureInvitationToday
+    ),
+    MailMeta(
+        name="community_get_together_130624",
+        template="emails/welcome.html",
+        params=CommunityGetTogetherInvitation130624Params,
+        texts=CommunityGetTogetherInvitation130624,
+        defaults=CommunityGetTogetherInvitation130624
     )
 ]
 
