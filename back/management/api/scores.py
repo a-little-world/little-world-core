@@ -281,8 +281,8 @@ while `user.gender.MALE (or FEMALE)` with `user.gender_partne.ANY` will give a s
         speech_medium1 = self.user1.profile.speech_medium
         speech_medium2 = self.user2.profile.speech_medium
         
-        if (speech_medium1 == Profile.SpeechMediumChoices.ANY and (speech_medium2 == Profile.SpeechMediumChoices.AUDIO or speech_medium2 == Profile.SpeechMediumChoices.VIDEO)) \
-            or (speech_medium2 == Profile.SpeechMediumChoices.ANY and (speech_medium1 == Profile.SpeechMediumChoices.AUDIO or speech_medium1 == Profile.SpeechMediumChoices.VIDEO)):
+        if (speech_medium1 == Profile.SpeechMediumChoices2.ANY and (speech_medium2 == Profile.SpeechMediumChoices2.PHONE or speech_medium2 == Profile.SpeechMediumChoices2.VIDEO)) \
+            or (speech_medium2 == Profile.SpeechMediumChoices2.ANY and (speech_medium1 == Profile.SpeechMediumChoices2.PHONE or speech_medium1 == Profile.SpeechMediumChoices2.VIDEO)):
             return ScoringFuctionResult(matchable=True, score=10, weight=1.0, markdown_info=f"Speech Medium: Any  :white_check_mark: (score: 10)")
         if speech_medium1 == speech_medium2:
             return ScoringFuctionResult(matchable=True, score=40, weight=1.0, markdown_info=f"Speech Medium: {speech_medium1} requested :white_check_mark: (score: 40)")
