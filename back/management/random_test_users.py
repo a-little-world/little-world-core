@@ -118,10 +118,9 @@ profile_cls = Profile
 user_form_choices = {
     "notify_channel": getattr(profile_cls, 'NotificationChannelChoices'),
     "user_type": getattr(profile_cls, 'TypeChoices'),
-    "partner_location": getattr(profile_cls, 'ConversationPartlerLocation'),
-    "speech_medium": getattr(profile_cls, 'SpeechMediumChoices'),
-    "target_group": getattr(profile_cls, 'TargetGroupChoices'),
-    "lang_level": getattr(profile_cls, 'LanguageLevelChoices'),
+    "partner_location": getattr(profile_cls, 'ConversationPartlerLocation2'),
+    "speech_medium": getattr(profile_cls, 'SpeechMediumChoices2'),
+    "target_group": getattr(profile_cls, 'TargetGroupChoices2'),
     "partner_sex": getattr(profile_cls, 'ParterSexChoice'),
     "image_type": getattr(profile_cls, 'ImageTypeChoice'),
 }
@@ -232,14 +231,11 @@ def modify_profile_to_match(usr1, usr2):
     u1_p.user_type = Profile.TypeChoices.VOLUNTEER
     u2_p.user_type = Profile.TypeChoices.LEARNER
 
-    u1_p.partner_location = Profile.ConversationPartlerLocation.ANYWHERE_VOL
-    u2_p.partner_location = Profile.ConversationPartlerLocation.ANYWHERE_LER
+    u1_p.partner_location = Profile.ConversationPartlerLocation2.ANYWHERE
+    u2_p.partner_location = Profile.ConversationPartlerLocation2.ANYWHERE
 
-    u1_p.target_group = Profile.TargetGroupChoices.ANY_VOL
-    u2_p.target_group = Profile.TargetGroupChoices.ANY_LER
-
-    u1_p.lang_level = Profile.LanguageLevelChoices.LEVEL_0_VOL
-    u2_p.lang_level = Profile.LanguageLevelChoices.LEVEL_0_LER
+    u1_p.target_group = Profile.TargetGroupChoices2.ANY
+    u2_p.target_group = Profile.TargetGroupChoices2.ANY
 
     u1_p.speech_medium = Profile.SpeechMediumChoices.ANY_VOL
     u2_p.speech_medium = Profile.SpeechMediumChoices.ANY_LER
