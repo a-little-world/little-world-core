@@ -184,8 +184,7 @@ def create_test_user(i, user_seeds=None, password=None, email=None, pass_if_exis
         usr.profile.add_profile_picture_from_local_path(
             pics[random.randint(0, len(pics) - 1)])
 
-    if usr.profile.partner_location == \
-            Profile.normalize_choice(Profile.ConversationPartlerLocation.CLOSE_VOL):
+    if usr.profile.partner_location == Profile.ConversationPartlerLocation2.CLOSE:
         # In this case the user is required to have a postal code
         usr.profile.postal_code = str(random_postal_code())
     if usr.profile.notify_channel != \
