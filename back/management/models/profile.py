@@ -114,16 +114,6 @@ class ProfileBase(models.Model):
     for learners this is which group they belong to
     """
 
-    class TargetGroupChoices(models.TextChoices):
-        ANY_VOL = "any.vol", get_translation("profile.target_group.any_vol")
-        ANY_LER = "any.ler", get_translation("profile.target_group.any_ler")
-        REFUGEE_VOL = "refugee.vol", get_translation("profile.target_group.refugee_vol")
-        REFUGEE_LER = "refugee.ler", get_translation("profile.target_group.refugee_ler")
-        STUDENT_VOL = "student.vol", get_translation("profile.target_group.student_vol")
-        STUDENT_LER = "student.ler", get_translation("profile.target_group.student_ler")
-        WORKER_VOL = "worker.vol", get_translation("profile.target_group.worker_vol")
-        WORKER_LER = "worker.ler", get_translation("profile.target_group.worker_ler")
-
     class TargetGroupChoices2(models.TextChoices):
         ANY = "any", get_translation("profile.target_group.any")
         REFUGEE = "refugee", get_translation("profile.target_group.refugee")
@@ -205,21 +195,6 @@ class ProfileBase(models.Model):
         )
         CLOSE = "close", get_translation("profile.partner_location.close")
         FAR = "far", get_translation("profile.partner_location.far")
-
-
-    class ConversationPartlerLocation(models.TextChoices):
-        ANYWHERE_VOL = (
-            "anywhere.vol",
-            get_translation("profile.partner_location.anywhere_vol"),
-        )
-        ANYWHERE_LER = (
-            "anywhere.ler",
-            get_translation("profile.partner_location.anywhere_ler"),
-        )
-        CLOSE_VOL = "close.vol", get_translation("profile.partner_location.close_vol")
-        CLOSE_LER = "close.ler", get_translation("profile.partner_location.close_ler")
-        FAR_VOL = "far.vol", get_translation("profile.partner_location.far_vol")
-        FAR_LER = "far.ler", get_translation("profile.partner_location.far_ler")
 
     partner_location = models.CharField(
         choices=ConversationPartlerLocation2.choices,
