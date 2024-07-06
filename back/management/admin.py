@@ -81,7 +81,7 @@ def make_match_admin(modeladmin, request, queryset):
 @admin.register(models.profile.Profile)
 class ProfileModelAdmin(admin.ModelAdmin):
     list_display = ('user', 'first_name', 'second_name',
-                    'user_type', 'birth_year', 'description', 'lang_level', 'notify_channel')
+                    'user_type', 'birth_year', 'description', 'notify_channel')
 
     actions = [make_match_admin]
 
