@@ -56,10 +56,6 @@ def user_signups(request):
     start_date = request.data.get('start_date', '2022-01-01')
     end_date = request.data.get('end_date', today)
     
-    bucket_size = 1
-    start_date = '2022-01-01'
-    end_date = today
-    
     list_name = request.data.get('base_list', 'all')
     selected_filter = next(filter(lambda entry: entry.name == list_name, FILTER_LISTS))
     

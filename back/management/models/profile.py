@@ -114,24 +114,20 @@ class ProfileBase(models.Model):
     for learners this is which group they belong to
     """
 
-    class TargetGroupChoices(models.TextChoices):
-        ANY_VOL = "any.vol", get_translation("profile.target_group.any_vol")
-        ANY_LER = "any.ler", get_translation("profile.target_group.any_ler")
-        REFUGEE_VOL = "refugee.vol", get_translation("profile.target_group.refugee_vol")
-        REFUGEE_LER = "refugee.ler", get_translation("profile.target_group.refugee_ler")
-        STUDENT_VOL = "student.vol", get_translation("profile.target_group.student_vol")
-        STUDENT_LER = "student.ler", get_translation("profile.target_group.student_ler")
-        WORKER_VOL = "worker.vol", get_translation("profile.target_group.worker_vol")
-        WORKER_LER = "worker.ler", get_translation("profile.target_group.worker_ler")
+    class TargetGroupChoices2(models.TextChoices):
+        ANY = "any", get_translation("profile.target_groups.any")
+        REFUGEE = "refugee", get_translation("profile.target_groups.refugee")
+        STUDENT = "student", get_translation("profile.target_groups.student")
+        WORKER = "worker", get_translation("profile.target_groups.worker")
 
     target_group = models.CharField(
-        choices=TargetGroupChoices.choices,
-        default=TargetGroupChoices.ANY_VOL,
+        choices=TargetGroupChoices2.choices,
+        default=TargetGroupChoices2.ANY,
         max_length=255,
     )
 
     target_groups = MultiSelectField(
-        choices=TargetGroupChoices.choices, max_choices=20, max_length=1000, blank=True
+        choices=TargetGroupChoices2.choices, max_choices=20, max_length=1000, blank=True
     )  # type: ignore
 
     # DEPRICATED!!! replaced with 'partner_gender'
@@ -168,18 +164,14 @@ class ProfileBase(models.Model):
     """
     Which medium the user preferes for
     """
-
-    class SpeechMediumChoices(models.TextChoices):
-        ANY_VOL = "any.vol", get_translation("profile.speech_medium.any_vol")
-        ANY_LER = "any.ler", get_translation("profile.speech_medium.any_ler")
-        VIDEO_VOL = "video.vol", get_translation("profile.speech_medium.video_vol")
-        VIDEO_LER = "video.ler", get_translation("profile.speech_medium.video_ler")
-        PHONE_VOL = "phone.vol", get_translation("profile.speech_medium.phone_vol")
-        PHONE_LER = "phone.ler", get_translation("profile.speech_medium.phone_ler")
+    class SpeechMediumChoices2(models.TextChoices):
+        ANY = "any", get_translation("profile.speech_medium.any")
+        VIDEO = "video", get_translation("profile.speech_medium.video")
+        PHONE = "phone", get_translation("profile.speech_medium.phone")
 
     speech_medium = models.CharField(
-        choices=SpeechMediumChoices.choices,
-        default=SpeechMediumChoices.ANY_VOL,
+        choices=SpeechMediumChoices2.choices,
+        default=SpeechMediumChoices2.ANY,
         max_length=255,
     )
 
@@ -188,23 +180,17 @@ class ProfileBase(models.Model):
     WE ARE CURRENTLY NOT ASKING THIS!
     """
 
-    class ConversationPartlerLocation(models.TextChoices):
-        ANYWHERE_VOL = (
-            "anywhere.vol",
-            get_translation("profile.partner_location.anywhere_vol"),
+    class ConversationPartlerLocation2(models.TextChoices):
+        ANYWHERE = (
+            "anywhere",
+            get_translation("profile.partner_location.anywhere"),
         )
-        ANYWHERE_LER = (
-            "anywhere.ler",
-            get_translation("profile.partner_location.anywhere_ler"),
-        )
-        CLOSE_VOL = "close.vol", get_translation("profile.partner_location.close_vol")
-        CLOSE_LER = "close.ler", get_translation("profile.partner_location.close_ler")
-        FAR_VOL = "far.vol", get_translation("profile.partner_location.far_vol")
-        FAR_LER = "far.ler", get_translation("profile.partner_location.far_ler")
+        CLOSE = "close", get_translation("profile.partner_location.close")
+        FAR = "far", get_translation("profile.partner_location.far")
 
     partner_location = models.CharField(
-        choices=ConversationPartlerLocation.choices,
-        default=ConversationPartlerLocation.ANYWHERE_VOL,
+        choices=ConversationPartlerLocation2.choices,
+        default=ConversationPartlerLocation2.ANYWHERE,
         max_length=255,
     )
 
@@ -285,23 +271,6 @@ class ProfileBase(models.Model):
         default="", blank=True, max_length=300
     )
 
-    # TODO: depricated!!!
-    class LanguageLevelChoices(models.TextChoices):
-        """
-        For all choices we allow to version a version for a volunteer
-        and a version for a lanaguage learer
-        NOTE: this means we *need* to update selection if a users switches from learner to volunteer or vice versa
-        """
-
-        LEVEL_0_VOL = "level-0.vol", get_translation("profile.lang_level.level_0_vol")
-        LEVEL_0_LER = "level-0.ler", get_translation("profile.lang_level.level_0_ler")
-        LEVEL_1_VOL = "level-1.vol", get_translation("profile.lang_level.level_1_vol")
-        LEVEL_1_LER = "level-1.ler", get_translation("profile.lang_level.level_1_ler")
-        LEVEL_2_VOL = "level-2.vol", get_translation("profile.lang_level.level_2_vol")
-        LEVEL_2_LER = "level-2.ler", get_translation("profile.lang_level.level_2_ler")
-        LEVEL_3_VOL = "level-3.vol", get_translation("profile.lang_level.level_3_vol")
-        LEVEL_3_LER = "level-3.ler", get_translation("profile.lang_level.level_3_ler")
-
     class MinLangLevelPartnerChoices(models.TextChoices):
         LEVEL_0 = "level-0", get_translation("profile.min_lang_level_partner.level_0")
         LEVEL_1 = "level-1", get_translation("profile.min_lang_level_partner.level_1")
@@ -311,13 +280,6 @@ class ProfileBase(models.Model):
     min_lang_level_partner = models.CharField(
         choices=MinLangLevelPartnerChoices.choices,
         default=MinLangLevelPartnerChoices.LEVEL_0,
-        max_length=255,
-    )
-
-    # TODO: depricated!!!
-    lang_level = models.CharField(
-        choices=LanguageLevelChoices.choices,
-        default=LanguageLevelChoices.LEVEL_0_VOL,
         max_length=255,
     )
 
@@ -397,14 +359,6 @@ class ProfileBase(models.Model):
 
     liability_accepted = models.BooleanField(default=False)
 
-    @classmethod
-    def normalize_choice(obj, choice: str):
-        ends = [".vol", ".ler"]
-        assert any([choice.endswith(c) for c in ends])
-        # TODO: somehow catch if dev accidently retused
-        # .ler / .vol in profile choice
-        return choice.replace(".vol", "").replace(".ler", "")
-
     def add_profile_picture_from_local_path(self, path):
         print("Trying to add the pic", path)
         self.image.save(os.path.basename(path), File(open(path, "rb")))
@@ -422,16 +376,11 @@ class ProfileBase(models.Model):
         the user is currently
         """
         fields_required_for_completion = [
-            "lang_level",
             "description",  # This is required but 'language_skill_description' is not!
             "image"
             if self.image_type == self.ImageTypeChoice.IMAGE
             else "avatar_config",
-            # Postal code is not required anymore
-            # *(["postal_code"] if self.partner_location == Profile.normalize_choice(
-            #    self.ConversationPartlerLocation.CLOSE_VOL) else []),
             "target_group",
-            # 'additional_interests' also not required
             *(
                 ["phone_mobile"]
                 if self.notify_channel  # phone is only required if notification channel is not email ( so it's sms or phone )
@@ -462,32 +411,6 @@ class ProfileBase(models.Model):
         return is_completed, msgs
 
     def save(self, *args, **kwargs):
-        """
-        Cause we have different choices for language learners
-        and volunteers we need to detect when this is changed.
-        If user type is changed we hav to update all choices that have '.vol' or '.ler' ending
-        """
-
-        def __ending(vol=True):
-            cfield = self.TypeChoices.VOLUNTEER if vol else self.TypeChoices.LEARNER
-            return ".vol" if self.user_type == cfield else ".ler"
-
-        choices_different = [  # All choice fields that differ for learners vs volunteers
-            "lang_level",
-            "partner_location",
-            "speech_medium",
-            "target_group",
-        ]
-        allowed_ending = __ending(True)
-        disallowed_ending = __ending(False)
-
-        # TODO: we could also only run this if the value of 'user_type' has changed
-        for field in choices_different:
-            value = getattr(self, field)
-            if value.endswith(disallowed_ending):
-                # Now we basically replace disallowed ending with allowed ending
-                setattr(self, field, value.replace(disallowed_ending, allowed_ending))
-
         super(ProfileBase, self).save(*args, **kwargs)
 
 
@@ -526,6 +449,7 @@ class ProfileAtMatchRequest(ProfileBase):
 class ProfileSerializer(serializers.ModelSerializer):
     options = serializers.SerializerMethodField()
     interests = serializers.MultipleChoiceField(choices=Profile.InterestChoices.choices)
+    target_groups = serializers.MultipleChoiceField(choices=Profile.TargetGroupChoices2.choices)
     image = serializers.ImageField(
         max_length=None, allow_empty_file=True, allow_null=True, required=False
     )
@@ -589,7 +513,6 @@ class SelfProfileSerializer(ProfileSerializer):
             "postal_code",
             "interests",
             "availability",
-            "lang_level",
             "min_lang_level_partner",
             "additional_interests",
             "language_skill_description",
@@ -675,6 +598,13 @@ class SelfProfileSerializer(ProfileSerializer):
         if len(value) < 3:
             raise serializers.ValidationError(
                 get_translation("profile.interests.min_number")
+            )
+        return value
+    
+    def validate_target_groups(self, value):
+        if len(value) < 1:
+            raise serializers.ValidationError(
+                get_translation("profile.target_groups.min_number")
             )
         return value
 
