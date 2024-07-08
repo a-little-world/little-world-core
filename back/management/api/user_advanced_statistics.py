@@ -1,6 +1,6 @@
 from rest_framework.decorators import action, api_view, permission_classes
 from video.models import LivekitSession
-from django.db.models.functions import TruncDay, TruncWeek, ExtractDay
+from django.db.models.functions import TruncDay, TruncWeek, ExtractDay, TruncMonth
 from rest_framework.response import Response
 from chat.models import Message, Chat
 from rest_framework import viewsets
@@ -69,6 +69,8 @@ def user_signups(request):
         trunc_func = TruncDay
     elif bucket_size == 7:
         trunc_func = TruncWeek
+    elif bucket_size == 30:
+        trunc_func = TruncMonth
     else:
         return Response({
             "msg": "Bucket size not supported only 1 & 7 days are supported"
@@ -105,6 +107,7 @@ def message_statistics(request):
     # Validate the inputs
     today = date.today()
     bucket_size = request.data.get('bucket_size', 1)
+    
     start_date = request.data.get('start_date', '2022-01-01')
     end_date = request.data.get('end_date', today)
 
@@ -121,6 +124,8 @@ def message_statistics(request):
         trunc_func = TruncDay
     elif bucket_size == 7:
         trunc_func = TruncWeek
+    elif bucket_size == 30:
+        trunc_func = TruncMonth
     else:
         return Response({
             "msg": "Bucket size not supported only 1 & 7 days are supported"
@@ -160,7 +165,12 @@ def livekit_session_statistics(request):
     # Validate the inputs
     today = date.today()
     bucket_size = request.data.get('bucket_size', 1)
-    start_date = request.data.get('start_date', '2022-01-01')
+
+    min_start_date = date(2024, 4, 4)
+    start_date = request.data.get('start_date', f'{min_start_date}')
+    if start_date < f'{min_start_date}':
+        start_date = f'{min_start_date}'
+
     end_date = request.data.get('end_date', today)
 
     list_name = request.data.get('base_list', 'all')
@@ -176,6 +186,8 @@ def livekit_session_statistics(request):
         trunc_func = TruncDay
     elif bucket_size == 7:
         trunc_func = TruncWeek
+    elif bucket_size == 30:
+        trunc_func = TruncMonth
     else:
         return Response({
             "msg": "Bucket size not supported only 1 & 7 days are supported"
@@ -197,6 +209,6 @@ def livekit_session_statistics(request):
 
 api_urls = [
     path('api/matching/users/statistics/signups/', user_signups),
-    path('api/matching/users/statistics/messages/', message_statistics),
+    path('api/matching/users/statistics/messages_send/', message_statistics),
     path('api/matching/users/statistics/video_calls/', livekit_session_statistics),
 ]
