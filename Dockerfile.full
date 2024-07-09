@@ -1,4 +1,4 @@
-FROM node:16 as front_base_image
+FROM node:18 AS front_base_image
 
 # docker build -t full_image -f Dockerfile.full .
 # DOCKER_BUILDKIT=1 docker build --no-cache -t full_image -f Dockerfile.full .
@@ -12,6 +12,7 @@ ENV BUILD_TYPE=${BUILD_TYPE:-dev}
 
 # First we build all the frontends in one container
 COPY ./front /front
+RUN chown -R 1000:1000 /front
 
 WORKDIR /front
 
@@ -24,13 +25,13 @@ RUN mkdir -p /npm_cache && chown -R 1000:1000 /npm_cache
 RUN npm config set cache /npm_cache --global
 
 RUN npm install
-RUN chmod -R 777 /front/node_modules && chmod u+x /front/node_modules/.bin/*
+# RUN chmod -R 777 /front/node_modules && chmod u+x /front/node_modules/.bin/*
 
 # Now we have a base image setup with node modules
 # We now create several sub images so we can build all frontends in paralel
 
 # Admin Pannel
-FROM front_base_image as admin_panel_frontend_image
+FROM front_base_image AS admin_panel_frontend_image
 
 RUN cp ./env_apps/admin_panel_frontend.${BUILD_TYPE}.env.js ./apps/admin_panel_frontend/src/ENVIRONMENT.js
 
@@ -43,7 +44,7 @@ RUN cd apps/admin_panel_frontend && \
     --config webpack.admin_panel_frontend.config.js
 
 # Cookie Banner
-FROM front_base_image as cookie_banner_frontend_image
+FROM front_base_image AS cookie_banner_frontend_image
 
 RUN cp ./env_apps/cookie_banner_frontend.${BUILD_TYPE}.env.js ./apps/cookie_banner_frontend/src/ENVIRONMENT.js
 
@@ -55,7 +56,7 @@ RUN cd apps/cookie_banner_frontend && \
     --config webpack.cookie_banner_frontend.config.js
 
 # Main Frontend
-FROM front_base_image as main_frontend_image
+FROM front_base_image AS main_frontend_image
 
 RUN cp ./env_apps/main_frontend.${BUILD_TYPE}.env.js ./apps/main_frontend/src/ENVIRONMENT.js
 
@@ -67,7 +68,7 @@ RUN cd apps/main_frontend && \
     --config webpack.main_frontend.config.js
 
 # Now we build the main backend image
-FROM ghcr.io/tbscode/tims-packages/alpine-django-python:latest as backend
+FROM ghcr.io/tbscode/tims-packages/alpine-django-python:latest AS backend
 
 WORKDIR /back
 COPY ./back .

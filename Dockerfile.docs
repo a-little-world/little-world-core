@@ -70,7 +70,7 @@ RUN mkdir -p /tmp/html
 RUN python3 generate_docs.py
 RUN cp -r /tmp/html/* /back/static/
 
-FROM node:16-alpine as docs-frontend
+FROM node:18-alpine as docs-frontend
 
 WORKDIR /docs
 

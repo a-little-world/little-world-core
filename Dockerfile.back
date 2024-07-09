@@ -1,4 +1,4 @@
-FROM python:3.11-alpine as backend
+FROM python:3.11-alpine AS backend
 
 ARG PUBLIC_FRONTEND_PATH
 ENV PUBLIC_FRONTEND_PATH=$PUBLIC_FRONTEND_PATH
