@@ -159,6 +159,16 @@ class UserFilter(filters.FilterSet):
         help_text='Filter for users that are part of a list'
     )
     
+    order_by = filters.OrderingFilter(
+        fields=(
+            ('date_joined', 'date_joined'),
+            ('last_login', 'last_login'),
+            ('id', 'id'),
+            ('email', 'email'),
+        ),
+        help_text='Order by field'
+    )
+    
     def filter_list(self, queryset, name, value):
         selected_filter = next(filter(lambda entry: entry.name == value, FILTER_LISTS))
         if selected_filter.queryset:
