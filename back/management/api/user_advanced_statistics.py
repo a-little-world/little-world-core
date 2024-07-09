@@ -2,6 +2,7 @@ from rest_framework.decorators import action, api_view, permission_classes
 from video.models import LivekitSession
 from django.db.models.functions import TruncDay, TruncWeek, ExtractDay, TruncMonth
 from rest_framework.response import Response
+from management.api.user_advanced_filter_lists import USER_JOURNEY_FILTER_LISTS
 from chat.models import Message, Chat
 from rest_framework import viewsets
 from datetime import timedelta, date
@@ -207,8 +208,58 @@ def livekit_session_statistics(request):
     
     return Response(data)
 
+@extend_schema(
+    request=inline_serializer(
+        name='BucketStatisticsCountOverTimeRequest',
+        fields={
+            'selected_filters': serializers.ListField(
+                child=serializers.ChoiceField(
+                    choices=[entry.name for entry in USER_JOURNEY_FILTER_LISTS],
+                ),
+                required=True
+            ),
+            'start_date': serializers.DateField(default='2021-01-01', required=False),
+            'end_date': serializers.DateField(default=date.today(), required=False)
+        }
+    ),
+)
+@api_view(['POST'])
+@permission_classes([IsAdminOrMatchingUser])
+def bucket_statistics(request):
+    today = date.today()
+
+    start_date = request.data.get('start_date', '2022-01-01')
+    end_date = request.data.get('end_date', today)
+
+    pre_filtered_users = User.objects.all()
+    if not request.user.is_staff:
+        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+    
+    pre_filtered_users = pre_filtered_users.filter(date_joined__range=[start_date, end_date])
+    
+    selected_filters = request.data.get('selected_filters', None)
+    
+    if selected_filters is None:
+        selected_filters = [entry.name for entry in FILTER_LISTS]
+        
+        
+    user_buckets = []
+    selected_filters_list = [entry for entry in FILTER_LISTS if entry.name in selected_filters]
+    for filter_list in selected_filters_list:
+        queryset = filter_list.queryset(qs=pre_filtered_users)
+        count = queryset.count()
+        user_buckets.append({
+            'name': filter_list.name,
+            'description': filter_list.description,
+            'count': count
+        })
+        
+    return Response(user_buckets)
+        
+
 api_urls = [
     path('api/matching/users/statistics/signups/', user_signups),
     path('api/matching/users/statistics/messages_send/', message_statistics),
     path('api/matching/users/statistics/video_calls/', livekit_session_statistics),
+    path('api/matching/users/statistics/user_journey_buckets/', bucket_statistics),
 ]
