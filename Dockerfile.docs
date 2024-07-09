@@ -1,4 +1,4 @@
-FROM python:3.11-alpine as backend
+FROM python:3.11-alpine AS backend
 
 WORKDIR /back
 COPY ./back/requirements.txt .
@@ -70,7 +70,7 @@ RUN mkdir -p /tmp/html
 RUN python3 generate_docs.py
 RUN cp -r /tmp/html/* /back/static/
 
-FROM node:18-alpine as docs-frontend
+FROM node:20-alpine AS docs-frontend
 
 WORKDIR /docs
 

@@ -1,4 +1,4 @@
-FROM node:18 AS front_base_image
+FROM node:20 AS front_base_image
 
 # docker build -t full_image -f Dockerfile.full .
 # DOCKER_BUILDKIT=1 docker build --no-cache -t full_image -f Dockerfile.full .
