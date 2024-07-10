@@ -21,7 +21,20 @@ class IsAdminOrMatchingUser(BasePermission):
             
 class AugmentedPagination(PageNumberPagination):
     page_size = 10
-    max_page_size = 10
+    max_page_size = 100
+    page_query_param = 'page'
+    page_size_query_param = 'page_size'
+    
+    def get_page_size(self, request):
+        if self.page_size_query_param:
+            page_size = request.query_params.get(self.page_size_query_param)
+            if page_size is not None:
+                page_size = int(page_size)
+                if page_size > self.max_page_size:
+                    page_size = self.max_page_size
+                return page_size
+        return self.page_size
+
     
     def get_paginated_response(self, data):
         return Response(OrderedDict([
@@ -30,7 +43,7 @@ class AugmentedPagination(PageNumberPagination):
             ('next', self.get_next_link()),
             ('previous', self.get_previous_link()),
             ('results', data), # The  following are extras added by me:
-            ('page_size', self.page_size),
+            ('page_size', self.get_page_size(self.request)),
             ('next_page', self.page.next_page_number() if self.page.has_next() else None),
             ('previous_page', self.page.previous_page_number() if self.page.has_previous() else None),
             ('last_page', self.page.paginator.num_pages),
