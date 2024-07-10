@@ -82,6 +82,30 @@ class MatchFilter(filters.FilterSet):
         help_text='Filter for confirmed matches'
     )
 
+    order_by = filters.OrderingFilter(
+        fields=(
+            ('created_at', 'created_at'),
+            ('updated_at', 'updated_at'),
+        ),
+        help_text='Ordering filter for matches'
+    )  
+    
+    list = filters.ChoiceFilter(
+        field_name='list',
+        choices=[(entry.name, entry.description) for entry in MATCH_JOURNEY_FILTERS],
+        method='filter_list',
+        help_text='Filter for users that are part of a list'
+    )
+
+    def filter_list(self, queryset, name, value):
+        selected_filter = next(filter(lambda entry: entry.name == value, MATCH_JOURNEY_FILTERS))
+        if selected_filter.queryset:
+            return selected_filter.queryset(queryset)
+        else:
+            return queryset
+
+
+
     class Meta:
         model = Match
         fields = ['uuid', 'created_at', 'updated_at', 'active', 'confirmed', 'user1', 'user2']
