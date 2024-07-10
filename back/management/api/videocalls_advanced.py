@@ -84,6 +84,17 @@ class LivekitSessionFilter(filters.FilterSet):
         help_text='Filter for active sessions'
     )
     
+    order_by = filters.OrderingFilter(
+        fields=(
+            ('created_at', 'created_at'),
+            ('end_time', 'end_time'),
+            ('u1', 'u1'),
+            ('u2', 'u2'),
+            ('is_active', 'is_active')
+        ),
+        help_text='Order by filter'
+    )
+    
     class Meta:
         model = LivekitSession
         fields = ['uuid', 'created_at', 'end_time', 'is_active', 'u1', 'u2']

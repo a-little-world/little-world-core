@@ -19,7 +19,6 @@ from rest_framework.response import Response
 from typing import List, Optional
 from tracking import utils
 from management.models.profile import SelfProfileSerializer
-from tracking.models import Event
 from management.controller import get_base_management_user
 from back.utils import transform_add_options_serializer
 from translations import get_translation
