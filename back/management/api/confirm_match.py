@@ -4,7 +4,6 @@ This contains all api's related to confirming or denying a match
 from drf_spectacular.utils import extend_schema
 from management.api.user_data import AdvancedUserMatchSerializer
 from rest_framework.decorators import api_view, permission_classes, authentication_classes, throttle_classes
-from chat.consumers.messages import InUnconfirmedMatchAdded
 from back.utils import CoolerJson
 import json
 from rest_framework.authentication import SessionAuthentication
@@ -73,6 +72,8 @@ def confrim_match(request):
         
         # Now we need to update the partner that was just accepted via callback
         matches = AdvancedUserMatchSerializer([matching], many=True, context={"user": partner}).data
+
+        from chat.consumers.messages import InUnconfirmedMatchAdded
         InUnconfirmedMatchAdded(matches[0]).send(partner.hash)
 
 
