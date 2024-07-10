@@ -7,7 +7,6 @@ from channels.layers import get_channel_layer
 from asgiref.sync import sync_to_async, async_to_sync
 from dataclasses import dataclass, asdict, fields, MISSING
 from rest_framework.decorators import api_view, permission_classes
-from management.views.matching_panel import IsAdminOrMatchingUser
 from rest_framework.response import Response
 
 
@@ -194,37 +193,37 @@ CALLBACKS = {
     MessageTypes.messages_read_chat.value: MessagesReadChat
 }
         
-@api_view(['POST'])
-@permission_classes([IsAdminOrMatchingUser])
-def send_test_callback(request, callback_name, user_id):
-    params = request.data
-    callback = CALLBACKS[callback_name]
-    callback(**params).send(user_id)
-    from management.controller import get_user_by_hash
-    try:
-        get_user_by_hash(user_id)
-    except:
-        return Response({"status": "error", "message": "User not found"}, status=404)
-    return Response({"status": "ok"})
+# @api_view(['POST'])
+# @permission_classes([IsAdminOrMatchingUser])
+# def send_test_callback(request, callback_name, user_id):
+#    params = request.data
+#    callback = CALLBACKS[callback_name]
+#    callback(**params).send(user_id)
+#    from management.controller import get_user_by_hash
+#    try:
+#        get_user_by_hash(user_id)
+#    except:
+#        return Response({"status": "error", "message": "User not found"}, status=404)
+#    return Response({"status": "ok"})
     
-@api_view(['GET'])
-@permission_classes([IsAdminOrMatchingUser])
-def get_all_websocket_callback_messsages(request):
-    
-    def extract_annotations(class_obj):
-        annotations = {field.name: {
-            "type" : field.type.__name__,
-            "default": field.default if field.default != MISSING else None,
-        } for field in fields(class_obj)}
-        return annotations
-    
-    
-    annotations = {key: extract_annotations(CALLBACKS[key]) for key, callback in CALLBACKS.items()}
-
-    list_annotations = []
-    for key in annotations:
-        list_annotations.append({
-            "type": key,
-            "fields": annotations[key]
-        })
-    return Response(list_annotations)
+#@api_view(['GET'])
+#@permission_classes([IsAdminOrMatchingUser])
+#def get_all_websocket_callback_messsages(request):
+#    
+#    def extract_annotations(class_obj):
+#        annotations = {field.name: {
+#            "type" : field.type.__name__,
+#            "default": field.default if field.default != MISSING else None,
+#        } for field in fields(class_obj)}
+#        return annotations
+#    
+#    
+#    annotations = {key: extract_annotations(CALLBACKS[key]) for key, callback in CALLBACKS.items()}
+#
+#    list_annotations = []
+#    for key in annotations:
+#        list_annotations.append({
+#            "type": key,
+#            "fields": annotations[key]
+#        })
+#    return Response(list_annotations)

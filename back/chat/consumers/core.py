@@ -1,12 +1,12 @@
 from channels.generic.websocket import AsyncWebsocketConsumer
 import json
 from asgiref.sync import sync_to_async
-from .messages import (
+from chat.consumers.messages import (
     OutUserWentOnline, OutUserWentOffline, MessageTypes, 
     InMatchProposalAdded, InUnconfirmedMatchAdded, InBlockIncomingCall, NewActiveCallRoom, PreMatchingAppointmentBooked, NewMessage, MessagesReadChat
 )
-from .db_ops import is_staff_or_matching, get_all_chat_user_ids, connect_user, disconnect_user
-from .control import get_user_channel_name
+from chat.consumers.db_ops import is_staff_or_matching, get_all_chat_user_ids, connect_user, disconnect_user
+from chat.consumers.control import get_user_channel_name
 
 UNAUTH_REJECT_CODE: int = 4001
 
