@@ -9,7 +9,6 @@ from dataclasses import dataclass, fields, field
 from rest_framework import serializers
 from management.controller import match_users,get_translation
 from management.models.settings import UnsubscibeOptions, EmailSettings
-from management.views.main_frontend import info_card
 
 @dataclass
 class UnsubscribeParams:
@@ -41,7 +40,7 @@ class UnsubscribeParamsLinkSerializer(DataclassSerializer):
         dataclass = UnsubscribeLinkParams
 
 def update_email_settings(data, email_settings, request=None):
-    
+    from management.views.main_frontend import info_card
 
     if (not data.choice) and (not (data.unsubscribe_type in email_settings.unsubscibed_options)):
         email_settings.unsubscibed_options.append(data.unsubscribe_type)
