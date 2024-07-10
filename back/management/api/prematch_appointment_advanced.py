@@ -5,9 +5,11 @@ from rest_framework.response import Response
 from django.urls import path
 from django.utils import timezone
 from management.models.pre_matching_appointment import PreMatchingAppointment
-# get_user_model
 from django.contrib.auth import get_user_model
 from management.views.matching_panel import DetailedPaginationMixin, IsAdminOrMatchingUser
+from management.models.profile import MinimalProfileSerializer
+from management.api.user_advanced import AdvancedUserSerializer
+
 from drf_spectacular.utils import extend_schema_view, extend_schema, inline_serializer
 from management.api.utils_advanced import filterset_schema_dict
 import uuid
@@ -20,13 +22,10 @@ class PreMatchingAppointmentSerializer(serializers.ModelSerializer):
         
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        user = get_user_model().objects.get(id=instance.user.id)
+        user = instance.user
         
-        representation['user'] = {
-            'id': user.id,
-            'hash': user.hash,
-            'email': user.email,
-        }
+        representation['user'] = AdvancedUserSerializer(user).data
+
         return representation
 
 class PreMatchingAppointmentFilter(filters.FilterSet):
@@ -39,6 +38,11 @@ class PreMatchingAppointmentFilter(filters.FilterSet):
     end_time = filters.DateFromToRangeFilter(
         field_name='end_time',
         help_text='Range filter for end time'
+    )
+    
+    list = filters.DateTimeFilter(
+        field_name='start_time',
+        lookup_expr='date',
     )
 
     order_by = filters.OrderingFilter(
@@ -96,9 +100,26 @@ class PreMatchingAppointmentViewSet(viewsets.ModelViewSet):
         # Retrieve all the filters
         filterset = self.filterset_class()
         _filters = filterset_schema_dict(filterset, include_lookup_expr, "/api/prematchingappointments/", request)
+        
+
+        # Here we actally generate the filter list dynamicly.
+        # We start of by grouping the together the 10 most recent start_times
+        
+        top_x = 10
+        start_times = PreMatchingAppointment.objects.all().order_by('-start_time').values_list('start_time', flat=True).distinct()[:top_x]
+        from management.api.user_advanced_filter_lists import FilterListEntry
+        
+        filter_lists = []
+        for start_time in start_times:
+            filter_lists.append(FilterListEntry(
+                name=str(start_time),
+                description=start_time,
+                queryset=lambda qs: qs.filter(start_time=start_time)
+            ).to_dict())
 
         return Response({
             "filters": _filters,
+            "lists": filter_lists
         })
         
     @extend_schema(
