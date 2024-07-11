@@ -54,7 +54,7 @@
   "api.change_password_failed_new_pw_not_equal": "Neue Passwörter nicht gleich",
   "api.change_password_sucessful": "Erfolgreich das Passwort geändert",
   "api.reset_password_email_not_valid": "Bitte gib eine gültige E-Mail Adresse ein.",
-  "api.reset_password_email_unknown": "Die angegebene E-Mail Adresse existiert nicht.",
+  "api.reset_password_email_try_send": "Wenn die E-Mail Adresse existiert, wurde ein Link zum zurücksetzen versendet.",
   "api.user.change_email_not_allowed_staff": "Admin darf ihre E-Mail Adresse niemals ändern! Nur durch Gnade von @tbscode",
   "api.user.change_email_failed_same_email": "Das ist deine aktuelle E-Mail!",
   "api.user.change_email_failed_email_exists": "E-Mail {email} existiert bereits",

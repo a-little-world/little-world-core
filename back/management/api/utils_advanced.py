@@ -13,9 +13,10 @@ class CustomResetPasswordRequestTokenViewSet(ResetPasswordRequestTokenViewSet):
     @extend_schema(
         request=ChangeEmailSerializer,
         responses={
-            200: OpenApiResponse(description="Token created successfully."),
+            200: OpenApiResponse(
+                description="If email exists, token was created successfully."
+            ),
             400: OpenApiResponse(description="Invalid email format"),
-            404: OpenApiResponse(description="Email address not found"),
         },
     )
     def create(self, request, *args, **kwargs):
@@ -30,10 +31,16 @@ class CustomResetPasswordRequestTokenViewSet(ResetPasswordRequestTokenViewSet):
 
         if not User.objects.filter(email=email).exists():
             return Response(
-                {"error": get_translation("api.reset_password_email_unknown")},
-                status=status.HTTP_404_NOT_FOUND,
+                {"error": get_translation("api.reset_password_email_try_send")},
+                status=status.HTTP_200_OK,
             )
-        return super().create(request, *args, **kwargs)
+
+        response = super().create(request, *args, **kwargs)
+        if response.status_code == status.HTTP_200_OK:
+            return Response(
+                {"error": get_translation("api.reset_password_email_try_send")},
+                status=status.HTTP_200_OK,
+            )
 
 
 class DynamicFilterSerializer(serializers.Serializer):

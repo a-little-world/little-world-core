@@ -99,4 +99,4 @@ class EmailSettingsTests(TestCase):
             data={"email": "not_in_db@unknown.test"},
             format="json",
         )
-        assert response.status_code == 404
+        assert response.status_code == 200
