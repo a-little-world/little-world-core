@@ -4,7 +4,7 @@
     "auto_messages.appointment_booked": null,
     "auto_messages.still_in_contact": null,
     "val.first_name_unallowed_chars": "First name contains invalid characters: {chars}",
-    "val.second_name_too_many_spaces": "It is maximum one space allowed in the Second Name, but you have {count}",
+    "val.second_name_too_many_spaces": "Please use only one space between the names.",
     "val.second_name_unallowed_chars": "Second name contains invalid characters",
     "val.postal_code_not_numeric": "German postalcode should be a number",
     "val.postal_code_too_big": "German postalcode should have maximum 5 digits",
