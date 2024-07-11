@@ -25,6 +25,7 @@ class PreMatchingAppointmentSerializer(serializers.ModelSerializer):
         user = instance.user
         
         representation['user'] = AdvancedUserSerializer(user).data
+        representation['had_prematching_call'] = user.state.had_prematching_call
 
         return representation
 
@@ -105,7 +106,7 @@ class PreMatchingAppointmentViewSet(viewsets.ModelViewSet):
         # Here we actally generate the filter list dynamicly.
         # We start of by grouping the together the 10 most recent start_times
         
-        top_x = 10
+        top_x = 40
         start_times = PreMatchingAppointment.objects.all().order_by('-start_time').values_list('start_time', flat=True).distinct()[:top_x]
         from management.api.user_advanced_filter_lists import FilterListEntry
         
