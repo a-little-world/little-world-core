@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from management.models.user import User
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 from management.api.user import ChangeEmailSerializer
+from translations import get_translation
 
 
 class CustomResetPasswordRequestTokenViewSet(ResetPasswordRequestTokenViewSet):
@@ -22,13 +23,15 @@ class CustomResetPasswordRequestTokenViewSet(ResetPasswordRequestTokenViewSet):
 
         if not serializer.is_valid(raise_exception=False):
             return Response(
-                {"error": "Email not valid"}, status=status.HTTP_400_BAD_REQUEST
+                {"error": get_translation("api.reset_password_email_not_valid")},
+                status=status.HTTP_400_BAD_REQUEST,
             )
         email = serializer.validate_email(serializer.data["email"])
 
         if not User.objects.filter(email=email).exists():
             return Response(
-                {"error": "Email address not found"}, status=status.HTTP_404_NOT_FOUND
+                {"error": get_translation("api.reset_password_email_unknown")},
+                status=status.HTTP_404_NOT_FOUND,
             )
         return super().create(request, *args, **kwargs)
 
