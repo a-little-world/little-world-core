@@ -168,14 +168,6 @@ Simple chat the we match only volunteers and learners!
         learner = self.user1 if self.user1.profile.user_type == Profile.TypeChoices.LEARNER else self.user2
         
         map_level_to_int = {
-            Profile.LanguageLevelChoices.LEVEL_0_VOL: 0,
-            Profile.LanguageLevelChoices.LEVEL_0_LER: 0,
-            Profile.LanguageLevelChoices.LEVEL_1_VOL: 1,
-            Profile.LanguageLevelChoices.LEVEL_1_LER: 1,
-            Profile.LanguageLevelChoices.LEVEL_2_VOL: 2,
-            Profile.LanguageLevelChoices.LEVEL_2_LER: 2,
-            Profile.LanguageLevelChoices.LEVEL_3_VOL: 3,
-            Profile.LanguageLevelChoices.LEVEL_3_LER: 3,
             Profile.LanguageSkillChoices.LEVEL_0: 0,
             Profile.LanguageSkillChoices.LEVEL_1: 1,
             Profile.LanguageSkillChoices.LEVEL_2: 2,
