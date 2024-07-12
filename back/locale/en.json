@@ -50,6 +50,8 @@
     "api.change_password_failed_incorrect_old_pw": "Incorrect old password",
     "api.change_password_failed_new_pw_not_equal": "New passwords not equal",
     "api.change_password_sucessful": "Successfully changed password",
+    "api.reset_password_email_not_valid": "Please enter a valid e-mail address.",
+    "api.reset_password_email_try_send": "If the e-mail address exists, a reset link has been sent.",
     "api.user.change_email_not_allowed_staff": "Admin may never change their email! Only by the grace of @tbscode",
     "api.user.change_email_failed_same_email": "This is your current email!",
     "api.user.change_email_failed_email_exists": "Email {email} exists",
