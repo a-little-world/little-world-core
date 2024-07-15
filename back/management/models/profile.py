@@ -677,6 +677,7 @@ class MinimalProfileSerializer(serializers.ModelSerializer):
             "image",
             "description",
             "user_type",
+            "target_groups"
         ]
 
 
