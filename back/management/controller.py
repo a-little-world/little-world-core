@@ -25,6 +25,7 @@ from management.models.profile import Profile
 from management.models.state import State
 from management.models.settings import Settings
 from management.models.rooms import Room
+from management.models.scores import TwoUserMatchingScore
 from chat.models import Chat
 from emails import mails
 from tracking import utils
@@ -390,6 +391,12 @@ def match_users(
     if set_to_idle:
         usr1.state.set_idle()
         usr2.state.set_idle()
+        
+    # If there was a two user matching score we need to set it to matchable=False now as the users are matched
+    # & also ofcourse all other scores of that users have to be set to matchable=False
+    TwoUserMatchingScore.objects.filter(
+        (Q(user1=usr1) | Q(user2=usr1) | Q(user1=usr2) | Q(user2=usr2)) & Q(matchable=True)).update(matchable=False)
+
         
     return matching_obj
 
