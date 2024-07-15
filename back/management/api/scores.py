@@ -72,7 +72,7 @@ from dataclasses import dataclass
 from management.models.scores import TwoUserMatchingScore
 from management.models.user import User
 from rest_framework.permissions import IsAuthenticated
-from management.tasks import matching_algo_v2, burst_calculate_matching_scores, after_burst_calculate_matching_scores
+from management.tasks import matching_algo_v2, burst_calculate_matching_scores
 from drf_spectacular.utils import extend_schema, inline_serializer
 import itertools
 import math
@@ -532,21 +532,16 @@ def burst_calculate_matching_scores_v2(request):
     
     if not task_batches:
         return Response({"msg": "No matching needed"}, status=200)
+    
+    created_tasks = [burst_calculate_matching_scores.delay(batch) for batch in task_batches]
 
-    chord_tasks = chord(
-        (burst_calculate_matching_scores.s(batch) for batch in task_batches),
-        after_burst_calculate_matching_scores.s()
-    )
+    created_tasks_ids = [task.id for task in created_tasks]
     
-    result = chord_tasks.delay()
-    
-    created_tasks = [{"task_id": task.id} for task in result.parent.results]
-    created_tasks.append({"final_task_id": result.id})
-    
-    ongoing_update.meta["tasks"] = created_tasks
+    ongoing_update.meta["tasks"] = created_tasks_ids
+    ongoing_update.meta["completed_tasks"] = []
     ongoing_update.save()
     
-    return Response(created_tasks)
+    return Response(created_tasks_ids)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
