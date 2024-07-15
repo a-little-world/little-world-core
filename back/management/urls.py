@@ -1,7 +1,7 @@
 from management import api
 from django.urls import path, re_path
 from django.conf import settings
-from management.views import main_frontend, landing_page
+from management.views import main_frontend, landing_page, email_templates
 from back.utils import _api_url
 from management.views import admin_panel_devkit
 from management.views import admin_panel_emails
@@ -172,6 +172,7 @@ view_routes = [
     path("info_card_debug/", main_frontend.info_card, name="info_card"),
     path(_api_url("calcom", admin=False), api.calcom.callcom_websocket_callback),
     *matching_panel.view_urls,
+    *email_templates.view_urls,
     *admin_panel_emails.email_view_routes,
     *admin_panel_devkit.devkit_urls,
 ]
