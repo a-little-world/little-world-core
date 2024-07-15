@@ -164,7 +164,7 @@ def fill_base_management_user_tim_profile():
     if BackendState.is_base_management_user_profile_filled(set_true=True):
         return  # Allready filled base management user profile
 
-    from .controller import get_base_management_user
+    from management.controller import get_base_management_user
 
     base_management_user_description = """
 Hello there 👋🏼
@@ -444,12 +444,51 @@ def burst_calculate_matching_scores(
             "combinations_processed": combinations_processed,
         })
         
+    mark_burst_task_completed_check_for_finish.delay(burst_calculate_matching_scores.request.id)
+        
     return {
         "total_combinations": total_combinations,
         "combinations_processed": combinations_processed,
     }
         
     
+@shared_task
+def mark_burst_task_completed_check_for_finish(task_id=None):
+    from management.models.backend_state import BackendState
+    
+    current_caluclation = BackendState.objects.filter(
+        slug=BackendState.BackendStateEnum.updating_matching_scores
+    )
+    
+    if not current_caluclation.exists():
+        return {
+            "status": "done"
+        }
+    current_caluclation = current_caluclation.first()
+    
+    # mark the current task as done
+    
+    current_calculation_task_ids = current_caluclation.meta.get("tasks", [])
+    completed_task_ids = current_caluclation.meta.get("completed_tasks", [])
+    
+    if task_id not in current_calculation_task_ids:
+        return {
+            "status": "done"
+        }
+
+    current_calculation_task_ids.remove(task_id)
+    completed_task_ids.append(task_id)
+
+    if len(current_calculation_task_ids) == 0:
+        current_caluclation.delete()
+    else:
+        current_caluclation.meta["tasks"] = current_calculation_task_ids
+        current_caluclation.meta["completed_tasks"] = completed_task_ids
+        current_caluclation.save()
+    
+    return {
+        "status": "done"
+    }
         
     
     

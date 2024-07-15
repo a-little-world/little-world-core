@@ -17,6 +17,7 @@ from management.api.scores import (
     score_maximization_matching,
     delete_all_matching_scores,
     burst_calculate_matching_scores_v2,
+    get_active_burst_calculation
 )
 from management.api import scores_advanced, videocalls_advanced
 from management.api.matching_stats import get_quick_statistics
@@ -160,10 +161,13 @@ view_routes = [
     ),
     path(
         "api/matching/burst_update_scores/", burst_calculate_matching_scores_v2
-    ),  # TODO: move endpoint to api.matching
+    ),
+    path(
+        "api/matching/get_active_burst_calculation/", get_active_burst_calculation
+    ),
     path(
         _api_url("delete_all_matching_scores", admin=True), delete_all_matching_scores
-    ),
+    ), # TODO: can be depricated / is perforemed automaticly on update
     path(_api_url("top_scores", admin=True), list_top_scores),
     path("info_card_debug/", main_frontend.info_card, name="info_card"),
     path(_api_url("calcom", admin=False), api.calcom.callcom_websocket_callback),

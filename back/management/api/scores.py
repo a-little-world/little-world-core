@@ -498,6 +498,16 @@ class BurstCalculateMatchingScoresV2RequestSerializer(serializers.Serializer):
 def burst_calculate_matching_scores_v2(request):
     assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
     
+    from management.models.backend_state import BackendState
+    
+    ongoing_update = BackendState.objects.filter(slug=BackendState.BackendStateEnum.updating_matching_scores)
+    
+    if ongoing_update.exists():
+        return Response({
+            "msg": "Already updating scores"
+        }, status=400)
+    else:
+        ongoing_update = BackendState.objects.create(slug=BackendState.BackendStateEnum.updating_matching_scores, meta={"tasks": []})
 
     serializer = BurstCalculateMatchingScoresV2RequestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -520,14 +530,37 @@ def burst_calculate_matching_scores_v2(request):
         for i in range(0, total_combinations, chunk_size)
     ]
     
-    created_tasks = []
-    for batch in task_batches:
-        async_result = burst_calculate_matching_scores.delay(user_combinations=batch)
-        created_tasks.append({
-            "task_id": async_result.id,
-        })
+    if not task_batches:
+        return Response({"msg": "No matching needed"}, status=200)
     
-    return Response(created_tasks)
+    created_tasks = [burst_calculate_matching_scores.delay(batch) for batch in task_batches]
+
+    created_tasks_ids = [task.id for task in created_tasks]
+    
+    ongoing_update.meta["tasks"] = created_tasks_ids
+    ongoing_update.meta["completed_tasks"] = []
+    ongoing_update.save()
+    
+    return Response(created_tasks_ids)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_active_burst_calculation(request):
+    assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+    
+    from management.models.backend_state import BackendState
+
+    ongoing_update = BackendState.objects.filter(slug=BackendState.BackendStateEnum.updating_matching_scores)
+
+    if ongoing_update.exists():
+        return Response({
+            "active": True,
+            "tasks": ongoing_update.first().meta["tasks"]
+        })
+    else:
+        return Response({
+            "active": False
+        })
         
 
 def instantly_possible_matches():
