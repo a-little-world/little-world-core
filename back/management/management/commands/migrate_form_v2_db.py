@@ -22,14 +22,10 @@ class Command(BaseCommand):
                 Profile.ParterSexChoice.FEMALE: Profile.PartnerGenderChoices.FEMALE,
             },
             "lang_level": {
-                Profile.LanguageLevelChoices.LEVEL_0_LER: Profile.LanguageSkillChoices.LEVEL_0,
-                Profile.LanguageLevelChoices.LEVEL_1_LER: Profile.LanguageSkillChoices.LEVEL_1,
-                Profile.LanguageLevelChoices.LEVEL_2_LER: Profile.LanguageSkillChoices.LEVEL_2,
-                Profile.LanguageLevelChoices.LEVEL_3_LER: Profile.LanguageSkillChoices.LEVEL_3,
-                Profile.LanguageLevelChoices.LEVEL_0_VOL: Profile.LanguageSkillChoices.LEVEL_0,
-                Profile.LanguageLevelChoices.LEVEL_1_VOL: Profile.LanguageSkillChoices.LEVEL_1,
-                Profile.LanguageLevelChoices.LEVEL_2_VOL: Profile.LanguageSkillChoices.LEVEL_2,
-                Profile.LanguageLevelChoices.LEVEL_3_VOL: Profile.LanguageSkillChoices.LEVEL_3,
+                Profile.MinLangLevelPartnerChoices.LEVEL_0: Profile.LanguageSkillChoices.LEVEL_0,
+                Profile.MinLangLevelPartnerChoices.LEVEL_1: Profile.LanguageSkillChoices.LEVEL_1,
+                Profile.MinLangLevelPartnerChoices.LEVEL_2: Profile.LanguageSkillChoices.LEVEL_2,
+                Profile.MinLangLevelPartnerChoices.LEVEL_3: Profile.LanguageSkillChoices.LEVEL_3,
             },
         }
         

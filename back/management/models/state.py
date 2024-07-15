@@ -144,7 +144,7 @@ class State(models.Model):
         UNCENSORED_ADMIN_MATCHER = "uncensored-admin-matcher", _("Is allowed to match users without censorship")
 
     extra_user_permissions = MultiSelectField(
-        max_length=1000,
+        max_length=8000,
         choices=ExtraUserPermissionChoices.choices,
         null=True, blank=True)
     

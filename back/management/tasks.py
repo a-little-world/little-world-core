@@ -164,7 +164,7 @@ def fill_base_management_user_tim_profile():
     if BackendState.is_base_management_user_profile_filled(set_true=True):
         return  # Allready filled base management user profile
 
-    from .controller import get_base_management_user
+    from management.controller import get_base_management_user
 
     base_management_user_description = """
 Hello there 👋🏼
@@ -450,6 +450,14 @@ def burst_calculate_matching_scores(
     }
         
     
+@shared_task
+def after_burst_calculate_matching_scores(results=None):
+    from management.models.backend_state import BackendState
+    BackendState.set_not_updating_matching_scores()
+    
+    return {
+        "status": "done"
+    }
         
     
     
