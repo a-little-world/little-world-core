@@ -20,6 +20,7 @@ class BackendState(models.Model):
         base_management_user_profile = "db-filled-base-management-user-profile"
         default_score_source_created = "db-created-default-score-source"
         pre_matching_call_active = "pre-matching-call-active"
+        updating_matching_scores = "updating-matching-scores"
 
     slug = models.CharField(null=False, blank=False,
                             choices=BackendStateEnum.choices, unique=True, max_length=255)
@@ -61,6 +62,15 @@ class BackendState(models.Model):
     def is_default_score_source_created(cls, set_true=False):
         return cls.exists_or_create(
             cls.BackendStateEnum.default_score_source_created, set_true=set_true)
+        
+    @classmethod
+    def is_updating_matching_scores(cls, set_true=False, meta={"tasks": []}):
+        return cls.exists_or_create(
+            cls.BackendStateEnum.updating_matching_scores, set_true=set_true, meta=meta)
+        
+    @classmethod
+    def set_not_updating_matching_scores(cls):
+        cls.objects.filter(slug=cls.BackendStateEnum.updating_matching_scores).delete()
         
     @classmethod
     def get_prematch_callinvitations_state(cls):
