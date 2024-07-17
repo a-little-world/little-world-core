@@ -42,7 +42,8 @@ GermanImprovementBabbelInvitation,
     AccountDeletedEmailTexts,
     BabbelSubscriptionMail_Winner,
     CommunityGetTogetherInvitation120624,
-    CommunityGetTogetherInvitationToday
+    CommunityGetTogetherInvitationToday,
+    ReActivateVolunteers
 )
 from django.core.mail import EmailMessage
 import json
@@ -219,6 +220,10 @@ class RAWTemplateMailParams:
     footer_text: str = ''
     goodbye: str = ''
     goodbye_name: str = ''
+    
+@dataclass
+class ReActivateVolunteersParams:
+    first_name: str
 
 
 @dataclass
@@ -492,6 +497,13 @@ templates = [
         params=CommunityGetTogetherInvitation130624Params,
         texts=CommunityGetTogetherInvitation130624,
         defaults=CommunityGetTogetherInvitation130624
+    ),
+    MailMeta(
+        name="reactivate_volunteers",
+        template="emails/welcome.html",
+        params=ReActivateVolunteersParams,
+        texts=ReActivateVolunteers,
+        defaults=ReActivateVolunteers
     )
 ]
 
