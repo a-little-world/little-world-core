@@ -22,6 +22,13 @@ class IsAdminOrMatchingUser(BasePermission):
 def email_templates(request, menu=None):
     return render(request, "email_templates.html")
 
+from dataclasses import dataclass
+
+@dataclass
+class BackendEmailTemplate:
+    title: str
+    template: str
+
 view_urls = [
     path(f"email_templates/", email_templates, name="email_templates"),
 ]
