@@ -491,4 +491,38 @@ def mark_burst_task_completed_check_for_finish(task_id=None):
     }
         
     
+@shared_task
+def record_bucket_ids():
+    from management.api.user_advanced_filter_lists import FILTER_LISTS
+    from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS
+    from management.models.stats import Statistic
+    
+    # 1 - record all user bucket ids
+    data = {}
+    for fl in FILTER_LISTS:
+        try:
+            qs = fl.queryset()
+            data[fl.name] = list(qs.values_list("id", flat=True))
+        except Exception as e:
+            # the id -500 indicates a filter error!
+            data[fl.name] = str(-500)
+        
+    Statistic.objects.create(
+        kind=Statistic.StatisticTypes.USER_BUCKET_IDS,
+        data=data
+    )
+        
+    # 2 - record all match bucket ids
+    data = {}
+    for fl in MATCH_JOURNEY_FILTERS:
+        try:
+            qs = fl.queryset()
+            data[fl.name] = list(qs.values_list("id", flat=True))
+        except Exception as e:
+            data[fl.name] = str(-500)
+        
+    Statistic.objects.create(
+        kind=Statistic.StatisticTypes.MATCH_BUCKET_IDS,
+        data=data
+    )
     

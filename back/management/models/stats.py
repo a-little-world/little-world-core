@@ -2,6 +2,8 @@
 from django.db import models
 
 class Statistic(models.Model):
+    # TODO: evaluate if it makes sense to create them per-user / per-match for faster lookups
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
