@@ -802,3 +802,39 @@ class CommunityGetTogetherInvitation130624:
     unsubscribe_link1_category: str = 'none'
     unsubscribe_link2: str = 'none'
     unsubscribe_link2_category: str = 'none'
+    
+@dataclass
+class ReActivateVolunteers:
+    """
+    ---------> Community Cultural Awareness Invitation Template <---------------
+    """
+    subject_header_text: str = "Wir vermissen Dich – Deine Unterstützung zählt!"
+    greeting: str = 'Liebe/r {first_name},'
+    content_start_text: str = 'wir hoffen, es geht Dir gut und Du genießt den Sommer! 😊'
+    content_body_text: str = mark_safe('Wir haben Dich bei unserem Onboarding-Termin vermisst und wollten Dich daran erinnern, wie wichtig Deine Unterstützung für uns und die Deutschlernenden ist. ' \
+        'Dein Engagement hilft uns dabei, eine inklusive Gesellschaft zu fördern, in der alle die Vielfalt genießen können.<br><br>' \
+        'Vielleicht hast Du im Sommer etwas mehr Freizeit... Aber auch wenn Du diesen Sommer im Urlaub bist, ist das kein Problem! Du kannst ganz einfach mit Deinem Gesprächspartner vereinbaren, ein paar Wochen zu pausieren, bis Du zurück bist.<br><br>' \
+        'Deswegen möchten wir Dich herzlich einladen, einen der nächsten Onboarding-Termine wahrzunehmen:<br><br>' \
+        '<ul>' \
+        '<li>Freitag, 19. Juli 15:30 Uhr</li>' \
+        '<li>Mittwoch, 24. Juli 18:30 Uhr</li>' \
+        '<li>Freitag, 26. Juli 10:30 Uhr</li>' \
+        '<li>Dienstag, 30. Juli 17:00 Uhr</li>' \
+        '</ul>' \
+        '<br>' \
+        'Logge Dich einfach in Deinen Account ein und wähle einen Termin aus.' \
+        'Deine Teilnahme macht einen großen Unterschied und wir freuen uns sehr auf Deine Unterstützung. Falls Du Fragen hast oder Hilfe benötigst, zögere nicht, uns zu kontaktieren.'
+    )
+    button_text: str = "Onboarding-Termin buchen"
+    button_link: str = "https://little-world.com/login"
+    link_box_text: str = ''
+    below_link_text: str = ''
+    footer_text: str = 'Herzliche Grüße,'
+    goodbye: str = 'Das gesamte Little World Team'
+    goodbye_name: str = ''
+    use_unsubscribe_footer: bool = False
+    unsubscribe_two_link: bool = False
+    unsubscribe_link1: str = 'none'
+    unsubscribe_link1_category: str = 'none'
+    unsubscribe_link2: str = 'none'
+    unsubscribe_link2_category: str = 'none'

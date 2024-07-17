@@ -12,7 +12,8 @@ from management.api.user_advanced_filter import (
     users_with_open_proposals,
     users_with_open_tasks,
     users_with_booked_prematching_call,
-    users_require_prematching_call_not_booked
+    users_require_prematching_call_not_booked,
+    get_volunteers_booked_onboarding_call_but_never_visited
 )
 from management.api.user_journey_filters import (
     user_created,
@@ -100,6 +101,11 @@ PANEL_V1_FILTER_LISTS = [
         "users_with_open_proposals",
         "Users who have open proposals",
         users_with_open_proposals
+    ),
+    FilterListEntry(
+        "volunteers_booked_onboarding_call_but_never_visited",
+        "Volunteers who have booked an onboarding call but never visited",
+        get_volunteers_booked_onboarding_call_but_never_visited
     ),
     FilterListEntry(
         "users_require_prematching_call_not_booked",

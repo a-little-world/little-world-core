@@ -4,6 +4,7 @@ from django.db.models import Q, Subquery, OuterRef, Count, F
 from management.models.unconfirmed_matches import ProposedMatch
 from management.models.state import State
 from management.models.user import User
+from management.models.profile import Profile
 from management.models.scores import TwoUserMatchingScore
 from management.models.management_tasks import MangementTask
 from management.models.pre_matching_appointment import PreMatchingAppointment
@@ -76,6 +77,18 @@ def get_user_with_message_to_admin(qs=User.objects.all()):
     unread_messages = Message.objects.filter(recipient=admin, read=False).order_by('created')
     unread_senders_ids = unread_messages.values("sender")
     return qs.filter(id__in=Subquery(unread_senders_ids))
+
+def get_volunteers_booked_onboarding_call_but_never_visited(qs=User.objects.all()):
+    user_with_onboarding_booked = PreMatchingAppointment.objects.all().values("user")
+    return qs.filter(
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
+        state__matching_state=State.MatchingStateChoices.SEARCHING,
+        state__had_prematching_call=False,
+        profile__user_type=Profile.TypeChoices.VOLUNTEER,
+        state__unresponsive=False,
+        pk__in=user_with_onboarding_booked
+    ).order_by('-date_joined')
 
 def get_user_with_message_to_admin_that_are_read_but_not_replied(qs=User.objects.all()):
     admin_pk = controller.get_base_management_user()
