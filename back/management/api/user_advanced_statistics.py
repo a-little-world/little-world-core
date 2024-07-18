@@ -6,7 +6,7 @@ from management.api.user_advanced_filter_lists import USER_JOURNEY_FILTER_LISTS
 from chat.models import Message, Chat
 from rest_framework import viewsets
 from datetime import timedelta, date
-from django.db.models import Q, Count, F
+from django.db.models import Q, Count, F, Avg, Sum
 from django.conf import settings
 from management.controller import delete_user, make_tim_support_user
 from management.twilio_handler import _get_client
@@ -156,7 +156,7 @@ def message_statistics(request):
                 default='all',
             ),
             'start_date': serializers.DateField(default='2022-01-01'),
-            'end_date': serializers.DateField(default=date.today())
+            'end_date': serializers.DateField(default=date.today()),
         }
     ),
 )
@@ -182,6 +182,8 @@ def livekit_session_statistics(request):
         pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
 
     queryset = selected_filter.queryset(qs=pre_filtered_users)
+    
+    aggregation = request.query_params.get('aggregation', 'count')
 
     if bucket_size == 1:
         trunc_func = TruncDay
@@ -194,18 +196,31 @@ def livekit_session_statistics(request):
             "msg": "Bucket size not supported only 1 & 7 days are supported"
         }, status=400)
     
-    livekit_queryset = (LivekitSession.objects.filter(
-                            u1__in=queryset, 
-                            u2__in=queryset,
-                            both_have_been_active=True,
-                            created_at__range=[start_date, end_date])
-                        .annotate(bucket=trunc_func('created_at'))
-                        .values('bucket')
-                        .annotate(count=Count('id'))
-                        .order_by('bucket'))
+    livekit_queryset = LivekitSession.objects.filter(
+        u1__in=queryset,
+        u2__in=queryset,
+        both_have_been_active=True,
+        created_at__range=[start_date, end_date]
+    ).annotate(bucket=trunc_func('created_at'))
 
-    data = [{'date': stats['bucket'], 'count': stats['count']} for stats in livekit_queryset]
-    
+    if aggregation == 'count':
+        livekit_queryset = livekit_queryset.values('bucket').annotate(count=Count('id')).order_by('bucket')
+        data = [{'date': stats['bucket'], 'count': stats['count']} for stats in livekit_queryset]
+    elif aggregation == 'total_time':
+        livekit_queryset = livekit_queryset.values('bucket').annotate(
+            total_time=Sum(F('end_time') - F('created_at'))
+        ).order_by('bucket')
+        data = [{'date': stats['bucket'], 'count': stats['total_time'].total_seconds() / 60.0} for stats in livekit_queryset]
+    elif aggregation == 'average_time':
+        livekit_queryset = livekit_queryset.values('bucket').annotate(
+            average_time=Avg(F('end_time') - F('created_at'))
+        ).order_by('bucket')
+        data = [{'date': stats['bucket'], 'count': stats['average_time'].total_seconds() / 60.0} for stats in livekit_queryset]
+    else:
+        return Response({
+            "msg": "Aggregation type not supported."
+        }, status=400)
+
     return Response(data)
 
 @extend_schema(
