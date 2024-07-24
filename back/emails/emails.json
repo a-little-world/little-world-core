@@ -1,0 +1,119 @@
+{
+  "categories": {
+    "automated": {
+      "name": "Automated",
+      "description": "Automated emails",
+      "unsubscribe": false
+    }
+  },
+  "emails": {
+    "welcome": {
+      "id": "welcome",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Welcome to our platform",
+      "template": "react_emails/welcome.html"
+    },
+    "account-deleted": {
+      "id": "account-deleted",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/account-deleted.html"
+    },
+    "confirm-match-1": {
+      "id": "confirm-match-1",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/confirm-match-1.html"
+    },
+    "confirm-match-2": {
+      "id": "confirm-match-2",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/confirm-match-2.html"
+    },
+    "expired-match": {
+      "id": "expired-match",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/expired-match.html"
+    },
+    "new-match": {
+      "id": "new-match",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/new-match.html"
+    },
+    "new-messages": {
+      "id": "new-messages",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/new-messages.html"
+    },
+    "match-resolved": {
+      "id": "match-resolved",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/match-resolved.html"
+    },
+    "reset-password": {
+      "id": "reset-password",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/reset-password.html"
+    },
+    "still-in-contact": {
+      "id": "still-in-contact",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/still-in-contact.html"
+    },
+    "unfinished_user_form_1": {
+      "id": "unfinished_user_form_1",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/unfinished_user_form_1.html"
+    },
+    "unfinished_user_form_2": {
+      "id": "unfinished_user_form_2",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/unfinished_user_form_2.html"
+    },
+    "verify-email": {
+      "id": "verify-email",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/verify-email.html"
+    },
+    "babbel-subscription-winner": {
+      "id": "babbel-subscription-winner",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/babbel-subscription-winner.html"
+    },
+    "babbel-precode-survey": {
+      "id": "babbel-precode-survey",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/babbel-precode-survey.html"
+    }
+  },
+  "senders": {
+    "noreply": "\"Don't Reply\" <noreply@example.com>"
+  }
+}

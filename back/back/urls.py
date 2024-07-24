@@ -26,8 +26,8 @@ statics = [
 ]
 
 urlpatterns = [
-    path('', include(('management.urls', 'management'), namespace="management")),
     path('', include('emails.urls')),
+    path('', include(('management.urls', 'management'), namespace="management")),
     path('', include('chat.urls')),
     path('', include('tracking.urls')),
     path('', include('video.urls')),
