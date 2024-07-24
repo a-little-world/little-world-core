@@ -40,9 +40,29 @@ def overwrite_backend_template(request, template_name):
         return Response({"error": "Template not found"}, status=404)
     
     template_path = template_config.template
+    
+    # we have to prefix all the <img src=" attributes with {{ BASE_URL }} so the static base can be set dynamically
+    
+    from bs4 import BeautifulSoup
+
+    def prefix_img_src(html: str) -> str:
+        soup = BeautifulSoup(html, 'html.parser')
+        
+        for img in soup.find_all('img'):
+            if 'src' in img.attrs:
+                img['src'] = '{{ BASE_URL }}' + img['src']
+        
+        return str(soup)
+    template_html = prefix_img_src(template_html)
+    
+    django_template = f"""
+    {{% load temp_utils %}}
+    {{% get_base_url as BASE_URL %}}
+    {template_html}
+    """
 
     with open("emails/template/" + template_path, "w+") as f:
-        f.write(template_html)
+        f.write(django_template)
 
     return Response({"success": True})
 
