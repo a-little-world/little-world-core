@@ -34,13 +34,6 @@ def get_sentry_init_script():
 """)
 
 
-@register.simple_tag
-def get_base_url():
-    # TODO: this was only meant for the email templates
-    # and seems to be fixed vir correcting static path in settings
-    # so prop depricate!
-    return ""
-    # return settings.BASE_URL
 
 
 @register.simple_tag
