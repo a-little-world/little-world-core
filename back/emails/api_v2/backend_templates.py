@@ -1,5 +1,6 @@
 import json
 import os
+import importlib
 from management.views.matching_panel import IsAdminOrMatchingUser
 from rest_framework import serializers
 from rest_framework.decorators import api_view, permission_classes
@@ -10,10 +11,11 @@ from django.urls import path
 from rest_framework.response import Response
 from django.http import HttpResponse
 from django.template import Template, Context
-from django.template.loader import get_template
-from django.template.base import VariableNode, NodeList, Parser
+from django.template.loader import get_template, render_to_string
 from emails.api_v2.emails_config import EMAILS_CONFIG, EmailsConfig
+from emails.api_v2.render_template import get_full_template_info, render_template_dynamic_lookup
 from django.conf import settings
+from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiParameter
 
 
 @api_view(['GET'])
@@ -21,44 +23,6 @@ from django.conf import settings
 def email_config(request):
     return Response(EMAILS_CONFIG.to_dict())
 
-@api_view(['GET'])
-@permission_classes([IsAdminOrMatchingUser])
-def render_backend_template(request, template_name):
-    template_config = EMAILS_CONFIG.emails.get(template_name)
-    
-    if not template_config:
-        return Response({"error": "Template not found"}, status=404)
-    
-    template = template_config.template
-    
-    return render(request, template)
-
-def extract_variables_from_template(template_name):
-    template = get_template(template_name)
-    
-    def extract_from_nodes(nodelist):
-        variables = set()
-        for node in nodelist:
-            if isinstance(node, VariableNode):
-                variables.update(token.strip() for token in node.filter_expression.token.split('|')[0].split('.'))
-            elif hasattr(node, 'nodelist'):
-                variables.update(extract_from_nodes(node.nodelist))
-            elif isinstance(node, NodeList):
-                variables.update(extract_from_nodes(node))
-        return variables
-
-    variables = extract_from_nodes(template.template.nodelist)
-
-    return variables
-
-def get_full_template_info(template_config):
-    variables = extract_variables_from_template(template_config.template)
-
-    return {
-        "config": template_config.to_dict(),
-        "params": list(variables),
-        "view": "/matching/emails/templates/" + template_config.id + "/"
-    }
 
 @api_view(['GET'])
 @permission_classes([IsAdminOrMatchingUser])
@@ -79,51 +43,34 @@ def list_templates(request):
 
         template_config = EMAILS_CONFIG.emails.get(template_name)
         templates.append(get_full_template_info(template_config))
-
     return Response(templates)
 
-@api_view(['POST'])
+
+@extend_schema(
+    parameters=[
+        OpenApiParameter(name="user_id", type=str, location=OpenApiParameter.QUERY, required=False),
+        OpenApiParameter(name="match_id", type=str, location=OpenApiParameter.QUERY, required=False),
+    ]
+)
+@api_view(['GET'])
 @permission_classes([IsAdminOrMatchingUser])
-def update_config_json(request):
-    if not settings.DEBUG:
-        return Response({"error": "This endpoint is only available in DEBUG mode"}, status=400)
-
-    new_config = EmailsConfig.from_dict(request.data)
-    
-    with open(f"emails/emails.json", "w") as f:
-        f.write(json.dumps(new_config.to_dict(), indent=2))
-        
-    EMAILS_CONFIG = new_config
-        
-    return Response(new_config.to_dict())
-
-@api_view(['POST'])
-@permission_classes([IsAdminOrMatchingUser])
-def overwrite_backend_template(request, template_name):
-    # Uploads a template html
-    if not settings.DEBUG:
-        return Response({"error": "This endpoint is only available in DEBUG mode"}, status=400)
-    
-    template_html = request.data.get("html")
-
+def render_backend_template(request, template_name):
     template_config = EMAILS_CONFIG.emails.get(template_name)
     
     if not template_config:
         return Response({"error": "Template not found"}, status=404)
     
-    template_path = template_config.template
-
-    with open("emails/template/" + template_path, "w+") as f:
-        f.write(template_html)
-
-    return Response({"success": True})
+    template = template_config.template
+    
+    user_id = request.query_params.get("user_id", None)
+    match_id = request.query_params.get("match_id", None)
+    
+    rendered = render_template_dynamic_lookup(template_name, user_id, match_id)
+    return HttpResponse(rendered, content_type="text/html")
 
 api_urls = [
     path('api/matching/emails/config/', email_config),
     path('api/matching/emails/templates/', list_templates),
     path('api/matching/emails/templates/<str:template_name>/', render_backend_template),
     path('api/matching/emails/templates/<str:template_name>/info/', show_template_info),
-    # DEVELOPMENT ONLY / FOR UPDATING STATIC TEMPLATES
-    path('api/matching/emails/templates/<str:template_name>/overwrite/', overwrite_backend_template),
-    path('api/matching/emails/config/overwrite/', update_config_json)
 ]
