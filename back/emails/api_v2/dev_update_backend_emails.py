@@ -56,7 +56,7 @@ def overwrite_backend_template(request, template_name):
     template_html = prefix_img_src(template_html)
     
     django_template = f"""
-    {{% load temp_utils %}}
+    {{% load email_utils %}}
     {{% get_base_url as BASE_URL %}}
     {template_html}
     """
