@@ -291,6 +291,8 @@ TEMPLATES = [
 
 USE_MINIO = os.environ.get("DJ_USE_MINIO", "0").lower() in ('true', '1', 't')
 
+EMAIL_STATIC_URL = ""
+
 if USE_MINIO:
     # This is an anternate minio implementation using djnago-minio-storage
     STATIC_URL = '/static/'
@@ -315,7 +317,6 @@ if USE_MINIO:
     MINIO_STORAGE_AUTO_CREATE_MEDIA_BUCKET = True
     MINIO_STORAGE_STATIC_BUCKET_NAME = os.getenv("DJ_MINIO_BUCKET_NAME")
     MINIO_STORAGE_AUTO_CREATE_STATIC_BUCKET = True
-
 elif False:
     print("USING MINIO")
     
@@ -395,7 +396,7 @@ elif EXTERNAL_S3 or ((not DOCS_BUILD and (IS_PROD or IS_STAGE)) and (not USE_WHI
     # .format(AWS_STORAGE_BUCKET_NAME)
     #jAWS_LOCATION_MEDIA = f'{AWS_STORAGE_BUCKET_NAME}/media'
     #MEDIA_URL = '{}/{}/'.format(AWS_S3_ENDPOINT_URL, AWS_LOCATION_MEDIA)
-    #MEDIA_ROOT = 'media/'
+    #MEDIA_ROO
     #jprint("TBS:", MEDIA_URL)
     CACHES = {  # This is so wee can use multithreaded statics uploads!
         'default': {
@@ -409,6 +410,8 @@ elif EXTERNAL_S3 or ((not DOCS_BUILD and (IS_PROD or IS_STAGE)) and (not USE_WHI
     }
     COLLECTFAST_CACHE = "collectfast"
     COLLECTFAST_THREADS = 15
+    
+    EMAIL_STATIC_URL = "https://" + AWS_S3_CUSTOM_DOMAIN
 else:
     """
     In development all staticfiles will be hosted here
