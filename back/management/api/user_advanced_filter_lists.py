@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from management.api.user_advanced_filter import (
     all_users,
     needs_matching,
+    needs_matching_volunteers,
     searching_users,
     users_in_registration,
     active_within_3weeks,
@@ -28,6 +29,7 @@ from management.api.user_journey_filters import (
     match_takeoff,
     active_match,
     never_active,
+    user_deleted,
     no_show,
     ghoster,
     no_confirm,
@@ -222,7 +224,17 @@ USER_JOURNEY_FILTER_LISTS = [
         "journey_v2__gave_up_searching",
         "(Inactive-User) User that's `searching=False` and has 0 matches",
         gave_up_searching
-    )
+    ),
+    FilterListEntry(
+        "journey_v2__user_deleted",
+        "(Past-User) User has been deleted",
+        user_deleted
+    ),
+    FilterListEntry(
+        "needs_matching_volunteers",
+        "Volunteers only: All users in 'searching' without any user that has an open proposal!",
+        needs_matching_volunteers
+    ),
 ]
 
 FILTER_LISTS = PANEL_V1_FILTER_LISTS + USER_JOURNEY_FILTER_LISTS
