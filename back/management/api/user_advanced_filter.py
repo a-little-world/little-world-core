@@ -33,6 +33,22 @@ def needs_matching(qs=User.objects.all()):
         state__unresponsive=False
     ).order_by('-date_joined')
 
+def needs_matching_volunteers(qs=User.objects.all()):
+    unconfirmed_matches = ProposedMatch.objects.filter(closed=False)
+    return qs.filter(
+        is_active=True,
+        profile__user_type=Profile.TypeChoices.VOLUNTEER,
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
+        state__had_prematching_call=True,  # TODO: filter should only be applied, if require_prematching_call = True
+        state__matching_state=State.MatchingStateChoices.SEARCHING
+    ).exclude(
+        Q(pk__in=unconfirmed_matches.values("user1")) |
+        Q(pk__in=unconfirmed_matches.values("user2"))
+    ).filter(
+        state__unresponsive=False
+    ).order_by('-date_joined')
+
 def searching_users(qs=User.objects.all()):
     return qs.filter(
         state__user_form_state=State.UserFormStateChoices.FILLED,
