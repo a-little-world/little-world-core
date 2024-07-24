@@ -21,7 +21,7 @@ class SendEmailSerializer(serializers.Serializer):
 @extend_schema(
     request=SendEmailSerializer,
 )
-@api_view(['GET'])
+@api_view(['POST'])
 @permission_classes([IsAdminOrMatchingUser])
 def send_template_email(request, template_name):
     
@@ -52,7 +52,7 @@ def send_template_email(request, template_name):
     try:
         from_email = EMAILS_CONFIG.senders[template_info['config']['sender_id']]
         mail = EmailMessage(
-            subject=template_info.config.subject,
+            subject=template_info['config']['subject'],
             body=email_html,
             from_email=from_email,
             to=[user],
