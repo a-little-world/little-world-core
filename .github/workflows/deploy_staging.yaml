@@ -59,7 +59,7 @@ jobs:
             curl -s -H "Authorization: token ${{ secrets.BOT_PAT }}" -X DELETE https://api.github.com/repos/${{ github.repository }}/issues/comments/$comment
           done
       - name: Create comment
-        uses: peter-evans/create-or-update-comment@v3
+        uses: peter-evans/create-or-update-comment@v4
         id: create_comment
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         with:
@@ -90,7 +90,7 @@ jobs:
           echo "IMAGE_URL=$IMAGE_URL" >> $GITHUB_OUTPUT
           echo "NAMESPACE=$NAMESPACE" >> $GITHUB_OUTPUT
       - name: Add build step comment
-        uses: peter-evans/create-or-update-comment@v3
+        uses: peter-evans/create-or-update-comment@v4
         id: update_comment
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         with:
@@ -120,7 +120,7 @@ jobs:
           DIFF=$(( END - START ))
           echo "DURATION=$DIFF" >> $GITHUB_OUTPUT
       - name: Add build step comment 2
-        uses: peter-evans/create-or-update-comment@v3
+        uses: peter-evans/create-or-update-comment@v4
         id: update_comment_2
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         with:
@@ -162,7 +162,7 @@ jobs:
           KUBECONFIG=./kubeconfig.yaml helm upgrade --install backend-tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }} ./helm
           echo "STAGING_URL=$STAGING_URL" >> $GITHUB_OUTPUT
       - name: Add build step comment 3
-        uses: peter-evans/create-or-update-comment@v3
+        uses: peter-evans/create-or-update-comment@v4
         id: update_comment_3
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         with:

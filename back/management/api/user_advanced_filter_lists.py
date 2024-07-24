@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from management.api.user_advanced_filter import (
     all_users,
     needs_matching,
+    needs_matching_volunteers,
     searching_users,
     users_in_registration,
     active_within_3weeks,
@@ -21,10 +22,14 @@ from management.api.user_journey_filters import (
     user_form_completed,
     booked_onboarding_call,
     first_search,
+    first_search_learners,
+    first_search_volunteers,
     user_searching,
     pre_matching,
     match_takeoff,
+    active_match,
     never_active,
+    user_deleted,
     no_show,
     ghoster,
     no_confirm,
@@ -126,85 +131,110 @@ PANEL_V1_FILTER_LISTS = [
 
 USER_JOURNEY_FILTER_LISTS = [
     FilterListEntry(
-        "ujv2_user_created",
-        "User Journey V2: User was created, but still has to verify mail, fill form and have a prematching call",
+        "journey_v2__user_created",
+        "(Sign-Up) User was created, but still has to verify mail, fill form and have a prematching call",
         user_created
     ),
     FilterListEntry(
-        "ujv2_email_verified",
-        "User Journey V2: User has verified email, but still has to fill form and have a prematching call",
+        "journey_v2__email_verified",
+        "(Sign-Up) User has verified email, but still has to fill form and have a prematching call",
         email_verified
     ),
     FilterListEntry(
-        "ujv2_user_form_completed",
-        "User Journey V2: User has filled form, but still has to have a prematching call",
+        "journey_v2__user_form_completed",
+        "(Sign-Up) User has filled form, but still has to have a prematching call",
         user_form_completed
     ),
     FilterListEntry(
-        "ujv2_booked_onboarding_call",
-        "User Journey V2: User has filled form and booked onboarding call",
+        "journey_v2__booked_onboarding_call",
+        "(Sign-Up) User has filled form and booked onboarding call",
         booked_onboarding_call
     ),
     FilterListEntry(
-        "ujv2_first_search",
-        "User Journey V2: User is doing first search i.e.: has no 'non-support' match",
+        "journey_v2__first_search",
+        "(Sign-Up) User is doing first search i.e.: has no 'non-support' match",
         first_search
     ),
     FilterListEntry(
-        "ujv2_user_searching",
-        "User Journey V2: User is searching and has at least one match",
+        "journey_v2__first_search_volunteers",
+        "(Sign-Up) VOLUTEERS User is doing first search i.e.: has no 'non-support' match",
+        first_search_learners
+    ),
+    FilterListEntry(
+        "journey_v2__first_search_learners",
+        "(Sign-Up) learners User is doing first search i.e.: has no 'non-support' match",
+        first_search_volunteers
+    ),
+    FilterListEntry(
+        "journey_v2__user_searching_again",
+        "(Active-User) User is searching and has at least one match",
         user_searching
     ),
     FilterListEntry(
-        "ujv2_pre_matching",
-        "User Journey V2: User has `Pre-Matching` or `Kickoff-Matching` Match.",
+        "journey_v2__pre_matching",
+        "(Active-User) User has `Pre-Matching` or `Kickoff-Matching` Match.",
         pre_matching
     ),
     FilterListEntry(
-        "ujv2_match_takeoff",
-        "User Journey V2: User has `Pre-Matching` or `Kickoff-Matching` Match.",
+        "journey_v2__match_takeoff",
+        "(Active-User) User has `Pre-Matching` or `Kickoff-Matching` Match.",
         match_takeoff
     ),
     FilterListEntry(
-        "ujv2_never_active",
-        "User Journey V2: Didn't ever become active",
+        "journey_v2__active_matching",
+        "(Active-User) User has and confirst and ongoing match, that is still having video calls or sending messages",
+        active_match
+    ),
+    FilterListEntry(
+        "journey_v2__never_active",
+        "(Inactive-User) Didn't ever become active",
         never_active
     ),
     FilterListEntry(
-        "ujv2_no_show",
-        "User Journey V2: Didn't show up to onboarding call",
+        "journey_v2__no_show",
+        "(Inactive-User) Didn't show up to onboarding call",
         no_show
     ),
     FilterListEntry(
-        "ujv2_ghoster",
-        "User Journey V2: User has matching in [3.G] 'ghosted' his match",
+        "journey_v2__user_ghosted",
+        "(Inactive-User) User has matching in [3.G] 'ghosted' his match",
         ghoster
     ),
     FilterListEntry(
-        "ujv2_no_confirm",
-        "User Journey V2: Learner that has matching in 'Never Confirmed'",
+        "journey_v2__no_confirm",
+        "(Inactive-User) Learner that has matching in 'Never Confirmed'",
         no_confirm
     ),
     FilterListEntry(
-        "ujv2_happy_inactive",
-        "User Journey V2: Not searching, 1 or more matches at least one match in 'Completed Matching'",
+        "journey_v2__happy_inactive",
+        "(Inactive-User) Not searching, 1 or more matches at least one match in 'Completed Matching'",
         happy_inactive
     ),
     FilterListEntry(
-        "ujv2_too_low_german_level",
-        "User Journey V2: User never active, but was flagged with a 'state.to_low_german_level=True'",
+        "journey_v2__too_low_german_level",
+        "(Inactive-User) User never active, but was flagged with a 'state.to_low_german_level=True'",
         too_low_german_level
     ),
     FilterListEntry(
-        "ujv2_unmatched",
-        "User Journey V2: 'first-search' for over XX days, we failed to match the user at all",
+        "journey_v2__unmatched",
+        "(Inactive-User) 'first-search' for over XX days, we failed to match the user at all",
         unmatched
     ),
     FilterListEntry(
-        "ujv2_gave_up_searching",
-        "User Journey V2: User that's `searching=False` and has 0 matches",
+        "journey_v2__gave_up_searching",
+        "(Inactive-User) User that's `searching=False` and has 0 matches",
         gave_up_searching
-    )
+    ),
+    FilterListEntry(
+        "journey_v2__user_deleted",
+        "(Past-User) User has been deleted",
+        user_deleted
+    ),
+    FilterListEntry(
+        "needs_matching_volunteers",
+        "Volunteers only: All users in 'searching' without any user that has an open proposal!",
+        needs_matching_volunteers
+    ),
 ]
 
 FILTER_LISTS = PANEL_V1_FILTER_LISTS + USER_JOURNEY_FILTER_LISTS

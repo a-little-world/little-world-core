@@ -63,6 +63,10 @@ prod_shedules = {
         'task': 'management.tasks.send_new_message_notifications',
         'schedule': 60.0 * 60.0,
     },
+    'record-bucket-statistics': {
+        'task': 'management.tasks.record_bucket_ids',
+        'schedule': 60.0 * 60.0 * 24.0, # once a day
+    },
 }
 
 prod_shedules.update(auto_emails)

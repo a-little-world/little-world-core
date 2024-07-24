@@ -1,0 +1,192 @@
+{
+  "dependencies": {
+    "user": {
+      "id": "user",
+      "query_id_field": "user_id"
+    },
+    "match": {
+      "id": "match",
+      "query_id_field": "match_id"
+    }
+  },
+  "parameters": {
+    "first_name": {
+      "id": "first_name",
+      "lookup": "emails.api_v2.template_lookup.first_name",
+      "depends_on": [
+        "user"
+      ]
+    },
+    "verification_code": {
+      "id": "verification_code",
+      "lookup": "emails.api_v2.template_lookup.verification_code",
+      "depends_on": [
+        "user"
+      ]
+    },
+    "partner_first_name": {
+      "id": "partner_first_name",
+      "lookup": "emails.api_v2.template_lookup.partner_first_name",
+      "depends_on": [
+        "user",
+        "match"
+      ]
+    },
+    "unsubscribe_url": {
+      "id": "unsubscribe_url",
+      "lookup": "emails.api_v2.template_lookup.unsubscribe_url",
+      "depends_on": [
+        "user"
+      ]
+    },
+    "accept_match_url": {
+      "id": "accept_match_url",
+      "lookup": "emails.api_v2.template_lookup.accept_match_url",
+      "depends_on": [
+        "user",
+        "match"
+      ]
+    },
+    "partner_profile_url": {
+      "id": "partner_profile_url",
+      "lookup": "emails.api_v2.template_lookup.partner_profile_url",
+      "depends_on": [
+        "user",
+        "match"
+      ]
+    },
+    "reset_password_url": {
+      "id": "reset_password_url",
+      "lookup": "emails.api_v2.template_lookup.reset_password_url",
+      "depends_on": [
+        "user"
+      ]
+    },
+    "confirm_in_contact_url": {
+      "id": "confirm_in_contact_url",
+      "lookup": "emails.api_v2.template_lookup.confirm_in_contact_url",
+      "depends_on": [
+        "user",
+        "match"
+      ]
+    }
+  },
+  "categories": {
+    "automated": {
+      "id": "automated",
+      "name": "Automated",
+      "description": "Automated emails",
+      "unsubscribe": false
+    }
+  },
+  "emails": {
+    "welcome": {
+      "id": "welcome",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Welcome to our platform",
+      "template": "react_emails/welcome.html"
+    },
+    "account-deleted": {
+      "id": "account-deleted",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/account-deleted.html"
+    },
+    "confirm-match-1": {
+      "id": "confirm-match-1",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/confirm-match-1.html"
+    },
+    "confirm-match-2": {
+      "id": "confirm-match-2",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/confirm-match-2.html"
+    },
+    "expired-match": {
+      "id": "expired-match",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/expired-match.html"
+    },
+    "new-match": {
+      "id": "new-match",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/new-match.html"
+    },
+    "new-messages": {
+      "id": "new-messages",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/new-messages.html"
+    },
+    "match-resolved": {
+      "id": "match-resolved",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/match-resolved.html"
+    },
+    "reset-password": {
+      "id": "reset-password",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/reset-password.html"
+    },
+    "still-in-contact": {
+      "id": "still-in-contact",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/still-in-contact.html"
+    },
+    "unfinished_user_form_1": {
+      "id": "unfinished_user_form_1",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/unfinished_user_form_1.html"
+    },
+    "unfinished_user_form_2": {
+      "id": "unfinished_user_form_2",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/unfinished_user_form_2.html"
+    },
+    "verify-email": {
+      "id": "verify-email",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/verify-email.html"
+    },
+    "babbel-subscription-winner": {
+      "id": "babbel-subscription-winner",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/babbel-subscription-winner.html"
+    },
+    "babbel-precode-survey": {
+      "id": "babbel-precode-survey",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/babbel-precode-survey.html"
+    }
+  },
+  "senders": {
+    "noreply": "\"Little World\" <noreply@little-world.com>"
+  }
+}

@@ -62,7 +62,7 @@ jobs:
           KUBECONFIG=./kubeconfig.yaml kubectl delete namespace $NAMESPACE || true
           echo "STAGING_URL=$STAGING_URL" >> $GITHUB_OUTPUT
       - name: Add build step comment
-        uses: peter-evans/create-or-update-comment@v3
+        uses: peter-evans/create-or-update-comment@v4
         id: update_comment_3
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         with:
