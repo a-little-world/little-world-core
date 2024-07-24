@@ -25,7 +25,9 @@ def extract_variables_from_template(template_name):
     return variables
 
 def get_full_template_info(template_config):
+    exclude_vars = ["BASE_URL"]
     variables = extract_variables_from_template(template_config.template)
+    variables = [var for var in variables if var not in exclude_vars]
     
     dependancies = set()
     for param in variables:

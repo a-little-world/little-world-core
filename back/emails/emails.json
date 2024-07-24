@@ -1,76 +1,4 @@
 {
-  "dependencies": {
-    "user": {
-      "id": "user",
-      "query_id_field": "user_id"
-    },
-    "match": {
-      "id": "match",
-      "query_id_field": "match_id"
-    }
-  },
-  "parameters": {
-    "first_name": {
-      "id": "first_name",
-      "lookup": "emails.api_v2.template_lookup.first_name",
-      "depends_on": [
-        "user"
-      ]
-    },
-    "verification_code": {
-      "id": "verification_code",
-      "lookup": "emails.api_v2.template_lookup.verification_code",
-      "depends_on": [
-        "user"
-      ]
-    },
-    "partner_first_name": {
-      "id": "partner_first_name",
-      "lookup": "emails.api_v2.template_lookup.partner_first_name",
-      "depends_on": [
-        "user",
-        "match"
-      ]
-    },
-    "unsubscribe_url": {
-      "id": "unsubscribe_url",
-      "lookup": "emails.api_v2.template_lookup.unsubscribe_url",
-      "depends_on": [
-        "user"
-      ]
-    },
-    "accept_match_url": {
-      "id": "accept_match_url",
-      "lookup": "emails.api_v2.template_lookup.accept_match_url",
-      "depends_on": [
-        "user",
-        "match"
-      ]
-    },
-    "partner_profile_url": {
-      "id": "partner_profile_url",
-      "lookup": "emails.api_v2.template_lookup.partner_profile_url",
-      "depends_on": [
-        "user",
-        "match"
-      ]
-    },
-    "reset_password_url": {
-      "id": "reset_password_url",
-      "lookup": "emails.api_v2.template_lookup.reset_password_url",
-      "depends_on": [
-        "user"
-      ]
-    },
-    "confirm_in_contact_url": {
-      "id": "confirm_in_contact_url",
-      "lookup": "emails.api_v2.template_lookup.confirm_in_contact_url",
-      "depends_on": [
-        "user",
-        "match"
-      ]
-    }
-  },
   "categories": {
     "automated": {
       "id": "automated",
@@ -188,5 +116,77 @@
   },
   "senders": {
     "noreply": "\"Little World\" <noreply@little-world.com>"
+  },
+  "parameters": {
+    "first_name": {
+      "id": "first_name",
+      "lookup": "emails.api_v2.template_lookup.first_name",
+      "depends_on": [
+        "user"
+      ]
+    },
+    "verification_code": {
+      "id": "verification_code",
+      "lookup": "emails.api_v2.template_lookup.verification_code",
+      "depends_on": [
+        "user"
+      ]
+    },
+    "partner_first_name": {
+      "id": "partner_first_name",
+      "lookup": "emails.api_v2.template_lookup.partner_first_name",
+      "depends_on": [
+        "user",
+        "match"
+      ]
+    },
+    "unsubscribe_url": {
+      "id": "unsubscribe_url",
+      "lookup": "emails.api_v2.template_lookup.unsubscribe_url",
+      "depends_on": [
+        "user"
+      ]
+    },
+    "accept_match_url": {
+      "id": "accept_match_url",
+      "lookup": "emails.api_v2.template_lookup.accept_match_url",
+      "depends_on": [
+        "user",
+        "match"
+      ]
+    },
+    "partner_profile_url": {
+      "id": "partner_profile_url",
+      "lookup": "emails.api_v2.template_lookup.partner_profile_url",
+      "depends_on": [
+        "user",
+        "match"
+      ]
+    },
+    "reset_password_url": {
+      "id": "reset_password_url",
+      "lookup": "emails.api_v2.template_lookup.reset_password_url",
+      "depends_on": [
+        "user"
+      ]
+    },
+    "confirm_in_contact_url": {
+      "id": "confirm_in_contact_url",
+      "lookup": "emails.api_v2.template_lookup.confirm_in_contact_url",
+      "depends_on": [
+        "user",
+        "match"
+      ]
+    }
+  },
+  "dependencies": {
+    "user": {
+      "id": "user",
+      "query_id_field": "user_id"
+    },
+    "match": {
+      "id": "match",
+      "query_id_field": "match_id"
+    }
   }
 }
