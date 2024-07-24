@@ -109,6 +109,6 @@ def prepare_template_context(template_name, user_id=None, match_id=None):
 def render_template_dynamic_lookup(template_name, user_id=None, match_id=None):
 
     template_info, context = prepare_template_context(template_name, user_id, match_id)
-    template_path = template_info.config.template
+    template_path = template_info["config"]["template"]
 
     return render_template_to_html(template_path, context)

@@ -34,7 +34,7 @@ def send_template_email(request, template_name):
     user = User.objects.get(pk=user_id)
     
     template_info, context = prepare_template_context(template_name, user_id, match_id)
-    email_html = render_template_to_html(template_info.config.template, context)
+    email_html = render_template_to_html(template_info['config']['template'], context)
 
     mail_log = EmailLog.objects.create(
         log_version=1,
@@ -50,7 +50,7 @@ def send_template_email(request, template_name):
     ) 
 
     try:
-        from_email = EMAILS_CONFIG.senders[template_info.config.sender_id]
+        from_email = EMAILS_CONFIG.senders[template_info['config']['sender_id']]
         mail = EmailMessage(
             subject=template_info.config.subject,
             body=email_html,
