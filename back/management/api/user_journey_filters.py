@@ -296,3 +296,11 @@ def gave_up_searching(qs=User.objects.all()):
     ).filter(
         num_matches=0
     )
+    
+def user_deleted(qs=User.objects.all()):
+    """
+    7) 'User-Deleted': User that has been deleted
+    """
+    return qs.filter(
+        is_active=False
+    )
