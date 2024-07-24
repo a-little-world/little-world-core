@@ -187,6 +187,6 @@
     }
   },
   "senders": {
-    "noreply": "\"Don't Reply\" <noreply@example.com>"
+    "noreply": "\"Little World\" <noreply@little-world.com>"
   }
 }
