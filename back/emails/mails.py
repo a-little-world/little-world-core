@@ -547,9 +547,13 @@ def send_email(
     This does not send a messages to all receivers at the same time, 
     it sends one email per receiver
     """
+    if settings.DISABLE_LEGACY_EMAIL_SENDING:
+        return
+
     from management.controller import get_base_management_user, get_user_by_email
     if sender is None:
         sender = settings.DEFAULT_FROM_EMAIL
+        
 
     for to in recivers:
 

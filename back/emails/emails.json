@@ -5,6 +5,12 @@
       "name": "Automated",
       "description": "Automated emails",
       "unsubscribe": false
+    },
+    "dynamic": {
+      "id": "dynamic",
+      "name": "Dynamic",
+      "description": "Dynamic emails",
+      "unsubscribe": false
     }
   },
   "emails": {

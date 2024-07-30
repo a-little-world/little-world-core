@@ -1,5 +1,6 @@
 from django.db import models
 from rest_framework import serializers
+import uuid
 
 class EmailLog(models.Model):
     log_version = models.IntegerField(default=0)
@@ -64,7 +65,24 @@ class AdvancedEmailLogSerializer(serializers.ModelSerializer):
         representation['retrieve'] = url
 
         return representation
+    
+class DynamicTemplate(models.Model):
 
+    uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
+    template_name = models.CharField(max_length=255, unique=True)
+    template = models.TextField()
+
+    subject = models.CharField(max_length=255)
+    
+    category_id = models.CharField(max_length=255, default="dynamic")
+    sender_id = models.CharField(max_length=255, default="noreply")
+    
+class DynamicTemplateSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = DynamicTemplate
+        fields = '__all__'
+    
 class EmailLogSerializer(serializers.ModelSerializer):
 
     class Meta:
