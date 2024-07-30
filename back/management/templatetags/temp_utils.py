@@ -11,6 +11,10 @@ register = template.Library()
 def create_dict(str_dict):
     return eval(str_dict)
 
+@register.simple_tag
+def get_base_url():
+    # TODO: Depricate with new emails api
+    return ""
 
 @register.simple_tag
 def get_base_matomo_script_tag():
