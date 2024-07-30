@@ -291,7 +291,7 @@ TEMPLATES = [
 
 USE_MINIO = os.environ.get("DJ_USE_MINIO", "0").lower() in ('true', '1', 't')
 
-EMAIL_STATIC_URL = ""
+EMAIL_STATIC_URL = os.environ.get("DJ_EMAIL_STATIC_URL", "http://localhost:8000")
 
 if USE_MINIO:
     # This is an anternate minio implementation using djnago-minio-storage
@@ -639,7 +639,10 @@ DATABASES = {
     },
 }
 
-if IS_PROD or IS_STAGE:
+# TODO: temporary
+DISABLE_LEGACY_EMAIL_SENDING = os.environ.get("DJ_DISABLE_LEGACY_EMAIL_SENDING", "false").lower() in ('true', '1', 't')
+
+if IS_PROD or IS_STAGE or (os.environ.get("DJ_DEVELOPMENT_ALLOW_EMAILS", "false").lower() in ('true', '1', 't')):
     EMAIL_HOST = 'smtp.sendgrid.net'
     EMAIL_HOST_USER = 'apikey'
     EMAIL_HOST_PASSWORD = os.environ['DJ_SG_SENDGRID_API_KEY']
