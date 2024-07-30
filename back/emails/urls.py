@@ -3,7 +3,7 @@ from rest_framework import routers
 from emails.views import ViewEmail
 from back.utils import _api_url
 from emails import api
-from emails.api_v2 import backend_templates, dev_update_backend_emails, send_email
+from emails.api_v2 import backend_templates, dev_update_backend_emails, send_email, dynamic_template
 
 router = routers.SimpleRouter()
 router.register(_api_url("email/logs", admin=True,
@@ -23,6 +23,7 @@ urlpatterns = [
     *backend_templates.api_urls,
     *dev_update_backend_emails.api_urls,
     *send_email.api_urls,
+    *dynamic_template.api_urls,
     # This always views a template in raw:
     path('emails/<str:mail_name>', ViewEmail.as_view(), name='view_mail'),
     # This tries to render also the email content:
