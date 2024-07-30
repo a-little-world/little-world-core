@@ -24,6 +24,7 @@ from emails.templates import (
     ImpulsBeitraegeMail,
     ImpulsBeitraegeMail2,
     CommunityGetTogetherInvitation,
+    CommunityGetTogetherInvitation010824,
     CommunityGetTogetherInvitation130624,
     TrainingSeriesInvitation,
     # Currently we are using the same template as weclone
@@ -504,7 +505,14 @@ templates = [
         params=ReActivateVolunteersParams,
         texts=ReActivateVolunteers,
         defaults=ReActivateVolunteers
-    )
+    ),
+    MailMeta(
+        name="community_get_together_010824",
+        template="emails/welcome.html",
+        params=CommunityGetTogetherInvitation130624Params,
+        texts=CommunityGetTogetherInvitation010824,
+        defaults=CommunityGetTogetherInvitation010824
+    ),
 ]
 
 
