@@ -55,7 +55,7 @@ def overwrite_backend_template(request, template_name):
         return str(soup)
     template_html = prefix_img_src(template_html)
     
-    django_template = f"{{% load email_utils %}}\n{{% get_base_url as BASE_URL %}}\n{template_html}"
+    django_template = f"{{% load email_utils %}}{{% get_base_url as BASE_URL %}}{template_html}"
 
     with open("emails/template/" + template_path, "w+") as f:
         f.write(django_template)
