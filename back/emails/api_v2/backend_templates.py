@@ -68,9 +68,25 @@ def render_backend_template(request, template_name):
     rendered = render_template_dynamic_lookup(template_name, user_id, match_id)
     return HttpResponse(rendered, content_type="text/html")
 
+
+@api_view(['GET'])
+@permission_classes([])
+def test_render_email(request, template_name):
+    
+    assert settings.DEBUG
+
+    rendered = render_template_dynamic_lookup(template_name, 1, 2)
+
+    return HttpResponse(rendered, content_type="text/html")
+
 api_urls = [
     path('api/matching/emails/config/', email_config),
     path('api/matching/emails/templates/', list_templates),
     path('api/matching/emails/templates/<str:template_name>/', render_backend_template),
+    # extra url with .html eding to allow directly testing with testi.at
+    path('api/matching/emails/templates/<str:template_name>.html', render_backend_template),
     path('api/matching/emails/templates/<str:template_name>/info/', show_template_info),
 ]
+
+if settings.DEBUG:
+    api_urls.append(path('api/matching/emails/templates/<str:template_name>/test/', test_render_email))
