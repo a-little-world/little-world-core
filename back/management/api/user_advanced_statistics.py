@@ -57,6 +57,7 @@ def user_signups(request):
     bucket_size = request.data.get('bucket_size', 1)
     start_date = request.data.get('start_date', '2022-01-01')
     end_date = request.data.get('end_date', today)
+    cumulative = request.query_params.get('cumulative', False)
     
     list_name = request.data.get('base_list', 'all')
     selected_filter = next(filter(lambda entry: entry.name == list_name, FILTER_LISTS))
@@ -75,8 +76,11 @@ def user_signups(request):
         trunc_func = TruncMonth
     else:
         return Response({
-            "msg": "Bucket size not supported only 1 & 7 days are supported"
+            "msg": "Bucket size not supported. Only 1, 7, & 30 days are supported"
         }, status=400)
+    
+    # Calculate the count of users who joined before the start_date
+    pre_start_date_count = queryset.filter(date_joined__lt=start_date).count()
 
     user_counts = (queryset.filter(date_joined__range=[start_date, end_date])
                    .annotate(bucket=trunc_func('date_joined'))
@@ -84,10 +88,16 @@ def user_signups(request):
                    .annotate(count=Count('id'))
                    .order_by('bucket'))
 
-    data = [{'date': stats['bucket'], 'count': stats['count']} for stats in user_counts]
+    if cumulative:
+        cumulative_count = pre_start_date_count
+        data = []
+        for stats in user_counts:
+            cumulative_count += stats['count']
+            data.append({'date': stats['bucket'], 'count': cumulative_count})
+    else:
+        data = [{'date': stats['bucket'], 'count': stats['count']} for stats in user_counts]
 
     return Response(data)
-
 
 @extend_schema(
     request=inline_serializer(
