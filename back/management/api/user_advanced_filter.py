@@ -94,6 +94,77 @@ def get_user_with_message_to_admin(qs=User.objects.all()):
     unread_senders_ids = unread_messages.values("sender")
     return qs.filter(id__in=Subquery(unread_senders_ids))
 
+
+def user_recent_activity(
+        qs=None,
+        recent_days=60,
+        min_recent_messages=1,
+        min_recent_calls=0,
+        min_recent_both_active_calls=0,
+        include_signups=True
+    ):
+    
+    if qs is None:
+        qs = User.objects.all()
+    
+    cutoff_date = timezone.now() - timedelta(days=recent_days)
+    
+    filtered_users = qs.filter(
+        Q(u1_livekit_session__created_at__gte=cutoff_date) |
+        Q(u2_livekit_session__created_at__gte=cutoff_date) |
+        Q(message_sender__created__gte=cutoff_date)
+    ).distinct()
+    
+    filtered_users = filtered_users.annotate(
+        recent_calls_u1=Count(
+            'u1_livekit_session',
+            filter=Q(u1_livekit_session__created_at__gte=cutoff_date)
+        ),
+        recent_calls_u2=Count(
+            'u2_livekit_session',
+            filter=Q(u2_livekit_session__created_at__gte=cutoff_date)
+        ),
+        both_active_calls_u1=Count(
+            'u1_livekit_session',
+            filter=Q(
+                u1_livekit_session__created_at__gte=cutoff_date,
+                u1_livekit_session__both_have_been_active=True
+            )
+        ),
+        both_active_calls_u2=Count(
+            'u2_livekit_session',
+            filter=Q(
+                u2_livekit_session__created_at__gte=cutoff_date,
+                u2_livekit_session__both_have_been_active=True
+            )
+        ),
+        recent_messages=Count(
+            'message_sender',
+            filter=Q(message_sender__created__gte=cutoff_date)
+        )
+    ).filter(
+        Q(recent_calls_u1__gte=min_recent_calls) |
+        Q(recent_calls_u2__gte=min_recent_calls),
+        Q(both_active_calls_u1__gte=min_recent_both_active_calls) |
+        Q(both_active_calls_u2__gte=min_recent_both_active_calls),
+        recent_messages__gte=min_recent_messages
+    )
+    
+    # Handle recent signups
+    if include_signups:
+        recent_signups_completed_registration = qs.filter(
+            date_joined__gte=cutoff_date,
+            state__user_form_state=State.UserFormStateChoices.FILLED,
+            state__email_authenticated=True,
+        ).distinct()
+        
+        filtered_users = filtered_users.union(recent_signups_completed_registration)
+
+    # Ensure the result is distinct and ordered
+    filtered_users = filtered_users.distinct().order_by('-date_joined')
+    
+    return filtered_users
+
 def get_volunteers_booked_onboarding_call_but_never_visited(qs=User.objects.all()):
     user_with_onboarding_booked = PreMatchingAppointment.objects.all().values("user")
     return qs.filter(
