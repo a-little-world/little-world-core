@@ -231,7 +231,13 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             self.kwargs["pk"] = int(self.kwargs["pk"])
             return super().get_object()
         else:
-            return super().get_queryset().get(hash=self.kwargs["pk"])
+            # The two alternate lookup options are email & hash
+            # So lets check if there is an '@' in the string
+            is_email = '@' in self.kwargs["pk"]
+            if is_email:
+                return super().get_queryset().get(email=self.kwargs["pk"])
+            else:
+                return super().get_queryset().get(hash=self.kwargs["pk"])
 
     @action(detail=True, methods=['get'])
     def scores(self, request, pk=None):

@@ -106,8 +106,8 @@ jobs:
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         run: |
           echo ${{ secrets.BOT_PAT }} | docker login ghcr.io -u littleworld-bot --password-stdin
-          DOCKER_BUILDKIT=1 docker-compose build
-          DOCKER_BUILDKIT=1 docker-compose push
+          DOCKER_BUILDKIT=1 docker compose build
+          DOCKER_BUILDKIT=1 docker compose push
       - name: Measure end time
         id: end
         run: |

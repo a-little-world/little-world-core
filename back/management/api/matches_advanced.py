@@ -178,8 +178,19 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
         if not has_access:
             return res
         
+        if obj.user1.is_staff or obj.user2.is_staff:
+            return Response({
+                'msg': 'One of the users is a staff member and cannot be unmatch'
+            }, status=400)
+        
+        if obj.user1.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER) or obj.user2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER) or \
+            obj.user2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER) or obj.user2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+            return Response({
+                'msg': 'One of the users is a matching user and cannot be unmatch'
+            }, status=400)
+        
         unmatch_users({
-            obj.u1, obj.u2
+            obj.user1, obj.user2
         }, unmatcher=request.user)
         
         return Response({
