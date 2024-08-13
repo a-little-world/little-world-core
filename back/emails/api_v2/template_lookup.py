@@ -7,3 +7,6 @@ def partner_first_name(user, match):
 
 def verification_code(user):
     return "123456"
+
+def unsubscribe_url(user):
+    return "https://www.example.com/unsubscribe"
