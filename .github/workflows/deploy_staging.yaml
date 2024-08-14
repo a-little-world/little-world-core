@@ -201,3 +201,10 @@ jobs:
         run: |
           pip3 install slack_sdk
           wget -qO- https://raw.githubusercontent.com/tbscode/tims-blog-posts/main/assets/send_slack_message.py | python3 -
+      - name: Run django tests
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        run: |
+          # run redis tests instance
+          docker run -d --name redis-test -p 6379:6379 redis
+          docker compose run all python manage.py test
+          docker rm -f redis-test
