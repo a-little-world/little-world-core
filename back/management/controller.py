@@ -205,18 +205,24 @@ def create_user(
     # Step 4 send mail
     if send_verification_mail:
         def send_verify_link():
-            link_route = 'mailverify_link'  # api/user/verify/email
-            verifiaction_url = f"{settings.BASE_URL}/{link_route}/{usr.state.get_email_auth_code_b64()}"
-            mails.send_email(
-                recivers=[email],
-                subject="{code} - Verifizierungscode zur E-Mail Bestätigung".format(code=usr.state.get_email_auth_pin()),
-                mail_data=mails.get_mail_data_by_name("welcome"),
-                mail_params=mails.WelcomeEmailParams(
-                    first_name=usr.profile.first_name,
-                    verification_url=verifiaction_url,
-                    verification_code=str(usr.state.get_email_auth_pin())
+            
+            if settings.USE_V2_EMAIL_APIS:
+                # TODO: further simplify when full migration is done
+                usr.send_email_v2("welcome")
+            else:
+                link_route = 'mailverify_link'  # api/user/verify/email
+                verifiaction_url = f"{settings.BASE_URL}/{link_route}/{usr.state.get_email_auth_code_b64()}"
+                mails.send_email(
+                    recivers=[email],
+                    subject="{code} - Verifizierungscode zur E-Mail Bestätigung".format(code=usr.state.get_email_auth_pin()),
+                    mail_data=mails.get_mail_data_by_name("welcome"),
+                    mail_params=mails.WelcomeEmailParams(
+                        first_name=usr.profile.first_name,
+                        verification_url=verifiaction_url,
+                        verification_code=str(usr.state.get_email_auth_pin())
+                    )
                 )
-            )
+        # TODO: refactor remove this bullshit:
         if catch_email_send_errors:
             try:
                 send_verify_link()
@@ -368,25 +374,29 @@ def match_users(
             other_name=usr1.profile.first_name), auto_mark_read=True)
 
     if send_email:
-        usr1.send_email(
-            subject="Glückwunsch! Gesprächspartner:in gefunden auf Little World",
-            mail_data=mails.get_mail_data_by_name("match"),
-            mail_params=mails.MatchMailParams(
-                first_name=usr1.profile.first_name,
-                match_first_name=usr2.profile.first_name,
-                profile_link_url=settings.BASE_URL
+        if settings.USE_V2_EMAIL_APIS:
+            usr1.send_email_v2("confirm-match-1", match_id=matching_obj.id)
+            usr2.send_email_v2("confirm-match-1", match_id=matching_obj.id)
+        else:
+            usr1.send_email(
+                subject="Glückwunsch! Gesprächspartner:in gefunden auf Little World",
+                mail_data=mails.get_mail_data_by_name("match"),
+                mail_params=mails.MatchMailParams(
+                    first_name=usr1.profile.first_name,
+                    match_first_name=usr2.profile.first_name,
+                    profile_link_url=settings.BASE_URL
+                )
             )
-        )
-        usr2.send_email(
-            subject="Glückwunsch! Gesprächspartner:in gefunden auf Little World",
-            mail_data=mails.get_mail_data_by_name("match"),
-            mail_params=mails.MatchMailParams(
-                first_name=usr2.profile.first_name,
-                match_first_name=usr1.profile.first_name,
-                # TODO: should be the actual profile slug in the future
-                profile_link_url=settings.BASE_URL
+            usr2.send_email(
+                subject="Glückwunsch! Gesprächspartner:in gefunden auf Little World",
+                mail_data=mails.get_mail_data_by_name("match"),
+                mail_params=mails.MatchMailParams(
+                    first_name=usr2.profile.first_name,
+                    match_first_name=usr1.profile.first_name,
+                    # TODO: should be the actual profile slug in the future
+                    profile_link_url=settings.BASE_URL
+                )
             )
-        )
 
     if set_to_idle:
         usr1.state.set_idle()
