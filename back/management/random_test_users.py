@@ -237,8 +237,8 @@ def modify_profile_to_match(usr1, usr2):
     u1_p.target_group = Profile.TargetGroupChoices2.ANY
     u2_p.target_group = Profile.TargetGroupChoices2.ANY
 
-    u1_p.speech_medium = Profile.SpeechMediumChoices.ANY_VOL
-    u2_p.speech_medium = Profile.SpeechMediumChoices.ANY_LER
+    u1_p.speech_medium = Profile.SpeechMediumChoices2.ANY
+    u2_p.speech_medium = Profile.SpeechMediumChoices2.ANY
 
     u1_p.save()
     u2_p.save()
