@@ -1,7 +1,7 @@
 import json
 import os
 import importlib
-from management.helpers import IsAdminOrMatchingUser
+from management.helpers import IsAdminOrMatchingUser, DetailedPaginationMixin
 from rest_framework import serializers
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import BasePermission
@@ -19,7 +19,6 @@ from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiParam
 from django.template import Template, Context
 from emails.models import DynamicTemplateSerializer, DynamicTemplate
 from rest_framework import viewsets, filters
-from management.views.matching_panel import DetailedPaginationMixin
 
 @extend_schema_view(
     list=extend_schema(summary='List users'),

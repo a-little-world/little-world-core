@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from chat.models import ChatSerializer, Message, MessageSerializer, Chat
 from rest_framework.pagination import PageNumberPagination
-from chat.api.viewsets import UserStaffRestricedModelViewsetMixin, DetailedPaginationMixin
+from management.helpers import UserStaffRestricedModelViewsetMixin, DetailedPaginationMixin
 from rest_framework.decorators import action
 from drf_spectacular.utils import extend_schema
 

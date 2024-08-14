@@ -6,8 +6,7 @@ from django.urls import path
 from django.utils import timezone
 from management.models.pre_matching_appointment import PreMatchingAppointment
 from django.contrib.auth import get_user_model
-from management.views.matching_panel import DetailedPaginationMixin
-from management.helpers import IsAdminOrMatchingUser
+from management.helpers import IsAdminOrMatchingUser, DetailedPaginationMixin
 from management.models.profile import MinimalProfileSerializer
 from management.api.user_advanced import AdvancedUserSerializer
 

@@ -4,12 +4,11 @@ from django.db.models import Q, Max
 
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from chat.models import Chat, ChatSerializer
-from chat.api.viewsets import UserStaffRestricedModelViewsetMixin, DetailedPaginationMixin
+from management.helpers import DetailedPaginationMixin, UserStaffRestricedModelViewsetMixin
 
 from management.models.profile import ProfileSerializer
 from drf_spectacular.utils import inline_serializer
 from drf_spectacular.utils import extend_schema
-from chat.api.viewsets import PaginatedResponseSerializer, PaginatedResponseData, PaginatedResponseDataBase
 from chat.models import MessageSerializer
 from rest_framework.decorators import action
 from rest_framework.response import Response

@@ -11,8 +11,7 @@ from django.urls import path
 from django_filters import rest_framework as filters
 from management.models.scores import TwoUserMatchingScore
 from management.models.user import User
-from management.views.matching_panel import DetailedPaginationMixin, AugmentedPagination
-from management.helpers import IsAdminOrMatchingUser
+from management.helpers import IsAdminOrMatchingUser, DetailedPagination, DetailedPaginationMixin
 from management.models.profile import Profile, MinimalProfileSerializer
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from rest_framework import serializers
@@ -243,7 +242,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         obj = self.get_object()
         
         matching_scores = TwoUserMatchingScore.get_matching_scores(obj).order_by('-score')
-        paginator = AugmentedPagination()
+        paginator = DetailedPagination()
         pages = paginator.get_paginated_response(paginator.paginate_queryset(matching_scores, request)).data
         pages["results"] = AdvancedMatchingScoreSerializer(pages["results"], many=True, context={
             "user": obj
