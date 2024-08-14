@@ -4,7 +4,7 @@ from django.db.models import Q, Max
 
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from chat.models import Chat, ChatSerializer
-from management.helpers import DetailedPaginationMixin, UserStaffRestricedModelViewsetMixin
+from management.helpers import DetailedPaginationMixin
 
 from management.models.profile import ProfileSerializer
 from drf_spectacular.utils import inline_serializer

@@ -4,8 +4,11 @@ from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from chat.models import ChatSerializer, Message, MessageSerializer, Chat
 from rest_framework.pagination import PageNumberPagination
 from management.helpers import UserStaffRestricedModelViewsetMixin, DetailedPaginationMixin
+from django.utils import timezone
 from rest_framework.decorators import action
 from drf_spectacular.utils import extend_schema
+from emails import mails
+from django.conf import settings
 
 class StandardResultsSetPagination(PageNumberPagination):
     page_size = 20
@@ -106,23 +109,42 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         
         # retrieve the newest message the recipient was notified about
         latest_notified_message = Message.objects.filter(
-            chat=chat,
+            # regardless of which chat! 
+            # sucht that the user doesn't get multiple emails in paralel 
+            # just cause he got messages in different chats
             recipient=partner,
             recipient_notified=True
         ).order_by('-created')
 
         # Now check if we should be sending out a new message notification
         # TODO: can this cause multiple emails due to concurrency?
+        creation_time = timezone.now()
+        recipiend_was_email_notified = False
         if latest_notified_message.exists():
             latest_notified_message = latest_notified_message.first()
             # Min 5 min delay between notifications!
-            if (message.created - latest_notified_message.created).total_seconds() < 300:
-                pass
-        
+            if (creation_time - latest_notified_message.created).total_seconds() < 300:
+                # ok then lets send the email
+                # TODO: in future check if user is online and send push notification instead
+                recipiend_was_email_notified = True
+                
+                # TODO: email send V2 check
+                if settings.USE_V2_EMAIL_APIS:
+                    pass
+                else:
+                    partner.send_email(
+                        subject="Neue Nachricht(en) auf Little World",
+                        mail_data=mails.get_mail_data_by_name("new_messages"),
+                        mail_params=mails.NewUreadMessagesParams(
+                            first_name=partner.profile.first_name,
+                        )
+                    )
+            
         message = Message.objects.create(
             chat=chat,
             sender=request.user,
             recipient=partner,
+            recipient_notified=recipiend_was_email_notified,
             text=serializer.data['text']
         )
         
@@ -137,10 +159,5 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
                 'request': request,               
             }).data
         ).send(partner.hash)
-        
-        
-        # Check if a new message notification should be send
-        MIN_DELAY_NEW_MESSAGE_NOTIFICATION = 60
-        latest_notified_message = None
         
         return Response(serialized_message, status=200)

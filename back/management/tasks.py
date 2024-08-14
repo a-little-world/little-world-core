@@ -119,50 +119,6 @@ Selbst habe ich vier Jahre im Ausland gelebt, von Frankreich bis nach China. Den
     return "sucessfully filled base management user profile"
 
 @shared_task
-def send_new_message_notifications():
-    # TODO: depricate!!!!!! We got a fresh implementation!
-
-    from management.models.user import User
-    from chat.models import Message
-    from django.conf import settings
-    from emails import mails
-    
-    
-    # 1 - get all unitified messages
-    unnotified_messages_unread = Message.objects.filter(
-        recipient_notified=False,
-        read=False
-    ).values_list("recipient", flat=True)
-    
-    unnotified_messages_read = Message.objects.filter(
-        recipient_notified=False,
-        read=True
-    ).update(
-        recipient_notified=True
-    )
-    
-    
-    # 4 - send notifications to users
-    send_emails = not (settings.IS_STAGE or settings.IS_DEV)
-    if send_emails:
-        users = User.objects.filter(id__in=unnotified_messages_unread).distinct()
-        for u in users:
-            u.send_email(
-                subject="Neue Nachricht(en) auf Little World",
-                mail_data=mails.get_mail_data_by_name("new_messages"),
-                mail_params=mails.NewUreadMessagesParams(
-                    first_name=u.profile.first_name,
-                )
-            )
-        user_ids = list(users.values_list('id', flat=True))
-        unnotified_messages_unread.update(recipient_notified=True)
-
-        return {
-            "sent_emails": len(user_ids),
-            "user_ids": user_ids
-        }
-
-@shared_task
 def fill_base_management_user_tim_profile():
     if BackendState.is_base_management_user_profile_filled(set_true=True):
         return  # Allready filled base management user profile
