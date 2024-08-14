@@ -36,10 +36,18 @@ def get_full_template_info(template_config):
     dependancies = list(dependancies)
     dep_data = []
     for dep in dependancies:
-        dep_data.append({
-            "id": dep,
-            "query_id_field": EMAILS_CONFIG.dependencies[dep].query_id_field
-        })
+        if dep.startswith("context."):
+            param_name = dep.split(".")[1]
+            dep_data.append({
+                "id": dep,
+                "query_id_field": param_name,
+                "context_dependent": True
+            })
+        else: 
+            dep_data.append({
+                "id": dep,
+                "query_id_field": EMAILS_CONFIG.dependencies[dep].query_id_field
+            })
 
     return {
         "config": template_config.to_dict(),
@@ -58,7 +66,7 @@ class UnknownParameterException(Exception):
 class MissingContextDependencyException(Exception):
     pass
 
-def prepare_template_context(template_name, user_id=None, match_id=None):
+def prepare_template_context(template_name, user_id=None, match_id=None, **kwargs):
     params = EMAILS_CONFIG.parameters
     template_config = EMAILS_CONFIG.emails.get(template_name)
     template_path = template_config.template
@@ -77,6 +85,9 @@ def prepare_template_context(template_name, user_id=None, match_id=None):
 
     if match:
         available_dependencies.append("match")
+        
+    for key in kwargs:
+        available_dependencies.append(f"context.{key}")
         
     context = {}
     
@@ -97,20 +108,28 @@ def prepare_template_context(template_name, user_id=None, match_id=None):
         module = importlib.import_module(".".join(function_lookup[:-1]))
         lookup_function = getattr(module, function_lookup[-1])
         
-        lookup_context = {}
+        lookup_context = {
+            "context": {},
+        }
         for dependency in param_config.depends_on:
+            param_name = param
             if dependency == "user":
                 lookup_context["user"] = user
             elif dependency == "match":
                 lookup_context["match"] = match
+            elif dependency.startswith("context."):
+                param_name = dependency.split(".")[1]
+                print(kwargs)
+                assert param_name in kwargs, f"Missing context dependency in **kwargs for {param}"
+                lookup_context["context"][param_name] = kwargs[param_name]
                 
         # Perform the lookup injecting all dependencies
-        context[param] = lookup_function(**lookup_context)
+        context[param_name] = lookup_function(**lookup_context)
     return template_info, context
 
-def render_template_dynamic_lookup(template_name, user_id=None, match_id=None):
+def render_template_dynamic_lookup(template_name, user_id=None, match_id=None, **kwargs):
 
-    template_info, context = prepare_template_context(template_name, user_id, match_id)
+    template_info, context = prepare_template_context(template_name, user_id, match_id, **kwargs)
     template_path = template_info["config"]["template"]
 
     return render_template_to_html(template_path, context)
