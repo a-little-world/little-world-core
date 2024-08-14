@@ -203,6 +203,10 @@ MIDDLEWARE_CLASSES = [
     "cookie_consent.middleware.CleanCookiesMiddleware",
 ]
 
+if DEBUG:
+    SECURE_CROSS_ORIGIN_OPENER_POLICY = None
+    X_FRAME_OPTIONS = 'ALLOWALL'
+
 COOKIE_CONSENT_ENABLED = True
 
 ROOT_URLCONF = 'back.urls'
@@ -285,9 +289,12 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
             ],
+            'debug': DEBUG,
         },
     },
 ]
+
+USE_V2_EMAIL_APIS = os.environ.get("DJ_USE_V2_EMAIL_APIS", "false").lower() in ('true', '1', 't')
 
 USE_MINIO = os.environ.get("DJ_USE_MINIO", "0").lower() in ('true', '1', 't')
 
