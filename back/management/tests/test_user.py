@@ -24,12 +24,10 @@ valid_create_data = dict(
     birth_year=valid_request_data['birth_year'],
 )
 
-
 class ChangePasswordTests(TestCase):
 
     def test_password_change_via_api(self):
         pass  # TODO!
-
 
 class ChangeEmailTests(TestCase):
 
