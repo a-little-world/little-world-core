@@ -1,7 +1,7 @@
 from django.urls import path
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework import serializers
-from management.helpers.is_admin_or_matching_user import IsAdminOrMatchingUser
+from management.helpers import IsAdminOrMatchingUser
 from emails.api_v2.render_template import render_template_dynamic_lookup, render_template_to_html, prepare_template_context
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from emails.models import EmailLog

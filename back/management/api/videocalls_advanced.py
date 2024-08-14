@@ -5,7 +5,8 @@ from django.urls import path
 from django_filters import rest_framework as filters
 from video.models import LivekitSession
 from management.models.user import User
-from management.views.matching_panel import DetailedPaginationMixin, IsAdminOrMatchingUser
+from management.views.matching_panel import DetailedPaginationMixin
+from management.helpers import IsAdminOrMatchingUser
 from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_view, extend_schema, inline_serializer
 from management.models.profile import MinimalProfileSerializer

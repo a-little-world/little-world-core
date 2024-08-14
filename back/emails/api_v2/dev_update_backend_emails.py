@@ -1,6 +1,6 @@
 import json
 import os
-from management.views.matching_panel import IsAdminOrMatchingUser
+from management.helpers import IsAdminOrMatchingUser
 from rest_framework import serializers
 from rest_framework.decorators import api_view, permission_classes
 from django.urls import path

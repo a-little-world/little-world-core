@@ -1,5 +1,5 @@
 from emails.mails import templates
-from management.views.matching_panel import IsAdminOrMatchingUser
+from management.helpers import IsAdminOrMatchingUser
 from rest_framework import serializers, status
 from django.template.loader import render_to_string
 from rest_framework.decorators import api_view, permission_classes

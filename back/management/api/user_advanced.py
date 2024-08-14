@@ -1,9 +1,6 @@
 from rest_framework.decorators import action, api_view, permission_classes
-from django.db.models.functions import TruncDay, TruncWeek, ExtractDay
 from rest_framework.response import Response
 from rest_framework import viewsets
-from datetime import timedelta, date
-from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Q, Count, F
 from django.conf import settings
 from management.controller import delete_user, make_tim_support_user
@@ -14,7 +11,8 @@ from django.urls import path
 from django_filters import rest_framework as filters
 from management.models.scores import TwoUserMatchingScore
 from management.models.user import User
-from management.views.matching_panel import DetailedPaginationMixin, AugmentedPagination, IsAdminOrMatchingUser
+from management.views.matching_panel import DetailedPaginationMixin, AugmentedPagination
+from management.helpers import IsAdminOrMatchingUser
 from management.models.profile import Profile, MinimalProfileSerializer
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from rest_framework import serializers

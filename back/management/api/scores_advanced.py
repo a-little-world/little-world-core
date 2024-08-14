@@ -6,7 +6,8 @@ from django_filters import rest_framework as filters
 from management.models.scores import TwoUserMatchingScore
 from management.models.user import User
 from management.models.state import StateSerializer, State
-from management.views.matching_panel import DetailedPaginationMixin, IsAdminOrMatchingUser
+from management.views.matching_panel import DetailedPaginationMixin
+from management.helpers import IsAdminOrMatchingUser
 from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_view, extend_schema, inline_serializer
 from management.models.profile import MinimalProfileSerializer

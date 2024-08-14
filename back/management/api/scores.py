@@ -49,7 +49,7 @@ days searching `{"=<5": 0, "<10": 5, "<20": 10, "<30": 15, ">30": 40}
 
 - should match be near?
 """
-from management.views.matching_panel import IsAdminOrMatchingUser
+from management.helpers import IsAdminOrMatchingUser
 from management import controller
 from django.core.paginator import Paginator
 from typing import Any
@@ -71,7 +71,6 @@ from rest_framework import serializers
 from dataclasses import dataclass
 from management.models.scores import TwoUserMatchingScore
 from management.models.user import User
-from rest_framework.permissions import IsAuthenticated
 from management.tasks import matching_algo_v2, burst_calculate_matching_scores
 from drf_spectacular.utils import extend_schema, inline_serializer
 import itertools
@@ -326,7 +325,7 @@ class DispatchScoreCalculationSerializer(DataclassSerializer):
         dataclass = DispatchScoreCalculationDataclass
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminOrMatchingUser])
 def dispatch_score_calculation(request):
     assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
     
@@ -346,9 +345,8 @@ def dispatch_score_calculation(request):
     
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminOrMatchingUser])
 def calculate_score_between(request):
-    assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
     
     serializer = ScoreBetweenDataclass(request.data)
     serializer.is_valid(raise_exception=True)
@@ -403,7 +401,6 @@ def get_users_to_consider(usr=None, consider_only_registered_within_last_x_days=
     
 def calculate_scores_user(user_pk, consider_only_registered_within_last_x_days=None, report = lambda data: print(data), exlude_user_ids=[]):
     from management import controller
-    from management.models.state import State
     from django.db.models import Q
     from django.db.models import Exists, OuterRef
 
@@ -494,9 +491,8 @@ class BurstCalculateMatchingScoresV2RequestSerializer(serializers.Serializer):
     request=BurstCalculateMatchingScoresV2RequestSerializer,
 )
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminOrMatchingUser])
 def burst_calculate_matching_scores_v2(request):
-    assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
     
     from management.models.backend_state import BackendState
     
@@ -544,10 +540,8 @@ def burst_calculate_matching_scores_v2(request):
     return Response(created_tasks_ids)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminOrMatchingUser])
 def get_active_burst_calculation(request):
-    assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-    
     from management.models.backend_state import BackendState
 
     ongoing_update = BackendState.objects.filter(slug=BackendState.BackendStateEnum.updating_matching_scores)
@@ -584,9 +578,8 @@ def instantly_possible_matches():
     return matches
     
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminOrMatchingUser])
 def score_maximization_matching(request):
-    assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
     from management.models.scores import TwoUserMatchingScore
     from management.api.user_advanced import AdvancedMatchingScoreSerializer
     from django.db.models import Q
@@ -631,7 +624,7 @@ def score_maximization_matching(request):
     ).dict())
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminOrMatchingUser])
 def delete_all_matching_scores(request):
     assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
     from management.models.scores import TwoUserMatchingScore
@@ -642,7 +635,7 @@ def delete_all_matching_scores(request):
     })
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminOrMatchingUser])
 def list_top_scores(request):
     assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
     from management.api.user_advanced import AdvancedMatchingScoreSerializer
