@@ -82,7 +82,7 @@ def render_backend_template(request, template_name):
 
 
 @api_view(['GET'])
-@permission_classes([])
+@permission_classes([] if settings.DEBUG else [IsAdminOrMatchingUser])
 @xframe_options_exempt
 def test_render_email(request, template_name):
     
@@ -103,11 +103,11 @@ def test_render_email(request, template_name):
     rendered = render_template_dynamic_lookup(template_name, mock_user_id, mock_match_id, **mock_context)
     response = HttpResponse(rendered, content_type="text/html")
     
-    print(response)
-
-    # Remove the 'cross-origin-opener-policy' header if it exists
-    if 'Cross-Origin-Opener-Policy' in response:
-        del response['Cross-Origin-Opener-Policy']
+    # Remove the 'cross-origin-opener-policy' header if it exists in debug
+    # This allows the test view to be rendered within an iframe to test the email in testi.at
+    if settings.DEBUG:
+        if 'Cross-Origin-Opener-Policy' in response:
+            del response['Cross-Origin-Opener-Policy']
     
     return response
 
@@ -116,9 +116,6 @@ api_urls = [
     path('api/matching/emails/templates/', list_templates),
     path('api/matching/emails/templates/<str:template_name>/', render_backend_template),
     # extra url with .html eding to allow directly testing with testi.at
-    path('api/matching/emails/templates/<str:template_name>.html', render_backend_template),
     path('api/matching/emails/templates/<str:template_name>/info/', show_template_info),
+    path('api/matching/emails/templates/<str:template_name>/test/', test_render_email),
 ]
-
-if settings.DEBUG:
-    api_urls.append(path('api/matching/emails/templates/<str:template_name>/test/', test_render_email))
