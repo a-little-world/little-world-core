@@ -230,8 +230,6 @@ def create_user(
                 print("Email sending failed!" + str(e))
         else:
             send_verify_link()
-    else:
-        print("Not sending verification mail!")
 
     base_management_user = get_base_management_user()
     
@@ -241,7 +239,7 @@ def create_user(
                 send_email=False,
                 set_unconfirmed=False)
     
-    print("Created matching", matching,"is_support:", matching.support_matching)
+    print("Created Match:", matching.user1.email, "<->", matching.user2.email, "(support)" if matching.support_matching else "")
 
     if not base_management_user.is_staff:
         # Must be a mather user now TODO
