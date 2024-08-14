@@ -15,25 +15,20 @@ class SendEmailSerializer(serializers.Serializer):
     
     user_id = serializers.IntegerField(required=True)
     match_id = serializers.IntegerField(required=False)
+    context = serializers.DictField(required=False, default={})
     emulate_send = serializers.BooleanField(required=False)
-
-
-@extend_schema(
-    request=SendEmailSerializer,
-)
-@api_view(['POST'])
-@permission_classes([IsAdminOrMatchingUser])
-def send_template_email(request, template_name):
     
-    serializer = SendEmailSerializer(data=request.data)
+def send_template_email(template_name, **kwargs):
+    serializer = SendEmailSerializer(data=kwargs)
     serializer.is_valid(raise_exception=True)
 
     user_id = serializer.validated_data['user_id']
     match_id = serializer.validated_data.get('match_id', None)
+    _context = serializer.validated_data.get('context', {})
     
     user = User.objects.get(pk=user_id)
     
-    template_info, context = prepare_template_context(template_name, user_id, match_id)
+    template_info, context = prepare_template_context(template_name, user_id, match_id, **_context)
     email_html = render_template_to_html(template_info['config']['template'], context)
 
     mail_log = EmailLog.objects.create(
@@ -70,7 +65,14 @@ def send_template_email(request, template_name):
         mail_log.save()
         return Response({"error": str(e)}, status=500)
 
+@extend_schema(
+    request=SendEmailSerializer,
+)
+@api_view(['POST'])
+@permission_classes([IsAdminOrMatchingUser])
+def send_template_email_api(request, template_name):
+    return send_template_email(template_name, **request.data)
 
 api_urls = [
-    path('api/matching/emails/templates/<str:template_name>/send/', send_template_email),
+    path('api/matching/emails/templates/<str:template_name>/send/', send_template_email_api),
 ]
