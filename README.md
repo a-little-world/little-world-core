@@ -64,6 +64,14 @@ e.g.:
 COMPOSE_PROFILES=main_frontend docker compose -f docker-compose.dev.yaml up
 ```
 
+or run some tests:
+  
+```bash
+COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml exec backend sh -c "python3 manage.py test management.tests.test_register"
+COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml exec backend sh -c "python3 manage.py test management.tests"
+COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml exec backend sh -c "python3 manage.py test"
+```
+
 That's it! Any code changed in `/front/apps/*/src/*` or in `/back/*` will cause a hot-reload for the specific frontend, or backend.
 
 Be sure to checkout the frontend commit or branch you want to work on!
@@ -248,5 +256,3 @@ This will:
 - extract and increase the patch version number of the react components package `0.0.XXX`
 - bundle the react package `pnpm bundle` ( in `./components-js/packages/react` )
 - copy the bundle to `./front/apps/main_frontend/prebuild/` and update the `package.json` there with the new version
-
-
