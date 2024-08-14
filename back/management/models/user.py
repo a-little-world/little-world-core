@@ -6,6 +6,7 @@ from rest_framework import serializers
 from asgiref.sync import async_to_sync
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from chat.models import Message, MessageSerializer, Chat, ChatSerializer
+from emails.api_v2.send_email import send_template_email
 
 
 class UserManager(BaseUserManager):
@@ -173,17 +174,21 @@ class User(AbstractUser):
         # We send the email first so if this would fail the changing of email would also fail!
         # ... so user can not easily be locked out of their account
         verifiaction_url = f"{settings.BASE_URL}/api/user/verify/email/{self.state.get_email_auth_code_b64()}"
-        self.send_email(
-            # We use this here so the models doesnt have to be saved jet
-            overwrite_mail=prms.email,
-            subject="Email Changed, Please verify your new email",
-            mail_data=mails.get_mail_data_by_name("welcome"),
-            mail_params=mails.WelcomeEmailParams(
-                first_name=self.profile.first_name,
-                verification_url=verifiaction_url,
-                verification_code=str(self.state.get_email_auth_pin())
+        
+        if settings.USE_V2_EMAIL_APIS:
+            self.send_email_v2("welcome")
+        else:
+            self.send_email(
+                # We use this here so the models doesnt have to be saved jet
+                overwrite_mail=prms.email,
+                subject="Email Changed, Please verify your new email",
+                mail_data=mails.get_mail_data_by_name("welcome"),
+                mail_params=mails.WelcomeEmailParams(
+                    first_name=self.profile.first_name,
+                    verification_url=verifiaction_url,
+                    verification_code=str(self.state.get_email_auth_pin())
+                )
             )
-        )
         self.email = prms.email.lower()
         # NOTE the save() method automaicly detects the email change and also changes the username
         # We do this so admins can edit emails in the admin pannel and changes are reflected as expected
@@ -227,6 +232,22 @@ class User(AbstractUser):
                 }).data
             ).send(self.hash)
         return message
+    
+    def send_email_v2(
+            self, 
+            template_name, 
+            match_id=None, 
+            context={}):
+        user_id = self.id
+        
+        send_template_email(
+            template_name=template_name,
+            **{
+                "user_id": user_id,
+                "match_id": match_id,
+                "context": context
+            }
+        )
 
     def send_email(self,
                    subject: str,
@@ -240,6 +261,7 @@ class User(AbstractUser):
         Just a wrapper for emails.mails.send_email
         Send to a user by usr.send_email(...)
         """
+
         from emails.mails import send_email, MailMeta
         if settings.DISABLE_LEGACY_EMAIL_SENDING:
             return
