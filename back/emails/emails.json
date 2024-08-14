@@ -173,7 +173,7 @@
       "id": "reset_password_url",
       "lookup": "emails.api_v2.template_lookup.reset_password_url",
       "depends_on": [
-        "user"
+        "context.reset_password_url"
       ]
     },
     "confirm_in_contact_url": {
@@ -193,6 +193,10 @@
     "match": {
       "id": "match",
       "query_id_field": "match_id"
+    },
+    "context": {
+      "id": "context",
+      "query_id_field": "key"
     }
   }
 }
