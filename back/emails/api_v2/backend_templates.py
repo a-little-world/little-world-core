@@ -16,6 +16,7 @@ from emails.api_v2.emails_config import EMAILS_CONFIG, EmailsConfig
 from emails.api_v2.render_template import get_full_template_info, render_template_dynamic_lookup
 from django.conf import settings
 from drf_spectacular.utils import extend_schema, inline_serializer, OpenApiParameter
+from django.views.decorators.clickjacking import xframe_options_exempt
 
 
 @api_view(['GET'])
@@ -62,22 +63,53 @@ def render_backend_template(request, template_name):
     
     template = template_config.template
     
-    user_id = request.query_params.get("user_id", None)
-    match_id = request.query_params.get("match_id", None)
+    query_params = request.query_params.copy()
     
-    rendered = render_template_dynamic_lookup(template_name, user_id, match_id)
+    user_id = query_params.get("user_id", None)
+    if user_id:
+        del query_params["user_id"]
+
+    match_id = query_params.get("match_id", None)
+    if match_id:
+        del query_params["match_id"]
+        
+    context = {}
+    for key in query_params:
+        context[key] = query_params[key]
+    
+    rendered = render_template_dynamic_lookup(template_name, user_id, match_id, **context)
     return HttpResponse(rendered, content_type="text/html")
 
 
 @api_view(['GET'])
 @permission_classes([])
+@xframe_options_exempt
 def test_render_email(request, template_name):
     
     assert settings.DEBUG
+    
+    template_config = EMAILS_CONFIG.emails.get(template_name)
+    template_info = get_full_template_info(template_config)
+    
+    mock_context = {}
 
-    rendered = render_template_dynamic_lookup(template_name, 1, 2)
+    for dep in template_info['dependencies']:
+        context_dependent = dep.get("context_dependent", False)
+        mock_context[dep["query_id_field"]] = "Mocked value"
+    
+    mock_user_id = 1
+    mock_match_id = 2
+    
+    rendered = render_template_dynamic_lookup(template_name, mock_user_id, mock_match_id, **mock_context)
+    response = HttpResponse(rendered, content_type="text/html")
+    
+    print(response)
 
-    return HttpResponse(rendered, content_type="text/html")
+    # Remove the 'cross-origin-opener-policy' header if it exists
+    if 'Cross-Origin-Opener-Policy' in response:
+        del response['Cross-Origin-Opener-Policy']
+    
+    return response
 
 api_urls = [
     path('api/matching/emails/config/', email_config),
