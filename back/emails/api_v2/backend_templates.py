@@ -95,7 +95,8 @@ def test_render_email(request, template_name):
 
     for dep in template_info['dependencies']:
         context_dependent = dep.get("context_dependent", False)
-        mock_context[dep["query_id_field"]] = "Mocked value"
+        if context_dependent:
+            mock_context[dep["query_id_field"]] = "Mocked value"
     
     mock_user_id = 1
     mock_match_id = 2
