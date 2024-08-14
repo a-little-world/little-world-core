@@ -90,7 +90,6 @@ def create_default_cookie_groups():
         include_srcs=[],
         include_scripts=[facebook_init_script],
     )
-    return "RES"
 
 
 @shared_task
