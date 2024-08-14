@@ -40,7 +40,7 @@ class AdminApiTests(TestCase):
             # 20 test users
             _data = valid_create_data.copy()
             mail_count, _mail = _make_mail(mail_count)
-            print(f"Creating user: '_mail'")
+            print(f"Creating user: '{_mail}'")
             _data['email'] = _mail
             users.append(create_user(**_data))
         return users

@@ -8,6 +8,7 @@ from management.models.profile import Profile
 from management.models.unconfirmed_matches import ProposedMatch
 from management.models.matches import Match
 from management.models.unconfirmed_matches import get_unconfirmed_matches
+from management.controller import create_user_matching_proposal
 from management import api
 
 valid_request_data = dict(
@@ -66,10 +67,6 @@ class MatchConfirmationTests(TestCase):
         
 
         # TODO have new wayt to test matchability
-
-        # calculate matching score
-        score = calculate_directional_score_write_results_to_db(
-            u1, u2, return_on_nomatch=False, catch_exceptions=True)
 
         # make the matching proposal
         create_user_matching_proposal({u1, u2}, send_confirm_match_email=False)

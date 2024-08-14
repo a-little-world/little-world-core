@@ -4,10 +4,8 @@ import json
 from rest_framework.response import Response
 from management.controller import create_user, get_user_by_email, match_users
 from management.api.user_data import get_user_models
+from management.tests.helpers import register_user
 from django.conf import settings
-from management.models import profile
-from rest_framework.test import APIRequestFactory, force_authenticate
-from django.contrib.sessions.middleware import SessionMiddleware
 from .. import api
 
 valid_request_data = dict(
@@ -27,25 +25,13 @@ valid_create_data = dict(
     birth_year=valid_request_data['birth_year'],
 )
 
-
 class RegisterTests(TestCase):
 
     required_params = api.register.Register.required_args
 
-    def _some_register_call(self, data: dict) -> Response:
-        factory = APIRequestFactory(enforce_csrf_checks=True)
-        request = factory.post('/api/register/', data)
-        middleware = SessionMiddleware(lambda x: x)
-        middleware.process_request(request)
-        request.session.save()
-        # This will always return the type Optional[Reponse] but pylance doesn't beleave me
-        response = api.register.Register.as_view()(request)
-        assert response, isinstance(response, Response)
-        return response  # type: ignore
-
     def test_sucessfull_register(self):
         """ Fully valid register """
-        response = self._some_register_call(valid_request_data)
+        response = register_user(valid_request_data)
         assert response.status_code == 200
 
     def test_w_missing_params(self):
@@ -56,7 +42,7 @@ class RegisterTests(TestCase):
             del partial_data[parm]
             datas.append(partial_data)
         for i, d in enumerate(datas):
-            response = self._some_register_call(d)
+            response = register_user(d)
             assert response.status_code == 400
             response.render()
             # Assert that the fields in in response ( otherwiese the 400 could have happend for a different reason )
@@ -72,14 +58,14 @@ class RegisterTests(TestCase):
             _data["password2"] = passwords[i]
             datas.append(_data)
         for d in datas:
-            response = self._some_register_call(d)
+            response = register_user(d)
             assert response.status_code == 400
 
     def test_register_first_name_normalized(self):
         _data = valid_request_data.copy()
         random_capilalization = "FirstNameAm"
         _data["first_name"] = random_capilalization
-        response = self._some_register_call(_data)
+        response = register_user(_data)
         assert response.status_code == 200
         usr = get_user_by_email(_data["email"])
         assert usr.first_name == random_capilalization[:1].upper(
@@ -89,7 +75,7 @@ class RegisterTests(TestCase):
         _data = valid_request_data.copy()
         random_typed = " FirstNameAm   "
         _data["first_name"] = random_typed
-        response = self._some_register_call(_data)
+        response = register_user(_data)
         assert response.status_code == 200
         usr = get_user_by_email(_data["email"])
         random_typed = random_typed.strip()
@@ -100,7 +86,7 @@ class RegisterTests(TestCase):
         _data = valid_request_data.copy()
         random_typed = "second name"
         _data["second_name"] = random_typed
-        response = self._some_register_call(_data)
+        response = register_user(_data)
         assert response.status_code == 200
         usr = get_user_by_email(_data["email"])
         assert usr.last_name == random_typed.title()
@@ -109,14 +95,14 @@ class RegisterTests(TestCase):
         _data = valid_request_data.copy()
         random_typed = "second n ame"
         _data["second_name"] = random_typed
-        response = self._some_register_call(_data)
+        response = register_user(_data)
         assert response.status_code == 400  # Muliple space are now allowed!
 
     def test_register_email_normalized(self):
         _data = valid_request_data.copy()
         random_capilalization = "TesT@uSr.com"
         _data["email"] = random_capilalization
-        response = self._some_register_call(_data)
+        response = register_user(_data)
         assert response.status_code == 200
         usr = get_user_by_email(_data["email"].lower())
         assert usr.email == random_capilalization.lower()
@@ -127,7 +113,7 @@ class RegisterTests(TestCase):
         this should always create 4 db objects: `Settings`, `Profile`, `State`, `User`
         here we check if all where correctly created
         """
-        response = self._some_register_call(valid_request_data)
+        response = register_user(valid_request_data)
         assert response.status_code == 200
         # If this failes user creation is broken:
         user = get_user_by_email(valid_request_data['email'])
@@ -146,7 +132,7 @@ class RegisterTests(TestCase):
         """ Register with password missmatch """
         _data = valid_request_data.copy()
         _data["password2"] = str(reversed(_data["password1"]))
-        response = self._some_register_call(_data)
+        response = register_user(_data)
         assert response.status_code == 400
 
     def test_unallowed_chars_in_name(self):
@@ -156,15 +142,15 @@ class RegisterTests(TestCase):
             for n in false_names:
                 _data = valid_request_data.copy()
                 _data[field] = n
-                response = self._some_register_call(_data)
+                response = register_user(_data)
                 assert response.status_code == 400
 
     def test_register_existing_user(self):
         """ Registring a user that alredy has an account """
         # Not we have to register him sucessfull first, cause tests always reset the DB
-        response = self._some_register_call(valid_request_data)
+        response = register_user(valid_request_data)
         assert response.status_code == 200
-        response = self._some_register_call(valid_request_data)
+        response = register_user(valid_request_data)
         assert response.status_code == 400
 
     def test_email_verification_enforced(self):
@@ -172,7 +158,7 @@ class RegisterTests(TestCase):
         pass  # TODO
 
     def test_base_admin_created_if_no_users(self):
-        response = self._some_register_call(valid_request_data)
+        response = register_user(valid_request_data)
         assert response.status_code == 200
         # v-- base managment user should be automaticly created:
         usr = get_user_by_email(settings.MANAGEMENT_USER_MAIL)
@@ -180,7 +166,7 @@ class RegisterTests(TestCase):
         # would error if the user doesn't exist...
 
     def test_auto_login_after_register(self):
-        response = self._some_register_call(valid_request_data)
+        response = register_user(valid_request_data)
         assert response.status_code == 200
         usr = get_user_by_email(valid_create_data["email"])
         # now if we render /app we should be redirected to /login
@@ -192,7 +178,7 @@ class RegisterTests(TestCase):
         """
         Tests if mail code was generate and we can verify it
         """
-        response = self._some_register_call(valid_request_data)
+        response = register_user(valid_request_data)
         assert response.status_code == 200
         usr = get_user_by_email(valid_create_data["email"])
         code_b64 = usr.state.get_email_auth_code_b64()

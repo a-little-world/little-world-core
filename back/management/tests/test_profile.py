@@ -2,6 +2,7 @@ from django.test import TestCase
 import json
 from rest_framework.response import Response
 from management.controller import get_user_by_email
+from management.tests.helpers import register_user
 from django.conf import settings
 from management.models import profile
 from rest_framework.test import APIRequestFactory, force_authenticate
@@ -41,23 +42,14 @@ class ProfileApiTests(TestCase):
         factory = APIRequestFactory(
             enforce_csrf_checks=True, content_type='application/json')
         request = factory.post('/api/profile/', data)
-        # This will always return the type Optional[Reponse] but pylance doesn't beleave me
         force_authenticate(request, user=auth_usr)
         response = api.profile.ProfileViewSet.as_view(
             {"post": "partial_update"})(request)
         assert isinstance(response, Response)
         return response
 
-    def _some_register_call(self, data: dict) -> Response:
-        factory = APIRequestFactory(enforce_csrf_checks=True)
-        request = factory.post('/api/register/', data)
-        # This will always return the type Optional[Reponse] but pylance doesn't beleave me
-        response = api.register.Register.as_view()(request)
-        assert isinstance(response, Response)
-        return response  # type: ignore
-
     def test_invalid_postal_code(self):
-        self._some_register_call(valid_request_data)
+        register_user(valid_request_data)
         usr = get_user_by_email(valid_request_data["email"])
         for code in [
             "asdgads",  # Letters not allowed postalcode
@@ -68,7 +60,7 @@ class ProfileApiTests(TestCase):
             assert resp.status_code == 400
 
     def test_valid_postal_code(self):
-        self._some_register_call(valid_request_data)
+        register_user(valid_request_data)
         usr = get_user_by_email(valid_request_data["email"])
         for code in [
             "52062",
@@ -84,7 +76,7 @@ class ProfileApiTests(TestCase):
         """
         # All fields that the user can change are also all fields that are listed for him:
         allowed_to_change = profile.SelfProfileSerializer.Meta.fields
-        self._some_register_call(valid_request_data)
+        register_user(valid_request_data)
         usr = get_user_by_email(valid_request_data["email"])
         s_profile = profile.SelfProfileSerializer(usr.profile)
         options = profile.ProfileSerializer.get_options(s_profile, usr.profile)
@@ -135,7 +127,7 @@ class ProfileApiTests(TestCase):
 
     def test_cant_be_changed_all(self):
         allowed_to_change = profile.SelfProfileSerializer.Meta.fields
-        self._some_register_call(valid_request_data)
+        register_user(valid_request_data)
         usr = get_user_by_email(valid_request_data["email"])
         all_fields = profile.ProfileSerializer(usr.profile).data.keys()
         all_fields_blocked_change = set(
@@ -160,7 +152,7 @@ class ProfileApiTests(TestCase):
                 assert getattr(usr.profile, field) != _v
 
     def test_lang_skill_field(self):
-        self._some_register_call(valid_request_data)
+        register_user(valid_request_data)
         usr = get_user_by_email(valid_request_data["email"])
         s_profile = profile.SelfProfileSerializer(usr.profile)
         options = profile.ProfileSerializer.get_options(s_profile, usr.profile)
