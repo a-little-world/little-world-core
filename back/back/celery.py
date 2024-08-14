@@ -41,7 +41,6 @@ def im_allive_task(self):
     print("=========================================")
     print("==== Server: I'm happily chilli'n ;) ====")
     print("=========================================")
-    # return "RESULT" we don't return this as a result otherwise we would just be flooding the database
 
 auto_emails = {
     'check-match-proposals-expire-and-send-mails': {
