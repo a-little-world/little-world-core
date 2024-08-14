@@ -607,6 +607,11 @@ def send_email(
     unsubscribe_group=None,
     emulated_send=False,
 ):
+    
+    # TODO: remove with the migration to new email apis
+    if settings.DISABLE_LEGACY_EMAIL_SENDING:
+        raise Exception("Legacy email sending is disabled!")
+
     report = EmailSendReport()
     settings_hash = str(user.settings.email_settings.hash)
     
@@ -679,13 +684,17 @@ def delete_user(user, management_user=None, send_deletion_email=False):
     from emails import mails
     
     if send_deletion_email:
-        user.send_email(
-           subject="Dein Account wurde gelöscht", 
-           mail_data=mails.get_mail_data_by_name("account_deleted"),
-           mail_params=mails.AccountDeletedEmailParams(
-            first_name=user.profile.first_name,
-           )
-        )
+        
+        if settings.USE_V2_EMAIL_APIS:
+            user.send_email_v2("account-deleted")
+        else:
+            user.send_email(
+               subject="Dein Account wurde gelöscht", 
+               mail_data=mails.get_mail_data_by_name("account_deleted"),
+               mail_params=mails.AccountDeletedEmailParams(
+                first_name=user.profile.first_name,
+               )
+            )
 
     user.is_active = False
     user.email = f"deleted_{user.email}"

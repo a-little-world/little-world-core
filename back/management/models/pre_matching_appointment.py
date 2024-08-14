@@ -1,12 +1,11 @@
 from django.db import models
-from management.models.user import User
 from django.db.models import Q
 from django.utils import timezone
 from rest_framework import serializers
 import uuid
 
 class PreMatchingAppointment(models.Model):
-    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    user = models.ForeignKey("management.User", on_delete=models.SET_NULL, null=True)
     
     uuid = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     

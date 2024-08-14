@@ -120,10 +120,13 @@ Selbst habe ich vier Jahre im Ausland gelebt, von Frankreich bis nach China. Den
 
 @shared_task
 def send_new_message_notifications():
+    # TODO: depricate!!!!!! We got a fresh implementation!
+
     from management.models.user import User
     from chat.models import Message
     from django.conf import settings
     from emails import mails
+    
     
     # 1 - get all unitified messages
     unnotified_messages_unread = Message.objects.filter(

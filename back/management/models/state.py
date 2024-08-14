@@ -1,6 +1,6 @@
 from django.db import models
-from .user import User
-from .management_tasks import MangementTask
+from management.models.management_tasks import MangementTask
+from management.models.notifications import Notification
 import uuid
 import json
 import base64
@@ -8,7 +8,6 @@ import zlib
 import random
 from datetime import datetime
 from rest_framework import serializers
-from .notifications import Notification
 from back.utils import get_options_serializer
 from back import utils
 from multiselectfield import MultiSelectField
@@ -28,7 +27,7 @@ class State(models.Model):
     the users matches, and if the userform is filled
     """
     # Key...
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField("management.User", on_delete=models.CASCADE)
     
     question_card_deck = models.ForeignKey(QuestionCardsDeck, on_delete=models.SET_NULL, null=True, blank=True)
 
@@ -72,7 +71,7 @@ class State(models.Model):
     """
     These are referense to the actual user model of this persons matches 
     """
-    matches = models.ManyToManyField(User, related_name='+', blank=True)
+    matches = models.ManyToManyField("management.User", related_name='+', blank=True)
     
     company = models.CharField(max_length=255, blank=True, null=True)
     
@@ -149,7 +148,7 @@ class State(models.Model):
         null=True, blank=True)
     
     # This is basicly a list of all users that user manages
-    managed_users = models.ManyToManyField(User, related_name='managed_users_by', blank=True)
+    managed_users = models.ManyToManyField("management.User", related_name='managed_users_by', blank=True)
 
     auto_login_api_token = models.CharField(
         default=utils._double_uuid, max_length=255)

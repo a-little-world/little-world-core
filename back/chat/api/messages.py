@@ -97,11 +97,28 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         chat = chat.first()
         if not chat.is_participant(request.user):       
             return self.resp_chat_403
+        
 
         serializer = SendMessageSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         partner = chat.get_partner(request.user) 
+        
+        # retrieve the newest message the recipient was notified about
+        latest_notified_message = Message.objects.filter(
+            chat=chat,
+            recipient=partner,
+            recipient_notified=True
+        ).order_by('-created')
+
+        # Now check if we should be sending out a new message notification
+        # TODO: can this cause multiple emails due to concurrency?
+        if latest_notified_message.exists():
+            latest_notified_message = latest_notified_message.first()
+            # Min 5 min delay between notifications!
+            if (message.created - latest_notified_message.created).total_seconds() < 300:
+                pass
+        
         message = Message.objects.create(
             chat=chat,
             sender=request.user,
@@ -120,5 +137,10 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
                 'request': request,               
             }).data
         ).send(partner.hash)
+        
+        
+        # Check if a new message notification should be send
+        MIN_DELAY_NEW_MESSAGE_NOTIFICATION = 60
+        latest_notified_message = None
         
         return Response(serialized_message, status=200)

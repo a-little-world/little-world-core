@@ -1,15 +1,14 @@
 from django.urls import path
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework import serializers
-from management.views.matching_panel import IsAdminOrMatchingUser
-from management.models.user import User
+from management.helpers.is_admin_or_matching_user import IsAdminOrMatchingUser
 from emails.api_v2.render_template import render_template_dynamic_lookup, render_template_to_html, prepare_template_context
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from emails.models import EmailLog
-from management.controller import get_base_management_user
 from rest_framework.response import Response
 from django.core.mail import EmailMessage
 from emails.api_v2.emails_config import EMAILS_CONFIG
+from django.contrib.auth import get_user_model
 
 class SendEmailSerializer(serializers.Serializer):
     
@@ -26,10 +25,11 @@ def send_template_email(template_name, **kwargs):
     match_id = serializer.validated_data.get('match_id', None)
     _context = serializer.validated_data.get('context', {})
     
-    user = User.objects.get(pk=user_id)
+    user = get_user_model().objects.get(pk=user_id)
     
     template_info, context = prepare_template_context(template_name, user_id, match_id, **_context)
     email_html = render_template_to_html(template_info['config']['template'], context)
+    from management.controller import get_base_management_user
 
     mail_log = EmailLog.objects.create(
         log_version=1,

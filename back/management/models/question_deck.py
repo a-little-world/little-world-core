@@ -2,7 +2,6 @@ from typing import Any
 from django.db import models
 from django.utils.text import slugify
 from uuid import uuid4
-from .user import User
 import time
 import base64
 import random
@@ -51,7 +50,7 @@ def _default_cards():
 class QuestionCardsDeck(models.Model):
     
     uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey("management.User", on_delete=models.CASCADE)
     cards = models.ManyToManyField(QuestionCard, related_name='cards')
     cards_archived = models.ManyToManyField(QuestionCard, related_name='cards_archived', blank=True)
 

@@ -1,17 +1,16 @@
 from django.db import models
-from management.models.user import User
 
 
 class PastMatch(models.Model):
 
     user1 = models.ForeignKey(
-        User, on_delete=models.DO_NOTHING, related_name='user1')
+        "management.User", on_delete=models.DO_NOTHING, related_name='user1')
 
     user2 = models.ForeignKey(
-        User, on_delete=models.DO_NOTHING, related_name='user2')
+        "management.User", on_delete=models.DO_NOTHING, related_name='user2')
 
     who_unmatched = models.ForeignKey(
-        User, on_delete=models.DO_NOTHING, related_name='unmatcher')
+        "management.User", on_delete=models.DO_NOTHING, related_name='unmatcher')
 
     reason = models.TextField(blank=True, null=True)
 

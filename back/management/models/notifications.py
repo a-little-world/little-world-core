@@ -1,7 +1,6 @@
 from back import utils
 from django.db import models
 from rest_framework import serializers
-from .user import User
 from translations import get_translation
 
 
@@ -13,7 +12,7 @@ class Notification(models.Model):
     calling POST api/v1/notification/archive - mark message as 'archived'
     """
 
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey("management.User", on_delete=models.CASCADE)
 
     hash = models.CharField(max_length=100, blank=True,
                             unique=True, default=utils._double_uuid)  # type: ignore
@@ -47,15 +46,15 @@ class Notification(models.Model):
     meta = models.JSONField(default=dict, blank=True)
     
     @classmethod
-    def get_unread_notifications(cls, user: User, order_by="-created_at"):
+    def get_unread_notifications(cls, user, order_by="-created_at"):
         return cls.objects.filter(user=user, state=cls.NotificationState.UNREAD).order_by(order_by)
 
     @classmethod
-    def get_read_notifications(cls, user: User, order_by="-created_at"):
+    def get_read_notifications(cls, user, order_by="-created_at"):
         return cls.objects.filter(user=user, state=cls.NotificationState.READ).order_by(order_by)
     
     @classmethod
-    def get_archived_notifications(cls, user: User, order_by="-created_at"):
+    def get_archived_notifications(cls, user, order_by="-created_at"):
         return cls.objects.filter(user=user, state=cls.NotificationState.ARCHIVED).order_by(order_by)
     
 

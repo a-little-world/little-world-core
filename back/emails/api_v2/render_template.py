@@ -1,5 +1,5 @@
-from management.models.user import User
 from management.models.matches import Match
+from django.contrib.auth import get_user_model
 from emails.api_v2.emails_config import EMAILS_CONFIG, EmailsConfig
 from django.template.loader import get_template, render_to_string
 from django.template.base import VariableNode, NodeList, Parser
@@ -77,7 +77,7 @@ def prepare_template_context(template_name, user_id=None, match_id=None, **kwarg
     available_dependencies = []
     
     # TODO: this should be enforcing match user access encapsulation
-    user = None if (not user_id) else User.objects.get(id=user_id)
+    user = None if (not user_id) else get_user_model().objects.get(id=user_id)
     match = None if (not match_id) else Match.objects.get(id=match_id)
     
     if user:

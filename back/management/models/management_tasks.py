@@ -1,5 +1,4 @@
 from django.db import models
-from .user import User
 from rest_framework import serializers
 from back.utils import get_options_serializer
 from rest_framework import serializers
@@ -10,12 +9,12 @@ class MangementTask(models.Model):
     """
     A simple container for a task model to be used by the management admin users 
     """
-    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='state_user')
+    user = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name='state_user')
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     
-    created_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='state_created_by', null=True, blank=True)
+    created_by = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name='state_created_by', null=True, blank=True)
     
     class MangementTaskStates(models.TextChoices):
         OPEN = 'OPEN', _('Open')

@@ -1,6 +1,5 @@
 from django.db import models
 from rest_framework import serializers
-from .user import User
 from management.models.profile import Profile
 from django.utils import timezone
 from datetime import timedelta
@@ -25,16 +24,16 @@ class ProposedMatch(models.Model):
     # TODO: there are potential side effect here if users decide to change their user type after they recieved a matching suggestion!
     # Maybe we should later save the users here as volunteer / learner and not perform any lookups on the current profile since it could have changed?
     user1 = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="unconfirmed_match_user1")
+        "management.User", on_delete=models.CASCADE, related_name="unconfirmed_match_user1")
 
     user2 = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name="unconfirmed_match_user2")
+        "management.User", on_delete=models.CASCADE, related_name="unconfirmed_match_user2")
     
     # This field is a patch fix for the issue if a user decided to changes their user type when this unconfirmed_match was created
     # This way we don't check the current user_type based on the profile, 
     # but just teat that user by the user_type he had when this model was created
     learner_when_created = models.ForeignKey(
-        User, on_delete=models.CASCADE, 
+        "management.User", on_delete=models.CASCADE, 
         related_name="unconfirmed_match_learner_when_created", 
         null=True, blank=True)
 
