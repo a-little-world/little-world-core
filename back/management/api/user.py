@@ -483,22 +483,25 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
     Handles password reset tokens
     This is automaticly called fron djang-rest-password reset when the /api/user/resetpw is called
     """
-    # TODO: track this event!
-    # print("TBS: request PW reset", sender, instance, reset_password_token)
     # This is the url of our password reset view
     # We also pass the reset token to the view so it can be used to change the password
     usr_hash = reset_password_token.user.hash
     reset_password_url = f"{settings.BASE_URL}/set_password/{usr_hash}/{reset_password_token.key}"
     print("GENERATED RESET URL", reset_password_url)
-
-    mail_data = get_mail_data_by_name("password_reset")
-    reset_password_token.user.send_email(
-        subject=get_translation("api.user_resetpw_mail_subject"),
-        mail_data=mail_data,
-        mail_params=PwResetMailParams(
-            password_reset_url=reset_password_url
-        ),
-    )
+    
+    if settings.USE_V2_EMAIL_APIS:
+        reset_password_token.user.send_email_v2("reset-password", {
+            "reset_password_url": reset_password_url
+        })
+    else:
+        mail_data = get_mail_data_by_name("password_reset")
+        reset_password_token.user.send_email(
+            subject=get_translation("api.user_resetpw_mail_subject"),
+            mail_data=mail_data,
+            mail_params=PwResetMailParams(
+                password_reset_url=reset_password_url
+            ),
+        )
     
 @login_required
 @api_view(['GET'])
