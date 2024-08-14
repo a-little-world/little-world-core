@@ -6,7 +6,7 @@ import json
 import base64
 import zlib
 import random
-from datetime import datetime
+from django.utils import timezone
 from rest_framework import serializers
 from back.utils import get_options_serializer
 from back import utils
@@ -105,13 +105,6 @@ class State(models.Model):
     """
     notifications = models.ManyToManyField(
         Notification, related_name='n+', blank=True)
-
-    """
-    This state is used to sendout the unread email notification
-    when a user has new messages on the plattform
-    """
-    unread_messages_state = models.JSONField(default=list, blank=True)
-    unread_state_update_time = models.DateTimeField(default=datetime.now)
 
     class UserCategoryChoices(models.TextChoices):
         # For this we can use the default translations '_()'

@@ -143,11 +143,8 @@ class Register(APIView):
             from ..tasks import dispatch_admin_email_notification
             dispatch_admin_email_notification.delay(
                 "New user registered", f"{registration_data.email}, {registration_data.first_name}, {registration_data.second_name}, {registration_data.birth_year}")
-        try:
-            login(request, usr)  # this errors in tests, if used as function
-        except Exception as e:
-            print("Auto login failed: {}".format(repr(e)))
-            return Response("User cerated but auto login failed")
+
+        login(request, usr)
         
         with translation.override("tag"):
             data = frontend_data(usr)

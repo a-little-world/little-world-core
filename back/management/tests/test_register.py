@@ -7,6 +7,7 @@ from management.api.user_data import get_user_models
 from django.conf import settings
 from management.models import profile
 from rest_framework.test import APIRequestFactory, force_authenticate
+from django.contrib.sessions.middleware import SessionMiddleware
 from .. import api
 
 valid_request_data = dict(
@@ -34,6 +35,9 @@ class RegisterTests(TestCase):
     def _some_register_call(self, data: dict) -> Response:
         factory = APIRequestFactory(enforce_csrf_checks=True)
         request = factory.post('/api/register/', data)
+        middleware = SessionMiddleware(lambda x: x)
+        middleware.process_request(request)
+        request.session.save()
         # This will always return the type Optional[Reponse] but pylance doesn't beleave me
         response = api.register.Register.as_view()(request)
         assert response, isinstance(response, Response)
