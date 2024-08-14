@@ -205,6 +205,9 @@ jobs:
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         run: |
           # run redis tests instance
+          sed -i '/^REDIS_URL/d' .env
+          REDIS_URL="redis://host.docker.internal:6379"
+          echo "REDIS_URL=\"$REDIS_URL\"" >> .env
           docker run -d --name redis-test -p 6379:6379 redis
           docker compose run all python manage.py test
           docker rm -f redis-test
