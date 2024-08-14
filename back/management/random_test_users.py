@@ -145,7 +145,6 @@ def create_test_user(i, user_seeds=None, password=None, email=None, pass_if_exis
                 return
         except:
             pass
-        
     
     if password is not None:
         _data["password"] = password
@@ -172,11 +171,9 @@ def create_test_user(i, user_seeds=None, password=None, email=None, pass_if_exis
 
     usr.profile.interests = interests
     usr.profile.availability = random_availabilities()
-    print("TBS: availabilities", usr.profile.availability)
     for choice in user_form_choices:
         setattr(usr.profile, choice, random_choice(
             user_form_choices[choice]))
-    print("TBS: image type choice", usr.profile.image_type)
     if usr.profile.image_type == Profile.ImageTypeChoice.AVATAR:
         usr.profile.avatar_config = random_avatar()
     else:
@@ -192,7 +189,6 @@ def create_test_user(i, user_seeds=None, password=None, email=None, pass_if_exis
     usr.profile.save()
     # This will set the profile to completed
     completed, msgs = usr.profile.check_form_completion()
-    print("TBS", msgs)
     # & it will automaticly trigger the score calulation for that user
     
     us = usr.state
