@@ -63,8 +63,7 @@ def validate_second_name(value: str):
     value = value.title()
 
     # check for single space pattern
-    single_space_pattern = r"^\w+(?: \w+)*$"
-    if not re.match(single_space_pattern, value):
+    if "  " in value:
         raise serializers.ValidationError(
             get_translation("val.second_name_too_many_spaces")
         )
