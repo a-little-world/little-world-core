@@ -12,6 +12,7 @@ from dataclasses import dataclass, asdict, fields, MISSING
 from management.models.user import User
 from back.utils import CoolerJson
 import json
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 
 @api_view(['GET'])
 @permission_classes([IsAdminOrMatchingUser])
@@ -61,15 +62,21 @@ def render_as_email(request, template_name=None):
         },
         status=status.HTTP_200_OK
     )
-    
+
+
+class SendEmailRenderedSerializer(serializers.Serializer):
+    data = serializers.JSONField(required=False, help_text="Additional parameters depending on the template_name")
+
+    def validate_params(self, value):
+        return value
+
+@extend_schema(
+    request=SendEmailRenderedSerializer,
+)
 @api_view(['POST'])
 @permission_classes([IsAdminOrMatchingUser])
 def send_email_rendered(request, template_name=None):
 
-    template = list(filter(lambda x: x.name == template_name, templates))[0]
-    if not template:
-        return Response(status=status.HTTP_404_NOT_FOUND)
-    
     subject, receiver = request.data.get("subject"), request.data.get("receiver")
     receivers = receiver.split(",")
     
