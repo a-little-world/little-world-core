@@ -47,11 +47,6 @@ class MatchModelAdmin(admin.ModelAdmin):
     list_display = ('uuid', 'created_at', 'updated_at', 'user1', 'user2')
 
 
-@admin.register(models.profile.ProfileAtMatchRequest)
-class ProfileAtMatchRequestAdmin(admin.ModelAdmin):
-    list_display = ('usr_hash', 'sdate', 'date')
-
-
 @admin.register(models.state.State)
 class StateAdmin(HijackUserAdminMixin, admin.ModelAdmin):
     list_display = ('user', 'created_at', 'user_form_state',
