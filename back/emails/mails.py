@@ -24,6 +24,7 @@ from emails.templates import (
     ImpulsBeitraegeMail,
     ImpulsBeitraegeMail2,
     CommunityGetTogetherInvitation,
+    CommunityGetTogetherInvitation010824,
     CommunityGetTogetherInvitation130624,
     TrainingSeriesInvitation,
     # Currently we are using the same template as weclone
@@ -42,7 +43,8 @@ GermanImprovementBabbelInvitation,
     AccountDeletedEmailTexts,
     BabbelSubscriptionMail_Winner,
     CommunityGetTogetherInvitation120624,
-    CommunityGetTogetherInvitationToday
+    CommunityGetTogetherInvitationToday,
+    ReActivateVolunteers
 )
 from django.core.mail import EmailMessage
 import json
@@ -219,6 +221,10 @@ class RAWTemplateMailParams:
     footer_text: str = ''
     goodbye: str = ''
     goodbye_name: str = ''
+    
+@dataclass
+class ReActivateVolunteersParams:
+    first_name: str
 
 
 @dataclass
@@ -492,7 +498,21 @@ templates = [
         params=CommunityGetTogetherInvitation130624Params,
         texts=CommunityGetTogetherInvitation130624,
         defaults=CommunityGetTogetherInvitation130624
-    )
+    ),
+    MailMeta(
+        name="reactivate_volunteers",
+        template="emails/welcome.html",
+        params=ReActivateVolunteersParams,
+        texts=ReActivateVolunteers,
+        defaults=ReActivateVolunteers
+    ),
+    MailMeta(
+        name="community_get_together_010824",
+        template="emails/welcome.html",
+        params=CommunityGetTogetherInvitation130624Params,
+        texts=CommunityGetTogetherInvitation010824,
+        defaults=CommunityGetTogetherInvitation010824
+    ),
 ]
 
 
@@ -527,9 +547,13 @@ def send_email(
     This does not send a messages to all receivers at the same time, 
     it sends one email per receiver
     """
+    if settings.DISABLE_LEGACY_EMAIL_SENDING:
+        return
+
     from management.controller import get_base_management_user, get_user_by_email
     if sender is None:
         sender = settings.DEFAULT_FROM_EMAIL
+        
 
     for to in recivers:
 

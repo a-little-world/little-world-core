@@ -3,6 +3,7 @@ from django.db.models.functions import TruncDay, TruncWeek, ExtractDay
 from rest_framework.response import Response
 from rest_framework import viewsets
 from datetime import timedelta, date
+from django.contrib.postgres.search import TrigramSimilarity
 from django.db.models import Q, Count, F
 from django.conf import settings
 from management.controller import delete_user, make_tim_support_user
@@ -159,6 +160,7 @@ class UserFilter(filters.FilterSet):
         help_text='Filter for users that are part of a list'
     )
     
+    
     order_by = filters.OrderingFilter(
         fields=(
             ('date_joined', 'date_joined'),
@@ -168,6 +170,17 @@ class UserFilter(filters.FilterSet):
         ),
         help_text='Order by field'
     )
+    
+    search = filters.CharFilter(method='filter_search', label='Search')
+    
+    def filter_search(self, queryset, name, value):
+        return queryset.filter(
+            Q(hash__icontains=value) |
+            Q(profile__first_name__icontains=value) |
+            Q(profile__second_name__icontains=value) |
+            Q(email__icontains=value)
+        )
+
     
     def filter_list(self, queryset, name, value):
         selected_filter = next(filter(lambda entry: entry.name == value, FILTER_LISTS))
@@ -218,7 +231,13 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             self.kwargs["pk"] = int(self.kwargs["pk"])
             return super().get_object()
         else:
-            return super().get_queryset().get(hash=self.kwargs["pk"])
+            # The two alternate lookup options are email & hash
+            # So lets check if there is an '@' in the string
+            is_email = '@' in self.kwargs["pk"]
+            if is_email:
+                return super().get_queryset().get(email=self.kwargs["pk"])
+            else:
+                return super().get_queryset().get(hash=self.kwargs["pk"])
 
     @action(detail=True, methods=['get'])
     def scores(self, request, pk=None):

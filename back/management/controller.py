@@ -25,6 +25,7 @@ from management.models.profile import Profile
 from management.models.state import State
 from management.models.settings import Settings
 from management.models.rooms import Room
+from management.models.scores import TwoUserMatchingScore
 from chat.models import Chat
 from emails import mails
 from tracking import utils
@@ -391,6 +392,12 @@ def match_users(
         usr1.state.set_idle()
         usr2.state.set_idle()
         
+    # If there was a two user matching score we need to set it to matchable=False now as the users are matched
+    # & also ofcourse all other scores of that users have to be set to matchable=False
+    TwoUserMatchingScore.objects.filter(
+        (Q(user1=usr1) | Q(user2=usr1) | Q(user1=usr2) | Q(user2=usr2)) & Q(matchable=True)).update(matchable=False)
+
+        
     return matching_obj
 
 
@@ -513,11 +520,12 @@ def get_or_create_default_docs_user():
 
 
 def create_base_admin_and_add_standart_db_values():
-    print("Management user doesn't seem to exist jet")
+    print("Chcking if base admin user exists")
 
     try:
         get_user_by_email(settings.MANAGEMENT_USER_MAIL)
     except UserNotFoundErr:
+        print("Management user doesn't seem to exist jet")
         usr = User.objects.create_superuser(
             email=settings.MANAGEMENT_USER_MAIL,
             username=settings.MANAGEMENT_USER_MAIL,
@@ -531,7 +539,7 @@ def create_base_admin_and_add_standart_db_values():
         usr.state.save()
         usr.state.set_user_form_completed()  # Admin doesn't have to fill the userform
         usr.notify("You are the admin master!")
-    print("BASE ADMIN USER CREATED!")
+        print("BASE ADMIN USER CREATED!")
     
     def update_profile():
         usr_tim = get_user_by_email(TIM_MANAGEMENT_USER_MAIL)

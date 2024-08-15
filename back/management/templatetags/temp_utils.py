@@ -11,6 +11,10 @@ register = template.Library()
 def create_dict(str_dict):
     return eval(str_dict)
 
+@register.simple_tag
+def get_base_url():
+    # TODO: Depricate with new emails api
+    return ""
 
 @register.simple_tag
 def get_base_matomo_script_tag():
@@ -34,13 +38,6 @@ def get_sentry_init_script():
 """)
 
 
-@register.simple_tag
-def get_base_url():
-    # TODO: this was only meant for the email templates
-    # and seems to be fixed vir correcting static path in settings
-    # so prop depricate!
-    return ""
-    # return settings.BASE_URL
 
 
 @register.simple_tag

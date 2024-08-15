@@ -241,6 +241,8 @@ class User(AbstractUser):
         Send to a user by usr.send_email(...)
         """
         from emails.mails import send_email, MailMeta
+        if settings.DISABLE_LEGACY_EMAIL_SENDING:
+            return
         recivers = [overwrite_mail] if overwrite_mail else [self.email]
         send_email(
             subject=subject,

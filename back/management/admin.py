@@ -9,9 +9,13 @@ from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from django import forms
 from phonenumber_field.widgets import PhoneNumberPrefixWidget
 from management import models
-from management.models import question_deck, scores, pre_matching_appointment, newsletter
+from management.models import question_deck, scores, pre_matching_appointment, newsletter, stats
 from django.db.migrations.recorder import MigrationRecorder
 from hijack.contrib.admin import HijackUserAdminMixin
+
+@admin.register(stats.Statistic)
+class StatisticAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'updated_at', 'kind')
 
 
 @admin.register(models.backend_state.BackendState)

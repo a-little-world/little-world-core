@@ -3,6 +3,7 @@ from django.utils import timezone
 from django.db.models import Q, Count
 from management.models.user import User
 from management.models.state import State
+from management.models.profile import Profile
 from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment
 
@@ -91,6 +92,18 @@ def first_search(qs=User.objects.all()):
     ).filter(
         num_matches=0
     )
+    
+def first_search_volunteers(qs=User.objects.all()):
+    fs = first_search(qs)
+    return fs.filter(
+        profile__user_type=Profile.TypeChoices.VOLUNTEER
+    )
+    
+def first_search_learners(qs=User.objects.all()):
+    fs = first_search(qs)
+    return fs.filter(
+        profile__user_type=Profile.TypeChoices.LEARNER
+    )
 
 def user_searching(qs=User.objects.all()):
     """
@@ -149,6 +162,25 @@ def match_takeoff(qs=User.objects.all()):
     ).filter(
         num_matches__gt=0
     )
+    
+def active_match(qs=User.objects.all()):
+    """
+    2.5: User has and confirst and ongoing match, that is still having video calls or sending messages
+    """
+    from management.api.match_journey_filters import match_ongoing
+    filtered_matches = Match.objects.filter(
+        Q(user1__in=qs) | Q(user2__in=qs)
+    )
+    ongoing_matches = match_ongoing(
+        qs=filtered_matches, 
+        last_interaction_days=21
+    )
+    
+    users = User.objects.filter(
+        Q(match_user1__in=ongoing_matches) | Q(match_user2__in=ongoing_matches)
+    )
+    
+    return users
 
 # Inactive-User Filters
 
@@ -172,7 +204,7 @@ def no_show(qs=User.objects.all()):
         state__email_authenticated=True,
         state__unresponsive=False,
         state__had_prematching_call=False,
-        prematchingappointment__isnull=True
+        prematchingappointment__isnull=False
     )
 
 def ghoster(qs=User.objects.all()):
@@ -212,9 +244,10 @@ def happy_inactive(qs=User.objects.all()):
 def too_low_german_level(qs=User.objects.all()):
     """
     4) 'Too Low german level': User never active, but was flagged with a 'state.to_low_german_level=True'
+    need to check if the profile.lang_skill json list field contains {'lang': 'german', 'level': 'A1'}
     """
     return qs.filter(
-        state__to_low_german_level=True, # TODO: the flag has to be properly set
+        profile__lang_skill__contains=[{'lang': Profile.LanguageChoices.GERMAN, 'level': Profile.LanguageSkillChoices.LEVEL_0}]
     )
 
 def unmatched(qs=User.objects.all()):
@@ -262,4 +295,12 @@ def gave_up_searching(qs=User.objects.all()):
         )
     ).filter(
         num_matches=0
+    )
+    
+def user_deleted(qs=User.objects.all()):
+    """
+    7) 'User-Deleted': User that has been deleted
+    """
+    return qs.filter(
+        is_active=False
     )

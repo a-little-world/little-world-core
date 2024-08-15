@@ -1,0 +1,29 @@
+{% load render_bundle from webpack_loader %}
+{% load get_reload_script_tag from reload_script_utils %}
+{% load get_api_translations from temp_utils %}
+{% load get_api_options from temp_utils %}
+{% get_api_translations as api_translations %}
+{% get_api_options as api_options %}
+<!DOCTYPE html>
+<head>
+  {% get_reload_script_tag %}
+    {% include "react_app_head_base.html" with app_name='admin_panel_frontend' title='Admin Pannel' %}    
+     <meta http-equiv="refresh" content="900">
+</head>
+{% render_bundle 'staticfiles' 'css' 'admin_panel_frontend' %}
+<body>
+    <div id="root"></div>
+</body>
+{% render_bundle 'staticfiles' 'js' 'admin_panel_frontend' %}
+<script>
+  const apiTranslations = JSON.parse('{{ api_translations | escapejs }}');
+  const apiOptions = JSON.parse('{{ api_options | escapejs }}');
+  renderEmail({ 
+    template: 'welcome',
+    params: {
+      subject: '{{ subject }}',
+      verificationCode: '{{ code }}'
+    }
+  })
+</script>
+<div style="display: none;">{{csrf_token}}</div>

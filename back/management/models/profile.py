@@ -380,7 +380,6 @@ class ProfileBase(models.Model):
             "image"
             if self.image_type == self.ImageTypeChoice.IMAGE
             else "avatar_config",
-            "target_group",
             *(
                 ["phone_mobile"]
                 if self.notify_channel  # phone is only required if notification channel is not email ( so it's sms or phone )
@@ -677,6 +676,7 @@ class MinimalProfileSerializer(serializers.ModelSerializer):
             "image",
             "description",
             "user_type",
+            "target_groups"
         ]
 
 
