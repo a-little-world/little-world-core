@@ -201,13 +201,69 @@ jobs:
         run: |
           pip3 install slack_sdk
           wget -qO- https://raw.githubusercontent.com/tbscode/tims-blog-posts/main/assets/send_slack_message.py | python3 -
+      - name: Measure start time
+        id: start_tests
+        run: |
+          echo "time=$(date +%s)" >> $GITHUB_OUTPUT
       - name: Run django tests
+        id: run_tests
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         run: |
-          # run redis tests instance
           sed -i '/^REDIS_URL/d' .env
           REDIS_URL="redis://host.docker.internal:6379"
           echo "REDIS_URL=\"$REDIS_URL\"" >> .env
           docker run -d --name redis-test -p 6379:6379 redis
-          docker compose run all python manage.py test
+          if docker compose run all python manage.py test; then
+            echo "test_result=pass" >> $GITHUB_OUTPUT
+          else
+            echo "test_result=fail" >> $GITHUB_OUTPUT
+          fi
           docker rm -f redis-test
+      - name: Measure end time
+        id: end_tests
+        run: |
+          echo "time=$(date +%s)" >> $GITHUB_OUTPUT
+      - name: Calculate execution time
+        id: execution_time_tests
+        run: |
+          START=${{ steps.start_tests.outputs.time }}
+          END=${{ steps.end_tests.outputs.time }}
+          DIFF=$(( END - START ))
+          echo "DURATION=$DIFF" >> $GITHUB_OUTPUT
+      - name: Add build step comment 5
+        uses: peter-evans/create-or-update-comment@v4
+        id: update_comment
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        with:
+          token: ${{ secrets.BOT_PAT }}
+          comment-id: ${{ steps.create_comment.outputs.comment-id }}
+          body: |
+            4. Done check: [`${{ steps.cluster_connection.outputs.STAGING_URL }}`](${{ steps.cluster_connection.outputs.STAGING_URL }})
+
+            > **Note:** Setting up DNS and solving https challenge can take up to 5 minutes. Chill a little moment :wink:
+
+            <details>
+            <summary> Details </summary>
+             
+            - 30 users: `herrduenschnlate+$i@gmail.com` for `$i in {1..30}`
+            e.g.: `herrduenschnlate+17@gmail.com:Test123!`
+            at `${{ steps.cluster_connection.outputs.STAGING_URL }}/login`
+            - checkout the new user form `${{ steps.cluster_connection.outputs.STAGING_URL }}/from_v2/userType`
+            - admin: `admin@user.com:Admin123!`
+            at `${{ steps.cluster_connection.outputs.STAGING_URL }}/admin`
+            - checkout the new admin_panel `${{ steps.cluster_connection.outputs.STAGING_URL }}/admin_panel_v2/`
+
+            Run build locally:
+            ```
+            echo "<your-git-token>" | docker login ghcr.io -u <your-git-user> --password-stdin
+            docker run -it --rm -p 8000:8000 ${{ steps.setup_emperial_env.outputs.IMAGE_URL }}
+            ... visit http://localhost:8000
+            ```
+            You have the image cached locally now, use this to develop locally with pull API access.
+
+            </details>
+            
+            Test Result: ${{ steps.run_tests.outputs.test_result }} ${{
+              fromJSON('{"fail":"❌","pass":"✅"}')[steps.run_tests.outputs.test_result]
+            }}
+            Duration: ${{ steps.execution_time_tests.outputs.DURATION }} seconds
