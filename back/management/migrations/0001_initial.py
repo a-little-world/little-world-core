@@ -11,7 +11,10 @@ import management.models.profile
 import management.validators
 import multiselectfield.db.fields
 import phonenumber_field.modelfields
+import datetime
 
+def _date_string():
+    return datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
 
 class Migration(migrations.Migration):
 
@@ -162,7 +165,7 @@ class Migration(migrations.Migration):
                 ('image', models.ImageField(blank=True, upload_to=management.models.profile.PathRename('profile_pics/'))),
                 ('avatar_config', models.JSONField(blank=True, default=dict)),
                 ('usr_hash', models.CharField(blank=True, max_length=255, null=True)),
-                ('sdate', models.CharField(default=management.models.profile._date_string, max_length=255)),
+                ('sdate', models.CharField(default=_date_string, max_length=255)),
                 ('date', models.DateTimeField(auto_now=True)),
             ],
         ),

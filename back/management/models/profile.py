@@ -44,7 +44,7 @@ class PathRename(object):
         return path_new
 
 
-class ProfileBase(models.Model):
+class Profile(models.Model):
     """
     Abstract base class for the default Profile Model
     Note: this represents the **current** profile
@@ -53,11 +53,10 @@ class ProfileBase(models.Model):
     """
 
     class Meta:
-        # This is not a real-world model just a base class to use for a model
-        # The real model is `Profile` below
-        abstract = True
+        app_label = "management"
 
     version = models.CharField(default=PROFILE_MODEL_VERSION, max_length=255)
+    user = models.OneToOneField("management.User", on_delete=models.CASCADE)  # Key...
 
     """
     We like to always have that meta data!
@@ -408,41 +407,6 @@ class ProfileBase(models.Model):
             )
 
         return is_completed, msgs
-
-    def save(self, *args, **kwargs):
-        super(ProfileBase, self).save(*args, **kwargs)
-
-
-class Profile(ProfileBase):
-    user = models.OneToOneField("management.User", on_delete=models.CASCADE)  # Key...
-
-
-def _date_string():
-    # TODO maybe we should add seconds since we're using this in combination with unique together
-    return datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
-
-
-class ProfileAtMatchRequest(ProfileBase):
-    """
-    This model is created every time a user requests a match
-    It basically stores a full copy of the profile when the user asks for a match
-    """
-
-    usr_hash = models.CharField(max_length=255, unique=False, blank=True, null=True)
-    # Sadly we can't use a date field here because it is not JSON serializable
-    # See https://stackoverflow.com/questions/11875770/how-to-overcome-datetime-datetime-not-json-serializable
-    sdate = models.CharField(default=_date_string, max_length=255)
-
-    # But we can add a read date time field without the unique constraint
-    # This is convenient for e.g., sorting in django admin
-    date = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=["usr_hash", "date"], name="unique_user_sdate_combination"
-            )
-        ]
 
 
 class ProfileSerializer(serializers.ModelSerializer):

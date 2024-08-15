@@ -528,12 +528,10 @@ def get_or_create_default_docs_user():
 
 
 def create_base_admin_and_add_standart_db_values():
-    print("Chcking if base admin user exists")
 
     try:
         get_user_by_email(settings.MANAGEMENT_USER_MAIL)
     except UserNotFoundErr:
-        print("Management user doesn't seem to exist jet")
         usr = User.objects.create_superuser(
             email=settings.MANAGEMENT_USER_MAIL,
             username=settings.MANAGEMENT_USER_MAIL,
@@ -547,7 +545,7 @@ def create_base_admin_and_add_standart_db_values():
         usr.state.save()
         usr.state.set_user_form_completed()  # Admin doesn't have to fill the userform
         usr.notify("You are the admin master!")
-        print("BASE ADMIN USER CREATED!")
+        print("Base Admin User: Newly created!")
     
     def update_profile():
         usr_tim = get_user_by_email(TIM_MANAGEMENT_USER_MAIL)
@@ -569,12 +567,11 @@ def create_base_admin_and_add_standart_db_values():
             first_name="Tim",
             last_name="Schupp",
         )
+        print(f"Base Management user {usr_tim.email} newly created!")
         
     transaction.on_commit(update_profile)
-        # The tim user should always get the matching permission
+    # The tim user should always get the matching permission
 
-    print("TIM ADMIN USER CREATED!")
-    
     # Now we create some default database elements that should be part of all setups!
 
     # Create default cookie groups and community events

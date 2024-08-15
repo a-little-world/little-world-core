@@ -5,9 +5,10 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 from management.random_test_users import create_abunch_of_users, modify_profile_to_match
 from management.models.profile import Profile
 from management.tests.helpers import register_user
+from management.api.register import Register
+from management.api.confirm_match import confrim_match
 
 from management.models.unconfirmed_matches import get_unconfirmed_matches
-from .. import api
 
 valid_request_data = dict(
     email='benjamin.tim@gmx.de',
@@ -29,7 +30,7 @@ valid_create_data = dict(
 
 class MatchConfirmationTasksTests(TestCase):
 
-    required_params = api.register.Register.required_args
+    required_params = Register.required_args
 
     def _some_confirm_deny_match_call(self, data: dict, user=None) -> Response:
         factory = APIRequestFactory(enforce_csrf_checks=True)
@@ -37,7 +38,7 @@ class MatchConfirmationTasksTests(TestCase):
         request = factory.post('user/match/confirm_deny/', data)
         if user:
             force_authenticate(request, user=user)
-        response = api.confirm_match.confrim_match(request)
+        response = confrim_match(request)
         assert response, isinstance(response, Response)
         return response  # type: ignore
 
