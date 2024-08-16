@@ -115,10 +115,10 @@ class ProfileBase(models.Model):
     """
 
     class TargetGroupChoices2(models.TextChoices):
-        ANY = "any", get_translation("profile.target_groups.any")
-        REFUGEE = "refugee", get_translation("profile.target_groups.refugee")
-        STUDENT = "student", get_translation("profile.target_groups.student")
-        WORKER = "worker", get_translation("profile.target_groups.worker")
+        ANY = "any", get_translation("profile.target_group.any")
+        REFUGEE = "refugee", get_translation("profile.target_group.refugee")
+        STUDENT = "student", get_translation("profile.target_group.student")
+        WORKER = "worker", get_translation("profile.target_group.worker")
 
     target_group = models.CharField(
         choices=TargetGroupChoices2.choices,
