@@ -5,8 +5,7 @@ from django.db.models import TextField
 from drf_spectacular.utils import extend_schema
 from django.db.models.functions import Cast
 from typing import Optional
-from rest_framework import status
-from rest_framework import authentication, permissions
+from rest_framework import permissions
 from dataclasses import dataclass
 from rest_framework import serializers
 from rest_framework.response import Response
@@ -37,6 +36,7 @@ class EventTriggerApi(APIView):
     for a more complete tracking we should always call POST
     but for cross site or small event tracking it is sufficient to call 'get'
     """
+
     authentication_classes = []
     permission_classes = []
 
@@ -46,12 +46,7 @@ class EventTriggerApi(APIView):
 
         params = serializer.save()
         _params = params.__dict__
-        inline_track_event(
-            *[request],
-            **{k: _params[k] for k in _params if k},
-            event_type=Event.EventTypeChoices.FRONT,
-            caller=request.user
-        )
+        inline_track_event(*[request], **{k: _params[k] for k in _params if k}, event_type=Event.EventTypeChoices.FRONT, caller=request.user)
 
         return Response("ok")
 
@@ -75,15 +70,12 @@ class SearchEventMataInputSerializer(serializers.Serializer):
 
 
 class SearchEventMetadataPostgressApi(APIView):
-
     permission_classes = [permissions.IsAdminUser]
 
-    @extend_schema(
-        request=SearchEventMataInputSerializer(many=False)
-    )
+    @extend_schema(request=SearchEventMataInputSerializer(many=False))
     def post(self, request):
         """
-        This is a more efficient filter search meant for usage with Postress DB only 
+        This is a more efficient filter search meant for usage with Postress DB only
         If in dev use the sqllite3 compatibe api below
         """
         serializer = SearchEventMataInputSerializer(data=request.data)
@@ -93,37 +85,38 @@ class SearchEventMetadataPostgressApi(APIView):
 
         events = None
         if params.start_date and params.end_data:
-            events = Event.objects.annotate(
-                search=SearchVector(Cast('metadata', TextField())),
-            ).filter(
-                time__gte=params.start_date,
-                time__lte=params.end_data
-            ).filter(search=params.search_string)
+            events = (
+                Event.objects.annotate(
+                    search=SearchVector(Cast("metadata", TextField())),
+                )
+                .filter(time__gte=params.start_date, time__lte=params.end_data)
+                .filter(search=params.search_string)
+            )
         elif params.start_date:
-            events = Event.objects.annotate(
-                search=SearchVector(Cast('metadata', TextField())),
-            ).filter(
-                time__gte=params.start_date
-            ).filter(search=params.search_string)
+            events = (
+                Event.objects.annotate(
+                    search=SearchVector(Cast("metadata", TextField())),
+                )
+                .filter(time__gte=params.start_date)
+                .filter(search=params.search_string)
+            )
         elif params.end_data:
-            events = Event.objects.annotate(
-                search=SearchVector(Cast('metadata', TextField())),
-            ).filter(
-                time__lte=params.end_data
-            ).filter(search=params.search_string)
+            events = (
+                Event.objects.annotate(
+                    search=SearchVector(Cast("metadata", TextField())),
+                )
+                .filter(time__lte=params.end_data)
+                .filter(search=params.search_string)
+            )
         else:
             events = Event.objects.annotate(
-                search=SearchVector(Cast('metadata', TextField())),
+                search=SearchVector(Cast("metadata", TextField())),
             ).filter(search=params.search_string)
 
         filtered_events = []
 
         for event in events:
-            _data = {
-                "hash": event.hash,
-                "link": f"{settings.BASE_URL}/admin/tracking/event/?q={event.hash}",
-                "time": str(event.time)
-            }
+            _data = {"hash": event.hash, "link": f"{settings.BASE_URL}/admin/tracking/event/?q={event.hash}", "time": str(event.time)}
             if params.include_meta:
                 _data["metadata"] = event.metadata
             filtered_events.append(_data)
@@ -132,12 +125,9 @@ class SearchEventMetadataPostgressApi(APIView):
 
 
 class SearchEventMetadataApi(APIView):
-
     permission_classes = [permissions.IsAdminUser]
 
-    @extend_schema(
-        request=SearchEventMataInputSerializer(many=False)
-    )
+    @extend_schema(request=SearchEventMataInputSerializer(many=False))
     def post(self, request):
         serializer = SearchEventMataInputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -146,18 +136,11 @@ class SearchEventMetadataApi(APIView):
 
         events = None
         if params.start_date and params.end_data:
-            events = Event.objects.filter(
-                time__gte=params.start_date,
-                time__lte=params.end_data
-            )
+            events = Event.objects.filter(time__gte=params.start_date, time__lte=params.end_data)
         elif params.start_date:
-            events = Event.objects.filter(
-                time__gte=params.start_date
-            )
+            events = Event.objects.filter(time__gte=params.start_date)
         elif params.end_data:
-            events = Event.objects.filter(
-                time__lte=params.end_data
-            )
+            events = Event.objects.filter(time__lte=params.end_data)
         else:
             events = Event.objects.all()
 
@@ -165,11 +148,7 @@ class SearchEventMetadataApi(APIView):
 
         for event in events:
             if params.search_string in str(event.metadata):
-                _data = {
-                    "hash": event.hash,
-                    "link": f"{settings.BASE_URL}/admin/tracking/event/?q={event.hash}",
-                    "time": str(event.time)
-                }
+                _data = {"hash": event.hash, "link": f"{settings.BASE_URL}/admin/tracking/event/?q={event.hash}", "time": str(event.time)}
                 if params.include_meta:
                     _data["metadata"] = event.metadata
                 filtered_events.append(_data)

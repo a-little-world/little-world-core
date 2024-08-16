@@ -1,7 +1,7 @@
 from rest_framework import viewsets, authentication, permissions
-from management.models.profile import SelfProfileSerializer, Profile
+from management.models.profile import SelfProfileSerializer
 from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 from rest_framework.views import APIView
 from rest_framework import serializers, status
 from management.models.state import State
@@ -25,19 +25,15 @@ class ProfileViewSet(viewsets.GenericViewSet, viewsets.mixins.UpdateModelMixin):
     """
     A viewset for viewing and editing user instances.
     """
-    authentication_classes = [authentication.SessionAuthentication,
-                              authentication.BasicAuthentication]
+
+    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
 
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = SelfProfileSerializer
 
     @extend_schema(
         request=ProfileViewSetSerializer(many=False),
-        parameters=[
-            OpenApiParameter(name=k, description="Use this and every self field will contain possible choices in 'options'" if k == "options" else "",
-                             required=False, type=type(getattr(ProfileViewSetParams, k)))
-            for k in ProfileViewSetParams.__annotations__.keys()
-        ],
+        parameters=[OpenApiParameter(name=k, description="Use this and every self field will contain possible choices in 'options'" if k == "options" else "", required=False, type=type(getattr(ProfileViewSetParams, k))) for k in ProfileViewSetParams.__annotations__.keys()],
     )
     def _get(self, request):
         serializer = ProfileViewSetSerializer(data=request.query_params)
@@ -65,9 +61,7 @@ class ProfileViewSet(viewsets.GenericViewSet, viewsets.mixins.UpdateModelMixin):
 
 
 class ProfileCompletedApi(APIView):
-
-    authentication_classes = [authentication.SessionAuthentication,
-                              authentication.BasicAuthentication]
+    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
 
     permission_classes = [permissions.IsAuthenticated]
 
@@ -83,9 +77,9 @@ class ProfileCompletedApi(APIView):
             state.set_user_form_completed()
             state.matching_state = State.MatchingStateChoices.SEARCHING
             state.save()
-            
+
             from management.api.user_data import user_data
-            
+
             ud = user_data(request.user)
             return Response(ud)
         else:

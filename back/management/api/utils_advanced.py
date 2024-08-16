@@ -13,9 +13,7 @@ class CustomResetPasswordRequestTokenViewSet(ResetPasswordRequestTokenViewSet):
     @extend_schema(
         request=ChangeEmailSerializer,
         responses={
-            200: OpenApiResponse(
-                description="If email exists, token was created successfully."
-            ),
+            200: OpenApiResponse(description="If email exists, token was created successfully."),
             400: OpenApiResponse(description="Invalid email format"),
         },
     )
@@ -53,9 +51,7 @@ class DynamicFilterSerializer(serializers.Serializer):
     lookup_expr = serializers.ListField(child=serializers.CharField(), required=False)
 
 
-def filterset_schema_dict(
-    filterset, include_lookup_expr=False, view_key="/api/matching/users/", request=None
-):
+def filterset_schema_dict(filterset, include_lookup_expr=False, view_key="/api/matching/users/", request=None):
     _filters = []
     for field_name, filter_instance in filterset.get_filters().items():
         filter_data = {
@@ -65,9 +61,7 @@ def filterset_schema_dict(
 
         choices = getattr(filter_instance, "extra", {}).get("choices", [])
         if len(choices):
-            filter_data["choices"] = [
-                {"tag": choice[1], "value": choice[0]} for choice in choices
-            ]
+            filter_data["choices"] = [{"tag": choice[1], "value": choice[0]} for choice in choices]
 
         if "help_text" in filter_instance.extra:
             filter_data["description"] = filter_instance.extra["help_text"]
@@ -85,11 +79,7 @@ def filterset_schema_dict(
             elif isinstance(filter_instance, filters.BooleanFilter):
                 filter_data["lookup_expr"] = ["exact"]
             else:
-                filter_data["lookup_expr"] = (
-                    [filter_instance.lookup_expr]
-                    if isinstance(filter_instance.lookup_expr, str)
-                    else filter_instance.lookup_expr
-                )
+                filter_data["lookup_expr"] = [filter_instance.lookup_expr] if isinstance(filter_instance.lookup_expr, str) else filter_instance.lookup_expr
         serializer = DynamicFilterSerializer(data=filter_data)
 
         serializer.is_valid(raise_exception=True)
@@ -97,9 +87,7 @@ def filterset_schema_dict(
     # 2 - retrieve the query shema
     generator = SchemaGenerator(patterns=None, urlconf=None)
     schema = generator.get_schema(request=request)
-    filter_schemas = (
-        schema["paths"].get(view_key, {}).get("get", {}).get("parameters", [])
-    )
+    filter_schemas = schema["paths"].get(view_key, {}).get("get", {}).get("parameters", [])
     for filter_schema in filter_schemas:
         for filter_data in _filters:
             if filter_data["name"] == filter_schema["name"]:

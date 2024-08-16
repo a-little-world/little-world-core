@@ -1,11 +1,8 @@
 from django.test import TestCase
-from rest_framework.test import RequestsClient
-from rest_framework.response import Response
-from management.controller import create_user, get_user_by_email, match_users
+from management.controller import create_user, match_users
 from management.api.user_data import get_user_models
-from django.conf import settings
-from rest_framework.test import APIRequestFactory, force_authenticate
 from management.tests.helpers import valid_profile_data
+
 
 class AdminApiTests(TestCase):
     def _create_abunch_of_users(self, amnt=20):
@@ -22,7 +19,7 @@ class AdminApiTests(TestCase):
             _data = valid_profile_data.copy()
             mail_count, _mail = _make_mail(mail_count)
             print(f"Creating user: '{_mail}'")
-            _data['email'] = _mail
+            _data["email"] = _mail
             users.append(create_user(**_data))
         return users
 

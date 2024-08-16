@@ -1,18 +1,18 @@
 from django.test import TestCase
 from rest_framework.test import RequestsClient
 import json
-from rest_framework.response import Response
-from management.controller import create_user, get_user_by_email, match_users
+from management.controller import get_user_by_email
 from management.api.user_data import get_user_models
 from management.tests.helpers import register_user, valid_profile_data, valid_register_request_data, register_user_api
 from django.conf import settings
 from .. import api
 
+
 class RegisterTests(TestCase):
     required_params = api.register.Register.required_args
 
     def test_sucessfull_register(self):
-        """ Fully valid register """
+        """Fully valid register"""
         user = register_user(valid_register_request_data)
 
     def test_w_missing_params(self):
@@ -49,10 +49,7 @@ class RegisterTests(TestCase):
         response = register_user_api(_data)
         assert response.status_code == 200
         usr = get_user_by_email(_data["email"])
-        assert (
-            usr.first_name
-            == random_capilalization[:1].upper() + random_capilalization[1:].lower()
-        ), usr.first_name
+        assert usr.first_name == random_capilalization[:1].upper() + random_capilalization[1:].lower(), usr.first_name
 
     def test_register_first_name_beginning_end_space_ignored(self):
         _data = valid_register_request_data.copy()
@@ -95,7 +92,7 @@ class RegisterTests(TestCase):
         failed = False
         try:
             user = register_user(_data)
-        except Exception as e:
+        except Exception:
             failed = True
         assert failed
 

@@ -1,39 +1,26 @@
-import django.contrib.auth.password_validation as pw_validation
 import urllib.parse
-from copy import deepcopy
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
-from rest_framework.decorators import api_view, permission_classes, authentication_classes, throttle_classes
-from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.authentication import SessionAuthentication
 from chat.models import ChatConnections
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from rest_framework_dataclasses.serializers import DataclassSerializer
 from chat.models import ChatSerializer, Chat, ChatInModelSerializer
 from management.models.state import FrontendStatusSerializer
 from django.core.paginator import Paginator
-from drf_spectacular.types import OpenApiTypes
-from datetime import datetime
 from django.conf import settings
-from chat.api.chats import ChatsModelViewSet
-from copy import deepcopy
-from django.core import exceptions
-from django.utils.module_loading import import_string
-from rest_framework.decorators import api_view, schema, throttle_classes, permission_classes
 from rest_framework import authentication, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_page
-from django.views.decorators.vary import vary_on_cookie, vary_on_headers
 from rest_framework import serializers, status
 from management.api.options import get_options_dict
-from rest_framework.throttling import UserRateThrottle
 from dataclasses import dataclass
 from back.utils import transform_add_options_serializer
 from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import inline_serializer
 from video.models import SerializeLivekitSession, LivekitSession
 from management.models.profile import (
-    ProfileSerializer, SelfProfileSerializer,
+    SelfProfileSerializer,
     CensoredProfileSerializer,
     ProposalProfileSerializer,
 )
@@ -44,25 +31,17 @@ from management.models.unconfirmed_matches import (
 )
 from management.models.state import (
     State,
-    StateSerializer, SelfStateSerializer,
 )
 from management.models.community_events import (
     CommunityEvent,
     CommunityEventSerializer,
 )
-from management.models.settings import (
-    SelfSettingsSerializer,
-)
 from management.models.notifications import (
-    SelfNotificationSerializer, NotificationSerializer, Notification,
-)
-from management.models.user import (
-    UserSerializer, SelfUserSerializer,
-    CensoredUserSerializer,
+    SelfNotificationSerializer,
+    Notification,
 )
 from management.models.matches import Match
 
-from management.controller import get_user_models
 
 def get_paginated(query_set, items_per_page, page):
     pages = Paginator(query_set, items_per_page).page(page)
@@ -72,7 +51,8 @@ def get_paginated(query_set, items_per_page, page):
         "itemsPerPage": items_per_page,
         "currentPage": page,
     }
-    
+
+
 def get_paginated_format_v2(query_set, items_per_page, page):
     pages = Paginator(query_set, items_per_page).page(page)
     return {
@@ -84,70 +64,64 @@ def get_paginated_format_v2(query_set, items_per_page, page):
         "next_page": pages.next_page_number() if pages.has_next() else None,
         "previous_page": pages.previous_page_number() if pages.has_previous() else None,
     }
-    
+
+
 class AdvancedUserMatchSerializer(serializers.ModelSerializer):
     class Meta:
         model = Match
-        fields = ['uuid']
-        
+        fields = ["uuid"]
+
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        assert 'user' in self.context, "User must be passed in context"
-        user = self.context['user']
+        assert "user" in self.context, "User must be passed in context"
+        user = self.context["user"]
         partner = instance.get_partner(user)
 
         is_online = ChatConnections.is_user_online(partner)
         chat = Chat.get_or_create_chat(user, partner)
-        chat_serialized = ChatInModelSerializer(chat, context={'user': user}).data
-        
-        # check for active calls 
+        chat_serialized = ChatInModelSerializer(chat, context={"user": user}).data
+
+        # check for active calls
         # fetch incoming calls that are currently active
         active_call_room = None
         active_sessions = LivekitSession.objects.filter(
-                Q(room__u1=user, room__u2=partner, is_active=True, u1_active=True, u2_active=True) |
-                Q(room__u1=user, room__u2=partner, is_active=True, u1_active=True, u2_active=True) |
-                Q(room__u1=partner, room__u2=user, is_active=True, u1_active=True, u2_active=False) | 
-                Q(room__u1=partner, room__u2=user, is_active=True, u1_active=False, u2_active=True) |
-                Q(room__u1=user, room__u2=partner, is_active=True, u1_active=True, u2_active=False) | 
-                Q(room__u1=user, room__u2=partner, is_active=True, u1_active=False, u2_active=True)
+            Q(room__u1=user, room__u2=partner, is_active=True, u1_active=True, u2_active=True)
+            | Q(room__u1=user, room__u2=partner, is_active=True, u1_active=True, u2_active=True)
+            | Q(room__u1=partner, room__u2=user, is_active=True, u1_active=True, u2_active=False)
+            | Q(room__u1=partner, room__u2=user, is_active=True, u1_active=False, u2_active=True)
+            | Q(room__u1=user, room__u2=partner, is_active=True, u1_active=True, u2_active=False)
+            | Q(room__u1=user, room__u2=partner, is_active=True, u1_active=False, u2_active=True)
         )
         if active_sessions.exists():
             active_session = active_sessions.first()
             active_call_room = SerializeLivekitSession(active_session).data
-        
+
         representation = {
             "id": str(instance.uuid),
-            "chat": {
-                **chat_serialized
-            },
+            "chat": {**chat_serialized},
             "chatId": str(chat.uuid),
             "activeCallRoom": active_call_room,
-            "partner": {
-                "id": str(partner.hash),
-                "isOnline": is_online,
-                "isSupport": partner.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER) or partner.is_staff,
-                **CensoredProfileSerializer(partner.profile).data
-            },
+            "partner": {"id": str(partner.hash), "isOnline": is_online, "isSupport": partner.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER) or partner.is_staff, **CensoredProfileSerializer(partner.profile).data},
         }
         if "status" in self.context:
             representation["status"] = self.context["status"]
         return representation
 
+
 def serialize_proposed_matches(matching_proposals, user):
     serialized = []
     for proposal in matching_proposals:
-
         partner = proposal.get_partner(user)
-        serialized.append({
-            "id": str(proposal.hash),
-            "partner": {
-                "id": str(partner.hash),
-                **ProposalProfileSerializer(partner.profile).data
-            },
-            "status": "proposed",
-        })
+        serialized.append(
+            {
+                "id": str(proposal.hash),
+                "partner": {"id": str(partner.hash), **ProposalProfileSerializer(partner.profile).data},
+                "status": "proposed",
+            }
+        )
 
     return serialized
+
 
 def serialize_community_events(events):
     serialized = []
@@ -157,6 +131,7 @@ def serialize_community_events(events):
 
     return serialized
 
+
 def serialize_notifications(notifications):
     serialized = []
 
@@ -164,6 +139,7 @@ def serialize_notifications(notifications):
         serialized.append(SelfNotificationSerializer(notification).data)
 
     return serialized
+
 
 @extend_schema(
     responses=inline_serializer(
@@ -180,36 +156,30 @@ def serialize_notifications(notifications):
             "emailVerified": serializers.BooleanField(),
             "userFormCompleted": serializers.BooleanField(),
             "profile": SelfProfileSerializer(),
-        }
+        },
     ),
 )
 @permission_classes([IsAuthenticated])
-@api_view(['GET'])
+@api_view(["GET"])
 def user_data_api(request):
     return Response(user_data(request.user))
+
 
 def user_data(user):
     user_state = user.state
     user_profile = user.profile
-    
+
     is_matching_user = user_state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
 
     ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
     profile_data = ProfileWOptions(user_profile).data
     del profile_data["options"]
 
-    
     support_matches = get_paginated(Match.get_support_matches(user), 10, 1)
-    support_matches["items"] = AdvancedUserMatchSerializer(support_matches["items"], many=True, context={'user': user}).data
-    
-    
-    cal_data_link = "{calcom_meeting_id}?{encoded_params}".format(first_name=user.profile.first_name,encoded_params=urllib.parse.urlencode({
-                        "email": str(user.email),
-                        "hash": str(user.hash),
-                        "bookingcode": str(user.state.prematch_booking_code)
-    }), calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID)
-    
-    
+    support_matches["items"] = AdvancedUserMatchSerializer(support_matches["items"], many=True, context={"user": user}).data
+
+    cal_data_link = "{calcom_meeting_id}?{encoded_params}".format(encoded_params=urllib.parse.urlencode({"email": str(user.email), "hash": str(user.hash), "bookingcode": str(user.state.prematch_booking_code)}), calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID)
+
     pre_match_appointent = PreMatchingAppointment.objects.filter(user=user).order_by("created")
     if pre_match_appointent.exists():
         pre_match_appointent = PreMatchingAppointmentSerializer(pre_match_appointent.first()).data
@@ -221,42 +191,42 @@ def user_data(user):
     overwrite_pre_join_link = settings.PREMATCHING_CALL_JOIN_LINK
     if overwrite_pre_join_link:
         pre_call_join_link = overwrite_pre_join_link
-    elif len(support_matches['items']) > 0:
+    elif len(support_matches["items"]) > 0:
         pre_call_join_link = f"/app/call-setup/{support_matches['items'][0]['partner']['id']}/"
-    
+
     return {
-            "id": user.hash,
-            "status": FrontendStatusSerializer(user_state).data["status"],
-            "isSupport": is_matching_user,
-            "isSearching": user_state.matching_state == State.MatchingStateChoices.SEARCHING,
-            "email": user.email,
-            "preMatchingAppointment": pre_match_appointent,
-            'preMatchingCallJoinLink': pre_call_join_link,
-            "calComAppointmentLink": cal_data_link,
-            "hadPreMatchingCall": user_state.had_prematching_call,
-            "emailVerified": user_state.email_authenticated,
-            "userFormCompleted": user_state.user_form_state == State.UserFormStateChoices.FILLED, # TODO: depricate
-            "profile": profile_data,
+        "id": user.hash,
+        "status": FrontendStatusSerializer(user_state).data["status"],
+        "isSupport": is_matching_user,
+        "isSearching": user_state.matching_state == State.MatchingStateChoices.SEARCHING,
+        "email": user.email,
+        "preMatchingAppointment": pre_match_appointent,
+        "preMatchingCallJoinLink": pre_call_join_link,
+        "calComAppointmentLink": cal_data_link,
+        "hadPreMatchingCall": user_state.had_prematching_call,
+        "emailVerified": user_state.email_authenticated,
+        "userFormCompleted": user_state.user_form_state == State.UserFormStateChoices.FILLED,  # TODO: depricate
+        "profile": profile_data,
     }
 
-def frontend_data(user, items_per_page=10, request=None):
 
+def frontend_data(user, items_per_page=10, request=None):
     user_state = user.state
     user_profile = user.profile
-    
+
     is_matching_user = user_state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
 
     community_events = get_paginated(CommunityEvent.get_all_active_events(), items_per_page, 1)
     community_events["items"] = serialize_community_events(community_events["items"])
 
     confirmed_matches = get_paginated(Match.get_confirmed_matches(user), items_per_page, 1)
-    confirmed_matches["items"] = AdvancedUserMatchSerializer(confirmed_matches["items"], many=True, context={'user': user}).data
+    confirmed_matches["items"] = AdvancedUserMatchSerializer(confirmed_matches["items"], many=True, context={"user": user}).data
 
     unconfirmed_matches = get_paginated(Match.get_unconfirmed_matches(user), items_per_page, 1)
-    unconfirmed_matches["items"] = AdvancedUserMatchSerializer(unconfirmed_matches["items"], many=True, context={'user': user}).data
+    unconfirmed_matches["items"] = AdvancedUserMatchSerializer(unconfirmed_matches["items"], many=True, context={"user": user}).data
 
     support_matches = get_paginated(Match.get_support_matches(user), items_per_page, 1)
-    support_matches["items"] = AdvancedUserMatchSerializer(support_matches["items"], many=True, context={'user': user}).data
+    support_matches["items"] = AdvancedUserMatchSerializer(support_matches["items"], many=True, context={"user": user}).data
 
     proposed_matches = get_paginated(ProposedMatch.get_open_proposals_learner(user), items_per_page, 1)
     proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
@@ -278,19 +248,13 @@ def frontend_data(user, items_per_page=10, request=None):
     }
 
     ud = user_data(user)
-    
+
     chats = Chat.get_chats(user)
     paginated_chats = get_paginated_format_v2(chats, items_per_page, 1)
-    paginated_chats["results"] = ChatSerializer(paginated_chats["results"], many=True, context={'user': user}).data
+    paginated_chats["results"] = ChatSerializer(paginated_chats["results"], many=True, context={"user": user}).data
 
-    
     # find all active calls
-    all_active_rooms = LivekitSession.objects.filter(
-        Q(room__u1=user, is_active=True, u2_active=True, u1_active=False) |
-        Q(room__u2=user, is_active=True, u1_active=True, u2_active=False)
-    )
-    
-    
+    all_active_rooms = LivekitSession.objects.filter(Q(room__u1=user, is_active=True, u2_active=True, u1_active=False) | Q(room__u2=user, is_active=True, u1_active=True, u2_active=False))
 
     frontend_data = {
         "user": ud,
@@ -298,7 +262,7 @@ def frontend_data(user, items_per_page=10, request=None):
         "matches": {
             # Switch case here cause for support users all matches are 'support' matches :D
             "support": empty_list if is_matching_user else support_matches,
-            "confirmed" : support_matches if is_matching_user else confirmed_matches,
+            "confirmed": support_matches if is_matching_user else confirmed_matches,
             "unconfirmed": unconfirmed_matches,
             "proposed": proposed_matches,
         },
@@ -309,14 +273,10 @@ def frontend_data(user, items_per_page=10, request=None):
         },
         "apiOptions": get_options_dict(),
         "chats": paginated_chats,
-        "activeCallRooms": SerializeLivekitSession(all_active_rooms, context={
-            'user': user
-        }, many=True).data
+        "activeCallRooms": SerializeLivekitSession(all_active_rooms, context={"user": user}, many=True).data,
     }
 
-
     return frontend_data
-
 
 
 @dataclass
@@ -326,6 +286,7 @@ class UserDataV2Params:
 
 class ConfirmMatchSerializer(DataclassSerializer):
     items_per_page = serializers.IntegerField(required=False, default=10)
+
     class Meta:
         dataclass = UserDataV2Params
 
@@ -333,11 +294,10 @@ class ConfirmMatchSerializer(DataclassSerializer):
 @extend_schema(
     request=ConfirmMatchSerializer(many=False),
 )
-@api_view(['POST'])
+@api_view(["POST"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def user_data_v2(request):
-
     serializer = ConfirmMatchSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
 
@@ -350,8 +310,8 @@ class ConfirmedDataApi(APIView):
     """
     Returns the Confirmed matches data for a given user.
     """
-    authentication_classes = [authentication.SessionAuthentication,
-                              authentication.BasicAuthentication]
+
+    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(
@@ -360,7 +320,6 @@ class ConfirmedDataApi(APIView):
             OpenApiParameter(name="itemsPerPage", type=int, description="Number of items per page"),
         ],
     )
-
     def get(self, request):
         """
         Handle GET requests to retrieve confirmed matches data for the user.
@@ -377,21 +336,13 @@ class ConfirmedDataApi(APIView):
                 matches = Match.get_support_matches(request.user)
             else:
                 matches = Match.get_confirmed_matches(request.user)
-            confirmed_matches = get_paginated(
-                matches,
-                items_per_page,
-                page
-            )
+            confirmed_matches = get_paginated(matches, items_per_page, page)
 
             # Serialize matches data for the user
-            confirmed_matches["items"] = AdvancedUserMatchSerializer(
-                confirmed_matches["items"],
-                many=True,
-                context={'user': request.user}
-            ).data
+            confirmed_matches["items"] = AdvancedUserMatchSerializer(confirmed_matches["items"], many=True, context={"user": request.user}).data
 
-        except Exception as e:
-            return Response({"code":400, "error": "Page not Found"}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception:
+            return Response({"code": 400, "error": "Page not Found"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Return a successful response with the data
         return Response({"code": 200, "data": {"confirmed_matches": confirmed_matches}}, status=status.HTTP_200_OK)

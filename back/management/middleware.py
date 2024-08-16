@@ -1,35 +1,30 @@
 from django.utils import translation
-from django.template import RequestContext
 from django.shortcuts import render
 from django.conf import settings
-from django.contrib.sessions.middleware import SessionMiddleware
 from management.models.state import State
 
 
 def responde_404(request):
-    response = render(request, '404.html', {})
+    response = render(request, "404.html", {})
     response.status_code = 404
     return response
 
 
-EXTRA_USER_AUTHORIZATION_ROUTES = {
-    "/db": {
-        "check": lambda u: u.state.has_extra_user_permission(
-            State.ExtraUserPermissionChoices.DATABASE_SCHEMA),
-        "else": lambda r: responde_404(request=r)
-    },
-    "/api/schema": {
-        "check": lambda u: u.state.has_extra_user_permission(
-            State.ExtraUserPermissionChoices.API_SCHEMAS),
-        "else": lambda r: responde_404(request=r)
-    }
-} if not settings.DEBUG else {}
+EXTRA_USER_AUTHORIZATION_ROUTES = (
+    {"/db": {"check": lambda u: u.state.has_extra_user_permission(State.ExtraUserPermissionChoices.DATABASE_SCHEMA), "else": lambda r: responde_404(request=r)}, "/api/schema": {"check": lambda u: u.state.has_extra_user_permission(State.ExtraUserPermissionChoices.API_SCHEMAS), "else": lambda r: responde_404(request=r)}}
+    if not settings.DEBUG
+    else {}
+)
 
 # In development it ok if everybody can see the admin paths
-IF_NOT_ADMIN_404_ROUTES = [] if settings.DEBUG else [
-    "/admin",
-    "/admin_chat",
-]
+IF_NOT_ADMIN_404_ROUTES = (
+    []
+    if settings.DEBUG
+    else [
+        "/admin",
+        "/admin_chat",
+    ]
+)
 
 
 def _is_blocked_route(path):
@@ -52,8 +47,7 @@ def _requires_extra_user_permission(path):
 
 def _404_if_not_staff(request, get_response, allow_management_user=False):
     if not request.user.is_authenticated or not request.user.is_staff:
-        if allow_management_user and request.user.is_authenticated and (request.user.state.has_extra_user_permission(
-                State.ExtraUserPermissionChoices.MATCHING_USER)):
+        if allow_management_user and request.user.is_authenticated and (request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)):
             return get_response(request)
         return responde_404(request)
     else:
@@ -61,7 +55,6 @@ def _404_if_not_staff(request, get_response, allow_management_user=False):
 
 
 class AdminPathBlockingMiddleware:
-
     def __init__(self, get_response):
         self.get_response = get_response
 
@@ -69,7 +62,7 @@ class AdminPathBlockingMiddleware:
         path = request.path
         if path.startswith("/admin/login"):
             # See what I did here, you can only render the admin login if you add `?opensesame`
-            if not settings.DEBUG and not settings.ADMIN_OPEN_KEYPHRASE in request.GET:
+            if not settings.DEBUG and settings.ADMIN_OPEN_KEYPHRASE not in request.GET:
                 return _404_if_not_staff(request, self.get_response)
         else:
             if _is_blocked_route(path):
@@ -96,7 +89,6 @@ USE_TAG_HEADER = "HTTP_X_USETAGSONLY"
 
 
 class OverwriteSessionLangIfAcceptLangHeaderSet:
-
     def __init__(self, get_response):
         self.get_response = get_response
 

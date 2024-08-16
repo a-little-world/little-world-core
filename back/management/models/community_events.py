@@ -46,9 +46,7 @@ class CommunityEvent(models.Model):
         default=EventFrequencyChoices.ONCE,
     )
 
-    image = models.ImageField(
-        upload_to=PathRenameCommunityEvent("community_events_pics/"), blank=True
-    )
+    image = models.ImageField(upload_to=PathRenameCommunityEvent("community_events_pics/"), blank=True)
     active = models.BooleanField(default=False)
     """
     If the event is active, if you don't want users to see this event just set it to inactive!

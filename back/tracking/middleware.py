@@ -1,8 +1,5 @@
 import ast
 import contextlib
-from django.template import RequestContext
-from django.shortcuts import render
-from django.conf import settings
 from .utils import inline_track_event
 
 
@@ -20,7 +17,7 @@ CENSOR_ROUTES = {
     "/login": {  # Also takes care of /admin/login
         "search": "any",
         "mode": "k",
-        "censor": ["password"]
+        "censor": ["password"],
     },
     # "/set_password": {  # changing passwords
     #    "search": "any",
@@ -32,10 +29,10 @@ CENSOR_ROUTES = {
 
 def _should_censor(path):
     for p in CENSOR_ROUTES:
-        if CENSOR_ROUTES[p]['search'] == "start":
+        if CENSOR_ROUTES[p]["search"] == "start":
             if path.startswith(p):
                 return CENSOR_ROUTES[p]
-        if CENSOR_ROUTES[p]['search'] == "any":
+        if CENSOR_ROUTES[p]["search"] == "any":
             if p in path:
                 return CENSOR_ROUTES[p]
     return None
@@ -50,10 +47,9 @@ def _try():
 
 
 class TrackRequestsMiddleware:
-
     def __init__(self, get_response):
         self.get_response = get_response
-        
+
     def perform_event_tracking(request):
         path = request.path
         _kwargs = {}
@@ -68,27 +64,18 @@ class TrackRequestsMiddleware:
         censor = _should_censor(path)
         _censor_kwargs = []
         if censor:
-            _kwargs = {k: _kwargs[k]
-                       for k in _kwargs if not k in censor["censor"]}
+            _kwargs = {k: _kwargs[k] for k in _kwargs if k not in censor["censor"]}
             _censor_kwargs = censor["censor"]
 
-        if 'name' in _kwargs:
+        if "name" in _kwargs:
             print(f"got duplicate tracking args name={_kwargs['name']}")
-            _kwargs['name_extra'] = _kwargs['name']
-            del _kwargs['name']  # otherwise can cause dubplicte args
+            _kwargs["name_extra"] = _kwargs["name"]
+            del _kwargs["name"]  # otherwise can cause dubplicte args
 
-        inline_track_event(*[request], name="request",
-                           tags=["middleware", "general"],
-                           caller=request.user,
-                           censor_kwargs=_censor_kwargs,
-                           ** {
-            "path": path,
-            **_kwargs
-        })
-
+        inline_track_event(*[request], name="request", tags=["middleware", "general"], caller=request.user, censor_kwargs=_censor_kwargs, **{"path": path, **_kwargs})
 
     def __call__(self, request):
-        #path = request.path
+        # path = request.path
         # Actually this could *all* be done in a celery task, could also be a little too many celery tasks?
         # That way we would avoid any slowdown due to tracking TODO?
         # self.perform_event_tracking(request)

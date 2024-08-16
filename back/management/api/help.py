@@ -46,9 +46,7 @@ class SendHelpMessage(APIView):
                 patt["attachment" + str(c)] = f.read()
                 c += 1
                 if c > 3:
-                    raise serializers.ValidationError(
-                        {"file": "Maximum 3 files allowed"}
-                    )
+                    raise serializers.ValidationError({"file": "Maximum 3 files allowed"})
 
         HelpMessage.objects.create(
             user=request.user,

@@ -7,12 +7,11 @@ from .mails import get_mail_data_by_name, encode_mail_params
 
 @admin.register(EmailLog)
 class EmailLogAdmin(admin.ModelAdmin):
-    list_display = ("receiver", "sucess", "view_mail", "template",
-                    "time", "sender", "data")
+    list_display = ("receiver", "sucess", "view_mail", "template", "time", "sender", "data")
 
-    readonly_fields = ('view_mail',)
-    
-    search_fields = ('receiver__email',)
+    readonly_fields = ("view_mail",)
+
+    search_fields = ("receiver__email",)
 
     def view_mail(self, obj):
         try:
@@ -24,4 +23,4 @@ class EmailLogAdmin(admin.ModelAdmin):
             url = f"{settings.BASE_URL}/emails/{template_name}/{encoded_mail_data}"
             return mark_safe(f'<a href="{url}" target="_blank" rel="noopener noreferrer" >view</a>')
         except:
-            return mark_safe('error')
+            return mark_safe("error")

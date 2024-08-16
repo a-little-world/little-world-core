@@ -2,7 +2,6 @@ from rest_framework import serializers
 from django.core.exceptions import ValidationError
 import contextlib
 from translations import get_translation
-import re
 
 
 def as_djv(validator):
@@ -50,11 +49,7 @@ def validate_first_name(value: str):
     if not value.isalpha():
         invalid_chars = [c for c in value if not c.isalpha()]
         print(invalid_chars)
-        raise serializers.ValidationError(
-            get_translation("val.first_name_unallowed_chars").format(
-                chars=",".join(invalid_chars)
-            )
-        )
+        raise serializers.ValidationError(get_translation("val.first_name_unallowed_chars").format(chars=",".join(invalid_chars)))
     return value
 
 
@@ -64,23 +59,17 @@ def validate_second_name(value: str):
 
     # check for single space pattern
     if "  " in value:
-        raise serializers.ValidationError(
-            get_translation("val.second_name_too_many_spaces")
-        )
+        raise serializers.ValidationError(get_translation("val.second_name_too_many_spaces"))
     _value = value.replace(" ", "")
     if not _value.isalpha():
-        raise serializers.ValidationError(
-            get_translation("val.second_name_unallowed_chars")
-        )
+        raise serializers.ValidationError(get_translation("val.second_name_unallowed_chars"))
     return value
 
 
 def validate_postal_code(value: str):
     value = value.strip()
     if not value.isnumeric():
-        raise serializers.ValidationError(
-            get_translation("val.postal_code_not_numeric")
-        )
+        raise serializers.ValidationError(get_translation("val.postal_code_not_numeric"))
     as_int = int(value)
     print("TBS", as_int)
     if as_int > 99999:
@@ -126,15 +115,9 @@ def get_default_availability():
 def validate_availability(value: dict):
     for day in DAYS:
         assert day in value
-        if not day in value:
-            raise serializers.ValidationError(
-                get_translation("val.availability.day_not_in_availability").format(
-                    day=day
-                )
-            )
+        if day not in value:
+            raise serializers.ValidationError(get_translation("val.availability.day_not_in_availability").format(day=day))
         for slot in value[day]:
-            if not slot in SLOTS:
-                raise serializers.ValidationError(
-                    get_translation("val.availability.slot_unknown").format(day=day)
-                )
+            if slot not in SLOTS:
+                raise serializers.ValidationError(get_translation("val.availability.slot_unknown").format(day=day))
     return value

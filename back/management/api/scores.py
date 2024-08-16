@@ -49,22 +49,18 @@ days searching `{"=<5": 0, "<10": 5, "<20": 10, "<30": 15, ">30": 40}
 
 - should match be near?
 """
+
 from management.helpers import IsAdminOrMatchingUser
 from management import controller
 from django.core.paginator import Paginator
-from typing import Any
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 from back.utils import CoolerJson
 from enum import Enum
 from management.api.user_advanced_filter import needs_matching
 import json
-from django.conf import settings
-from django.urls import path, re_path
-from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from django.views.decorators.csrf import csrf_exempt
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework_dataclasses.serializers import DataclassSerializer
-from openai import OpenAI
 from management.models.state import State
 from management.models.profile import Profile
 from rest_framework import serializers
@@ -72,32 +68,34 @@ from dataclasses import dataclass
 from management.models.scores import TwoUserMatchingScore
 from management.models.user import User
 from management.tasks import matching_algo_v2, burst_calculate_matching_scores
-from drf_spectacular.utils import extend_schema, inline_serializer
+from drf_spectacular.utils import extend_schema
 import itertools
 import math
-from celery import chord
 import dataclasses
-import os
+
 
 @dataclass
 class ScoreBetweenDataclass:
     user1: int
     user2: int
 
+
 class ScoreBetweenSerializer(DataclassSerializer):
     class Meta:
         dataclass = ScoreBetweenDataclass
-    
+
+
 @dataclass
 class ScoringFuctionResult:
     matchable: bool
     score: float = 0.0
     weight: float = 1.0
     markdown_info: str = ""
-    
+
     def dict(self):
         return dataclasses.asdict(self)
-    
+
+
 class ScoringFunctionsEnum(Enum):
     language_level = "language_level"
     learner_vs_volunteer = "learner_vs_volunteer"
@@ -106,15 +104,14 @@ class ScoringFunctionsEnum(Enum):
     gender = "gender"
     interest_overlap = "interest_overlap"
     speech_medium = "speech_medium"
-    
-    
-class ScoringBase():
-    
+
+
+class ScoringBase:
     def __init__(
-            self, 
-            user1, 
-            user2,
-            ) -> None:
+        self,
+        user1,
+        user2,
+    ) -> None:
         self.user1 = user1
         self.user2 = user2
         # register scoring functions
@@ -126,7 +123,7 @@ class ScoringBase():
             ScoringFunctionsEnum.gender.value: self.score__gender,
             ScoringFunctionsEnum.interest_overlap.value: self.score__interest_overlap,
         }
-    
+
     def score__time_slot_overlap(self):
         """
         Table based scores amount overlaps
@@ -135,6 +132,7 @@ class ScoringBase():
         slots1 = self.user1.profile.availability
         slots2 = self.user2.profile.availability
         from management.validators import DAYS, SLOTS
+
         amnt_common_slots = 0
         common_slots = {}
 
@@ -148,24 +146,21 @@ class ScoringBase():
             if cond[0](amnt_common_slots):
                 return ScoringFuctionResult(matchable=True, score=cond[1], weight=1.0, markdown_info=f"Common slots: ({str(amnt_common_slots)}) {str(common_slots)} (score: {cond[1]})")
         return ScoringFuctionResult(matchable=True, score=0, weight=1.0, markdown_info=f"Common slots: ({str(amnt_common_slots)}) {str(common_slots)} (score: 0)")
-    
+
     def score__volunteer_vs_learner(self):
         """
-Simple chat the we match only volunteers and learners! 
+        Simple chat the we match only volunteers and learners!
         """
-        oppsite = any([self.user1.profile.user_type == Profile.TypeChoices.LEARNER and self.user2.profile.user_type ==
-                       Profile.TypeChoices.VOLUNTEER,
-                       self.user1.profile.user_type == Profile.TypeChoices.VOLUNTEER and self.user2.profile.user_type ==
-                       Profile.TypeChoices.LEARNER])
+        oppsite = any([self.user1.profile.user_type == Profile.TypeChoices.LEARNER and self.user2.profile.user_type == Profile.TypeChoices.VOLUNTEER, self.user1.profile.user_type == Profile.TypeChoices.VOLUNTEER and self.user2.profile.user_type == Profile.TypeChoices.LEARNER])
         msg = "Volunteer + Learner can be machted :white_check_mark:" + "\n"
         if not oppsite:
             msg = "Volunteer + Volunteer or Learner + Learner can't be matched :x:" + "\n"
         return ScoringFuctionResult(matchable=oppsite, score=0, weight=1.0, markdown_info=msg)
-    
+
     def score__language_level(self):
         volunteer = self.user1 if self.user1.profile.user_type == Profile.TypeChoices.VOLUNTEER else self.user2
         learner = self.user1 if self.user1.profile.user_type == Profile.TypeChoices.LEARNER else self.user2
-        
+
         map_level_to_int = {
             Profile.LanguageSkillChoices.LEVEL_0: 0,
             Profile.LanguageSkillChoices.LEVEL_1: 1,
@@ -176,23 +171,23 @@ Simple chat the we match only volunteers and learners!
             Profile.MinLangLevelPartnerChoices.LEVEL_2: 2,
             Profile.MinLangLevelPartnerChoices.LEVEL_3: 3,
         }
-        
+
         min_lang_level = volunteer.profile.min_lang_level_partner
         learner_german_level = list(filter(lambda x: x["lang"] == "german", learner.profile.lang_skill))[0]["level"]
-        
+
         if map_level_to_int[min_lang_level] > map_level_to_int[learner_german_level]:
-            return ScoringFuctionResult(matchable=False, score=0, weight=1.0, markdown_info=f"Volunteer has a higher min lang level than learner (score: 0)")
+            return ScoringFuctionResult(matchable=False, score=0, weight=1.0, markdown_info="Volunteer has a higher min lang level than learner (score: 0)")
         else:
-            return ScoringFuctionResult(matchable=True, score=30, weight=1.0, markdown_info=f"Volunteer has a lower min lang level than learner (score: 5)")
-        
-    
+            return ScoringFuctionResult(matchable=True, score=30, weight=1.0, markdown_info="Volunteer has a lower min lang level than learner (score: 5)")
+
     def score__postal_code_distance(self):
         """
-    Checks dependant on partner location choice the PLZ area distance
-    `{"<50": 50, "<100": 40, "<200": 30, "<300": 20, "<400": 10, "<500": 5, ">500": 0}`
+        Checks dependant on partner location choice the PLZ area distance
+        `{"<50": 50, "<100": 40, "<200": 30, "<300": 20, "<400": 10, "<500": 5, ">500": 0}`
         """
         import pgeocode
-        dist = pgeocode.GeoDistance('de')
+
+        dist = pgeocode.GeoDistance("de")
         distance = dist.query_postal_code(self.user1.profile.postal_code, self.user2.profile.postal_code)
         conditions = [[lambda x: x < 50.0, 50.0], [lambda x: x < 100.0, 40.0], [lambda x: x < 200.0, 30.0], [lambda x: x < 300.0, 20.0], [lambda x: x < 400.0, 10.0], [lambda x: x < 500.0, 5.0], [lambda x: x >= 500.0, 0.0]]
         for cond in conditions:
@@ -200,22 +195,14 @@ Simple chat the we match only volunteers and learners!
                 return ScoringFuctionResult(matchable=True, score=cond[1], weight=1.0, markdown_info=f"Distance is {distance}km (score: {cond[1]})")
         return ScoringFuctionResult(matchable=True, score=0, weight=1.0, markdown_info=f"Distance is {distance}km (score: 0)")
 
-
     def score__gender(self):
         """
-> this is based on the `profile.gender` and `profile.partner_gender` fields
-generaly `user.gender.MALE` with `other.partner_gender.FEMALE` & vice-verca causes `-> unmatchable`
-then `user.gender.ANY` with `user.partner_gender.ANY` gives a score of `30`
-while `user.gender.MALE (or FEMALE)` with `user.gender_partne.ANY` will give a score of `5`
+        > this is based on the `profile.gender` and `profile.partner_gender` fields
+        generaly `user.gender.MALE` with `other.partner_gender.FEMALE` & vice-verca causes `-> unmatchable`
+        then `user.gender.ANY` with `user.partner_gender.ANY` gives a score of `30`
+        while `user.gender.MALE (or FEMALE)` with `user.gender_partne.ANY` will give a score of `5`
         """
-        normalize_gender_choices = {
-            Profile.GenderChoices.ANY: "any",
-            Profile.GenderChoices.MALE: "male",
-            Profile.GenderChoices.FEMALE: "female",
-            Profile.PartnerGenderChoices.ANY: "any",
-            Profile.PartnerGenderChoices.FEMALE: "female",
-            Profile.PartnerGenderChoices.MALE: "male"
-        } 
+        normalize_gender_choices = {Profile.GenderChoices.ANY: "any", Profile.GenderChoices.MALE: "male", Profile.GenderChoices.FEMALE: "female", Profile.PartnerGenderChoices.ANY: "any", Profile.PartnerGenderChoices.FEMALE: "female", Profile.PartnerGenderChoices.MALE: "male"}
 
         def male_or_female(gender):
             return (gender == "male") or (gender == "female")
@@ -229,22 +216,20 @@ while `user.gender.MALE (or FEMALE)` with `user.gender_partne.ANY` will give a s
         partner_gender1 = normalize_gender_choices[self.user1.profile.partner_gender]
         gender2 = normalize_gender_choices[self.user2.profile.gender]
         partner_gender2 = normalize_gender_choices[self.user2.profile.partner_gender]
-        
 
         # disallow when any gender whish is broken:
         # e.g.: whish = "male" -> other = "female", but also whish = "female" -> other = "any"
-        if (male_or_female(partner_gender1) and gender2 == "any") \
-                or (male_or_female(partner_gender2) and gender1 == "any"):
-            return ScoringFuctionResult(matchable=False, score=0, weight=1.0, markdown_info=f"Whish for specific gender cannot be full fillsed since patner has 'any' gender")
+        if (male_or_female(partner_gender1) and gender2 == "any") or (male_or_female(partner_gender2) and gender1 == "any"):
+            return ScoringFuctionResult(matchable=False, score=0, weight=1.0, markdown_info="Whish for specific gender cannot be full fillsed since patner has 'any' gender")
 
         whish1, sok1 = whish_granted(gender1, partner_gender2)
         whish2, sok2 = whish_granted(gender2, partner_gender1)
         # all get exatly what they whish for
         if whish1 and whish2:
-            return ScoringFuctionResult(matchable=True, score=20.0, weight=1.0, markdown_info=f"All gender requests presisely fullfilled :white_check_mark: (score: 20)")
+            return ScoringFuctionResult(matchable=True, score=20.0, weight=1.0, markdown_info="All gender requests presisely fullfilled :white_check_mark: (score: 20)")
 
         if sok1 and sok2:
-            return ScoringFuctionResult(matchable=True, score=10.0, weight=1.0, markdown_info=f"All gender choices ok, some 'any' (score: 10.0)")
+            return ScoringFuctionResult(matchable=True, score=10.0, weight=1.0, markdown_info="All gender choices ok, some 'any' (score: 10.0)")
 
         return ScoringFuctionResult(matchable=False, score=0.0, weight=1.0, markdown_info=f"Gender reuests chant be fullfilled (g:{gender1},w:{partner_gender1})<->(g:{gender2},w:{partner_gender2})")
 
@@ -261,27 +246,27 @@ while `user.gender.MALE (or FEMALE)` with `user.gender_partne.ANY` will give a s
         amnt_common_interests = len(common_interests)
 
         conditions = [[lambda x: x == 0, 0], [lambda x: x == 1, 5], [lambda x: x == 2, 10], [lambda x: x == 3, 15], [lambda x: x == 4, 20], [lambda x: x == 5, 25], [lambda x: x >= 6, 30]]
-        
+
         for cond in conditions:
             if cond[0](amnt_common_interests):
                 return ScoringFuctionResult(matchable=True, score=cond[1], weight=1.0, markdown_info=f"Interests Overlap: {str(common_interests)} (score: {cond[1]})")
-        
-        return ScoringFuctionResult(matchable=True, score=0, weight=1.0, markdown_info=f"Interests Overlap (score: 0)")
-    
+
+        return ScoringFuctionResult(matchable=True, score=0, weight=1.0, markdown_info="Interests Overlap (score: 0)")
+
     def score__speech_medium(self):
         speech_medium1 = self.user1.profile.speech_medium
         speech_medium2 = self.user2.profile.speech_medium
-        
-        if (speech_medium1 == Profile.SpeechMediumChoices2.ANY and (speech_medium2 == Profile.SpeechMediumChoices2.PHONE or speech_medium2 == Profile.SpeechMediumChoices2.VIDEO)) \
-            or (speech_medium2 == Profile.SpeechMediumChoices2.ANY and (speech_medium1 == Profile.SpeechMediumChoices2.PHONE or speech_medium1 == Profile.SpeechMediumChoices2.VIDEO)):
-            return ScoringFuctionResult(matchable=True, score=10, weight=1.0, markdown_info=f"Speech Medium: Any  :white_check_mark: (score: 10)")
+
+        if (speech_medium1 == Profile.SpeechMediumChoices2.ANY and (speech_medium2 == Profile.SpeechMediumChoices2.PHONE or speech_medium2 == Profile.SpeechMediumChoices2.VIDEO)) or (
+            speech_medium2 == Profile.SpeechMediumChoices2.ANY and (speech_medium1 == Profile.SpeechMediumChoices2.PHONE or speech_medium1 == Profile.SpeechMediumChoices2.VIDEO)
+        ):
+            return ScoringFuctionResult(matchable=True, score=10, weight=1.0, markdown_info="Speech Medium: Any  :white_check_mark: (score: 10)")
         if speech_medium1 == speech_medium2:
             return ScoringFuctionResult(matchable=True, score=40, weight=1.0, markdown_info=f"Speech Medium: {speech_medium1} requested :white_check_mark: (score: 40)")
 
         return ScoringFuctionResult(matchable=False, score=0, weight=1.0, markdown_info=f"Speech Medium: {speech_medium1} requested but {speech_medium2} offered :x: (score: 0)")
-    
+
     def calculate_score(self, raise_exception=False):
-        
         results = []
         error_occured = False
         for score_function in list(self.scoring_fuctions.keys()):
@@ -294,20 +279,18 @@ while `user.gender.MALE (or FEMALE)` with `user.gender_partne.ANY` will give a s
                     raise e
                 print(f"Error in score function {score_function}:", e)
                 res = ScoringFuctionResult(matchable=False, score=0, weight=1.0, markdown_info=f"ERROR in score function {score_function}: {e}")
-            results.append({
-                "score_function": score_function,
-                "res": res.dict()
-            })
-            
-        print("Results:", results) 
+            results.append({"score_function": score_function, "res": res.dict()})
+
+        print("Results:", results)
         total_score = sum([res["res"]["score"] * res["res"]["weight"] for res in results])
         matchable = all([res["res"]["matchable"] for res in results])
         return total_score, matchable, results
 
+
 def score_between_db_update(user1, user2):
     base = ScoringBase(user1, user2)
     total_score, matchable, results = base.calculate_score()
-    
+
     score = TwoUserMatchingScore.get_or_create(user1, user2)
     score.score = total_score
     score.matchable = matchable
@@ -316,90 +299,73 @@ def score_between_db_update(user1, user2):
 
     return total_score, matchable, results, score
 
+
 @dataclass
 class DispatchScoreCalculationDataclass:
     user: int
-    
+
+
 class DispatchScoreCalculationSerializer(DataclassSerializer):
     class Meta:
         dataclass = DispatchScoreCalculationDataclass
 
-@api_view(['POST'])
+
+@api_view(["POST"])
 @permission_classes([IsAdminOrMatchingUser])
 def dispatch_score_calculation(request):
     assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-    
+
     serializer = DispatchScoreCalculationSerializer(request.data)
     serializers.is_valid(raise_exception=True)
     data = serializer.save()
-    
-    task = matching_algo_v2.delay(data["user"], 50)
-    
-    return Response({
-            "msg": "Task dispatched scores will be written to db on task completion",
-            "task_id": task.task_id,
-            "view": f"/admin/django_celery_results/taskresult/?q={task.task_id}"
-        })
-    
-    
-    
 
-@api_view(['POST'])
+    task = matching_algo_v2.delay(data["user"], 50)
+
+    return Response({"msg": "Task dispatched scores will be written to db on task completion", "task_id": task.task_id, "view": f"/admin/django_celery_results/taskresult/?q={task.task_id}"})
+
+
+@api_view(["POST"])
 @permission_classes([IsAdminOrMatchingUser])
 def calculate_score_between(request):
-    
     serializer = ScoreBetweenDataclass(request.data)
     serializer.is_valid(raise_exception=True)
     data = serializer.data
-    
+
     user1 = User.objects.get(id=data["user1"])
     user2 = User.objects.get(id=data["user2"])
 
     total_score, matchable, results = score_between_db_update(user1, user2)
-    return Response({
-        "total_score": total_score,
-        "matchable": matchable,
-        "results": results
-    })
-    
+    return Response({"total_score": total_score, "matchable": matchable, "results": results})
+
 
 def get_users_to_consider(usr=None, consider_only_registered_within_last_x_days=None, exlude_user_ids=[]):
     from django.db.models import Q
     from django.db.models import Exists, OuterRef
     from management.models.unconfirmed_matches import ProposedMatch
 
-    all_users_to_consider = User.objects.annotate(
-        has_open_proposal=Exists(
-            ProposedMatch.objects.filter(
-                Q(user1=OuterRef('pk')) | Q(user2=OuterRef('pk')), closed=False
-            )
-        )
-    ).filter(
-        state__matching_state=State.MatchingStateChoices.SEARCHING,
-        state__user_form_state=State.UserFormStateChoices.FILLED,
-        state__had_prematching_call=True,
-        state__email_authenticated=True,
-        is_staff=False,
-        has_open_proposal=False
-    ).exclude(
-        state__user_category__in=[State.UserCategoryChoices.SPAM, State.UserCategoryChoices.TEST]
+    all_users_to_consider = (
+        User.objects.annotate(has_open_proposal=Exists(ProposedMatch.objects.filter(Q(user1=OuterRef("pk")) | Q(user2=OuterRef("pk")), closed=False)))
+        .filter(state__matching_state=State.MatchingStateChoices.SEARCHING, state__user_form_state=State.UserFormStateChoices.FILLED, state__had_prematching_call=True, state__email_authenticated=True, is_staff=False, has_open_proposal=False)
+        .exclude(state__user_category__in=[State.UserCategoryChoices.SPAM, State.UserCategoryChoices.TEST])
     )
-    
+
     if len(exlude_user_ids) > 0:
         all_users_to_consider = all_users_to_consider.exclude(pk__in=exlude_user_ids)
-    
+
     if usr is not None:
         all_users_to_consider = all_users_to_consider.exclude(pk=usr.pk)
 
-    if not (consider_only_registered_within_last_x_days is None):
+    if consider_only_registered_within_last_x_days is not None:
         from django.utils import timezone
+
         today = timezone.now()
         x_days_ago = today - timedelta(days=consider_only_registered_within_last_x_days)
         all_users_to_consider = all_users_to_consider.filter(date_joined__gte=x_days_ago)
-        
+
     return all_users_to_consider
-    
-def calculate_scores_user(user_pk, consider_only_registered_within_last_x_days=None, report = lambda data: print(data), exlude_user_ids=[]):
+
+
+def calculate_scores_user(user_pk, consider_only_registered_within_last_x_days=None, report=lambda data: print(data), exlude_user_ids=[]):
     from management import controller
     from django.db.models import Q
     from django.db.models import Exists, OuterRef
@@ -407,139 +373,110 @@ def calculate_scores_user(user_pk, consider_only_registered_within_last_x_days=N
     usr = controller.get_user_by_pk(user_pk)
 
     all_users_to_consider = get_users_to_consider(usr, consider_only_registered_within_last_x_days, exlude_user_ids)
-    
+
     # - We have to set the score of all users not to consider to 0
-    all_users_not_to_consider = User.objects.annotate(
-        to_consider=Exists(
-            all_users_to_consider.filter(pk=OuterRef('id'))
-        )
-    ).filter(to_consider=False)
-    
+    all_users_not_to_consider = User.objects.annotate(to_consider=Exists(all_users_to_consider.filter(pk=OuterRef("id")))).filter(to_consider=False)
+
     total_considered_users = all_users_to_consider.count()
     total_unconsidered_users = all_users_not_to_consider.count()
-    
+
     # we always delete all scores of unconsidered users, that way we assure that we don't blow database sizes!
     from management.models.scores import TwoUserMatchingScore
-    cleaned_scores = TwoUserMatchingScore.objects.filter(
-        (~Q(user1__in=all_users_to_consider) and Q(user2=usr)) | (~Q(user2__in=all_users_to_consider) and Q(user1=usr))
-    )
+
+    cleaned_scores = TwoUserMatchingScore.objects.filter((~Q(user1__in=all_users_to_consider) and Q(user2=usr)) | (~Q(user2__in=all_users_to_consider) and Q(user1=usr)))
     count_cleaned_scores = cleaned_scores.count()
     cleaned_scores.delete()
-    
 
     matchable_count = 0
     c = 0
-    report({
-            'total_considered_users': total_considered_users,
-            'total_unconsidered_users': total_unconsidered_users,
-            'scores_cleaned': count_cleaned_scores,
-            'progress': 0,
-            'matchable_count': matchable_count,
-            "state": "starting"
-        })
-        
+    report({"total_considered_users": total_considered_users, "total_unconsidered_users": total_unconsidered_users, "scores_cleaned": count_cleaned_scores, "progress": 0, "matchable_count": matchable_count, "state": "starting"})
+
     for user in all_users_to_consider:
         c += 1
         total_score, matchable, results, score = score_between_db_update(usr, user)
-        
+
         if matchable:
             matchable_count += 1
 
-        report({
-                'total_considered_users': total_considered_users,
-                'total_unconsidered_users': total_unconsidered_users,
-                'scores_cleaned': count_cleaned_scores,
-                'progress': c,
-                'matchable_count': matchable_count,
-                "state": "processing",
-                "current_user": user.pk
-            })
-            
-    return {
-        'total_considered_users': total_considered_users,
-        'total_unconsidered_users': total_unconsidered_users,
-        'scores_cleaned': count_cleaned_scores,
-        'matchable_count': matchable_count,
-        'progress': c,
-        'state': 'finished'
-    }
-    
-    
+        report({"total_considered_users": total_considered_users, "total_unconsidered_users": total_unconsidered_users, "scores_cleaned": count_cleaned_scores, "progress": c, "matchable_count": matchable_count, "state": "processing", "current_user": user.pk})
+
+    return {"total_considered_users": total_considered_users, "total_unconsidered_users": total_unconsidered_users, "scores_cleaned": count_cleaned_scores, "matchable_count": matchable_count, "progress": c, "state": "finished"}
+
+
 @dataclass
-class SimplePagination():
+class SimplePagination:
     page: int
     items_per_page: int
     total_pages: int
     total_items: int
     results: list
-    
+
     def dict(self):
         return self.__dict__.copy()
-    
-from management.models import scores 
+
+
+from management.models import scores
+
 
 class SimpleMatchingScoreSerializer(serializers.ModelSerializer):
     class Meta:
         model = scores.TwoUserMatchingScore
-        fields = ['id', 'user1', 'user2', 'score']
-        
+        fields = ["id", "user1", "user2", "score"]
+
+
 class BurstCalculateMatchingScoresV2RequestSerializer(serializers.Serializer):
     parallel_tasks = serializers.IntegerField(help_text="The number of parallel tasks to run", default=4, required=False)
     delte_old_scores = serializers.BooleanField(help_text="Delete all old scores before starting", default=True, required=False)
 
+
 @extend_schema(
     request=BurstCalculateMatchingScoresV2RequestSerializer,
 )
-@api_view(['POST'])
+@api_view(["POST"])
 @permission_classes([IsAdminOrMatchingUser])
 def burst_calculate_matching_scores_v2(request):
-    
     from management.models.backend_state import BackendState
-    
+
     ongoing_update = BackendState.objects.filter(slug=BackendState.BackendStateEnum.updating_matching_scores)
-    
+
     if ongoing_update.exists():
-        return Response({
-            "msg": "Already updating scores"
-        }, status=400)
+        return Response({"msg": "Already updating scores"}, status=400)
     else:
         ongoing_update = BackendState.objects.create(slug=BackendState.BackendStateEnum.updating_matching_scores, meta={"tasks": []})
 
     serializer = BurstCalculateMatchingScoresV2RequestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
-    
-    parallel_tasks = serializer.validated_data['parallel_tasks']
-    
-    if serializer.validated_data['delte_old_scores']:
+
+    parallel_tasks = serializer.validated_data["parallel_tasks"]
+
+    if serializer.validated_data["delte_old_scores"]:
         TwoUserMatchingScore.objects.all().delete()
-    
+
     bmu = controller.get_base_management_user()
     requires_matching = needs_matching(qs=User.objects.filter(id__in=bmu.state.managed_users.all()))
-    user_id_set = set(requires_matching.values_list('id', flat=True))
+    user_id_set = set(requires_matching.values_list("id", flat=True))
     list_combinations = list(itertools.combinations(user_id_set, 2))
-    
+
     total_combinations = len(list_combinations)
     chunk_size = math.ceil(total_combinations / parallel_tasks)
-    
-    task_batches = [
-        list_combinations[i:i + chunk_size]
-        for i in range(0, total_combinations, chunk_size)
-    ]
-    
+
+    task_batches = [list_combinations[i : i + chunk_size] for i in range(0, total_combinations, chunk_size)]
+
     if not task_batches:
         return Response({"msg": "No matching needed"}, status=200)
-    
+
     created_tasks = [burst_calculate_matching_scores.delay(batch) for batch in task_batches]
 
     created_tasks_ids = [task.id for task in created_tasks]
-    
+
     ongoing_update.meta["tasks"] = created_tasks_ids
     ongoing_update.meta["completed_tasks"] = []
     ongoing_update.save()
-    
+
     return Response(created_tasks_ids)
 
-@api_view(['GET'])
+
+@api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
 def get_active_burst_calculation(request):
     from management.models.backend_state import BackendState
@@ -547,28 +484,23 @@ def get_active_burst_calculation(request):
     ongoing_update = BackendState.objects.filter(slug=BackendState.BackendStateEnum.updating_matching_scores)
 
     if ongoing_update.exists():
-        return Response({
-            "active": True,
-            "tasks": ongoing_update.first().meta["tasks"]
-        })
+        return Response({"active": True, "tasks": ongoing_update.first().meta["tasks"]})
     else:
-        return Response({
-            "active": False
-        })
-        
+        return Response({"active": False})
+
 
 def instantly_possible_matches():
     import networkx as nx
     from management.models.scores import TwoUserMatchingScore
-    matches = SimpleMatchingScoreSerializer(
-        TwoUserMatchingScore.objects.filter(matchable=True).order_by("-score"), many=True).data
-    
+
+    matches = SimpleMatchingScoreSerializer(TwoUserMatchingScore.objects.filter(matchable=True).order_by("-score"), many=True).data
+
     G = nx.Graph()
     print("CONSIDERED", matches)
 
     # Add an edge for each pair of users with the score as weight
     for match in matches:
-        G.add_edge(match['user1'], match['user2'], weight=float(match['score']))
+        G.add_edge(match["user1"], match["user2"], weight=float(match["score"]))
 
     # Use the max_weight_matching function of NetworkX
     matches = nx.max_weight_matching(G, maxcardinality=True)
@@ -576,18 +508,18 @@ def instantly_possible_matches():
     # max_weight_matching returns a set of frozensets, convert to list of tuples
     matches = [tuple(match) for match in matches]
     return matches
-    
-@api_view(['GET'])
+
+
+@api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
 def score_maximization_matching(request):
     from management.models.scores import TwoUserMatchingScore
     from management.api.user_advanced import AdvancedMatchingScoreSerializer
-    from django.db.models import Q
-    
+
     matches = instantly_possible_matches()
-    
+
     print("MATCHES", matches)
-    
+
     # perform a finaly check if not users are matched twice
     user_pks = []
     for match in matches:
@@ -599,60 +531,49 @@ def score_maximization_matching(request):
         else:
             user_pks.append(match[0])
             user_pks.append(match[1])
-    
-    
-    items_per_page = int(request.query_params.get('items_per_page', 50))
-    page = int(request.query_params.get('page', 1))
-    
+
+    items_per_page = int(request.query_params.get("items_per_page", 50))
+    page = int(request.query_params.get("page", 1))
+
     scores = []
     for match in matches:
         user1 = User.objects.get(id=match[0])
         user2 = User.objects.get(id=match[1])
         score = TwoUserMatchingScore.get_score(user1, user2)
         scores.append(score)
-    
+
     paginator = Paginator(scores, items_per_page)
     pages = paginator.page(page)
-    serialized = [ AdvancedMatchingScoreSerializer(p, many=False, context={'user': p.user1}).data for p in list(pages) ]
+    serialized = [AdvancedMatchingScoreSerializer(p, many=False, context={"user": p.user1}).data for p in list(pages)]
 
-    return Response(SimplePagination(
-        page=page,
-        items_per_page=items_per_page,
-        total_pages=paginator.num_pages,
-        total_items=len(scores),
-        results=serialized
-    ).dict())
+    return Response(SimplePagination(page=page, items_per_page=items_per_page, total_pages=paginator.num_pages, total_items=len(scores), results=serialized).dict())
 
-@api_view(['GET'])
+
+@api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
 def delete_all_matching_scores(request):
     assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
     from management.models.scores import TwoUserMatchingScore
+
     total_count = TwoUserMatchingScore.objects.count()
     TwoUserMatchingScore.objects.all().delete()
-    return Response({
-        "msg": f"All {total_count} matching scores deleted"
-    })
+    return Response({"msg": f"All {total_count} matching scores deleted"})
 
-@api_view(['GET'])
+
+@api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
 def list_top_scores(request):
     assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
     from management.api.user_advanced import AdvancedMatchingScoreSerializer
     from management.models.scores import TwoUserMatchingScore
+
     top_scores = TwoUserMatchingScore.objects.filter(matchable=True).order_by("-score")
-    
-    items_per_page = int(request.query_params.get('items_per_page', 50))
-    page = int(request.query_params.get('page', 1))
+
+    items_per_page = int(request.query_params.get("items_per_page", 50))
+    page = int(request.query_params.get("page", 1))
 
     paginator = Paginator(top_scores, items_per_page)
     pages = paginator.page(page)
-    serialized = [ AdvancedMatchingScoreSerializer(p, many=False, context={'user': p.user1}).data for p in list(pages) ]
+    serialized = [AdvancedMatchingScoreSerializer(p, many=False, context={"user": p.user1}).data for p in list(pages)]
 
-    return Response(SimplePagination(
-        page=page,
-        items_per_page=items_per_page,
-        total_pages=paginator.num_pages,
-        total_items=top_scores.count(),
-        results=serialized
-    ).dict())
+    return Response(SimplePagination(page=page, items_per_page=items_per_page, total_pages=paginator.num_pages, total_items=top_scores.count(), results=serialized).dict())

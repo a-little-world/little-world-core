@@ -2,7 +2,6 @@ from django.db import models
 from django.utils.encoding import force_str
 from phonenumber_field.modelfields import PhoneNumberField
 from back.utils import get_options_serializer
-from datetime import datetime
 from rest_framework import serializers
 from multiselectfield import MultiSelectField
 from back.utils import _double_uuid
@@ -97,9 +96,7 @@ class Profile(models.Model):
         LEARNER = "learner", get_translation("profile.user_type.learner")
         VOLUNTEER = "volunteer", get_translation("profile.user_type.volunteer")
 
-    user_type = models.CharField(
-        choices=TypeChoices.choices, default=TypeChoices.LEARNER, max_length=255
-    )
+    user_type = models.CharField(choices=TypeChoices.choices, default=TypeChoices.LEARNER, max_length=255)
 
     """
     This stores a dict of dates and what the users type was then
@@ -125,9 +122,7 @@ class Profile(models.Model):
         max_length=255,
     )
 
-    target_groups = MultiSelectField(
-        choices=TargetGroupChoices2.choices, max_choices=20, max_length=1000, blank=True
-    )  # type: ignore
+    target_groups = MultiSelectField(choices=TargetGroupChoices2.choices, max_choices=20, max_length=1000, blank=True)  # type: ignore
 
     # DEPRICATED!!! replaced with 'partner_gender'
     class ParterSexChoice(models.TextChoices):
@@ -136,9 +131,7 @@ class Profile(models.Model):
         FEMALE = "female", get_translation("profile.partner_sex.female")
 
     # DEPRICATED!!! replaced with 'partner_gender'
-    partner_sex = models.CharField(
-        choices=ParterSexChoice.choices, default=ParterSexChoice.ANY, max_length=255
-    )
+    partner_sex = models.CharField(choices=ParterSexChoice.choices, default=ParterSexChoice.ANY, max_length=255)
 
     class PartnerGenderChoices(models.TextChoices):
         ANY = "any", get_translation("profile.partner_gender.any")
@@ -150,9 +143,7 @@ class Profile(models.Model):
         MALE = "male", get_translation("profile.gender.male")
         FEMALE = "female", get_translation("profile.gender.female")
 
-    gender = models.CharField(
-        choices=GenderChoices.choices, default=None, null=True, max_length=255
-    )
+    gender = models.CharField(choices=GenderChoices.choices, default=None, null=True, max_length=255)
 
     partner_gender = models.CharField(
         choices=PartnerGenderChoices.choices,
@@ -163,6 +154,7 @@ class Profile(models.Model):
     """
     Which medium the user preferes for
     """
+
     class SpeechMediumChoices2(models.TextChoices):
         ANY = "any", get_translation("profile.speech_medium.any")
         VIDEO = "video", get_translation("profile.speech_medium.video")
@@ -224,9 +216,7 @@ class Profile(models.Model):
             get_translation("profile.interest.personal_development"),
         )
 
-    interests = MultiSelectField(
-        choices=InterestChoices.choices, max_choices=20, max_length=1000, blank=True
-    )  # type: ignore
+    interests = MultiSelectField(choices=InterestChoices.choices, max_choices=20, max_length=1000, blank=True)  # type: ignore
 
     additional_interests = models.TextField(default="", blank=True, max_length=300)
 
@@ -266,9 +256,7 @@ class Profile(models.Model):
     other_target_group = models.CharField(max_length=255, blank=True)
 
     description = models.TextField(default="", blank=True, max_length=999)
-    language_skill_description = models.TextField(
-        default="", blank=True, max_length=300
-    )
+    language_skill_description = models.TextField(default="", blank=True, max_length=300)
 
     class MinLangLevelPartnerChoices(models.TextChoices):
         LEVEL_0 = "level-0", get_translation("profile.min_lang_level_partner.level_0")
@@ -337,13 +325,9 @@ class Profile(models.Model):
         AVATAR = "avatar", get_translation("profile.image_type.avatar")
         IMAGE = "image", get_translation("profile.image_type.image")
 
-    image_type = models.CharField(
-        choices=ImageTypeChoice.choices, default=ImageTypeChoice.IMAGE, max_length=255
-    )
+    image_type = models.CharField(choices=ImageTypeChoice.choices, default=ImageTypeChoice.IMAGE, max_length=255)
     image = models.ImageField(upload_to=PathRename("profile_pics/"), blank=True)
-    avatar_config = models.JSONField(
-        default=dict, blank=True
-    )  # Contains the avatar builder config
+    avatar_config = models.JSONField(default=dict, blank=True)  # Contains the avatar builder config
 
     display_language = models.CharField(
         choices=[
@@ -376,9 +360,7 @@ class Profile(models.Model):
         """
         fields_required_for_completion = [
             "description",  # This is required but 'language_skill_description' is not!
-            "image"
-            if self.image_type == self.ImageTypeChoice.IMAGE
-            else "avatar_config",
+            "image" if self.image_type == self.ImageTypeChoice.IMAGE else "avatar_config",
             *(
                 ["phone_mobile"]
                 if self.notify_channel  # phone is only required if notification channel is not email ( so it's sms or phone )
@@ -391,20 +373,14 @@ class Profile(models.Model):
         for field in fields_required_for_completion:
             value = getattr(self, field)
             if value == "":  # TODO: we should also run the serializer
-                msgs.append(
-                    get_translation("profile.completion_check.missing_value").format(
-                        val=field
-                    )
-                )
+                msgs.append(get_translation("profile.completion_check.missing_value").format(val=field))
                 is_completed = False
 
         if is_completed and mark_completed:
             self.user.state.set_user_form_completed()
 
         if is_completed and set_searching_if_completed:
-            self.user.state.change_searching_state(
-                slug="searching", trigger_score_update=trigger_score_calulation
-            )
+            self.user.state.change_searching_state(slug="searching", trigger_score_update=trigger_score_calulation)
 
         return is_completed, msgs
 
@@ -413,9 +389,7 @@ class ProfileSerializer(serializers.ModelSerializer):
     options = serializers.SerializerMethodField()
     interests = serializers.MultipleChoiceField(choices=Profile.InterestChoices.choices)
     target_groups = serializers.MultipleChoiceField(choices=Profile.TargetGroupChoices2.choices)
-    image = serializers.ImageField(
-        max_length=None, allow_empty_file=True, allow_null=True, required=False
-    )
+    image = serializers.ImageField(max_length=None, allow_empty_file=True, allow_null=True, required=False)
 
     def get_options(self, obj):
         d = get_options_serializer(self, obj)
@@ -423,17 +397,10 @@ class ProfileSerializer(serializers.ModelSerializer):
         # so let's just add it now, since availability is stored as JSON anyways
         # we can easily change the choices here in the future
 
-        if (
-            "availability" in self.Meta.fields
-        ):  # <- TODO: does this check work with inheritance?
+        if "availability" in self.Meta.fields:  # <- TODO: does this check work with inheritance?
             d.update(
                 {  # Our course there is no need to do this for the Censored profile view
-                    "availability": {
-                        day: [
-                            {"value": slot, "tag": SLOT_TRANS[slot]} for slot in SLOTS
-                        ]
-                        for day in DAYS
-                    }
+                    "availability": {day: [{"value": slot, "tag": SLOT_TRANS[slot]} for slot in SLOTS] for day in DAYS}
                 }
             )
 
@@ -441,14 +408,8 @@ class ProfileSerializer(serializers.ModelSerializer):
             d.update(
                 {
                     "lang_skill": {
-                        "level": [
-                            {"value": l0, "tag": force_str(l1, strings_only=True)}
-                            for l0, l1 in Profile.LanguageSkillChoices.choices
-                        ],
-                        "lang": [
-                            {"value": l0, "tag": force_str(l1, strings_only=True)}
-                            for l0, l1 in Profile.LanguageChoices.choices
-                        ],
+                        "level": [{"value": l0, "tag": force_str(l1, strings_only=True)} for l0, l1 in Profile.LanguageSkillChoices.choices],
+                        "lang": [{"value": l0, "tag": force_str(l1, strings_only=True)} for l0, l1 in Profile.LanguageChoices.choices],
                     }
                 }
             )
@@ -518,40 +479,26 @@ class SelfProfileSerializer(ProfileSerializer):
             if data["image_type"] == Profile.ImageTypeChoice.IMAGE:
 
                 def __no_img():
-                    raise serializers.ValidationError(
-                        {"image": get_translation("profile.image_missing")}
-                    )
+                    raise serializers.ValidationError({"image": get_translation("profile.image_missing")})
 
-                if not "image" in data:
+                if "image" not in data:
                     if not self.instance.image:
                         # If the image is not present we only proceed if there is already an image set
                         __no_img()
                 elif data["image"] is None:
                     # Only allow removing the image if then the avatar config is set
-                    if not "image_type" in data or not (
-                        data["image_type"] == Profile.ImageTypeChoice.AVATAR
-                    ):
-                        raise serializers.ValidationError(
-                            {
-                                "image": get_translation(
-                                    "profile.image_removal_without_avatar"
-                                )
-                            }
-                        )
+                    if "image_type" not in data or not (data["image_type"] == Profile.ImageTypeChoice.AVATAR):
+                        raise serializers.ValidationError({"image": get_translation("profile.image_removal_without_avatar")})
                 elif not data["image"]:
                     __no_img()
             if data["image_type"] == Profile.ImageTypeChoice.AVATAR:
-                if not "avatar_config" in data or not data["avatar_config"]:
-                    raise serializers.ValidationError(
-                        {"avatar_config": get_translation("profile.avatar_missing")}
-                    )
+                if "avatar_config" not in data or not data["avatar_config"]:
+                    raise serializers.ValidationError({"avatar_config": get_translation("profile.avatar_missing")})
         return data
 
     def validate_liability_accepted(self, value):
         if not value:
-            raise serializers.ValidationError(
-                get_translation("profile.liability_declined")
-            )
+            raise serializers.ValidationError(get_translation("profile.liability_declined"))
         return value
 
     def validate_postal_code(self, value):
@@ -559,16 +506,12 @@ class SelfProfileSerializer(ProfileSerializer):
 
     def validate_interests(self, value):
         if len(value) < 3:
-            raise serializers.ValidationError(
-                get_translation("profile.interests.min_number")
-            )
+            raise serializers.ValidationError(get_translation("profile.interests.min_number"))
         return value
-    
+
     def validate_target_groups(self, value):
         if len(value) < 1:
-            raise serializers.ValidationError(
-                get_translation("profile.target_groups.min_number")
-            )
+            raise serializers.ValidationError(get_translation("profile.target_groups.min_number"))
         return value
 
     def validate_lang_skill(self, value):
@@ -577,17 +520,13 @@ class SelfProfileSerializer(ProfileSerializer):
         for lang in value:
             if "german" in lang["lang"]:
                 german_level_present = True
-            if not (lang["level"] in Profile.LanguageSkillChoices.values):
-                raise serializers.ValidationError(
-                    get_translation("profile.lang_level_invalid")
-                )
+            if lang["level"] not in Profile.LanguageSkillChoices.values:
+                raise serializers.ValidationError(get_translation("profile.lang_level_invalid"))
 
-            if not (lang["lang"] in Profile.LanguageChoices.values):
-                raise serializers.ValidationError(
-                    get_translation("profile.lang_invalid")
-                )
+            if lang["lang"] not in Profile.LanguageChoices.values:
+                raise serializers.ValidationError(get_translation("profile.lang_invalid"))
 
-            if not lang["lang"] in language_count_map:
+            if lang["lang"] not in language_count_map:
                 language_count_map[lang["lang"]] = 1
             else:
                 language_count_map[lang["lang"]] += 1
@@ -596,16 +535,12 @@ class SelfProfileSerializer(ProfileSerializer):
             raise serializers.ValidationError(get_translation("profile.lang_duplicate"))
 
         if not german_level_present:
-            raise serializers.ValidationError(
-                get_translation("profile.lang_de_missing")
-            )
+            raise serializers.ValidationError(get_translation("profile.lang_de_missing"))
         return value
 
     def validate_description(self, value):
         if len(value) < 10:  # TODO: higher?
-            raise serializers.ValidationError(
-                get_translation("profile.descr_too_short")
-            )
+            raise serializers.ValidationError(get_translation("profile.descr_too_short"))
         return value
 
 
@@ -632,16 +567,7 @@ class CensoredProfileSerializer(SelfProfileSerializer):
 class MinimalProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = [
-            "first_name",
-            "second_name",
-            "image_type",
-            "avatar_config",
-            "image",
-            "description",
-            "user_type",
-            "target_groups"
-        ]
+        fields = ["first_name", "second_name", "image_type", "avatar_config", "image", "description", "user_type", "target_groups"]
 
 
 class ProposalProfileSerializer(SelfProfileSerializer):
