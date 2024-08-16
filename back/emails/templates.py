@@ -210,9 +210,9 @@ class UnfinishedUserForm2Messages:
 
 @dataclass
 class StillInContactMessages:
-    subject_header_text: str = "Noch in Kontakt mit {match_name}?"
+    subject_header_text: str = "Noch in Kontakt mit {partner_first_name}?"
     greeting: str = "Hallo {first_name},"
-    content_start_text: str = "wie geht es dir und {match_name}? Wir hoffen, eure Gespräche bereiten euch weiterhin viel Freude. Bitte gib uns eine kurze Rückmeldung für unsere Wirkungsmessung: Unterhältst du dich noch mit {match_name}?"
+    content_start_text: str = "wie geht es dir und {partner_first_name}? Wir hoffen, eure Gespräche bereiten euch weiterhin viel Freude. Bitte gib uns eine kurze Rückmeldung für unsere Wirkungsmessung: Unterhältst du dich noch mit {partner_first_name}?"
     content_body_text: str = ""
     link_box_text: str = ""
     button_text: str = "Ja"
