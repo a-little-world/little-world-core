@@ -27,7 +27,7 @@ valid_profile_data = dict(
 
 GLOB_TEST_USER_COUNT = 0
 
-def register_user(data = None) -> Response:
+def register_user_api(data = None) -> Response:
     global GLOB_TEST_USER_COUNT
     if data is None:
         data = valid_register_request_data
@@ -41,6 +41,9 @@ def register_user(data = None) -> Response:
     # This will always return the type Optional[Reponse] but pylance doesn't beleave me
     response = register.Register.as_view()(request)
     assert response, isinstance(response, Response)
+
+def register_user(data = None) -> Response:
+    response = register_user_api(data)
     assert response.status_code == 200 
     user = get_user_by_email(data['email'])
     return user
