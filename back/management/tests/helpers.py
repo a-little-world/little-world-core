@@ -25,7 +25,14 @@ valid_profile_data = dict(
     birth_year=valid_register_request_data['birth_year'],
 )
 
-def register_user(data: dict = valid_register_request_data) -> Response:
+GLOB_TEST_USER_COUNT = 0
+
+def register_user(data = None) -> Response:
+    global GLOB_TEST_USER_COUNT
+    if data is None:
+        data = valid_register_request_data
+        data['email'] = data['email'].split('@')[0] + str(GLOB_TEST_USER_COUNT) + '@' + data['email'].split('@')[1]
+        GLOB_TEST_USER_COUNT += 1
     factory = APIRequestFactory(enforce_csrf_checks=True)
     request = factory.post('/api/register/', data)
     middleware = SessionMiddleware(lambda x: x)
@@ -34,4 +41,6 @@ def register_user(data: dict = valid_register_request_data) -> Response:
     # This will always return the type Optional[Reponse] but pylance doesn't beleave me
     response = register.Register.as_view()(request)
     assert response, isinstance(response, Response)
-    return response  # type: ignore
+    assert response.status_code == 200 
+    user = get_user_by_email(data['email'])
+    return user
