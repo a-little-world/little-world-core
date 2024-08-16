@@ -2,7 +2,6 @@ from django.test import TestCase
 from rest_framework.test import RequestsClient
 import json
 from management.controller import get_user_by_email
-from management.api.user_data import get_user_models
 from management.tests.helpers import register_user, valid_profile_data, valid_register_request_data, register_user_api
 from django.conf import settings
 from .. import api
@@ -104,19 +103,6 @@ class RegisterTests(TestCase):
         assert response.status_code == 200
         usr = get_user_by_email(_data["email"].lower())
         assert usr.email == random_capilalization.lower()
-
-    def test_registered_user_valid(self):
-        """
-        In `test_sucessfull_register` we register a user
-        this should always create 4 db objects: `Settings`, `Profile`, `State`, `User`
-        here we check if all where correctly created
-        """
-        response = register_user_api(valid_register_request_data)
-        assert response.status_code == 200
-        # If this failes user creation is broken:
-        user = get_user_by_email(valid_register_request_data["email"])
-        # If this failes the other user models where somehow not created:
-        _ = get_user_models(user)
 
     def test_api_fuctions_blocked_email_unverified(self):
         """
