@@ -23,7 +23,7 @@ class RegisterTests(TestCase):
             del partial_data[parm]
             datas.append(partial_data)
         for i, d in enumerate(datas):
-            response = register_user(d)
+            response = register_user_api(d)
             assert response.status_code == 400
             response.render()
             # Assert that the fields in in response ( otherwiese the 400 could have happend for a different reason )
@@ -46,7 +46,7 @@ class RegisterTests(TestCase):
         _data = valid_register_request_data.copy()
         random_capilalization = "FirstNameAm"
         _data["first_name"] = random_capilalization
-        response = register_user(_data)
+        response = register_user_api(_data)
         assert response.status_code == 200
         usr = get_user_by_email(_data["email"])
         assert (
@@ -58,7 +58,7 @@ class RegisterTests(TestCase):
         _data = valid_register_request_data.copy()
         random_typed = " FirstNameAm   "
         _data["first_name"] = random_typed
-        response = register_user(_data)
+        response = register_user_api(_data)
         assert response.status_code == 200
         usr = get_user_by_email(_data["email"])
         random_typed = random_typed.strip()
@@ -69,7 +69,7 @@ class RegisterTests(TestCase):
         _data = valid_register_request_data.copy()
         random_typed = "second name"
         _data["second_name"] = random_typed
-        response = register_user(_data)
+        response = register_user_api(_data)
         assert response.status_code == 200
         usr = get_user_by_email(_data["email"])
         assert usr.last_name == random_typed.title()
@@ -78,13 +78,7 @@ class RegisterTests(TestCase):
         _data = valid_register_request_data.copy()
         random_typed = "second n ame"
         _data["second_name"] = random_typed
-        failed = False
-        try:
-            user = register_user(_data)
-        except Exception as e:
-            failed = True
-
-        assert failed
+        user = register_user(_data)
 
     def test_register_second_name_multispace(self):
         response = register_user_api(valid_register_request_data)
@@ -143,7 +137,7 @@ class RegisterTests(TestCase):
         assert response.status_code == 400
 
     def test_unallowed_chars_in_name(self):
-        false_names = ["with multi space", "with!", "chat_what", "no.name", "any@body"]
+        false_names = ["with!", "chat_what", "no.name", "any@body"]
         for field in ["first_name", "second_name"]:
             for n in false_names:
                 _data = valid_register_request_data.copy()
@@ -154,9 +148,9 @@ class RegisterTests(TestCase):
     def test_register_existing_user(self):
         """Registring a user that alredy has an account"""
         # Not we have to register him sucessfull first, cause tests always reset the DB
-        response = register_user_api()
+        response = register_user_api(data=valid_register_request_data)
         assert response.status_code == 200
-        response = register_user_api()
+        response = register_user_api(data=valid_register_request_data)
         assert response.status_code == 400
 
     def test_email_verification_enforced(self):

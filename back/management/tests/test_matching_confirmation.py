@@ -4,7 +4,7 @@ import json
 from rest_framework.response import Response
 from rest_framework.test import APIRequestFactory, force_authenticate
 from management.random_test_users import create_abunch_of_users, modify_profile_to_match
-from management.tests.helpers import register_user
+from management.tests.helpers import register_user, register_user_api
 from management.models.profile import Profile
 from management.models.unconfirmed_matches import ProposedMatch
 from management.models.matches import Match
@@ -46,7 +46,7 @@ class MatchConfirmationTests(TestCase):
 
     def test_sucessfull_register(self):
         """ Fully valid register """
-        response = register_user(valid_request_data)
+        response = register_user_api(valid_request_data)
         assert response.status_code == 200
         
     # TODO: user match creation depricated possibly sinc ethe score cacluation has been depricate 
