@@ -108,9 +108,7 @@ def prepare_template_context(template_name, user_id=None, match_id=None, **kwarg
         module = importlib.import_module(".".join(function_lookup[:-1]))
         lookup_function = getattr(module, function_lookup[-1])
         
-        lookup_context = {
-            "context": {},
-        }
+        lookup_context = {}
         for dependency in param_config.depends_on:
             param_name = param
             if dependency == "user":
@@ -121,6 +119,8 @@ def prepare_template_context(template_name, user_id=None, match_id=None, **kwarg
                 param_name = dependency.split(".")[1]
                 print(kwargs)
                 assert param_name in kwargs, f"Missing context dependency in **kwargs for {param}"
+                if "context" not in lookup_context:
+                    lookup_context["context"] = {}
                 lookup_context["context"][param_name] = kwargs[param_name]
                 
         # Perform the lookup injecting all dependencies
