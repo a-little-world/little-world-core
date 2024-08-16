@@ -4,7 +4,7 @@ from management.controller import create_user_matching_proposal
 from rest_framework.test import APIRequestFactory, force_authenticate
 from management.random_test_users import create_abunch_of_users, modify_profile_to_match
 from management.models.profile import Profile
-from management.tests.helpers import register_user
+from management.tests.helpers import register_user_api
 from management.api.register import Register
 from management.api.confirm_match import confrim_match
 
@@ -44,7 +44,7 @@ class MatchConfirmationTasksTests(TestCase):
 
     def test_sucessfull_register(self):
         """ Fully valid register """
-        response = register_user(valid_request_data)
+        response = register_user_api(valid_request_data)
         assert response.status_code == 200
         
     # def _create_two_user_prematching(self): TODO

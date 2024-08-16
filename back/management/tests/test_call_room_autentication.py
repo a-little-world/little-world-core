@@ -3,7 +3,7 @@ from rest_framework.test import RequestsClient
 import os
 import json
 from rest_framework.response import Response
-from management.tests.helpers import register_user
+from management.tests.helpers import register_user, register_user_api
 from management.controller import create_user, get_user_by_email, match_users
 from management.api.user_data import get_user_models
 from django.conf import settings
@@ -44,7 +44,7 @@ class CallRoomTests(TestCase):
 
         usrs = []
         for d in datas:
-            response = register_user(d)
+            response = register_user_api(d)
             assert response.status_code == 200
             usr = get_user_by_email(d["email"])
             usrs.append(usr)
