@@ -1,8 +1,8 @@
-from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 from django.core.exceptions import ValidationError
 import contextlib
 from translations import get_translation
+import re
 
 
 def as_djv(validator):
@@ -11,6 +11,7 @@ def as_djv(validator):
             validator(value)
         except serializers.ValidationError as e:
             raise ValidationError(str(e))
+
     return _validate
 
 
@@ -20,6 +21,7 @@ def decorate_djv(validator):
             validator(value)
         except serializers.ValidationError as e:
             raise ValidationError(str(e))
+
     return wrapper
 
 
@@ -49,21 +51,27 @@ def validate_first_name(value: str):
         invalid_chars = [c for c in value if not c.isalpha()]
         print(invalid_chars)
         raise serializers.ValidationError(
-            get_translation("val.first_name_unallowed_chars").format(chars=','.join(invalid_chars)))
+            get_translation("val.first_name_unallowed_chars").format(
+                chars=",".join(invalid_chars)
+            )
+        )
     return value
 
 
 def validate_second_name(value: str):
     value = value.strip()
     value = value.title()
-    amnt_spaces = value.count(" ")
-    if amnt_spaces > 1:
+
+    # check for single space pattern
+    if "  " in value:
         raise serializers.ValidationError(
-            get_translation("val.second_name_too_many_spaces").format(count=amnt_spaces))
+            get_translation("val.second_name_too_many_spaces")
+        )
     _value = value.replace(" ", "")
     if not _value.isalpha():
         raise serializers.ValidationError(
-            get_translation("val.second_name_unallowed_chars"))
+            get_translation("val.second_name_unallowed_chars")
+        )
     return value
 
 
@@ -71,20 +79,19 @@ def validate_postal_code(value: str):
     value = value.strip()
     if not value.isnumeric():
         raise serializers.ValidationError(
-            get_translation("val.postal_code_not_numeric"))
+            get_translation("val.postal_code_not_numeric")
+        )
     as_int = int(value)
     print("TBS", as_int)
     if as_int > 99999:
-        raise serializers.ValidationError(
-            get_translation("val.postal_code_too_big"))
+        raise serializers.ValidationError(get_translation("val.postal_code_too_big"))
     if as_int < 1000:
-        raise serializers.ValidationError(
-            get_translation("val.postal_code_too_small"))
+        raise serializers.ValidationError(get_translation("val.postal_code_too_small"))
     return value
 
 
 def validate_year(value: int):
-    """ validates a valid year """
+    """validates a valid year"""
     pass  # TODO
 
 
@@ -98,7 +105,7 @@ SLOT_TRANS = {
     "14_16": get_translation("val.availability.time_slot_14_16"),
     "16_18": get_translation("val.availability.time_slot_16_18"),
     "18_20": get_translation("val.availability.time_slot_18_20"),
-    "20_22": get_translation("val.availability.time_slot_20_22")
+    "20_22": get_translation("val.availability.time_slot_20_22"),
 }
 
 DAY_TRANS = {
@@ -108,7 +115,7 @@ DAY_TRANS = {
     "th": get_translation("val.availability.week_day_th"),
     "fr": get_translation("val.availability.week_day_fr"),
     "sa": get_translation("val.availability.week_day_sa"),
-    "su": get_translation("val.availability.week_day_su")
+    "su": get_translation("val.availability.week_day_su"),
 }
 
 
@@ -121,9 +128,13 @@ def validate_availability(value: dict):
         assert day in value
         if not day in value:
             raise serializers.ValidationError(
-                get_translation("val.availability.day_not_in_availability").format(day=day))
+                get_translation("val.availability.day_not_in_availability").format(
+                    day=day
+                )
+            )
         for slot in value[day]:
             if not slot in SLOTS:
                 raise serializers.ValidationError(
-                    get_translation("val.availability.slot_unknown").format(day=day))
+                    get_translation("val.availability.slot_unknown").format(day=day)
+                )
     return value
