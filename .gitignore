@@ -162,6 +162,9 @@ back/static
 env_stage
 back/webpack
 
+# macOS
+*.DS_Store
+
 front/admin_panel_frontend.webpack-stats.json
 front/cookie_banner_frontend.webpack-stats.json
 back/media/*
