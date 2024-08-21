@@ -87,7 +87,7 @@ class ChatSerializer(serializers.ModelSerializer):
             del representation['u1']
             del representation['u2']
 
-            representation['unread_count'] = instance.get_unread_count(user)
+            representation['unread_count'] = instance.get_unread_count(partner)
             representation['newest_message'] = MessageSerializer(instance.get_newest_message()).data
         else:
             representation['u1'] = instance.u1.hash
