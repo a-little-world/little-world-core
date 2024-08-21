@@ -1,6 +1,6 @@
 from rest_framework import serializers, viewsets, status
 from rest_framework import response
-from django.db.models import Q, Max
+from django.db.models import Q, Max, Min
 
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from chat.models import Chat, ChatSerializer
@@ -14,7 +14,6 @@ from chat.models import MessageSerializer
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Count, Q, Case, When, IntegerField
-from django.db.models import Max
 
 
 def chat_res_seralizer(many=True):
@@ -49,9 +48,9 @@ class ChatsModelViewSet(viewsets.ModelViewSet):
         return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
-        return Chat.objects.annotate(
+        return Chat.objects.filter(Q(u1=self.request.user) | Q(u2=self.request.user)).annotate(
             newest_message_time=Max('message__created'),
-        ).filter(Q(u1 = self.request.user) | Q(u2 = self.request.user)).order_by('-newest_message_time')
+        ).order_by('-newest_message_time')
 
     @extend_schema(responses={200: chat_res_seralizer(many=False)})
     @action(detail=False, methods=['post'])
