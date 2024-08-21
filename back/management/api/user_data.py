@@ -98,7 +98,7 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
 
         is_online = ChatConnections.is_user_online(partner)
         chat = Chat.get_or_create_chat(user, partner)
-        chat_serialized = ChatInModelSerializer(chat, context={'user': user}).data
+        chat_serialized = ChatSerializer(chat, context={'user': user}).data
         
         # check for active calls 
         # fetch incoming calls that are currently active

@@ -4,6 +4,8 @@ from django.db.models import Q
 from rest_framework import serializers
 from django.core.paginator import Paginator
 from management import models as management_models
+from django.db.models import Q, Max, Min
+
 
 class Chat(models.Model):
     
@@ -22,7 +24,9 @@ class Chat(models.Model):
 
     @classmethod
     def get_chats(cls, user):
-        return Chat.objects.filter(Q(u1=user) | Q(u2=user)).order_by("-created")
+        return Chat.objects.filter(Q(u1=user) | Q(u2=user)).annotate(
+            newest_message_time=Max('message__created'),
+        ).order_by('-newest_message_time')
 
     def get_messages(self):
         return Message.objects.filter(chat=self).order_by("-created")
