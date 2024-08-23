@@ -15,14 +15,16 @@ valid_profile_data = dict(
 )
 
 GLOB_TEST_USER_COUNT = 0
+CREATED_USERS = []
 
 
 def assure_default_data(data=None):
-    global GLOB_TEST_USER_COUNT
+    global GLOB_TEST_USER_COUNT, CREATED_USERS
     if data is None:
         data = valid_register_request_data
         data["email"] = data["email"].split("@")[0] + str(GLOB_TEST_USER_COUNT) + "@" + data["email"].split("@")[1]
         GLOB_TEST_USER_COUNT += 1
+        CREATED_USERS.append(data)
     return data
 
 
