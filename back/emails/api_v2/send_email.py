@@ -13,9 +13,9 @@ from django.contrib.auth import get_user_model
 
 class SendEmailSerializer(serializers.Serializer):
     user_id = serializers.IntegerField(required=True)
-    match_id = serializers.IntegerField(required=False)
+    match_id = serializers.IntegerField(required=False, default=None)
     context = serializers.DictField(required=False, default={})
-    emulate_send = serializers.BooleanField(required=False)
+    emulate_send = serializers.BooleanField(required=False, default=False)
 
 
 def send_template_email(template_name, **kwargs):
