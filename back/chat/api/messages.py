@@ -116,6 +116,18 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
             recipient=partner,
             recipient_notified=True,
         ).order_by("-created")
+        
+        def notify_recipient_email():
+            if settings.USE_V2_EMAIL_APIS:
+                partner.send_email_v2("new-messages")
+            else:
+                partner.send_email(
+                    subject="Neue Nachricht(en) auf Little World",
+                    mail_data=mails.get_mail_data_by_name("new_messages"),
+                    mail_params=mails.NewUreadMessagesParams(
+                        first_name=partner.profile.first_name,
+                    ),
+                )
 
         # Now check if we should be sending out a new message notification
         # TODO: can this cause multiple emails due to concurrency?
@@ -124,22 +136,21 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         if latest_notified_message.exists():
             latest_notified_message = latest_notified_message.first()
             # Min 5 min delay between notifications!
-            if (creation_time - latest_notified_message.created).total_seconds() < 300:
+            print("latest_notified_message", latest_notified_message)
+            time_since_last_notif = (creation_time - latest_notified_message.created).total_seconds()
+            print("time_since_last_notif", time_since_last_notif)
+
+            if time_since_last_notif > 300:
                 # ok then lets send the email
                 # TODO: in future check if user is online and send push notification instead
+                # TODO: ALSO for rate limiting there should probably be another checK:
+                # for a maxium count of email notifications e.g.: within a day
                 recipiend_was_email_notified = True
-
-                # TODO: email send V2 check
-                if settings.USE_V2_EMAIL_APIS:
-                    partner.send_email_v2("new-messages")
-                else:
-                    partner.send_email(
-                        subject="Neue Nachricht(en) auf Little World",
-                        mail_data=mails.get_mail_data_by_name("new_messages"),
-                        mail_params=mails.NewUreadMessagesParams(
-                            first_name=partner.profile.first_name,
-                        ),
-                    )
+                notify_recipient_email()
+        else:
+            # No previous message was sent
+            recipiend_was_email_notified = True
+            notify_recipient_email()
 
         message = Message.objects.create(chat=chat, sender=request.user, recipient=partner, recipient_notified=recipiend_was_email_notified, text=serializer.data["text"])
 
