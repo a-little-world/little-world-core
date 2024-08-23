@@ -104,6 +104,14 @@ def test_render_email(request, template_name):
 
     return response
 
+@api_view(["GET"])
+@permission_classes([IsAdminOrMatchingUser])
+def render_logged_email(request, log_id):
+    from emails.models import EmailLog
+
+    log = EmailLog.objects.get(pk=log_id)
+    return HttpResponse(log.data["html"], content_type="text/html")
+
 
 api_urls = [
     path("api/matching/emails/config/", email_config),
@@ -112,4 +120,5 @@ api_urls = [
     # extra url with .html eding to allow directly testing with testi.at
     path("api/matching/emails/templates/<str:template_name>/info/", show_template_info),
     path("api/matching/emails/templates/<str:template_name>/test/", test_render_email),
+    path("api/matching/emails/logs/<int:log_id>/", render_logged_email),
 ]
