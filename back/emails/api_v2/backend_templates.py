@@ -8,6 +8,9 @@ from emails.api_v2.render_template import get_full_template_info, render_templat
 from django.conf import settings
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from django.views.decorators.clickjacking import xframe_options_exempt
+from management.controller import get_base_management_user
+from management.models.matches import Match
+from django.db.models import Q
 
 
 @api_view(["GET"])
@@ -87,8 +90,8 @@ def test_render_email(request, template_name):
         if context_dependent:
             mock_context[dep["query_id_field"]] = "Mocked value"
 
-    mock_user_id = 1
-    mock_match_id = 2
+    mock_user_id = get_base_management_user().id
+    mock_match_id = Match.objects.filter(Q(user1=mock_user_id) | Q(user2=mock_user_id)).first().id
 
     rendered = render_template_dynamic_lookup(template_name, mock_user_id, mock_match_id, **mock_context)
     response = HttpResponse(rendered, content_type="text/html")

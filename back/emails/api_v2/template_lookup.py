@@ -20,6 +20,9 @@ def partner_profile_url(user, match):
 def verification_code(user):
     return user.state.email_auth_pin
 
+def restart_search_url(user):
+    return f"{settings.BASE_URL}/app"
+
 
 def verification_url(user):
     return f"{settings.BASE_URL}/api/user/verify/email/{user.state.get_email_auth_code_b64()}"
@@ -32,6 +35,14 @@ def accept_match_url(user, match):
 
 def reset_password_url(user=None, match=None, context={"reset_password_url": "Not set"}):
     return context["reset_password_url"]
+
+def confirm_in_contact_url(user, match):
+    assert (user == match.user1) or (user == match.user2)
+    # TODO: correct link
+    return f"{settings.BASE_URL}/login?next=/app/"
+
+def user_form_url(user):
+    return f"{settings.BASE_URL}/app/user-form/"
 
 
 def unsubscribe_url(user):

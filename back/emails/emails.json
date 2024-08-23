@@ -138,6 +138,13 @@
         "user"
       ]
     },
+    "restart_search_url": {
+      "id": "restart_search_url",
+      "lookup": "emails.api_v2.template_lookup.restart_search_url",
+      "depends_on": [
+        "user"
+      ]
+    },
     "verification_code": {
       "id": "verification_code",
       "lookup": "emails.api_v2.template_lookup.verification_code",
@@ -181,6 +188,13 @@
       "lookup": "emails.api_v2.template_lookup.reset_password_url",
       "depends_on": [
         "context.reset_password_url"
+      ]
+    },
+    "user_form_url": {
+      "id": "user_form_url",
+      "lookup": "emails.api_v2.template_lookup.user_form_url",
+      "depends_on": [
+        "user"
       ]
     },
     "confirm_in_contact_url": {
