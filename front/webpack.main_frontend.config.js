@@ -1,19 +1,19 @@
-const path = require("path");
-const webpack = require("webpack");
-const BundleTracker = require("webpack-bundle-tracker");
-const CompressionPlugin = require("compression-webpack-plugin");
-const CopyPlugin = require("copy-webpack-plugin");
+const path = require('path');
+const webpack = require('webpack');
+const BundleTracker = require('webpack-bundle-tracker');
+const CompressionPlugin = require('compression-webpack-plugin');
+const CopyPlugin = require('copy-webpack-plugin');
 
 var config = function (env) {
-  var publicPath = "/static/dist/main_frontend/";
-  var devTool = env.DEV_TOOL == "none" ? false : env.DEV_TOOL;
+  var publicPath = '/static/dist/main_frontend/';
+  var devTool = env.DEV_TOOL == 'none' ? false : env.DEV_TOOL;
   // It is always assumed that the backend is mounted at /back
-  if (env.PUBLIC_PATH && env.PUBLIC_PATH !== "")
+  if (env.PUBLIC_PATH && env.PUBLIC_PATH !== '')
     publicPath = env.PUBLIC_PATH + publicPath;
-  var outputPath = "../back/static/dist/main_frontend";
-  var entry = "./apps/main_frontend";
+  var outputPath = '../back/static/dist/main_frontend';
+  var entry = './apps/main_frontend';
   var entryPoint = `${entry}/src/index.js`;
-  var debug = env.DEBUG === "1";
+  var debug = env.DEBUG === '1';
 
   return {
     context: __dirname,
@@ -22,20 +22,23 @@ var config = function (env) {
     },
     resolve: {
       alias: {
-        "@": path.resolve(__dirname, "apps/main_frontend/src/"),
-        "@django": path.resolve(__dirname, "../back/static/"),
+        '@': path.resolve(__dirname, 'apps/main_frontend/src/'),
+        '@django': path.resolve(__dirname, '../back/static/'),
       },
-      fallback: { "process/browser": require.resolve("process/browser") },
+      fallback: { 'process/browser': require.resolve('process/browser'), }
     },
     output: {
       path: path.join(__dirname, outputPath),
-      filename: "[name]-[hash].js",
+      filename: '[name]-[hash].js',
       publicPath: publicPath,
     },
 
     plugins: [
       new BundleTracker({
-        filename: path.join(__dirname, "./main_frontend.webpack-stats.json"),
+        filename: path.join(
+          __dirname,
+          './main_frontend.webpack-stats.json'
+        ),
       }),
       new CompressionPlugin(),
       new CopyPlugin({
@@ -47,7 +50,7 @@ var config = function (env) {
         ],
       }),
       new webpack.ProvidePlugin({
-        process: "process/browser",
+        process: 'process/browser',
       }),
     ],
     devtool: devTool,
@@ -56,26 +59,21 @@ var config = function (env) {
         {
           test: /\.(js|jsx|tsx|ts)$/,
           exclude: /node_modules/,
-          use: ["babel-loader"],
+          use: ['babel-loader'],
           resolve: {
-            extensions: [".js", ".jsx"],
+            extensions: ['.js', '.jsx'],
           },
-          include: [path.resolve(__dirname, "apps/main_frontend/src")],
+          include: [
+            path.resolve(__dirname, 'apps/main_frontend/src'),
+          ],
         },
         {
-          test: /\.(jpg|png|svg|gif|tff)$/,
-          type: "asset/resource",
-        },
-        {
-          test: /\.(webp)$/i,
-          type: "asset/resource",
-          generator: {
-            filename: "images/[name][ext]",
-          },
+          test: /\.(jpg|png|svg|webp|gif|tff)$/,
+          type: 'asset/resource',
         },
         {
           test: /\.css$/,
-          use: ["style-loader", "css-loader"],
+          use: ['style-loader', 'css-loader'],
         },
       ],
     },
