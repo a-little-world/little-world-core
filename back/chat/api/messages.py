@@ -131,7 +131,7 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
 
                 # TODO: email send V2 check
                 if settings.USE_V2_EMAIL_APIS:
-                    pass
+                    partner.send_email_v2("new-messages")
                 else:
                     partner.send_email(
                         subject="Neue Nachricht(en) auf Little World",
