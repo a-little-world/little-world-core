@@ -24,9 +24,12 @@ class EmailTests(TestCase):
             for dep in template_info["dependencies"]:
                 context_dependent = dep.get("context_dependent", False)
                 if context_dependent:
-                    mock_context[dep["query_id_field"]] = "Mocked value"
+                    mock_context[dep["query_id_field"]] = dep["query_id_field"]
 
             mock_user_id = u1.id
             mock_match_id = match.id
 
             rendered = render_template_dynamic_lookup(template_name, mock_user_id, mock_match_id, **mock_context)
+            
+            for key in mock_context:
+                assert key in rendered, f"Key {key} not found in rendered email"
