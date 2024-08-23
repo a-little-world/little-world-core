@@ -44,6 +44,9 @@ def confirm_in_contact_url(user, match):
 def user_form_url(user):
     return f"{settings.BASE_URL}/app/user-form/"
 
+def messages_url(user):
+    return f"{settings.BASE_URL}/app/chat/"
+
 
 def unsubscribe_url(user):
     return "https://www.example.com/unsubscribe"

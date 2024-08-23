@@ -138,6 +138,13 @@
         "user"
       ]
     },
+    "messages_url": {
+      "id": "messages_url",
+      "lookup": "emails.api_v2.template_lookup.messages_url",
+      "depends_on": [
+        "user"
+      ]
+    },
     "restart_search_url": {
       "id": "restart_search_url",
       "lookup": "emails.api_v2.template_lookup.restart_search_url",
