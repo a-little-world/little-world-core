@@ -221,12 +221,9 @@ class User(AbstractUser):
             NewMessage(
                 message=serialized_message,
                 chat_id=chat.uuid,
-                meta_chat_obj=ChatSerializer(
-                    chat,
-                    context={
-                        "user": sender,
-                    },
-                ).data,
+                meta_chat_obj=ChatSerializer(chat, context={
+                    'user': self,               
+                }).data
             ).send(self.hash)
         return message
 

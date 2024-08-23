@@ -150,12 +150,9 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         NewMessage(
             message=serialized_message,
             chat_id=chat.uuid,
-            meta_chat_obj=ChatSerializer(
-                chat,
-                context={
-                    "request": request,
-                },
-            ).data,
+            meta_chat_obj=ChatSerializer(chat, context={
+                'user': partner
+            }).data
         ).send(partner.hash)
 
         return Response(serialized_message, status=200)
