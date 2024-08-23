@@ -451,7 +451,7 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
     print("GENERATED RESET URL", reset_password_url)
 
     if settings.USE_V2_EMAIL_APIS:
-        reset_password_token.user.send_email_v2("reset-password", {"reset_password_url": reset_password_url})
+        reset_password_token.user.send_email_v2("reset-password", context={"reset_password_url": reset_password_url})
     else:
         mail_data = get_mail_data_by_name("password_reset")
         reset_password_token.user.send_email(
