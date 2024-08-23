@@ -187,6 +187,8 @@ def check_registration_reminders():
 
 @shared_task
 def check_match_still_in_contact_emails():
+    # TODO: this is not active at the moment
+    # TODO: re-implement with v2 api
     from management.models.matches import Match
     from django.db.models import Q
     from django.utils import timezone
@@ -220,10 +222,14 @@ def check_match_still_in_contact_emails():
 def dispatch_admin_email_notification(subject, message):
     from . import controller
     from emails import mails
+    from django.conf import settings
 
     base_management_user = controller.get_base_management_user()
 
-    base_management_user.send_email(subject=subject, mail_data=mails.get_mail_data_by_name("raw"), mail_params=mails.RAWTemplateMailParams(subject_header_text=subject, greeting=message, content_start_text=message))
+    if settings.USE_V2_EMAIL_APIS:
+        raise NotImplementedError("V2 email api not implemented yet!")
+    else:
+        base_management_user.send_email(subject=subject, mail_data=mails.get_mail_data_by_name("raw"), mail_params=mails.RAWTemplateMailParams(subject_header_text=subject, greeting=message, content_start_text=message))
 
 
 @shared_task

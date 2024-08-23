@@ -421,14 +421,19 @@ def unmatch_self(request):
 @login_required
 @api_view(["POST"])
 def resend_verification_mail(request):
-    link_route = "mailverify_link"
-    verifiaction_url = f"{settings.BASE_URL}/{link_route}/{request.user.state.get_email_auth_code_b64()}"
-    mails.send_email(
-        recivers=[request.user.email],
-        subject="{code} - Verifizierungscode zur E-Mail Bestätigung".format(code=request.user.state.get_email_auth_pin()),
-        mail_data=mails.get_mail_data_by_name("welcome"),
-        mail_params=mails.WelcomeEmailParams(first_name=request.user.profile.first_name, verification_url=verifiaction_url, verification_code=str(request.user.state.get_email_auth_pin())),
-    )
+    
+    if settings.USE_V2_EMAIL_APIS:
+        request.user.send_email_v2("verify-email")
+    else:
+        # TODO: depricate the old way
+        link_route = "mailverify_link"
+        verifiaction_url = f"{settings.BASE_URL}/{link_route}/{request.user.state.get_email_auth_code_b64()}"
+        mails.send_email(
+            recivers=[request.user.email],
+            subject="{code} - Verifizierungscode zur E-Mail Bestätigung".format(code=request.user.state.get_email_auth_pin()),
+            mail_data=mails.get_mail_data_by_name("welcome"),
+            mail_params=mails.WelcomeEmailParams(first_name=request.user.profile.first_name, verification_url=verifiaction_url, verification_code=str(request.user.state.get_email_auth_pin())),
+        )
 
     return Response("Resend verification mail")
 

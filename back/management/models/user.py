@@ -251,9 +251,10 @@ class User(AbstractUser):
         """
 
         from emails.mails import send_email
-
+        # TODO: depricate / replace with 'send_email_v2'
+        
         if settings.DISABLE_LEGACY_EMAIL_SENDING:
-            return
+            raise Exception("Legacy email sending is disabled, use 'send_email_v2' instead!")
         recivers = [overwrite_mail] if overwrite_mail else [self.email]
         send_email(subject=subject, recivers=recivers, mail_data=mail_data, mail_params=mail_params, attachments=attachments, **kwargs)
 

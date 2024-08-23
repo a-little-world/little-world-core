@@ -341,38 +341,6 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         return Response(serialized)
 
     @action(detail=True, methods=["get", "post"])
-    def resend_email(self, request, pk=None):
-        self.kwargs["pk"] = pk
-        obj = self.get_object()
-
-        email_id = request.data["email_id"]
-
-        has_access, res = self.check_management_user_access(obj, request)
-        if not has_access:
-            return res
-
-        email_log = EmailLog.objects.filter(receiver=obj, pk=email_id).first()
-        subject = email_log.data["subject"] if "subject" in email_log.data else None
-
-        if subject is None:
-            if "subject" not in request.data:
-                return Response({"msg": "Cannot determine subject, please set one via 'subject' param"}, status=404)
-            else:
-                subject = request.data["subject"]
-
-        params = email_log.data["params"]
-        mail_data = get_mail_data_by_name(email_log.template)
-        mail_params = mail_data.params(**params)
-
-        obj.send_email(
-            subject=subject,
-            mail_data=mail_data,
-            mail_params=mail_params,
-        )
-
-        return Response("Tried resending email")
-
-    @action(detail=True, methods=["get", "post"])
     def tasks(self, request, pk=None):
         self.kwargs["pk"] = pk
         obj = self.get_object()
@@ -522,7 +490,6 @@ viewset_actions = [
     path("api/matching/users/<pk>/messages/", AdvancedUserViewset.as_view({"get": "messages"})),
     path("api/matching/users/<pk>/sms/", AdvancedUserViewset.as_view({"get": "sms", "post": "sms"})),
     path("api/matching/users/<pk>/message_reply/", AdvancedUserViewset.as_view({"post": "message_reply"})),
-    path("api/matching/users/<pk>/resend_email/", AdvancedUserViewset.as_view({"get": "resend_email", "post": "resend_email"})),
     path("api/matching/users/<pk>/tasks/", AdvancedUserViewset.as_view({"get": "tasks", "post": "tasks"})),
     path("api/matching/users/<pk>/notes/", AdvancedUserViewset.as_view({"get": "notes", "post": "notes"})),
     path("api/matching/users/<pk>/delete_message/", AdvancedUserViewset.as_view({"get": "delete_message"})),

@@ -1,5 +1,6 @@
 from django.db import models
 from rest_framework import serializers
+from django.conf import settings
 from .user import User
 from multiselectfield import MultiSelectField
 from uuid import uuid4
@@ -71,14 +72,17 @@ class EmailSettings(models.Model):
                 unsubscribe_url1="",  # filled automatically
             )
 
-        # send the mail
-        controller.send_group_mail(
-            users=[user],
-            subject="Umfrage beenden für Bekanntschaften aus aller Welt",
-            mail_name="unfinished_user_form_2",
-            mail_params_func=get_params,
-            unsubscribe_group=UnsubscibeOptions.finish_reminders,
-        )
+        if settings.USE_V2_EMAIL_APIS:
+            user.send_email_v2("verify-email")
+            # TODO: should be 'verify-email-2' ? atm we just reuse the first reminder
+        else:
+            controller.send_group_mail(
+                users=[user],
+                subject="Umfrage beenden für Bekanntschaften aus aller Welt",
+                mail_name="unfinished_user_form_2",
+                mail_params_func=get_params,
+                unsubscribe_group=UnsubscibeOptions.finish_reminders,
+            )
 
         self.save()
 
@@ -99,14 +103,17 @@ class EmailSettings(models.Model):
             )
 
         # send the mail
-        controller.send_group_mail(
-            users=[user],
-            subject="Bitte bestätige deine E-Mail-Adresse für Little World",
-            mail_name="email_unverified",
-            mail_params_func=get_params,
-            unsubscribe_group=UnsubscibeOptions.finish_reminders,
-            emulated_send=True,  # TODO Just debug for now
-        )
+        if settings.USE_V2_EMAIL_APIS:
+            user.send_email_v2("verify-email")
+        else:
+            controller.send_group_mail(
+                users=[user],
+                subject="Bitte bestätige deine E-Mail-Adresse für Little World",
+                mail_name="email_unverified",
+                mail_params_func=get_params,
+                unsubscribe_group=UnsubscibeOptions.finish_reminders,
+                emulated_send=True,  # TODO Just debug for now
+            )
 
         self.save()
 
