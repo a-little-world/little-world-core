@@ -13,26 +13,26 @@ from django.contrib.auth import get_user_model
 
 class SendEmailSerializer(serializers.Serializer):
     user_id = serializers.IntegerField(required=True)
-    match_id = serializers.IntegerField(required=False, default=None, allow_blank=True)
+    match_id = serializers.IntegerField(required=False, default=-1)
     context = serializers.DictField(required=False, default={})
     emulate_send = serializers.BooleanField(required=False, default=False)
 
 
-def send_template_email(template_name, **kwargs):
-    serializer = SendEmailSerializer(data=kwargs)
-    serializer.is_valid(raise_exception=True)
-
-    user_id = serializer.validated_data["user_id"]
-    match_id = serializer.validated_data.get("match_id", None)
-    _context = serializer.validated_data.get("context", {})
+def send_template_email(
+        template_name, 
+        user_id=None, 
+        match_id=None,
+        emulated_send=False, 
+        context={}
+    ):
 
     user = get_user_model().objects.get(pk=user_id)
 
-    template_info, context = prepare_template_context(template_name, user_id, match_id, **_context)
-    email_html = render_template_to_html(template_info["config"]["template"], context)
+    template_info, _context = prepare_template_context(template_name, user_id, match_id, **context)
+    email_html = render_template_to_html(template_info["config"]["template"], _context)
     from management.controller import get_base_management_user
 
-    mail_log = EmailLog.objects.create(log_version=1, sender=get_base_management_user(), receiver=user, template=template_name, data={"html": email_html, "params": context, "user_id": user_id, "match_id": match_id})
+    mail_log = EmailLog.objects.create(log_version=1, sender=get_base_management_user(), receiver=user, template=template_name, data={"html": email_html, "params": _context, "user_id": user_id, "match_id": match_id})
 
     try:
         from_email = EMAILS_CONFIG.senders[template_info["config"]["sender_id"]]
@@ -43,7 +43,7 @@ def send_template_email(template_name, **kwargs):
             to=[user],
         )
         mail.content_subtype = "html"
-        if serializer.validated_data.get("emulate_send", False):
+        if emulated_send:
             mail_log.data["emulated_send"] = True
         else:
             mail.send(fail_silently=False)
@@ -62,7 +62,11 @@ def send_template_email(template_name, **kwargs):
 @api_view(["POST"])
 @permission_classes([IsAdminOrMatchingUser])
 def send_template_email_api(request, template_name):
-    return send_template_email(template_name, **request.data)
+    serializer = SendEmailSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    match_id = None if serializer.data.get("match_id", -1) == -1 else serializer.data.get("match_id", None)
+    return send_template_email(template_name, user_id=serializer.data["user_id"], match_id=match_id, emulated_send=serializer.data.get("emulate_send", False), context=serializer.data.get("context", {}))
 
 
 api_urls = [
