@@ -131,6 +131,13 @@
         "user"
       ]
     },
+    "verification_url": {
+      "id": "verification_url",
+      "lookup": "emails.api_v2.template_lookup.verification_url",
+      "depends_on": [
+        "user"
+      ]
+    },
     "verification_code": {
       "id": "verification_code",
       "lookup": "emails.api_v2.template_lookup.verification_code",
