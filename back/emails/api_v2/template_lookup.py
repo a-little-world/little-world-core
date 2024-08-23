@@ -25,7 +25,7 @@ def restart_search_url(user):
 
 
 def verification_url(user):
-    return f"{settings.BASE_URL}/api/user/verify/email/{user.state.get_email_auth_code_b64()}"
+    return f"{settings.BASE_URL}/mailverify_link/{user.state.get_email_auth_code_b64()}"
 
 
 def accept_match_url(user, match):
