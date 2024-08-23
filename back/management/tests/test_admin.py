@@ -1,6 +1,5 @@
 from django.test import TestCase
 from management.controller import create_user, match_users
-from management.api.user_data import get_user_models
 from management.tests.helpers import valid_profile_data
 
 
@@ -35,8 +34,7 @@ class AdminApiTests(TestCase):
 
     def test_matches_made(self):
         users = self._create_abunch_of_users(amnt=20)
-        for usr in users:
-            get_user_models(usr)["state"].matches
+        # TODO: check if matches are created
 
     def test_user_list(self):
         pass

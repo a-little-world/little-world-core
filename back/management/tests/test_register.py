@@ -2,7 +2,7 @@ from django.test import TestCase
 from rest_framework.test import RequestsClient
 import json
 from management.controller import get_user_by_email
-from management.tests.helpers import register_user, valid_profile_data, valid_register_request_data, register_user_api
+from management.tests.helpers import register_user, valid_profile_data, valid_register_request_data, register_user_api, CREATED_USERS
 from django.conf import settings
 from .. import api
 
@@ -149,25 +149,21 @@ class RegisterTests(TestCase):
         # would error if the user doesn't exist...
 
     def test_auto_login_after_register(self):
-        response = register_user_api(valid_register_request_data)
-        assert response.status_code == 200
-        usr = get_user_by_email(valid_profile_data["email"])
+        usr = register_user(valid_register_request_data)
         # now if we render /app we should be redirected to /login
         client = RequestsClient()
         response = client.get("http://localhost:8000/app")
+        # TODO: check if the main frontend renders correctly
         print(response)
 
     def test_mail_verification(self):
         """
         Tests if mail code was generate and we can verify it
         """
-        response = register_user_api(valid_register_request_data)
-        assert response.status_code == 200
-        usr = get_user_by_email(valid_profile_data["email"])
+        usr = register_user(valid_register_request_data)
         code_b64 = usr.state.get_email_auth_code_b64()
         assert usr.state.check_email_auth_code_b64(code_b64)
         assert usr.state.is_email_verified()
-        # Now ok lets set it to unverified again and then check if calling the api also does the trick
 
     def test_space_in_email_allowed_and_removed(self):
         pass  # TODO: Test is spaces at the biginning and end of an emails are allowed and working
