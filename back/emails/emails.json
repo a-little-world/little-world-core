@@ -211,6 +211,13 @@
         "user",
         "match"
       ]
+    },
+    "link_url": {
+      "id": "link_url",
+      "lookup": "emails.api_v2.template_lookup.link_url",
+      "depends_on": [
+        "context.link_url"
+      ]
     }
   },
   "dependencies": {

@@ -47,6 +47,8 @@ def user_form_url(user):
 def messages_url(user):
     return f"{settings.BASE_URL}/app/chat/"
 
+def link_url(user=None, match=None, context={"link_url": "Not set"}):
+    return context["link_url"]
 
 def unsubscribe_url(user):
     return "https://www.example.com/unsubscribe"
