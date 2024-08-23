@@ -146,8 +146,6 @@ class RegisterTests(TestCase):
         # v-- base managment user should be automaticly created:
         usr = get_user_by_email(settings.MANAGEMENT_USER_MAIL)
 
-        # would error if the user doesn't exist...
-
     def test_auto_login_after_register(self):
         usr = register_user(valid_register_request_data)
         # now if we render /app we should be redirected to /login
