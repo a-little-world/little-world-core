@@ -147,12 +147,6 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
 
         from chat.consumers.messages import NewMessage
 
-        NewMessage(
-            message=serialized_message,
-            chat_id=chat.uuid,
-            meta_chat_obj=ChatSerializer(chat, context={
-                'user': partner
-            }).data
-        ).send(partner.hash)
+        NewMessage(message=serialized_message, chat_id=chat.uuid, meta_chat_obj=ChatSerializer(chat, context={"user": partner}).data).send(partner.hash)
 
         return Response(serialized_message, status=200)

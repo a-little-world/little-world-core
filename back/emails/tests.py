@@ -30,6 +30,6 @@ class EmailTests(TestCase):
             mock_match_id = match.id
 
             rendered = render_template_dynamic_lookup(template_name, mock_user_id, mock_match_id, **mock_context)
-            
+
             for key in mock_context:
                 assert key in rendered, f"Key {key} not found in rendered email"

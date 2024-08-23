@@ -5,7 +5,7 @@ from rest_framework.authentication import SessionAuthentication
 from chat.models import ChatConnections
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from rest_framework_dataclasses.serializers import DataclassSerializer
-from chat.models import ChatSerializer, Chat, ChatInModelSerializer
+from chat.models import ChatSerializer, Chat
 from management.models.state import FrontendStatusSerializer
 from django.core.paginator import Paginator
 from django.conf import settings
@@ -79,7 +79,7 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
 
         is_online = ChatConnections.is_user_online(partner)
         chat = Chat.get_or_create_chat(user, partner)
-        chat_serialized = ChatSerializer(chat, context={'user': user}).data
+        chat_serialized = ChatSerializer(chat, context={"user": user}).data
         # fetch incoming calls that are currently active
         active_call_room = None
         active_sessions = LivekitSession.objects.filter(
