@@ -233,7 +233,7 @@ class User(AbstractUser):
     def send_email_v2(self, template_name, match_id=None, context={}):
         user_id = self.id
 
-        send_template_email(template_name=template_name, **{"user_id": user_id, "match_id": match_id, "context": context})
+        send_template_email(template_name, user_id=user_id, match_id=match_id, context=context)
 
     def send_email(
         self,

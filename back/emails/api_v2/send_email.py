@@ -13,7 +13,7 @@ from django.contrib.auth import get_user_model
 
 class SendEmailSerializer(serializers.Serializer):
     user_id = serializers.IntegerField(required=True)
-    match_id = serializers.IntegerField(required=False, default=None)
+    match_id = serializers.IntegerField(required=False, default=None, allow_blank=True)
     context = serializers.DictField(required=False, default={})
     emulate_send = serializers.BooleanField(required=False, default=False)
 
