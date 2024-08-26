@@ -1,7 +1,6 @@
-from . import chats, messages, viewsets
+from . import chats, messages
 
 __all__ = [
-    'chats',
-    'messages',
-    'viewsets',
+    "chats",
+    "messages",
 ]

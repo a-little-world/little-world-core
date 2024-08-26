@@ -1,0 +1,10 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.0
+    hooks:
+      - id: ruff
+        files: ^back/(?!.*migrations/).*\.py$
+        args: [--line-length=320, --fix-only]
+      - id: ruff-format
+        files: ^back/(?!.*migrations/).*\.py$
+        args: [--line-length=320]

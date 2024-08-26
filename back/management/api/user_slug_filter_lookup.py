@@ -1,22 +1,9 @@
-from typing import List, Optional
-from django.core.paginator import Paginator
-from django.utils import translation
+from typing import Optional
 from multiselectfield.db.fields import MSFList
 from management.models.user import (
     User,
-    UserSerializer,
 )
-from management.models.profile import (
-    Profile,
-    ProfileSerializer,
-)
-from management.models.rooms import (
-    Room
-)
-from management.models.state import (
-    StateSerializer,
-    State
-)
+
 _filter_slug_meta = {
     "is": {"kind": "single"},
     "in": {"kind": "multi"},
@@ -34,18 +21,13 @@ FILTER_SLUG_OPERATIONS = list(_filter_slug_meta.keys())
 # All these are relative to the user model,
 # so 'profile' translates to user.profile python operation
 SUBJECT_MAPPINGS = {
-    "state": 'state',
-    "profile": 'profile',
-    "user": None  # <-- The user is the user, doesn't need a lookup
+    "state": "state",
+    "profile": "profile",
+    "user": None,  # <-- The user is the user, doesn't need a lookup
 }
 
 
-def _check_operation_condition(
-        operation,
-        prop,
-        compare_value: Optional[str] = None,
-        compare_list: 'Optional[list[str]]' = None):
-
+def _check_operation_condition(operation, prop, compare_value: Optional[str] = None, compare_list: "Optional[list[str]]" = None):
     assert compare_value or compare_list, "Always require list or value!"
     if _filter_slug_meta[operation]["kind"] == "single":
         assert compare_value
@@ -59,11 +41,11 @@ def _check_operation_condition(
     elif operation == "not":
         return str(prop) != compare_value
     elif operation == "cut":
-        return not str(prop) in compare_list  # type: ignore
+        return str(prop) not in compare_list  # type: ignore
     elif operation == "contains":
         return compare_value in prop
     elif operation == "excludes":
-        return not compare_value in prop
+        return compare_value not in prop
     elif operation == "all":
         return all([(p in prop) for p in compare_list])
     elif operation == "none":
@@ -79,10 +61,8 @@ def get_filter_slug_filtered_users_multiple(
     if filtered_user_list is None:
         filtered_user_list = list(User.objects.all())
     for filter in filters:
-        filtered_user_list = get_users_by_slug_filter(
-            filter_slug=filter, user_to_filter=filtered_user_list)
+        filtered_user_list = get_users_by_slug_filter(filter_slug=filter, user_to_filter=filtered_user_list)
     return filtered_user_list
-
 
 
 def get_users_by_slug_filter(
@@ -90,7 +70,7 @@ def get_users_by_slug_filter(
     # Per default this would operate on **all** users
     # But when we want to apply multiple filters
     # we will have to be able to pass a limited user list:
-    user_to_filter=None
+    user_to_filter=None,
 ):
     """
     Allowes to filter users by a slug.
@@ -115,11 +95,11 @@ def get_users_by_slug_filter(
     subject, operation, compare_val = filter_slug.split(":")
     assert operation in FILTER_SLUG_OPERATIONS, f"Unknown operation '{operation}' "
     # multi or single -> on one value or multiple values:
-    value_kind = _filter_slug_meta[operation]['kind']
+    value_kind = _filter_slug_meta[operation]["kind"]
 
     # Doing this conversion now will save us a lot of compute errort later
     # We always know which type we are dealing with via 'value_kind'
-    value = compare_val if value_kind == 'single' else compare_val.split(",")
+    value = compare_val if value_kind == "single" else compare_val.split(",")
 
     # Now we determine the object to operate on
     py_attr = subject.split(".")
@@ -139,7 +119,7 @@ def get_users_by_slug_filter(
             _v = v[1:]
             try:
                 pass  # TODO: finish this functionality!
-                #field = getattr(user, lookup_field)
+                # field = getattr(user, lookup_field)
             except:
                 assert False, f"Determined slug '{_v}' makrked with '*' but coudn't resolve!"
 
@@ -158,8 +138,7 @@ def get_users_by_slug_filter(
             print("Looking up", field, py_attr[1])
             model_value = getattr(field, py_attr[1])
             if isinstance(model_value, MSFList):
-                model_value = str(model_value).replace(
-                    ", ", ",")
+                model_value = str(model_value).replace(", ", ",")
                 if model_value == "":
                     model_value = []
                 else:
@@ -169,9 +148,7 @@ def get_users_by_slug_filter(
 
         assert model_value is not None, "Model value lookup failed"
 
-        if _check_operation_condition(operation, model_value, compare_list=value) \
-                if value_kind == 'multi' else \
-        _check_operation_condition(operation, model_value, compare_value=value):
+        if _check_operation_condition(operation, model_value, compare_list=value) if value_kind == "multi" else _check_operation_condition(operation, model_value, compare_value=value):
             filtered_user_list.append(user)
 
     for user in user_to_filter:

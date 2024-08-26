@@ -59,6 +59,6 @@ Generally, we accept requests with JSON-encoded bodies and return JSON streams.
 Generally, you make pull requests to the main branch, which will run our CI.
 Our test coverage is not very high, but this does some basic tests and also checks if all strings have been translated, etc.
 
-Pull requests to the main branch can be deployed to our staging server upon request to `tim@timschupp.de`. 
+Pull requests to the main branch can be deployed to our staging server upon request to `tim@timschupp.de`.
 Once tested, it's best to add a few integration tests if it's a backend PR. We don't currently do integration testing for our frontends ( we should though ;) ).
 """

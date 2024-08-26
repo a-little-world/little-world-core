@@ -3,16 +3,10 @@ This represents a class of forms that dont require the user to login
 Every form has a unique hash that is always cuppled to a unique user
 That way we can allow to render and updated the form without the user having to log-in
 """
+
 from drf_spectacular.utils import extend_schema
-from rest_framework.decorators import api_view, permission_classes, authentication_classes, throttle_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from typing import Literal
-from rest_framework.views import APIView
-from django.views.i18n import JavaScriptCatalog, JSONCatalog
-from django.utils.translation.trans_real import DjangoTranslation
-from django.utils.translation import get_language
-from django.conf import settings
-from django.http import JsonResponse
-from rest_framework.response import Response
 from rest_framework_dataclasses.serializers import DataclassSerializer
 from dataclasses import dataclass
 
@@ -35,7 +29,6 @@ class StillInContactFormDataSerializer(DataclassSerializer):
 
 
 class NoLoginFormDataSerializer(DataclassSerializer):
-
     class Meta:
         dataclass = NoLoginFormData
 
@@ -43,12 +36,12 @@ class NoLoginFormDataSerializer(DataclassSerializer):
 @extend_schema(
     request=NoLoginFormDataSerializer(many=False),
 )
-@api_view(['POST'])
+@api_view(["POST"])
 @authentication_classes([])
 @permission_classes([])
 def no_login_form(request):
     """
-    This api required no authentication but can still link submitted for data to a user 
+    This api required no authentication but can still link submitted for data to a user
     """
     from management.models.no_login_form import NoLoginForm, FORMS
 
@@ -61,8 +54,7 @@ def no_login_form(request):
 
     # now we need to get or create the corresponding form model
     form_model = FORMS[no_login_form.form_type]["model"]
-    model_object = form_model.objects.filter(
-        form=no_login_form)
+    model_object = form_model.objects.filter(form=no_login_form)
 
     if not model_object.exists():
         # then we have to first create that form model

@@ -201,3 +201,45 @@ jobs:
         run: |
           pip3 install slack_sdk
           wget -qO- https://raw.githubusercontent.com/tbscode/tims-blog-posts/main/assets/send_slack_message.py | python3 -
+      - name: Measure start time
+        id: start_tests
+        run: |
+          echo "time=$(date +%s)" >> $GITHUB_OUTPUT
+      - name: Run django tests
+        id: run_tests
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        run: |
+          sed -i '/^REDIS_URL/d' .env
+          REDIS_URL="redis://host.docker.internal:6379"
+          echo "REDIS_URL=\"$REDIS_URL\"" >> .env
+          docker run -d --name redis-test -p 6379:6379 redis
+          if docker compose run all python manage.py test; then
+            echo "test_result=pass" >> $GITHUB_OUTPUT
+          else
+            echo "test_result=fail" >> $GITHUB_OUTPUT
+          fi
+          docker rm -f redis-test
+      - name: Measure end time
+        id: end_tests
+        run: |
+          echo "time=$(date +%s)" >> $GITHUB_OUTPUT
+      - name: Calculate execution time
+        id: execution_time_tests
+        run: |
+          START=${{ steps.start_tests.outputs.time }}
+          END=${{ steps.end_tests.outputs.time }}
+          DIFF=$(( END - START ))
+          echo "DURATION=$DIFF" >> $GITHUB_OUTPUT
+      - name: Add build step comment 5
+        uses: peter-evans/create-or-update-comment@v4
+        id: update_comment_5
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        with:
+          token: ${{ secrets.BOT_PAT }}
+          comment-id: ${{ steps.create_comment.outputs.comment-id }}
+          body: |
+
+            Test Result: ${{ steps.run_tests.outputs.test_result }} ${{
+              fromJSON('{"fail":"❌","pass":"✅"}')[steps.run_tests.outputs.test_result]
+            }}
+            Duration: ${{ steps.execution_time_tests.outputs.DURATION }} seconds

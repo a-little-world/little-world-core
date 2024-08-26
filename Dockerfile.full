@@ -76,10 +76,6 @@ COPY ./back .
 RUN pip install --no-cache-dir -r requirements.txt
 RUN pip cache purge
 
-# Copy all the backend files
-# this assumes all the frontends are build and the static files have already been moved to ./back/static
-ADD . .
-
 RUN mkdir -p /front
 
 # Now copy the generated stats files and bundles

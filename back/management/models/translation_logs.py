@@ -3,7 +3,6 @@ from management.models.user import User
 
 
 class TranslationLog(models.Model):
-
     time = models.DateTimeField(auto_now_add=True)
 
     user = models.ForeignKey(User, on_delete=models.DO_NOTHING)

@@ -34,9 +34,10 @@ docker compose build
 Use this to verify locally if your features breaks anything, rather than waiting for the CI!
 
 ```
-docker compose up -d
-docker compose all exec python3 manage.py test
-docker compose down
+docker compose build
+docker run -d --name redis-test -p 6379:6379 redis
+docker compose run all python manage.py test
+docker rm -f redis-test
 ```
 
 ## Backend ( + Frontend in Backend ) Development
@@ -62,6 +63,14 @@ e.g.:
 
 ```
 COMPOSE_PROFILES=main_frontend docker compose -f docker-compose.dev.yaml up
+```
+
+or run some tests:
+  
+```bash
+COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml exec backend sh -c "python3 manage.py test management.tests.test_register"
+COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml exec backend sh -c "python3 manage.py test management.tests"
+COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml exec backend sh -c "python manage.py test emails --parallel"
 ```
 
 That's it! Any code changed in `/front/apps/*/src/*` or in `/back/*` will cause a hot-reload for the specific frontend, or backend.
@@ -248,5 +257,3 @@ This will:
 - extract and increase the patch version number of the react components package `0.0.XXX`
 - bundle the react package `pnpm bundle` ( in `./components-js/packages/react` )
 - copy the bundle to `./front/apps/main_frontend/prebuild/` and update the `package.json` there with the new version
-
-

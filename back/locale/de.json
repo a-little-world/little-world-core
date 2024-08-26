@@ -7,7 +7,7 @@
   "community_event.coffe_break": "Kaffeerunden",
   "api.user_resetpw_mail_subject": "Password zurücksetzen - Little World",
   "val.first_name_unallowed_chars": "Vorname enthält ungültige Zeichen: {chars}",
-  "val.second_name_too_many_spaces": "Es ist maximal ein Leerzeichen im Nachnamen erlaubt, aber du hast {count}",
+  "val.second_name_too_many_spaces": "Bitte nutze nur ein Leerzeichen zwischen den Namen.",
   "val.second_name_unallowed_chars": "Nachname enthält ungültige Zeichen",
   "val.postal_code_not_numeric": "Postleitzahl sollte eine Zahl sein",
   "val.postal_code_too_big": "Postleitzahl sollte maximal 5 Ziffern haben",

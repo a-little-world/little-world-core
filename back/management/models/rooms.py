@@ -13,7 +13,6 @@ def get_rooms_match(usr1, usr2):
 
 
 class Room(models.Model):
-
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -30,10 +29,8 @@ class Room(models.Model):
     """
     name = models.CharField(max_length=255, default=_double_uuid)
 
-    usr1 = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='usr1')
-    usr2 = models.ForeignKey(
-        User, on_delete=models.CASCADE, related_name='usr2')
+    usr1 = models.ForeignKey(User, on_delete=models.CASCADE, related_name="usr1")
+    usr2 = models.ForeignKey(User, on_delete=models.CASCADE, related_name="usr2")
 
     """
     This marks weather or not a video rooms is active! 

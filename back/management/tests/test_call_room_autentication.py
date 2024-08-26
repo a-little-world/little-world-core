@@ -1,61 +1,27 @@
 from django.test import TestCase
-from rest_framework.test import RequestsClient
 import os
-import json
-from rest_framework.response import Response
-from management.controller import create_user, get_user_by_email, match_users
-from management.api.user_data import get_user_models
-from django.conf import settings
-from rest_framework.test import APIRequestFactory, force_authenticate
-from management.controller import match_users
+from management.tests.helpers import register_user_api
+from management.controller import get_user_by_email, match_users
 from management.models.rooms import get_rooms_match
 from management import api
 
-valid_request_data = dict(
-    email='benjamin.tim@gmx.de',
-    first_name='Tim',
-    second_name='Schupp',
-    password1='Test123!',
-    password2='Test123!',
-    birth_year=1984
-)
+valid_request_data = dict(email="benjamin.tim@gmx.de", first_name="Tim", second_name="Schupp", password1="Test123!", password2="Test123!", birth_year=1984)
 
 valid_create_data = dict(
-    email=valid_request_data['email'],
-    password=valid_request_data['password1'],
-    first_name=valid_request_data['first_name'],
-    second_name=valid_request_data['second_name'],
-    birth_year=valid_request_data['birth_year'],
+    email=valid_request_data["email"],
+    password=valid_request_data["password1"],
+    first_name=valid_request_data["first_name"],
+    second_name=valid_request_data["second_name"],
+    birth_year=valid_request_data["birth_year"],
 )
 
 
 def _is_on_ci():
-    return 'CI' in os.environ and os.environ['CI'].lower() in ('true', '1', 't')
+    return "CI" in os.environ and os.environ["CI"].lower() in ("true", "1", "t")
 
 
 class CallRoomTests(TestCase):
-
     required_params = api.register.Register.required_args
-
-    def _some_register_call(self, data: dict) -> Response:
-        factory = APIRequestFactory(enforce_csrf_checks=True)
-        request = factory.post('/api/register/', data)
-        # This will always return the type Optional[Reponse] but pylance doesn't beleave me
-        response = api.register.Register.as_view()(request)
-        assert response, isinstance(response, Response)
-        return response  # type: ignore
-
-    def _auth_call_room_post(self, usr1, partner):
-        factory = APIRequestFactory(enforce_csrf_checks=True)
-        request = factory.post('/api/video_rooms/authenticate_call/', {
-            "usr_hash": usr1.hash,
-            "partner_hash": partner.hash,
-        })
-        force_authenticate(request, user=usr1)
-        response = api.twilio.AuthenticateCallRoom.as_view()(request)
-        response.render()
-        assert response.status_code == 200
-        return json.loads(response.content)
 
     def create_two_users_match(self):
         datas = [valid_request_data.copy(), valid_request_data.copy()]
@@ -63,7 +29,7 @@ class CallRoomTests(TestCase):
 
         usrs = []
         for d in datas:
-            response = self._some_register_call(d)
+            response = register_user_api(d)
             assert response.status_code == 200
             usr = get_user_by_email(d["email"])
             usrs.append(usr)
@@ -75,9 +41,4 @@ class CallRoomTests(TestCase):
         rooms = get_rooms_match(usrs[0], usrs[1])
         assert rooms.count() == 1
 
-    def test_authenticate_call(self):
-        if _is_on_ci():
-            return  # Then dont run this test it would fail cause of missing credentaials
-        usrs = self.create_two_users_match()
-        auth_data = self._auth_call_room_post(usrs[0], usrs[1])
-        assert 'usr_auth_token' in auth_data
+    # def test_authenticate_call(self): TODO

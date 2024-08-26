@@ -1,23 +1,16 @@
 from management.api.user_data import frontend_data
-from django.contrib.auth.mixins import LoginRequiredMixin
-from rest_framework.decorators import api_view
 from back.utils import CoolerJson
-from django.utils.translation import pgettext_lazy
 from management.views.cookie_banner_frontend import get_cookie_banner_template_data
 from django.utils import translation
 from django.conf import settings
 import json
 from dataclasses import dataclass, field
 from django.shortcuts import render, redirect
-from django.urls import reverse
 from rest_framework.request import Request
-from django.utils.translation import gettext_lazy as _
 from rest_framework import status
 from rest_framework import serializers
 from django.views import View
-from rest_framework.response import Response
-from typing import List, Optional
-from tracking import utils
+from typing import Optional
 from management.models.profile import SelfProfileSerializer
 from management.controller import get_base_management_user
 from back.utils import transform_add_options_serializer
@@ -26,9 +19,10 @@ from translations import get_translation
 # The following two are redundant with api.admin.UserListParams, api.admin.UserListApiSerializer
 # But that is desired I wan't to always handle admin logic separately this might come in handy in the future
 
+
 @dataclass
 class MainFrontendParams:
-    filters: 'list[str]' = field(default_factory=list)
+    filters: "list[str]" = field(default_factory=list)
     paginate_by: int = 50
     order_by: Optional[str] = None  # Use default order per default
     page: int = 1
@@ -46,26 +40,23 @@ class MainFrontendParamsSerializer(serializers.Serializer):
 
 
 class MainFrontendRouter(View):
-    
     # react frontend public paths
     PUBLIC_PATHS = [
-        "login", 
-        "sign-up", 
-        "forgot-password", 
+        "login",
+        "sign-up",
+        "forgot-password",
         "reset-password",
     ]
 
     def get(self, request, path="", **kwargs):
-        
         # normalize path, no trailing slash
         if path.endswith("/"):
             path = path[:-1]
 
-        login_url_redirect = ('https://home.little-world.com/' if settings.IS_PROD else '/login') if (not settings.USE_LANDINGPAGE_REDIRECT) else settings.LANDINGPAGE_REDIRECT_URL
-        
+        login_url_redirect = ("https://home.little-world.com/" if settings.IS_PROD else "/login") if (not settings.USE_LANDINGPAGE_REDIRECT) else settings.LANDINGPAGE_REDIRECT_URL
+
         if not request.user.is_authenticated:
             if any([path.startswith(p) for p in self.PUBLIC_PATHS]):
-                
                 # TODO: we need a better way to extract the options!
                 ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
                 user_profile = get_base_management_user().profile
@@ -78,26 +69,24 @@ class MainFrontendRouter(View):
                 }
 
                 cookie_context = get_cookie_banner_template_data(request)
-                return render(request, "main_frontend_public.html", {
-                        "data": json.dumps(data, cls=CoolerJson), **cookie_context})
+                return render(request, "main_frontend_public.html", {"data": json.dumps(data, cls=CoolerJson), **cookie_context})
             if path == "":
                 # the root path is generally redirected to `little-world.com` in production ( otherwise to an app intern landing page )
                 return redirect(login_url_redirect)
             if not path.startswith("/"):
                 path = f"/{path}"
             return redirect(f"{login_url_redirect}?next={path}")
-        
+
         # authenticated users
-        
+
         if (not request.user.state.is_email_verified()) and (not path.startswith("app/verify-email")):
             return redirect("/app/verify-email/")
-        
+
         if request.user.state.is_email_verified() and ((not request.user.state.is_user_form_filled()) and (not path.startswith("app/user-form"))):
             return redirect("/app/user-form/")
 
         if request.user.state.is_email_verified() and request.user.state.is_user_form_filled() and (not path.startswith("app")):
             return redirect("/app/")
-
 
         extra_template_data = {}
         with translation.override("tag"):
@@ -107,82 +96,40 @@ class MainFrontendRouter(View):
         return render(request, "main_frontend_public.html", {"data": json.dumps(data, cls=CoolerJson), **extra_template_data})
 
 
-def info_card(
-        request, 
-        confirm_mode=False,
-        title="",
-        content="",
-        confirmText="",
-        rejectText="",
-        linkText="",
-        linkTo="",
-        status_code=status.HTTP_200_OK
-    ):
-    
+def info_card(request, confirm_mode=False, title="", content="", confirmText="", rejectText="", linkText="", linkTo="", status_code=status.HTTP_200_OK):
     # cast rest_framework request to django request
-    
-    data = {
-        "title": title,
-        "content": content,
-        "linkText": linkText,
-        "linkTo": linkTo
-    }
-    
+
+    data = {"title": title, "content": content, "linkText": linkText, "linkTo": linkTo}
+
     if confirm_mode:
         raise NotImplementedError("confirm mode not yet implemented")
-    
+
     if isinstance(request, Request):
         request = request._request
 
     # info view relies on frontend translations per default
     with translation.override("tag"):
-        return render(request, "info_card.html", {"data": 
-                       json.dumps(data, cls=CoolerJson)}, status=status_code)
+        return render(request, "info_card.html", {"data": json.dumps(data, cls=CoolerJson)}, status=status_code)
 
 
 def email_verification_link(request, **kwargs):
     from management.api.user import verify_email_link
 
-    if not 'auth_data' in kwargs:
-        raise serializers.ValidationError(
-            {"auth_data": get_translation("errors.missing_email_auth_data_get_frontend")})
+    if "auth_data" not in kwargs:
+        raise serializers.ValidationError({"auth_data": get_translation("errors.missing_email_auth_data_get_frontend")})
 
-    if verify_email_link(kwargs['auth_data']):
-        return info_card(
-            request,
-            title=get_translation("info_view.email_verification_link_success.title"),
-            content=get_translation("info_view.email_verification_link_success.content"),
-            linkText=get_translation("info_view.email_verification_link_success.linkText"),
-            linkTo="/app/")
+    if verify_email_link(kwargs["auth_data"]):
+        return info_card(request, title=get_translation("info_view.email_verification_link_success.title"), content=get_translation("info_view.email_verification_link_success.content"), linkText=get_translation("info_view.email_verification_link_success.linkText"), linkTo="/app/")
     else:
-        return info_card(
-            request,
-            title=get_translation("info_view.email_verification_link_failure.title"),
-            content=get_translation("info_view.email_verification_link_failure.content"),
-            linkText=get_translation("info_view.email_verification_link_failure.linkText"),
-            linkTo="/app/")
+        return info_card(request, title=get_translation("info_view.email_verification_link_failure.title"), content=get_translation("info_view.email_verification_link_failure.content"), linkText=get_translation("info_view.email_verification_link_failure.linkText"), linkTo="/app/")
 
 
 def handler404(request, exception=None):
-    return info_card(
-        request,
-        title=get_translation("info_view.404.title"),
-        content=get_translation("info_view.404.content"),
-        linkText=get_translation("info_view.404.linkText"),
-        linkTo="/app/",
-        status_code=status.HTTP_404_NOT_FOUND
-    )
+    return info_card(request, title=get_translation("info_view.404.title"), content=get_translation("info_view.404.content"), linkText=get_translation("info_view.404.linkText"), linkTo="/app/", status_code=status.HTTP_404_NOT_FOUND)
 
 
 def handler500(request, exception=None):
-    return info_card(
-        request,
-        title=get_translation("info_view.500.title"),
-        content=get_translation("info_view.500.content"),
-        linkText=get_translation("info_view.500.linkText"),
-        linkTo="/app/",
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
-    )
+    return info_card(request, title=get_translation("info_view.500.title"), content=get_translation("info_view.500.content"), linkText=get_translation("info_view.500.linkText"), linkTo="/app/", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @dataclass
@@ -203,28 +150,21 @@ def set_password_reset(request, **kwargs):
     # TODO: this url should only be opened with a valid token, otherwise this should error!
     from django_rest_passwordreset.serializers import ResetTokenSerializer
 
-    serializer = SetPasswordResetSerializer(data={
-        "usr_hash": kwargs.get("usr_hash", None),
-        "token": kwargs.get("token", None)
-    })  # type: ignore
+    serializer = SetPasswordResetSerializer(data={"usr_hash": kwargs.get("usr_hash", None), "token": kwargs.get("token", None)})  # type: ignore
 
     serializer.is_valid(raise_exception=True)
     params = serializer.save()
-        
+
     try:
-        token_serializer = ResetTokenSerializer(data={
-            "token": params.token,
-        })
-        
-        token_serializer.is_valid(raise_exception=True)
-    except Exception as e:
-        return info_card(
-            request,
-            title=get_translation("info_view.set_password_reset_failure.title"),
-            content=get_translation("info_view.set_password_reset_failure.content"),
-            linkText=get_translation("info_view.set_password_reset_failure.linkText"),
-            linkTo="/app/"
+        token_serializer = ResetTokenSerializer(
+            data={
+                "token": params.token,
+            }
         )
-        
+
+        token_serializer.is_valid(raise_exception=True)
+    except Exception:
+        return info_card(request, title=get_translation("info_view.set_password_reset_failure.title"), content=get_translation("info_view.set_password_reset_failure.content"), linkText=get_translation("info_view.set_password_reset_failure.linkText"), linkTo="/app/")
+
     # otherwise redirect to the change password frontend page
     return redirect(f"/reset-password/{params.usr_hash}/{params.token}/")

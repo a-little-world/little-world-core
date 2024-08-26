@@ -4,7 +4,7 @@ from back.utils import _double_uuid
 
 class BackendState(models.Model):
     """
-    This is a stateclass for managing backend states 
+    This is a stateclass for managing backend states
     e.g.: This stores if certain events happened yet
     in order of assuring event dont restart even if some memory state is reset
     ---> default event's created, adin user created
@@ -22,8 +22,7 @@ class BackendState(models.Model):
         pre_matching_call_active = "pre-matching-call-active"
         updating_matching_scores = "updating-matching-scores"
 
-    slug = models.CharField(null=False, blank=False,
-                            choices=BackendStateEnum.choices, unique=True, max_length=255)
+    slug = models.CharField(null=False, blank=False, choices=BackendStateEnum.choices, unique=True, max_length=255)
 
     name = models.CharField(default="master", unique=True, max_length=255)
     hash = models.CharField(default=_double_uuid, max_length=255)
@@ -31,8 +30,7 @@ class BackendState(models.Model):
 
     @classmethod
     def exists_or_create(cls, enum_slug, set_true=True):
-        exists = cls.objects.filter(
-            slug=enum_slug).exists()
+        exists = cls.objects.filter(slug=enum_slug).exists()
         if exists:
             return True
         else:
@@ -45,45 +43,33 @@ class BackendState(models.Model):
 
     @classmethod
     def are_default_cookies_set(cls, set_true=False):
-        return cls.exists_or_create(
-            cls.BackendStateEnum.default_cookies, set_true=set_true)
+        return cls.exists_or_create(cls.BackendStateEnum.default_cookies, set_true=set_true)
 
     @classmethod
     def are_default_community_events_set(cls, set_true=False):
-        return cls.exists_or_create(
-            cls.BackendStateEnum.default_community_events, set_true=set_true)
+        return cls.exists_or_create(cls.BackendStateEnum.default_community_events, set_true=set_true)
 
     @classmethod
     def is_base_management_user_profile_filled(cls, set_true=False):
-        return cls.exists_or_create(
-            cls.BackendStateEnum.base_management_user_profile, set_true=set_true)
+        return cls.exists_or_create(cls.BackendStateEnum.base_management_user_profile, set_true=set_true)
 
     @classmethod
     def is_default_score_source_created(cls, set_true=False):
-        return cls.exists_or_create(
-            cls.BackendStateEnum.default_score_source_created, set_true=set_true)
-        
+        return cls.exists_or_create(cls.BackendStateEnum.default_score_source_created, set_true=set_true)
+
     @classmethod
     def is_updating_matching_scores(cls, set_true=False, meta={"tasks": []}):
-        return cls.exists_or_create(
-            cls.BackendStateEnum.updating_matching_scores, set_true=set_true, meta=meta)
-        
+        return cls.exists_or_create(cls.BackendStateEnum.updating_matching_scores, set_true=set_true, meta=meta)
+
     @classmethod
     def set_not_updating_matching_scores(cls):
         cls.objects.filter(slug=cls.BackendStateEnum.updating_matching_scores).delete()
-        
+
     @classmethod
     def get_prematch_callinvitations_state(cls):
         backend_state = cls.objects.filter(slug=cls.BackendStateEnum.pre_matching_call_active)
         if backend_state.exists():
             return backend_state.first()
         else:
-            backend_state = cls.objects.create(
-                slug=cls.BackendStateEnum.pre_matching_call_active,
-                name="Pre Match Video Calls",
-                meta={
-                    "active": False,
-                    "invitations_remaining": 10
-                }
-            )
+            backend_state = cls.objects.create(slug=cls.BackendStateEnum.pre_matching_call_active, name="Pre Match Video Calls", meta={"active": False, "invitations_remaining": 10})
             return backend_state
