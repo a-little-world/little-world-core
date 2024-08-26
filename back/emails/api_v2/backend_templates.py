@@ -11,6 +11,7 @@ from django.views.decorators.clickjacking import xframe_options_exempt
 from management.controller import get_base_management_user
 from management.models.matches import Match
 from django.db.models import Q
+from management.models.unconfirmed_matches import ProposedMatch
 
 
 @api_view(["GET"])
@@ -65,12 +66,16 @@ def render_backend_template(request, template_name):
     match_id = query_params.get("match_id", None)
     if match_id:
         del query_params["match_id"]
+        
+    proposed_match_id = query_params.get("proposed_match_id", None)
+    if proposed_match_id:
+        del query_params["proposed_match_id"]
 
     context = {}
     for key in query_params:
         context[key] = query_params[key]
 
-    rendered = render_template_dynamic_lookup(template_name, user_id, match_id, **context)
+    rendered = render_template_dynamic_lookup(template_name, user_id, match_id, proposed_match_id, **context)
     return HttpResponse(rendered, content_type="text/html")
 
 
@@ -92,8 +97,9 @@ def test_render_email(request, template_name):
 
     mock_user_id = get_base_management_user().id
     mock_match_id = Match.objects.filter(Q(user1=mock_user_id) | Q(user2=mock_user_id)).first().id
+    mock_proposed_match_id = ProposedMatch.objects.filter(~Q(user1=mock_user_id) & ~Q(user2=mock_user_id)).first().id
 
-    rendered = render_template_dynamic_lookup(template_name, mock_user_id, mock_match_id, **mock_context)
+    rendered = render_template_dynamic_lookup(template_name, mock_user_id, mock_match_id,mock_proposed_match_id, **mock_context)
     response = HttpResponse(rendered, content_type="text/html")
 
     # Remove the 'cross-origin-opener-policy' header if it exists in debug

@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from emails.api_v2.emails_config import EMAILS_CONFIG
 from django.template.loader import get_template, render_to_string
 from django.template.base import VariableNode, NodeList
+from management.models.unconfirmed_matches import ProposedMatch
 import importlib
 
 
@@ -58,7 +59,7 @@ class MissingContextDependencyException(Exception):
     pass
 
 
-def prepare_template_context(template_name, user_id=None, match_id=None, **kwargs):
+def prepare_template_context(template_name, user_id=None, match_id=None, proposed_match_id=None, **kwargs):
     params = EMAILS_CONFIG.parameters
     template_config = EMAILS_CONFIG.emails.get(template_name)
     template_path = template_config.template
@@ -68,15 +69,20 @@ def prepare_template_context(template_name, user_id=None, match_id=None, **kwarg
 
     available_dependencies = []
 
-    # TODO: this should be enforcing match user access encapsulation
     user = None if (not user_id) else get_user_model().objects.get(id=user_id)
+    proposed_match = None if (not proposed_match_id) else ProposedMatch.objects.get(id=proposed_match_id)
     match = None if (not match_id) else Match.objects.get(id=match_id)
+    
+    print("user", user, "match", match, "proposed_match", proposed_match)
 
     if user:
         available_dependencies.append("user")
 
     if match:
         available_dependencies.append("match")
+        
+    if proposed_match:
+        available_dependencies.append("proposed_match")
 
     for key in kwargs:
         available_dependencies.append(f"context.{key}")
@@ -93,7 +99,7 @@ def prepare_template_context(template_name, user_id=None, match_id=None, **kwarg
             continue
 
         if not set(param_config.depends_on).issubset(available_dependencies):
-            raise MissingContextDependencyException(f"Missing context dependency for {param}")
+            raise MissingContextDependencyException(f"Missing context dependency for {param} in {available_dependencies} - {param_config.depends_on}")
 
         function_lookup = param_config.lookup
         function_lookup = function_lookup.split(".")
@@ -107,6 +113,8 @@ def prepare_template_context(template_name, user_id=None, match_id=None, **kwarg
                 lookup_context["user"] = user
             elif dependency == "match":
                 lookup_context["match"] = match
+            elif dependency == "proposed_match":
+                lookup_context["proposed_match"] = proposed_match
             elif dependency.startswith("context."):
                 param_name = dependency.split(".")[1]
                 print(kwargs)
@@ -120,8 +128,8 @@ def prepare_template_context(template_name, user_id=None, match_id=None, **kwarg
     return template_info, context
 
 
-def render_template_dynamic_lookup(template_name, user_id=None, match_id=None, **kwargs):
-    template_info, context = prepare_template_context(template_name, user_id, match_id, **kwargs)
+def render_template_dynamic_lookup(template_name, user_id=None, match_id=None, proposed_match_id=None, **kwargs):
+    template_info, context = prepare_template_context(template_name, user_id, match_id, proposed_match_id, **kwargs)
     template_path = template_info["config"]["template"]
 
     return render_template_to_html(template_path, context)
