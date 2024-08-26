@@ -68,7 +68,7 @@ var config = function (env) {
           ],
         },
         {
-          test: /\.(jpg|png|svg|gif|tff)$/,
+          test: /\.(jpg|png|svg|webp|gif|tff)$/,
           type: 'asset/resource',
         },
         {
