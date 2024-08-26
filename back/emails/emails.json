@@ -167,6 +167,14 @@
         "match"
       ]
     },
+    "proposed_match_first_name": {
+      "id": "proposed_match_first_name",
+      "lookup": "emails.api_v2.template_lookup.proposed_match_first_name",
+      "depends_on": [
+        "user",
+        "proposed_match"
+      ]
+    },
     "unsubscribe_url": {
       "id": "unsubscribe_url",
       "lookup": "emails.api_v2.template_lookup.unsubscribe_url",
@@ -179,7 +187,7 @@
       "lookup": "emails.api_v2.template_lookup.accept_match_url",
       "depends_on": [
         "user",
-        "match"
+        "proposed_match"
       ]
     },
     "partner_profile_url": {
@@ -228,6 +236,10 @@
     "match": {
       "id": "match",
       "query_id_field": "match_id"
+    },
+    "proposed_match": {
+      "id": "proposed_match",
+      "query_id_field": "proposed_match_id"
     },
     "context": {
       "id": "context",

@@ -14,6 +14,7 @@ from django.contrib.auth import get_user_model
 class SendEmailSerializer(serializers.Serializer):
     user_id = serializers.IntegerField(required=True)
     match_id = serializers.IntegerField(required=False, default=-1)
+    proposed_match_id = serializers.IntegerField(required=False, default=None)
     context = serializers.DictField(required=False, default={})
     emulate_send = serializers.BooleanField(required=False, default=False)
 
@@ -22,13 +23,14 @@ def send_template_email(
         template_name, 
         user_id=None, 
         match_id=None,
+        proposed_match_id=None,
         emulated_send=False, 
         context={}
     ):
 
     user = get_user_model().objects.get(pk=user_id)
 
-    template_info, _context = prepare_template_context(template_name, user_id, match_id, **context)
+    template_info, _context = prepare_template_context(template_name, user_id, match_id, proposed_match_id, **context)
     email_html = render_template_to_html(template_info["config"]["template"], _context)
     from management.controller import get_base_management_user
 
@@ -66,7 +68,8 @@ def send_template_email_api(request, template_name):
     serializer.is_valid(raise_exception=True)
 
     match_id = None if serializer.data.get("match_id", -1) == -1 else serializer.data.get("match_id", None)
-    return send_template_email(template_name, user_id=serializer.data["user_id"], match_id=match_id, emulated_send=serializer.data.get("emulate_send", False), context=serializer.data.get("context", {}))
+    proposed_match_id = None if serializer.data.get("proposed_match_id", None) is None else serializer.data.get("proposed_match_id", None)
+    return send_template_email(template_name, user_id=serializer.data["user_id"], match_id=match_id, proposed_match_id=proposed_match_id, emulated_send=serializer.data.get("emulate_send", False), context=serializer.data.get("context", {}))
 
 
 api_urls = [
