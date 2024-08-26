@@ -5,6 +5,7 @@ from datetime import timedelta
 from django.db.models import Q
 from uuid import uuid4
 from django.dispatch import receiver
+from django.conf import settings
 
 
 def seven_days_from_now():
@@ -99,16 +100,22 @@ class ProposedMatch(models.Model):
                 first_name=user.profile.first_name,
                 match_first_name=other.profile.first_name,
             )
+            
+        if settings.USE_V2_EMAIL_APIS:
+            learner.send_email_v2("confirm-match-1", match_id=self.id)
+        else:
+            if settings.DISABLE_LEGACY_EMAIL_SENDING:
+                raise Exception("Legacy email sending is disabled, but we are trying to send a legacy email")
 
-        # send the mail
-        controller.send_group_mail(
-            users=[learner],
-            subject="Match gefunden - jetzt bestätigen",
-            mail_name="confirm_match_mail_1",
-            mail_params_func=get_params,
-            unsubscribe_group=None,  # You can not unsubscribe from this!
-            emulated_send=False,  # TODO Just debug for now
-        )
+            # send the mail
+            controller.send_group_mail(
+                users=[learner],
+                subject="Match gefunden - jetzt bestätigen",
+                mail_name="confirm_match_mail_1",
+                mail_params_func=get_params,
+                unsubscribe_group=None,  # You can not unsubscribe from this!
+                emulated_send=False,  # TODO Just debug for now
+            )
 
     def send_expiration_mail(self):
         # TODO: there are very rare concurrency issues possible here right?

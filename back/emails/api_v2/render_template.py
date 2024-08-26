@@ -3,6 +3,7 @@ from django.contrib.auth import get_user_model
 from emails.api_v2.emails_config import EMAILS_CONFIG
 from django.template.loader import get_template, render_to_string
 from django.template.base import VariableNode, NodeList
+from management.models.unconfirmed_matches import ProposedMatch
 import importlib
 
 
@@ -70,7 +71,15 @@ def prepare_template_context(template_name, user_id=None, match_id=None, **kwarg
 
     # TODO: this should be enforcing match user access encapsulation
     user = None if (not user_id) else get_user_model().objects.get(id=user_id)
-    match = None if (not match_id) else Match.objects.get(id=match_id)
+    match = None if (not match_id) else Match.objects.filter(id=match_id)
+
+    # if the match object doesn't exist check if a match proposal exists
+    if match and not match.exists():
+        match = ProposedMatch.objects.filter(id=match_id)
+        if match.exists():
+            match = match.first()
+        else:
+            match = None
 
     if user:
         available_dependencies.append("user")
