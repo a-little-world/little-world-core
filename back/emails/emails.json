@@ -74,7 +74,7 @@
       "id": "reset-password",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "No Subject",
+      "subject": "Passwort Vergessen?",
       "template": "react_emails/reset-password.html"
     },
     "still-in-contact": {
