@@ -74,12 +74,15 @@ def prepare_template_context(template_name, user_id=None, match_id=None, **kwarg
     match = None if (not match_id) else Match.objects.filter(id=match_id)
 
     # if the match object doesn't exist check if a match proposal exists
-    if match and not match.exists():
-        match = ProposedMatch.objects.filter(id=match_id)
+    if match:
         if match.exists():
             match = match.first()
         else:
-            match = None
+            match = ProposedMatch.objects.filter(id=match_id)
+            if match.exists():
+                match = match.first()
+            else:
+                match = None
 
     if user:
         available_dependencies.append("user")
@@ -102,7 +105,7 @@ def prepare_template_context(template_name, user_id=None, match_id=None, **kwarg
             continue
 
         if not set(param_config.depends_on).issubset(available_dependencies):
-            raise MissingContextDependencyException(f"Missing context dependency for {param}")
+            raise MissingContextDependencyException(f"Missing context dependency for {param} in {available_dependencies} - {param_config.depends_on}")
 
         function_lookup = param_config.lookup
         function_lookup = function_lookup.split(".")
