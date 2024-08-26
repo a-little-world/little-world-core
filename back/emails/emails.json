@@ -53,7 +53,7 @@
       "id": "new-match",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Gl\u00fcckwunsch! Lerne jetzt {match_first_name} kennen",
+      "subject": "Gl\u00fcckwunsch! Lerne jetzt {{ partner_first_name }} kennen",
       "template": "react_emails/new-match.html"
     },
     "new-messages": {
@@ -81,7 +81,7 @@
       "id": "still-in-contact",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Noch in Kontakt mit {match_name}?",
+      "subject": "Noch in Kontakt mit {{ partner_first_name }}?",
       "template": "react_emails/still-in-contact.html"
     },
     "unfinished_user_form_1": {
