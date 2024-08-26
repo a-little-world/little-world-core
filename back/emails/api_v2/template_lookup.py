@@ -22,13 +22,13 @@ def restart_search_url(user):
 def verification_url(user):
     return f"{settings.BASE_URL}/mailverify_link/{user.state.get_email_auth_code_b64()}"
 
-def accept_match_url(user, poposed_match):
-    assert (user == poposed_match.user1) or (user == poposed_match.user2)
+def accept_match_url(user, proposed_match=None):
+    assert (user == proposed_match.user1) or (user == proposed_match.user2)
     return f"{settings.BASE_URL}/login?next=/app/"
 
-def proposed_match_first_name(user, poposed_match):
-    assert (user == poposed_match.user1) or (user == poposed_match.user2)
-    partner = poposed_match.get_partner(user)
+def proposed_match_first_name(user, proposed_match=None):
+    assert (user == proposed_match.user1) or (user == proposed_match.user2)
+    partner = proposed_match.get_partner(user)
     return partner.profile.first_name
 
 def reset_password_url(user=None, match=None, context={"reset_password_url": "Not set"}):
