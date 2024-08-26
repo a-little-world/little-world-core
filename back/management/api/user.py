@@ -1,5 +1,5 @@
 from rest_framework.views import APIView
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import HttpResponseRedirect
 from django.contrib.auth.decorators import login_required
 from management.controller import delete_user
 from emails import mails
@@ -8,8 +8,7 @@ from rest_framework.decorators import api_view, permission_classes
 from typing import Optional
 from django.contrib.auth import logout
 from django.urls import reverse
-from django.http import HttpResponseRedirect
-from django.shortcuts import render, redirect
+from django.shortcuts import redirect
 from django_rest_passwordreset.signals import reset_password_token_created
 from django.conf import settings
 from django.dispatch import receiver
@@ -36,7 +35,7 @@ The public /user api's
 def verify_email_link(auth_data):
     try:
         _data = State.decode_email_auth_code_b64(auth_data)
-        usr = get_user_by_hash(_data['u'])
+        usr = get_user_by_hash(_data["u"])
         if usr.state.check_email_auth_code_b64(auth_data):
             return True
     except Exception as e:
@@ -46,7 +45,6 @@ def verify_email_link(auth_data):
 
 
 class VerifyEmail(APIView):
-
     # Everyone can acess this 'get' api,
     # we will enforce authentication for 'post' though
     permission_classes = []
@@ -57,15 +55,13 @@ class VerifyEmail(APIView):
         e.g.: they verify email from their phone but are logged in on PC
         we will then assume 'auth_data' is a base64 encoded string
         """
-        if not 'auth_data' in kwargs:
-            raise serializers.ValidationError(
-                {"auth_data": get_translation("email.verify_auth_data_missing_get")})
+        if "auth_data" not in kwargs:
+            raise serializers.ValidationError({"auth_data": get_translation("email.verify_auth_data_missing_get")})
 
-        if verify_email_link(kwargs['auth_data']):
+        if verify_email_link(kwargs["auth_data"]):
             return Response(get_translation("email.verify_success_get"))
 
-        return Response(get_translation("email.verify_failure_get"),
-                        status=status.HTTP_400_BAD_REQUEST)
+        return Response(get_translation("email.verify_failure_get"), status=status.HTTP_400_BAD_REQUEST)
 
     def post(self, request, **kwargs):
         """
@@ -76,18 +72,15 @@ class VerifyEmail(APIView):
         if not request.user.is_authenticated:
             # POST is only for logged in users it allowes to enter a PIN
             return Response(status=status.HTTP_403_FORBIDDEN)
-        if not 'auth_data' in kwargs:
-            raise serializers.ValidationError(
-                {"auth_data": get_translation("email.verify_auth_data_missing_post")})
+        if "auth_data" not in kwargs:
+            raise serializers.ValidationError({"auth_data": get_translation("email.verify_auth_data_missing_post")})
         try:
-            auth_pin = int(kwargs['auth_data'])
+            auth_pin = int(kwargs["auth_data"])
         except:
-            raise serializers.ValidationError({"auth_data":
-                                               get_translation("email.verify_failure_not_numeric")})
+            raise serializers.ValidationError({"auth_data": get_translation("email.verify_failure_not_numeric")})
         if request.user.state.check_email_auth_pin(auth_pin):
             return Response(get_translation("email.verify_success_post"))
-        return Response(get_translation("email.verify_failure_post"),
-                        status=status.HTTP_400_BAD_REQUEST)
+        return Response(get_translation("email.verify_failure_post"), status=status.HTTP_400_BAD_REQUEST)
 
 
 @dataclass
@@ -139,24 +132,19 @@ class LoginApi(APIView):
 
         login_data = serializer.save()
 
-        usr = authenticate(username=login_data.email.lower(),
-                           password=login_data.password)
+        usr = authenticate(username=login_data.email.lower(), password=login_data.password)
 
         if usr is not None:
             if usr.is_staff:  # type: ignore
                 # pylint thinks this is a AbsUsr but we have overwritten it models.user.User
-                return Response(get_translation(
-                    "api.login_failed_staff"),
-                    status=status.HTTP_400_BAD_REQUEST)
+                return Response(get_translation("api.login_failed_staff"), status=status.HTTP_400_BAD_REQUEST)
             login(request, usr)
-            # Also pass the whole user data on a sucessfull login! 
+            # Also pass the whole user data on a sucessfull login!
             from management.api.user_data import frontend_data
-            
+
             return Response(frontend_data(request.user))
         else:
-            return Response(get_translation(
-                "api.login_failed"),
-                status=status.HTTP_400_BAD_REQUEST)
+            return Response(get_translation("api.login_failed"), status=status.HTTP_400_BAD_REQUEST)
 
     @extend_schema(request=AutoLoginSerializer(many=False))
     def get(self, request):
@@ -184,20 +172,13 @@ class LoginApi(APIView):
 
 
 class LogoutApi(APIView):
-
-    authentication_classes = [authentication.SessionAuthentication,
-                              authentication.BasicAuthentication]
+    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
-    @utils.track_event(
-        name="User Logged out",
-        event_type=Event.EventTypeChoices.REQUEST,
-        tags=["frontend", "log-out", "sensitive"])
+    @utils.track_event(name="User Logged out", event_type=Event.EventTypeChoices.REQUEST, tags=["frontend", "log-out", "sensitive"])
     def get(self, request):
-
         logout(request)
-        return Response(get_translation(
-            "api.logout_sucessful"))
+        return Response(get_translation("api.logout_sucessful"))
 
 
 @dataclass
@@ -213,9 +194,7 @@ class CheckPwSerializer(serializers.Serializer):
 
 
 class CheckPasswordApi(APIView):
-
-    authentication_classes = [authentication.SessionAuthentication,
-                              authentication.BasicAuthentication]
+    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(request=CheckPwSerializer(many=False))
@@ -245,12 +224,10 @@ class ChangePasswordSerializer(serializers.Serializer):
 
 
 class ChangePasswordApi(APIView):
-
-    authentication_classes = [authentication.SessionAuthentication,
-                              authentication.BasicAuthentication]
+    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
-    @ extend_schema(request=ChangePasswordSerializer(many=False))
+    @extend_schema(request=ChangePasswordSerializer(many=False))
     def post(self, request):
         serializer = ChangePasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -258,12 +235,10 @@ class ChangePasswordApi(APIView):
 
         _check = request.user.check_password(params.password_old)
         if not _check:
-            return Response(get_translation("api.change_password_failed_incorrect_old_pw"),
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(get_translation("api.change_password_failed_incorrect_old_pw"), status=status.HTTP_400_BAD_REQUEST)
 
         if params.password_new != params.password_new2:
-            return Response(get_translation("api.change_password_failed_new_pw_not_equal"),
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(get_translation("api.change_password_failed_new_pw_not_equal"), status=status.HTTP_400_BAD_REQUEST)
 
         request.user.set_password(params.password_new)
         request.user.save()
@@ -271,14 +246,14 @@ class ChangePasswordApi(APIView):
         return Response(get_translation("api.change_password_sucessful"), status=status.HTTP_200_OK)
 
 
-@ dataclass
+@dataclass
 class ChangeEmailParams:
     email: str
 
 
 class ChangeEmailSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
-    
+
     def validate_email(self, value):
         # we strip spaces at beginning and end ( cause many people accidently have those )
         value = value.strip()
@@ -289,12 +264,10 @@ class ChangeEmailSerializer(serializers.Serializer):
 
 
 class ChangeEmailApi(APIView):
-
-    authentication_classes = [authentication.SessionAuthentication,
-                              authentication.BasicAuthentication]
+    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
-    @ extend_schema(request=ChangeEmailSerializer(many=False))
+    @extend_schema(request=ChangeEmailSerializer(many=False))
     def post(self, request):
         """
         The user can use this to change his email, *of couse only if the is logged in*
@@ -308,16 +281,10 @@ class ChangeEmailApi(APIView):
         params = serializer.save()
 
         if request.user.is_staff:
-            raise serializers.ValidationError({
-                "email": get_translation(
-                    "api.user.change_email_not_allowed_staff")
-            })
+            raise serializers.ValidationError({"email": get_translation("api.user.change_email_not_allowed_staff")})
 
         if params.email == request.user.email:
-            raise serializers.ValidationError({
-                "email": get_translation(
-                    "api.user.change_email_failed_same_email")
-            })
+            raise serializers.ValidationError({"email": get_translation("api.user.change_email_failed_same_email")})
         else:
             # Maybe a user with this email already exista anyways?
             email_exists = True
@@ -326,18 +293,21 @@ class ChangeEmailApi(APIView):
             except UserNotFoundErr:
                 email_exists = False
             if email_exists:
-                raise serializers.ValidationError({"email":  # TODO: now we are exposing us to email enumeration this APIView should be throttled!
-                                                   get_translation("api.user.change_email_failed_email_exists").format(email=params.email)})
+                raise serializers.ValidationError(
+                    {
+                        "email":  # TODO: now we are exposing us to email enumeration this APIView should be throttled!
+                        get_translation("api.user.change_email_failed_email_exists").format(email=params.email)
+                    }
+                )
 
         # Now we change the email, change the auto code & pin, send another verification mail
         request.user.change_email(params.email)
-        return Response(get_translation(
-            "api.user.change_email_successful"))
+        return Response(get_translation("api.user.change_email_successful"))
 
 
-@ dataclass
+@dataclass
 class ConfirmMatchesParams:
-    matches: 'list[str]'
+    matches: "list[str]"
 
 
 class ConfirmMatchesSerializer(serializers.Serializer):
@@ -348,9 +318,7 @@ class ConfirmMatchesSerializer(serializers.Serializer):
 
 
 class ConfirmMatchesApi(APIView):
-
-    authentication_classes = [authentication.SessionAuthentication,
-                              authentication.BasicAuthentication]
+    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(request=ConfirmMatchesSerializer(many=False))
@@ -362,31 +330,29 @@ class ConfirmMatchesApi(APIView):
         try:
             # TODO: this is the old strategy, we should use the new stragegy
             request.user.state.confirm_matches(params.matches)
-        except Exception as e:
+        except Exception:
             pass
-            
+
         try:
             # In order to keep things working while we deploy the new strategy this api will also populate all db-fileds required for the new strategy
             # This is a little more involved than it has to be, this will once finished be replaced by 'ConfirmMatchesApi2'
             for match_hash in params.matches:
                 partner = get_user_by_hash(match_hash)
-                
+
                 from management.models.matches import Match
-                
+
                 match = Match.get_match(request.user, partner)
                 assert match.exists()
                 match = match.first()
                 match.confirm(request.user)
 
-            
-            
         except Exception as e:
             raise serializers.ValidationError({"matches": str(e)})
 
         return Response(get_translation("api.user_matches_successfully_confirmed"))
 
 
-@ dataclass
+@dataclass
 class SearchingStateApiParams:
     state_slug: str
 
@@ -399,9 +365,7 @@ class SearchingStateApiSerializer(serializers.Serializer):
 
 
 class UpdateSearchingStateApi(APIView):
-
-    authentication_classes = [authentication.SessionAuthentication,
-                              authentication.BasicAuthentication]
+    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(request=SearchingStateApiSerializer(many=False))
@@ -410,18 +374,14 @@ class UpdateSearchingStateApi(APIView):
         Update the users serching state, current possible states: 'idle', 'searching'
         So e.g.: This should be called then the users clicks on search for match
         """
-        serializer = SearchingStateApiSerializer(
-            data={'state_slug': kwargs.get('state_slug')} if 'state_slug' in kwargs else {})  # type: ignore
+        serializer = SearchingStateApiSerializer(data={"state_slug": kwargs.get("state_slug")} if "state_slug" in kwargs else {})  # type: ignore
         serializer.is_valid(raise_exception=True)
         params = serializer.save()
 
         print("TBS", State.MatchingStateChoices.values)
 
-        if not params.state_slug in State.MatchingStateChoices.values:
-            raise serializers.ValidationError(
-                {"state_slug": get_translation(
-                    "api.user_update_searching_state_slug_doesnt_exist").format(slug=params.state_slug)}
-            )
+        if params.state_slug not in State.MatchingStateChoices.values:
+            raise serializers.ValidationError({"state_slug": get_translation("api.user_update_searching_state_slug_doesnt_exist").format(slug=params.state_slug)})
 
         request.user.state.change_searching_state(params.state_slug)
         return Response(get_translation("api.user_update_searching_state_state_successfully_changed"))
@@ -437,7 +397,7 @@ class UnmatchSelfSerializer(serializers.Serializer):
 
 @extend_schema(request=UnmatchSelfSerializer(many=False))
 @login_required
-@api_view(['POST'])
+@api_view(["POST"])
 def unmatch_self(request):
     from management import controller
 
@@ -446,33 +406,34 @@ def unmatch_self(request):
 
     params = serializer.save()
 
-    other_user = controller.get_user_by_hash(params['other_user_hash'])
+    other_user = controller.get_user_by_hash(params["other_user_hash"])
 
     if other_user.is_staff or other_user.pk == controller.get_base_management_user().pk:
         return Response(status=403)
 
     past_match = controller.unmatch_users({request.user, other_user})
-    past_match.reason = params['reason']
+    past_match.reason = params["reason"]
     past_match.save()
 
     return Response(get_translation("api.user_unmatch_self_success"))
 
 
 @login_required
-@api_view(['POST'])
+@api_view(["POST"])
 def resend_verification_mail(request):
-    link_route = 'mailverify_link'
-    verifiaction_url = f"{settings.BASE_URL}/{link_route}/{request.user.state.get_email_auth_code_b64()}"
-    mails.send_email(
-        recivers=[request.user.email],
-        subject="{code} - Verifizierungscode zur E-Mail Bestätigung".format(code=request.user.state.get_email_auth_pin()),
-        mail_data=mails.get_mail_data_by_name("welcome"),
-        mail_params=mails.WelcomeEmailParams(
-            first_name=request.user.profile.first_name,
-            verification_url=verifiaction_url,
-            verification_code=str(request.user.state.get_email_auth_pin())
+    
+    if settings.USE_V2_EMAIL_APIS:
+        request.user.send_email_v2("verify-email")
+    else:
+        # TODO: depricate the old way
+        link_route = "mailverify_link"
+        verifiaction_url = f"{settings.BASE_URL}/{link_route}/{request.user.state.get_email_auth_code_b64()}"
+        mails.send_email(
+            recivers=[request.user.email],
+            subject="{code} - Verifizierungscode zur E-Mail Bestätigung".format(code=request.user.state.get_email_auth_pin()),
+            mail_data=mails.get_mail_data_by_name("welcome"),
+            mail_params=mails.WelcomeEmailParams(first_name=request.user.profile.first_name, verification_url=verifiaction_url, verification_code=str(request.user.state.get_email_auth_pin())),
         )
-    )
 
     return Response("Resend verification mail")
 
@@ -483,43 +444,43 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
     Handles password reset tokens
     This is automaticly called fron djang-rest-password reset when the /api/user/resetpw is called
     """
-    # TODO: track this event!
-    # print("TBS: request PW reset", sender, instance, reset_password_token)
     # This is the url of our password reset view
     # We also pass the reset token to the view so it can be used to change the password
     usr_hash = reset_password_token.user.hash
     reset_password_url = f"{settings.BASE_URL}/set_password/{usr_hash}/{reset_password_token.key}"
     print("GENERATED RESET URL", reset_password_url)
 
-    mail_data = get_mail_data_by_name("password_reset")
-    reset_password_token.user.send_email(
-        subject=get_translation("api.user_resetpw_mail_subject"),
-        mail_data=mail_data,
-        mail_params=PwResetMailParams(
-            password_reset_url=reset_password_url
-        ),
-    )
-    
+    if settings.USE_V2_EMAIL_APIS:
+        reset_password_token.user.send_email_v2("reset-password", context={"reset_password_url": reset_password_url})
+    else:
+        mail_data = get_mail_data_by_name("password_reset")
+        reset_password_token.user.send_email(
+            subject=get_translation("api.user_resetpw_mail_subject"),
+            mail_data=mail_data,
+            mail_params=PwResetMailParams(password_reset_url=reset_password_url),
+        )
+
+
 @login_required
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def still_active_callback(request):
     us = request.user.state
     us.matching_state = State.MatchingStateChoices.SEARCHING
     us.still_active_reminder_confirmed = True
     us.save()
-    
+
     return HttpResponseRedirect(redirect_to="/app/chat")
 
+
 @login_required
-@api_view(['POST'])
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def delete_account(request):
     # Cannot delete staff or matching users with this api!
     assert not request.user.is_staff
     assert not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-    
-    
+
     delete_user(request.user, management_user=None, send_deletion_email=True)
     logout(request)
 

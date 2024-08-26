@@ -2,17 +2,16 @@ from django.db import models
 from rest_framework import serializers
 import uuid
 
+
 class EmailLog(models.Model):
     log_version = models.IntegerField(default=0)
-    
+
     # log_version is just to distingush between the new and old email types
     # New emails shalll be saved with log_version = 1
 
     # We set on_delete SET_NULL so these logges are not deleted when a user is deleted and vice verca
-    sender = models.ForeignKey(
-        "management.User", on_delete=models.SET_NULL, null=True, related_name='sender')
-    receiver = models.ForeignKey(
-        "management.User", on_delete=models.SET_NULL, null=True, related_name='receiver')
+    sender = models.ForeignKey("management.User", on_delete=models.SET_NULL, null=True, related_name="sender")
+    receiver = models.ForeignKey("management.User", on_delete=models.SET_NULL, null=True, related_name="receiver")
 
     # The time of this log creation, should be roughly equivaent to send time
     time = models.DateTimeField(auto_now_add=True)
@@ -28,63 +27,53 @@ class EmailLog(models.Model):
     # template: '...html', email_rendered_html: '...html_str', kwargs: kwargs for creating the mail
     data = models.JSONField()
 
-class AdvancedEmailLogSerializer(serializers.ModelSerializer):
 
+class AdvancedEmailLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = EmailLog
-        fields = '__all__'
-        
+        fields = "__all__"
+
     def to_representation(self, instance):
         from management.models.profile import MinimalProfileSerializer
         from emails.mails import get_mail_data_by_name, encode_mail_params
 
-        representation =  super().to_representation(instance)
-        
+        representation = super().to_representation(instance)
+
         # TODO: using the whole profile serializer here is a bit expensive!
-        representation['sender'] = {
-            'id': instance.sender.pk,
-            'hash': instance.sender.hash,
-            'email': instance.sender.email,
-            'profile': MinimalProfileSerializer(instance.sender.profile).data
-        }
-        
-        representation['receiver'] = {
-            'id': instance.receiver.pk,
-            'hash': instance.receiver.hash,
-            'email': instance.receiver.email,
-            'profile': MinimalProfileSerializer(instance.receiver.profile).data
-        }
+        representation["sender"] = {"id": instance.sender.pk, "hash": instance.sender.hash, "email": instance.sender.email, "profile": MinimalProfileSerializer(instance.sender.profile).data}
+
+        representation["receiver"] = {"id": instance.receiver.pk, "hash": instance.receiver.hash, "email": instance.receiver.email, "profile": MinimalProfileSerializer(instance.receiver.profile).data}
 
         email_params = instance.data["params"]
         template_name = instance.template
         print("Template: " + str(template_name), email_params)
         mail_meta = get_mail_data_by_name(template_name)
         encoded_mail_data = encode_mail_params(email_params)
-        
+
         url = f"/emails/{template_name}/{encoded_mail_data}"
-        representation['retrieve'] = url
+        representation["retrieve"] = url
 
         return representation
-    
-class DynamicTemplate(models.Model):
 
+
+class DynamicTemplate(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     template_name = models.CharField(max_length=255, unique=True)
     template = models.TextField()
 
     subject = models.CharField(max_length=255)
-    
+
     category_id = models.CharField(max_length=255, default="dynamic")
     sender_id = models.CharField(max_length=255, default="noreply")
-    
-class DynamicTemplateSerializer(serializers.ModelSerializer):
 
+
+class DynamicTemplateSerializer(serializers.ModelSerializer):
     class Meta:
         model = DynamicTemplate
-        fields = '__all__'
-    
-class EmailLogSerializer(serializers.ModelSerializer):
+        fields = "__all__"
 
+
+class EmailLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = EmailLog
-        fields = '__all__'
+        fields = "__all__"

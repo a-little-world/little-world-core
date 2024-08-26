@@ -1,14 +1,11 @@
 from django.db import models
-from .user import User
-from .management_tasks import MangementTask
+from management.models.management_tasks import MangementTask
+from management.models.notifications import Notification
 import uuid
 import json
 import base64
 import zlib
-import random
-from datetime import datetime
 from rest_framework import serializers
-from .notifications import Notification
 from back.utils import get_options_serializer
 from back import utils
 from multiselectfield import MultiSelectField
@@ -21,15 +18,17 @@ from django.dispatch import receiver
 from django.utils.translation import gettext_lazy as _
 from translations import get_translation
 
+
 class State(models.Model):
     """
     This is the base state model for every user
     It handles things like email verification,
     the users matches, and if the userform is filled
     """
+
     # Key...
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    
+    user = models.OneToOneField("management.User", on_delete=models.CASCADE)
+
     question_card_deck = models.ForeignKey(QuestionCardsDeck, on_delete=models.SET_NULL, null=True, blank=True)
 
     # We love additional Information
@@ -44,24 +43,22 @@ class State(models.Model):
         FILLED = "filled", _("Filled user form")
 
     """ If the user_form ist filled or not """
-    user_form_state = models.CharField(choices=UserFormStateChoices.choices,
-                                       default=UserFormStateChoices.UNFILLED,
-                                       max_length=255)
+    user_form_state = models.CharField(choices=UserFormStateChoices.choices, default=UserFormStateChoices.UNFILLED, max_length=255)
 
     # Just some hash for verifying the email
-    email_auth_hash = models.CharField(
-        default=utils._double_uuid, max_length=255)
+    email_auth_hash = models.CharField(default=utils._double_uuid, max_length=255)
     email_auth_pin = models.IntegerField(
         # By wrapping in lambda this will get called when the model is created
         # and not at server start, then we get better randomization maybe
         # Also this conveniently inialized the pin
-        default=utils._rand_int5)
+        default=utils._rand_int5
+    )
 
     email_authenticated = models.BooleanField(default=False)
-    
+
     still_active_reminder_send = models.BooleanField(default=False)
     still_active_reminder_confirmed = models.BooleanField(default=False)
-    
+
     """
     For Tims experient of talking to all participants first 
     If this flag is set to 'True' Tim has to make an appointment with that user first.
@@ -72,24 +69,23 @@ class State(models.Model):
     """
     These are referense to the actual user model of this persons matches 
     """
-    matches = models.ManyToManyField(User, related_name='+', blank=True)
-    
+    matches = models.ManyToManyField("management.User", related_name="+", blank=True)
+
     company = models.CharField(max_length=255, blank=True, null=True)
-    
+
     class MatchingStateChoices(models.TextChoices):
         """
-        All matching states! 
+        All matching states!
         Idle is the default state at the beginning
-        but we do (currently) automaticly set it to searching 
+        but we do (currently) automaticly set it to searching
         when the userform was finished.
         """
+
         IDLE = "idle", get_translation("models.state.matching_state.idle")
         SEARCHING = "searching", get_translation("models.state.matching_state.searching")
 
-    matching_state = models.CharField(choices=MatchingStateChoices.choices,
-                                      default=MatchingStateChoices.IDLE,
-                                      max_length=255)
-    
+    matching_state = models.CharField(choices=MatchingStateChoices.choices, default=MatchingStateChoices.IDLE, max_length=255)
+
     prematch_booking_code = models.CharField(max_length=255, default=uuid.uuid4)
 
     """
@@ -104,15 +100,7 @@ class State(models.Model):
     all user notification
     reference to models.notifications.Notification
     """
-    notifications = models.ManyToManyField(
-        Notification, related_name='n+', blank=True)
-
-    """
-    This state is used to sendout the unread email notification
-    when a user has new messages on the plattform
-    """
-    unread_messages_state = models.JSONField(default=list, blank=True)
-    unread_state_update_time = models.DateTimeField(default=datetime.now)
+    notifications = models.ManyToManyField(Notification, related_name="n+", blank=True)
 
     class UserCategoryChoices(models.TextChoices):
         # For this we can use the default translations '_()'
@@ -120,39 +108,31 @@ class State(models.Model):
         SPAM = "spam", _("Spam")
         LEGIT = "legit", _("Legit")
         TEST = "test", _("Test")
-    user_category = models.CharField(
-        choices=UserCategoryChoices.choices,
-        default=UserCategoryChoices.UNDEFINED,
-        max_length=255)
+
+    user_category = models.CharField(choices=UserCategoryChoices.choices, default=UserCategoryChoices.UNDEFINED, max_length=255)
 
     # Stores a users past emails ...
     past_emails = models.JSONField(blank=True, default=list)
-    
+
     notes = models.TextField(blank=True, null=True)
 
     class ExtraUserPermissionChoices(models.TextChoices):
         API_SCHEMAS = "view-api-schema", _("Is allowed to view API schemas")
-        DATABASE_SCHEMA = "view-database-schema", _(
-            "Is allowed to view database schemas")
-        AUTO_LOGIN = "use-autologin-api", _(
-            "Is allowed to use the auto login api (with a specific token)")
+        DATABASE_SCHEMA = "view-database-schema", _("Is allowed to view database schemas")
+        AUTO_LOGIN = "use-autologin-api", _("Is allowed to use the auto login api (with a specific token)")
         DOCS_VIEW = "view-docs", _("Is allowed to view the docs")
         EMAIL_TEMPLATES_VIEW = "view-email-templates", _("Is allowed to view the email templates")
         STATS_VIEW = "view-stats", _("Is allowed to view the stats")
-        
+
         MATCHING_USER = "matching-user", _("Is allowed to match users")
         UNCENSORED_ADMIN_MATCHER = "uncensored-admin-matcher", _("Is allowed to match users without censorship")
 
-    extra_user_permissions = MultiSelectField(
-        max_length=8000,
-        choices=ExtraUserPermissionChoices.choices,
-        null=True, blank=True)
-    
-    # This is basicly a list of all users that user manages
-    managed_users = models.ManyToManyField(User, related_name='managed_users_by', blank=True)
+    extra_user_permissions = MultiSelectField(max_length=8000, choices=ExtraUserPermissionChoices.choices, null=True, blank=True)
 
-    auto_login_api_token = models.CharField(
-        default=utils._double_uuid, max_length=255)
+    # This is basicly a list of all users that user manages
+    managed_users = models.ManyToManyField("management.User", related_name="managed_users_by", blank=True)
+
+    auto_login_api_token = models.CharField(default=utils._double_uuid, max_length=255)
 
     class TagChoices(models.TextChoices):
         SPAM = "state.tags-spam", "state.tags-spam"
@@ -167,19 +147,16 @@ class State(models.Model):
         REQUESTED_TO_BE_DELETED = "state.tags-requested-to-be-deleted", "state.tags-requested-to-be-deleted"
         UNCERTAIN_IF_VOL_OR_LEARNER = "state.tags-uncertain-if-vol-or-learner", "state.tags-uncertain-if-vol-or-learner"
 
-    tags = MultiSelectField(
-        choices=TagChoices.choices, max_choices=20,
-        max_length=1000, blank=True, null=True)  # type: ignore
-    
-    management_tasks = models.ManyToManyField(MangementTask, related_name='management_tasks', blank=True)
-    
+    tags = MultiSelectField(choices=TagChoices.choices, max_choices=20, max_length=1000, blank=True, null=True)  # type: ignore
+
+    management_tasks = models.ManyToManyField(MangementTask, related_name="management_tasks", blank=True)
+
     # If the user is unresponsive this is a flag to exclue him from matching etc
     unresponsive = models.BooleanField(default=False)
-    
+
     to_low_german_level = models.BooleanField(default=False)
 
     def has_extra_user_permission(self, permission):
-        
         if self.extra_user_permissions is None:
             return False
 
@@ -195,7 +172,7 @@ class State(models.Model):
 
     def change_searching_state(self, slug, trigger_score_update=True):
         # We put this list here so we ensure to stay safe if we add states that shouldn't be changed by the user!
-        allowed_usr_change_search_states = ['idle', 'searching']
+        allowed_usr_change_search_states = ["idle", "searching"]
         assert slug in allowed_usr_change_search_states
         self.matching_state = slug
         self.save()
@@ -216,12 +193,12 @@ class State(models.Model):
 
     def confirm_matches(self, matches: list):
         """
-        Confirms some matches, basicly by removing them from the stack 
+        Confirms some matches, basicly by removing them from the stack
         *but* this can throw 'Not and unconfirmed match'
         """
         cur_unconfirmed = self.unconfirmed_matches_stack
         for m in matches:
-            if not m in cur_unconfirmed:
+            if m not in cur_unconfirmed:
                 raise Exception("Not an unconfirmed match {m}".format(m=m))
             else:
                 cur_unconfirmed.remove(m)
@@ -254,29 +231,24 @@ class State(models.Model):
         """
         _data = self.decode_email_auth_code_b64(code)
         # u: user hash, h: email verification hash, p: email verification pin
-        _check = _data["u"] == self.user.hash and \
-            _data["h"] == self.email_auth_hash and \
-            int(_data["p"]) == self.email_auth_pin
+        _check = _data["u"] == self.user.hash and _data["h"] == self.email_auth_hash and int(_data["p"]) == self.email_auth_pin
         if _check:
             self.email_authenticated = True
             self.save()
         return _check
 
     def get_email_auth_code_b64(self):
-        return base64.urlsafe_b64encode(zlib.compress(bytes(json.dumps({
-            "u": self.user.hash, "h": self.email_auth_hash, "p": self.email_auth_pin}), 'utf-8'))).decode()
+        return base64.urlsafe_b64encode(zlib.compress(bytes(json.dumps({"u": self.user.hash, "h": self.email_auth_hash, "p": self.email_auth_pin}), "utf-8"))).decode()
 
     @classmethod
     def decode_email_auth_code_b64(cls, str_b64):
-        return json.loads(zlib.decompress(
-            base64.urlsafe_b64decode(str_b64.encode())).decode())
+        return json.loads(zlib.decompress(base64.urlsafe_b64decode(str_b64.encode())).decode())
+
 
 @receiver(post_save, sender=State)
 def populate_parents(sender, instance, created, **kwargs):
     if created:
-        instance.question_card_deck = QuestionCardsDeck.objects.create(
-            user=instance.user
-        )
+        instance.question_card_deck = QuestionCardsDeck.objects.create(user=instance.user)
         instance.save()
 
 
@@ -285,6 +257,7 @@ class StateSerializer(serializers.ModelSerializer):
     Note: this serializer is not to be used for matches of the current user
     This should only be used to expose data of the user to him self or an admin
     """
+
     options = serializers.SerializerMethodField()
 
     def get_options(self, obj):
@@ -292,39 +265,43 @@ class StateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = State
-        fields = '__all__'
-        
-        
+        fields = "__all__"
+
+
 class FrontendStatusEnum(Enum):
     user_form_incomplete = "user_form_incomplete"
     pre_matching = "pre_matching"
     searching_no_match = "searching_no_match"
     matched = "matched"
     matched_searching = "matched_searching"
-        
+
+
 class FrontendStatusSerializer(serializers.ModelSerializer):
     class Meta:
         model = State
         fields = []
-        
+
     def to_representation(self, instance):
         rep = super().to_representation(instance)
-        
+
         # TODO: some state for user has open poposals?
-        
+
         if instance.user_form_state == State.UserFormStateChoices.UNFILLED:
             rep["status"] = FrontendStatusEnum.user_form_incomplete.value
             return rep
         elif instance.require_pre_matching_call and (not instance.had_prematching_call):
             rep["status"] = FrontendStatusEnum.pre_matching.value
             return rep
-            
+
         # Now check if the user is matched
-        has_atleast_one_match = Match.objects.filter(
-           Q(user1=instance.user) | Q(user2=instance.user),
-            support_matching=False,
-        ).count() > 0
-        
+        has_atleast_one_match = (
+            Match.objects.filter(
+                Q(user1=instance.user) | Q(user2=instance.user),
+                support_matching=False,
+            ).count()
+            > 0
+        )
+
         if has_atleast_one_match:
             if instance.matching_state == State.MatchingStateChoices.IDLE:
                 rep["status"] = FrontendStatusEnum.matched.value
@@ -338,14 +315,13 @@ class FrontendStatusSerializer(serializers.ModelSerializer):
 
 
 class SelfStateSerializer(StateSerializer):
-
     class Meta:
         model = State
         fields = [
             "user_form_state",
             "user_form_page",
             "unconfirmed_matches_stack",
-            "matching_state"
+            "matching_state",
             # "email_authenticated"
             # TODO A-- will be imporant once we allow to verify the email later
         ]

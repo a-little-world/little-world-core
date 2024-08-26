@@ -2,23 +2,17 @@
 This is a controller for any userform related actions
 e.g.: Creating a new user, sending a notification to a users etc...
 """
+
 import urllib.parse
-from uuid import uuid4
 from management.models.management_tasks import MangementTask
-from django.utils import translation
 from django.db.models import Q
 from django.db import transaction
 from typing import Dict, Callable
 from management.models.unconfirmed_matches import ProposedMatch
-from management.models.backend_state import BackendState
 from management.models.past_matches import PastMatch
 from management.models.matches import Match
 from management import controller
-from dataclasses import dataclass, fields, field
-from django.utils import timezone
-from asgiref.sync import async_to_sync
-from back.utils import _double_uuid
-from channels.layers import get_channel_layer
+from dataclasses import dataclass
 from django.conf import settings
 from management.models.user import UserSerializer, User
 from management.models.profile import Profile
@@ -28,10 +22,7 @@ from management.models.rooms import Room
 from management.models.scores import TwoUserMatchingScore
 from chat.models import Chat
 from emails import mails
-from tracking import utils
-from tracking.models import Event
 from translations import get_translation
-import json
 import os
 from management.tasks import (
     create_default_community_events,
@@ -46,10 +37,10 @@ class UserNotFoundErr(Exception):
 
 # All models *every* user should have!
 user_models = {  # Model, primary key name
-    "user": [User, 'email'],
-    "profile": [Profile, 'user'],
-    "state": [State, 'user'],
-    "settings": [Settings, 'settings']
+    "user": [User, "email"],
+    "profile": [Profile, "user"],
+    "state": [State, "user"],
+    "settings": [Settings, "settings"],
 }
 
 
@@ -72,7 +63,7 @@ def get_user(user, lookup="email"):
 def __user_get_catch(**kwargs):
     try:
         return User.objects.get(**kwargs)
-    except User.DoesNotExist as e:
+    except User.DoesNotExist:
         # We should throw an error if a user was looked up that doesn't exist
         # If this error occurs we most likely forgot to delte the user from someones matches
         # But we still allow this to be caught with 'try' and returned as a parsed error
@@ -99,70 +90,48 @@ def get_user_models(user):
     # cause you need to first get the usr and that should be done with get_user_*
     d = {}
     for k in user_models:
-        elem = user_models[k][0].objects.get(
-            user=user) if k != "user" else user
+        elem = user_models[k][0].objects.get(user=user) if k != "user" else user
         d[k] = elem
     return d
+
 
 def send_still_active_question_message(user):
     user.message(get_translation("auto_messages.are_you_still_in_contact", lang="de").format(first_name=user.first_name), auto_mark_read=False)
 
-def make_tim_support_user(
-        user, 
-        old_management_mail="littleworld.management@gmail.com", 
-        send_message=True,
-        custom_message=None
-    ):
+
+def make_tim_support_user(user, old_management_mail="littleworld.management@gmail.com", send_message=True, custom_message=None):
     # 1. We need to remove oliver as matching user
-    
+
     admin_user = controller.get_user_by_email(old_management_mail)
     old_support_matching = Match.get_match(user1=admin_user, user2=user)
     if old_support_matching.exists():
         unmatch_users({admin_user, user}, unmatcher=admin_user)
-        
+
     # 2. make the new admin matching
     base_management_user = get_base_management_user()
-    
-    match_users({ base_management_user, user },
-                send_notification=False,
-                send_message=False,
-                send_email=False,
-                set_unconfirmed=False)
-    
+
+    match_users({base_management_user, user}, send_notification=False, send_message=False, send_email=False, set_unconfirmed=False)
+
     # 2.5 add that user to the managed users by Tim
     base_management_user.state.managed_users.add(user)
     base_management_user.state.save()
-    
+
     # 3. set that user to 'not searching'
     us = user.state
     us.still_active_reminder_send = True
     us.matching_state = State.MatchingStateChoices.IDLE
     us.save()
-    
+
     # 4. send the 'still active' question message
     if send_message:
-        if not (custom_message is None):
+        if custom_message is not None:
             user.message(custom_message, auto_mark_read=False)
         else:
             send_still_active_question_message(user)
 
 
-
-def create_user(
-    email,
-    password,
-    first_name,
-    second_name,
-    birth_year,
-    company=None,
-    newsletter_subscribed=False,
-    send_verification_mail=True,
-    send_welcome_notification=True,
-    send_welcome_message=True,
-    catch_email_send_errors=True,
-    check_prematching_invitations=False
-):
-    """ 
+def create_user(email, password, first_name, second_name, birth_year, company=None, newsletter_subscribed=False, send_verification_mail=True, send_welcome_notification=True, send_welcome_message=True, catch_email_send_errors=True, check_prematching_invitations=False):
+    """
     This should be used when creating a new user, it may throw validations errors!
     performs the following setps:
     Note: this assumes some rought validations steps where done already, see `api.register.Register`
@@ -180,7 +149,7 @@ def create_user(
         email=email,
         first_name=first_name,
         second_name=second_name,
-        password=password
+        password=password,
     )
     user_data_serializer = UserSerializer(data=data)  # type: ignore
 
@@ -188,7 +157,7 @@ def create_user(
     user_data_serializer.is_valid(raise_exception=True)
     # The user_data_serializer automaticly creates the user model
     # automaticly creates Profile, State, Settings, see models.user.UserManager
-    data['last_name'] = data.pop('second_name')
+    data["last_name"] = data.pop("second_name")
     usr = User.objects.create_user(**data)
 
     usr.profile.birth_year = int(birth_year)
@@ -196,7 +165,7 @@ def create_user(
     usr.profile.save()
     # Error if user doesn't exist, would prob already happen on is_valid
     assert isinstance(usr, User)
-    
+
     # Step 3.5 - Check if the user has a 'comany' field
     if company is not None:
         usr.state.company = company
@@ -204,19 +173,22 @@ def create_user(
 
     # Step 4 send mail
     if send_verification_mail:
+
         def send_verify_link():
-            link_route = 'mailverify_link'  # api/user/verify/email
-            verifiaction_url = f"{settings.BASE_URL}/{link_route}/{usr.state.get_email_auth_code_b64()}"
-            mails.send_email(
-                recivers=[email],
-                subject="{code} - Verifizierungscode zur E-Mail Bestätigung".format(code=usr.state.get_email_auth_pin()),
-                mail_data=mails.get_mail_data_by_name("welcome"),
-                mail_params=mails.WelcomeEmailParams(
-                    first_name=usr.profile.first_name,
-                    verification_url=verifiaction_url,
-                    verification_code=str(usr.state.get_email_auth_pin())
+            if settings.USE_V2_EMAIL_APIS:
+                # TODO: further simplify when full migration is done
+                usr.send_email_v2("welcome")
+            else:
+                link_route = "mailverify_link"  # api/user/verify/email
+                verifiaction_url = f"{settings.BASE_URL}/{link_route}/{usr.state.get_email_auth_code_b64()}"
+                mails.send_email(
+                    recivers=[email],
+                    subject="{code} - Verifizierungscode zur E-Mail Bestätigung".format(code=usr.state.get_email_auth_pin()),
+                    mail_data=mails.get_mail_data_by_name("welcome"),
+                    mail_params=mails.WelcomeEmailParams(first_name=usr.profile.first_name, verification_url=verifiaction_url, verification_code=str(usr.state.get_email_auth_pin())),
                 )
-            )
+
+        # TODO: refactor remove this bullshit:
         if catch_email_send_errors:
             try:
                 send_verify_link()
@@ -224,18 +196,12 @@ def create_user(
                 print("Email sending failed!" + str(e))
         else:
             send_verify_link()
-    else:
-        print("Not sending verification mail!")
 
     base_management_user = get_base_management_user()
-    
-    matching = match_users({ base_management_user, usr },
-                send_notification=False,
-                send_message=False,
-                send_email=False,
-                set_unconfirmed=False)
-    
-    print("Created matching", matching,"is_support:", matching.support_matching)
+
+    matching = match_users({base_management_user, usr}, send_notification=False, send_message=False, send_email=False, set_unconfirmed=False)
+
+    print("Created Match:", matching.user1.email, "<->", matching.user2.email, "(support)" if matching.support_matching else "")
 
     if not base_management_user.is_staff:
         # Must be a mather user now TODO
@@ -247,7 +213,7 @@ def create_user(
     # Do *not* send an matching mail, or notification or message!
     # Also no need to set the admin user as unconfirmed,
     # there is no popup message required about being matched to the admin!
-    
+
     # TODO: since this was just updated and we now have 'matcher' users
     # this doesn't always have to be the same management user anymore
     # Generay how we handle management users needs to be significantly improved!
@@ -262,97 +228,77 @@ def create_user(
     if check_prematching_invitations or send_welcome_message:
         # Now we need to check the prematching state
         # TODO: there is a bug here if the user decides to change the email, then the booking will be made from the wrong email.
-        
-        default_message = get_translation("auto_messages.prematching_invitation", lang="de").format(
-            first_name=first_name,encoded_params=urllib.parse.urlencode({
-                "email": str(usr.email),
-                "hash": str(usr.hash),
-                "bookingcode": str(usr.state.prematch_booking_code)
-            }), 
-            calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID)
-        
+
+        default_message = get_translation("auto_messages.prematching_invitation", lang="de").format(first_name=first_name, encoded_params=urllib.parse.urlencode({"email": str(usr.email), "hash": str(usr.hash), "bookingcode": str(usr.state.prematch_booking_code)}), calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID)
+
         usr.state.require_pre_matching_call = True
         usr.state.save()
-        
+
     usr.message(default_message, auto_mark_read=True, send_message_incoming=True)
-    
+
     return usr
 
 
-def are_users_matched(
-    users: set
-):
+def are_users_matched(users: set):
     assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
     usr1, usr2 = list(users)
-    
+
     # TODO: need updating to the new Match model relation!
     return usr1.is_matched(usr2) and usr2.is_matched(usr1)
 
 
-def match_users(
-        users: set,
-        send_notification=True,
-        send_message=True,
-        send_email=True,
-        create_dialog=True,
-        create_video_room=True,
-        create_livekit_room=True,
-        set_unconfirmed=True,
-        set_to_idle=True):
-    """ Accepts a list of two users to match """
+def match_users(users: set, send_notification=True, send_message=True, send_email=True, create_dialog=True, create_video_room=True, create_livekit_room=True, set_unconfirmed=True, set_to_idle=True):
+    """Accepts a list of two users to match"""
 
     assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
     usr1, usr2 = list(users)
-    
+
     # Only match if they are not already matched!
     matching = Match.get_match(usr1, usr2)
     if matching.exists():
-        # Before we raise the exception we check for 'dangeling' matches 
+        # Before we raise the exception we check for 'dangeling' matches
         from management.models.unconfirmed_matches import ProposedMatch
+
         dangeling = ProposedMatch.get_proposal_between(usr1, usr2)
         if dangeling.exists():
             dangeling.delete()
             raise Exception("Users are already matched, but dangeling proposals found, DELETED!")
 
         raise Exception("Users are already matched!")
-    
+
     # TODO: this WAS the old way to match to be removed one our frontend strategy updated
     # For now we deploy both ways and make then work along side, but the old-way is to be removed asap
     # usr1.match(usr2, set_unconfirmed=set_unconfirmed)
     # usr2.match(usr1, set_unconfirmed=set_unconfirmed)
-    
+
     # It can also be a support matching with a 'management' user
-    is_support_matching = (usr1.is_staff or usr2.is_staff) \
-        or (usr1.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER) or \
-            usr2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER))
-    
+    is_support_matching = (usr1.is_staff or usr2.is_staff) or (usr1.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER) or usr2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER))
+
     # This is the new way:
     matching_obj = Match.objects.create(
         user1=usr1,
         user2=usr2,
-        confirmed=is_support_matching, # if support matching always confimed = true prevents it from showing up in 'unconfirmed' initally 
-        support_matching=is_support_matching
+        confirmed=is_support_matching,  # if support matching always confimed = true prevents it from showing up in 'unconfirmed' initally
+        support_matching=is_support_matching,
     )
-    
+
     if create_livekit_room:
         from video.models import LiveKitRoom
+
         if not (LiveKitRoom.objects.filter(Q(u1=usr1, u2=usr2) | Q(u1=usr2, u2=usr1)).exists()):
             LiveKitRoom.objects.create(
                 u1=usr1,
-                u2=usr2, 
+                u2=usr2,
             )
 
     if create_dialog:
         # After the users are registered as matches
         # we still need to create a dialog for them
-        
+
         chat = Chat.get_or_create_chat(usr1, usr2)
 
     if create_video_room:
-        room = Room.objects.create(
-            usr1=usr1,
-            usr2=usr2
-        )
+        room = Room.objects.create(usr1=usr1, usr2=usr2)
 
     if send_notification:
         usr1.notify(title="New match: %s" % usr2.profile.first_name)
@@ -360,54 +306,43 @@ def match_users(
 
     if send_message:
         match_message = get_translation("auto_messages.match_message", lang="de")
-        
+
         # Sends a message from the admin model
-        usr1.message(match_message.format(
-            other_name=usr2.profile.first_name), auto_mark_read=True)
-        usr2.message(match_message.format(
-            other_name=usr1.profile.first_name), auto_mark_read=True)
+        usr1.message(match_message.format(other_name=usr2.profile.first_name), auto_mark_read=True)
+        usr2.message(match_message.format(other_name=usr1.profile.first_name), auto_mark_read=True)
 
     if send_email:
-        usr1.send_email(
-            subject="Glückwunsch! Gesprächspartner:in gefunden auf Little World",
-            mail_data=mails.get_mail_data_by_name("match"),
-            mail_params=mails.MatchMailParams(
-                first_name=usr1.profile.first_name,
-                match_first_name=usr2.profile.first_name,
-                profile_link_url=settings.BASE_URL
+        if settings.USE_V2_EMAIL_APIS:
+            usr1.send_email_v2("confirm-match-1", match_id=matching_obj.id)
+            usr2.send_email_v2("confirm-match-1", match_id=matching_obj.id)
+        else:
+            usr1.send_email(subject="Glückwunsch! Gesprächspartner:in gefunden auf Little World", mail_data=mails.get_mail_data_by_name("match"), mail_params=mails.MatchMailParams(first_name=usr1.profile.first_name, match_first_name=usr2.profile.first_name, profile_link_url=settings.BASE_URL))
+            usr2.send_email(
+                subject="Glückwunsch! Gesprächspartner:in gefunden auf Little World",
+                mail_data=mails.get_mail_data_by_name("match"),
+                mail_params=mails.MatchMailParams(
+                    first_name=usr2.profile.first_name,
+                    match_first_name=usr1.profile.first_name,
+                    # TODO: should be the actual profile slug in the future
+                    profile_link_url=settings.BASE_URL,
+                ),
             )
-        )
-        usr2.send_email(
-            subject="Glückwunsch! Gesprächspartner:in gefunden auf Little World",
-            mail_data=mails.get_mail_data_by_name("match"),
-            mail_params=mails.MatchMailParams(
-                first_name=usr2.profile.first_name,
-                match_first_name=usr1.profile.first_name,
-                # TODO: should be the actual profile slug in the future
-                profile_link_url=settings.BASE_URL
-            )
-        )
 
     if set_to_idle:
         usr1.state.set_idle()
         usr2.state.set_idle()
-        
+
     # If there was a two user matching score we need to set it to matchable=False now as the users are matched
     # & also ofcourse all other scores of that users have to be set to matchable=False
-    TwoUserMatchingScore.objects.filter(
-        (Q(user1=usr1) | Q(user2=usr1) | Q(user1=usr2) | Q(user2=usr2)) & Q(matchable=True)).update(matchable=False)
+    TwoUserMatchingScore.objects.filter((Q(user1=usr1) | Q(user2=usr1) | Q(user1=usr2) | Q(user2=usr2)) & Q(matchable=True)).update(matchable=False)
 
-        
     return matching_obj
 
 
-def create_user_matching_proposal(
-    users: set,
-    send_confirm_match_email=True
-):
+def create_user_matching_proposal(users: set, send_confirm_match_email=True):
     """
     This represents the new intermediate matching step we created.
-    Users are not just matched directly but first a matching proposal is send to the 'volunteer' user. 
+    Users are not just matched directly but first a matching proposal is send to the 'volunteer' user.
     TODO or is it the learner im still not sure on this?
     """
     u1, u2 = list(users)
@@ -415,18 +350,14 @@ def create_user_matching_proposal(
         user1=u1,
         user2=u2,
         # When this is faulse the create signal will not send an email!
-        send_inital_mail=(not send_confirm_match_email)
+        send_inital_mail=(not send_confirm_match_email),
     )
     return proposal
 
-def unmatch_users(
-    users: set,
-    delete_video_room=True,
-    delete_dialog=True,
-    unmatcher=None
-):
-    """ 
-    Accepts a list of two users to unmatch 
+
+def unmatch_users(users: set, delete_video_room=True, delete_dialog=True, unmatcher=None):
+    """
+    Accepts a list of two users to unmatch
 
     Do:
     - Remove both from respective 'matches' field
@@ -446,7 +377,7 @@ def unmatch_users(
     usr1, usr2 = list(users)
     usr1.unmatch(usr2)
     usr2.unmatch(usr1)
-    
+
     # The new match management strategy
     match = Match.get_match(usr1, usr2)
     assert match.exists(), "Match does not exist!"
@@ -457,26 +388,24 @@ def unmatch_users(
     # Then disable the video room
     if delete_video_room:
         from .models.rooms import get_rooms_match
+
         get_rooms_match(usr1, usr2).delete()
 
-    return PastMatch.objects.create(
-        user1=usr1,
-        user2=usr2,
-        who_unmatched=unmatcher
-    )
+    return PastMatch.objects.create(user1=usr1, user2=usr2, who_unmatched=unmatcher)
 
 
 def get_base_management_user():
     """
     Always returns the BASE_MANAGEMENT_USER user
     """
-    
+
     TIM_MANAGEMENT_USER_MAIL = "tim.timschupp+420@gmail.com"
     try:
         return get_user_by_email(TIM_MANAGEMENT_USER_MAIL)
     except UserNotFoundErr:
         return create_base_admin_and_add_standart_db_values()
-    
+
+
 def get_or_create_default_docs_user():
     if not settings.CREATE_DOCS_USER:
         return None
@@ -484,25 +413,15 @@ def get_or_create_default_docs_user():
         raise Exception("DOCS_USER not set!")
     if not settings.DOCS_PASSWORD:
         raise Exception("DOCS_USER_PW not set!")
-    
+
     user = None
     try:
         return get_user_by_email(settings.DOCS_USER)
     except UserNotFoundErr:
         create_user(
-            email=settings.DOCS_USER,
-            password=settings.DOCS_PASSWORD,
-            first_name="Docs",
-            second_name="User",
-            birth_year=2000,
-            newsletter_subscribed=False,
-            send_verification_mail=False,
-            send_welcome_notification=False,
-            send_welcome_message=False,
-            catch_email_send_errors=False,
-            check_prematching_invitations=False
+            email=settings.DOCS_USER, password=settings.DOCS_PASSWORD, first_name="Docs", second_name="User", birth_year=2000, newsletter_subscribed=False, send_verification_mail=False, send_welcome_notification=False, send_welcome_message=False, catch_email_send_errors=False, check_prematching_invitations=False
         )
-        
+
     def finish_up_user_creation():
         user = get_user_by_email(settings.DOCS_USER)
         user.state.email_authenticated = True
@@ -512,35 +431,29 @@ def get_or_create_default_docs_user():
         user.state.auto_login_api_token = settings.DOCS_USER_LOGIN_TOKEN
         user.state.save()
         user.state.set_user_form_completed()
-        
+
     transaction.on_commit(finish_up_user_creation)
 
     return get_user_by_email(settings.DOCS_USER)
 
 
-
 def create_base_admin_and_add_standart_db_values():
-    print("Chcking if base admin user exists")
-
     try:
         get_user_by_email(settings.MANAGEMENT_USER_MAIL)
     except UserNotFoundErr:
-        print("Management user doesn't seem to exist jet")
         usr = User.objects.create_superuser(
             email=settings.MANAGEMENT_USER_MAIL,
             username=settings.MANAGEMENT_USER_MAIL,
-            password=os.environ['DJ_MANAGEMENT_PW'],
-            first_name=os.environ.get(
-                'DJ_MANAGEMENT_FIRST_NAME', 'Oliver (Support)'),
-            second_name=os.environ.get(
-                'DJ_MANAGEMENT_SECOND_NAME', ''),
+            password=os.environ["DJ_MANAGEMENT_PW"],
+            first_name=os.environ.get("DJ_MANAGEMENT_FIRST_NAME", "Oliver (Support)"),
+            second_name=os.environ.get("DJ_MANAGEMENT_SECOND_NAME", ""),
         )
         usr.state.email_authenticated = True
         usr.state.save()
         usr.state.set_user_form_completed()  # Admin doesn't have to fill the userform
         usr.notify("You are the admin master!")
-        print("BASE ADMIN USER CREATED!")
-    
+        print("Base Admin User: Newly created!")
+
     def update_profile():
         usr_tim = get_user_by_email(TIM_MANAGEMENT_USER_MAIL)
         usr_tim.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.MATCHING_USER)
@@ -548,7 +461,7 @@ def create_base_admin_and_add_standart_db_values():
         usr_tim.state.save()
         usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
         usr_tim.notify(description="You are the bese management user with less permissions.")
-    
+
     # Tim Schupp is the new base admin user, we will now create a match with hin instead:
     TIM_MANAGEMENT_USER_MAIL = "tim.timschupp+420@gmail.com"
     try:
@@ -557,16 +470,15 @@ def create_base_admin_and_add_standart_db_values():
         usr_tim = User.objects.create_user(
             email="tim.timschupp+420@gmail.com",
             username="tim.timschupp+420@gmail.com",
-            password=os.environ['DJ_TIM_MANAGEMENT_PW'],
+            password=os.environ["DJ_TIM_MANAGEMENT_PW"],
             first_name="Tim",
             last_name="Schupp",
         )
-        
-    transaction.on_commit(update_profile)
-        # The tim user should always get the matching permission
+        print(f"Base Management user {usr_tim.email} newly created!")
 
-    print("TIM ADMIN USER CREATED!")
-    
+    transaction.on_commit(update_profile)
+    # The tim user should always get the matching permission
+
     # Now we create some default database elements that should be part of all setups!
 
     # Create default cookie groups and community events
@@ -574,10 +486,11 @@ def create_base_admin_and_add_standart_db_values():
     create_default_cookie_groups.delay()
     create_default_community_events.delay()
     fill_base_management_user_tim_profile.delay()
-    
+
     get_or_create_default_docs_user()
 
     return usr_tim
+
 
 @dataclass
 class EmailSendReport:
@@ -587,8 +500,8 @@ class EmailSendReport:
     unsubscribable: bool = False
     unsubscribed: bool = False
     out: str = ""
-    
-    
+
+
 def send_email(
     user,
     subject: str,
@@ -597,10 +510,13 @@ def send_email(
     unsubscribe_group=None,
     emulated_send=False,
 ):
+    # TODO: remove with the migration to new email apis
+    if settings.DISABLE_LEGACY_EMAIL_SENDING:
+        raise Exception("Legacy email sending is disabled!")
+
     report = EmailSendReport()
     settings_hash = str(user.settings.email_settings.hash)
-    
-    
+
     mail_params = mail_params_func(user)
 
     if unsubscribe_group is not None:
@@ -608,15 +524,14 @@ def send_email(
         mail_params.unsubscribe_url1 = unsub_link
         report.checked_subscription = True
         report.subscription_group = unsubscribe_group
-        
+
         if user.settings.email_settings.has_unsubscribed(unsubscribe_group):
             print(f"User ({user.email}) has unsubscribed from", unsubscribe_group)
             report.unsubscribed = True
             return report
     else:
         report.checked_subscription = False
-        
-        
+
     try:
         mails.send_email(
             recivers=[user.email],
@@ -626,13 +541,14 @@ def send_email(
             raise_exception=True,
             emulated_send=emulated_send,
         )
-        report.send = (not emulated_send)
+        report.send = not emulated_send
     except Exception as e:
         print("Error sending email", str(e), mail_name)
         report.send = False
         report.out += f"Error sending email: {e}" + str(e)
-        
+
     return report
+
 
 def send_group_mail(
     users,
@@ -642,16 +558,16 @@ def send_group_mail(
     unsubscribe_group=None,
     debug=False,
     # 'emulated_send' Allows to just petend sending a mail, will create a email log etc but **not** send the actuall email!
-    emulated_send=False, 
+    emulated_send=False,
 ):
     reports: Dict[str, EmailSendReport] = {}
-    
+
     total = len(users)
     if debug:
         print(f"Sending {total} bluk emails")
-    i = 0 
+    i = 0
     for user in users:
-        i+=1
+        i += 1
         if debug:
             print(f"Sending email ({i}/{total}) to {user.email}")
         reports[user.hash] = send_email(
@@ -662,40 +578,38 @@ def send_group_mail(
             unsubscribe_group=unsubscribe_group,
             emulated_send=emulated_send,
         )
-        
+
     return reports
+
 
 def delete_user(user, management_user=None, send_deletion_email=False):
     from emails import mails
-    
+
     if send_deletion_email:
-        user.send_email(
-           subject="Dein Account wurde gelöscht", 
-           mail_data=mails.get_mail_data_by_name("account_deleted"),
-           mail_params=mails.AccountDeletedEmailParams(
-            first_name=user.profile.first_name,
-           )
-        )
+        if settings.USE_V2_EMAIL_APIS:
+            user.send_email_v2("account-deleted")
+        else:
+            user.send_email(
+                subject="Dein Account wurde gelöscht",
+                mail_data=mails.get_mail_data_by_name("account_deleted"),
+                mail_params=mails.AccountDeletedEmailParams(
+                    first_name=user.profile.first_name,
+                ),
+            )
 
     user.is_active = False
     user.email = f"deleted_{user.email}"
     user.first_name = "deleted"
     user.set_unusable_password()
     user.save()
-    
-    task = MangementTask.create_task(
-        user=user,
-        description="Cleanup user delete data",
-        management_user=management_user
-    )
+
+    task = MangementTask.create_task(user=user, description="Cleanup user delete data", management_user=management_user)
     user.state.management_tasks.add(task)
     user.state.save()
-    
-    
+
     user.profile.first_name = f"deleted, {user.profile.first_name}"
     user.profile.second_name = f"deleted, {user.profile.second_name}"
     user.profile.image_type = Profile.ImageTypeChoice.AVATAR
     user.profile.avatar_config = {}
     user.profile.phone_mobile = f"deleted, {user.profile.phone_mobile}"
     user.profile.save()
-

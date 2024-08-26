@@ -1,16 +1,10 @@
 from rest_framework.views import APIView
 from dataclasses import dataclass
-from rest_framework.decorators import api_view, permission_classes, authentication_classes, throttle_classes
-from rest_framework.authentication import SessionAuthentication, BasicAuthentication
-from rest_framework.permissions import IsAuthenticated
 from rest_framework import authentication, permissions, viewsets, status
-from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.utils import extend_schema
 from django.utils.translation import gettext_lazy as _
 from django.conf import settings
-from dataclasses import dataclass
-import dataclasses
 from copy import deepcopy
-from django.conf import settings
 from rest_framework import serializers
 from rest_framework.response import Response
 from . import mails
@@ -18,9 +12,7 @@ from .models import EmailLog, EmailLogSerializer
 
 
 class ListEmailTemplates(APIView):
-
-    authentication_classes = [authentication.SessionAuthentication,
-                              authentication.BasicAuthentication]
+    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
     permission_classes = [permissions.IsAdminUser]
 
     def get(self, request):
@@ -31,8 +23,8 @@ class ListEmailTemplates(APIView):
             delattr(_m, "params")
             delattr(_m, "texts")
             delattr(_m, "defaults")
-            setattr(_m, 'params', prms)
-            setattr(_m, 'view', f'{settings.BASE_URL}/emails/{_m.name}')
+            setattr(_m, "params", prms)
+            setattr(_m, "view", f"{settings.BASE_URL}/emails/{_m.name}")
             d.append(_m.__dict__)
         return Response(d)
 
@@ -52,8 +44,7 @@ class EncodeEmailApiSerializer(serializers.Serializer):
 
 
 class EncodeTemplate(APIView):
-    authentication_classes = [authentication.SessionAuthentication,
-                              authentication.BasicAuthentication]
+    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
     permission_classes = [permissions.IsAdminUser]
 
     @extend_schema(
@@ -85,13 +76,11 @@ class EncodeTemplate(APIView):
         try:
             template = mails.get_mail_data_by_name(params.template)
         except mails.MailDataNotFoundErr:
-            return Response(_("Can't find email template '{name}'".format(name=params.template)),
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(_("Can't find email template '{name}'".format(name=params.template)), status=status.HTTP_400_BAD_REQUEST)
         assert template, "Template retrival failed with undefined error"
         for param in template.params.__annotations__:
-            if not param in params.params:
-                return Response(_("Missing param '{name}'".format(name=param)),
-                                status=status.HTTP_400_BAD_REQUEST)
+            if param not in params.params:
+                return Response(_("Missing param '{name}'".format(name=param)), status=status.HTTP_400_BAD_REQUEST)
         # If we get here all required email params are contained
         encoded = mails.encode_mail_params(params.params)
         as_url = f"{settings.BASE_URL}/emails/{params.template}/{encoded}"
@@ -99,10 +88,8 @@ class EncodeTemplate(APIView):
 
 
 class EmailListView(viewsets.ReadOnlyModelViewSet):
-    authentication_classes = [authentication.SessionAuthentication,
-                              authentication.BasicAuthentication]
+    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
 
     permission_classes = [permissions.IsAdminUser]
     queryset = EmailLog.objects.all()
     serializer_class = EmailLogSerializer
-

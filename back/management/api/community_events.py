@@ -1,6 +1,5 @@
-import datetime
 from rest_framework.views import APIView
-from rest_framework import authentication, permissions, viewsets
+from rest_framework import authentication, permissions
 from rest_framework.response import Response
 from management.models.community_events import CommunityEvent, CommunityEventSerializer
 
@@ -11,8 +10,7 @@ def get_all_comunity_events_serialized():
 
 
 class GetActiveEventsApi(APIView):
-    authentication_classes = [authentication.SessionAuthentication,
-                              authentication.BasicAuthentication]
+    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
 
     permission_classes = [permissions.IsAuthenticated]
 

@@ -8,10 +8,10 @@ class Event(models.Model):
     Tracks an arbitrary event by adding it to a log list.
     This is sorta fancy more accessible logging
     """
+
     # TODO: this model should eventually be saved to a diffeerent database than the main database!
     # Currently this creates an extra database call everytime a tracking event is fired
-    hash = models.CharField(max_length=255, blank=True,
-                            unique=True, default=utils._double_uuid)  # type: ignore
+    hash = models.CharField(max_length=255, blank=True, unique=True, default=utils._double_uuid)  # type: ignore
 
     def _abr_hash(self):
         return self.hash[:8]
@@ -36,16 +36,13 @@ class Event(models.Model):
     """ Contains a list of custom assighned tags """
     tags = models.JSONField(null=True, blank=True)
 
-    type = models.CharField(choices=EventTypeChoices.choices,
-                            default=EventTypeChoices.MISC,
-                            max_length=255)
+    type = models.CharField(choices=EventTypeChoices.choices, default=EventTypeChoices.MISC, max_length=255)
 
     """
     Caller user, but optional
     since there can be also events that have no or an anonymous caller
     """
-    caller = models.ForeignKey(
-        'management.User', on_delete=models.SET_NULL, null=True, blank=True)
+    caller = models.ForeignKey("management.User", on_delete=models.SET_NULL, null=True, blank=True)
 
     """ Name of the function that called the event """
     func = models.CharField(max_length=255)
@@ -86,20 +83,18 @@ class Summaries(models.Model):
     """
 
     class RateChoices(models.TextChoices):
-        HOURLY = 'hourly', _('Hourly')
-        DAILY = 'daily', _('Daily')
-        WEEKLY = 'weekly', _('Weekly')
-        MONTHLY = 'monthly', _('Monthly')
+        HOURLY = "hourly", _("Hourly")
+        DAILY = "daily", _("Daily")
+        WEEKLY = "weekly", _("Weekly")
+        MONTHLY = "monthly", _("Monthly")
 
     label = models.CharField(max_length=255, blank=False, null=False)
 
     slug = models.CharField(max_length=255, blank=False, null=False)
 
-    hash = models.CharField(max_length=255, blank=True,
-                            default=utils._double_uuid)
+    hash = models.CharField(max_length=255, blank=True, default=utils._double_uuid)
 
-    rate = models.CharField(
-        max_length=1000, choices=RateChoices.choices, blank=False)
+    rate = models.CharField(max_length=1000, choices=RateChoices.choices, blank=False)
 
     time_created = models.DateTimeField(auto_now_add=True)
 
@@ -107,12 +102,10 @@ class Summaries(models.Model):
 
 
 class GraphModel(models.Model):
-
     time = models.DateTimeField(auto_now_add=True)
 
     slug = models.CharField(max_length=255, blank=False, null=False)
-    hash = models.CharField(max_length=255, blank=True,
-                            default=utils._double_uuid)
+    hash = models.CharField(max_length=255, blank=True, default=utils._double_uuid)
     graph_data = models.JSONField(blank=True, null=True)
 
     type = models.CharField(max_length=255, default="plot")  # plot or table

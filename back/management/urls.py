@@ -12,13 +12,7 @@ from management.api import (
     user_advanced_statistics,
     prematch_appointment_advanced,
 )
-from management.api.scores import (
-    list_top_scores,
-    score_maximization_matching,
-    delete_all_matching_scores,
-    burst_calculate_matching_scores_v2,
-    get_active_burst_calculation
-)
+from management.api.scores import list_top_scores, score_maximization_matching, delete_all_matching_scores, burst_calculate_matching_scores_v2, get_active_burst_calculation
 from management.api import scores_advanced, videocalls_advanced
 from management.api.matching_stats import get_quick_statistics
 from management.api.questions import get_question_cards, archive_card
@@ -66,9 +60,7 @@ api_routes = [
     path(_api_url("trans"), api.trans.get_translation_catalogue),
     path(_api_url("trans/<str:lang>"), api.trans.get_translation_catalogue),
     path(_api_url("options"), api.options.get_options),
-    path(
-        _api_url("community/events"), api.community_events.GetActiveEventsApi.as_view()
-    ),
+    path(_api_url("community/events"), api.community_events.GetActiveEventsApi.as_view()),
     path(_api_url("register"), api.register.Register.as_view()),
     path(_api_url("user"), user_data_api, name="user_data_api"),
     path(
@@ -85,9 +77,7 @@ api_routes = [
     path(_api_url("matching/report"), api.report_unmatch.report),
     path(_api_url("matching/unmatch"), api.report_unmatch.unmatch),
     *(
-        [
-            path(_api_url("devlogin"), api.developers.DevLoginAPI.as_view())
-        ]  # Dev login only to be used in staging!
+        [path(_api_url("devlogin"), api.developers.DevLoginAPI.as_view())]  # Dev login only to be used in staging!
         if (settings.IS_STAGE or settings.IS_DEV or settings.EXPOSE_DEV_LOGIN)
         else []
     ),
@@ -139,14 +129,14 @@ view_routes = [
         name="email_verification_link",
     ),
     path(
-        f"user/still_active/",
+        "user/still_active/",
         api.user.still_active_callback,
         name="still_active_callback",
     ),
-    path(f"api/user/question_cards/", get_question_cards, name="question_cards"),
-    path(f"api/user/archive_card/", archive_card, name="question_cards_archive"),
+    path("api/user/question_cards/", get_question_cards, name="question_cards"),
+    path("api/user/archive_card/", archive_card, name="question_cards_archive"),
     path(
-        _api_url(f"user/delete_account", admin=False),
+        _api_url("user/delete_account", admin=False),
         api.user.delete_account,
         name="delete_account_api",
     ),
@@ -156,18 +146,10 @@ view_routes = [
         name="newsletter_subscribe",
     ),
     path(_api_url("quick_matching_statistics", admin=True), get_quick_statistics),
-    path(
-        _api_url("optimize_possible_matches", admin=True), score_maximization_matching
-    ),
-    path(
-        "api/matching/burst_update_scores/", burst_calculate_matching_scores_v2
-    ),
-    path(
-        "api/matching/get_active_burst_calculation/", get_active_burst_calculation
-    ),
-    path(
-        _api_url("delete_all_matching_scores", admin=True), delete_all_matching_scores
-    ), # TODO: can be depricated / is perforemed automaticly on update
+    path(_api_url("optimize_possible_matches", admin=True), score_maximization_matching),
+    path("api/matching/burst_update_scores/", burst_calculate_matching_scores_v2),
+    path("api/matching/get_active_burst_calculation/", get_active_burst_calculation),
+    path(_api_url("delete_all_matching_scores", admin=True), delete_all_matching_scores),  # TODO: can be depricated / is perforemed automaticly on update
     path(_api_url("top_scores", admin=True), list_top_scores),
     path("info_card_debug/", main_frontend.info_card, name="info_card"),
     path(_api_url("calcom", admin=False), api.calcom.callcom_websocket_callback),
@@ -180,7 +162,7 @@ view_routes = [
 
 if settings.USE_LANDINGPAGE_PLACEHOLDER:
     view_routes += [
-        path(f"landing/", landing_page.landing_page, name="landing_page_placeholder"),
+        path("landing/", landing_page.landing_page, name="landing_page_placeholder"),
     ]
 
 urlpatterns = [

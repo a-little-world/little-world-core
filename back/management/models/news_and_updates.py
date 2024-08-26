@@ -4,7 +4,6 @@ from rest_framework import serializers
 
 
 class NewsItem(models.Model):
-
     title = models.CharField(max_length=255, null=False, blank=False)
     description = models.CharField(max_length=255, null=False, blank=False)
 
@@ -27,4 +26,4 @@ class NewsItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = NewsItem
-        fields = ['title', 'description', 'time', 'options', 'link']
+        fields = ["title", "description", "time", "options", "link"]

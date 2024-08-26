@@ -44,8 +44,8 @@ def dataclass_as_dict(data):
 
 def get_options_serializer(self, obj):
     """
-    Takes the default django rest options serializer 
-    and transformes it to a little bit more limited amount of data 
+    Takes the default django rest options serializer
+    and transformes it to a little bit more limited amount of data
     """
     d = {}
     dataG = SimpleMetadata()
@@ -58,8 +58,7 @@ def get_options_serializer(self, obj):
             for choice in _f["choices"]:
                 # We do assume that models.IntegerChoices or models.TextChoices is used
                 # sadly it seems int keys are auto transformed to string when jsonized
-                _t_choices.append(
-                    {"tag": choice["display_name"], "value": choice["value"]})
+                _t_choices.append({"tag": choice["display_name"], "value": choice["value"]})
                 d[k] = _t_choices
     return d
 
@@ -68,6 +67,6 @@ def transform_add_options_serializer(serializer):
     class WOptionSerializer(serializer):  # type: ignore
         class Meta:
             model = deepcopy(serializer.Meta.model)
-            fields = [
-                *deepcopy(serializer.Meta.fields), "options"]
+            fields = [*deepcopy(serializer.Meta.fields), "options"]
+
     return WOptionSerializer
