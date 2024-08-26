@@ -69,10 +69,11 @@ def prepare_template_context(template_name, user_id=None, match_id=None, propose
 
     available_dependencies = []
 
-    # TODO: this should be enforcing match user access encapsulation
     user = None if (not user_id) else get_user_model().objects.get(id=user_id)
-    proposed_match = None if (not match_id) else ProposedMatch.objects.get(id=proposed_match_id)
+    proposed_match = None if (not proposed_match_id) else ProposedMatch.objects.get(id=proposed_match_id)
     match = None if (not match_id) else Match.objects.get(id=match_id)
+    
+    print("user", user, "match", match, "proposed_match", proposed_match)
 
     if user:
         available_dependencies.append("user")
