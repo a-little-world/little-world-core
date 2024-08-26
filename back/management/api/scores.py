@@ -202,7 +202,7 @@ class ScoringBase:
         then `user.gender.ANY` with `user.partner_gender.ANY` gives a score of `30`
         while `user.gender.MALE (or FEMALE)` with `user.gender_partne.ANY` will give a score of `5`
         """
-        normalize_gender_choices = {Profile.GenderChoices.ANY: "any", Profile.GenderChoices.MALE: "male", Profile.GenderChoices.FEMALE: "female", Profile.PartnerGenderChoices.ANY: "any", Profile.PartnerGenderChoices.FEMALE: "female", Profile.PartnerGenderChoices.MALE: "male"}
+        normalize_gender_choices = {Profile.GenderChoices.ANY: "any", Profile.GenderChoices.MALE: "male", Profile.GenderChoices.FEMALE: "female", Profile.PartnerGenderChoices.ANY: "any", Profile.PartnerGenderChoices.FEMALE: "female", Profile.PartnerGenderChoices.MALE: "male", None: "any"}
 
         def male_or_female(gender):
             return (gender == "male") or (gender == "female")
@@ -275,9 +275,9 @@ class ScoringBase:
                 assert res, f"Score function must return a ScoringFuctionResult: {score_function} doesn't"
             except Exception as e:
                 error_occured = True
+                print(f"Error in score function {score_function}:", e)
                 if raise_exception:
                     raise e
-                print(f"Error in score function {score_function}:", e)
                 res = ScoringFuctionResult(matchable=False, score=0, weight=1.0, markdown_info=f"ERROR in score function {score_function}: {e}")
             results.append({"score_function": score_function, "res": res.dict()})
 
