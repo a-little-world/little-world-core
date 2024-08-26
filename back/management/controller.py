@@ -313,8 +313,8 @@ def match_users(users: set, send_notification=True, send_message=True, send_emai
 
     if send_email:
         if settings.USE_V2_EMAIL_APIS:
-            usr1.send_email_v2("confirm-match-1", match_id=matching_obj.id)
-            usr2.send_email_v2("confirm-match-1", match_id=matching_obj.id)
+            usr1.send_email_v2("new-match", match_id=matching_obj.id)
+            usr2.send_email_v2("new-match", match_id=matching_obj.id)
         else:
             usr1.send_email(subject="Glückwunsch! Gesprächspartner:in gefunden auf Little World", mail_data=mails.get_mail_data_by_name("match"), mail_params=mails.MatchMailParams(first_name=usr1.profile.first_name, match_first_name=usr2.profile.first_name, profile_link_url=settings.BASE_URL))
             usr2.send_email(
