@@ -18,56 +18,56 @@
       "id": "welcome",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Welcome to our platform",
+      "subject": "Willkommen bei Little World",
       "template": "react_emails/welcome.html"
     },
     "account-deleted": {
       "id": "account-deleted",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "No Subject",
+      "subject": "Account erfolgreich gel\u00f6scht",
       "template": "react_emails/account-deleted.html"
     },
     "confirm-match-1": {
       "id": "confirm-match-1",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "No Subject",
+      "subject": "Match gefunden - jetzt best\u00e4tigen",
       "template": "react_emails/confirm-match-1.html"
     },
     "confirm-match-2": {
       "id": "confirm-match-2",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "No Subject",
+      "subject": "Dein match wartet - h\u00f6chste Zeit zu best\u00e4tigen",
       "template": "react_emails/confirm-match-2.html"
     },
     "expired-match": {
       "id": "expired-match",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "No Subject",
+      "subject": "Dein Match ist abgelaufen - Finde einen neuen Partner",
       "template": "react_emails/expired-match.html"
     },
     "new-match": {
       "id": "new-match",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "No Subject",
+      "subject": "Gl\u00fcckwunsch! Lerne jetzt {match_first_name} kennen",
       "template": "react_emails/new-match.html"
     },
     "new-messages": {
       "id": "new-messages",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "No Subject",
+      "subject": "Neue Nachrichten",
       "template": "react_emails/new-messages.html"
     },
     "match-resolved": {
       "id": "match-resolved",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "No Subject",
+      "subject": "Neue Bekanntschaften suchen auf Little World",
       "template": "react_emails/match-resolved.html"
     },
     "reset-password": {
@@ -81,42 +81,42 @@
       "id": "still-in-contact",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "No Subject",
+      "subject": "Noch in Kontakt mit {match_name}?",
       "template": "react_emails/still-in-contact.html"
     },
     "unfinished_user_form_1": {
       "id": "unfinished_user_form_1",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "No Subject",
+      "subject": "Umfrage beenden f\u00fcr Bekanntschaften aus aller Welt",
       "template": "react_emails/unfinished_user_form_1.html"
     },
     "unfinished_user_form_2": {
       "id": "unfinished_user_form_2",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "No Subject",
+      "subject": "Mit 30 Minuten helfen - Umfrage beenden",
       "template": "react_emails/unfinished_user_form_2.html"
     },
     "verify-email": {
       "id": "verify-email",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "No Subject",
+      "subject": "Bitte best\u00e4tige deine E-Mail-Adresse f\u00fcr Little World",
       "template": "react_emails/verify-email.html"
     },
     "babbel-subscription-winner": {
       "id": "babbel-subscription-winner",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "No Subject",
+      "subject": "Herzlichen Gl\u00fcckwunsch! Du hast ein 6-monatiges Babbel-Abonnement gewonnen",
       "template": "react_emails/babbel-subscription-winner.html"
     },
     "babbel-precode-survey": {
       "id": "babbel-precode-survey",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "No Subject",
+      "subject": "Kostenloser 6-monatiger Babbel Code - Verbessere dein Deutsch!",
       "template": "react_emails/babbel-precode-survey.html"
     }
   },
