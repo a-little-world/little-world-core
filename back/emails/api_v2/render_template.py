@@ -59,7 +59,7 @@ class MissingContextDependencyException(Exception):
     pass
 
 
-def prepare_template_context(template_name, user_id=None, match_id=None, **kwargs):
+def prepare_template_context(template_name, user_id=None, match_id=None, proposed_match_id=None, **kwargs):
     params = EMAILS_CONFIG.parameters
     template_config = EMAILS_CONFIG.emails.get(template_name)
     template_path = template_config.template
@@ -71,24 +71,17 @@ def prepare_template_context(template_name, user_id=None, match_id=None, **kwarg
 
     # TODO: this should be enforcing match user access encapsulation
     user = None if (not user_id) else get_user_model().objects.get(id=user_id)
-    match = None if (not match_id) else Match.objects.filter(id=match_id)
-
-    # if the match object doesn't exist check if a match proposal exists
-    if match:
-        if match.exists():
-            match = match.first()
-        else:
-            match = ProposedMatch.objects.filter(id=match_id)
-            if match.exists():
-                match = match.first()
-            else:
-                match = None
+    proposed_match = None if (not match_id) else ProposedMatch.objects.get(id=proposed_match_id)
+    match = None if (not match_id) else Match.objects.get(id=match_id)
 
     if user:
         available_dependencies.append("user")
 
     if match:
         available_dependencies.append("match")
+        
+    if proposed_match:
+        available_dependencies.append("proposed_match")
 
     for key in kwargs:
         available_dependencies.append(f"context.{key}")
@@ -119,6 +112,8 @@ def prepare_template_context(template_name, user_id=None, match_id=None, **kwarg
                 lookup_context["user"] = user
             elif dependency == "match":
                 lookup_context["match"] = match
+            elif dependency == "proposed_match":
+                lookup_context["proposed_match"] = proposed_match
             elif dependency.startswith("context."):
                 param_name = dependency.split(".")[1]
                 print(kwargs)
@@ -132,8 +127,8 @@ def prepare_template_context(template_name, user_id=None, match_id=None, **kwarg
     return template_info, context
 
 
-def render_template_dynamic_lookup(template_name, user_id=None, match_id=None, **kwargs):
-    template_info, context = prepare_template_context(template_name, user_id, match_id, **kwargs)
+def render_template_dynamic_lookup(template_name, user_id=None, match_id=None, proposed_match_id=None, **kwargs):
+    template_info, context = prepare_template_context(template_name, user_id, match_id, proposed_match_id, **kwargs)
     template_path = template_info["config"]["template"]
 
     return render_template_to_html(template_path, context)
