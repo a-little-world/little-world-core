@@ -4,31 +4,36 @@ from emails.api_v2.emails_config import EMAILS_CONFIG
 from django.template.loader import get_template, render_to_string
 from django.template.base import VariableNode, NodeList
 from management.models.unconfirmed_matches import ProposedMatch
+from django.template import Template
 import importlib
 
 
-def extract_variables_from_template(template_name):
-    template = get_template(template_name)
-
-    def extract_from_nodes(nodelist):
-        variables = set()
-        for node in nodelist:
-            if isinstance(node, VariableNode):
-                variables.update(token.strip() for token in node.filter_expression.token.split("|")[0].split("."))
-            elif hasattr(node, "nodelist"):
-                variables.update(extract_from_nodes(node.nodelist))
-            elif isinstance(node, NodeList):
-                variables.update(extract_from_nodes(node))
-        return variables
-
-    variables = extract_from_nodes(template.template.nodelist)
-
+def extract_from_nodes(nodelist):
+    variables = set()
+    for node in nodelist:
+        if isinstance(node, VariableNode):
+            variables.update(token.strip() for token in node.filter_expression.token.split("|")[0].split("."))
+        elif hasattr(node, "nodelist"):
+            variables.update(extract_from_nodes(node.nodelist))
+        elif isinstance(node, NodeList):
+            variables.update(extract_from_nodes(node))
     return variables
 
+def extract_variables_from_template(template_name):
+    template = get_template(template_name)
+    variables = extract_from_nodes(template.template.nodelist)
+    return variables
+
+def extract_variables_from_subject(subject):
+    template = Template(subject)
+    variables = extract_from_nodes(template.nodelist)
+    return variables
 
 def get_full_template_info(template_config):
     exclude_vars = ["BASE_URL"]
     variables = extract_variables_from_template(template_config.template)
+    subject_vars = extract_variables_from_subject(template_config.subject)
+    variables.update(subject_vars)
     variables = [var for var in variables if var not in exclude_vars]
 
     dependancies = set()
