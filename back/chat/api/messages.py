@@ -9,6 +9,7 @@ from rest_framework.decorators import action
 from drf_spectacular.utils import extend_schema
 from emails import mails
 from django.conf import settings
+from management.tasks import send_email_background
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -119,7 +120,7 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         
         def notify_recipient_email():
             if settings.USE_V2_EMAIL_APIS:
-                partner.send_email_v2("new-messages")
+                send_email_background.delay("new-messages", user_id=partner.id)
             else:
                 partner.send_email(
                     subject="Neue Nachricht(en) auf Little World",
