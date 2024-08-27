@@ -389,3 +389,22 @@ def record_bucket_ids():
             data[fl.name] = str(-500)
 
     Statistic.objects.create(kind=Statistic.StatisticTypes.MATCH_BUCKET_IDS, data=data)
+    
+@shared_task
+def send_email_background(
+        template_name, 
+        user_id=None, 
+        match_id=None, 
+        proposed_match_id=None, 
+        context={}
+    ):
+    from emails.api_v2.send_email import send_template_email
+
+    send_template_email(
+        template_name,
+        user_id=user_id, 
+        match_id=match_id, 
+        proposed_match_id=proposed_match_id, 
+        emulated_send=False,
+        context=context
+    )
