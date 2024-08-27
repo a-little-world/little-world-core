@@ -4,6 +4,10 @@ from management.models.matches import Match
 # Helper function to calculate days ago
 from datetime import timedelta
 from django.utils import timezone
+from django.db.models import Exists, OuterRef, Subquery
+from django.db.models.functions import Coalesce
+from video.models import LivekitSession
+from chat.models import Message
 
 
 def days_ago(days):
@@ -42,22 +46,39 @@ def match_confirmed_no_contact(qs=Match.objects.all(), mutal_ghosted_days=7):
     3. Match Confirmed No Contact
     Filters matches that are active, confirmed by both users, no unmatch reports, and neither user has sent messages or participated in video calls at all.
     """
-    return (
-        qs.filter(
-            support_matching=False,
-            confirmed=True,
-            created_at__lt=days_ago(mutal_ghosted_days),
-        )
-        .annotate(
-            u1_messages=Count("user1__message_sender", filter=Q(user1__message_sender__recipient=F("user2"))),
-            u2_messages=Count("user2__message_sender", filter=Q(user2__message_sender__recipient=F("user1"))),
-            u1_video_calls=Count("user1__u1_livekit_session", filter=Q(user1__u1_livekit_session__u2=F("user2"))),
-            u2_video_calls=Count("user2__u2_livekit_session", filter=Q(user2__u2_livekit_session__u1=F("user1"))),
-        )
-        .annotate(mutual_messages=F("u1_messages") + F("u2_messages"), mutual_video_calls=F("u1_video_calls") + F("u2_video_calls"))
-        .filter(mutual_messages=0, mutual_video_calls=0)
+    days_threshold = days_ago(mutal_ghosted_days)
+
+    # Check if there is at least one message sent from user1 to user2
+    user1_to_user2_message_exists = Message.objects.filter(
+        sender=OuterRef('user1'),
+        recipient=OuterRef('user2')
     )
 
+    # Check if there is at least one message sent from user2 to user1
+    user2_to_user1_message_exists = Message.objects.filter(
+        sender=OuterRef('user2'),
+        recipient=OuterRef('user1')
+    )
+
+    # Check if there's a video call either from user1 or user2
+    video_call_exists = LivekitSession.objects.filter(
+        Q(u1=OuterRef('user1'), u2=OuterRef('user2')) |
+        Q(u1=OuterRef('user2'), u2=OuterRef('user1'))
+    )
+
+    return qs.filter(
+        support_matching=False,
+        confirmed=True,
+        created_at__lt=days_threshold,
+    ).annotate(
+        user1_to_user2_message_exists_flag=Exists(user1_to_user2_message_exists),
+        user2_to_user1_message_exists_flag=Exists(user2_to_user1_message_exists),
+        video_call_exists_flag=Exists(video_call_exists),
+    ).filter(
+        user1_to_user2_message_exists_flag=False,
+        user2_to_user1_message_exists_flag=False,
+        video_call_exists_flag=False
+    )
 
 def match_confirmed_single_party_contact(qs=Match.objects.all()):
     """
@@ -73,26 +94,43 @@ def match_confirmed_single_party_contact(qs=Match.objects.all()):
         .filter(Q(report_unmatch__len=1) | Q(u1_messages=0) | Q(u2_messages=0))
     )
 
-
-def match_first_contact(qs=Match.objects.all()):
+def match_first_contact(qs=Match.objects.all(), min_mutual_messages=2):
     """
     5. Match First Contact
     Filters matches where both users have either participated in the same video call or sent at least one message to each other.
     """
-    return (
-        qs.filter(
-            Q(user1__u1_livekit_session__both_have_been_active=True) | Q(user2__u2_livekit_session__both_have_been_active=True),
-            support_matching=False,
-            confirmed=True,
-        )
-        .annotate(u1_messages=Count("user1__message_sender", filter=Q(user1__message_sender__recipient=F("user2"))), u2_messages=Count("user2__message_sender", filter=Q(user2__message_sender__recipient=F("user1"))))
-        .annotate(mutual_messages=F("u1_messages") + F("u2_messages"))
-        .filter(mutual_messages__gte=2)
+    
+    # Check if there is at least one message sent from user1 to user2
+    user1_to_user2_message_exists = Message.objects.filter(
+        sender=OuterRef('user1'),
+        recipient=OuterRef('user2')
     )
 
+    # Check if there is at least one message sent from user2 to user1
+    user2_to_user1_message_exists = Message.objects.filter(
+        sender=OuterRef('user2'),
+        recipient=OuterRef('user1')
+    )
 
-def match_ongoing(  # TODO: should be a match that is still under the desired match duration
-    qs=Match.objects.all(), last_interaction_days=14, min_total_mutual_messages=2, min_total_mutual_video_calls=1, min_total_recent_mutual_messages=1, min_total_recent_mutual_video_calls=1
+    # Check if both users have participated in a video call
+    video_call_exists = LivekitSession.objects.filter(
+        Q(both_have_been_active=True) & 
+        (Q(u1=OuterRef('user1'), u2=OuterRef('user2')) | Q(u1=OuterRef('user2'), u2=OuterRef('user1')))
+    )
+
+    return qs.filter(
+        (Exists(user1_to_user2_message_exists) & Exists(user2_to_user1_message_exists)) | Exists(video_call_exists),
+        support_matching=False,
+        confirmed=True
+    )
+
+def match_ongoing(
+    qs=Match.objects.all(), 
+    last_interaction_days=14, 
+    min_total_mutual_messages=2, 
+    min_total_mutual_video_calls=1, 
+    min_total_recent_mutual_messages=1, 
+    min_total_recent_mutual_video_calls=1
 ):
     """
     6. Match Ongoing

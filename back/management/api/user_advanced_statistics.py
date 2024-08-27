@@ -15,6 +15,7 @@ from management.helpers import IsAdminOrMatchingUser
 from rest_framework import serializers
 from drf_spectacular.utils import extend_schema, inline_serializer
 from management.api.user_advanced_filter_lists import FILTER_LISTS
+from management.helpers.query_logger import QueryLogger
 
 
 @extend_schema(
@@ -189,7 +190,6 @@ def livekit_session_statistics(request):
 
     return Response(data)
 
-
 @extend_schema(
     request=inline_serializer(
         name="BucketStatisticsCountOverTimeRequest",
@@ -268,12 +268,25 @@ def match_bucket_statistics(request):
     if selected_filters is None:
         selected_filters = [entry.name for entry in MATCH_JOURNEY_FILTERS]
 
+    # Uncomment this and re-set the if flag if you want to log query speeds
+    # query_logger = QueryLogger()
+    # with connection.execute_wrapper(query_logger):
     match_buckets = []
     selected_filters_list = [entry for entry in MATCH_JOURNEY_FILTERS if entry.name in selected_filters]
     for filter_list in selected_filters_list:
         queryset = filter_list.queryset(qs=pre_filtered_matches)
         count = queryset.count()
         match_buckets.append({"name": filter_list.name, "description": filter_list.description, "count": count})
+    
+    if False:
+        # use this for debugging query speeds
+        with open("query_log.txt", "w+") as f:
+            sum_duration = 0
+            for query in query_logger.queries:
+                f.write(f"{query['sql']}\n{query['duration']}\n\n")
+                sum_duration += query['duration']
+                
+            f.write(f"Total queries: {len(query_logger.queries)}\nTotal duration: {sum_duration}\n")
 
     return Response(match_buckets)
 
