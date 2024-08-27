@@ -131,6 +131,8 @@ def make_tim_support_user(user, old_management_mail="littleworld.management@gmai
 
 
 def create_user(email, password, first_name, second_name, birth_year, company=None, newsletter_subscribed=False, send_verification_mail=True, send_welcome_notification=True, send_welcome_message=True, catch_email_send_errors=True, check_prematching_invitations=False):
+    # TODO: depricate param 'catch_email_send_errors'
+
     """
     This should be used when creating a new user, it may throw validations errors!
     performs the following setps:
@@ -188,14 +190,7 @@ def create_user(email, password, first_name, second_name, birth_year, company=No
                     mail_params=mails.WelcomeEmailParams(first_name=usr.profile.first_name, verification_url=verifiaction_url, verification_code=str(usr.state.get_email_auth_pin())),
                 )
 
-        # TODO: refactor remove this bullshit:
-        if catch_email_send_errors:
-            try:
-                send_verify_link()
-            except Exception as e:
-                print("Email sending failed!" + str(e))
-        else:
-            send_verify_link()
+        send_verify_link()
 
     base_management_user = get_base_management_user()
 

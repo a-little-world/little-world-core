@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from django.core.mail import EmailMessage
 from emails.api_v2.emails_config import EMAILS_CONFIG
 from django.contrib.auth import get_user_model
-from django.template import Template
+from django.template import Template, Context
 
 
 class SendEmailSerializer(serializers.Serializer):
@@ -34,7 +34,7 @@ def send_template_email(
     template_info, _context = prepare_template_context(template_name, user_id, match_id, proposed_match_id, **context)
     email_html = render_template_to_html(template_info["config"]["template"], _context)
     subject = Template(template_info["config"]["subject"])
-    subject = subject.render(_context)
+    subject = subject.render(Context(_context))
 
     from management.controller import get_base_management_user
 
