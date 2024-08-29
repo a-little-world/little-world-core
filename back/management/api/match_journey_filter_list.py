@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from management.api.match_journey_filters import match_unviewed, match_one_user_viewed, match_confirmed_no_contact, match_confirmed_single_party_contact, match_first_contact, match_ongoing, match_free_play, completed_match, never_confirmed, no_contact, user_ghosted, contact_stopped, matching_proposals
+from management.api.match_journey_filters import match_unviewed, match_one_user_viewed, match_confirmed_no_contact, match_confirmed_single_party_contact, match_first_contact, match_ongoing, match_free_play, completed_match, never_confirmed, no_contact, user_ghosted, contact_stopped, matching_proposals, expired_matching_proposals
 
 
 @dataclass
@@ -29,4 +29,5 @@ MATCH_JOURNEY_FILTERS = [
     FilterListEntry("match_journey_v2__no_contact", "(Failed-Matching) Matches that are confirmed but without contact and older than a specified number of days.", no_contact),
     FilterListEntry("match_journey_v2__user_ghosted", "(Failed-Matching) Matches that are confirmed, have a single party contact, and are older than a specified number of days.", user_ghosted),
     FilterListEntry("match_journey_v2__contact_stopped", "(Failed-Matching) Matches older than the desired match duration where users interacted but their interaction stopped before the desired duration.", contact_stopped),
+    FilterListEntry("match_journey_v2__expired_proposals", "(Failed-Matching) Matches that are proposed but expired.", expired_matching_proposals),
 ]
