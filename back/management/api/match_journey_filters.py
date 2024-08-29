@@ -8,6 +8,7 @@ from django.db.models import Exists, OuterRef, Subquery
 from django.db.models.functions import Coalesce
 from video.models import LivekitSession
 from chat.models import Message
+from management.models.unconfirmed_matches import ProposedMatch
 
 
 def days_ago(days):
@@ -80,18 +81,48 @@ def match_confirmed_no_contact(qs=Match.objects.all(), mutal_ghosted_days=7):
         video_call_exists_flag=False
     )
 
-def match_confirmed_single_party_contact(qs=Match.objects.all()):
+def match_confirmed_single_party_contact(qs=Match.objects.all(), mutal_ghosted_days=7):
     """
     4. Match Confirmed Single Party Contact
-    Filters matches that are active, confirmed, with one user having reported the unmatch or only one user having contacted the other.
+    Filters matches that are active, confirmed by both users, no unmatch reports,
+    and only one user has sent messages or participated in video calls. The bot should not have 
+    been active in those matches.
     """
-    return (
-        qs.filter(
-            support_matching=False,
-            confirmed=True,
-        )
-        .annotate(u1_messages=Count("user1__message_sender", filter=Q(user1__message_sender__recipient=F("user2"))), u2_messages=Count("user2__message_sender", filter=Q(user2__message_sender__recipient=F("user1"))))
-        .filter(Q(report_unmatch__len=1) | Q(u1_messages=0) | Q(u2_messages=0))
+    days_threshold = days_ago(mutal_ghosted_days)
+
+    # Check if there is at least one message sent from user1 to user2
+    user1_to_user2_message_exists = Message.objects.filter(
+        sender=OuterRef('user1'),
+        recipient=OuterRef('user2')
+    )
+
+    # Check if there is at least one message sent from user2 to user1
+    user2_to_user1_message_exists = Message.objects.filter(
+        sender=OuterRef('user2'),
+        recipient=OuterRef('user1')
+    )
+
+    # Check if there's a video call either from user1 or user2
+    video_call_exists = LivekitSession.objects.filter(
+        Q(u1=OuterRef('user1'), u2=OuterRef('user2')) |
+        Q(u1=OuterRef('user2'), u2=OuterRef('user1')),
+       both_have_been_active=True, 
+    )
+
+    return qs.filter(
+        support_matching=False,
+        confirmed=True,
+        created_at__lt=days_threshold,
+    ).annotate(
+        user1_to_user2_message_exists_flag=Exists(user1_to_user2_message_exists),
+        user2_to_user1_message_exists_flag=Exists(user2_to_user1_message_exists),
+        video_call_exists_flag=Exists(video_call_exists),
+    ).filter(
+        (
+            Q(user1_to_user2_message_exists_flag=True, user2_to_user1_message_exists_flag=False) |
+            Q(user1_to_user2_message_exists_flag=False, user2_to_user1_message_exists_flag=True)
+        ) &
+        Q(video_call_exists_flag=False)
     )
 
 def match_first_contact(qs=Match.objects.all(), min_mutual_messages=2):
@@ -223,17 +254,24 @@ def user_ghosted(qs=Match.objects.all()):  # TODO: one of the has been ghosted
     11. User Ghosted
     Filters matches that are confirmed, have a single party contact, and are older than a specified number of days.
     """
-    return qs.filter(
-        confirmed=True,
-        report_unmatch__len=1,
-        updated_at__lt=days_ago(OLDER_THAN_DAYS),
-    )
+    # TODO:
+    return qs
 
 
-def contact_stopped(qs=Match.objects.all(), stop_x_days_before_desired=21, desired_x_messages=2, desired_x_video_calls=2):
+def contact_stopped(qs=Match.objects.all(), 
+        stop_x_days_before_desired=21, 
+        desired_x_messages=2, 
+        desired_x_video_calls=2
+    ):
     """
     12. Contact Stopped
     Filters matches older than DESIRED_MATCH_DURATION_WEEKS where users interacted but their interaction stopped before the desired duration.
     TODO
     """
     return match_free_play(qs)
+
+def matching_proposals(qs=ProposedMatch.objects.all()):
+    qs=ProposedMatch.objects.all().filter(
+        closed=False
+    )
+    return qs

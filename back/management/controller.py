@@ -337,8 +337,7 @@ def match_users(users: set, send_notification=True, send_message=True, send_emai
 def create_user_matching_proposal(users: set, send_confirm_match_email=True):
     """
     This represents the new intermediate matching step we created.
-    Users are not just matched directly but first a matching proposal is send to the 'volunteer' user.
-    TODO or is it the learner im still not sure on this?
+    Users are not just matched directly but first a matching proposal is send to the 'learner' user.
     """
     u1, u2 = list(users)
     proposal = ProposedMatch.objects.create(

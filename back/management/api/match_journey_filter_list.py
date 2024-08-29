@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from management.api.match_journey_filters import match_unviewed, match_one_user_viewed, match_confirmed_no_contact, match_confirmed_single_party_contact, match_first_contact, match_ongoing, match_free_play, completed_match, never_confirmed, no_contact, user_ghosted, contact_stopped
+from management.api.match_journey_filters import match_unviewed, match_one_user_viewed, match_confirmed_no_contact, match_confirmed_single_party_contact, match_first_contact, match_ongoing, match_free_play, completed_match, never_confirmed, no_contact, user_ghosted, contact_stopped, matching_proposals
 
 
 @dataclass
@@ -16,6 +16,7 @@ class FilterListEntry:
 
 
 MATCH_JOURNEY_FILTERS = [
+    FilterListEntry("match_journey_v2__proposed_matches", "(Pre-Matching) Proposed matches [No real-matches yet]", matching_proposals),
     FilterListEntry("match_journey_v2__unviewed", "(Pre-Matching) Matches that are active and not yet confirmed by both users.", match_unviewed),
     FilterListEntry("match_journey_v2__one_user_viewed", "(Pre-Matching) Matches that are active, not yet confirmed by both users, but confirmed by at least one user.", match_one_user_viewed),
     FilterListEntry("match_journey_v2__confirmed_no_contact", "(Pre-Matching) Matches that are active, confirmed by both users, no unmatch reports, and neither user has sent messages or participated in video calls at all.", match_confirmed_no_contact),
