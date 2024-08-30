@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from chat.models import ChatSerializer, Message, MessageSerializer, Chat
 from rest_framework.pagination import PageNumberPagination
+from django.db.models import Q
 from management.helpers import UserStaffRestricedModelViewsetMixin, DetailedPaginationMixin
 from django.utils import timezone
 from rest_framework.decorators import action
@@ -39,7 +40,16 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
     def filter_queryset(self, queryset):
         print("FILTERING")
         if hasattr(self, "chat_uuid"):
-            return Chat.objects.get(uuid=self.chat_uuid).get_messages().order_by("-created")
+            if self.request.user.is_staff:
+                qs = Chat.objects.get(
+                    uuid=self.chat_uuid
+                ).get_messages().order_by("-created")
+                return qs
+            else:
+                qs = Chat.objects.get(
+                    Q(u1=self.request.user) | Q(u2=self.request.user),
+                    uuid=self.chat_uuid
+                ).get_messages().order_by("-created")
         return super().filter_queryset(queryset)
 
     def list(self, request, *args, **kwargs):
