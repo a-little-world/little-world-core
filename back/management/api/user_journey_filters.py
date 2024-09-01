@@ -1,10 +1,11 @@
 from datetime import timedelta
 from django.utils import timezone
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Case, F, BigIntegerField, When
 from management.models.user import User
 from management.models.state import State
 from management.models.profile import Profile
 from management.models.matches import Match
+from management.api.match_journey_filters import user_ghosted, never_confirmed, completed_match, match_free_play
 
 
 # Helper function to calculate three weeks ago
@@ -185,40 +186,44 @@ def no_show(qs=User.objects.all()):
 
 
 def ghoster(qs=User.objects.all()):
-    """
-    1) 'Ghoster': User has matching in [3.G] 'ghosted' his match
-    return qs.filter(
-        Q(match_user1__status=Match.StatusChoices.GHOSTED) |
-        Q(match_user2__status=Match.StatusChoices.GHOSTED)
-    ).distinct()
-    TODO: broken
-    """
-    return qs
+    ghosted_matches = user_ghosted().annotate(
+        ghosted_user=Case(
+            When(user1_to_user2_message_exists_flag=False, then=F('user1')),
+            When(user2_to_user1_message_exists_flag=False, then=F('user2')),
+            output_field=BigIntegerField()
+        )
+    )
+    ghosted_user_ids = ghosted_matches.values_list('ghosted_user', flat=True)
+    return qs.filter(id__in=ghosted_user_ids)
 
 
 def no_confirm(qs=User.objects.all()):
-    """
-    2.L) 'No-Confirm': Learner that has matching in 'Never Confirmed'
-    return qs.filter(
-        Q(match_user1__status=Match.StatusChoices.NEVER_CONFIRMED) |
-        Q(match_user2__status=Match.StatusChoices.NEVER_CONFIRMED)
-    ).distinct()
-    TODO: fix
-    """
-    return qs
+    user_ids = never_confirmed().values_list('user1', 'user2')
+    user_ids = [id for pair in user_ids for id in pair]
+    unique_user_ids = set(user_ids)
+    return qs.filter(id__in=unique_user_ids)
 
 
 def happy_inactive(qs=User.objects.all()):
-    """
-    3) 'Happy-Inactive': Not searching, 1 or more matches at least one match in 'Completed Matching'
-    return qs.filter(
-        state__matching_state=State.MatchingStateChoices.NOT_SEARCHING,
-        Q(match_user1__status=Match.StatusChoices.COMPLETED) |
-        Q(match_user2__status=Match.StatusChoices.COMPLETED)
-    ).distinct()
-    TODO - FIX
-    """
-    return qs
+    # Users that are not searching and have a 'completed_match' and NO 'free-play-match'
+    not_searching = qs.filter(state__matching_state=State.MatchingStateChoices.IDLE)
+    
+
+    users_that_have_free_play_matches = match_free_play().values_list('user1', 'user2')
+    users_that_have_free_play_matches = [id for pair in users_that_have_free_play_matches for id in pair]
+    users_that_have_free_play_matches = set(users_that_have_free_play_matches)
+    users_that_have_free_play_matches = not_searching.filter(id__in=users_that_have_free_play_matches)
+    users_that_have_free_play_matches = qs.filter(id__in=users_that_have_free_play_matches).filter(id__in=not_searching)
+    
+    users_that_have_finished_matches = completed_match().values_list('user1', 'user2')
+    users_that_have_finished_matches = [id for pair in users_that_have_finished_matches for id in pair]
+    users_that_have_finished_matches = set(users_that_have_finished_matches)
+    users_that_have_finished_matches = not_searching.filter(id__in=users_that_have_finished_matches)
+    users_that_have_finished_matches = qs.filter(id__in=users_that_have_finished_matches).filter(id__in=not_searching)
+    
+    happy_inactive_users = users_that_have_finished_matches.exclude(id__in=users_that_have_free_play_matches)
+
+    return happy_inactive_users
 
 
 def too_low_german_level(qs=User.objects.all()):

@@ -340,7 +340,6 @@ def user_ghosted(
         ) &
         Q(video_call_exists_flag=False)
     )
-    return qs
 
 
 def contact_stopped(qs=Match.objects.all()):
