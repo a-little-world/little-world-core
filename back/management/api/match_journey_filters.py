@@ -167,7 +167,7 @@ def match_ongoing(
     min_total_mutual_messages=2, 
     min_total_mutual_video_calls=1, 
     min_total_recent_mutual_messages=1, 
-    min_total_recent_mutual_video_calls=1,
+    min_total_recent_mutual_video_calls=0,
     only_consider_last_10_weeks_matches=True
 ):
     """
@@ -196,7 +196,8 @@ def match_ongoing(
     )
     
     if only_consider_last_10_weeks_matches:
-        qs = qs.filter(created_at__gte=days_ago(DESIRED_MATCH_DURATION_WEEKS * 7))
+        # Rename to 'less than 10 weeks old'
+        qs = qs.filter(created_at__gte=days_ago(DESIRED_MATCH_DURATION_WEEKS * 8))
         
     return qs
 
@@ -219,7 +220,7 @@ def completed_match(
     min_total_mutual_messages=2,
     min_total_mutual_video_calls=0,
     last_interaction_days=LAST_INTERACTION_DAYS,
-    last_and_first_interaction_days=5*7
+    last_and_first_interaction_days=4*7
 ):
     """
     8. Completed Match
