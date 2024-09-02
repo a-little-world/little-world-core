@@ -50,6 +50,7 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
                     Q(u1=self.request.user) | Q(u2=self.request.user),
                     uuid=self.chat_uuid
                 ).get_messages().order_by("-created")
+                return qs
         return super().filter_queryset(queryset)
 
     def list(self, request, *args, **kwargs):
