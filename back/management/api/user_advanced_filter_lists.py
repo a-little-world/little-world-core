@@ -96,3 +96,9 @@ USER_JOURNEY_FILTER_LISTS = [
 ]
 
 FILTER_LISTS = PANEL_V1_FILTER_LISTS + USER_JOURNEY_FILTER_LISTS
+
+def get_list_by_name(name):
+    for element in FILTER_LISTS:
+        if element.name == name:
+            return element
+    return None
