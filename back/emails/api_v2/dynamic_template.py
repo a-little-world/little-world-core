@@ -34,9 +34,7 @@ class DynamicEmailTemplateViewset(viewsets.ModelViewSet):
         return Response(template_data)
     
     @action(detail=True, methods=['post'])
-    def send(self, request, pk=None):
-        template = self.get_object()
-
+    def send(self, request, pk=None, template_name=None):
         # Filter down to current matching user
         qs = User.objects.filter(id__in=self.request.user.state.managed_users.all(), is_active=True)
 
@@ -44,12 +42,12 @@ class DynamicEmailTemplateViewset(viewsets.ModelViewSet):
         qs = get_list_by_name(user_list).queryset(qs)
 
         for user in qs:
-            dynamic_template_info, _context = prepare_dynamic_template_context(template_name=template.template_name, user_id=user.id)
+            dynamic_template_info, _context = prepare_dynamic_template_context(template_name=template_name, user_id=user.id)
             html = render_template_to_html(dynamic_template_info["template"])
             subject = Template(dynamic_template_info["subject"])
             subject = subject.render(Context(_context))
 
-            mail_log = EmailLog.objects.create(log_version=1, sender=get_base_management_user(), receiver=user, template=template_name, data={"html": email_html, "params": _context, "user_id": user_id, "match_id": match_id, "subject": subject})
+            mail_log = EmailLog.objects.create(log_version=1, sender=get_base_management_user(), receiver=user, template=template_name, data={"html": html, "params": _context, "user_id": user.id, "match_id": None, "subject": subject})
 
             try:
                 from_email = EMAILS_CONFIG.senders["noreply"]
@@ -76,4 +74,5 @@ class DynamicEmailTemplateViewset(viewsets.ModelViewSet):
 api_urls = [
     path("api/matching/emails/dynamic_templates/", DynamicEmailTemplateViewset.as_view({"get": "list", "post": "create", "patch": "partial_update"})),
     path("api/matching/emails/dynamic_templates/<str:template_name>/", DynamicEmailTemplateViewset.as_view({"get": "retrieve"})),
+    path("api/matching/emails/dynamic_templates/<str:template_name>/send/", DynamicEmailTemplateViewset.as_view({"post": "send"}))
 ]

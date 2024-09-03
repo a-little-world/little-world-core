@@ -1,5 +1,5 @@
 from django.conf import settings
-
+from django.utils import timezone
 def first_name(user):
     return user.profile.first_name
 
@@ -50,3 +50,6 @@ def link_url(user=None, match=None, context={"link_url": "Not set"}):
 
 def unsubscribe_url(user):
     return "https://www.example.com/unsubscribe"
+
+def date():
+    return str(timezone.now())
