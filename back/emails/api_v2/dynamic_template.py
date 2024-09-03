@@ -43,7 +43,7 @@ class DynamicEmailTemplateViewset(viewsets.ModelViewSet):
 
         for user in qs:
             dynamic_template_info, _context = prepare_dynamic_template_context(template_name=template_name, user_id=user.id)
-            html = render_template_to_html(dynamic_template_info["template"])
+            html = render_template_to_html(dynamic_template_info["template"], _context)
             subject = Template(dynamic_template_info["subject"])
             subject = subject.render(Context(_context))
 
