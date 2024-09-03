@@ -25,6 +25,6 @@ class DynamicEmailTemplateViewset(viewsets.ModelViewSet):
 
 
 api_urls = [
-    path("api/matching/emails/dynamic_templates/", DynamicEmailTemplateViewset.as_view({"get": "list", "post": "create"})),
+    path("api/matching/emails/dynamic_templates/", DynamicEmailTemplateViewset.as_view({"get": "list", "post": "create", "patch": "partial_update"})),
     path("api/matching/emails/dynamic_templates/<str:template_name>/", DynamicEmailTemplateViewset.as_view({"get": "retrieve"})),
 ]
