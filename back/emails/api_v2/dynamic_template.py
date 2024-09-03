@@ -62,11 +62,9 @@ class DynamicEmailTemplateViewset(viewsets.ModelViewSet):
                 mail.send(fail_silently=False)
                 mail_log.sucess = True
                 mail_log.save()
-                return Response({"success": True})
             except Exception as e:
                 mail_log.sucess = False
                 mail_log.save()
-                return Response({"error": str(e)}, status=500)
         
         return Response("Send Emails")
     
