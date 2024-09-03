@@ -154,3 +154,4 @@ def users_with_booked_prematching_call(qs=User.objects.all()):
 def users_require_prematching_call_not_booked(qs=User.objects.all()):
     user_with_prematching_booked = PreMatchingAppointment.objects.all().values("user")
     return qs.filter(state__user_form_state=State.UserFormStateChoices.FILLED, state__email_authenticated=True, state__matching_state=State.MatchingStateChoices.SEARCHING, state__had_prematching_call=False, state__unresponsive=False).exclude(pk__in=user_with_prematching_booked).order_by("-date_joined")
+

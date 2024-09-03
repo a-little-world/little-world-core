@@ -391,6 +391,10 @@ def record_bucket_ids():
     Statistic.objects.create(kind=Statistic.StatisticTypes.MATCH_BUCKET_IDS, data=data)
     
 @shared_task
+def send_dynamic_email_backgruound():
+    pass
+    
+@shared_task
 def send_email_background(
         template_name, 
         user_id=None, 
