@@ -62,6 +62,8 @@ class DynamicTemplate(models.Model):
     template = models.TextField()
 
     subject = models.CharField(max_length=255)
+    
+    content = models.JSONField(default={})
 
     category_id = models.CharField(max_length=255, default="dynamic")
     sender_id = models.CharField(max_length=255, default="noreply")

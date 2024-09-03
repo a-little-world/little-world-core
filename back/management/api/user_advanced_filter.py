@@ -19,6 +19,8 @@ def three_weeks_ago():
 def all_users(qs=User.objects.all()):
     return qs.order_by("-date_joined")
 
+def only_hd_test_user(qs=User.objects.all()):    
+    return qs.filter(email__startswith="herrduenschnlate")
 
 def needs_matching(qs=User.objects.all()):
     unconfirmed_matches = ProposedMatch.objects.filter(closed=False)

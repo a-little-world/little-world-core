@@ -1,9 +1,14 @@
 from django.contrib import admin
 from django.utils.safestring import mark_safe
 from django.conf import settings
-from emails.models import EmailLog
+from emails.models import EmailLog, DynamicTemplate
 from emails.mails import get_mail_data_by_name, encode_mail_params
 
+@admin.register(DynamicTemplate)
+class DynamicTemplateAdmin(admin.ModelAdmin):
+    list_display = ("uuid", "template_name", "subject", "content")
+
+    search_fields = ("template_name", )
 
 @admin.register(EmailLog)
 class EmailLogAdmin(admin.ModelAdmin):

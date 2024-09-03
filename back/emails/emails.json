@@ -226,6 +226,11 @@
       "depends_on": [
         "context.link_url"
       ]
+    },
+    "date": {
+      "id": "date",
+      "lookup": "emails.api_v2.template_lookup.date",
+      "depends_on": []
     }
   },
   "dependencies": {

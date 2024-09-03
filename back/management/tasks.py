@@ -24,7 +24,7 @@ def create_default_community_events():
         return "events already set, sais backend state! If they where deleted you should delete the state!"
 
     CommunityEvent.objects.create(
-        title=get_translation("de", "community_event.coffe_break"),
+        title=get_translation("community_event.coffe_break", lang="de"),
         description="Zusammenkommen der Community – lerne das Team hinter Little World und andere Nutzer:innen bei einer gemütlichen Tasse Kaffee oder Tee kennen.",
         time=datetime(2022, 11, 29, 12, 00, 00, 00, timezone.utc),
         active=True,
