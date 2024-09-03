@@ -391,8 +391,42 @@ def record_bucket_ids():
     Statistic.objects.create(kind=Statistic.StatisticTypes.MATCH_BUCKET_IDS, data=data)
     
 @shared_task
-def send_dynamic_email_backgruound():
-    pass
+def send_dynamic_email_backgruound(
+    template_name,
+    user_id=None,
+):
+    from emails.api_v2.render_template import prepare_dynamic_template_context
+    from django.template import Template, Context
+    from django.core.mail import EmailMessage
+    from management.controller import get_base_management_user
+    from emails.models import EmailLog
+    from emails.api_v2.emails_config import EMAILS_CONFIG
+
+    user = User.objects.get(id=user_id)
+
+    dynamic_template_info, _context = prepare_dynamic_template_context(template_name=template_name, user_id=user.id)
+    html_template = Template(dynamic_template_info["template"])
+    html = html_template.render(Context(_context))
+    subject = Template(dynamic_template_info["subject"])
+    subject = subject.render(Context(_context))
+
+    mail_log = EmailLog.objects.create(log_version=1, sender=get_base_management_user(), receiver=user, template=template_name, data={"html": html, "params": _context, "user_id": user.id, "match_id": None, "subject": subject})
+
+    try:
+        from_email = EMAILS_CONFIG.senders["noreply"]
+        mail = EmailMessage(
+            subject=subject,
+            body=html,
+            from_email=from_email,
+            to=[user],
+        )
+        mail.content_subtype = "html"
+        mail.send(fail_silently=False)
+        mail_log.sucess = True
+        mail_log.save()
+    except Exception as e:
+        mail_log.sucess = False
+        mail_log.save()
     
 @shared_task
 def send_email_background(
