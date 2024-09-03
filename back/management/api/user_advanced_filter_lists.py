@@ -15,6 +15,7 @@ from management.api.user_advanced_filter import (
     users_with_booked_prematching_call,
     users_require_prematching_call_not_booked,
     get_volunteers_booked_onboarding_call_but_never_visited,
+    only_hd_test_user
 )
 from management.api.user_journey_filters import (
     user_created,
@@ -37,6 +38,7 @@ from management.api.user_journey_filters import (
     too_low_german_level,
     unmatched,
     gave_up_searching,
+    community_calls
 )
 
 
@@ -93,6 +95,14 @@ USER_JOURNEY_FILTER_LISTS = [
     FilterListEntry("journey_v2__gave_up_searching", "(Inactive-User) User that's `searching=False` and has 0 matches", gave_up_searching),
     FilterListEntry("journey_v2__user_deleted", "(Past-User) User has been deleted", user_deleted),
     FilterListEntry("needs_matching_volunteers", "Volunteers only: All users in 'searching' without any user that has an open proposal!", needs_matching_volunteers),
+    FilterListEntry("herrduenschnlate", "just a list of some test users for tim", only_hd_test_user),
+    FilterListEntry("community", "Communit Calls filter", community_calls)
 ]
 
 FILTER_LISTS = PANEL_V1_FILTER_LISTS + USER_JOURNEY_FILTER_LISTS
+
+def get_list_by_name(name):
+    for element in FILTER_LISTS:
+        if element.name == name:
+            return element
+    return None

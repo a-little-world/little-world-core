@@ -12,6 +12,9 @@ from management.api.match_journey_filters import user_ghosted, never_confirmed, 
 def three_weeks_ago():
     return timezone.now() - timedelta(weeks=3)
 
+def days_ago(days):
+    return timezone.now() - timedelta(days=days)
+
 
 # Sign-Up Filters
 
@@ -269,3 +272,38 @@ def user_deleted(qs=User.objects.all()):
     7) 'User-Deleted': User that has been deleted
     """
     return qs.filter(is_active=False)
+
+
+
+def community_calls(
+        qs=User.objects.all(),
+        last_x_days=28*3
+    ):
+    selected_fields = ['id']  # Adjust these fields as needed for your User model
+
+    users_in_signup = user_created(qs).values(*selected_fields).union(
+        user_form_completed(qs).values(*selected_fields),
+        email_verified(qs).values(*selected_fields),
+        booked_onboarding_call(qs).values(*selected_fields),
+        first_search(qs).values(*selected_fields)
+    )
+    users_in_signup = User.objects.filter(id__in=users_in_signup).distinct()
+    
+    users_in_signup = users_in_signup.filter(
+        date_joined__gte=days_ago(last_x_days)
+    )
+
+    prematching_users = pre_matching(qs).values(*selected_fields).union(
+        match_takeoff(qs).values(*selected_fields),
+        active_match(qs).values(*selected_fields),
+        match_takeoff(qs).values(*selected_fields)
+    )
+
+    prematching_users = User.objects.filter(id__in=prematching_users).distinct()
+
+    all_users = users_in_signup.values(*selected_fields).union(
+        prematching_users.values(*selected_fields)
+    )
+    all_distinct_users = User.objects.filter(id__in=all_users).distinct()
+    
+    return all_distinct_users
