@@ -89,6 +89,8 @@ class AdvancedMatchingScoreSerializer(serializers.ModelSerializer):
 
 class UserFilter(filters.FilterSet):
     profile__user_type = filters.ChoiceFilter(field_name="profile__user_type", choices=Profile.TypeChoices.choices, help_text="Filter for learner or volunteers")
+    
+    profile__target_group = filters.ChoiceFilter(field_name="profile__target_group", choices=Profile.TargetGroupChoices2.choices, help_text="Filter for target group")
 
     state__email_authenticated = filters.BooleanFilter(field_name="state__email_authenticated", help_text="Filter for users that have authenticated their email")
 
