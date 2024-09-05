@@ -19,6 +19,10 @@ spec:
           image: {{ .Values.patenmatch.imageURL }}
           ports:
             - containerPort: 3000
+      {{- if .Values.registryAuth.use }}
+      imagePullSecrets:
+        - name: dockerconfigjson-github-com
+      {{- end }}
 ---
 apiVersion: v1
 kind: Service
