@@ -9,7 +9,7 @@ registryAuth:
 ingress:
   use: true
   certManager: true
-  host: "localhost"
+  host: "patenmatch.de"
 docs:
   use: false
   replicas: 1
