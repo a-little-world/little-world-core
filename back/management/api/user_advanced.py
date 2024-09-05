@@ -91,6 +91,13 @@ class UserFilter(filters.FilterSet):
     profile__user_type = filters.ChoiceFilter(field_name="profile__user_type", choices=Profile.TypeChoices.choices, help_text="Filter for learner or volunteers")
     
     profile__target_group = filters.ChoiceFilter(field_name="profile__target_group", choices=Profile.TargetGroupChoices2.choices, help_text="Filter for target group")
+    
+    profile__target_groups = filters.MultipleChoiceFilter(
+        field_name="profile__target_groups",
+        choices=Profile.TargetGroupChoices2.choices,
+        help_text="Filter for users based on target groups",
+        method="filter_target_groups",
+    )
 
     state__email_authenticated = filters.BooleanFilter(field_name="state__email_authenticated", help_text="Filter for users that have authenticated their email")
 
@@ -125,6 +132,14 @@ class UserFilter(filters.FilterSet):
             return selected_filter.queryset(queryset)
         else:
             return queryset
+        
+    def filter_target_groups(self, queryset, name, value):
+        if value:
+            query = Q()
+            for item in value:
+                query |= Q(**{f"{name}__icontains": item})
+            return queryset.filter(query)
+        return queryset
 
     class Meta:
         model = User
