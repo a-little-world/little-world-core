@@ -5,6 +5,7 @@ from management.models.user import User
 from management.models.state import State
 from management.models.profile import Profile
 from management.models.matches import Match
+from management.models.unconfirmed_matches import ProposedMatch
 from management.api.match_journey_filters import user_ghosted, never_confirmed, completed_match, match_free_play
 
 
@@ -86,14 +87,25 @@ def first_search(qs=User.objects.all()):
     """
     2.1: User is doing first search i.e.: has no 'non-support' match
     """
+    
+    now = timezone.now()
+    users_with_open_proposals = ProposedMatch.objects.filter(
+        closed=False,
+        expires_at__gt=now, 
+        learner_when_created__isnull=False
+    ).values_list('user1', 'user2')
+
+    users_w_open_proposals = set([id for pair in users_with_open_proposals for id in pair])
+    users_w_open_proposals = qs.filter(id__in=users_w_open_proposals)
+
     return (
         qs.filter(
             state__user_form_state=State.UserFormStateChoices.FILLED,
             state__matching_state=State.MatchingStateChoices.SEARCHING,
             state__email_authenticated=True,
             state__unresponsive=False,
-            state__had_prematching_call=True,
-        )
+            state__had_prematching_call=True
+        ).exclude(id__in=users_w_open_proposals)
         .annotate(num_matches=Count("match_user1", filter=Q(match_user1__support_matching=False)) + Count("match_user2", filter=Q(match_user2__support_matching=False)))
         .filter(num_matches=0)
     )
@@ -201,16 +213,21 @@ def ghoster(qs=User.objects.all()):
 
 
 def no_confirm(qs=User.objects.all()):
-    user_ids = never_confirmed().values_list('user1', 'user2')
-    user_ids = [id for pair in user_ids for id in pair]
-    unique_user_ids = set(user_ids)
-    return qs.filter(id__in=unique_user_ids)
+    users_in_unconfirmed_matches = qs.filter(
+        Q(match_user1__confirmed=False, match_user1__support_matching=False) | Q(match_user2__confirmed=False, match_user2__support_matching=False)
+    ).distinct()
+    users_in_confirmed_matches = qs.filter(
+        Q(match_user1__confirmed=True, match_user1__support_matching=False) | Q(match_user2__confirmed=True, match_user2__support_matching=False)
+    ).distinct()
+    users_with_only_unconfirmed_matches = users_in_unconfirmed_matches.exclude(
+        id__in=users_in_confirmed_matches.values('id')
+    ).filter(profile__user_type=Profile.TypeChoices.LEARNER)
+    return users_with_only_unconfirmed_matches
 
 
 def happy_inactive(qs=User.objects.all()):
     # Users that are not searching and have a 'completed_match' and NO 'free-play-match'
     not_searching = qs.filter(state__matching_state=State.MatchingStateChoices.IDLE)
-    
 
     users_that_have_free_play_matches = match_free_play().values_list('user1', 'user2')
     users_that_have_free_play_matches = [id for pair in users_that_have_free_play_matches for id in pair]
@@ -234,7 +251,9 @@ def too_low_german_level(qs=User.objects.all()):
     4) 'Too Low german level': User never active, but was flagged with a 'state.to_low_german_level=True'
     need to check if the profile.lang_skill json list field contains {'lang': 'german', 'level': 'A1'}
     """
-    return qs.filter(profile__lang_skill__contains=[{"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}])
+    return qs.filter(
+        profile__lang_skill__contains=[{"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}], 
+        profile__user_type=Profile.TypeChoices.LEARNER)
 
 
 def unmatched(qs=User.objects.all()):
@@ -242,9 +261,16 @@ def unmatched(qs=User.objects.all()):
     5) 'Unmatched': 'first-search' for over XX days, we failed to match the user at all
     """
     # Assuming XX days is 30 days
+    # Also filter out users that have open proposals
     thirty_days_ago = timezone.now() - timedelta(days=30)
     return (
-        qs.filter(state__user_form_state=State.UserFormStateChoices.FILLED, state__matching_state=State.MatchingStateChoices.SEARCHING, state__email_authenticated=True, state__unresponsive=False, state__had_prematching_call=True, date_joined__lt=thirty_days_ago)
+        qs.filter(
+            state__user_form_state=State.UserFormStateChoices.FILLED, 
+            state__matching_state=State.MatchingStateChoices.SEARCHING, 
+            state__email_authenticated=True, 
+            state__unresponsive=False, 
+            state__had_prematching_call=True, 
+            date_joined__lt=thirty_days_ago)
         .annotate(num_matches=Count("match_user1", filter=Q(match_user1__support_matching=False)) + Count("match_user2", filter=Q(match_user2__support_matching=False)))
         .filter(num_matches=0)
     )
