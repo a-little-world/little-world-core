@@ -1,0 +1,35 @@
+{{- if .Values.patenmatch.use }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: patenmatch-frontend
+  namespace: {{ .Values.rootNamespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: patenmatch-frontend
+  template:
+    metadata:
+      labels:
+        app: patenmatch-frontend
+    spec:
+      containers:
+        - name: patenmatch-frontend
+          image: {{ .Values.patenmatch.imageURL }}
+          ports:
+            - containerPort: 3000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: patenmatch-frontend
+  namespace: {{ .Values.rootNamespace }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3000
+      targetPort: 3000
+  selector:
+    app: patenmatch-frontend
+{{- end }}

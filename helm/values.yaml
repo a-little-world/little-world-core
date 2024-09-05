@@ -1,4 +1,7 @@
 rootNamespace: "default"
+patenmatch:
+  use: false
+  imageUrl: ""
 registryAuth:
   use: false
   host: "ghcr.io"
