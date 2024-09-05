@@ -141,6 +141,11 @@ spec:
     - hosts:
         - {{ .Values.ingress.host }}
       secretName: backend-ingress-tls
+    {{- if .Values.patenmatch.use }}
+    - hosts:
+        - {{ .Values.patenmatch.host }}
+      secretName: patenmatch-ingress-tls
+    {{- end }}
   {{- end }}
   rules:
     - host: {{ .Values.ingress.host }}
@@ -153,5 +158,24 @@ spec:
                 name: backend-service
                 port:
                   number: 8000
+    {{- if .Values.patenmatch.use }}
+    - host: {{ .Values.patenmatch.host }}
+      http:
+        paths:
+          - path: /api/
+            pathType: Prefix
+            backend:
+              service:
+                name: backend-service
+                port:
+                  number: 8000
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: patenmatch-frontend
+                port:
+                  number: 3000
+    {{- end }}
 {{- end }}
 ---

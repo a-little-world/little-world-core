@@ -1,4 +1,8 @@
 rootNamespace: "default"
+patenmatch:
+  use: false
+  imageUrl: ""
+  host: "patenmatch.de"
 registryAuth:
   use: false
   host: "ghcr.io"
@@ -6,7 +10,6 @@ registryAuth:
 ingress:
   use: true
   certManager: true
-  host: "localhost"
 docs:
   use: false
   replicas: 1
