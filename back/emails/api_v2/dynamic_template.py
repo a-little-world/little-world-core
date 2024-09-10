@@ -26,6 +26,7 @@ class DynamicEmailTemplateViewset(viewsets.ModelViewSet):
     serializer_class = DynamicTemplateSerializer
     pagination_class = DetailedPaginationMixin
     permission_classes = [IsAdminOrMatchingUser]
+    lookup_field = "template_name"
 
     def retrieve(self, request, *args, **kwargs):
         template_name = kwargs["template_name"]
