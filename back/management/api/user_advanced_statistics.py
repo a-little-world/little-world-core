@@ -3,7 +3,6 @@ from management.models.user import User
 from video.models import LivekitSession
 from management.models.matches import Match
 from django.db.models.functions import TruncDay, TruncWeek, TruncMonth
-from management.controller import get_base_management_user
 from rest_framework.response import Response
 from management.api.user_advanced_filter_lists import USER_JOURNEY_FILTER_LISTS, get_list_by_name
 from django.http import HttpResponse
@@ -380,7 +379,7 @@ def comany_video_call_and_matching_report(request, company):
     return Response({"report": full_report})
 
 
-def user_signup_loss_statistic(start_date="2022-01-01", end_date=date.today(), caller=get_base_management_user()):
+def user_signup_loss_statistic(start_date="2022-01-01", end_date=date.today(), caller=None):
     
     user_lists_required = [
         'journey_v2__user_created',
@@ -438,7 +437,7 @@ def user_signup_loss_statistic(start_date="2022-01-01", end_date=date.today(), c
         "end_date": end_date
     }
     
-def match_quality_statistic(start_date="2022-01-01", end_date=date.today(), caller=get_base_management_user()):
+def match_quality_statistic(start_date="2022-01-01", end_date=date.today(), caller=None):
     
     match_lists_required = [
         "match_journey_v2__proposed_matches",
