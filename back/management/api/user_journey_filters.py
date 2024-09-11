@@ -25,6 +25,7 @@ def user_created(qs=User.objects.all()):
     1.1: User was created, but still has to verify mail, fill form and have a prematching call
     """
     return qs.filter(
+        is_active=True,
         state__user_form_state=State.UserFormStateChoices.UNFILLED,
         state__unresponsive=False,
         state__email_authenticated=False,
@@ -37,6 +38,7 @@ def email_verified(qs=User.objects.all()):
     1.2: User has verified email, but still has to fill form and have a prematching call
     """
     return qs.filter(
+        is_active=True,
         state__user_form_state=State.UserFormStateChoices.UNFILLED,
         state__email_authenticated=True,
         state__unresponsive=False,
@@ -50,15 +52,13 @@ def user_form_completed(qs=User.objects.all()):
     """
     return (
         qs.filter(
+            is_active=True,
             state__user_form_state=State.UserFormStateChoices.FILLED,
             state__email_authenticated=True,
             state__unresponsive=False,
             state__had_prematching_call=False,
+            prematchingappointment__isnull=True,
         )
-        .annotate(
-            num_appointments=Count("prematchingappointment", filter=Q(prematchingappointment__end_time__gt=timezone.now())),
-        )
-        .filter(num_appointments=0)
     )
 
 
@@ -66,8 +66,10 @@ def booked_onboarding_call(qs=User.objects.all()):
     """
     1.4: User has filled form and booked onboarding call
     """
+    no_shows = no_show(qs)
     return (
         qs.filter(
+            is_active=True,
             state__user_form_state=State.UserFormStateChoices.FILLED,
             state__email_authenticated=True,
             state__unresponsive=False,
@@ -76,7 +78,7 @@ def booked_onboarding_call(qs=User.objects.all()):
         .annotate(
             num_appointments=Count("prematchingappointment", filter=Q(prematchingappointment__end_time__gt=timezone.now())),
         )
-        .filter(num_appointments__gt=0)
+        .filter(num_appointments__gt=0).exclude(id__in=no_shows)
     )
 
 
@@ -100,6 +102,7 @@ def first_search(qs=User.objects.all()):
 
     return (
         qs.filter(
+            is_active=True,
             state__user_form_state=State.UserFormStateChoices.FILLED,
             state__matching_state=State.MatchingStateChoices.SEARCHING,
             state__email_authenticated=True,
@@ -113,12 +116,12 @@ def first_search(qs=User.objects.all()):
 
 def first_search_volunteers(qs=User.objects.all()):
     fs = first_search(qs)
-    return fs.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
+    return fs.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER, is_active=True)
 
 
 def first_search_learners(qs=User.objects.all()):
     fs = first_search(qs)
-    return fs.filter(profile__user_type=Profile.TypeChoices.LEARNER)
+    return fs.filter(profile__user_type=Profile.TypeChoices.LEARNER, is_active=True)
 
 
 def user_searching(qs=User.objects.all()):
@@ -127,6 +130,7 @@ def user_searching(qs=User.objects.all()):
     """
     return (
         qs.filter(
+            is_active=True,
             state__user_form_state=State.UserFormStateChoices.FILLED,
             state__matching_state=State.MatchingStateChoices.SEARCHING,
             state__email_authenticated=True,
@@ -144,6 +148,7 @@ def pre_matching(qs=User.objects.all()):
     """
     return qs.filter(
         Q(unconfirmed_match_user1__closed=False) | Q(unconfirmed_match_user2__closed=False),
+        is_active=True,
         state__user_form_state=State.UserFormStateChoices.FILLED,
         state__matching_state=State.MatchingStateChoices.SEARCHING,
         state__email_authenticated=True,
@@ -158,6 +163,7 @@ def match_takeoff(qs=User.objects.all()):
     """
     return (
         qs.filter(
+            is_active=True,
             state__user_form_state=State.UserFormStateChoices.FILLED,
             state__matching_state=State.MatchingStateChoices.SEARCHING,
             state__email_authenticated=True,
@@ -178,26 +184,40 @@ def active_match(qs=User.objects.all()):
     filtered_matches = Match.objects.filter(Q(user1__in=qs) | Q(user2__in=qs))
     ongoing_matches = match_ongoing(qs=filtered_matches, last_interaction_days=21)
 
-    users = User.objects.filter(Q(match_user1__in=ongoing_matches) | Q(match_user2__in=ongoing_matches)).distinct()
+    users = User.objects.filter(Q(match_user1__in=ongoing_matches) | Q(match_user2__in=ongoing_matches), is_active=True).distinct()
 
     return users
 
-
-# Inactive-User Filters
-
-
-def never_active(qs=User.objects.all()):
+def never_active(
+        qs=User.objects.all()
+    ):
     """
     0) 'Never-Active': Didn't ever become active
     """
-    return qs.filter(state__user_form_state=State.UserFormStateChoices.UNFILLED, state__email_authenticated=False, state__had_prematching_call=False, state__unresponsive=False)
+    return qs.filter(
+        state__user_form_state=State.UserFormStateChoices.UNFILLED, 
+        state__email_authenticated=False, 
+        state__had_prematching_call=False, 
+        state__unresponsive=False, 
+        is_active=True
+    )
 
 
 def no_show(qs=User.objects.all()):
     """
-    0.2) 'No Show': Didn't show up to onboarding call
+    0.2) 
+    'No Show': Didn't show up to onboarding call, so hads a prematchingappointment, that is in the past.
     """
-    return qs.filter(state__user_form_state=State.UserFormStateChoices.FILLED, state__email_authenticated=True, state__unresponsive=False, state__had_prematching_call=False, prematchingappointment__isnull=False)
+    return qs.filter(
+        state__user_form_state=State.UserFormStateChoices.FILLED, 
+        state__email_authenticated=True, 
+        state__unresponsive=False, 
+        state__had_prematching_call=False, 
+        prematchingappointment__isnull=False, 
+        is_active=True
+    ).filter(
+        prematchingappointment__end_time__lt=timezone.now()
+    )
 
 
 def ghoster(qs=User.objects.all()):
@@ -209,7 +229,7 @@ def ghoster(qs=User.objects.all()):
         )
     )
     ghosted_user_ids = ghosted_matches.values_list('ghosted_user', flat=True)
-    return qs.filter(id__in=ghosted_user_ids)
+    return qs.filter(id__in=ghosted_user_ids, is_active=True)
 
 
 def no_confirm(qs=User.objects.all()):
@@ -241,7 +261,7 @@ def happy_inactive(qs=User.objects.all()):
     users_that_have_finished_matches = not_searching.filter(id__in=users_that_have_finished_matches)
     users_that_have_finished_matches = qs.filter(id__in=users_that_have_finished_matches).filter(id__in=not_searching)
     
-    happy_inactive_users = users_that_have_finished_matches.exclude(id__in=users_that_have_free_play_matches)
+    happy_inactive_users = users_that_have_finished_matches.exclude(id__in=users_that_have_free_play_matches, is_active=False)
 
     return happy_inactive_users
 
@@ -252,6 +272,7 @@ def too_low_german_level(qs=User.objects.all()):
     need to check if the profile.lang_skill json list field contains {'lang': 'german', 'level': 'A1'}
     """
     return qs.filter(
+        is_active=True,
         profile__lang_skill__contains=[{"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}], 
         profile__user_type=Profile.TypeChoices.LEARNER)
 
@@ -265,6 +286,7 @@ def unmatched(qs=User.objects.all()):
     thirty_days_ago = timezone.now() - timedelta(days=30)
     return (
         qs.filter(
+            is_active=True,
             state__user_form_state=State.UserFormStateChoices.FILLED, 
             state__matching_state=State.MatchingStateChoices.SEARCHING, 
             state__email_authenticated=True, 
@@ -282,6 +304,7 @@ def gave_up_searching(qs=User.objects.all()):
     """
     return (
         qs.filter(
+            is_active=True,
             state__matching_state=State.MatchingStateChoices.IDLE,
             state__user_form_state=State.UserFormStateChoices.FILLED,
             state__email_authenticated=True,
