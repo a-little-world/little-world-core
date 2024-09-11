@@ -44,6 +44,8 @@ def match_one_user_viewed(qs=Match.objects.all(), ghosted_days=DAYS_UNTILL_GHOST
     # TODO: means one of the users only has been ghosted, we could notify that one and ask to give him a new match
     return qs.filter(support_matching=False, confirmed=False, confirmed_by__isnull=False, created_at__lt=days_ago(ghosted_days)).distinct()
 
+def all_matches(qs=Match.objects.all()):
+    return qs
 
 def match_confirmed_no_contact(qs=Match.objects.all(), mutal_ghosted_days=DAYS_UNTILL_GHOSTED):
     """
