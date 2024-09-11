@@ -435,6 +435,8 @@ def user_signup_loss_statistic(start_date="2022-01-01", end_date=date.today(), c
         "user_list_ids": user_list_ids,
         "intersecting_ids_lists": intersecting_ids_lists,
         "exclude_intersection_check": exclude_intersection_check,
+        "start_date": start_date,
+        "end_date": end_date
     }
 
 
