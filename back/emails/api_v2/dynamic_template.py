@@ -26,6 +26,7 @@ class DynamicEmailTemplateViewset(viewsets.ModelViewSet):
     serializer_class = DynamicTemplateSerializer
     pagination_class = DetailedPaginationMixin
     permission_classes = [IsAdminOrMatchingUser]
+    lookup_field = "template_name"
 
     def retrieve(self, request, *args, **kwargs):
         template_name = kwargs["template_name"]
@@ -53,7 +54,7 @@ class DynamicEmailTemplateViewset(viewsets.ModelViewSet):
 
 
 api_urls = [
-    path("api/matching/emails/dynamic_templates/", DynamicEmailTemplateViewset.as_view({"get": "list", "post": "create", "patch": "partial_update"})),
-    path("api/matching/emails/dynamic_templates/<str:template_name>/", DynamicEmailTemplateViewset.as_view({"get": "retrieve"})),
+    path("api/matching/emails/dynamic_templates/", DynamicEmailTemplateViewset.as_view({"get": "list", "post": "create"})),
+    path("api/matching/emails/dynamic_templates/<str:template_name>/", DynamicEmailTemplateViewset.as_view({"get": "retrieve", "patch": "partial_update"})),
     path("api/matching/emails/dynamic_templates/<str:template_name>/send/", DynamicEmailTemplateViewset.as_view({"post": "send"}))
 ]
