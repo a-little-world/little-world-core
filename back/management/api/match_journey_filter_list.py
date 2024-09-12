@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from management.api.match_journey_filters import match_unviewed, match_one_user_viewed, match_confirmed_no_contact, match_confirmed_single_party_contact, match_first_contact, match_ongoing, match_free_play, completed_match, never_confirmed, no_contact, user_ghosted, contact_stopped, matching_proposals, expired_matching_proposals
+from management.api.match_journey_filters import match_unviewed, match_one_user_viewed, match_confirmed_no_contact, match_confirmed_single_party_contact, match_first_contact, match_ongoing, match_free_play, completed_match, never_confirmed, no_contact, user_ghosted, contact_stopped, matching_proposals, expired_matching_proposals, all_matches
 
 
 @dataclass
@@ -16,6 +16,7 @@ class FilterListEntry:
 
 
 MATCH_JOURNEY_FILTERS = [
+    FilterListEntry("match_journey_v2__all", "All matches", all_matches),
     FilterListEntry("match_journey_v2__proposed_matches", "(Pre-Matching) Proposed matches [No real-matches yet]", matching_proposals),
     FilterListEntry("match_journey_v2__unviewed", "(Pre-Matching) Matches that are active and not yet confirmed by both users.", match_unviewed),
     FilterListEntry("match_journey_v2__one_user_viewed", "(Pre-Matching) Matches that are active, not yet confirmed by both users, but confirmed by at least one user.", match_one_user_viewed),
@@ -31,3 +32,10 @@ MATCH_JOURNEY_FILTERS = [
     FilterListEntry("match_journey_v2__contact_stopped", "(Failed-Matching) Matches older than the desired match duration where users interacted but their interaction stopped before the desired duration.", contact_stopped),
     FilterListEntry("match_journey_v2__expired_proposals", "(Failed-Matching) Matches that are proposed but expired.", expired_matching_proposals),
 ]
+
+
+def get_match_list_by_name(name):
+    for element in MATCH_JOURNEY_FILTERS:
+        if element.name == name:
+            return element
+    return None

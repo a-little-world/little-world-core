@@ -4,9 +4,9 @@ from video.models import LivekitSession
 from management.models.matches import Match
 from django.db.models.functions import TruncDay, TruncWeek, TruncMonth
 from rest_framework.response import Response
-from management.api.user_advanced_filter_lists import USER_JOURNEY_FILTER_LISTS
+from management.api.user_advanced_filter_lists import USER_JOURNEY_FILTER_LISTS, get_list_by_name
 from django.http import HttpResponse
-from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS
+from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS, get_match_list_by_name
 from chat.models import Message
 from datetime import date
 from django.db.models import Q, Count, F, Avg, Sum
@@ -155,6 +155,7 @@ def livekit_session_statistics(request):
     end_date = request.data.get("end_date", today)
 
     list_name = request.data.get("base_list", "all")
+    
     selected_filter = next(filter(lambda entry: entry.name == list_name, FILTER_LISTS))
 
     pre_filtered_users = User.objects.all()
@@ -375,8 +376,158 @@ def comany_video_call_and_matching_report(request, company):
     report(f"Total Video Time for All Users: {total_video_time_minutes_all_users:.2f} minutes")
     total_hours = total_video_time_minutes_all_users / 60.0
     report(f"Total Video Time for All Users: {total_hours:.2f} hours")
-    return HttpResponse(full_report, content_type="text/plain; charset=UTF-8")
+    return Response({"report": full_report})
 
+
+def user_signup_loss_statistic(start_date="2022-01-01", end_date=date.today(), caller=None):
+    
+    user_lists_required = [
+        'journey_v2__user_created',
+        'journey_v2__email_verified',
+        'journey_v2__user_form_completed',
+        'journey_v2__booked_onboarding_call',
+        'journey_v2__first_search',
+        'journey_v2__user_deleted',
+        'journey_v2__no_show',
+        # TODO: 'too low language level'
+        'all'
+    ]
+    
+    exclude_intersection_check = ["all"]
+    intersection_check_lists = [list_name for list_name in user_lists_required if list_name not in exclude_intersection_check]
+    
+    user_list_ids = {}
+
+    pre_filtered_users = User.objects.all()
+    if not caller.is_staff:
+        pre_filtered_users = pre_filtered_users.filter(id__in=caller.state.managed_users.all())
+        
+    pre_filtered_users = pre_filtered_users.filter(date_joined__range=[start_date, end_date])
+    
+    print(pre_filtered_users.count())
+        
+    # retrieve all the id's we need
+    for list_name in user_lists_required:
+        user_list = get_list_by_name(list_name)
+        filtered_list_users = user_list.queryset(qs=pre_filtered_users)
+        
+        user_list_ids[list_name] = {
+            "ids": filtered_list_users.values_list('id', flat=True),
+            "count": filtered_list_users.count()
+        }
+        
+    # check for id's that are in multiple lists
+    
+    intersecting_ids_lists = {}
+
+    for list_name in intersection_check_lists:
+        for other_list_name in intersection_check_lists:
+            if list_name != other_list_name:
+                intersecting_ids = set(user_list_ids[list_name]["ids"]).intersection(user_list_ids[other_list_name]["ids"])
+                if len(intersecting_ids) > 0:
+                    intersecting_ids_lists[f"{list_name}---{other_list_name}"] = intersecting_ids
+                
+    print(intersecting_ids_lists)
+
+    return {
+        "user_list_ids": user_list_ids,
+        "intersecting_ids_lists": intersecting_ids_lists,
+        "exclude_intersection_check": exclude_intersection_check,
+        "start_date": start_date,
+        "end_date": end_date
+    }
+    
+def match_quality_statistic(start_date="2022-01-01", end_date=date.today(), caller=None):
+    
+    match_lists_required = [
+        "match_journey_v2__proposed_matches",
+        "match_journey_v2__unviewed",
+        "match_journey_v2__one_user_viewed",
+        "match_journey_v2__confirmed_no_contact",
+        "match_journey_v2__confirmed_single_party_contact",
+        "match_journey_v2__first_contact",
+        "match_journey_v2__match_ongoing",
+        "match_journey_v2__match_free_play",
+        "match_journey_v2__completed_match",
+        "match_journey_v2__never_confirmed",
+        "match_journey_v2__no_contact",
+        "match_journey_v2__user_ghosted",
+        "match_journey_v2__expired_proposals"
+    ]
+    
+    exclude_intersection_check = ["all"]
+    intersection_check_lists = [list_name for list_name in match_lists_required if list_name not in exclude_intersection_check]
+    
+    pre_filtered_users = User.objects.all()
+    if not caller.is_staff:
+        pre_filtered_users = pre_filtered_users.filter(id__in=caller.state.managed_users.all())
+        
+    pre_filtered_matches = Match.objects.filter(Q(user1__in=pre_filtered_users) | Q(user2__in=pre_filtered_users), created_at__range=[start_date, end_date])
+    
+    match_list_ids = {}
+
+    # retrieve all the id's we need
+    for list_name in match_lists_required:
+        match_list = get_match_list_by_name(list_name)
+        filtered_list_matches = match_list.queryset(qs=pre_filtered_matches)
+        
+        match_list_ids[list_name] = {
+            "ids": filtered_list_matches.values_list('id', flat=True),
+            "count": filtered_list_matches.count()
+        }
+
+    # check for id's that are in multiple lists
+    for list_name in intersection_check_lists:
+        for other_list_name in intersection_check_lists:
+            if list_name != other_list_name:
+                intersecting_ids = set(match_list_ids[list_name]["ids"]).intersection(match_list_ids[other_list_name]["ids"])
+                if len(intersecting_ids) > 0:
+                    match_list_ids[f"{list_name}---{other_list_name}"] = intersecting_ids
+                    
+    return {
+        "match_list_ids": match_list_ids,
+        "exclude_intersection_check": exclude_intersection_check,
+        "start_date": start_date,
+        "end_date": end_date
+    }
+    
+
+@extend_schema(
+    request=inline_serializer(
+        name="MatchQualityStatisticsRequest",
+        fields={
+            "start_date": serializers.DateField(default="2022-01-01"),
+            "end_date": serializers.DateField(default=date.today()),
+        },
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
+def match_quality_statistics(request):
+    start_date = request.data.get("start_date", "2022-01-01")
+    end_date = request.data.get("end_date", date.today())
+    caller = request.user
+    
+    return Response(match_quality_statistic(start_date, end_date, caller))
+
+
+@extend_schema(
+    request=inline_serializer(
+        name="UserSignupLossStatisticsRequest",
+        fields={
+            "start_date": serializers.DateField(default="2022-01-01"),
+            "end_date": serializers.DateField(default=date.today()),
+        },
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
+def user_signup_loss_statistics(request):
+    start_date = request.data.get("start_date", "2022-01-01")
+    end_date = request.data.get("end_date", date.today())
+    caller = request.user
+    
+    return Response(user_signup_loss_statistic(start_date, end_date, caller))
 
 api_urls = [
     path("api/matching/users/statistics/signups/", user_signups),
@@ -384,5 +535,7 @@ api_urls = [
     path("api/matching/users/statistics/video_calls/", livekit_session_statistics),
     path("api/matching/users/statistics/user_journey_buckets/", bucket_statistics),
     path("api/matching/users/statistics/match_journey_buckets/", match_bucket_statistics),
+    path("api/matching/users/statistics/user_signup_loss/", user_signup_loss_statistics),
+    path("api/matching/users/statistics/match_quality/", match_quality_statistics),
     path("api/matching/users/statistics/company_report/<str:company>/", comany_video_call_and_matching_report),
 ]
