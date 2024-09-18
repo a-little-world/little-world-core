@@ -33,6 +33,6 @@ def request_task_status(request, task_id):
 
 view_urls = [
     path("matching/", matching_panel, name="matching_panel"),
-    path("matching/tasks/<str:task_id>/status", request_task_status, name="request_task_status"),
+    path("matching/tasks/<str:task_id>/status/", request_task_status, name="request_task_status"),
     re_path(r"^matching/(?P<menu>.*)$", matching_panel, name="matching_panel"),
 ]

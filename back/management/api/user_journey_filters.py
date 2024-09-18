@@ -323,6 +323,9 @@ def user_deleted(qs=User.objects.all()):
     return qs.filter(is_active=False)
 
 
+def subscribed_to_newsletter(qs=User.objects.all()):
+    return qs.filter(profile__newsletter_subscribed=True).order_by("-date_joined")
+
 
 def community_calls(
         qs=User.objects.all(),

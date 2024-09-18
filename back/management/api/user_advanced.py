@@ -99,6 +99,8 @@ class UserFilter(filters.FilterSet):
         method="filter_target_groups",
     )
 
+    profile__newsletter_subscribed = filters.BooleanFilter(field_name="profile__newsletter_subscribed", help_text="Filter for users that are subscribed to the newsletter")
+
     state__email_authenticated = filters.BooleanFilter(field_name="state__email_authenticated", help_text="Filter for users that have authenticated their email")
 
     state__had_prematching_call = filters.BooleanFilter(field_name="state__had_prematching_call", help_text="Filter for users that had a prematching call")
