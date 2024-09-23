@@ -7,7 +7,10 @@ from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from management import models
 from management.models import question_deck, scores, pre_matching_appointment, newsletter, stats
 from hijack.contrib.admin import HijackUserAdminMixin
-
+from django.utils.html import format_html
+from django.urls import reverse
+from django.http import HttpResponse
+import base64
 
 @admin.register(stats.Statistic)
 class StatisticAdmin(admin.ModelAdmin):
@@ -21,8 +24,68 @@ class BackendStateAdmin(admin.ModelAdmin):
 
 @admin.register(models.help_message.HelpMessage)
 class HelpMessageStateAdmin(admin.ModelAdmin):
-    list_display = ("user", "message", "hash")
+    list_display = ("user", "message", "hash", "attachment1_links", "attachment2_links", "attachment3_links")
 
+    def attachment1_links(self, obj):
+        return self._get_attachment_links(obj, 'attachment1')
+    attachment1_links.short_description = 'Attachment 1'
+
+    def attachment2_links(self, obj):
+        return self._get_attachment_links(obj, 'attachment2')
+    attachment2_links.short_description = 'Attachment 2'
+
+    def attachment3_links(self, obj):
+        return self._get_attachment_links(obj, 'attachment3')
+    attachment3_links.short_description = 'Attachment 3'
+
+    def _get_attachment_links(self, obj, field_name):
+        attachment = getattr(obj, field_name)
+        if attachment:
+            download_url = reverse('admin:download_attachment', args=[obj.id, field_name])
+            preview_url = reverse('admin:preview_attachment', args=[obj.id, field_name])
+            return format_html(
+                '<a href="{}" target="_blank">Preview</a> | <a href="{}">Download</a>',
+                preview_url, download_url
+            )
+        return "No attachment"
+
+    def get_urls(self):
+        from django.urls import path
+        urls = super().get_urls()
+        custom_urls = [
+            path('<int:object_id>/attachment/<str:field_name>/', 
+                 self.admin_site.admin_view(self.download_attachment), 
+                 name='download_attachment'),
+            path('<int:object_id>/preview/<str:field_name>/', 
+                 self.admin_site.admin_view(self.preview_attachment), 
+                 name='preview_attachment'),
+        ]
+        return custom_urls + urls
+
+    def download_attachment(self, request, object_id, field_name):
+        obj = self.get_object(request, object_id)
+        if obj is None:
+            return HttpResponse("Object not found", status=404)
+        
+        attachment = getattr(obj, field_name)
+        if attachment is None:
+            return HttpResponse("Attachment not found", status=404)
+        
+        response = HttpResponse(attachment, content_type='image/jpeg')
+        response['Content-Disposition'] = f'attachment; filename="{field_name}.jpeg"'
+        return response
+
+    def preview_attachment(self, request, object_id, field_name):
+        obj = self.get_object(request, object_id)
+        if obj is None:
+            return HttpResponse("Object not found", status=404)
+        
+        attachment = getattr(obj, field_name)
+        if attachment is None:
+            return HttpResponse("Attachment not found", status=404)
+        
+        image_data = base64.b64encode(attachment).decode('utf-8')
+        return HttpResponse(f'<img src="data:image/jpeg;base64,{image_data}" style="max-width: 100%;">')
 
 @admin.register(models.settings.EmailSettings)
 class EmailSettingsAdmin(admin.ModelAdmin):
