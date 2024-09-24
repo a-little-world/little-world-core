@@ -567,7 +567,7 @@ class CensoredProfileSerializer(SelfProfileSerializer):
 class MinimalProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = ["first_name", "second_name", "image_type", "avatar_config", "image", "description", "user_type", "target_groups"]
+        fields = ["first_name", "second_name", "target_group", "lang_skill", "interests", "image_type", "avatar_config", "image", "description", "user_type", "target_groups"]
 
 
 class ProposalProfileSerializer(SelfProfileSerializer):
