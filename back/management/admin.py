@@ -24,7 +24,7 @@ class BackendStateAdmin(admin.ModelAdmin):
 
 @admin.register(models.help_message.HelpMessage)
 class HelpMessageStateAdmin(admin.ModelAdmin):
-    list_display = ("user", "message", "hash", "attachment1_links", "attachment2_links", "attachment3_links")
+    list_display = ("user", "message", "created_at", "hash", "attachment1_links", "attachment2_links", "attachment3_links")
 
     def attachment1_links(self, obj):
         return self._get_attachment_links(obj, 'attachment1')
