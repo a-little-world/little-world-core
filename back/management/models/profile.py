@@ -514,7 +514,7 @@ class SelfProfileSerializer(ProfileSerializer):
         total_entries = sum(len(entries) for entries in value.values())
     
         if total_entries < 3:
-            raise serializers.ValidationError(get_translation("profile.interests.min_number"))
+            raise serializers.ValidationError(get_translation("profile.availability.min_number"))
         return value
     
 
