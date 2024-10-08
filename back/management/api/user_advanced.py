@@ -29,6 +29,19 @@ from management.api.scores import score_between_db_update
 from management.tasks import matching_algo_v2
 from management.api.utils_advanced import filterset_schema_dict
 
+class MicroUserSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = User
+        fields = ["id", "email"]
+        
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation["profile"] = {
+            "first_name": instance.profile.first_name,
+            "second_name": instance.profile.second_name,
+        }
+        return representation
 
 class AdvancedUserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -499,9 +512,17 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         email_logs["results"] = AdvancedEmailLogSerializer(email_logs["results"], many=True).data
 
         return Response(email_logs)
+    
+    @action(detail=False, methods=["get"])
+    def export(self, request):
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = MicroUserSerializer(queryset, many=True)
+
+        return Response(serializer.data)
 
 
 viewset_actions = [
+    path("api/matching/users_export/", AdvancedUserViewset.as_view({"get": "export"})),
     path("api/matching/users/<pk>/scores/", AdvancedUserViewset.as_view({"get": "scores"})),
     path("api/matching/users/<pk>/prematching_appointment/", AdvancedUserViewset.as_view({"get": "prematching_appointment"})),
     path("api/matching/users/<pk>/score_between/", AdvancedUserViewset.as_view({"post": "score_between"})),
