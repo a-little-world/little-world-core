@@ -33,7 +33,7 @@ class MicroUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["hash", "id", "email", "date_joined", "last_login"]
+        fields = ["id", "email"]
         
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -522,6 +522,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
 
 viewset_actions = [
+    path("api/matching/users_export/", AdvancedUserViewset.as_view({"get": "export"})),
     path("api/matching/users/<pk>/scores/", AdvancedUserViewset.as_view({"get": "scores"})),
     path("api/matching/users/<pk>/prematching_appointment/", AdvancedUserViewset.as_view({"get": "prematching_appointment"})),
     path("api/matching/users/<pk>/score_between/", AdvancedUserViewset.as_view({"post": "score_between"})),
@@ -540,7 +541,6 @@ viewset_actions = [
     path("api/matching/users/<pk>/change_searching_state/", AdvancedUserViewset.as_view({"post": "change_searching_state"})),
     path("api/matching/users/<pk>/make_tim_support/", AdvancedUserViewset.as_view({"post": "make_tim_support"})),
     path("api/matching/users/<pk>/emails/", AdvancedUserViewset.as_view({"get": "emails"})),
-    path("api/matching/users/export/", AdvancedUserViewset.as_view({"get": "export"})),
 ]
 
 api_urls = [path("api/matching/users/", AdvancedUserViewset.as_view({"get": "list"})), path("api/matching/users/filters/", AdvancedUserViewset.as_view({"get": "get_filter_schema"})), path("api/matching/users/<pk>/", AdvancedUserViewset.as_view({"get": "retrieve"})), *viewset_actions]
