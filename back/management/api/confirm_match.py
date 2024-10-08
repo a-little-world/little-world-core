@@ -72,7 +72,7 @@ def confrim_match(request):
 
         InUnconfirmedMatchAdded(matches[0]).send(partner.hash)
 
-        return Response({"message": msg, "match": matching.get_serialized(request.user), "unconfirmed_matches": [partner.hash]})
+        return Response({"message": msg, "match": AdvancedUserMatchSerializer(matching, many=False, context={"user": request.user}).data })
     else:
         # just close the unconfirmed match
         unconfirmed_match.closed = True
