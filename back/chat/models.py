@@ -90,7 +90,7 @@ class ChatSerializer(serializers.ModelSerializer):
             partner = instance.get_partner(user)
 
             if management_models.matches.Match.get_match(user, partner).exists():
-                profile = management_models.profile.MinimalProfileSerializer(partner.profile).data
+                profile = management_models.profile.CensoredProfileSerializer(partner.profile).data
                 representation["partner"] = profile
                 representation["partner"]["id"] = partner.hash
             else:
