@@ -5,6 +5,8 @@ from management.models.user import User
 from management.models.community_events import CommunityEvent
 from management.models.backend_state import BackendState
 from translations import get_translation
+import math
+import random
 
 """
 also contains general startup celery tasks, most of them are automaticly run when the controller.get_base_management user is created
@@ -321,8 +323,10 @@ def burst_calculate_matching_scores(user_combinations=[]):
                 "combinations_processed": combinations_processed,
             }
         )
+        
+    random_delay = math.floor(random.random() * 5)
 
-    mark_burst_task_completed_check_for_finish.delay(burst_calculate_matching_scores.request.id)
+    mark_burst_task_completed_check_for_finish.apply_async((burst_calculate_matching_scores.request.id,), countdown=2 + random_delay)
 
     return {
         "total_combinations": total_combinations,
@@ -340,12 +344,10 @@ def mark_burst_task_completed_check_for_finish(task_id=None):
         return {"status": "done"}
     current_caluclation = current_caluclation.first()
 
-    # mark the current task as done
-
     current_calculation_task_ids = current_caluclation.meta.get("tasks", [])
     completed_task_ids = current_caluclation.meta.get("completed_tasks", [])
 
-    if task_id not in current_calculation_task_ids:
+    if not (task_id in current_calculation_task_ids):
         return {"status": "done"}
 
     current_calculation_task_ids.remove(task_id)

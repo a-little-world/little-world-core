@@ -182,7 +182,7 @@ def active_match(qs=User.objects.all()):
     from management.api.match_journey_filters import match_ongoing
 
     filtered_matches = Match.objects.filter(Q(user1__in=qs) | Q(user2__in=qs))
-    ongoing_matches = match_ongoing(qs=filtered_matches, last_interaction_days=21)
+    ongoing_matches = match_ongoing(qs=filtered_matches, last_interaction_days=21, only_consider_last_10_weeks_matches=False)
 
     users = User.objects.filter(Q(match_user1__in=ongoing_matches) | Q(match_user2__in=ongoing_matches), is_active=True).distinct()
 

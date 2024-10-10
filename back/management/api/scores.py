@@ -67,11 +67,17 @@ from rest_framework import serializers
 from dataclasses import dataclass
 from management.models.scores import TwoUserMatchingScore
 from management.models.user import User
+from management.models.unconfirmed_matches import ProposedMatch
+from management.models.matches import Match
 from management.tasks import matching_algo_v2, burst_calculate_matching_scores
 from drf_spectacular.utils import extend_schema
 import itertools
 import math
 import dataclasses
+from django.db.models import Q
+from django.db.models import Exists, OuterRef
+from management.validators import DAYS, SLOTS
+import pgeocode
 
 
 @dataclass
@@ -104,6 +110,9 @@ class ScoringFunctionsEnum(Enum):
     gender = "gender"
     interest_overlap = "interest_overlap"
     speech_medium = "speech_medium"
+    already_matched_or_proposed = "already_matched_or_proposed"
+    learner_no_match_bonus = "learner_no_match_bonus"
+    
 
 
 class ScoringBase:
@@ -122,6 +131,9 @@ class ScoringBase:
             ScoringFunctionsEnum.postal_code_distance.value: self.score__postal_code_distance,
             ScoringFunctionsEnum.gender.value: self.score__gender,
             ScoringFunctionsEnum.interest_overlap.value: self.score__interest_overlap,
+            # ScoringFunctionsEnum.speech_medium.value: self.score__speech_medium, # Disabled atm ( team meeting decision Sep 2024 )
+            ScoringFunctionsEnum.already_matched_or_proposed.value: self.score__already_matched_or_proposed,
+            ScoringFunctionsEnum.learner_no_match_bonus.value: self.score__learner_no_match_bonus,
         }
 
     def score__time_slot_overlap(self):
@@ -131,7 +143,6 @@ class ScoringBase:
         """
         slots1 = self.user1.profile.availability
         slots2 = self.user2.profile.availability
-        from management.validators import DAYS, SLOTS
 
         amnt_common_slots = 0
         common_slots = {}
@@ -185,7 +196,6 @@ class ScoringBase:
         Checks dependant on partner location choice the PLZ area distance
         `{"<50": 50, "<100": 40, "<200": 30, "<300": 20, "<400": 10, "<500": 5, ">500": 0}`
         """
-        import pgeocode
 
         dist = pgeocode.GeoDistance("de")
         distance = dist.query_postal_code(self.user1.profile.postal_code, self.user2.profile.postal_code)
@@ -252,6 +262,13 @@ class ScoringBase:
                 return ScoringFuctionResult(matchable=True, score=cond[1], weight=1.0, markdown_info=f"Interests Overlap: {str(common_interests)} (score: {cond[1]})")
 
         return ScoringFuctionResult(matchable=True, score=0, weight=1.0, markdown_info="Interests Overlap (score: 0)")
+    
+    def score__learner_no_match_bonus(self):
+        learner_user = self.user1 if self.user1.profile.user_type == Profile.TypeChoices.LEARNER else self.user2
+        learner_has_no_match_yet = Match.objects.filter(Q(user1=learner_user) | Q(user2=learner_user)).count() == 0
+        if learner_has_no_match_yet:
+            return ScoringFuctionResult(matchable=True, score=20, weight=1.0, markdown_info=f"Learner has no match yet: {learner_has_no_match_yet} (score: 20)")
+        return ScoringFuctionResult(matchable=True, score=0, weight=1.0, markdown_info=f"Learner has no match yet: {learner_has_no_match_yet} (score: 0)")
 
     def score__speech_medium(self):
         speech_medium1 = self.user1.profile.speech_medium
@@ -265,6 +282,13 @@ class ScoringBase:
             return ScoringFuctionResult(matchable=True, score=40, weight=1.0, markdown_info=f"Speech Medium: {speech_medium1} requested :white_check_mark: (score: 40)")
 
         return ScoringFuctionResult(matchable=False, score=0, weight=1.0, markdown_info=f"Speech Medium: {speech_medium1} requested but {speech_medium2} offered :x: (score: 0)")
+    
+    def score__already_matched_or_proposed(self):
+        mutal_proposed_match = ProposedMatch.objects.filter(Q(user1=self.user1, user2=self.user2) | Q(user1=self.user2, user2=self.user1), closed=False)
+        mutal_match = Match.objects.filter(Q(user1=self.user1, user2=self.user2) | Q(user1=self.user2, user2=self.user1), active=True)
+        has_mutal_proposed_or_regular_match = mutal_proposed_match.exists() or mutal_match.exists()
+        
+        return ScoringFuctionResult(matchable=not has_mutal_proposed_or_regular_match, score=0, weight=1.0, markdown_info=f"Already matched or proposed: {has_mutal_proposed_or_regular_match} :x: (score: 0)")
 
     def calculate_score(self, raise_exception=False):
         results = []
@@ -339,9 +363,6 @@ def calculate_score_between(request):
 
 
 def get_users_to_consider(usr=None, consider_only_registered_within_last_x_days=None, exlude_user_ids=[]):
-    from django.db.models import Q
-    from django.db.models import Exists, OuterRef
-    from management.models.unconfirmed_matches import ProposedMatch
 
     all_users_to_consider = (
         User.objects.annotate(has_open_proposal=Exists(ProposedMatch.objects.filter(Q(user1=OuterRef("pk")) | Q(user2=OuterRef("pk")), closed=False)))
