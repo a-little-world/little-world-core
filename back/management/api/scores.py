@@ -111,6 +111,7 @@ class ScoringFunctionsEnum(Enum):
     interest_overlap = "interest_overlap"
     speech_medium = "speech_medium"
     already_matched_or_proposed = "already_matched_or_proposed"
+    learner_no_match_bonus = "learner_no_match_bonus"
     
 
 
@@ -132,6 +133,7 @@ class ScoringBase:
             ScoringFunctionsEnum.interest_overlap.value: self.score__interest_overlap,
             # ScoringFunctionsEnum.speech_medium.value: self.score__speech_medium, # Disabled atm ( team meeting decision Sep 2024 )
             ScoringFunctionsEnum.already_matched_or_proposed.value: self.score__already_matched_or_proposed,
+            ScoringFunctionsEnum.learner_no_match_bonus.value: self.score__learner_no_match_bonus,
         }
 
     def score__time_slot_overlap(self):
@@ -260,6 +262,13 @@ class ScoringBase:
                 return ScoringFuctionResult(matchable=True, score=cond[1], weight=1.0, markdown_info=f"Interests Overlap: {str(common_interests)} (score: {cond[1]})")
 
         return ScoringFuctionResult(matchable=True, score=0, weight=1.0, markdown_info="Interests Overlap (score: 0)")
+    
+    def score__learner_no_match_bonus(self):
+        learner_user = self.user1 if self.user1.profile.user_type == Profile.TypeChoices.LEARNER else self.user2
+        learner_has_no_match_yet = Match.objects.filter(Q(user1=learner_user) | Q(user2=learner_user)).count() == 0
+        if learner_has_no_match_yet:
+            return ScoringFuctionResult(matchable=True, score=20, weight=1.0, markdown_info=f"Learner has no match yet: {learner_has_no_match_yet} (score: 20)")
+        return ScoringFuctionResult(matchable=True, score=0, weight=1.0, markdown_info=f"Learner has no match yet: {learner_has_no_match_yet} (score: 0)")
 
     def score__speech_medium(self):
         speech_medium1 = self.user1.profile.speech_medium
