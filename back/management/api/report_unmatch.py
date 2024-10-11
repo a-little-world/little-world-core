@@ -27,15 +27,15 @@ def process_report_unmatch(request, kind="report"):
     serializer.is_valid(raise_exception=True)
     data = serializer.save()
 
-    matching = management_models.Match.get_matching(request.user, data.match_id)
+    matching = management_models.matches.Match.get_matching(request.user, data.match_id)
 
     if not matching.exists():
         raise serializers.ValidationError("This match does not exist")
 
+    matching = matching.first()
+
     if matching.support_matching:
         raise serializers.ValidationError("You can not report a support match!")
-
-    matching = matching.first()
 
     matching.active = False
     matching.report_unmatch.append(
