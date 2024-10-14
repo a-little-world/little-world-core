@@ -384,6 +384,12 @@ class UpdateSearchingStateApi(APIView):
             raise serializers.ValidationError({"state_slug": get_translation("api.user_update_searching_state_slug_doesnt_exist").format(slug=params.state_slug)})
 
         request.user.state.change_searching_state(params.state_slug)
+
+        if (params.state_slug == State.MatchingStateChoices.SEARCHING) and request.user.state.unresponsive:
+            # If the user was manaully set to 'unresponsive' he can self remove this flag by searching him-self again
+            request.user.state.unresponsive = False
+            request.user.state.save()
+
         return Response(get_translation("api.user_update_searching_state_state_successfully_changed"))
 
 
