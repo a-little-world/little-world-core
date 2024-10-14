@@ -15,12 +15,6 @@ If both `user.gender == other.partner_gender` AND `other.gender == user.partner_
 then `user.gender.ANY` with `user.partner_gender.ANY` gives a score of `10`
 while `user.gender.MALE (or FEMALE)` with `user.gender_partne.ANY` will give a score of `5`
 
-- [ ] How to Communicate ( checkId: `speech_medium` )
-> this considers `profile.speech_medium`
-if `user.speech_medium === other.speech_medium` then `+ 40 score`
-if `user.speech_medium.VIDEO and other.speech_medium is AUDIO` then `-> unmatchable`
-if `user.speech_medium.ANY and other.speech_medium is AUDIO` then `-> unmatchable`
-Last one is a little try and caused some users to have very limited options in the past
 
 - [o] distance ( checkId: `postal_code_distance` )
 Perforing a simple postal code distance estimation using [pgeocode](https://github.com/symerio/pgeocode)
@@ -47,7 +41,13 @@ Inactive Checks / Not implemented for now
 To give a slight advantage to users that have been searching for a longer time
 days searching `{"=<5": 0, "<10": 5, "<20": 10, "<30": 15, ">30": 40}
 
-- should match be near?
+- [ ] How to Communicate ( checkId: `speech_medium` )
+> this considers `profile.speech_medium`
+if `user.speech_medium === other.speech_medium` then `+ 40 score`
+if `user.speech_medium.VIDEO and other.speech_medium is AUDIO` then `-> unmatchable`
+if `user.speech_medium.ANY and other.speech_medium is AUDIO` then `-> unmatchable`
+Last one is a little try and caused some users to have very limited options in the past
+
 """
 
 from management.helpers import IsAdminOrMatchingUser
