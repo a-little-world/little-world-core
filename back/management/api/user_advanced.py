@@ -415,6 +415,20 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         obj.state.save()
         return Response({"success": True})
 
+    @extend_schema(request=inline_serializer(name="ChangeNewsletterSubscribed", fields={"newsletter_subscribed": serializers.BooleanField(default=False)}))
+    @action(detail=True, methods=["post"])
+    def change_newsletter_subscribed(self, request, pk=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+
+        obj.profile.newsletter_subscribed = request.data.get("newsletter_subscribed", False)
+        obj.profile.save()
+        return Response({"success": True})
+
     @extend_schema(request=inline_serializer(name="MarkPrematchingCallCompletedRequest", fields={"had_prematching_call": serializers.BooleanField(default=True)}))
     @action(detail=True, methods=["post"])
     def mark_prematching_call_completed(self, request, pk=None):
