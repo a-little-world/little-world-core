@@ -30,12 +30,14 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
         representation["user1"] = {"id": user1.id, "hash": user1.hash, "email": user1.email, "profile": MinimalProfileSerializer(user1.profile).data}
         representation["user2"] = {"id": user2.id, "hash": user2.hash, "email": user2.email, "profile": MinimalProfileSerializer(user2.profile).data}
 
-        if instance.confirmed:
-            representation["status"] = "confirmed"
-        elif instance.support_matching:
-            representation["status"] = "support"
-        else:
-            representation["status"] = "unconfirmed"
+        # DO this seralization only if it's not a ProposedMatch
+        if hasattr(instance, "confirmed"):
+            if instance.confirmed:
+                representation["status"] = "confirmed"
+            elif instance.support_matching:
+                representation["status"] = "support"
+            else:
+                representation["status"] = "unconfirmed"
         return representation
 
 
