@@ -68,7 +68,7 @@ api_routes = [
         api.cookies.get_dynamic_cookie_banner_js,
     ),
     path(_api_url("user/confirm_match"), api.user.ConfirmMatchesApi.as_view()),
-    path(_api_url("user/unmatch_self"), api.user.unmatch_self),
+    # path(_api_url("user/unmatch_self"), api.user.unmatch_self), TODO depricate 
     path(
         _api_url("user/search_state/<str:state_slug>", end_slash=False),
         api.user.UpdateSearchingStateApi.as_view(),
