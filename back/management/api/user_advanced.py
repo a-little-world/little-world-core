@@ -555,6 +555,7 @@ viewset_actions = [
     path("api/matching/users/<pk>/change_searching_state/", AdvancedUserViewset.as_view({"post": "change_searching_state"})),
     path("api/matching/users/<pk>/make_tim_support/", AdvancedUserViewset.as_view({"post": "make_tim_support"})),
     path("api/matching/users/<pk>/emails/", AdvancedUserViewset.as_view({"get": "emails"})),
+    path("api/matching/users/<pk>/change_newsletter_subscribed/", AdvancedUserViewset.as_view({"post": "change_newsletter_subscribed"})),
 ]
 
 api_urls = [path("api/matching/users/", AdvancedUserViewset.as_view({"get": "list"})), path("api/matching/users/filters/", AdvancedUserViewset.as_view({"get": "get_filter_schema"})), path("api/matching/users/<pk>/", AdvancedUserViewset.as_view({"get": "retrieve"})), *viewset_actions]
