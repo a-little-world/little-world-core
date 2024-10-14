@@ -112,6 +112,7 @@ class ScoringFunctionsEnum(Enum):
     speech_medium = "speech_medium"
     already_matched_or_proposed = "already_matched_or_proposed"
     learner_no_match_bonus = "learner_no_match_bonus"
+    match_in_past = "match_in_past"
     
 
 
@@ -134,6 +135,7 @@ class ScoringBase:
             # ScoringFunctionsEnum.speech_medium.value: self.score__speech_medium, # Disabled atm ( team meeting decision Sep 2024 )
             ScoringFunctionsEnum.already_matched_or_proposed.value: self.score__already_matched_or_proposed,
             ScoringFunctionsEnum.learner_no_match_bonus.value: self.score__learner_no_match_bonus,
+            ScoringFunctionsEnum.match_in_past.value: self.score__reported_or_unmatched_in_past,
         }
 
     def score__time_slot_overlap(self):
@@ -290,6 +292,14 @@ class ScoringBase:
         has_mutal_proposed_or_regular_match = mutal_proposed_match.exists() or mutal_match.exists()
         
         return ScoringFuctionResult(matchable=not has_mutal_proposed_or_regular_match, score=0, weight=1.0, markdown_info=f"Already matched or proposed: {has_mutal_proposed_or_regular_match} :x: (score: 0)")
+    
+    def score__reported_or_unmatched_in_past(self):
+        mutal_past_match = Match.objects.filter(Q(user1=self.user1, user2=self.user2) | Q(user1=self.user2, user2=self.user1), active=False)
+        mutal_past_match_exists = mutal_past_match.exists()
+        
+        if mutal_past_match_exists:
+            return ScoringFuctionResult(matchable=False, score=0, weight=1.0, markdown_info=f"Have been matched in the past & was reported or unmatched: {mutal_past_match_exists} :x: (score: 0)")
+        return ScoringFuctionResult(matchable=True, score=0, weight=1.0, markdown_info=f"Never been matched in the past / never was reported or unmatched: {mutal_past_match_exists} :white_check_mark: (score: 0)")
 
     def calculate_score(self, raise_exception=False):
         results = []
