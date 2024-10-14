@@ -44,14 +44,18 @@ class AdvancedEmailLogSerializer(serializers.ModelSerializer):
 
         representation["receiver"] = {"id": instance.receiver.pk, "hash": instance.receiver.hash, "email": instance.receiver.email, "profile": MinimalProfileSerializer(instance.receiver.profile).data}
 
-        email_params = instance.data["params"]
-        template_name = instance.template
-        print("Template: " + str(template_name), email_params)
-        mail_meta = get_mail_data_by_name(template_name)
-        encoded_mail_data = encode_mail_params(email_params)
+        try:
+            email_params = instance.data["params"]
+            template_name = instance.template
+            print("Template: " + str(template_name), email_params)
+            mail_meta = get_mail_data_by_name(template_name)
+            encoded_mail_data = encode_mail_params(email_params)
 
-        url = f"/emails/{template_name}/{encoded_mail_data}"
-        representation["retrieve"] = url
+            url = f"/emails/{template_name}/{encoded_mail_data}"
+            representation["retrieve"] = url
+        except Exception as e:
+            print(e)
+            representation["retrieve"] = "Couldn't generate representation ( possibly this is a dynamic email that was self send )"
 
         return representation
 
