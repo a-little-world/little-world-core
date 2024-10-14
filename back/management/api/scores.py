@@ -265,7 +265,8 @@ class ScoringBase:
     
     def score__learner_no_match_bonus(self):
         learner_user = self.user1 if self.user1.profile.user_type == Profile.TypeChoices.LEARNER else self.user2
-        learner_has_no_match_yet = Match.objects.filter(Q(user1=learner_user) | Q(user2=learner_user)).count() == 0
+        learner_has_no_match_yet = Match.objects.filter(Q(user1=learner_user) | Q(user2=learner_user), support_matching=False).count() == 0
+        # We deliberately don't require active=True, as we don't wanna give the bonus to people that resolved their match
         if learner_has_no_match_yet:
             return ScoringFuctionResult(matchable=True, score=20, weight=1.0, markdown_info=f"Learner has no match yet: {learner_has_no_match_yet} (score: 20)")
         return ScoringFuctionResult(matchable=True, score=0, weight=1.0, markdown_info=f"Learner has no match yet: {learner_has_no_match_yet} (score: 0)")
