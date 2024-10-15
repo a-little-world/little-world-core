@@ -131,12 +131,17 @@ def check_prematch_email_reminders_and_expirations():
     also check if there are expired unconfirmed_matches
     """
     from management.models.unconfirmed_matches import ProposedMatch
+    from management.models.state import State
 
     all_unclosed_unconfirmed = ProposedMatch.objects.filter(closed=False)
 
     # unconfirmed matches reminders
     for unclosed in all_unclosed_unconfirmed:
         if unclosed.is_expired(close_if_expired=True, send_mail_if_expired=True):
+            # Now we have to set the learner to unresponsive = True and to searching = IDLE
+            unclosed.learner_when_created.state.searching = State.MatchingStateChoices.IDLE
+            unclosed.learner_when_created.state.unresponsive = True
+            unclosed.learner_when_created.state.save()
             continue
         unclosed.is_reminder_due(send_reminder=True)
 
