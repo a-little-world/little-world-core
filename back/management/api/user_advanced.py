@@ -415,6 +415,20 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         obj.state.save()
         return Response({"success": True})
 
+    @extend_schema(request=inline_serializer(name="ChangeNewsletterSubscribed", fields={"newsletter_subscribed": serializers.BooleanField(default=False)}))
+    @action(detail=True, methods=["post"])
+    def change_newsletter_subscribed(self, request, pk=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+
+        obj.profile.newsletter_subscribed = request.data.get("newsletter_subscribed", False)
+        obj.profile.save()
+        return Response({"success": True})
+
     @extend_schema(request=inline_serializer(name="MarkPrematchingCallCompletedRequest", fields={"had_prematching_call": serializers.BooleanField(default=True)}))
     @action(detail=True, methods=["post"])
     def mark_prematching_call_completed(self, request, pk=None):
@@ -541,6 +555,7 @@ viewset_actions = [
     path("api/matching/users/<pk>/change_searching_state/", AdvancedUserViewset.as_view({"post": "change_searching_state"})),
     path("api/matching/users/<pk>/make_tim_support/", AdvancedUserViewset.as_view({"post": "make_tim_support"})),
     path("api/matching/users/<pk>/emails/", AdvancedUserViewset.as_view({"get": "emails"})),
+    path("api/matching/users/<pk>/change_newsletter_subscribed/", AdvancedUserViewset.as_view({"post": "change_newsletter_subscribed"})),
 ]
 
 api_urls = [path("api/matching/users/", AdvancedUserViewset.as_view({"get": "list"})), path("api/matching/users/filters/", AdvancedUserViewset.as_view({"get": "get_filter_schema"})), path("api/matching/users/<pk>/", AdvancedUserViewset.as_view({"get": "retrieve"})), *viewset_actions]
