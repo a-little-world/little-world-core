@@ -6,6 +6,7 @@ from rest_framework_dataclasses.serializers import DataclassSerializer
 from rest_framework import serializers
 from rest_framework import status
 from management import models as management_models
+from management.tasks import slack_notify_communication_channel_async
 from rest_framework.decorators import api_view, permission_classes
 
 
@@ -48,6 +49,9 @@ def process_report_unmatch(request, kind="report"):
         }
     )
     matching.save()
+    
+    slack_notify_communication_channel_async.delay(f"Match {data.match_id} has been {kind}-ed by {request.user.hash} with reason: {data.reason}")
+
 
     return Response("Unmatched & Reported!", status=status.HTTP_200_OK)
 
