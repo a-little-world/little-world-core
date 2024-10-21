@@ -137,11 +137,13 @@ class Profile(models.Model):
         ANY = "any", get_translation("profile.partner_gender.any")
         MALE = "male", get_translation("profile.partner_gender.male")
         FEMALE = "female", get_translation("profile.partner_gender.female")
+        DIVERSE = "diverse", get_translation("profile.partner_gender.diverse")
 
     class GenderChoices(models.TextChoices):
         ANY = "any", get_translation("profile.gender.any")
         MALE = "male", get_translation("profile.gender.male")
         FEMALE = "female", get_translation("profile.gender.female")
+        DIVERSE = "diverse", get_translation("profile.gender.diverse")
 
     gender = models.CharField(choices=GenderChoices.choices, default=None, null=True, max_length=255)
 
