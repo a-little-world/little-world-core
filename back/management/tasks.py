@@ -5,6 +5,8 @@ from management.models.user import User
 from management.models.community_events import CommunityEvent
 from management.models.backend_state import BackendState
 from translations import get_translation
+import math
+import random
 
 """
 also contains general startup celery tasks, most of them are automaticly run when the controller.get_base_management user is created
@@ -129,12 +131,17 @@ def check_prematch_email_reminders_and_expirations():
     also check if there are expired unconfirmed_matches
     """
     from management.models.unconfirmed_matches import ProposedMatch
+    from management.models.state import State
 
     all_unclosed_unconfirmed = ProposedMatch.objects.filter(closed=False)
 
     # unconfirmed matches reminders
     for unclosed in all_unclosed_unconfirmed:
         if unclosed.is_expired(close_if_expired=True, send_mail_if_expired=True):
+            # Now we have to set the learner to unresponsive = True and to searching = IDLE
+            unclosed.learner_when_created.state.searching = State.MatchingStateChoices.IDLE
+            unclosed.learner_when_created.state.unresponsive = True
+            unclosed.learner_when_created.state.save()
             continue
         unclosed.is_reminder_due(send_reminder=True)
 
@@ -321,8 +328,10 @@ def burst_calculate_matching_scores(user_combinations=[]):
                 "combinations_processed": combinations_processed,
             }
         )
+        
+    random_delay = math.floor(random.random() * 5)
 
-    mark_burst_task_completed_check_for_finish.delay(burst_calculate_matching_scores.request.id)
+    mark_burst_task_completed_check_for_finish.apply_async((burst_calculate_matching_scores.request.id,), countdown=2 + random_delay)
 
     return {
         "total_combinations": total_combinations,
@@ -340,12 +349,10 @@ def mark_burst_task_completed_check_for_finish(task_id=None):
         return {"status": "done"}
     current_caluclation = current_caluclation.first()
 
-    # mark the current task as done
-
     current_calculation_task_ids = current_caluclation.meta.get("tasks", [])
     completed_task_ids = current_caluclation.meta.get("completed_tasks", [])
 
-    if task_id not in current_calculation_task_ids:
+    if not (task_id in current_calculation_task_ids):
         return {"status": "done"}
 
     current_calculation_task_ids.remove(task_id)
@@ -446,3 +453,9 @@ def send_email_background(
         emulated_send=False,
         context=context
     )
+
+
+@shared_task
+def slack_notify_communication_channel_async(message):
+    from management.api.slack import notify_communication_channel
+    notify_communication_channel(message)

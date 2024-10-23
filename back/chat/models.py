@@ -84,11 +84,21 @@ class ChatSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
 
         if ("request" in self.context) or ("user" in self.context):
+            
+            # We need to check if the users are still matched otherwise we censor the parter profile
             user = self.context["request"].user if "request" in self.context else self.context["user"]
             partner = instance.get_partner(user)
-            profile = management_models.profile.MinimalProfileSerializer(partner.profile).data
-            representation["partner"] = profile
-            representation["partner"]["id"] = partner.hash
+
+            if management_models.matches.Match.get_match(user, partner).exists():
+                profile = management_models.profile.CensoredProfileSerializer(partner.profile).data
+                representation["partner"] = profile
+                representation["partner"]["id"] = partner.hash
+            else:
+                representation["partner"] = {
+                    "censored": True,
+                    "id": "censored"
+                }
+                representation["is_unmatched"] = True
 
             del representation["u1"]
             del representation["u2"]

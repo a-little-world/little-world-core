@@ -6,6 +6,7 @@ from rest_framework_dataclasses.serializers import DataclassSerializer
 from rest_framework import serializers
 from rest_framework import status
 from management import models as management_models
+from management.tasks import slack_notify_communication_channel_async
 from rest_framework.decorators import api_view, permission_classes
 
 
@@ -27,15 +28,15 @@ def process_report_unmatch(request, kind="report"):
     serializer.is_valid(raise_exception=True)
     data = serializer.save()
 
-    matching = management_models.Match.get_matching(request.user, data.match_id)
+    matching = management_models.matches.Match.get_matching(request.user, data.match_id)
 
     if not matching.exists():
         raise serializers.ValidationError("This match does not exist")
 
+    matching = matching.first()
+
     if matching.support_matching:
         raise serializers.ValidationError("You can not report a support match!")
-
-    matching = matching.first()
 
     matching.active = False
     matching.report_unmatch.append(
@@ -48,6 +49,9 @@ def process_report_unmatch(request, kind="report"):
         }
     )
     matching.save()
+    
+    slack_notify_communication_channel_async.delay(f"Match {data.match_id} has been {kind}-ed by {request.user.hash} with reason: {data.reason}")
+
 
     return Response("Unmatched & Reported!", status=status.HTTP_200_OK)
 

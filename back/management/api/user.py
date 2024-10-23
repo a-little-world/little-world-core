@@ -384,6 +384,12 @@ class UpdateSearchingStateApi(APIView):
             raise serializers.ValidationError({"state_slug": get_translation("api.user_update_searching_state_slug_doesnt_exist").format(slug=params.state_slug)})
 
         request.user.state.change_searching_state(params.state_slug)
+
+        if (params.state_slug == State.MatchingStateChoices.SEARCHING) and request.user.state.unresponsive:
+            # If the user was manaully set to 'unresponsive' he can self remove this flag by searching him-self again
+            request.user.state.unresponsive = False
+            request.user.state.save()
+
         return Response(get_translation("api.user_update_searching_state_state_successfully_changed"))
 
 
@@ -393,30 +399,6 @@ class UnmatchSelfSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         return validated_data
-
-
-@extend_schema(request=UnmatchSelfSerializer(many=False))
-@login_required
-@api_view(["POST"])
-def unmatch_self(request):
-    from management import controller
-
-    serializer = UnmatchSelfSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-
-    params = serializer.save()
-
-    other_user = controller.get_user_by_hash(params["other_user_hash"])
-
-    if other_user.is_staff or other_user.pk == controller.get_base_management_user().pk:
-        return Response(status=403)
-
-    past_match = controller.unmatch_users({request.user, other_user})
-    past_match.reason = params["reason"]
-    past_match.save()
-
-    return Response(get_translation("api.user_unmatch_self_success"))
-
 
 @login_required
 @api_view(["POST"])

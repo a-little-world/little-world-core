@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework_dataclasses.serializers import DataclassSerializer
 from dataclasses import dataclass
 from management.models.unconfirmed_matches import ProposedMatch
+from management.models.state import State
 from rest_framework import serializers
 from management.controller import match_users
 from translations import get_translation
@@ -72,10 +73,13 @@ def confrim_match(request):
 
         InUnconfirmedMatchAdded(matches[0]).send(partner.hash)
 
-        return Response({"message": msg, "match": matching.get_serialized(request.user), "unconfirmed_matches": [partner.hash]})
+        return Response({"message": msg, "match": AdvancedUserMatchSerializer(matching, many=False, context={"user": request.user}).data })
     else:
         # just close the unconfirmed match
         unconfirmed_match.closed = True
         unconfirmed_match.save()
+        
+        request.user.state.matching_state = State.MatchingStateChoices.IDLE
+        request.user.state.save()
 
         return Response(get_translation("confirm_match.match_rejected"))

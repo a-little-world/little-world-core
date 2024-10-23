@@ -11,6 +11,7 @@ from drf_spectacular.utils import extend_schema
 from emails import mails
 from django.conf import settings
 from management.tasks import send_email_background
+from management.models.matches import Match
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -114,11 +115,16 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         chat = chat.first()
         if not chat.is_participant(request.user):
             return self.resp_chat_403
+        
 
         serializer = SendMessageSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         partner = chat.get_partner(request.user)
+
+        # Check if the users are still matched, otherwise no new messages can be send
+        if not Match.get_match(request.user, partner).exists():
+            return self.resp_chat_403
 
         # retrieve the newest message the recipient was notified about
         latest_notified_message = Message.objects.filter(

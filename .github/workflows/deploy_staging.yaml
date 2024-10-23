@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     name: Deploy emperial env
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@main
         with:
           token: ${{ secrets.BOT_PAT }}
           submodules: recursive

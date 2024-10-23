@@ -29,6 +29,19 @@ from management.api.scores import score_between_db_update
 from management.tasks import matching_algo_v2
 from management.api.utils_advanced import filterset_schema_dict
 
+class MicroUserSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = User
+        fields = ["id", "email"]
+        
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation["profile"] = {
+            "first_name": instance.profile.first_name,
+            "second_name": instance.profile.second_name,
+        }
+        return representation
 
 class AdvancedUserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -402,6 +415,20 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         obj.state.save()
         return Response({"success": True})
 
+    @extend_schema(request=inline_serializer(name="ChangeNewsletterSubscribed", fields={"newsletter_subscribed": serializers.BooleanField(default=False)}))
+    @action(detail=True, methods=["post"])
+    def change_newsletter_subscribed(self, request, pk=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+
+        obj.profile.newsletter_subscribed = request.data.get("newsletter_subscribed", False)
+        obj.profile.save()
+        return Response({"success": True})
+
     @extend_schema(request=inline_serializer(name="MarkPrematchingCallCompletedRequest", fields={"had_prematching_call": serializers.BooleanField(default=True)}))
     @action(detail=True, methods=["post"])
     def mark_prematching_call_completed(self, request, pk=None):
@@ -499,9 +526,17 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         email_logs["results"] = AdvancedEmailLogSerializer(email_logs["results"], many=True).data
 
         return Response(email_logs)
+    
+    @action(detail=False, methods=["get"])
+    def export(self, request):
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = MicroUserSerializer(queryset, many=True)
+
+        return Response(serializer.data)
 
 
 viewset_actions = [
+    path("api/matching/users_export/", AdvancedUserViewset.as_view({"get": "export"})),
     path("api/matching/users/<pk>/scores/", AdvancedUserViewset.as_view({"get": "scores"})),
     path("api/matching/users/<pk>/prematching_appointment/", AdvancedUserViewset.as_view({"get": "prematching_appointment"})),
     path("api/matching/users/<pk>/score_between/", AdvancedUserViewset.as_view({"post": "score_between"})),
@@ -520,6 +555,7 @@ viewset_actions = [
     path("api/matching/users/<pk>/change_searching_state/", AdvancedUserViewset.as_view({"post": "change_searching_state"})),
     path("api/matching/users/<pk>/make_tim_support/", AdvancedUserViewset.as_view({"post": "make_tim_support"})),
     path("api/matching/users/<pk>/emails/", AdvancedUserViewset.as_view({"get": "emails"})),
+    path("api/matching/users/<pk>/change_newsletter_subscribed/", AdvancedUserViewset.as_view({"post": "change_newsletter_subscribed"})),
 ]
 
 api_urls = [path("api/matching/users/", AdvancedUserViewset.as_view({"get": "list"})), path("api/matching/users/filters/", AdvancedUserViewset.as_view({"get": "get_filter_schema"})), path("api/matching/users/<pk>/", AdvancedUserViewset.as_view({"get": "retrieve"})), *viewset_actions]
