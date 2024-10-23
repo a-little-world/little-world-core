@@ -4,6 +4,7 @@ e.g.: Creating a new user, sending a notification to a users etc...
 """
 
 import urllib.parse
+from django.utils import timezone
 from management.models.management_tasks import MangementTask
 from django.db.models import Q
 from django.db import transaction
@@ -377,6 +378,14 @@ def unmatch_users(users: set, delete_video_room=True, delete_dialog=True, unmatc
     assert match.exists(), "Match does not exist!"
     match = match.first()
     match.active = False
+    match.report_unmatch.append({
+        "kind": "unmatch",
+        "reason": "Manual User unmatch Matching pannel",
+        "match_id": match.id,
+        "time": str(timezone.now()),
+        "user_id": unmatcher.pk if unmatcher else "no unmatcher specified",
+        "user_uuid": unmatcher.hash if unmatcher else "no unmatcher specified",
+    })
     match.save()
 
     # Then disable the video room

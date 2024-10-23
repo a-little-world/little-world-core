@@ -23,36 +23,31 @@ def only_hd_test_user(qs=User.objects.all()):
     return qs.filter(email__startswith="herrduenschnlate")
 
 def needs_matching(qs=User.objects.all()):
-    unconfirmed_matches = ProposedMatch.objects.filter(closed=False)
+    now = timezone.now()
+    users_with_open_proposals = ProposedMatch.objects.filter(
+        closed=False,
+        expires_at__gt=now, 
+        learner_when_created__isnull=False
+    ).values_list('user1', 'user2')
+
+    users_w_open_proposals = set([id for pair in users_with_open_proposals for id in pair])
+    users_w_open_proposals = qs.filter(id__in=users_w_open_proposals)
+
     return (
         qs.filter(
             is_active=True,
             state__user_form_state=State.UserFormStateChoices.FILLED,
             state__email_authenticated=True,
+            state__unresponsive=False,
             state__had_prematching_call=True,  # TODO: filter should only be applied, if require_prematching_call = True
             state__matching_state=State.MatchingStateChoices.SEARCHING,
-        )
-        .exclude(Q(pk__in=unconfirmed_matches.values("user1")) | Q(pk__in=unconfirmed_matches.values("user2")))
-        .filter(state__unresponsive=False)
+        ).exclude(id__in=users_w_open_proposals)
         .order_by("-date_joined")
     )
 
 
 def needs_matching_volunteers(qs=User.objects.all()):
-    unconfirmed_matches = ProposedMatch.objects.filter(closed=False)
-    return (
-        qs.filter(
-            is_active=True,
-            profile__user_type=Profile.TypeChoices.VOLUNTEER,
-            state__user_form_state=State.UserFormStateChoices.FILLED,
-            state__email_authenticated=True,
-            state__had_prematching_call=True,  # TODO: filter should only be applied, if require_prematching_call = True
-            state__matching_state=State.MatchingStateChoices.SEARCHING,
-        )
-        .exclude(Q(pk__in=unconfirmed_matches.values("user1")) | Q(pk__in=unconfirmed_matches.values("user2")))
-        .filter(state__unresponsive=False)
-        .order_by("-date_joined")
-    )
+    return needs_matching(qs).filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
 
 
 def searching_users(qs=User.objects.all()):
