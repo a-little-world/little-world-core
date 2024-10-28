@@ -453,3 +453,9 @@ def send_email_background(
         emulated_send=False,
         context=context
     )
+
+
+@shared_task
+def slack_notify_communication_channel_async(message):
+    from management.api.slack import notify_communication_channel
+    notify_communication_channel(message)

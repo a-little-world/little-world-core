@@ -6,6 +6,7 @@ from rest_framework import serializers
 from management.models.help_message import HelpMessage
 from django.core.validators import MaxLengthValidator, MinLengthValidator
 from django.utils.html import escape
+from management.tasks import slack_notify_communication_channel_async
 
 
 class SendHelpMessageSerializer(serializers.Serializer):
@@ -48,10 +49,12 @@ class SendHelpMessage(APIView):
                 if c > 3:
                     raise serializers.ValidationError({"file": "Maximum 3 files allowed"})
 
-        HelpMessage.objects.create(
+        help_message = HelpMessage.objects.create(
             user=request.user,
             message=data["message"],
             **patt,
         )
+        
+        slack_notify_communication_channel_async.delay(f"New Help Message from {request.user.username}:\n{data['message']}\n\nCheck as super user at https://little-world.com/admin/management/helpmessage/{help_message.id}/change/")
 
         return Response("Successfully submitted help message!")
