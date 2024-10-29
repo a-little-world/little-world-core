@@ -2,14 +2,14 @@ from django.urls import path
 from rest_framework import routers
 from emails.views import ViewEmail
 from back.utils import _api_url
-from emails import api
+from emails import depricated_api
 from emails.api_v2 import backend_templates, dev_update_backend_emails, send_email, dynamic_template
 
 router = routers.SimpleRouter()
-router.register(_api_url("email/logs", admin=True, end_slash=False), api.EmailListView)
+router.register(_api_url("email/logs", admin=True, end_slash=False), depricated_api.EmailListView)
 
 
-api_routes = [path(_api_url("email/templates", admin=True), api.ListEmailTemplates.as_view()), path(_api_url("email/templates/encode", admin=True), api.EncodeTemplate.as_view()), *router.urls]
+api_routes = [path(_api_url("email/templates", admin=True), depricated_api.ListEmailTemplates.as_view()), path(_api_url("email/templates/encode", admin=True), depricated_api.EncodeTemplate.as_view()), *router.urls]
 
 urlpatterns = [
     *api_routes,
