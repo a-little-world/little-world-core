@@ -3,7 +3,7 @@ from rest_framework import routers
 from emails.views import ViewEmail
 from back.utils import _api_url
 from emails import depricated_api
-from emails.api_v2 import backend_templates, dev_update_backend_emails, send_email, dynamic_template
+from emails.api import backend_templates, dev_update_backend_emails, send_email, dynamic_template
 
 router = routers.SimpleRouter()
 router.register(_api_url("email/logs", admin=True, end_slash=False), depricated_api.EmailListView)

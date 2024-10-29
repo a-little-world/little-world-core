@@ -1,7 +1,7 @@
 from django.test import TestCase
 from management.tests.helpers import register_user
-from emails.api_v2.emails_config import EMAILS_CONFIG
-from emails.api_v2.render_template import get_full_template_info, render_template_dynamic_lookup
+from emails.api.emails_config import EMAILS_CONFIG
+from emails.api.render_template import get_full_template_info, render_template_dynamic_lookup
 from management.controller import match_users, create_user_matching_proposal
 
 
