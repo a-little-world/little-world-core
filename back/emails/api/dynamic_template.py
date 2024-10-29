@@ -4,16 +4,16 @@ from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from emails.models import DynamicTemplateSerializer, DynamicTemplate
 from rest_framework import viewsets
-from emails.api_v2.render_template import prepare_dynamic_template_context
+from emails.api.render_template import prepare_dynamic_template_context
 from rest_framework.decorators import action
 from management.api.user_advanced_filter_lists import get_list_by_name
 from management.models.user import User
-from emails.api_v2.render_template import render_template_to_html
+from emails.api.render_template import render_template_to_html
 from django.template import Template, Context
 from django.core.mail import EmailMessage
 from management.controller import get_base_management_user
 from emails.models import EmailLog
-from emails.api_v2.emails_config import EMAILS_CONFIG
+from emails.api.emails_config import EMAILS_CONFIG
 
 
 @extend_schema_view(
