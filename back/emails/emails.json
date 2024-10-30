@@ -11,6 +11,12 @@
       "name": "Dynamic",
       "description": "Dynamic emails",
       "unsubscribe": false
+    },
+    "community": {
+      "id": "community",
+      "name": "Community",
+      "description": "Community emails",
+      "unsubscribe": true
     }
   },
   "emails": {
