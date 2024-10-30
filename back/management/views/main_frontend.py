@@ -111,6 +111,9 @@ def info_card(request, confirm_mode=False, title="", content="", confirmText="",
     with translation.override("tag"):
         return render(request, "info_card.html", {"data": json.dumps(data, cls=CoolerJson)}, status=status_code)
 
+def debug_info_card(request):
+    return info_card(request, title="Debug Info Card", content="This is a debug info card", linkText="Go back to app", linkTo="/app/")
+
 
 def email_verification_link(request, **kwargs):
     from management.api.user import verify_email_link
