@@ -46,6 +46,7 @@ class MainFrontendRouter(View):
         "sign-up",
         "forgot-password",
         "reset-password",
+        "email-preferences"
     ]
 
     def get(self, request, path="", **kwargs):
