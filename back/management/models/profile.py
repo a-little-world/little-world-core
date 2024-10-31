@@ -106,8 +106,7 @@ class Profile(models.Model):
 
     """
     Target group for matching
-    Note: for volunteers this is a preference
-    for learners this is which group they belong to
+    This is the group preference that currently only volunteers set 
     """
 
     class TargetGroupChoices2(models.TextChoices):
@@ -122,7 +121,15 @@ class Profile(models.Model):
         max_length=255,
     )
 
-    target_groups = MultiSelectField(choices=TargetGroupChoices2.choices, max_choices=20, max_length=1000, blank=True)  # type: ignore
+
+    class GroupChoices(models.TextChoices):
+        ANY = "any", get_translation("profile.groups.any")
+        REFUGEE = "refugee", get_translation("profile.groups.refugee")
+        STUDENT = "student", get_translation("profile.groups.student")
+        WORKER = "worker", get_translation("profile.groups.worker")
+        OTHER = "other", get_translation("profile.groups.other")
+
+    groups = MultiSelectField(choices=GroupChoices.choices, max_choices=20, max_length=1000, blank=True)  # type: ignore
 
     # DEPRICATED!!! replaced with 'partner_gender'
     class ParterSexChoice(models.TextChoices):
@@ -388,7 +395,7 @@ class Profile(models.Model):
 class ProfileSerializer(serializers.ModelSerializer):
     options = serializers.SerializerMethodField()
     interests = serializers.MultipleChoiceField(choices=Profile.InterestChoices.choices)
-    target_groups = serializers.MultipleChoiceField(choices=Profile.TargetGroupChoices2.choices)
+    groups = serializers.MultipleChoiceField(choices=Profile.TargetGroupChoices2.choices)
     image = serializers.ImageField(max_length=None, allow_empty_file=True, allow_null=True, required=False)
 
     def get_options(self, obj):
@@ -428,7 +435,6 @@ class SelfProfileSerializer(ProfileSerializer):
         fields = [
             "first_name",
             "second_name",
-            "target_group",
             "speech_medium",
             "user_type",
             "target_group",
@@ -452,8 +458,8 @@ class SelfProfileSerializer(ProfileSerializer):
             "partner_gender",
             "liability_accepted",
             "display_language",
-            "other_target_group",
-            "target_groups",
+            "other_group",
+            "groups",
             "newsletter_subscribed",
         ]
 
@@ -518,9 +524,9 @@ class SelfProfileSerializer(ProfileSerializer):
         return value
     
 
-    def validate_target_groups(self, value):
+    def validate_groups(self, value):
         if len(value) < 1:
-            raise serializers.ValidationError(get_translation("profile.target_groups.min_number"))
+            raise serializers.ValidationError(get_translation("profile.groups.min_number"))
         return value
 
     def validate_lang_skill(self, value):
@@ -576,7 +582,7 @@ class CensoredProfileSerializer(SelfProfileSerializer):
 class MinimalProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = ["first_name", "second_name", "target_group", "lang_skill", "interests", "image_type", "avatar_config", "image", "description", "user_type", "target_groups"]
+        fields = ["first_name", "second_name", "target_group", "lang_skill", "interests", "image_type", "avatar_config", "image", "description", "user_type", "groups"]
 
 
 class ProposalProfileSerializer(SelfProfileSerializer):
