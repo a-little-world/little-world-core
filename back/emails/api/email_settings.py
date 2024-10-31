@@ -28,7 +28,7 @@ def retrieve_email_settings(request, email_settings_hash):
     
     settings = settings.first()
     
-    unsubscribale_categories = [category.id for category in EMAILS_CONFIG.categories if category.unsubscribe]
+    unsubscribale_categories = [category for category in EMAILS_CONFIG.categories if EMAILS_CONFIG.categories[category].unsubscribe]
     
     return Response({
         "categories": unsubscribale_categories,
@@ -37,5 +37,5 @@ def retrieve_email_settings(request, email_settings_hash):
     
 
 api_urls = [
-    path("email_settings/<str:email_settings_hash>/", retrieve_email_settings),
+    path("api/email_settings/<str:email_settings_hash>/", retrieve_email_settings),
 ]

@@ -17,6 +17,12 @@
       "name": "Community",
       "description": "Community emails",
       "unsubscribe": true
+    },
+    "newsletter": {
+      "id": "newsletter",
+      "name": "Newsletter",
+      "description": "Newsletter emails",
+      "unsubscribe": true
     }
   },
   "emails": {
