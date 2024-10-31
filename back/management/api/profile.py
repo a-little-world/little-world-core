@@ -80,7 +80,8 @@ class ProfileCompletedApi(APIView):
             state.matching_state = State.MatchingStateChoices.SEARCHING
             state.save()
             default_message = get_translation("auto_messages.prematching_invitation", lang="de")
-            if request.user.profile.lang_skill["de"] == Profile.LanguageSkillChoices.LEVEL_0:
+            german_level = list(filter(lambda x: x["lang"] == "german", request.user.profile.lang_skill))[0]["level"]
+            if german_level == Profile.LanguageSkillChoices.LEVEL_0:
                 default_message = get_translation("auto_messages.prematching_lang_level_too_low", lang="de")
 
                 request.user.message(default_message, auto_mark_read=True, send_message_incoming=True)
