@@ -59,13 +59,15 @@ def toggle_category_subscribe(request, email_settings_hash, category, subscribed
             return Response({"detail": "Already unsubscribed"}, status=400)
         else:
             settings.unsubscribed_categories.append(category)
-            return Response({"detail": f"Ubscubscribed '{category}'"})
+            settings.save()
+            return Response({"detail": f"Un-Subscribed '{category}'"})
     else:
         # Subscribe
-        if category not in settings.unsubscribed_categories:
+        if not (category in settings.unsubscribed_categories):
             return Response({"detail": "Already subscribed"}, status=400)
         else:
             settings.unsubscribed_categories.remove(category)
+            settings.save()
             return Response({"detail": f"Subscribed '{category}'"})
         
 @api_view(["POST"])
@@ -81,7 +83,7 @@ def subscribe_category(request, email_settings_hash, category):
     return toggle_category_subscribe(request, email_settings_hash, category, subscribed=True)
     
 api_urls = [
+    path("api/email_settings/<str:email_settings_hash>/<str:category>/subscribe", subscribe_category),
+    path("api/email_settings/<str:email_settings_hash>/<str:category>/unsubscribe", unscubscribe_category),
     path("api/email_settings/<str:email_settings_hash>/", retrieve_email_settings),
-    path("api/email_settings/<str:email_settings_hash>/<str:category>/subscribe", unscubscribe_category),
-    path("api/email_settings/<str:email_settings_hash>/<str:category>/unsubscribe", subscribe_category),
 ]
