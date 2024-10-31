@@ -7,6 +7,8 @@ from rest_framework import serializers, status
 from management.models.state import State
 from dataclasses import dataclass
 from back.utils import transform_add_options_serializer
+from management.models.profile import Profile
+from translations import get_translation
 
 
 @dataclass
@@ -77,6 +79,11 @@ class ProfileCompletedApi(APIView):
             state.set_user_form_completed()
             state.matching_state = State.MatchingStateChoices.SEARCHING
             state.save()
+            default_message = get_translation("auto_messages.prematching_invitation", lang="de")
+            if request.user.profile.lang_skill["de"] == Profile.LanguageSkillChoices.LEVEL_0:
+                default_message = get_translation("auto_messages.prematching_lang_level_too_low", lang="de")
+
+                request.user.message(default_message, auto_mark_read=True, send_message_incoming=True)
 
             from management.api.user_data import user_data
 
@@ -84,3 +91,6 @@ class ProfileCompletedApi(APIView):
             return Response(ud)
         else:
             return Response(info, status=status.HTTP_400_BAD_REQUEST)
+        
+
+    
