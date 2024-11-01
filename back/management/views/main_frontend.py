@@ -48,6 +48,11 @@ class MainFrontendRouter(View):
         "reset-password",
         "email-preferences"
     ]
+    
+    LOGGED_IN_NO_REDIRECT_PATHS = [
+        "app",
+        "email-preferences",
+    ]
 
     def get(self, request, path="", **kwargs):
         # normalize path, no trailing slash
@@ -86,10 +91,8 @@ class MainFrontendRouter(View):
         if request.user.state.is_email_verified() and ((not request.user.state.is_user_form_filled()) and (not path.startswith("app/user-form"))):
             return redirect("/app/user-form/")
 
-        if request.user.state.is_email_verified() and request.user.state.is_user_form_filled() and (not path.startswith("app")):
-            # Ignore login redirect if on 'email-preferences' page
-            if not (path.startswith("email-preferences")):
-                return redirect("/app/")
+        if request.user.state.is_email_verified() and request.user.state.is_user_form_filled() and (not any([path.startswith(p) for p in self.LOGGED_IN_NO_REDIRECT_PATHS])):
+            return redirect("/app/")
 
         extra_template_data = {}
         with translation.override("tag"):
