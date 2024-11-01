@@ -87,7 +87,9 @@ class MainFrontendRouter(View):
             return redirect("/app/user-form/")
 
         if request.user.state.is_email_verified() and request.user.state.is_user_form_filled() and (not path.startswith("app")):
-            return redirect("/app/")
+            # Ignore login redirect if on 'email-preferences' page
+            if not (path.startswith("email-preferences")):
+                return redirect("/app/")
 
         extra_template_data = {}
         with translation.override("tag"):
