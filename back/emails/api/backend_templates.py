@@ -3,8 +3,8 @@ from rest_framework.decorators import api_view, permission_classes
 from django.urls import path
 from rest_framework.response import Response
 from django.http import HttpResponse
-from emails.api_v2.emails_config import EMAILS_CONFIG
-from emails.api_v2.render_template import get_full_template_info, render_template_dynamic_lookup
+from emails.api.emails_config import EMAILS_CONFIG
+from emails.api.render_template import get_full_template_info, render_template_dynamic_lookup
 from django.conf import settings
 from drf_spectacular.utils import extend_schema, OpenApiParameter
 from django.views.decorators.clickjacking import xframe_options_exempt

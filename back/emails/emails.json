@@ -11,6 +11,18 @@
       "name": "Dynamic",
       "description": "Dynamic emails",
       "unsubscribe": false
+    },
+    "community": {
+      "id": "community",
+      "name": "Community",
+      "description": "Community emails",
+      "unsubscribe": true
+    },
+    "newsletter": {
+      "id": "newsletter",
+      "name": "Newsletter",
+      "description": "Newsletter emails",
+      "unsubscribe": true
     }
   },
   "emails": {
@@ -126,42 +138,42 @@
   "parameters": {
     "first_name": {
       "id": "first_name",
-      "lookup": "emails.api_v2.template_lookup.first_name",
+      "lookup": "emails.api.template_lookup.first_name",
       "depends_on": [
         "user"
       ]
     },
     "verification_url": {
       "id": "verification_url",
-      "lookup": "emails.api_v2.template_lookup.verification_url",
+      "lookup": "emails.api.template_lookup.verification_url",
       "depends_on": [
         "user"
       ]
     },
     "messages_url": {
       "id": "messages_url",
-      "lookup": "emails.api_v2.template_lookup.messages_url",
+      "lookup": "emails.api.template_lookup.messages_url",
       "depends_on": [
         "user"
       ]
     },
     "restart_search_url": {
       "id": "restart_search_url",
-      "lookup": "emails.api_v2.template_lookup.restart_search_url",
+      "lookup": "emails.api.template_lookup.restart_search_url",
       "depends_on": [
         "user"
       ]
     },
     "verification_code": {
       "id": "verification_code",
-      "lookup": "emails.api_v2.template_lookup.verification_code",
+      "lookup": "emails.api.template_lookup.verification_code",
       "depends_on": [
         "user"
       ]
     },
     "partner_first_name": {
       "id": "partner_first_name",
-      "lookup": "emails.api_v2.template_lookup.partner_first_name",
+      "lookup": "emails.api.template_lookup.partner_first_name",
       "depends_on": [
         "user",
         "match"
@@ -169,7 +181,7 @@
     },
     "proposed_match_first_name": {
       "id": "proposed_match_first_name",
-      "lookup": "emails.api_v2.template_lookup.proposed_match_first_name",
+      "lookup": "emails.api.template_lookup.proposed_match_first_name",
       "depends_on": [
         "user",
         "proposed_match"
@@ -177,14 +189,14 @@
     },
     "unsubscribe_url": {
       "id": "unsubscribe_url",
-      "lookup": "emails.api_v2.template_lookup.unsubscribe_url",
+      "lookup": "emails.api.template_lookup.unsubscribe_url",
       "depends_on": [
         "user"
       ]
     },
     "accept_match_url": {
       "id": "accept_match_url",
-      "lookup": "emails.api_v2.template_lookup.accept_match_url",
+      "lookup": "emails.api.template_lookup.accept_match_url",
       "depends_on": [
         "user",
         "proposed_match"
@@ -192,7 +204,7 @@
     },
     "partner_profile_url": {
       "id": "partner_profile_url",
-      "lookup": "emails.api_v2.template_lookup.partner_profile_url",
+      "lookup": "emails.api.template_lookup.partner_profile_url",
       "depends_on": [
         "user",
         "match"
@@ -200,21 +212,21 @@
     },
     "reset_password_url": {
       "id": "reset_password_url",
-      "lookup": "emails.api_v2.template_lookup.reset_password_url",
+      "lookup": "emails.api.template_lookup.reset_password_url",
       "depends_on": [
         "context.reset_password_url"
       ]
     },
     "user_form_url": {
       "id": "user_form_url",
-      "lookup": "emails.api_v2.template_lookup.user_form_url",
+      "lookup": "emails.api.template_lookup.user_form_url",
       "depends_on": [
         "user"
       ]
     },
     "confirm_in_contact_url": {
       "id": "confirm_in_contact_url",
-      "lookup": "emails.api_v2.template_lookup.confirm_in_contact_url",
+      "lookup": "emails.api.template_lookup.confirm_in_contact_url",
       "depends_on": [
         "user",
         "match"
@@ -222,14 +234,14 @@
     },
     "link_url": {
       "id": "link_url",
-      "lookup": "emails.api_v2.template_lookup.link_url",
+      "lookup": "emails.api.template_lookup.link_url",
       "depends_on": [
         "context.link_url"
       ]
     },
     "date": {
       "id": "date",
-      "lookup": "emails.api_v2.template_lookup.date",
+      "lookup": "emails.api.template_lookup.date",
       "depends_on": []
     }
   },

@@ -2,12 +2,12 @@ from django.urls import path
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework import serializers
 from management.helpers import IsAdminOrMatchingUser
-from emails.api_v2.render_template import render_template_to_html, prepare_template_context
+from emails.api.render_template import render_template_to_html, prepare_template_context
 from drf_spectacular.utils import extend_schema
 from emails.models import EmailLog
 from rest_framework.response import Response
 from django.core.mail import EmailMessage
-from emails.api_v2.emails_config import EMAILS_CONFIG
+from emails.api.emails_config import EMAILS_CONFIG
 from django.contrib.auth import get_user_model
 from django.template import Template, Context
 

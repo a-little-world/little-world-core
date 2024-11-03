@@ -22,7 +22,10 @@ class EmailSettings(models.Model):
     user_form_unfinished_reminder2 = models.BooleanField(default=False)
 
     # email lists the user is currently unsubscribed from
+    # TODO: depricated, old email api
     unsubscibed_options = MultiSelectField(choices=UnsubscibeOptions.choices, max_choices=20, max_length=500, default=[])
+    
+    unsubscribed_categories = models.JSONField(default=list)
 
     def has_unsubscribed(self, option: UnsubscibeOptions):
         return option in self.unsubscibed_options

@@ -5,7 +5,7 @@ from django.conf import settings
 from rest_framework import serializers
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from chat.models import Message, MessageSerializer, Chat, ChatSerializer
-from emails.api_v2.send_email import send_template_email
+from emails.api.send_email import send_template_email
 
 
 class UserManager(BaseUserManager):

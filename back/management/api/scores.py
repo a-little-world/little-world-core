@@ -214,14 +214,14 @@ class ScoringBase:
         then `user.gender.ANY` with `user.partner_gender.ANY` gives a score of `30`
         while `user.gender.MALE (or FEMALE)` with `user.gender_partne.ANY` will give a score of `5`
         """
-        normalize_gender_choices = {Profile.GenderChoices.ANY: "any", Profile.GenderChoices.MALE: "male", Profile.GenderChoices.FEMALE: "female", Profile.PartnerGenderChoices.ANY: "any", Profile.PartnerGenderChoices.FEMALE: "female", Profile.PartnerGenderChoices.MALE: "male", None: "any"}
+        normalize_gender_choices = {Profile.GenderChoices.ANY: "any", Profile.GenderChoices.MALE: "male", Profile.GenderChoices.FEMALE: "female", Profile.GenderChoices.DIVERSE: "diverse", Profile.PartnerGenderChoices.ANY: "any", Profile.PartnerGenderChoices.FEMALE: "female", Profile.PartnerGenderChoices.MALE: "male", Profile.PartnerGenderChoices.DIVERSE: "diverse", None: "any"}
 
-        def male_or_female(gender):
-            return (gender == "male") or (gender == "female")
+        def male_or_female_or_diverse(gender):
+            return (gender == "male") or (gender == "female") or (gender == "diverse")
 
-        def whish_granted(gender, whish):
-            granted = gender == whish
-            still_ok = granted or (whish == "any")
+        def wish_granted(gender, wish):
+            granted = gender == wish
+            still_ok = granted or (wish == "any")
             return granted, still_ok
 
         gender1 = normalize_gender_choices[self.user1.profile.gender]
@@ -229,15 +229,15 @@ class ScoringBase:
         gender2 = normalize_gender_choices[self.user2.profile.gender]
         partner_gender2 = normalize_gender_choices[self.user2.profile.partner_gender]
 
-        # disallow when any gender whish is broken:
-        # e.g.: whish = "male" -> other = "female", but also whish = "female" -> other = "any"
-        if (male_or_female(partner_gender1) and gender2 == "any") or (male_or_female(partner_gender2) and gender1 == "any"):
-            return ScoringFuctionResult(matchable=False, score=0, weight=1.0, markdown_info="Whish for specific gender cannot be full fillsed since patner has 'any' gender")
+        # disallow when any gender wish is broken:
+        # e.g.: wish = "male" -> other = "female", but also wish = "female" -> other = "any"
+        if (male_or_female_or_diverse(partner_gender1) and gender2 == "any") or (male_or_female_or_diverse(partner_gender2) and gender1 == "any"):
+            return ScoringFuctionResult(matchable=False, score=0, weight=1.0, markdown_info="Wish for specific gender cannot be fulfilled since partner has 'any' gender")
 
-        whish1, sok1 = whish_granted(gender1, partner_gender2)
-        whish2, sok2 = whish_granted(gender2, partner_gender1)
-        # all get exatly what they whish for
-        if whish1 and whish2:
+        wish1, sok1 = wish_granted(gender1, partner_gender2)
+        wish2, sok2 = wish_granted(gender2, partner_gender1)
+        # all get exatly what they wish for
+        if wish1 and wish2:
             return ScoringFuctionResult(matchable=True, score=20.0, weight=1.0, markdown_info="All gender requests presisely fullfilled :white_check_mark: (score: 20)")
 
         if sok1 and sok2:

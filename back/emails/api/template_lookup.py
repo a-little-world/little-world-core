@@ -49,7 +49,7 @@ def link_url(user=None, match=None, context={"link_url": "Not set"}):
     return context["link_url"]
 
 def unsubscribe_url(user):
-    return "https://www.example.com/unsubscribe"
+    return f"{settings.BASE_URL}/email-preferences/{user.settings.email_settings.hash}/"
 
 def date():
     return str(timezone.now())
