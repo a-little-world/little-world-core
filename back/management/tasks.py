@@ -402,12 +402,12 @@ def send_dynamic_email_backgruound(
     template_name,
     user_id=None,
 ):
-    from emails.api_v2.render_template import prepare_dynamic_template_context
+    from emails.api.render_template import prepare_dynamic_template_context
     from django.template import Template, Context
     from django.core.mail import EmailMessage
     from management.controller import get_base_management_user
     from emails.models import EmailLog
-    from emails.api_v2.emails_config import EMAILS_CONFIG
+    from emails.api.emails_config import EMAILS_CONFIG
 
     user = User.objects.get(id=user_id)
 
@@ -443,7 +443,7 @@ def send_email_background(
         proposed_match_id=None, 
         context={}
     ):
-    from emails.api_v2.send_email import send_template_email
+    from emails.api.send_email import send_template_email
 
     send_template_email(
         template_name,
