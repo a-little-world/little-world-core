@@ -150,7 +150,7 @@ view_routes = [
     path("api/matching/get_active_burst_calculation/", get_active_burst_calculation),
     path(_api_url("delete_all_matching_scores", admin=True), delete_all_matching_scores),  # TODO: can be depricated / is perforemed automaticly on update
     path(_api_url("top_scores", admin=True), list_top_scores),
-    path("info_card_debug/", main_frontend.info_card, name="info_card"),
+    path("info_card_debug/", main_frontend.debug_info_card, name="info_card"),
     path(_api_url("calcom", admin=False), api.calcom.callcom_websocket_callback),
     *matching_panel.view_urls,
     *email_templates.view_urls,

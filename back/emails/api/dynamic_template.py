@@ -3,17 +3,18 @@ from django.urls import path
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from emails.models import DynamicTemplateSerializer, DynamicTemplate
+from management.tasks import send_dynamic_email_backgruound
 from rest_framework import viewsets
-from emails.api_v2.render_template import prepare_dynamic_template_context
+from emails.api.render_template import prepare_dynamic_template_context
 from rest_framework.decorators import action
 from management.api.user_advanced_filter_lists import get_list_by_name
 from management.models.user import User
-from emails.api_v2.render_template import render_template_to_html
+from emails.api.render_template import render_template_to_html
 from django.template import Template, Context
 from django.core.mail import EmailMessage
 from management.controller import get_base_management_user
 from emails.models import EmailLog
-from emails.api_v2.emails_config import EMAILS_CONFIG
+from emails.api.emails_config import EMAILS_CONFIG
 
 
 @extend_schema_view(
@@ -41,15 +42,36 @@ class DynamicEmailTemplateViewset(viewsets.ModelViewSet):
 
         user_list = request.data["user_list"]
         qs = get_list_by_name(user_list).queryset(qs)
+        
+        # 2 - secondary category based filtering
+        count_before = qs.count()
+        count_after = count_before
 
-        from management.tasks import send_dynamic_email_backgruound
+        template = DynamicTemplate.objects.get(template_name=template_name)
+        category_id = template.category_id
+        
+        if EMAILS_CONFIG.categories[category_id].unsubscribe:
+            # meaning the category can be unsubscribed
+            qs = qs.exclude(
+                settings__email_settings__unsubscribed_categories__contains=[category_id]
+            )
+            count_after = qs.count()
 
         c = 0
+        task_ids = []
         for user in qs:
             task_id = send_dynamic_email_backgruound.delay(template_name, user.id)
+            
+            task_ids.append(task_id.task_id)
             c += 1
         
-        return Response({"message": f"Sent {c} emails"})
+        return Response({
+            "unsubscribe": EMAILS_CONFIG.categories[category_id].unsubscribe,
+            "subscribed_user_count": count_after,
+            "unsubscribed_user_count": count_before - count_after,
+            "task_id": task_ids,
+            "message": f"Sent {c} emails"
+        })
     
 
 

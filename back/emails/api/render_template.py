@@ -1,6 +1,6 @@
 from management.models.matches import Match
 from django.contrib.auth import get_user_model
-from emails.api_v2.emails_config import EMAILS_CONFIG
+from emails.api.emails_config import EMAILS_CONFIG
 from django.template.loader import get_template, render_to_string
 from django.template.base import VariableNode, NodeList
 from management.models.unconfirmed_matches import ProposedMatch

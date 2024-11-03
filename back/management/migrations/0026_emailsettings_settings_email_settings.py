@@ -20,6 +20,7 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('hash', models.UUIDField(default=uuid.uuid4, editable=False)),
                 ('unsubscibed_options', multiselectfield.db.fields.MultiSelectField(choices=[('interview_requests', 'Interview Requests')], default=[], max_length=500)),
+                ('unsubscribed_categories', models.JSONField(default=list)),
             ],
         ),
         migrations.AddField(

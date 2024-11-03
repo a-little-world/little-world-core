@@ -519,8 +519,8 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if not has_access:
             return res
 
-        page = request.query_params.get("page", 1)
-        page_size = request.query_params.get("page_size", 10)
+        page = int(request.query_params.get("page", 1))
+        page_size = int(request.query_params.get("page_size", 10))
 
         email_logs = get_paginated_format_v2(EmailLog.objects.filter(receiver=obj), page_size, page)
         email_logs["results"] = AdvancedEmailLogSerializer(email_logs["results"], many=True).data
