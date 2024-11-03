@@ -58,15 +58,18 @@ class DynamicEmailTemplateViewset(viewsets.ModelViewSet):
             count_after = qs.count()
 
         c = 0
+        task_ids = []
         for user in qs:
             task_id = send_dynamic_email_backgruound.delay(template_name, user.id)
+            
+            task_ids.append(task_id.task_id)
             c += 1
         
         return Response({
             "unsubscribe": EMAILS_CONFIG.categories[category_id].unsubscribe,
-            "subscribed_user_count": count_before - count_after,
-            "ubsubscribed_user_count": count_after,
-            "task_id": task_id,
+            "subscribed_user_count": count_after,
+            "unsubscribed_user_count": count_before - count_after,
+            "task_id": task_ids,
             "message": f"Sent {c} emails"
         })
     
