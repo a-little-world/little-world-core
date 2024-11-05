@@ -3,7 +3,7 @@ from management.helpers import IsAdminOrMatchingUser
 from rest_framework.decorators import api_view, permission_classes
 from django.urls import path
 from rest_framework.response import Response
-from emails.api_v2.emails_config import EMAILS_CONFIG, EmailsConfig
+from emails.api.emails_config import EMAILS_CONFIG, EmailsConfig
 from django.conf import settings
 
 

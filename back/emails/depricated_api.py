@@ -11,6 +11,7 @@ from . import mails
 from .models import EmailLog, EmailLogSerializer
 
 
+# TODO: depricated email list view ( phase out mit 2025, will require db migration deleting old email render links )
 class ListEmailTemplates(APIView):
     authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
     permission_classes = [permissions.IsAdminUser]
@@ -43,6 +44,7 @@ class EncodeEmailApiSerializer(serializers.Serializer):
         return EncodeEmailApiParams(**validated_data)
 
 
+# TODO: old email template rendered, phase out some time by mid year 2025
 class EncodeTemplate(APIView):
     authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
     permission_classes = [permissions.IsAdminUser]
@@ -87,6 +89,7 @@ class EncodeTemplate(APIView):
         return Response(as_url)
 
 
+# Depricated old email list view, phase out mid 2025
 class EmailListView(viewsets.ReadOnlyModelViewSet):
     authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
 

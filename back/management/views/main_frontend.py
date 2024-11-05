@@ -46,6 +46,12 @@ class MainFrontendRouter(View):
         "sign-up",
         "forgot-password",
         "reset-password",
+        "email-preferences"
+    ]
+    
+    LOGGED_IN_NO_REDIRECT_PATHS = [
+        "app",
+        "email-preferences",
     ]
 
     def get(self, request, path="", **kwargs):
@@ -85,7 +91,7 @@ class MainFrontendRouter(View):
         if request.user.state.is_email_verified() and ((not request.user.state.is_user_form_filled()) and (not path.startswith("app/user-form"))):
             return redirect("/app/user-form/")
 
-        if request.user.state.is_email_verified() and request.user.state.is_user_form_filled() and (not path.startswith("app")):
+        if request.user.state.is_email_verified() and request.user.state.is_user_form_filled() and (not any([path.startswith(p) for p in self.LOGGED_IN_NO_REDIRECT_PATHS])):
             return redirect("/app/")
 
         extra_template_data = {}
@@ -110,6 +116,9 @@ def info_card(request, confirm_mode=False, title="", content="", confirmText="",
     # info view relies on frontend translations per default
     with translation.override("tag"):
         return render(request, "info_card.html", {"data": json.dumps(data, cls=CoolerJson)}, status=status_code)
+
+def debug_info_card(request):
+    return info_card(request, title="Debug Info Card", content="This is a debug info card", linkText="Go back to app", linkTo="/app/")
 
 
 def email_verification_link(request, **kwargs):

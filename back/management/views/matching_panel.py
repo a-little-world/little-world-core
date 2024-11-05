@@ -1,4 +1,5 @@
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.authentication import SessionAuthentication
 from django.urls import path, re_path
 from django.core.serializers.json import DjangoJSONEncoder
 from rest_framework.response import Response
@@ -9,6 +10,7 @@ import json
 
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
+@authentication_classes([SessionAuthentication])
 def matching_panel(request, menu=None):
     return render(request, "admin_pannel_v3_frontend.html")
 
