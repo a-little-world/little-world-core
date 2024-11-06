@@ -9,7 +9,7 @@ class SupportGroups(models.TextChoices):
     CHILD = "child", get_translation("patenmatch.supportgroups.child")
     SENIOR = "senior", get_translation("patenmatch.supportgroups.senior")
     INDIVIDUAL = "individual", get_translation("patenmatch.supportgroups.individual")
-    ADOLECENT = "adolecent", get_translation("patenmatch.supportgroups.adolecent")
+    ADOLESCENT = "adolescent", get_translation("patenmatch.supportgroups.adolescent")
     STUDENT = "student", get_translation("patenmatch.supportgroups.student")
 
 
