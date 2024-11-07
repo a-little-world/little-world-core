@@ -28,6 +28,8 @@ from chat.models import Message, MessageSerializer, Chat, ChatSerializer
 from management.api.scores import score_between_db_update
 from management.tasks import matching_algo_v2
 from management.api.utils_advanced import filterset_schema_dict
+from datetime import datetime, timedelta
+from django.utils import timezone
 
 class MicroUserSerializer(serializers.ModelSerializer):
 
@@ -548,7 +550,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         try:
             latest_pre_match_appointment = PreMatchingAppointment.objects.filter(user=obj).order_by("-created")[0]
-            pre_match_call_date = latest_pre_match_appointment.created
+            pre_match_call_date = latest_pre_match_appointment.end_time
             now = timezone.now()
             waiting_time = (now - pre_match_call_date).days
             return Response({'waiting_time': waiting_time})
