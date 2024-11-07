@@ -467,7 +467,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
     @extend_schema(request=inline_serializer(name="DeleteUserRequest", fields={"send_deletion_email": serializers.BooleanField(default=False)}))
     @action(detail=True, methods=["post"])
-    def delte_user(self, request, pk=None):
+    def delete_user(self, request, pk=None):
         self.kwargs["pk"] = pk
         obj = self.get_object()
 
@@ -533,6 +533,27 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         serializer = MicroUserSerializer(queryset, many=True)
 
         return Response(serializer.data)
+    
+    @action(detail=True, methods=["get"])
+    def match_waiting_time(self, request, pk=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+        had_prematching_call = obj.state.had_prematching_call
+        if not had_prematching_call:
+            return Response('Prematch call not completed')
+
+        is_searching = obj.state.matching_state == State.MatchingStateChoices.SEARCHING
+        if not is_searching:
+            return Response('Not actively searching')
+
+        try:
+            latest_pre_match_appointment = PreMatchingAppointment.objects.filter(user=obj).order_by("-created")[0]
+            pre_match_call_date = latest_pre_match_appointment.created
+            now = timezone.now()
+            waiting_time = (now - pre_match_call_date).days
+            return Response({'waiting_time': waiting_time})
+        except IndexError:
+            return Response('No pre-match appointment found')
 
 
 viewset_actions = [
@@ -544,6 +565,7 @@ viewset_actions = [
     path("api/matching/users/<pk>/messages/", AdvancedUserViewset.as_view({"get": "messages"})),
     path("api/matching/users/<pk>/sms/", AdvancedUserViewset.as_view({"get": "sms", "post": "sms"})),
     path("api/matching/users/<pk>/message_reply/", AdvancedUserViewset.as_view({"post": "message_reply"})),
+    path("api/matching/users/<pk>/match_waiting_time/", AdvancedUserViewset.as_view({"get": "match_waiting_time"})),
     path("api/matching/users/<pk>/tasks/", AdvancedUserViewset.as_view({"get": "tasks", "post": "tasks"})),
     path("api/matching/users/<pk>/notes/", AdvancedUserViewset.as_view({"get": "notes", "post": "notes"})),
     path("api/matching/users/<pk>/delete_message/", AdvancedUserViewset.as_view({"get": "delete_message"})),
@@ -551,7 +573,7 @@ viewset_actions = [
     path("api/matching/users/<pk>/complete_task/", AdvancedUserViewset.as_view({"post": "complete_task"})),
     path("api/matching/users/<pk>/mark_unresponsive/", AdvancedUserViewset.as_view({"post": "mark_unresponsive"})),
     path("api/matching/users/<pk>/mark_prematching_call_completed/", AdvancedUserViewset.as_view({"post": "mark_prematching_call_completed"})),
-    path("api/matching/users/<pk>/delete_user/", AdvancedUserViewset.as_view({"post": "delte_user"})),
+    path("api/matching/users/<pk>/delete_user/", AdvancedUserViewset.as_view({"post": "delete_user"})),
     path("api/matching/users/<pk>/change_searching_state/", AdvancedUserViewset.as_view({"post": "change_searching_state"})),
     path("api/matching/users/<pk>/make_tim_support/", AdvancedUserViewset.as_view({"post": "make_tim_support"})),
     path("api/matching/users/<pk>/emails/", AdvancedUserViewset.as_view({"get": "emails"})),

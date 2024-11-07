@@ -66,7 +66,7 @@ def __user_get_catch(**kwargs):
         return User.objects.get(**kwargs)
     except User.DoesNotExist:
         # We should throw an error if a user was looked up that doesn't exist
-        # If this error occurs we most likely forgot to delte the user from someones matches
+        # If this error occurs we most likely forgot to delete the user from someones matches
         # But we still allow this to be caught with 'try' and returned as a parsed error
         raise UserNotFoundErr("User doesn't exist")
 
