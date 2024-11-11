@@ -122,6 +122,7 @@ INSTALLED_APPS = [
     "cookie_consent",  # Our cookie consent management system
     "management",  # Main backend application
     "chat",  # Our chat
+    "patenmatch",  # pathenmatch api
     "corsheaders",
     "rest_framework",
     "django_filters",

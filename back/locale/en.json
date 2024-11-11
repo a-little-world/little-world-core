@@ -84,11 +84,9 @@
   "profile.partner_gender.any": "Any",
   "profile.partner_gender.male": "Male only",
   "profile.partner_gender.female": "Female only",
-  "profile.partner_gender.diverse": "Gender diverse only",
   "profile.gender.any": "Don't want to say",
   "profile.gender.male": "Male",
   "profile.gender.female": "Female",
-  "profile.gender.diverse": "Gender diverse",
   "profile.speech_medium.any": "Video or phone",
   "profile.speech_medium.video": "Video only",
   "profile.speech_medium.phone": "Phone only",
@@ -182,7 +180,6 @@
   "profile.lang_de_missing": "You must select at least german as a language",
   "profile.descr_too_short": "must have at least 10 characters",
   "profile.interests.min_number": "Please select at least three interests",
-  "profile.availability.min_number": "Please select at least 3 time slots",
   "errors.missing_email_auth_data_get_frontend": "Email authentication data missing",
   "info_view.email_verification_link_success.title": "Email verification successful",
   "info_view.email_verification_link_success.content": "Your email has been verified successfully",
@@ -210,5 +207,11 @@
   "models.state.matching_state.idle": "Idle",
   "model.community_event.frequency.monthly": "Monthly",
   "model.community_event.frequency.weekly": "Weekly",
-  "model.community_event.frequency.once": "Once"
+  "model.community_event.frequency.once": "Once",
+  "patenmatch.supportgroups.family": "Family",
+  "patenmatch.supportgroups.child": "Child (up to 12 years)",
+  "patenmatch.supportgroups.adolescent": "Adolescent (12-17 years)",
+  "patenmatch.supportgroups.senior": "Senior",
+  "patenmatch.supportgroups.individual": "Individual (Adult)",
+  "patenmatch.supportgroups.student": "Student"
 }
