@@ -314,11 +314,12 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if match_uuid is not None:
             matching = Match.objects.filter(
                 Q(user1=obj) | Q(user2=obj),
+                active=True,
                 uuid=match_uuid,
             ).first()
         else:
             censor_messages = False
-            support_matching = Match.objects.filter(Q(user1=obj) | Q(user2=obj), support_matching=True).first()
+            support_matching = Match.objects.filter(Q(user1=obj) | Q(user2=obj), support_matching=True, active=True).first()
             matching = support_matching
 
         partner = matching.get_partner(obj)

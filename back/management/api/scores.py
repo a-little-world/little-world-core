@@ -201,7 +201,7 @@ class ScoringBase:
 
         dist = pgeocode.GeoDistance("de")
         distance = dist.query_postal_code(self.user1.profile.postal_code, self.user2.profile.postal_code)
-        conditions = [[lambda x: x < 50.0, 50.0], [lambda x: x < 100.0, 40.0], [lambda x: x < 200.0, 30.0], [lambda x: x < 300.0, 20.0], [lambda x: x < 400.0, 10.0], [lambda x: x < 500.0, 5.0], [lambda x: x >= 500.0, 0.0]]
+        conditions = [[lambda x: x < 50.0, 18.0], [lambda x: x < 100.0, 16.0], [lambda x: x < 200.0, 14.0], [lambda x: x < 300.0, 12.0], [lambda x: x < 400.0, 10.0], [lambda x: x < 500.0, 5.0], [lambda x: x >= 500.0, 0.0]]
         for cond in conditions:
             if cond[0](distance):
                 return ScoringFuctionResult(matchable=True, score=cond[1], weight=1.0, markdown_info=f"Distance is {distance}km (score: {cond[1]})")

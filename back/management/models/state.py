@@ -178,8 +178,6 @@ class State(models.Model):
         self.save()
 
     def set_idle(self):
-        # TODO: here we might need to update some matching scores
-        # especially remove all suggestion of this user
         self.matching_state = self.MatchingStateChoices.IDLE
         self.save()
 
