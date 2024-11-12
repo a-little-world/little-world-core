@@ -7,6 +7,7 @@ from django_filters import rest_framework as filters
 from django_filters.rest_framework import DjangoFilterBackend
 from management.helpers.is_admin_or_matching_user import IsAdminOrMatchingUser
 from management.helpers.detailed_pagination import DetailedPagination
+import pgeocode
 
 
 class PatenmatchUserSerializer(serializers.ModelSerializer):
@@ -27,17 +28,24 @@ class PatenmatchOrganizationSerializer(serializers.ModelSerializer):
 
 
 class PatenmatchOrganizationFilter(filters.FilterSet):
+    postal_code = filters.CharFilter(method="filter_postal_code")
     target_groups = filters.CharFilter(method="filter_target_groups")
+    pg_instance = pgeocode.GeoDistance("DE")
 
     class Meta:
         model = PatenmatchOrganization
-        fields = ["postal_code", "target_groups"]
+        fields = ["target_groups", "postal_code"]
 
     def filter_target_groups(self, queryset, name, value):
         target_group_values = value.split(",")
         for target in target_group_values:
             queryset = queryset.filter(target_groups__contains=target)
         return queryset
+
+    def filter_postal_code(self, queryset, name, value):
+        matching_ids = [entry.id for entry in queryset if self.pg_instance.query_postal_code(value, entry.postal_code) <= entry.maximum_distance]
+
+        return queryset.filter(id__in=matching_ids)
 
 
 class PatenmatchUserViewSet(viewsets.ModelViewSet):
@@ -62,7 +70,7 @@ class PatenmatchOrganizationViewSet(viewsets.ModelViewSet):
         return super().list(request, *args, **kwargs)
 
     def get_permissions(self):
-        if self.action == "create":  # This action corresponds to POST requests
+        if self.action == "create":
             return [permissions.IsAuthenticated(), IsAdminOrMatchingUser()]
         return [permissions.AllowAny()]
 

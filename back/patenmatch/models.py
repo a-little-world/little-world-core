@@ -26,7 +26,7 @@ class PatenmatchOrganization(models.Model):
     postal_code = models.CharField(max_length=255, blank=False)
     contact_first_name = models.CharField(max_length=150, blank=False, validators=[model_validate_first_name])
     contact_second_name = models.CharField(max_length=150, blank=False, validators=[model_validate_second_name])
-    contact_email = models.EmailField(max_length=50)
+    contact_email = models.EmailField(max_length=50, unique=True)
     contact_phone = models.CharField(max_length=255, blank=True)
     maximum_distance = models.IntegerField(blank=True, default=50)
     capacity = models.IntegerField(blank=True, default=3)
