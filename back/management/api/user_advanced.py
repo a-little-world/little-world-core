@@ -553,7 +553,8 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             pre_match_call_date = latest_pre_match_appointment.end_time
             now = timezone.now()
             waiting_time = (now - pre_match_call_date).days
-            return Response({'waiting_time': waiting_time})
+            day_text = "day" if waiting_time == 1 else "days"
+            return Response(f'Waiting {waiting_time} {day_text}')
         except IndexError:
             return Response('No pre-match appointment found')
 
