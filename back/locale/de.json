@@ -219,5 +219,6 @@
   "patenmatch.supportgroups.adolescent": "Jugendliche (13-17 Jahre)",
   "patenmatch.supportgroups.senior": "Senioren",
   "patenmatch.supportgroups.individual": "Individuell (Erwachsene)",
-  "patenmatch.supportgroups.student": "Studierende"
+  "patenmatch.supportgroups.student": "Studierende",
+  "patenmatch.user.email.exists": "Die E-Mail Adresse ist schon vergeben."
 }

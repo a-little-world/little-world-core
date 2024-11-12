@@ -5,12 +5,12 @@ from multiselectfield import MultiSelectField
 
 
 class SupportGroups(models.TextChoices):
-    FAMILY = "family", get_translation("patenmatch.supportgroups.family")
-    CHILD = "child", get_translation("patenmatch.supportgroups.child")
-    SENIOR = "senior", get_translation("patenmatch.supportgroups.senior")
-    INDIVIDUAL = "individual", get_translation("patenmatch.supportgroups.individual")
-    ADOLESCENT = "adolescent", get_translation("patenmatch.supportgroups.adolescent")
-    STUDENT = "student", get_translation("patenmatch.supportgroups.student")
+    FAMILY = "family", get_translation("patenmatch.supportgroups.family", lang="de")
+    CHILD = "child", get_translation("patenmatch.supportgroups.child", lang="de")
+    SENIOR = "senior", get_translation("patenmatch.supportgroups.senior", lang="de")
+    INDIVIDUAL = "individual", get_translation("patenmatch.supportgroups.individual", lang="de")
+    ADOLESCENT = "adolescent", get_translation("patenmatch.supportgroups.adolescent", lang="de")
+    STUDENT = "student", get_translation("patenmatch.supportgroups.student", lang="de")
 
 
 class PatenmatchUser(models.Model):
@@ -23,7 +23,7 @@ class PatenmatchUser(models.Model):
 
 class PatenmatchOrganization(models.Model):
     name = models.CharField(max_length=1024, blank=False)
-    postal_code = models.CharField(max_length=255, blank=True)
+    postal_code = models.CharField(max_length=255, blank=False)
     contact_first_name = models.CharField(max_length=150, blank=False, validators=[model_validate_first_name])
     contact_second_name = models.CharField(max_length=150, blank=False, validators=[model_validate_second_name])
     contact_email = models.EmailField(max_length=50)
