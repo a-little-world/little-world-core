@@ -226,11 +226,17 @@ def bucket_statistics(request):
         selected_filters = [entry.name for entry in FILTER_LISTS]
 
     user_buckets = []
-    selected_filters_list = [entry for entry in FILTER_LISTS if entry.name in selected_filters]
-    for filter_list in selected_filters_list:
+
+    selected_filters_list = []
+    pre_filtered_uj_lists = {entry.name: entry for entry in FILTER_LISTS if entry.name in selected_filters}
+    for filter_name in selected_filters:
+        filter_list_entry = pre_filtered_uj_lists[filter_name]
+        selected_filters_list.append(filter_list_entry)
+
+    for i, filter_list in enumerate(selected_filters_list):
         queryset = filter_list.queryset(qs=pre_filtered_users)
         count = queryset.count()
-        user_buckets.append({"name": filter_list.name, "description": filter_list.description, "count": count})
+        user_buckets.append({"name": filter_list.name, "description": filter_list.description, "count": count, "id": i})
 
     return Response(user_buckets)
 
