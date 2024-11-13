@@ -107,11 +107,11 @@ class UserFilter(filters.FilterSet):
     
     profile__target_group = filters.ChoiceFilter(field_name="profile__target_group", choices=Profile.TargetGroupChoices2.choices, help_text="Filter for target group")
     
-    profile__target_groups = filters.MultipleChoiceFilter(
-        field_name="profile__target_groups",
+    profile__groups = filters.MultipleChoiceFilter(
+        field_name="profile__groups",
         choices=Profile.TargetGroupChoices2.choices,
         help_text="Filter for users based on target groups",
-        method="filter_target_groups",
+        method="filter_groups",
     )
 
     profile__newsletter_subscribed = filters.BooleanFilter(field_name="profile__newsletter_subscribed", help_text="Filter for users that are subscribed to the newsletter")
@@ -150,7 +150,7 @@ class UserFilter(filters.FilterSet):
         else:
             return queryset
         
-    def filter_target_groups(self, queryset, name, value):
+    def filter_groups(self, queryset, name, value):
         if value:
             query = Q()
             for item in value:
