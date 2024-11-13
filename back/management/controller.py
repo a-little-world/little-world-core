@@ -3,7 +3,6 @@ This is a controller for any userform related actions
 e.g.: Creating a new user, sending a notification to a users etc...
 """
 
-import urllib.parse
 from django.utils import timezone
 from management.models.management_tasks import MangementTask
 from django.db.models import Q
@@ -167,8 +166,6 @@ def create_user(email, password, first_name, second_name, birth_year, company=No
     usr.profile.newsletter_subscribed = newsletter_subscribed
     usr.profile.save()
 
-    usr.state.require_pre_matching_call = True
-    usr.state.save()
     # Error if user doesn't exist, would prob already happen on is_valid
     assert isinstance(usr, User)
 
