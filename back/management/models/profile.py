@@ -591,4 +591,5 @@ class ProposalProfileSerializer(SelfProfileSerializer):
             "avatar_config",
             "image",
             "description",
+            "user_type",
         ]
