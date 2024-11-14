@@ -7,6 +7,10 @@ from rest_framework import serializers, status
 from management.models.state import State
 from dataclasses import dataclass
 from back.utils import transform_add_options_serializer
+from management.models.profile import Profile
+from translations import get_translation
+from django.conf import settings
+import urllib.parse
 
 
 @dataclass
@@ -73,14 +77,24 @@ class ProfileCompletedApi(APIView):
         completed, info = request.user.profile.check_form_completion()
         if completed:
             # If it is completed we store set the state to completet asual!
-            state = request.user.state
+            user = request.user
+            state = user.state
             state.set_user_form_completed()
             state.matching_state = State.MatchingStateChoices.SEARCHING
             state.save()
+            default_message = get_translation("auto_messages.prematching_invitation", lang="de").format(first_name=user.profile.first_name, encoded_params=urllib.parse.urlencode({"email": str(user.email), "hash": str(user.hash), "bookingcode": str(user.state.prematch_booking_code)}), calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID)
+            german_level = list(filter(lambda x: x["lang"] == "german", user.profile.lang_skill))[0]["level"]
+            if german_level == Profile.LanguageSkillChoices.LEVEL_0:
+                default_message = get_translation("auto_messages.prematching_lang_level_too_low", lang="de").format(first_name=user.profile.first_name)
+
+            user.message(default_message, auto_mark_read=True, send_message_incoming=True)
 
             from management.api.user_data import user_data
 
-            ud = user_data(request.user)
+            ud = user_data(user)
             return Response(ud)
         else:
             return Response(info, status=status.HTTP_400_BAD_REQUEST)
+        
+
+    

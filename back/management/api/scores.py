@@ -458,7 +458,7 @@ class SimpleMatchingScoreSerializer(serializers.ModelSerializer):
 
 class BurstCalculateMatchingScoresV2RequestSerializer(serializers.Serializer):
     parallel_tasks = serializers.IntegerField(help_text="The number of parallel tasks to run", default=4, required=False)
-    delte_old_scores = serializers.BooleanField(help_text="Delete all old scores before starting", default=True, required=False)
+    delete_old_scores = serializers.BooleanField(help_text="Delete all old scores before starting", default=True, required=False)
 
 
 @extend_schema(
@@ -481,7 +481,7 @@ def burst_calculate_matching_scores_v2(request):
 
     parallel_tasks = serializer.validated_data["parallel_tasks"]
 
-    if serializer.validated_data["delte_old_scores"]:
+    if serializer.validated_data["delete_old_scores"]:
         TwoUserMatchingScore.objects.all().delete()
 
     bmu = controller.get_base_management_user()

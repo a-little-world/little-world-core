@@ -3,7 +3,6 @@ This is a controller for any userform related actions
 e.g.: Creating a new user, sending a notification to a users etc...
 """
 
-import urllib.parse
 from django.utils import timezone
 from management.models.management_tasks import MangementTask
 from django.db.models import Q
@@ -66,7 +65,7 @@ def __user_get_catch(**kwargs):
         return User.objects.get(**kwargs)
     except User.DoesNotExist:
         # We should throw an error if a user was looked up that doesn't exist
-        # If this error occurs we most likely forgot to delte the user from someones matches
+        # If this error occurs we most likely forgot to delete the user from someones matches
         # But we still allow this to be caught with 'try' and returned as a parsed error
         raise UserNotFoundErr("User doesn't exist")
 
@@ -131,7 +130,7 @@ def make_tim_support_user(user, old_management_mail="littleworld.management@gmai
             send_still_active_question_message(user)
 
 
-def create_user(email, password, first_name, second_name, birth_year, company=None, newsletter_subscribed=False, send_verification_mail=True, send_welcome_notification=True, send_welcome_message=True, catch_email_send_errors=True, check_prematching_invitations=False):
+def create_user(email, password, first_name, second_name, birth_year, company=None, newsletter_subscribed=False, send_verification_mail=True, send_welcome_notification=True, catch_email_send_errors=True):
     # TODO: depricate param 'catch_email_send_errors'
 
     """
@@ -166,6 +165,7 @@ def create_user(email, password, first_name, second_name, birth_year, company=No
     usr.profile.birth_year = int(birth_year)
     usr.profile.newsletter_subscribed = newsletter_subscribed
     usr.profile.save()
+
     # Error if user doesn't exist, would prob already happen on is_valid
     assert isinstance(usr, User)
 
@@ -217,20 +217,6 @@ def create_user(email, password, first_name, second_name, birth_year, company=No
     # Step 7 Notify the user
     if send_welcome_notification:
         usr.notify(title="Welcome Notification")
-
-    # Step 8 Message the user from the admin account
-    default_message = ""
-
-    if check_prematching_invitations or send_welcome_message:
-        # Now we need to check the prematching state
-        # TODO: there is a bug here if the user decides to change the email, then the booking will be made from the wrong email.
-
-        default_message = get_translation("auto_messages.prematching_invitation", lang="de").format(first_name=first_name, encoded_params=urllib.parse.urlencode({"email": str(usr.email), "hash": str(usr.hash), "bookingcode": str(usr.state.prematch_booking_code)}), calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID)
-
-        usr.state.require_pre_matching_call = True
-        usr.state.save()
-
-    usr.message(default_message, auto_mark_read=True, send_message_incoming=True)
 
     return usr
 
@@ -422,7 +408,7 @@ def get_or_create_default_docs_user():
         return get_user_by_email(settings.DOCS_USER)
     except UserNotFoundErr:
         create_user(
-            email=settings.DOCS_USER, password=settings.DOCS_PASSWORD, first_name="Docs", second_name="User", birth_year=2000, newsletter_subscribed=False, send_verification_mail=False, send_welcome_notification=False, send_welcome_message=False, catch_email_send_errors=False, check_prematching_invitations=False
+            email=settings.DOCS_USER, password=settings.DOCS_PASSWORD, first_name="Docs", second_name="User", birth_year=2000, newsletter_subscribed=False, send_verification_mail=False, send_welcome_notification=False, catch_email_send_errors=False
         )
 
     def finish_up_user_creation():
