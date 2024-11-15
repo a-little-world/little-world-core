@@ -3,7 +3,7 @@ kubectl exec --stdin --tty <POD> sh
 python3 manage.py dumpdata --indent 2 user_management django_private_chat2 cookie_consent > old_db_full_dump.json
 # Download all the files fron the kubernetes node:
 kubectl cp <POD>:/app/old_db_full_dump.json ./back/old_db_full_dump.json
-# Then clean up the json datas ( delte non json log data in the *.json files )
+# Then clean up the json datas ( delete non json log data in the *.json files )
 # Mege all json files into one
 # Create base directory path
 mkdir ./back/old_backend_p_images

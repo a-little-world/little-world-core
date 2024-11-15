@@ -535,6 +535,40 @@ def user_signup_loss_statistics(request):
     
     return Response(user_signup_loss_statistic(start_date, end_date, caller))
 
+# Returns the average waiting time (from prematch call to being matched) for all eligible users
+@api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
+def user_match_waiting_time_statistics(request):
+    start_date = request.data.get("start_date", "2024-05-01")
+    end_date = request.data.get("end_date", date.today())
+    caller = request.user
+
+    # Get all eligible users who have had a pre-matching call and are currently searching
+    eligible_users = User.objects.filter(
+        state__had_prematching_call=True,
+        state__matching_state=State.MatchingStateChoices.SEARCHING,
+        state__updated_at__gte=start_date,
+        state__updated_at__lte=end_date
+    )
+
+    total_waiting_time = 0
+    num_users = 0
+
+    for user in eligible_users:
+        waiting_time = self.match_waiting_time(request, pk=user.pk).data.get("waiting_time")
+        if waiting_time is not None:
+            total_waiting_time += waiting_time
+            num_users += 1
+
+    if num_users > 0:
+        average_waiting_time = total_waiting_time / num_users
+        return Response({"average_waiting_time": average_waiting_time})
+    else:
+        return Response({"error": "No eligible users found within the specified date range."}, status=404)
+
+    
+    
+
 api_urls = [
     path("api/matching/users/statistics/signups/", user_signups),
     path("api/matching/users/statistics/messages_send/", message_statistics),
@@ -543,5 +577,6 @@ api_urls = [
     path("api/matching/users/statistics/match_journey_buckets/", match_bucket_statistics),
     path("api/matching/users/statistics/user_signup_loss/", user_signup_loss_statistics),
     path("api/matching/users/statistics/match_quality/", match_quality_statistics),
+    path("api/matching/users/statistics/user_match_waiting_time/", user_match_waiting_time_statistics),
     path("api/matching/users/statistics/company_report/<str:company>/", comany_video_call_and_matching_report),
 ]
