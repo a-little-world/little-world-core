@@ -388,15 +388,15 @@ def comany_video_call_and_matching_report(request, company):
 def user_signup_loss_statistic(start_date="2022-01-01", end_date=date.today(), caller=None):
     
     user_lists_required = [
+        'all',
+        'journey_v2__never_active',
         'journey_v2__user_created',
+        'journey_v2__user_deleted',
         'journey_v2__email_verified',
         'journey_v2__user_form_completed',
+        'journey_v2__too_low_german_level',
         'journey_v2__booked_onboarding_call',
-        'journey_v2__first_search',
-        'journey_v2__user_deleted',
         'journey_v2__no_show',
-        # TODO: 'too low language level'
-        'all'
     ]
     
     exclude_intersection_check = ["all"]
