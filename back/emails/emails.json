@@ -120,14 +120,14 @@
     "babbel-subscription-winner": {
       "id": "babbel-subscription-winner",
       "sender_id": "noreply",
-      "category_id": "automated",
+      "category_id": "partnerships",
       "subject": "Herzlichen Gl\u00fcckwunsch! Du hast ein 6-monatiges Babbel-Abonnement gewonnen",
       "template": "react_emails/babbel-subscription-winner.html"
     },
     "babbel-precode-survey": {
       "id": "babbel-precode-survey",
       "sender_id": "noreply",
-      "category_id": "automated",
+      "category_id": "partnerships",
       "subject": "Kostenloser 6-monatiger Babbel Code - Verbessere dein Deutsch!",
       "template": "react_emails/babbel-precode-survey.html"
     }
