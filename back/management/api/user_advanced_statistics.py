@@ -79,6 +79,7 @@ def user_signups(request):
             data.append({
                 "date": stats["bucket"], 
                 "count": cumulative_count,
+                "count_ler": cumulative_count - cumulative_count_volunteer,
                 "count_vol": cumulative_count_volunteer
             })
     else:
@@ -87,6 +88,7 @@ def user_signups(request):
             data.append({
                 "date": stats["bucket"], 
                 "count": stats["count"],
+                "count_ler": stats["count"] - volunteer_only_users[i]["count"],
                 "count_vol": volunteer_only_users[i]["count"]
             })
 
