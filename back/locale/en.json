@@ -214,5 +214,6 @@
   "patenmatch.supportgroups.adolescent": "Adolescent (12-17 years)",
   "patenmatch.supportgroups.senior": "Senior",
   "patenmatch.supportgroups.individual": "Individual (Adult)",
-  "patenmatch.supportgroups.student": "Student"
+  "patenmatch.supportgroups.student": "Student",
+  "patenmatch.user.email.exists": "The email address is already taken."
 }
