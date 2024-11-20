@@ -1,5 +1,7 @@
 from rest_framework.decorators import api_view, permission_classes
 from management.models.user import User
+from management.models.profile import Profile
+from management.models.state import State
 from video.models import LivekitSession
 from management.models.matches import Match
 from django.db.models.functions import TruncDay, TruncWeek, TruncMonth
@@ -62,17 +64,33 @@ def user_signups(request):
 
     # Calculate the count of users who joined before the start_date
     pre_start_date_count = queryset.filter(date_joined__lt=start_date).count()
+    pre_start_data_count_volunteer = queryset.filter(date_joined__lt=start_date, profile__user_type=Profile.TypeChoices.VOLUNTEER).count()
 
     user_counts = queryset.filter(date_joined__range=[start_date, end_date]).annotate(bucket=trunc_func("date_joined")).values("bucket").annotate(count=Count("id")).order_by("bucket")
+    volunteer_only_users = queryset.filter(date_joined__range=[start_date, end_date], profile__user_type=Profile.TypeChoices.VOLUNTEER).annotate(bucket=trunc_func("date_joined")).values("bucket").annotate(count=Count("id")).order_by("bucket")
 
     if cumulative:
         cumulative_count = pre_start_date_count
+        cumulative_count_volunteer = pre_start_data_count_volunteer
         data = []
-        for stats in user_counts:
+        for i, stats in enumerate(user_counts):
             cumulative_count += stats["count"]
-            data.append({"date": stats["bucket"], "count": cumulative_count})
+            cumulative_count_volunteer += volunteer_only_users[i]["count"]
+            data.append({
+                "date": stats["bucket"], 
+                "count": cumulative_count,
+                "count_ler": cumulative_count - cumulative_count_volunteer,
+                "count_vol": cumulative_count_volunteer
+            })
     else:
-        data = [{"date": stats["bucket"], "count": stats["count"]} for stats in user_counts]
+        data = []
+        for i, stats in enumerate(user_counts):
+            data.append({
+                "date": stats["bucket"], 
+                "count": stats["count"],
+                "count_ler": stats["count"] - volunteer_only_users[i]["count"],
+                "count_vol": volunteer_only_users[i]["count"]
+            })
 
     return Response(data)
 
@@ -388,15 +406,15 @@ def comany_video_call_and_matching_report(request, company):
 def user_signup_loss_statistic(start_date="2022-01-01", end_date=date.today(), caller=None):
     
     user_lists_required = [
+        'all',
+        'journey_v2__never_active',
         'journey_v2__user_created',
+        'journey_v2__user_deleted',
         'journey_v2__email_verified',
         'journey_v2__user_form_completed',
+        'journey_v2__too_low_german_level',
         'journey_v2__booked_onboarding_call',
-        'journey_v2__first_search',
-        'journey_v2__user_deleted',
         'journey_v2__no_show',
-        # TODO: 'too low language level'
-        'all'
     ]
     
     exclude_intersection_check = ["all"]
@@ -555,6 +573,8 @@ def user_match_waiting_time_statistics(request):
     num_users = 0
 
     for user in eligible_users:
+        # @Simba14 'self' doesnt work here, not sure if you can directly call 'user_advanced.AvdancedUserViewset.match_waiting_time )
+        # Rather I'd recommend to make a helper match_waiting_time(user)
         waiting_time = self.match_waiting_time(request, pk=user.pk).data.get("waiting_time")
         if waiting_time is not None:
             total_waiting_time += waiting_time
