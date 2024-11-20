@@ -573,10 +573,8 @@ def user_match_waiting_time_statistics(request):
     num_users = 0
 
     for user in eligible_users:
-        # @Simba14 comment for the next time you look at this code:
-        # It's not super easy to call methods from another class 
-        # ( I think you are trying to call user_advanced.AvdancedUserViewset.match_waiting_time )
-        # Rather I'd recommend to make a helper match_waiting_time(user) and use that here and in user_advanced.AvdancedUserViewset.match_waiting_time
+        # @Simba14 'self' doesnt work here, not sure if you can directly call 'user_advanced.AvdancedUserViewset.match_waiting_time )
+        # Rather I'd recommend to make a helper match_waiting_time(user)
         waiting_time = self.match_waiting_time(request, pk=user.pk).data.get("waiting_time")
         if waiting_time is not None:
             total_waiting_time += waiting_time
