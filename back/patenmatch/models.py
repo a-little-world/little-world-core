@@ -11,6 +11,7 @@ class SupportGroups(models.TextChoices):
     INDIVIDUAL = "individual", get_translation("patenmatch.supportgroups.individual", lang="de")
     ADOLESCENT = "adolescent", get_translation("patenmatch.supportgroups.adolescent", lang="de")
     STUDENT = "student", get_translation("patenmatch.supportgroups.student", lang="de")
+    ERROR = "error", get_translation("patenmatch.supportgroups.error", lang="de")
 
 
 class PatenmatchUser(models.Model):
