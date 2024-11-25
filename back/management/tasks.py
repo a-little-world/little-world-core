@@ -7,6 +7,7 @@ from management.models.backend_state import BackendState
 from translations import get_translation
 import math
 import random
+from management.models.banner import Banner
 
 """
 also contains general startup celery tasks, most of them are automaticly run when the controller.get_base_management user is created
@@ -20,10 +21,10 @@ def create_default_community_events():
     """
     Creates base community events,
     we store this here since we are using translations here!
-    Tough we do default to german here for now!
+    Though we do default to german here for now!
     """
     if BackendState.are_default_community_events_set(set_true=True):
-        return "events already set, sais backend state! If they where deleted you should delete the state!"
+        return "events already set, saves backend state! If they where deleted you should delete the state!"
 
     CommunityEvent.objects.create(
         title=get_translation("community_event.coffe_break", lang="de"),
@@ -34,6 +35,41 @@ def create_default_community_events():
     )
 
     return "events created!"
+
+@shared_task
+def create_default_banners():
+    """
+    Creates base banners,
+    we store this here since we are using translations here!
+    Though we do default to german here for now!
+    """
+    if BackendState.are_default_community_events_set(set_true=True):
+        return "banners already set, saves backend state! If they where deleted you should delete the state!"
+
+    Banner.objects.create(
+        name='Learner Banner',
+        title="Support Us",
+        text="Lovely learner, Little World is free and will always be free. But in order to keep us going we need your support. Please head to our support page to find out the ways you can help us.",
+        active=True,
+        cta_1_url='/app/support-us/',
+        cta_1_text='Support us',
+        image_url='',
+        image_alt='background image',
+    )
+
+    Banner.objects.create(
+        name='Volunteer Banner',
+        title="Support Us",
+        text="Lovely volunteer, Little World is free and will always be free. But in order to keep us going we need your support. Please head to our support page to find out the ways you can help us.",
+        active=True,
+        cta_1_url='/app/support-us/',
+        cta_1_text='Support us',
+        image_url='',
+        image_alt='background image',
+    )
+
+
+    return "banners created!"
 
 
 @shared_task
