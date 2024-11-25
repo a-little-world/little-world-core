@@ -2,7 +2,10 @@ from django.db import models
 from django.db.models import Q
 from uuid import uuid4
 
+from django.utils import timezone
 from management.models import user as user_model, profile
+from video.models import LivekitSession
+from chat.models import Message
 
 
 class Match(models.Model):
@@ -26,6 +29,25 @@ class Match(models.Model):
     report_unmatch = models.JSONField(default=list)
 
     still_in_contact_mail_send = models.BooleanField(default=False)
+    
+    total_messages_counter = models.IntegerField(default=0)
+    total_mutal_video_calls_counter = models.IntegerField(default=0)
+    latest_interaction_at = models.DateTimeField(default=timezone.now)
+
+    # If a certain match completed condition is met, this will be set to True
+    completed = models.BooleanField(default=False)
+    
+    def sync_counters(self):
+        self.total_messages_counter = Message.objects.filter(Q(sender=self.user1, recipient=self.user2) | Q(sender=self.user2, recipient=self.user1)).count()
+        self.total_mutal_video_calls_counter = LivekitSession.objects.filter(Q(u1=self.user1, u2=self.user2) | Q(u1=self.user2, u2=self.user1), both_have_been_active=True).count()
+        
+        newest_message = Message.objects.filter(Q(sender=self.user1, recipient=self.user2) | Q(sender=self.user2, recipient=self.user1)).order_by("-created").first()
+        newest_video_call = LivekitSession.objects.filter(Q(u1=self.user1, u2=self.user2) | Q(u1=self.user2, u2=self.user1), both_have_been_active=True).order_by("-created_at").first()
+
+        if newest_message and newest_video_call:
+            self.latest_interaction_at = max(newest_message.created, newest_video_call.created_at) 
+
+        self.save()
 
     @classmethod
     def get_match(cls, user1, user2):
