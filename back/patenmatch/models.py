@@ -35,4 +35,4 @@ class PatenmatchOrganization(models.Model):
     logo_url = models.URLField(max_length=1024, blank=True)
     website_url = models.URLField(max_length=1024, blank=True)
     matched_users = models.ManyToManyField(PatenmatchUser, blank=True)
-    metadata = models.JSONField(blank=True, default={})
+    metadata = models.JSONField(blank=True, default=dict)
