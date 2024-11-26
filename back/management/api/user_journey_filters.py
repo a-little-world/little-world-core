@@ -1,11 +1,12 @@
 from datetime import timedelta
 from django.utils import timezone
-from django.db.models import Q, Count, Case, F, BigIntegerField, When
+from django.db.models import Q, Count, Case, F, BigIntegerField, When, Max
 from management.models.user import User
 from management.models.state import State
 from management.models.profile import Profile
 from management.models.matches import Match
 from management.models.unconfirmed_matches import ProposedMatch
+from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.api.match_journey_filters import user_ghosted, never_confirmed, completed_match, match_free_play
 
 
@@ -93,7 +94,7 @@ def booked_onboarding_call(qs=User.objects.all()):
 # Active User Filters
 
 
-def first_search(qs=User.objects.all()):
+def first_search_v1(qs=User.objects.all()):
     """
     2.1: User is doing first search i.e.: has no 'non-support' match
     """
@@ -107,6 +108,38 @@ def first_search(qs=User.objects.all()):
 
     users_w_open_proposals = set([id for pair in users_with_open_proposals for id in pair])
     users_w_open_proposals = qs.filter(id__in=users_w_open_proposals)
+    
+    searched_too_long = over_30_days_after_prematching_still_searching(qs)
+
+    return (
+        qs.filter(
+            is_active=True,
+            state__user_form_state=State.UserFormStateChoices.FILLED,
+            state__matching_state=State.MatchingStateChoices.SEARCHING,
+            state__email_authenticated=True,
+            state__unresponsive=False,
+            state__had_prematching_call=True
+        ).exclude(id__in=users_w_open_proposals).exclude(id__in=searched_too_long)
+        .annotate(num_matches=Count("match_user1", filter=Q(match_user1__support_matching=False)) + Count("match_user2", filter=Q(match_user2__support_matching=False)))
+        .filter(num_matches=0)
+    )
+
+
+def first_search_v2(qs=User.objects.all()):
+    """
+    2.1: User is doing first search i.e.: has no 'non-support' match
+    """
+    
+    now = timezone.now()
+    users_with_open_proposals = ProposedMatch.objects.filter(
+        closed=False,
+        expires_at__gt=now, 
+        learner_when_created__isnull=False
+    ).values_list('user1', 'user2')
+
+    users_w_open_proposals = set([id for pair in users_with_open_proposals for id in pair])
+    users_w_open_proposals = qs.filter(id__in=users_w_open_proposals)
+    
 
     return (
         qs.filter(
@@ -121,14 +154,13 @@ def first_search(qs=User.objects.all()):
         .filter(num_matches=0)
     )
 
-
 def first_search_volunteers(qs=User.objects.all()):
-    fs = first_search(qs)
+    fs = first_search_v1(qs)
     return fs.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER, is_active=True)
 
 
 def first_search_learners(qs=User.objects.all()):
-    fs = first_search(qs)
+    fs = first_search_v1(qs)
     return fs.filter(profile__user_type=Profile.TypeChoices.LEARNER, is_active=True)
 
 
@@ -165,20 +197,31 @@ def pre_matching(qs=User.objects.all()):
     ).distinct()
 
 
-def match_takeoff(qs=User.objects.all()):
+def match_takeoff(
+        qs=User.objects.all()
+    ):
     """
     2.4: User has `Pre-Matching` or `Kickoff-Matching` Match.
     """
+    
+    takeoff_matches = Match.objects.filter(
+        Q(user1__in=qs) | Q(user2__in=qs),
+        support_matching=False,
+        active=True,
+        confirmed=False
+    )
+    
+
     return (
         qs.filter(
             is_active=True,
             state__user_form_state=State.UserFormStateChoices.FILLED,
-            state__matching_state=State.MatchingStateChoices.SEARCHING,
             state__email_authenticated=True,
             state__unresponsive=False,
             state__had_prematching_call=True,
         )
-        .annotate(num_matches=Count("match_user1", filter=Q(match_user1__support_matching=False)) + Count("match_user2", filter=Q(match_user2__support_matching=False)))
+        .annotate(
+            num_matches=Count("match_user1", filter=Q(match_user1__support_matching=False)) + Count("match_user2", filter=Q(match_user2__support_matching=False)))
         .filter(num_matches__gt=0)
     )
 
@@ -192,7 +235,11 @@ def active_match(qs=User.objects.all()):
     filtered_matches = Match.objects.filter(Q(user1__in=qs) | Q(user2__in=qs))
     ongoing_matches = match_ongoing(qs=filtered_matches, last_interaction_days=21, only_consider_last_10_weeks_matches=False)
 
-    users = User.objects.filter(Q(match_user1__in=ongoing_matches) | Q(match_user2__in=ongoing_matches), is_active=True).distinct()
+    users = User.objects.filter(
+        Q(match_user1__in=ongoing_matches) | Q(match_user2__in=ongoing_matches), 
+        state__had_prematching_call=True,
+        is_active=True
+    ).distinct()
 
     return users
 
@@ -247,17 +294,20 @@ def ghoster(qs=User.objects.all()):
 
 
 def no_confirm(qs=User.objects.all()):
+
     users_in_unconfirmed_matches = qs.filter(
         Q(match_user1__confirmed=False, match_user1__support_matching=False) | Q(match_user2__confirmed=False, match_user2__support_matching=False)
     ).distinct()
+
     users_in_confirmed_matches = qs.filter(
         Q(match_user1__confirmed=True, match_user1__support_matching=False) | Q(match_user2__confirmed=True, match_user2__support_matching=False)
     ).distinct()
+
     users_with_only_unconfirmed_matches = users_in_unconfirmed_matches.exclude(
         id__in=users_in_confirmed_matches.values('id')
-    ).filter(profile__user_type=Profile.TypeChoices.LEARNER)
-    return users_with_only_unconfirmed_matches
+    )
 
+    return users_with_only_unconfirmed_matches
 
 def happy_inactive(qs=User.objects.all()):
     # Users that are not searching and have a 'completed_match' and NO 'free-play-match'
@@ -275,7 +325,8 @@ def happy_inactive(qs=User.objects.all()):
     users_that_have_finished_matches = not_searching.filter(id__in=users_that_have_finished_matches)
     users_that_have_finished_matches = qs.filter(id__in=users_that_have_finished_matches).filter(id__in=not_searching)
     
-    happy_inactive_users = users_that_have_finished_matches.exclude(id__in=users_that_have_free_play_matches, is_active=False)
+    happy_inactive_users = users_that_have_finished_matches.exclude(id__in=users_that_have_free_play_matches)
+    # we deliberately don't exclude is_active=False, cause some users with sucessfull matches delte their account after
 
     return happy_inactive_users
 
@@ -292,16 +343,22 @@ def too_low_german_level(qs=User.objects.all()):
         profile__user_type=Profile.TypeChoices.LEARNER)
 
 
-def unmatched(qs=User.objects.all()):
+# used to be 'unmatched'
+def over_30_days_after_prematching_still_searching(qs=User.objects.all()):
     """
+    TODO: shoule be depricated? overlap with 'first-search'
+    TODO: broken it should be 30 days after their onboarding call completed!
     5) 'Unmatched': 'first-search' for over XX days, we failed to match the user at all
     """
     # Assuming XX days is 30 days
     # Also filter out users that have open proposals
     thirty_days_ago = timezone.now() - timedelta(days=30)
     return (
-        qs.filter(
+        qs.annotate(latest_appointment=Max('prematchingappointment__end_time'))
+        .filter(
+            latest_appointment__lt=thirty_days_ago,
             is_active=True,
+            prematchingappointment__end_time__lt=thirty_days_ago,
             state__user_form_state=State.UserFormStateChoices.FILLED, 
             state__matching_state=State.MatchingStateChoices.SEARCHING, 
             state__email_authenticated=True, 
@@ -335,7 +392,9 @@ def user_deleted(qs=User.objects.all()):
     """
     7) 'User-Deleted': User that has been deleted
     """
-    return qs.filter(is_active=False)
+    # we exclude all users that had a good match but deleted their account later ( they should be discounted! )
+    _happy_inactive = happy_inactive(qs)
+    return qs.filter(is_active=False).exclude(id__in=_happy_inactive)
 
 
 def subscribed_to_newsletter(qs=User.objects.all()):
@@ -363,7 +422,6 @@ def community_calls(
     prematching_users = pre_matching(qs).values(*selected_fields).union(
         match_takeoff(qs).values(*selected_fields),
         active_match(qs).values(*selected_fields),
-        match_takeoff(qs).values(*selected_fields)
     )
 
     prematching_users = User.objects.filter(id__in=prematching_users).distinct()
