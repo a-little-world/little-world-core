@@ -2,6 +2,7 @@ from django.db import models
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 from management.helpers import PathRename
+from colorfield.fields import ColorField
 
 class Banner(models.Model):
     name = models.CharField(
@@ -24,6 +25,8 @@ class Banner(models.Model):
         blank=True,
         help_text=_("Main text content")
     )
+
+    text_color = ColorField(default='#000000')
 
     cta_1_url = models.TextField(
         blank=True,
@@ -78,7 +81,8 @@ class BannerSerializer(serializers.ModelSerializer):
             'name', 
             'active', 
             'title',
-            'text', 
+            'text',
+            'text_color', 
             'cta_1_url', 
             'cta_1_text', 
             'cta_2_url', 
