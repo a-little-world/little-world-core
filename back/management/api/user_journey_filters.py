@@ -20,11 +20,15 @@ def days_ago(days):
 # Sign-Up Filters
 
 
-def user_created(qs=User.objects.all()):
+def user_created(
+        qs=User.objects.all(),
+        days_since_creation=30
+    ):
     """
     1.1: User was created, but still has to verify mail, fill form and have a prematching call
     """
     return qs.filter(
+        date_joined__gte=days_ago(days_since_creation),
         is_active=True,
         state__user_form_state=State.UserFormStateChoices.UNFILLED,
         state__unresponsive=False,
@@ -43,6 +47,8 @@ def email_verified(qs=User.objects.all()):
         state__email_authenticated=True,
         state__unresponsive=False,
         state__had_prematching_call=False,
+    ).exclude(
+        profile__lang_skill__contains=[{"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}], 
     )
 
 
@@ -58,6 +64,8 @@ def user_form_completed(qs=User.objects.all()):
             state__unresponsive=False,
             state__had_prematching_call=False,
             prematchingappointment__isnull=True,
+        ).exclude(
+            profile__lang_skill__contains=[{"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}], 
         )
     )
 
@@ -189,17 +197,21 @@ def active_match(qs=User.objects.all()):
     return users
 
 def never_active(
-        qs=User.objects.all()
+        qs=User.objects.all(),
+        days_since_creation=30
     ):
     """
     0) 'Never-Active': Didn't ever become active
     """
     return qs.filter(
+        date_joined__lt=days_ago(days_since_creation),
         state__user_form_state=State.UserFormStateChoices.UNFILLED, 
         state__email_authenticated=False, 
         state__had_prematching_call=False, 
         state__unresponsive=False, 
         is_active=True
+    ).exclude(
+        profile__lang_skill__contains=[{"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}], 
     )
 
 
@@ -217,6 +229,8 @@ def no_show(qs=User.objects.all()):
         is_active=True
     ).filter(
         prematchingappointment__end_time__lt=timezone.now()
+    ).exclude(
+        profile__lang_skill__contains=[{"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}], 
     )
 
 
@@ -273,6 +287,7 @@ def too_low_german_level(qs=User.objects.all()):
     """
     return qs.filter(
         is_active=True,
+        state__had_prematching_call=False,
         profile__lang_skill__contains=[{"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}], 
         profile__user_type=Profile.TypeChoices.LEARNER)
 
