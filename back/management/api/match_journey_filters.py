@@ -1,6 +1,6 @@
 from django.db.models import Q, Count, F
 from management.models.matches import Match
-from django.db.models import ExpressionWrapper, DurationField, F, Max
+from django.db.models import ExpressionWrapper, DurationField, F, Max, Sum
 
 # Helper function to calculate days ago
 from datetime import timedelta
@@ -162,6 +162,7 @@ def match_first_contact(
         support_matching=False,
         confirmed=True
     )
+    
 
 def match_ongoing(
     qs=Match.objects.all(), 
@@ -177,24 +178,11 @@ def match_ongoing(
     Filters matches where users have exchanged multiple messages or video calls,
     their last message or video call is less than 14 days ago, and the match isn't older than DESIRED_MATCH_DURATION_WEEKS.
     """
-    qs = (
-        qs.filter(
-            support_matching=False,
-            confirmed=True,
-        )
-        .annotate(
-            u1_messages=Count("user1__message_sender", filter=Q(user1__message_sender__recipient=F("user2"))),
-            u2_messages=Count("user2__message_sender", filter=Q(user2__message_sender__recipient=F("user1"))),
-            recent_messages_u1=Count("user1__message_sender", filter=Q(user1__message_sender__recipient=F("user2"), user1__message_sender__created__gte=days_ago(last_interaction_days))),
-            recent_messages_u2=Count("user2__message_sender", filter=Q(user2__message_sender__recipient=F("user1"), user2__message_sender__created__gte=days_ago(last_interaction_days))),
-            both_active_calls=Count("user1__u1_livekit_session", filter=Q(user1__u1_livekit_session__both_have_been_active=True)),
-            recent_both_active_calls=Count("user1__u1_livekit_session", filter=Q(user1__u1_livekit_session__both_have_been_active=True, user1__u1_livekit_session__end_time__gte=days_ago(last_interaction_days))),
-        )
-        .annotate(
-            mutual_messages=F("u1_messages") + F("u2_messages"),
-            recent_mutual_messages=F("recent_messages_u1") + F("recent_messages_u2"),
-        )
-        .filter(mutual_messages__gte=min_total_mutual_messages, both_active_calls__gte=min_total_mutual_video_calls, recent_mutual_messages__gte=min_total_recent_mutual_messages, recent_both_active_calls__gte=min_total_recent_mutual_video_calls)
+    qs = qs.filter(
+        active=True,
+        updated_at__gte=days_ago(last_interaction_days),
+        total_messages_counter__gte=min_total_mutual_messages,
+        total_mutal_video_calls_counter__gte=min_total_mutual_video_calls,
     )
     
     if only_consider_last_10_weeks_matches:
@@ -228,57 +216,36 @@ def completed_match(
     8. Completed Match
     Filters matches that are over 10 weeks old, inactive, still in contact, and exchanged desired_x_messages and desired_x_video_calls.
     """
-    qs = (
-        qs.filter(
-            support_matching=False,
-            confirmed=True,
-        )
-        .filter(created_at__lt=days_ago(DESIRED_MATCH_DURATION_WEEKS * 7))
-        .annotate(
-            # TODO: also exlude messages send withing last interaction days here
-            u1_messages=Count("user1__message_sender", filter=Q(user1__message_sender__recipient=F("user2"))),
-            u2_messages=Count("user2__message_sender", filter=Q(user2__message_sender__recipient=F("user1"))),
-            recent_messages_u1=Count("user1__message_sender", filter=Q(user1__message_sender__recipient=F("user2"), user1__message_sender__created__gte=days_ago(last_interaction_days))),
-            recent_messages_u2=Count("user2__message_sender", filter=Q(user2__message_sender__recipient=F("user1"), user2__message_sender__created__gte=days_ago(last_interaction_days))),
-            both_active_calls=Count("user1__u1_livekit_session", filter=Q(user1__u1_livekit_session__both_have_been_active=True)),
-            recent_both_active_calls=Count("user1__u1_livekit_session", filter=Q(user1__u1_livekit_session__both_have_been_active=True, user1__u1_livekit_session__end_time__gte=days_ago(last_interaction_days))),
-            last_message_time_u1=Max(
-                "user1__message_sender__created",
-                filter=Q(user1__message_sender__recipient=F("user2"))
+    now = timezone.now()
+    qs = qs.filter(
+        #updated_at__lt=days_ago(last_interaction_days),
+        total_messages_counter__gte=min_total_mutual_messages,
+        total_mutal_video_calls_counter__gte=min_total_mutual_video_calls,
+    ).annotate(
+        duration_since_last_interaction_in_days=ExpressionWrapper(
+            Greatest(
+                ExtractDay(now - F('latest_interaction_at')),
+                0
             ),
-            last_message_time_u2=Max(
-                "user2__message_sender__created",
-                filter=Q(user2__message_sender__recipient=F("user1"))
+            output_field=DurationField()
+        ),
+        duration_between_first_and_last_interaction_days=ExpressionWrapper(
+            Greatest(
+                ExtractDay(F('latest_interaction_at') - F('created_at')),
+                0
             ),
-            last_call_time=Max(
-                "user1__u1_livekit_session__end_time",
-                filter=Q(user1__u1_livekit_session__both_have_been_active=True)
-            ),
+            output_field=DurationField()
         )
-        .annotate(
-            mutual_messages=F("u1_messages") + F("u2_messages"),
-            recent_mutual_messages=F("recent_messages_u1") + F("recent_messages_u2"),
-            last_interaction=Greatest(
-                "last_message_time_u1",
-                "last_message_time_u2",
-                "last_call_time"
-            ),
-        ).annotate(
-            duration_since_last_interaction_in_days=ExtractDay(
-                ExpressionWrapper(
-                    F("last_interaction") - F("created_at"),
-                    output_field=DurationField()
-                )
-            )
-        )
-        .filter(
-            mutual_messages__gte=min_total_mutual_messages, 
-            both_active_calls__gte=min_total_mutual_video_calls, 
-            recent_mutual_messages=0, # No contact any more
-            recent_both_active_calls=0, # no contact any more
-            duration_since_last_interaction_in_days__gte=last_and_first_interaction_days
-        )
+    ).filter(
+        duration_between_first_and_last_interaction_days__gte=last_and_first_interaction_days,
+        duration_since_last_interaction_in_days__gte=last_interaction_days
     )
+    
+    with open("completed_matches.txt", "w+") as f:
+        f.write(f"Completed Matches\n")
+        for match in qs:
+            f.write(f"{match.user1} - {match.user2} duration_since_last_interaction_in_days: {match.duration_since_last_interaction_in_days}\n")
+    
     return qs
 
 
@@ -287,7 +254,10 @@ def never_confirmed(qs=Match.objects.all()):
     9. Never Confirmed
     Filters matches older than a specified number of days but still unconfirmed.
     """
-    return qs.filter(confirmed=False, created_at__lt=days_ago(LAST_INTERACTION_DAYS))
+    return qs.filter(
+        confirmed=False, 
+        created_at__lt=days_ago(LAST_INTERACTION_DAYS)
+    )
 
 
 def no_contact(qs=Match.objects.all()):  # TODO: re-name mutal ghosted?
