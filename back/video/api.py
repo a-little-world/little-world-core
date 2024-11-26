@@ -12,6 +12,7 @@ from livekit import api as livekit_api
 from django.urls import path
 from drf_spectacular.utils import extend_schema
 from chat.consumers.messages import NewActiveCallRoom, InBlockIncomingCall
+from management.models.matches import Match
 from django.views.decorators.csrf import csrf_exempt
 import json
 from django.http import JsonResponse
@@ -95,7 +96,11 @@ def livekit_webhook(request):
                     # 1 - send 'CallEnded' event to the partner of the user that left
                     # TOOD: do we want a minimum time threshold for a call to be considered 'ended/successful'?
                     partner = room.u1 if user == room.u2 else room.u2
-                    # TODO:
+                    # update the 'counters' on the Match object
+                    match = Match.get_match(room.u1, room.u2).first()
+                    match.total_mutal_video_calls_counter += 1
+                    match.latest_interaction_at = timezone.now()
+                    match.save()
                 else:
                     # 2 - send 'MissedCall' event to the partner of the user that left
                     partner = room.u1 if user == room.u2 else room.u2
