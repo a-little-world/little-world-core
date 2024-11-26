@@ -41,7 +41,10 @@ from management.models.notifications import (
     Notification,
 )
 from management.models.matches import Match
-from management.models.banner import Banner
+from management.models.banner import (
+    Banner,
+    BannerSerializer,
+)
 
 
 def get_paginated(query_set, items_per_page, page):
@@ -195,10 +198,13 @@ def user_data(user):
 
     # Retrieve the active banner for the specific user type
     user_type = user_profile.user_type.lower()
-    banner = Banner.objects.filter(
+    banner_query = Banner.objects.filter(
         active=True, 
         name__iexact=f"{user_type.capitalize()} Banner"
     ).first()
+
+
+    banner = BannerSerializer(banner_query).data if banner_query else {}
 
     return {
         "id": user.hash,

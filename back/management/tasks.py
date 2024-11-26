@@ -24,7 +24,7 @@ def create_default_community_events():
     Though we do default to german here for now!
     """
     if BackendState.are_default_community_events_set(set_true=True):
-        return "events already set, saves backend state! If they where deleted you should delete the state!"
+        return "Events already created! If they were deleted you should delete the state!"
 
     CommunityEvent.objects.create(
         title=get_translation("community_event.coffe_break", lang="de"),
@@ -43,28 +43,28 @@ def create_default_banners():
     we store this here since we are using translations here!
     Though we do default to german here for now!
     """
-    if BackendState.are_default_community_events_set(set_true=True):
-        return "banners already set, saves backend state! If they where deleted you should delete the state!"
+    if BackendState.are_default_banners_set(set_true=True):
+        return "Banners already set according to  backend state! If they were deleted you should delete the state!"
 
     Banner.objects.create(
         name='Learner Banner',
-        title="Support Us",
+        title="Lovely Learner",
         text="Lovely learner, Little World is free and will always be free. But in order to keep us going we need your support. Please head to our support page to find out the ways you can help us.",
         active=True,
-        cta_1_url='/app/support-us/',
+        cta_1_url='/app/our-world/',
         cta_1_text='Support us',
-        image_url='',
+        image='',
         image_alt='background image',
     )
 
     Banner.objects.create(
         name='Volunteer Banner',
-        title="Support Us",
+        title="Lovely Volunteer",
         text="Lovely volunteer, Little World is free and will always be free. But in order to keep us going we need your support. Please head to our support page to find out the ways you can help us.",
         active=True,
-        cta_1_url='/app/support-us/',
+        cta_1_url='/app/our-world/',
         cta_1_text='Support us',
-        image_url='',
+        image='',
         image_alt='background image',
     )
 
@@ -75,7 +75,7 @@ def create_default_banners():
 @shared_task
 def create_default_cookie_groups():
     if BackendState.are_default_cookies_set(set_true=True):
-        return "events already set, sais backend state! If they where deleted you should delete the state!"
+        return "events already set, sais backend state! If they were deleted you should delete the state!"
 
     analytics_cookiegroup = CookieGroup.objects.create(varname="analytics", name="analytics_cookiegroup", description="Google analytics and Facebook Pixel", is_required=False, is_deletable=True)
 

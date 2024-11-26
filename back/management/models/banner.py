@@ -1,5 +1,7 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from rest_framework import serializers
+from management.helpers import PathRename
 
 class Banner(models.Model):
     name = models.CharField(
@@ -23,7 +25,7 @@ class Banner(models.Model):
         help_text=_("Main text content")
     )
 
-    cta_1_url = models.URLField(
+    cta_1_url = models.TextField(
         blank=True,
         help_text=_("Cta 1 URL")
     )
@@ -34,7 +36,7 @@ class Banner(models.Model):
         help_text=_("Cta 1 text")
     )
 
-    cta_2_url = models.URLField(
+    cta_2_url = models.TextField(
         blank=True,
         help_text=_("Cta 2 URL")
     )
@@ -45,10 +47,7 @@ class Banner(models.Model):
         help_text=_("Cta 2 text")
     )
 
-    image_url = models.URLField(
-        blank=True,
-        help_text=_("Image URL")
-    )
+    image = models.ImageField(upload_to=PathRename("banner_pics/"), blank=True, help_text=_("Upload landscape-oriented banner images with a 16:9 aspect ratio, minimum resolution of 1920 x 1080 pixels, and maximum file size of 2 MB. Use high-quality JPEG or PNG files, ensuring the image is sharp, clear, and allows for text overlay. Keep critical content centered to accommodate potential cropping across different devices."))
 
     image_alt = models.CharField(
         max_length=255,
@@ -66,4 +65,33 @@ class Banner(models.Model):
 
     def __str__(self):
         return self.name
-    
+
+
+class BannerSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the Banner model to convert it to a dictionary
+    """
+    class Meta:
+        model = Banner
+        fields = [
+            'id', 
+            'name', 
+            'active', 
+            'title',
+            'text', 
+            'cta_1_url', 
+            'cta_1_text', 
+            'cta_2_url', 
+            'cta_2_text', 
+            'image', 
+            'image_alt',
+            'created_at',
+            'updated_at'
+        ]
+
+    def to_representation(self, instance):
+        """
+        Custom representation method to handle any specific serialization requirements
+        """
+        rep = super().to_representation(instance)
+        return rep
