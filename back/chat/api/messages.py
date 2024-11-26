@@ -123,8 +123,14 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         partner = chat.get_partner(request.user)
 
         # Check if the users are still matched, otherwise no new messages can be send
-        if not Match.get_match(request.user, partner).exists():
+        match = Match.get_match(request.user, partner)
+        if not match.exists():
             return self.resp_chat_403
+        match = match.first()
+
+        match.total_messages_counter += 1
+        match.latest_interaction_at = timezone.now()
+        match.save()
 
         # retrieve the newest message the recipient was notified about
         latest_notified_message = Message.objects.filter(
