@@ -14,6 +14,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='communityevent',
             name='image',
-            field=models.ImageField(blank=True, upload_to=management.models.community_events.PathRenameCommunityEvent('community_events_pics/')),
+            field=models.ImageField(blank=True, upload_to=management.models.community_events.PathRename('community_events_pics/')),
         ),
     ]

@@ -41,6 +41,10 @@ from management.models.notifications import (
     Notification,
 )
 from management.models.matches import Match
+from management.models.banner import (
+    Banner,
+    BannerSerializer,
+)
 
 
 def get_paginated(query_set, items_per_page, page):
@@ -192,8 +196,19 @@ def user_data(user):
     elif len(support_matches["items"]) > 0:
         pre_call_join_link = f"/app/call-setup/{support_matches['items'][0]['partner']['id']}/"
 
+    # Retrieve the active banner for the specific user type
+    user_type = user_profile.user_type.lower()
+    banner_query = Banner.objects.filter(
+        active=True, 
+        name__iexact=f"{user_type.capitalize()} Banner"
+    ).first()
+
+
+    banner = BannerSerializer(banner_query).data if banner_query else {}
+
     return {
         "id": user.hash,
+        "banner": banner,
         "status": FrontendStatusSerializer(user_state).data["status"],
         "isSupport": is_matching_user,
         "isSearching": user_state.matching_state == State.MatchingStateChoices.SEARCHING,
