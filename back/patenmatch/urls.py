@@ -22,9 +22,23 @@ class PatenmatchUserSerializer(serializers.ModelSerializer):
 
 
 class PatenmatchOrganizationSerializer(serializers.ModelSerializer):
+    target_groups = serializers.ListField(child=serializers.CharField(), write_only=True)
+
     class Meta:
         model = PatenmatchOrganization
         fields = ["name", "postal_code", "contact_first_name", "contact_second_name", "contact_email", "contact_phone", "maximum_distance", "capacity", "target_groups", "logo_url", "website_url", "matched_users", "metadata"]
+
+    def create(self, validated_data):
+        target_groups = validated_data.pop("target_groups", [])
+        validated_data["target_groups"] = ",".join(target_groups)
+
+        return super().create(validated_data)
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if instance.target_groups:
+            representation["target_groups"] = instance.target_groups
+        return representation
 
 
 class PatenmatchOrganizationFilter(filters.FilterSet):
@@ -43,7 +57,14 @@ class PatenmatchOrganizationFilter(filters.FilterSet):
         return queryset
 
     def filter_postal_code(self, queryset, name, value):
-        matching_ids = [entry.id for entry in queryset if self.pg_instance.query_postal_code(value, entry.postal_code) <= entry.maximum_distance]
+        matching_ids = []
+
+        for entry in queryset:
+            postal_codes_org = entry.postal_code.replace(" ", "").split(",")
+            for pco in postal_codes_org:
+                if self.pg_instance.query_postal_code(value, pco) <= entry.maximum_distance:
+                    matching_ids.append(entry.id)
+                    break
 
         return queryset.filter(id__in=matching_ids)
 
