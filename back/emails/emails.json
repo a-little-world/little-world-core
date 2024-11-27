@@ -31,105 +31,128 @@
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Willkommen bei Little World",
-      "template": "react_emails/welcome.html"
+      "template": "react_emails/welcome.html",
+      "theme": "little-world"
     },
     "account-deleted": {
       "id": "account-deleted",
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Account erfolgreich gel\u00f6scht",
-      "template": "react_emails/account-deleted.html"
+      "template": "react_emails/account-deleted.html",
+      "theme": "little-world"
     },
     "confirm-match-1": {
       "id": "confirm-match-1",
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Match gefunden - jetzt best\u00e4tigen",
-      "template": "react_emails/confirm-match-1.html"
+      "template": "react_emails/confirm-match-1.html",
+      "theme": "little-world"
     },
     "confirm-match-2": {
       "id": "confirm-match-2",
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Dein match wartet - h\u00f6chste Zeit zu best\u00e4tigen",
-      "template": "react_emails/confirm-match-2.html"
+      "template": "react_emails/confirm-match-2.html",
+      "theme": "little-world"
     },
     "expired-match": {
       "id": "expired-match",
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Dein Match ist abgelaufen - Finde einen neuen Partner",
-      "template": "react_emails/expired-match.html"
+      "template": "react_emails/expired-match.html",
+      "theme": "little-world"
     },
     "new-match": {
       "id": "new-match",
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Gl\u00fcckwunsch! Lerne jetzt {{ partner_first_name }} kennen",
-      "template": "react_emails/new-match.html"
+      "template": "react_emails/new-match.html",
+      "theme": "little-world"
     },
     "new-messages": {
       "id": "new-messages",
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Neue Nachrichten",
-      "template": "react_emails/new-messages.html"
+      "template": "react_emails/new-messages.html",
+      "theme": "little-world"
     },
     "match-resolved": {
       "id": "match-resolved",
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Neue Bekanntschaften suchen auf Little World",
-      "template": "react_emails/match-resolved.html"
+      "template": "react_emails/match-resolved.html",
+      "theme": "little-world"
     },
     "reset-password": {
       "id": "reset-password",
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Passwort Vergessen?",
-      "template": "react_emails/reset-password.html"
+      "template": "react_emails/reset-password.html",
+      "theme": "little-world"
     },
     "still-in-contact": {
       "id": "still-in-contact",
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Noch in Kontakt mit {{ partner_first_name }}?",
-      "template": "react_emails/still-in-contact.html"
+      "template": "react_emails/still-in-contact.html",
+      "theme": "little-world"
     },
     "unfinished_user_form_1": {
       "id": "unfinished_user_form_1",
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Umfrage beenden f\u00fcr Bekanntschaften aus aller Welt",
-      "template": "react_emails/unfinished_user_form_1.html"
+      "template": "react_emails/unfinished_user_form_1.html",
+      "theme": "little-world"
     },
     "unfinished_user_form_2": {
       "id": "unfinished_user_form_2",
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Mit 30 Minuten helfen - Umfrage beenden",
-      "template": "react_emails/unfinished_user_form_2.html"
+      "template": "react_emails/unfinished_user_form_2.html",
+      "theme": "little-world"
     },
     "verify-email": {
       "id": "verify-email",
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Bitte best\u00e4tige deine E-Mail-Adresse f\u00fcr Little World",
-      "template": "react_emails/verify-email.html"
+      "template": "react_emails/verify-email.html",
+      "theme": "little-world"
     },
     "babbel-subscription-winner": {
       "id": "babbel-subscription-winner",
       "sender_id": "noreply",
       "category_id": "partnerships",
       "subject": "Herzlichen Gl\u00fcckwunsch! Du hast ein 6-monatiges Babbel-Abonnement gewonnen",
-      "template": "react_emails/babbel-subscription-winner.html"
+      "template": "react_emails/babbel-subscription-winner.html",
+      "theme": "little-world"
     },
     "babbel-precode-survey": {
       "id": "babbel-precode-survey",
       "sender_id": "noreply",
       "category_id": "partnerships",
       "subject": "Kostenloser 6-monatiger Babbel Code - Verbessere dein Deutsch!",
-      "template": "react_emails/babbel-precode-survey.html"
+      "template": "react_emails/babbel-precode-survey.html",
+      "theme": "little-world"
+    },
+    "patenmatch-example": {
+      "id": "patenmatch-example",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Willkommen bei Patenmatch",
+      "template": "react_emails/patenmatch-example.html",
+      "theme": "patenmatch"
     }
   },
   "senders": {
