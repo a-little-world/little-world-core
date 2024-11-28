@@ -149,9 +149,17 @@
     "patenmatch-example": {
       "id": "patenmatch-example",
       "sender_id": "noreply",
-      "category_id": "automated",
+      "category_id": "automated-patenmatch",
       "subject": "Willkommen bei Patenmatch",
       "template": "react_emails/patenmatch-example.html",
+      "theme": "patenmatch"
+    },
+    "patenmatch-signup": {
+      "id": "patenmatch-signup",
+      "sender_id": "noreply",
+      "category_id": "automated-patenmatch",
+      "subject": "Vielen Dank f\u00fcr deine Anmeldung bei Patenmatch",
+      "template": "react_emails/patenmatch-signup.html",
       "theme": "patenmatch"
     }
   },
