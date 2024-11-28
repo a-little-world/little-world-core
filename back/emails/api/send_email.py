@@ -56,7 +56,7 @@ def send_template_email(
             subject=subject,
             body=email_html,
             from_email=from_email,
-            to=[user],
+            to=[user.email],
         )
         mail.content_subtype = "html"
         if emulated_send:
