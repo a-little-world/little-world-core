@@ -274,6 +274,13 @@
       "id": "date",
       "lookup": "emails.api.template_lookup.date",
       "depends_on": []
+    },
+    "patenmatch_first_name": {
+      "id": "patenmatch_first_name",
+      "lookup": "emails.api.template_lookup.patenmatch_first_name",
+      "depends_on": [
+        "user"
+      ]
     }
   },
   "dependencies": {

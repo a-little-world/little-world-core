@@ -53,3 +53,6 @@ def unsubscribe_url(user):
 
 def date():
     return str(timezone.now())
+
+def patenmatch_first_name(user):
+    return user.first_name
