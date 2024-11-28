@@ -74,6 +74,18 @@ class PatenmatchUserViewSet(viewsets.ModelViewSet):
     serializer_class = PatenmatchUserSerializer
     http_method_names = ["post"]
 
+    def create(self, request, *args, **kwargs):
+        res = super().create(request, *args, **kwargs)
+        patenmatch_user = PatenmatchUser.objects.get(email=request.data["email"])
+        
+        # If the creation or anything else throw an error we will not get here
+        # But all this is quite magical so in the future we might want to move this to an '@action' and do some more implicit logic
+        from management.tasks import send_email_background
+
+        send_email_background.delay("patenmatch-signup", user_id=patenmatch_user.id, patenmatch=True)
+        
+        return res
+
 
 class PatenmatchOrganizationViewSet(viewsets.ModelViewSet):
     queryset = PatenmatchOrganization.objects.all()
