@@ -92,6 +92,10 @@ class EmailSettingsAdmin(admin.ModelAdmin):
     list_display = ("hash", "unsubscibed_options")
 
 
+@admin.register(models.banner.Banner)
+class CommunityEventAdmin(admin.ModelAdmin):
+    list_display = ("name", "title", "active", "text", "cta_1_text", "cta_2_text")
+
 @admin.register(models.community_events.CommunityEvent)
 class CommunityEventAdmin(admin.ModelAdmin):
     list_display = ("title", "active", "description", "time", "frequency", "link")
