@@ -1,13 +1,13 @@
 from django.urls import path, include
 from patenmatch.models import PatenmatchUser, PatenmatchOrganization
-from rest_framework import routers, serializers, viewsets, permissions, status
-from rest_framework.response import Response
+from rest_framework import routers, serializers, viewsets, permissions
 from translations import get_translation
 from django_filters import rest_framework as filters
 from django_filters.rest_framework import DjangoFilterBackend
 from management.helpers.is_admin_or_matching_user import IsAdminOrMatchingUser
 from management.helpers.detailed_pagination import DetailedPagination
 import pgeocode
+from rest_framework.filters import OrderingFilter
 
 
 class PatenmatchUserSerializer(serializers.ModelSerializer):
@@ -80,14 +80,12 @@ class PatenmatchOrganizationViewSet(viewsets.ModelViewSet):
     serializer_class = PatenmatchOrganizationSerializer
     pagination_class = DetailedPagination
     http_method_names = ["post", "get"]
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = [DjangoFilterBackend, OrderingFilter]
     filterset_class = PatenmatchOrganizationFilter
+    ordering_fields = ["name"]  # Specify which fields can be ordered
+    ordering = ["name"]
 
     def list(self, request, *args, **kwargs):
-        postal_code = request.query_params.get("postal_code", None)
-        if postal_code is None or postal_code.strip() == "":
-            return Response({"detail": "postal_code is required for this request."}, status=status.HTTP_400_BAD_REQUEST)
-
         return super().list(request, *args, **kwargs)
 
     def get_permissions(self):
