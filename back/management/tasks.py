@@ -477,18 +477,34 @@ def send_email_background(
         user_id=None, 
         match_id=None, 
         proposed_match_id=None, 
-        context={}
+        context={},
+        patenmatch=False
     ):
     from emails.api.send_email import send_template_email
+    
+    if not patenmatch:
+        send_template_email(
+            template_name,
+            user_id=user_id, 
+            match_id=match_id, 
+            proposed_match_id=proposed_match_id, 
+            emulated_send=False,
+            context=context
+        )
+    else:
+        from patenmatch.models import PatenmatchUser
+        def retrieve_user_model():
+            return PatenmatchUser
 
-    send_template_email(
-        template_name,
-        user_id=user_id, 
-        match_id=match_id, 
-        proposed_match_id=proposed_match_id, 
-        emulated_send=False,
-        context=context
-    )
+        send_template_email(
+            template_name,
+            user_id=user_id, 
+            match_id=match_id, 
+            proposed_match_id=proposed_match_id, 
+            emulated_send=False,
+            context=context,
+            retrieve_user_model=retrieve_user_model
+        )
 
 
 @shared_task

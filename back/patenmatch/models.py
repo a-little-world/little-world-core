@@ -20,6 +20,7 @@ class PatenmatchUser(models.Model):
     postal_code = models.CharField(max_length=255, blank=True)
     email = models.EmailField(max_length=50)
     support_for = models.CharField(choices=SupportGroups.choices, max_length=255, blank=False, default=SupportGroups.INDIVIDUAL)
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 class PatenmatchOrganization(models.Model):

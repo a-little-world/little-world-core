@@ -10,9 +10,10 @@ class EmailConfigEmail:
     category_id: str
     subject: str
     template: str
+    theme: str
 
     def to_dict(self):
-        return {"sender_id": self.sender_id, "category_id": self.category_id, "subject": self.subject, "template": self.template}
+        return {"sender_id": self.sender_id, "category_id": self.category_id, "subject": self.subject, "template": self.template, "theme": self.theme}
 
 
 @dataclass

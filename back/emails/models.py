@@ -62,6 +62,8 @@ class AdvancedEmailLogSerializer(serializers.ModelSerializer):
 
         return representation
 
+EMAIL_THEMES = ('little_world', 'patenmatch')
+EMAIL_THEMES_DICT = dict(zip(EMAIL_THEMES, EMAIL_THEMES))
 
 class DynamicTemplate(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
@@ -72,6 +74,7 @@ class DynamicTemplate(models.Model):
     
     content = models.JSONField(default=dict)
 
+    theme = models.CharField(max_length=255, default=EMAIL_THEMES_DICT['little_world'], choices=[(t, t) for t in EMAIL_THEMES])
     category_id = models.CharField(max_length=255, default="dynamic")
     sender_id = models.CharField(max_length=255, default="noreply")
 
