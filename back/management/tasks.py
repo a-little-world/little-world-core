@@ -7,6 +7,7 @@ from management.models.backend_state import BackendState
 from translations import get_translation
 import math
 import random
+from management.models.banner import Banner
 
 """
 also contains general startup celery tasks, most of them are automaticly run when the controller.get_base_management user is created
@@ -20,10 +21,10 @@ def create_default_community_events():
     """
     Creates base community events,
     we store this here since we are using translations here!
-    Tough we do default to german here for now!
+    Though we do default to german here for now!
     """
     if BackendState.are_default_community_events_set(set_true=True):
-        return "events already set, sais backend state! If they where deleted you should delete the state!"
+        return "Events already created! If they were deleted you should delete the state!"
 
     CommunityEvent.objects.create(
         title=get_translation("community_event.coffe_break", lang="de"),
@@ -35,11 +36,46 @@ def create_default_community_events():
 
     return "events created!"
 
+@shared_task
+def create_default_banners():
+    """
+    Creates base banners,
+    we store this here since we are using translations here!
+    Though we do default to german here for now!
+    """
+    if BackendState.are_default_banners_set(set_true=True):
+        return "Banners already set according to  backend state! If they were deleted you should delete the state!"
+
+    Banner.objects.create(
+        name='Learner Banner',
+        title="Lovely Learner",
+        text="Lovely learner, Little World is free and will always be free. But in order to keep us going we need your support. Please head to our support page to find out the ways you can help us.",
+        active=False,
+        cta_1_url='/app/our-world/',
+        cta_1_text='Support us',
+        image='',
+        image_alt='background image',
+    )
+
+    Banner.objects.create(
+        name='Volunteer Banner',
+        title="Lovely Volunteer",
+        text="Lovely volunteer, Little World is free and will always be free. But in order to keep us going we need your support. Please head to our support page to find out the ways you can help us.",
+        active=False,
+        cta_1_url='/app/our-world/',
+        cta_1_text='Support us',
+        image='',
+        image_alt='background image',
+    )
+
+
+    return "banners created!"
+
 
 @shared_task
 def create_default_cookie_groups():
     if BackendState.are_default_cookies_set(set_true=True):
-        return "events already set, sais backend state! If they where deleted you should delete the state!"
+        return "events already set, sais backend state! If they were deleted you should delete the state!"
 
     analytics_cookiegroup = CookieGroup.objects.create(varname="analytics", name="analytics_cookiegroup", description="Google analytics and Facebook Pixel", is_required=False, is_deletable=True)
 
@@ -441,18 +477,34 @@ def send_email_background(
         user_id=None, 
         match_id=None, 
         proposed_match_id=None, 
-        context={}
+        context={},
+        patenmatch=False
     ):
     from emails.api.send_email import send_template_email
+    
+    if not patenmatch:
+        send_template_email(
+            template_name,
+            user_id=user_id, 
+            match_id=match_id, 
+            proposed_match_id=proposed_match_id, 
+            emulated_send=False,
+            context=context
+        )
+    else:
+        from patenmatch.models import PatenmatchUser
+        def retrieve_user_model():
+            return PatenmatchUser
 
-    send_template_email(
-        template_name,
-        user_id=user_id, 
-        match_id=match_id, 
-        proposed_match_id=proposed_match_id, 
-        emulated_send=False,
-        context=context
-    )
+        send_template_email(
+            template_name,
+            user_id=user_id, 
+            match_id=match_id, 
+            proposed_match_id=proposed_match_id, 
+            emulated_send=False,
+            context=context,
+            retrieve_user_model=retrieve_user_model
+        )
 
 
 @shared_task

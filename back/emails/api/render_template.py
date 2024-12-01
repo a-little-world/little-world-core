@@ -159,7 +159,14 @@ def prepare_dynamic_template_context(template_name, user_id=None, match_id=None,
         context[param_name] = lookup_function(**lookup_context)
     return dynamic_template_info, context
 
-def prepare_template_context(template_name, user_id=None, match_id=None, proposed_match_id=None, **kwargs):
+def prepare_template_context(
+        template_name, 
+        user_id=None, 
+        match_id=None, 
+        proposed_match_id=None, 
+        retrieve_user_model=get_user_model,
+        **kwargs
+    ):
     params = EMAILS_CONFIG.parameters
     template_config = EMAILS_CONFIG.emails.get(template_name)
     template_path = template_config.template
@@ -169,7 +176,7 @@ def prepare_template_context(template_name, user_id=None, match_id=None, propose
 
     available_dependencies = []
 
-    user = None if (not user_id) else get_user_model().objects.get(id=user_id)
+    user = None if (not user_id) else retrieve_user_model().objects.get(id=user_id)
     proposed_match = None if (not proposed_match_id) else ProposedMatch.objects.get(id=proposed_match_id)
     match = None if (not match_id) else Match.objects.get(id=match_id)
     

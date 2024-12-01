@@ -25,6 +25,7 @@ from emails import mails
 from translations import get_translation
 import os
 from management.tasks import (
+    create_default_banners,
     create_default_community_events,
     create_default_cookie_groups,
     fill_base_management_user_tim_profile,
@@ -474,6 +475,7 @@ def create_base_admin_and_add_standart_db_values():
     # This is done as celery task in the background!
     create_default_cookie_groups.delay()
     create_default_community_events.delay()
+    create_default_banners.delay()
     fill_base_management_user_tim_profile.delay()
 
     get_or_create_default_docs_user()

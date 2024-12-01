@@ -16,6 +16,7 @@ class BackendState(models.Model):
 
     class BackendStateEnum(models.TextChoices):
         default_community_events = "db-created-default-cummunity-events"
+        default_banners = "db-created-default-banners"
         default_cookies = "db-created-default-cookies-and-cookiegroups"
         base_management_user_profile = "db-filled-base-management-user-profile"
         default_score_source_created = "db-created-default-score-source"
@@ -48,6 +49,10 @@ class BackendState(models.Model):
     @classmethod
     def are_default_community_events_set(cls, set_true=False):
         return cls.exists_or_create(cls.BackendStateEnum.default_community_events, set_true=set_true)
+    
+    @classmethod
+    def are_default_banners_set(cls, set_true=False):
+        return cls.exists_or_create(cls.BackendStateEnum.default_banners, set_true=set_true)
 
     @classmethod
     def is_base_management_user_profile_filled(cls, set_true=False):
