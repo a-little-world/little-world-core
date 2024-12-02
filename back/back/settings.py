@@ -132,6 +132,7 @@ INSTALLED_APPS = [
     "phonenumber_field",  # Conevnient handler for phone numbers with admin prefix
     "django_rest_passwordreset",
     "tbs_django_auto_reload",
+    "colorfield", # color picker in admin panel
     "jazzmin",  # The waaaaaay nicer admin interface
     "hijack",  # For admins to login as other users, for remote administration and support
     "hijack.contrib.admin",  # Hijack button on user list in admin interface

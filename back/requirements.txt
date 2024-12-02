@@ -17,7 +17,7 @@ django-jazzmin # Waaay better admin UI
 ipython # With this we can use the IPython shell on manage.py shell
 django-model-utils # this package is required for our chat backend!
 django-appconf # Required for django-cookie-consent
-django-multiselectfield @ git+https://github.com/tbscode/django-multiselectfield@master
+django-multiselectfield @ git+https://github.com/goinnn/django-multiselectfield@master
 # I maintain a fork, this is a much used django package but the maintainer doesn't seem to be active & does't merge pr's so I forked...
 django-phonenumber-field[phonenumbers]
 Babel # Required for the widged of the phone number field
@@ -49,3 +49,4 @@ livekit-api
 google-cloud-translate==3.15.3
 django-stubs[compatible-mypy]
 pre-commit
+django-colorfield # color picker in admin panel

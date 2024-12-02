@@ -11,6 +11,7 @@ class SupportGroups(models.TextChoices):
     INDIVIDUAL = "individual", get_translation("patenmatch.supportgroups.individual", lang="de")
     ADOLESCENT = "adolescent", get_translation("patenmatch.supportgroups.adolescent", lang="de")
     STUDENT = "student", get_translation("patenmatch.supportgroups.student", lang="de")
+    ERROR = "error", get_translation("patenmatch.supportgroups.error", lang="de")
 
 
 class PatenmatchUser(models.Model):
@@ -19,6 +20,7 @@ class PatenmatchUser(models.Model):
     postal_code = models.CharField(max_length=255, blank=True)
     email = models.EmailField(max_length=50)
     support_for = models.CharField(choices=SupportGroups.choices, max_length=255, blank=False, default=SupportGroups.INDIVIDUAL)
+    created_at = models.DateTimeField(auto_now_add=True)
 
 
 class PatenmatchOrganization(models.Model):
@@ -34,4 +36,4 @@ class PatenmatchOrganization(models.Model):
     logo_url = models.URLField(max_length=1024, blank=True)
     website_url = models.URLField(max_length=1024, blank=True)
     matched_users = models.ManyToManyField(PatenmatchUser, blank=True)
-    metadata = models.JSONField(blank=True, default={})
+    metadata = models.JSONField(blank=True, default=dict)

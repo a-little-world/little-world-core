@@ -2,24 +2,7 @@ from django.db import models
 from back.utils import get_options_serializer
 from rest_framework import serializers
 from translations import get_translation
-from django.utils.deconstruct import deconstructible
-from uuid import uuid4
-import os
-
-
-@deconstructible
-class PathRenameCommunityEvent(object):
-    def __init__(self, path):
-        self.sub_path = path
-
-    def __call__(self, instance, filename):
-        ext = filename.split(".")[-1]
-
-        if instance.pk:
-            filename = "{}.{}".format(instance.pk, ext)
-        else:
-            filename = "{}.{}".format(uuid4().hex, ext)
-        return os.path.join(self.sub_path, filename)
+from management.helpers import PathRename
 
 
 class CommunityEvent(models.Model):
@@ -46,7 +29,7 @@ class CommunityEvent(models.Model):
         default=EventFrequencyChoices.ONCE,
     )
 
-    image = models.ImageField(upload_to=PathRenameCommunityEvent("community_events_pics/"), blank=True)
+    image = models.ImageField(upload_to=PathRename("community_events_pics/"), blank=True)
     active = models.BooleanField(default=False)
     """
     If the event is active, if you don't want users to see this event just set it to inactive!

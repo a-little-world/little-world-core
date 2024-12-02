@@ -26,19 +26,29 @@ def send_template_email(
         match_id=None,
         proposed_match_id=None,
         emulated_send=False, 
-        context={}
+        context={},
+        retrieve_user_model=get_user_model
     ):
 
-    user = get_user_model().objects.get(pk=user_id)
+    user = retrieve_user_model().objects.get(pk=user_id)
 
-    template_info, _context = prepare_template_context(template_name, user_id, match_id, proposed_match_id, **context)
+    template_info, _context = prepare_template_context(template_name, user_id, match_id, proposed_match_id, retrieve_user_model=retrieve_user_model, **context)
     email_html = render_template_to_html(template_info["config"]["template"], _context)
     subject = Template(template_info["config"]["subject"])
     subject = subject.render(Context(_context))
 
     from management.controller import get_base_management_user
+    
+    # Such that it is also possible to send an email to a 'PatenmatchUser' object
+    receiver = user if isinstance(user, get_user_model()) else None
 
-    mail_log = EmailLog.objects.create(log_version=1, sender=get_base_management_user(), receiver=user, template=template_name, data={"html": email_html, "params": _context, "user_id": user_id, "match_id": match_id, "subject": subject})
+    mail_log = EmailLog.objects.create(
+        log_version=1, 
+        sender=get_base_management_user(), 
+        receiver=receiver,
+        template=template_name, 
+        data={"html": email_html, "params": _context, "user_id": user_id, "match_id": match_id, "subject": subject}
+    )
 
     try:
         from_email = EMAILS_CONFIG.senders[template_info["config"]["sender_id"]]
@@ -46,7 +56,7 @@ def send_template_email(
             subject=subject,
             body=email_html,
             from_email=from_email,
-            to=[user],
+            to=[user.email],
         )
         mail.content_subtype = "html"
         if emulated_send:
