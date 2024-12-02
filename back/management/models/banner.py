@@ -91,6 +91,7 @@ class BannerSerializer(serializers.ModelSerializer):
             'title',
             'text',
             'text_color', 
+            'background',
             'cta_1_url', 
             'cta_1_text', 
             'cta_2_url', 
