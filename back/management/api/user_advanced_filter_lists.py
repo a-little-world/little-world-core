@@ -36,10 +36,12 @@ from management.api.user_journey_filters import (
     ghoster,
     no_confirm,
     happy_inactive,
+    happy_active,
     too_low_german_level,
     over_30_days_after_prematching_still_searching,
     gave_up_searching,
     community_calls,
+    ongoing_non_completed_match,
     subscribed_to_newsletter
 )
 
@@ -109,11 +111,13 @@ USER_JOURNEY_FILTER_LISTS = [
     FilterListEntry("journey_v2__pre_matching", "(Active-User) User has an open proposed match.", pre_matching),
     FilterListEntry("journey_v2__match_takeoff", "(Active-User) User has a confirmed match.", match_takeoff),
     FilterListEntry("journey_v2__active_matching", "(Active-User) User has and confirst and ongoing match, that is still having video calls or sending messages", active_match),
+    FilterListEntry("journey_v2__ongoing_non_completed_match", "Ongoing Match that has not completed yet", ongoing_non_completed_match),
     FilterListEntry("journey_v2__never_active", "(Inactive-User) Didn't ever become active", never_active),
     FilterListEntry("journey_v2__no_show", "(Inactive-User) Didn't show up to onboarding call", no_show),
     FilterListEntry("journey_v2__user_ghosted", "(Inactive-User) User has matching in [3.G] 'ghosted' his match", ghoster),
     FilterListEntry("journey_v2__no_confirm", "(Inactive-User) Learner that has matching in 'Never Confirmed'", no_confirm),
     FilterListEntry("journey_v2__happy_inactive", "(Inactive-User) Not searching, 1 or more matches at least one match in 'Completed Matching'", happy_inactive),
+    FilterListEntry("journey_v2__happy_active", "(Inactive-User) Not searching, 1 or more matches at least one match in 'Completed Matching'", happy_active),
     FilterListEntry("journey_v2__too_low_german_level", "(Inactive-User) User never active, but was flagged with a 'state.to_low_german_level=True'", too_low_german_level),
     FilterListEntry("journey_v2__unmatched", "(Inactive-User) 'first-search' for over XX days, we failed to match the user at all", over_30_days_after_prematching_still_searching),
     FilterListEntry("journey_v2__gave_up_searching", "(Inactive-User) User that's `searching=False` and has 0 matches", gave_up_searching),

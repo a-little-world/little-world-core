@@ -182,8 +182,19 @@ def completed_match(
     8. Completed Match
     Filters matches that are over 10 weeks old, inactive, still in contact, and exchanged desired_x_messages and desired_x_video_calls.
     """
+    user1_to_user2_message_exists = Message.objects.filter(
+        sender=OuterRef('user1'),
+        recipient=OuterRef('user2')
+    )
+
+    user2_to_user1_message_exists = Message.objects.filter(
+        sender=OuterRef('user2'),
+        recipient=OuterRef('user1')
+    )
+
     now = timezone.now()
     qs = qs.filter(
+        Q(Exists(user1_to_user2_message_exists) & Exists(user2_to_user1_message_exists)),
         support_matching=False,
         total_messages_counter__gte=min_total_mutual_messages,
         total_mutal_video_calls_counter__gte=min_total_mutual_video_calls,
@@ -274,7 +285,7 @@ def contact_stopped(
     ## Basicly like a completed match, but the first and last interaction times are lass than 6 weeks appart
     
     qs = completed_match(qs, last_and_first_interaction_days=0).filter(
-        duration_between_first_and_last_interaction_days__lte = 4*7
+        duration_between_first_and_last_interaction_days__lt = 4*7
     )
     return qs
 
