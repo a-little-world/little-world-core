@@ -28,7 +28,14 @@ class Banner(models.Model):
 
     text_color = ColorField(default='#000000')
 
-    cta_1_url = models.TextField(
+    background = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text=_("Background color or image. Images can be set by the following: url(PATH_OF_IMAGE). Gradients can be set by the following: linear-gradient(#e66465, #9198e5).")
+    )
+
+    cta_1_url = models.CharField(
+        max_length=255,
         blank=True,
         help_text=_("Cta 1 URL")
     )
@@ -39,7 +46,8 @@ class Banner(models.Model):
         help_text=_("Cta 1 text")
     )
 
-    cta_2_url = models.TextField(
+    cta_2_url = models.CharField(
+        max_length=255,
         blank=True,
         help_text=_("Cta 2 URL")
     )
