@@ -46,6 +46,17 @@ class Match(models.Model):
 
         if newest_message and newest_video_call:
             self.latest_interaction_at = max(newest_message.created, newest_video_call.created_at) 
+            
+
+        # also we have to check if a match is falsely confirmed=False
+        if self.total_messages_counter > 0 or self.total_mutal_video_calls_counter > 0:
+            self.confirmed = True
+            
+        # check if the match should permanently be marked as completed!
+        from management.api.match_journey_filters import completed_match
+        
+        if completed_match(Match.objects.filter(id=self.id)).exists():
+            self.completed = True
 
         self.save()
 

@@ -275,7 +275,7 @@ def bucket_statistics(request):
                 "ids": queryset.values_list('id', flat=True),
             }
 
-    exclude_intersection_check = ["all", "needs_matching"]
+    exclude_intersection_check = ["all", "needs_matching", "match_journey_v2__proposed_matches", "match_journey_v2__expired_proposals"]
     intersecting_ids_lists = {}
     intersection_check_lists = [list_name for list_name in selected_filters if list_name not in exclude_intersection_check]
 
@@ -349,7 +349,8 @@ def match_bucket_statistics(request):
                 "ids": queryset.values_list('id', flat=True),
             }
 
-    exclude_intersection_check = ["all", "needs_matching"]
+    exclude_intersection_check = ["all", "needs_matching", "match_journey_v2__proposed_matches", "match_journey_v2__expired_proposals"]
+
     intersecting_ids_lists = {}
     intersection_check_lists = [list_name for list_name in selected_filters if list_name not in exclude_intersection_check]
 
