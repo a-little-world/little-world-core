@@ -243,7 +243,7 @@ def bucket_statistics(request):
 
     if selected_filters is None:
         selected_filters = [entry.name for entry in FILTER_LISTS]
-
+        
     user_buckets = []
 
     selected_filters_list = []
@@ -256,6 +256,7 @@ def bucket_statistics(request):
     exec_log_order = ""
     last_query_log_index = 0
     user_list_ids = {}
+    all_ids_set = set()
     with connection.execute_wrapper(query_logger):
         for i, filter_list in enumerate(selected_filters_list):
             exec_log_order += f"{i} - {filter_list.name}\n"
@@ -274,6 +275,9 @@ def bucket_statistics(request):
             user_list_ids[filter_list.name] = {
                 "ids": queryset.values_list('id', flat=True),
             }
+            
+            if filter_list.name != "all":
+                all_ids_set.update(user_list_ids[filter_list.name]["ids"])
 
     exclude_intersection_check = ["all", "needs_matching", "match_journey_v2__proposed_matches", "match_journey_v2__expired_proposals"]
     intersecting_ids_lists = {}
@@ -285,9 +289,13 @@ def bucket_statistics(request):
                 intersecting_ids = set(user_list_ids[list_name]["ids"]).intersection(user_list_ids[other_list_name]["ids"])
                 if len(intersecting_ids) > 0:
                     intersecting_ids_lists[f"{list_name}---{other_list_name}"] = intersecting_ids
+                    
+    all_ids = set(user_list_ids["all"]["ids"])
+    missing_ids = all_ids.difference(all_ids_set)
 
     return Response({
         "buckets": user_buckets,
+        "missing_ids": list(missing_ids),
         "intersecting_ids_lists": intersecting_ids_lists,
     })
 
@@ -326,10 +334,14 @@ def match_bucket_statistics(request):
     if selected_filters is None:
         selected_filters = [entry.name for entry in MATCH_JOURNEY_FILTERS]
 
+    if not ("match_journey_v2__all" in selected_filters):
+        selected_filters.append("match_journey_v2__all")
+
     # Uncomment this and re-set the if flag if you want to log query speeds
     from django.db import connection
     query_logger = QueryLogger()
 
+    all_ids_set = set()
     user_list_ids = {}
     with connection.execute_wrapper(query_logger):
         match_buckets = []
@@ -349,7 +361,10 @@ def match_bucket_statistics(request):
                 "ids": queryset.values_list('id', flat=True),
             }
 
-    exclude_intersection_check = ["all", "needs_matching", "match_journey_v2__proposed_matches", "match_journey_v2__expired_proposals"]
+            if filter_list.name != "match_journey_v2__all":
+                all_ids_set.update(user_list_ids[filter_list.name]["ids"])
+
+    exclude_intersection_check = ["all", "needs_matching","match_journey_v2__all", "match_journey_v2__proposed_matches", "match_journey_v2__expired_proposals"]
 
     intersecting_ids_lists = {}
     intersection_check_lists = [list_name for list_name in selected_filters if list_name not in exclude_intersection_check]
@@ -360,10 +375,14 @@ def match_bucket_statistics(request):
                 intersecting_ids = set(user_list_ids[list_name]["ids"]).intersection(user_list_ids[other_list_name]["ids"])
                 if len(intersecting_ids) > 0:
                     intersecting_ids_lists[f"{list_name}---{other_list_name}"] = intersecting_ids
+
+    all_ids = set(user_list_ids["match_journey_v2__all"]["ids"])
+    missing_ids = all_ids.difference(all_ids_set)
     
     return Response({
         "buckets": match_buckets,
         "intersecting_ids_lists": intersecting_ids_lists,
+        "missing_ids": list(missing_ids),
     })
 
 
