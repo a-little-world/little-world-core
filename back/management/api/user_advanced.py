@@ -446,6 +446,11 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         obj.state.save()
         return Response({"success": True})
 
+    """
+    appointment_date: date formated as YYYY-MM-DDTHH:MM:SSZ
+    userlist: list of user ids that attended the appointment
+    """
+
     @extend_schema(request=inline_serializer(name="MarkPrematchingCallsCompletedRequest", fields={"appointment_date": serializers.DateTimeField(), "userlist": serializers.ListField(child=serializers.IntegerField())}))
     @action(detail=True, methods=["post"])
     def mark_prematching_calls_completed(self, request):
