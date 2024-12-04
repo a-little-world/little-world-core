@@ -6,7 +6,6 @@ from django.conf import settings
 from management.controller import delete_user, make_tim_support_user
 from management.twilio_handler import _get_client
 from emails.models import EmailLog, AdvancedEmailLogSerializer
-from emails.mails import get_mail_data_by_name
 from django.urls import path
 from django_filters import rest_framework as filters
 from management.models.scores import TwoUserMatchingScore
@@ -28,15 +27,15 @@ from chat.models import Message, MessageSerializer, Chat, ChatSerializer
 from management.api.scores import score_between_db_update
 from management.tasks import matching_algo_v2
 from management.api.utils_advanced import filterset_schema_dict
-from datetime import datetime, timedelta
+from datetime import datetime
 from django.utils import timezone
 
-class MicroUserSerializer(serializers.ModelSerializer):
 
+class MicroUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "email"]
-        
+
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation["profile"] = {
@@ -44,6 +43,7 @@ class MicroUserSerializer(serializers.ModelSerializer):
             "second_name": instance.profile.second_name,
         }
         return representation
+
 
 class AdvancedUserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -104,9 +104,9 @@ class AdvancedMatchingScoreSerializer(serializers.ModelSerializer):
 
 class UserFilter(filters.FilterSet):
     profile__user_type = filters.ChoiceFilter(field_name="profile__user_type", choices=Profile.TypeChoices.choices, help_text="Filter for learner or volunteers")
-    
+
     profile__target_group = filters.ChoiceFilter(field_name="profile__target_group", choices=Profile.TargetGroupChoices2.choices, help_text="Filter for target group")
-    
+
     profile__target_groups = filters.MultipleChoiceFilter(
         field_name="profile__target_groups",
         choices=Profile.TargetGroupChoices2.choices,
@@ -149,7 +149,7 @@ class UserFilter(filters.FilterSet):
             return selected_filter.queryset(queryset)
         else:
             return queryset
-        
+
     def filter_target_groups(self, queryset, name, value):
         if value:
             query = Q()
@@ -446,6 +446,66 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         obj.state.save()
         return Response({"success": True})
 
+    @extend_schema(request=inline_serializer(name="MarkPrematchingCallsCompletedRequest", fields={"appointment_date": serializers.DateTimeField(), "userlist": serializers.ListField(child=serializers.IntegerField())}))
+    @action(detail=True, methods=["post"])
+    def mark_prematching_calls_completed(self, request):
+        # date formated as YYYY-MM-DDTHH:MM:SSZ
+
+        # get the post parameter. appointment date and userlist
+        appointment_date = request.data.get("appointment_date", None)
+        userlist = request.data.get("userlist", None)
+
+        # check also if the date has the correct format
+        try:
+            appointment_date = datetime.strptime(appointment_date, "%Y-%m-%dT%H:%M:%SZ")
+        except ValueError:
+            return Response({"error": "appointment_date has the wrong format. Use YYYY-MM-DDTHH:MM:SSZ"}, status=400)
+
+        if appointment_date is None or userlist is None:
+            return Response({"error": "appointment_date and userlist are required"}, status=400)
+
+        # get all appointment at this date
+        appointments = PreMatchingAppointment.objects.filter(start_time=appointment_date)
+        if appointments is None or len(appointments) < len(userlist):
+            return Response({"error": "appointment not found or not enough appointments for the number of marked users"}, status=404)
+
+        # get the users from the appontment queryset, every appointment has exactly one user
+        appointment_users = [appointment.user.id for appointment in appointments]
+
+        # verify that the users are in the userlist
+        for user_id in userlist:
+            if user_id not in appointment_users:
+                return Response({"error": "Some user that was marked as completed was not found for this appointment"}, status=404)
+
+        user_list_objects = []
+        # check permission on all user in the userlist
+        for user_id in userlist:
+            user = User.objects.get(id=user_id)
+            has_access, res = self.check_management_user_access(user, request)
+            if not has_access:
+                return Response({"error": "You are not allowed to access one or many users for this appointment!"}, status=401)
+            user_list_objects.append(user)
+
+        # mark the users as completed
+        for user in user_list_objects:
+            user.state.had_prematching_call = True
+            user.state.save()
+
+            # send_email_background.delay("welcome", user_id=user.id)
+
+        # get appointment_users set without userlist as a list
+        not_attended_appointment_users = list(set(appointment_users) - set(userlist))
+
+        # send email to the users that did not attend the appointment
+        for user_id in not_attended_appointment_users:
+            user = User.objects.get(id=user_id)
+            user.state.had_prematching_call = False
+            user.state.save()
+
+            # send_email_background.delay("account-deleted", user_id=user_id)
+
+        return Response({"success": True})
+
     @action(detail=True, methods=["get"])
     def request_score_update(self, request, pk=None):
         consider_within_days = int(request.query_params.get("days_searching", 60))
@@ -529,25 +589,25 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         email_logs["results"] = AdvancedEmailLogSerializer(email_logs["results"], many=True).data
 
         return Response(email_logs)
-    
+
     @action(detail=False, methods=["get"])
     def export(self, request):
         queryset = self.filter_queryset(self.get_queryset())
         serializer = MicroUserSerializer(queryset, many=True)
 
         return Response(serializer.data)
-    
+
     @action(detail=True, methods=["get"])
     def match_waiting_time(self, request, pk=None):
         self.kwargs["pk"] = pk
         obj = self.get_object()
         had_prematching_call = obj.state.had_prematching_call
         if not had_prematching_call:
-            return Response('Prematch call not completed')
+            return Response("Prematch call not completed")
 
         is_searching = obj.state.matching_state == State.MatchingStateChoices.SEARCHING
         if not is_searching:
-            return Response('Not actively searching')
+            return Response("Not actively searching")
 
         try:
             latest_pre_match_appointment = PreMatchingAppointment.objects.filter(user=obj).order_by("-created")[0]
@@ -555,9 +615,9 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             now = timezone.now()
             waiting_time = (now - pre_match_call_date).days
             day_text = "day" if waiting_time == 1 else "days"
-            return Response(f'Waiting {waiting_time} {day_text}')
+            return Response(f"Waiting {waiting_time} {day_text}")
         except IndexError:
-            return Response('No pre-match appointment found')
+            return Response("No pre-match appointment found")
 
 
 viewset_actions = [
@@ -584,4 +644,10 @@ viewset_actions = [
     path("api/matching/users/<pk>/change_newsletter_subscribed/", AdvancedUserViewset.as_view({"post": "change_newsletter_subscribed"})),
 ]
 
-api_urls = [path("api/matching/users/", AdvancedUserViewset.as_view({"get": "list"})), path("api/matching/users/filters/", AdvancedUserViewset.as_view({"get": "get_filter_schema"})), path("api/matching/users/<pk>/", AdvancedUserViewset.as_view({"get": "retrieve"})), *viewset_actions]
+api_urls = [
+    path("api/matching/users/", AdvancedUserViewset.as_view({"get": "list"})),
+    path("api/matching/users/filters/", AdvancedUserViewset.as_view({"get": "get_filter_schema"})),
+    path("api/matching/users/complete_prematching_call/", AdvancedUserViewset.as_view({"post": "mark_prematching_calls_completed"})),
+    path("api/matching/users/<pk>/", AdvancedUserViewset.as_view({"get": "retrieve"})),
+    *viewset_actions,
+]
