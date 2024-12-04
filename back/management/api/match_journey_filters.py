@@ -35,6 +35,7 @@ def match_unviewed(
     Filters matches that are active and not yet confirmed by both users.
     """
     return qs.filter(
+        active=True,
         support_matching=False,
         confirmed=False,
         confirmed_by__isnull=True, # No one ever confirmed this match yet
@@ -51,13 +52,17 @@ def match_one_user_viewed(
     Filters matches that are active, not yet confirmed by both users, but confirmed by at least one user.
     """
     return qs.filter(
+        active=True,
         support_matching=False, 
         confirmed=False, 
         confirmed_by__isnull=False, 
             created_at__gt=days_ago(ghosted_days)).distinct()
 
 def all_matches(qs=Match.objects.all()):
-    return qs
+
+    return qs.filter(
+        support_matching=False
+    )
 
 def match_confirmed_no_contact(qs=Match.objects.all(), mutal_ghosted_days=DAYS_UNTILL_GHOSTED):
     """
@@ -66,6 +71,7 @@ def match_confirmed_no_contact(qs=Match.objects.all(), mutal_ghosted_days=DAYS_U
     """
 
     return qs.filter(
+        active=True,
         support_matching=False,
         confirmed=True,
         created_at__gt=days_ago(mutal_ghosted_days),
@@ -92,6 +98,7 @@ def match_confirmed_single_party_contact(qs=Match.objects.all(), mutal_ghosted_d
     )
 
     return qs.filter(
+        active=True,
         support_matching=False,
         confirmed=True,
         created_at__gt=days_ago(mutal_ghosted_days)
@@ -119,6 +126,7 @@ def match_first_contact(
     )
     
     return qs.filter(
+        active=True,
         total_messages_counter__gte=2,
         total_mutal_video_calls_counter=0,
         support_matching=False,
@@ -195,6 +203,7 @@ def completed_match(
     now = timezone.now()
     qs = qs.filter(
         Q(Exists(user1_to_user2_message_exists) & Exists(user2_to_user1_message_exists)),
+        active=True,
         support_matching=False,
         total_messages_counter__gte=min_total_mutual_messages,
         total_mutal_video_calls_counter__gte=min_total_mutual_video_calls,
@@ -227,6 +236,7 @@ def never_confirmed(qs=Match.objects.all()):
     Filters matches older than a specified number of days but still unconfirmed.
     """
     return qs.filter(
+        active=True,
         support_matching=False,
         confirmed=False, 
         created_at__lt=days_ago(DAYS_UNTILL_GHOSTED)
@@ -239,6 +249,7 @@ def no_contact(qs=Match.objects.all()):  # TODO: re-name mutal ghosted?
     Filters matches that are confirmed but no contact and older than a specified number of days.
     """
     return qs.filter(
+            active=True,
             support_matching=False,
             confirmed=True, 
             created_at__lt=days_ago(LAST_INTERACTION_DAYS)
@@ -269,6 +280,7 @@ def user_ghosted(
 
 
     return qs.filter(
+        active=True,
         support_matching=False,
         confirmed=True,
         created_at__lt=days_ago(DAYS_UNTILL_GHOSTED)
@@ -283,7 +295,6 @@ def contact_stopped(
     ):
 
     ## Basicly like a completed match, but the first and last interaction times are lass than 6 weeks appart
-    
     qs = completed_match(qs, last_and_first_interaction_days=0).filter(
         duration_between_first_and_last_interaction_days__lt = 4*7
     )
@@ -302,3 +313,13 @@ def expired_matching_proposals(qs=ProposedMatch.objects.all()):
         expires_at__lte=timezone.now(),
     )
     return qs
+
+
+def reported_or_removed_match(
+        qs=Match.objects.all()
+    ):
+    
+    return qs.filter(
+        support_matching=False,
+        active=False,
+    )
