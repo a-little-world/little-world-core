@@ -7,7 +7,7 @@ from management.models.profile import Profile
 from management.models.matches import Match
 from management.models.unconfirmed_matches import ProposedMatch
 from management.models.pre_matching_appointment import PreMatchingAppointment
-from management.api.match_journey_filters import user_ghosted, never_confirmed, completed_match, match_free_play, matching_proposals, match_unviewed, match_one_user_viewed, match_confirmed_no_contact, match_confirmed_single_party_contact, match_ongoing
+from management.api.match_journey_filters import user_ghosted, never_confirmed, completed_match, match_free_play, matching_proposals, match_unviewed, match_one_user_viewed, match_confirmed_no_contact, match_confirmed_single_party_contact, match_ongoing, contact_stopped, reported_or_removed_match, match_first_contact
 
 
 # Helper function to calculate three weeks ago
@@ -23,13 +23,11 @@ def days_ago(days):
 
 def user_created(
         qs=User.objects.all(),
-        days_since_creation=30
     ):
     """
     1.1: User was created, but still has to verify mail, fill form and have a prematching call
     """
     return qs.filter(
-        date_joined__gte=days_ago(days_since_creation),
         is_active=True,
         state__user_form_state=State.UserFormStateChoices.UNFILLED,
         state__unresponsive=False,
@@ -47,11 +45,8 @@ def email_verified(qs=User.objects.all()):
         state__user_form_state=State.UserFormStateChoices.UNFILLED,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=False,
-    ).exclude(
-        profile__lang_skill__contains=[{"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}], 
+        # state__had_prematching_call=False, we marked some users as 'had_prematching_call' automatically, therefore we cannot require it to be False here!
     )
-
 
 def user_form_completed(qs=User.objects.all()):
     """
@@ -211,11 +206,14 @@ def match_takeoff(
     user_with_freeplay_matches = get_user_involved(match_free_play(), qs) 
     user_with_completed_matches = get_user_involved(completed_match(), qs)
     users_with_proposals = get_user_involved(matching_proposals(), qs)
+    users_with_ongoing_matches = get_user_involved(match_ongoing(), qs)
+
     
     matches_unviewed = get_user_involved(match_unviewed(), qs)
     matches_one_user_viewed = get_user_involved(match_one_user_viewed(), qs)
     matches_confirmed_no_contact = get_user_involved(match_confirmed_no_contact(), qs)
     matches_confirmed_single_contact = get_user_involved(match_confirmed_single_party_contact(), qs)
+    first_contact = get_user_involved(match_first_contact(), qs)
     
     qs = qs.filter(
         is_active=True,
@@ -231,21 +229,33 @@ def match_takeoff(
         id__in=user_with_completed_matches,
     ).exclude(
         id__in=users_with_proposals
+    ).exclude(
+        id__in=users_with_ongoing_matches
     ).filter(
         Q(id__in=matches_unviewed) |
         Q(id__in=matches_one_user_viewed) |
         Q(id__in=matches_confirmed_no_contact) |
-        Q(id__in=matches_confirmed_single_contact)
+        Q(id__in=matches_confirmed_single_contact) |
+        Q(id__in=first_contact)
     )
     
     return qs
 
 def ongoing_non_completed_match(qs=User.objects.all()):
     
+    qs = qs.filter(
+        is_active=True,
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
+        state__unresponsive=False,
+        state__had_prematching_call=True,
+    )
+    
     users_with_freeplay_matches = get_user_involved(match_free_play(), qs)
     users_with_completed_matches = get_user_involved(completed_match(), qs)
 
     users_with_ongoing_matches = get_user_involved(match_ongoing(), qs)
+
 
     qs = qs.exclude(
         id__in=users_with_freeplay_matches,
@@ -314,15 +324,16 @@ def no_show(qs=User.objects.all()):
 
 
 def ghoster(qs=User.objects.all()):
-    ghosted_matches = user_ghosted().annotate(
-        ghosted_user=Case(
-            When(user1_to_user2_message_exists_flag=False, then=F('user1')),
-            When(user2_to_user1_message_exists_flag=False, then=F('user2')),
-            output_field=BigIntegerField()
-        )
-    )
-    ghosted_user_ids = ghosted_matches.values_list('ghosted_user', flat=True)
-    return qs.filter(id__in=ghosted_user_ids, is_active=True)
+    # TODO: depricated!!!!
+    # ghosted_matches = user_ghosted().annotate(
+    #    ghosted_user=Case(
+    #        When(user1_to_user2_message_exists_flag=False, then=F('user1')),
+    #        When(user2_to_user1_message_exists_flag=False, then=F('user2')),
+    #        output_field=BigIntegerField()
+    #    )
+    #)
+    #ghosted_user_ids = ghosted_matches.values_list('ghosted_user', flat=True)
+    return qs # .filter(id__in=ghosted_user_ids, is_active=True)
 
 def get_user_involved(match_qs, user_qs):
     users = match_qs.values_list('user1', 'user2')
@@ -330,17 +341,68 @@ def get_user_involved(match_qs, user_qs):
     users = set(users)
     return user_qs.filter(id__in=users)
 
-
-def no_confirm(qs=User.objects.all()):
+def failed_matching(qs=User.objects.all()):
+    qs = qs.filter(
+        is_active=True,
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
+        state__unresponsive=False,
+        state__had_prematching_call=True,
+    )
 
     user_with_freeplay_matches = get_user_involved(match_free_play(), qs)
     user_with_completed_matches = get_user_involved(completed_match(), qs)
+    user_with_ongoing_matches = get_user_involved(match_ongoing(), qs)
+    users_with_first_contact_matches = get_user_involved(match_first_contact(), qs)
+
+    user_with_never_confirmed_matches = get_user_involved(never_confirmed(), qs)
+    user_with_no_contact_matches = get_user_involved(match_confirmed_no_contact(), qs)
+    user_with_single_party_contact_matches = get_user_involved(match_confirmed_single_party_contact(), qs)
+    user_with_ghosted_matches = get_user_involved(user_ghosted(), qs)
+    user_with_contact_stopped_matches = get_user_involved(contact_stopped(), qs)
+    user_with_reported_or_unmatched_matchings = get_user_involved(reported_or_removed_match(), qs)
+    
+    qs = qs.exclude(
+        id__in=user_with_freeplay_matches
+    ).exclude(
+        id__in=user_with_completed_matches,
+    ).exclude(
+        id__in=user_with_ongoing_matches
+    ).exclude(
+        id__in=users_with_first_contact_matches
+    )
+    
+    return qs.filter(
+        Q(id__in=user_with_never_confirmed_matches) |
+        Q(id__in=user_with_no_contact_matches) |
+        Q(id__in=user_with_ghosted_matches) |
+        Q(id__in=user_with_contact_stopped_matches) |
+        Q(id__in=user_with_reported_or_unmatched_matchings) |
+        Q(id__in=user_with_single_party_contact_matches)
+    )
+
+def no_confirm(qs=User.objects.all()):
+    
+    qs = qs.filter(
+        is_active=True,
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
+        state__unresponsive=False,
+        state__had_prematching_call=True,
+    )
+
+    user_with_freeplay_matches = get_user_involved(match_free_play(), qs)
+    user_with_completed_matches = get_user_involved(completed_match(), qs)
+    user_with_ongoing_matches = get_user_involved(match_ongoing(), qs)
+
     user_with_never_confirmed_matches = get_user_involved(never_confirmed(), qs)
     
     qs = qs.exclude(
         id__in=user_with_freeplay_matches
     ).exclude(
         id__in=user_with_completed_matches,
+    ).exclude(
+        id__in=user_with_ongoing_matches
     )
     
     return qs.filter(
@@ -349,46 +411,20 @@ def no_confirm(qs=User.objects.all()):
 
 def happy_inactive(qs=User.objects.all()):
     # Users that are not searching and have a 'completed_match' and NO 'free-play-match'
-    not_searching = qs.filter(state__matching_state=State.MatchingStateChoices.IDLE)
+    users_with_freeplay_matches = get_user_involved(match_free_play(), qs)
+    users_with_completed_matches = get_user_involved(completed_match(), qs)
 
-    users_that_have_free_play_matches = match_free_play().values_list('user1', 'user2')
-    users_that_have_free_play_matches = [id for pair in users_that_have_free_play_matches for id in pair]
-    users_that_have_free_play_matches = set(users_that_have_free_play_matches)
-    users_that_have_free_play_matches = not_searching.filter(id__in=users_that_have_free_play_matches)
-    users_that_have_free_play_matches = qs.filter(id__in=users_that_have_free_play_matches).filter(id__in=not_searching)
-    
-    users_that_have_finished_matches = completed_match().values_list('user1', 'user2')
-    users_that_have_finished_matches = [id for pair in users_that_have_finished_matches for id in pair]
-    users_that_have_finished_matches = set(users_that_have_finished_matches)
-    users_that_have_finished_matches = not_searching.filter(id__in=users_that_have_finished_matches)
-    users_that_have_finished_matches = qs.filter(id__in=users_that_have_finished_matches).filter(id__in=not_searching)
-    
-    happy_inactive_users = users_that_have_finished_matches.exclude(id__in=users_that_have_free_play_matches)
-    # we deliberately don't exclude is_active=False, cause some users with sucessfull matches delte their account after
-
-    return happy_inactive_users
+    return qs.filter(
+        Q(id__in=users_with_completed_matches) & ~Q(id__in=users_with_freeplay_matches)
+    )
 
 def happy_active(qs=User.objects.all()):
     # Users that are not searching and have a 'completed_match' and NO 'free-play-match'
-    not_searching = qs.filter(state__matching_state=State.MatchingStateChoices.IDLE)
+    users_with_freeplay_matches = get_user_involved(match_free_play(), qs)
 
-    users_that_have_free_play_matches = match_free_play().values_list('user1', 'user2')
-    users_that_have_free_play_matches = [id for pair in users_that_have_free_play_matches for id in pair]
-    users_that_have_free_play_matches = set(users_that_have_free_play_matches)
-    users_that_have_free_play_matches = not_searching.filter(id__in=users_that_have_free_play_matches)
-    users_that_have_free_play_matches = qs.filter(id__in=users_that_have_free_play_matches).filter(id__in=not_searching)
-    
-    users_that_have_finished_matches = completed_match().values_list('user1', 'user2')
-    users_that_have_finished_matches = [id for pair in users_that_have_finished_matches for id in pair]
-    users_that_have_finished_matches = set(users_that_have_finished_matches)
-    users_that_have_finished_matches = not_searching.filter(id__in=users_that_have_finished_matches)
-    users_that_have_finished_matches = qs.filter(id__in=users_that_have_finished_matches).filter(id__in=not_searching)
-    
-    happy_inactive_users = users_that_have_free_play_matches.exclude(id__in=users_that_have_finished_matches)
-    # we deliberately don't exclude is_active=False, cause some users with sucessfull matches delte their account after
-
-    return happy_inactive_users
-
+    return qs.filter(
+        id__in=users_with_freeplay_matches
+    )
 
 def too_low_german_level(qs=User.objects.all()):
     """
@@ -398,8 +434,10 @@ def too_low_german_level(qs=User.objects.all()):
     return qs.filter(
         is_active=True,
         state__had_prematching_call=False,
+        state__user_form_state=State.UserFormStateChoices.FILLED,
         profile__lang_skill__contains=[{"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}], 
-        profile__user_type=Profile.TypeChoices.LEARNER)
+        profile__user_type=Profile.TypeChoices.LEARNER
+    )
 
 
 # used to be 'unmatched'
@@ -433,6 +471,13 @@ def gave_up_searching(qs=User.objects.all()):
     """
     6) 'Gave-Up-Searching': User that's `searching=False` and has 0 matches
     """
+    user_with_reported_or_unmatched_matchings = get_user_involved(reported_or_removed_match(), qs)
+    user_with_never_confirmed_matches = get_user_involved(never_confirmed(), qs)
+    user_with_no_contact_matches = get_user_involved(match_confirmed_no_contact(), qs)
+    user_with_ghosted_matches = get_user_involved(user_ghosted(), qs)
+    user_with_contact_stopped_matches = get_user_involved(contact_stopped(), qs)
+    
+
     return (
         qs.filter(
             is_active=True,
@@ -441,11 +486,23 @@ def gave_up_searching(qs=User.objects.all()):
             state__email_authenticated=True,
             state__unresponsive=False,
             state__had_prematching_call=True,
+        ).exclude(
+            Q(id__in=user_with_never_confirmed_matches) |
+            Q(id__in=user_with_no_contact_matches) |
+            Q(id__in=user_with_ghosted_matches) |
+            Q(id__in=user_with_contact_stopped_matches) |
+            Q(id__in=user_with_reported_or_unmatched_matchings)
         )
         .annotate(num_matches=Count("match_user1", filter=Q(match_user1__support_matching=False)) + Count("match_user2", filter=Q(match_user2__support_matching=False)))
         .filter(num_matches=0)
     )
-
+    
+def marked_unresponsive(qs=User.objects.all()):
+    
+    return qs.filter(
+        is_active=True,
+        state__unresponsive=True,
+    )
 
 def user_deleted(qs=User.objects.all()):
     """
@@ -470,7 +527,7 @@ def community_calls(
         user_form_completed(qs).values(*selected_fields),
         email_verified(qs).values(*selected_fields),
         booked_onboarding_call(qs).values(*selected_fields),
-        first_search(qs).values(*selected_fields)
+        first_search_v2(qs).values(*selected_fields)
     )
     users_in_signup = User.objects.filter(id__in=users_in_signup).distinct()
     

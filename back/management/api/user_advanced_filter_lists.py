@@ -18,6 +18,7 @@ from management.api.user_advanced_filter import (
     only_hd_test_user
 )
 from management.api.user_journey_filters import (
+    failed_matching,
     user_created,
     email_verified,
     user_form_completed,
@@ -42,7 +43,8 @@ from management.api.user_journey_filters import (
     gave_up_searching,
     community_calls,
     ongoing_non_completed_match,
-    subscribed_to_newsletter
+    subscribed_to_newsletter,
+    marked_unresponsive
 )
 
 
@@ -116,12 +118,14 @@ USER_JOURNEY_FILTER_LISTS = [
     FilterListEntry("journey_v2__no_show", "(Inactive-User) Didn't show up to onboarding call", no_show),
     FilterListEntry("journey_v2__user_ghosted", "(Inactive-User) User has matching in [3.G] 'ghosted' his match", ghoster),
     FilterListEntry("journey_v2__no_confirm", "(Inactive-User) Learner that has matching in 'Never Confirmed'", no_confirm),
+    FilterListEntry("journey_v2__failed_matching", "TODO", failed_matching),
     FilterListEntry("journey_v2__happy_inactive", "(Inactive-User) Not searching, 1 or more matches at least one match in 'Completed Matching'", happy_inactive),
     FilterListEntry("journey_v2__happy_active", "(Inactive-User) Not searching, 1 or more matches at least one match in 'Completed Matching'", happy_active),
     FilterListEntry("journey_v2__too_low_german_level", "(Inactive-User) User never active, but was flagged with a 'state.to_low_german_level=True'", too_low_german_level),
     FilterListEntry("journey_v2__unmatched", "(Inactive-User) 'first-search' for over XX days, we failed to match the user at all", over_30_days_after_prematching_still_searching),
     FilterListEntry("journey_v2__gave_up_searching", "(Inactive-User) User that's `searching=False` and has 0 matches", gave_up_searching),
     FilterListEntry("journey_v2__user_deleted", "(Past-User) User has been deleted", user_deleted),
+    FilterListEntry("journey_v2__marked_unresponsive", "All users in 'searching' without any user that has an open proposal!", marked_unresponsive),
     FilterListEntry("needs_matching_volunteers", "Volunteers only: All users in 'searching' without any user that has an open proposal!", needs_matching_volunteers),
     FilterListEntry("herrduenschnlate", "just a list of some test users for tim", only_hd_test_user),
     FilterListEntry("community", "Community Calls filter", community_calls),
