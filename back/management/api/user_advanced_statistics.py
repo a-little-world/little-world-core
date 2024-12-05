@@ -69,6 +69,9 @@ def user_signups(request):
 
     user_counts = queryset.filter(date_joined__range=[start_date, end_date]).annotate(bucket=trunc_func("date_joined")).values("bucket").annotate(count=Count("id")).order_by("bucket")
     volunteer_only_users = queryset.filter(date_joined__range=[start_date, end_date], profile__user_type=Profile.TypeChoices.VOLUNTEER).annotate(bucket=trunc_func("date_joined")).values("bucket").annotate(count=Count("id")).order_by("bucket")
+    
+    print("user_counts", user_counts)
+    print("volunteer_only_users", volunteer_only_users)
 
     if cumulative:
         cumulative_count = pre_start_date_count
@@ -76,7 +79,8 @@ def user_signups(request):
         data = []
         for i, stats in enumerate(user_counts):
             cumulative_count += stats["count"]
-            cumulative_count_volunteer += volunteer_only_users[i]["count"]
+            if i < len(volunteer_only_users):
+                cumulative_count_volunteer += volunteer_only_users[i]["count"]
             data.append({
                 "date": stats["bucket"], 
                 "count": cumulative_count,
@@ -86,11 +90,14 @@ def user_signups(request):
     else:
         data = []
         for i, stats in enumerate(user_counts):
+            volunteer_count = 0
+            if i < len(volunteer_only_users):
+                volunteer_count = volunteer_only_users[i]["count"]
             data.append({
                 "date": stats["bucket"], 
                 "count": stats["count"],
-                "count_ler": stats["count"] - volunteer_only_users[i]["count"],
-                "count_vol": volunteer_only_users[i]["count"]
+                "count_ler": stats["count"] - volunteer_count,
+                "count_vol": volunteer_count
             })
 
     return Response(data)
@@ -282,9 +289,11 @@ def bucket_statistics(request):
     exclude_intersection_check = ["all", "needs_matching", "match_journey_v2__proposed_matches", "match_journey_v2__expired_proposals"]
     intersecting_ids_lists = {}
     intersection_check_lists = [list_name for list_name in selected_filters if list_name not in exclude_intersection_check]
+    intersection_check_lists_not_processed = intersection_check_lists.copy()
 
     for list_name in intersection_check_lists:
-        for other_list_name in intersection_check_lists:
+        intersection_check_lists_not_processed.remove(list_name)
+        for other_list_name in intersection_check_lists_not_processed:
             if list_name != other_list_name:
                 intersecting_ids = set(user_list_ids[list_name]["ids"]).intersection(user_list_ids[other_list_name]["ids"])
                 if len(intersecting_ids) > 0:
@@ -368,9 +377,11 @@ def match_bucket_statistics(request):
 
     intersecting_ids_lists = {}
     intersection_check_lists = [list_name for list_name in selected_filters if list_name not in exclude_intersection_check]
+    intersection_check_lists_not_processed = intersection_check_lists.copy()
 
     for list_name in intersection_check_lists:
-        for other_list_name in intersection_check_lists:
+        intersection_check_lists_not_processed.remove(list_name)
+        for other_list_name in intersection_check_lists_not_processed:
             if list_name != other_list_name:
                 intersecting_ids = set(user_list_ids[list_name]["ids"]).intersection(user_list_ids[other_list_name]["ids"])
                 if len(intersecting_ids) > 0:
