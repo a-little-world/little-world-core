@@ -128,6 +128,15 @@ class Message(models.Model):
 
     created = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['sender', 'recipient']),
+            models.Index(fields=['recipient', 'sender']),
+            models.Index(fields=['created']),
+            models.Index(fields=['recipient', 'created']),
+            models.Index(fields=['sender', 'created']),
+        ]
+
 
 class MessageSerializer(serializers.ModelSerializer):
     class Meta:
