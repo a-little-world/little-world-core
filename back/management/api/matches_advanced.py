@@ -38,6 +38,9 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
                 representation["status"] = "support"
             else:
                 representation["status"] = "unconfirmed"
+                
+        if not instance.active:
+            representation["status"] = "reported_or_removed"
         return representation
 
 
