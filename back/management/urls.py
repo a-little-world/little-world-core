@@ -27,6 +27,7 @@ from django_rest_passwordreset.views import (
     ResetPasswordConfirmViewSet,
 )
 from management.api.utils_advanced import CustomResetPasswordRequestTokenViewSet
+from management.api.message_broadcast import MessageBroadcastListViewSet, MessageBroadcastListViewSetUsers
 
 router = DefaultRouter()
 router.register(  # TODO: we might even wan't to exclude this api
@@ -43,6 +44,20 @@ router.register(
     r"api/user/resetpw",
     CustomResetPasswordRequestTokenViewSet,
     basename="reset-password-request",
+)
+
+message_broadcast_list_api_user_list = MessageBroadcastListViewSet.as_view(
+    {
+        "get": "list",
+        "post": "create",
+    }
+)
+message_broadcast_list_api_user_list_update = MessageBroadcastListViewSetUsers.as_view(
+    {
+        "get": "list",
+        "put": "update",
+        "delete": "destroy",
+    }
 )
 
 
@@ -156,6 +171,8 @@ view_routes = [
     *email_templates.view_urls,
     *admin_panel_emails.email_view_routes,
     *admin_panel_devkit.devkit_urls,
+    path("api/message_broadcast_lists/", message_broadcast_list_api_user_list),
+    path("api/message_broadcast_lists/<int:pk>/", message_broadcast_list_api_user_list_update),
 ]
 
 
