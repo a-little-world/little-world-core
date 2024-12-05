@@ -21,7 +21,7 @@ def days_ago(days):
 # Per-Matching States Filters
 DESIRED_MATCH_DURATION_WEEKS = 10
 LAST_INTERACTION_DAYS = 21
-DAYS_UNTILL_GHOSTED = 14
+DAYS_UNTILL_GHOSTED = 21
 
 def only_non_support_matching(qs=Match.objects.all()):
     return qs.filter(support_matching=False)

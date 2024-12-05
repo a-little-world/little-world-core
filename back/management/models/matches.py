@@ -36,6 +36,7 @@ class Match(models.Model):
 
     # If a certain match completed condition is met, this will be set to True
     completed = models.BooleanField(default=False)
+    completed_off_plattform = models.BooleanField(default=False)
     
     def sync_counters(self):
         self.total_messages_counter = Message.objects.filter(Q(sender=self.user1, recipient=self.user2) | Q(sender=self.user2, recipient=self.user1)).count()
