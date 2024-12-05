@@ -7,7 +7,7 @@ from management.models.profile import Profile
 from management.models.matches import Match
 from management.models.unconfirmed_matches import ProposedMatch
 from management.models.pre_matching_appointment import PreMatchingAppointment
-from management.api.match_journey_filters import user_ghosted, never_confirmed, completed_match, match_free_play, matching_proposals, match_unviewed, match_one_user_viewed, match_confirmed_no_contact, match_confirmed_single_party_contact, match_ongoing, contact_stopped, reported_or_removed_match, match_first_contact
+from management.api.match_journey_filters import user_ghosted, never_confirmed, completed_match, match_free_play, matching_proposals, match_unviewed, match_one_user_viewed, match_confirmed_no_contact, match_confirmed_single_party_contact, match_ongoing, contact_stopped, reported_or_removed_match, match_first_contact, no_contact
 
 
 # Helper function to calculate three weeks ago
@@ -32,7 +32,7 @@ def user_created(
         state__user_form_state=State.UserFormStateChoices.UNFILLED,
         state__unresponsive=False,
         state__email_authenticated=False,
-        state__had_prematching_call=False,
+        # state__had_prematching_call=False,
     )
 
 
@@ -356,7 +356,7 @@ def failed_matching(qs=User.objects.all()):
     users_with_first_contact_matches = get_user_involved(match_first_contact(), qs)
 
     user_with_never_confirmed_matches = get_user_involved(never_confirmed(), qs)
-    user_with_no_contact_matches = get_user_involved(match_confirmed_no_contact(), qs)
+    user_with_no_contact_matches = get_user_involved(no_contact(), qs)
     user_with_single_party_contact_matches = get_user_involved(match_confirmed_single_party_contact(), qs)
     user_with_ghosted_matches = get_user_involved(user_ghosted(), qs)
     user_with_contact_stopped_matches = get_user_involved(contact_stopped(), qs)
