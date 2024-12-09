@@ -31,6 +31,9 @@ from management.api.utils_advanced import filterset_schema_dict
 from datetime import datetime, timedelta
 from django.utils import timezone
 
+user_category_buckets = ["journey_v2__user_created","journey_v2__email_verified","journey_v2__user_form_completed","journey_v2__booked_onboarding_call","journey_v2__too_low_german_level","journey_v2__pre_matching","journey_v2__match_takeoff","journey_v2__ongoing_non_completed_match","journey_v2__first_search_v2","journey_v2__happy_inactive","journey_v2__happy_active","journey_v2__no_show","journey_v2__failed_matching","journey_v2__gave_up_searching","journey_v2__user_deleted","journey_v2__marked_unresponsive"]
+
+
 class MicroUserSerializer(serializers.ModelSerializer):
 
     class Meta:
@@ -43,7 +46,14 @@ class MicroUserSerializer(serializers.ModelSerializer):
             "first_name": instance.profile.first_name,
             "second_name": instance.profile.second_name,
         }
+        
         return representation
+    
+class ListUserSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = User
+        fields = ["id", "email", "date_joined", "last_login"]
 
 class AdvancedUserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -53,17 +63,19 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation["profile"] = MinimalProfileSerializer(instance.profile).data
+        
+        determine_bucket = ("determine_bucket" in self.context) and self.context["determine_bucket"]
 
         items_per_page = 5
         user = instance
         confirmed_matches = get_paginated(Match.get_confirmed_matches(user), items_per_page, 1)
-        confirmed_matches["items"] = AdvancedUserMatchSerializer(confirmed_matches["items"], many=True, context={"user": user, "status": "confirmed"}).data
+        confirmed_matches["items"] = AdvancedUserMatchSerializer(confirmed_matches["items"], many=True, context={"user": user, "status": "confirmed", "determine_bucket": determine_bucket}).data
 
         unconfirmed_matches = get_paginated(Match.get_unconfirmed_matches(user), items_per_page, 1)
-        unconfirmed_matches["items"] = AdvancedUserMatchSerializer(unconfirmed_matches["items"], many=True, context={"user": user, "status": "unconfirmed"}).data
+        unconfirmed_matches["items"] = AdvancedUserMatchSerializer(unconfirmed_matches["items"], many=True, context={"user": user, "status": "unconfirmed", "determine_bucket": determine_bucket}).data
 
         support_matches = get_paginated(Match.get_support_matches(user), items_per_page, 1)
-        support_matches["items"] = AdvancedUserMatchSerializer(support_matches["items"], many=True, context={"user": user, "status": "support"}).data
+        support_matches["items"] = AdvancedUserMatchSerializer(support_matches["items"], many=True, context={"user": user, "status": "support", "determine_bucket": determine_bucket}).data
 
         proposed_matches = get_paginated(ProposedMatch.get_open_proposals(user), items_per_page, 1)
         proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
@@ -71,6 +83,14 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
         representation["matches"] = {"confirmed": confirmed_matches, "unconfirmed": unconfirmed_matches, "support": support_matches, "proposed": proposed_matches}
 
         representation["state"] = StateSerializer(instance.state).data
+
+        if determine_bucket:
+            bucket_map = {entry.name: entry for entry in FILTER_LISTS if entry.name in user_category_buckets}
+            for bucket in user_category_buckets:
+                if bucket_map[bucket].queryset(User.objects.filter(pk=instance.pk)).exists():
+                    representation["bucket"] = bucket
+            if "bucket" not in representation:
+                representation["bucket"] = "unknown"
 
         return representation
 
@@ -190,6 +210,22 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         filterset = self.filterset_class()
         _filters = filterset_schema_dict(filterset, include_lookup_expr, "/api/matching/users/", request)
         return Response({"filters": _filters, "lists": [entry.to_dict() for entry in FILTER_LISTS]})
+    
+    def get_serializer_context(self):
+        if self.action == 'list':
+            return {}
+        if self.action == 'retrieve':
+            return {
+                "determine_bucket": True
+            }
+        return {}
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return AdvancedUserSerializer
+        if self.action == 'retrieve':
+            return AdvancedUserSerializer
+        return AdvancedUserSerializer
 
     def get_object(self):
         if isinstance(self.kwargs["pk"], int):

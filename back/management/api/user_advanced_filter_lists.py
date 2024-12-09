@@ -18,11 +18,13 @@ from management.api.user_advanced_filter import (
     only_hd_test_user
 )
 from management.api.user_journey_filters import (
+    failed_matching,
     user_created,
     email_verified,
     user_form_completed,
     booked_onboarding_call,
-    first_search,
+    first_search_v1,
+    first_search_v2,
     first_search_learners,
     first_search_volunteers,
     user_searching,
@@ -35,11 +37,14 @@ from management.api.user_journey_filters import (
     ghoster,
     no_confirm,
     happy_inactive,
+    happy_active,
     too_low_german_level,
-    unmatched,
+    over_30_days_after_prematching_still_searching,
     gave_up_searching,
     community_calls,
-    subscribed_to_newsletter
+    ongoing_non_completed_match,
+    subscribed_to_newsletter,
+    marked_unresponsive
 )
 
 
@@ -74,27 +79,53 @@ PANEL_V1_FILTER_LISTS = [
     FilterListEntry("users_with_booked_prematching_call_exclude_had", "Users that have booked a pre-matching call but have not had one yet", users_with_booked_prematching_call),
 ]
 
+CORE_LISTS = [
+    "journey_v2__user_created",
+    "journey_v2__email_verified",
+    "journey_v2__user_form_completed",
+    "journey_v2__booked_onboarding_call",
+    "journey_v2__first_search",
+    "journey_v2__user_searching_again",
+    "journey_v2__pre_matching",
+    "journey_v2__match_takeoff",
+    "journey_v2__active_matching",
+    "journey_v2__never_active",
+    "journey_v2__no_show",
+    "journey_v2__user_ghosted",
+    "journey_v2__no_confirm",
+    "journey_v2__happy_inactive",
+    "journey_v2__too_low_german_level",
+    "journey_v2__unmatched",
+    "journey_v2__gave_up_searching",
+    "journey_v2__user_deleted",
+]
+
 USER_JOURNEY_FILTER_LISTS = [
     FilterListEntry("journey_v2__user_created", "(Sign-Up) User was created, but still has to verify mail, fill form and have a prematching call", user_created),
     FilterListEntry("journey_v2__email_verified", "(Sign-Up) User has verified email, but still has to fill form and have a prematching call", email_verified),
     FilterListEntry("journey_v2__user_form_completed", "(Sign-Up) User has filled form, but still has to have a prematching call", user_form_completed),
     FilterListEntry("journey_v2__booked_onboarding_call", "(Sign-Up) User has filled form and booked onboarding call", booked_onboarding_call),
-    FilterListEntry("journey_v2__first_search", "(Sign-Up) User is doing first search i.e.: has no 'non-support' match", first_search),
+    FilterListEntry("journey_v2__first_search", "(Sign-Up) User is doing first search i.e.: has no 'non-support' match", first_search_v1),
+    FilterListEntry("journey_v2__first_search_v2", "(Sign-Up) User is doing first search i.e.: has no 'non-support' match", first_search_v2),
     FilterListEntry("journey_v2__first_search_volunteers", "(Sign-Up) VOLUTEERS User is doing first search i.e.: has no 'non-support' match", first_search_learners),
     FilterListEntry("journey_v2__first_search_learners", "(Sign-Up) learners User is doing first search i.e.: has no 'non-support' match", first_search_volunteers),
     FilterListEntry("journey_v2__user_searching_again", "(Active-User) User is searching and has at least one match", user_searching),
     FilterListEntry("journey_v2__pre_matching", "(Active-User) User has an open proposed match.", pre_matching),
     FilterListEntry("journey_v2__match_takeoff", "(Active-User) User has a confirmed match.", match_takeoff),
     FilterListEntry("journey_v2__active_matching", "(Active-User) User has and confirst and ongoing match, that is still having video calls or sending messages", active_match),
+    FilterListEntry("journey_v2__ongoing_non_completed_match", "Ongoing Match that has not completed yet", ongoing_non_completed_match),
     FilterListEntry("journey_v2__never_active", "(Inactive-User) Didn't ever become active", never_active),
     FilterListEntry("journey_v2__no_show", "(Inactive-User) Didn't show up to onboarding call", no_show),
     FilterListEntry("journey_v2__user_ghosted", "(Inactive-User) User has matching in [3.G] 'ghosted' his match", ghoster),
     FilterListEntry("journey_v2__no_confirm", "(Inactive-User) Learner that has matching in 'Never Confirmed'", no_confirm),
+    FilterListEntry("journey_v2__failed_matching", "TODO", failed_matching),
     FilterListEntry("journey_v2__happy_inactive", "(Inactive-User) Not searching, 1 or more matches at least one match in 'Completed Matching'", happy_inactive),
+    FilterListEntry("journey_v2__happy_active", "(Inactive-User) Not searching, 1 or more matches at least one match in 'Completed Matching'", happy_active),
     FilterListEntry("journey_v2__too_low_german_level", "(Inactive-User) User never active, but was flagged with a 'state.to_low_german_level=True'", too_low_german_level),
-    FilterListEntry("journey_v2__unmatched", "(Inactive-User) 'first-search' for over XX days, we failed to match the user at all", unmatched),
+    FilterListEntry("journey_v2__unmatched", "(Inactive-User) 'first-search' for over XX days, we failed to match the user at all", over_30_days_after_prematching_still_searching),
     FilterListEntry("journey_v2__gave_up_searching", "(Inactive-User) User that's `searching=False` and has 0 matches", gave_up_searching),
     FilterListEntry("journey_v2__user_deleted", "(Past-User) User has been deleted", user_deleted),
+    FilterListEntry("journey_v2__marked_unresponsive", "All users in 'searching' without any user that has an open proposal!", marked_unresponsive),
     FilterListEntry("needs_matching_volunteers", "Volunteers only: All users in 'searching' without any user that has an open proposal!", needs_matching_volunteers),
     FilterListEntry("herrduenschnlate", "just a list of some test users for tim", only_hd_test_user),
     FilterListEntry("community", "Community Calls filter", community_calls),

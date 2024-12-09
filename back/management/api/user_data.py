@@ -7,6 +7,7 @@ from management.models.pre_matching_appointment import PreMatchingAppointment, P
 from rest_framework_dataclasses.serializers import DataclassSerializer
 from chat.models import ChatSerializer, Chat
 from management.models.state import FrontendStatusSerializer
+from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS
 from django.core.paginator import Paginator
 from django.conf import settings
 from rest_framework import authentication, permissions
@@ -107,6 +108,16 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
         }
         if "status" in self.context:
             representation["status"] = self.context["status"]
+            
+        if ("determine_bucket" in self.context) and self.context["determine_bucket"]:
+            match_categorie_buckets = ["match_journey_v2__unviewed","match_journey_v2__one_user_viewed","match_journey_v2__confirmed_no_contact","match_journey_v2__confirmed_single_party_contact","match_journey_v2__first_contact","match_journey_v2__match_ongoing","match_journey_v2__completed_match","match_journey_v2__match_free_play","match_journey_v2__never_confirmed","match_journey_v2__no_contact","match_journey_v2__user_ghosted","match_journey_v2__contact_stopped","match_journey_v2__reported_or_removed"]
+            bucket_map = {entry.name: entry for entry in MATCH_JOURNEY_FILTERS if entry.name in match_categorie_buckets}
+            for bucket in match_categorie_buckets:
+                if bucket_map[bucket].queryset(Match.objects.filter(pk=instance.pk)).exists():
+                    representation["bucket"] = bucket
+            if "bucket" not in representation:
+                representation["bucket"] = "unknown"
+
         return representation
 
 
