@@ -487,7 +487,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         delete_user(obj, request.user, self.request.data.get("send_deletion_email", False))
         return Response({"msg": "User deleted"})
 
-    @extend_schema(request=inline_serializer(name="ChangeSearchingStateRequest", fields={"searching_state": serializers.ChoiceField(choices=State.MatchingStateChoices.choices, default=State.MatchingStateChoices.IDLE)}))
+    @extend_schema(request=inline_serializer(name="ChangeSearchingStateRequest", fields={"searching_state": serializers.ChoiceField(choices=State.SearchingStateChoices.choices, default=State.SearchingStateChoices.IDLE)}))
     @action(detail=True, methods=["post"])
     def change_searching_state(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -497,7 +497,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if not has_access:
             return res
 
-        obj.state.matching_state = request.data.get("searching_state", State.MatchingStateChoices.IDLE)
+        obj.state.searching_state = request.data.get("searching_state", State.SearchingStateChoices.IDLE)
         obj.state.save()
 
         return Response({"msg": "State changed"})
@@ -545,15 +545,20 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if not had_prematching_call:
             return Response('Prematch call not completed')
 
-        is_searching = obj.state.matching_state == State.MatchingStateChoices.SEARCHING
+        is_searching = obj.state.searching_state == State.SearchingStateChoices.SEARCHING
         if not is_searching:
             return Response('Not actively searching')
 
         try:
             latest_pre_match_appointment = PreMatchingAppointment.objects.filter(user=obj).order_by("-created")[0]
+            already_matched = Match.objects.filter(Q(user1=obj) | Q(user2=obj), support_matching=False).count() >= 1
             pre_match_call_date = latest_pre_match_appointment.end_time
+            waiting_since = obj.state.searching_state_last_updated if already_matched else pre_match_call_date 
             now = timezone.now()
-            waiting_time = (now - pre_match_call_date).days
+            waiting_time = (now - waiting_since).days
+            
+            if waiting_time == 0:
+                return Response('Waiting less than a day')
             day_text = "day" if waiting_time == 1 else "days"
             return Response(f'Waiting {waiting_time} {day_text}')
         except IndexError:

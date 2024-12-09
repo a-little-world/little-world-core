@@ -79,7 +79,7 @@ def confrim_match(request):
         unconfirmed_match.closed = True
         unconfirmed_match.save()
         
-        request.user.state.matching_state = State.MatchingStateChoices.IDLE
+        request.user.state.searching_state = State.SearchingStateChoices.IDLE
         request.user.state.save()
 
         return Response(get_translation("confirm_match.match_rejected"))

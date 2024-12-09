@@ -112,7 +112,7 @@ def first_search(qs=User.objects.all()):
         qs.filter(
             is_active=True,
             state__user_form_state=State.UserFormStateChoices.FILLED,
-            state__matching_state=State.MatchingStateChoices.SEARCHING,
+            state__searching_state=State.SearchingStateChoices.SEARCHING,
             state__email_authenticated=True,
             state__unresponsive=False,
             state__had_prematching_call=True
@@ -140,7 +140,7 @@ def user_searching(qs=User.objects.all()):
         qs.filter(
             is_active=True,
             state__user_form_state=State.UserFormStateChoices.FILLED,
-            state__matching_state=State.MatchingStateChoices.SEARCHING,
+            state__searching_state=State.SearchingStateChoices.SEARCHING,
             state__email_authenticated=True,
             state__unresponsive=False,
             state__had_prematching_call=True,
@@ -158,7 +158,7 @@ def pre_matching(qs=User.objects.all()):
         Q(unconfirmed_match_user1__closed=False) | Q(unconfirmed_match_user2__closed=False),
         is_active=True,
         state__user_form_state=State.UserFormStateChoices.FILLED,
-        state__matching_state=State.MatchingStateChoices.SEARCHING,
+        state__searching_state=State.SearchingStateChoices.SEARCHING,
         state__email_authenticated=True,
         state__unresponsive=False,
         state__had_prematching_call=True,
@@ -173,7 +173,7 @@ def match_takeoff(qs=User.objects.all()):
         qs.filter(
             is_active=True,
             state__user_form_state=State.UserFormStateChoices.FILLED,
-            state__matching_state=State.MatchingStateChoices.SEARCHING,
+            state__searching_state=State.SearchingStateChoices.SEARCHING,
             state__email_authenticated=True,
             state__unresponsive=False,
             state__had_prematching_call=True,
@@ -261,7 +261,7 @@ def no_confirm(qs=User.objects.all()):
 
 def happy_inactive(qs=User.objects.all()):
     # Users that are not searching and have a 'completed_match' and NO 'free-play-match'
-    not_searching = qs.filter(state__matching_state=State.MatchingStateChoices.IDLE)
+    not_searching = qs.filter(state__searching_state=State.SearchingStateChoices.IDLE)
 
     users_that_have_free_play_matches = match_free_play().values_list('user1', 'user2')
     users_that_have_free_play_matches = [id for pair in users_that_have_free_play_matches for id in pair]
@@ -303,7 +303,7 @@ def unmatched(qs=User.objects.all()):
         qs.filter(
             is_active=True,
             state__user_form_state=State.UserFormStateChoices.FILLED, 
-            state__matching_state=State.MatchingStateChoices.SEARCHING, 
+            state__searching_state=State.SearchingStateChoices.SEARCHING, 
             state__email_authenticated=True, 
             state__unresponsive=False, 
             state__had_prematching_call=True, 
@@ -320,7 +320,7 @@ def gave_up_searching(qs=User.objects.all()):
     return (
         qs.filter(
             is_active=True,
-            state__matching_state=State.MatchingStateChoices.IDLE,
+            state__searching_state=State.SearchingStateChoices.IDLE,
             state__user_form_state=State.UserFormStateChoices.FILLED,
             state__email_authenticated=True,
             state__unresponsive=False,

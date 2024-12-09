@@ -211,7 +211,7 @@ def user_data(user):
         "banner": banner,
         "status": FrontendStatusSerializer(user_state).data["status"],
         "isSupport": is_matching_user,
-        "isSearching": user_state.matching_state == State.MatchingStateChoices.SEARCHING,
+        "isSearching": user_state.searching_state == State.SearchingStateChoices.SEARCHING,
         "email": user.email,
         "preMatchingAppointment": pre_match_appointent,
         "preMatchingCallJoinLink": pre_call_join_link,
