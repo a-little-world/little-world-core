@@ -1,7 +1,7 @@
 from django.db import models
 
 
-class MessageBroadcastList(models.Model):
+class DynamicUserList(models.Model):
     id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=255)
     users = models.ManyToManyField("management.User", related_name="recipient_lists")

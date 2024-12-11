@@ -4,8 +4,9 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.safestring import mark_safe
 from django.contrib import messages
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from management.models import dynamic_user_list
 from management import models
-from management.models import question_deck, scores, pre_matching_appointment, newsletter, stats, message_broadcast
+from management.models import question_deck, scores, pre_matching_appointment, newsletter, stats
 from hijack.contrib.admin import HijackUserAdminMixin
 from django.utils.html import format_html
 from django.urls import reverse
@@ -303,6 +304,6 @@ class NewsLetterSubscriptionAdmin(admin.ModelAdmin):
     list_display = ("email", "two_step_verification", "created", "active")
 
 
-@admin.register(message_broadcast.MessageBroadcastList)
-class MessageBroadcastAdmin(admin.ModelAdmin):
+@admin.register(dynamic_user_list.DynamicUserList)
+class DynamicUserListAdmin(admin.ModelAdmin):
     list_display = ("name", "description", "created_at", "updated_at")
