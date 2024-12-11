@@ -305,4 +305,4 @@ class NewsLetterSubscriptionAdmin(admin.ModelAdmin):
 
 @admin.register(message_broadcast.MessageBroadcastList)
 class MessageBroadcastAdmin(admin.ModelAdmin):
-    list_display = ("name", "users", "description", "created_at", "updated_at")
+    list_display = ("name", "description", "created_at", "updated_at")

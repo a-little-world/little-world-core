@@ -27,7 +27,7 @@ from django_rest_passwordreset.views import (
     ResetPasswordConfirmViewSet,
 )
 from management.api.utils_advanced import CustomResetPasswordRequestTokenViewSet
-from management.api.message_broadcast import MessageBroadcastListViewSet, MessageBroadcastListViewSetUsers
+from management.api.message_broadcast import MessageBroadcastGeneralListViewSet, MessageBroadcastListSingleViewSet, MessageBroadcastListSingleUserViewSet
 
 router = DefaultRouter()
 router.register(  # TODO: we might even wan't to exclude this api
@@ -46,20 +46,24 @@ router.register(
     basename="reset-password-request",
 )
 
-message_broadcast_list_api_user_list = MessageBroadcastListViewSet.as_view(
+message_broadcast_list_general_api = MessageBroadcastGeneralListViewSet.as_view(
     {
         "get": "list",
         "post": "create",
     }
 )
-message_broadcast_list_api_user_list_update = MessageBroadcastListViewSetUsers.as_view(
+message_broadcast_list_single_api = MessageBroadcastListSingleViewSet.as_view(
     {
         "get": "list",
         "put": "update",
         "delete": "destroy",
     }
 )
-
+message_broadcast_list_single_user_api = MessageBroadcastListSingleUserViewSet.as_view(
+    {
+        "delete": "destroy",
+    }
+)
 
 api_routes = [
     *slack.api_routes,
@@ -171,8 +175,9 @@ view_routes = [
     *email_templates.view_urls,
     *admin_panel_emails.email_view_routes,
     *admin_panel_devkit.devkit_urls,
-    path("api/message_broadcast_lists/", message_broadcast_list_api_user_list),
-    path("api/message_broadcast_lists/<int:pk>/", message_broadcast_list_api_user_list_update),
+    path("api/message_broadcast_lists/", message_broadcast_list_general_api),
+    path("api/message_broadcast_lists/<int:pk>/", message_broadcast_list_single_api),
+    path("api/message_broadcast_lists/<int:list_id>/<int:user_id>/", message_broadcast_list_single_user_api),
 ]
 
 

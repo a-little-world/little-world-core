@@ -20,7 +20,7 @@ class MessageBroadcastListSerializer(ModelSerializer):
         fields = ["id", "name", "users", "description", "created_at", "updated_at"]
 
 
-class MessageBroadcastListViewSet(ModelViewSet):
+class MessageBroadcastGeneralListViewSet(ModelViewSet):
     queryset = MessageBroadcastList.objects.all()
     serializer_class = MessageBroadcastListSerializer
 
@@ -29,7 +29,7 @@ class MessageBroadcastListViewSet(ModelViewSet):
         return super().get_permissions()
 
 
-class MessageBroadcastListViewSetUsers(ModelViewSet):
+class MessageBroadcastListSingleViewSet(ModelViewSet):
     queryset = MessageBroadcastList.objects.all()
 
     def get_permissions(self):
@@ -41,6 +41,30 @@ class MessageBroadcastListViewSetUsers(ModelViewSet):
             return UserSerializer
         return MessageBroadcastListSerializer
 
+    def update(self, request, *args, **kwargs):
+        user_ids = request.data["users"]
+
+        users = User.objects.filter(pk__in=user_ids)
+        if len(users) != len(user_ids):
+            return Response({"error": "Some users do not exist"}, status=status.HTTP_400_BAD_REQUEST)
+
+        userlist = MessageBroadcastList.objects.filter(id=request.data["id"])
+
+        if userlist is None or len(userlist) > 1:
+            return Response({"error": "No Userlist found or more then one for this name"}, status=status.HTTP_404_NOT_FOUND)
+
+        userlist[0].name = request.data["name"]
+        userlist[0].description = request.data["description"]
+
+        for user_id in user_ids:
+            userlist[0].users.add(user_id)
+
+        userlist[0].save()
+
+        serializer = self.get_serializer(userlist, many=True)
+
+        return Response(data=serializer.data, status=status.HTTP_201_CREATED)
+
     def list(self, request, *args, **kwargs):
         list_id = self.kwargs.get("pk")
         try:
@@ -50,3 +74,26 @@ class MessageBroadcastListViewSetUsers(ModelViewSet):
             return Response(serializer.data)
         except MessageBroadcastList.DoesNotExist:
             return Response({"error": "Message broadcast list not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
+class MessageBroadcastListSingleUserViewSet(ModelViewSet):
+    def get_serializer_class(self):
+        return MessageBroadcastListSerializer
+
+    def destroy(self, request, *args, **kwargs):
+        list_id = self.kwargs.get("list_id")
+        user_id = self.kwargs.get("user_id")
+
+        if list_id is None or user_id is None:
+            return Response({"error": "Please provide a user_id and list_id,"}, status=status.HTTP_400_BAD_REQUEST)
+
+        message_list = MessageBroadcastList.objects.get(id=list_id)
+        if message_list is None:
+            return Response({"error": "MessageBroadcastList for given list_id not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if message_list.users.remove(user_id) is None:
+            serializer = self.get_serializer([message_list], many=True)
+
+            return Response(data=serializer.data, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": "could not remove the user from the messagelist."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
