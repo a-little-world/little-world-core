@@ -85,11 +85,14 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
         representation["state"] = StateSerializer(instance.state).data
 
         if determine_bucket:
-            bucket_map = {entry.name: entry for entry in FILTER_LISTS if entry.name in user_category_buckets}
-            for bucket in user_category_buckets:
-                if bucket_map[bucket].queryset(User.objects.filter(pk=instance.pk)).exists():
-                    representation["bucket"] = bucket
-            if "bucket" not in representation:
+            try:
+                bucket_map = {entry.name: entry for entry in FILTER_LISTS if entry.name in user_category_buckets}
+                for bucket in user_category_buckets:
+                    if bucket_map[bucket].queryset(User.objects.filter(pk=instance.pk)).exists():
+                        representation["bucket"] = bucket
+                if "bucket" not in representation:
+                    representation["bucket"] = "unknown"
+            except:
                 representation["bucket"] = "unknown"
 
         return representation
