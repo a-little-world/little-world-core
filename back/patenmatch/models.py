@@ -2,6 +2,15 @@ from django.db import models
 from translations import get_translation
 from management.validators import model_validate_first_name, model_validate_second_name
 from multiselectfield import MultiSelectField
+from uuid import uuid4
+
+# TODO: To re-establish the matching process we need to:
+# 1. Deploy the new organizationUserMatching model
+# 2. Add an API that allows the user to request matching with a specific organization
+# 3. Implement "OrgaEmail: 'we found a candidate for you'"
+# 4. Implement "User Email": 'we forwarded your request to the patenmatch organization'
+# 5. Implement Email "Did the organization contact you?"
+# 6. Implement API to anser 'YES/NO' did the organization contact you?
 
 
 class SupportGroups(models.TextChoices):
@@ -21,7 +30,16 @@ class PatenmatchUser(models.Model):
     email = models.EmailField(max_length=50)
     support_for = models.CharField(choices=SupportGroups.choices, max_length=255, blank=False, default=SupportGroups.INDIVIDUAL)
     created_at = models.DateTimeField(auto_now_add=True)
-
+    status_access_token = models.CharField(default=uuid4, max_length=255)
+    email_auth_hash = models.CharField(default=uuid4, max_length=255)
+    email_authenticated = models.BooleanField(default=False)
+    
+class PatenmatchOrganizationUserMatching(models.Model):
+    organization = models.ForeignKey('PatenmatchOrganization', on_delete=models.CASCADE)
+    user = models.ForeignKey('PatenmatchUser', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
 
 class PatenmatchOrganization(models.Model):
     name = models.CharField(max_length=1024, blank=False)
@@ -37,3 +55,4 @@ class PatenmatchOrganization(models.Model):
     website_url = models.URLField(max_length=1024, blank=True)
     matched_users = models.ManyToManyField(PatenmatchUser, blank=True)
     metadata = models.JSONField(blank=True, default=dict)
+    status_access_token = models.CharField(default=uuid4, max_length=255)
