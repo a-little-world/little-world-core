@@ -1,4 +1,5 @@
 from django.urls import path, include
+from rest_framework.decorators import action
 from patenmatch.models import PatenmatchUser, PatenmatchOrganization
 from rest_framework import routers, serializers, viewsets, permissions
 from translations import get_translation
@@ -6,8 +7,11 @@ from django_filters import rest_framework as filters
 from django_filters.rest_framework import DjangoFilterBackend
 from management.helpers.is_admin_or_matching_user import IsAdminOrMatchingUser
 from management.helpers.detailed_pagination import DetailedPagination
+from rest_framework.response import Response
 import pgeocode
 from rest_framework.filters import OrderingFilter
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 
 
 class PatenmatchUserSerializer(serializers.ModelSerializer):
@@ -33,6 +37,7 @@ class PatenmatchOrganizationSerializer(serializers.ModelSerializer):
         validated_data["target_groups"] = ",".join(target_groups)
 
         return super().create(validated_data)
+    
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -72,7 +77,23 @@ class PatenmatchOrganizationFilter(filters.FilterSet):
 class PatenmatchUserViewSet(viewsets.ModelViewSet):
     queryset = PatenmatchUser.objects.all()
     serializer_class = PatenmatchUserSerializer
-    http_method_names = ["post"]
+    authentication_classes = []
+    http_method_names = ["post", "get"]
+    
+    @action(detail=True, methods=["get"])
+    def status(self, request, pk=None):
+
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+        status_access_token = request.query_params.get("status_access_token")
+        
+        if not obj.status_access_token == status_access_token:
+            return Response({"error": "Invalid access token"}, status=403)
+        
+        return Response({
+            "status": "ok"
+        })
+
 
     def create(self, request, *args, **kwargs):
         res = super().create(request, *args, **kwargs)
@@ -107,9 +128,11 @@ class PatenmatchOrganizationViewSet(viewsets.ModelViewSet):
 
 
 router = routers.DefaultRouter()
-router.register(r"user", PatenmatchUserViewSet)
 router.register(r"organization", PatenmatchOrganizationViewSet)
 
 urlpatterns = [
     path("", include(router.urls)),
+    # Expplictly expose user apis, as otherwise with "get" in http_method_names it will try to also register user/<pk/retrieve
+    path("user/", PatenmatchUserViewSet.as_view({"post": "create"})),
+    path("user/<int:pk>/status/", PatenmatchUserViewSet.as_view({"get": "status"})),
 ]
