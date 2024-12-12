@@ -12,6 +12,12 @@ from uuid import uuid4
 # 5. Implement Email "Did the organization contact you?"
 # 6. Implement API to anser 'YES/NO' did the organization contact you?
 
+# Missing Emails:
+# - confirm_email ( adjust signup email )
+# - match result
+# - qa orga ( when user responded after 4 weeks that the org didn't contact them)
+# - qa request user ( ask the user if he was contacted by the orga )
+
 
 class SupportGroups(models.TextChoices):
     FAMILY = "family", get_translation("patenmatch.supportgroups.family", lang="de")
@@ -33,6 +39,7 @@ class PatenmatchUser(models.Model):
     status_access_token = models.CharField(default=uuid4, max_length=255)
     email_auth_hash = models.CharField(default=uuid4, max_length=255)
     email_authenticated = models.BooleanField(default=False)
+    request_specific_organization = models.ForeignKey('PatenmatchOrganization', on_delete=models.CASCADE, blank=True, null=True)
     
 class PatenmatchOrganizationUserMatching(models.Model):
     organization = models.ForeignKey('PatenmatchOrganization', on_delete=models.CASCADE)
