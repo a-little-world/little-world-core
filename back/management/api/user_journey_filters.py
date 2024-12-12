@@ -110,7 +110,7 @@ def first_search_v1(qs=User.objects.all()):
         qs.filter(
             is_active=True,
             state__user_form_state=State.UserFormStateChoices.FILLED,
-            state__matching_state=State.MatchingStateChoices.SEARCHING,
+            state__searching_state=State.SearchingStateChoices.SEARCHING,
             state__email_authenticated=True,
             state__unresponsive=False,
             state__had_prematching_call=True
