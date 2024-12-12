@@ -94,8 +94,8 @@ def make_match(request):
         # Perfor a full match directly
         match_obj = controller.match_users({user1, user2}, send_email=params.send_email, send_message=params.send_message, send_notification=params.send_notification)
 
-        user1.state.change_searching_state(State.MatchingStateChoices.IDLE)
-        user2.state.change_searching_state(State.MatchingStateChoices.IDLE)
+        user1.state.change_searching_state(State.SearchingStateChoices.IDLE)
+        user2.state.change_searching_state(State.SearchingStateChoices.IDLE)
 
         for user in [user1, user2]:
             matches = AdvancedUserMatchSerializer([match_obj], many=True, context={"user": user}).data

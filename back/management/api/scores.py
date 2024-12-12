@@ -377,7 +377,7 @@ def get_users_to_consider(usr=None, consider_only_registered_within_last_x_days=
 
     all_users_to_consider = (
         User.objects.annotate(has_open_proposal=Exists(ProposedMatch.objects.filter(Q(user1=OuterRef("pk")) | Q(user2=OuterRef("pk")), closed=False)))
-        .filter(state__matching_state=State.MatchingStateChoices.SEARCHING, state__user_form_state=State.UserFormStateChoices.FILLED, state__had_prematching_call=True, state__email_authenticated=True, is_staff=False, has_open_proposal=False)
+        .filter(state__searching_state=State.SearchingStateChoices.SEARCHING, state__user_form_state=State.UserFormStateChoices.FILLED, state__had_prematching_call=True, state__email_authenticated=True, is_staff=False, has_open_proposal=False)
         .exclude(state__user_category__in=[State.UserCategoryChoices.SPAM, State.UserCategoryChoices.TEST])
     )
 

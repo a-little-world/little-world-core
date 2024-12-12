@@ -110,7 +110,7 @@ def first_search_v1(qs=User.objects.all()):
         qs.filter(
             is_active=True,
             state__user_form_state=State.UserFormStateChoices.FILLED,
-            state__matching_state=State.MatchingStateChoices.SEARCHING,
+            state__searching_state=State.SearchingStateChoices.SEARCHING,
             state__email_authenticated=True,
             state__unresponsive=False,
             state__had_prematching_call=True
@@ -140,7 +140,7 @@ def first_search_v2(qs=User.objects.all()):
         qs.filter(
             is_active=True,
             state__user_form_state=State.UserFormStateChoices.FILLED,
-            state__matching_state=State.MatchingStateChoices.SEARCHING,
+            state__searching_state=State.SearchingStateChoices.SEARCHING,
             state__email_authenticated=True,
             state__unresponsive=False,
             state__had_prematching_call=True
@@ -167,7 +167,7 @@ def user_searching(qs=User.objects.all()):
         qs.filter(
             is_active=True,
             state__user_form_state=State.UserFormStateChoices.FILLED,
-            state__matching_state=State.MatchingStateChoices.SEARCHING,
+            state__searching_state=State.SearchingStateChoices.SEARCHING,
             state__email_authenticated=True,
             state__unresponsive=False,
             state__had_prematching_call=True,
@@ -457,7 +457,7 @@ def over_30_days_after_prematching_still_searching(qs=User.objects.all()):
             is_active=True,
             prematchingappointment__end_time__lt=thirty_days_ago,
             state__user_form_state=State.UserFormStateChoices.FILLED, 
-            state__matching_state=State.MatchingStateChoices.SEARCHING, 
+            state__searching_state=State.SearchingStateChoices.SEARCHING, 
             state__email_authenticated=True, 
             state__unresponsive=False, 
             state__had_prematching_call=True, 
@@ -481,7 +481,7 @@ def gave_up_searching(qs=User.objects.all()):
     return (
         qs.filter(
             is_active=True,
-            state__matching_state=State.MatchingStateChoices.IDLE,
+            state__searching_state=State.SearchingStateChoices.IDLE,
             state__user_form_state=State.UserFormStateChoices.FILLED,
             state__email_authenticated=True,
             state__unresponsive=False,
