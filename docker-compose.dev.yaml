@@ -107,3 +107,14 @@ services:
       - "6379:6379"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+  patenmatch:
+    profiles: [ "patenmatch" ]
+    ports:
+      - "3000:3000"
+    build:
+      context: ./patenmatch
+      dockerfile: ./Dockerfile.dev
+    volumes:
+      - ./patenmatch:/app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
