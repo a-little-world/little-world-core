@@ -86,7 +86,7 @@ def prematching_datetime(user, context={"appointment": None}):
 
 
 def prematching_booking_link(user):
-    return "https://cal.com/little-world/" + "{calcom_meeting_id}?{encoded_params}".format(
+    return "https://cal.com/" + "{calcom_meeting_id}?{encoded_params}".format(
         encoded_params=urllib.parse.urlencode(
             {
                 "email": str(user.email),
