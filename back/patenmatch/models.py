@@ -5,12 +5,15 @@ from multiselectfield import MultiSelectField
 from uuid import uuid4
 
 # TODO: To re-establish the matching process we need to:
-# 1. Deploy the new organizationUserMatching model
+# DONE 1. Create the new organizationUserMatching 
 # 2. Add an API that allows the user to request matching with a specific organization
+# --> Update the api call in the frontend when the api is called on a pre-selected organization
+# --> Fix contact form submission inside the components/organization/OrganizationContactModal.js Model :)
 # 3. Implement "OrgaEmail: 'we found a candidate for you'"
 # 4. Implement "User Email": 'we forwarded your request to the patenmatch organization'
 # 5. Implement Email "Did the organization contact you?"
 # 6. Implement API to anser 'YES/NO' did the organization contact you?
+# TODO: don't expose non critical organization data!
 
 # Missing Emails:
 # - confirm_email ( adjust signup email )
@@ -39,6 +42,7 @@ class PatenmatchUser(models.Model):
     status_access_token = models.CharField(default=uuid4, max_length=255)
     email_auth_hash = models.CharField(default=uuid4, max_length=255)
     email_authenticated = models.BooleanField(default=False)
+    spoken_languages = models.TextField(blank=True)
     request_specific_organization = models.ForeignKey('PatenmatchOrganization', on_delete=models.CASCADE, blank=True, null=True)
     
 class PatenmatchOrganizationUserMatching(models.Model):
@@ -46,7 +50,6 @@ class PatenmatchOrganizationUserMatching(models.Model):
     user = models.ForeignKey('PatenmatchUser', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
 
 class PatenmatchOrganization(models.Model):
     name = models.CharField(max_length=1024, blank=False)
