@@ -6,6 +6,7 @@ from django_filters import rest_framework as filters
 from django_filters.rest_framework import DjangoFilterBackend
 from management.helpers.is_admin_or_matching_user import IsAdminOrMatchingUser
 from management.helpers.detailed_pagination import DetailedPagination
+from patenmatch.matching import find_organization_match
 from rest_framework.response import Response
 import pgeocode
 from rest_framework.filters import OrderingFilter
@@ -14,15 +15,12 @@ from rest_framework.filters import OrderingFilter
 class PatenmatchUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = PatenmatchUser
-        fields = ["first_name", "last_name", "postal_code", "email", "support_for"]
+        fields = ["first_name", "last_name", "postal_code", "email", "support_for", "spoken_languages", "request_specific_organization"]
 
     def validate_email(self, value):
         if PatenmatchUser.objects.filter(email=value).exists():
             raise serializers.ValidationError(get_translation("patenmatch.user.email.exists", lang="de"))
         return value
-
-
-    
 
 class PatenmatchOrganizationSerializer(serializers.ModelSerializer):
     target_groups = serializers.ListField(child=serializers.CharField(), write_only=True)
@@ -95,7 +93,37 @@ class PatenmatchUserViewSet(viewsets.ModelViewSet):
             return Response({"error": "Invalid access token"}, status=403)
         
         return Response({
-            "status": "ok"
+            "status": "ok",
+            "user": PatenmatchUserSerializer(obj).data,
+            "request_specific_organization": PatenmatchOrganizationSerializerCensored(obj.request_specific_organization).data if obj.request_specific_organization else None
+        })
+        
+    @action(detail=False, methods=["get"])
+    def verify_email(self, request, pk=None):
+        
+        uuid = request.query_params.get("uuid", None)
+        token = request.query_params.get("token", None)
+        
+        if not uuid or not token:
+            return Response({"error": "Missing parameters"}, status=400)
+        
+        user = PatenmatchUser.objects.get(uuid=uuid)
+
+        if user.email_auth_hash != token:
+            return Response({"error": "Invalid token"}, status=403)
+        
+        user.email_authenticated = True
+        user.save(update_fields=["email_authenticated"])
+        
+        # Try to find a fitting match
+        
+        match = find_organization_match(user)
+        # After the email verification the result of the request should be send to an email
+        
+        # TODO: redirect to email autorized view
+        return Response({
+            "status": "ok",
+            "match": PatenmatchOrganizationSerializerCensored(match).data if match else None
         })
 
 
