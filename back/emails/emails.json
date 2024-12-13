@@ -166,8 +166,16 @@
       "id": "prematching-call-no-show",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "{{ prematching_call_first_name }} & Little World: Bitte neues Einf\u00fchrungsgespr\u00e4ch buchen",
+      "subject": "{{ first_name }} & Little World: Bitte neues Einf\u00fchrungsgespr\u00e4ch buchen",
       "template": "react_emails/prematching-call-no-show.html",
+      "theme": "little-world"
+    },
+    "prematching-call-post-thanks": {
+      "id": "prematching-call-post-thanks",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "{{ first_name }} & Little World: Danke f\u00fcr die Teilnahme am Einf\u00fchrungsgespr\u00e4ch",
+      "template": "react_emails/prematching-call-post-thanks.html",
       "theme": "little-world"
     }
   },
@@ -175,6 +183,20 @@
     "noreply": "\"Little World\" <noreply@little-world.com>"
   },
   "parameters": {
+    "prematching_call_no_show_datetime": {
+      "id": "prematching_call_no_show_datetime",
+      "lookup": "emails.api.template_lookup.prematching_datetime",
+      "depends_on": [
+        "user"
+      ]
+    },
+    "prematching_call_no_show_new_booking_link": {
+      "id": "prematching_call_no_show_new_booking_link",
+      "lookup": "emails.api.template_lookup.prematching_booking_link",
+      "depends_on": [
+        "user"
+      ]
+    },
     "first_name": {
       "id": "first_name",
       "lookup": "emails.api.template_lookup.first_name",

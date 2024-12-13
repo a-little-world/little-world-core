@@ -36,10 +36,11 @@ from management.models.sms import SmsModel, SmsSerializer
 from management.models.management_tasks import MangementTask, ManagementTaskSerializer
 from chat.models import Message, MessageSerializer, Chat, ChatSerializer
 from management.api.scores import score_between_db_update
-from management.tasks import matching_algo_v2
+from management.tasks import matching_algo_v2, send_email_background
 from management.api.utils_advanced import filterset_schema_dict
 from datetime import datetime
 from django.utils import timezone
+
 
 user_category_buckets = [
     "journey_v2__user_created",
@@ -675,7 +676,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             user.state.had_prematching_call = True
             user.state.save()
 
-            # send_email_background.delay("welcome", user_id=user.id)
+            send_email_background.delay("prematching-call-post-thanks", user_id=user.id)
 
         # get appointment_users set without userlist as a list
         not_attended_appointment_users = list(set(appointment_users) - set(userlist))
@@ -686,7 +687,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             user.state.had_prematching_call = False
             user.state.save()
 
-            # send_email_background.delay("account-deleted", user_id=user_id)
+            send_email_background.delay("prematching-call-no-show", user_id=user_id)
 
         return Response({"success": True})
 
