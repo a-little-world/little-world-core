@@ -22,12 +22,14 @@ class PatenmatchUserSerializer(serializers.ModelSerializer):
         return value
 
 
+    
+
 class PatenmatchOrganizationSerializer(serializers.ModelSerializer):
     target_groups = serializers.ListField(child=serializers.CharField(), write_only=True)
 
     class Meta:
         model = PatenmatchOrganization
-        fields = ["name", "postal_code", "contact_first_name", "contact_second_name", "contact_email", "contact_phone", "maximum_distance", "capacity", "target_groups", "logo_url", "website_url", "matched_users", "metadata"]
+        fields = ["id", "name", "postal_code", "contact_first_name", "contact_second_name", "contact_email", "contact_phone", "maximum_distance", "capacity", "target_groups", "logo_url", "website_url", "matched_users", "metadata"]
 
     def create(self, validated_data):
         target_groups = validated_data.pop("target_groups", [])
@@ -41,6 +43,11 @@ class PatenmatchOrganizationSerializer(serializers.ModelSerializer):
         if instance.target_groups:
             representation["target_groups"] = instance.target_groups
         return representation
+
+class PatenmatchOrganizationSerializerCensored(PatenmatchOrganizationSerializer):
+    class Meta:
+        model = PatenmatchOrganization
+        fields = ["id", "name", "postal_code", "maximum_distance", "target_groups", "logo_url", "website_url"]
 
 
 class PatenmatchOrganizationFilter(filters.FilterSet):
@@ -107,7 +114,7 @@ class PatenmatchUserViewSet(viewsets.ModelViewSet):
 
 class PatenmatchOrganizationViewSet(viewsets.ModelViewSet):
     queryset = PatenmatchOrganization.objects.all()
-    serializer_class = PatenmatchOrganizationSerializer
+    serializer_class = PatenmatchOrganizationSerializerCensored
     pagination_class = DetailedPagination
     http_method_names = ["post", "get"]
     filter_backends = [DjangoFilterBackend, OrderingFilter]
