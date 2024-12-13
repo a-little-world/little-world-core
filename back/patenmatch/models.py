@@ -6,6 +6,9 @@ from uuid import uuid4
 
 # TODO: To re-establish the matching process we need to:
 # DONE 1. Create the new organizationUserMatching 
+# DONE don't expose non critical organization data!
+
+# TODO: write a test
 # 2. Add an API that allows the user to request matching with a specific organization
 # --> Update the api call in the frontend when the api is called on a pre-selected organization
 # --> Fix contact form submission inside the components/organization/OrganizationContactModal.js Model :)
@@ -13,7 +16,6 @@ from uuid import uuid4
 # 4. Implement "User Email": 'we forwarded your request to the patenmatch organization'
 # 5. Implement Email "Did the organization contact you?"
 # 6. Implement API to anser 'YES/NO' did the organization contact you?
-# TODO: don't expose non critical organization data!
 
 # Missing Emails:
 # - confirm_email ( adjust signup email )
@@ -31,7 +33,6 @@ class SupportGroups(models.TextChoices):
     STUDENT = "student", get_translation("patenmatch.supportgroups.student", lang="de")
     ERROR = "error", get_translation("patenmatch.supportgroups.error", lang="de")
 
-
 class PatenmatchUser(models.Model):
     first_name = models.CharField(max_length=150, blank=False, validators=[model_validate_first_name])
     last_name = models.CharField(max_length=150, blank=False, validators=[model_validate_second_name])
@@ -40,10 +41,17 @@ class PatenmatchUser(models.Model):
     support_for = models.CharField(choices=SupportGroups.choices, max_length=255, blank=False, default=SupportGroups.INDIVIDUAL)
     created_at = models.DateTimeField(auto_now_add=True)
     status_access_token = models.CharField(default=uuid4, max_length=255)
+    uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
     email_auth_hash = models.CharField(default=uuid4, max_length=255)
     email_authenticated = models.BooleanField(default=False)
     spoken_languages = models.TextField(blank=True)
-    request_specific_organization = models.ForeignKey('PatenmatchOrganization', on_delete=models.CASCADE, blank=True, null=True)
+    request_specific_organization = models.ForeignKey('PatenmatchOrganization', on_delete=models.CASCADE, blank=True, null=True, related_name='requested_by_users')
+    
+    def get_matched_organizations(self):
+        return PatenmatchOrganization.objects.filter(matched_users__id=self.id)
+    
+    def get_verification_url(self):
+        return f"/api/patenmatch/user/verify_email?uuid={self.uuid}&token={self.email_auth_hash}"
     
 class PatenmatchOrganizationUserMatching(models.Model):
     organization = models.ForeignKey('PatenmatchOrganization', on_delete=models.CASCADE)
