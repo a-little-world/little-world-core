@@ -120,7 +120,7 @@ def make_tim_support_user(user, old_management_mail="littleworld.management@gmai
     # 3. set that user to 'not searching'
     us = user.state
     us.still_active_reminder_send = True
-    us.matching_state = State.MatchingStateChoices.IDLE
+    us.searching_state = State.SearchingStateChoices.IDLE
     us.save()
 
     # 4. send the 'still active' question message

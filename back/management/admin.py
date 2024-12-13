@@ -115,7 +115,7 @@ class MatchModelAdmin(admin.ModelAdmin):
 
 @admin.register(models.state.State)
 class StateAdmin(HijackUserAdminMixin, admin.ModelAdmin):
-    list_display = ("user", "created_at", "user_form_state", "matching_state", "user_category", "tags")
+    list_display = ("user", "created_at", "user_form_state", "searching_state", "user_category", "tags")
     list_editable = (
         "user_category",
         "tags",
