@@ -34,8 +34,7 @@ from django.utils import timezone
 user_category_buckets = ["journey_v2__user_created","journey_v2__email_verified","journey_v2__user_form_completed","journey_v2__booked_onboarding_call","journey_v2__too_low_german_level","journey_v2__pre_matching","journey_v2__match_takeoff","journey_v2__ongoing_non_completed_match","journey_v2__first_search_v2","journey_v2__happy_inactive","journey_v2__happy_active","journey_v2__no_show","journey_v2__failed_matching","journey_v2__gave_up_searching","journey_v2__user_deleted","journey_v2__marked_unresponsive"]
 
 
-class MicroUserSerializer(serializers.ModelSerializer):
-
+class ExportUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "email"]
@@ -45,6 +44,10 @@ class MicroUserSerializer(serializers.ModelSerializer):
         representation["profile"] = {
             "first_name": instance.profile.first_name,
             "second_name": instance.profile.second_name,
+            "user_type": instance.profile.user_type,
+            "postal_code": instance.profile.postal_code,
+            "gender": instance.profile.gender,
+            "birth_year": instance.profile.birth_year
         }
         
         return representation
@@ -572,7 +575,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def export(self, request):
         queryset = self.filter_queryset(self.get_queryset())
-        serializer = MicroUserSerializer(queryset, many=True)
+        serializer = ExportUserSerializer(queryset, many=True)
 
         return Response(serializer.data)
     
