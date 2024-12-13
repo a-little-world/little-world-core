@@ -80,7 +80,7 @@ class ProfileCompletedApi(APIView):
             user = request.user
             state = user.state
             state.set_user_form_completed()
-            state.matching_state = State.MatchingStateChoices.SEARCHING
+            state.searching_state = State.SearchingStateChoices.SEARCHING
             state.save()
             default_message = get_translation("auto_messages.prematching_invitation", lang="de").format(first_name=user.profile.first_name, encoded_params=urllib.parse.urlencode({"email": str(user.email), "hash": str(user.hash), "bookingcode": str(user.state.prematch_booking_code)}), calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID)
             german_level = list(filter(lambda x: x["lang"] == "german", user.profile.lang_skill))[0]["level"]

@@ -714,7 +714,7 @@ def user_match_waiting_time_statistics(request):
     # Get all eligible users who have had a pre-matching call and are currently searching
     eligible_users = User.objects.filter(
         state__had_prematching_call=True,
-        state__matching_state=State.MatchingStateChoices.SEARCHING,
+        state__searching_state=State.SearchingStateChoices.SEARCHING,
         state__updated_at__gte=start_date,
         state__updated_at__lte=end_date
     )

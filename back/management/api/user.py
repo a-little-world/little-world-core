@@ -378,14 +378,14 @@ class UpdateSearchingStateApi(APIView):
         serializer.is_valid(raise_exception=True)
         params = serializer.save()
 
-        print("TBS", State.MatchingStateChoices.values)
+        print("TBS", State.SearchingStateChoices.values)
 
-        if params.state_slug not in State.MatchingStateChoices.values:
+        if params.state_slug not in State.SearchingStateChoices.values:
             raise serializers.ValidationError({"state_slug": get_translation("api.user_update_searching_state_slug_doesnt_exist").format(slug=params.state_slug)})
 
         request.user.state.change_searching_state(params.state_slug)
 
-        if (params.state_slug == State.MatchingStateChoices.SEARCHING) and request.user.state.unresponsive:
+        if (params.state_slug == State.SearchingStateChoices.SEARCHING) and request.user.state.unresponsive:
             # If the user was manaully set to 'unresponsive' he can self remove this flag by searching him-self again
             request.user.state.unresponsive = False
             request.user.state.save()
@@ -448,7 +448,7 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
 @permission_classes([IsAuthenticated])
 def still_active_callback(request):
     us = request.user.state
-    us.matching_state = State.MatchingStateChoices.SEARCHING
+    us.searching_state = State.SearchingStateChoices.SEARCHING
     us.still_active_reminder_confirmed = True
     us.save()
 
