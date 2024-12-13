@@ -161,6 +161,14 @@
       "subject": "Vielen Dank f\u00fcr deine Anmeldung bei Patenmatch",
       "template": "react_emails/patenmatch-signup.html",
       "theme": "patenmatch"
+    },
+    "prematching-call-no-show": {
+      "id": "prematching-call-no-show",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "{{ prematching_call_first_name }} & Little World: Bitte neues Einf\u00fchrungsgespr\u00e4ch buchen",
+      "template": "react_emails/prematching-call-no-show.html",
+      "theme": "little-world"
     }
   },
   "senders": {

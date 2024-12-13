@@ -5,6 +5,7 @@ from management.models.state import State
 from video.models import LivekitSession
 from management.models.matches import Match
 from django.db.models.functions import TruncDay, TruncWeek, TruncMonth
+from django.db import connection
 from rest_framework.response import Response
 from management.api.user_advanced_filter_lists import USER_JOURNEY_FILTER_LISTS, get_list_by_name
 from django.http import HttpResponse
@@ -68,6 +69,9 @@ def user_signups(request):
 
     user_counts = queryset.filter(date_joined__range=[start_date, end_date]).annotate(bucket=trunc_func("date_joined")).values("bucket").annotate(count=Count("id")).order_by("bucket")
     volunteer_only_users = queryset.filter(date_joined__range=[start_date, end_date], profile__user_type=Profile.TypeChoices.VOLUNTEER).annotate(bucket=trunc_func("date_joined")).values("bucket").annotate(count=Count("id")).order_by("bucket")
+    
+    print("user_counts", user_counts)
+    print("volunteer_only_users", volunteer_only_users)
 
     if cumulative:
         cumulative_count = pre_start_date_count
@@ -75,7 +79,8 @@ def user_signups(request):
         data = []
         for i, stats in enumerate(user_counts):
             cumulative_count += stats["count"]
-            cumulative_count_volunteer += volunteer_only_users[i]["count"]
+            if i < len(volunteer_only_users):
+                cumulative_count_volunteer += volunteer_only_users[i]["count"]
             data.append({
                 "date": stats["bucket"], 
                 "count": cumulative_count,
@@ -85,11 +90,14 @@ def user_signups(request):
     else:
         data = []
         for i, stats in enumerate(user_counts):
+            volunteer_count = 0
+            if i < len(volunteer_only_users):
+                volunteer_count = volunteer_only_users[i]["count"]
             data.append({
                 "date": stats["bucket"], 
                 "count": stats["count"],
-                "count_ler": stats["count"] - volunteer_only_users[i]["count"],
-                "count_vol": volunteer_only_users[i]["count"]
+                "count_ler": stats["count"] - volunteer_count,
+                "count_vol": volunteer_count
             })
 
     return Response(data)
@@ -242,7 +250,7 @@ def bucket_statistics(request):
 
     if selected_filters is None:
         selected_filters = [entry.name for entry in FILTER_LISTS]
-
+        
     user_buckets = []
 
     selected_filters_list = []
@@ -251,12 +259,54 @@ def bucket_statistics(request):
         filter_list_entry = pre_filtered_uj_lists[filter_name]
         selected_filters_list.append(filter_list_entry)
 
-    for i, filter_list in enumerate(selected_filters_list):
-        queryset = filter_list.queryset(qs=pre_filtered_users)
-        count = queryset.count()
-        user_buckets.append({"name": filter_list.name, "description": filter_list.description, "count": count, "id": i})
+    query_logger = QueryLogger()
+    exec_log_order = ""
+    last_query_log_index = 0
+    user_list_ids = {}
+    all_ids_set = set()
+    with connection.execute_wrapper(query_logger):
+        for i, filter_list in enumerate(selected_filters_list):
+            exec_log_order += f"{i} - {filter_list.name}\n"
+            queryset = filter_list.queryset(qs=pre_filtered_users)
+            count = queryset.count()
+            duration = sum([query['duration'] for query in query_logger.queries[last_query_log_index:]])
+            last_query_log_index = len(query_logger.queries) - 1
+            user_buckets.append({
+                "name": filter_list.name, 
+                "description": filter_list.description, 
+                "count": count, 
+                "id": i,
+                "query_duration": duration
+            })
+            
+            user_list_ids[filter_list.name] = {
+                "ids": queryset.values_list('id', flat=True),
+            }
+            
+            if filter_list.name != "all":
+                all_ids_set.update(user_list_ids[filter_list.name]["ids"])
 
-    return Response(user_buckets)
+    exclude_intersection_check = ["all", "needs_matching", "match_journey_v2__proposed_matches", "match_journey_v2__expired_proposals"]
+    intersecting_ids_lists = {}
+    intersection_check_lists = [list_name for list_name in selected_filters if list_name not in exclude_intersection_check]
+    intersection_check_lists_not_processed = intersection_check_lists.copy()
+
+    for list_name in intersection_check_lists:
+        intersection_check_lists_not_processed.remove(list_name)
+        for other_list_name in intersection_check_lists_not_processed:
+            if list_name != other_list_name:
+                intersecting_ids = set(user_list_ids[list_name]["ids"]).intersection(user_list_ids[other_list_name]["ids"])
+                if len(intersecting_ids) > 0:
+                    intersecting_ids_lists[f"{list_name}---{other_list_name}"] = intersecting_ids
+                    
+    all_ids = set(user_list_ids["all"]["ids"])
+    missing_ids = all_ids.difference(all_ids_set)
+
+    return Response({
+        "buckets": user_buckets,
+        "missing_ids": list(missing_ids),
+        "intersecting_ids_lists": intersecting_ids_lists,
+    })
 
 
 @extend_schema(
@@ -293,27 +343,58 @@ def match_bucket_statistics(request):
     if selected_filters is None:
         selected_filters = [entry.name for entry in MATCH_JOURNEY_FILTERS]
 
-    # Uncomment this and re-set the if flag if you want to log query speeds
-    # query_logger = QueryLogger()
-    # with connection.execute_wrapper(query_logger):
-    match_buckets = []
-    selected_filters_list = [entry for entry in MATCH_JOURNEY_FILTERS if entry.name in selected_filters]
-    for filter_list in selected_filters_list:
-        queryset = filter_list.queryset(qs=pre_filtered_matches)
-        count = queryset.count()
-        match_buckets.append({"name": filter_list.name, "description": filter_list.description, "count": count})
-    
-    if False:
-        # use this for debugging query speeds
-        with open("query_log.txt", "w+") as f:
-            sum_duration = 0
-            for query in query_logger.queries:
-                f.write(f"{query['sql']}\n{query['duration']}\n\n")
-                sum_duration += query['duration']
-                
-            f.write(f"Total queries: {len(query_logger.queries)}\nTotal duration: {sum_duration}\n")
+    if not ("match_journey_v2__all" in selected_filters):
+        selected_filters.append("match_journey_v2__all")
 
-    return Response(match_buckets)
+    # Uncomment this and re-set the if flag if you want to log query speeds
+    from django.db import connection
+    query_logger = QueryLogger()
+
+    all_ids_set = set()
+    user_list_ids = {}
+    with connection.execute_wrapper(query_logger):
+        match_buckets = []
+        selected_filters_list = [entry for entry in MATCH_JOURNEY_FILTERS if entry.name in selected_filters]
+        for i, filter_list in enumerate(selected_filters_list):
+            queryset = filter_list.queryset(qs=pre_filtered_matches)
+            count = queryset.count()
+            match_buckets.append({
+                "name": filter_list.name, 
+                "description": filter_list.description, 
+                "count": count,
+                "id": i,
+                "query_duration": query_logger.queries[-1]['duration']
+            })
+
+            user_list_ids[filter_list.name] = {
+                "ids": queryset.values_list('id', flat=True),
+            }
+
+            if filter_list.name != "match_journey_v2__all":
+                all_ids_set.update(user_list_ids[filter_list.name]["ids"])
+
+    exclude_intersection_check = ["all", "needs_matching","match_journey_v2__all", "match_journey_v2__proposed_matches", "match_journey_v2__expired_proposals"]
+
+    intersecting_ids_lists = {}
+    intersection_check_lists = [list_name for list_name in selected_filters if list_name not in exclude_intersection_check]
+    intersection_check_lists_not_processed = intersection_check_lists.copy()
+
+    for list_name in intersection_check_lists:
+        intersection_check_lists_not_processed.remove(list_name)
+        for other_list_name in intersection_check_lists_not_processed:
+            if list_name != other_list_name:
+                intersecting_ids = set(user_list_ids[list_name]["ids"]).intersection(user_list_ids[other_list_name]["ids"])
+                if len(intersecting_ids) > 0:
+                    intersecting_ids_lists[f"{list_name}---{other_list_name}"] = intersecting_ids
+
+    all_ids = set(user_list_ids["match_journey_v2__all"]["ids"])
+    missing_ids = all_ids.difference(all_ids_set)
+    
+    return Response({
+        "buckets": match_buckets,
+        "intersecting_ids_lists": intersecting_ids_lists,
+        "missing_ids": list(missing_ids),
+    })
 
 
 @api_view(["POST"])
@@ -460,6 +541,75 @@ def user_signup_loss_statistic(start_date="2022-01-01", end_date=date.today(), c
         "start_date": start_date,
         "end_date": end_date
     }
+
+def user_signup_loss_statistic_v2(start_date="2022-01-01", end_date=date.today(), caller=None):
+    
+    user_lists_required = [
+        'all',
+        "journey_v2__user_created",
+        "journey_v2__email_verified",
+        "journey_v2__user_form_completed",
+        "journey_v2__booked_onboarding_call",
+        "journey_v2__first_search",
+        "journey_v2__user_searching_again",
+        "journey_v2__pre_matching",
+        "journey_v2__match_takeoff",
+        "journey_v2__active_matching",
+        "journey_v2__never_active",
+        "journey_v2__no_show",
+        "journey_v2__user_ghosted",
+        "journey_v2__no_confirm",
+        "journey_v2__happy_inactive",
+        "journey_v2__too_low_german_level",
+        "journey_v2__unmatched",
+        "journey_v2__gave_up_searching",
+        "journey_v2__user_deleted",
+    ]
+    
+    exclude_intersection_check = ["all"]
+    intersection_check_lists = [list_name for list_name in user_lists_required if list_name not in exclude_intersection_check]
+    
+    user_list_ids = {}
+
+    pre_filtered_users = User.objects.all()
+    if not caller.is_staff:
+        pre_filtered_users = pre_filtered_users.filter(id__in=caller.state.managed_users.all())
+        
+    pre_filtered_users = pre_filtered_users.filter(date_joined__range=[start_date, end_date])
+    
+    print(pre_filtered_users.count())
+        
+    # retrieve all the id's we need
+    for list_name in user_lists_required:
+        user_list = get_list_by_name(list_name)
+        filtered_list_users = user_list.queryset(qs=pre_filtered_users)
+        
+        user_list_ids[list_name] = {
+            "ids": filtered_list_users.values_list('id', flat=True),
+            "count": filtered_list_users.count()
+        }
+        
+    # check for id's that are in multiple lists
+    
+    intersecting_ids_lists = {}
+
+    for list_name in intersection_check_lists:
+        for other_list_name in intersection_check_lists:
+            if list_name != other_list_name:
+                intersecting_ids = set(user_list_ids[list_name]["ids"]).intersection(user_list_ids[other_list_name]["ids"])
+                if len(intersecting_ids) > 0:
+                    intersecting_ids_lists[f"{list_name}---{other_list_name}"] = intersecting_ids
+                
+    print(intersecting_ids_lists)
+
+    return {
+        "user_list_ids": user_list_ids,
+        "intersecting_ids_lists": intersecting_ids_lists,
+        "exclude_intersection_check": exclude_intersection_check,
+        "start_date": start_date,
+        "all_summed": sum([user_list_ids[list_name]["count"] for list_name in user_lists_required if list_name not in exclude_intersection_check]),
+        "end_date": end_date
+    }
     
 def match_quality_statistic(start_date="2022-01-01", end_date=date.today(), caller=None):
     
@@ -551,7 +701,7 @@ def user_signup_loss_statistics(request):
     end_date = request.data.get("end_date", date.today())
     caller = request.user
     
-    return Response(user_signup_loss_statistic(start_date, end_date, caller))
+    return Response(user_signup_loss_statistic_v2(start_date, end_date, caller))
 
 # Returns the average waiting time (from prematch call to being matched) for all eligible users
 @api_view(["POST"])
@@ -564,7 +714,7 @@ def user_match_waiting_time_statistics(request):
     # Get all eligible users who have had a pre-matching call and are currently searching
     eligible_users = User.objects.filter(
         state__had_prematching_call=True,
-        state__matching_state=State.MatchingStateChoices.SEARCHING,
+        state__searching_state=State.SearchingStateChoices.SEARCHING,
         state__updated_at__gte=start_date,
         state__updated_at__lte=end_date
     )

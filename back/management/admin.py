@@ -108,12 +108,13 @@ class NewsItemAdmin(admin.ModelAdmin):
 
 @admin.register(models.matches.Match)
 class MatchModelAdmin(admin.ModelAdmin):
-    list_display = ("uuid", "created_at", "updated_at", "user1", "user2")
+    list_display = ("uuid", "active", "created_at", "updated_at", "user1", "user2")
+    search_fields = ("uuid",)
 
 
 @admin.register(models.state.State)
 class StateAdmin(HijackUserAdminMixin, admin.ModelAdmin):
-    list_display = ("user", "created_at", "user_form_state", "matching_state", "user_category", "tags")
+    list_display = ("user", "created_at", "user_form_state", "searching_state", "user_category", "tags")
     list_editable = (
         "user_category",
         "tags",
@@ -143,7 +144,7 @@ def make_match_admin(modeladmin, request, queryset):
 
 @admin.register(models.profile.Profile)
 class ProfileModelAdmin(admin.ModelAdmin):
-    list_display = ("user", "first_name", "second_name", "user_type", "birth_year", "description", "notify_channel")
+    list_display = ("user", "first_name", "second_name", "user_type", "birth_year", "description", "notify_channel", "lang_skill")
 
     actions = [make_match_admin]
 

@@ -15,6 +15,7 @@ from management.models.matches import Match
 from django.db.models import Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from translations import get_translation
 
@@ -73,19 +74,19 @@ class State(models.Model):
 
     company = models.CharField(max_length=255, blank=True, null=True)
 
-    class MatchingStateChoices(models.TextChoices):
+    class SearchingStateChoices(models.TextChoices):
         """
-        All matching states!
+        All searching states!
         Idle is the default state at the beginning
         but we do (currently) automaticly set it to searching
         when the userform was finished.
         """
 
-        IDLE = "idle", get_translation("models.state.matching_state.idle")
-        SEARCHING = "searching", get_translation("models.state.matching_state.searching")
+        IDLE = "idle", get_translation("models.state.searching_state.idle")
+        SEARCHING = "searching", get_translation("models.state.searching_state.searching")
 
-    matching_state = models.CharField(choices=MatchingStateChoices.choices, default=MatchingStateChoices.IDLE, max_length=255)
-
+    searching_state = models.CharField(choices=SearchingStateChoices.choices, default=SearchingStateChoices.IDLE, max_length=255)
+    searching_state_last_updated = models.DateTimeField(default=timezone.now())
     prematch_booking_code = models.CharField(max_length=255, default=uuid.uuid4)
 
     """
@@ -156,6 +157,15 @@ class State(models.Model):
 
     to_low_german_level = models.BooleanField(default=False)
 
+    def save(self, *args, **kwargs):
+        # Check if searching_state has changed
+        if self.pk:  # Only for existing instances
+            original = State.objects.get(pk=self.pk)
+            if original.searching_state != self.searching_state:
+                self.searching_state_last_updated = timezone.now()
+        
+        super().save(*args, **kwargs)
+
     def has_extra_user_permission(self, permission):
         if self.extra_user_permissions is None:
             return False
@@ -174,11 +184,11 @@ class State(models.Model):
         # We put this list here so we ensure to stay safe if we add states that shouldn't be changed by the user!
         allowed_usr_change_search_states = ["idle", "searching"]
         assert slug in allowed_usr_change_search_states
-        self.matching_state = slug
+        self.searching_state = slug
         self.save()
 
     def set_idle(self):
-        self.matching_state = self.MatchingStateChoices.IDLE
+        self.searching_state = self.SearchingStateChoices.IDLE
         self.save()
 
     def archive_email_adress(self, email):
@@ -301,10 +311,10 @@ class FrontendStatusSerializer(serializers.ModelSerializer):
         )
 
         if has_atleast_one_match:
-            if instance.matching_state == State.MatchingStateChoices.IDLE:
+            if instance.searching_state == State.SearchingStateChoices.IDLE:
                 rep["status"] = FrontendStatusEnum.matched.value
                 return rep
-            elif instance.matching_state == State.MatchingStateChoices.SEARCHING:
+            elif instance.searching_state == State.SearchingStateChoices.SEARCHING:
                 rep["status"] = FrontendStatusEnum.matched_searching.value
                 return rep
         else:
@@ -319,7 +329,7 @@ class SelfStateSerializer(StateSerializer):
             "user_form_state",
             "user_form_page",
             "unconfirmed_matches_stack",
-            "matching_state",
+            "searching_state",
             # "email_authenticated"
             # TODO A-- will be imporant once we allow to verify the email later
         ]
