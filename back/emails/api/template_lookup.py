@@ -1,5 +1,7 @@
 from django.conf import settings
 from django.utils import timezone
+from patenmatch.models import PatenmatchUser
+
 def first_name(user):
     return user.profile.first_name
 
@@ -56,3 +58,7 @@ def date():
 
 def patenmatch_first_name(user):
     return user.first_name
+
+def patenmatch_email_verification_url(user):
+    assert isinstance(user, PatenmatchUser)
+    return user.get_verification_url()
