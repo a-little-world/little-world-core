@@ -62,17 +62,14 @@ user_category_buckets = [
 ]
 
 
-class MicroUserSerializer(serializers.ModelSerializer):
+class ExportUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "email"]
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation["profile"] = {
-            "first_name": instance.profile.first_name,
-            "second_name": instance.profile.second_name,
-        }
+        representation["profile"] = {"first_name": instance.profile.first_name, "second_name": instance.profile.second_name, "user_type": instance.profile.user_type, "postal_code": instance.profile.postal_code, "gender": instance.profile.gender, "birth_year": instance.profile.birth_year}
 
         return representation
 
@@ -807,7 +804,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def export(self, request):
         queryset = self.filter_queryset(self.get_queryset())
-        serializer = MicroUserSerializer(queryset, many=True)
+        serializer = ExportUserSerializer(queryset, many=True)
 
         return Response(serializer.data)
 
