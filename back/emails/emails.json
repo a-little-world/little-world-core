@@ -161,10 +161,19 @@
       "subject": "Vielen Dank f\u00fcr deine Anmeldung bei Patenmatch",
       "template": "react_emails/patenmatch-signup.html",
       "theme": "patenmatch"
+    },
+    "patenmatch-waiting": {
+      "id": "patenmatch-waiting",
+      "sender_id": "noreply",
+      "category_id": "automated-patenmatch",
+      "subject": "Wichtiges Update zu deiner Patenmatch-Anmeldung",
+      "template": "react_emails/patenmatch-waiting.html",
+      "theme": "patenmatch"
     }
   },
   "senders": {
-    "noreply": "\"Little World\" <noreply@little-world.com>"
+    "noreply": "\"Little World\" <noreply@little-world.com>",
+    "noreply-patenmatch": "\"Patenmatch\" <noreply@patenmatch.de>"
   },
   "parameters": {
     "first_name": {
@@ -278,6 +287,13 @@
     "patenmatch_first_name": {
       "id": "patenmatch_first_name",
       "lookup": "emails.api.template_lookup.patenmatch_first_name",
+      "depends_on": [
+        "user"
+      ]
+    },
+    "patenmatch_email_verification_url": {
+      "id": "patenmatch_email_verification_url",
+      "lookup": "emails.api.template_lookup.patenmatch_email_verification_url",
       "depends_on": [
         "user"
       ]
