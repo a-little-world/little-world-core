@@ -34,8 +34,7 @@ from django.utils import timezone
 user_category_buckets = ["journey_v2__user_created","journey_v2__email_verified","journey_v2__user_form_completed","journey_v2__booked_onboarding_call","journey_v2__too_low_german_level","journey_v2__pre_matching","journey_v2__match_takeoff","journey_v2__ongoing_non_completed_match","journey_v2__first_search_v2","journey_v2__happy_inactive","journey_v2__happy_active","journey_v2__no_show","journey_v2__failed_matching","journey_v2__gave_up_searching","journey_v2__user_deleted","journey_v2__marked_unresponsive"]
 
 
-class MicroUserSerializer(serializers.ModelSerializer):
-
+class ExportUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "email"]
@@ -45,6 +44,10 @@ class MicroUserSerializer(serializers.ModelSerializer):
         representation["profile"] = {
             "first_name": instance.profile.first_name,
             "second_name": instance.profile.second_name,
+            "user_type": instance.profile.user_type,
+            "postal_code": instance.profile.postal_code,
+            "gender": instance.profile.gender,
+            "birth_year": instance.profile.birth_year
         }
         
         return representation
@@ -85,11 +88,14 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
         representation["state"] = StateSerializer(instance.state).data
 
         if determine_bucket:
-            bucket_map = {entry.name: entry for entry in FILTER_LISTS if entry.name in user_category_buckets}
-            for bucket in user_category_buckets:
-                if bucket_map[bucket].queryset(User.objects.filter(pk=instance.pk)).exists():
-                    representation["bucket"] = bucket
-            if "bucket" not in representation:
+            try:
+                bucket_map = {entry.name: entry for entry in FILTER_LISTS if entry.name in user_category_buckets}
+                for bucket in user_category_buckets:
+                    if bucket_map[bucket].queryset(User.objects.filter(pk=instance.pk)).exists():
+                        representation["bucket"] = bucket
+                if "bucket" not in representation:
+                    representation["bucket"] = "unknown"
+            except:
                 representation["bucket"] = "unknown"
 
         return representation
@@ -523,7 +529,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         delete_user(obj, request.user, self.request.data.get("send_deletion_email", False))
         return Response({"msg": "User deleted"})
 
-    @extend_schema(request=inline_serializer(name="ChangeSearchingStateRequest", fields={"searching_state": serializers.ChoiceField(choices=State.MatchingStateChoices.choices, default=State.MatchingStateChoices.IDLE)}))
+    @extend_schema(request=inline_serializer(name="ChangeSearchingStateRequest", fields={"searching_state": serializers.ChoiceField(choices=State.SearchingStateChoices.choices, default=State.SearchingStateChoices.IDLE)}))
     @action(detail=True, methods=["post"])
     def change_searching_state(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -533,7 +539,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if not has_access:
             return res
 
-        obj.state.matching_state = request.data.get("searching_state", State.MatchingStateChoices.IDLE)
+        obj.state.searching_state = request.data.get("searching_state", State.SearchingStateChoices.IDLE)
         obj.state.save()
 
         return Response({"msg": "State changed"})
@@ -569,7 +575,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def export(self, request):
         queryset = self.filter_queryset(self.get_queryset())
-        serializer = MicroUserSerializer(queryset, many=True)
+        serializer = ExportUserSerializer(queryset, many=True)
 
         return Response(serializer.data)
     
@@ -581,15 +587,20 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if not had_prematching_call:
             return Response('Prematch call not completed')
 
-        is_searching = obj.state.matching_state == State.MatchingStateChoices.SEARCHING
+        is_searching = obj.state.searching_state == State.SearchingStateChoices.SEARCHING
         if not is_searching:
             return Response('Not actively searching')
 
         try:
             latest_pre_match_appointment = PreMatchingAppointment.objects.filter(user=obj).order_by("-created")[0]
+            already_matched = Match.objects.filter(Q(user1=obj) | Q(user2=obj), support_matching=False).count() >= 1
             pre_match_call_date = latest_pre_match_appointment.end_time
+            waiting_since = obj.state.searching_state_last_updated if already_matched else pre_match_call_date 
             now = timezone.now()
-            waiting_time = (now - pre_match_call_date).days
+            waiting_time = (now - waiting_since).days
+            
+            if waiting_time == 0:
+                return Response('Waiting less than a day')
             day_text = "day" if waiting_time == 1 else "days"
             return Response(f'Waiting {waiting_time} {day_text}')
         except IndexError:
