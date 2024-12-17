@@ -10,13 +10,24 @@ from django.urls import path
 from django_filters import rest_framework as filters
 from management.models.scores import TwoUserMatchingScore
 from management.models.user import User
-from management.helpers import IsAdminOrMatchingUser, DetailedPagination, DetailedPaginationMixin
+from management.helpers import (
+    IsAdminOrMatchingUser,
+    DetailedPagination,
+    DetailedPaginationMixin,
+)
 from management.models.profile import Profile, MinimalProfileSerializer
-from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
+from management.models.pre_matching_appointment import (
+    PreMatchingAppointment,
+    PreMatchingAppointmentSerializer,
+)
 from rest_framework import serializers
 from drf_spectacular.utils import extend_schema_view, extend_schema, inline_serializer
 from management.api.user_advanced_filter_lists import FILTER_LISTS
-from management.api.user_data import get_paginated, serialize_proposed_matches, AdvancedUserMatchSerializer
+from management.api.user_data import (
+    get_paginated,
+    serialize_proposed_matches,
+    AdvancedUserMatchSerializer,
+)
 from management.models.matches import Match
 from management.api.user_data import get_paginated_format_v2
 from management.models.unconfirmed_matches import ProposedMatch
@@ -25,7 +36,7 @@ from management.models.sms import SmsModel, SmsSerializer
 from management.models.management_tasks import MangementTask, ManagementTaskSerializer
 from chat.models import Message, MessageSerializer, Chat, ChatSerializer
 from management.api.scores import score_between_db_update
-from management.tasks import matching_algo_v2
+from management.tasks import matching_algo_v2, send_email_background
 from management.api.utils_advanced import filterset_schema_dict
 from datetime import datetime
 from django.utils import timezone
@@ -50,17 +61,14 @@ user_category_buckets = [
 ]
 
 
-class MicroUserSerializer(serializers.ModelSerializer):
+class ExportUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "email"]
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation["profile"] = {
-            "first_name": instance.profile.first_name,
-            "second_name": instance.profile.second_name,
-        }
+        representation["profile"] = {"first_name": instance.profile.first_name, "second_name": instance.profile.second_name, "user_type": instance.profile.user_type, "postal_code": instance.profile.postal_code, "gender": instance.profile.gender, "birth_year": instance.profile.birth_year}
 
         return representation
 
@@ -85,18 +93,47 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
         items_per_page = 5
         user = instance
         confirmed_matches = get_paginated(Match.get_confirmed_matches(user), items_per_page, 1)
-        confirmed_matches["items"] = AdvancedUserMatchSerializer(confirmed_matches["items"], many=True, context={"user": user, "status": "confirmed", "determine_bucket": determine_bucket}).data
+        confirmed_matches["items"] = AdvancedUserMatchSerializer(
+            confirmed_matches["items"],
+            many=True,
+            context={
+                "user": user,
+                "status": "confirmed",
+                "determine_bucket": determine_bucket,
+            },
+        ).data
 
         unconfirmed_matches = get_paginated(Match.get_unconfirmed_matches(user), items_per_page, 1)
-        unconfirmed_matches["items"] = AdvancedUserMatchSerializer(unconfirmed_matches["items"], many=True, context={"user": user, "status": "unconfirmed", "determine_bucket": determine_bucket}).data
+        unconfirmed_matches["items"] = AdvancedUserMatchSerializer(
+            unconfirmed_matches["items"],
+            many=True,
+            context={
+                "user": user,
+                "status": "unconfirmed",
+                "determine_bucket": determine_bucket,
+            },
+        ).data
 
         support_matches = get_paginated(Match.get_support_matches(user), items_per_page, 1)
-        support_matches["items"] = AdvancedUserMatchSerializer(support_matches["items"], many=True, context={"user": user, "status": "support", "determine_bucket": determine_bucket}).data
+        support_matches["items"] = AdvancedUserMatchSerializer(
+            support_matches["items"],
+            many=True,
+            context={
+                "user": user,
+                "status": "support",
+                "determine_bucket": determine_bucket,
+            },
+        ).data
 
         proposed_matches = get_paginated(ProposedMatch.get_open_proposals(user), items_per_page, 1)
         proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
 
-        representation["matches"] = {"confirmed": confirmed_matches, "unconfirmed": unconfirmed_matches, "support": support_matches, "proposed": proposed_matches}
+        representation["matches"] = {
+            "confirmed": confirmed_matches,
+            "unconfirmed": unconfirmed_matches,
+            "support": support_matches,
+            "proposed": proposed_matches,
+        }
 
         representation["state"] = StateSerializer(instance.state).data
 
@@ -136,15 +173,31 @@ class AdvancedMatchingScoreSerializer(serializers.ModelSerializer):
 
         representation["markdown_info"] = markdown_info
 
-        representation["from_usr"] = {"uuid": user.hash, "id": user.id, **AdvancedUserSerializer(user).data}
-        representation["to_usr"] = {"uuid": partner.hash, "id": partner.id, **AdvancedUserSerializer(partner).data}
+        representation["from_usr"] = {
+            "uuid": user.hash,
+            "id": user.id,
+            **AdvancedUserSerializer(user).data,
+        }
+        representation["to_usr"] = {
+            "uuid": partner.hash,
+            "id": partner.id,
+            **AdvancedUserSerializer(partner).data,
+        }
         return representation
 
 
 class UserFilter(filters.FilterSet):
-    profile__user_type = filters.ChoiceFilter(field_name="profile__user_type", choices=Profile.TypeChoices.choices, help_text="Filter for learner or volunteers")
+    profile__user_type = filters.ChoiceFilter(
+        field_name="profile__user_type",
+        choices=Profile.TypeChoices.choices,
+        help_text="Filter for learner or volunteers",
+    )
 
-    profile__target_group = filters.ChoiceFilter(field_name="profile__target_group", choices=Profile.TargetGroupChoices2.choices, help_text="Filter for target group")
+    profile__target_group = filters.ChoiceFilter(
+        field_name="profile__target_group",
+        choices=Profile.TargetGroupChoices2.choices,
+        help_text="Filter for target group",
+    )
 
     profile__target_groups = filters.MultipleChoiceFilter(
         field_name="profile__target_groups",
@@ -153,19 +206,43 @@ class UserFilter(filters.FilterSet):
         method="filter_target_groups",
     )
 
-    profile__newsletter_subscribed = filters.BooleanFilter(field_name="profile__newsletter_subscribed", help_text="Filter for users that are subscribed to the newsletter")
+    profile__newsletter_subscribed = filters.BooleanFilter(
+        field_name="profile__newsletter_subscribed",
+        help_text="Filter for users that are subscribed to the newsletter",
+    )
 
-    state__email_authenticated = filters.BooleanFilter(field_name="state__email_authenticated", help_text="Filter for users that have authenticated their email")
+    state__email_authenticated = filters.BooleanFilter(
+        field_name="state__email_authenticated",
+        help_text="Filter for users that have authenticated their email",
+    )
 
-    state__had_prematching_call = filters.BooleanFilter(field_name="state__had_prematching_call", help_text="Filter for users that had a prematching call")
+    state__had_prematching_call = filters.BooleanFilter(
+        field_name="state__had_prematching_call",
+        help_text="Filter for users that had a prematching call",
+    )
 
-    joined_between = filters.DateFromToRangeFilter(field_name="date_joined", help_text="Range filter for when the user joined the platform, accepts string datetimes")
+    joined_between = filters.DateFromToRangeFilter(
+        field_name="date_joined",
+        help_text="Range filter for when the user joined the platform, accepts string datetimes",
+    )
 
-    loggedin_between = filters.DateFromToRangeFilter(field_name="last_login", help_text="Range filter for when the user last logged in, accepts string datetimes")
+    loggedin_between = filters.DateFromToRangeFilter(
+        field_name="last_login",
+        help_text="Range filter for when the user last logged in, accepts string datetimes",
+    )
 
-    state__company = filters.ChoiceFilter(field_name="state__company", choices=[("null", None), ("accenture", "accenture")], help_text="Filter for users that are part of a company")
+    state__company = filters.ChoiceFilter(
+        field_name="state__company",
+        choices=[("null", None), ("accenture", "accenture")],
+        help_text="Filter for users that are part of a company",
+    )
 
-    list = filters.ChoiceFilter(field_name="list", choices=[(entry.name, entry.description) for entry in FILTER_LISTS], method="filter_list", help_text="Filter for users that are part of a list")
+    list = filters.ChoiceFilter(
+        field_name="list",
+        choices=[(entry.name, entry.description) for entry in FILTER_LISTS],
+        method="filter_list",
+        help_text="Filter for users that are part of a list",
+    )
 
     order_by = filters.OrderingFilter(
         fields=(
@@ -311,7 +388,12 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
         return True, None
 
-    @extend_schema(request=inline_serializer(name="MarkReadMessageRequest", fields={"message_id": serializers.CharField()}))
+    @extend_schema(
+        request=inline_serializer(
+            name="MarkReadMessageRequest",
+            fields={"message_id": serializers.CharField()},
+        )
+    )
     @action(detail=True, methods=["post"])
     def message_mark_read(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -401,9 +483,17 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             return res
 
         if request.method == "POST":
-            sms = SmsModel.objects.create(recipient=obj, send_initator=request.user, message=request.data["message"])
+            sms = SmsModel.objects.create(
+                recipient=obj,
+                send_initator=request.user,
+                message=request.data["message"],
+            )
             client = _get_client()
-            response = client.messages.create(body=request.data["message"], from_=settings.TWILIO_SMS_NUMBER, to=obj.profile.phone_mobile)
+            response = client.messages.create(
+                body=request.data["message"],
+                from_=settings.TWILIO_SMS_NUMBER,
+                to=obj.profile.phone_mobile,
+            )
 
             sms.twilio_response = response.__dict__
             sms.save()
@@ -457,7 +547,12 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
                 _os.save()
             return Response(_os.notes)
 
-    @extend_schema(request=inline_serializer(name="MarkUnresponsiveRequest", fields={"unresponsive": serializers.BooleanField(default=True)}))
+    @extend_schema(
+        request=inline_serializer(
+            name="MarkUnresponsiveRequest",
+            fields={"unresponsive": serializers.BooleanField(default=True)},
+        )
+    )
     @action(detail=True, methods=["post"])
     def mark_unresponsive(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -471,7 +566,12 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         obj.state.save()
         return Response({"success": True})
 
-    @extend_schema(request=inline_serializer(name="ChangeNewsletterSubscribed", fields={"newsletter_subscribed": serializers.BooleanField(default=False)}))
+    @extend_schema(
+        request=inline_serializer(
+            name="ChangeNewsletterSubscribed",
+            fields={"newsletter_subscribed": serializers.BooleanField(default=False)},
+        )
+    )
     @action(detail=True, methods=["post"])
     def change_newsletter_subscribed(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -485,7 +585,12 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         obj.profile.save()
         return Response({"success": True})
 
-    @extend_schema(request=inline_serializer(name="MarkPrematchingCallCompletedRequest", fields={"had_prematching_call": serializers.BooleanField(default=True)}))
+    @extend_schema(
+        request=inline_serializer(
+            name="MarkPrematchingCallCompletedRequest",
+            fields={"had_prematching_call": serializers.BooleanField(default=True)},
+        )
+    )
     @action(detail=True, methods=["post"])
     def mark_prematching_call_completed(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -499,7 +604,15 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         obj.state.save()
         return Response({"success": True})
 
-    @extend_schema(request=inline_serializer(name="MarkPrematchingCallsCompletedRequest", fields={"appointment_date": serializers.DateTimeField(), "userlist": serializers.ListField(child=serializers.IntegerField())}))
+    @extend_schema(
+        request=inline_serializer(
+            name="MarkPrematchingCallsCompletedRequest",
+            fields={
+                "appointment_date": serializers.DateTimeField(),
+                "userlist": serializers.ListField(child=serializers.IntegerField()),
+            },
+        )
+    )
     @action(detail=True, methods=["post"])
     def mark_prematching_calls_completed(self, request):
         """
@@ -515,7 +628,10 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         try:
             appointment_date = datetime.strptime(appointment_date, "%Y-%m-%dT%H:%M:%SZ")
         except ValueError:
-            return Response({"error": "appointment_date has the wrong format. Use YYYY-MM-DDTHH:MM:SSZ"}, status=400)
+            return Response(
+                {"error": "appointment_date has the wrong format. Use YYYY-MM-DDTHH:MM:SSZ"},
+                status=400,
+            )
 
         if appointment_date is None or userlist is None:
             return Response({"error": "appointment_date and userlist are required"}, status=400)
@@ -523,7 +639,10 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         # get all appointment at this date
         appointments = PreMatchingAppointment.objects.filter(start_time=appointment_date)
         if appointments is None or len(appointments) < len(userlist):
-            return Response({"error": "appointment not found or not enough appointments for the number of marked users"}, status=404)
+            return Response(
+                {"error": "appointment not found or not enough appointments for the number of marked users"},
+                status=404,
+            )
 
         # get the users from the appontment queryset, every appointment has exactly one user
         appointment_users = [appointment.user.id for appointment in appointments]
@@ -531,7 +650,10 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         # verify that the users are in the userlist
         for user_id in userlist:
             if user_id not in appointment_users:
-                return Response({"error": "Some user that was marked as completed was not found for this appointment"}, status=404)
+                return Response(
+                    {"error": "Some user that was marked as completed was not found for this appointment"},
+                    status=404,
+                )
 
         user_list_objects = []
         # check permission on all user in the userlist
@@ -539,7 +661,10 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             user = User.objects.get(id=user_id)
             has_access, res = self.check_management_user_access(user, request)
             if not has_access:
-                return Response({"error": "You are not allowed to access one or many users for this appointment!"}, status=401)
+                return Response(
+                    {"error": "You are not allowed to access one or many users for this appointment!"},
+                    status=401,
+                )
             user_list_objects.append(user)
 
         # mark the users as completed
@@ -547,7 +672,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             user.state.had_prematching_call = True
             user.state.save()
 
-            # send_email_background.delay("welcome", user_id=user.id)
+            send_email_background.delay("prematching-call-post-thanks", user_id=user.id)
 
         # get appointment_users set without userlist as a list
         not_attended_appointment_users = list(set(appointment_users) - set(userlist))
@@ -558,7 +683,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             user.state.had_prematching_call = False
             user.state.save()
 
-            # send_email_background.delay("account-deleted", user_id=user_id)
+            send_email_background.delay("prematching-call-no-show", user_id=user_id)
 
         return Response({"success": True})
 
@@ -584,7 +709,12 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         task.save()
         return Response(ManagementTaskSerializer(task).data)
 
-    @extend_schema(request=inline_serializer(name="DeleteUserRequest", fields={"send_deletion_email": serializers.BooleanField(default=False)}))
+    @extend_schema(
+        request=inline_serializer(
+            name="DeleteUserRequest",
+            fields={"send_deletion_email": serializers.BooleanField(default=False)},
+        )
+    )
     @action(detail=True, methods=["post"])
     def delete_user(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -603,7 +733,17 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         delete_user(obj, request.user, self.request.data.get("send_deletion_email", False))
         return Response({"msg": "User deleted"})
 
-    @extend_schema(request=inline_serializer(name="ChangeSearchingStateRequest", fields={"searching_state": serializers.ChoiceField(choices=State.SearchingStateChoices.choices, default=State.SearchingStateChoices.IDLE)}))
+    @extend_schema(
+        request=inline_serializer(
+            name="ChangeSearchingStateRequest",
+            fields={
+                "searching_state": serializers.ChoiceField(
+                    choices=State.SearchingStateChoices.choices,
+                    default=State.SearchingStateChoices.IDLE,
+                )
+            },
+        )
+    )
     @action(detail=True, methods=["post"])
     def change_searching_state(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -618,7 +758,16 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         return Response({"msg": "State changed"})
 
-    @extend_schema(request=inline_serializer(name="MakeTimSupportRequest", fields={"old_management_mail": serializers.CharField(default="littleworld.management@gmail.com"), "send_new_management_message": serializers.BooleanField(default=True), "message": serializers.CharField(required=False)}))
+    @extend_schema(
+        request=inline_serializer(
+            name="MakeTimSupportRequest",
+            fields={
+                "old_management_mail": serializers.CharField(default="littleworld.management@gmail.com"),
+                "send_new_management_message": serializers.BooleanField(default=True),
+                "message": serializers.CharField(required=False),
+            },
+        )
+    )
     @action(detail=True, methods=["post"])
     def make_tim_support(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -626,7 +775,12 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         # Here we skip the acess check logicly... ( at some point this api has to be replaced with a more secure procedure )
 
-        make_tim_support_user(obj, old_management_mail=request.data.get("old_management_mail", "littleworld.management@gmail.com"), send_message=request.data.get("send_new_management_message", True), custom_message=request.data.get("message", None))
+        make_tim_support_user(
+            obj,
+            old_management_mail=request.data.get("old_management_mail", "littleworld.management@gmail.com"),
+            send_message=request.data.get("send_new_management_message", True),
+            custom_message=request.data.get("message", None),
+        )
         return Response({"msg": "User is now a TIM support user"})
 
     @action(detail=True, methods=["get"])
@@ -649,7 +803,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def export(self, request):
         queryset = self.filter_queryset(self.get_queryset())
-        serializer = MicroUserSerializer(queryset, many=True)
+        serializer = ExportUserSerializer(queryset, many=True)
 
         return Response(serializer.data)
 
@@ -669,12 +823,12 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             latest_pre_match_appointment = PreMatchingAppointment.objects.filter(user=obj).order_by("-created")[0]
             already_matched = Match.objects.filter(Q(user1=obj) | Q(user2=obj), support_matching=False).count() >= 1
             pre_match_call_date = latest_pre_match_appointment.end_time
-            waiting_since = obj.state.searching_state_last_updated if already_matched else pre_match_call_date 
+            waiting_since = obj.state.searching_state_last_updated if already_matched else pre_match_call_date
             now = timezone.now()
             waiting_time = (now - waiting_since).days
-            
+
             if waiting_time == 0:
-                return Response('Waiting less than a day')
+                return Response("Waiting less than a day")
             day_text = "day" if waiting_time == 1 else "days"
             return Response(f"Waiting {waiting_time} {day_text}")
         except IndexError:
@@ -683,32 +837,98 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
 viewset_actions = [
     path("api/matching/users_export/", AdvancedUserViewset.as_view({"get": "export"})),
-    path("api/matching/users/<pk>/scores/", AdvancedUserViewset.as_view({"get": "scores"})),
-    path("api/matching/users/<pk>/prematching_appointment/", AdvancedUserViewset.as_view({"get": "prematching_appointment"})),
-    path("api/matching/users/<pk>/score_between/", AdvancedUserViewset.as_view({"post": "score_between"})),
-    path("api/matching/users/<pk>/message_mark_read/", AdvancedUserViewset.as_view({"post": "message_mark_read"})),
-    path("api/matching/users/<pk>/messages/", AdvancedUserViewset.as_view({"get": "messages"})),
-    path("api/matching/users/<pk>/sms/", AdvancedUserViewset.as_view({"get": "sms", "post": "sms"})),
-    path("api/matching/users/<pk>/message_reply/", AdvancedUserViewset.as_view({"post": "message_reply"})),
-    path("api/matching/users/<pk>/match_waiting_time/", AdvancedUserViewset.as_view({"get": "match_waiting_time"})),
-    path("api/matching/users/<pk>/tasks/", AdvancedUserViewset.as_view({"get": "tasks", "post": "tasks"})),
-    path("api/matching/users/<pk>/notes/", AdvancedUserViewset.as_view({"get": "notes", "post": "notes"})),
-    path("api/matching/users/<pk>/delete_message/", AdvancedUserViewset.as_view({"get": "delete_message"})),
-    path("api/matching/users/<pk>/request_score_update/", AdvancedUserViewset.as_view({"get": "request_score_update"})),
-    path("api/matching/users/<pk>/complete_task/", AdvancedUserViewset.as_view({"post": "complete_task"})),
-    path("api/matching/users/<pk>/mark_unresponsive/", AdvancedUserViewset.as_view({"post": "mark_unresponsive"})),
-    path("api/matching/users/<pk>/mark_prematching_call_completed/", AdvancedUserViewset.as_view({"post": "mark_prematching_call_completed"})),
-    path("api/matching/users/<pk>/delete_user/", AdvancedUserViewset.as_view({"post": "delete_user"})),
-    path("api/matching/users/<pk>/change_searching_state/", AdvancedUserViewset.as_view({"post": "change_searching_state"})),
-    path("api/matching/users/<pk>/make_tim_support/", AdvancedUserViewset.as_view({"post": "make_tim_support"})),
-    path("api/matching/users/<pk>/emails/", AdvancedUserViewset.as_view({"get": "emails"})),
-    path("api/matching/users/<pk>/change_newsletter_subscribed/", AdvancedUserViewset.as_view({"post": "change_newsletter_subscribed"})),
+    path(
+        "api/matching/users/<pk>/scores/",
+        AdvancedUserViewset.as_view({"get": "scores"}),
+    ),
+    path(
+        "api/matching/users/<pk>/prematching_appointment/",
+        AdvancedUserViewset.as_view({"get": "prematching_appointment"}),
+    ),
+    path(
+        "api/matching/users/<pk>/score_between/",
+        AdvancedUserViewset.as_view({"post": "score_between"}),
+    ),
+    path(
+        "api/matching/users/<pk>/message_mark_read/",
+        AdvancedUserViewset.as_view({"post": "message_mark_read"}),
+    ),
+    path(
+        "api/matching/users/<pk>/messages/",
+        AdvancedUserViewset.as_view({"get": "messages"}),
+    ),
+    path(
+        "api/matching/users/<pk>/sms/",
+        AdvancedUserViewset.as_view({"get": "sms", "post": "sms"}),
+    ),
+    path(
+        "api/matching/users/<pk>/message_reply/",
+        AdvancedUserViewset.as_view({"post": "message_reply"}),
+    ),
+    path(
+        "api/matching/users/<pk>/match_waiting_time/",
+        AdvancedUserViewset.as_view({"get": "match_waiting_time"}),
+    ),
+    path(
+        "api/matching/users/<pk>/tasks/",
+        AdvancedUserViewset.as_view({"get": "tasks", "post": "tasks"}),
+    ),
+    path(
+        "api/matching/users/<pk>/notes/",
+        AdvancedUserViewset.as_view({"get": "notes", "post": "notes"}),
+    ),
+    path(
+        "api/matching/users/<pk>/delete_message/",
+        AdvancedUserViewset.as_view({"get": "delete_message"}),
+    ),
+    path(
+        "api/matching/users/<pk>/request_score_update/",
+        AdvancedUserViewset.as_view({"get": "request_score_update"}),
+    ),
+    path(
+        "api/matching/users/<pk>/complete_task/",
+        AdvancedUserViewset.as_view({"post": "complete_task"}),
+    ),
+    path(
+        "api/matching/users/<pk>/mark_unresponsive/",
+        AdvancedUserViewset.as_view({"post": "mark_unresponsive"}),
+    ),
+    path(
+        "api/matching/users/<pk>/mark_prematching_call_completed/",
+        AdvancedUserViewset.as_view({"post": "mark_prematching_call_completed"}),
+    ),
+    path(
+        "api/matching/users/<pk>/delete_user/",
+        AdvancedUserViewset.as_view({"post": "delete_user"}),
+    ),
+    path(
+        "api/matching/users/<pk>/change_searching_state/",
+        AdvancedUserViewset.as_view({"post": "change_searching_state"}),
+    ),
+    path(
+        "api/matching/users/<pk>/make_tim_support/",
+        AdvancedUserViewset.as_view({"post": "make_tim_support"}),
+    ),
+    path(
+        "api/matching/users/<pk>/emails/",
+        AdvancedUserViewset.as_view({"get": "emails"}),
+    ),
+    path(
+        "api/matching/users/<pk>/change_newsletter_subscribed/",
+        AdvancedUserViewset.as_view({"post": "change_newsletter_subscribed"}),
+    ),
 ]
 
 api_urls = [
     path("api/matching/users/", AdvancedUserViewset.as_view({"get": "list"})),
-    path("api/matching/users/filters/", AdvancedUserViewset.as_view({"get": "get_filter_schema"})),
-    path("api/matching/users/complete_prematching_call/", AdvancedUserViewset.as_view({"post": "mark_prematching_calls_completed"})),
+    path(
+        "api/matching/users/filters/",
+        AdvancedUserViewset.as_view({"get": "get_filter_schema"}),
+    ),
+    path(
+        "api/matching/users/complete_prematching_call/",
+        AdvancedUserViewset.as_view({"post": "mark_prematching_calls_completed"}),
+    ),
     path("api/matching/users/<pk>/", AdvancedUserViewset.as_view({"get": "retrieve"})),
     *viewset_actions,
 ]
