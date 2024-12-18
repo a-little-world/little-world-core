@@ -352,7 +352,7 @@
       "lookup": "emails.api.template_lookup.patenmatch_language",
       "depends_on": [
         "user",
-	"context": "context.patenmatch_language"
+        "context.patenmatch_language"
       ]
     }
   },
