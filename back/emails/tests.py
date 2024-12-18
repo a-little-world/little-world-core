@@ -31,7 +31,7 @@ class EmailTests(TestCase):
             mock_user_id = u1.id
             mock_match_id = match.id
             mock_proposed_match_id = proposal.id
-
+            
             rendered = render_template_dynamic_lookup(template_name, mock_user_id, mock_match_id, mock_proposed_match_id, **mock_context)
 
             for key in mock_context:

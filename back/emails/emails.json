@@ -169,6 +169,14 @@
       "subject": "Wichtiges Update zu deiner Patenmatch-Anmeldung",
       "template": "react_emails/patenmatch-waiting.html",
       "theme": "patenmatch"
+    },
+    "patenmatch-orga-forward-user": {
+      "id": "patenmatch-orga-forward-user",
+      "sender_id": "noreply",
+      "category_id": "automated-patenmatch",
+      "subject": "Neue Mentee-Anfrage \u00fcber patenmatch.de",
+      "template": "react_emails/patenmatch-orga-forward-user.html",
+      "theme": "patenmatch"
     }
   },
   "senders": {
@@ -288,7 +296,8 @@
       "id": "patenmatch_first_name",
       "lookup": "emails.api.template_lookup.patenmatch_first_name",
       "depends_on": [
-        "user"
+        "user",
+        "context.patenmatch_first_name"
       ]
     },
     "patenmatch_email_verification_url": {
@@ -296,6 +305,54 @@
       "lookup": "emails.api.template_lookup.patenmatch_email_verification_url",
       "depends_on": [
         "user"
+      ]
+    },
+    "patenmatch_organization_name": {
+      "id": "patenmatch_organization_name",
+      "lookup": "emails.api.template_lookup.patenmatch_organization_name",
+      "depends_on": [
+        "user",
+        "context.organization_name"
+      ]
+    },
+    "patenmatch_last_name": {
+      "id": "patenmatch_last_name",
+      "lookup": "emails.api.template_lookup.patenmatch_last_name",
+      "depends_on": [
+        "user",
+        "context.patenmatch_last_name"
+      ]
+    },
+    "patenmatch_email": {
+      "id": "patenmatch_email",
+      "lookup": "emails.api.template_lookup.patenmatch_email",
+      "depends_on": [
+        "user",
+        "context.patenmatch_email"
+      ]
+    },
+    "patenmatch_target_group_name": {
+      "id": "patenmatch_target_group_name",
+      "lookup": "emails.api.template_lookup.patenmatch_target_group_name",
+      "depends_on": [
+        "user",
+        "context.patenmatch_target_group_name"
+      ]
+    },
+    "patenmatch_postal_address": {
+      "id": "patenmatch_postal_address",
+      "lookup": "emails.api.template_lookup.patenmatch_postal_address",
+      "depends_on": [
+        "user",
+        "context.patenmatch_postal_address"
+      ]
+    },
+    "patenmatch_language": {
+      "id": "patenmatch_language",
+      "lookup": "emails.api.template_lookup.patenmatch_language",
+      "depends_on": [
+        "user",
+	"context": "context.patenmatch_language"
       ]
     }
   },

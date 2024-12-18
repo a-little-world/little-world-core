@@ -4,7 +4,7 @@ from patenmatch.models import PatenmatchUser, PatenmatchOrganization
 
 @admin.register(PatenmatchUser)
 class PatenmatchUserAdmin(admin.ModelAdmin):
-    list_display = ("first_name", "last_name", "postal_code", "email", "support_for", "uuid", "get_email_verification_link", "get_user_status_url")
+    list_display = ("first_name", "last_name", "postal_code", "email", "support_for", "uuid", "get_email_verification_link", "get_user_status_url", "get_verification_view_url")
 
     search_fields = (
         "uuid",
@@ -14,6 +14,9 @@ class PatenmatchUserAdmin(admin.ModelAdmin):
     
     def get_email_verification_link(self, obj):
         return obj.get_verification_url()
+    
+    def get_verification_view_url(self, obj):
+        return obj.get_verification_view_url()
     
     def get_user_status_url(self, obj):
         return f"/en/user/{obj.id}/status?status_access_token={obj.status_access_token}"
