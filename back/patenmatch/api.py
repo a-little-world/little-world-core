@@ -112,12 +112,37 @@ class PatenmatchUserViewSet(viewsets.ModelViewSet):
         if user.email_auth_hash != token:
             return Response({"error": "Invalid token"}, status=403)
         
+        # Check if the email was already authenticated
+        
+        if user.email_authenticated:
+            # todo render proper error page
+            return Response({"error": "Email already authenticated"}, status=400)
+        
         user.email_authenticated = True
         user.save(update_fields=["email_authenticated"])
         
         # Try to find a fitting match
-        
         match = find_organization_match(user)
+        
+        if not (match is None):
+            from management.tasks import send_email_background
+            org = match
+            pt_user = user
+            # Match was found! => We send an email to the organization & we redirect the user to a 'success' page
+            context = {
+                "organization_name": org.name,
+                "patenmatch_first_name": pt_user.first_name,
+                "patenmatch_last_name": pt_user.last_name,
+                "patenmatch_email": pt_user.email,
+                "patenmatch_target_group_name": pt_user.support_for,
+                "patenmatch_postal_address": pt_user.postal_code,
+                "patenmatch_language": pt_user.spoken_languages or "Not set"
+            }
+            send_email_background.delay("patenmatch-orga-forward-user", user_id=org.id, patenmatch=True, context=context)
+        else:
+            # No match was found! => We do nothing, the user gets redirected to an error page
+            pass
+
         # After the email verification the result of the request should be send to an email
         
         # TODO: redirect to email autorized view
