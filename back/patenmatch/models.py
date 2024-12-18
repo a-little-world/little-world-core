@@ -4,7 +4,7 @@ from management.validators import model_validate_first_name, model_validate_seco
 from multiselectfield import MultiSelectField
 from uuid import uuid4
 
-# TODO: To re-establish the matching process we need to:
+# To re-establish the matching process we need to:
 # DONE 1. Create the new organizationUserMatching 
 # DONE don't expose non critical organization data!
 # DONE --> Update the api call in the frontend when the api is called on a pre-selected organization
@@ -20,7 +20,7 @@ from uuid import uuid4
 # 6. Implement API to anser 'YES/NO' did the organization contact you?
 
 
-# TODO: write a test
+# DONE: write a test ( very basic )
 # Missing Emails:
 # - confirm_email ( adjust signup email )
 # - qa orga ( when user responded after 4 weeks that the org didn't contact them)
