@@ -105,8 +105,6 @@ def prepare_dynamic_template_context(template_name, user_id=None, match_id=None,
     proposed_match = None if (not proposed_match_id) else ProposedMatch.objects.get(id=proposed_match_id)
     match = None if (not match_id) else Match.objects.get(id=match_id)
     
-    print("user", user, "match", match, "proposed_match", proposed_match)
-
     if user:
         available_dependencies.append("user")
 
@@ -149,7 +147,6 @@ def prepare_dynamic_template_context(template_name, user_id=None, match_id=None,
                 lookup_context["proposed_match"] = proposed_match
             elif dependency.startswith("context."):
                 param_name = dependency.split(".")[1]
-                print(kwargs)
                 assert param_name in kwargs, f"Missing context dependency in **kwargs for {param}"
                 if "context" not in lookup_context:
                     lookup_context["context"] = {}
@@ -180,8 +177,6 @@ def prepare_template_context(
     proposed_match = None if (not proposed_match_id) else ProposedMatch.objects.get(id=proposed_match_id)
     match = None if (not match_id) else Match.objects.get(id=match_id)
     
-    print("user", user, "match", match, "proposed_match", proposed_match)
-
     if user:
         available_dependencies.append("user")
 
@@ -192,7 +187,6 @@ def prepare_template_context(
         available_dependencies.append("proposed_match")
 
     for key in kwargs:
-        print("key", key)
         available_dependencies.append(f"context.{key}")
 
     context = {}
@@ -226,7 +220,6 @@ def prepare_template_context(
                 lookup_context["proposed_match"] = proposed_match
             elif dependency.startswith("context."):
                 param_name = dependency.split(".")[1]
-                print(kwargs)
                 # assert param_name in kwargs, f"Missing context dependency in **kwargs for {param}" TODO: check disabled as we have vars with optional dependencies now
                 if "context" not in lookup_context:
                     lookup_context["context"] = {}
