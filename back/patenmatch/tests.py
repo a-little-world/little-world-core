@@ -51,7 +51,11 @@ class PatenmatchTests(TestCase):
         # ( that would in prod be triggered with POST /api/patenmatch/user/ )
         from management.tasks import send_email_background
 
-        send_email_background("patenmatch-signup", user_id=pt_user.id, patenmatch=True)
+        send_email_background(
+            "patenmatch-signup", 
+            user_id=pt_user.id, 
+            patenmatch=True
+        )
 
         time.sleep(0.5)
 
@@ -84,19 +88,13 @@ class PatenmatchTests(TestCase):
         
         print(context)
         
-        # Again we emulate sending the email
-
-        def retrieve_user_model():
-            return PatenmatchOrganization
-        
-        from emails.api.send_email import send_template_email
-
-        send_template_email(
-            "patenmatch-orga-forward-user",
+        send_email_background(
+            "patenmatch-orga-forward-user", 
             user_id=org.id, 
-            match_id=None, 
-            proposed_match_id=None,
-            emulated_send=False,
-            context=context,
-            retrieve_user_model=retrieve_user_model
+            patenmatch=True, 
+            patenmatch_org=True, 
+            context=context
         )
+        # TODO: check the email content asure that it contains all the user info
+        
+        
