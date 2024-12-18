@@ -153,7 +153,7 @@ class UserFilter(filters.FilterSet):
     state__company = filters.ChoiceFilter(field_name="state__company", choices=[("null", None), ("accenture", "accenture")], help_text="Filter for users that are part of a company")
 
     list = filters.ChoiceFilter(field_name="list", choices=[(entry.name, entry.description) for entry in FILTER_LISTS], method="filter_list", help_text="Filter for users that are part of a list")
-
+    
     order_by = filters.OrderingFilter(
         fields=(
             ("date_joined", "date_joined"),
@@ -168,7 +168,7 @@ class UserFilter(filters.FilterSet):
 
     def filter_search(self, queryset, name, value):
         return queryset.filter(Q(hash__icontains=value) | Q(profile__first_name__icontains=value) | Q(profile__second_name__icontains=value) | Q(email__icontains=value))
-
+    
     def filter_list(self, queryset, name, value):
         selected_filter = next(filter(lambda entry: entry.name == value, FILTER_LISTS))
         if selected_filter.queryset:

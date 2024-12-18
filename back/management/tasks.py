@@ -478,7 +478,8 @@ def send_email_background(
         match_id=None, 
         proposed_match_id=None, 
         context={},
-        patenmatch=False
+        patenmatch=False,
+        patenmatch_org=False
     ):
     from emails.api.send_email import send_template_email
     
@@ -493,8 +494,9 @@ def send_email_background(
         )
     else:
         from patenmatch.models import PatenmatchUser
+        from patenmatch.models import PatenmatchOrganization
         def retrieve_user_model():
-            return PatenmatchUser
+            return PatenmatchOrganization if patenmatch_org else PatenmatchUser
 
         send_template_email(
             template_name,
