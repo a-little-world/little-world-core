@@ -10,6 +10,7 @@ from patenmatch.matching import find_organization_match
 from rest_framework.response import Response
 import pgeocode
 from rest_framework.filters import OrderingFilter
+from management.tasks import send_email_background
 
 
 class PatenmatchUserSerializer(serializers.ModelSerializer):
@@ -100,6 +101,7 @@ class PatenmatchUserViewSet(viewsets.ModelViewSet):
         
     @action(detail=False, methods=["get"])
     def verify_email(self, request, pk=None):
+        # Also full-fills the actual matching request
         
         uuid = request.query_params.get("uuid", None)
         token = request.query_params.get("token", None)
@@ -124,31 +126,30 @@ class PatenmatchUserViewSet(viewsets.ModelViewSet):
         # Try to find a fitting match
         match = find_organization_match(user)
         
-        if not (match is None):
-            from management.tasks import send_email_background
-            org = match
-            pt_user = user
-            # Match was found! => We send an email to the organization & we redirect the user to a 'success' page
-            context = {
-                "organization_name": org.name,
-                "patenmatch_first_name": pt_user.first_name,
-                "patenmatch_last_name": pt_user.last_name,
-                "patenmatch_email": pt_user.email,
-                "patenmatch_target_group_name": pt_user.support_for,
-                "patenmatch_postal_address": pt_user.postal_code,
-                "patenmatch_language": pt_user.spoken_languages or "Not set"
-            }
-            send_email_background.delay("patenmatch-orga-forward-user", user_id=org.id, patenmatch=True, context=context)
-        else:
-            # No match was found! => We do nothing, the user gets redirected to an error page
-            pass
-
-        # After the email verification the result of the request should be send to an email
+        if match is None:
+            # TODO: there is no sensical path for when users want to get anther organization match
+            return Response({
+                "status": "no-match-found",
+                "match": None
+            }, status=200)
         
-        # TODO: redirect to email autorized view
+        org = match
+        pt_user = user
+        # Match was found! => We send an email to the organization & we redirect the user to a 'success' page
+        context = {
+            "organization_name": org.name,
+            "patenmatch_first_name": pt_user.first_name,
+            "patenmatch_last_name": pt_user.last_name,
+            "patenmatch_email": pt_user.email,
+            "patenmatch_target_group_name": pt_user.support_for,
+            "patenmatch_postal_address": pt_user.postal_code,
+            "patenmatch_language": pt_user.spoken_languages or "Not set"
+        }
+        send_email_background.delay("patenmatch-orga-forward-user", user_id=org.id, patenmatch=True, patenmatch_org=True, context=context)
+
         return Response({
             "status": "ok",
-            "match": PatenmatchOrganizationSerializerCensored(match).data if match else None
+            "match": PatenmatchOrganizationSerializerCensored(match).data
         })
 
 
@@ -158,8 +159,6 @@ class PatenmatchUserViewSet(viewsets.ModelViewSet):
         
         # If the creation or anything else throw an error we will not get here
         # But all this is quite magical so in the future we might want to move this to an '@action' and do some more implicit logic
-        from management.tasks import send_email_background
-
         send_email_background.delay("patenmatch-signup", user_id=patenmatch_user.id, patenmatch=True)
         
         return res
