@@ -1,5 +1,5 @@
 from rest_framework.decorators import action
-from patenmatch.models import PatenmatchUser, PatenmatchOrganization
+from patenmatch.models import PatenmatchUser, PatenmatchOrganization, PatenmatchOrganizationUserMatching
 from rest_framework import routers, serializers, viewsets, permissions
 from translations import get_translation
 from django_filters import rest_framework as filters
@@ -115,7 +115,6 @@ class PatenmatchUserViewSet(viewsets.ModelViewSet):
             return Response({"error": "Invalid token"}, status=403)
         
         # Check if the email was already authenticated
-        
         if user.email_authenticated:
             # todo render proper error page
             return Response({"error": "Email already authenticated"}, status=400)
@@ -123,7 +122,17 @@ class PatenmatchUserViewSet(viewsets.ModelViewSet):
         user.email_authenticated = True
         user.save(update_fields=["email_authenticated"])
         
+        # path for users that have already been matched with an organization
+        # [NEW] this path didn't existin in the old patenmatch.de
+        user_org_matches = PatenmatchOrganizationUserMatching.objects.filter(user=user)
+        if user_org_matches.exists():
+            return Response({
+                "status": "already-matched", 
+                "match": PatenmatchOrganizationSerializerCensored(user_org_matches.first().organization).data
+            })
+        
         # Try to find a fitting match
+        # OR return the specific pre-requested organization
         match = find_organization_match(user)
         
         if match is None:
@@ -135,6 +144,11 @@ class PatenmatchUserViewSet(viewsets.ModelViewSet):
         
         org = match
         pt_user = user
+        
+        PatenmatchOrganizationUserMatching.objects.create(
+           organization=org,
+           user=pt_user
+        )
         # Match was found! => We send an email to the organization & we redirect the user to a 'success' page
         context = {
             "organization_name": org.name,
