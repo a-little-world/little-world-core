@@ -7,19 +7,22 @@ from uuid import uuid4
 # TODO: To re-establish the matching process we need to:
 # DONE 1. Create the new organizationUserMatching 
 # DONE don't expose non critical organization data!
+# DONE --> Update the api call in the frontend when the api is called on a pre-selected organization
+# DONE --> Fix contact form submission inside the components/organization/OrganizationContactModal.js Model :)
+# DONE 2. Add an API that allows the user to request matching with a specific organization
+# DONE (DIN'T EVER EXIST) 4. Implement "User Email": 'we forwarded your request to the patenmatch organization'
 
-# TODO: write a test
-# 2. Add an API that allows the user to request matching with a specific organization
-# --> Update the api call in the frontend when the api is called on a pre-selected organization
-# --> Fix contact form submission inside the components/organization/OrganizationContactModal.js Model :)
-# 3. Implement "OrgaEmail: 'we found a candidate for you'"
-# 4. Implement "User Email": 'we forwarded your request to the patenmatch organization'
+
+# 1. register 'patenmatch.de' with sendgrid and use it as our email sender id
+# 2. Implement Email "UserEmail": 'verify your email and then you will receive a match'
+# 3. Implement Email "OrgaEmail: 'we found a candidate for you'"
 # 5. Implement Email "Did the organization contact you?"
 # 6. Implement API to anser 'YES/NO' did the organization contact you?
 
+
+# TODO: write a test
 # Missing Emails:
 # - confirm_email ( adjust signup email )
-# - match result
 # - qa orga ( when user responded after 4 weeks that the org didn't contact them)
 # - qa request user ( ask the user if he was contacted by the orga )
 
@@ -50,6 +53,9 @@ class PatenmatchUser(models.Model):
     def get_matched_organizations(self):
         return PatenmatchOrganization.objects.filter(matched_users__id=self.id)
     
+    def get_verification_view_url(self):
+        return "/en/verify/" + str(self.uuid) + "/" + self.email_auth_hash + "/"
+    
     def get_verification_url(self):
         return f"/api/patenmatch/user/verify_email?uuid={self.uuid}&token={self.email_auth_hash}"
     
@@ -74,3 +80,7 @@ class PatenmatchOrganization(models.Model):
     matched_users = models.ManyToManyField(PatenmatchUser, blank=True)
     metadata = models.JSONField(blank=True, default=dict)
     status_access_token = models.CharField(default=uuid4, max_length=255)
+    
+    @property
+    def email(self):
+        return self.contact_email

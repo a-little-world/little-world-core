@@ -1,22 +1,39 @@
 from django.test import TestCase
 from rest_framework.test import APIRequestFactory
 from patenmatch.api import PatenmatchUserViewSet
-from patenmatch.models import PatenmatchUser
+from patenmatch.models import PatenmatchUser, PatenmatchOrganization
 from emails.models import EmailLog
+import json
 import time
 
 
 # 'COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml exec backend sh -c "python3 manage.py test patenmatch.tests"'
 class PatenmatchTests(TestCase):
-    def test_register_patenmatch_user(self):
-        factory = APIRequestFactory(enforce_csrf_checks=True)
+
+    def test_patenmatch_matching_flow(self):
+        # 1 - first we create an org, such that we can later match a user to it
+        factory = APIRequestFactory(enforce_csrf_checks=False)
+        
+        org = PatenmatchOrganization.objects.create(
+            name ="Cool Org",
+            postal_code=12345,
+            contact_first_name="Cool Contact",
+            contact_second_name="Cool Contact",
+            contact_email="herrduenschnlate+pt-contact@gmail.com",
+            contact_phone="123234",
+            maximum_distance=100,
+            capacity=2,
+            target_groups="family,child"
+        )
+
         request = factory.post(
             "/api/patenmatch/user/",
-            {"email": "herrduenschnlate+test1@gmail.com",
+            {
+                "email": "herrduenschnlate+test1@gmail.com",
                 "first_name": "Test",
                 "last_name": "Test",
-                "postal_code": "12345",
-                "support_for": "individual",
+                "postal_code": 12345,
+                "support_for": "family",
                 "spoken_languages": "de,en",
                 # "request_specific_organization": None
             },
@@ -41,3 +58,45 @@ class PatenmatchTests(TestCase):
         log = EmailLog.objects.filter(template="patenmatch-signup").first()
 
         print(log.data["params"])
+        
+        verification_link = log.data["params"]["patenmatch_email_verification_url"]
+        request = factory.get(verification_link)
+        response = PatenmatchUserViewSet.as_view({"get": "verify_email"})(request)
+        
+        json_response = response.render().content.decode("utf-8")
+        parsed_response = json.loads(json_response)
+        print(parsed_response)
+        assert parsed_response["match"] is not None
+        match = parsed_response["match"]
+        self.assertEqual(response.status_code, 200)
+        
+        org = PatenmatchOrganization.objects.get(id=int(match["id"]))
+        
+        context = {
+            "organization_name": org.name,
+            "patenmatch_first_name": pt_user.first_name,
+            "patenmatch_last_name": pt_user.last_name,
+            "patenmatch_email": pt_user.email,
+            "patenmatch_target_group_name": pt_user.support_for,
+            "patenmatch_postal_address": pt_user.postal_code,
+            "patenmatch_language": pt_user.spoken_languages or "Not set"
+        }
+        
+        print(context)
+        
+        # Again we emulate sending the email
+
+        def retrieve_user_model():
+            return PatenmatchOrganization
+        
+        from emails.api.send_email import send_template_email
+
+        send_template_email(
+            "patenmatch-orga-forward-user",
+            user_id=org.id, 
+            match_id=None, 
+            proposed_match_id=None,
+            emulated_send=False,
+            context=context,
+            retrieve_user_model=retrieve_user_model
+        )
