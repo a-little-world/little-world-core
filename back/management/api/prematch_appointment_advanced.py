@@ -33,7 +33,6 @@ class PreMatchingAppointmentFilter(filters.FilterSet):
 
     list = filters.DateTimeFilter(
         field_name="start_time",
-        lookup_expr="date",
     )
 
     order_by = filters.OrderingFilter(
@@ -98,7 +97,7 @@ class PreMatchingAppointmentViewSet(viewsets.ModelViewSet):
 
         filter_lists = []
         for start_time in start_times:
-            filter_lists.append(FilterListEntry(name=str(start_time), description=start_time, queryset=lambda qs: qs.filter(start_time=start_time)).to_dict())
+            filter_lists.append(FilterListEntry(name=str(start_time), description=str(start_time), queryset=lambda qs: qs.filter(start_time=start_time)).to_dict())
 
         return Response({"filters": _filters, "lists": filter_lists})
 
