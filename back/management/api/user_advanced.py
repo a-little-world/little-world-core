@@ -5,6 +5,7 @@ from django.db.models import Q
 from django.conf import settings
 from management.controller import delete_user, make_tim_support_user
 from management.twilio_handler import _get_client
+from django.utils.dateparse import parse_datetime
 from emails.models import EmailLog, AdvancedEmailLogSerializer
 from django.urls import path
 from django_filters import rest_framework as filters
@@ -627,7 +628,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         # check also if the date has the correct format
         try:
-            appointment_date = datetime.strptime(appointment_date, "%Y-%m-%dT%H:%M:%SZ")
+            appointment_date = parse_datetime(appointment_date)
         except ValueError:
             return Response(
                 {"error": "appointment_date has the wrong format. Use YYYY-MM-DDTHH:MM:SSZ"},
