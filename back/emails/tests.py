@@ -3,6 +3,8 @@ from management.tests.helpers import register_user
 from emails.api.emails_config import EMAILS_CONFIG
 from emails.api.render_template import get_full_template_info, render_template_dynamic_lookup
 from management.controller import match_users, create_user_matching_proposal
+from management.models.pre_matching_appointment import PreMatchingAppointment
+from datetime import datetime
 
 
 class EmailTests(TestCase):
@@ -11,6 +13,9 @@ class EmailTests(TestCase):
         u1 = register_user()
         u2 = register_user()
         u3 = register_user()
+
+        start_date = datetime(2024, 10, 9, 23, 55, 59, 342380)
+        PreMatchingAppointment.objects.create(user=u1, start_time=start_date, end_time=start_date)
 
         match = match_users({u1, u2})
         proposal = create_user_matching_proposal({u1, u3}, send_confirm_match_email=False)

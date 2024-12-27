@@ -1,57 +1,73 @@
 from django.conf import settings
 from django.utils import timezone
 from patenmatch.models import PatenmatchUser
+import urllib.parse
+from management.models.pre_matching_appointment import PreMatchingAppointment
 
 def first_name(user):
     return user.profile.first_name
+
 
 def partner_first_name(user, match):
     assert (user == match.user1) or (user == match.user2)
     partner = match.get_partner(user)
     return partner.profile.first_name
 
+
 def partner_profile_url(user, match):
     assert (user == match.user1) or (user == match.user2)
     partner = match.get_partner(user)
     return f"{settings.BASE_URL}/app/profile/{partner.hash}"
 
+
 def verification_code(user):
     return user.state.email_auth_pin
+
 
 def restart_search_url(user):
     return f"{settings.BASE_URL}/app"
 
+
 def verification_url(user):
     return f"{settings.BASE_URL}/mailverify_link/{user.state.get_email_auth_code_b64()}"
+
 
 def accept_match_url(user, proposed_match=None):
     assert (user == proposed_match.user1) or (user == proposed_match.user2)
     return f"{settings.BASE_URL}/login?next=/app/"
+
 
 def proposed_match_first_name(user, proposed_match=None):
     assert (user == proposed_match.user1) or (user == proposed_match.user2)
     partner = proposed_match.get_partner(user)
     return partner.profile.first_name
 
+
 def reset_password_url(user=None, match=None, context={"reset_password_url": "Not set"}):
     return context["reset_password_url"]
+
 
 def confirm_in_contact_url(user, match):
     assert (user == match.user1) or (user == match.user2)
     # TODO: correct link
     return f"{settings.BASE_URL}/login?next=/app/"
 
+
 def user_form_url(user):
     return f"{settings.BASE_URL}/app/user-form/"
+
 
 def messages_url(user):
     return f"{settings.BASE_URL}/app/chat/"
 
+
 def link_url(user=None, match=None, context={"link_url": "Not set"}):
     return context["link_url"]
 
+
 def unsubscribe_url(user):
     return f"{settings.BASE_URL}/email-preferences/{user.settings.email_settings.hash}/"
+
 
 def date():
     return str(timezone.now())
@@ -98,3 +114,24 @@ def patenmatch_language(user=None, context={"patenmatch_language": None}):
         return context["patenmatch_language"]
     assert isinstance(user, PatenmatchUser)
     return user.spoken_languages
+
+
+def prematching_datetime(user, context={"appointment": None}):
+    if context["appointment"] is None:
+        appointment = PreMatchingAppointment.objects.filter(user=user).first()
+    else:
+        appointment = context["appointment"]
+    return appointment.start_time.strftime("%d.%m.%Y um %H:%M Uhr")
+
+
+def prematching_booking_link(user):
+    return "https://cal.com/" + "{calcom_meeting_id}?{encoded_params}".format(
+        encoded_params=urllib.parse.urlencode(
+            {
+                "email": str(user.email),
+                "hash": str(user.hash),
+                "bookingcode": str(user.state.prematch_booking_code),
+            }
+        ),
+        calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID,
+    )
