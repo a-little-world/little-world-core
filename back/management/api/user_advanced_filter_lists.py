@@ -291,11 +291,11 @@ FILTER_LISTS = PANEL_V1_FILTER_LISTS + USER_JOURNEY_FILTER_LISTS
 
 
 def get_dynamic_userlists() -> List[FilterListEntry]:
-    return [FilterListEntry(":dyn:" + str(dyn_user_list.name), dyn_user_list.name, dynamic_userlist_filter) for dyn_user_list in DynamicUserList.objects.all()]
+    return [FilterListEntry(":dyn:" + str(dyn_user_list.id), dyn_user_list.name, dynamic_userlist_filter) for dyn_user_list in DynamicUserList.objects.all()]
 
 
 def get_list_by_name(name):
-    for element in FILTER_LISTS:
+    for element in FILTER_LISTS + get_dynamic_userlists():
         if element.name == name:
             return element
     return None

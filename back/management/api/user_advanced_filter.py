@@ -14,9 +14,9 @@ from management import controller
 
 
 def dynamic_userlist_filter(qs=User.objects.all(), *argv):
-    filter_name = argv[0]
+    dynamic_user_list_id = argv[0]
 
-    return qs & DynamicUserList.objects.get(name=filter_name.split(":dyn:")[1]).users.all()
+    return qs & DynamicUserList.objects.get(id=dynamic_user_list_id.split(":dyn:")[1]).users.all()
 
 
 def three_weeks_ago():
