@@ -57,6 +57,17 @@ for frontend in main_frontend admin_panel_frontend cookie_banner_frontend; do to
 COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml up
 ```
 
+To also use the `patenmatch` frontend run:
+
+```bash
+COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml build patenmatch
+COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml up patenmatch
+
+# OR for all-in-one:
+
+COMPOSE_PROFILES=all-pt docker compose -f docker-compose.dev.yaml up
+```
+
 Once you have run `docker compose up` with the `=all` flag at least once you can also run only specific frontends with auto-update:
 
 e.g.:
