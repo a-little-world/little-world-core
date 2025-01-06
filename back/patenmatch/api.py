@@ -52,7 +52,6 @@ class PatenmatchOrganizationSerializerCensored(PatenmatchOrganizationSerializer)
 class PatenmatchOrganizationFilter(filters.FilterSet):
     postal_code = filters.CharFilter(method="filter_postal_code")
     target_groups = filters.CharFilter(method="filter_target_groups")
-    pg_instance = pgeocode.GeoDistance("DE")
 
     class Meta:
         model = PatenmatchOrganization
@@ -66,11 +65,15 @@ class PatenmatchOrganizationFilter(filters.FilterSet):
 
     def filter_postal_code(self, queryset, name, value):
         matching_ids = []
+        
+        # Moved inside function cause apparently 'pgeocode' performe a web request
+        # this can stall the app startup if developing offline
+        pg_instance = pgeocode.GeoDistance("DE")
 
         for entry in queryset:
             postal_codes_org = entry.postal_code.replace(" ", "").split(",")
             for pco in postal_codes_org:
-                if self.pg_instance.query_postal_code(value, pco) <= entry.maximum_distance:
+                if pg_instance.query_postal_code(value, pco) <= entry.maximum_distance:
                     matching_ids.append(entry.id)
                     break
 

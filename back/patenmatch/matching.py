@@ -8,13 +8,12 @@ MAX_CAPACITY = 5
 MIN_CAPACITY = 1
 CAPACITY_WEIGHT = 1.0
 DISTANCE_WEIGHT = 10.0
-DIST = pgeocode.GeoDistance('de')
-NOMI = pgeocode.Nominatim('de')
 
 def get_coordinates(postal_code: str) -> Optional[Tuple[float, float]]:
     """Get latitude and longitude from postal code."""
     try:
-        location = NOMI.query_postal_code(postal_code)
+        nomi = pgeocode.Nominatim('de')
+        location = nomi.query_postal_code(postal_code)
         if not location.empty and location['latitude'] and location['longitude']:
             return location['latitude'], location['longitude']
         return None
@@ -24,7 +23,9 @@ def get_coordinates(postal_code: str) -> Optional[Tuple[float, float]]:
 def calculate_distance_score(user_postal: str, org_postal: str, max_distance: float) -> float:
     """Calculate normalized distance score (0 to 1)."""
     try:
-        distance = DIST.query_postal_code(user_postal, org_postal)
+        # here 'pgeocode' performs a web request apparently TODO why does it do that?
+        dist = pgeocode.GeoDistance('de')
+        distance = dist.query_postal_code(user_postal, org_postal)
         if distance is None:
             return 0.0
         
