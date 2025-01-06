@@ -112,9 +112,9 @@ services:
     ports:
       - "3000:3000"
     build:
-      context: ./patenmatch
+      context: ./front/apps/patenmatch
       dockerfile: ./Dockerfile.dev
     volumes:
-      - ./patenmatch:/app
+      - ./front/apps/patenmatch:/app
     extra_hosts:
       - "host.docker.internal:host-gateway"
