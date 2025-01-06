@@ -175,7 +175,7 @@ def check_prematch_email_reminders_and_expirations():
     for unclosed in all_unclosed_unconfirmed:
         if unclosed.is_expired(close_if_expired=True, send_mail_if_expired=True):
             # Now we have to set the learner to unresponsive = True and to searching = IDLE
-            unclosed.learner_when_created.state.searching = State.SearchingStateChoices.IDLE
+            unclosed.learner_when_created.state.searching_state = State.SearchingStateChoices.IDLE
             unclosed.learner_when_created.state.unresponsive = True
             unclosed.learner_when_created.state.save()
             continue
