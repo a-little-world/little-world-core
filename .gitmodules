@@ -10,6 +10,3 @@
 [submodule "front/apps/admin_panel_frontend"]
 	path = front/apps/admin_panel_frontend
 	url = https://github.com/a-little-world/little-world-admin-panel
-[submodule "patenmatch"]
-	path = patenmatch
-	url = https://github.com/a-little-world/little-world-patenmatch-frontend.git
