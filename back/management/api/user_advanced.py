@@ -248,7 +248,7 @@ class UserFilter(filters.FilterSet):
 
     list = filters.ChoiceFilter(
         field_name="list",
-        choices=[(entry.name, entry.description) for entry in FILTER_LISTS + get_dynamic_userlists()],
+        choices=[(entry.name, entry.description) for entry in FILTER_LISTS],
         method="filter_list",
         help_text="Filter for users that are part of a list",
     )

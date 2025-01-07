@@ -44,7 +44,11 @@ class State(models.Model):
         FILLED = "filled", _("Filled user form")
 
     """ If the user_form ist filled or not """
-    user_form_state = models.CharField(choices=UserFormStateChoices.choices, default=UserFormStateChoices.UNFILLED, max_length=255)
+    user_form_state = models.CharField(
+        choices=UserFormStateChoices.choices,
+        default=UserFormStateChoices.UNFILLED,
+        max_length=255,
+    )
 
     # Just some hash for verifying the email
     email_auth_hash = models.CharField(default=utils._double_uuid, max_length=255)
@@ -83,10 +87,17 @@ class State(models.Model):
         """
 
         IDLE = "idle", get_translation("models.state.searching_state.idle")
-        SEARCHING = "searching", get_translation("models.state.searching_state.searching")
+        SEARCHING = (
+            "searching",
+            get_translation("models.state.searching_state.searching"),
+        )
 
-    searching_state = models.CharField(choices=SearchingStateChoices.choices, default=SearchingStateChoices.IDLE, max_length=255)
-    searching_state_last_updated = models.DateTimeField(default=timezone.now())
+    searching_state = models.CharField(
+        choices=SearchingStateChoices.choices,
+        default=SearchingStateChoices.IDLE,
+        max_length=255,
+    )
+    searching_state_last_updated = models.DateTimeField(auto_now=timezone.now)
     prematch_booking_code = models.CharField(max_length=255, default=uuid.uuid4)
 
     """
@@ -110,7 +121,11 @@ class State(models.Model):
         LEGIT = "legit", _("Legit")
         TEST = "test", _("Test")
 
-    user_category = models.CharField(choices=UserCategoryChoices.choices, default=UserCategoryChoices.UNDEFINED, max_length=255)
+    user_category = models.CharField(
+        choices=UserCategoryChoices.choices,
+        default=UserCategoryChoices.UNDEFINED,
+        max_length=255,
+    )
 
     # Stores a users past emails ...
     past_emails = models.JSONField(blank=True, default=list)
@@ -119,16 +134,33 @@ class State(models.Model):
 
     class ExtraUserPermissionChoices(models.TextChoices):
         API_SCHEMAS = "view-api-schema", _("Is allowed to view API schemas")
-        DATABASE_SCHEMA = "view-database-schema", _("Is allowed to view database schemas")
-        AUTO_LOGIN = "use-autologin-api", _("Is allowed to use the auto login api (with a specific token)")
+        DATABASE_SCHEMA = (
+            "view-database-schema",
+            _("Is allowed to view database schemas"),
+        )
+        AUTO_LOGIN = (
+            "use-autologin-api",
+            _("Is allowed to use the auto login api (with a specific token)"),
+        )
         DOCS_VIEW = "view-docs", _("Is allowed to view the docs")
-        EMAIL_TEMPLATES_VIEW = "view-email-templates", _("Is allowed to view the email templates")
+        EMAIL_TEMPLATES_VIEW = (
+            "view-email-templates",
+            _("Is allowed to view the email templates"),
+        )
         STATS_VIEW = "view-stats", _("Is allowed to view the stats")
 
         MATCHING_USER = "matching-user", _("Is allowed to match users")
-        UNCENSORED_ADMIN_MATCHER = "uncensored-admin-matcher", _("Is allowed to match users without censorship")
+        UNCENSORED_ADMIN_MATCHER = (
+            "uncensored-admin-matcher",
+            _("Is allowed to match users without censorship"),
+        )
 
-    extra_user_permissions = MultiSelectField(max_length=8000, choices=ExtraUserPermissionChoices.choices, null=True, blank=True)
+    extra_user_permissions = MultiSelectField(
+        max_length=8000,
+        choices=ExtraUserPermissionChoices.choices,
+        null=True,
+        blank=True,
+    )
 
     # This is basicly a list of all users that user manages
     managed_users = models.ManyToManyField("management.User", related_name="managed_users_by", blank=True)
@@ -137,18 +169,48 @@ class State(models.Model):
 
     class TagChoices(models.TextChoices):
         SPAM = "state.tags-spam", "state.tags-spam"
-        WRONG_LANG_LEVEL = "state.tags-wrong-language-level", "state.tags-wrong-language-level"
+        WRONG_LANG_LEVEL = (
+            "state.tags-wrong-language-level",
+            "state.tags-wrong-language-level",
+        )
         NAME_NOT_CORRECT = "state.tags-name-not-correct", "state.tags-name-not-correct"
-        DESCRIPTION_LANG_WRONG = "state.tags-description-lang-wrong", "state.tags-description-lang-wrong"
-        LANGUAGE_LEVEL_TO_LOW_OR_UNCERTAIN = "state.tags-language-level-to-low-or-uncertain", "state.tags-language-level-to-low-or-uncertain"
+        DESCRIPTION_LANG_WRONG = (
+            "state.tags-description-lang-wrong",
+            "state.tags-description-lang-wrong",
+        )
+        LANGUAGE_LEVEL_TO_LOW_OR_UNCERTAIN = (
+            "state.tags-language-level-to-low-or-uncertain",
+            "state.tags-language-level-to-low-or-uncertain",
+        )
         TOO_YUNG = "state.tags-too-young", "state.tags-too-young"
-        DOESNT_AWNSER_MATCH = "state.tags-doesnt-awnser-match", "state.tags-doesnt-awnser-match"
-        POSTAL_CODE_INVALID = "state.tags-postal-code-invalid", "state.tags-postal-code-invalid"
-        WANTS_TO_LEARN_OTHER_LANGUAGE = "state.tags-wants-to-learn-other-language", "state.tags-wants-to-learn-other-language"
-        REQUESTED_TO_BE_DELETED = "state.tags-requested-to-be-deleted", "state.tags-requested-to-be-deleted"
-        UNCERTAIN_IF_VOL_OR_LEARNER = "state.tags-uncertain-if-vol-or-learner", "state.tags-uncertain-if-vol-or-learner"
+        DOESNT_AWNSER_MATCH = (
+            "state.tags-doesnt-awnser-match",
+            "state.tags-doesnt-awnser-match",
+        )
+        POSTAL_CODE_INVALID = (
+            "state.tags-postal-code-invalid",
+            "state.tags-postal-code-invalid",
+        )
+        WANTS_TO_LEARN_OTHER_LANGUAGE = (
+            "state.tags-wants-to-learn-other-language",
+            "state.tags-wants-to-learn-other-language",
+        )
+        REQUESTED_TO_BE_DELETED = (
+            "state.tags-requested-to-be-deleted",
+            "state.tags-requested-to-be-deleted",
+        )
+        UNCERTAIN_IF_VOL_OR_LEARNER = (
+            "state.tags-uncertain-if-vol-or-learner",
+            "state.tags-uncertain-if-vol-or-learner",
+        )
 
-    tags = MultiSelectField(choices=TagChoices.choices, max_choices=20, max_length=1000, blank=True, null=True)  # type: ignore
+    tags = MultiSelectField(
+        choices=TagChoices.choices,
+        max_choices=20,
+        max_length=1000,
+        blank=True,
+        null=True,
+    )  # type: ignore
 
     management_tasks = models.ManyToManyField(MangementTask, related_name="management_tasks", blank=True)
 
@@ -163,7 +225,7 @@ class State(models.Model):
             original = State.objects.get(pk=self.pk)
             if original.searching_state != self.searching_state:
                 self.searching_state_last_updated = timezone.now()
-        
+
         super().save(*args, **kwargs)
 
     def has_extra_user_permission(self, permission):
@@ -246,7 +308,20 @@ class State(models.Model):
         return _check
 
     def get_email_auth_code_b64(self):
-        return base64.urlsafe_b64encode(zlib.compress(bytes(json.dumps({"u": self.user.hash, "h": self.email_auth_hash, "p": self.email_auth_pin}), "utf-8"))).decode()
+        return base64.urlsafe_b64encode(
+            zlib.compress(
+                bytes(
+                    json.dumps(
+                        {
+                            "u": self.user.hash,
+                            "h": self.email_auth_hash,
+                            "p": self.email_auth_pin,
+                        }
+                    ),
+                    "utf-8",
+                )
+            )
+        ).decode()
 
     @classmethod
     def decode_email_auth_code_b64(cls, str_b64):
