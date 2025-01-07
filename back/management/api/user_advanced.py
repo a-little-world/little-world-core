@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import viewsets
 from django.db.models import Q
 from django.conf import settings
+from management.models.dynamic_user_list import DynamicUserList
 from management.controller import delete_user, make_tim_support_user
 from management.twilio_handler import _get_client
 from emails.models import EmailLog, AdvancedEmailLogSerializer
@@ -268,17 +269,18 @@ class UserFilter(filters.FilterSet):
         return queryset.filter(Q(hash__icontains=value) | Q(profile__first_name__icontains=value) | Q(profile__second_name__icontains=value) | Q(email__icontains=value))
 
     def filter_list(self, queryset, name, value):
+        if ":dyn:" in value:
+            queryset = queryset & DynamicUserList.objects.get(id=value.split(":dyn:")[1]).users.all()
+            return queryset
+
         selected_filter = next(
             filter(
                 lambda entry: entry.name == value,
-                FILTER_LISTS + get_dynamic_userlists(),
+                FILTER_LISTS,
             )
         )
         if selected_filter.queryset:
-            if ":dyn:" in value:
-                return selected_filter.queryset(queryset, value)
-            else:
-                return selected_filter.queryset(queryset)
+            return selected_filter.queryset(queryset)
         else:
             return queryset
 

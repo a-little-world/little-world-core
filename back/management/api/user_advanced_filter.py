@@ -1,7 +1,6 @@
 from datetime import timedelta
 from django.utils import timezone
 from django.db.models import Q, Subquery, OuterRef, Count, F
-from management.models.dynamic_user_list import DynamicUserList
 from management.models.unconfirmed_matches import ProposedMatch
 from management.models.state import State
 from management.models.user import User
@@ -11,12 +10,6 @@ from management.models.pre_matching_appointment import PreMatchingAppointment
 from chat.models import Message, Chat
 from management.models.matches import Match
 from management import controller
-
-
-def dynamic_userlist_filter(qs=User.objects.all(), *argv):
-    dynamic_user_list_id = argv[0]
-
-    return qs & DynamicUserList.objects.get(id=dynamic_user_list_id.split(":dyn:")[1]).users.all()
 
 
 def three_weeks_ago():

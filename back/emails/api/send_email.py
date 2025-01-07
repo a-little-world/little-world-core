@@ -10,8 +10,6 @@ from django.core.mail import EmailMessage
 from emails.api.emails_config import EMAILS_CONFIG
 from django.contrib.auth import get_user_model
 from django.template import Template, Context
-from management.models.dynamic_user_list import DynamicUserList
-from rest_framework import status
 
 
 class SendEmailSerializer(serializers.Serializer):
@@ -113,46 +111,9 @@ def send_template_email_api(request, template_name):
     )
 
 
-@extend_schema(
-    request=SendEmailDynamicUserListSerializer,
-)
-@api_view(["POST"])
-@permission_classes([IsAdminOrMatchingUser])
-def send_template_email_dynamic_userlist_api_wrapper(request, template_name):
-    serializer = SendEmailDynamicUserListSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-
-    userlist_id = serializer.data["dynamic_user_list_id"]
-
-    userlist = DynamicUserList.objects.get(id=userlist_id)
-
-    if userlist is None:
-        return Response(
-            {"error": "No dynamic user list found for this id: " + str(userlist_id)},
-            status=status.HTTP_404_NOT_FOUND,
-        )
-
-    userlist_users = userlist.users.all()
-
-    for user in userlist_users:
-        send_template_email(
-            template_name,
-            user_id=user.id,
-            match_id=None,
-            proposed_match_id=None,
-            emulated_send=serializer.data.get("emulate_send", False),
-            context=serializer.data.get("context", {}),
-        )
-    return Response(data={}, status=status.HTTP_200_OK)
-
-
 api_urls = [
     path(
         "api/matching/emails/templates/<str:template_name>/send/",
         send_template_email_api,
-    ),
-    path(
-        "api/matching/emails/templates/<str:template_name>/send_dynamic_userlist/",
-        send_template_email_dynamic_userlist_api_wrapper,
     ),
 ]

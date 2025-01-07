@@ -18,7 +18,6 @@ from management.api.user_advanced_filter import (
     users_require_prematching_call_not_booked,
     get_volunteers_booked_onboarding_call_but_never_visited,
     only_hd_test_user,
-    dynamic_userlist_filter,
 )
 from management.api.user_journey_filters import (
     failed_matching,
@@ -291,7 +290,7 @@ FILTER_LISTS = PANEL_V1_FILTER_LISTS + USER_JOURNEY_FILTER_LISTS
 
 
 def get_dynamic_userlists() -> List[FilterListEntry]:
-    return [FilterListEntry(":dyn:" + str(dyn_user_list.id), dyn_user_list.name, dynamic_userlist_filter) for dyn_user_list in DynamicUserList.objects.all()]
+    return [FilterListEntry(":dyn:" + str(dyn_user_list.id), dyn_user_list.name) for dyn_user_list in DynamicUserList.objects.all()]
 
 
 def get_list_by_name(name):
