@@ -177,6 +177,14 @@
       "subject": "{{ first_name }} & Little World: Danke f\u00fcr die Teilnahme am Einf\u00fchrungsgespr\u00e4ch",
       "template": "react_emails/prematching-call-post-thanks.html",
       "theme": "little-world"
+    },
+    "patenmatch-matching-back-online": {
+      "id": "patenmatch-matching-back-online",
+      "sender_id": "info-patenmatch",
+      "category_id": "automated-patenmatch",
+      "subject": "Patenmatch.de Matching ist wieder online",
+      "template": "react_emails/patenmatch-matching-back-online.html",
+      "theme": "patenmatch"
     }
   },
   "senders": {
