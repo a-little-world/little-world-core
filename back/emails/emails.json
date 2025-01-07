@@ -146,33 +146,17 @@
       "template": "react_emails/babbel-precode-survey.html",
       "theme": "little-world"
     },
-    "patenmatch-example": {
-      "id": "patenmatch-example",
-      "sender_id": "noreply",
-      "category_id": "automated-patenmatch",
-      "subject": "Willkommen bei Patenmatch",
-      "template": "react_emails/patenmatch-example.html",
-      "theme": "patenmatch"
-    },
     "patenmatch-signup": {
       "id": "patenmatch-signup",
-      "sender_id": "noreply",
+      "sender_id": "info-patenmatch",
       "category_id": "automated-patenmatch",
       "subject": "Vielen Dank f\u00fcr deine Anmeldung bei Patenmatch",
       "template": "react_emails/patenmatch-signup.html",
       "theme": "patenmatch"
     },
-    "patenmatch-waiting": {
-      "id": "patenmatch-waiting",
-      "sender_id": "noreply",
-      "category_id": "automated-patenmatch",
-      "subject": "Wichtiges Update zu deiner Patenmatch-Anmeldung",
-      "template": "react_emails/patenmatch-waiting.html",
-      "theme": "patenmatch"
-    },
     "patenmatch-orga-forward-user": {
       "id": "patenmatch-orga-forward-user",
-      "sender_id": "noreply",
+      "sender_id": "info-patenmatch",
       "category_id": "automated-patenmatch",
       "subject": "Neue Mentee-Anfrage \u00fcber patenmatch.de",
       "template": "react_emails/patenmatch-orga-forward-user.html",
@@ -197,7 +181,7 @@
   },
   "senders": {
     "noreply": "\"Little World\" <noreply@little-world.com>",
-    "noreply-patenmatch": "\"Patenmatch\" <noreply@patenmatch.de>"
+    "info-patenmatch": "\"Patenmatch\" <info@patenmatch.de>"
   },
   "parameters": {
     "prematching_call_no_show_datetime": {
