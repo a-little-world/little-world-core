@@ -137,9 +137,9 @@ class PatenmatchUserViewSet(viewsets.ModelViewSet):
         # Try to find a fitting match
         # OR return the specific pre-requested organization
         match = find_organization_match(user)
-        
         if match is None:
             # TODO: there is no sensical path for when users want to get anther organization match
+            # but users may be asked to try again later
             return Response({
                 "status": "no-match-found",
                 "match": None

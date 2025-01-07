@@ -14,10 +14,8 @@ from uuid import uuid4
 
 
 # 1. register 'patenmatch.de' with sendgrid and use it as our email sender id
-# 2. Implement Email "UserEmail": 'verify your email and then you will receive a match'
-# 3. Implement Email "OrgaEmail: 'we found a candidate for you'"
-# 5. Implement Email "Did the organization contact you?"
-# 6. Implement API to anser 'YES/NO' did the organization contact you?
+# DONE 2. Implement Email "UserEmail": 'verify your email and then you will receive a match'
+# DONE 3. Implement Email "OrgaEmail: 'we found a candidate for you'"
 
 
 # DONE: write a test ( very basic )
@@ -25,6 +23,14 @@ from uuid import uuid4
 # - confirm_email ( adjust signup email )
 # - qa orga ( when user responded after 4 weeks that the org didn't contact them)
 # - qa request user ( ask the user if he was contacted by the orga )
+
+# Fixes:
+# - user email has wrong text on one button
+# - 'we forwarded your request is still missing'
+# - 'where you contacted? email missing'
+# - re-registering same email error just displayed as 'server error' in frontend
+# MISSING 5. Implement Email "Did the organization contact you?"
+# MISSING 6. Implement API to anser 'YES/NO' did the organization contact you?
 
 
 class SupportGroups(models.TextChoices):
@@ -64,6 +70,19 @@ class PatenmatchOrganizationUserMatching(models.Model):
     user = models.ForeignKey('PatenmatchUser', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    # email_send = models.BooleanField(default=False)
+    
+    @property
+    def match_user_name(self):
+        return f"{self.user.first_name} {self.user.last_name}"
+    
+    @property
+    def match_organization_name(self):
+        return self.organization.name
+    
+    @property
+    def match_organization_email(self):
+        return self.organization.contact_email
 
 class PatenmatchOrganization(models.Model):
     name = models.CharField(max_length=1024, blank=False)
@@ -80,6 +99,13 @@ class PatenmatchOrganization(models.Model):
     matched_users = models.ManyToManyField(PatenmatchUser, blank=True)
     metadata = models.JSONField(blank=True, default=dict)
     status_access_token = models.CharField(default=uuid4, max_length=255)
+    
+    @property
+    def list_matched_users(self):
+        data = ""
+        for user in self.matched_users.all():
+            data += f"{user.first_name} {user.last_name} (/admin/patenmatch/patenmatchuser/{user.pk}/change/)\n"
+        return data
     
     @property
     def email(self):
