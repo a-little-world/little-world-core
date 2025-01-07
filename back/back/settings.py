@@ -237,12 +237,14 @@ if IS_STAGE or IS_PROD:
 elif DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
     CSRF_TRUSTED_ORIGINS = ["https://*.github.dev"] + EXTRA_CSRF_ALLOWED_ORIGINS
+    CORS_ORIGIN_WHITELIST = ["https://*.github.dev"] + EXTRA_CORS_ALLOWED_ORIGINS
     CSRF_ORIGIN_ALLOW_ALL = True
 
-if IS_STAGE:
+if IS_STAGE or DEBUG:
     dev_origins = [
         "http://localhost",
         "https://localhost",
+        "http://localhost:3000",
         "https://localhost:3333",
         "http://localhost:3333",
     ]
@@ -250,10 +252,14 @@ if IS_STAGE:
     CORS_ALLOWED_ORIGINS += dev_origins
     CORS_ORIGIN_WHITELIST += dev_origins
     CSRF_TRUSTED_ORIGINS += dev_origins
+    ALLOWED_HOSTS += dev_origins
 
 if EMPHIRIAL:
     CORS_ALLOW_ALL_ORIGINS = True
-    CSRF_TRUSTED_ORIGINS = ["https://*.t1m.me"]
+    if len(CSRF_TRUSTED_ORIGINS) > 0:
+        CSRF_TRUSTED_ORIGINS += ["https://*.t1m.me"]
+    else:
+        CSRF_TRUSTED_ORIGINS = ["https://*.t1m.me"]
     CSRF_ORIGIN_ALLOW_ALL = True
 
 if not DEBUG:

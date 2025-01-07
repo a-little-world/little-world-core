@@ -268,7 +268,7 @@ class UserFilter(filters.FilterSet):
 
     def filter_search(self, queryset, name, value):
         return queryset.filter(Q(hash__icontains=value) | Q(profile__first_name__icontains=value) | Q(profile__second_name__icontains=value) | Q(email__icontains=value))
-
+    
     def filter_list(self, queryset, name, value):
         if ":dyn:" in value:
             queryset = queryset & DynamicUserList.objects.get(id=value.split(":dyn:")[1]).users.all()

@@ -1,6 +1,6 @@
 import csv
 import json
-from patenmatch.urls import PatenmatchOrganizationSerializer
+from patenmatch.api import PatenmatchOrganizationSerializer
 from patenmatch.models import SupportGroups
 from django.core.management.base import BaseCommand
 

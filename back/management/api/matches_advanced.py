@@ -39,8 +39,11 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
             else:
                 representation["status"] = "unconfirmed"
                 
-        if not instance.active:
-            representation["status"] = "reported_or_removed"
+        if hasattr(instance, "active"):
+            if not instance.active:
+                representation["status"] = "reported_or_removed"
+        else:
+            representation["status"] = "proposed"
         return representation
 
 

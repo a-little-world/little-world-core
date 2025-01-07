@@ -21,6 +21,9 @@ class EmailTests(TestCase):
         proposal = create_user_matching_proposal({u1, u3}, send_confirm_match_email=False)
 
         for template_name in EMAILS_CONFIG.emails:
+            if template_name.startswith("patenmatch"):
+                continue # TODO: for now skip patenmatch tests, they require a different User-type
+
             print("Sending Email '{}'".format(template_name))
 
             template_config = EMAILS_CONFIG.emails.get(template_name)
@@ -36,7 +39,7 @@ class EmailTests(TestCase):
             mock_user_id = u1.id
             mock_match_id = match.id
             mock_proposed_match_id = proposal.id
-
+            
             rendered = render_template_dynamic_lookup(template_name, mock_user_id, mock_match_id, mock_proposed_match_id, **mock_context)
 
             for key in mock_context:

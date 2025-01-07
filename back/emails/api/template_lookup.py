@@ -1,8 +1,8 @@
 from django.conf import settings
 from django.utils import timezone
+from patenmatch.models import PatenmatchUser
 import urllib.parse
 from management.models.pre_matching_appointment import PreMatchingAppointment
-
 
 def first_name(user):
     return user.profile.first_name
@@ -72,9 +72,48 @@ def unsubscribe_url(user):
 def date():
     return str(timezone.now())
 
+def patenmatch_email_verification_url(user):
+    assert isinstance(user, PatenmatchUser)
+    return user.get_verification_url()
 
-def patenmatch_first_name(user):
+def patenmatch_organization_name(user=None, context={"organization_name": "Not set"}):
+    return context["organization_name"]
+
+def patenmatch_first_name(user=None, context={"patenmatch_first_name": None}):
+    if context["patenmatch_first_name"] is not None:
+        return context["patenmatch_first_name"]
+    assert isinstance(user, PatenmatchUser)
     return user.first_name
+
+def patenmatch_last_name(user=None, context={"patenmatch_last_name": None}):
+    if context["patenmatch_last_name"] is not None:
+        return context["patenmatch_last_name"]
+    assert isinstance(user, PatenmatchUser)
+    return user.last_name
+
+def patenmatch_email(user=None, context={"patenmatch_email": None}):
+    if context["patenmatch_email"] is not None:
+        return context["patenmatch_email"]
+    assert isinstance(user, PatenmatchUser)
+    return user.email
+
+def patenmatch_target_group_name(user=None, context={"patenmatch_target_group_name": None}):
+    if context["patenmatch_target_group_name"] is not None:
+        return context["patenmatch_target_group_name"]
+    assert isinstance(user, PatenmatchUser)
+    return user.support_for
+
+def patenmatch_postal_address(user=None, context={"patenmatch_postal_address": None}):
+    if context["patenmatch_postal_address"] is not None:
+        return context["patenmatch_postal_address"]
+    assert isinstance(user, PatenmatchUser)
+    return user.postal_code
+
+def patenmatch_language(user=None, context={"patenmatch_language": None}):
+    if context["patenmatch_language"] is not None:
+        return context["patenmatch_language"]
+    assert isinstance(user, PatenmatchUser)
+    return user.spoken_languages
 
 
 def prematching_datetime(user, context={"appointment": None}):

@@ -248,6 +248,12 @@ class State(models.Model):
         assert slug in allowed_usr_change_search_states
         self.searching_state = slug
         self.save()
+        
+    def append_notes(self, message): 
+        if(not (self.notes is None)):
+            return self.notes + "\n{message}"
+        else:
+            return "\n{message}"
 
     def set_idle(self):
         self.searching_state = self.SearchingStateChoices.IDLE

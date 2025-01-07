@@ -146,20 +146,20 @@
       "template": "react_emails/babbel-precode-survey.html",
       "theme": "little-world"
     },
-    "patenmatch-example": {
-      "id": "patenmatch-example",
-      "sender_id": "noreply",
-      "category_id": "automated-patenmatch",
-      "subject": "Willkommen bei Patenmatch",
-      "template": "react_emails/patenmatch-example.html",
-      "theme": "patenmatch"
-    },
     "patenmatch-signup": {
       "id": "patenmatch-signup",
-      "sender_id": "noreply",
+      "sender_id": "info-patenmatch",
       "category_id": "automated-patenmatch",
       "subject": "Vielen Dank f\u00fcr deine Anmeldung bei Patenmatch",
       "template": "react_emails/patenmatch-signup.html",
+      "theme": "patenmatch"
+    },
+    "patenmatch-orga-forward-user": {
+      "id": "patenmatch-orga-forward-user",
+      "sender_id": "info-patenmatch",
+      "category_id": "automated-patenmatch",
+      "subject": "Neue Mentee-Anfrage \u00fcber patenmatch.de",
+      "template": "react_emails/patenmatch-orga-forward-user.html",
       "theme": "patenmatch"
     },
     "prematching-call-no-show": {
@@ -177,10 +177,19 @@
       "subject": "{{ first_name }} & Little World: Danke f\u00fcr die Teilnahme am Einf\u00fchrungsgespr\u00e4ch",
       "template": "react_emails/prematching-call-post-thanks.html",
       "theme": "little-world"
+    },
+    "patenmatch-matching-back-online": {
+      "id": "patenmatch-matching-back-online",
+      "sender_id": "info-patenmatch",
+      "category_id": "automated-patenmatch",
+      "subject": "Patenmatch.de Matching ist wieder online",
+      "template": "react_emails/patenmatch-matching-back-online.html",
+      "theme": "patenmatch"
     }
   },
   "senders": {
-    "noreply": "\"Little World\" <noreply@little-world.com>"
+    "noreply": "\"Little World\" <noreply@little-world.com>",
+    "info-patenmatch": "\"Patenmatch\" <info@patenmatch.de>"
   },
   "parameters": {
     "prematching_call_no_show_datetime": {
@@ -309,7 +318,63 @@
       "id": "patenmatch_first_name",
       "lookup": "emails.api.template_lookup.patenmatch_first_name",
       "depends_on": [
+        "user",
+        "context.patenmatch_first_name"
+      ]
+    },
+    "patenmatch_email_verification_url": {
+      "id": "patenmatch_email_verification_url",
+      "lookup": "emails.api.template_lookup.patenmatch_email_verification_url",
+      "depends_on": [
         "user"
+      ]
+    },
+    "patenmatch_organization_name": {
+      "id": "patenmatch_organization_name",
+      "lookup": "emails.api.template_lookup.patenmatch_organization_name",
+      "depends_on": [
+        "user",
+        "context.organization_name"
+      ]
+    },
+    "patenmatch_last_name": {
+      "id": "patenmatch_last_name",
+      "lookup": "emails.api.template_lookup.patenmatch_last_name",
+      "depends_on": [
+        "user",
+        "context.patenmatch_last_name"
+      ]
+    },
+    "patenmatch_email": {
+      "id": "patenmatch_email",
+      "lookup": "emails.api.template_lookup.patenmatch_email",
+      "depends_on": [
+        "user",
+        "context.patenmatch_email"
+      ]
+    },
+    "patenmatch_target_group_name": {
+      "id": "patenmatch_target_group_name",
+      "lookup": "emails.api.template_lookup.patenmatch_target_group_name",
+      "depends_on": [
+        "user",
+        "context.patenmatch_target_group_name"
+      ]
+    },
+    "patenmatch_postal_address": {
+      "id": "patenmatch_postal_address",
+      "lookup": "emails.api.template_lookup.patenmatch_postal_address",
+      "depends_on": [
+        "user",
+        "context.patenmatch_postal_address"
+      ]
+    },
+    "patenmatch_language": {
+      "id": "patenmatch_language",
+      "lookup": "emails.api.template_lookup.patenmatch_language",
+      "depends_on": [
+        "user",
+        "context.patenmatch_language"
       ]
     }
   },
