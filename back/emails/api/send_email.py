@@ -20,34 +20,52 @@ class SendEmailSerializer(serializers.Serializer):
     emulate_send = serializers.BooleanField(required=False, default=False)
 
 
-def send_template_email(
-        template_name, 
-        user_id=None, 
-        match_id=None,
-        proposed_match_id=None,
-        emulated_send=False, 
-        context={},
-        retrieve_user_model=get_user_model
-    ):
+class SendEmailDynamicUserListSerializer(serializers.Serializer):
+    dynamic_user_list_id = serializers.IntegerField(required=True)
+    context = serializers.DictField(required=False, default={})
+    emulate_send = serializers.BooleanField(required=False, default=False)
 
+
+def send_template_email(
+    template_name,
+    user_id=None,
+    match_id=None,
+    proposed_match_id=None,
+    emulated_send=False,
+    context={},
+    retrieve_user_model=get_user_model,
+):
     user = retrieve_user_model().objects.get(pk=user_id)
 
-    template_info, _context = prepare_template_context(template_name, user_id, match_id, proposed_match_id, retrieve_user_model=retrieve_user_model, **context)
+    template_info, _context = prepare_template_context(
+        template_name,
+        user_id,
+        match_id,
+        proposed_match_id,
+        retrieve_user_model=retrieve_user_model,
+        **context,
+    )
     email_html = render_template_to_html(template_info["config"]["template"], _context)
     subject = Template(template_info["config"]["subject"])
     subject = subject.render(Context(_context))
 
     from management.controller import get_base_management_user
-    
+
     # Such that it is also possible to send an email to a 'PatenmatchUser' object
     receiver = user if isinstance(user, get_user_model()) else None
 
     mail_log = EmailLog.objects.create(
-        log_version=1, 
-        sender=get_base_management_user(), 
+        log_version=1,
+        sender=get_base_management_user(),
         receiver=receiver,
-        template=template_name, 
-        data={"html": email_html, "params": _context, "user_id": user_id, "match_id": match_id, "subject": subject}
+        template=template_name,
+        data={
+            "html": email_html,
+            "params": _context,
+            "user_id": user_id,
+            "match_id": match_id,
+            "subject": subject,
+        },
     )
 
     try:
@@ -83,9 +101,19 @@ def send_template_email_api(request, template_name):
 
     match_id = None if serializer.data.get("match_id", -1) == -1 else serializer.data.get("match_id", None)
     proposed_match_id = None if serializer.data.get("proposed_match_id", None) is None else serializer.data.get("proposed_match_id", None)
-    return send_template_email(template_name, user_id=serializer.data["user_id"], match_id=match_id, proposed_match_id=proposed_match_id, emulated_send=serializer.data.get("emulate_send", False), context=serializer.data.get("context", {}))
+    return send_template_email(
+        template_name,
+        user_id=serializer.data["user_id"],
+        match_id=match_id,
+        proposed_match_id=proposed_match_id,
+        emulated_send=serializer.data.get("emulate_send", False),
+        context=serializer.data.get("context", {}),
+    )
 
 
 api_urls = [
-    path("api/matching/emails/templates/<str:template_name>/send/", send_template_email_api),
+    path(
+        "api/matching/emails/templates/<str:template_name>/send/",
+        send_template_email_api,
+    ),
 ]

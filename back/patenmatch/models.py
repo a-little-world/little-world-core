@@ -2,6 +2,35 @@ from django.db import models
 from translations import get_translation
 from management.validators import model_validate_first_name, model_validate_second_name
 from multiselectfield import MultiSelectField
+from uuid import uuid4
+
+# To re-establish the matching process we need to:
+# DONE 1. Create the new organizationUserMatching 
+# DONE don't expose non critical organization data!
+# DONE --> Update the api call in the frontend when the api is called on a pre-selected organization
+# DONE --> Fix contact form submission inside the components/organization/OrganizationContactModal.js Model :)
+# DONE 2. Add an API that allows the user to request matching with a specific organization
+# DONE (DIN'T EVER EXIST) 4. Implement "User Email": 'we forwarded your request to the patenmatch organization'
+
+
+# 1. register 'patenmatch.de' with sendgrid and use it as our email sender id
+# DONE 2. Implement Email "UserEmail": 'verify your email and then you will receive a match'
+# DONE 3. Implement Email "OrgaEmail: 'we found a candidate for you'"
+
+
+# DONE: write a test ( very basic )
+# Missing Emails:
+# - confirm_email ( adjust signup email )
+# - qa orga ( when user responded after 4 weeks that the org didn't contact them)
+# - qa request user ( ask the user if he was contacted by the orga )
+
+# Fixes:
+# - user email has wrong text on one button
+# - 'we forwarded your request is still missing'
+# - 'where you contacted? email missing'
+# - re-registering same email error just displayed as 'server error' in frontend
+# MISSING 5. Implement Email "Did the organization contact you?"
+# MISSING 6. Implement API to anser 'YES/NO' did the organization contact you?
 
 
 class SupportGroups(models.TextChoices):
@@ -13,7 +42,6 @@ class SupportGroups(models.TextChoices):
     STUDENT = "student", get_translation("patenmatch.supportgroups.student", lang="de")
     ERROR = "error", get_translation("patenmatch.supportgroups.error", lang="de")
 
-
 class PatenmatchUser(models.Model):
     first_name = models.CharField(max_length=150, blank=False, validators=[model_validate_first_name])
     last_name = models.CharField(max_length=150, blank=False, validators=[model_validate_second_name])
@@ -21,7 +49,40 @@ class PatenmatchUser(models.Model):
     email = models.EmailField(max_length=50)
     support_for = models.CharField(choices=SupportGroups.choices, max_length=255, blank=False, default=SupportGroups.INDIVIDUAL)
     created_at = models.DateTimeField(auto_now_add=True)
-
+    status_access_token = models.CharField(default=uuid4, max_length=255)
+    uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
+    email_auth_hash = models.CharField(default=uuid4, max_length=255)
+    email_authenticated = models.BooleanField(default=False)
+    spoken_languages = models.TextField(blank=True)
+    request_specific_organization = models.ForeignKey('PatenmatchOrganization', on_delete=models.CASCADE, blank=True, null=True, related_name='requested_by_users')
+    
+    def get_matched_organizations(self):
+        return PatenmatchOrganization.objects.filter(matched_users__id=self.id)
+    
+    def get_verification_view_url(self):
+        return "/en/verify/" + str(self.uuid) + "/" + self.email_auth_hash + "/"
+    
+    def get_verification_url(self):
+        return f"/api/patenmatch/user/verify_email?uuid={self.uuid}&token={self.email_auth_hash}"
+    
+class PatenmatchOrganizationUserMatching(models.Model):
+    organization = models.ForeignKey('PatenmatchOrganization', on_delete=models.CASCADE)
+    user = models.ForeignKey('PatenmatchUser', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    # email_send = models.BooleanField(default=False)
+    
+    @property
+    def match_user_name(self):
+        return f"{self.user.first_name} {self.user.last_name}"
+    
+    @property
+    def match_organization_name(self):
+        return self.organization.name
+    
+    @property
+    def match_organization_email(self):
+        return self.organization.contact_email
 
 class PatenmatchOrganization(models.Model):
     name = models.CharField(max_length=1024, blank=False)
@@ -37,3 +98,15 @@ class PatenmatchOrganization(models.Model):
     website_url = models.URLField(max_length=1024, blank=True)
     matched_users = models.ManyToManyField(PatenmatchUser, blank=True)
     metadata = models.JSONField(blank=True, default=dict)
+    status_access_token = models.CharField(default=uuid4, max_length=255)
+    
+    @property
+    def list_matched_users(self):
+        data = ""
+        for user in self.matched_users.all():
+            data += f"{user.first_name} {user.last_name} (/admin/patenmatch/patenmatchuser/{user.pk}/change/)\n"
+        return data
+    
+    @property
+    def email(self):
+        return self.contact_email

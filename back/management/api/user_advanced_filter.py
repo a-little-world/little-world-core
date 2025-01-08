@@ -19,16 +19,14 @@ def three_weeks_ago():
 def all_users(qs=User.objects.all()):
     return qs.order_by("-date_joined")
 
-def only_hd_test_user(qs=User.objects.all()):    
+
+def only_hd_test_user(qs=User.objects.all()):
     return qs.filter(email__startswith="herrduenschnlate")
+
 
 def needs_matching(qs=User.objects.all()):
     now = timezone.now()
-    users_with_open_proposals = ProposedMatch.objects.filter(
-        closed=False,
-        expires_at__gt=now, 
-        learner_when_created__isnull=False
-    ).values_list('user1', 'user2')
+    users_with_open_proposals = ProposedMatch.objects.filter(closed=False, expires_at__gt=now, learner_when_created__isnull=False).values_list("user1", "user2")
 
     users_w_open_proposals = set([id for pair in users_with_open_proposals for id in pair])
     users_w_open_proposals = qs.filter(id__in=users_w_open_proposals)
@@ -41,7 +39,8 @@ def needs_matching(qs=User.objects.all()):
             state__unresponsive=False,
             state__had_prematching_call=True,  # TODO: filter should only be applied, if require_prematching_call = True
             state__searching_state=State.SearchingStateChoices.SEARCHING,
-        ).exclude(id__in=users_w_open_proposals)
+        )
+        .exclude(id__in=users_w_open_proposals)
         .order_by("-date_joined")
     )
 
@@ -51,7 +50,12 @@ def needs_matching_volunteers(qs=User.objects.all()):
 
 
 def searching_users(qs=User.objects.all()):
-    return qs.filter(state__user_form_state=State.UserFormStateChoices.FILLED, state__email_authenticated=True, state__had_prematching_call=False, state__searching_state=State.SearchingStateChoices.SEARCHING).order_by("-date_joined")
+    return qs.filter(
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
+        state__had_prematching_call=False,
+        state__searching_state=State.SearchingStateChoices.SEARCHING,
+    ).order_by("-date_joined")
 
 
 def users_in_registration(qs=User.objects.all()):
@@ -82,7 +86,14 @@ def get_user_with_message_to_admin(qs=User.objects.all()):
     return qs.filter(id__in=Subquery(unread_senders_ids))
 
 
-def user_recent_activity(qs=None, recent_days=60, min_recent_messages=1, min_recent_calls=0, min_recent_both_active_calls=0, include_signups=True):
+def user_recent_activity(
+    qs=None,
+    recent_days=60,
+    min_recent_messages=1,
+    min_recent_calls=0,
+    min_recent_both_active_calls=0,
+    include_signups=True,
+):
     if qs is None:
         qs = User.objects.all()
 
@@ -91,12 +102,34 @@ def user_recent_activity(qs=None, recent_days=60, min_recent_messages=1, min_rec
     filtered_users = qs.filter(Q(u1_livekit_session__created_at__gte=cutoff_date) | Q(u2_livekit_session__created_at__gte=cutoff_date) | Q(message_sender__created__gte=cutoff_date)).distinct()
 
     filtered_users = filtered_users.annotate(
-        recent_calls_u1=Count("u1_livekit_session", filter=Q(u1_livekit_session__created_at__gte=cutoff_date)),
-        recent_calls_u2=Count("u2_livekit_session", filter=Q(u2_livekit_session__created_at__gte=cutoff_date)),
-        both_active_calls_u1=Count("u1_livekit_session", filter=Q(u1_livekit_session__created_at__gte=cutoff_date, u1_livekit_session__both_have_been_active=True)),
-        both_active_calls_u2=Count("u2_livekit_session", filter=Q(u2_livekit_session__created_at__gte=cutoff_date, u2_livekit_session__both_have_been_active=True)),
+        recent_calls_u1=Count(
+            "u1_livekit_session",
+            filter=Q(u1_livekit_session__created_at__gte=cutoff_date),
+        ),
+        recent_calls_u2=Count(
+            "u2_livekit_session",
+            filter=Q(u2_livekit_session__created_at__gte=cutoff_date),
+        ),
+        both_active_calls_u1=Count(
+            "u1_livekit_session",
+            filter=Q(
+                u1_livekit_session__created_at__gte=cutoff_date,
+                u1_livekit_session__both_have_been_active=True,
+            ),
+        ),
+        both_active_calls_u2=Count(
+            "u2_livekit_session",
+            filter=Q(
+                u2_livekit_session__created_at__gte=cutoff_date,
+                u2_livekit_session__both_have_been_active=True,
+            ),
+        ),
         recent_messages=Count("message_sender", filter=Q(message_sender__created__gte=cutoff_date)),
-    ).filter(Q(recent_calls_u1__gte=min_recent_calls) | Q(recent_calls_u2__gte=min_recent_calls), Q(both_active_calls_u1__gte=min_recent_both_active_calls) | Q(both_active_calls_u2__gte=min_recent_both_active_calls), recent_messages__gte=min_recent_messages)
+    ).filter(
+        Q(recent_calls_u1__gte=min_recent_calls) | Q(recent_calls_u2__gte=min_recent_calls),
+        Q(both_active_calls_u1__gte=min_recent_both_active_calls) | Q(both_active_calls_u2__gte=min_recent_both_active_calls),
+        recent_messages__gte=min_recent_messages,
+    )
 
     # Handle recent signups
     if include_signups:
@@ -117,7 +150,13 @@ def user_recent_activity(qs=None, recent_days=60, min_recent_messages=1, min_rec
 def get_volunteers_booked_onboarding_call_but_never_visited(qs=User.objects.all()):
     user_with_onboarding_booked = PreMatchingAppointment.objects.all().values("user")
     return qs.filter(
-        state__user_form_state=State.UserFormStateChoices.FILLED, state__email_authenticated=True, state__searching_state=State.SearchingStateChoices.SEARCHING, state__had_prematching_call=False, profile__user_type=Profile.TypeChoices.VOLUNTEER, state__unresponsive=False, pk__in=user_with_onboarding_booked
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
+        state__searching_state=State.SearchingStateChoices.SEARCHING,
+        state__had_prematching_call=False,
+        profile__user_type=Profile.TypeChoices.VOLUNTEER,
+        state__unresponsive=False,
+        pk__in=user_with_onboarding_booked,
     ).order_by("-date_joined")
 
 
@@ -143,10 +182,26 @@ def users_with_open_tasks(qs=User.objects.all()):
 
 def users_with_booked_prematching_call(qs=User.objects.all()):
     user_with_prematching_booked = PreMatchingAppointment.objects.all().values("user")
-    return qs.filter(state__user_form_state=State.UserFormStateChoices.FILLED, state__email_authenticated=True, state__searching_state=State.SearchingStateChoices.SEARCHING, state__had_prematching_call=False, state__unresponsive=False, pk__in=user_with_prematching_booked).order_by("-date_joined")
+    return qs.filter(
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
+        state__searching_state=State.SearchingStateChoices.SEARCHING,
+        state__had_prematching_call=False,
+        state__unresponsive=False,
+        pk__in=user_with_prematching_booked,
+    ).order_by("-date_joined")
 
 
 def users_require_prematching_call_not_booked(qs=User.objects.all()):
     user_with_prematching_booked = PreMatchingAppointment.objects.all().values("user")
-    return qs.filter(state__user_form_state=State.UserFormStateChoices.FILLED, state__email_authenticated=True, state__searching_state=State.SearchingStateChoices.SEARCHING, state__had_prematching_call=False, state__unresponsive=False).exclude(pk__in=user_with_prematching_booked).order_by("-date_joined")
-
+    return (
+        qs.filter(
+            state__user_form_state=State.UserFormStateChoices.FILLED,
+            state__email_authenticated=True,
+            state__searching_state=State.SearchingStateChoices.SEARCHING,
+            state__had_prematching_call=False,
+            state__unresponsive=False,
+        )
+        .exclude(pk__in=user_with_prematching_booked)
+        .order_by("-date_joined")
+    )

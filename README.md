@@ -57,6 +57,19 @@ for frontend in main_frontend admin_panel_frontend cookie_banner_frontend; do to
 COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml up
 ```
 
+To also use the `patenmatch` frontend run:
+
+```bash
+COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml build patenmatch
+COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml up patenmatch
+
+# OR for all-in-one + patenmatch
+
+COMPOSE_PROFILES=all-pt docker compose -f docker-compose.dev.yaml up
+```
+
+To reset the networking use `docker network prune` and to recreate add `--force-recreate` to the up command.
+
 Once you have run `docker compose up` with the `=all` flag at least once you can also run only specific frontends with auto-update:
 
 e.g.:
@@ -181,6 +194,18 @@ cd front/apps/main_frontend/
 
 # Start the backend:
 COMPOSE_PROFILES=backend docker compose -f docker-compose.dev.yaml up
+```
+
+## Testing Local Email sending
+
+In `envs/env.dev` add:
+
+```bash
+DJ_SG_SENDGRID_API_KEY=""
+DJ_DISABLE_LEGACY_EMAIL_SENDING="1"
+DJ_SG_DEFAULT_FROM_EMAIL='"Don\'t Reply" <noreply@example.com>'
+DJ_USE_V2_EMAIL_APIS="1"
+DJ_DEVELOPMENT_ALLOW_EMAILS="1"
 ```
 
 ## Infrastructure

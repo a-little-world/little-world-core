@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import viewsets
 from django.db.models import Q
 from django.conf import settings
+from management.models.dynamic_user_list import DynamicUserList
 from management.controller import delete_user, make_tim_support_user
 from management.twilio_handler import _get_client
 from django.utils.dateparse import parse_datetime
@@ -29,6 +30,7 @@ from management.api.user_data import (
     serialize_proposed_matches,
     AdvancedUserMatchSerializer,
 )
+from management.api.user_advanced_filter_lists import get_dynamic_userlists
 from management.models.matches import Match
 from management.api.user_data import get_paginated_format_v2
 from management.models.unconfirmed_matches import ProposedMatch
@@ -41,7 +43,6 @@ from management.tasks import matching_algo_v2, send_email_background
 from management.api.utils_advanced import filterset_schema_dict
 from datetime import datetime
 from django.utils import timezone
-
 
 user_category_buckets = [
     "journey_v2__user_created",
@@ -70,7 +71,14 @@ class ExportUserSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation["profile"] = {"first_name": instance.profile.first_name, "second_name": instance.profile.second_name, "user_type": instance.profile.user_type, "postal_code": instance.profile.postal_code, "gender": instance.profile.gender, "birth_year": instance.profile.birth_year}
+        representation["profile"] = {
+            "first_name": instance.profile.first_name,
+            "second_name": instance.profile.second_name,
+            "user_type": instance.profile.user_type,
+            "postal_code": instance.profile.postal_code,
+            "gender": instance.profile.gender,
+            "birth_year": instance.profile.birth_year,
+        }
 
         return representation
 
@@ -260,9 +268,18 @@ class UserFilter(filters.FilterSet):
 
     def filter_search(self, queryset, name, value):
         return queryset.filter(Q(hash__icontains=value) | Q(profile__first_name__icontains=value) | Q(profile__second_name__icontains=value) | Q(email__icontains=value))
-
+    
     def filter_list(self, queryset, name, value):
-        selected_filter = next(filter(lambda entry: entry.name == value, FILTER_LISTS))
+        if ":dyn:" in value:
+            queryset = queryset & DynamicUserList.objects.get(id=value.split(":dyn:")[1]).users.all()
+            return queryset
+
+        selected_filter = next(
+            filter(
+                lambda entry: entry.name == value,
+                FILTER_LISTS,
+            )
+        )
         if selected_filter.queryset:
             return selected_filter.queryset(queryset)
         else:
@@ -307,7 +324,12 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         # 1 - retrieve all the filters
         filterset = self.filterset_class()
         _filters = filterset_schema_dict(filterset, include_lookup_expr, "/api/matching/users/", request)
-        return Response({"filters": _filters, "lists": [entry.to_dict() for entry in FILTER_LISTS]})
+        return Response(
+            {
+                "filters": _filters,
+                "lists": [entry.to_dict() for entry in FILTER_LISTS + get_dynamic_userlists()],
+            }
+        )
 
     def get_serializer_context(self):
         if self.action == "list":
