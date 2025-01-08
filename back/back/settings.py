@@ -682,6 +682,8 @@ english no matter if frontent translation failes
 LANGUAGE_CODE = "en"
 TIME_ZONE = os.environ.get("DJ_TIME_ZONE", "UTC")
 
+PATENMATCH_URL = os.environ.get("DJ_PATENMATCH_URL", "https://patenmatch.de")
+
 """
 We use django internalization to enable use of 'django_language' cookie 
 And the use of Accept-Language: <lang> headers
