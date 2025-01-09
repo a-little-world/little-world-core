@@ -41,7 +41,6 @@ from chat.models import Message, MessageSerializer, Chat, ChatSerializer
 from management.api.scores import score_between_db_update
 from management.tasks import matching_algo_v2, send_email_background
 from management.api.utils_advanced import filterset_schema_dict
-from datetime import datetime
 from django.utils import timezone
 
 user_category_buckets = [
@@ -249,7 +248,7 @@ class UserFilter(filters.FilterSet):
 
     list = filters.ChoiceFilter(
         field_name="list",
-        choices=[(entry.name, entry.description) for entry in FILTER_LISTS],
+        choices=[(entry.name, entry.description) for entry in FILTER_LISTS + get_dynamic_userlists()],
         method="filter_list",
         help_text="Filter for users that are part of a list",
     )
@@ -268,7 +267,7 @@ class UserFilter(filters.FilterSet):
 
     def filter_search(self, queryset, name, value):
         return queryset.filter(Q(hash__icontains=value) | Q(profile__first_name__icontains=value) | Q(profile__second_name__icontains=value) | Q(email__icontains=value))
-    
+
     def filter_list(self, queryset, name, value):
         if ":dyn:" in value:
             queryset = queryset & DynamicUserList.objects.get(id=value.split(":dyn:")[1]).users.all()
