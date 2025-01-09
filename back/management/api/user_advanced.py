@@ -632,7 +632,8 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             name="MarkPrematchingCallsCompletedRequest",
             fields={
                 "appointment_date": serializers.DateTimeField(),
-                "userlist": serializers.ListField(child=serializers.IntegerField()),
+                "selected_users": serializers.ListField(child=serializers.IntegerField()),
+                "send_mail": serializers.DictField(child=serializers.BooleanField()),
             },
         )
     )
@@ -645,7 +646,11 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         # get the post parameter. appointment date and userlist
         appointment_date = request.data.get("appointment_date", None)
-        userlist = request.data.get("userlist", None)
+        userlist = request.data.get("selected_users", None)
+        send_mail = request.data.get("send_mail", False)
+
+        print(userlist)
+        print(send_mail)
 
         # check also if the date has the correct format
         try:
@@ -694,8 +699,8 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         for user in user_list_objects:
             user.state.had_prematching_call = True
             user.state.save()
-
-            send_email_background.delay("prematching-call-post-thanks", user_id=user.id)
+            if send_mail[str(user.id)]:
+                send_email_background.delay("prematching-call-post-thanks", user_id=user.id)
 
         # get appointment_users set without userlist as a list
         not_attended_appointment_users = list(set(appointment_users) - set(userlist))
@@ -705,8 +710,8 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             user = User.objects.get(id=user_id)
             user.state.had_prematching_call = False
             user.state.save()
-
-            send_email_background.delay("prematching-call-no-show", user_id=user_id)
+            if send_mail[str(user.id)]:
+                send_email_background.delay("prematching-call-no-show", user_id=user_id)
 
         return Response({"success": True})
 
