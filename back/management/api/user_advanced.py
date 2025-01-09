@@ -247,7 +247,7 @@ class UserFilter(filters.FilterSet):
     )
 
     list = filters.ChoiceFilter(
-        field_name="list",
+        field_name="userfilter_list",
         choices=get_choices,
         method="filter_list",
         help_text="Filter for users that are part of a list",
