@@ -30,7 +30,7 @@ from management.api.user_data import (
     serialize_proposed_matches,
     AdvancedUserMatchSerializer,
 )
-from management.api.user_advanced_filter_lists import get_dynamic_userlists
+from management.api.user_advanced_filter_lists import get_dynamic_userlists, get_choices
 from management.models.matches import Match
 from management.api.user_data import get_paginated_format_v2
 from management.models.unconfirmed_matches import ProposedMatch
@@ -41,7 +41,6 @@ from chat.models import Message, MessageSerializer, Chat, ChatSerializer
 from management.api.scores import score_between_db_update
 from management.tasks import matching_algo_v2, send_email_background
 from management.api.utils_advanced import filterset_schema_dict
-from datetime import datetime
 from django.utils import timezone
 
 user_category_buckets = [
@@ -248,8 +247,8 @@ class UserFilter(filters.FilterSet):
     )
 
     list = filters.ChoiceFilter(
-        field_name="list",
-        choices=[(entry.name, entry.description) for entry in FILTER_LISTS],
+        field_name="userfilter_list",
+        choices=get_choices,
         method="filter_list",
         help_text="Filter for users that are part of a list",
     )
@@ -268,7 +267,7 @@ class UserFilter(filters.FilterSet):
 
     def filter_search(self, queryset, name, value):
         return queryset.filter(Q(hash__icontains=value) | Q(profile__first_name__icontains=value) | Q(profile__second_name__icontains=value) | Q(email__icontains=value))
-    
+
     def filter_list(self, queryset, name, value):
         if ":dyn:" in value:
             queryset = queryset & DynamicUserList.objects.get(id=value.split(":dyn:")[1]).users.all()
