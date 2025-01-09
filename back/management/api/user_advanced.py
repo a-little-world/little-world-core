@@ -30,7 +30,7 @@ from management.api.user_data import (
     serialize_proposed_matches,
     AdvancedUserMatchSerializer,
 )
-from management.api.user_advanced_filter_lists import get_dynamic_userlists
+from management.api.user_advanced_filter_lists import get_dynamic_userlists, get_choices
 from management.models.matches import Match
 from management.api.user_data import get_paginated_format_v2
 from management.models.unconfirmed_matches import ProposedMatch
@@ -248,7 +248,7 @@ class UserFilter(filters.FilterSet):
 
     list = filters.ChoiceFilter(
         field_name="list",
-        choices=[(entry.name, entry.description) for entry in FILTER_LISTS + get_dynamic_userlists()],
+        choices=get_choices,
         method="filter_list",
         help_text="Filter for users that are part of a list",
     )

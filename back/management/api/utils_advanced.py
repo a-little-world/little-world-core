@@ -60,6 +60,9 @@ def filterset_schema_dict(filterset, include_lookup_expr=False, view_key="/api/m
         }
 
         choices = getattr(filter_instance, "extra", {}).get("choices", [])
+        if field_name == "list":
+            choices = choices()
+
         if len(choices):
             filter_data["choices"] = [{"tag": choice[1], "value": choice[0]} for choice in choices]
 
