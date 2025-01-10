@@ -128,7 +128,7 @@ api_routes = [
         api.user.VerifyEmail.as_view(),
     ),
     path(_api_url("user/verify/email_resend"), api.user.resend_verification_mail),
-    path(_api_url("user/match/confirm_deny"), api.confirm_match.confrim_match),
+    path(_api_url("user/match/confirm_deny"), api.confirm_match.confirm_match),
     path("api/matching/make_match", api.matches.make_match),
     path(_api_url("help_message"), api.help.SendHelpMessage.as_view()),
     *router.urls,

@@ -103,7 +103,7 @@ class State(models.Model):
     """
     This contains a list of matches the user has not yet confirmed 
     this can be used by the frontend to display them as 'new'
-    POST api/user/confrim_match/
+    POST api/user/confirm_match/
     data = [<usr-hash>, ... ] 
     """
     unconfirmed_matches_stack = models.JSONField(default=list, blank=True)

@@ -18,9 +18,24 @@ from management.controller import unmatch_users
 
 
 class AdvancedMatchSerializer(serializers.ModelSerializer):
+    unmatched = serializers.JSONField(source='report_unmatch')
+
     class Meta:
         model = Match
-        fields = ["uuid", "created_at", "updated_at", "active", "confirmed", "latest_interaction_at", "notes", "total_messages_counter", "total_mutal_video_calls_counter", "user1", "user2"]
+        fields = [
+            "uuid", 
+            "created_at", 
+            "updated_at", 
+            "active", 
+            "confirmed", 
+            "latest_interaction_at", 
+            "notes", 
+            "total_messages_counter", 
+            "unmatched",
+            "total_mutal_video_calls_counter", 
+            "user1", 
+            "user2"
+        ]
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
