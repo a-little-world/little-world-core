@@ -333,8 +333,7 @@
       "id": "patenmatch_organization_name",
       "lookup": "emails.api.template_lookup.patenmatch_organization_name",
       "depends_on": [
-        "user",
-        "context.organization_name"
+        "context.patenmatch_organization_name"
       ]
     },
     "patenmatch_last_name": {

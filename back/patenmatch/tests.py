@@ -63,7 +63,10 @@ class PatenmatchTests(TestCase):
 
         print(log.data["params"])
         
-        verification_link = log.data["params"]["patenmatch_email_verification_url"]
+        # verification_link = log.data["params"]["patenmatch_email_verification_url"]
+        # above would be the verification view url, but this cannot be rendered in tests
+        # so instead we manually get the api url that would be called when rending that view
+        verification_link = pt_user.get_verification_url()
         request = factory.get(verification_link)
         response = PatenmatchUserViewSet.as_view({"get": "verify_email"})(request)
         

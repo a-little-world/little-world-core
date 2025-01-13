@@ -154,13 +154,13 @@ class PatenmatchUserViewSet(viewsets.ModelViewSet):
         )
         # Match was found! => We send an email to the organization & we redirect the user to a 'success' page
         context = {
-            "organization_name": org.name,
+            "patenmatch_organization_name": org.name,
             "patenmatch_first_name": pt_user.first_name,
             "patenmatch_last_name": pt_user.last_name,
             "patenmatch_email": pt_user.email,
             "patenmatch_target_group_name": pt_user.support_for,
             "patenmatch_postal_address": pt_user.postal_code,
-            "patenmatch_language": pt_user.spoken_languages or "Not set"
+            "patenmatch_language": pt_user.spoken_languages or "Deutsch"
         }
         send_email_background.delay("patenmatch-orga-forward-user", user_id=org.id, patenmatch=True, patenmatch_org=True, context=context)
 

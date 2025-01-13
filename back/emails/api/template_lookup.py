@@ -74,10 +74,10 @@ def date():
 
 def patenmatch_email_verification_url(user):
     assert isinstance(user, PatenmatchUser)
-    return user.get_verification_url()
+    return settings.PATENMATCH_URL + user.get_verification_view_url()
 
-def patenmatch_organization_name(user=None, context={"organization_name": "Not set"}):
-    return context["organization_name"]
+def patenmatch_organization_name(user=None, context={"patenmatch_organization_name": "Not set"}):
+    return context["patenmatch_organization_name"]
 
 def patenmatch_first_name(user=None, context={"patenmatch_first_name": None}):
     if context["patenmatch_first_name"] is not None:

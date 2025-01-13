@@ -30,7 +30,7 @@ from management.api.user_data import (
     serialize_proposed_matches,
     AdvancedUserMatchSerializer,
 )
-from management.api.user_advanced_filter_lists import get_dynamic_userlists
+from management.api.user_advanced_filter_lists import get_dynamic_userlists, get_choices
 from management.models.matches import Match
 from management.api.user_data import get_paginated_format_v2
 from management.models.unconfirmed_matches import ProposedMatch
@@ -41,7 +41,6 @@ from chat.models import Message, MessageSerializer, Chat, ChatSerializer
 from management.api.scores import score_between_db_update
 from management.tasks import matching_algo_v2, send_email_background
 from management.api.utils_advanced import filterset_schema_dict
-from datetime import datetime
 from django.utils import timezone
 
 user_category_buckets = [
@@ -266,8 +265,8 @@ class UserFilter(filters.FilterSet):
     )
 
     list = filters.ChoiceFilter(
-        field_name="list",
-        choices=[(entry.name, entry.description) for entry in FILTER_LISTS],
+        field_name="userfilter_list",
+        choices=get_choices,
         method="filter_list",
         help_text="Filter for users that are part of a list",
     )
@@ -286,7 +285,7 @@ class UserFilter(filters.FilterSet):
 
     def filter_search(self, queryset, name, value):
         return queryset.filter(Q(hash__icontains=value) | Q(profile__first_name__icontains=value) | Q(profile__second_name__icontains=value) | Q(email__icontains=value))
-    
+
     def filter_list(self, queryset, name, value):
         if ":dyn:" in value:
             queryset = queryset & DynamicUserList.objects.get(id=value.split(":dyn:")[1]).users.all()
@@ -651,7 +650,8 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             name="MarkPrematchingCallsCompletedRequest",
             fields={
                 "appointment_date": serializers.DateTimeField(),
-                "userlist": serializers.ListField(child=serializers.IntegerField()),
+                "selected_users": serializers.ListField(child=serializers.IntegerField()),
+                "send_mail": serializers.DictField(child=serializers.BooleanField()),
             },
         )
     )
@@ -664,7 +664,11 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         # get the post parameter. appointment date and userlist
         appointment_date = request.data.get("appointment_date", None)
-        userlist = request.data.get("userlist", None)
+        userlist = request.data.get("selected_users", None)
+        send_mail = request.data.get("send_mail", False)
+
+        print(userlist)
+        print(send_mail)
 
         # check also if the date has the correct format
         try:
@@ -713,8 +717,8 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         for user in user_list_objects:
             user.state.had_prematching_call = True
             user.state.save()
-
-            send_email_background.delay("prematching-call-post-thanks", user_id=user.id)
+            if send_mail[str(user.id)]:
+                send_email_background.delay("prematching-call-post-thanks", user_id=user.id)
 
         # get appointment_users set without userlist as a list
         not_attended_appointment_users = list(set(appointment_users) - set(userlist))
@@ -724,8 +728,8 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             user = User.objects.get(id=user_id)
             user.state.had_prematching_call = False
             user.state.save()
-
-            send_email_background.delay("prematching-call-no-show", user_id=user_id)
+            if send_mail[str(user.id)]:
+                send_email_background.delay("prematching-call-no-show", user_id=user_id)
 
         return Response({"success": True})
 

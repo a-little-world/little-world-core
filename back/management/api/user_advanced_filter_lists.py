@@ -293,6 +293,14 @@ def get_dynamic_userlists() -> List[FilterListEntry]:
     return [FilterListEntry(":dyn:" + str(dyn_user_list.id), dyn_user_list.name) for dyn_user_list in DynamicUserList.objects.all()]
 
 
+def get_choices():
+    try:
+        return [(entry.name, entry.description) for entry in FILTER_LISTS + get_dynamic_userlists()]
+    except Exception as e:
+        print(e)
+        return []
+
+
 def get_list_by_name(name):
     for element in FILTER_LISTS + get_dynamic_userlists():
         if element.name == name:
