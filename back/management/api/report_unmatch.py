@@ -8,6 +8,7 @@ from rest_framework import status
 from management import models as management_models
 from management.tasks import slack_notify_communication_channel_async
 from rest_framework.decorators import api_view, permission_classes
+from django.utils import timezone
 
 
 @dataclass
@@ -46,6 +47,7 @@ def process_report_unmatch(request, kind="report"):
             "match_id": data.match_id,
             "user_id": request.user.pk,
             "user_uuid": request.user.hash,
+            "time": timezone.now(),
         }
     )
     matching.save()

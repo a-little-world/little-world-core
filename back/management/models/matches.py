@@ -24,6 +24,8 @@ class Match(models.Model):
     user1 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="match_user1")
     user2 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="match_user2")
 
+    notes = models.TextField(blank=True, null=True)
+
     support_matching = models.BooleanField(default=False)
 
     report_unmatch = models.JSONField(default=list)
@@ -114,3 +116,7 @@ class Match(models.Model):
     @classmethod
     def get_support_matches(cls, user, order_by="created_at"):
         return cls.objects.filter(Q(user1=user) | Q(user2=user), active=True, support_matching=True).order_by(order_by)
+    
+    @classmethod
+    def get_inactive_matches(cls, user, order_by="created_at"):
+        return cls.objects.filter(Q(user1=user) | Q(user2=user), active=False, support_matching=False).order_by(order_by)
