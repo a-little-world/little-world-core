@@ -59,10 +59,11 @@ class ProposedMatch(models.Model):
     
     @classmethod
     def get_unsuccessful_proposals(cls, user, order_by="potential_matching_created_at"):
-        proposals = cls.objects.filter(Q(user1=user) | Q(user2=user), closed=True)
-        # for prop in proposals:
-        #     prop.is_expired(close_if_expired=True, send_mail_if_expired=True)
-        return cls.objects.filter(Q(user1=user) | Q(user2=user), closed=True).order_by(order_by)
+        return cls.objects.filter(
+            (Q(user1=user) | Q(user2=user)),
+            (Q(expired=True) | Q(rejected=True)),
+            closed=True,
+        ).order_by(order_by)
 
     @classmethod
     def get_open_proposals_learner(cls, user, order_by="potential_matching_created_at"):
