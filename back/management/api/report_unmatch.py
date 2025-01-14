@@ -47,7 +47,7 @@ def process_report_unmatch(request, kind="report"):
             "match_id": data.match_id,
             "user_id": request.user.pk,
             "user_uuid": request.user.hash,
-            "time": timezone.now(),
+            "time": str(timezone.now()),
         }
     )
     matching.save()
