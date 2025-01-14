@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.test import APIRequestFactory, force_authenticate
 from management.tests.helpers import register_user_api
 from management.api.register import Register
-from management.api.confirm_match import confrim_match
+from management.api.confirm_match import confirm_match
 
 
 valid_request_data = dict(email="benjamin.tim@gmx.de", first_name="Tim", second_name="Schupp", password1="Test123!", password2="Test123!", birth_year=1984)
@@ -26,7 +26,7 @@ class MatchConfirmationTasksTests(TestCase):
         request = factory.post("user/match/confirm_deny/", data)
         if user:
             force_authenticate(request, user=user)
-        response = confrim_match(request)
+        response = confirm_match(request)
         assert response, isinstance(response, Response)
         return response  # type: ignore
 

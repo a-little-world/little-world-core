@@ -103,7 +103,9 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
             "id": str(instance.uuid),
             "chat": {**chat_serialized},
             "chatId": str(chat.uuid),
+            "active": instance.active,
             "activeCallRoom": active_call_room,
+            "unmatched": instance.report_unmatch,
             "partner": {"id": str(partner.hash), "isOnline": is_online, "isSupport": partner.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER) or partner.is_staff, **CensoredProfileSerializer(partner.profile).data},
         }
         if "status" in self.context:
@@ -134,6 +136,12 @@ def serialize_proposed_matches(matching_proposals, user):
                 "id": str(proposal.hash),
                 "partner": {"id": str(partner.hash), **ProposalProfileSerializer(partner.profile).data},
                 "status": "proposed",
+                "closed": proposal.closed,
+                "rejected_by": proposal.rejected_by,
+                "rejected_at": proposal.rejected_at,
+                "rejected": proposal.rejected,
+                "expired": proposal.expired,
+                "expires_at": proposal.expires_at,
             }
         )
 

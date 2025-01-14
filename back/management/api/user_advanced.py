@@ -136,12 +136,30 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
 
         proposed_matches = get_paginated(ProposedMatch.get_open_proposals(user), items_per_page, 1)
         proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
+        
+        # proposlas that were rejected or expired
+        old_proposed_matches = get_paginated(ProposedMatch.get_unsuccessful_proposals(user), items_per_page, 1)
+        old_proposed_matches["items"] = serialize_proposed_matches(old_proposed_matches["items"], user)
+
+        inactive_matches = get_paginated(Match.get_inactive_matches(user), items_per_page, 1)
+        inactive_matches["items"] = AdvancedUserMatchSerializer(
+            inactive_matches["items"],
+            many=True,
+            context={
+                "user": user,
+                "status": "inactive",
+                "determine_bucket": determine_bucket,
+            },
+        ).data
+        
 
         representation["matches"] = {
             "confirmed": confirmed_matches,
             "unconfirmed": unconfirmed_matches,
             "support": support_matches,
             "proposed": proposed_matches,
+            "old_proposals": old_proposed_matches,
+            "inactive": inactive_matches,
         }
 
         representation["state"] = StateSerializer(instance.state).data

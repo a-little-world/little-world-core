@@ -32,8 +32,11 @@ class ProposedMatch(models.Model):
     # but just teat that user by the user_type he had when this model was created
     learner_when_created = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="unconfirmed_match_learner_when_created", null=True, blank=True)
 
-    # If closed it's not considered anymore
+    # If closed it's not considered anymore when scanning for expired matches
     closed = models.BooleanField(default=False)
+    rejected = models.BooleanField(default=False)
+    rejected_at = models.DateTimeField(blank=True, null=True)
+    rejected_by = models.ForeignKey("management.User", on_delete=models.CASCADE ,blank=True, null=True)
 
     send_inital_mail = models.BooleanField(default=False)
 
@@ -42,6 +45,7 @@ class ProposedMatch(models.Model):
 
     potential_matching_created_at = models.DateTimeField(auto_now_add=True)
 
+    expired =  models.BooleanField(default=False)
     expires_at = models.DateTimeField(default=seven_days_from_now)
 
     expired_mail_send = models.BooleanField(default=False)
@@ -52,6 +56,13 @@ class ProposedMatch(models.Model):
         for prop in proposals:
             prop.is_expired(close_if_expired=True, send_mail_if_expired=True)
         return cls.objects.filter(Q(user1=user) | Q(user2=user), closed=False).order_by(order_by)
+    
+    @classmethod
+    def get_unsuccessful_proposals(cls, user, order_by="potential_matching_created_at"):
+        proposals = cls.objects.filter(Q(user1=user) | Q(user2=user), closed=True)
+        # for prop in proposals:
+        #     prop.is_expired(close_if_expired=True, send_mail_if_expired=True)
+        return cls.objects.filter(Q(user1=user) | Q(user2=user), closed=True).order_by(order_by)
 
     @classmethod
     def get_open_proposals_learner(cls, user, order_by="potential_matching_created_at"):
@@ -68,7 +79,7 @@ class ProposedMatch(models.Model):
         expired = self.expires_at < timezone.now()
         if close_if_expired and expired:
             self.closed = True
-
+            self.expired = True
             self.save()
 
             if send_mail_if_expired:
