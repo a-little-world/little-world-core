@@ -131,13 +131,16 @@ def serialize_proposed_matches(matching_proposals, user):
     serialized = []
     for proposal in matching_proposals:
         partner = proposal.get_partner(user)
+        rejected_by = None
+        if proposal.rejected_by is not None:
+            rejected_by = proposal.rejected_by.hash
         serialized.append(
             {
                 "id": str(proposal.hash),
                 "partner": {"id": str(partner.hash), **ProposalProfileSerializer(partner.profile).data},
                 "status": "proposed",
                 "closed": proposal.closed,
-                "rejected_by": proposal.rejected_by,
+                "rejected_by": rejected_by,
                 "rejected_at": proposal.rejected_at,
                 "rejected": proposal.rejected,
                 "expired": proposal.expired,
@@ -225,7 +228,6 @@ def user_data(user):
         active=True, 
         name__iexact=f"{user_type.capitalize()} Banner"
     ).first()
-
 
     banner = BannerSerializer(banner_query).data if banner_query else {}
 
