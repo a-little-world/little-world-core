@@ -66,7 +66,7 @@ COMPOSE_PROFILES=main_frontend docker compose -f docker-compose.dev.yaml up
 ```
 
 or run some tests:
-  
+
 ```bash
 COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml exec backend sh -c "python3 manage.py test management.tests.test_register"
 COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml exec backend sh -c "python3 manage.py test management.tests"
@@ -79,6 +79,30 @@ Be sure to checkout the frontend commit or branch you want to work on!
 
 > If you wan't only one frontend to auto-update just use `COMPOSE_PROFILE=<frontend-name>` for any frontend `main_frontend`, `admin_panel_frontend`, `cookie_banner_frontend`.
 > Or if you only work in the backend use `COMPOSE_PROFILE=backend`
+
+### WSL Setup
+
+git Line config needs to be changed:
+
+```pswh
+git config --global core.autocrlf false
+```
+
+Symbolic Link not functional in the Windows File System.
+Optional: Nutzung von WSL als Lösungsvorschlag, Nutzer Anlegen und direktes Arbeiten im WSL System/// geht nicht in unserem Fall
+
+FrontEnd Node Modules need to be installed manually.
+
+Hot Relaod not working because of Windows path "regulations",
+
+
+```bash
+git clone <backend> && cd little-world-backend
+git submodule update --init --recursive
+COMPOSE_CONVERT_WINDOWS_PATHS=1 COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml build
+for frontend in main_frontend admin_panel_frontend cookie_banner_frontend; do touch ./front/$frontend.webpack-stats.json ; done
+COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml up
+```
 
 ### Default Test Users
 
