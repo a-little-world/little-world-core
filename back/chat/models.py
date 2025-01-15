@@ -123,6 +123,7 @@ class Message(models.Model):
     recipient_notified = models.BooleanField(default=False)
 
     text = models.TextField()
+    parsable_message = models.BooleanField(default=False)
 
     read = models.BooleanField(default=False)
 
@@ -151,7 +152,7 @@ class MessageSerializer(serializers.ModelSerializer):
 
         sender_staff = instance.sender.is_staff or instance.sender.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
 
-        if sender_staff:
+        if sender_staff or instance.parsable_message:
             representation["parsable"] = True
 
         censor_text = self.context.get("censor_text", False)
