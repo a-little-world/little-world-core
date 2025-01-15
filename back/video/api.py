@@ -1,8 +1,17 @@
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.decorators import (
+    api_view,
+    permission_classes,
+    authentication_classes,
+)
 from chat.models import Chat, ChatSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import SessionAuthentication
-from video.models import LiveKitRoom, LivekitSession, LivekitWebhookEvent, SerializeLivekitSession
+from video.models import (
+    LiveKitRoom,
+    LivekitSession,
+    LivekitWebhookEvent,
+    SerializeLivekitSession,
+)
 from management.models.user import User
 from rest_framework.response import Response
 from rest_framework import serializers
@@ -13,6 +22,7 @@ from django.urls import path
 from drf_spectacular.utils import extend_schema
 from chat.consumers.messages import NewActiveCallRoom, InBlockIncomingCall
 from management.models.matches import Match
+from management.models.post_call_review import PostCallReview
 from django.views.decorators.csrf import csrf_exempt
 import json
 from django.http import JsonResponse
@@ -118,8 +128,19 @@ class AuthenticateRoomParams(serializers.Serializer):
     partner_id = serializers.CharField()
 
 
+class PostCallReviewParams(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    live_session_id = serializers.UUIDField()
+    rating = serializers.IntegerField()
+    review = serializers.CharField()
+
+
 async def create_livekit_room(room_name):
-    lkapi = livekit_api.LiveKitAPI(url=settings.LIVEKIT_URL, api_key=settings.LIVEKIT_API_KEY, api_secret=settings.LIVEKIT_API_SECRET)
+    lkapi = livekit_api.LiveKitAPI(
+        url=settings.LIVEKIT_URL,
+        api_key=settings.LIVEKIT_API_KEY,
+        api_secret=settings.LIVEKIT_API_SECRET,
+    )
     results = await lkapi.room.list_rooms(livekit_api.ListRoomsRequest())
     print("Rooms:", results)
     if room_name not in [room.name for room in results.rooms]:
@@ -166,7 +187,30 @@ def authenticate_live_kit_room(request):
     return Response({"token": str(token), "server_url": settings.LIVEKIT_URL, "chat": chat})
 
 
+@extend_schema(request=PostCallReviewParams(many=False), responses={200: {"status": "ok"}})
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def post_call_review(request):
+    if not request.data["user_id"] or not request.data["live_session_id"] or not request.data["rating"]:
+        return Response(
+            {
+                "status": "error",
+                "message": "Missing user_id, live_session_id or rating",
+            },
+            status=400,
+        )
+
+    user = User.objects.filter(id=request.data["user_id"]).first()
+    live_session = LivekitSession.objects.filter(uuid=request.data["live_session_id"]).first()
+    review = request.data["review"]
+    rating = request.data["rating"]
+    PostCallReview.objects.create(user=user, live_session=live_session, review=review, rating=rating)
+    return Response({"status": "ok"})
+
+
 api_urls = [
+    path("api/livekit/review", post_call_review),
     path("api/livekit/authenticate", authenticate_live_kit_room),
     path("api/livekit/webhook", livekit_webhook),
 ]
