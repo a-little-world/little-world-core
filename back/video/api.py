@@ -1,5 +1,5 @@
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
-from chat.models import Chat, ChatSerializer
+from chat.models import Chat, ChatSerializer, Message
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import SessionAuthentication
 from video.models import LiveKitRoom, LivekitSession, LivekitWebhookEvent, SerializeLivekitSession
@@ -42,10 +42,14 @@ def livekit_webhook(request):
         if active_session.exists():
             session = active_session.first()
             if user == room.u1:
+                if not session.u2_active and not session.u2_was_active:
+                    session.first_active_user = user
                 session.u1_active = True
                 session.u1_was_active = True
                 session.both_have_been_active = session.both_have_been_active or session.u2_active
             elif user == room.u2:
+                if not session.u1_active and not session.u1_was_active:
+                    session.first_active_user = user
                 session.u2_active = True
                 session.u2_was_active = True
                 session.both_have_been_active = session.both_have_been_active or session.u1_active
@@ -101,9 +105,45 @@ def livekit_webhook(request):
                     match.total_mutal_video_calls_counter += 1
                     match.latest_interaction_at = timezone.now()
                     match.save()
+
+                    try:
+                        # send chat message from: session.first_active_user -> widged_receiptient
+                        call_duration = session.end_time - session.start_time
+                        call_duration_message = f"Duration: {call_duration}"
+                        widged_receiptient = room.u1 if session.first_active_user == room.u2 else room.u2
+                        chat = Chat.get_chat([session.first_active_user, widged_receiptient])
+                        Message.objects.create(
+                            chat=chat,
+                            sender=session.first_active_user,
+                            recipient=widged_receiptient,
+                            recipient_notified=True,\
+                            parsable_message=True,
+                            text='<CallWidget {"header":"Call","duration": "' + call_duration_message + '", "isMissed": false}>'
+                        )
+                        # TODO: send also a websocket callback incase the user is already online
+                    except:
+                        print("Cound't send call widged to first_active_user")
+                        pass
                 else:
                     # 2 - send 'MissedCall' event to the partner of the user that left
+                    # check which user endered the call first
                     partner = room.u1 if user == room.u2 else room.u2
+                    try:
+                        # send chat message from: session.first_active_user -> widged_receiptient
+                        widged_receiptient = room.u1 if session.first_active_user == room.u2 else room.u2
+                        chat = Chat.get_chat([session.first_active_user, widged_receiptient])
+                        Message.objects.create(
+                            chat=chat,
+                            sender=session.first_active_user,
+                            recipient=widged_receiptient,
+                            recipient_notified=True,\
+                            parsable_message=True,
+                            text='<CallWidget {"header":"Missed Call","duration": "Duration: 0", "isMissed": true, "returnCallText": "Call Back" }>'
+                        )
+                        # TODO: send also a websocket callback incase the user is already online
+                    except:
+                        print("Cound't send call widged to first_active_user")
+                        pass
         session.webhook_events.add(event)
         session.save()
 

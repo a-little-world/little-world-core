@@ -45,6 +45,8 @@ class LivekitSession(models.Model):
 
     u1 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u1_livekit_session")
     u2 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u2_livekit_session")
+    
+    first_active_user = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="first_active_user", null=True, blank=True)
 
     webhook_events = models.ManyToManyField("video.LivekitWebhookEvent", related_name="livekit_session")
 
