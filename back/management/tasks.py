@@ -175,9 +175,11 @@ def check_prematch_email_reminders_and_expirations():
     for unclosed in all_unclosed_unconfirmed:
         if unclosed.is_expired(close_if_expired=True, send_mail_if_expired=True):
             # Now we have to set the learner to unresponsive = True and to searching = IDLE
-            unclosed.learner_when_created.state.searching = State.SearchingStateChoices.IDLE
-            unclosed.learner_when_created.state.unresponsive = True
-            unclosed.learner_when_created.state.save()
+            learner_state = unclosed.learner_when_created.state
+            learner_state.searching_state = State.SearchingStateChoices.IDLE
+            learner_state.unresponsive = True
+            learner_state.append_notes(f"Set to unresponsive cause let proposal expire: 'proposal:{unclosed.pk}'")
+            learner_state.save()
             continue
         unclosed.is_reminder_due(send_reminder=True)
 
@@ -478,7 +480,8 @@ def send_email_background(
         match_id=None, 
         proposed_match_id=None, 
         context={},
-        patenmatch=False
+        patenmatch=False,
+        patenmatch_org=False
     ):
     from emails.api.send_email import send_template_email
     
@@ -493,8 +496,9 @@ def send_email_background(
         )
     else:
         from patenmatch.models import PatenmatchUser
+        from patenmatch.models import PatenmatchOrganization
         def retrieve_user_model():
-            return PatenmatchUser
+            return PatenmatchOrganization if patenmatch_org else PatenmatchUser
 
         send_template_email(
             template_name,

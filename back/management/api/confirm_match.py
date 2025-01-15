@@ -15,6 +15,7 @@ from management.models.state import State
 from rest_framework import serializers
 from management.controller import match_users
 from translations import get_translation
+from django.utils import timezone
 
 
 @dataclass
@@ -34,7 +35,7 @@ class ConfirmMatchSerializer(DataclassSerializer):
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
-def confrim_match(request):
+def confirm_match(request):
     # TODO Inconsisten naming this ist the accept / deny api
     serializer = ConfirmMatchSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -77,6 +78,9 @@ def confrim_match(request):
     else:
         # just close the unconfirmed match
         unconfirmed_match.closed = True
+        unconfirmed_match.rejected = True
+        unconfirmed_match.rejected_at = timezone.now()
+        unconfirmed_match.rejected_by = request.user
         unconfirmed_match.save()
         
         request.user.state.searching_state = State.SearchingStateChoices.IDLE

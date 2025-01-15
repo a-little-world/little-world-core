@@ -140,6 +140,9 @@ spec:
   tls:
     - hosts:
         - {{ .Values.ingress.host }}
+        {{- if .Values.ingress.extraHost }}
+        - {{ .Values.ingress.extraHost }}
+        {{- end }}
       secretName: backend-ingress-tls
     {{- if .Values.patenmatch.use }}
     - hosts:
@@ -158,6 +161,18 @@ spec:
                 name: backend-service
                 port:
                   number: 8000
+    {{- if .Values.ingress.extraHost }}
+    - host: {{ .Values.ingress.extraHost }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: backend-service
+                port:
+                  number: 8000
+    {{- end }}
     {{- if .Values.patenmatch.use }}
     - host: {{ .Values.patenmatch.host }}
       http:

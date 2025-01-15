@@ -18,9 +18,24 @@ from management.controller import unmatch_users
 
 
 class AdvancedMatchSerializer(serializers.ModelSerializer):
+    unmatched = serializers.JSONField(source='report_unmatch')
+
     class Meta:
         model = Match
-        fields = ["uuid", "created_at", "updated_at", "active", "confirmed", "user1", "user2"]
+        fields = [
+            "uuid", 
+            "created_at", 
+            "updated_at", 
+            "active", 
+            "confirmed", 
+            "latest_interaction_at", 
+            "notes", 
+            "total_messages_counter", 
+            "unmatched",
+            "total_mutal_video_calls_counter", 
+            "user1", 
+            "user2"
+        ]
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -39,8 +54,11 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
             else:
                 representation["status"] = "unconfirmed"
                 
-        if not instance.active:
-            representation["status"] = "reported_or_removed"
+        if hasattr(instance, "active"):
+            if not instance.active:
+                representation["status"] = "reported_or_removed"
+        else:
+            representation["status"] = "proposed"
         return representation
 
 
@@ -159,6 +177,22 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
             return super().get_object()
         else:
             return super().get_queryset().get(uuid=self.kwargs["pk"])
+        
+
+    @action(detail=True, methods=["get", "post"])
+    def notes(self, request, pk=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+
+        if request.method == "POST":
+            obj.notes = request.data["notes"]
+            obj.save()
+            return Response(obj.notes)
+        else:
+            if not obj.notes:
+                obj.notes = ""
+                obj.save()
+            return Response(obj.notes)
 
 
 api_urls = [
@@ -166,4 +200,5 @@ api_urls = [
     path("api/matching/matches/filters/", AdvancedMatchViewset.as_view({"get": "get_filter_schema"})),
     path("api/matching/matches/<pk>/", AdvancedMatchViewset.as_view({"get": "retrieve"})),
     path("api/matching/matches/<pk>/resolve/", AdvancedMatchViewset.as_view({"post": "resolve_match"})),
+    path("api/matching/matches/<pk>/notes/", AdvancedMatchViewset.as_view({"get": "notes", "post": "notes"})),
 ]

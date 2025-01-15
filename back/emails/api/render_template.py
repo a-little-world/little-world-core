@@ -105,8 +105,6 @@ def prepare_dynamic_template_context(template_name, user_id=None, match_id=None,
     proposed_match = None if (not proposed_match_id) else ProposedMatch.objects.get(id=proposed_match_id)
     match = None if (not match_id) else Match.objects.get(id=match_id)
     
-    print("user", user, "match", match, "proposed_match", proposed_match)
-
     if user:
         available_dependencies.append("user")
 
@@ -149,7 +147,6 @@ def prepare_dynamic_template_context(template_name, user_id=None, match_id=None,
                 lookup_context["proposed_match"] = proposed_match
             elif dependency.startswith("context."):
                 param_name = dependency.split(".")[1]
-                print(kwargs)
                 assert param_name in kwargs, f"Missing context dependency in **kwargs for {param}"
                 if "context" not in lookup_context:
                     lookup_context["context"] = {}
@@ -180,8 +177,6 @@ def prepare_template_context(
     proposed_match = None if (not proposed_match_id) else ProposedMatch.objects.get(id=proposed_match_id)
     match = None if (not match_id) else Match.objects.get(id=match_id)
     
-    print("user", user, "match", match, "proposed_match", proposed_match)
-
     if user:
         available_dependencies.append("user")
 
@@ -205,7 +200,8 @@ def prepare_template_context(
         if not param_config.depends_on:
             continue
 
-        if not set(param_config.depends_on).issubset(available_dependencies):
+        if False and (not set(param_config.depends_on).issubset(available_dependencies)):
+            # Currently disabled features, as we have some params with 'optional' dependencies and have no way to mark them as such yet
             raise MissingContextDependencyException(f"Missing context dependency for {param} in {available_dependencies} - {param_config.depends_on}")
 
         function_lookup = param_config.lookup
@@ -224,11 +220,13 @@ def prepare_template_context(
                 lookup_context["proposed_match"] = proposed_match
             elif dependency.startswith("context."):
                 param_name = dependency.split(".")[1]
-                print(kwargs)
-                assert param_name in kwargs, f"Missing context dependency in **kwargs for {param}"
+                # assert param_name in kwargs, f"Missing context dependency in **kwargs for {param}" TODO: check disabled as we have vars with optional dependencies now
                 if "context" not in lookup_context:
                     lookup_context["context"] = {}
-                lookup_context["context"][param_name] = kwargs[param_name]
+                if param_name in kwargs:
+                    lookup_context["context"][param_name] = kwargs[param_name]
+                else:
+                    lookup_context["context"][param_name] = None
 
         # Perform the lookup injecting all dependencies
         context[param_name] = lookup_function(**lookup_context)

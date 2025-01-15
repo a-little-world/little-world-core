@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework import viewsets
 from django.db.models import Q
 from django.conf import settings
+from management.models.dynamic_user_list import DynamicUserList
 from management.controller import delete_user, make_tim_support_user
 from management.twilio_handler import _get_client
 from django.utils.dateparse import parse_datetime
@@ -29,6 +30,7 @@ from management.api.user_data import (
     serialize_proposed_matches,
     AdvancedUserMatchSerializer,
 )
+from management.api.user_advanced_filter_lists import get_dynamic_userlists, get_choices
 from management.models.matches import Match
 from management.api.user_data import get_paginated_format_v2
 from management.models.unconfirmed_matches import ProposedMatch
@@ -39,9 +41,7 @@ from chat.models import Message, MessageSerializer, Chat, ChatSerializer
 from management.api.scores import score_between_db_update
 from management.tasks import matching_algo_v2, send_email_background
 from management.api.utils_advanced import filterset_schema_dict
-from datetime import datetime
 from django.utils import timezone
-
 
 user_category_buckets = [
     "journey_v2__user_created",
@@ -70,7 +70,14 @@ class ExportUserSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation["profile"] = {"first_name": instance.profile.first_name, "second_name": instance.profile.second_name, "user_type": instance.profile.user_type, "postal_code": instance.profile.postal_code, "gender": instance.profile.gender, "birth_year": instance.profile.birth_year}
+        representation["profile"] = {
+            "first_name": instance.profile.first_name,
+            "second_name": instance.profile.second_name,
+            "user_type": instance.profile.user_type,
+            "postal_code": instance.profile.postal_code,
+            "gender": instance.profile.gender,
+            "birth_year": instance.profile.birth_year,
+        }
 
         return representation
 
@@ -129,12 +136,30 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
 
         proposed_matches = get_paginated(ProposedMatch.get_open_proposals(user), items_per_page, 1)
         proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
+        
+        # proposlas that were rejected or expired
+        old_proposed_matches = get_paginated(ProposedMatch.get_unsuccessful_proposals(user), items_per_page, 1)
+        old_proposed_matches["items"] = serialize_proposed_matches(old_proposed_matches["items"], user)
+
+        inactive_matches = get_paginated(Match.get_inactive_matches(user), items_per_page, 1)
+        inactive_matches["items"] = AdvancedUserMatchSerializer(
+            inactive_matches["items"],
+            many=True,
+            context={
+                "user": user,
+                "status": "inactive",
+                "determine_bucket": determine_bucket,
+            },
+        ).data
+        
 
         representation["matches"] = {
             "confirmed": confirmed_matches,
             "unconfirmed": unconfirmed_matches,
             "support": support_matches,
             "proposed": proposed_matches,
+            "old_proposals": old_proposed_matches,
+            "inactive": inactive_matches,
         }
 
         representation["state"] = StateSerializer(instance.state).data
@@ -240,8 +265,8 @@ class UserFilter(filters.FilterSet):
     )
 
     list = filters.ChoiceFilter(
-        field_name="list",
-        choices=[(entry.name, entry.description) for entry in FILTER_LISTS],
+        field_name="userfilter_list",
+        choices=get_choices,
         method="filter_list",
         help_text="Filter for users that are part of a list",
     )
@@ -262,7 +287,16 @@ class UserFilter(filters.FilterSet):
         return queryset.filter(Q(hash__icontains=value) | Q(profile__first_name__icontains=value) | Q(profile__second_name__icontains=value) | Q(email__icontains=value))
 
     def filter_list(self, queryset, name, value):
-        selected_filter = next(filter(lambda entry: entry.name == value, FILTER_LISTS))
+        if ":dyn:" in value:
+            queryset = queryset & DynamicUserList.objects.get(id=value.split(":dyn:")[1]).users.all()
+            return queryset
+
+        selected_filter = next(
+            filter(
+                lambda entry: entry.name == value,
+                FILTER_LISTS,
+            )
+        )
         if selected_filter.queryset:
             return selected_filter.queryset(queryset)
         else:
@@ -307,7 +341,12 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         # 1 - retrieve all the filters
         filterset = self.filterset_class()
         _filters = filterset_schema_dict(filterset, include_lookup_expr, "/api/matching/users/", request)
-        return Response({"filters": _filters, "lists": [entry.to_dict() for entry in FILTER_LISTS]})
+        return Response(
+            {
+                "filters": _filters,
+                "lists": [entry.to_dict() for entry in FILTER_LISTS + get_dynamic_userlists()],
+            }
+        )
 
     def get_serializer_context(self):
         if self.action == "list":
@@ -611,7 +650,8 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             name="MarkPrematchingCallsCompletedRequest",
             fields={
                 "appointment_date": serializers.DateTimeField(),
-                "userlist": serializers.ListField(child=serializers.IntegerField()),
+                "selected_users": serializers.ListField(child=serializers.IntegerField()),
+                "send_mail": serializers.DictField(child=serializers.BooleanField()),
             },
         )
     )
@@ -624,7 +664,11 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         # get the post parameter. appointment date and userlist
         appointment_date = request.data.get("appointment_date", None)
-        userlist = request.data.get("userlist", None)
+        userlist = request.data.get("selected_users", None)
+        send_mail = request.data.get("send_mail", False)
+
+        print(userlist)
+        print(send_mail)
 
         # check also if the date has the correct format
         try:
@@ -673,8 +717,8 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         for user in user_list_objects:
             user.state.had_prematching_call = True
             user.state.save()
-
-            send_email_background.delay("prematching-call-post-thanks", user_id=user.id)
+            if send_mail[str(user.id)]:
+                send_email_background.delay("prematching-call-post-thanks", user_id=user.id)
 
         # get appointment_users set without userlist as a list
         not_attended_appointment_users = list(set(appointment_users) - set(userlist))
@@ -684,8 +728,8 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             user = User.objects.get(id=user_id)
             user.state.had_prematching_call = False
             user.state.save()
-
-            send_email_background.delay("prematching-call-no-show", user_id=user_id)
+            if send_mail[str(user.id)]:
+                send_email_background.delay("prematching-call-no-show", user_id=user_id)
 
         return Response({"success": True})
 

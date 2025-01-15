@@ -27,6 +27,7 @@ from django_rest_passwordreset.views import (
     ResetPasswordConfirmViewSet,
 )
 from management.api.utils_advanced import CustomResetPasswordRequestTokenViewSet
+from management.api.dynamic_user_list import DynamicUserListGeneralViewSet, DynamicUserListSingleViewSet, DynamicUserListSingleUserViewSet
 
 router = DefaultRouter()
 router.register(  # TODO: we might even wan't to exclude this api
@@ -45,6 +46,24 @@ router.register(
     basename="reset-password-request",
 )
 
+dynamic_user_list_general_api = DynamicUserListGeneralViewSet.as_view(
+    {
+        "get": "list",
+        "post": "create",
+    }
+)
+dynamic_user_list_single_api = DynamicUserListSingleViewSet.as_view(
+    {
+        "get": "list",
+        "put": "update",
+        "delete": "destroy",
+    }
+)
+dynamic_user_list_single_user_api = DynamicUserListSingleUserViewSet.as_view(
+    {
+        "delete": "destroy",
+    }
+)
 
 api_routes = [
     *slack.api_routes,
@@ -109,7 +128,7 @@ api_routes = [
         api.user.VerifyEmail.as_view(),
     ),
     path(_api_url("user/verify/email_resend"), api.user.resend_verification_mail),
-    path(_api_url("user/match/confirm_deny"), api.confirm_match.confrim_match),
+    path(_api_url("user/match/confirm_deny"), api.confirm_match.confirm_match),
     path("api/matching/make_match", api.matches.make_match),
     path(_api_url("help_message"), api.help.SendHelpMessage.as_view()),
     *router.urls,
@@ -156,6 +175,9 @@ view_routes = [
     *email_templates.view_urls,
     *admin_panel_emails.email_view_routes,
     *admin_panel_devkit.devkit_urls,
+    path("api/dynamic_user_lists/", dynamic_user_list_general_api),
+    path("api/dynamic_user_lists/<int:pk>/", dynamic_user_list_single_api),
+    path("api/dynamic_user_lists/<int:list_id>/<int:user_id>/", dynamic_user_list_single_user_api),
 ]
 
 

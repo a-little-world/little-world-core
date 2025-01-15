@@ -103,7 +103,9 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
             "id": str(instance.uuid),
             "chat": {**chat_serialized},
             "chatId": str(chat.uuid),
+            "active": instance.active,
             "activeCallRoom": active_call_room,
+            "unmatched": instance.report_unmatch,
             "partner": {"id": str(partner.hash), "isOnline": is_online, "isSupport": partner.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER) or partner.is_staff, **CensoredProfileSerializer(partner.profile).data},
         }
         if "status" in self.context:
@@ -129,11 +131,20 @@ def serialize_proposed_matches(matching_proposals, user):
     serialized = []
     for proposal in matching_proposals:
         partner = proposal.get_partner(user)
+        rejected_by = None
+        if proposal.rejected_by is not None:
+            rejected_by = proposal.rejected_by.hash
         serialized.append(
             {
                 "id": str(proposal.hash),
                 "partner": {"id": str(partner.hash), **ProposalProfileSerializer(partner.profile).data},
                 "status": "proposed",
+                "closed": proposal.closed,
+                "rejected_by": rejected_by,
+                "rejected_at": proposal.rejected_at,
+                "rejected": proposal.rejected,
+                "expired": proposal.expired,
+                "expires_at": proposal.expires_at,
             }
         )
 
@@ -217,7 +228,6 @@ def user_data(user):
         active=True, 
         name__iexact=f"{user_type.capitalize()} Banner"
     ).first()
-
 
     banner = BannerSerializer(banner_query).data if banner_query else {}
 

@@ -28,7 +28,7 @@ class MatchConfirmationTests(TestCase):
         request = factory.post("user/match/confirm_deny/", data)
         if user:
             force_authenticate(request, user=user)
-        response = api.confirm_match.confrim_match(request)
+        response = api.confirm_match.confirm_match(request)
         assert response, isinstance(response, Response)
         return response  # type: ignore
 
