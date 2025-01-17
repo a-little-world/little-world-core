@@ -84,7 +84,6 @@ class ChatSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
 
         if ("request" in self.context) or ("user" in self.context):
-            
             # We need to check if the users are still matched otherwise we censor the parter profile
             user = self.context["request"].user if "request" in self.context else self.context["user"]
             partner = instance.get_partner(user)
@@ -94,10 +93,7 @@ class ChatSerializer(serializers.ModelSerializer):
                 representation["partner"] = profile
                 representation["partner"]["id"] = partner.hash
             else:
-                representation["partner"] = {
-                    "censored": True,
-                    "id": "censored"
-                }
+                representation["partner"] = {"censored": True, "id": "censored"}
                 representation["is_unmatched"] = True
 
             del representation["u1"]
@@ -110,6 +106,20 @@ class ChatSerializer(serializers.ModelSerializer):
             representation["u2"] = instance.u2.hash
 
         return representation
+
+
+class MessageAttachment(models.Model):
+    id = models.AutoField(primary_key=True)
+    uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
+    file = models.FileField(upload_to="message_attachments")
+
+    def save(self, *args, **kwargs):
+        file_ending = self.file.name.split(".")[-1]
+        self.file.name = str(self.uuid) + "." + file_ending
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return str(self.uuid)
 
 
 class Message(models.Model):
@@ -127,14 +137,15 @@ class Message(models.Model):
     read = models.BooleanField(default=False)
 
     created = models.DateTimeField(auto_now_add=True)
+    attachments = models.ForeignKey(MessageAttachment, on_delete=models.CASCADE, blank=True, null=True)
 
     class Meta:
         indexes = [
-            models.Index(fields=['sender', 'recipient']),
-            models.Index(fields=['recipient', 'sender']),
-            models.Index(fields=['created']),
-            models.Index(fields=['recipient', 'created']),
-            models.Index(fields=['sender', 'created']),
+            models.Index(fields=["sender", "recipient"]),
+            models.Index(fields=["recipient", "sender"]),
+            models.Index(fields=["created"]),
+            models.Index(fields=["recipient", "created"]),
+            models.Index(fields=["sender", "created"]),
         ]
 
 
