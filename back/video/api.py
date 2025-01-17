@@ -17,6 +17,7 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 from django.http import JsonResponse
 import asyncio
+from translations import get_translation
 
 
 @csrf_exempt
@@ -107,18 +108,18 @@ def livekit_webhook(request):
                     match.save()
 
                     try:
-                        # send chat message from: session.first_active_user -> widged_receiptient
+                        # send chat message from: session.first_active_user -> widget_recipient
                         call_duration = session.end_time - session.start_time
-                        call_duration_message = f"Duration: {call_duration}"
-                        widged_receiptient = room.u1 if session.first_active_user == room.u2 else room.u2
-                        chat = Chat.get_chat([session.first_active_user, widged_receiptient])
+                        call_header = get_translation('call_widget.completed_header')
+                        widget_recipient = room.u1 if session.first_active_user == room.u2 else room.u2
+                        chat = Chat.get_chat([session.first_active_user, widget_recipient])
                         Message.objects.create(
                             chat=chat,
                             sender=session.first_active_user,
-                            recipient=widged_receiptient,
+                            recipient=widget_recipient,
                             recipient_notified=True,\
                             parsable_message=True,
-                            text='<CallWidget {"header":"Call","duration": "' + call_duration_message + '", "isMissed": false}>'
+                            text='<CallWidget {"header":"' + call_header + '", "description": "' + call_duration + '", "isMissed": false, returnCallLink: ""}>'
                         )
                         # TODO: send also a websocket callback incase the user is already online
                     except:
@@ -129,16 +130,18 @@ def livekit_webhook(request):
                     # check which user endered the call first
                     partner = room.u1 if user == room.u2 else room.u2
                     try:
-                        # send chat message from: session.first_active_user -> widged_receiptient
-                        widged_receiptient = room.u1 if session.first_active_user == room.u2 else room.u2
-                        chat = Chat.get_chat([session.first_active_user, widged_receiptient])
+                        # send chat message from: session.first_active_user -> widget_recipient
+                        widget_recipient = room.u1 if session.first_active_user == room.u2 else room.u2
+                        chat = Chat.get_chat([session.first_active_user, widget_recipient])
+                        call_header = get_translation('call_widget.missed_header')
+                        call_description = get_translation('call_widget.missed_header')
                         Message.objects.create(
                             chat=chat,
                             sender=session.first_active_user,
-                            recipient=widged_receiptient,
+                            recipient=widget_recipient,
                             recipient_notified=True,\
                             parsable_message=True,
-                            text='<CallWidget {"header":"Missed Call","duration": "Duration: 0", "isMissed": true, "returnCallText": "Call Back" }>'
+                            text='<CallWidget {"header":"' + call_header + '","description": "' + call_description + '", "isMissed": true, returnCallLink: ""}>'
                         )
                         # TODO: send also a websocket callback incase the user is already online
                     except:
