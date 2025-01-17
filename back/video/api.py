@@ -119,7 +119,7 @@ def livekit_webhook(request):
                             recipient=widget_recipient,
                             recipient_notified=True,\
                             parsable_message=True,
-                            text='<CallWidget {"header":"' + call_header + '", "description": "' + call_duration + '", "isMissed": false, returnCallLink: ""}>'
+                            text='<CallWidget {"header":"' + call_header + '", "description": "' + call_duration + '", "isMissed": false}>'
                         )
                         # TODO: send also a websocket callback incase the user is already online
                     except:
@@ -141,7 +141,7 @@ def livekit_webhook(request):
                             recipient=widget_recipient,
                             recipient_notified=True,\
                             parsable_message=True,
-                            text='<CallWidget {"header":"' + call_header + '","description": "' + call_description + '", "isMissed": true, returnCallLink: ""}>'
+                            text='<CallWidget {"header":"' + call_header + '","description": "' + call_description + '", "isMissed": true}>'
                         )
                         # TODO: send also a websocket callback incase the user is already online
                     except:
