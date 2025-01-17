@@ -55,7 +55,10 @@ def process_report_unmatch(request, kind="report"):
 
     user_name_match = matching.user2.profile.first_name if matching.user2.profile.first_name != request.user.profile.first_name else matching.user1.profile.first_name
 
-    default_message = get_translation("auto_messages.match_unmatched", lang="de").format(first_name=request.user.profile.first_name, match_name=user_name_match)
+    if kind == "unmatch":
+        default_message = get_translation("auto_messages.match_unmatched", lang="de").format(first_name=request.user.profile.first_name, match_name=user_name_match)
+    else:
+        default_message = get_translation("auto_messages.match_reported", lang="de").format(first_name=request.user.profile.first_name, match_name=user_name_match)
 
     request.user.message(default_message)
 
