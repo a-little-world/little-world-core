@@ -113,15 +113,12 @@ def livekit_webhook(request):
                         call_header = get_translation('call_widget.completed_header')
                         widget_recipient = room.u1 if session.first_active_user == room.u2 else room.u2
                         chat = Chat.get_chat([session.first_active_user, widget_recipient])
-                        Message.objects.create(
-                            chat=chat,
+                        widget_recipient.message(
+                            '<CallWidget {"header":"' + call_header + '", "description": "' + call_duration + '", "isMissed": false}>',
                             sender=session.first_active_user,
-                            recipient=widget_recipient,
-                            recipient_notified=True,\
-                            parsable_message=True,
-                            text='<CallWidget {"header":"' + call_header + '", "description": "' + call_duration + '", "isMissed": false}>'
+                            auto_mark_read=True, 
+                            parsable_message=True
                         )
-                        # TODO: send also a websocket callback incase the user is already online
                     except:
                         print("Cound't send call widged to first_active_user")
                         pass
@@ -135,15 +132,12 @@ def livekit_webhook(request):
                         chat = Chat.get_chat([session.first_active_user, widget_recipient])
                         call_header = get_translation('call_widget.missed_header')
                         call_description = get_translation('call_widget.missed_header')
-                        Message.objects.create(
-                            chat=chat,
+                        widget_recipient.message(
+                            '<CallWidget {"header":"' + call_header + '","description": "' + call_description + '", "isMissed": true}>',
                             sender=session.first_active_user,
-                            recipient=widget_recipient,
-                            recipient_notified=True,\
-                            parsable_message=True,
-                            text='<CallWidget {"header":"' + call_header + '","description": "' + call_description + '", "isMissed": true}>'
+                            auto_mark_read=True, 
+                            parsable_message=True
                         )
-                        # TODO: send also a websocket callback incase the user is already online
                     except:
                         print("Cound't send call widged to first_active_user")
                         pass
