@@ -112,9 +112,11 @@ def livekit_webhook(request):
                         call_duration = session.end_time - session.start_time
                         call_header = get_translation('call_widget.completed_header')
                         widget_recipient = room.u1 if session.first_active_user == room.u2 else room.u2
-                        chat = Chat.get_chat([session.first_active_user, widget_recipient])
+                        #chat = Chat.get_chat([session.first_active_user, widget_recipient])
+                        # e.g.: <CallWidget {"header": "Call completed", "description": "10 minutes", "isMissed": false}>
+                        # usr.message('<CallWidget {"description": "10 minutes"}></CallWidget>', sender=usr2, auto_mark_read=True, parsable_message=True)
                         widget_recipient.message(
-                            '<CallWidget {"header":"' + call_header + '", "description": "' + call_duration + '", "isMissed": false}>',
+                            '<CallWidget {"description": "' + call_duration + '"}></CallWidget>',
                             sender=session.first_active_user,
                             auto_mark_read=True, 
                             parsable_message=True
@@ -129,11 +131,12 @@ def livekit_webhook(request):
                     try:
                         # send chat message from: session.first_active_user -> widget_recipient
                         widget_recipient = room.u1 if session.first_active_user == room.u2 else room.u2
-                        chat = Chat.get_chat([session.first_active_user, widget_recipient])
+                        #chat = Chat.get_chat([session.first_active_user, widget_recipient])
                         call_header = get_translation('call_widget.missed_header')
                         call_description = get_translation('call_widget.missed_header')
+                        # usr.message('<MissedCallWidget {"description": "Click to return call", "isMissed": true}></MissedCallWidget>', sender=usr2, auto_mark_read=True, parsable_message=True)
                         widget_recipient.message(
-                            '<CallWidget {"header":"' + call_header + '","description": "' + call_description + '", "isMissed": true}>',
+                            '<MissedCallWidget></MissedCallWidget>',
                             sender=session.first_active_user,
                             auto_mark_read=True, 
                             parsable_message=True
