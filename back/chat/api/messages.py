@@ -24,7 +24,6 @@ class StandardResultsSetPagination(PageNumberPagination):
 
 class SendAttachmentSerializer(serializers.Serializer):
     file = serializers.FileField()
-    text = serializers.CharField()
 
 
 class SendMessageSerializer(serializers.Serializer):
@@ -161,8 +160,14 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
 
         file = serializer.validated_data["file"]
         attachment = MessageAttachment.objects.create(file=file)
-
-        message = Message.objects.create(chat=chat, sender=request.user, recipient=partner, recipient_notified=recipiend_was_email_notified, text=serializer.data["text"], attachments=attachment)
+        
+        file_ending = file.name.split(".")[-1]
+        is_image = file_ending in ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "ico", "webp"]
+        attachment_link = attachment.file.url
+        attachment_title = "File" if not is_image else "Image"
+        attachment_image_src = attachment.file.url if is_image else ""
+        attachment_widget = f"<AttachmentWidget {{'attachmentTitle': '{attachment_title}', 'attachmentLink': '{attachment_link}', 'imageSrc': '{attachment_image_src}'}} />"
+        message = Message.objects.create(chat=chat, sender=request.user, recipient=partner, recipient_notified=recipiend_was_email_notified, text=attachment_widget, attachments=attachment)
 
         serialized_message = self.serializer_class(message).data
 
