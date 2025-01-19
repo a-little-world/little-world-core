@@ -12,6 +12,7 @@ from emails import mails
 from django.conf import settings
 from management.tasks import send_email_background
 from management.models.matches import Match
+from chat.models import MessageAttachment
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -19,6 +20,11 @@ class StandardResultsSetPagination(PageNumberPagination):
     page_query_param = "page"
     page_size_query_param = "page_size"
     max_page_size = 100
+
+
+class SendAttachmentSerializer(serializers.Serializer):
+    file = serializers.FileField()
+    text = serializers.CharField()
 
 
 class SendMessageSerializer(serializers.Serializer):
@@ -42,15 +48,10 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         print("FILTERING")
         if hasattr(self, "chat_uuid"):
             if self.request.user.is_staff:
-                qs = Chat.objects.get(
-                    uuid=self.chat_uuid
-                ).get_messages().order_by("-created")
+                qs = Chat.objects.get(uuid=self.chat_uuid).get_messages().order_by("-created")
                 return qs
             else:
-                qs = Chat.objects.get(
-                    Q(u1=self.request.user) | Q(u2=self.request.user),
-                    uuid=self.chat_uuid
-                ).get_messages().order_by("-created")
+                qs = Chat.objects.get(Q(u1=self.request.user) | Q(u2=self.request.user), uuid=self.chat_uuid).get_messages().order_by("-created")
                 return qs
         return super().filter_queryset(queryset)
 
@@ -103,6 +104,73 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
 
         return Response({"status": "ok"}, status=200)
 
+    @extend_schema(request=SendAttachmentSerializer)
+    @action(detail=False, methods=["post"])
+    def send_attachment(self, request, chat_uuid=None):
+        if not chat_uuid:
+            return Response({"error": "chat_uuid is required"}, status=400)
+
+        chat = Chat.objects.filter(uuid=chat_uuid)
+        if not chat.exists():
+            return Response({"error": "(1) Chat doesn't exist or you have no permission to interact with it!"}, status=403)
+        chat = chat.first()
+        if not chat.is_participant(request.user):
+            return Response({"error": "(2) You have no permission to interact with this chat!"}, status=403)
+
+        serializer = SendAttachmentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        partner = chat.get_partner(request.user)
+
+        match = Match.get_match(request.user, partner)
+        if not match.exists():
+            return Response({"error": "(3) You are not matched with this user!"}, status=403)
+        match = match.first()
+        match.total_messages_counter += 1
+        match.latest_interaction_at = timezone.now()
+        match.save()
+
+        latest_notified_message = Message.objects.filter(
+            recipient=partner,
+            recipient_notified=True,
+        ).order_by("-created")
+
+        def notify_recipient_email():
+            if settings.USE_V2_EMAIL_APIS:
+                send_email_background.delay("new-messages", user_id=partner.id)
+            else:
+                partner.send_email(
+                    subject="Neue Nachricht(en) auf Little World",
+                    mail_data=mails.get_mail_data_by_name("new_messages"),
+                    mail_params=mails.NewUreadMessagesParams(
+                        first_name=partner.profile.first_name,
+                    ),
+                )
+
+        creation_time = timezone.now()
+        recipiend_was_email_notified = False
+        if latest_notified_message.exists():
+            latest_notified_message = latest_notified_message.first()
+            time_since_last_notif = (creation_time - latest_notified_message.created).total_seconds()
+            if time_since_last_notif > 300:
+                recipiend_was_email_notified = True
+                notify_recipient_email()
+        else:
+            recipiend_was_email_notified = True
+            notify_recipient_email()
+
+        file = serializer.validated_data["file"]
+        attachment = MessageAttachment.objects.create(file=file)
+
+        message = Message.objects.create(chat=chat, sender=request.user, recipient=partner, recipient_notified=recipiend_was_email_notified, text=serializer.data["text"], attachments=attachment)
+
+        serialized_message = self.serializer_class(message).data
+
+        from chat.consumers.messages import NewMessage
+
+        NewMessage(message=serialized_message, chat_id=chat.uuid, meta_chat_obj=ChatSerializer(chat, context={"user": partner}).data).send(partner.hash)
+        return Response(serialized_message, status=200)
+
     @extend_schema(request=SendMessageSerializer)
     @action(detail=False, methods=["post"])
     def send(self, request, chat_uuid=None):
@@ -115,7 +183,6 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         chat = chat.first()
         if not chat.is_participant(request.user):
             return self.resp_chat_403
-        
 
         serializer = SendMessageSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -140,7 +207,7 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
             recipient=partner,
             recipient_notified=True,
         ).order_by("-created")
-        
+
         def notify_recipient_email():
             if settings.USE_V2_EMAIL_APIS:
                 send_email_background.delay("new-messages", user_id=partner.id)

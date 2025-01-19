@@ -21,6 +21,12 @@ messages_api_user_send = api.messages.MessagesModelViewSet.as_view(
     }
 )
 
+messages_api_user_send_attachment = api.messages.MessagesModelViewSet.as_view(
+    {
+        "post": "send_attachment",
+    }
+)
+
 messages_api_user_read = api.messages.MessagesModelViewSet.as_view(
     {
         "post": "read",
@@ -63,6 +69,7 @@ urlpatterns = [
     path("api/messages/", messages_api_user_list),
     path("api/messages/<str:chat_uuid>/chat_read/", chat_messages_api_user_read),
     path("api/messages/<str:chat_uuid>/send/", messages_api_user_send),
+    path("api/messages/<str:chat_uuid>/send_attachment/", messages_api_user_send_attachment),
     path("api/messages/<str:chat_uuid>/", messages_api_user_list),
     path("api/messages/<str:pk>/read/", messages_api_user_send),
     path("api/messages/<str:pk>/", message_api_user),
