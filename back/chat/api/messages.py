@@ -161,13 +161,17 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         file = serializer.validated_data["file"]
         attachment = MessageAttachment.objects.create(file=file)
         
+        def get_attachment_widget(is_image, attachment_link):
+            if is_image:
+                return f"<AttachmentWidget {{'attachmentTitle': 'Image', 'attachmentLink': null, 'imageSrc': '{attachment_link}'}} ></AttachmentWidget>"
+            else:
+                return f"<AttachmentWidget {{'attachmentTitle': 'File', 'attachmentLink': '{attachment_link}', 'imageSrc': null}} ></AttachmentWidget>"
+        
         file_ending = file.name.split(".")[-1]
         is_image = file_ending in ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "ico", "webp"]
         attachment_link = attachment.file.url
-        attachment_title = "File" if not is_image else "Image"
-        attachment_image_src = attachment.file.url if is_image else ""
-        attachment_widget = f"<AttachmentWidget {{'attachmentTitle': '{attachment_title}', 'attachmentLink': '{attachment_link}', 'imageSrc': '{attachment_image_src}'}} />"
-        message = Message.objects.create(chat=chat, sender=request.user, recipient=partner, recipient_notified=recipiend_was_email_notified, text=attachment_widget, attachments=attachment)
+        attachment_widget = get_attachment_widget(is_image, attachment_link)
+        message = Message.objects.create(chat=chat, sender=request.user, recipient=partner, recipient_notified=recipiend_was_email_notified, text=attachment_widget, attachments=attachment, parsable_message=True)
 
         serialized_message = self.serializer_class(message).data
 
