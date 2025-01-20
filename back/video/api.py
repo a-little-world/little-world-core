@@ -106,14 +106,21 @@ def livekit_webhook(request):
 
                     try:
                         # send chat message from: session.first_active_user -> widget_recipient
-                        call_duration = session.end_time - session.start_time
-                        call_header = get_translation('call_widget.completed_header')
+                        def duration_to_text(duration):
+                            seconds = int(duration.total_seconds())
+                            minutes, seconds = divmod(seconds, 60)
+                            
+                            if minutes > 0:
+                                return f"{minutes} minute{'s' if minutes > 1 else ''}"
+                            else:
+                                return f"{seconds} second{'s' if seconds > 1 else ''}"
+                        call_duration = session.end_time - session.created_at
                         widget_recipient = room.u1 if session.first_active_user == room.u2 else room.u2
-                        #chat = Chat.get_chat([session.first_active_user, widget_recipient])
+                        # chat = Chat.get_chat([session.first_active_user, widget_recipient])
                         # e.g.: <CallWidget {"header": "Call completed", "description": "10 minutes", "isMissed": false}>
                         # usr.message('<CallWidget {"description": "10 minutes"}></CallWidget>', sender=usr2, auto_mark_read=True, parsable_message=True)
                         widget_recipient.message(
-                            '<CallWidget {"description": "' + call_duration + '"}></CallWidget>',
+                            '<CallWidget {"description": "' + duration_to_text(call_duration) + '"}></CallWidget>',
                             sender=session.first_active_user,
                             auto_mark_read=True, 
                             parsable_message=True
@@ -127,11 +134,9 @@ def livekit_webhook(request):
                     partner = room.u1 if user == room.u2 else room.u2
                     try:
                         # send chat message from: session.first_active_user -> widget_recipient
-                        widget_recipient = room.u1 if session.first_active_user == room.u2 else room.u2
-                        #chat = Chat.get_chat([session.first_active_user, widget_recipient])
-                        call_header = get_translation('call_widget.missed_header')
-                        call_description = get_translation('call_widget.missed_header')
+                        # chat = Chat.get_chat([session.first_active_user, widget_recipient])
                         # usr.message('<MissedCallWidget {"description": "Click to return call", "isMissed": true}></MissedCallWidget>', sender=usr2, auto_mark_read=True, parsable_message=True)
+                        widget_recipient = room.u1 if session.first_active_user == room.u2 else room.u2
                         widget_recipient.message(
                             '<MissedCallWidget></MissedCallWidget>',
                             sender=session.first_active_user,
