@@ -163,9 +163,9 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         
         def get_attachment_widget(is_image, attachment_link):
             if is_image:
-                return f"<AttachmentWidget {{'attachmentTitle': 'Image', 'attachmentLink': null, 'imageSrc': '{attachment_link}'}} ></AttachmentWidget>"
+                return f'<AttachmentWidget {{"attachmentTitle": "Image", "attachmentLink": null, "imageSrc": "{attachment_link}"}} ></AttachmentWidget>'
             else:
-                return f"<AttachmentWidget {{'attachmentTitle': 'File', 'attachmentLink': '{attachment_link}', 'imageSrc': null}} ></AttachmentWidget>"
+                return f'<AttachmentWidget {{"attachmentTitle": "File", "attachmentLink": "{attachment_link}", "imageSrc": null}} ></AttachmentWidget>'
         
         file_ending = file.name.split(".")[-1]
         is_image = file_ending in ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "ico", "webp"]
