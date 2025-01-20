@@ -43,14 +43,10 @@ def livekit_webhook(request):
         if active_session.exists():
             session = active_session.first()
             if user == room.u1:
-                if not session.u2_active and not session.u2_was_active:
-                    session.first_active_user = user
                 session.u1_active = True
                 session.u1_was_active = True
                 session.both_have_been_active = session.both_have_been_active or session.u2_active
             elif user == room.u2:
-                if not session.u1_active and not session.u1_was_active:
-                    session.first_active_user = user
                 session.u2_active = True
                 session.u2_was_active = True
                 session.both_have_been_active = session.both_have_been_active or session.u1_active
@@ -63,6 +59,7 @@ def livekit_webhook(request):
                 u2_active=(user == room.u2),
                 u1_was_active=(user == room.u1),
                 u2_was_active=(user == room.u2),
+                first_active_user=user,
             )
         session.webhook_events.add(event)
         session.save()
