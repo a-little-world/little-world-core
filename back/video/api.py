@@ -123,7 +123,9 @@ def livekit_webhook(request):
                             '<CallWidget {"description": "' + duration_to_text(call_duration) + '"}></CallWidget>',
                             sender=session.first_active_user,
                             auto_mark_read=True, 
-                            parsable_message=True
+                            parsable_message=True,
+                            send_message_incoming=True,
+                            send_message_incoming_to_sender=True
                         )
                     except:
                         print("Cound't send call widged to first_active_user")
@@ -141,7 +143,9 @@ def livekit_webhook(request):
                             '<MissedCallWidget></MissedCallWidget>',
                             sender=session.first_active_user,
                             auto_mark_read=True, 
-                            parsable_message=True
+                            parsable_message=True,
+                            send_message_incoming=True,
+                            send_message_incoming_to_sender=True
                         )
                     except:
                         print("Cound't send call widged to first_active_user")
