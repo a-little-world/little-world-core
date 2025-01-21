@@ -66,6 +66,16 @@ class Banner(models.Model):
         help_text=_("Image alt text")
     )
     
+    class BannerType(models.TextChoices):
+        small = "small", "Small"
+        large = "large", "Large"
+
+    type = models.CharField(
+        max_length=255,
+        default=BannerType.small,
+        choices=BannerType.choices,
+    )
+    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -96,6 +106,7 @@ class BannerSerializer(serializers.ModelSerializer):
             'cta_1_text', 
             'cta_2_url', 
             'cta_2_text', 
+            'type',
             'image', 
             'image_alt',
             'created_at',
