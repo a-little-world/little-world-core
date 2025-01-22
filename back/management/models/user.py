@@ -118,37 +118,9 @@ class User(AbstractUser):
         super().save(*args, **kwargs)
         self.__original_username = self.username
 
-    def get_matches(self):
-        """Returns a list of matches"""
-        # TODO: replace with new 'Match' model
-        return self.state.matches.all()
-
     def get_notifications(self):
         """Returns a list of matches"""
         return self.state.notifications.all()
-
-    def match(self, user, set_unconfirmed=True):
-        """
-        Adds the user as match of this user
-        ( this doesn't automaticly create a match for the other user )
-        'set_unconfirmed' determines if the user should be added to the unconfirmed matches list
-        """
-        # This seems to autosave ? but lets still call state.save() in the end just to be sure
-        # TODO: remove all reference to this old stategy
-        self.state.matches.add(user)
-        if set_unconfirmed:
-            self.state.unconfirmed_matches_stack.append(user.hash)
-        self.state.save()
-
-    def unmatch(self, user):
-        """
-        Removes the user from matches and unconfirmed matches
-        """
-        # TODO: remove all reference to this old stategy, we use the 'Match' model now
-        self.state.matches.remove(user)
-        if user.hash in self.state.unconfirmed_matches_stack:
-            self.state.unconfirmed_matches_stack.remove(user.hash)
-        self.state.save()
 
     def is_matched(self, user):
         # TODO: remove all reference to this old stategy, we use the 'Match' model now
