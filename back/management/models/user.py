@@ -198,7 +198,7 @@ class User(AbstractUser):
     def notify(self, title=_("title"), description=_("description")):
         pass  # TODO: depricated, replace all occurences
 
-    def message(self, msg, sender=None, auto_mark_read=False, send_message_incoming=True):
+    def message(self, msg, sender=None, auto_mark_read=False, send_message_incoming=True, parsable_message=True, send_message_incoming_to_sender=False):
         """
         Sends the users a chat message
         theoreticly this could be used to send a message from any sender
@@ -211,7 +211,7 @@ class User(AbstractUser):
 
         chat = Chat.get_or_create_chat(sender, self)
         # --------------------- new message send implemetation below ------------------------------
-        message = Message.objects.create(chat=chat, sender=sender, recipient=self, read=auto_mark_read, recipient_notified=auto_mark_read, text=msg)
+        message = Message.objects.create(chat=chat, sender=sender, recipient=self, read=auto_mark_read, recipient_notified=auto_mark_read, text=msg, parsable_message=parsable_message)
 
         serialized_message = MessageSerializer(message).data
 
@@ -228,6 +228,17 @@ class User(AbstractUser):
                     },
                 ).data,
             ).send(self.hash)
+            if send_message_incoming_to_sender:
+                NewMessage(
+                    message=serialized_message,
+                    chat_id=chat.uuid,
+                    meta_chat_obj=ChatSerializer(
+                        chat,
+                        context={
+                            "user": sender,
+                        },
+                    ).data,
+                ).send(sender.hash)
         return message
 
     def send_email_v2(self, template_name, match_id=None, proposed_match_id=None, context={}):

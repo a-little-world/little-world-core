@@ -3,7 +3,7 @@ from rest_framework.decorators import (
     permission_classes,
     authentication_classes,
 )
-from chat.models import Chat, ChatSerializer
+from chat.models import Chat, ChatSerializer, Message
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import SessionAuthentication
 from video.models import (
@@ -27,6 +27,7 @@ from django.views.decorators.csrf import csrf_exempt
 import json
 from django.http import JsonResponse
 import asyncio
+from translations import get_translation
 
 
 @csrf_exempt
@@ -68,6 +69,7 @@ def livekit_webhook(request):
                 u2_active=(user == room.u2),
                 u1_was_active=(user == room.u1),
                 u2_was_active=(user == room.u2),
+                first_active_user=user,
             )
         session.webhook_events.add(event)
         session.save()
@@ -111,9 +113,53 @@ def livekit_webhook(request):
                     match.total_mutal_video_calls_counter += 1
                     match.latest_interaction_at = timezone.now()
                     match.save()
+
+                    try:
+                        # send chat message from: session.first_active_user -> widget_recipient
+                        def duration_to_text(duration):
+                            seconds = int(duration.total_seconds())
+                            minutes, seconds = divmod(seconds, 60)
+                            
+                            if minutes > 0:
+                                return f"{minutes} minute{'s' if minutes > 1 else ''}"
+                            else:
+                                return f"{seconds} second{'s' if seconds > 1 else ''}"
+                        call_duration = session.end_time - session.created_at
+                        widget_recipient = room.u1 if session.first_active_user == room.u2 else room.u2
+                        # chat = Chat.get_chat([session.first_active_user, widget_recipient])
+                        # e.g.: <CallWidget {"header": "Call completed", "description": "10 minutes", "isMissed": false}>
+                        # usr.message('<CallWidget {"description": "10 minutes"}></CallWidget>', sender=usr2, auto_mark_read=True, parsable_message=True)
+                        widget_recipient.message(
+                            '<CallWidget {"description": "' + duration_to_text(call_duration) + '"}></CallWidget>',
+                            sender=session.first_active_user,
+                            auto_mark_read=True, 
+                            parsable_message=True,
+                            send_message_incoming=True,
+                            send_message_incoming_to_sender=True
+                        )
+                    except:
+                        print("Cound't send call widged to first_active_user")
+                        pass
                 else:
                     # 2 - send 'MissedCall' event to the partner of the user that left
+                    # check which user endered the call first
                     partner = room.u1 if user == room.u2 else room.u2
+                    try:
+                        # send chat message from: session.first_active_user -> widget_recipient
+                        # chat = Chat.get_chat([session.first_active_user, widget_recipient])
+                        # usr.message('<MissedCallWidget {"description": "Click to return call", "isMissed": true}></MissedCallWidget>', sender=usr2, auto_mark_read=True, parsable_message=True)
+                        widget_recipient = room.u1 if session.first_active_user == room.u2 else room.u2
+                        widget_recipient.message(
+                            '<MissedCallWidget></MissedCallWidget>',
+                            sender=session.first_active_user,
+                            auto_mark_read=True, 
+                            parsable_message=True,
+                            send_message_incoming=True,
+                            send_message_incoming_to_sender=True
+                        )
+                    except:
+                        print("Cound't send call widged to first_active_user")
+                        pass
         session.webhook_events.add(event)
         session.save()
 

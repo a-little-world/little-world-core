@@ -1,3 +1,4 @@
+from translations import get_translation
 from drf_spectacular.utils import extend_schema
 from rest_framework import permissions
 from rest_framework.response import Response
@@ -51,9 +52,17 @@ def process_report_unmatch(request, kind="report"):
         }
     )
     matching.save()
-    
-    slack_notify_communication_channel_async.delay(f"Match {data.match_id} has been {kind}-ed by {request.user.hash} with reason: {data.reason}")
 
+    user_name_match = matching.user2.profile.first_name if matching.user2.profile.first_name != request.user.profile.first_name else matching.user1.profile.first_name
+
+    if kind == "unmatch":
+        default_message = get_translation("auto_messages.match_unmatched", lang="de").format(first_name=request.user.profile.first_name, match_name=user_name_match)
+    else:
+        default_message = get_translation("auto_messages.match_reported", lang="de").format(first_name=request.user.profile.first_name, match_name=user_name_match)
+
+    request.user.message(default_message)
+
+    slack_notify_communication_channel_async.delay(f"Match {data.match_id} has been {kind}-ed by {request.user.hash} with reason: {data.reason}")
 
     return Response("Unmatched & Reported!", status=status.HTTP_200_OK)
 
