@@ -4,7 +4,7 @@ from django.utils.translation import gettext_lazy as _
 from django.utils.safestring import mark_safe
 from django.contrib import messages
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
-from management.models import dynamic_user_list
+from management.models import dynamic_user_list, post_call_review
 from management import models
 from management.models import question_deck, scores, pre_matching_appointment, newsletter, stats
 from hijack.contrib.admin import HijackUserAdminMixin
@@ -308,3 +308,8 @@ class NewsLetterSubscriptionAdmin(admin.ModelAdmin):
 @admin.register(dynamic_user_list.DynamicUserList)
 class DynamicUserListAdmin(admin.ModelAdmin):
     list_display = ("name", "description", "created_at", "updated_at")
+
+
+@admin.register(post_call_review.PostCallReview)
+class PostCallReviewAdmin(admin.ModelAdmin):
+    list_display = ("user", "live_session", "rating", "created_at", "updated_at")
