@@ -131,9 +131,7 @@ def make_tim_support_user(user, old_management_mail="littleworld.management@gmai
             send_still_active_question_message(user)
 
 
-def create_user(email, password, first_name, second_name, birth_year, company=None, newsletter_subscribed=False, send_verification_mail=True, send_welcome_notification=True, catch_email_send_errors=True):
-    # TODO: depricate param 'catch_email_send_errors'
-
+def create_user(email, password, first_name, second_name, birth_year, company=None, newsletter_subscribed=False, send_verification_mail=True, send_welcome_notification=True):
     """
     This should be used when creating a new user, it may throw validations errors!
     performs the following setps:
@@ -179,41 +177,26 @@ def create_user(email, password, first_name, second_name, birth_year, company=No
     if send_verification_mail:
 
         def send_verify_link():
-            if settings.USE_V2_EMAIL_APIS:
-                # TODO: further simplify when full migration is done
-                usr.send_email_v2("welcome")
-            else:
-                link_route = "mailverify_link"  # api/user/verify/email
-                verifiaction_url = f"{settings.BASE_URL}/{link_route}/{usr.state.get_email_auth_code_b64()}"
-                mails.send_email(
-                    recivers=[email],
-                    subject="{code} - Verifizierungscode zur E-Mail Bestätigung".format(code=usr.state.get_email_auth_pin()),
-                    mail_data=mails.get_mail_data_by_name("welcome"),
-                    mail_params=mails.WelcomeEmailParams(first_name=usr.profile.first_name, verification_url=verifiaction_url, verification_code=str(usr.state.get_email_auth_pin())),
-                )
+            usr.send_email_v2("welcome")
 
         send_verify_link()
 
     base_management_user = get_base_management_user()
 
+    # Step 5 Match with admin user
+    # Do *not* send an matching mail, or notification or message!
+    # Also no need to set the admin user as unconfirmed,
+    # there is no popup message required about being matched to the admin!
     matching = match_users({base_management_user, usr}, send_notification=False, send_message=False, send_email=False, set_unconfirmed=False)
 
     print("Created Match:", matching.user1.email, "<->", matching.user2.email, "(support)" if matching.support_matching else "")
 
     if not base_management_user.is_staff:
-        # Must be a mather user now TODO
-        # Add that user to the list of users managed by this management user!
+        # At the moment all our users get the same management user
+        # in the future there might be a process to assign different management users to different users
         base_management_user.state.managed_users.add(usr)
         base_management_user.state.save()
 
-    # Step 5 Match with admin user
-    # Do *not* send an matching mail, or notification or message!
-    # Also no need to set the admin user as unconfirmed,
-    # there is no popup message required about being matched to the admin!
-
-    # TODO: since this was just updated and we now have 'matcher' users
-    # this doesn't always have to be the same management user anymore
-    # Generay how we handle management users needs to be significantly improved!
 
     # Step 7 Notify the user
     if send_welcome_notification:
@@ -401,7 +384,7 @@ def get_or_create_default_docs_user():
         return get_user_by_email(settings.DOCS_USER)
     except UserNotFoundErr:
         create_user(
-            email=settings.DOCS_USER, password=settings.DOCS_PASSWORD, first_name="Docs", second_name="User", birth_year=2000, newsletter_subscribed=False, send_verification_mail=False, send_welcome_notification=False, catch_email_send_errors=False
+            email=settings.DOCS_USER, password=settings.DOCS_PASSWORD, first_name="Docs", second_name="User", birth_year=2000, newsletter_subscribed=False, send_verification_mail=False, send_welcome_notification=False
         )
 
     def finish_up_user_creation():
