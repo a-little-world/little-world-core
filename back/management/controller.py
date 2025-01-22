@@ -204,15 +204,6 @@ def create_user(email, password, first_name, second_name, birth_year, company=No
 
     return usr
 
-
-def are_users_matched(users: set):
-    assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
-    usr1, usr2 = list(users)
-
-    # TODO: need updating to the new Match model relation!
-    return usr1.is_matched(usr2) and usr2.is_matched(usr1)
-
-
 def match_users(users: set, send_notification=True, send_message=True, send_email=True, create_dialog=True, create_video_room=True, create_livekit_room=True, set_unconfirmed=True, set_to_idle=True):
     """Accepts a list of two users to match"""
 
@@ -273,21 +264,8 @@ def match_users(users: set, send_notification=True, send_message=True, send_emai
         usr2.message(match_message.format(other_name=usr1.profile.first_name), auto_mark_read=True)
 
     if send_email:
-        if settings.USE_V2_EMAIL_APIS:
-            usr1.send_email_v2("new-match", match_id=matching_obj.id)
-            usr2.send_email_v2("new-match", match_id=matching_obj.id)
-        else:
-            usr1.send_email(subject="Glückwunsch! Gesprächspartner:in gefunden auf Little World", mail_data=mails.get_mail_data_by_name("match"), mail_params=mails.MatchMailParams(first_name=usr1.profile.first_name, match_first_name=usr2.profile.first_name, profile_link_url=settings.BASE_URL))
-            usr2.send_email(
-                subject="Glückwunsch! Gesprächspartner:in gefunden auf Little World",
-                mail_data=mails.get_mail_data_by_name("match"),
-                mail_params=mails.MatchMailParams(
-                    first_name=usr2.profile.first_name,
-                    match_first_name=usr1.profile.first_name,
-                    # TODO: should be the actual profile slug in the future
-                    profile_link_url=settings.BASE_URL,
-                ),
-            )
+        usr1.send_email_v2("new-match", match_id=matching_obj.id)
+        usr2.send_email_v2("new-match", match_id=matching_obj.id)
 
     if set_to_idle:
         usr1.state.set_idle()
