@@ -522,16 +522,7 @@ def delete_user(user, management_user=None, send_deletion_email=False):
     from emails import mails
 
     if send_deletion_email:
-        if settings.USE_V2_EMAIL_APIS:
-            user.send_email_v2("account-deleted")
-        else:
-            user.send_email(
-                subject="Dein Account wurde gelöscht",
-                mail_data=mails.get_mail_data_by_name("account_deleted"),
-                mail_params=mails.AccountDeletedEmailParams(
-                    first_name=user.profile.first_name,
-                ),
-            )
+        user.send_email_v2("account-deleted")
 
     user.is_active = False
     user.email = f"deleted_{user.email}"
