@@ -177,12 +177,11 @@ class User(AbstractUser):
         """
         from ..controller import get_base_management_user
 
-        # TODO: depricated message send implementation -------------------------------------------
         if not sender:
+            # TODO: the management user should be inferred on per user basis!
             sender = get_base_management_user()
 
         chat = Chat.get_or_create_chat(sender, self)
-        # --------------------- new message send implemetation below ------------------------------
         message = Message.objects.create(chat=chat, sender=sender, recipient=self, read=auto_mark_read, recipient_notified=auto_mark_read, text=msg, parsable_message=parsable_message)
 
         serialized_message = MessageSerializer(message).data
