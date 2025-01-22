@@ -122,10 +122,6 @@ class User(AbstractUser):
         """Returns a list of matches"""
         return self.state.notifications.all()
 
-    def is_matched(self, user):
-        # TODO: remove all reference to this old stategy, we use the 'Match' model now
-        return self.state.matches.filter(hash=user.hash).exists()
-
     def change_email(self, email, send_verification_mail=True):
         """
         Can be used to change the email
@@ -166,9 +162,6 @@ class User(AbstractUser):
         # We do this so admins can edit emails in the admin pannel and changes are reflected as expected
         # self.username = prms.email  # <- so the user can login with that email now
         self.save()
-
-    def notify(self, title=_("title"), description=_("description")):
-        pass  # TODO: depricated, replace all occurences
 
     def message(self, msg, sender=None, auto_mark_read=False, send_message_incoming=True, parsable_message=True, send_message_incoming_to_sender=False):
         """

@@ -197,11 +197,6 @@ def create_user(email, password, first_name, second_name, birth_year, company=No
         base_management_user.state.managed_users.add(usr)
         base_management_user.state.save()
 
-
-    # Step 7 Notify the user
-    if send_welcome_notification:
-        usr.notify(title="Welcome Notification")
-
     return usr
 
 def match_users(users: set, send_notification=True, send_message=True, send_email=True, create_dialog=True, create_video_room=True, create_livekit_room=True, set_unconfirmed=True, set_to_idle=True):
@@ -253,8 +248,7 @@ def match_users(users: set, send_notification=True, send_message=True, send_emai
         room = Room.objects.create(usr1=usr1, usr2=usr2)
 
     if send_notification:
-        usr1.notify(title="New match: %s" % usr2.profile.first_name)
-        usr2.notify(title="New match: %s" % usr1.profile.first_name)
+        pass # TODO: send notification should be used to trigger an SMS notification
 
     if send_message:
         match_message = get_translation("auto_messages.match_message", lang="de")
@@ -394,7 +388,6 @@ def create_base_admin_and_add_standart_db_values():
         usr.state.email_authenticated = True
         usr.state.save()
         usr.state.set_user_form_completed()  # Admin doesn't have to fill the userform
-        usr.notify("You are the admin master!")
         print("Base Admin User: Newly created!")
 
     def update_profile():
@@ -403,7 +396,6 @@ def create_base_admin_and_add_standart_db_values():
         usr_tim.state.email_authenticated = True
         usr_tim.state.save()
         usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
-        usr_tim.notify(description="You are the bese management user with less permissions.")
 
     # Tim Schupp is the new base admin user, we will now create a match with hin instead:
     TIM_MANAGEMENT_USER_MAIL = "tim.timschupp+420@gmail.com"
