@@ -31,7 +31,7 @@ class Match(models.Model):
     report_unmatch = models.JSONField(default=list)
 
     still_in_contact_mail_send = models.BooleanField(default=False)
-    
+
     total_messages_counter = models.IntegerField(default=0)
     total_mutal_video_calls_counter = models.IntegerField(default=0)
     latest_interaction_at = models.DateTimeField(default=timezone.now)
@@ -39,25 +39,26 @@ class Match(models.Model):
     # If a certain match completed condition is met, this will be set to True
     completed = models.BooleanField(default=False)
     completed_off_plattform = models.BooleanField(default=False)
-    
+
+    send_automatic_message_1week = models.BooleanField(default=True)
+
     def sync_counters(self):
         self.total_messages_counter = Message.objects.filter(Q(sender=self.user1, recipient=self.user2) | Q(sender=self.user2, recipient=self.user1)).count()
         self.total_mutal_video_calls_counter = LivekitSession.objects.filter(Q(u1=self.user1, u2=self.user2) | Q(u1=self.user2, u2=self.user1), both_have_been_active=True).count()
-        
+
         newest_message = Message.objects.filter(Q(sender=self.user1, recipient=self.user2) | Q(sender=self.user2, recipient=self.user1)).order_by("-created").first()
         newest_video_call = LivekitSession.objects.filter(Q(u1=self.user1, u2=self.user2) | Q(u1=self.user2, u2=self.user1), both_have_been_active=True).order_by("-created_at").first()
 
         if newest_message and newest_video_call:
-            self.latest_interaction_at = max(newest_message.created, newest_video_call.created_at) 
-            
+            self.latest_interaction_at = max(newest_message.created, newest_video_call.created_at)
 
         # also we have to check if a match is falsely confirmed=False
         if self.total_messages_counter > 0 or self.total_mutal_video_calls_counter > 0:
             self.confirmed = True
-            
+
         # check if the match should permanently be marked as completed!
         from management.api.match_journey_filters import completed_match
-        
+
         if completed_match(Match.objects.filter(id=self.id)).exists():
             self.completed = True
 
@@ -116,7 +117,7 @@ class Match(models.Model):
     @classmethod
     def get_support_matches(cls, user, order_by="created_at"):
         return cls.objects.filter(Q(user1=user) | Q(user2=user), active=True, support_matching=True).order_by(order_by)
-    
+
     @classmethod
     def get_inactive_matches(cls, user, order_by="created_at"):
         return cls.objects.filter(Q(user1=user) | Q(user2=user), active=False, support_matching=False).order_by(order_by)
