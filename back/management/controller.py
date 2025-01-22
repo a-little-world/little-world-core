@@ -249,11 +249,6 @@ def match_users(users: set, send_notification=True, send_message=True, send_emai
 
         raise Exception("Users are already matched!")
 
-    # TODO: this WAS the old way to match to be removed one our frontend strategy updated
-    # For now we deploy both ways and make then work along side, but the old-way is to be removed asap
-    # usr1.match(usr2, set_unconfirmed=set_unconfirmed)
-    # usr2.match(usr1, set_unconfirmed=set_unconfirmed)
-
     # It can also be a support matching with a 'management' user
     is_support_matching = (usr1.is_staff or usr2.is_staff) or (usr1.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER) or usr2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER))
 
@@ -355,10 +350,7 @@ def unmatch_users(users: set, delete_video_room=True, delete_dialog=True, unmatc
     if unmatcher is None:
         unmatcher = get_base_management_user()
 
-    # TODO: old strategy, to be removed
     usr1, usr2 = list(users)
-    usr1.unmatch(usr2)
-    usr2.unmatch(usr1)
 
     # The new match management strategy
     match = Match.get_match(usr1, usr2)
