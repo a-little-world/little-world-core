@@ -66,7 +66,7 @@ user_category_buckets = [
 class ExportUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "email"]
+        fields = ["id", "email", "hash"]
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
