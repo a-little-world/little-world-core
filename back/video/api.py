@@ -28,6 +28,7 @@ import json
 from django.http import JsonResponse
 import asyncio
 from translations import get_translation
+import uuid
 
 
 @csrf_exempt
@@ -230,6 +231,17 @@ class PostCallReviewParams(serializers.Serializer):
     live_session_id = serializers.UUIDField(required=False, allow_null=True)
     rating = serializers.IntegerField(required=True)
     review = serializers.CharField(required=False, allow_blank=True)
+    review_id = serializers.IntegerField(required=False, allow_null=True)
+
+    def to_internal_value(self, data):
+        if 'live_session_id' in data:
+            try:
+                # If a non parsable uuid is sent, we set it to None
+                uuid.UUID(str(data['live_session_id']))
+            except (ValueError, TypeError, AttributeError):
+                data['live_session_id'] = None
+
+        return super().to_internal_value(data)
 
 @extend_schema(request=PostCallReviewParams(many=False), responses={200: {"status": "ok"}})
 @api_view(["POST"])
@@ -242,11 +254,31 @@ def post_call_review(request):
     validated_data = serializer.validated_data
     live_session = None
     if validated_data.get("live_session_id"):
-        live_session = LivekitSession.objects.filter(uuid=validated_data["live_session_id"]).first()
-    review = validated_data.get("review", "")
+        live_session = LivekitSession.objects.filter(uuid=validated_data["live_session_id"])
+        if live_session.exists():
+            live_session = live_session.first()
+        else:
+            live_session = None # No error let the user still submit his review
+    review_text = validated_data.get("review", "")
     rating = validated_data["rating"]
-    PostCallReview.objects.create(user=request.user, live_session=live_session, review=review, rating=rating)
-    return Response({"status": "ok"})
+    review_id = validated_data.get("review_id", None)
+    if not (review_id is None):
+        # then we just update the existing review
+        review = PostCallReview.objects.get(id=review_id)
+        review.rating = rating
+        review.review = review_text
+        review.save()
+    else:
+        review = PostCallReview.objects.create(user=request.user, live_session=live_session, review=review_text, rating=rating)
+    
+    # Can be triggered anytime via ( you may obmit the live_session_id if you want to )
+    # from chat.consumers.messages import PostCallSurvey
+    # PostCallSurvey(post_call_survey={"live_session_id": str(live_session.uuid)}).send(request.user.hash)
+
+    return Response({
+        "status": "ok",
+        "review_id": review.id
+    })
 
 
 api_urls = [
