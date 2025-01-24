@@ -1,5 +1,5 @@
 from channels.generic.websocket import AsyncWebsocketConsumer
-from chat.consumers.messages import OutUserWentOnline, OutUserWentOffline, MessageTypes, InMatchProposalAdded, InUnconfirmedMatchAdded, InBlockIncomingCall, NewActiveCallRoom, PreMatchingAppointmentBooked, NewMessage, MessagesReadChat
+from chat.consumers.messages import OutUserWentOnline, OutUserWentOffline, MessageTypes, InMatchProposalAdded, InUnconfirmedMatchAdded, InBlockIncomingCall, NewActiveCallRoom, PreMatchingAppointmentBooked, NewMessage, MessagesReadChat, PostCallSurvey
 from chat.consumers.db_ops import is_staff_or_matching, get_all_chat_user_ids, connect_user, disconnect_user
 
 UNAUTH_REJECT_CODE: int = 4001
@@ -76,6 +76,10 @@ class CoreConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data=None, bytes_data=None):
         print(f"User {self.user} received message: {text_data}")
+        
+    async def post_call_survey(self, event):
+        assert event["type"] == MessageTypes.post_call_survey.value
+        await self.send(text_data=PostCallSurvey(**event).action_json())
 
     async def user_went_online(self, event):
         assert event["type"] == MessageTypes.user_went_online.value
