@@ -174,12 +174,6 @@ class AuthenticateRoomParams(serializers.Serializer):
     partner_id = serializers.CharField()
 
 
-class PostCallReviewParams(serializers.Serializer):
-    user_id = serializers.IntegerField()
-    live_session_id = serializers.UUIDField()
-    rating = serializers.IntegerField()
-    review = serializers.CharField()
-
 
 async def create_livekit_room(room_name):
     lkapi = livekit_api.LiveKitAPI(
@@ -232,26 +226,26 @@ def authenticate_live_kit_room(request):
 
     return Response({"token": str(token), "server_url": settings.LIVEKIT_URL, "chat": chat})
 
+class PostCallReviewParams(serializers.Serializer):
+    live_session_id = serializers.UUIDField(required=False, allow_null=True)
+    rating = serializers.IntegerField(required=True)
+    review = serializers.CharField(required=False, allow_blank=True)
 
 @extend_schema(request=PostCallReviewParams(many=False), responses={200: {"status": "ok"}})
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def post_call_review(request):
-    if not request.data["user_id"] or not request.data["live_session_id"] or not request.data["rating"]:
-        return Response(
-            {
-                "status": "error",
-                "message": "Missing user_id, live_session_id or rating",
-            },
-            status=400,
-        )
-
-    user = User.objects.filter(id=request.data["user_id"]).first()
-    live_session = LivekitSession.objects.filter(uuid=request.data["live_session_id"]).first()
-    review = request.data["review"]
-    rating = request.data["rating"]
-    PostCallReview.objects.create(user=user, live_session=live_session, review=review, rating=rating)
+    serializer = PostCallReviewParams(data=request.data)
+    if not serializer.is_valid():
+        return Response({"status": "error", "message": "Invalid Review Data"}, status=400)
+    validated_data = serializer.validated_data
+    live_session = None
+    if validated_data.get("live_session_id"):
+        live_session = LivekitSession.objects.filter(uuid=validated_data["live_session_id"]).first()
+    review = validated_data.get("review", "")
+    rating = validated_data["rating"]
+    PostCallReview.objects.create(user=request.user, live_session=live_session, review=review, rating=rating)
     return Response({"status": "ok"})
 
 
