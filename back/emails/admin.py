@@ -2,7 +2,6 @@ from django.contrib import admin
 from django.utils.safestring import mark_safe
 from django.conf import settings
 from emails.models import EmailLog, DynamicTemplate
-from emails.mails import get_mail_data_by_name, encode_mail_params
 
 @admin.register(DynamicTemplate)
 class DynamicTemplateAdmin(admin.ModelAdmin):
