@@ -1,3 +1,4 @@
+from datetime import timedelta
 from rest_framework.decorators import (
     api_view,
     permission_classes,
@@ -114,6 +115,7 @@ def livekit_webhook(request):
                     match.total_mutal_video_calls_counter += 1
                     match.latest_interaction_at = timezone.now()
                     match.save()
+                    call_duration = session.end_time - session.created_at
 
                     try:
                         # send chat message from: session.first_active_user -> widget_recipient
@@ -125,7 +127,6 @@ def livekit_webhook(request):
                                 return f"{minutes} minute{'s' if minutes > 1 else ''}"
                             else:
                                 return f"{seconds} second{'s' if seconds > 1 else ''}"
-                        call_duration = session.end_time - session.created_at
                         widget_recipient = room.u1 if session.first_active_user == room.u2 else room.u2
                         # chat = Chat.get_chat([session.first_active_user, widget_recipient])
                         # e.g.: <CallWidget {"header": "Call completed", "description": "10 minutes", "isMissed": false}>
@@ -140,6 +141,16 @@ def livekit_webhook(request):
                         )
                     except:
                         print("Cound't send call widged to first_active_user")
+                        pass
+                    
+                    try:
+                        # 5 - trigger the 'CallReview' pop-up, if the call was at least 5 minutes long and the partner was also active
+                        if session.both_have_been_active and call_duration >= timedelta(minutes=5):
+                            # Now we can trigger the call review pop-up for the user that left
+                            from chat.consumers.messages import PostCallSurvey
+                            PostCallSurvey(post_call_survey={"live_session_id": str(session.uuid)}).send(user.hash)
+                    except:
+                        print("Cound't tigger the post call survey")
                         pass
                 else:
                     # 2 - send 'MissedCall' event to the partner of the user that left
@@ -167,6 +178,7 @@ def livekit_webhook(request):
         # 4 - send 'BlockIncomingCall' enent to the parter of the user that left
         partner = room.u1 if user == room.u2 else room.u2
         InBlockIncomingCall(sender_id=participant_id).send(partner.hash)
+        
 
     return JsonResponse({"status": "ok"})
 
