@@ -143,15 +143,6 @@ def livekit_webhook(request):
                         print("Cound't send call widged to first_active_user")
                         pass
                     
-                    try:
-                        # 5 - trigger the 'CallReview' pop-up, if the call was at least 5 minutes long and the partner was also active
-                        if session.both_have_been_active and call_duration >= timedelta(minutes=5):
-                            # Now we can trigger the call review pop-up for the user that left
-                            from chat.consumers.messages import PostCallSurvey
-                            PostCallSurvey(post_call_survey={"live_session_id": str(session.uuid)}).send(user.hash)
-                    except:
-                        print("Cound't tigger the post call survey")
-                        pass
                 else:
                     # 2 - send 'MissedCall' event to the partner of the user that left
                     # check which user endered the call first
@@ -172,6 +163,19 @@ def livekit_webhook(request):
                     except:
                         print("Cound't send call widged to first_active_user")
                         pass
+                    
+            # check if the call review pop-up should be triggered
+            call_duration = session.end_time - session.created_at
+            if session.both_have_been_active and call_duration >= timedelta(minutes=5):
+
+                try:
+                    # Now we can trigger the call review pop-up for the user that left
+                    from chat.consumers.messages import PostCallSurvey
+                    PostCallSurvey(post_call_survey={"live_session_id": str(session.uuid)}).send(user.hash)
+                except:
+                    print("Cound't tigger the post call survey")
+                    pass
+
         session.webhook_events.add(event)
         session.save()
 
