@@ -39,7 +39,7 @@ class CoreConsumer(AsyncWebsocketConsumer):
                     # check if a specific group to join was specified
                     self.scope["url_route"]["kwargs"].get("user_id", None)
 
-                    # TODO: this assumes that only matching / staff users have a huge amount of matches & other users cannot cause issues
+                    # this assumes that only matching / staff users have a huge amount of matches & other users cannot cause issues
                     # there should also be a way to connect to the subset of users chats that are rendered on the first page
                     return
 
