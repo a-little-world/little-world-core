@@ -97,9 +97,10 @@ def livekit_webhook(request):
                 session.u1_active = False
             elif user == room.u2:
                 session.u2_active = False
+            end_time = timezone.now()
             if (not session.u1_active) and (not session.u2_active):
                 session.is_active = False
-                session.end_time = timezone.now()
+                session.end_time = end_time
 
                 # session ended, now we could trigger either
                 # 1) a 'CallEnded' event to the partner of the user that left
@@ -165,7 +166,7 @@ def livekit_webhook(request):
                         pass
                     
             # check if the call review pop-up should be triggered
-            call_duration = session.end_time - session.created_at
+            call_duration = end_time - session.created_at
             if session.both_have_been_active and call_duration >= timedelta(minutes=5):
 
                 try:
