@@ -135,16 +135,7 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         ).order_by("-created")
 
         def notify_recipient_email():
-            if settings.USE_V2_EMAIL_APIS:
-                send_email_background.delay("new-messages", user_id=partner.id)
-            else:
-                partner.send_email(
-                    subject="Neue Nachricht(en) auf Little World",
-                    mail_data=mails.get_mail_data_by_name("new_messages"),
-                    mail_params=mails.NewUreadMessagesParams(
-                        first_name=partner.profile.first_name,
-                    ),
-                )
+            send_email_background.delay("new-messages", user_id=partner.id)
 
         creation_time = timezone.now()
         recipiend_was_email_notified = False
@@ -227,19 +218,9 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         ).order_by("-created")
 
         def notify_recipient_email():
-            if settings.USE_V2_EMAIL_APIS:
-                send_email_background.delay("new-messages", user_id=partner.id)
-            else:
-                partner.send_email(
-                    subject="Neue Nachricht(en) auf Little World",
-                    mail_data=mails.get_mail_data_by_name("new_messages"),
-                    mail_params=mails.NewUreadMessagesParams(
-                        first_name=partner.profile.first_name,
-                    ),
-                )
+            send_email_background.delay("new-messages", user_id=partner.id)
 
         # Now check if we should be sending out a new message notification
-        # TODO: can this cause multiple emails due to concurrency?
         creation_time = timezone.now()
         recipiend_was_email_notified = False
         if latest_notified_message.exists():
@@ -250,8 +231,8 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
             print("time_since_last_notif", time_since_last_notif)
 
             if time_since_last_notif > 300:
-                # ok then lets send the email
-                # TODO: in future check if user is online and send push notification instead
+                # ok fine to send an email
+                # TODO: in future check if user is online and send push notification instead!
                 # TODO: ALSO for rate limiting there should probably be another checK:
                 # for a maxium count of email notifications e.g.: within a day
                 recipiend_was_email_notified = True

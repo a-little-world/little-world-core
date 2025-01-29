@@ -223,8 +223,6 @@ def check_registration_reminders():
         Q(date_joined__lte=_tree_days_ago), settings__email_settings__user_form_unfinished_reminder1=True, settings__email_settings__user_form_unfinished_reminder2=False, state__user_form_state=State.UserFormStateChoices.UNFILLED, state__email_authenticated=True
     )
 
-    # TODO: can there be any order issue here? something with users appearing in a second filter list before they should?
-
     for user in verified_email_unifinished_userform_reminder2:
         ems = user.settings.email_settings
         ems.send_user_form_unfinished_reminder2(user)

@@ -118,41 +118,9 @@ class User(AbstractUser):
         super().save(*args, **kwargs)
         self.__original_username = self.username
 
-    def get_matches(self):
-        """Returns a list of matches"""
-        # TODO: replace with new 'Match' model
-        return self.state.matches.all()
-
     def get_notifications(self):
         """Returns a list of matches"""
         return self.state.notifications.all()
-
-    def match(self, user, set_unconfirmed=True):
-        """
-        Adds the user as match of this user
-        ( this doesn't automaticly create a match for the other user )
-        'set_unconfirmed' determines if the user should be added to the unconfirmed matches list
-        """
-        # This seems to autosave ? but lets still call state.save() in the end just to be sure
-        # TODO: remove all reference to this old stategy
-        self.state.matches.add(user)
-        if set_unconfirmed:
-            self.state.unconfirmed_matches_stack.append(user.hash)
-        self.state.save()
-
-    def unmatch(self, user):
-        """
-        Removes the user from matches and unconfirmed matches
-        """
-        # TODO: remove all reference to this old stategy, we use the 'Match' model now
-        self.state.matches.remove(user)
-        if user.hash in self.state.unconfirmed_matches_stack:
-            self.state.unconfirmed_matches_stack.remove(user.hash)
-        self.state.save()
-
-    def is_matched(self, user):
-        # TODO: remove all reference to this old stategy, we use the 'Match' model now
-        return self.state.matches.filter(hash=user.hash).exists()
 
     def change_email(self, email, send_verification_mail=True):
         """
@@ -195,9 +163,6 @@ class User(AbstractUser):
         # self.username = prms.email  # <- so the user can login with that email now
         self.save()
 
-    def notify(self, title=_("title"), description=_("description")):
-        pass  # TODO: depricated, replace all occurences
-
     def message(self, msg, sender=None, auto_mark_read=False, send_message_incoming=True, parsable_message=True, send_message_incoming_to_sender=False):
         """
         Sends the users a chat message
@@ -205,12 +170,11 @@ class User(AbstractUser):
         """
         from ..controller import get_base_management_user
 
-        # TODO: depricated message send implementation -------------------------------------------
         if not sender:
+            # TODO: the management user should be inferred on per user basis!
             sender = get_base_management_user()
 
         chat = Chat.get_or_create_chat(sender, self)
-        # --------------------- new message send implemetation below ------------------------------
         message = Message.objects.create(chat=chat, sender=sender, recipient=self, read=auto_mark_read, recipient_notified=auto_mark_read, text=msg, parsable_message=parsable_message)
 
         serialized_message = MessageSerializer(message).data

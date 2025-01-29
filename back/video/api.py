@@ -1,3 +1,4 @@
+from datetime import timedelta
 from rest_framework.decorators import (
     api_view,
     permission_classes,
@@ -28,6 +29,7 @@ import json
 from django.http import JsonResponse
 import asyncio
 from translations import get_translation
+import uuid
 
 
 @csrf_exempt
@@ -113,6 +115,7 @@ def livekit_webhook(request):
                     match.total_mutal_video_calls_counter += 1
                     match.latest_interaction_at = timezone.now()
                     match.save()
+                    call_duration = session.end_time - session.created_at
 
                     try:
                         # send chat message from: session.first_active_user -> widget_recipient
@@ -124,7 +127,6 @@ def livekit_webhook(request):
                                 return f"{minutes} minute{'s' if minutes > 1 else ''}"
                             else:
                                 return f"{seconds} second{'s' if seconds > 1 else ''}"
-                        call_duration = session.end_time - session.created_at
                         widget_recipient = room.u1 if session.first_active_user == room.u2 else room.u2
                         # chat = Chat.get_chat([session.first_active_user, widget_recipient])
                         # e.g.: <CallWidget {"header": "Call completed", "description": "10 minutes", "isMissed": false}>
@@ -139,6 +141,16 @@ def livekit_webhook(request):
                         )
                     except:
                         print("Cound't send call widged to first_active_user")
+                        pass
+                    
+                    try:
+                        # 5 - trigger the 'CallReview' pop-up, if the call was at least 5 minutes long and the partner was also active
+                        if session.both_have_been_active and call_duration >= timedelta(minutes=5):
+                            # Now we can trigger the call review pop-up for the user that left
+                            from chat.consumers.messages import PostCallSurvey
+                            PostCallSurvey(post_call_survey={"live_session_id": str(session.uuid)}).send(user.hash)
+                    except:
+                        print("Cound't tigger the post call survey")
                         pass
                 else:
                     # 2 - send 'MissedCall' event to the partner of the user that left
@@ -166,6 +178,7 @@ def livekit_webhook(request):
         # 4 - send 'BlockIncomingCall' enent to the parter of the user that left
         partner = room.u1 if user == room.u2 else room.u2
         InBlockIncomingCall(sender_id=participant_id).send(partner.hash)
+        
 
     return JsonResponse({"status": "ok"})
 
@@ -173,12 +186,6 @@ def livekit_webhook(request):
 class AuthenticateRoomParams(serializers.Serializer):
     partner_id = serializers.CharField()
 
-
-class PostCallReviewParams(serializers.Serializer):
-    user_id = serializers.IntegerField()
-    live_session_id = serializers.UUIDField()
-    rating = serializers.IntegerField()
-    review = serializers.CharField()
 
 
 async def create_livekit_room(room_name):
@@ -232,27 +239,58 @@ def authenticate_live_kit_room(request):
 
     return Response({"token": str(token), "server_url": settings.LIVEKIT_URL, "chat": chat})
 
+class PostCallReviewParams(serializers.Serializer):
+    live_session_id = serializers.UUIDField(required=False, allow_null=True)
+    rating = serializers.IntegerField(required=True)
+    review = serializers.CharField(required=False, allow_blank=True)
+    review_id = serializers.IntegerField(required=False, allow_null=True)
+
+    def to_internal_value(self, data):
+        if 'live_session_id' in data:
+            try:
+                # If a non parsable uuid is sent, we set it to None
+                uuid.UUID(str(data['live_session_id']))
+            except (ValueError, TypeError, AttributeError):
+                data['live_session_id'] = None
+
+        return super().to_internal_value(data)
 
 @extend_schema(request=PostCallReviewParams(many=False), responses={200: {"status": "ok"}})
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def post_call_review(request):
-    if not request.data["user_id"] or not request.data["live_session_id"] or not request.data["rating"]:
-        return Response(
-            {
-                "status": "error",
-                "message": "Missing user_id, live_session_id or rating",
-            },
-            status=400,
-        )
+    serializer = PostCallReviewParams(data=request.data)
+    if not serializer.is_valid():
+        return Response({"status": "error", "message": "Invalid Review Data"}, status=400)
+    validated_data = serializer.validated_data
+    live_session = None
+    if validated_data.get("live_session_id"):
+        live_session = LivekitSession.objects.filter(uuid=validated_data["live_session_id"])
+        if live_session.exists():
+            live_session = live_session.first()
+        else:
+            live_session = None # No error let the user still submit his review
+    review_text = validated_data.get("review", "")
+    rating = validated_data["rating"]
+    review_id = validated_data.get("review_id", None)
+    if not (review_id is None):
+        # then we just update the existing review
+        review = PostCallReview.objects.get(id=review_id)
+        review.rating = rating
+        review.review = review_text
+        review.save()
+    else:
+        review = PostCallReview.objects.create(user=request.user, live_session=live_session, review=review_text, rating=rating)
+    
+    # Can be triggered anytime via ( you may obmit the live_session_id if you want to )
+    # from chat.consumers.messages import PostCallSurvey
+    # PostCallSurvey(post_call_survey={"live_session_id": str(live_session.uuid)}).send(request.user.hash)
 
-    user = User.objects.filter(id=request.data["user_id"]).first()
-    live_session = LivekitSession.objects.filter(uuid=request.data["live_session_id"]).first()
-    review = request.data["review"]
-    rating = request.data["rating"]
-    PostCallReview.objects.create(user=user, live_session=live_session, review=review, rating=rating)
-    return Response({"status": "ok"})
+    return Response({
+        "status": "ok",
+        "review_id": review.id
+    })
 
 
 api_urls = [

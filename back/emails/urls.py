@@ -1,6 +1,5 @@
 from django.urls import path
 from rest_framework import routers
-from emails.views import ViewEmail
 from back.utils import _api_url
 from emails import depricated_api
 from emails.api import backend_templates, dev_update_backend_emails, send_email, dynamic_template, email_settings
@@ -18,8 +17,4 @@ urlpatterns = [
     *send_email.api_urls,
     *dynamic_template.api_urls,
     *email_settings.api_urls,
-    # This always views a template in raw:
-    path("emails/<str:mail_name>", ViewEmail.as_view(), name="view_mail"),
-    # This tries to render also the email content:
-    path("emails/<str:mail_name>/<str:mail_params>", ViewEmail.as_view(), name="view_mail_params"),
 ]

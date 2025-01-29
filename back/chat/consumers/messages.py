@@ -22,7 +22,7 @@ class MessageTypes(Enum):
     new_message = "new_message"
     messages_read_chat = "messages_read_chat"
     pre_matching_appointment_booked = "pre_matching_appointment_booked"
-
+    post_call_survey = "post_call_survey"
 
 def send_message(user_id, type: MessageTypes, data):
     channel_layer = get_channel_layer()
@@ -137,9 +137,17 @@ class NewMessage(MessageBase):
 
     def build_redux_action(self):
         return {"action": "addMessage", "payload": {"message": self.message, "chatId": self.chat_id, "metaChatObj": self.meta_chat_obj}}
+    
+@dataclass
+class PostCallSurvey(MessageBase):
+    post_call_survey: dict
+    type: str = MessageTypes.post_call_survey.value
 
+    def build_redux_action(self):
+        return {"action": "addPostCallSurvey", "payload": self.post_call_survey}
 
 CALLBACKS = {
+    MessageTypes.post_call_survey.value: PostCallSurvey,
     MessageTypes.user_went_online.value: OutUserWentOnline,
     MessageTypes.user_went_offline.value: OutUserWentOffline,
     MessageTypes.match_proposal_added.value: InMatchProposalAdded,
