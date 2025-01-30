@@ -131,9 +131,7 @@ def make_tim_support_user(user, old_management_mail="littleworld.management@gmai
             send_still_active_question_message(user)
 
 
-def create_user(email, password, first_name, second_name, birth_year, company=None, newsletter_subscribed=False, send_verification_mail=True, send_welcome_notification=True, catch_email_send_errors=True):
-    # TODO: depricate param 'catch_email_send_errors'
-
+def create_user(email, password, first_name, second_name, birth_year, company=None, newsletter_subscribed=False, send_verification_mail=True, send_welcome_notification=True):
     """
     This should be used when creating a new user, it may throw validations errors!
     performs the following setps:
@@ -179,56 +177,27 @@ def create_user(email, password, first_name, second_name, birth_year, company=No
     if send_verification_mail:
 
         def send_verify_link():
-            if settings.USE_V2_EMAIL_APIS:
-                # TODO: further simplify when full migration is done
-                usr.send_email_v2("welcome")
-            else:
-                link_route = "mailverify_link"  # api/user/verify/email
-                verifiaction_url = f"{settings.BASE_URL}/{link_route}/{usr.state.get_email_auth_code_b64()}"
-                mails.send_email(
-                    recivers=[email],
-                    subject="{code} - Verifizierungscode zur E-Mail Bestätigung".format(code=usr.state.get_email_auth_pin()),
-                    mail_data=mails.get_mail_data_by_name("welcome"),
-                    mail_params=mails.WelcomeEmailParams(first_name=usr.profile.first_name, verification_url=verifiaction_url, verification_code=str(usr.state.get_email_auth_pin())),
-                )
+            usr.send_email_v2("welcome")
 
         send_verify_link()
 
     base_management_user = get_base_management_user()
 
+    # Step 5 Match with admin user
+    # Do *not* send an matching mail, or notification or message!
+    # Also no need to set the admin user as unconfirmed,
+    # there is no popup message required about being matched to the admin!
     matching = match_users({base_management_user, usr}, send_notification=False, send_message=False, send_email=False, set_unconfirmed=False)
 
     print("Created Match:", matching.user1.email, "<->", matching.user2.email, "(support)" if matching.support_matching else "")
 
     if not base_management_user.is_staff:
-        # Must be a mather user now TODO
-        # Add that user to the list of users managed by this management user!
+        # At the moment all our users get the same management user
+        # in the future there might be a process to assign different management users to different users
         base_management_user.state.managed_users.add(usr)
         base_management_user.state.save()
 
-    # Step 5 Match with admin user
-    # Do *not* send an matching mail, or notification or message!
-    # Also no need to set the admin user as unconfirmed,
-    # there is no popup message required about being matched to the admin!
-
-    # TODO: since this was just updated and we now have 'matcher' users
-    # this doesn't always have to be the same management user anymore
-    # Generay how we handle management users needs to be significantly improved!
-
-    # Step 7 Notify the user
-    if send_welcome_notification:
-        usr.notify(title="Welcome Notification")
-
     return usr
-
-
-def are_users_matched(users: set):
-    assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
-    usr1, usr2 = list(users)
-
-    # TODO: need updating to the new Match model relation!
-    return usr1.is_matched(usr2) and usr2.is_matched(usr1)
-
 
 def match_users(users: set, send_notification=True, send_message=True, send_email=True, create_dialog=True, create_video_room=True, create_livekit_room=True, set_unconfirmed=True, set_to_idle=True):
     """Accepts a list of two users to match"""
@@ -248,11 +217,6 @@ def match_users(users: set, send_notification=True, send_message=True, send_emai
             raise Exception("Users are already matched, but dangeling proposals found, DELETED!")
 
         raise Exception("Users are already matched!")
-
-    # TODO: this WAS the old way to match to be removed one our frontend strategy updated
-    # For now we deploy both ways and make then work along side, but the old-way is to be removed asap
-    # usr1.match(usr2, set_unconfirmed=set_unconfirmed)
-    # usr2.match(usr1, set_unconfirmed=set_unconfirmed)
 
     # It can also be a support matching with a 'management' user
     is_support_matching = (usr1.is_staff or usr2.is_staff) or (usr1.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER) or usr2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER))
@@ -284,8 +248,7 @@ def match_users(users: set, send_notification=True, send_message=True, send_emai
         room = Room.objects.create(usr1=usr1, usr2=usr2)
 
     if send_notification:
-        usr1.notify(title="New match: %s" % usr2.profile.first_name)
-        usr2.notify(title="New match: %s" % usr1.profile.first_name)
+        pass # TODO: send notification should be used to trigger an SMS notification
 
     if send_message:
         match_message = get_translation("auto_messages.match_message", lang="de")
@@ -295,21 +258,8 @@ def match_users(users: set, send_notification=True, send_message=True, send_emai
         usr2.message(match_message.format(other_name=usr1.profile.first_name), auto_mark_read=True)
 
     if send_email:
-        if settings.USE_V2_EMAIL_APIS:
-            usr1.send_email_v2("new-match", match_id=matching_obj.id)
-            usr2.send_email_v2("new-match", match_id=matching_obj.id)
-        else:
-            usr1.send_email(subject="Glückwunsch! Gesprächspartner:in gefunden auf Little World", mail_data=mails.get_mail_data_by_name("match"), mail_params=mails.MatchMailParams(first_name=usr1.profile.first_name, match_first_name=usr2.profile.first_name, profile_link_url=settings.BASE_URL))
-            usr2.send_email(
-                subject="Glückwunsch! Gesprächspartner:in gefunden auf Little World",
-                mail_data=mails.get_mail_data_by_name("match"),
-                mail_params=mails.MatchMailParams(
-                    first_name=usr2.profile.first_name,
-                    match_first_name=usr1.profile.first_name,
-                    # TODO: should be the actual profile slug in the future
-                    profile_link_url=settings.BASE_URL,
-                ),
-            )
+        usr1.send_email_v2("new-match", match_id=matching_obj.id)
+        usr2.send_email_v2("new-match", match_id=matching_obj.id)
 
     if set_to_idle:
         usr1.state.set_idle()
@@ -355,10 +305,7 @@ def unmatch_users(users: set, delete_video_room=True, delete_dialog=True, unmatc
     if unmatcher is None:
         unmatcher = get_base_management_user()
 
-    # TODO: old strategy, to be removed
     usr1, usr2 = list(users)
-    usr1.unmatch(usr2)
-    usr2.unmatch(usr1)
 
     # The new match management strategy
     match = Match.get_match(usr1, usr2)
@@ -409,7 +356,7 @@ def get_or_create_default_docs_user():
         return get_user_by_email(settings.DOCS_USER)
     except UserNotFoundErr:
         create_user(
-            email=settings.DOCS_USER, password=settings.DOCS_PASSWORD, first_name="Docs", second_name="User", birth_year=2000, newsletter_subscribed=False, send_verification_mail=False, send_welcome_notification=False, catch_email_send_errors=False
+            email=settings.DOCS_USER, password=settings.DOCS_PASSWORD, first_name="Docs", second_name="User", birth_year=2000, newsletter_subscribed=False, send_verification_mail=False, send_welcome_notification=False
         )
 
     def finish_up_user_creation():
@@ -441,7 +388,6 @@ def create_base_admin_and_add_standart_db_values():
         usr.state.email_authenticated = True
         usr.state.save()
         usr.state.set_user_form_completed()  # Admin doesn't have to fill the userform
-        usr.notify("You are the admin master!")
         print("Base Admin User: Newly created!")
 
     def update_profile():
@@ -450,7 +396,6 @@ def create_base_admin_and_add_standart_db_values():
         usr_tim.state.email_authenticated = True
         usr_tim.state.save()
         usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
-        usr_tim.notify(description="You are the bese management user with less permissions.")
 
     # Tim Schupp is the new base admin user, we will now create a match with hin instead:
     TIM_MANAGEMENT_USER_MAIL = "tim.timschupp+420@gmail.com"
@@ -577,16 +522,7 @@ def delete_user(user, management_user=None, send_deletion_email=False):
     from emails import mails
 
     if send_deletion_email:
-        if settings.USE_V2_EMAIL_APIS:
-            user.send_email_v2("account-deleted")
-        else:
-            user.send_email(
-                subject="Dein Account wurde gelöscht",
-                mail_data=mails.get_mail_data_by_name("account_deleted"),
-                mail_params=mails.AccountDeletedEmailParams(
-                    first_name=user.profile.first_name,
-                ),
-            )
+        user.send_email_v2("account-deleted")
 
     user.is_active = False
     user.email = f"deleted_{user.email}"

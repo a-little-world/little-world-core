@@ -35,7 +35,6 @@ class AdvancedEmailLogSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         from management.models.profile import MinimalProfileSerializer
-        from emails.mails import get_mail_data_by_name, encode_mail_params
 
         representation = super().to_representation(instance)
 
@@ -46,14 +45,7 @@ class AdvancedEmailLogSerializer(serializers.ModelSerializer):
 
         try:
             if instance.log_version == 0:
-                email_params = instance.data["params"]
-                template_name = instance.template
-                print("Template: " + str(template_name), email_params)
-                mail_meta = get_mail_data_by_name(template_name)
-                encoded_mail_data = encode_mail_params(email_params)
-
-                url = f"/emails/{template_name}/{encoded_mail_data}"
-                representation["retrieve"] = url
+                representation["retrieve"] = "V1 emails are fully deprecated and cannot be viewed anymore!"
             else:
                 representation["retrieve"] = f"/api/matching/emails/logs/{instance.id}/"
         except Exception as e:

@@ -67,7 +67,7 @@ def make_match(request):
         return Response({"message": "Users not matchable", "score_id": score.pk}, status=400)
 
     # 2 - check if users are already matched
-    if controller.are_users_matched({user1, user2}):
+    if Match.get_match(user1, user2).exists():
         return Response("Users are already matched", status=status.HTTP_400_BAD_REQUEST)
 
     # 3 - check what to send a 'proposal' or a 'direct match'

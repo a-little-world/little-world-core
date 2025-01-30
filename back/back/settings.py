@@ -224,11 +224,8 @@ else:
 
 CORS_ALLOWED_ORIGINS = []
 if IS_STAGE or IS_PROD:
-    # TODO: figure out which of these actually is the correct one!
     CORS_ALLOWED_ORIGINS = [BASE_URL]
-
     CORS_ORIGIN_WHITELIST = [BASE_URL]
-
     CSRF_TRUSTED_ORIGINS = [BASE_URL]
 
     CORS_ORIGIN_WHITELIST += EXTRA_CORS_ALLOWED_ORIGINS
@@ -626,7 +623,6 @@ DATABASES = (
     }
 )
 
-# TODO: temporary
 DISABLE_LEGACY_EMAIL_SENDING = os.environ.get("DJ_DISABLE_LEGACY_EMAIL_SENDING", "false").lower() in ("true", "1", "t")
 
 if IS_PROD or IS_STAGE or (os.environ.get("DJ_DEVELOPMENT_ALLOW_EMAILS", "false").lower() in ("true", "1", "t")):
@@ -725,7 +721,6 @@ if DEBUG:
 
 """
 Settings for the sleek admin panel
-TODO we should remove cdn stuff like google fonts from this!
 """
 JAZZMIN_SETTINGS = {
     "site_title": "Little World Admin",
