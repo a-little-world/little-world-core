@@ -66,8 +66,8 @@ class PatenmatchUser(models.Model):
         return f"/api/patenmatch/user/verify_email?uuid={self.uuid}&token={self.email_auth_hash}"
     
 class PatenmatchOrganizationUserMatching(models.Model):
-    organization = models.ForeignKey('PatenmatchOrganization', on_delete=models.CASCADE)
-    user = models.ForeignKey('PatenmatchUser', on_delete=models.CASCADE)
+    organization = models.ForeignKey('PatenmatchOrganization', on_delete=models.SET_NULL, null=True)
+    user = models.ForeignKey('PatenmatchUser', on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     # email_send = models.BooleanField(default=False)
