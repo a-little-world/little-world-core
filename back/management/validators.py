@@ -54,14 +54,20 @@ def validate_first_name(value: str):
 
 
 def validate_second_name(value: str):
+    # 1 - strip leading and ending whitespace and make leading character uppercase
     value = value.strip()
     value = value.title()
+    
+    # 2 - other actions are performed only temporary for checking
+    tmp_value = value
+    allowed_chars = ["-", " "]
+    for char in allowed_chars:
+        # we don't a special caracter to follow a special caracter of it's kind
+        if f"{char}{char}" in value:
+            raise serializers.ValidationError(get_translation("val.second_name_too_many_spaces"))
+        tmp_value = tmp_value.replace(char, "")
 
-    # check for single space pattern
-    if "  " in value:
-        raise serializers.ValidationError(get_translation("val.second_name_too_many_spaces"))
-    _value = value.replace(" ", "")
-    if not _value.isalpha():
+    if not tmp_value.isalpha():
         raise serializers.ValidationError(get_translation("val.second_name_unallowed_chars"))
     return value
 
