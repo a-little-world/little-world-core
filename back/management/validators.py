@@ -26,12 +26,12 @@ def decorate_djv(validator):
 
 def model_validate_first_name(value: str):
     with dajango_validation():
-        validate_first_name(value)
+        validate_name(value)
 
 
 def model_validate_second_name(value: str):
     with dajango_validation():
-        validate_second_name(value)
+        validate_name(value)
 
 
 @contextlib.contextmanager
@@ -41,19 +41,7 @@ def dajango_validation():
     except serializers.ValidationError as e:
         raise ValidationError(e.detail)
 
-
-def validate_first_name(value: str):
-    value = value.strip()
-    value = value.title()
-
-    if not value.isalpha():
-        invalid_chars = [c for c in value if not c.isalpha()]
-        print(invalid_chars)
-        raise serializers.ValidationError(get_translation("val.first_name_unallowed_chars").format(chars=",".join(invalid_chars)))
-    return value
-
-
-def validate_second_name(value: str):
+def validate_name(value: str):
     # 1 - strip leading and ending whitespace and make leading character uppercase
     value = value.strip()
     value = value.title()
