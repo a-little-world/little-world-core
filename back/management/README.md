@@ -40,47 +40,40 @@ PostCallSurvey(post_call_survey={"live_session_id": "Random-UUID"}).send(user.ha
 or
 
 ```
-   ...: NewActiveCallRoom(call_room={
-   ...:     "uuid": "e8c87fc9-ee8f-4529-bda0-8a8
-   ...: 6b3ba7d58",
-   ...:     "created_at": "2025-01-31T10:56:16.2
-   ...: 50840+01:00",
-   ...:     "activeUsers": [
-   ...:         "0f12ec83-fbd5-4e69-8452-f7af311
-   ...: 6e570-374bdfe6-515b-48d9-bf0a-89a179e1b7
-   ...: a7"
-   ...:     ],
-   ...:     "partner": {
-   ...:         "first_name": "Tim",
-   ...:         "interests": [],
-   ...:         "availability": {
-   ...:             "fr": [],
-   ...:             "mo": [],
-   ...:             "sa": [],
-   ...:             "su": [],
-   ...:             "th": [],
-   ...:             "tu": [],
-   ...:             "we": []
-   ...:         },
-   ...:         "notify_channel": "email",
-   ...:         "phone_mobile": "",
-   ...:         "image_type": "image",
-   ...:         "lang_skill": [],
-   ...:         "avatar_config": {},
-   ...:         "image": "https://litttle-world-
-   ...: staging-bucket.s3.eu-central-1.amazonaws
-   ...: .com/static/profile_pics/0f12ec83-fbd5-4
-   ...: e69.67a4c211-3818-4878-b020-82b67317361b
-   ...: -fcb087e3-d991-41be-8f76-6c0.png",
-   ...:         "description": "\nHello there 👋
-   ...: \n\n",
-   ...:         "additional_interests": "",
-   ...:         "language_skill_description": ""
-   ...: ,
-   ...:         "user_type": "learner",
-   ...:         "id": "0f12ec83-fbd5-4e69-8452-f
-   ...: 7af3116e570-374bdfe6-515b-48d9-bf0a-89a1
-   ...: 79e1b7a7"
-   ...:     }
-   ...: }).send(user.hash)
+   from management.models.user import User
+from chat.consumers.messages import NewActiveCallRoom
+
+NewActiveCallRoom(
+    call_room={
+        "uuid": "e8c87fc9-ee8f-4529-bda0-8a86b3ba7d58",
+        "created_at": "2025-01-31T10:56:16.250840+01:00",
+        "activeUsers": [
+            "0f12ec83-fbd5-4e69-8452-f7af3116e570-374bdfe6-515b-48d9-bf0a-89a179e1b7a7"
+        ],
+        "partner": {
+            "first_name": "Tim",
+            "interests": [],
+            "availability": {
+                "fr": [],
+                "mo": [],
+                "sa": [],
+                "su": [],
+                "th": [],
+                "tu": [],
+                "we": [],
+            },
+            "notify_channel": "email",
+            "phone_mobile": "",
+            "image_type": "image",
+            "lang_skill": [],
+            "avatar_config": {},
+            "image": "https://litttle-world-staging-bucket.s3.eu-central-1.amazonaws.com/static/profile_pics/0f12ec83-fbd5-4e69.67a4c211-3818-4878-b020-82b67317361b-fcb087e3-d991-41be-8f76-6c0.png",
+            "description": "\nHello there 👋\n\n",
+            "additional_interests": "",
+            "language_skill_description": "",
+            "user_type": "learner",
+            "id": "0f12ec83-fbd5-4e69-8452-f7af3116e570-374bdfe6-515b-48d9-bf0a-89a179e1b7a7",
+        },
+    }
+).send(user.hash)
 ```
