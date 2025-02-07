@@ -513,3 +513,39 @@ def send_email_background(
 def slack_notify_communication_channel_async(message):
     from management.api.slack import notify_communication_channel
     notify_communication_channel(message)
+    
+@shared_task
+def hourly_check_banner_activation():
+    current_time = timezone.now()
+
+    bc = {
+        "activated": [],
+        "deactivated": [],
+    }
+
+    # 1 - check for banners that might need activation
+    p_activation_banners = Banner.objects.filter(
+        activation_time__isnull=False,
+        active=False
+    )
+
+    # activate banners that need activation
+    for banner in p_activation_banners:
+        if banner.activation_time <= current_time:
+            banner.active = True
+            banner.save()
+            bc["activated"].append(banner.id)
+            
+    # 2 - deactivate banners that need deactivation
+    p_deactivation_banners = Banner.objects.filter(
+        expiration_time__isnull=False,
+        active=True
+    )
+    
+    for banner in p_deactivation_banners:
+        if banner.expiration_time <= current_time:
+            banner.active = False
+            banner.save()
+            bc["deactivated"].append(banner.id)
+    return bc
+            

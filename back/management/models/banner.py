@@ -78,6 +78,9 @@ class Banner(models.Model):
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    activation_time = models.DateTimeField(null=True, blank=True, help_text=_("Activation time"))
+    expiration_time = models.DateTimeField(null=True, blank=True, help_text=_("Expiration time"))
 
     class Meta:
         verbose_name = _("Banner")
@@ -110,7 +113,9 @@ class BannerSerializer(serializers.ModelSerializer):
             'image', 
             'image_alt',
             'created_at',
-            'updated_at'
+            'updated_at',
+            'activation_time',
+            'expiration_time'
         ]
 
     def to_representation(self, instance):

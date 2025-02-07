@@ -75,10 +75,10 @@ class RegistrationSerializer(serializers.Serializer):
         return value.lower()
 
     def validate_first_name(self, value):
-        return validators.validate_first_name(value)
+        return validators.validate_name(value)
 
     def validate_second_name(self, value):
-        return validators.validate_second_name(value)
+        return validators.validate_name(value)
 
     def validate(self, data):
         usr = None

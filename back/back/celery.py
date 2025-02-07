@@ -62,6 +62,10 @@ prod_shedules = {
         "task": "management.tasks.record_bucket_ids",
         "schedule": 60.0 * 60.0 * 24.0,  # once a day
     },
+    "hourly-check-banner-activation": {
+        "task": "management.tasks.hourly_check_banner_activation",
+        "schedule": 60.0 * 60.0,  # every hour
+    },
 }
 
 prod_shedules.update(auto_emails)
