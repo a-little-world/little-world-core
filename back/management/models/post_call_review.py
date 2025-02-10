@@ -1,5 +1,6 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
+from uuid import uuid4
 
 
 class PostCallReview(models.Model):
@@ -13,6 +14,6 @@ class PostCallReview(models.Model):
 
     def __str__(self):
         if self.user and self.live_session:
-            return self.user.email + " - " + self.live_session.uuid + " - " + str(self.rating)
+            return self.user.email + " - " + str(self.live_session.uuid) + " - " + str(self.rating)
         else:
             return "No user or live session" + " - " + str(self.rating)
