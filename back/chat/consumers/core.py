@@ -1,6 +1,6 @@
 from channels.generic.websocket import AsyncWebsocketConsumer
-from chat.consumers.messages import OutUserWentOnline, OutUserWentOffline, MessageTypes, InMatchProposalAdded, InUnconfirmedMatchAdded, InBlockIncomingCall, NewActiveCallRoom, PreMatchingAppointmentBooked, NewMessage, MessagesReadChat, PostCallSurvey
-from chat.consumers.db_ops import is_staff_or_matching, get_all_chat_user_ids, connect_user, disconnect_user
+from chat.consumers.db_ops import connect_user, disconnect_user, get_all_chat_user_ids, is_staff_or_matching
+from chat.consumers.messages import InBlockIncomingCall, InMatchProposalAdded, InUnconfirmedMatchAdded, MessagesReadChat, MessageTypes, NewActiveCallRoom, NewMessage, NotificationMessage, OutUserWentOffline, OutUserWentOnline, PostCallSurvey, PreMatchingAppointmentBooked
 
 UNAUTH_REJECT_CODE: int = 4001
 
@@ -76,7 +76,7 @@ class CoreConsumer(AsyncWebsocketConsumer):
 
     async def receive(self, text_data=None, bytes_data=None):
         print(f"User {self.user} received message: {text_data}")
-        
+
     async def post_call_survey(self, event):
         assert event["type"] == MessageTypes.post_call_survey.value
         await self.send(text_data=PostCallSurvey(**event).action_json())
@@ -116,3 +116,7 @@ class CoreConsumer(AsyncWebsocketConsumer):
     async def pre_matching_appointment_booked(self, event):
         assert event["type"] == MessageTypes.pre_matching_appointment_booked.value
         await self.send(text_data=PreMatchingAppointmentBooked(**event).action_json())
+
+    async def notification(self, event):
+        assert event["type"] == MessageTypes.notification.value
+        await self.send(text_data=NotificationMessage(**event).action_json())
