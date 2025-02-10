@@ -1,14 +1,15 @@
-from enum import Enum
 import json
+from dataclasses import MISSING, dataclass, fields
+from enum import Enum
 from typing import Optional
-from back.utils import CoolerJson
-from dataclasses import dataclass
-from channels.layers import get_channel_layer
+
 from asgiref.sync import async_to_sync
-from dataclasses import fields, MISSING
+from channels.layers import get_channel_layer
+from management.helpers import IsAdminOrMatchingUser
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from management.helpers import IsAdminOrMatchingUser
+
+from back.utils import CoolerJson
 
 
 class MessageTypes(Enum):
@@ -23,6 +24,8 @@ class MessageTypes(Enum):
     messages_read_chat = "messages_read_chat"
     pre_matching_appointment_booked = "pre_matching_appointment_booked"
     post_call_survey = "post_call_survey"
+    notification = "notification"
+
 
 def send_message(user_id, type: MessageTypes, data):
     channel_layer = get_channel_layer()
@@ -137,7 +140,8 @@ class NewMessage(MessageBase):
 
     def build_redux_action(self):
         return {"action": "addMessage", "payload": {"message": self.message, "chatId": self.chat_id, "metaChatObj": self.meta_chat_obj}}
-    
+
+
 @dataclass
 class PostCallSurvey(MessageBase):
     post_call_survey: dict
@@ -145,6 +149,16 @@ class PostCallSurvey(MessageBase):
 
     def build_redux_action(self):
         return {"action": "addPostCallSurvey", "payload": self.post_call_survey}
+
+
+@dataclass
+class NotificationMessage(MessageBase):
+    notification: dict
+    type: str = MessageTypes.notification.value
+
+    def build_redux_action(self):
+        return {"action": "addNotification", "payload": self.notification}
+
 
 CALLBACKS = {
     MessageTypes.post_call_survey.value: PostCallSurvey,
@@ -157,6 +171,7 @@ CALLBACKS = {
     MessageTypes.pre_matching_appointment_booked.value: PreMatchingAppointmentBooked,
     MessageTypes.new_message.value: NewMessage,
     MessageTypes.messages_read_chat.value: MessagesReadChat,
+    MessageTypes.notification.value: NotificationMessage,
 }
 
 
