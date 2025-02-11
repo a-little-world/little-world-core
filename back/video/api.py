@@ -1,35 +1,37 @@
+import asyncio
+import json
+import uuid
 from datetime import timedelta
+
+from chat.consumers.messages import InBlockIncomingCall, NewActiveCallRoom
+from chat.models import Chat, ChatSerializer, Message
+from django.conf import settings
+from django.http import JsonResponse
+from django.urls import path
+from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
+from drf_spectacular.utils import extend_schema
+from livekit import api as livekit_api
+from management.models.matches import Match
+from management.models.post_call_review import PostCallReview
+from management.models.user import User
+from rest_framework import serializers
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import (
     api_view,
-    permission_classes,
     authentication_classes,
+    permission_classes,
 )
-from chat.models import Chat, ChatSerializer, Message
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.authentication import SessionAuthentication
+from rest_framework.response import Response
+from translations import get_translation
+
 from video.models import (
     LiveKitRoom,
     LivekitSession,
     LivekitWebhookEvent,
     SerializeLivekitSession,
 )
-from management.models.user import User
-from rest_framework.response import Response
-from rest_framework import serializers
-from django.conf import settings
-from django.utils import timezone
-from livekit import api as livekit_api
-from django.urls import path
-from drf_spectacular.utils import extend_schema
-from chat.consumers.messages import NewActiveCallRoom, InBlockIncomingCall
-from management.models.matches import Match
-from management.models.post_call_review import PostCallReview
-from django.views.decorators.csrf import csrf_exempt
-import json
-from django.http import JsonResponse
-import asyncio
-from translations import get_translation
-import uuid
 
 
 @csrf_exempt
@@ -123,11 +125,12 @@ def livekit_webhook(request):
                         def duration_to_text(duration):
                             seconds = int(duration.total_seconds())
                             minutes, seconds = divmod(seconds, 60)
-                            
+
                             if minutes > 0:
                                 return f"{minutes} minute{'s' if minutes > 1 else ''}"
                             else:
                                 return f"{seconds} second{'s' if seconds > 1 else ''}"
+
                         widget_recipient = room.u1 if session.first_active_user == room.u2 else room.u2
                         # chat = Chat.get_chat([session.first_active_user, widget_recipient])
                         # e.g.: <CallWidget {"header": "Call completed", "description": "10 minutes", "isMissed": false}>
@@ -135,15 +138,15 @@ def livekit_webhook(request):
                         widget_recipient.message(
                             '<CallWidget {"description": "' + duration_to_text(call_duration) + '"}></CallWidget>',
                             sender=session.first_active_user,
-                            auto_mark_read=True, 
+                            auto_mark_read=True,
                             parsable_message=True,
                             send_message_incoming=True,
-                            send_message_incoming_to_sender=True
+                            send_message_incoming_to_sender=True,
                         )
                     except:
                         print("Cound't send call widged to first_active_user")
                         pass
-                    
+
                 else:
                     # 2 - send 'MissedCall' event to the partner of the user that left
                     # check which user endered the call first
@@ -154,24 +157,24 @@ def livekit_webhook(request):
                         # usr.message('<MissedCallWidget {"description": "Click to return call", "isMissed": true}></MissedCallWidget>', sender=usr2, auto_mark_read=True, parsable_message=True)
                         widget_recipient = room.u1 if session.first_active_user == room.u2 else room.u2
                         widget_recipient.message(
-                            '<MissedCallWidget></MissedCallWidget>',
+                            "<MissedCallWidget></MissedCallWidget>",
                             sender=session.first_active_user,
-                            auto_mark_read=True, 
+                            auto_mark_read=True,
                             parsable_message=True,
                             send_message_incoming=True,
-                            send_message_incoming_to_sender=True
+                            send_message_incoming_to_sender=True,
                         )
                     except:
                         print("Cound't send call widged to first_active_user")
                         pass
-                    
+
             # check if the call review pop-up should be triggered
             call_duration = end_time - session.created_at
             if session.both_have_been_active and call_duration >= timedelta(minutes=5):
-
                 try:
                     # Now we can trigger the call review pop-up for the user that left
                     from chat.consumers.messages import PostCallSurvey
+
                     PostCallSurvey(post_call_survey={"live_session_id": str(session.uuid)}).send(user.hash)
                 except:
                     print("Cound't tigger the post call survey")
@@ -183,14 +186,12 @@ def livekit_webhook(request):
         # 4 - send 'BlockIncomingCall' enent to the parter of the user that left
         partner = room.u1 if user == room.u2 else room.u2
         InBlockIncomingCall(sender_id=participant_id).send(partner.hash)
-        
 
     return JsonResponse({"status": "ok"})
 
 
 class AuthenticateRoomParams(serializers.Serializer):
     partner_id = serializers.CharField()
-
 
 
 async def create_livekit_room(room_name):
@@ -244,6 +245,7 @@ def authenticate_live_kit_room(request):
 
     return Response({"token": str(token), "server_url": settings.LIVEKIT_URL, "chat": chat})
 
+
 class PostCallReviewParams(serializers.Serializer):
     live_session_id = serializers.UUIDField(required=False, allow_null=True)
     rating = serializers.IntegerField(required=True)
@@ -251,14 +253,15 @@ class PostCallReviewParams(serializers.Serializer):
     review_id = serializers.IntegerField(required=False, allow_null=True)
 
     def to_internal_value(self, data):
-        if 'live_session_id' in data:
+        if "live_session_id" in data:
             try:
                 # If a non parsable uuid is sent, we set it to None
-                uuid.UUID(str(data['live_session_id']))
+                uuid.UUID(str(data["live_session_id"]))
             except (ValueError, TypeError, AttributeError):
-                data['live_session_id'] = None
+                data["live_session_id"] = None
 
         return super().to_internal_value(data)
+
 
 @extend_schema(request=PostCallReviewParams(many=False), responses={200: {"status": "ok"}})
 @api_view(["POST"])
@@ -275,7 +278,7 @@ def post_call_review(request):
         if live_session.exists():
             live_session = live_session.first()
         else:
-            live_session = None # No error let the user still submit his review
+            live_session = None  # No error let the user still submit his review
     review_text = validated_data.get("review", "")
     rating = validated_data["rating"]
     review_id = validated_data.get("review_id", None)
@@ -286,16 +289,15 @@ def post_call_review(request):
         review.review = review_text
         review.save()
     else:
-        review = PostCallReview.objects.create(user=request.user, live_session=live_session, review=review_text, rating=rating)
-    
+        review = PostCallReview.objects.create(
+            user=request.user, live_session=live_session, review=review_text, rating=rating
+        )
+
     # Can be triggered anytime via ( you may obmit the live_session_id if you want to )
     # from chat.consumers.messages import PostCallSurvey
     # PostCallSurvey(post_call_survey={"live_session_id": str(live_session.uuid)}).send(request.user.hash)
 
-    return Response({
-        "status": "ok",
-        "review_id": review.id
-    })
+    return Response({"status": "ok", "review_id": review.id})
 
 
 api_urls = [

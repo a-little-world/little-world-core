@@ -1,9 +1,11 @@
+import json
+
 from django import template
 from django.conf import settings
 from django.utils.safestring import mark_safe
 from translations import get_translation_catalog
+
 from management.api.options import get_options_dict
-import json
 
 register = template.Library()
 

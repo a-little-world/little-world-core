@@ -1,6 +1,7 @@
 from django.core.management.base import BaseCommand
-from management.user_journey import PerUserBuckets
+
 from management.models.user import User
+from management.user_journey import PerUserBuckets
 
 
 class Command(BaseCommand):

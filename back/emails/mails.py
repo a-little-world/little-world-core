@@ -1,53 +1,55 @@
+import base64
+import json
+import zlib
 from dataclasses import dataclass
+
 from django.conf import settings
-from django.utils.translation import gettext_lazy as _
+from django.core.mail import EmailMessage
 from django.template.loader import render_to_string
+from django.utils.translation import gettext_lazy as _
+
 from back.utils import dataclass_as_dict
-from emails.templates import inject_template_data
 from emails.templates import (
-    WelcomeTemplateParamsDefaults,
-    WelcomeTemplateMail,
-    PasswordResetEmailDefaults,
-    PasswordResetEmailTexts,
-    UnfinishedUserForm1Messages,
-    UnfinishedUserForm2Messages,
-    ConfirmMatchMail1Texts,
-    ConfirmMatchMail2Texts,
-    MatchExpiredMailTexts,
-    EmailVerificationReminderMessages,
-    StillInContactMessages,
-    MatchRejectedEmailTexts,
-    InterviewInvitation,
-    GeneralSurveyMail,
-    GeneralSurveyMail_0311,
-    ImpulsBeitraegeMail,
-    ImpulsBeitraegeMail2,
+    AccountDeletedEmailTexts,
+    BabbelSubscriptionMail_Winner,
     CommunityGetTogetherInvitation,
     CommunityGetTogetherInvitation010824,
+    CommunityGetTogetherInvitation120624,
     CommunityGetTogetherInvitation130624,
-    TrainingSeriesInvitation,
+    CommunityGetTogetherInvitationToday,
+    ConfirmMatchMail1Texts,
+    ConfirmMatchMail2Texts,
+    CulturalAwarenessInvitation,
+    CultureDimensionsLectureInvitationToday,
+    EmailVerificationReminderMessages,
+    GeneralSurveyMail,
+    GeneralSurveyMail_0311,
+    GermanImprovementBabbelInvitation,
+    ImpulsBeitraegeMail,
+    ImpulsBeitraegeMail2,
+    InterviewInvitation,
+    MatchExpiredMailTexts,
+    MatchFoundEmailTexts,
+    MatchRejectedEmailTexts,
+    NewServerMail,
+    NewUnreadMessages,
+    PasswordResetEmailDefaults,
+    PasswordResetEmailTexts,
+    RAWTemplateMail,
+    ReActivateVolunteers,
+    StillInContactMessages,
     # Currently we are using the same template as weclone
     # so MatchFoundEmailTexts has no Defaults
     SurveyInvitationAniq2,
-    NewUnreadMessages,
-    MatchFoundEmailTexts,
-    CulturalAwarenessInvitation,
-    CultureDimensionsLectureInvitationToday,
-    NewServerMail,
-    GermanImprovementBabbelInvitation,
-    RAWTemplateMail,
-    UserSurveyInvitationEmailNatalia,
+    TrainingSeriesInvitation,
+    UnfinishedUserForm1Messages,
+    UnfinishedUserForm2Messages,
     UserInterviewRequestEmail,
-    AccountDeletedEmailTexts,
-    BabbelSubscriptionMail_Winner,
-    CommunityGetTogetherInvitation120624,
-    CommunityGetTogetherInvitationToday,
-    ReActivateVolunteers,
+    UserSurveyInvitationEmailNatalia,
+    WelcomeTemplateMail,
+    WelcomeTemplateParamsDefaults,
+    inject_template_data,
 )
-from django.core.mail import EmailMessage
-import json
-import base64
-import zlib
 
 """
 This file contains a dataclass for every email
@@ -297,17 +299,41 @@ class NewServerMailParams:
 # Register all templates and their serializers here
 # TODO: make email subject part of the template
 templates = [
-    MailMeta(name="raw", template="emails/welcome.html", params=RAWTemplateMailParams, defaults=WelcomeTemplateParamsDefaults, texts=RAWTemplateMail),
+    MailMeta(
+        name="raw",
+        template="emails/welcome.html",
+        params=RAWTemplateMailParams,
+        defaults=WelcomeTemplateParamsDefaults,
+        texts=RAWTemplateMail,
+    ),
     MailMeta(  # Welcome & Email verification !
-        name="welcome", template="emails/welcome.html", params=WelcomeEmailParams, texts=WelcomeTemplateMail, defaults=WelcomeTemplateMail
+        name="welcome",
+        template="emails/welcome.html",
+        params=WelcomeEmailParams,
+        texts=WelcomeTemplateMail,
+        defaults=WelcomeTemplateMail,
     ),
     MailMeta(  # Match Found Email !
-        name="match", template="emails/welcome.html", params=MatchMailParams, texts=MatchFoundEmailTexts, defaults=MatchFoundEmailTexts
+        name="match",
+        template="emails/welcome.html",
+        params=MatchMailParams,
+        texts=MatchFoundEmailTexts,
+        defaults=MatchFoundEmailTexts,
     ),
     MailMeta(  # Interview request ** special email **
-        name="interview", template="emails/welcome.html", params=InterviewInvitationParams, texts=InterviewInvitation, defaults=InterviewInvitation
+        name="interview",
+        template="emails/welcome.html",
+        params=InterviewInvitationParams,
+        texts=InterviewInvitation,
+        defaults=InterviewInvitation,
     ),
-    MailMeta(name="password_reset", template="emails/password_reset.html", params=PwResetMailParams, texts=PasswordResetEmailTexts, defaults=PasswordResetEmailDefaults),
+    MailMeta(
+        name="password_reset",
+        template="emails/password_reset.html",
+        params=PwResetMailParams,
+        texts=PasswordResetEmailTexts,
+        defaults=PasswordResetEmailDefaults,
+    ),
     MailMeta(
         name="match_resolved",
         template="emails/welcome.html",
@@ -315,34 +341,202 @@ templates = [
         texts=MatchRejectedEmailTexts,
         defaults=MatchRejectedEmailTexts,
     ),
-    MailMeta(name="new_server", template="emails/base_with_social_banner.html", params=NewServerMailParams, texts=NewServerMail, defaults=NewServerMail),
-    MailMeta(name="new_messages", template="emails/welcome.html", params=NewUreadMessagesParams, texts=NewUnreadMessages, defaults=NewUnreadMessages),
-    MailMeta(name="email_unverified", template="emails/welcome.html", params=UnfinishedEmailVerificationParams, texts=EmailVerificationReminderMessages, defaults=EmailVerificationReminderMessages),
-    MailMeta(name="still_in_contact", template="emails/welcome.html", params=StillInContactParams, texts=StillInContactMessages, defaults=StillInContactMessages),
-    MailMeta(name="unfinished_user_form_1", template="emails/welcome.html", params=UnfinishedUserForm1Params, texts=UnfinishedUserForm1Messages, defaults=UnfinishedUserForm1Messages),
-    MailMeta(name="unfinished_user_form_2", template="emails/welcome.html", params=UnfinishedUserForm2Params, texts=UnfinishedUserForm2Messages, defaults=UnfinishedUserForm2Messages),
-    MailMeta(name="confirm_match_mail_1", template="emails/welcome.html", params=MatchConfirmationMail1Params, texts=ConfirmMatchMail1Texts, defaults=ConfirmMatchMail1Texts),
-    MailMeta(name="confirm_match_mail_2", template="emails/welcome.html", params=MatchConfirmationMail2Params, texts=ConfirmMatchMail2Texts, defaults=ConfirmMatchMail2Texts),
-    MailMeta(name="general_interview", template="emails/welcome_reversed.html", params=GeneralSurveryMailParams, texts=GeneralSurveyMail, defaults=GeneralSurveyMail),
-    MailMeta(name="general_interview_03_11", template="emails/welcome_reversed.html", params=GeneralSurveryMail_03_11_Params, texts=GeneralSurveyMail_0311, defaults=GeneralSurveyMail_0311),
-    MailMeta(name="confirm_match_expired_mail_1", template="emails/welcome.html", params=MatchExpiredMailParams, texts=MatchExpiredMailTexts, defaults=MatchExpiredMailTexts),
-    MailMeta(name="survey_aniq_2", template="emails/welcome.html", params=SurveyInvitation2AniqParams, texts=SurveyInvitationAniq2, defaults=SurveyInvitationAniq2),
-    MailMeta(name="survey3_natalia", template="emails/welcome.html", params=SurveryInvitation3Natalia, texts=UserSurveyInvitationEmailNatalia, defaults=UserSurveyInvitationEmailNatalia),
-    MailMeta(name="multi_user_interview_request_5", template="emails/welcome.html", params=MultiUserInterviewRequestEmail_5, texts=UserInterviewRequestEmail, defaults=UserInterviewRequestEmail),
-    MailMeta(name="account_deleted", template="emails/welcome.html", params=AccountDeletedEmailParams, texts=AccountDeletedEmailTexts, defaults=AccountDeletedEmailTexts),
-    MailMeta(name="impuls_beitraege", template="emails/welcome.html", params=ImpulseBeitraegeParams, texts=ImpulsBeitraegeMail, defaults=ImpulsBeitraegeMail),
-    MailMeta(name="impuls_beitraege2", template="emails/welcome.html", params=ImpulseBeitraegeParams2, texts=ImpulsBeitraegeMail2, defaults=ImpulsBeitraegeMail2),
-    MailMeta(name="babbel_subscription_winner", template="emails/welcome.html", params=BabbelSubscriptionMailWinnerParams, texts=BabbelSubscriptionMail_Winner, defaults=BabbelSubscriptionMail_Winner),
-    MailMeta(name="german_improvement_babbel_invitation", template="emails/survey.html", params=GermanImprovementBabbelInvitationParams, texts=GermanImprovementBabbelInvitation, defaults=GermanImprovementBabbelInvitation),
-    MailMeta(name="community_get_together", template="emails/welcome.html", params=CommunityGetTogetherMailParams, texts=CommunityGetTogetherInvitation, defaults=CommunityGetTogetherInvitation),
-    MailMeta(name="training_series", template="emails/welcome.html", params=TrainingInvitationParams, texts=TrainingSeriesInvitation, defaults=TrainingSeriesInvitation),
-    MailMeta(name="cultural_awareness", template="emails/welcome.html", params=CulturalAwarenessInvitationParams, texts=CulturalAwarenessInvitation, defaults=CulturalAwarenessInvitation),
-    MailMeta(name="community_get_together_120624", template="emails/welcome.html", params=CommunityGetTogetherMailParams120624, texts=CommunityGetTogetherInvitation120624, defaults=CommunityGetTogetherInvitation120624),
-    MailMeta(name="community_get_together_today", template="emails/welcome.html", params=CommunityGetTogetherInvitationTodayParams, texts=CommunityGetTogetherInvitationToday, defaults=CommunityGetTogetherInvitationToday),
-    MailMeta(name="culture_dimensions_lecture_today", template="emails/welcome.html", params=CultureDimensionsLectureInvitationTodayParams, texts=CultureDimensionsLectureInvitationToday, defaults=CultureDimensionsLectureInvitationToday),
-    MailMeta(name="community_get_together_130624", template="emails/welcome.html", params=CommunityGetTogetherInvitation130624Params, texts=CommunityGetTogetherInvitation130624, defaults=CommunityGetTogetherInvitation130624),
-    MailMeta(name="reactivate_volunteers", template="emails/welcome.html", params=ReActivateVolunteersParams, texts=ReActivateVolunteers, defaults=ReActivateVolunteers),
-    MailMeta(name="community_get_together_010824", template="emails/welcome.html", params=CommunityGetTogetherInvitation130624Params, texts=CommunityGetTogetherInvitation010824, defaults=CommunityGetTogetherInvitation010824),
+    MailMeta(
+        name="new_server",
+        template="emails/base_with_social_banner.html",
+        params=NewServerMailParams,
+        texts=NewServerMail,
+        defaults=NewServerMail,
+    ),
+    MailMeta(
+        name="new_messages",
+        template="emails/welcome.html",
+        params=NewUreadMessagesParams,
+        texts=NewUnreadMessages,
+        defaults=NewUnreadMessages,
+    ),
+    MailMeta(
+        name="email_unverified",
+        template="emails/welcome.html",
+        params=UnfinishedEmailVerificationParams,
+        texts=EmailVerificationReminderMessages,
+        defaults=EmailVerificationReminderMessages,
+    ),
+    MailMeta(
+        name="still_in_contact",
+        template="emails/welcome.html",
+        params=StillInContactParams,
+        texts=StillInContactMessages,
+        defaults=StillInContactMessages,
+    ),
+    MailMeta(
+        name="unfinished_user_form_1",
+        template="emails/welcome.html",
+        params=UnfinishedUserForm1Params,
+        texts=UnfinishedUserForm1Messages,
+        defaults=UnfinishedUserForm1Messages,
+    ),
+    MailMeta(
+        name="unfinished_user_form_2",
+        template="emails/welcome.html",
+        params=UnfinishedUserForm2Params,
+        texts=UnfinishedUserForm2Messages,
+        defaults=UnfinishedUserForm2Messages,
+    ),
+    MailMeta(
+        name="confirm_match_mail_1",
+        template="emails/welcome.html",
+        params=MatchConfirmationMail1Params,
+        texts=ConfirmMatchMail1Texts,
+        defaults=ConfirmMatchMail1Texts,
+    ),
+    MailMeta(
+        name="confirm_match_mail_2",
+        template="emails/welcome.html",
+        params=MatchConfirmationMail2Params,
+        texts=ConfirmMatchMail2Texts,
+        defaults=ConfirmMatchMail2Texts,
+    ),
+    MailMeta(
+        name="general_interview",
+        template="emails/welcome_reversed.html",
+        params=GeneralSurveryMailParams,
+        texts=GeneralSurveyMail,
+        defaults=GeneralSurveyMail,
+    ),
+    MailMeta(
+        name="general_interview_03_11",
+        template="emails/welcome_reversed.html",
+        params=GeneralSurveryMail_03_11_Params,
+        texts=GeneralSurveyMail_0311,
+        defaults=GeneralSurveyMail_0311,
+    ),
+    MailMeta(
+        name="confirm_match_expired_mail_1",
+        template="emails/welcome.html",
+        params=MatchExpiredMailParams,
+        texts=MatchExpiredMailTexts,
+        defaults=MatchExpiredMailTexts,
+    ),
+    MailMeta(
+        name="survey_aniq_2",
+        template="emails/welcome.html",
+        params=SurveyInvitation2AniqParams,
+        texts=SurveyInvitationAniq2,
+        defaults=SurveyInvitationAniq2,
+    ),
+    MailMeta(
+        name="survey3_natalia",
+        template="emails/welcome.html",
+        params=SurveryInvitation3Natalia,
+        texts=UserSurveyInvitationEmailNatalia,
+        defaults=UserSurveyInvitationEmailNatalia,
+    ),
+    MailMeta(
+        name="multi_user_interview_request_5",
+        template="emails/welcome.html",
+        params=MultiUserInterviewRequestEmail_5,
+        texts=UserInterviewRequestEmail,
+        defaults=UserInterviewRequestEmail,
+    ),
+    MailMeta(
+        name="account_deleted",
+        template="emails/welcome.html",
+        params=AccountDeletedEmailParams,
+        texts=AccountDeletedEmailTexts,
+        defaults=AccountDeletedEmailTexts,
+    ),
+    MailMeta(
+        name="impuls_beitraege",
+        template="emails/welcome.html",
+        params=ImpulseBeitraegeParams,
+        texts=ImpulsBeitraegeMail,
+        defaults=ImpulsBeitraegeMail,
+    ),
+    MailMeta(
+        name="impuls_beitraege2",
+        template="emails/welcome.html",
+        params=ImpulseBeitraegeParams2,
+        texts=ImpulsBeitraegeMail2,
+        defaults=ImpulsBeitraegeMail2,
+    ),
+    MailMeta(
+        name="babbel_subscription_winner",
+        template="emails/welcome.html",
+        params=BabbelSubscriptionMailWinnerParams,
+        texts=BabbelSubscriptionMail_Winner,
+        defaults=BabbelSubscriptionMail_Winner,
+    ),
+    MailMeta(
+        name="german_improvement_babbel_invitation",
+        template="emails/survey.html",
+        params=GermanImprovementBabbelInvitationParams,
+        texts=GermanImprovementBabbelInvitation,
+        defaults=GermanImprovementBabbelInvitation,
+    ),
+    MailMeta(
+        name="community_get_together",
+        template="emails/welcome.html",
+        params=CommunityGetTogetherMailParams,
+        texts=CommunityGetTogetherInvitation,
+        defaults=CommunityGetTogetherInvitation,
+    ),
+    MailMeta(
+        name="training_series",
+        template="emails/welcome.html",
+        params=TrainingInvitationParams,
+        texts=TrainingSeriesInvitation,
+        defaults=TrainingSeriesInvitation,
+    ),
+    MailMeta(
+        name="cultural_awareness",
+        template="emails/welcome.html",
+        params=CulturalAwarenessInvitationParams,
+        texts=CulturalAwarenessInvitation,
+        defaults=CulturalAwarenessInvitation,
+    ),
+    MailMeta(
+        name="community_get_together_120624",
+        template="emails/welcome.html",
+        params=CommunityGetTogetherMailParams120624,
+        texts=CommunityGetTogetherInvitation120624,
+        defaults=CommunityGetTogetherInvitation120624,
+    ),
+    MailMeta(
+        name="community_get_together_today",
+        template="emails/welcome.html",
+        params=CommunityGetTogetherInvitationTodayParams,
+        texts=CommunityGetTogetherInvitationToday,
+        defaults=CommunityGetTogetherInvitationToday,
+    ),
+    MailMeta(
+        name="culture_dimensions_lecture_today",
+        template="emails/welcome.html",
+        params=CultureDimensionsLectureInvitationTodayParams,
+        texts=CultureDimensionsLectureInvitationToday,
+        defaults=CultureDimensionsLectureInvitationToday,
+    ),
+    MailMeta(
+        name="community_get_together_130624",
+        template="emails/welcome.html",
+        params=CommunityGetTogetherInvitation130624Params,
+        texts=CommunityGetTogetherInvitation130624,
+        defaults=CommunityGetTogetherInvitation130624,
+    ),
+    MailMeta(
+        name="reactivate_volunteers",
+        template="emails/welcome.html",
+        params=ReActivateVolunteersParams,
+        texts=ReActivateVolunteers,
+        defaults=ReActivateVolunteers,
+    ),
+    MailMeta(
+        name="community_get_together_010824",
+        template="emails/welcome.html",
+        params=CommunityGetTogetherInvitation130624Params,
+        texts=CommunityGetTogetherInvitation010824,
+        defaults=CommunityGetTogetherInvitation010824,
+    ),
 ]
 
 
@@ -394,11 +588,23 @@ def send_email(
         # First create the mail log, if sending fails afterwards we sill have a log!
         from emails.models import EmailLog
 
-        log = EmailLog.objects.create(sender=get_base_management_user(), receiver=usr_ref, template=mail_data.name, data=dict(params=dataclass_as_dict(mail_params), subject=str(subject), sender_str=str(sender), recivers_str=",".join(recivers)))
+        log = EmailLog.objects.create(
+            sender=get_base_management_user(),
+            receiver=usr_ref,
+            template=mail_data.name,
+            data=dict(
+                params=dataclass_as_dict(mail_params),
+                subject=str(subject),
+                sender_str=str(sender),
+                recivers_str=",".join(recivers),
+            ),
+        )
 
         expt = None
         try:
-            params_injected_text = inject_template_data(dataclass_as_dict(mail_data.texts), dataclass_as_dict(mail_params))
+            params_injected_text = inject_template_data(
+                dataclass_as_dict(mail_data.texts), dataclass_as_dict(mail_params)
+            )
             html = render_to_string(mail_data.template, params_injected_text)
 
             mail = EmailMessage(

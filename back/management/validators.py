@@ -1,6 +1,7 @@
-from rest_framework import serializers
-from django.core.exceptions import ValidationError
 import contextlib
+
+from django.core.exceptions import ValidationError
+from rest_framework import serializers
 from translations import get_translation
 
 
@@ -41,11 +42,12 @@ def dajango_validation():
     except serializers.ValidationError as e:
         raise ValidationError(e.detail)
 
+
 def validate_name(value: str):
     # 1 - strip leading and ending whitespace and make leading character uppercase
     value = value.strip()
     value = value.title()
-    
+
     # 2 - other actions are performed only temporary for checking
     tmp_value = value
     allowed_chars = ["-", " "]
@@ -110,7 +112,9 @@ def validate_availability(value: dict):
     for day in DAYS:
         assert day in value
         if day not in value:
-            raise serializers.ValidationError(get_translation("val.availability.day_not_in_availability").format(day=day))
+            raise serializers.ValidationError(
+                get_translation("val.availability.day_not_in_availability").format(day=day)
+            )
         for slot in value[day]:
             if slot not in SLOTS:
                 raise serializers.ValidationError(get_translation("val.availability.slot_unknown").format(day=day))

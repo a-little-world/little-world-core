@@ -1,12 +1,13 @@
-from rest_framework import serializers, status
 from django_filters import rest_framework as filters
-from drf_spectacular.generators import SchemaGenerator
 from django_rest_passwordreset.views import ResetPasswordRequestTokenViewSet
+from drf_spectacular.generators import SchemaGenerator
+from drf_spectacular.utils import OpenApiResponse, extend_schema
+from rest_framework import serializers, status
 from rest_framework.response import Response
-from management.models.user import User
-from drf_spectacular.utils import extend_schema, OpenApiResponse
-from management.api.user import ChangeEmailSerializer
 from translations import get_translation
+
+from management.api.user import ChangeEmailSerializer
+from management.models.user import User
 
 
 class CustomResetPasswordRequestTokenViewSet(ResetPasswordRequestTokenViewSet):
@@ -82,7 +83,11 @@ def filterset_schema_dict(filterset, include_lookup_expr=False, view_key="/api/m
             elif isinstance(filter_instance, filters.BooleanFilter):
                 filter_data["lookup_expr"] = ["exact"]
             else:
-                filter_data["lookup_expr"] = [filter_instance.lookup_expr] if isinstance(filter_instance.lookup_expr, str) else filter_instance.lookup_expr
+                filter_data["lookup_expr"] = (
+                    [filter_instance.lookup_expr]
+                    if isinstance(filter_instance.lookup_expr, str)
+                    else filter_instance.lookup_expr
+                )
         serializer = DynamicFilterSerializer(data=filter_data)
 
         serializer.is_valid(raise_exception=True)

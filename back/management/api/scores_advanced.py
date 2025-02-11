@@ -1,19 +1,19 @@
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework import viewsets
+from django.db.models import Q
 from django.urls import path
 from django_filters import rest_framework as filters
-from management.models.scores import TwoUserMatchingScore
-from management.models.user import User
-from management.models.state import State
-from management.helpers import IsAdminOrMatchingUser, DetailedPaginationMixin
-from rest_framework import serializers
-from drf_spectacular.utils import extend_schema_view, extend_schema
-from django.db.models import Q
-from management.api.user_advanced import AdvancedUserSerializer
+from drf_spectacular.utils import extend_schema, extend_schema_view
+from rest_framework import serializers, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
 from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS
-from management.api.utils_advanced import filterset_schema_dict
 from management.api.scores import instantly_possible_matches
+from management.api.user_advanced import AdvancedUserSerializer
+from management.api.utils_advanced import filterset_schema_dict
+from management.helpers import DetailedPaginationMixin, IsAdminOrMatchingUser
+from management.models.scores import TwoUserMatchingScore
+from management.models.state import State
+from management.models.user import User
 
 
 class TwoUserMatchingScoreSerializer(serializers.ModelSerializer):
@@ -37,25 +37,36 @@ class TwoUserMatchingScoreFilter(filters.FilterSet):
 
     user2 = filters.ModelChoiceFilter(field_name="user2", queryset=User.objects.all(), help_text="Filter for user2")
 
-    score_gte = filters.NumberFilter(field_name="score", lookup_expr="gte", help_text="Filter for scores greater than or equal to")
+    score_gte = filters.NumberFilter(
+        field_name="score", lookup_expr="gte", help_text="Filter for scores greater than or equal to"
+    )
 
-    score_lte = filters.NumberFilter(field_name="score", lookup_expr="lte", help_text="Filter for scores less than or equal to")
+    score_lte = filters.NumberFilter(
+        field_name="score", lookup_expr="lte", help_text="Filter for scores less than or equal to"
+    )
 
     matchable = filters.BooleanFilter(field_name="matchable", help_text="Filter for matchable scores")
 
-    latest_update_between = filters.DateFromToRangeFilter(field_name="latest_update", help_text="Range filter for when the score was last updated, accepts string datetimes")
+    latest_update_between = filters.DateFromToRangeFilter(
+        field_name="latest_update",
+        help_text="Range filter for when the score was last updated, accepts string datetimes",
+    )
 
     class Meta:
         model = TwoUserMatchingScore
         fields = ["user1", "user2", "score", "matchable", "latest_update"]
 
-    current_match_suggestion = filters.BooleanFilter(method="filter_current_match_suggestion", help_text="Filter for current match suggestions")
+    current_match_suggestion = filters.BooleanFilter(
+        method="filter_current_match_suggestion", help_text="Filter for current match suggestions"
+    )
 
     def filter_current_match_suggestion(self, queryset, name, value):
         if value:
             suggested_matches = instantly_possible_matches()
             user_pairs = [(user1, user2) for user1, user2 in suggested_matches]
-            queries = [Q(user1_id=user1, user2_id=user2) | Q(user1_id=user2, user2_id=user1) for user1, user2 in user_pairs]
+            queries = [
+                Q(user1_id=user1, user2_id=user2) | Q(user1_id=user2, user2_id=user1) for user1, user2 in user_pairs
+            ]
             if len(queries) == 0:
                 return queryset.none()
             query = queries.pop()
@@ -84,7 +95,9 @@ class TwoUserMatchingScoreViewset(viewsets.ModelViewSet):
         if user.is_staff:
             return TwoUserMatchingScore.objects.all()
         elif user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
-            return TwoUserMatchingScore.objects.filter(Q(user1__in=user.state.managed_users.all()) | Q(user2__in=user.state.managed_users.all()))
+            return TwoUserMatchingScore.objects.filter(
+                Q(user1__in=user.state.managed_users.all()) | Q(user2__in=user.state.managed_users.all())
+            )
 
     @action(detail=False, methods=["get"])
     def get_filter_schema(self, request, include_lookup_expr=False):

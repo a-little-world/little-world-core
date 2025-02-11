@@ -1,53 +1,54 @@
 from dataclasses import dataclass
 from typing import List
-from management.models.dynamic_user_list import DynamicUserList
+
 from management.api.user_advanced_filter import (
-    all_users,
-    needs_matching,
-    needs_matching_volunteers,
-    searching_users,
-    users_in_registration,
     active_within_3weeks,
+    all_users,
     get_active_match_query_set,
     get_quality_match_query_set,
     get_user_with_message_to_admin,
     get_user_with_message_to_admin_that_are_read_but_not_replied,
+    get_volunteers_booked_onboarding_call_but_never_visited,
+    needs_matching,
+    needs_matching_volunteers,
+    only_hd_test_user,
+    searching_users,
+    users_in_registration,
+    users_require_prematching_call_not_booked,
+    users_with_booked_prematching_call,
     users_with_open_proposals,
     users_with_open_tasks,
-    users_with_booked_prematching_call,
-    users_require_prematching_call_not_booked,
-    get_volunteers_booked_onboarding_call_but_never_visited,
-    only_hd_test_user,
 )
 from management.api.user_journey_filters import (
-    failed_matching,
-    user_created,
-    email_verified,
-    user_form_completed,
+    active_match,
     booked_onboarding_call,
+    community_calls,
+    email_verified,
+    failed_matching,
+    first_search_learners,
     first_search_v1,
     first_search_v2,
-    first_search_learners,
     first_search_volunteers,
-    user_searching,
-    pre_matching,
-    match_takeoff,
-    active_match,
-    never_active,
-    user_deleted,
-    no_show,
-    ghoster,
-    no_confirm,
-    happy_inactive,
-    happy_active,
-    too_low_german_level,
-    over_30_days_after_prematching_still_searching,
     gave_up_searching,
-    community_calls,
-    ongoing_non_completed_match,
-    subscribed_to_newsletter,
+    ghoster,
+    happy_active,
+    happy_inactive,
     marked_unresponsive,
+    match_takeoff,
+    never_active,
+    no_confirm,
+    no_show,
+    ongoing_non_completed_match,
+    over_30_days_after_prematching_still_searching,
+    pre_matching,
+    subscribed_to_newsletter,
+    too_low_german_level,
+    user_created,
+    user_deleted,
+    user_form_completed,
+    user_searching,
 )
+from management.models.dynamic_user_list import DynamicUserList
 
 
 @dataclass
@@ -290,7 +291,10 @@ FILTER_LISTS = PANEL_V1_FILTER_LISTS + USER_JOURNEY_FILTER_LISTS
 
 
 def get_dynamic_userlists() -> List[FilterListEntry]:
-    return [FilterListEntry(":dyn:" + str(dyn_user_list.id), dyn_user_list.name) for dyn_user_list in DynamicUserList.objects.all()]
+    return [
+        FilterListEntry(":dyn:" + str(dyn_user_list.id), dyn_user_list.name)
+        for dyn_user_list in DynamicUserList.objects.all()
+    ]
 
 
 def get_choices():

@@ -1,11 +1,20 @@
-from django.test import TestCase
 import os
-from management.tests.helpers import register_user_api
+
+from django.test import TestCase
+
+from management import api
 from management.controller import get_user_by_email, match_users
 from management.models.rooms import get_rooms_match
-from management import api
+from management.tests.helpers import register_user_api
 
-valid_request_data = dict(email="benjamin.tim@gmx.de", first_name="Tim", second_name="Schupp", password1="Test123!", password2="Test123!", birth_year=1984)
+valid_request_data = dict(
+    email="benjamin.tim@gmx.de",
+    first_name="Tim",
+    second_name="Schupp",
+    password1="Test123!",
+    password2="Test123!",
+    birth_year=1984,
+)
 
 valid_create_data = dict(
     email=valid_request_data["email"],

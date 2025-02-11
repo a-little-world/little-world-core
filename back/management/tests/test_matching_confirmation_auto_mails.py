@@ -1,12 +1,19 @@
 from django.test import TestCase
 from rest_framework.response import Response
 from rest_framework.test import APIRequestFactory, force_authenticate
-from management.tests.helpers import register_user_api
-from management.api.register import Register
+
 from management.api.confirm_match import confirm_match
+from management.api.register import Register
+from management.tests.helpers import register_user_api
 
-
-valid_request_data = dict(email="benjamin.tim@gmx.de", first_name="Tim", second_name="Schupp", password1="Test123!", password2="Test123!", birth_year=1984)
+valid_request_data = dict(
+    email="benjamin.tim@gmx.de",
+    first_name="Tim",
+    second_name="Schupp",
+    password1="Test123!",
+    password2="Test123!",
+    birth_year=1984,
+)
 
 valid_create_data = dict(
     email=valid_request_data["email"],

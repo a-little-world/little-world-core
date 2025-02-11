@@ -1,7 +1,6 @@
-import json
 import base64
+import json
 import os
-
 
 USE_SENTRY = os.environ.get("DJ_USE_SENTRY", "false").lower() in ("true", "1", "t")
 
@@ -132,7 +131,7 @@ INSTALLED_APPS = [
     "phonenumber_field",  # Conevnient handler for phone numbers with admin prefix
     "django_rest_passwordreset",
     "tbs_django_auto_reload",
-    "colorfield", # color picker in admin panel
+    "colorfield",  # color picker in admin panel
     "jazzmin",  # The waaaaaay nicer admin interface
     "hijack",  # For admins to login as other users, for remote administration and support
     "hijack.contrib.admin",  # Hijack button on user list in admin interface
@@ -265,7 +264,11 @@ if not DEBUG:
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [os.path.join(BASE_DIR, "template/"), os.path.join(BASE_DIR, "management/template/"), os.path.join(BASE_DIR, "emails/template/")],
+        "DIRS": [
+            os.path.join(BASE_DIR, "template/"),
+            os.path.join(BASE_DIR, "management/template/"),
+            os.path.join(BASE_DIR, "emails/template/"),
+        ],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -497,7 +500,12 @@ elif IS_STAGE or IS_PROD or USE_MQ_AS_BROKER:
     # So we will need to use Rabbit MQ instead
     # url, port = get_redis_connect_url_port()
     # CELERY_BROKER_URL = f"rediss://{url}:{port}/0"
-    mb_usr, mb_pass, mb_host, mb_port = os.environ["DJ_RABBIT_MQ_USER"], os.environ["DJ_RABBIT_MQ_PASSWORD"], os.environ["DJ_RABBIT_MQ_HOST"], os.environ["DJ_RABBIT_MQ_PORT"]
+    mb_usr, mb_pass, mb_host, mb_port = (
+        os.environ["DJ_RABBIT_MQ_USER"],
+        os.environ["DJ_RABBIT_MQ_PASSWORD"],
+        os.environ["DJ_RABBIT_MQ_HOST"],
+        os.environ["DJ_RABBIT_MQ_PORT"],
+    )
     CELERY_BROKER_URL = f"amqps://{mb_usr}:{mb_pass}@{mb_host}:{mb_port}"
 
 CELERY_RESULT_BACKEND = "django-db"
@@ -617,7 +625,9 @@ DATABASES = (
             "PASSWORD": os.environ["DJ_DATABASE_PASSWORD"],
             "HOST": os.environ["DJ_DATABASE_HOST"],
             "PORT": os.environ["DJ_DATABASE_PORT"],
-            "OPTIONS": {} if (os.environ.get("DJ_DATABASE_DISABLE_SSL", "false").lower() in ("true", "t", "0")) else {"sslmode": "require"},
+            "OPTIONS": {}
+            if (os.environ.get("DJ_DATABASE_DISABLE_SSL", "false").lower() in ("true", "t", "0"))
+            else {"sslmode": "require"},
             # 'CONN_MAX_AGE': 10,
         },
     }
@@ -706,7 +716,22 @@ def print_tree(root_path, max_depth=3, indent=0):
 
 
 if DEBUG:
-    info = "\n ".join([f'{n}: {globals()[n] if n in globals() else "NULL"}' for n in ["BASE_DIR", "ALLOWED_HOSTS", "CELERY_TIMEZONE", "FRONTENDS", "DATABASES", "MINIO_SECRET_KEY", "MINIO_BUCKET_NAME", "MINIO_ENDPOINT", "MINIO_ACCESS_KEY"]])
+    info = "\n ".join(
+        [
+            f'{n}: {globals()[n] if n in globals() else "NULL"}'
+            for n in [
+                "BASE_DIR",
+                "ALLOWED_HOSTS",
+                "CELERY_TIMEZONE",
+                "FRONTENDS",
+                "DATABASES",
+                "MINIO_SECRET_KEY",
+                "MINIO_BUCKET_NAME",
+                "MINIO_ENDPOINT",
+                "MINIO_ACCESS_KEY",
+            ]
+        ]
+    )
     print(f"configured django settings:\n {info}")
     print("PYTHONPATH: ", os.environ.get("PYTHONPATH", "not set"))
     # print("SITEPACKAGE TREE", print_tree('/usr/lib/'))

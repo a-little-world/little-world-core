@@ -1,16 +1,16 @@
-from rest_framework import viewsets, authentication, permissions
-from management.models.profile import SelfProfileSerializer
-from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema, OpenApiParameter
-from rest_framework.views import APIView
-from rest_framework import serializers, status
-from management.models.state import State
-from dataclasses import dataclass
-from back.utils import transform_add_options_serializer
-from management.models.profile import Profile
-from translations import get_translation
-from django.conf import settings
 import urllib.parse
+from dataclasses import dataclass
+
+from django.conf import settings
+from drf_spectacular.utils import OpenApiParameter, extend_schema
+from rest_framework import authentication, permissions, serializers, status, viewsets
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from translations import get_translation
+
+from back.utils import transform_add_options_serializer
+from management.models.profile import Profile, SelfProfileSerializer
+from management.models.state import State
 
 
 @dataclass
@@ -37,7 +37,17 @@ class ProfileViewSet(viewsets.GenericViewSet, viewsets.mixins.UpdateModelMixin):
 
     @extend_schema(
         request=ProfileViewSetSerializer(many=False),
-        parameters=[OpenApiParameter(name=k, description="Use this and every self field will contain possible choices in 'options'" if k == "options" else "", required=False, type=type(getattr(ProfileViewSetParams, k))) for k in ProfileViewSetParams.__annotations__.keys()],
+        parameters=[
+            OpenApiParameter(
+                name=k,
+                description="Use this and every self field will contain possible choices in 'options'"
+                if k == "options"
+                else "",
+                required=False,
+                type=type(getattr(ProfileViewSetParams, k)),
+            )
+            for k in ProfileViewSetParams.__annotations__.keys()
+        ],
     )
     def _get(self, request):
         serializer = ProfileViewSetSerializer(data=request.query_params)
@@ -82,10 +92,22 @@ class ProfileCompletedApi(APIView):
             state.set_user_form_completed()
             state.searching_state = State.SearchingStateChoices.SEARCHING
             state.save()
-            default_message = get_translation("auto_messages.prematching_invitation", lang="de").format(first_name=user.profile.first_name, encoded_params=urllib.parse.urlencode({"email": str(user.email), "hash": str(user.hash), "bookingcode": str(user.state.prematch_booking_code)}), calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID)
+            default_message = get_translation("auto_messages.prematching_invitation", lang="de").format(
+                first_name=user.profile.first_name,
+                encoded_params=urllib.parse.urlencode(
+                    {
+                        "email": str(user.email),
+                        "hash": str(user.hash),
+                        "bookingcode": str(user.state.prematch_booking_code),
+                    }
+                ),
+                calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID,
+            )
             german_level = list(filter(lambda x: x["lang"] == "german", user.profile.lang_skill))[0]["level"]
             if german_level == Profile.LanguageSkillChoices.LEVEL_0:
-                default_message = get_translation("auto_messages.prematching_lang_level_too_low", lang="de").format(first_name=user.profile.first_name)
+                default_message = get_translation("auto_messages.prematching_lang_level_too_low", lang="de").format(
+                    first_name=user.profile.first_name
+                )
 
             user.message(default_message, auto_mark_read=True, send_message_incoming=True)
 
@@ -95,6 +117,3 @@ class ProfileCompletedApi(APIView):
             return Response(ud)
         else:
             return Response(info, status=status.HTTP_400_BAD_REQUEST)
-        
-
-    

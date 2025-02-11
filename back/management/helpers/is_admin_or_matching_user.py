@@ -9,4 +9,8 @@ class IsAdminOrMatchingUser(BasePermission):
     def has_permission(self, request, view):
         from management.models.state import State
 
-        return bool(request.user and request.user.is_staff) or bool(request.user and request.user.is_authenticated and request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER))
+        return bool(request.user and request.user.is_staff) or bool(
+            request.user
+            and request.user.is_authenticated
+            and request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+        )

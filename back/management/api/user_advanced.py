@@ -1,47 +1,46 @@
+from chat.models import Chat, ChatSerializer, Message, MessageSerializer
+from django.conf import settings
+from django.db.models import Q
+from django.urls import path
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
+from django_filters import rest_framework as filters
+from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
+from emails.models import AdvancedEmailLogSerializer, EmailLog
+from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework import viewsets
-from django.db.models import Q
-from django.conf import settings
-from management.models.dynamic_user_list import DynamicUserList
+
+from management.api.scores import score_between_db_update
+from management.api.user_advanced_filter_lists import FILTER_LISTS, get_choices, get_dynamic_userlists
+from management.api.user_data import (
+    AdvancedUserMatchSerializer,
+    get_paginated,
+    get_paginated_format_v2,
+    serialize_proposed_matches,
+)
+from management.api.utils_advanced import filterset_schema_dict
 from management.controller import delete_user, make_tim_support_user
-from management.twilio_handler import _get_client
-from django.utils.dateparse import parse_datetime
-from emails.models import EmailLog, AdvancedEmailLogSerializer
-from django.urls import path
-from django_filters import rest_framework as filters
-from management.models.scores import TwoUserMatchingScore
-from management.models.user import User
 from management.helpers import (
-    IsAdminOrMatchingUser,
     DetailedPagination,
     DetailedPaginationMixin,
+    IsAdminOrMatchingUser,
 )
-from management.models.profile import Profile, MinimalProfileSerializer
+from management.models.dynamic_user_list import DynamicUserList
+from management.models.management_tasks import ManagementTaskSerializer, MangementTask
+from management.models.matches import Match
 from management.models.pre_matching_appointment import (
     PreMatchingAppointment,
     PreMatchingAppointmentSerializer,
 )
-from rest_framework import serializers
-from drf_spectacular.utils import extend_schema_view, extend_schema, inline_serializer
-from management.api.user_advanced_filter_lists import FILTER_LISTS
-from management.api.user_data import (
-    get_paginated,
-    serialize_proposed_matches,
-    AdvancedUserMatchSerializer,
-)
-from management.api.user_advanced_filter_lists import get_dynamic_userlists, get_choices
-from management.models.matches import Match
-from management.api.user_data import get_paginated_format_v2
-from management.models.unconfirmed_matches import ProposedMatch
-from management.models.state import State, StateSerializer
+from management.models.profile import MinimalProfileSerializer, Profile
+from management.models.scores import TwoUserMatchingScore
 from management.models.sms import SmsModel, SmsSerializer
-from management.models.management_tasks import MangementTask, ManagementTaskSerializer
-from chat.models import Message, MessageSerializer, Chat, ChatSerializer
-from management.api.scores import score_between_db_update
+from management.models.state import State, StateSerializer
+from management.models.unconfirmed_matches import ProposedMatch
+from management.models.user import User
 from management.tasks import matching_algo_v2, send_email_background
-from management.api.utils_advanced import filterset_schema_dict
-from django.utils import timezone
+from management.twilio_handler import _get_client
 
 user_category_buckets = [
     "journey_v2__user_created",
@@ -136,7 +135,7 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
 
         proposed_matches = get_paginated(ProposedMatch.get_open_proposals(user), items_per_page, 1)
         proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
-        
+
         # proposlas that were rejected or expired
         old_proposed_matches = get_paginated(ProposedMatch.get_unsuccessful_proposals(user), items_per_page, 1)
         old_proposed_matches["items"] = serialize_proposed_matches(old_proposed_matches["items"], user)
@@ -151,7 +150,6 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
                 "determine_bucket": determine_bucket,
             },
         ).data
-        
 
         representation["matches"] = {
             "confirmed": confirmed_matches,
@@ -284,7 +282,12 @@ class UserFilter(filters.FilterSet):
     search = filters.CharFilter(method="filter_search", label="Search")
 
     def filter_search(self, queryset, name, value):
-        return queryset.filter(Q(hash__icontains=value) | Q(profile__first_name__icontains=value) | Q(profile__second_name__icontains=value) | Q(email__icontains=value))
+        return queryset.filter(
+            Q(hash__icontains=value)
+            | Q(profile__first_name__icontains=value)
+            | Q(profile__second_name__icontains=value)
+            | Q(email__icontains=value)
+        )
 
     def filter_list(self, queryset, name, value):
         if ":dyn:" in value:
@@ -400,7 +403,9 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         latest_appointment = PreMatchingAppointment.objects.filter(user=obj).order_by("-created").first()
         return Response(PreMatchingAppointmentSerializer(latest_appointment, many=False).data)
 
-    @extend_schema(request=inline_serializer(name="ScoreBetweenRequest", fields={"to_user": serializers.IntegerField()}))
+    @extend_schema(
+        request=inline_serializer(name="ScoreBetweenRequest", fields={"to_user": serializers.IntegerField()})
+    )
     @action(detail=True, methods=["post"])
     def score_between(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -422,7 +427,9 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         return Response(score)
 
     def check_management_user_access(self, user, request):
-        if not request.user.is_staff and not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+        if not request.user.is_staff and not request.user.state.has_extra_user_permission(
+            State.ExtraUserPermissionChoices.MATCHING_USER
+        ):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
 
         if not request.user.is_staff and not request.user.state.managed_users.filter(pk=user.pk).exists():
@@ -452,7 +459,9 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         return Response({"msg": "Message marked as read"})
 
-    @extend_schema(request=inline_serializer(name="DeleteMessageRequest", fields={"message_id": serializers.CharField()}))
+    @extend_schema(
+        request=inline_serializer(name="DeleteMessageRequest", fields={"message_id": serializers.CharField()})
+    )
     @action(detail=True, methods=["post"])
     def delete_message(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -497,7 +506,9 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             ).first()
         else:
             censor_messages = False
-            support_matching = Match.objects.filter(Q(user1=obj) | Q(user2=obj), support_matching=True, active=True).first()
+            support_matching = Match.objects.filter(
+                Q(user1=obj) | Q(user2=obj), support_matching=True, active=True
+            ).first()
             matching = support_matching
 
         partner = matching.get_partner(obj)
@@ -509,7 +520,9 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         messages_qs = chat.get_messages()
 
         messages = get_paginated_format_v2(messages_qs, page_size, page)
-        messages["results"] = MessageSerializer(messages["results"], many=True, context={"censor_text": censor_messages}).data
+        messages["results"] = MessageSerializer(
+            messages["results"], many=True, context={"censor_text": censor_messages}
+        ).data
 
         return Response({"chat": ChatSerializer(chat).data, "messages": messages})
 

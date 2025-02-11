@@ -1,11 +1,13 @@
-from django.db import models
-from django.db.models import Q
 from uuid import uuid4
 
-from django.utils import timezone
-from management.models import user as user_model, profile
-from video.models import LivekitSession
 from chat.models import Message
+from django.db import models
+from django.db.models import Q
+from django.utils import timezone
+from video.models import LivekitSession
+
+from management.models import profile
+from management.models import user as user_model
 
 
 class Match(models.Model):
@@ -43,11 +45,27 @@ class Match(models.Model):
     send_automatic_message_1week = models.BooleanField(default=True)
 
     def sync_counters(self):
-        self.total_messages_counter = Message.objects.filter(Q(sender=self.user1, recipient=self.user2) | Q(sender=self.user2, recipient=self.user1)).count()
-        self.total_mutal_video_calls_counter = LivekitSession.objects.filter(Q(u1=self.user1, u2=self.user2) | Q(u1=self.user2, u2=self.user1), both_have_been_active=True).count()
+        self.total_messages_counter = Message.objects.filter(
+            Q(sender=self.user1, recipient=self.user2) | Q(sender=self.user2, recipient=self.user1)
+        ).count()
+        self.total_mutal_video_calls_counter = LivekitSession.objects.filter(
+            Q(u1=self.user1, u2=self.user2) | Q(u1=self.user2, u2=self.user1), both_have_been_active=True
+        ).count()
 
-        newest_message = Message.objects.filter(Q(sender=self.user1, recipient=self.user2) | Q(sender=self.user2, recipient=self.user1)).order_by("-created").first()
-        newest_video_call = LivekitSession.objects.filter(Q(u1=self.user1, u2=self.user2) | Q(u1=self.user2, u2=self.user1), both_have_been_active=True).order_by("-created_at").first()
+        newest_message = (
+            Message.objects.filter(
+                Q(sender=self.user1, recipient=self.user2) | Q(sender=self.user2, recipient=self.user1)
+            )
+            .order_by("-created")
+            .first()
+        )
+        newest_video_call = (
+            LivekitSession.objects.filter(
+                Q(u1=self.user1, u2=self.user2) | Q(u1=self.user2, u2=self.user1), both_have_been_active=True
+            )
+            .order_by("-created_at")
+            .first()
+        )
 
         if newest_message and newest_video_call:
             self.latest_interaction_at = max(newest_message.created, newest_video_call.created_at)
@@ -108,11 +126,15 @@ class Match(models.Model):
 
     @classmethod
     def get_confirmed_matches(cls, user, order_by="created_at"):
-        return cls.objects.filter(Q(user1=user) | Q(user2=user), active=True, confirmed_by=user, support_matching=False).order_by(order_by)
+        return cls.objects.filter(
+            Q(user1=user) | Q(user2=user), active=True, confirmed_by=user, support_matching=False
+        ).order_by(order_by)
 
     @classmethod
     def get_unconfirmed_matches(cls, user, order_by="created_at"):
-        return cls.objects.filter(Q(user1=user) | Q(user2=user), ~Q(confirmed_by=user), active=True, support_matching=False).order_by(order_by)
+        return cls.objects.filter(
+            Q(user1=user) | Q(user2=user), ~Q(confirmed_by=user), active=True, support_matching=False
+        ).order_by(order_by)
 
     @classmethod
     def get_support_matches(cls, user, order_by="created_at"):
@@ -120,4 +142,6 @@ class Match(models.Model):
 
     @classmethod
     def get_inactive_matches(cls, user, order_by="created_at"):
-        return cls.objects.filter(Q(user1=user) | Q(user2=user), active=False, support_matching=False).order_by(order_by)
+        return cls.objects.filter(Q(user1=user) | Q(user2=user), active=False, support_matching=False).order_by(
+            order_by
+        )

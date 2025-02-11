@@ -1,5 +1,7 @@
 from typing import Optional
+
 from multiselectfield.db.fields import MSFList
+
 from management.models.user import (
     User,
 )
@@ -27,7 +29,9 @@ SUBJECT_MAPPINGS = {
 }
 
 
-def _check_operation_condition(operation, prop, compare_value: Optional[str] = None, compare_list: "Optional[list[str]]" = None):
+def _check_operation_condition(
+    operation, prop, compare_value: Optional[str] = None, compare_list: "Optional[list[str]]" = None
+):
     assert compare_value or compare_list, "Always require list or value!"
     if _filter_slug_meta[operation]["kind"] == "single":
         assert compare_value
@@ -148,7 +152,11 @@ def get_users_by_slug_filter(
 
         assert model_value is not None, "Model value lookup failed"
 
-        if _check_operation_condition(operation, model_value, compare_list=value) if value_kind == "multi" else _check_operation_condition(operation, model_value, compare_value=value):
+        if (
+            _check_operation_condition(operation, model_value, compare_list=value)
+            if value_kind == "multi"
+            else _check_operation_condition(operation, model_value, compare_value=value)
+        ):
             filtered_user_list.append(user)
 
     for user in user_to_filter:

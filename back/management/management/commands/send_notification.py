@@ -8,9 +8,7 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         # Positional arguments
         parser.add_argument("arg1", type=str, help="User email")
-        parser.add_argument(
-            "arg2", type=str, help="Notification title", default="Test notification"
-        )
+        parser.add_argument("arg2", type=str, help="Notification title", default="Test notification")
         parser.add_argument(
             "arg3",
             type=str,
@@ -24,7 +22,5 @@ class Command(BaseCommand):
         description = options["arg3"]
 
         user = User.objects.get(email=email)
-        notification = Notification.objects.create(
-            user=user, title=title, description=description
-        )
+        notification = Notification.objects.create(user=user, title=title, description=description)
         user.notify(notification=notification)

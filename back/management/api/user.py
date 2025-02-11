@@ -1,29 +1,28 @@
-from rest_framework.views import APIView
-from django.http import HttpResponseRedirect
-from django.contrib.auth.decorators import login_required
-from management.controller import delete_user
-from emails import mails
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.decorators import api_view, permission_classes
-from typing import Optional
-from django.contrib.auth import logout
-from django.urls import reverse
-from django.shortcuts import redirect
-from django_rest_passwordreset.signals import reset_password_token_created
-from django.conf import settings
-from django.dispatch import receiver
-from drf_spectacular.utils import extend_schema
-from management.controller import get_user_by_hash, get_user_by_email, UserNotFoundErr, get_user
-from rest_framework.response import Response
-from django.contrib.auth import authenticate, login
-from rest_framework import authentication, permissions
-from rest_framework import serializers, status
 from dataclasses import dataclass
-from tracking.models import Event
+from typing import Optional
+
+from django.conf import settings
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
+from django.dispatch import receiver
+from django.http import HttpResponseRedirect
+from django.shortcuts import redirect
+from django.urls import reverse
+from django_rest_passwordreset.signals import reset_password_token_created
+from drf_spectacular.utils import extend_schema
+from emails import mails
+from emails.mails import PwResetMailParams, get_mail_data_by_name
+from rest_framework import authentication, permissions, serializers, status
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from tracking import utils
-from emails.mails import get_mail_data_by_name, PwResetMailParams
-from management.models.state import State
+from tracking.models import Event
 from translations import get_translation
+
+from management.controller import UserNotFoundErr, delete_user, get_user, get_user_by_email, get_user_by_hash
+from management.models.state import State
 
 """
 The public /user api's
@@ -175,7 +174,9 @@ class LogoutApi(APIView):
     authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
-    @utils.track_event(name="User Logged out", event_type=Event.EventTypeChoices.REQUEST, tags=["frontend", "log-out", "sensitive"])
+    @utils.track_event(
+        name="User Logged out", event_type=Event.EventTypeChoices.REQUEST, tags=["frontend", "log-out", "sensitive"]
+    )
     def get(self, request):
         logout(request)
         return Response(get_translation("api.logout_sucessful"))
@@ -235,10 +236,14 @@ class ChangePasswordApi(APIView):
 
         _check = request.user.check_password(params.password_old)
         if not _check:
-            return Response(get_translation("api.change_password_failed_incorrect_old_pw"), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                get_translation("api.change_password_failed_incorrect_old_pw"), status=status.HTTP_400_BAD_REQUEST
+            )
 
         if params.password_new != params.password_new2:
-            return Response(get_translation("api.change_password_failed_new_pw_not_equal"), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                get_translation("api.change_password_failed_new_pw_not_equal"), status=status.HTTP_400_BAD_REQUEST
+            )
 
         request.user.set_password(params.password_new)
         request.user.save()
@@ -374,14 +379,22 @@ class UpdateSearchingStateApi(APIView):
         Update the users serching state, current possible states: 'idle', 'searching'
         So e.g.: This should be called then the users clicks on search for match
         """
-        serializer = SearchingStateApiSerializer(data={"state_slug": kwargs.get("state_slug")} if "state_slug" in kwargs else {})  # type: ignore
+        serializer = SearchingStateApiSerializer(
+            data={"state_slug": kwargs.get("state_slug")} if "state_slug" in kwargs else {}
+        )  # type: ignore
         serializer.is_valid(raise_exception=True)
         params = serializer.save()
 
         print("TBS", State.SearchingStateChoices.values)
 
         if params.state_slug not in State.SearchingStateChoices.values:
-            raise serializers.ValidationError({"state_slug": get_translation("api.user_update_searching_state_slug_doesnt_exist").format(slug=params.state_slug)})
+            raise serializers.ValidationError(
+                {
+                    "state_slug": get_translation("api.user_update_searching_state_slug_doesnt_exist").format(
+                        slug=params.state_slug
+                    )
+                }
+            )
 
         request.user.state.change_searching_state(params.state_slug)
 
@@ -400,10 +413,10 @@ class UnmatchSelfSerializer(serializers.Serializer):
     def create(self, validated_data):
         return validated_data
 
+
 @login_required
 @api_view(["POST"])
 def resend_verification_mail(request):
-    
     if settings.USE_V2_EMAIL_APIS:
         request.user.send_email_v2("verify-email")
     else:
@@ -412,9 +425,15 @@ def resend_verification_mail(request):
         verifiaction_url = f"{settings.BASE_URL}/{link_route}/{request.user.state.get_email_auth_code_b64()}"
         mails.send_email(
             recivers=[request.user.email],
-            subject="{code} - Verifizierungscode zur E-Mail Bestätigung".format(code=request.user.state.get_email_auth_pin()),
+            subject="{code} - Verifizierungscode zur E-Mail Bestätigung".format(
+                code=request.user.state.get_email_auth_pin()
+            ),
             mail_data=mails.get_mail_data_by_name("welcome"),
-            mail_params=mails.WelcomeEmailParams(first_name=request.user.profile.first_name, verification_url=verifiaction_url, verification_code=str(request.user.state.get_email_auth_pin())),
+            mail_params=mails.WelcomeEmailParams(
+                first_name=request.user.profile.first_name,
+                verification_url=verifiaction_url,
+                verification_code=str(request.user.state.get_email_auth_pin()),
+            ),
         )
 
     return Response("Resend verification mail")

@@ -1,24 +1,25 @@
-from django.db import models
-from django.utils.encoding import force_str
-from phonenumber_field.modelfields import PhoneNumberField
-from back.utils import get_options_serializer
-from rest_framework import serializers
-from multiselectfield import MultiSelectField
-from back.utils import _double_uuid
+import os
+
 from django.core.files import File
+from django.db import models
+from django.utils.deconstruct import deconstructible
+from django.utils.encoding import force_str
+from multiselectfield import MultiSelectField
+from phonenumber_field.modelfields import PhoneNumberField
+from rest_framework import serializers
+from translations import get_translation
+
+from back.utils import _double_uuid, get_options_serializer
 from management.validators import (
-    validate_availability,
+    DAYS,
+    SLOT_TRANS,
+    SLOTS,
     get_default_availability,
     model_validate_first_name,
     model_validate_second_name,
+    validate_availability,
     validate_postal_code,
-    DAYS,
-    SLOTS,
-    SLOT_TRANS,
 )
-from django.utils.deconstruct import deconstructible
-import os
-from translations import get_translation
 
 # This can be used to handle changes in the api from the frontend
 PROFILE_MODEL_VERSION = "1"
@@ -410,8 +411,14 @@ class ProfileSerializer(serializers.ModelSerializer):
             d.update(
                 {
                     "lang_skill": {
-                        "level": [{"value": l0, "tag": force_str(l1, strings_only=True)} for l0, l1 in Profile.LanguageSkillChoices.choices],
-                        "lang": [{"value": l0, "tag": force_str(l1, strings_only=True)} for l0, l1 in Profile.LanguageChoices.choices],
+                        "level": [
+                            {"value": l0, "tag": force_str(l1, strings_only=True)}
+                            for l0, l1 in Profile.LanguageSkillChoices.choices
+                        ],
+                        "lang": [
+                            {"value": l0, "tag": force_str(l1, strings_only=True)}
+                            for l0, l1 in Profile.LanguageChoices.choices
+                        ],
                     }
                 }
             )
@@ -490,7 +497,9 @@ class SelfProfileSerializer(ProfileSerializer):
                 elif data["image"] is None:
                     # Only allow removing the image if then the avatar config is set
                     if "image_type" not in data or not (data["image_type"] == Profile.ImageTypeChoice.AVATAR):
-                        raise serializers.ValidationError({"image": get_translation("profile.image_removal_without_avatar")})
+                        raise serializers.ValidationError(
+                            {"image": get_translation("profile.image_removal_without_avatar")}
+                        )
                 elif not data["image"]:
                     __no_img()
             if data["image_type"] == Profile.ImageTypeChoice.AVATAR:
@@ -510,15 +519,14 @@ class SelfProfileSerializer(ProfileSerializer):
         if len(value) < 3:
             raise serializers.ValidationError(get_translation("profile.interests.min_number"))
         return value
-    
+
     def validate_availability(self, value):
         # Count total entries across all arrays in the availability object
         total_entries = sum(len(entries) for entries in value.values())
-    
+
         if total_entries < 3:
             raise serializers.ValidationError(get_translation("profile.availability.min_number"))
         return value
-    
 
     def validate_target_groups(self, value):
         if len(value) < 1:
@@ -578,7 +586,20 @@ class CensoredProfileSerializer(SelfProfileSerializer):
 class MinimalProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = ["first_name", "second_name", "target_group", "lang_skill", "interests", "image_type", "avatar_config", "image", "description", "user_type", "target_groups", "newsletter_subscribed"]
+        fields = [
+            "first_name",
+            "second_name",
+            "target_group",
+            "lang_skill",
+            "interests",
+            "image_type",
+            "avatar_config",
+            "image",
+            "description",
+            "user_type",
+            "target_groups",
+            "newsletter_subscribed",
+        ]
 
 
 class ProposalProfileSerializer(SelfProfileSerializer):

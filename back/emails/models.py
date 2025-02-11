@@ -1,6 +1,7 @@
+import uuid
+
 from django.db import models
 from rest_framework import serializers
-import uuid
 
 
 class EmailLog(models.Model):
@@ -39,9 +40,19 @@ class AdvancedEmailLogSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
 
         # TODO: using the whole profile serializer here is a bit expensive!
-        representation["sender"] = {"id": instance.sender.pk, "hash": instance.sender.hash, "email": instance.sender.email, "profile": MinimalProfileSerializer(instance.sender.profile).data}
+        representation["sender"] = {
+            "id": instance.sender.pk,
+            "hash": instance.sender.hash,
+            "email": instance.sender.email,
+            "profile": MinimalProfileSerializer(instance.sender.profile).data,
+        }
 
-        representation["receiver"] = {"id": instance.receiver.pk, "hash": instance.receiver.hash, "email": instance.receiver.email, "profile": MinimalProfileSerializer(instance.receiver.profile).data}
+        representation["receiver"] = {
+            "id": instance.receiver.pk,
+            "hash": instance.receiver.hash,
+            "email": instance.receiver.email,
+            "profile": MinimalProfileSerializer(instance.receiver.profile).data,
+        }
 
         try:
             if instance.log_version == 0:
@@ -50,12 +61,16 @@ class AdvancedEmailLogSerializer(serializers.ModelSerializer):
                 representation["retrieve"] = f"/api/matching/emails/logs/{instance.id}/"
         except Exception as e:
             print(e)
-            representation["retrieve"] = "Couldn't generate representation ( possibly this is a dynamic email that was self send )"
+            representation["retrieve"] = (
+                "Couldn't generate representation ( possibly this is a dynamic email that was self send )"
+            )
 
         return representation
 
-EMAIL_THEMES = ('little_world', 'patenmatch')
+
+EMAIL_THEMES = ("little_world", "patenmatch")
 EMAIL_THEMES_DICT = dict(zip(EMAIL_THEMES, EMAIL_THEMES))
+
 
 class DynamicTemplate(models.Model):
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
@@ -63,10 +78,12 @@ class DynamicTemplate(models.Model):
     template = models.TextField()
 
     subject = models.CharField(max_length=255)
-    
+
     content = models.JSONField(default=dict)
 
-    theme = models.CharField(max_length=255, default=EMAIL_THEMES_DICT['little_world'], choices=[(t, t) for t in EMAIL_THEMES])
+    theme = models.CharField(
+        max_length=255, default=EMAIL_THEMES_DICT["little_world"], choices=[(t, t) for t in EMAIL_THEMES]
+    )
     category_id = models.CharField(max_length=255, default="dynamic")
     sender_id = models.CharField(max_length=255, default="noreply")
 

@@ -1,9 +1,9 @@
 from django.conf import settings
 from django.urls import path
-from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from django.views.decorators.csrf import csrf_exempt
-from rest_framework.response import Response
 from openai import OpenAI
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.response import Response
 
 
 def get_base_ai_client():
@@ -29,7 +29,9 @@ def notify_communication_channel(message):
     bot_token = SLACK_API_TOKEN
     client = WebClient(token=bot_token)
 
-    response = client.chat_postMessage(channel=CHANNEL_ID, mrkdwn=True, text=message, unfurl_links=False, unfurl_media=False)
+    response = client.chat_postMessage(
+        channel=CHANNEL_ID, mrkdwn=True, text=message, unfurl_links=False, unfurl_media=False
+    )
 
 
 def process_slack_ai_response(message):

@@ -1,11 +1,12 @@
-from django.db import models
-from translations import get_translation
-from management.validators import model_validate_first_name, model_validate_second_name
-from multiselectfield import MultiSelectField
 from uuid import uuid4
 
+from django.db import models
+from management.validators import model_validate_first_name, model_validate_second_name
+from multiselectfield import MultiSelectField
+from translations import get_translation
+
 # To re-establish the matching process we need to:
-# DONE 1. Create the new organizationUserMatching 
+# DONE 1. Create the new organizationUserMatching
 # DONE don't expose non critical organization data!
 # DONE --> Update the api call in the frontend when the api is called on a pre-selected organization
 # DONE --> Fix contact form submission inside the components/organization/OrganizationContactModal.js Model :)
@@ -42,47 +43,54 @@ class SupportGroups(models.TextChoices):
     STUDENT = "student", get_translation("patenmatch.supportgroups.student", lang="de")
     ERROR = "error", get_translation("patenmatch.supportgroups.error", lang="de")
 
+
 class PatenmatchUser(models.Model):
     first_name = models.CharField(max_length=150, blank=False, validators=[model_validate_first_name])
     last_name = models.CharField(max_length=150, blank=False, validators=[model_validate_second_name])
     postal_code = models.CharField(max_length=255, blank=True)
     email = models.EmailField(max_length=50)
-    support_for = models.CharField(choices=SupportGroups.choices, max_length=255, blank=False, default=SupportGroups.INDIVIDUAL)
+    support_for = models.CharField(
+        choices=SupportGroups.choices, max_length=255, blank=False, default=SupportGroups.INDIVIDUAL
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     status_access_token = models.CharField(default=uuid4, max_length=255)
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
     email_auth_hash = models.CharField(default=uuid4, max_length=255)
     email_authenticated = models.BooleanField(default=False)
     spoken_languages = models.TextField(blank=True)
-    request_specific_organization = models.ForeignKey('PatenmatchOrganization', on_delete=models.CASCADE, blank=True, null=True, related_name='requested_by_users')
-    
+    request_specific_organization = models.ForeignKey(
+        "PatenmatchOrganization", on_delete=models.CASCADE, blank=True, null=True, related_name="requested_by_users"
+    )
+
     def get_matched_organizations(self):
         return PatenmatchOrganization.objects.filter(matched_users__id=self.id)
-    
+
     def get_verification_view_url(self):
         return "/en/verify/" + str(self.uuid) + "/" + self.email_auth_hash + "/"
-    
+
     def get_verification_url(self):
         return f"/api/patenmatch/user/verify_email?uuid={self.uuid}&token={self.email_auth_hash}"
-    
+
+
 class PatenmatchOrganizationUserMatching(models.Model):
-    organization = models.ForeignKey('PatenmatchOrganization', on_delete=models.SET_NULL, null=True)
-    user = models.ForeignKey('PatenmatchUser', on_delete=models.SET_NULL, null=True)
+    organization = models.ForeignKey("PatenmatchOrganization", on_delete=models.SET_NULL, null=True)
+    user = models.ForeignKey("PatenmatchUser", on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     # email_send = models.BooleanField(default=False)
-    
+
     @property
     def match_user_name(self):
         return f"{self.user.first_name} {self.user.last_name}"
-    
+
     @property
     def match_organization_name(self):
         return self.organization.name
-    
+
     @property
     def match_organization_email(self):
         return self.organization.contact_email
+
 
 class PatenmatchOrganization(models.Model):
     name = models.CharField(max_length=1024, blank=False)
@@ -99,14 +107,14 @@ class PatenmatchOrganization(models.Model):
     matched_users = models.ManyToManyField(PatenmatchUser, blank=True)
     metadata = models.JSONField(blank=True, default=dict)
     status_access_token = models.CharField(default=uuid4, max_length=255)
-    
+
     @property
     def list_matched_users(self):
         data = ""
         for user in self.matched_users.all():
             data += f"{user.first_name} {user.last_name} (/admin/patenmatch/patenmatchuser/{user.pk}/change/)\n"
         return data
-    
+
     @property
     def email(self):
         return self.contact_email

@@ -1,8 +1,10 @@
+import urllib.parse
+
+from django.conf import settings
 from django.core.management.base import BaseCommand
 from translations import get_translation
+
 from management.controller import get_user_by_hash
-import urllib.parse
-from django.conf import settings
 
 
 class Command(BaseCommand):
@@ -16,7 +18,13 @@ class Command(BaseCommand):
 
         first_name = user.first_name
 
-        message = get_translation("auto_messages.group_calls_announcement", lang="de").format(first_name=first_name, encoded_params=urllib.parse.urlencode({"email": str(user.email), "hash": str(user.hash), "bookingcode": str(user.state.prematch_booking_code)}), calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID)
+        message = get_translation("auto_messages.group_calls_announcement", lang="de").format(
+            first_name=first_name,
+            encoded_params=urllib.parse.urlencode(
+                {"email": str(user.email), "hash": str(user.hash), "bookingcode": str(user.state.prematch_booking_code)}
+            ),
+            calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID,
+        )
 
         print("Sending message to", user, message)
 

@@ -1,11 +1,13 @@
-from functools import partial, wraps
 import json
-from .models import Event
+from functools import partial, wraps
+
 from django.utils.translation import gettext_lazy as _
-from rest_framework.request import Request
 from ipware import get_client_ip  # django-ipware
+from rest_framework.request import Request
 
 from back.utils import CoolerJson
+
+from .models import Event
 
 possible_metadata = ["request", "user", "email"]
 
@@ -118,7 +120,16 @@ def inline_track_event(
     Event.objects.create(**_input)
 
 
-def _dispath_event_tracking(f, caller="anonymous", name="", event_type: int = Event.EventTypeChoices.MISC, tags=[], track_arguments="__all__", censor_args=False, censor_kwargs=[]):
+def _dispath_event_tracking(
+    f,
+    caller="anonymous",
+    name="",
+    event_type: int = Event.EventTypeChoices.MISC,
+    tags=[],
+    track_arguments="__all__",
+    censor_args=False,
+    censor_kwargs=[],
+):
     """
     Wrap an arbitray function to track
     you can provide an event type, name, caller and some tags
@@ -129,7 +140,18 @@ def _dispath_event_tracking(f, caller="anonymous", name="", event_type: int = Ev
 
     @wraps(f)
     def run(*args, **kwargs):
-        inline_track_event(*args, f=f, caller=caller, name=name, event_type=event_type, tags=tags, track_arguments=track_arguments, censor_args=censor_args, censor_kwargs=censor_kwargs, **kwargs)
+        inline_track_event(
+            *args,
+            f=f,
+            caller=caller,
+            name=name,
+            event_type=event_type,
+            tags=tags,
+            track_arguments=track_arguments,
+            censor_args=censor_args,
+            censor_kwargs=censor_kwargs,
+            **kwargs,
+        )
         return f(*args, **kwargs)
 
     return run

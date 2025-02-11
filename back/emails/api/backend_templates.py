@@ -1,17 +1,17 @@
-from management.helpers import IsAdminOrMatchingUser
-from rest_framework.decorators import api_view, permission_classes
-from django.urls import path
-from rest_framework.response import Response
+from django.conf import settings
+from django.db.models import Q
 from django.http import HttpResponse
+from django.urls import path
+from django.views.decorators.clickjacking import xframe_options_exempt
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from emails.api.emails_config import EMAILS_CONFIG
 from emails.api.render_template import get_full_template_info, render_template_dynamic_lookup
-from django.conf import settings
-from drf_spectacular.utils import extend_schema, OpenApiParameter
-from django.views.decorators.clickjacking import xframe_options_exempt
 from management.controller import get_base_management_user
+from management.helpers import IsAdminOrMatchingUser
 from management.models.matches import Match
-from django.db.models import Q
 from management.models.unconfirmed_matches import ProposedMatch
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
 
 
 @api_view(["GET"])
@@ -66,7 +66,7 @@ def render_backend_template(request, template_name):
     match_id = query_params.get("match_id", None)
     if match_id:
         del query_params["match_id"]
-        
+
     proposed_match_id = query_params.get("proposed_match_id", None)
     if proposed_match_id:
         del query_params["proposed_match_id"]
@@ -99,7 +99,9 @@ def test_render_email(request, template_name):
     mock_match_id = Match.objects.filter(Q(user1=mock_user_id) | Q(user2=mock_user_id)).first().id
     mock_proposed_match_id = ProposedMatch.objects.filter(~Q(user1=mock_user_id) & ~Q(user2=mock_user_id)).first().id
 
-    rendered = render_template_dynamic_lookup(template_name, mock_user_id, mock_match_id,mock_proposed_match_id, **mock_context)
+    rendered = render_template_dynamic_lookup(
+        template_name, mock_user_id, mock_match_id, mock_proposed_match_id, **mock_context
+    )
     response = HttpResponse(rendered, content_type="text/html")
 
     # Remove the 'cross-origin-opener-policy' header if it exists in debug
@@ -109,6 +111,7 @@ def test_render_email(request, template_name):
             del response["Cross-Origin-Opener-Policy"]
 
     return response
+
 
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])

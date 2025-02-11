@@ -1,5 +1,5 @@
-from django.template.loader import render_to_string
 from django.http import HttpResponse
+from django.template.loader import render_to_string
 
 
 def get_dynamic_cookie_banner_js(request):

@@ -1,6 +1,19 @@
 from channels.generic.websocket import AsyncWebsocketConsumer
 from chat.consumers.db_ops import connect_user, disconnect_user, get_all_chat_user_ids, is_staff_or_matching
-from chat.consumers.messages import InBlockIncomingCall, InMatchProposalAdded, InUnconfirmedMatchAdded, MessagesReadChat, MessageTypes, NewActiveCallRoom, NewMessage, NotificationMessage, OutUserWentOffline, OutUserWentOnline, PostCallSurvey, PreMatchingAppointmentBooked
+from chat.consumers.messages import (
+    InBlockIncomingCall,
+    InMatchProposalAdded,
+    InUnconfirmedMatchAdded,
+    MessagesReadChat,
+    MessageTypes,
+    NewActiveCallRoom,
+    NewMessage,
+    NotificationMessage,
+    OutUserWentOffline,
+    OutUserWentOnline,
+    PostCallSurvey,
+    PreMatchingAppointmentBooked,
+)
 
 UNAUTH_REJECT_CODE: int = 4001
 

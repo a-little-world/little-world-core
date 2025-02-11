@@ -1,11 +1,16 @@
-from rest_framework.response import Response
-from rest_framework import serializers
-from rest_framework import permissions
-from drf_spectacular.utils import extend_schema
-from rest_framework.decorators import api_view, permission_classes
-from management.models.question_deck import QuestionCardCategories, QuestionCardsCategoriesSerializer, QuestionCardSerializer
-from rest_framework_dataclasses.serializers import DataclassSerializer
 from dataclasses import dataclass
+
+from drf_spectacular.utils import extend_schema
+from rest_framework import permissions, serializers
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
+from rest_framework_dataclasses.serializers import DataclassSerializer
+
+from management.models.question_deck import (
+    QuestionCardCategories,
+    QuestionCardsCategoriesSerializer,
+    QuestionCardSerializer,
+)
 
 
 @dataclass

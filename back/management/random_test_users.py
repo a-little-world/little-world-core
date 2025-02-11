@@ -1,7 +1,9 @@
 import glob
 import random
-from . import controller  # this will be used on script execution
+
 from management.models.profile import Profile
+
+from . import controller  # this will be used on script execution
 
 
 def random_names(amnt):
@@ -40,7 +42,7 @@ def random_phone_number():
 
 
 def random_availabilities():
-    from management.validators import SLOTS, DAYS
+    from management.validators import DAYS, SLOTS
 
     data = {}
     for day in DAYS:

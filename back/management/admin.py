@@ -1,17 +1,25 @@
-from django.contrib.sessions.models import Session
-from django.contrib import admin
-from django.utils.translation import gettext_lazy as _
-from django.utils.safestring import mark_safe
-from django.contrib import messages
-from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
-from management.models import dynamic_user_list, post_call_review
-from management import models
-from management.models import question_deck, scores, pre_matching_appointment, newsletter, stats
-from hijack.contrib.admin import HijackUserAdminMixin
-from django.utils.html import format_html
-from django.urls import reverse
-from django.http import HttpResponse
 import base64
+
+from django.contrib import admin, messages
+from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django.contrib.sessions.models import Session
+from django.http import HttpResponse
+from django.urls import reverse
+from django.utils.html import format_html
+from django.utils.safestring import mark_safe
+from django.utils.translation import gettext_lazy as _
+from hijack.contrib.admin import HijackUserAdminMixin
+
+from management import models
+from management.models import (
+    dynamic_user_list,
+    newsletter,
+    post_call_review,
+    pre_matching_appointment,
+    question_deck,
+    scores,
+    stats,
+)
 
 
 @admin.register(stats.Statistic)
@@ -26,7 +34,15 @@ class BackendStateAdmin(admin.ModelAdmin):
 
 @admin.register(models.help_message.HelpMessage)
 class HelpMessageStateAdmin(admin.ModelAdmin):
-    list_display = ("user", "message", "created_at", "hash", "attachment1_links", "attachment2_links", "attachment3_links")
+    list_display = (
+        "user",
+        "message",
+        "created_at",
+        "hash",
+        "attachment1_links",
+        "attachment2_links",
+        "attachment3_links",
+    )
 
     def attachment1_links(self, obj):
         return self._get_attachment_links(obj, "attachment1")
@@ -48,7 +64,9 @@ class HelpMessageStateAdmin(admin.ModelAdmin):
         if attachment:
             download_url = reverse("admin:download_attachment", args=[obj.id, field_name])
             preview_url = reverse("admin:preview_attachment", args=[obj.id, field_name])
-            return format_html('<a href="{}" target="_blank">Preview</a> | <a href="{}">Download</a>', preview_url, download_url)
+            return format_html(
+                '<a href="{}" target="_blank">Preview</a> | <a href="{}">Download</a>', preview_url, download_url
+            )
         return "No attachment"
 
     def get_urls(self):
@@ -56,8 +74,16 @@ class HelpMessageStateAdmin(admin.ModelAdmin):
 
         urls = super().get_urls()
         custom_urls = [
-            path("<int:object_id>/attachment/<str:field_name>/", self.admin_site.admin_view(self.download_attachment), name="download_attachment"),
-            path("<int:object_id>/preview/<str:field_name>/", self.admin_site.admin_view(self.preview_attachment), name="preview_attachment"),
+            path(
+                "<int:object_id>/attachment/<str:field_name>/",
+                self.admin_site.admin_view(self.download_attachment),
+                name="download_attachment",
+            ),
+            path(
+                "<int:object_id>/preview/<str:field_name>/",
+                self.admin_site.admin_view(self.preview_attachment),
+                name="preview_attachment",
+            ),
         ]
         return custom_urls + urls
 
@@ -145,7 +171,16 @@ def make_match_admin(modeladmin, request, queryset):
 
 @admin.register(models.profile.Profile)
 class ProfileModelAdmin(admin.ModelAdmin):
-    list_display = ("user", "first_name", "second_name", "user_type", "birth_year", "description", "notify_channel", "lang_skill")
+    list_display = (
+        "user",
+        "first_name",
+        "second_name",
+        "user_type",
+        "birth_year",
+        "description",
+        "notify_channel",
+        "lang_skill",
+    )
 
     actions = [make_match_admin]
 
@@ -210,7 +245,9 @@ class UserAdmin(HijackUserAdminMixin, DjangoUserAdmin):
     def chat_with(self, obj):
         # return HTML link that will not be escaped
         print(obj)
-        return mark_safe(f'<a href="/admin_chat/?usr_hash={obj.hash}" target="_blank" rel="noopener noreferrer" >open</a>')
+        return mark_safe(
+            f'<a href="/admin_chat/?usr_hash={obj.hash}" target="_blank" rel="noopener noreferrer" >open</a>'
+        )
 
     @admin.display(description="matching")
     def show_matching_suggestions(self, obj):
@@ -225,7 +262,9 @@ class UserAdmin(HijackUserAdminMixin, DjangoUserAdmin):
     @admin.display(description="existing_matches")
     def show_matches_in_panel(self, obj):
         route = f"/admin_panel/?matches={obj.hash}"
-        return mark_safe(f'<a href="{route}" target="_blank" rel="noopener noreferrer" >show user and matches in admin panel</a>')
+        return mark_safe(
+            f'<a href="{route}" target="_blank" rel="noopener noreferrer" >show user and matches in admin panel</a>'
+        )
 
     def get_search_results(self, request, queryset, search_term):
         queryset, use_distinct = super(DjangoUserAdmin, self).get_search_results(request, queryset, search_term)
@@ -239,7 +278,9 @@ class UserAdmin(HijackUserAdminMixin, DjangoUserAdmin):
         NotificationInline,
     ]
 
-    fieldsets = ((None, {"fields": ("email", "password", "hash", "is_active", "last_login", "first_name", "last_name")}),)
+    fieldsets = (
+        (None, {"fields": ("email", "password", "hash", "is_active", "last_login", "first_name", "last_name")}),
+    )
     add_fieldsets = (
         (
             None,
@@ -249,7 +290,21 @@ class UserAdmin(HijackUserAdminMixin, DjangoUserAdmin):
             },
         ),
     )
-    list_display = ("_abr_hash", "email", "last_login", "date_joined", "first_name", "last_name", "chat_with", "show_matching_suggestions", "show_matches_in_panel", "view_tracked_activity", "is_user_form_filled", "is_staff", "username")
+    list_display = (
+        "_abr_hash",
+        "email",
+        "last_login",
+        "date_joined",
+        "first_name",
+        "last_name",
+        "chat_with",
+        "show_matching_suggestions",
+        "show_matches_in_panel",
+        "view_tracked_activity",
+        "is_user_form_filled",
+        "is_staff",
+        "username",
+    )
     search_fields = ("email", "first_name", "last_name", "hash")
     # fist & last names are read-only here,
     # the user can change the first / lastnames stored in profile, but not this one!

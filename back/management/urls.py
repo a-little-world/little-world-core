@@ -1,21 +1,46 @@
 from django.conf import settings
 from django.urls import path, re_path
 from django_rest_passwordreset.views import ResetPasswordConfirmViewSet, ResetPasswordValidateTokenViewSet
+from rest_framework.routers import DefaultRouter
+
+from back.utils import _api_url
 from management import api
-from management.api import ai, notify, prematch_appointment_advanced, scores_advanced, slack, user_advanced_statistics, videocalls_advanced
-from management.api.dynamic_user_list import DynamicUserListGeneralViewSet, DynamicUserListSingleUserViewSet, DynamicUserListSingleViewSet
+from management.api import (
+    ai,
+    notify,
+    prematch_appointment_advanced,
+    scores_advanced,
+    slack,
+    user_advanced_statistics,
+    videocalls_advanced,
+)
+from management.api.dynamic_user_list import (
+    DynamicUserListGeneralViewSet,
+    DynamicUserListSingleUserViewSet,
+    DynamicUserListSingleViewSet,
+)
 from management.api.matches_advanced import api_urls as matches_advanced_api_urls
 from management.api.matching_stats import get_quick_statistics
 from management.api.newsletter_subscribe import public_newsletter_subscribe
 from management.api.questions import archive_card, get_question_cards
-from management.api.scores import burst_calculate_matching_scores_v2, delete_all_matching_scores, get_active_burst_calculation, list_top_scores, score_maximization_matching
+from management.api.scores import (
+    burst_calculate_matching_scores_v2,
+    delete_all_matching_scores,
+    get_active_burst_calculation,
+    list_top_scores,
+    score_maximization_matching,
+)
 from management.api.user_advanced import api_urls as user_advanced_api_urls
 from management.api.user_data import user_data_api
 from management.api.utils_advanced import CustomResetPasswordRequestTokenViewSet
-from management.views import admin_panel_devkit, admin_panel_emails, email_templates, landing_page, main_frontend, matching_panel
-from rest_framework.routers import DefaultRouter
-
-from back.utils import _api_url
+from management.views import (
+    admin_panel_devkit,
+    admin_panel_emails,
+    email_templates,
+    landing_page,
+    main_frontend,
+    matching_panel,
+)
 
 router = DefaultRouter()
 router.register(  # TODO: we might even wan't to exclude this api
@@ -150,7 +175,9 @@ view_routes = [
     path(_api_url("optimize_possible_matches", admin=True), score_maximization_matching),
     path("api/matching/burst_update_scores/", burst_calculate_matching_scores_v2),
     path("api/matching/get_active_burst_calculation/", get_active_burst_calculation),
-    path(_api_url("delete_all_matching_scores", admin=True), delete_all_matching_scores),  # TODO: can be depricated / is perforemed automaticly on update
+    path(
+        _api_url("delete_all_matching_scores", admin=True), delete_all_matching_scores
+    ),  # TODO: can be depricated / is perforemed automaticly on update
     path(_api_url("top_scores", admin=True), list_top_scores),
     path("info_card_debug/", main_frontend.debug_info_card, name="info_card"),
     path(_api_url("calcom", admin=False), api.calcom.callcom_websocket_callback),

@@ -1,5 +1,6 @@
-from dataclasses import dataclass
 import string
+from dataclasses import dataclass
+
 from django.utils.safestring import mark_safe
 
 
@@ -17,7 +18,9 @@ def inject_template_data(template_dict, params):
         _formats = list(string.Formatter().parse(str(_dict[k])))
         if not _formats:
             continue
-        _format_args = [arg for arg in list(string.Formatter().parse(str(_dict[k])))[0][1:] if arg != "" and arg is not None]
+        _format_args = [
+            arg for arg in list(string.Formatter().parse(str(_dict[k])))[0][1:] if arg != "" and arg is not None
+        ]
         for _k in _format_args:
             if _k not in params:
                 raise MissingEmailParamErr("Missing email template param: " + _k + "GOt only" + str(params))
@@ -124,7 +127,9 @@ class UserSurveyInvitationEmailNatalia:
     greeting: str = "Hallo {first_name}!"
     content_start_text: str = "Mein Name ist Natalia und ich bin derzeit Studentin an der Universität Siegen im Bereich Human Computer Interaction. Im Rahmen meiner Projektarbeit mit Little World führe ich Online-Interviews (auf Englisch) durch. Das Thema der Interviews ist deine Motivation zur Teilnahme auf und Erweiterungen von Little World."
     content_body_text: str = "Wenn du helfen möchtest die Plattform für andere Benutzer:innen zu verbessern oder du mich einfach in meiner Projektarbeit unterstützen möchtest, dann melde dich bitte bei mir. Nimm gerne einen Kaffee oder Tee zum Online-Interview mit, es wird alles ganz entspannt und dauert 60-80 Minuten. Ich freue mich auf einen lebhaften Ideenaustausch mit dir! Bitte hilf mir in der Projektarbeit und schreibe mir unter:"
-    link_box_text: str = mark_safe('<a href="mailto:natalia.romancheva@student.uni-siegen.de?subject=Interview" style="color: blue;">natalia.romancheva@student.uni-siegen.de</a>')
+    link_box_text: str = mark_safe(
+        '<a href="mailto:natalia.romancheva@student.uni-siegen.de?subject=Interview" style="color: blue;">natalia.romancheva@student.uni-siegen.de</a>'
+    )
     button_text: str = "Natalia helfen (E-Mail)"
     button_link: str = "mailto:natalia.romancheva@student.uni-siegen.de"
     below_link_text: str = "PS: das Team von Little World hat diese E-Mail im Namen von Natalia an dich weitergeleitet. Solltest du in Zukunft keine Interview-Bitten mehr erhalten wollen, so klicke bitte auf E-Mail Abmelden."
@@ -262,7 +267,10 @@ class ConfirmMatchMail1Texts:
     button_text: str = "Jetzt match bestätigen"
     button_link: str = "https://little-world.com/app/"
     below_link_text: str = ""
-    footer_text: str = "Dort kannst du auch den Gesprächsvorschlag mit {match_first_name} annehmen. \n" + "Du hast Fragen? Wir sind für dich da! Ruf an unter 015234777471 oder schreib uns unter support@little-world.com. Wir helfen dir gerne"
+    footer_text: str = (
+        "Dort kannst du auch den Gesprächsvorschlag mit {match_first_name} annehmen. \n"
+        + "Du hast Fragen? Wir sind für dich da! Ruf an unter 015234777471 oder schreib uns unter support@little-world.com. Wir helfen dir gerne"
+    )
     goodbye: str = "Beste Grüße,"
     goodbye_name: str = "Dein Little World Team"
     use_unsubscribe_footer: bool = True
@@ -285,7 +293,10 @@ class ConfirmMatchMail2Texts:
     button_text: str = "Mehr Info"
     button_link: str = "https://little-world.com/app/"
     below_link_text: str = ""
-    footer_text: str = "Dort kannst du auch den Gesprächsvorschlag mit {match_first_name} annehmen. \n" + "Du hast Fragen? Wir sind für dich da! Ruf an unter {team_phone} oder schreib uns unter {team_email}. Wir helfen dir gerne"
+    footer_text: str = (
+        "Dort kannst du auch den Gesprächsvorschlag mit {match_first_name} annehmen. \n"
+        + "Du hast Fragen? Wir sind für dich da! Ruf an unter {team_phone} oder schreib uns unter {team_email}. Wir helfen dir gerne"
+    )
     goodbye: str = "Beste Grüße,"
     goodbye_name: str = "Dein Little World Team"
     use_unsubscribe_footer: bool = True
@@ -299,7 +310,10 @@ class MatchExpiredMailTexts:
 
     subject_header_text: str = "Dein Match ist abgelaufen - Finde einen neuen Partner"
     greeting: str = "Hallo {first_name}"
-    content_start_text: str = "leider ist die Zeit abgelaufen, um {match_first_name} auf der Plattform Little World zu bestätigen. Aber keine Sorge, du kannst dich einloggen und nach einem neuen Match suchen.\n" + "Möchtest du jetzt nach einem neuen Match suchen? Dann klicke hier: "
+    content_start_text: str = (
+        "leider ist die Zeit abgelaufen, um {match_first_name} auf der Plattform Little World zu bestätigen. Aber keine Sorge, du kannst dich einloggen und nach einem neuen Match suchen.\n"
+        + "Möchtest du jetzt nach einem neuen Match suchen? Dann klicke hier: "
+    )
     content_body_text: str = ""
     link_box_text: str = ""
     button_text: str = "Neues Match finden"
@@ -319,13 +333,13 @@ class InterviewInvitation:
 
     subject_header_text: str = "Einladung zum Online-Interview mit Aniqa"
     greeting: str = "Hallo {first_name}!"
-    content_start_text: str = (
-        "Mein Name ist Aniqa und ich bin derzeit Studentin an der Universität Siegen im Bereich Human Computer Interaction. Im Rahmen meiner Projektarbeit mit Little World führe ich Online-Interviews mit (englischsprachigen) Ehrenamtlichen durch, um die Nutzererfahrungen mit Little World besser zu verstehen."
-    )
+    content_start_text: str = "Mein Name ist Aniqa und ich bin derzeit Studentin an der Universität Siegen im Bereich Human Computer Interaction. Im Rahmen meiner Projektarbeit mit Little World führe ich Online-Interviews mit (englischsprachigen) Ehrenamtlichen durch, um die Nutzererfahrungen mit Little World besser zu verstehen."
     content_body_text: str = mark_safe(
         "Wenn du helfen möchtest die Plattform für andere Benutzer*innen zu verbessern oder einfach eine nette Studentin in ihrer Projektarbeit unterstützen möchtest, dann melde dich bitte bei mir. Nimm gerne einen Kaffee oder Tee zum Online-Interview mit, es wird alles ganz entspannt und dauert nicht mehr als eine Stunde. Ich freue mich auf einen lebhaften Ideenaustausch mit dir!<br></br>Hier ist meine E-Mail-Adresse: "
     )
-    link_box_text: str = mark_safe('<a href="mailto:aniqa.rahman@student.uni-siegen.de?subject=Interview" style="color: blue;">aniqa.rahman@student.uni-siegen.de</a>')
+    link_box_text: str = mark_safe(
+        '<a href="mailto:aniqa.rahman@student.uni-siegen.de?subject=Interview" style="color: blue;">aniqa.rahman@student.uni-siegen.de</a>'
+    )
     button_text: str = "Interview-Termin buchen"
     button_link: str = "{link_url}"
     below_link_text: str = "Thank you so much for your time,"
@@ -348,9 +362,15 @@ class SurveyInvitationAniq2:
 
     subject_header_text: str = "Studentin bittet um Unterstützung – Umfrage bei Little World"
     greeting: str = "Hallo {first_name},"
-    content_start_text: str = "Möchtest du uns helfen unsere Little World Plattform zu verbessern oder Aniqa bei ihrer Projektarbeit?"
-    link_box_text: str = mark_safe('<a href="https://s.surveyplanet.com/iuhajmj7" style="color: blue;">https://s.surveyplanet.com/iuhajmj7</a>')
-    content_body_text: str = " Dann lade ich dich herzlich ein, an der 10-15-minütigen Umfrage von der Studentin Aniqa teilzunehmen unter "
+    content_start_text: str = (
+        "Möchtest du uns helfen unsere Little World Plattform zu verbessern oder Aniqa bei ihrer Projektarbeit?"
+    )
+    link_box_text: str = mark_safe(
+        '<a href="https://s.surveyplanet.com/iuhajmj7" style="color: blue;">https://s.surveyplanet.com/iuhajmj7</a>'
+    )
+    content_body_text: str = (
+        " Dann lade ich dich herzlich ein, an der 10-15-minütigen Umfrage von der Studentin Aniqa teilzunehmen unter "
+    )
     button_text: str = "Zur Umfrage"
     button_link: str = "{link_url}"
     below_link_text: str = mark_safe(
@@ -380,8 +400,12 @@ class GeneralSurveyMail:
     )
     button_text: str = "ZUR UMFRAGE (google form)"
     button_link: str = "{link_url}"
-    content_body_text: str = mark_safe('<br></br>Den Austausch am Dienstag findest du nach dem Einloggen unter "Start" und dann unter "Kaffeeklatsch" oder einfach über folgenden Link:')
-    link_box_text: str = mark_safe('<a href="https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09" style="color: blue;">https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09</a>')
+    content_body_text: str = mark_safe(
+        '<br></br>Den Austausch am Dienstag findest du nach dem Einloggen unter "Start" und dann unter "Kaffeeklatsch" oder einfach über folgenden Link:'
+    )
+    link_box_text: str = mark_safe(
+        '<a href="https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09" style="color: blue;">https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09</a>'
+    )
     below_link_text: str = ""
     footer_text: str = "Du hast noch Fragen? Melde dich gerne jederzeit - unsere Kontaktdaten findest du in der Signatur. Wir helfen dir gerne weiter."
     goodbye: str = "Dein Team von Little World"
@@ -398,11 +422,17 @@ class GeneralSurveyMail:
 class ImpulsBeitraegeMail:
     subject_header_text: str = "Impulsbeiträge zum Feierabend"
     greeting: str = "Hallo {first_name},"
-    content_start_text: str = mark_safe("Dienstag um 17 Uhr ist es wieder soweit: 5 Minuten Input und eine 10-minütige offene Diskussion. Sei dabei, bei den Impulsvorträgen unserer herzlichen Expertin Raquel Barros und diskutiere mit uns spannende Themen. Wir freuen uns auf einen inspirierenden Austausch mit dir!")
+    content_start_text: str = mark_safe(
+        "Dienstag um 17 Uhr ist es wieder soweit: 5 Minuten Input und eine 10-minütige offene Diskussion. Sei dabei, bei den Impulsvorträgen unserer herzlichen Expertin Raquel Barros und diskutiere mit uns spannende Themen. Wir freuen uns auf einen inspirierenden Austausch mit dir!"
+    )
     button_text: str = "ZUM ZOOM CALL (zoom)"
     button_link: str = "{link_url}"
-    content_body_text: str = mark_safe('Den Zoom Link für morgen findest du nach dem Einloggen unter "Start" und dann unter "Kaffeeklatsch" oder einfach über den folgenden Link:')
-    link_box_text: str = mark_safe('<a href="https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09" style="color: blue;">https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09</a>')
+    content_body_text: str = mark_safe(
+        'Den Zoom Link für morgen findest du nach dem Einloggen unter "Start" und dann unter "Kaffeeklatsch" oder einfach über den folgenden Link:'
+    )
+    link_box_text: str = mark_safe(
+        '<a href="https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09" style="color: blue;">https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09</a>'
+    )
     below_link_text: str = mark_safe("")
     footer_text: str = "Du hast noch Fragen? Melde dich gerne jederzeit - unsere Kontaktdaten findest du in der Signatur. Wir helfen dir gerne weiter."
     goodbye: str = "Dein Team von Little World"
@@ -433,8 +463,12 @@ class ImpulsBeitraegeMail2:
     )
     button_text: str = "ZUM ZOOM CALL (zoom)"
     button_link: str = "{link_url}"
-    content_body_text: str = mark_safe('Den Zoom Link für die kommenden Veranstaltungen findest du nach dem Einloggen unter "Start" > "Kaffeeklatsch" oder direkt über die folgenden Links:')
-    link_box_text: str = mark_safe('<a href="https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09" style="color: blue;">https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09</a>')
+    content_body_text: str = mark_safe(
+        'Den Zoom Link für die kommenden Veranstaltungen findest du nach dem Einloggen unter "Start" > "Kaffeeklatsch" oder direkt über die folgenden Links:'
+    )
+    link_box_text: str = mark_safe(
+        '<a href="https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09" style="color: blue;">https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09</a>'
+    )
     footer_text: str = "Solltest du keine weiteren Informationen zu den Impulsbeiträgen wünschen, kannst du dich unten aus dem Verteiler abmelden. Bei Fragen stehen wir dir gerne zur Verfügung - du findest unsere Kontaktdaten in der Signatur. Oder schreib einfach deinem support nutzer."
     goodbye: str = "Wir freuen uns darauf, dich bei den Veranstaltungen zu sehen, und bis dahin – alles Gute!"
     goodbye_name: str = "Dein Team von Little World"
@@ -455,8 +489,12 @@ class GeneralSurveyMail_0311:
     subject_header_text: str = "Umfrage zur Verbesserung von Little World"
     greeting: str = "Hallo {first_name},"
     content_start_text: str = "Möchtest du uns helfen unsere Little World Plattform zu verbessern?"
-    link_box_text: str = mark_safe('<a href="https://tally.so/r/w47d7A" style="color: blue;">https://tally.so/r/w47d7A</a>')
-    content_body_text: str = mark_safe("Dann laden wir dich herzlich ein, an der 10-15-minütigen Umfrage teilzunehmen unter ")
+    link_box_text: str = mark_safe(
+        '<a href="https://tally.so/r/w47d7A" style="color: blue;">https://tally.so/r/w47d7A</a>'
+    )
+    content_body_text: str = mark_safe(
+        "Dann laden wir dich herzlich ein, an der 10-15-minütigen Umfrage teilzunehmen unter "
+    )
     button_text: str = "Zur Umfrage"
     button_link: str = "{link_url}"
     below_link_text: str = mark_safe(
@@ -515,7 +553,10 @@ class PasswordResetEmailDefaults:
 class SorryWeStillNeedALittleMail:
     subject_header_text: str = "Suche & Gruppengespräche"
     greeting: str = "Hi {first_name}"
-    content_start_text: str = mark_safe("wow, hunderte von Menschen haben sich in den letzten Wochen für die " "<i>Beta-Version</i> von <b>Little World</b> registriert. Vielen Dank euch!")
+    content_start_text: str = mark_safe(
+        "wow, hunderte von Menschen haben sich in den letzten Wochen für die "
+        "<i>Beta-Version</i> von <b>Little World</b> registriert. Vielen Dank euch!"
+    )
     content_body_text: str = mark_safe(
         "Unser kleines Team arbeitet auf Hochtouren daran, "
         "für alle die passenden Gesprächspartner:innen zu finden –"
@@ -559,7 +600,9 @@ class NewServerMail:
     below_link_text: str = ""
     footer_text: str = ""
     goodbye: str = "Vielen Dank für eure Unterstützung!"
-    goodbye_name: str = "Das gesamte Team von Little World wünscht euch frohe Feiertage und einen guten Rutsch ins neue Jahr!"
+    goodbye_name: str = (
+        "Das gesamte Team von Little World wünscht euch frohe Feiertage und einen guten Rutsch ins neue Jahr!"
+    )
 
 
 @dataclass
@@ -570,7 +613,9 @@ class BabbelSubscriptionMail_Winner:
 
     subject_header_text: str = "Herzlichen Glückwunsch! Du hast ein 6-monatiges Babbel-Abonnement gewonnen"
     greeting: str = "Du hast einen Babbel-Gutschein gewonnen!"
-    content_start_text: str = "Alle tollen Funktionen und Inhalte von Babbel kannst du jetzt 6 Monate lang kostenlos nutzen."
+    content_start_text: str = (
+        "Alle tollen Funktionen und Inhalte von Babbel kannst du jetzt 6 Monate lang kostenlos nutzen."
+    )
     content_body_text: str = mark_safe(
         "Nochmals vielen Dank, dass du an unserer Umfrage teilgenommen hast. Um einen kleinen Gefallen möchten wir dich noch bitten: bei Aktivierung des Codes, müsstest du die gleiche Umfrage in 3 Monaten nochmal ausfüllen. Nur so können wir die Auswirkungen der Nutzung von Babbel und Little World messen.<br><br>Du erhältst eine weitere E-Mail von Babbel mit deinem Code und Anweisungen, wie du ihn aktivieren kannst.<br></br>Wenn du Schwierigkeiten mit der Validierung deines Codes hast, melde dich bei uns und wir helfen dir weiter."
     )
@@ -621,7 +666,9 @@ class CommunityGetTogetherInvitation:
     content_body_text: str = "Mit mittlerweile über 3.000 Mitgliedern bei Little World trägst du maßgeblich dazu bei, eine inklusive Gesellschaft zu gestalten. Deine Investition von Zeit und Engagement, um Gespräche zu führen und andere zu unterstützen, ist von unschätzbarem Wert, damit wir uns alle wohl und geschätzt fühlen. Gemeinsam haben wir bereits über 160 multikulturelle Gespräche in 2024 geführt, mit über 120 wirkungsvollen Stunden! Als Community zeigen wir, wie aus demokratischen Werten konkrete Taten werden. Im Call möchten wir teilen, wo wir heute als gemeinnütziges Start-up dank deiner Mitwirkung stehen und was wir für 2024 vorhaben, um gemeinsam weiter zu wachsen. Wir sind sehr gespannt darauf, deine Ideen und deine Erfahrungen zu hören. Denn nur durch deine wertvolle Mitwirkung können wir Little World gemeinsam noch besser machen."
     button_text: str = "Zum Call beitreten"
     button_link: str = "https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09"
-    link_box_text: str = mark_safe('<a href="https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09" style="color: blue;">https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09</a>')
+    link_box_text: str = mark_safe(
+        '<a href="https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09" style="color: blue;">https://rwth.zoom.us/j/95770913582?pwd=U3g5QWtCZXd3SFpxVC8zVmlWN1RtUT09</a>'
+    )
     below_link_text: str = "Wir freuen uns schon riesig auf dich und deinen Beitrag!"
     footer_text: str = "Liebe Grüße,"
     goodbye: str = "Oliver, Tim, Sean und Melina"
@@ -639,7 +686,9 @@ class TrainingSeriesInvitation:
     ---------> Community Training Series Invitation Template <---------------
     """
 
-    subject_header_text: str = "Dankeschön für deine Teilnahme am Get-together & Ankündigung der interkulturellen Trainingsserie!"
+    subject_header_text: str = (
+        "Dankeschön für deine Teilnahme am Get-together & Ankündigung der interkulturellen Trainingsserie!"
+    )
     greeting: str = "Liebe {first_name},"
     content_start_text: str = (
         "wir hoffen, dass diese Woche für dich gut begonnen hat! Letzten Donnerstag hatten wir unser Get-Together. "
@@ -689,7 +738,10 @@ class CulturalAwarenessInvitation:
 
     subject_header_text: str = "Einladung zu unseren interkulturellen Treffen!"
     greeting: str = "Hallo {first_name},"
-    content_start_text: str = "wir bei Little World wollen, dass alle Menschen sich gut verstehen, auch wenn sie aus verschiedenen Ländern kommen. " "Deshalb haben wir mehrere Treffen organisiert, bei denen wir lernen, wie wir die Unterschiede zwischen den Kulturen verstehen und schätzen können."
+    content_start_text: str = (
+        "wir bei Little World wollen, dass alle Menschen sich gut verstehen, auch wenn sie aus verschiedenen Ländern kommen. "
+        "Deshalb haben wir mehrere Treffen organisiert, bei denen wir lernen, wie wir die Unterschiede zwischen den Kulturen verstehen und schätzen können."
+    )
     content_body_text: str = mark_safe(
         "Jeden Montag wird uns Raquel Barros von der Werkstatt der Kulturen besuchen. Sie wird uns in ganz einfacher Sprache erklären, worum es geht. "
         "Wenn du B1 Deutsch verstehen kannst, wirst du sicher alles verstehen! Es ist auch eine gute Möglichkeit, dein Deutsch zu üben. "
@@ -736,7 +788,9 @@ class CommunityGetTogetherInvitation120624:
     content_body_text: str = "Wir freuen uns auf viele Teilnehmer. Dies ist unsere Chance, zusammenzukommen und uns auszutauschen. Alle sind willkommen – Menschen, die Deutsch als Muttersprache sprechen, und auch diejenigen, die gerade Deutsch lernen. Es wird eine tolle Gelegenheit sein, unsere Erfolge zu feiern, Feedback und Ideen auszutauschen und uns besser kennenzulernen. 🥳"
     button_text: str = "Zum Call beitreten"
     button_link: str = "https://rwth.zoom.us/j/61394184102"
-    link_box_text: str = mark_safe('<a href="https://rwth.zoom.us/j/61394184102" style="color: blue;">https://rwth.zoom.us/j/61394184102</a>')
+    link_box_text: str = mark_safe(
+        '<a href="https://rwth.zoom.us/j/61394184102" style="color: blue;">https://rwth.zoom.us/j/61394184102</a>'
+    )
     below_link_text: str = "Sei dabei! Unter diesem Link kannst du direkt am Donnerstag um 18 Uhr teilnehmen:"
     footer_text: str = "Liebe Grüße,"
     goodbye: str = "Oliver, Tim, Sean und Melina"
@@ -761,7 +815,9 @@ class CommunityGetTogetherInvitationToday:
     content_body_text: str = "Wir freuen uns auf viele Teilnehmer. Dies ist unsere Chance, zusammenzukommen und uns auszutauschen. Alle sind willkommen – Menschen, die Deutsch als Muttersprache sprechen, und auch diejenigen, die gerade Deutsch lernen. Es wird eine tolle Gelegenheit sein, unsere Erfolge zu feiern, Feedback und Ideen auszutauschen und uns besser kennenzulernen. 🥳"
     button_text: str = "Zum Call beitreten"
     button_link: str = "https://rwth.zoom.us/j/61394184102"
-    link_box_text: str = mark_safe('<a href="https://rwth.zoom.us/j/61394184102" style="color: blue;">https://rwth.zoom.us/j/61394184102</a>')
+    link_box_text: str = mark_safe(
+        '<a href="https://rwth.zoom.us/j/61394184102" style="color: blue;">https://rwth.zoom.us/j/61394184102</a>'
+    )
     below_link_text: str = "Sei dabei! Unter diesem Link kannst du direkt heute um 18 Uhr teilnehmen:"
     footer_text: str = "Liebe Grüße,"
     goodbye: str = "Oliver, Tim, Sean und Melina"
@@ -782,16 +838,18 @@ class CultureDimensionsLectureInvitationToday:
 
     subject_header_text: str = "Einladung zum heutigen Vortrag über Kulturdimensionen 🌍"
     greeting: str = "Hallo {first_name},"
-    content_start_text: str = (
-        "heute, Montag, den 24. Juni, um 18 Uhr spricht Raquel Barros über Kulturdimensionen. In ihrem 10-minütigen Vortrag erklärt sie die Theorie der Kulturdimensionen. Du musst nicht an den vorherigen Vorträgen teilgenommen haben, um dabei zu sein. Dieser Vortrag ist ein komplettes Thema für sich."
-    )
+    content_start_text: str = "heute, Montag, den 24. Juni, um 18 Uhr spricht Raquel Barros über Kulturdimensionen. In ihrem 10-minütigen Vortrag erklärt sie die Theorie der Kulturdimensionen. Du musst nicht an den vorherigen Vorträgen teilgenommen haben, um dabei zu sein. Dieser Vortrag ist ein komplettes Thema für sich."
     content_body_text: str = "Das ist eine tolle Chance, mehr über dieses Thema zu lernen und dein Wissen zu erweitern. Raquel Barros ist die Leiterin der Werkstatt der Kulturen beim Diakonischen Werk im Aachen e.V. und hat viel Erfahrung. Nach dem Vortrag haben wir Zeit für Fragen und eine Diskussion. So können wir das Gelernte zusammen besprechen. Wir freuen uns sehr, wenn du dabei bist!"
     button_text: str = "Zum Vortrag beitreten"
     button_link: str = "https://rwth.zoom.us/j/67464220489"
-    link_box_text: str = mark_safe('<a href="https://rwth.zoom.us/j/67464220489" style="color: blue;">https://rwth.zoom.us/j/67464220489</a>')
+    link_box_text: str = mark_safe(
+        '<a href="https://rwth.zoom.us/j/67464220489" style="color: blue;">https://rwth.zoom.us/j/67464220489</a>'
+    )
     below_link_text: str = "Klicke einfach auf diesen Link, um heute um 18 Uhr teilzunehmen. Oder logge dich bei Little World ein und du findest den Link unter “Gruppengespräche”."
     footer_text: str = "Falls dir einige Begriffe nicht bekannt sind, kannst du dich mit diesem Glossar vorbereiten: "
-    glossary_link: str = mark_safe('<a href="https://home.little-world.com/wp-content/uploads/2024/05/Glossar-Trainings.pdf" style="color: blue;">Glossar (link zum Glossar)</a>')
+    glossary_link: str = mark_safe(
+        '<a href="https://home.little-world.com/wp-content/uploads/2024/05/Glossar-Trainings.pdf" style="color: blue;">Glossar (link zum Glossar)</a>'
+    )
     goodbye: str = "Liebe Grüße,"
     goodbye_name: str = "Oliver, Tim, Sean und Melina 😊"
     use_unsubscribe_footer: bool = False
@@ -814,7 +872,9 @@ class CommunityGetTogetherInvitation130624:
     content_body_text: str = "Wir freuen uns auf dich! Mit diesem Link kommst du direkt in den Call:"
     button_text: str = "Zum Event beitreten"
     button_link: str = "https://rwth.zoom.us/j/61394184102"
-    link_box_text: str = mark_safe('<a href="https://rwth.zoom.us/j/61394184102" style="color: blue;">https://rwth.zoom.us/j/61394184102</a>')
+    link_box_text: str = mark_safe(
+        '<a href="https://rwth.zoom.us/j/61394184102" style="color: blue;">https://rwth.zoom.us/j/61394184102</a>'
+    )
     below_link_text: str = mark_safe("<br></br>")
     footer_text: str = ""
     glossary_link: str = ""
@@ -879,7 +939,9 @@ class CommunityGetTogetherInvitation010824:
     content_body_text: str = "Wir freuen uns auf dich! Mit diesem Link kommst du direkt in den Call:"
     button_text: str = "Zum Event beitreten"
     button_link: str = "https://rwth.zoom.us/j/61394184102"
-    link_box_text: str = mark_safe('<a href="https://rwth.zoom.us/j/61394184102" style="color: blue;">https://rwth.zoom.us/j/61394184102</a>')
+    link_box_text: str = mark_safe(
+        '<a href="https://rwth.zoom.us/j/61394184102" style="color: blue;">https://rwth.zoom.us/j/61394184102</a>'
+    )
     below_link_text: str = mark_safe("<br></br>")
     footer_text: str = ""
     glossary_link: str = ""

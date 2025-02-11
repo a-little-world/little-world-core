@@ -1,19 +1,22 @@
-from management.api.user_data import frontend_data
-from django.utils import translation
-import django.contrib.auth.password_validation as pw_validation
-from django.contrib.auth import login
-from typing import Optional
-from drf_spectacular.utils import extend_schema
-from datetime import datetime
-from django.conf import settings
-from django.core import exceptions
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import serializers
 from dataclasses import dataclass
-from .. import validators, controller
-from management.models.user import User
+from datetime import datetime
+from typing import Optional
+
+import django.contrib.auth.password_validation as pw_validation
+from django.conf import settings
+from django.contrib.auth import login
+from django.core import exceptions
+from django.utils import translation
+from drf_spectacular.utils import extend_schema
+from rest_framework import serializers
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from translations import get_translation
+
+from management.api.user_data import frontend_data
+from management.models.user import User
+
+from .. import controller, validators
 
 
 @dataclass
@@ -67,7 +70,10 @@ class RegistrationSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         # Password same validation happens in 'validate()' we need only one password now
-        return RegistrationData(**{k: v for k, v in validated_data.items() if k not in ["password1", "password2"]}, password=validated_data["password1"])
+        return RegistrationData(
+            **{k: v for k, v in validated_data.items() if k not in ["password1", "password2"]},
+            password=validated_data["password1"],
+        )
 
     def validate_email(self, value):
         # we strip spaces at beginning and end ( cause many people accidently have those )
@@ -88,7 +94,9 @@ class RegistrationSerializer(serializers.Serializer):
             pass  # If this doesnt fail the user doesn't exist!
 
         if usr is not None:
-            raise serializers.ValidationError({"email": get_translation("api.register_user_email_exists")})  # Updated key
+            raise serializers.ValidationError(
+                {"email": get_translation("api.register_user_email_exists")}
+            )  # Updated key
 
         user = User(username=data["email"], email=data["email"], first_name=data["first_name"])
         try:
@@ -112,7 +120,11 @@ class Register(APIView):
     permission_classes = []  # Everyone can acess this api
     required_args = ["email", "first_name", "second_name", "password1", "password2", "birth_year"]
 
-    @extend_schema(description="Little World Registration API called with data from the registration form", methods=["POST"], request=RegistrationSerializer(many=False))
+    @extend_schema(
+        description="Little World Registration API called with data from the registration form",
+        methods=["POST"],
+        request=RegistrationSerializer(many=False),
+    )
     def post(self, request) -> Optional[Response]:
         serializer = RegistrationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -121,12 +133,17 @@ class Register(APIView):
 
         # create_user will trow seralization error per default
         # also performs registration, send email etc...
-        usr = controller.create_user(**{k: getattr(registration_data, k) for k in registration_data.__annotations__}, send_verification_mail=True)
+        usr = controller.create_user(
+            **{k: getattr(registration_data, k) for k in registration_data.__annotations__}, send_verification_mail=True
+        )
 
         if settings.IS_PROD:
             from ..tasks import dispatch_admin_email_notification
 
-            dispatch_admin_email_notification.delay("New user registered", f"{registration_data.email}, {registration_data.first_name}, {registration_data.second_name}, {registration_data.birth_year}")
+            dispatch_admin_email_notification.delay(
+                "New user registered",
+                f"{registration_data.email}, {registration_data.first_name}, {registration_data.second_name}, {registration_data.birth_year}",
+            )
 
         login(request, usr)
 

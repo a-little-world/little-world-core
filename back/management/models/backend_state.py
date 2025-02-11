@@ -1,4 +1,5 @@
 from django.db import models
+
 from back.utils import _double_uuid
 
 
@@ -49,7 +50,7 @@ class BackendState(models.Model):
     @classmethod
     def are_default_community_events_set(cls, set_true=False):
         return cls.exists_or_create(cls.BackendStateEnum.default_community_events, set_true=set_true)
-    
+
     @classmethod
     def are_default_banners_set(cls, set_true=False):
         return cls.exists_or_create(cls.BackendStateEnum.default_banners, set_true=set_true)
@@ -76,5 +77,9 @@ class BackendState(models.Model):
         if backend_state.exists():
             return backend_state.first()
         else:
-            backend_state = cls.objects.create(slug=cls.BackendStateEnum.pre_matching_call_active, name="Pre Match Video Calls", meta={"active": False, "invitations_remaining": 10})
+            backend_state = cls.objects.create(
+                slug=cls.BackendStateEnum.pre_matching_call_active,
+                name="Pre Match Video Calls",
+                meta={"active": False, "invitations_remaining": 10},
+            )
             return backend_state

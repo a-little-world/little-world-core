@@ -13,7 +13,13 @@ class EmailConfigEmail:
     theme: str
 
     def to_dict(self):
-        return {"sender_id": self.sender_id, "category_id": self.category_id, "subject": self.subject, "template": self.template, "theme": self.theme}
+        return {
+            "sender_id": self.sender_id,
+            "category_id": self.category_id,
+            "subject": self.subject,
+            "template": self.template,
+            "theme": self.theme,
+        }
 
 
 @dataclass
@@ -55,7 +61,13 @@ class EmailsConfig:
         )
 
     def to_dict(self):
-        return {"categories": {k: v.__dict__ for k, v in self.categories.items()}, "emails": {k: v.__dict__ for k, v in self.emails.items()}, "senders": self.senders, "parameters": {k: v.__dict__ for k, v in self.parameters.items()}, "dependencies": {k: v.__dict__ for k, v in self.dependencies.items()}}
+        return {
+            "categories": {k: v.__dict__ for k, v in self.categories.items()},
+            "emails": {k: v.__dict__ for k, v in self.emails.items()},
+            "senders": self.senders,
+            "parameters": {k: v.__dict__ for k, v in self.parameters.items()},
+            "dependencies": {k: v.__dict__ for k, v in self.dependencies.items()},
+        }
 
 
 EMAILS_CONFIG = {}

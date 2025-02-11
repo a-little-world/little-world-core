@@ -1,7 +1,8 @@
 from django.db import models
-from back.utils import get_options_serializer
 from rest_framework import serializers
 from translations import get_translation
+
+from back.utils import get_options_serializer
 from management.helpers import PathRename
 
 

@@ -1,7 +1,9 @@
+from uuid import uuid4
+
 from django.db import models
 from rest_framework import serializers
+
 from .user import User
-from uuid import uuid4
 
 
 class SmsModel(models.Model):

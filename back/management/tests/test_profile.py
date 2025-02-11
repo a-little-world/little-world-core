@@ -1,13 +1,22 @@
-from django.test import TestCase
 import json
-from rest_framework.response import Response
-from management.controller import get_user_by_email
-from management.tests.helpers import register_user
-from management.models import profile
-from rest_framework.test import APIRequestFactory, force_authenticate
-from management import api
 
-valid_request_data = dict(email="benjamin.tim@gmx.de", first_name="Tim", second_name="Schupp", password1="Test123!", password2="Test123!", birth_year=1984)
+from django.test import TestCase
+from rest_framework.response import Response
+from rest_framework.test import APIRequestFactory, force_authenticate
+
+from management import api
+from management.controller import get_user_by_email
+from management.models import profile
+from management.tests.helpers import register_user
+
+valid_request_data = dict(
+    email="benjamin.tim@gmx.de",
+    first_name="Tim",
+    second_name="Schupp",
+    password1="Test123!",
+    password2="Test123!",
+    birth_year=1984,
+)
 
 valid_create_data = dict(
     email=valid_request_data["email"],
@@ -150,7 +159,9 @@ class ProfileApiTests(TestCase):
         cur_usr_data = json.loads(_r.content)
 
         # duplicate language
-        resp = self._some_profile_call({"lang_skill": [{"lang": "german", "level": "level-0"}, {"lang": "german", "level": "level-0"}]}, usr)
+        resp = self._some_profile_call(
+            {"lang_skill": [{"lang": "german", "level": "level-0"}, {"lang": "german", "level": "level-0"}]}, usr
+        )
         assert resp.status_code == 400
 
         # no german included
@@ -158,7 +169,9 @@ class ProfileApiTests(TestCase):
         assert resp.status_code == 400
 
         # wrong lang name
-        resp = self._some_profile_call({"lang_skill": [{"lang": "german", "level": "level-0"}, {"lang": "bla", "level": "level-0"}]}, usr)
+        resp = self._some_profile_call(
+            {"lang_skill": [{"lang": "german", "level": "level-0"}, {"lang": "bla", "level": "level-0"}]}, usr
+        )
         assert resp.status_code == 400
 
         # unknown level

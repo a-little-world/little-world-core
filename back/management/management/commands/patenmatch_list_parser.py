@@ -1,8 +1,9 @@
 import csv
 import json
+
+from django.core.management.base import BaseCommand
 from patenmatch.api import PatenmatchOrganizationSerializer
 from patenmatch.models import SupportGroups
-from django.core.management.base import BaseCommand
 
 
 class Command(BaseCommand):
