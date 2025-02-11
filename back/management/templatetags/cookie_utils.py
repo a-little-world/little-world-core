@@ -1,4 +1,5 @@
 from django import template
+
 from management.views.cookie_banner_frontend import get_cookie_banner_template_data
 
 register = template.Library()

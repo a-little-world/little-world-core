@@ -1,22 +1,23 @@
 from dataclasses import dataclass
+
 from management.api.match_journey_filters import (
-    match_unviewed,
-    match_one_user_viewed,
+    all_matches,
+    completed_match,
+    contact_stopped,
+    expired_matching_proposals,
     match_confirmed_no_contact,
     match_confirmed_single_party_contact,
     match_first_contact,
-    match_ongoing,
     match_free_play,
-    completed_match,
+    match_one_user_viewed,
+    match_ongoing,
+    match_unviewed,
+    matching_proposals,
     never_confirmed,
     no_contact,
-    user_ghosted,
-    contact_stopped,
-    matching_proposals,
-    expired_matching_proposals,
-    all_matches,
     only_non_support_matching,
     reported_or_removed_match,
+    user_ghosted,
 )
 
 

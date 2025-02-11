@@ -1,6 +1,6 @@
 from django.db import models
-from rest_framework import serializers
 from django.utils.translation import gettext_lazy as _
+from rest_framework import serializers
 
 
 class MangementTask(models.Model):
@@ -13,7 +13,9 @@ class MangementTask(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    created_by = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="state_created_by", null=True, blank=True)
+    created_by = models.ForeignKey(
+        "management.User", on_delete=models.CASCADE, related_name="state_created_by", null=True, blank=True
+    )
 
     class MangementTaskStates(models.TextChoices):
         OPEN = "OPEN", _("Open")

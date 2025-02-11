@@ -1,19 +1,18 @@
 from django.urls import path
-
-from rest_framework.response import Response
+from emails.api.emails_config import EMAILS_CONFIG
+from management.models.settings import EmailSettings
 from rest_framework.decorators import (
     api_view,
-    permission_classes,
     authentication_classes,
+    permission_classes,
 )
-
-from management.models.settings import EmailSettings
-
-from emails.api.emails_config import EMAILS_CONFIG
+from rest_framework.response import Response
 
 
 def get_unsubscribed_categories():
-    unsubscribale_categories = [category for category in EMAILS_CONFIG.categories if EMAILS_CONFIG.categories[category].unsubscribe]
+    unsubscribale_categories = [
+        category for category in EMAILS_CONFIG.categories if EMAILS_CONFIG.categories[category].unsubscribe
+    ]
     return unsubscribale_categories
 
 
@@ -28,7 +27,9 @@ def retrieve_email_settings(request, email_settings_hash):
     settings = settings.first()
 
     unsubscribale_categories = get_unsubscribed_categories()
-    subscribed_categories = [category for category in unsubscribale_categories if (category not in settings.unsubscribed_categories)]
+    subscribed_categories = [
+        category for category in unsubscribale_categories if (category not in settings.unsubscribed_categories)
+    ]
 
     return Response(
         {

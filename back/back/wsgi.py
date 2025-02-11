@@ -7,10 +7,11 @@ For more information on this file, see
 https://docs.djangoproject.com/en/2.2/howto/deployment/wsgi/
 """
 
-from whitenoise import WhiteNoise
 import os
+
 from django.conf import settings
 from django.core.wsgi import get_wsgi_application
+from whitenoise import WhiteNoise
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "back.settings")
 

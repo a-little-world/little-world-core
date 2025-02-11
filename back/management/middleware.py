@@ -1,6 +1,7 @@
-from django.utils import translation
-from django.shortcuts import render
 from django.conf import settings
+from django.shortcuts import render
+from django.utils import translation
+
 from management.models.state import State
 
 
@@ -11,7 +12,16 @@ def responde_404(request):
 
 
 EXTRA_USER_AUTHORIZATION_ROUTES = (
-    {"/db": {"check": lambda u: u.state.has_extra_user_permission(State.ExtraUserPermissionChoices.DATABASE_SCHEMA), "else": lambda r: responde_404(request=r)}, "/api/schema": {"check": lambda u: u.state.has_extra_user_permission(State.ExtraUserPermissionChoices.API_SCHEMAS), "else": lambda r: responde_404(request=r)}}
+    {
+        "/db": {
+            "check": lambda u: u.state.has_extra_user_permission(State.ExtraUserPermissionChoices.DATABASE_SCHEMA),
+            "else": lambda r: responde_404(request=r),
+        },
+        "/api/schema": {
+            "check": lambda u: u.state.has_extra_user_permission(State.ExtraUserPermissionChoices.API_SCHEMAS),
+            "else": lambda r: responde_404(request=r),
+        },
+    }
     if not settings.DEBUG
     else {}
 )
@@ -47,7 +57,11 @@ def _requires_extra_user_permission(path):
 
 def _404_if_not_staff(request, get_response, allow_management_user=False):
     if not request.user.is_authenticated or not request.user.is_staff:
-        if allow_management_user and request.user.is_authenticated and (request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)):
+        if (
+            allow_management_user
+            and request.user.is_authenticated
+            and (request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER))
+        ):
             return get_response(request)
         return responde_404(request)
     else:

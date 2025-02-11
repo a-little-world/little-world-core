@@ -71,7 +71,10 @@ class OutUserWentOffline(MessageBase):
     type: str = MessageTypes.user_went_offline.value
 
     def build_redux_action(self):
-        return {"action": "updateMatchProfile", "payload": {"partnerId": self.sender_id, "profile": {"isOnline": False}}}
+        return {
+            "action": "updateMatchProfile",
+            "payload": {"partnerId": self.sender_id, "profile": {"isOnline": False}},
+        }
 
 
 @dataclass
@@ -135,11 +138,16 @@ class MessagesReadChat(MessageBase):
 class NewMessage(MessageBase):
     message: dict
     chat_id: str
-    meta_chat_obj: Optional[dict] = None  # holds additional 'chatObject' such that the frontend can hidrate it if it's not present
+    meta_chat_obj: Optional[dict] = (
+        None  # holds additional 'chatObject' such that the frontend can hidrate it if it's not present
+    )
     type: str = MessageTypes.new_message.value
 
     def build_redux_action(self):
-        return {"action": "addMessage", "payload": {"message": self.message, "chatId": self.chat_id, "metaChatObj": self.meta_chat_obj}}
+        return {
+            "action": "addMessage",
+            "payload": {"message": self.message, "chatId": self.chat_id, "metaChatObj": self.meta_chat_obj},
+        }
 
 
 @dataclass

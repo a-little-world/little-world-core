@@ -1,8 +1,8 @@
-from django.template.loader import render_to_string
-from django.http import HttpResponse
-from django.urls import path
-from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+from django.http import HttpResponse
+from django.template.loader import render_to_string
+from django.urls import path
 
 
 def get_reload_script(request):
@@ -21,4 +21,7 @@ def trigger_reload(request):
     return HttpResponse("OK")
 
 
-urlpatters = [path("api/auto-reload/reload-script.js", get_reload_script), path("api/auto-reload/trigger-reload", trigger_reload, name="trigger-reload")]
+urlpatters = [
+    path("api/auto-reload/reload-script.js", get_reload_script),
+    path("api/auto-reload/trigger-reload", trigger_reload, name="trigger-reload"),
+]

@@ -1,18 +1,18 @@
-from rest_framework import serializers, viewsets
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from chat.models import ChatSerializer, Message, MessageSerializer, Chat
-from rest_framework.pagination import PageNumberPagination
+from django.conf import settings
 from django.db.models import Q
-from management.helpers import UserStaffRestricedModelViewsetMixin, DetailedPaginationMixin
 from django.utils import timezone
-from rest_framework.decorators import action
 from drf_spectacular.utils import extend_schema
 from emails import mails
-from django.conf import settings
-from management.tasks import send_email_background
+from management.helpers import DetailedPaginationMixin, UserStaffRestricedModelViewsetMixin
 from management.models.matches import Match
-from chat.models import MessageAttachment
+from management.tasks import send_email_background
+from rest_framework import serializers, viewsets
+from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+
+from chat.models import Chat, ChatSerializer, Message, MessageAttachment, MessageSerializer
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -50,7 +50,11 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
                 qs = Chat.objects.get(uuid=self.chat_uuid).get_messages().order_by("-created")
                 return qs
             else:
-                qs = Chat.objects.get(Q(u1=self.request.user) | Q(u2=self.request.user), uuid=self.chat_uuid).get_messages().order_by("-created")
+                qs = (
+                    Chat.objects.get(Q(u1=self.request.user) | Q(u2=self.request.user), uuid=self.chat_uuid)
+                    .get_messages()
+                    .order_by("-created")
+                )
                 return qs
         return super().filter_queryset(queryset)
 
@@ -111,7 +115,9 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
 
         chat = Chat.objects.filter(uuid=chat_uuid)
         if not chat.exists():
-            return Response({"error": "(1) Chat doesn't exist or you have no permission to interact with it!"}, status=403)
+            return Response(
+                {"error": "(1) Chat doesn't exist or you have no permission to interact with it!"}, status=403
+            )
         chat = chat.first()
         if not chat.is_participant(request.user):
             return Response({"error": "(2) You have no permission to interact with this chat!"}, status=403)
@@ -151,7 +157,7 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
 
         file = serializer.validated_data["file"]
         attachment = MessageAttachment.objects.create(file=file)
-        
+
         MAX_FILE_TITLE_LENGTH = 15
         file_title = file.name.split(".")[0]
         file_ending = file.name.split(".")[-1]
@@ -160,24 +166,35 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         else:
             file_title = file_title + "." + file_ending
 
-        
         def get_attachment_widget(is_image, attachment_link):
             if is_image:
                 return f'<AttachmentWidget {{"attachmentTitle": "Image", "attachmentLink": null, "imageSrc": "{attachment_link}"}} ></AttachmentWidget>'
             else:
                 return f'<AttachmentWidget {{"attachmentTitle": "{file_title}", "attachmentLink": "{attachment_link}", "imageSrc": null}} ></AttachmentWidget>'
-        
+
         file_ending = file.name.split(".")[-1]
         is_image = file_ending in ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "ico", "webp"]
         attachment_link = attachment.file.url
         attachment_widget = get_attachment_widget(is_image, attachment_link)
-        message = Message.objects.create(chat=chat, sender=request.user, recipient=partner, recipient_notified=recipiend_was_email_notified, text=attachment_widget, attachments=attachment, parsable_message=True)
+        message = Message.objects.create(
+            chat=chat,
+            sender=request.user,
+            recipient=partner,
+            recipient_notified=recipiend_was_email_notified,
+            text=attachment_widget,
+            attachments=attachment,
+            parsable_message=True,
+        )
 
         serialized_message = self.serializer_class(message).data
 
         from chat.consumers.messages import NewMessage
 
-        NewMessage(message=serialized_message, chat_id=chat.uuid, meta_chat_obj=ChatSerializer(chat, context={"user": partner}).data).send(partner.hash)
+        NewMessage(
+            message=serialized_message,
+            chat_id=chat.uuid,
+            meta_chat_obj=ChatSerializer(chat, context={"user": partner}).data,
+        ).send(partner.hash)
         return Response(serialized_message, status=200)
 
     @extend_schema(request=SendMessageSerializer)
@@ -242,12 +259,22 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
             recipiend_was_email_notified = True
             notify_recipient_email()
 
-        message = Message.objects.create(chat=chat, sender=request.user, recipient=partner, recipient_notified=recipiend_was_email_notified, text=serializer.data["text"])
+        message = Message.objects.create(
+            chat=chat,
+            sender=request.user,
+            recipient=partner,
+            recipient_notified=recipiend_was_email_notified,
+            text=serializer.data["text"],
+        )
 
         serialized_message = self.serializer_class(message).data
 
         from chat.consumers.messages import NewMessage
 
-        NewMessage(message=serialized_message, chat_id=chat.uuid, meta_chat_obj=ChatSerializer(chat, context={"user": partner}).data).send(partner.hash)
+        NewMessage(
+            message=serialized_message,
+            chat_id=chat.uuid,
+            meta_chat_obj=ChatSerializer(chat, context={"user": partner}).data,
+        ).send(partner.hash)
 
         return Response(serialized_message, status=200)

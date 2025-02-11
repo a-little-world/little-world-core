@@ -3,9 +3,10 @@ from django.core.management.base import BaseCommand
 
 class Command(BaseCommand):
     def handle(self, **options):
-        import polib
-        import string
         import glob
+        import string
+
+        import polib
 
         all_locale = [a for a in glob.glob("./*/locale/*/*/*") if a.endswith(".po")]
         print("Updated: ", all_locale)
@@ -33,5 +34,14 @@ class Command(BaseCommand):
                         if len(formattable_args) > 0:
                             entry.msgstr += "|" + ",".join([f"{{{arg}}}" for arg in formattable_args])
 
-                        print("---> ", entry.msgctxt, entry.msgid, entry.msgstr, "\n\n", format_opts, "\n", formattable_args)
+                        print(
+                            "---> ",
+                            entry.msgctxt,
+                            entry.msgid,
+                            entry.msgstr,
+                            "\n\n",
+                            format_opts,
+                            "\n",
+                            formattable_args,
+                        )
                 po.save()

@@ -1,7 +1,9 @@
 from django.test import TestCase
+from rest_framework.test import APIRequestFactory, force_authenticate
+
 from management.controller import get_user_by_email
 from management.tests.helpers import register_user
-from rest_framework.test import APIRequestFactory, force_authenticate
+
 from .. import api
 
 valid_request_data = dict(

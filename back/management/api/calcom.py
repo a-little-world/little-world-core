@@ -52,17 +52,18 @@
 bd34b6821b', 'HTTP_X_FORWARDED_FOR': '3.238.174.157', 'HTTP_X_FORWARDED_PROTO': 'https', 'HTTP_X_VERCEL_ID': 'fra1::67l8j-1697028209487-020e577bdc4d'}
 """
 
-from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
-from django.utils.dateparse import parse_datetime
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
-from django.conf import settings
-from rest_framework.response import Response
-from babel.dates import format_datetime
-from django.utils import timezone
-from management.controller import get_user_by_hash
-from translations import get_translation
-from dateutil import parser
 import pytz
+from babel.dates import format_datetime
+from dateutil import parser
+from django.conf import settings
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.response import Response
+from translations import get_translation
+
+from management.controller import get_user_by_hash
+from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 
 
 def translate_to_german_date(date_str, target_timezone="Europe/Berlin"):
@@ -75,7 +76,9 @@ def translate_to_german_date(date_str, target_timezone="Europe/Berlin"):
     target_tz = pytz.timezone(target_timezone)
     localized_date_object = date_object.astimezone(target_tz)
 
-    german_date_string = format_datetime(localized_date_object, "EEEE, d. MMMM yyyy, 'um' HH:mm 'Uhr (deutsche Zeit)'", locale="de_DE")
+    german_date_string = format_datetime(
+        localized_date_object, "EEEE, d. MMMM yyyy, 'um' HH:mm 'Uhr (deutsche Zeit)'", locale="de_DE"
+    )
 
     return german_date_string
 
@@ -105,7 +108,13 @@ def callcom_websocket_callback(request):
     if event_type == "BOOKING_CREATED":
         assert str(user.state.prematch_booking_code) == str(booking_code)
 
-        user.message(get_translation("auto_messages.appointment_booked", lang="de").format(appointment_time=start_time_normalized), auto_mark_read=True, send_message_incoming=True)
+        user.message(
+            get_translation("auto_messages.appointment_booked", lang="de").format(
+                appointment_time=start_time_normalized
+            ),
+            auto_mark_read=True,
+            send_message_incoming=True,
+        )
 
         appointment = PreMatchingAppointment.objects.filter(user=user)
         start_time_parsed = parse_datetime(request.data["payload"]["startTime"])

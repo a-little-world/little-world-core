@@ -1,8 +1,9 @@
-from django.db import models
 from uuid import uuid4
-from rest_framework.serializers import ModelSerializer
+
+from django.db import models
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from rest_framework.serializers import ModelSerializer
 
 
 def _base_translations_dict(en="", de=""):

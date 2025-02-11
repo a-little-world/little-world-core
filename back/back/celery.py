@@ -1,8 +1,9 @@
 import os
 from datetime import datetime
-from django.conf import settings
-from celery.signals import worker_ready
+
 from celery import Celery
+from celery.signals import worker_ready
+from django.conf import settings
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "back.settings")
 
@@ -51,10 +52,10 @@ auto_emails = {
         "task": "management.tasks.check_registration_reminders",
         "schedule": 60.0 * 60.0,  # Every hour
     },
-#    "check-still-in-contact-emails": {
-#        "task": "management.tasks.check_match_still_in_contact_emails",
-#        "schedule": 60.0 * 60.0 * 12.0,  # Every 12 hours
-#    },
+    #    "check-still-in-contact-emails": {
+    #        "task": "management.tasks.check_match_still_in_contact_emails",
+    #        "schedule": 60.0 * 60.0 * 12.0,  # Every 12 hours
+    #    },
 }
 
 prod_shedules = {

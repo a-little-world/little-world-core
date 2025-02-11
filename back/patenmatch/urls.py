@@ -1,5 +1,6 @@
-from django.urls import path, include
-from rest_framework import routers, serializers, viewsets, permissions
+from django.urls import include, path
+from rest_framework import permissions, routers, serializers, viewsets
+
 from patenmatch.api import PatenmatchOrganizationViewSet, PatenmatchUserViewSet
 
 router = routers.DefaultRouter()

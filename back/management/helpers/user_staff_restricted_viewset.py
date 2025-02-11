@@ -1,6 +1,6 @@
 from rest_framework import status
-from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.response import Response
 
 
 class UserStaffRestricedModelViewsetMixin:
@@ -53,7 +53,9 @@ class UserStaffRestricedModelViewsetMixin:
         if not request.user.is_staff:
             unallowed_args = self.check_unallowed_args(request.data)
             if len(unallowed_args) > 0:
-                return Response({arg: "Not User editable" for arg in unallowed_args}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {arg: "Not User editable" for arg in unallowed_args}, status=status.HTTP_400_BAD_REQUEST
+                )
         return super().update(request, *args, **kwargs)
 
     def get_queryset(self):

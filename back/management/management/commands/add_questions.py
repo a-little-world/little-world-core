@@ -1,7 +1,14 @@
-from django.core.management.base import BaseCommand
 import json
+
+from django.core.management.base import BaseCommand
+
+from management.models.question_deck import (
+    QuestionCard,
+    QuestionCardCategories,
+    QuestionCardsDeck,
+    _base_translations_dict,
+)
 from management.models.user import User
-from management.models.question_deck import QuestionCard, QuestionCardCategories, QuestionCardsDeck, _base_translations_dict
 
 
 class Command(BaseCommand):
@@ -19,7 +26,9 @@ class Command(BaseCommand):
             category_model = QuestionCardCategories.objects.filter(ref_id=int(category["id"]))
             if not category_model.exists():
                 print("creating category")
-                category_model = QuestionCardCategories.objects.create(ref_id=int(category["id"]), content=_base_translations_dict(en=category["en"], de=category["de"]))
+                category_model = QuestionCardCategories.objects.create(
+                    ref_id=int(category["id"]), content=_base_translations_dict(en=category["en"], de=category["de"])
+                )
 
         # 2 - create all cards
         for card in cards:
@@ -27,7 +36,11 @@ class Command(BaseCommand):
             if not card_model.exists():
                 print("creating card")
                 category = QuestionCardCategories.objects.filter(ref_id=int(card["category"])).first()
-                card_model = QuestionCard.objects.create(ref_id=int(card["id"]), category=category, content=_base_translations_dict(en=card["en"], de=card["de"]))
+                card_model = QuestionCard.objects.create(
+                    ref_id=int(card["id"]),
+                    category=category,
+                    content=_base_translations_dict(en=card["en"], de=card["de"]),
+                )
 
         # 3 - create a deck for all users ( that don't yet have one )
         if False:

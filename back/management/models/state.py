@@ -1,23 +1,25 @@
-from django.db import models
-from management.models.management_tasks import MangementTask
-from management.models.notifications import Notification
-import uuid
-import json
 import base64
+import json
+import uuid
 import zlib
-from rest_framework import serializers
-from back.utils import get_options_serializer
-from back import utils
-from multiselectfield import MultiSelectField
-from management.models.question_deck import QuestionCardsDeck
 from enum import Enum
-from management.models.matches import Match
+
+from django.db import models
 from django.db.models import Q
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
+from multiselectfield import MultiSelectField
+from rest_framework import serializers
 from translations import get_translation
+
+from back import utils
+from back.utils import get_options_serializer
+from management.models.management_tasks import MangementTask
+from management.models.matches import Match
+from management.models.notifications import Notification
+from management.models.question_deck import QuestionCardsDeck
 
 
 class State(models.Model):
@@ -248,9 +250,9 @@ class State(models.Model):
         assert slug in allowed_usr_change_search_states
         self.searching_state = slug
         self.save()
-        
-    def append_notes(self, message): 
-        if(not (self.notes is None)):
+
+    def append_notes(self, message):
+        if not (self.notes is None):
             return self.notes + "\n{message}"
         else:
             return "\n{message}"
@@ -307,7 +309,11 @@ class State(models.Model):
         """
         _data = self.decode_email_auth_code_b64(code)
         # u: user hash, h: email verification hash, p: email verification pin
-        _check = _data["u"] == self.user.hash and _data["h"] == self.email_auth_hash and int(_data["p"]) == self.email_auth_pin
+        _check = (
+            _data["u"] == self.user.hash
+            and _data["h"] == self.email_auth_hash
+            and int(_data["p"]) == self.email_auth_pin
+        )
         if _check:
             self.email_authenticated = True
             self.save()

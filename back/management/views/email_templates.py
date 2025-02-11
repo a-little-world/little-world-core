@@ -1,6 +1,6 @@
-from rest_framework.decorators import api_view, permission_classes
 from django.shortcuts import render
 from django.urls import path
+from rest_framework.decorators import api_view, permission_classes
 
 
 @api_view(["GET"])

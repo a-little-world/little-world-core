@@ -1,20 +1,20 @@
-from management.api.user_data import frontend_data
-from back.utils import CoolerJson
-from management.views.cookie_banner_frontend import get_cookie_banner_template_data
-from django.utils import translation
-from django.conf import settings
 import json
 from dataclasses import dataclass, field
-from django.shortcuts import render, redirect
-from rest_framework.request import Request
-from rest_framework import status
-from rest_framework import serializers
-from django.views import View
 from typing import Optional
-from management.models.profile import SelfProfileSerializer
-from management.controller import get_base_management_user
-from back.utils import transform_add_options_serializer
+
+from django.conf import settings
+from django.shortcuts import redirect, render
+from django.utils import translation
+from django.views import View
+from rest_framework import serializers, status
+from rest_framework.request import Request
 from translations import get_translation
+
+from back.utils import CoolerJson, transform_add_options_serializer
+from management.api.user_data import frontend_data
+from management.controller import get_base_management_user
+from management.models.profile import SelfProfileSerializer
+from management.views.cookie_banner_frontend import get_cookie_banner_template_data
 
 # The following two are redundant with api.admin.UserListParams, api.admin.UserListApiSerializer
 # But that is desired I wan't to always handle admin logic separately this might come in handy in the future
@@ -41,14 +41,8 @@ class MainFrontendParamsSerializer(serializers.Serializer):
 
 class MainFrontendRouter(View):
     # react frontend public paths
-    PUBLIC_PATHS = [
-        "login",
-        "sign-up",
-        "forgot-password",
-        "reset-password",
-        "email-preferences"
-    ]
-    
+    PUBLIC_PATHS = ["login", "sign-up", "forgot-password", "reset-password", "email-preferences"]
+
     LOGGED_IN_NO_REDIRECT_PATHS = [
         "app",
         "email-preferences",
@@ -59,7 +53,11 @@ class MainFrontendRouter(View):
         if path.endswith("/"):
             path = path[:-1]
 
-        login_url_redirect = ("https://home.little-world.com/" if settings.IS_PROD else "/login") if (not settings.USE_LANDINGPAGE_REDIRECT) else settings.LANDINGPAGE_REDIRECT_URL
+        login_url_redirect = (
+            ("https://home.little-world.com/" if settings.IS_PROD else "/login")
+            if (not settings.USE_LANDINGPAGE_REDIRECT)
+            else settings.LANDINGPAGE_REDIRECT_URL
+        )
 
         if not request.user.is_authenticated:
             if any([path.startswith(p) for p in self.PUBLIC_PATHS]):
@@ -75,7 +73,9 @@ class MainFrontendRouter(View):
                 }
 
                 cookie_context = get_cookie_banner_template_data(request)
-                return render(request, "main_frontend_public.html", {"data": json.dumps(data, cls=CoolerJson), **cookie_context})
+                return render(
+                    request, "main_frontend_public.html", {"data": json.dumps(data, cls=CoolerJson), **cookie_context}
+                )
             if path == "":
                 # the root path is generally redirected to `little-world.com` in production ( otherwise to an app intern landing page )
                 return redirect(login_url_redirect)
@@ -88,10 +88,16 @@ class MainFrontendRouter(View):
         if (not request.user.state.is_email_verified()) and (not path.startswith("app/verify-email")):
             return redirect("/app/verify-email/")
 
-        if request.user.state.is_email_verified() and ((not request.user.state.is_user_form_filled()) and (not path.startswith("app/user-form"))):
+        if request.user.state.is_email_verified() and (
+            (not request.user.state.is_user_form_filled()) and (not path.startswith("app/user-form"))
+        ):
             return redirect("/app/user-form/")
 
-        if request.user.state.is_email_verified() and request.user.state.is_user_form_filled() and (not any([path.startswith(p) for p in self.LOGGED_IN_NO_REDIRECT_PATHS])):
+        if (
+            request.user.state.is_email_verified()
+            and request.user.state.is_user_form_filled()
+            and (not any([path.startswith(p) for p in self.LOGGED_IN_NO_REDIRECT_PATHS]))
+        ):
             return redirect("/app/")
 
         extra_template_data = {}
@@ -99,10 +105,22 @@ class MainFrontendRouter(View):
             data = frontend_data(request.user)
         extra_template_data["sentry_user_id"] = request.user.hash
 
-        return render(request, "main_frontend_public.html", {"data": json.dumps(data, cls=CoolerJson), **extra_template_data})
+        return render(
+            request, "main_frontend_public.html", {"data": json.dumps(data, cls=CoolerJson), **extra_template_data}
+        )
 
 
-def info_card(request, confirm_mode=False, title="", content="", confirmText="", rejectText="", linkText="", linkTo="", status_code=status.HTTP_200_OK):
+def info_card(
+    request,
+    confirm_mode=False,
+    title="",
+    content="",
+    confirmText="",
+    rejectText="",
+    linkText="",
+    linkTo="",
+    status_code=status.HTTP_200_OK,
+):
     # cast rest_framework request to django request
 
     data = {"title": title, "content": content, "linkText": linkText, "linkTo": linkTo}
@@ -117,8 +135,11 @@ def info_card(request, confirm_mode=False, title="", content="", confirmText="",
     with translation.override("tag"):
         return render(request, "info_card.html", {"data": json.dumps(data, cls=CoolerJson)}, status=status_code)
 
+
 def debug_info_card(request):
-    return info_card(request, title="Debug Info Card", content="This is a debug info card", linkText="Go back to app", linkTo="/app/")
+    return info_card(
+        request, title="Debug Info Card", content="This is a debug info card", linkText="Go back to app", linkTo="/app/"
+    )
 
 
 def email_verification_link(request, **kwargs):
@@ -128,17 +149,43 @@ def email_verification_link(request, **kwargs):
         raise serializers.ValidationError({"auth_data": get_translation("errors.missing_email_auth_data_get_frontend")})
 
     if verify_email_link(kwargs["auth_data"]):
-        return info_card(request, title=get_translation("info_view.email_verification_link_success.title"), content=get_translation("info_view.email_verification_link_success.content"), linkText=get_translation("info_view.email_verification_link_success.linkText"), linkTo="/app/")
+        return info_card(
+            request,
+            title=get_translation("info_view.email_verification_link_success.title"),
+            content=get_translation("info_view.email_verification_link_success.content"),
+            linkText=get_translation("info_view.email_verification_link_success.linkText"),
+            linkTo="/app/",
+        )
     else:
-        return info_card(request, title=get_translation("info_view.email_verification_link_failure.title"), content=get_translation("info_view.email_verification_link_failure.content"), linkText=get_translation("info_view.email_verification_link_failure.linkText"), linkTo="/app/")
+        return info_card(
+            request,
+            title=get_translation("info_view.email_verification_link_failure.title"),
+            content=get_translation("info_view.email_verification_link_failure.content"),
+            linkText=get_translation("info_view.email_verification_link_failure.linkText"),
+            linkTo="/app/",
+        )
 
 
 def handler404(request, exception=None):
-    return info_card(request, title=get_translation("info_view.404.title"), content=get_translation("info_view.404.content"), linkText=get_translation("info_view.404.linkText"), linkTo="/app/", status_code=status.HTTP_404_NOT_FOUND)
+    return info_card(
+        request,
+        title=get_translation("info_view.404.title"),
+        content=get_translation("info_view.404.content"),
+        linkText=get_translation("info_view.404.linkText"),
+        linkTo="/app/",
+        status_code=status.HTTP_404_NOT_FOUND,
+    )
 
 
 def handler500(request, exception=None):
-    return info_card(request, title=get_translation("info_view.500.title"), content=get_translation("info_view.500.content"), linkText=get_translation("info_view.500.linkText"), linkTo="/app/", status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    return info_card(
+        request,
+        title=get_translation("info_view.500.title"),
+        content=get_translation("info_view.500.content"),
+        linkText=get_translation("info_view.500.linkText"),
+        linkTo="/app/",
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+    )
 
 
 @dataclass
@@ -159,7 +206,9 @@ def set_password_reset(request, **kwargs):
     # TODO: this url should only be opened with a valid token, otherwise this should error!
     from django_rest_passwordreset.serializers import ResetTokenSerializer
 
-    serializer = SetPasswordResetSerializer(data={"usr_hash": kwargs.get("usr_hash", None), "token": kwargs.get("token", None)})  # type: ignore
+    serializer = SetPasswordResetSerializer(
+        data={"usr_hash": kwargs.get("usr_hash", None), "token": kwargs.get("token", None)}
+    )  # type: ignore
 
     serializer.is_valid(raise_exception=True)
     params = serializer.save()
@@ -173,7 +222,13 @@ def set_password_reset(request, **kwargs):
 
         token_serializer.is_valid(raise_exception=True)
     except Exception:
-        return info_card(request, title=get_translation("info_view.set_password_reset_failure.title"), content=get_translation("info_view.set_password_reset_failure.content"), linkText=get_translation("info_view.set_password_reset_failure.linkText"), linkTo="/app/")
+        return info_card(
+            request,
+            title=get_translation("info_view.set_password_reset_failure.title"),
+            content=get_translation("info_view.set_password_reset_failure.content"),
+            linkText=get_translation("info_view.set_password_reset_failure.linkText"),
+            linkTo="/app/",
+        )
 
     # otherwise redirect to the change password frontend page
     return redirect(f"/reset-password/{params.usr_hash}/{params.token}/")

@@ -38,7 +38,14 @@ EXCLUDE_PREFIXES = ["auto_messages"]
 
 def get_translation_catalog(filter_prefixes=True):
     if filter_prefixes:
-        return {lang: {key: translations[lang][key] for key in translations[lang] if not any(key.startswith(prefix) for prefix in EXCLUDE_PREFIXES)} for lang in LANGS}
+        return {
+            lang: {
+                key: translations[lang][key]
+                for key in translations[lang]
+                if not any(key.startswith(prefix) for prefix in EXCLUDE_PREFIXES)
+            }
+            for lang in LANGS
+        }
     return {lang: translations[lang] for lang in LANGS}
 
 

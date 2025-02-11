@@ -1,10 +1,10 @@
 from uuid import uuid4
-from django.db import models
-from django.db.models import Q
-from rest_framework import serializers
+
 from django.core.paginator import Paginator
+from django.db import models
+from django.db.models import Max, Q
 from management import models as management_models
-from django.db.models import Max
+from rest_framework import serializers
 
 
 class Chat(models.Model):
@@ -161,7 +161,9 @@ class MessageSerializer(serializers.ModelSerializer):
 
         from management.models.state import State
 
-        sender_staff = instance.sender.is_staff or instance.sender.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+        sender_staff = instance.sender.is_staff or instance.sender.state.has_extra_user_permission(
+            State.ExtraUserPermissionChoices.MATCHING_USER
+        )
 
         if sender_staff or instance.parsable_message:
             representation["parsable"] = True
@@ -201,7 +203,9 @@ class OpenAiChatSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
 
         messages = instance.get_messages()
-        representation["messages"] = OpenAiMessageSerializer(Paginator(messages, self.message_depth).page(1), many=True).data
+        representation["messages"] = OpenAiMessageSerializer(
+            Paginator(messages, self.message_depth).page(1), many=True
+        ).data
 
 
 class ChatSessions(models.Model):

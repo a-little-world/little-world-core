@@ -1,16 +1,17 @@
-from rest_framework.views import APIView
+from dataclasses import dataclass
+from typing import Optional
+
 from django.conf import settings
 from django.contrib.postgres.search import SearchVector
 from django.db.models import TextField
-from drf_spectacular.utils import extend_schema
 from django.db.models.functions import Cast
-from typing import Optional
-from rest_framework import permissions
-from dataclasses import dataclass
-from rest_framework import serializers
+from drf_spectacular.utils import extend_schema
+from rest_framework import permissions, serializers
 from rest_framework.response import Response
-from .utils import inline_track_event
+from rest_framework.views import APIView
+
 from .models import Event
+from .utils import inline_track_event
 
 
 @dataclass
@@ -46,7 +47,12 @@ class EventTriggerApi(APIView):
 
         params = serializer.save()
         _params = params.__dict__
-        inline_track_event(*[request], **{k: _params[k] for k in _params if k}, event_type=Event.EventTypeChoices.FRONT, caller=request.user)
+        inline_track_event(
+            *[request],
+            **{k: _params[k] for k in _params if k},
+            event_type=Event.EventTypeChoices.FRONT,
+            caller=request.user,
+        )
 
         return Response("ok")
 
@@ -116,7 +122,11 @@ class SearchEventMetadataPostgressApi(APIView):
         filtered_events = []
 
         for event in events:
-            _data = {"hash": event.hash, "link": f"{settings.BASE_URL}/admin/tracking/event/?q={event.hash}", "time": str(event.time)}
+            _data = {
+                "hash": event.hash,
+                "link": f"{settings.BASE_URL}/admin/tracking/event/?q={event.hash}",
+                "time": str(event.time),
+            }
             if params.include_meta:
                 _data["metadata"] = event.metadata
             filtered_events.append(_data)
@@ -148,7 +158,11 @@ class SearchEventMetadataApi(APIView):
 
         for event in events:
             if params.search_string in str(event.metadata):
-                _data = {"hash": event.hash, "link": f"{settings.BASE_URL}/admin/tracking/event/?q={event.hash}", "time": str(event.time)}
+                _data = {
+                    "hash": event.hash,
+                    "link": f"{settings.BASE_URL}/admin/tracking/event/?q={event.hash}",
+                    "time": str(event.time),
+                }
                 if params.include_meta:
                     _data["metadata"] = event.metadata
                 filtered_events.append(_data)

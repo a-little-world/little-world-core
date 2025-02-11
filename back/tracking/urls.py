@@ -1,6 +1,8 @@
-from back.utils import _api_url
 from django.urls import path
-from .api import EventTriggerApi, SearchEventMetadataPostgressApi, SearchEventMetadataApi
+
+from back.utils import _api_url
+
+from .api import EventTriggerApi, SearchEventMetadataApi, SearchEventMetadataPostgressApi
 
 urlpatterns = [
     path(_api_url("track"), EventTriggerApi.as_view()),

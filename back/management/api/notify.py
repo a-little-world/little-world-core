@@ -110,7 +110,9 @@ def get_notifications(request):
 
     assert isinstance(request.user, User)
 
-    notifications_user = request.user.get_notifications(include_unread=params.include_unread, include_read=params.include_read, include_archived=params.include_archived)
+    notifications_user = request.user.get_notifications(
+        include_unread=params.include_unread, include_read=params.include_read, include_archived=params.include_archived
+    )
     paginator = DetailedPagination()
     pages = paginator.get_paginated_response(paginator.paginate_queryset(notifications_user, request)).data
     pages["results"] = SelfNotificationSerializer(pages["results"], many=True).data
@@ -165,4 +167,8 @@ def update_notification(request, id):
     return Response(SelfNotificationSerializer(notification).data)
 
 
-api_routes = [path("api/notifications/", get_notifications), path("api/notifications/<int:id>", get_notification), path("api/notifications/<int:id>/update", update_notification)]
+api_routes = [
+    path("api/notifications/", get_notifications),
+    path("api/notifications/<int:id>", get_notification),
+    path("api/notifications/<int:id>/update", update_notification),
+]

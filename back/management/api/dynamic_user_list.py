@@ -1,11 +1,11 @@
+from rest_framework import status
+from rest_framework.response import Response
 from rest_framework.serializers import ModelSerializer
 from rest_framework.viewsets import ModelViewSet
-from rest_framework.response import Response
-from rest_framework import status
 
+from management.helpers import IsAdminOrMatchingUser
 from management.models.dynamic_user_list import DynamicUserList
 from management.models.user import User
-from management.helpers import IsAdminOrMatchingUser
 
 
 class UserSerializer(ModelSerializer):
@@ -53,7 +53,9 @@ class DynamicUserListSingleViewSet(ModelViewSet):
         userlist = DynamicUserList.objects.filter(id=list_id)
 
         if userlist is None or len(userlist) > 1:
-            return Response({"error": "No Userlist found or more then one for this name"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "No Userlist found or more then one for this name"}, status=status.HTTP_404_NOT_FOUND
+            )
 
         userlist[0].name = request.data["name"]
         userlist[0].description = request.data["description"]
@@ -98,4 +100,7 @@ class DynamicUserListSingleUserViewSet(ModelViewSet):
 
             return Response(data=serializer.data, status=status.HTTP_200_OK)
         else:
-            return Response({"error": "could not remove the user from the messagelist."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": "could not remove the user from the messagelist."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

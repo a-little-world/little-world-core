@@ -1,13 +1,15 @@
-from datetime import datetime, timezone
-from cookie_consent.models import CookieGroup, Cookie
-from celery import shared_task
-from management.models.user import User
-from management.models.community_events import CommunityEvent
-from management.models.backend_state import BackendState
-from translations import get_translation
 import math
 import random
+from datetime import datetime, timezone
+
+from celery import shared_task
+from cookie_consent.models import Cookie, CookieGroup
+from translations import get_translation
+
+from management.models.backend_state import BackendState
 from management.models.banner import Banner
+from management.models.community_events import CommunityEvent
+from management.models.user import User
 
 """
 also contains general startup celery tasks, most of them are automaticly run when the controller.get_base_management user is created
@@ -36,6 +38,7 @@ def create_default_community_events():
 
     return "events created!"
 
+
 @shared_task
 def create_default_banners():
     """
@@ -47,27 +50,26 @@ def create_default_banners():
         return "Banners already set according to  backend state! If they were deleted you should delete the state!"
 
     Banner.objects.create(
-        name='Learner Banner',
+        name="Learner Banner",
         title="Lovely Learner",
         text="Lovely learner, Little World is free and will always be free. But in order to keep us going we need your support. Please head to our support page to find out the ways you can help us.",
         active=False,
-        cta_1_url='/app/our-world/',
-        cta_1_text='Support us',
-        image='',
-        image_alt='background image',
+        cta_1_url="/app/our-world/",
+        cta_1_text="Support us",
+        image="",
+        image_alt="background image",
     )
 
     Banner.objects.create(
-        name='Volunteer Banner',
+        name="Volunteer Banner",
         title="Lovely Volunteer",
         text="Lovely volunteer, Little World is free and will always be free. But in order to keep us going we need your support. Please head to our support page to find out the ways you can help us.",
         active=False,
-        cta_1_url='/app/our-world/',
-        cta_1_text='Support us',
-        image='',
-        image_alt='background image',
+        cta_1_url="/app/our-world/",
+        cta_1_text="Support us",
+        image="",
+        image_alt="background image",
     )
-
 
     return "banners created!"
 
@@ -77,16 +79,34 @@ def create_default_cookie_groups():
     if BackendState.are_default_cookies_set(set_true=True):
         return "events already set, sais backend state! If they were deleted you should delete the state!"
 
-    analytics_cookiegroup = CookieGroup.objects.create(varname="analytics", name="analytics_cookiegroup", description="Google analytics and Facebook Pixel", is_required=False, is_deletable=True)
+    analytics_cookiegroup = CookieGroup.objects.create(
+        varname="analytics",
+        name="analytics_cookiegroup",
+        description="Google analytics and Facebook Pixel",
+        is_required=False,
+        is_deletable=True,
+    )
 
-    little_world_functionality_cookies = CookieGroup.objects.create(varname="lw_func_cookies", name="FunctionalityCookies", description="Cookies required for basic functionality of Little World", is_required=True, is_deletable=False)
+    little_world_functionality_cookies = CookieGroup.objects.create(
+        varname="lw_func_cookies",
+        name="FunctionalityCookies",
+        description="Cookies required for basic functionality of Little World",
+        is_required=True,
+        is_deletable=False,
+    )
 
     google_analytics_cookie = Cookie.objects.create(
         cookiegroup=analytics_cookiegroup,
         name="google_analytics_cookie",
         description="Google anlytics cookies and scripts",
         include_srcs=["https://www.googletagmanager.com/gtag/js?id=AW-10994486925"],
-        include_scripts=["\nwindow.dataLayer = window.dataLayer || [];\n" + "function gtag(){dataLayer.push(arguments);}\n" + "gtag('js', new Date());\n" + "gtag('config', 'AW-10994486925');\n" + "gtag('config', 'AW-10992228532');"],
+        include_scripts=[
+            "\nwindow.dataLayer = window.dataLayer || [];\n"
+            + "function gtag(){dataLayer.push(arguments);}\n"
+            + "gtag('js', new Date());\n"
+            + "gtag('config', 'AW-10994486925');\n"
+            + "gtag('config', 'AW-10992228532');"
+        ],
     )
 
     facebook_init_script = (
@@ -166,8 +186,8 @@ def check_prematch_email_reminders_and_expirations():
     Reoccuring task to check for email reminders that should be send out
     also check if there are expired unconfirmed_matches
     """
-    from management.models.unconfirmed_matches import ProposedMatch
     from management.models.state import State
+    from management.models.unconfirmed_matches import ProposedMatch
 
     all_unclosed_unconfirmed = ProposedMatch.objects.filter(closed=False)
 
@@ -195,13 +215,19 @@ def check_registration_reminders():
     - user from unfinished reminder 1
     - user from unfinished reminder 2
     """
-    from management.models.state import State
     from django.db.models import Q
     from django.utils import timezone
 
+    from management.models.state import State
+
     _3hrs_ago = timezone.now() - timezone.timedelta(hours=3)
 
-    unverified_email_unfinished_userform = User.objects.filter(Q(date_joined__lte=_3hrs_ago), settings__email_settings__email_verification_reminder1=False, state__user_form_state=State.UserFormStateChoices.UNFILLED, state__email_authenticated=False)
+    unverified_email_unfinished_userform = User.objects.filter(
+        Q(date_joined__lte=_3hrs_ago),
+        settings__email_settings__email_verification_reminder1=False,
+        state__user_form_state=State.UserFormStateChoices.UNFILLED,
+        state__email_authenticated=False,
+    )
 
     for user in unverified_email_unfinished_userform:
         ems = user.settings.email_settings
@@ -212,7 +238,11 @@ def check_registration_reminders():
     _tree_days_ago = timezone.now() - timezone.timedelta(days=3)
 
     verified_email_unifinished_userform_reminder1 = User.objects.filter(
-        Q(date_joined__lte=_two_days_ago), settings__email_settings__user_form_unfinished_reminder1=False, settings__email_settings__user_form_unfinished_reminder2=False, state__user_form_state=State.UserFormStateChoices.UNFILLED, state__email_authenticated=True
+        Q(date_joined__lte=_two_days_ago),
+        settings__email_settings__user_form_unfinished_reminder1=False,
+        settings__email_settings__user_form_unfinished_reminder2=False,
+        state__user_form_state=State.UserFormStateChoices.UNFILLED,
+        state__email_authenticated=True,
     )
 
     for user in verified_email_unifinished_userform_reminder1:
@@ -220,7 +250,11 @@ def check_registration_reminders():
         ems.send_user_form_unfinished_reminder1(user)
 
     verified_email_unifinished_userform_reminder2 = User.objects.filter(
-        Q(date_joined__lte=_tree_days_ago), settings__email_settings__user_form_unfinished_reminder1=True, settings__email_settings__user_form_unfinished_reminder2=False, state__user_form_state=State.UserFormStateChoices.UNFILLED, state__email_authenticated=True
+        Q(date_joined__lte=_tree_days_ago),
+        settings__email_settings__user_form_unfinished_reminder1=True,
+        settings__email_settings__user_form_unfinished_reminder2=False,
+        state__user_form_state=State.UserFormStateChoices.UNFILLED,
+        state__email_authenticated=True,
     )
 
     for user in verified_email_unifinished_userform_reminder2:
@@ -232,10 +266,11 @@ def check_registration_reminders():
 def check_match_still_in_contact_emails():
     # TODO: this is not active at the moment
     # TODO: re-implement with v2 api
-    from management.models.matches import Match
     from django.db.models import Q
     from django.utils import timezone
     from emails import mails
+
+    from management.models.matches import Match
 
     matches_older_than_3_weeks = Match.objects.filter(
         Q(created_at__lte=timezone.now() - timezone.timedelta(days=21)),
@@ -255,7 +290,14 @@ def check_match_still_in_contact_emails():
                 ),
                 emulated_send=True,
             )
-        report.append({"kind": "send_still_in_contanct_email", "match": str(match.pk), "user1": str(match.user1.hash), "user2": str(match.user2.hash)})
+        report.append(
+            {
+                "kind": "send_still_in_contanct_email",
+                "match": str(match.pk),
+                "user1": str(match.user1.hash),
+                "user2": str(match.user2.hash),
+            }
+        )
         match.still_in_contact_mail_send = True
         match.save()
     return report
@@ -263,22 +305,29 @@ def check_match_still_in_contact_emails():
 
 @shared_task
 def dispatch_admin_email_notification(subject, message):
-    from . import controller
-    from emails import mails
     from django.conf import settings
+    from emails import mails
+
+    from . import controller
 
     base_management_user = controller.get_base_management_user()
 
     if settings.USE_V2_EMAIL_APIS:
         raise NotImplementedError("V2 email api not implemented yet!")
     else:
-        base_management_user.send_email(subject=subject, mail_data=mails.get_mail_data_by_name("raw"), mail_params=mails.RAWTemplateMailParams(subject_header_text=subject, greeting=message, content_start_text=message))
+        base_management_user.send_email(
+            subject=subject,
+            mail_data=mails.get_mail_data_by_name("raw"),
+            mail_params=mails.RAWTemplateMailParams(
+                subject_header_text=subject, greeting=message, content_start_text=message
+            ),
+        )
 
 
 @shared_task
 def request_streamed_ai_response(messages, model="gpt-3.5-turbo", backend="default"):
-    from openai import OpenAI
     from django.conf import settings
+    from openai import OpenAI
 
     def get_base_ai_client():
         if backend == "default":
@@ -313,7 +362,9 @@ def request_streamed_ai_response(messages, model="gpt-3.5-turbo", backend="defau
 
         c += 1
         if c % update_mod == 0:
-            request_streamed_ai_response.backend.mark_as_started(request_streamed_ai_response.request.id, progress=message_ft)
+            request_streamed_ai_response.backend.mark_as_started(
+                request_streamed_ai_response.request.id, progress=message_ft
+            )
             c = 0
     request_streamed_ai_response.backend.mark_as_started(request_streamed_ai_response.request.id, progress=message_ft)
 
@@ -325,7 +376,12 @@ def matching_algo_v2(user_pk, consider_only_registered_within_last_x_days=None, 
     def report_progress(progress):
         matching_algo_v2.backend.mark_as_started(matching_algo_v2.request.id, progress=progress)
 
-    res = calculate_scores_user(user_pk, consider_only_registered_within_last_x_days=consider_only_registered_within_last_x_days, report=report_progress, exlude_user_ids=exlude_user_ids)
+    res = calculate_scores_user(
+        user_pk,
+        consider_only_registered_within_last_x_days=consider_only_registered_within_last_x_days,
+        report=report_progress,
+        exlude_user_ids=exlude_user_ids,
+    )
 
     return res
 
@@ -340,7 +396,9 @@ def burst_calculate_matching_scores(user_combinations=[]):
     print("combination")
 
     def report_progress(progress):
-        burst_calculate_matching_scores.backend.mark_as_started(burst_calculate_matching_scores.request.id, progress=progress)
+        burst_calculate_matching_scores.backend.mark_as_started(
+            burst_calculate_matching_scores.request.id, progress=progress
+        )
 
     total_combinations = len(user_combinations)
     combinations_processed = 0
@@ -364,10 +422,12 @@ def burst_calculate_matching_scores(user_combinations=[]):
                 "combinations_processed": combinations_processed,
             }
         )
-        
+
     random_delay = math.floor(random.random() * 5)
 
-    mark_burst_task_completed_check_for_finish.apply_async((burst_calculate_matching_scores.request.id,), countdown=2 + random_delay)
+    mark_burst_task_completed_check_for_finish.apply_async(
+        (burst_calculate_matching_scores.request.id,), countdown=2 + random_delay
+    )
 
     return {
         "total_combinations": total_combinations,
@@ -406,8 +466,8 @@ def mark_burst_task_completed_check_for_finish(task_id=None):
 
 @shared_task
 def record_bucket_ids():
-    from management.api.user_advanced_filter_lists import FILTER_LISTS
     from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS
+    from management.api.user_advanced_filter_lists import FILTER_LISTS
     from management.models.stats import Statistic
 
     # 1 - record all user bucket ids
@@ -432,18 +492,20 @@ def record_bucket_ids():
             data[fl.name] = str(-500)
 
     Statistic.objects.create(kind=Statistic.StatisticTypes.MATCH_BUCKET_IDS, data=data)
-    
+
+
 @shared_task
 def send_dynamic_email_backgruound(
     template_name,
     user_id=None,
 ):
-    from emails.api.render_template import prepare_dynamic_template_context
-    from django.template import Template, Context
     from django.core.mail import EmailMessage
-    from management.controller import get_base_management_user
-    from emails.models import EmailLog
+    from django.template import Context, Template
     from emails.api.emails_config import EMAILS_CONFIG
+    from emails.api.render_template import prepare_dynamic_template_context
+    from emails.models import EmailLog
+
+    from management.controller import get_base_management_user
 
     user = User.objects.get(id=user_id)
 
@@ -453,7 +515,13 @@ def send_dynamic_email_backgruound(
     subject = Template(dynamic_template_info["subject"])
     subject = subject.render(Context(_context))
 
-    mail_log = EmailLog.objects.create(log_version=1, sender=get_base_management_user(), receiver=user, template=template_name, data={"html": html, "params": _context, "user_id": user.id, "match_id": None, "subject": subject})
+    mail_log = EmailLog.objects.create(
+        log_version=1,
+        sender=get_base_management_user(),
+        receiver=user,
+        template=template_name,
+        data={"html": html, "params": _context, "user_id": user.id, "match_id": None, "subject": subject},
+    )
 
     try:
         from_email = EMAILS_CONFIG.senders["noreply"]
@@ -470,50 +538,53 @@ def send_dynamic_email_backgruound(
     except Exception as e:
         mail_log.sucess = False
         mail_log.save()
-    
+
+
 @shared_task
 def send_email_background(
-        template_name, 
-        user_id=None, 
-        match_id=None, 
-        proposed_match_id=None, 
-        context={},
-        patenmatch=False,
-        patenmatch_org=False
-    ):
+    template_name,
+    user_id=None,
+    match_id=None,
+    proposed_match_id=None,
+    context={},
+    patenmatch=False,
+    patenmatch_org=False,
+):
     from emails.api.send_email import send_template_email
-    
+
     if not patenmatch:
         send_template_email(
             template_name,
-            user_id=user_id, 
-            match_id=match_id, 
-            proposed_match_id=proposed_match_id, 
+            user_id=user_id,
+            match_id=match_id,
+            proposed_match_id=proposed_match_id,
             emulated_send=False,
-            context=context
+            context=context,
         )
     else:
-        from patenmatch.models import PatenmatchUser
-        from patenmatch.models import PatenmatchOrganization
+        from patenmatch.models import PatenmatchOrganization, PatenmatchUser
+
         def retrieve_user_model():
             return PatenmatchOrganization if patenmatch_org else PatenmatchUser
 
         send_template_email(
             template_name,
-            user_id=user_id, 
-            match_id=match_id, 
-            proposed_match_id=proposed_match_id, 
+            user_id=user_id,
+            match_id=match_id,
+            proposed_match_id=proposed_match_id,
             emulated_send=False,
             context=context,
-            retrieve_user_model=retrieve_user_model
+            retrieve_user_model=retrieve_user_model,
         )
 
 
 @shared_task
 def slack_notify_communication_channel_async(message):
     from management.api.slack import notify_communication_channel
+
     notify_communication_channel(message)
-    
+
+
 @shared_task
 def hourly_check_banner_activation():
     current_time = timezone.now()
@@ -524,10 +595,7 @@ def hourly_check_banner_activation():
     }
 
     # 1 - check for banners that might need activation
-    p_activation_banners = Banner.objects.filter(
-        activation_time__isnull=False,
-        active=False
-    )
+    p_activation_banners = Banner.objects.filter(activation_time__isnull=False, active=False)
 
     # activate banners that need activation
     for banner in p_activation_banners:
@@ -535,17 +603,13 @@ def hourly_check_banner_activation():
             banner.active = True
             banner.save()
             bc["activated"].append(banner.id)
-            
+
     # 2 - deactivate banners that need deactivation
-    p_deactivation_banners = Banner.objects.filter(
-        expiration_time__isnull=False,
-        active=True
-    )
-    
+    p_deactivation_banners = Banner.objects.filter(expiration_time__isnull=False, active=True)
+
     for banner in p_deactivation_banners:
         if banner.expiration_time <= current_time:
             banner.active = False
             banner.save()
             bc["deactivated"].append(banner.id)
     return bc
-            

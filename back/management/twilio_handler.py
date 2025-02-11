@@ -6,10 +6,10 @@ This takes care of
 - completing rooms ( marking them as completed, when both parties disconnect )
 """
 
-from twilio.rest import Client
+from django.conf import settings
 from twilio.jwt.access_token import AccessToken
 from twilio.jwt.access_token.grants import VideoGrant
-from django.conf import settings
+from twilio.rest import Client
 
 
 def _get_client():
@@ -24,7 +24,13 @@ def _get_status_url():
 def _get_token(identity):
     # ttl (time-to-live is set to 14400 seconds (4hours) for now the maximal possible time. This is for cases
     # of connection interruption etc. May be reduced if we decide to limit call durations.
-    return AccessToken(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_API_KEY_SID, settings.TWILIO_API_SECRET, identity=identity, ttl=14400)
+    return AccessToken(
+        settings.TWILIO_ACCOUNT_SID,
+        settings.TWILIO_API_KEY_SID,
+        settings.TWILIO_API_SECRET,
+        identity=identity,
+        ttl=14400,
+    )
 
 
 def make_room(name):
@@ -35,7 +41,9 @@ def make_room(name):
     client = _get_client()
     room_type = "go"  # TODO: we can have max 245 of these
     try:
-        client.video.rooms.create(unique_name=name, type=room_type, media_region="de1", status_callback=_get_status_url())
+        client.video.rooms.create(
+            unique_name=name, type=room_type, media_region="de1", status_callback=_get_status_url()
+        )
     except Exception as e:
         print(e)
 

@@ -1,10 +1,12 @@
+from datetime import datetime
+
 from django.test import TestCase
+from management.controller import create_user_matching_proposal, match_users
+from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.tests.helpers import register_user
+
 from emails.api.emails_config import EMAILS_CONFIG
 from emails.api.render_template import get_full_template_info, render_template_dynamic_lookup
-from management.controller import match_users, create_user_matching_proposal
-from management.models.pre_matching_appointment import PreMatchingAppointment
-from datetime import datetime
 
 
 class EmailTests(TestCase):
@@ -22,7 +24,7 @@ class EmailTests(TestCase):
 
         for template_name in EMAILS_CONFIG.emails:
             if template_name.startswith("patenmatch"):
-                continue # TODO: for now skip patenmatch tests, they require a different User-type
+                continue  # TODO: for now skip patenmatch tests, they require a different User-type
 
             print("Sending Email '{}'".format(template_name))
 
@@ -39,8 +41,10 @@ class EmailTests(TestCase):
             mock_user_id = u1.id
             mock_match_id = match.id
             mock_proposed_match_id = proposal.id
-            
-            rendered = render_template_dynamic_lookup(template_name, mock_user_id, mock_match_id, mock_proposed_match_id, **mock_context)
+
+            rendered = render_template_dynamic_lookup(
+                template_name, mock_user_id, mock_match_id, mock_proposed_match_id, **mock_context
+            )
 
             for key in mock_context:
                 assert key in rendered, f"Key {key} not found in rendered email"

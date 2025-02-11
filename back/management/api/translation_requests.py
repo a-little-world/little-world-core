@@ -1,8 +1,9 @@
-from rest_framework.decorators import api_view
 from django.contrib.auth.decorators import login_required
-from rest_framework.response import Response
-from rest_framework import serializers, status
 from drf_spectacular.utils import extend_schema
+from rest_framework import serializers, status
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+
 from management.models.translation_logs import TranslationLog
 
 
@@ -32,6 +33,12 @@ def translate(request):
 
     tranlation = translator.translate(params["text"], src=params["source_lang"], dest=params["target_lang"])
 
-    TranslationLog.objects.create(user=request.user, source_lang=params["source_lang"], dest_lang=params["target_lang"], text=params["text"], translation=tranlation.text)
+    TranslationLog.objects.create(
+        user=request.user,
+        source_lang=params["source_lang"],
+        dest_lang=params["target_lang"],
+        text=params["text"],
+        translation=tranlation.text,
+    )
 
     return Response({"trans": tranlation.text}, status=status.HTTP_200_OK)

@@ -1,14 +1,14 @@
-from rest_framework import viewsets, serializers
+from django.urls import path
 from django_filters import rest_framework as filters
+from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
+from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from django.urls import path
-from management.models.pre_matching_appointment import PreMatchingAppointment
-from management.helpers import IsAdminOrMatchingUser, DetailedPaginationMixin
-from management.api.user_advanced import AdvancedUserSerializer
 
-from drf_spectacular.utils import extend_schema_view, extend_schema, inline_serializer
+from management.api.user_advanced import AdvancedUserSerializer
 from management.api.utils_advanced import filterset_schema_dict
+from management.helpers import DetailedPaginationMixin, IsAdminOrMatchingUser
+from management.models.pre_matching_appointment import PreMatchingAppointment
 
 
 class PreMatchingAppointmentSerializer(serializers.ModelSerializer):
@@ -75,7 +75,9 @@ class PreMatchingAppointmentViewSet(viewsets.ModelViewSet):
 
         user = appointment.user
 
-        if not request.user.is_staff and not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+        if not request.user.is_staff and not request.user.state.has_extra_user_permission(
+            State.ExtraUserPermissionChoices.MATCHING_USER
+        ):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
 
         if not request.user.is_staff and not request.user.state.managed_users.filter(pk=user.pk).exists():
@@ -92,12 +94,23 @@ class PreMatchingAppointmentViewSet(viewsets.ModelViewSet):
         # We start of by grouping the together the 10 most recent start_times
 
         top_x = 40
-        start_times = PreMatchingAppointment.objects.all().order_by("-start_time").values_list("start_time", flat=True).distinct()[:top_x]
+        start_times = (
+            PreMatchingAppointment.objects.all()
+            .order_by("-start_time")
+            .values_list("start_time", flat=True)
+            .distinct()[:top_x]
+        )
         from management.api.user_advanced_filter_lists import FilterListEntry
 
         filter_lists = []
         for start_time in start_times:
-            filter_lists.append(FilterListEntry(name=str(start_time), description=str(start_time), queryset=lambda qs: qs.filter(start_time=start_time)).to_dict())
+            filter_lists.append(
+                FilterListEntry(
+                    name=str(start_time),
+                    description=str(start_time),
+                    queryset=lambda qs: qs.filter(start_time=start_time),
+                ).to_dict()
+            )
 
         return Response({"filters": _filters, "lists": filter_lists})
 
@@ -134,7 +147,13 @@ class PreMatchingAppointmentViewSet(viewsets.ModelViewSet):
 
 api_urls = [
     path("api/matching/prematchingappointments/", PreMatchingAppointmentViewSet.as_view({"get": "list"})),
-    path("api/matching/prematchingappointments/filters/", PreMatchingAppointmentViewSet.as_view({"get": "get_filter_schema"})),
+    path(
+        "api/matching/prematchingappointments/filters/",
+        PreMatchingAppointmentViewSet.as_view({"get": "get_filter_schema"}),
+    ),
     path("api/matching/prematchingappointments/<pk>/", PreMatchingAppointmentViewSet.as_view({"get": "retrieve"})),
-    path("api/matching/prematchingappointments/<pk>/resolve/", PreMatchingAppointmentViewSet.as_view({"post": "resolve_appointment"})),
+    path(
+        "api/matching/prematchingappointments/<pk>/resolve/",
+        PreMatchingAppointmentViewSet.as_view({"post": "resolve_appointment"}),
+    ),
 ]

@@ -1,17 +1,17 @@
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework import viewsets
+from django.db.models import Q
 from django.urls import path
 from django_filters import rest_framework as filters
+from drf_spectacular.utils import extend_schema, extend_schema_view
+from rest_framework import serializers, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from video.models import LivekitSession
-from management.models.user import User
-from management.helpers import IsAdminOrMatchingUser, DetailedPaginationMixin
-from rest_framework import serializers
-from drf_spectacular.utils import extend_schema_view, extend_schema
+
+from management.api.utils_advanced import filterset_schema_dict
+from management.helpers import DetailedPaginationMixin, IsAdminOrMatchingUser
 from management.models.profile import MinimalProfileSerializer
 from management.models.state import State
-from django.db.models import Q
-from management.api.utils_advanced import filterset_schema_dict
+from management.models.user import User
 
 
 class AdvancedLivekitSessionSerializer(serializers.ModelSerializer):
@@ -24,8 +24,18 @@ class AdvancedLivekitSessionSerializer(serializers.ModelSerializer):
         u1 = User.objects.get(id=instance.u1.id)
         u2 = User.objects.get(id=instance.u2.id)
 
-        representation["u1"] = {"id": u1.id, "hash": u1.hash, "email": u1.email, "profile": MinimalProfileSerializer(u1.profile).data}
-        representation["u2"] = {"id": u2.id, "hash": u2.hash, "email": u2.email, "profile": MinimalProfileSerializer(u2.profile).data}
+        representation["u1"] = {
+            "id": u1.id,
+            "hash": u1.hash,
+            "email": u1.email,
+            "profile": MinimalProfileSerializer(u1.profile).data,
+        }
+        representation["u2"] = {
+            "id": u2.id,
+            "hash": u2.hash,
+            "email": u2.email,
+            "profile": MinimalProfileSerializer(u2.profile).data,
+        }
 
         if instance.is_active:
             representation["status"] = "active"
@@ -50,13 +60,26 @@ class LivekitSessionFilter(filters.FilterSet):
 
     u2 = filters.ModelChoiceFilter(field_name="u2", queryset=User.objects.all(), help_text="Filter for u2")
 
-    created_between = filters.DateFromToRangeFilter(field_name="created_at", help_text="Range filter for when the session was created, accepts string datetimes")
+    created_between = filters.DateFromToRangeFilter(
+        field_name="created_at", help_text="Range filter for when the session was created, accepts string datetimes"
+    )
 
-    ended_between = filters.DateFromToRangeFilter(field_name="end_time", help_text="Range filter for when the session ended, accepts string datetimes")
+    ended_between = filters.DateFromToRangeFilter(
+        field_name="end_time", help_text="Range filter for when the session ended, accepts string datetimes"
+    )
 
     active = filters.BooleanFilter(field_name="is_active", help_text="Filter for active sessions")
 
-    order_by = filters.OrderingFilter(fields=(("created_at", "created_at"), ("end_time", "end_time"), ("u1", "u1"), ("u2", "u2"), ("is_active", "is_active")), help_text="Order by filter")
+    order_by = filters.OrderingFilter(
+        fields=(
+            ("created_at", "created_at"),
+            ("end_time", "end_time"),
+            ("u1", "u1"),
+            ("u2", "u2"),
+            ("is_active", "is_active"),
+        ),
+        help_text="Order by filter",
+    )
 
     class Meta:
         model = LivekitSession
@@ -82,12 +105,16 @@ class AdvancedVideoCallsViewset(viewsets.ModelViewSet):
         if user.is_staff:
             return LivekitSession.objects.all()
         elif user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
-            return LivekitSession.objects.filter(Q(u1__in=user.state.managed_users.all()) | Q(u2__in=user.state.managed_users.all()))
+            return LivekitSession.objects.filter(
+                Q(u1__in=user.state.managed_users.all()) | Q(u2__in=user.state.managed_users.all())
+            )
 
     def check_management_user_access(self, session, request):
         user = session.get_partner(request.user)
 
-        if not request.user.is_staff and not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+        if not request.user.is_staff and not request.user.state.has_extra_user_permission(
+            State.ExtraUserPermissionChoices.MATCHING_USER
+        ):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
 
         if not request.user.is_staff and not request.user.state.managed_users.filter(pk=user.pk).exists():
