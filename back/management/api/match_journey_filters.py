@@ -31,7 +31,7 @@ def days_ago(days):
 DESIRED_MATCH_DURATION_WEEKS = 10
 LAST_INTERACTION_DAYS = 21
 DAYS_UNTILL_GHOSTED = 21
-
+NEVER_CONFIRMED_DAYS = 10
 
 def only_non_support_matching(qs=Match.objects.all()):
     return qs.filter(support_matching=False)
@@ -51,7 +51,7 @@ def match_unviewed(qs=Match.objects.all(), mutal_ghosted_days=DAYS_UNTILL_GHOSTE
     ).distinct()
 
 
-def match_one_user_viewed(qs=Match.objects.all(), ghosted_days=DAYS_UNTILL_GHOSTED):
+def match_one_user_viewed(qs=Match.objects.all(), ghosted_days=NEVER_CONFIRMED_DAYS):
     """
     2. Match One User Viewed
     Filters matches that are active, not yet confirmed by both users, but confirmed by at least one user.
@@ -209,10 +209,10 @@ def never_confirmed(qs=Match.objects.all()):
     9. Never Confirmed
     Filters matches older than a specified number of days but still unconfirmed.
     """
-    return qs.filter(active=True, support_matching=False, confirmed=False, created_at__lt=days_ago(DAYS_UNTILL_GHOSTED))
+    return qs.filter(active=True, support_matching=False, confirmed=False, created_at__lt=days_ago(NEVER_CONFIRMED_DAYS))
 
 
-def no_contact(qs=Match.objects.all()):  # TODO: re-name mutal ghosted?
+def no_contact(qs=Match.objects.all()):
     """
     10. No Contact
     Filters matches that are confirmed but no contact and older than a specified number of days.
