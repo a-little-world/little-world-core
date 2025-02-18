@@ -911,7 +911,7 @@ def kpi_dashboard_statistics_signups(request):
           'journey_v2__user_deleted',
           'journey_v2__email_verified',
           'journey_v2__user_form_completed',
-          'journey_v2__too_low_german_level',
+          # 'journey_v2__too_low_german_level',
           'journey_v2__booked_onboarding_call',
           'journey_v2__no_show',
     ])
@@ -954,8 +954,8 @@ def kpi_dashboard_statistics_signups(request):
     
 match_journey_bucket_clusters = {
     "pre-matching": [
-        "match_journey_v2__proposed_matches",
-        "match_journey_v2__expired_proposals",
+        #"match_journey_v2__proposed_matches",
+        #"match_journey_v2__expired_proposals",
         "match_journey_v2__unviewed",
         "match_journey_v2__one_user_viewed",
         "match_journey_v2__confirmed_no_contact",
@@ -986,15 +986,49 @@ def kpi_dashboard_statistics_matching(request):
     # - % failed vs ongoing+finished Matches (total)
     # - Matches gestartet von 6 bis 12 Wochen
     
-    proposals_two_weeks = ProposedMatch.objects.filter(created_at__range=[timezone.now() - timedelta(days=28), timezone.now()-timedelta(days=14)])
+    proposals_two_weeks = ProposedMatch.objects.filter(potential_matching_created_at__range=[timezone.now() - timedelta(days=28), timezone.now()-timedelta(days=14)])
     accepted_proposals_two_weeks = proposals_two_weeks.filter(closed=True, rejected=False)
     accepted_proposals_two_weeks_percentage = accepted_proposals_two_weeks.count() / proposals_two_weeks.count() * 100.0
     
+    pre_filtered_users = User.objects.all()
+    if not request.user.is_staff:
+        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
 
+    # Get pre-filtered matches based on users and date range
+    pre_filtered_matches = Match.objects.filter(
+        Q(user1__in=pre_filtered_users) | Q(user2__in=pre_filtered_users),
+    )
+    
+    # Calculating ongoing vs failed/finished is a little tricky
+    # first we sum over all match_journey_bucket clusters
+    all_buckets = []
+    for bucket_cluster in match_journey_bucket_clusters.keys():
+        all_buckets.extend(match_journey_bucket_clusters[bucket_cluster])
+        
+    match_bucket_counts = get_match_bucket_statistics(pre_filtered_matches, selected_filters=all_buckets)
+    match_bucket_count_map = {bucket["name"]: bucket for bucket in match_bucket_counts["buckets"]}
+    
+    cluster_sums = {}
+    for bucket_cluster in match_journey_bucket_clusters.keys():
+        cluster_sums[bucket_cluster] = 0
+        for bucket in match_journey_bucket_clusters[bucket_cluster]:
+            if not bucket in match_journey_exclude_sum_buckets:
+                cluster_sums[bucket_cluster] += match_bucket_count_map[bucket]['count']
+                
+    finished_and_ongoing_matches = cluster_sums["ongoing-matching"] + cluster_sums["finished-matching"]
+    amount_total_matches = cluster_sums["ongoing-matching"] + cluster_sums["finished-matching"] + cluster_sums["failed-matching"]
+    failed_vs_ongoing_finished_matches_percentage = cluster_sums["failed-matching"] / amount_total_matches * 100.0
+    
+    # Now total_matches started 6-12 weeks ago
+    matches_6_12_weeks_ago = Match.objects.filter(created_at__range=[timezone.now() - timedelta(days=126), timezone.now() - timedelta(days=63)], support_matching=False)
+                
     return Response({
         "proposals_two_weeks": proposals_two_weeks.count(),
         "accepted_proposals_two_weeks": accepted_proposals_two_weeks.count(),
         "accepted_proposals_two_weeks_percentage": accepted_proposals_two_weeks_percentage,
+        "cluster_sums": cluster_sums,
+        "failed_vs_ongoing_finished_matches_percentage": failed_vs_ongoing_finished_matches_percentage,
+        "matches_6_12_weeks_ago": matches_6_12_weeks_ago.count(),
     })
 
 api_urls = [
@@ -1007,5 +1041,6 @@ api_urls = [
     path("api/matching/users/statistics/match_quality/", match_quality_statistics),
     path("api/matching/users/statistics/user_match_waiting_time/", user_match_waiting_time_statistics),
     path("api/matching/users/statistics/kpi_singup/", kpi_dashboard_statistics_signups),
+    path("api/matching/users/statistics/kpi_matching/", kpi_dashboard_statistics_matching),
     path("api/matching/users/statistics/company_report/<str:company>/", comany_video_call_and_matching_report),
 ]
