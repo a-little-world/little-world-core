@@ -257,69 +257,48 @@ def livekit_session_statistics(request):
     return Response(data)
 
 
-@extend_schema(
-    request=inline_serializer(
-        name="BucketStatisticsCountOverTimeRequest",
-        fields={
-            "selected_filters": serializers.ListField(
-                child=serializers.ChoiceField(
-                    choices=[entry.name for entry in USER_JOURNEY_FILTER_LISTS],
-                ),
-                required=True,
-            ),
-            "start_date": serializers.DateField(default="2021-01-01", required=False),
-            "end_date": serializers.DateField(default=date.today(), required=False),
-        },
-    ),
-)
-@api_view(["POST"])
-@permission_classes([IsAdminOrMatchingUser])
-def bucket_statistics(request):
-    today = date.today()
-
-    start_date = request.data.get("start_date", "2022-01-01")
-    end_date = request.data.get("end_date", today)
-
-    pre_filtered_users = User.objects.all()
-    if not request.user.is_staff:
-        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
-
-    pre_filtered_users = pre_filtered_users.filter(date_joined__range=[start_date, end_date])
-
-    selected_filters = request.data.get("selected_filters", None)
-
+def get_bucket_statistics(pre_filtered_users, selected_filters=None, filter_lists=FILTER_LISTS):
+    """
+    Calculate bucket statistics for a given set of users and filters.
+    
+    Args:
+        pre_filtered_users: QuerySet of pre-filtered User objects
+        selected_filters: List of filter names to apply (default: None, uses all filters)
+        filter_lists: List of filter definitions to use (default: FILTER_LISTS)
+    
+    Returns:
+        dict: Contains buckets, missing_ids, and intersecting_ids_lists
+    """
     if selected_filters is None:
-        selected_filters = [entry.name for entry in FILTER_LISTS]
+        selected_filters = [entry.name for entry in filter_lists]
 
     user_buckets = []
-
     selected_filters_list = []
-    pre_filtered_uj_lists = {entry.name: entry for entry in FILTER_LISTS if entry.name in selected_filters}
+    pre_filtered_uj_lists = {entry.name: entry for entry in filter_lists if entry.name in selected_filters}
+    
     for filter_name in selected_filters:
         filter_list_entry = pre_filtered_uj_lists[filter_name]
         selected_filters_list.append(filter_list_entry)
 
     query_logger = QueryLogger()
-    exec_log_order = ""
     last_query_log_index = 0
     user_list_ids = {}
     all_ids_set = set()
+    
     with connection.execute_wrapper(query_logger):
         for i, filter_list in enumerate(selected_filters_list):
-            exec_log_order += f"{i} - {filter_list.name}\n"
             queryset = filter_list.queryset(qs=pre_filtered_users)
             count = queryset.count()
             duration = sum([query["duration"] for query in query_logger.queries[last_query_log_index:]])
             last_query_log_index = len(query_logger.queries) - 1
-            user_buckets.append(
-                {
-                    "name": filter_list.name,
-                    "description": filter_list.description,
-                    "count": count,
-                    "id": i,
-                    "query_duration": duration,
-                }
-            )
+            
+            user_buckets.append({
+                "name": filter_list.name,
+                "description": filter_list.description,
+                "count": count,
+                "id": i,
+                "query_duration": duration,
+            })
 
             user_list_ids[filter_list.name] = {
                 "ids": queryset.values_list("id", flat=True),
@@ -328,12 +307,14 @@ def bucket_statistics(request):
             if filter_list.name != "all":
                 all_ids_set.update(user_list_ids[filter_list.name]["ids"])
 
+    # Calculate intersecting IDs
     exclude_intersection_check = [
         "all",
         "needs_matching",
         "match_journey_v2__proposed_matches",
         "match_journey_v2__expired_proposals",
     ]
+    
     intersecting_ids_lists = {}
     intersection_check_lists = [
         list_name for list_name in selected_filters if list_name not in exclude_intersection_check
@@ -353,13 +334,51 @@ def bucket_statistics(request):
     all_ids = set(user_list_ids["all"]["ids"])
     missing_ids = all_ids.difference(all_ids_set)
 
-    return Response(
-        {
-            "buckets": user_buckets,
-            "missing_ids": list(missing_ids),
-            "intersecting_ids_lists": intersecting_ids_lists,
-        }
+    return {
+        "buckets": user_buckets,
+        "missing_ids": list(missing_ids),
+        "intersecting_ids_lists": intersecting_ids_lists,
+    }
+
+@extend_schema(
+    request=inline_serializer(
+        name="BucketStatisticsCountOverTimeRequest",
+        fields={
+            "selected_filters": serializers.ListField(
+                child=serializers.ChoiceField(
+                    choices=[entry.name for entry in USER_JOURNEY_FILTER_LISTS],
+                ),
+                required=True,
+            ),
+            "start_date": serializers.DateField(default="2021-01-01", required=False),
+            "end_date": serializers.DateField(default=date.today(), required=False),
+        },
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
+def bucket_statistics(request):
+    today = date.today()
+    start_date = request.data.get("start_date", "2022-01-01")
+    end_date = request.data.get("end_date", today)
+
+    # Get pre-filtered users based on permissions and date range
+    pre_filtered_users = User.objects.all()
+    if not request.user.is_staff:
+        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+    pre_filtered_users = pre_filtered_users.filter(date_joined__range=[start_date, end_date])
+
+    # Get selected filters from request
+    selected_filters = request.data.get("selected_filters", None)
+
+    # Get bucket statistics using the extracted function
+    stats = get_bucket_statistics(
+        pre_filtered_users=pre_filtered_users,
+        selected_filters=selected_filters,
+        filter_lists=FILTER_LISTS
     )
+
+    return Response(stats)
 
 
 @extend_schema(
@@ -854,7 +873,6 @@ def kpi_dashboard_statistics(request):
     if not request.user.is_staff:
         pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
         
-    
     total_registered_users = pre_filtered_users.count()
     last_7_days = pre_filtered_users.filter(date_joined__range=[timezone.now() - timedelta(days=7), timezone.now()]).count()
     if last_7_days == 0:
@@ -862,8 +880,44 @@ def kpi_dashboard_statistics(request):
     total_registered_volunteers_last_7_days = pre_filtered_users.filter(date_joined__range=[timezone.now() - timedelta(days=7), timezone.now()], profile__user_type=Profile.TypeChoices.VOLUNTEER).count()
     signups_last_30_days = pre_filtered_users.filter(date_joined__range=[timezone.now() - timedelta(days=30), timezone.now()]).count()
     
-    signup_loss = user_signup_loss_statistic_v2(start_date="2023-01-01", end_date=timezone.now(), caller=request.user)
+    bucket_statistics = get_bucket_statistics(pre_filtered_users, selected_filters=[
+          'all',
+          'journey_v2__never_active',
+          'journey_v2__user_created',
+          'journey_v2__user_deleted',
+          'journey_v2__email_verified',
+          'journey_v2__user_form_completed',
+          'journey_v2__too_low_german_level',
+          'journey_v2__booked_onboarding_call',
+          'journey_v2__no_show',
+    ])
     
+    # Calculate bucket statistics percentages
+    modified_buckets = []
+    all_bucket = next(bucket for bucket in bucket_statistics['buckets'] if bucket['name'] == 'all')
+    top_count = all_bucket['count']
+    summed = 0
+
+    modified_buckets.append({
+        'name': 'all',
+        'count': top_count,
+        'raw_count': top_count - 0,
+        'percentage': 100.0,
+    })
+    
+    total = top_count
+    
+    for bucket in bucket_statistics['buckets']:
+        if bucket['name'] != 'all':
+            total -= bucket['count']
+            percentage = round((total / top_count) * 100, 2)
+            modified_buckets.append({
+                'name': bucket['name'],
+                'count': bucket['count'],
+                'sub_previous': total,
+                'percentage': percentage,
+            })
+            summed += bucket['count']
 
     return Response({
         "total_registered_users": total_registered_users,
@@ -871,7 +925,7 @@ def kpi_dashboard_statistics(request):
         "total_registered_volunteers_last_7_days": total_registered_volunteers_last_7_days,
         "percent_volunteers_last_7_days": total_registered_volunteers_last_7_days / last_7_days * 100.0,
         "signups_last_30_days": signups_last_30_days,
-        "percent_onboarded_users_last_30_days": signup_loss["bucket_percentages"]["journey_v2__user_deleted"],
+        "percent_onboarded_users": modified_buckets[-1]['percentage'],
     })
 
 api_urls = [
