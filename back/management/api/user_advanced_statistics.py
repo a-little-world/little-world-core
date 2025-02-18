@@ -1,6 +1,7 @@
 from chat.models import Message
 from django.utils import timezone
 from datetime import date, timedelta
+from management.models.unconfirmed_matches import ProposedMatch
 from django.db import connection
 from django.db.models import Avg, Count, F, Q, Sum
 from django.db.models.functions import TruncDay, TruncMonth, TruncWeek
@@ -861,7 +862,7 @@ def user_match_waiting_time_statistics(request):
     
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
-def kpi_dashboard_statistics(request):
+def kpi_dashboard_statistics_signups(request):
     # All the specific statistics for the new KPI dashboard
     # - Total Registered Users
     # - Last 7 days
@@ -927,6 +928,51 @@ def kpi_dashboard_statistics(request):
         "signups_last_30_days": signups_last_30_days,
         "percent_onboarded_users": modified_buckets[-1]['percentage'],
     })
+    
+match_journey_bucket_clusters = {
+    "pre-matching": [
+        "match_journey_v2__proposed_matches",
+        "match_journey_v2__expired_proposals",
+        "match_journey_v2__unviewed",
+        "match_journey_v2__one_user_viewed",
+        "match_journey_v2__confirmed_no_contact",
+        "match_journey_v2__confirmed_single_party_contact",
+    ],
+    "ongoing-matching": [
+        "match_journey_v2__first_contact",
+        "match_journey_v2__match_ongoing",
+    ],
+    "finished-matching": [
+        "match_journey_v2__completed_match",
+        "match_journey_v2__match_free_play",
+    ],
+    "failed-matching": [
+        "match_journey_v2__never_confirmed",
+        "match_journey_v2__no_contact",
+        "match_journey_v2__user_ghosted",
+        "match_journey_v2__contact_stopped",
+        "match_journey_v2__reported_or_removed",
+    ]
+}
+match_journey_exclude_sum_buckets = ["all", "match_journey_v2__proposed_matches", "match_journey_v2__expired_proposals"]
+
+@api_view(["GET"])
+@permission_classes([IsAdminOrMatchingUser])
+def kpi_dashboard_statistics_matching(request):
+    # - % angenommenen Match proposals  (letzte 2-4 Wochen)
+    # - % failed vs ongoing+finished Matches (total)
+    # - Matches gestartet von 6 bis 12 Wochen
+    
+    proposals_two_weeks = ProposedMatch.objects.filter(created_at__range=[timezone.now() - timedelta(days=28), timezone.now()-timedelta(days=14)])
+    accepted_proposals_two_weeks = proposals_two_weeks.filter(closed=True, rejected=False)
+    accepted_proposals_two_weeks_percentage = accepted_proposals_two_weeks.count() / proposals_two_weeks.count() * 100.0
+    
+
+    return Response({
+        "proposals_two_weeks": proposals_two_weeks.count(),
+        "accepted_proposals_two_weeks": accepted_proposals_two_weeks.count(),
+        "accepted_proposals_two_weeks_percentage": accepted_proposals_two_weeks_percentage,
+    })
 
 api_urls = [
     path("api/matching/users/statistics/signups/", user_signups),
@@ -937,6 +983,6 @@ api_urls = [
     path("api/matching/users/statistics/user_signup_loss/", user_signup_loss_statistics),
     path("api/matching/users/statistics/match_quality/", match_quality_statistics),
     path("api/matching/users/statistics/user_match_waiting_time/", user_match_waiting_time_statistics),
-    path("api/matching/users/statistics/kpi_singup/", kpi_dashboard_statistics),
+    path("api/matching/users/statistics/kpi_singup/", kpi_dashboard_statistics_signups),
     path("api/matching/users/statistics/company_report/<str:company>/", comany_video_call_and_matching_report),
 ]
