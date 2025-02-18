@@ -1,6 +1,6 @@
-from datetime import date
-
 from chat.models import Message
+from django.utils import timezone
+from datetime import date, timedelta
 from django.db import connection
 from django.db.models import Avg, Count, F, Q, Sum
 from django.db.models.functions import TruncDay, TruncMonth, TruncWeek
@@ -680,20 +680,32 @@ def user_signup_loss_statistic_v2(start_date="2022-01-01", end_date=date.today()
                     intersecting_ids_lists[f"{list_name}---{other_list_name}"] = intersecting_ids
 
     print(intersecting_ids_lists)
+    
+    # Calculate cumulative values and percentages
+    total_users = user_list_ids["all"]["count"]
+    journey_steps = user_lists_required
+    total_buckets = {"all": total_users}
+    bucket_percentages = {"all": 100.0}
+    
+    remaining_users = total_users
+    for step in journey_steps:
+        step_count = user_list_ids[step]["count"]
+        remaining_users -= step_count
+        total_buckets[step] = remaining_users
+        bucket_percentages[step] = (remaining_users / total_users) * 100 if total_users > 0 else 0
 
     return {
         "user_list_ids": user_list_ids,
         "intersecting_ids_lists": intersecting_ids_lists,
         "exclude_intersection_check": exclude_intersection_check,
         "start_date": start_date,
-        "all_summed": sum(
-            [
-                user_list_ids[list_name]["count"]
-                for list_name in user_lists_required
-                if list_name not in exclude_intersection_check
-            ]
-        ),
         "end_date": end_date,
+        "total_buckets": total_buckets,
+        "bucket_percentages": bucket_percentages,
+        "all_summed": sum([user_list_ids[list_name]["count"] 
+            for list_name in user_lists_required 
+            if list_name not in exclude_intersection_check
+        ]),
     }
 
 
@@ -827,7 +839,40 @@ def user_match_waiting_time_statistics(request):
         return Response({"average_waiting_time": average_waiting_time})
     else:
         return Response({"error": "No eligible users found within the specified date range."}, status=404)
+    
+@api_view(["GET"])
+@permission_classes([IsAdminOrMatchingUser])
+def kpi_dashboard_statistics(request):
+    # All the specific statistics for the new KPI dashboard
+    # - Total Registered Users
+    # - Last 7 days
+    # - % Volunteers
+    # - sighnups last 30 days
+    
+    
+    pre_filtered_users = User.objects.all()
+    if not request.user.is_staff:
+        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+        
+    
+    total_registered_users = pre_filtered_users.count()
+    last_7_days = pre_filtered_users.filter(date_joined__range=[timezone.now() - timedelta(days=7), timezone.now()]).count()
+    if last_7_days == 0:
+        last_7_days = 1 # Avoid division by zero
+    total_registered_volunteers_last_7_days = pre_filtered_users.filter(date_joined__range=[timezone.now() - timedelta(days=7), timezone.now()], profile__user_type=Profile.TypeChoices.VOLUNTEER).count()
+    signups_last_30_days = pre_filtered_users.filter(date_joined__range=[timezone.now() - timedelta(days=30), timezone.now()]).count()
+    
+    signup_loss = user_signup_loss_statistic_v2(start_date="2023-01-01", end_date=timezone.now(), caller=request.user)
+    
 
+    return Response({
+        "total_registered_users": total_registered_users,
+        "last_7_days": last_7_days,
+        "total_registered_volunteers_last_7_days": total_registered_volunteers_last_7_days,
+        "percent_volunteers_last_7_days": total_registered_volunteers_last_7_days / last_7_days * 100.0,
+        "signups_last_30_days": signups_last_30_days,
+        "percent_onboarded_users_last_30_days": signup_loss["bucket_percentages"]["journey_v2__user_deleted"],
+    })
 
 api_urls = [
     path("api/matching/users/statistics/signups/", user_signups),
@@ -838,5 +883,6 @@ api_urls = [
     path("api/matching/users/statistics/user_signup_loss/", user_signup_loss_statistics),
     path("api/matching/users/statistics/match_quality/", match_quality_statistics),
     path("api/matching/users/statistics/user_match_waiting_time/", user_match_waiting_time_statistics),
+    path("api/matching/users/statistics/kpi_singup/", kpi_dashboard_statistics),
     path("api/matching/users/statistics/company_report/<str:company>/", comany_video_call_and_matching_report),
 ]
