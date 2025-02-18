@@ -44,6 +44,7 @@ from management.api.user_journey_filters import (
     subscribed_to_newsletter,
     too_low_german_level,
     user_created,
+    never_active_or_deleted,
     user_deleted,
     user_form_completed,
     user_searching,
@@ -108,6 +109,7 @@ CORE_LISTS = [
 
 USER_JOURNEY_FILTER_LISTS = [
     FilterListEntry("journey_v2__user_created", None, user_created),
+    FilterListEntry("journey_v2__never_active_or_deleted", None, never_active_or_deleted),
     FilterListEntry("journey_v2__email_verified", None, email_verified),
     FilterListEntry("journey_v2__user_form_completed", None, user_form_completed),
     FilterListEntry("journey_v2__booked_onboarding_call", None, booked_onboarding_call),

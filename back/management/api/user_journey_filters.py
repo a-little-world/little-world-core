@@ -81,6 +81,11 @@ def user_form_completed(qs=User.objects.all()):
             {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
         ],
     )
+    
+def never_active_or_deleted(qs=User.objects.all()):
+    ud = user_deleted(qs)
+    na = never_active(qs)
+    return qs.filter(id__in=ud) | qs.filter(id__in=na)
 
 
 def booked_onboarding_call(qs=User.objects.all()):
