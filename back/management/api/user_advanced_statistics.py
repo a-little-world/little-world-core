@@ -1025,10 +1025,10 @@ def kpi_dashboard_statistics_matching(request):
     return Response({
         "proposals_two_weeks": proposals_two_weeks.count(),
         "accepted_proposals_two_weeks": accepted_proposals_two_weeks.count(),
-        "accepted_proposals_two_weeks_percentage": accepted_proposals_two_weeks_percentage,
+        "accepted_proposals_two_weeks_percentage": round(accepted_proposals_two_weeks_percentage, 2),
         "cluster_sums": cluster_sums,
-        "failed_vs_ongoing_finished_matches_percentage": failed_vs_ongoing_finished_matches_percentage,
-        "matches_6_12_weeks_ago": matches_6_12_weeks_ago.count(),
+        "failed_vs_ongoing_finished_matches_percentage": round(failed_vs_ongoing_finished_matches_percentage, 2),
+        "matches_started_6_12_weeks_ago": matches_6_12_weeks_ago.count(),
     })
 
 api_urls = [
