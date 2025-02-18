@@ -1,6 +1,7 @@
-from datetime import date
-
 from chat.models import Message
+from django.utils import timezone
+from datetime import date, timedelta
+from management.models.unconfirmed_matches import ProposedMatch
 from django.db import connection
 from django.db.models import Avg, Count, F, Q, Sum
 from django.db.models.functions import TruncDay, TruncMonth, TruncWeek
@@ -257,69 +258,48 @@ def livekit_session_statistics(request):
     return Response(data)
 
 
-@extend_schema(
-    request=inline_serializer(
-        name="BucketStatisticsCountOverTimeRequest",
-        fields={
-            "selected_filters": serializers.ListField(
-                child=serializers.ChoiceField(
-                    choices=[entry.name for entry in USER_JOURNEY_FILTER_LISTS],
-                ),
-                required=True,
-            ),
-            "start_date": serializers.DateField(default="2021-01-01", required=False),
-            "end_date": serializers.DateField(default=date.today(), required=False),
-        },
-    ),
-)
-@api_view(["POST"])
-@permission_classes([IsAdminOrMatchingUser])
-def bucket_statistics(request):
-    today = date.today()
-
-    start_date = request.data.get("start_date", "2022-01-01")
-    end_date = request.data.get("end_date", today)
-
-    pre_filtered_users = User.objects.all()
-    if not request.user.is_staff:
-        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
-
-    pre_filtered_users = pre_filtered_users.filter(date_joined__range=[start_date, end_date])
-
-    selected_filters = request.data.get("selected_filters", None)
-
+def get_bucket_statistics(pre_filtered_users, selected_filters=None, filter_lists=FILTER_LISTS):
+    """
+    Calculate bucket statistics for a given set of users and filters.
+    
+    Args:
+        pre_filtered_users: QuerySet of pre-filtered User objects
+        selected_filters: List of filter names to apply (default: None, uses all filters)
+        filter_lists: List of filter definitions to use (default: FILTER_LISTS)
+    
+    Returns:
+        dict: Contains buckets, missing_ids, and intersecting_ids_lists
+    """
     if selected_filters is None:
-        selected_filters = [entry.name for entry in FILTER_LISTS]
+        selected_filters = [entry.name for entry in filter_lists]
 
     user_buckets = []
-
     selected_filters_list = []
-    pre_filtered_uj_lists = {entry.name: entry for entry in FILTER_LISTS if entry.name in selected_filters}
+    pre_filtered_uj_lists = {entry.name: entry for entry in filter_lists if entry.name in selected_filters}
+    
     for filter_name in selected_filters:
         filter_list_entry = pre_filtered_uj_lists[filter_name]
         selected_filters_list.append(filter_list_entry)
 
     query_logger = QueryLogger()
-    exec_log_order = ""
     last_query_log_index = 0
     user_list_ids = {}
     all_ids_set = set()
+    
     with connection.execute_wrapper(query_logger):
         for i, filter_list in enumerate(selected_filters_list):
-            exec_log_order += f"{i} - {filter_list.name}\n"
             queryset = filter_list.queryset(qs=pre_filtered_users)
             count = queryset.count()
             duration = sum([query["duration"] for query in query_logger.queries[last_query_log_index:]])
             last_query_log_index = len(query_logger.queries) - 1
-            user_buckets.append(
-                {
-                    "name": filter_list.name,
-                    "description": filter_list.description,
-                    "count": count,
-                    "id": i,
-                    "query_duration": duration,
-                }
-            )
+            
+            user_buckets.append({
+                "name": filter_list.name,
+                "description": filter_list.description,
+                "count": count,
+                "id": i,
+                "query_duration": duration,
+            })
 
             user_list_ids[filter_list.name] = {
                 "ids": queryset.values_list("id", flat=True),
@@ -328,12 +308,14 @@ def bucket_statistics(request):
             if filter_list.name != "all":
                 all_ids_set.update(user_list_ids[filter_list.name]["ids"])
 
+    # Calculate intersecting IDs
     exclude_intersection_check = [
         "all",
         "needs_matching",
         "match_journey_v2__proposed_matches",
         "match_journey_v2__expired_proposals",
     ]
+    
     intersecting_ids_lists = {}
     intersection_check_lists = [
         list_name for list_name in selected_filters if list_name not in exclude_intersection_check
@@ -353,22 +335,19 @@ def bucket_statistics(request):
     all_ids = set(user_list_ids["all"]["ids"])
     missing_ids = all_ids.difference(all_ids_set)
 
-    return Response(
-        {
-            "buckets": user_buckets,
-            "missing_ids": list(missing_ids),
-            "intersecting_ids_lists": intersecting_ids_lists,
-        }
-    )
-
+    return {
+        "buckets": user_buckets,
+        "missing_ids": list(missing_ids),
+        "intersecting_ids_lists": intersecting_ids_lists,
+    }
 
 @extend_schema(
     request=inline_serializer(
-        name="MatchBucketStatisticsCountOverTimeRequest",
+        name="BucketStatisticsCountOverTimeRequest",
         fields={
             "selected_filters": serializers.ListField(
                 child=serializers.ChoiceField(
-                    choices=[entry.name for entry in MATCH_JOURNEY_FILTERS],
+                    choices=[entry.name for entry in USER_JOURNEY_FILTER_LISTS],
                 ),
                 required=True,
             ),
@@ -379,50 +358,70 @@ def bucket_statistics(request):
 )
 @api_view(["POST"])
 @permission_classes([IsAdminOrMatchingUser])
-def match_bucket_statistics(request):
+def bucket_statistics(request):
     today = date.today()
-
     start_date = request.data.get("start_date", "2022-01-01")
     end_date = request.data.get("end_date", today)
 
+    # Get pre-filtered users based on permissions and date range
     pre_filtered_users = User.objects.all()
     if not request.user.is_staff:
         pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+    pre_filtered_users = pre_filtered_users.filter(date_joined__range=[start_date, end_date])
 
-    pre_filtered_matches = Match.objects.filter(
-        Q(user1__in=pre_filtered_users) | Q(user2__in=pre_filtered_users), created_at__range=[start_date, end_date]
-    )
-
+    # Get selected filters from request
     selected_filters = request.data.get("selected_filters", None)
 
+    # Get bucket statistics using the extracted function
+    stats = get_bucket_statistics(
+        pre_filtered_users=pre_filtered_users,
+        selected_filters=selected_filters,
+        filter_lists=FILTER_LISTS
+    )
+
+    return Response(stats)
+
+
+def get_match_bucket_statistics(pre_filtered_matches, selected_filters=None, filter_lists=MATCH_JOURNEY_FILTERS):
+    """
+    Calculate match bucket statistics for a given set of matches and filters.
+    
+    Args:
+        pre_filtered_matches: QuerySet of pre-filtered Match objects
+        selected_filters: List of filter names to apply (default: None, uses all filters)
+        filter_lists: List of filter definitions to use (default: MATCH_JOURNEY_FILTERS)
+    
+    Returns:
+        dict: Contains buckets, missing_ids, and intersecting_ids_lists
+    """
     if selected_filters is None:
-        selected_filters = [entry.name for entry in MATCH_JOURNEY_FILTERS]
+        selected_filters = [entry.name for entry in filter_lists]
 
     if "match_journey_v2__all" not in selected_filters:
         selected_filters.append("match_journey_v2__all")
 
-    # Uncomment this and re-set the if flag if you want to log query speeds
-    from django.db import connection
-
     query_logger = QueryLogger()
-
+    last_query_log_index = 0
     all_ids_set = set()
     user_list_ids = {}
+
     with connection.execute_wrapper(query_logger):
         match_buckets = []
-        selected_filters_list = [entry for entry in MATCH_JOURNEY_FILTERS if entry.name in selected_filters]
+        selected_filters_list = [entry for entry in filter_lists if entry.name in selected_filters]
+        
         for i, filter_list in enumerate(selected_filters_list):
             queryset = filter_list.queryset(qs=pre_filtered_matches)
             count = queryset.count()
-            match_buckets.append(
-                {
-                    "name": filter_list.name,
-                    "description": filter_list.description,
-                    "count": count,
-                    "id": i,
-                    "query_duration": query_logger.queries[-1]["duration"],
-                }
-            )
+            duration = sum([query["duration"] for query in query_logger.queries[last_query_log_index:]])
+            last_query_log_index = len(query_logger.queries) - 1
+            
+            match_buckets.append({
+                "name": filter_list.name,
+                "description": filter_list.description,
+                "count": count,
+                "id": i,
+                "query_duration": duration,
+            })
 
             user_list_ids[filter_list.name] = {
                 "ids": queryset.values_list("id", flat=True),
@@ -431,6 +430,7 @@ def match_bucket_statistics(request):
             if filter_list.name != "match_journey_v2__all":
                 all_ids_set.update(user_list_ids[filter_list.name]["ids"])
 
+    # Calculate intersecting IDs
     exclude_intersection_check = [
         "all",
         "needs_matching",
@@ -458,13 +458,56 @@ def match_bucket_statistics(request):
     all_ids = set(user_list_ids["match_journey_v2__all"]["ids"])
     missing_ids = all_ids.difference(all_ids_set)
 
-    return Response(
-        {
-            "buckets": match_buckets,
-            "intersecting_ids_lists": intersecting_ids_lists,
-            "missing_ids": list(missing_ids),
-        }
+    return {
+        "buckets": match_buckets,
+        "intersecting_ids_lists": intersecting_ids_lists,
+        "missing_ids": list(missing_ids),
+    }
+
+@extend_schema(
+    request=inline_serializer(
+        name="MatchBucketStatisticsCountOverTimeRequest",
+        fields={
+            "selected_filters": serializers.ListField(
+                child=serializers.ChoiceField(
+                    choices=[entry.name for entry in MATCH_JOURNEY_FILTERS],
+                ),
+                required=True,
+            ),
+            "start_date": serializers.DateField(default="2021-01-01", required=False),
+            "end_date": serializers.DateField(default=date.today(), required=False),
+        },
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
+def match_bucket_statistics(request):
+    today = date.today()
+    start_date = request.data.get("start_date", "2022-01-01")
+    end_date = request.data.get("end_date", today)
+
+    # Get pre-filtered users based on permissions
+    pre_filtered_users = User.objects.all()
+    if not request.user.is_staff:
+        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+
+    # Get pre-filtered matches based on users and date range
+    pre_filtered_matches = Match.objects.filter(
+        Q(user1__in=pre_filtered_users) | Q(user2__in=pre_filtered_users),
+        created_at__range=[start_date, end_date]
     )
+
+    # Get selected filters from request
+    selected_filters = request.data.get("selected_filters", None)
+
+    # Get match bucket statistics using the extracted function
+    stats = get_match_bucket_statistics(
+        pre_filtered_matches=pre_filtered_matches,
+        selected_filters=selected_filters,
+        filter_lists=MATCH_JOURNEY_FILTERS
+    )
+
+    return Response(stats)
 
 
 @api_view(["POST"])
@@ -680,20 +723,32 @@ def user_signup_loss_statistic_v2(start_date="2022-01-01", end_date=date.today()
                     intersecting_ids_lists[f"{list_name}---{other_list_name}"] = intersecting_ids
 
     print(intersecting_ids_lists)
+    
+    # Calculate cumulative values and percentages
+    total_users = user_list_ids["all"]["count"]
+    journey_steps = user_lists_required
+    total_buckets = {"all": total_users}
+    bucket_percentages = {"all": 100.0}
+    
+    remaining_users = total_users
+    for step in journey_steps:
+        step_count = user_list_ids[step]["count"]
+        remaining_users -= step_count
+        total_buckets[step] = remaining_users
+        bucket_percentages[step] = (remaining_users / total_users) * 100 if total_users > 0 else 0
 
     return {
         "user_list_ids": user_list_ids,
         "intersecting_ids_lists": intersecting_ids_lists,
         "exclude_intersection_check": exclude_intersection_check,
         "start_date": start_date,
-        "all_summed": sum(
-            [
-                user_list_ids[list_name]["count"]
-                for list_name in user_lists_required
-                if list_name not in exclude_intersection_check
-            ]
-        ),
         "end_date": end_date,
+        "total_buckets": total_buckets,
+        "bucket_percentages": bucket_percentages,
+        "all_summed": sum([user_list_ids[list_name]["count"] 
+            for list_name in user_lists_required 
+            if list_name not in exclude_intersection_check
+        ]),
     }
 
 
@@ -827,7 +882,154 @@ def user_match_waiting_time_statistics(request):
         return Response({"average_waiting_time": average_waiting_time})
     else:
         return Response({"error": "No eligible users found within the specified date range."}, status=404)
+    
+@api_view(["GET"])
+@permission_classes([IsAdminOrMatchingUser])
+def kpi_dashboard_statistics_signups(request):
+    # All the specific statistics for the new KPI dashboard
+    # - Total Registered Users
+    # - Last 7 days
+    # - % Volunteers
+    # - sighnups last 30 days
+    
+    
+    pre_filtered_users = User.objects.all()
+    if not request.user.is_staff:
+        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+        
+    total_registered_users = pre_filtered_users.count()
+    last_7_days = pre_filtered_users.filter(date_joined__range=[timezone.now() - timedelta(days=7), timezone.now()]).count()
+    if last_7_days == 0:
+        last_7_days = 1 # Avoid division by zero
+    total_registered_volunteers_last_7_days = pre_filtered_users.filter(date_joined__range=[timezone.now() - timedelta(days=7), timezone.now()], profile__user_type=Profile.TypeChoices.VOLUNTEER).count()
+    signups_last_30_days = pre_filtered_users.filter(date_joined__range=[timezone.now() - timedelta(days=30), timezone.now()]).count()
+    
+    bucket_statistics = get_bucket_statistics(pre_filtered_users, selected_filters=[
+          'all',
+          'journey_v2__never_active',
+          'journey_v2__user_created',
+          'journey_v2__user_deleted',
+          'journey_v2__email_verified',
+          'journey_v2__user_form_completed',
+          # 'journey_v2__too_low_german_level',
+          'journey_v2__booked_onboarding_call',
+          'journey_v2__no_show',
+    ])
+    
+    # Calculate bucket statistics percentages
+    modified_buckets = []
+    all_bucket = next(bucket for bucket in bucket_statistics['buckets'] if bucket['name'] == 'all')
+    top_count = all_bucket['count']
+    summed = 0
 
+    modified_buckets.append({
+        'name': 'all',
+        'count': top_count,
+        'raw_count': top_count - 0,
+        'percentage': 100.0,
+    })
+    
+    total = top_count
+    
+    for bucket in bucket_statistics['buckets']:
+        if bucket['name'] != 'all':
+            total -= bucket['count']
+            percentage = round((total / top_count) * 100, 2)
+            modified_buckets.append({
+                'name': bucket['name'],
+                'count': bucket['count'],
+                'sub_previous': total,
+                'percentage': percentage,
+            })
+            summed += bucket['count']
+
+    return Response({
+        "total_registered_users": total_registered_users,
+        "last_7_days": last_7_days,
+        "total_registered_volunteers_last_7_days": total_registered_volunteers_last_7_days,
+        "percent_volunteers_last_7_days": total_registered_volunteers_last_7_days / last_7_days * 100.0,
+        "signups_last_30_days": signups_last_30_days,
+        "percent_onboarded_users": modified_buckets[-1]['percentage'],
+    })
+    
+match_journey_bucket_clusters = {
+    "pre-matching": [
+        #"match_journey_v2__proposed_matches",
+        #"match_journey_v2__expired_proposals",
+        "match_journey_v2__unviewed",
+        "match_journey_v2__one_user_viewed",
+        "match_journey_v2__confirmed_no_contact",
+        "match_journey_v2__confirmed_single_party_contact",
+    ],
+    "ongoing-matching": [
+        "match_journey_v2__first_contact",
+        "match_journey_v2__match_ongoing",
+    ],
+    "finished-matching": [
+        "match_journey_v2__completed_match",
+        "match_journey_v2__match_free_play",
+    ],
+    "failed-matching": [
+        "match_journey_v2__never_confirmed",
+        "match_journey_v2__no_contact",
+        "match_journey_v2__user_ghosted",
+        "match_journey_v2__contact_stopped",
+        "match_journey_v2__reported_or_removed",
+    ]
+}
+match_journey_exclude_sum_buckets = ["all", "match_journey_v2__proposed_matches", "match_journey_v2__expired_proposals"]
+
+@api_view(["GET"])
+@permission_classes([IsAdminOrMatchingUser])
+def kpi_dashboard_statistics_matching(request):
+    # - % angenommenen Match proposals  (letzte 2-4 Wochen)
+    # - % failed vs ongoing+finished Matches (total)
+    # - Matches gestartet von 6 bis 12 Wochen
+    
+    proposals_two_weeks = ProposedMatch.objects.filter(potential_matching_created_at__range=[timezone.now() - timedelta(days=28), timezone.now()-timedelta(days=14)])
+    accepted_proposals_two_weeks = proposals_two_weeks.filter(closed=True, rejected=False)
+    accepted_proposals_two_weeks_percentage = accepted_proposals_two_weeks.count() / proposals_two_weeks.count() * 100.0
+    
+    pre_filtered_users = User.objects.all()
+    if not request.user.is_staff:
+        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+
+    # Get pre-filtered matches based on users and date range
+    pre_filtered_matches = Match.objects.filter(
+        Q(user1__in=pre_filtered_users) | Q(user2__in=pre_filtered_users),
+    )
+    
+    # Calculating ongoing vs failed/finished is a little tricky
+    # first we sum over all match_journey_bucket clusters
+    all_buckets = []
+    for bucket_cluster in match_journey_bucket_clusters.keys():
+        all_buckets.extend(match_journey_bucket_clusters[bucket_cluster])
+        
+    match_bucket_counts = get_match_bucket_statistics(pre_filtered_matches, selected_filters=all_buckets)
+    match_bucket_count_map = {bucket["name"]: bucket for bucket in match_bucket_counts["buckets"]}
+    
+    cluster_sums = {}
+    for bucket_cluster in match_journey_bucket_clusters.keys():
+        cluster_sums[bucket_cluster] = 0
+        for bucket in match_journey_bucket_clusters[bucket_cluster]:
+            if not bucket in match_journey_exclude_sum_buckets:
+                cluster_sums[bucket_cluster] += match_bucket_count_map[bucket]['count']
+                
+    finished_and_ongoing_matches = cluster_sums["ongoing-matching"] + cluster_sums["finished-matching"]
+    amount_total_matches = cluster_sums["ongoing-matching"] + cluster_sums["finished-matching"] + cluster_sums["failed-matching"]
+    failed_vs_ongoing_finished_matches_percentage = cluster_sums["failed-matching"] / amount_total_matches * 100.0
+    
+    # Now total_matches started 6-12 weeks ago
+    matches_6_12_weeks_ago = Match.objects.filter(created_at__range=[timezone.now() - timedelta(days=126), timezone.now() - timedelta(days=63)], support_matching=False)
+                
+    return Response({
+        "proposals_two_weeks": proposals_two_weeks.count(),
+        "accepted_proposals_two_weeks": accepted_proposals_two_weeks.count(),
+        "accepted_proposals_two_weeks_percentage": round(accepted_proposals_two_weeks_percentage, 2),
+        "cluster_sums": cluster_sums,
+        "failed_vs_ongoing_finished_matches_percentage": round(failed_vs_ongoing_finished_matches_percentage, 2),
+        "matches_started_6_12_weeks_ago": matches_6_12_weeks_ago.count(),
+    })
 
 api_urls = [
     path("api/matching/users/statistics/signups/", user_signups),
@@ -838,5 +1040,7 @@ api_urls = [
     path("api/matching/users/statistics/user_signup_loss/", user_signup_loss_statistics),
     path("api/matching/users/statistics/match_quality/", match_quality_statistics),
     path("api/matching/users/statistics/user_match_waiting_time/", user_match_waiting_time_statistics),
+    path("api/matching/users/statistics/kpi_singup/", kpi_dashboard_statistics_signups),
+    path("api/matching/users/statistics/kpi_matching/", kpi_dashboard_statistics_matching),
     path("api/matching/users/statistics/company_report/<str:company>/", comany_video_call_and_matching_report),
 ]

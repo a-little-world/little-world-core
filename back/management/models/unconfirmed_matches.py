@@ -15,7 +15,10 @@ def seven_days_from_now():
 
 
 def three_days_from_now():
-    return timezone.now() + timedelta(days=7)
+    return timezone.now() + timedelta(days=3)
+
+def one_day_from_now():
+    return timezone.now() + timedelta(days=1)
 
 
 class ProposedMatch(models.Model):
@@ -49,12 +52,12 @@ class ProposedMatch(models.Model):
     send_inital_mail = models.BooleanField(default=False)
 
     reminder_send = models.BooleanField(default=False)
-    reminder_due_at = models.DateTimeField(default=three_days_from_now)
+    reminder_due_at = models.DateTimeField(default=one_day_from_now)
 
     potential_matching_created_at = models.DateTimeField(auto_now_add=True)
 
     expired = models.BooleanField(default=False)
-    expires_at = models.DateTimeField(default=seven_days_from_now)
+    expires_at = models.DateTimeField(default=three_days_from_now)
 
     expired_mail_send = models.BooleanField(default=False)
 

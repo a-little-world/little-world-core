@@ -39,11 +39,9 @@ def days_ago(days):
 # Sign-Up Filters
 
 
-def user_created(
-    qs=User.objects.all(),
-):
+def user_created(qs=User.objects.all()):
     """
-    1.1: User was created, but still has to verify mail, fill form and have a prematching call
+    (Sign-Up) User was created, but still has to verify mail, fill form and have a prematching call
     """
     return qs.filter(
         is_active=True,
@@ -56,7 +54,7 @@ def user_created(
 
 def email_verified(qs=User.objects.all()):
     """
-    1.2: User has verified email, but still has to fill form and have a prematching call
+    (Sign-Up) User has verified email, but still has to fill form and have a prematching call
     """
     return qs.filter(
         is_active=True,
@@ -69,7 +67,7 @@ def email_verified(qs=User.objects.all()):
 
 def user_form_completed(qs=User.objects.all()):
     """
-    1.3: User has filled form, but still has to have a prematching call
+    (Sign-Up) User has filled form, but still has to have a prematching call
     """
     return qs.filter(
         is_active=True,
@@ -83,11 +81,16 @@ def user_form_completed(qs=User.objects.all()):
             {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
         ],
     )
+    
+def never_active_or_deleted(qs=User.objects.all()):
+    ud = user_deleted(qs)
+    na = never_active(qs)
+    return qs.filter(id__in=ud) | qs.filter(id__in=na)
 
 
 def booked_onboarding_call(qs=User.objects.all()):
     """
-    1.4: User has filled form and booked onboarding call
+    (Sign-Up) User has filled form and booked onboarding call
     """
     no_shows = no_show(qs)
     return (
@@ -113,7 +116,7 @@ def booked_onboarding_call(qs=User.objects.all()):
 
 def first_search_v1(qs=User.objects.all()):
     """
-    2.1: User is doing first search i.e.: has no 'non-support' match
+    (Sign-Up) User is doing first search i.e.: has no 'non-support' match
     """
 
     now = timezone.now()
@@ -147,7 +150,7 @@ def first_search_v1(qs=User.objects.all()):
 
 def first_search_v2(qs=User.objects.all()):
     """
-    2.1: User is doing first search i.e.: has no 'non-support' match
+    (Sign-Up) User is doing first search i.e.: has no 'non-support' match
     """
 
     now = timezone.now()
@@ -177,18 +180,24 @@ def first_search_v2(qs=User.objects.all()):
 
 
 def first_search_volunteers(qs=User.objects.all()):
+    """
+    (Sign-Up) VOLUNTEERS User is doing first search i.e.: has no 'non-support' match
+    """
     fs = first_search_v1(qs)
     return fs.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER, is_active=True)
 
 
 def first_search_learners(qs=User.objects.all()):
+    """
+    (Sign-Up) LEARNERS User is doing first search i.e.: has no 'non-support' match
+    """
     fs = first_search_v1(qs)
     return fs.filter(profile__user_type=Profile.TypeChoices.LEARNER, is_active=True)
 
 
 def user_searching(qs=User.objects.all()):
     """
-    2.2: User is searching and has at least one match
+    (Active-User) User is searching and has at least one match
     """
     return (
         qs.filter(
@@ -207,7 +216,10 @@ def user_searching(qs=User.objects.all()):
     )
 
 
-def pre_matching(qs=User.objects.all()):  # TODO: rename to 'proposed_matching'
+def pre_matching(qs=User.objects.all()):
+    """
+    (Active-User) User has an open proposed match
+    """
     user_with_freeplay_matches = get_user_involved(match_free_play(), qs)
     user_with_completed_matches = get_user_involved(completed_match(), qs)
 
@@ -228,7 +240,7 @@ def pre_matching(qs=User.objects.all()):  # TODO: rename to 'proposed_matching'
 
 def match_takeoff(qs=User.objects.all()):
     """
-    2.4: User has `Pre-Matching` or `Kickoff-Matching` Match.
+    (Active-User) User has a confirmed match
     """
 
     user_with_freeplay_matches = get_user_involved(match_free_play(), qs)
@@ -272,6 +284,9 @@ def match_takeoff(qs=User.objects.all()):
 
 
 def ongoing_non_completed_match(qs=User.objects.all()):
+    """
+    Ongoing Match that has not completed yet
+    """
     qs = qs.filter(
         is_active=True,
         state__user_form_state=State.UserFormStateChoices.FILLED,
@@ -299,9 +314,8 @@ def ongoing_non_completed_match(qs=User.objects.all()):
 
 
 def active_match(qs=User.objects.all()):
-    # TODO: renmae to
     """
-    2.5: User has and confirst and ongoing match, that is still having video calls or sending messages
+    (Active-User) User has and confirmed and ongoing match, that is still having video calls or sending messages
     """
     from management.api.match_journey_filters import match_ongoing
 
@@ -321,7 +335,7 @@ def active_match(qs=User.objects.all()):
 
 def never_active(qs=User.objects.all(), days_since_creation=30):
     """
-    0) 'Never-Active': Didn't ever become active
+    (Inactive-User) Didn't ever become active
     """
     return qs.filter(
         date_joined__lt=days_ago(days_since_creation),
@@ -339,8 +353,7 @@ def never_active(qs=User.objects.all(), days_since_creation=30):
 
 def no_show(qs=User.objects.all()):
     """
-    0.2)
-    'No Show': Didn't show up to onboarding call, so hads a prematchingappointment, that is in the past.
+    (Inactive-User) Didn't show up to onboarding call
     """
     return (
         qs.filter(
@@ -361,6 +374,9 @@ def no_show(qs=User.objects.all()):
 
 
 def ghoster(qs=User.objects.all()):
+    """
+    (Inactive-User) User has matching in [3.G] 'ghosted' his match
+    """
     # TODO: depricated!!!!
     # ghosted_matches = user_ghosted().annotate(
     #    ghosted_user=Case(
@@ -381,6 +397,9 @@ def get_user_involved(match_qs, user_qs):
 
 
 def failed_matching(qs=User.objects.all()):
+    """
+    (Inactive-User) User has a 'never_confirmed' or 'no_contact' or 'single_party_contact' or 'ghosted' or 'contact_stopped' or 'reported_or_unmatched' match
+    """
     qs = qs.filter(
         is_active=True,
         state__user_form_state=State.UserFormStateChoices.FILLED,
@@ -421,6 +440,9 @@ def failed_matching(qs=User.objects.all()):
 
 
 def no_confirm(qs=User.objects.all()):
+    """
+    (Inactive-User) Learner that has matching in 'Never Confirmed'
+    """
     qs = qs.filter(
         is_active=True,
         state__user_form_state=State.UserFormStateChoices.FILLED,
@@ -447,6 +469,9 @@ def no_confirm(qs=User.objects.all()):
 
 
 def happy_inactive(qs=User.objects.all()):
+    """
+    (Inactive-User) Not searching, 1 or more matches at least one match in 'Completed Matching'
+    """
     # Users that are not searching and have a 'completed_match' and NO 'free-play-match'
     users_with_freeplay_matches = get_user_involved(match_free_play(), qs)
     users_with_completed_matches = get_user_involved(completed_match(), qs)
@@ -455,6 +480,9 @@ def happy_inactive(qs=User.objects.all()):
 
 
 def happy_active(qs=User.objects.all()):
+    """
+    (Inactive-User) Not searching, 1 or more matches at least one match in 'Completed Matching'
+    """
     # Users that are not searching and have a 'completed_match' and NO 'free-play-match'
     users_with_freeplay_matches = get_user_involved(match_free_play(), qs)
 
@@ -463,8 +491,7 @@ def happy_active(qs=User.objects.all()):
 
 def too_low_german_level(qs=User.objects.all()):
     """
-    4) 'Too Low german level': User never active, but was flagged with a 'state.to_low_german_level=True'
-    need to check if the profile.lang_skill json list field contains {'lang': 'german', 'level': 'A1'}
+    (Inactive-User) User never active, but was flagged with a 'state.to_low_german_level=True'
     """
     return qs.filter(
         is_active=True,
@@ -480,9 +507,7 @@ def too_low_german_level(qs=User.objects.all()):
 # used to be 'unmatched'
 def over_30_days_after_prematching_still_searching(qs=User.objects.all()):
     """
-    TODO: shoule be depricated? overlap with 'first-search'
-    TODO: broken it should be 30 days after their onboarding call completed!
-    5) 'Unmatched': 'first-search' for over XX days, we failed to match the user at all
+    (Inactive-User) 'first-search' for over XX days, we failed to match the user at all
     """
     # Assuming XX days is 30 days
     # Also filter out users that have open proposals
@@ -510,7 +535,7 @@ def over_30_days_after_prematching_still_searching(qs=User.objects.all()):
 
 def gave_up_searching(qs=User.objects.all()):
     """
-    6) 'Gave-Up-Searching': User that's `searching=False` and has 0 matches
+    (Inactive-User) User that's `searching=False` and has 0 matches
     """
     user_with_reported_or_unmatched_matchings = get_user_involved(reported_or_removed_match(), qs)
     user_with_never_confirmed_matches = get_user_involved(never_confirmed(), qs)
@@ -543,6 +568,9 @@ def gave_up_searching(qs=User.objects.all()):
 
 
 def marked_unresponsive(qs=User.objects.all()):
+    """
+    All users in 'searching' without any user that has an open proposal!
+    """
     return qs.filter(
         is_active=True,
         state__unresponsive=True,
@@ -551,7 +579,7 @@ def marked_unresponsive(qs=User.objects.all()):
 
 def user_deleted(qs=User.objects.all()):
     """
-    7) 'User-Deleted': User that has been deleted
+    (Past-User) User has been deleted
     """
     # we exclude all users that had a good match but deleted their account later ( they should be discounted! )
     _happy_inactive = happy_inactive(qs)
@@ -559,10 +587,16 @@ def user_deleted(qs=User.objects.all()):
 
 
 def subscribed_to_newsletter(qs=User.objects.all()):
+    """
+    Subscribed to newsletter filter
+    """
     return qs.filter(profile__newsletter_subscribed=True).order_by("-date_joined")
 
 
 def community_calls(qs=User.objects.all(), last_x_days=28 * 3):
+    """
+    Community Calls filter
+    """
     selected_fields = ["id"]  # Adjust these fields as needed for your User model
 
     users_in_signup = (
