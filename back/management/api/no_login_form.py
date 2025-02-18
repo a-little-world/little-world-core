@@ -4,11 +4,12 @@ Every form has a unique hash that is always cuppled to a unique user
 That way we can allow to render and updated the form without the user having to log-in
 """
 
-from drf_spectacular.utils import extend_schema
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
-from typing import Literal
-from rest_framework_dataclasses.serializers import DataclassSerializer
 from dataclasses import dataclass
+from typing import Literal
+
+from drf_spectacular.utils import extend_schema
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework_dataclasses.serializers import DataclassSerializer
 
 
 @dataclass
@@ -43,7 +44,7 @@ def no_login_form(request):
     """
     This api required no authentication but can still link submitted for data to a user
     """
-    from management.models.no_login_form import NoLoginForm, FORMS
+    from management.models.no_login_form import FORMS, NoLoginForm
 
     serializer = NoLoginFormDataSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)

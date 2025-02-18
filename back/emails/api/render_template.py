@@ -1,12 +1,13 @@
-from management.models.matches import Match
-from django.contrib.auth import get_user_model
-from emails.api.emails_config import EMAILS_CONFIG
-from django.template.loader import get_template, render_to_string
-from django.template.base import VariableNode, NodeList
-from management.models.unconfirmed_matches import ProposedMatch
-from django.template import Template, Context
-from emails.models import DynamicTemplate
 import importlib
+
+from django.contrib.auth import get_user_model
+from django.template import Context, Template
+from django.template.base import NodeList, VariableNode
+from django.template.loader import get_template, render_to_string
+from emails.api.emails_config import EMAILS_CONFIG
+from emails.models import DynamicTemplate
+from management.models.matches import Match
+from management.models.unconfirmed_matches import ProposedMatch
 
 
 def extract_from_nodes(nodelist):
@@ -20,15 +21,18 @@ def extract_from_nodes(nodelist):
             variables.update(extract_from_nodes(node))
     return variables
 
+
 def extract_variables_from_template(template_name):
     template = get_template(template_name)
     variables = extract_from_nodes(template.template.nodelist)
     return variables
 
+
 def extract_variables_from_subject(subject):
     template = Template(subject)
     variables = extract_from_nodes(template.nodelist)
     return variables
+
 
 def get_full_dynamic_template_info(template_name):
     # oly for dynamic template
@@ -79,7 +83,12 @@ def get_full_template_info(template_config):
         else:
             dep_data.append({"id": dep, "query_id_field": EMAILS_CONFIG.dependencies[dep].query_id_field})
 
-    return {"config": template_config.to_dict(), "params": list(variables), "dependencies": dep_data, "view": "/matching/emails/templates/" + template_config.id + "/"}
+    return {
+        "config": template_config.to_dict(),
+        "params": list(variables),
+        "dependencies": dep_data,
+        "view": "/matching/emails/templates/" + template_config.id + "/",
+    }
 
 
 def render_template_to_html(template_path, context):
@@ -93,6 +102,7 @@ class UnknownParameterException(Exception):
 class MissingContextDependencyException(Exception):
     pass
 
+
 def prepare_dynamic_template_context(template_name, user_id=None, match_id=None, proposed_match_id=None, **kwargs):
     params = EMAILS_CONFIG.parameters
     dynamic_template_info = get_full_dynamic_template_info(template_name)
@@ -104,13 +114,13 @@ def prepare_dynamic_template_context(template_name, user_id=None, match_id=None,
     user = None if (not user_id) else get_user_model().objects.get(id=user_id)
     proposed_match = None if (not proposed_match_id) else ProposedMatch.objects.get(id=proposed_match_id)
     match = None if (not match_id) else Match.objects.get(id=match_id)
-    
+
     if user:
         available_dependencies.append("user")
 
     if match:
         available_dependencies.append("match")
-        
+
     if proposed_match:
         available_dependencies.append("proposed_match")
 
@@ -129,7 +139,9 @@ def prepare_dynamic_template_context(template_name, user_id=None, match_id=None,
             continue
 
         if not set(param_config.depends_on).issubset(available_dependencies):
-            raise MissingContextDependencyException(f"Missing context dependency for {param} in {available_dependencies} - {param_config.depends_on}")
+            raise MissingContextDependencyException(
+                f"Missing context dependency for {param} in {available_dependencies} - {param_config.depends_on}"
+            )
 
         function_lookup = param_config.lookup
         function_lookup = function_lookup.split(".")
@@ -156,14 +168,10 @@ def prepare_dynamic_template_context(template_name, user_id=None, match_id=None,
         context[param_name] = lookup_function(**lookup_context)
     return dynamic_template_info, context
 
+
 def prepare_template_context(
-        template_name, 
-        user_id=None, 
-        match_id=None, 
-        proposed_match_id=None, 
-        retrieve_user_model=get_user_model,
-        **kwargs
-    ):
+    template_name, user_id=None, match_id=None, proposed_match_id=None, retrieve_user_model=get_user_model, **kwargs
+):
     params = EMAILS_CONFIG.parameters
     template_config = EMAILS_CONFIG.emails.get(template_name)
     template_path = template_config.template
@@ -176,13 +184,13 @@ def prepare_template_context(
     user = None if (not user_id) else retrieve_user_model().objects.get(id=user_id)
     proposed_match = None if (not proposed_match_id) else ProposedMatch.objects.get(id=proposed_match_id)
     match = None if (not match_id) else Match.objects.get(id=match_id)
-    
+
     if user:
         available_dependencies.append("user")
 
     if match:
         available_dependencies.append("match")
-        
+
     if proposed_match:
         available_dependencies.append("proposed_match")
 
@@ -202,7 +210,9 @@ def prepare_template_context(
 
         if False and (not set(param_config.depends_on).issubset(available_dependencies)):
             # Currently disabled features, as we have some params with 'optional' dependencies and have no way to mark them as such yet
-            raise MissingContextDependencyException(f"Missing context dependency for {param} in {available_dependencies} - {param_config.depends_on}")
+            raise MissingContextDependencyException(
+                f"Missing context dependency for {param} in {available_dependencies} - {param_config.depends_on}"
+            )
 
         function_lookup = param_config.lookup
         function_lookup = function_lookup.split(".")

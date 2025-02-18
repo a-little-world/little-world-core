@@ -1,7 +1,8 @@
 from django.db import models
-from management.models.user import User
 from django.db.models import Q
 from django.utils import timezone
+
+from management.models.user import User
 
 
 class TwoUserMatchingScore(models.Model):

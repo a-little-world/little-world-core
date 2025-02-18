@@ -1,7 +1,7 @@
 from channels.db import database_sync_to_async
-from management.models.state import State
-from django.utils import timezone
 from chat.models import Chat, ChatConnections, ChatSessions
+from django.utils import timezone
+from management.models.state import State
 
 
 @database_sync_to_async

@@ -1,9 +1,10 @@
-from channels.security.websocket import AllowedHostsOriginValidator
+import os
+
 from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
+from channels.security.websocket import AllowedHostsOriginValidator
 from django.core.asgi import get_asgi_application
 from django.urls import re_path
-import os
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "back.settings")
 django_asgi_app = get_asgi_application()
@@ -11,7 +12,6 @@ django_asgi_app = get_asgi_application()
 
 def get_urls_patterns():
     from chat.consumers.core import CoreConsumer
-
     from django.conf import settings
 
     _urls = [re_path(r"^api/core/ws$", CoreConsumer.as_asgi())]

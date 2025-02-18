@@ -2,20 +2,22 @@
 This contains all api's related to confirming or denying a match
 """
 
+from dataclasses import dataclass
+
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema
-from management.api.user_data import AdvancedUserMatchSerializer
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework import serializers
 from rest_framework.authentication import SessionAuthentication
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_dataclasses.serializers import DataclassSerializer
-from dataclasses import dataclass
-from management.models.unconfirmed_matches import ProposedMatch
-from management.models.state import State
-from rest_framework import serializers
-from management.controller import match_users
 from translations import get_translation
-from django.utils import timezone
+
+from management.api.user_data import AdvancedUserMatchSerializer
+from management.controller import match_users
+from management.models.state import State
+from management.models.unconfirmed_matches import ProposedMatch
 
 
 @dataclass
@@ -74,7 +76,12 @@ def confirm_match(request):
 
         InUnconfirmedMatchAdded(matches[0]).send(partner.hash)
 
-        return Response({"message": msg, "match": AdvancedUserMatchSerializer(matching, many=False, context={"user": request.user}).data })
+        return Response(
+            {
+                "message": msg,
+                "match": AdvancedUserMatchSerializer(matching, many=False, context={"user": request.user}).data,
+            }
+        )
     else:
         # just close the unconfirmed match
         unconfirmed_match.closed = True
@@ -82,7 +89,7 @@ def confirm_match(request):
         unconfirmed_match.rejected_at = timezone.now()
         unconfirmed_match.rejected_by = request.user
         unconfirmed_match.save()
-        
+
         request.user.state.searching_state = State.SearchingStateChoices.IDLE
         request.user.state.save()
 

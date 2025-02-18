@@ -1,51 +1,31 @@
 import urllib.parse
-from drf_spectacular.utils import extend_schema, OpenApiParameter
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
-from rest_framework.authentication import SessionAuthentication
-from chat.models import ChatConnections
-from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
-from rest_framework_dataclasses.serializers import DataclassSerializer
-from chat.models import ChatSerializer, Chat
-from management.models.state import FrontendStatusSerializer
-from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS
-from django.core.paginator import Paginator
-from django.conf import settings
-from rest_framework import authentication, permissions
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import serializers, status
-from management.api.options import get_options_dict
 from dataclasses import dataclass
-from back.utils import transform_add_options_serializer
-from rest_framework.permissions import IsAuthenticated
-from drf_spectacular.utils import inline_serializer
-from video.models import SerializeLivekitSession, LivekitSession
-from management.models.profile import (
-    SelfProfileSerializer,
-    CensoredProfileSerializer,
-    ProposalProfileSerializer,
-)
 
+from chat.models import Chat, ChatConnections, ChatSerializer
+from django.conf import settings
+from django.core.paginator import Paginator
 from django.db.models import Q
-from management.models.unconfirmed_matches import (
-    ProposedMatch,
-)
-from management.models.state import (
-    State,
-)
-from management.models.community_events import (
-    CommunityEvent,
-    CommunityEventSerializer,
-)
-from management.models.notifications import (
-    SelfNotificationSerializer,
-    Notification,
-)
+from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
+from rest_framework import authentication, permissions, serializers, status
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework_dataclasses.serializers import DataclassSerializer
+from video.models import LivekitSession, SerializeLivekitSession
+
+from back.utils import transform_add_options_serializer
+from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS
+from management.api.options import get_options_dict
+from management.models.banner import Banner, BannerSerializer
+from management.models.community_events import CommunityEvent, CommunityEventSerializer
 from management.models.matches import Match
-from management.models.banner import (
-    Banner,
-    BannerSerializer,
-)
+from management.models.notifications import Notification, SelfNotificationSerializer
+from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
+from management.models.profile import CensoredProfileSerializer, ProposalProfileSerializer, SelfProfileSerializer
+from management.models.state import FrontendStatusSerializer, State
+from management.models.unconfirmed_matches import ProposedMatch
 
 
 def get_paginated(query_set, items_per_page, page):
@@ -106,15 +86,37 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
             "active": instance.active,
             "activeCallRoom": active_call_room,
             "unmatched": instance.report_unmatch,
-            "partner": {"id": str(partner.hash), "isOnline": is_online, "isSupport": partner.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER) or partner.is_staff, **CensoredProfileSerializer(partner.profile).data},
+            "partner": {
+                "id": str(partner.hash),
+                "isOnline": is_online,
+                "isSupport": partner.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+                or partner.is_staff,
+                **CensoredProfileSerializer(partner.profile).data,
+            },
         }
         if "status" in self.context:
             representation["status"] = self.context["status"]
-            
+
         if ("determine_bucket" in self.context) and self.context["determine_bucket"]:
             try:
-                match_categorie_buckets = ["match_journey_v2__unviewed","match_journey_v2__one_user_viewed","match_journey_v2__confirmed_no_contact","match_journey_v2__confirmed_single_party_contact","match_journey_v2__first_contact","match_journey_v2__match_ongoing","match_journey_v2__completed_match","match_journey_v2__match_free_play","match_journey_v2__never_confirmed","match_journey_v2__no_contact","match_journey_v2__user_ghosted","match_journey_v2__contact_stopped","match_journey_v2__reported_or_removed"]
-                bucket_map = {entry.name: entry for entry in MATCH_JOURNEY_FILTERS if entry.name in match_categorie_buckets}
+                match_categorie_buckets = [
+                    "match_journey_v2__unviewed",
+                    "match_journey_v2__one_user_viewed",
+                    "match_journey_v2__confirmed_no_contact",
+                    "match_journey_v2__confirmed_single_party_contact",
+                    "match_journey_v2__first_contact",
+                    "match_journey_v2__match_ongoing",
+                    "match_journey_v2__completed_match",
+                    "match_journey_v2__match_free_play",
+                    "match_journey_v2__never_confirmed",
+                    "match_journey_v2__no_contact",
+                    "match_journey_v2__user_ghosted",
+                    "match_journey_v2__contact_stopped",
+                    "match_journey_v2__reported_or_removed",
+                ]
+                bucket_map = {
+                    entry.name: entry for entry in MATCH_JOURNEY_FILTERS if entry.name in match_categorie_buckets
+                }
                 for bucket in match_categorie_buckets:
                     if bucket_map[bucket].queryset(Match.objects.filter(pk=instance.pk)).exists():
                         representation["bucket"] = bucket
@@ -204,19 +206,28 @@ def user_data(user):
     del profile_data["options"]
 
     support_matches = get_paginated(Match.get_support_matches(user), 10, 1)
-    support_matches["items"] = AdvancedUserMatchSerializer(support_matches["items"], many=True, context={"user": user}).data
+    support_matches["items"] = AdvancedUserMatchSerializer(
+        support_matches["items"], many=True, context={"user": user}
+    ).data
 
-    cal_data_link = "{calcom_meeting_id}?{encoded_params}".format(encoded_params=urllib.parse.urlencode({"email": str(user.email), "hash": str(user.hash), "bookingcode": str(user.state.prematch_booking_code)}), calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID)
+    cal_data_link = "{calcom_meeting_id}?{encoded_params}".format(
+        encoded_params=urllib.parse.urlencode(
+            {"email": str(user.email), "hash": str(user.hash), "bookingcode": str(user.state.prematch_booking_code)}
+        ),
+        calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID,
+    )
 
     pre_match_appointent = PreMatchingAppointment.objects.filter(user=user).order_by("created")
     if pre_match_appointent.exists():
         pre_match_appointent = PreMatchingAppointmentSerializer(pre_match_appointent.first()).data
+
     else:
         pre_match_appointent = None
 
     # Prematching join link depends on the support user
     pre_call_join_link = None
     overwrite_pre_join_link = settings.PREMATCHING_CALL_JOIN_LINK
+
     if overwrite_pre_join_link:
         pre_call_join_link = overwrite_pre_join_link
     elif len(support_matches["items"]) > 0:
@@ -224,10 +235,7 @@ def user_data(user):
 
     # Retrieve the active banner for the specific user type
     user_type = user_profile.user_type.lower()
-    banner_query = Banner.objects.filter(
-        active=True, 
-        name__iexact=f"{user_type.capitalize()} Banner"
-    ).first()
+    banner_query = Banner.objects.filter(active=True, name__iexact=f"{user_type.capitalize()} Banner").first()
 
     banner = BannerSerializer(banner_query).data if banner_query else {}
 
@@ -258,13 +266,19 @@ def frontend_data(user, items_per_page=10, request=None):
     community_events["items"] = serialize_community_events(community_events["items"])
 
     confirmed_matches = get_paginated(Match.get_confirmed_matches(user), items_per_page, 1)
-    confirmed_matches["items"] = AdvancedUserMatchSerializer(confirmed_matches["items"], many=True, context={"user": user}).data
+    confirmed_matches["items"] = AdvancedUserMatchSerializer(
+        confirmed_matches["items"], many=True, context={"user": user}
+    ).data
 
     unconfirmed_matches = get_paginated(Match.get_unconfirmed_matches(user), items_per_page, 1)
-    unconfirmed_matches["items"] = AdvancedUserMatchSerializer(unconfirmed_matches["items"], many=True, context={"user": user}).data
+    unconfirmed_matches["items"] = AdvancedUserMatchSerializer(
+        unconfirmed_matches["items"], many=True, context={"user": user}
+    ).data
 
     support_matches = get_paginated(Match.get_support_matches(user), items_per_page, 1)
-    support_matches["items"] = AdvancedUserMatchSerializer(support_matches["items"], many=True, context={"user": user}).data
+    support_matches["items"] = AdvancedUserMatchSerializer(
+        support_matches["items"], many=True, context={"user": user}
+    ).data
 
     proposed_matches = get_paginated(ProposedMatch.get_open_proposals_learner(user), items_per_page, 1)
     proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
@@ -292,7 +306,10 @@ def frontend_data(user, items_per_page=10, request=None):
     paginated_chats["results"] = ChatSerializer(paginated_chats["results"], many=True, context={"user": user}).data
 
     # find all active calls
-    all_active_rooms = LivekitSession.objects.filter(Q(room__u1=user, is_active=True, u2_active=True, u1_active=False) | Q(room__u2=user, is_active=True, u1_active=True, u2_active=False))
+    all_active_rooms = LivekitSession.objects.filter(
+        Q(room__u1=user, is_active=True, u2_active=True, u1_active=False)
+        | Q(room__u2=user, is_active=True, u1_active=True, u2_active=False)
+    )
 
     frontend_data = {
         "user": ud,
@@ -377,7 +394,9 @@ class ConfirmedDataApi(APIView):
             confirmed_matches = get_paginated(matches, items_per_page, page)
 
             # Serialize matches data for the user
-            confirmed_matches["items"] = AdvancedUserMatchSerializer(confirmed_matches["items"], many=True, context={"user": request.user}).data
+            confirmed_matches["items"] = AdvancedUserMatchSerializer(
+                confirmed_matches["items"], many=True, context={"user": request.user}
+            ).data
 
         except Exception:
             return Response({"code": 400, "error": "Page not Found"}, status=status.HTTP_400_BAD_REQUEST)

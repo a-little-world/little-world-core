@@ -1,7 +1,7 @@
 import ast
 import contextlib
-from .utils import inline_track_event
 
+from .utils import inline_track_event
 
 """
 We wan't to gather as much data as possible.
@@ -72,7 +72,14 @@ class TrackRequestsMiddleware:
             _kwargs["name_extra"] = _kwargs["name"]
             del _kwargs["name"]  # otherwise can cause dubplicte args
 
-        inline_track_event(*[request], name="request", tags=["middleware", "general"], caller=request.user, censor_kwargs=_censor_kwargs, **{"path": path, **_kwargs})
+        inline_track_event(
+            *[request],
+            name="request",
+            tags=["middleware", "general"],
+            caller=request.user,
+            censor_kwargs=_censor_kwargs,
+            **{"path": path, **_kwargs},
+        )
 
     def __call__(self, request):
         # path = request.path

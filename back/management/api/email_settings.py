@@ -1,12 +1,14 @@
-from drf_spectacular.utils import extend_schema, OpenApiParameter
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from dataclasses import dataclass, field
+
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework.authentication import SessionAuthentication
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_dataclasses.serializers import DataclassSerializer
-from dataclasses import dataclass, field
+
 from management.controller import get_translation
-from management.models.settings import UnsubscibeOptions, EmailSettings
+from management.models.settings import EmailSettings, UnsubscibeOptions
 
 
 @dataclass
@@ -107,7 +109,13 @@ def unsubscribe_email(request):
     return update_email_settings(data, email_settings)
 
 
-@extend_schema(parameters=[OpenApiParameter(name="choice", type=bool, location=OpenApiParameter.QUERY), OpenApiParameter(name="unsubscribe_type", type=str, enum=UnsubscibeOptions, location=OpenApiParameter.QUERY), OpenApiParameter(name="settings_hash", type=str, location=OpenApiParameter.QUERY)])
+@extend_schema(
+    parameters=[
+        OpenApiParameter(name="choice", type=bool, location=OpenApiParameter.QUERY),
+        OpenApiParameter(name="unsubscribe_type", type=str, enum=UnsubscibeOptions, location=OpenApiParameter.QUERY),
+        OpenApiParameter(name="settings_hash", type=str, location=OpenApiParameter.QUERY),
+    ]
+)
 @api_view(["GET"])
 @authentication_classes([])
 @permission_classes([])

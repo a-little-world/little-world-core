@@ -1,10 +1,11 @@
 import json
+
+from django.conf import settings
+from django.urls import path
+from emails.api.emails_config import EMAILS_CONFIG, EmailsConfig
 from management.helpers import IsAdminOrMatchingUser
 from rest_framework.decorators import api_view, permission_classes
-from django.urls import path
 from rest_framework.response import Response
-from emails.api.emails_config import EMAILS_CONFIG, EmailsConfig
-from django.conf import settings
 
 
 @api_view(["POST"])

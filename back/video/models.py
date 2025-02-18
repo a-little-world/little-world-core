@@ -1,8 +1,9 @@
+from uuid import uuid4
+
 from django.db import models
 from django.db.models import Q
-from rest_framework.serializers import ModelSerializer
-from uuid import uuid4
 from management.models.profile import CensoredProfileSerializer
+from rest_framework.serializers import ModelSerializer
 
 
 class LiveKitRoom(models.Model):
@@ -26,7 +27,9 @@ class LivekitWebhookEvent(models.Model):
 
 class LivekitSession(models.Model):
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
-    room = models.ForeignKey("video.LiveKitRoom", on_delete=models.CASCADE, related_name="livekit_session", null=True, blank=True)
+    room = models.ForeignKey(
+        "video.LiveKitRoom", on_delete=models.CASCADE, related_name="livekit_session", null=True, blank=True
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     end_time = models.DateTimeField(null=True, blank=True)
@@ -45,8 +48,10 @@ class LivekitSession(models.Model):
 
     u1 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u1_livekit_session")
     u2 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u2_livekit_session")
-    
-    first_active_user = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="first_active_user", null=True, blank=True)
+
+    first_active_user = models.ForeignKey(
+        "management.User", on_delete=models.CASCADE, related_name="first_active_user", null=True, blank=True
+    )
 
     webhook_events = models.ManyToManyField("video.LivekitWebhookEvent", related_name="livekit_session")
 

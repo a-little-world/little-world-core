@@ -1,10 +1,12 @@
-from django.db import models
-from rest_framework import serializers
-from django.conf import settings
-from .user import User
-from multiselectfield import MultiSelectField
 from uuid import uuid4
+
+from django.conf import settings
+from django.db import models
 from emails import mails
+from multiselectfield import MultiSelectField
+from rest_framework import serializers
+
+from .user import User
 
 
 class UnsubscibeOptions(models.TextChoices):
@@ -23,8 +25,10 @@ class EmailSettings(models.Model):
 
     # email lists the user is currently unsubscribed from
     # TODO: depricated, old email api
-    unsubscibed_options = MultiSelectField(choices=UnsubscibeOptions.choices, max_choices=20, max_length=500, default=[])
-    
+    unsubscibed_options = MultiSelectField(
+        choices=UnsubscibeOptions.choices, max_choices=20, max_length=500, default=[]
+    )
+
     unsubscribed_categories = models.JSONField(default=list)
 
     def has_unsubscribed(self, option: UnsubscibeOptions):

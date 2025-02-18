@@ -1,6 +1,7 @@
+from typing import OrderedDict
+
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
-from typing import OrderedDict
 
 
 class DetailedPagination(PageNumberPagination):
@@ -23,13 +24,48 @@ class DetailedPagination(PageNumberPagination):
         return {
             "type": "object",
             "properties": {
-                "page_size": {"type": "integer", "example": "40", "description": "The number of items per page", "format": "int32"},
-                "pages_total": {"type": "integer", "example": "1", "description": "The total number of pages", "format": "int32"},
-                "items_total": {"type": "integer", "example": "1", "description": "The total number of items", "format": "int32"},
-                "next_page": {"type": "integer", "example": "2", "description": "The next page number", "format": "int32"},
-                "previous_page": {"type": "integer", "example": "1", "description": "The previous page number", "format": "int32"},
-                "first_page": {"type": "integer", "example": "1", "description": "The first page number", "format": "int32"},
-                "last_page": {"type": "integer", "example": "1", "description": "The last page number", "format": "int32"},
+                "page_size": {
+                    "type": "integer",
+                    "example": "40",
+                    "description": "The number of items per page",
+                    "format": "int32",
+                },
+                "pages_total": {
+                    "type": "integer",
+                    "example": "1",
+                    "description": "The total number of pages",
+                    "format": "int32",
+                },
+                "items_total": {
+                    "type": "integer",
+                    "example": "1",
+                    "description": "The total number of items",
+                    "format": "int32",
+                },
+                "next_page": {
+                    "type": "integer",
+                    "example": "2",
+                    "description": "The next page number",
+                    "format": "int32",
+                },
+                "previous_page": {
+                    "type": "integer",
+                    "example": "1",
+                    "description": "The previous page number",
+                    "format": "int32",
+                },
+                "first_page": {
+                    "type": "integer",
+                    "example": "1",
+                    "description": "The first page number",
+                    "format": "int32",
+                },
+                "last_page": {
+                    "type": "integer",
+                    "example": "1",
+                    "description": "The last page number",
+                    "format": "int32",
+                },
                 "next": {
                     "type": "string",
                     "example": "http://example.com/api/organizations/?page=2",

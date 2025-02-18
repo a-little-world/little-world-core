@@ -1,10 +1,11 @@
 from django.contrib import admin
-from .models import Event, Summaries, GraphModel
 
 # Register your models here.
 from django.template.defaultfilters import escape
 from django.utils.safestring import mark_safe
 from management.models.user import User
+
+from .models import Event, GraphModel, Summaries
 
 
 @admin.register(Summaries)
@@ -27,8 +28,8 @@ class EventAdmin(admin.ModelAdmin):
 
     def user_ref(self, obj):
         if obj.caller is not None:
-            from django.shortcuts import resolve_url
             from django.contrib.admin.templatetags.admin_urls import admin_urlname
+            from django.shortcuts import resolve_url
 
             url = resolve_url(admin_urlname(User._meta, "change"), obj.caller.pk)
             return mark_safe(f'<a href="{url}">{escape(obj.caller.email)}</a>')

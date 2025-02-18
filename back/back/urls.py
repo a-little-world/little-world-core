@@ -1,12 +1,11 @@
-from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
-from rest_framework import status
-from django.contrib import admin
-from django.urls import path, include
-from django.http import HttpResponse
-from django.urls import re_path
 from django.conf import settings
 from django.conf.urls.static import static
+from django.contrib import admin
+from django.http import HttpResponse
+from django.urls import include, path, re_path
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from management.urls import public_routes_wildcard
+from rest_framework import status
 
 """
 We are adding all app urls under `'/'` their paths should be set under `<app>/urls.py`
@@ -17,7 +16,10 @@ Admin paths registered last
 handler404 = "management.views.main_frontend.handler404"
 handler500 = "management.views.main_frontend.handler500"
 
-statics = [*static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT), *static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)]
+statics = [
+    *static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT),
+    *static(settings.STATIC_URL, document_root=settings.STATIC_ROOT),
+]
 
 urlpatterns = [
     path("", include("emails.urls")),
@@ -59,9 +61,13 @@ if settings.DOCS_PROXY:
     def auth_docs(request, **kwargs):
         from management.models.state import State
 
-        if request.user.is_authenticated and request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.DOCS_VIEW):
+        if request.user.is_authenticated and request.user.state.has_extra_user_permission(
+            State.ExtraUserPermissionChoices.DOCS_VIEW
+        ):
             return view(request, **kwargs)
-        return HttpResponse("Not authenticated or insufficient permissions to view docs", status=status.HTTP_403_FORBIDDEN)
+        return HttpResponse(
+            "Not authenticated or insufficient permissions to view docs", status=status.HTTP_403_FORBIDDEN
+        )
 
     urlpatterns += [
         re_path(r"^docs/(?P<path>.*)$", auth_docs),

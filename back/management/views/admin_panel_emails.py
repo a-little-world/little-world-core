@@ -1,16 +1,17 @@
-from emails.mails import templates
-from management.helpers import IsAdminOrMatchingUser
-from rest_framework import serializers, status
+from dataclasses import MISSING, fields
+
+from django.core.paginator import Paginator
 from django.template.loader import render_to_string
+from django.urls import path
+from drf_spectacular.utils import extend_schema
+from emails.mails import templates
+from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-from django.core.paginator import Paginator
-from back.utils import dataclass_as_dict
-from back.utils import _api_url
-from django.urls import path
-from dataclasses import fields, MISSING
+
+from back.utils import _api_url, dataclass_as_dict
+from management.helpers import IsAdminOrMatchingUser
 from management.models.user import User
-from drf_spectacular.utils import extend_schema
 
 
 @api_view(["GET"])
@@ -84,7 +85,7 @@ def send_email_rendered(request, template_name=None):
     del request.data["subject"]
     del request.data["receiver"]
 
-    from emails.mails import send_email, get_mail_data_by_name
+    from emails.mails import get_mail_data_by_name, send_email
 
     send_emails = []
 
@@ -105,7 +106,7 @@ def send_email_rendered(request, template_name=None):
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
 def list_email_logs(request):
-    from emails.models import EmailLog, AdvancedEmailLogSerializer
+    from emails.models import AdvancedEmailLogSerializer, EmailLog
 
     logs = EmailLog.objects.all().order_by("-time")
 

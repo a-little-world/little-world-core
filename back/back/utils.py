@@ -1,8 +1,9 @@
-import random
 import json
-from uuid import uuid4, UUID
-from rest_framework.metadata import SimpleMetadata
+import random
 from copy import deepcopy
+from uuid import UUID, uuid4
+
+from rest_framework.metadata import SimpleMetadata
 
 VERSION = 1
 

@@ -1,11 +1,13 @@
-from rest_framework import serializers
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from dataclasses import dataclass
+
 from django.contrib.auth import authenticate, login
 from drf_spectacular.utils import extend_schema
-from management.api.user_data import frontend_data
+from rest_framework import serializers
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from translations import get_translation_catalog
+
+from management.api.user_data import frontend_data
 
 
 @dataclass

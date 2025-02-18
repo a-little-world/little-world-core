@@ -50,34 +50,35 @@ Last one is a little try and caused some users to have very limited options in t
 
 """
 
-from management.helpers import IsAdminOrMatchingUser
-from management import controller
-from django.core.paginator import Paginator
-from datetime import timedelta
-from back.utils import CoolerJson
-from enum import Enum
-from management.api.user_advanced_filter import needs_matching
+import dataclasses
+import itertools
 import json
+import math
+from dataclasses import dataclass
+from datetime import timedelta
+from enum import Enum
+
+import pgeocode
+from django.core.paginator import Paginator
+from django.db.models import Exists, OuterRef, Q
+from drf_spectacular.utils import extend_schema
+from rest_framework import serializers
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework_dataclasses.serializers import DataclassSerializer
-from management.models.state import State
-from management.models.profile import Profile
-from rest_framework import serializers
-from dataclasses import dataclass
-from management.models.scores import TwoUserMatchingScore
-from management.models.user import User
-from management.models.unconfirmed_matches import ProposedMatch
+
+from back.utils import CoolerJson
+from management import controller
+from management.api.user_advanced_filter import needs_matching
+from management.helpers import IsAdminOrMatchingUser
 from management.models.matches import Match
-from management.tasks import matching_algo_v2, burst_calculate_matching_scores
-from drf_spectacular.utils import extend_schema
-import itertools
-import math
-import dataclasses
-from django.db.models import Q
-from django.db.models import Exists, OuterRef
+from management.models.profile import Profile
+from management.models.scores import TwoUserMatchingScore
+from management.models.state import State
+from management.models.unconfirmed_matches import ProposedMatch
+from management.models.user import User
+from management.tasks import burst_calculate_matching_scores, matching_algo_v2
 from management.validators import DAYS, SLOTS
-import pgeocode
 
 
 @dataclass
@@ -113,7 +114,6 @@ class ScoringFunctionsEnum(Enum):
     already_matched_or_proposed = "already_matched_or_proposed"
     learner_no_match_bonus = "learner_no_match_bonus"
     match_in_past = "match_in_past"
-    
 
 
 class ScoringBase:
@@ -154,17 +154,42 @@ class ScoringBase:
                 if day in slots1 and day in slots2 and slot in slots1[day] and slot in slots2[day]:
                     common_slots[day] = common_slots.get(day, []) + [slot]
                     amnt_common_slots += 1
-        conditions = [[lambda x: x <= 0, -15], [lambda x: x == 1, 15], [lambda x: x == 2, 25], [lambda x: x == 3, 29], [lambda x: x == 4, 32], [lambda x: x == 5, 35], [lambda x: x >= 6, 37]]
+        conditions = [
+            [lambda x: x <= 0, -15],
+            [lambda x: x == 1, 15],
+            [lambda x: x == 2, 25],
+            [lambda x: x == 3, 29],
+            [lambda x: x == 4, 32],
+            [lambda x: x == 5, 35],
+            [lambda x: x >= 6, 37],
+        ]
         for cond in conditions:
             if cond[0](amnt_common_slots):
-                return ScoringFuctionResult(matchable=True, score=cond[1], weight=1.0, markdown_info=f"Common slots: ({str(amnt_common_slots)}) {str(common_slots)} (score: {cond[1]})")
-        return ScoringFuctionResult(matchable=True, score=0, weight=1.0, markdown_info=f"Common slots: ({str(amnt_common_slots)}) {str(common_slots)} (score: 0)")
+                return ScoringFuctionResult(
+                    matchable=True,
+                    score=cond[1],
+                    weight=1.0,
+                    markdown_info=f"Common slots: ({str(amnt_common_slots)}) {str(common_slots)} (score: {cond[1]})",
+                )
+        return ScoringFuctionResult(
+            matchable=True,
+            score=0,
+            weight=1.0,
+            markdown_info=f"Common slots: ({str(amnt_common_slots)}) {str(common_slots)} (score: 0)",
+        )
 
     def score__volunteer_vs_learner(self):
         """
         Simple chat the we match only volunteers and learners!
         """
-        oppsite = any([self.user1.profile.user_type == Profile.TypeChoices.LEARNER and self.user2.profile.user_type == Profile.TypeChoices.VOLUNTEER, self.user1.profile.user_type == Profile.TypeChoices.VOLUNTEER and self.user2.profile.user_type == Profile.TypeChoices.LEARNER])
+        oppsite = any(
+            [
+                self.user1.profile.user_type == Profile.TypeChoices.LEARNER
+                and self.user2.profile.user_type == Profile.TypeChoices.VOLUNTEER,
+                self.user1.profile.user_type == Profile.TypeChoices.VOLUNTEER
+                and self.user2.profile.user_type == Profile.TypeChoices.LEARNER,
+            ]
+        )
         msg = "Volunteer + Learner can be machted :white_check_mark:" + "\n"
         if not oppsite:
             msg = "Volunteer + Volunteer or Learner + Learner can't be matched :x:" + "\n"
@@ -189,9 +214,19 @@ class ScoringBase:
         learner_german_level = list(filter(lambda x: x["lang"] == "german", learner.profile.lang_skill))[0]["level"]
 
         if map_level_to_int[min_lang_level] > map_level_to_int[learner_german_level]:
-            return ScoringFuctionResult(matchable=False, score=0, weight=1.0, markdown_info="Volunteer has a higher min lang level than learner (score: 0)")
+            return ScoringFuctionResult(
+                matchable=False,
+                score=0,
+                weight=1.0,
+                markdown_info="Volunteer has a higher min lang level than learner (score: 0)",
+            )
         else:
-            return ScoringFuctionResult(matchable=True, score=30, weight=1.0, markdown_info="Volunteer has a lower min lang level than learner (score: 5)")
+            return ScoringFuctionResult(
+                matchable=True,
+                score=30,
+                weight=1.0,
+                markdown_info="Volunteer has a lower min lang level than learner (score: 5)",
+            )
 
     def score__postal_code_distance(self):
         """
@@ -201,11 +236,26 @@ class ScoringBase:
 
         dist = pgeocode.GeoDistance("de")
         distance = dist.query_postal_code(self.user1.profile.postal_code, self.user2.profile.postal_code)
-        conditions = [[lambda x: x < 50.0, 18.0], [lambda x: x < 100.0, 16.0], [lambda x: x < 200.0, 14.0], [lambda x: x < 300.0, 12.0], [lambda x: x < 400.0, 10.0], [lambda x: x < 500.0, 5.0], [lambda x: x >= 500.0, 0.0]]
+        conditions = [
+            [lambda x: x < 50.0, 18.0],
+            [lambda x: x < 100.0, 16.0],
+            [lambda x: x < 200.0, 14.0],
+            [lambda x: x < 300.0, 12.0],
+            [lambda x: x < 400.0, 10.0],
+            [lambda x: x < 500.0, 5.0],
+            [lambda x: x >= 500.0, 0.0],
+        ]
         for cond in conditions:
             if cond[0](distance):
-                return ScoringFuctionResult(matchable=True, score=cond[1], weight=1.0, markdown_info=f"Distance is {distance}km (score: {cond[1]})")
-        return ScoringFuctionResult(matchable=True, score=0, weight=1.0, markdown_info=f"Distance is {distance}km (score: 0)")
+                return ScoringFuctionResult(
+                    matchable=True,
+                    score=cond[1],
+                    weight=1.0,
+                    markdown_info=f"Distance is {distance}km (score: {cond[1]})",
+                )
+        return ScoringFuctionResult(
+            matchable=True, score=0, weight=1.0, markdown_info=f"Distance is {distance}km (score: 0)"
+        )
 
     def score__gender(self):
         """
@@ -214,7 +264,17 @@ class ScoringBase:
         then `user.gender.ANY` with `user.partner_gender.ANY` gives a score of `30`
         while `user.gender.MALE (or FEMALE)` with `user.gender_partne.ANY` will give a score of `5`
         """
-        normalize_gender_choices = {Profile.GenderChoices.ANY: "any", Profile.GenderChoices.MALE: "male", Profile.GenderChoices.FEMALE: "female", Profile.GenderChoices.DIVERSE: "diverse", Profile.PartnerGenderChoices.ANY: "any", Profile.PartnerGenderChoices.FEMALE: "female", Profile.PartnerGenderChoices.MALE: "male", Profile.PartnerGenderChoices.DIVERSE: "diverse", None: "any"}
+        normalize_gender_choices = {
+            Profile.GenderChoices.ANY: "any",
+            Profile.GenderChoices.MALE: "male",
+            Profile.GenderChoices.FEMALE: "female",
+            Profile.GenderChoices.DIVERSE: "diverse",
+            Profile.PartnerGenderChoices.ANY: "any",
+            Profile.PartnerGenderChoices.FEMALE: "female",
+            Profile.PartnerGenderChoices.MALE: "male",
+            Profile.PartnerGenderChoices.DIVERSE: "diverse",
+            None: "any",
+        }
 
         def male_or_female_or_diverse(gender):
             return (gender == "male") or (gender == "female") or (gender == "diverse")
@@ -231,19 +291,38 @@ class ScoringBase:
 
         # disallow when any gender wish is broken:
         # e.g.: wish = "male" -> other = "female", but also wish = "female" -> other = "any"
-        if (male_or_female_or_diverse(partner_gender1) and gender2 == "any") or (male_or_female_or_diverse(partner_gender2) and gender1 == "any"):
-            return ScoringFuctionResult(matchable=False, score=0, weight=1.0, markdown_info="Wish for specific gender cannot be fulfilled since partner has 'any' gender")
+        if (male_or_female_or_diverse(partner_gender1) and gender2 == "any") or (
+            male_or_female_or_diverse(partner_gender2) and gender1 == "any"
+        ):
+            return ScoringFuctionResult(
+                matchable=False,
+                score=0,
+                weight=1.0,
+                markdown_info="Wish for specific gender cannot be fulfilled since partner has 'any' gender",
+            )
 
         wish1, sok1 = wish_granted(gender1, partner_gender2)
         wish2, sok2 = wish_granted(gender2, partner_gender1)
         # all get exatly what they wish for
         if wish1 and wish2:
-            return ScoringFuctionResult(matchable=True, score=20.0, weight=1.0, markdown_info="All gender requests presisely fullfilled :white_check_mark: (score: 20)")
+            return ScoringFuctionResult(
+                matchable=True,
+                score=20.0,
+                weight=1.0,
+                markdown_info="All gender requests presisely fullfilled :white_check_mark: (score: 20)",
+            )
 
         if sok1 and sok2:
-            return ScoringFuctionResult(matchable=True, score=10.0, weight=1.0, markdown_info="All gender choices ok, some 'any' (score: 10.0)")
+            return ScoringFuctionResult(
+                matchable=True, score=10.0, weight=1.0, markdown_info="All gender choices ok, some 'any' (score: 10.0)"
+            )
 
-        return ScoringFuctionResult(matchable=False, score=0.0, weight=1.0, markdown_info=f"Gender reuests chant be fullfilled (g:{gender1},w:{partner_gender1})<->(g:{gender2},w:{partner_gender2})")
+        return ScoringFuctionResult(
+            matchable=False,
+            score=0.0,
+            weight=1.0,
+            markdown_info=f"Gender reuests chant be fullfilled (g:{gender1},w:{partner_gender1})<->(g:{gender2},w:{partner_gender2})",
+        )
 
     def score__interest_overlap(self):
         """
@@ -257,49 +336,117 @@ class ScoringBase:
         common_interests = set(it1).intersection(set(it2))
         amnt_common_interests = len(common_interests)
 
-        conditions = [[lambda x: x == 0, 0], [lambda x: x == 1, 5], [lambda x: x == 2, 10], [lambda x: x == 3, 15], [lambda x: x == 4, 20], [lambda x: x == 5, 25], [lambda x: x >= 6, 30]]
+        conditions = [
+            [lambda x: x == 0, 0],
+            [lambda x: x == 1, 5],
+            [lambda x: x == 2, 10],
+            [lambda x: x == 3, 15],
+            [lambda x: x == 4, 20],
+            [lambda x: x == 5, 25],
+            [lambda x: x >= 6, 30],
+        ]
 
         for cond in conditions:
             if cond[0](amnt_common_interests):
-                return ScoringFuctionResult(matchable=True, score=cond[1], weight=1.0, markdown_info=f"Interests Overlap: {str(common_interests)} (score: {cond[1]})")
+                return ScoringFuctionResult(
+                    matchable=True,
+                    score=cond[1],
+                    weight=1.0,
+                    markdown_info=f"Interests Overlap: {str(common_interests)} (score: {cond[1]})",
+                )
 
         return ScoringFuctionResult(matchable=True, score=0, weight=1.0, markdown_info="Interests Overlap (score: 0)")
-    
+
     def score__learner_no_match_bonus(self):
         learner_user = self.user1 if self.user1.profile.user_type == Profile.TypeChoices.LEARNER else self.user2
-        learner_has_no_match_yet = Match.objects.filter(Q(user1=learner_user) | Q(user2=learner_user), support_matching=False).count() == 0
+        learner_has_no_match_yet = (
+            Match.objects.filter(Q(user1=learner_user) | Q(user2=learner_user), support_matching=False).count() == 0
+        )
         # We deliberately don't require active=True, as we don't wanna give the bonus to people that resolved their match
         if learner_has_no_match_yet:
-            return ScoringFuctionResult(matchable=True, score=20, weight=1.0, markdown_info=f"Learner has no match yet: {learner_has_no_match_yet} (score: 20)")
-        return ScoringFuctionResult(matchable=True, score=0, weight=1.0, markdown_info=f"Learner has no match yet: {learner_has_no_match_yet} (score: 0)")
+            return ScoringFuctionResult(
+                matchable=True,
+                score=20,
+                weight=1.0,
+                markdown_info=f"Learner has no match yet: {learner_has_no_match_yet} (score: 20)",
+            )
+        return ScoringFuctionResult(
+            matchable=True,
+            score=0,
+            weight=1.0,
+            markdown_info=f"Learner has no match yet: {learner_has_no_match_yet} (score: 0)",
+        )
 
     def score__speech_medium(self):
         speech_medium1 = self.user1.profile.speech_medium
         speech_medium2 = self.user2.profile.speech_medium
 
-        if (speech_medium1 == Profile.SpeechMediumChoices2.ANY and (speech_medium2 == Profile.SpeechMediumChoices2.PHONE or speech_medium2 == Profile.SpeechMediumChoices2.VIDEO)) or (
-            speech_medium2 == Profile.SpeechMediumChoices2.ANY and (speech_medium1 == Profile.SpeechMediumChoices2.PHONE or speech_medium1 == Profile.SpeechMediumChoices2.VIDEO)
+        if (
+            speech_medium1 == Profile.SpeechMediumChoices2.ANY
+            and (
+                speech_medium2 == Profile.SpeechMediumChoices2.PHONE
+                or speech_medium2 == Profile.SpeechMediumChoices2.VIDEO
+            )
+        ) or (
+            speech_medium2 == Profile.SpeechMediumChoices2.ANY
+            and (
+                speech_medium1 == Profile.SpeechMediumChoices2.PHONE
+                or speech_medium1 == Profile.SpeechMediumChoices2.VIDEO
+            )
         ):
-            return ScoringFuctionResult(matchable=True, score=10, weight=1.0, markdown_info="Speech Medium: Any  :white_check_mark: (score: 10)")
+            return ScoringFuctionResult(
+                matchable=True, score=10, weight=1.0, markdown_info="Speech Medium: Any  :white_check_mark: (score: 10)"
+            )
         if speech_medium1 == speech_medium2:
-            return ScoringFuctionResult(matchable=True, score=40, weight=1.0, markdown_info=f"Speech Medium: {speech_medium1} requested :white_check_mark: (score: 40)")
+            return ScoringFuctionResult(
+                matchable=True,
+                score=40,
+                weight=1.0,
+                markdown_info=f"Speech Medium: {speech_medium1} requested :white_check_mark: (score: 40)",
+            )
 
-        return ScoringFuctionResult(matchable=False, score=0, weight=1.0, markdown_info=f"Speech Medium: {speech_medium1} requested but {speech_medium2} offered :x: (score: 0)")
-    
+        return ScoringFuctionResult(
+            matchable=False,
+            score=0,
+            weight=1.0,
+            markdown_info=f"Speech Medium: {speech_medium1} requested but {speech_medium2} offered :x: (score: 0)",
+        )
+
     def score__already_matched_or_proposed(self):
-        mutal_proposed_match = ProposedMatch.objects.filter(Q(user1=self.user1, user2=self.user2) | Q(user1=self.user2, user2=self.user1), closed=False)
-        mutal_match = Match.objects.filter(Q(user1=self.user1, user2=self.user2) | Q(user1=self.user2, user2=self.user1), active=True)
+        mutal_proposed_match = ProposedMatch.objects.filter(
+            Q(user1=self.user1, user2=self.user2) | Q(user1=self.user2, user2=self.user1), closed=False
+        )
+        mutal_match = Match.objects.filter(
+            Q(user1=self.user1, user2=self.user2) | Q(user1=self.user2, user2=self.user1), active=True
+        )
         has_mutal_proposed_or_regular_match = mutal_proposed_match.exists() or mutal_match.exists()
-        
-        return ScoringFuctionResult(matchable=not has_mutal_proposed_or_regular_match, score=0, weight=1.0, markdown_info=f"Already matched or proposed: {has_mutal_proposed_or_regular_match} :x: (score: 0)")
-    
+
+        return ScoringFuctionResult(
+            matchable=not has_mutal_proposed_or_regular_match,
+            score=0,
+            weight=1.0,
+            markdown_info=f"Already matched or proposed: {has_mutal_proposed_or_regular_match} :x: (score: 0)",
+        )
+
     def score__reported_or_unmatched_in_past(self):
-        mutal_past_match = Match.objects.filter(Q(user1=self.user1, user2=self.user2) | Q(user1=self.user2, user2=self.user1), active=False)
+        mutal_past_match = Match.objects.filter(
+            Q(user1=self.user1, user2=self.user2) | Q(user1=self.user2, user2=self.user1), active=False
+        )
         mutal_past_match_exists = mutal_past_match.exists()
-        
+
         if mutal_past_match_exists:
-            return ScoringFuctionResult(matchable=False, score=0, weight=1.0, markdown_info=f"Have been matched in the past & was reported or unmatched: {mutal_past_match_exists} :x: (score: 0)")
-        return ScoringFuctionResult(matchable=True, score=0, weight=1.0, markdown_info=f"Never been matched in the past / never was reported or unmatched: {mutal_past_match_exists} :white_check_mark: (score: 0)")
+            return ScoringFuctionResult(
+                matchable=False,
+                score=0,
+                weight=1.0,
+                markdown_info=f"Have been matched in the past & was reported or unmatched: {mutal_past_match_exists} :x: (score: 0)",
+            )
+        return ScoringFuctionResult(
+            matchable=True,
+            score=0,
+            weight=1.0,
+            markdown_info=f"Never been matched in the past / never was reported or unmatched: {mutal_past_match_exists} :white_check_mark: (score: 0)",
+        )
 
     def calculate_score(self, raise_exception=False):
         results = []
@@ -313,7 +460,9 @@ class ScoringBase:
                 print(f"Error in score function {score_function}:", e)
                 if raise_exception:
                     raise e
-                res = ScoringFuctionResult(matchable=False, score=0, weight=1.0, markdown_info=f"ERROR in score function {score_function}: {e}")
+                res = ScoringFuctionResult(
+                    matchable=False, score=0, weight=1.0, markdown_info=f"ERROR in score function {score_function}: {e}"
+                )
             results.append({"score_function": score_function, "res": res.dict()})
 
         print("Results:", results)
@@ -348,7 +497,9 @@ class DispatchScoreCalculationSerializer(DataclassSerializer):
 @api_view(["POST"])
 @permission_classes([IsAdminOrMatchingUser])
 def dispatch_score_calculation(request):
-    assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+    assert request.user.is_staff or request.user.state.has_extra_user_permission(
+        State.ExtraUserPermissionChoices.MATCHING_USER
+    )
 
     serializer = DispatchScoreCalculationSerializer(request.data)
     serializers.is_valid(raise_exception=True)
@@ -356,7 +507,13 @@ def dispatch_score_calculation(request):
 
     task = matching_algo_v2.delay(data["user"], 50)
 
-    return Response({"msg": "Task dispatched scores will be written to db on task completion", "task_id": task.task_id, "view": f"/admin/django_celery_results/taskresult/?q={task.task_id}"})
+    return Response(
+        {
+            "msg": "Task dispatched scores will be written to db on task completion",
+            "task_id": task.task_id,
+            "view": f"/admin/django_celery_results/taskresult/?q={task.task_id}",
+        }
+    )
 
 
 @api_view(["POST"])
@@ -374,10 +531,20 @@ def calculate_score_between(request):
 
 
 def get_users_to_consider(usr=None, consider_only_registered_within_last_x_days=None, exlude_user_ids=[]):
-
     all_users_to_consider = (
-        User.objects.annotate(has_open_proposal=Exists(ProposedMatch.objects.filter(Q(user1=OuterRef("pk")) | Q(user2=OuterRef("pk")), closed=False)))
-        .filter(state__searching_state=State.SearchingStateChoices.SEARCHING, state__user_form_state=State.UserFormStateChoices.FILLED, state__had_prematching_call=True, state__email_authenticated=True, is_staff=False, has_open_proposal=False)
+        User.objects.annotate(
+            has_open_proposal=Exists(
+                ProposedMatch.objects.filter(Q(user1=OuterRef("pk")) | Q(user2=OuterRef("pk")), closed=False)
+            )
+        )
+        .filter(
+            state__searching_state=State.SearchingStateChoices.SEARCHING,
+            state__user_form_state=State.UserFormStateChoices.FILLED,
+            state__had_prematching_call=True,
+            state__email_authenticated=True,
+            is_staff=False,
+            has_open_proposal=False,
+        )
         .exclude(state__user_category__in=[State.UserCategoryChoices.SPAM, State.UserCategoryChoices.TEST])
     )
 
@@ -397,17 +564,21 @@ def get_users_to_consider(usr=None, consider_only_registered_within_last_x_days=
     return all_users_to_consider
 
 
-def calculate_scores_user(user_pk, consider_only_registered_within_last_x_days=None, report=lambda data: print(data), exlude_user_ids=[]):
+def calculate_scores_user(
+    user_pk, consider_only_registered_within_last_x_days=None, report=lambda data: print(data), exlude_user_ids=[]
+):
+    from django.db.models import Exists, OuterRef, Q
+
     from management import controller
-    from django.db.models import Q
-    from django.db.models import Exists, OuterRef
 
     usr = controller.get_user_by_pk(user_pk)
 
     all_users_to_consider = get_users_to_consider(usr, consider_only_registered_within_last_x_days, exlude_user_ids)
 
     # - We have to set the score of all users not to consider to 0
-    all_users_not_to_consider = User.objects.annotate(to_consider=Exists(all_users_to_consider.filter(pk=OuterRef("id")))).filter(to_consider=False)
+    all_users_not_to_consider = User.objects.annotate(
+        to_consider=Exists(all_users_to_consider.filter(pk=OuterRef("id")))
+    ).filter(to_consider=False)
 
     total_considered_users = all_users_to_consider.count()
     total_unconsidered_users = all_users_not_to_consider.count()
@@ -415,13 +586,24 @@ def calculate_scores_user(user_pk, consider_only_registered_within_last_x_days=N
     # we always delete all scores of unconsidered users, that way we assure that we don't blow database sizes!
     from management.models.scores import TwoUserMatchingScore
 
-    cleaned_scores = TwoUserMatchingScore.objects.filter((~Q(user1__in=all_users_to_consider) and Q(user2=usr)) | (~Q(user2__in=all_users_to_consider) and Q(user1=usr)))
+    cleaned_scores = TwoUserMatchingScore.objects.filter(
+        (~Q(user1__in=all_users_to_consider) and Q(user2=usr)) | (~Q(user2__in=all_users_to_consider) and Q(user1=usr))
+    )
     count_cleaned_scores = cleaned_scores.count()
     cleaned_scores.delete()
 
     matchable_count = 0
     c = 0
-    report({"total_considered_users": total_considered_users, "total_unconsidered_users": total_unconsidered_users, "scores_cleaned": count_cleaned_scores, "progress": 0, "matchable_count": matchable_count, "state": "starting"})
+    report(
+        {
+            "total_considered_users": total_considered_users,
+            "total_unconsidered_users": total_unconsidered_users,
+            "scores_cleaned": count_cleaned_scores,
+            "progress": 0,
+            "matchable_count": matchable_count,
+            "state": "starting",
+        }
+    )
 
     for user in all_users_to_consider:
         c += 1
@@ -430,9 +612,26 @@ def calculate_scores_user(user_pk, consider_only_registered_within_last_x_days=N
         if matchable:
             matchable_count += 1
 
-        report({"total_considered_users": total_considered_users, "total_unconsidered_users": total_unconsidered_users, "scores_cleaned": count_cleaned_scores, "progress": c, "matchable_count": matchable_count, "state": "processing", "current_user": user.pk})
+        report(
+            {
+                "total_considered_users": total_considered_users,
+                "total_unconsidered_users": total_unconsidered_users,
+                "scores_cleaned": count_cleaned_scores,
+                "progress": c,
+                "matchable_count": matchable_count,
+                "state": "processing",
+                "current_user": user.pk,
+            }
+        )
 
-    return {"total_considered_users": total_considered_users, "total_unconsidered_users": total_unconsidered_users, "scores_cleaned": count_cleaned_scores, "matchable_count": matchable_count, "progress": c, "state": "finished"}
+    return {
+        "total_considered_users": total_considered_users,
+        "total_unconsidered_users": total_unconsidered_users,
+        "scores_cleaned": count_cleaned_scores,
+        "matchable_count": matchable_count,
+        "progress": c,
+        "state": "finished",
+    }
 
 
 @dataclass
@@ -457,8 +656,12 @@ class SimpleMatchingScoreSerializer(serializers.ModelSerializer):
 
 
 class BurstCalculateMatchingScoresV2RequestSerializer(serializers.Serializer):
-    parallel_tasks = serializers.IntegerField(help_text="The number of parallel tasks to run", default=4, required=False)
-    delete_old_scores = serializers.BooleanField(help_text="Delete all old scores before starting", default=True, required=False)
+    parallel_tasks = serializers.IntegerField(
+        help_text="The number of parallel tasks to run", default=4, required=False
+    )
+    delete_old_scores = serializers.BooleanField(
+        help_text="Delete all old scores before starting", default=True, required=False
+    )
 
 
 @extend_schema(
@@ -474,7 +677,9 @@ def burst_calculate_matching_scores_v2(request):
     if ongoing_update.exists():
         return Response({"msg": "Already updating scores"}, status=400)
     else:
-        ongoing_update = BackendState.objects.create(slug=BackendState.BackendStateEnum.updating_matching_scores, meta={"tasks": []})
+        ongoing_update = BackendState.objects.create(
+            slug=BackendState.BackendStateEnum.updating_matching_scores, meta={"tasks": []}
+        )
 
     serializer = BurstCalculateMatchingScoresV2RequestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -523,9 +728,12 @@ def get_active_burst_calculation(request):
 
 def instantly_possible_matches():
     import networkx as nx
+
     from management.models.scores import TwoUserMatchingScore
 
-    matches = SimpleMatchingScoreSerializer(TwoUserMatchingScore.objects.filter(matchable=True).order_by("-score"), many=True).data
+    matches = SimpleMatchingScoreSerializer(
+        TwoUserMatchingScore.objects.filter(matchable=True).order_by("-score"), many=True
+    ).data
 
     G = nx.Graph()
     print("CONSIDERED", matches)
@@ -545,8 +753,8 @@ def instantly_possible_matches():
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
 def score_maximization_matching(request):
-    from management.models.scores import TwoUserMatchingScore
     from management.api.user_advanced import AdvancedMatchingScoreSerializer
+    from management.models.scores import TwoUserMatchingScore
 
     matches = instantly_possible_matches()
 
@@ -578,13 +786,23 @@ def score_maximization_matching(request):
     pages = paginator.page(page)
     serialized = [AdvancedMatchingScoreSerializer(p, many=False, context={"user": p.user1}).data for p in list(pages)]
 
-    return Response(SimplePagination(page=page, items_per_page=items_per_page, total_pages=paginator.num_pages, total_items=len(scores), results=serialized).dict())
+    return Response(
+        SimplePagination(
+            page=page,
+            items_per_page=items_per_page,
+            total_pages=paginator.num_pages,
+            total_items=len(scores),
+            results=serialized,
+        ).dict()
+    )
 
 
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
 def delete_all_matching_scores(request):
-    assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+    assert request.user.is_staff or request.user.state.has_extra_user_permission(
+        State.ExtraUserPermissionChoices.MATCHING_USER
+    )
     from management.models.scores import TwoUserMatchingScore
 
     total_count = TwoUserMatchingScore.objects.count()
@@ -595,7 +813,9 @@ def delete_all_matching_scores(request):
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
 def list_top_scores(request):
-    assert request.user.is_staff or request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+    assert request.user.is_staff or request.user.state.has_extra_user_permission(
+        State.ExtraUserPermissionChoices.MATCHING_USER
+    )
     from management.api.user_advanced import AdvancedMatchingScoreSerializer
     from management.models.scores import TwoUserMatchingScore
 
@@ -608,4 +828,12 @@ def list_top_scores(request):
     pages = paginator.page(page)
     serialized = [AdvancedMatchingScoreSerializer(p, many=False, context={"user": p.user1}).data for p in list(pages)]
 
-    return Response(SimplePagination(page=page, items_per_page=items_per_page, total_pages=paginator.num_pages, total_items=top_scores.count(), results=serialized).dict())
+    return Response(
+        SimplePagination(
+            page=page,
+            items_per_page=items_per_page,
+            total_pages=paginator.num_pages,
+            total_items=top_scores.count(),
+            results=serialized,
+        ).dict()
+    )

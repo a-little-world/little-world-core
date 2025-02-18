@@ -1,19 +1,15 @@
 from django.urls import path
-
-from rest_framework import viewsets
-from rest_framework.response import Response
-from rest_framework.decorators import action
-
 from drf_spectacular.utils import extend_schema, extend_schema_view
-
+from emails.api.emails_config import EMAILS_CONFIG
+from emails.models import DynamicTemplate, DynamicTemplateSerializer
+from management.api.user_advanced_filter_lists import get_list_by_name
+from management.helpers import DetailedPaginationMixin, IsAdminOrMatchingUser
 from management.models.dynamic_user_list import DynamicUserList
 from management.models.user import User
-from management.helpers import IsAdminOrMatchingUser, DetailedPaginationMixin
 from management.tasks import send_dynamic_email_backgruound
-from management.api.user_advanced_filter_lists import get_list_by_name
-
-from emails.models import DynamicTemplateSerializer, DynamicTemplate
-from emails.api.emails_config import EMAILS_CONFIG
+from rest_framework import viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
 
 
 @extend_schema_view(

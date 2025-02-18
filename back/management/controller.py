@@ -3,27 +3,29 @@ This is a controller for any userform related actions
 e.g.: Creating a new user, sending a notification to a users etc...
 """
 
-from django.utils import timezone
-from management.models.management_tasks import MangementTask
-from django.db.models import Q
-from django.db import transaction
-from typing import Dict, Callable
-from management.models.unconfirmed_matches import ProposedMatch
-from management.models.past_matches import PastMatch
-from management.models.matches import Match
-from management import controller
+import os
 from dataclasses import dataclass
-from django.conf import settings
-from management.models.user import UserSerializer, User
-from management.models.profile import Profile
-from management.models.state import State
-from management.models.settings import Settings
-from management.models.rooms import Room
-from management.models.scores import TwoUserMatchingScore
+from typing import Callable, Dict
+
 from chat.models import Chat
+from django.conf import settings
+from django.db import transaction
+from django.db.models import Q
+from django.utils import timezone
 from emails import mails
 from translations import get_translation
-import os
+
+from management import controller
+from management.models.management_tasks import MangementTask
+from management.models.matches import Match
+from management.models.past_matches import PastMatch
+from management.models.profile import Profile
+from management.models.rooms import Room
+from management.models.scores import TwoUserMatchingScore
+from management.models.settings import Settings
+from management.models.state import State
+from management.models.unconfirmed_matches import ProposedMatch
+from management.models.user import User, UserSerializer
 from management.tasks import (
     create_default_banners,
     create_default_community_events,
@@ -97,10 +99,15 @@ def get_user_models(user):
 
 
 def send_still_active_question_message(user):
-    user.message(get_translation("auto_messages.are_you_still_in_contact", lang="de").format(first_name=user.first_name), auto_mark_read=False)
+    user.message(
+        get_translation("auto_messages.are_you_still_in_contact", lang="de").format(first_name=user.first_name),
+        auto_mark_read=False,
+    )
 
 
-def make_tim_support_user(user, old_management_mail="littleworld.management@gmail.com", send_message=True, custom_message=None):
+def make_tim_support_user(
+    user, old_management_mail="littleworld.management@gmail.com", send_message=True, custom_message=None
+):
     # 1. We need to remove oliver as matching user
 
     admin_user = controller.get_user_by_email(old_management_mail)
@@ -111,7 +118,13 @@ def make_tim_support_user(user, old_management_mail="littleworld.management@gmai
     # 2. make the new admin matching
     base_management_user = get_base_management_user()
 
-    match_users({base_management_user, user}, send_notification=False, send_message=False, send_email=False, set_unconfirmed=False)
+    match_users(
+        {base_management_user, user},
+        send_notification=False,
+        send_message=False,
+        send_email=False,
+        set_unconfirmed=False,
+    )
 
     # 2.5 add that user to the managed users by Tim
     base_management_user.state.managed_users.add(user)
@@ -131,7 +144,17 @@ def make_tim_support_user(user, old_management_mail="littleworld.management@gmai
             send_still_active_question_message(user)
 
 
-def create_user(email, password, first_name, second_name, birth_year, company=None, newsletter_subscribed=False, send_verification_mail=True, send_welcome_notification=True):
+def create_user(
+    email,
+    password,
+    first_name,
+    second_name,
+    birth_year,
+    company=None,
+    newsletter_subscribed=False,
+    send_verification_mail=True,
+    send_welcome_notification=True,
+):
     """
     This should be used when creating a new user, it may throw validations errors!
     performs the following setps:
@@ -187,9 +210,21 @@ def create_user(email, password, first_name, second_name, birth_year, company=No
     # Do *not* send an matching mail, or notification or message!
     # Also no need to set the admin user as unconfirmed,
     # there is no popup message required about being matched to the admin!
-    matching = match_users({base_management_user, usr}, send_notification=False, send_message=False, send_email=False, set_unconfirmed=False)
+    matching = match_users(
+        {base_management_user, usr},
+        send_notification=False,
+        send_message=False,
+        send_email=False,
+        set_unconfirmed=False,
+    )
 
-    print("Created Match:", matching.user1.email, "<->", matching.user2.email, "(support)" if matching.support_matching else "")
+    print(
+        "Created Match:",
+        matching.user1.email,
+        "<->",
+        matching.user2.email,
+        "(support)" if matching.support_matching else "",
+    )
 
     if not base_management_user.is_staff:
         # At the moment all our users get the same management user
@@ -199,7 +234,18 @@ def create_user(email, password, first_name, second_name, birth_year, company=No
 
     return usr
 
-def match_users(users: set, send_notification=True, send_message=True, send_email=True, create_dialog=True, create_video_room=True, create_livekit_room=True, set_unconfirmed=True, set_to_idle=True):
+
+def match_users(
+    users: set,
+    send_notification=True,
+    send_message=True,
+    send_email=True,
+    create_dialog=True,
+    create_video_room=True,
+    create_livekit_room=True,
+    set_unconfirmed=True,
+    set_to_idle=True,
+):
     """Accepts a list of two users to match"""
 
     assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
@@ -219,7 +265,10 @@ def match_users(users: set, send_notification=True, send_message=True, send_emai
         raise Exception("Users are already matched!")
 
     # It can also be a support matching with a 'management' user
-    is_support_matching = (usr1.is_staff or usr2.is_staff) or (usr1.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER) or usr2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER))
+    is_support_matching = (usr1.is_staff or usr2.is_staff) or (
+        usr1.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+        or usr2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+    )
 
     # This is the new way:
     matching_obj = Match.objects.create(
@@ -248,7 +297,7 @@ def match_users(users: set, send_notification=True, send_message=True, send_emai
         room = Room.objects.create(usr1=usr1, usr2=usr2)
 
     if send_notification:
-        pass # TODO: send notification should be used to trigger an SMS notification
+        pass  # TODO: send notification should be used to trigger an SMS notification
 
     if send_message:
         match_message = get_translation("auto_messages.match_message", lang="de")
@@ -267,7 +316,9 @@ def match_users(users: set, send_notification=True, send_message=True, send_emai
 
     # If there was a two user matching score we need to set it to matchable=False now as the users are matched
     # & also ofcourse all other scores of that users have to be set to matchable=False
-    TwoUserMatchingScore.objects.filter((Q(user1=usr1) | Q(user2=usr1) | Q(user1=usr2) | Q(user2=usr2)) & Q(matchable=True)).update(matchable=False)
+    TwoUserMatchingScore.objects.filter(
+        (Q(user1=usr1) | Q(user2=usr1) | Q(user1=usr2) | Q(user2=usr2)) & Q(matchable=True)
+    ).update(matchable=False)
 
     return matching_obj
 
@@ -312,14 +363,16 @@ def unmatch_users(users: set, delete_video_room=True, delete_dialog=True, unmatc
     assert match.exists(), "Match does not exist!"
     match = match.first()
     match.active = False
-    match.report_unmatch.append({
-        "kind": "unmatch",
-        "reason": "Manual User unmatch Matching pannel",
-        "match_id": match.id,
-        "time": str(timezone.now()),
-        "user_id": unmatcher.pk if unmatcher else "no unmatcher specified",
-        "user_uuid": unmatcher.hash if unmatcher else "no unmatcher specified",
-    })
+    match.report_unmatch.append(
+        {
+            "kind": "unmatch",
+            "reason": "Manual User unmatch Matching pannel",
+            "match_id": match.id,
+            "time": str(timezone.now()),
+            "user_id": unmatcher.pk if unmatcher else "no unmatcher specified",
+            "user_uuid": unmatcher.hash if unmatcher else "no unmatcher specified",
+        }
+    )
     match.save()
 
     # Then disable the video room
@@ -356,7 +409,14 @@ def get_or_create_default_docs_user():
         return get_user_by_email(settings.DOCS_USER)
     except UserNotFoundErr:
         create_user(
-            email=settings.DOCS_USER, password=settings.DOCS_PASSWORD, first_name="Docs", second_name="User", birth_year=2000, newsletter_subscribed=False, send_verification_mail=False, send_welcome_notification=False
+            email=settings.DOCS_USER,
+            password=settings.DOCS_PASSWORD,
+            first_name="Docs",
+            second_name="User",
+            birth_year=2000,
+            newsletter_subscribed=False,
+            send_verification_mail=False,
+            send_welcome_notification=False,
         )
 
     def finish_up_user_creation():

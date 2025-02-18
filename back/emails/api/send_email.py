@@ -1,15 +1,15 @@
-from django.urls import path
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework import serializers
-from management.helpers import IsAdminOrMatchingUser
-from emails.api.render_template import render_template_to_html, prepare_template_context
-from drf_spectacular.utils import extend_schema
-from emails.models import EmailLog
-from rest_framework.response import Response
-from django.core.mail import EmailMessage
-from emails.api.emails_config import EMAILS_CONFIG
 from django.contrib.auth import get_user_model
-from django.template import Template, Context
+from django.core.mail import EmailMessage
+from django.template import Context, Template
+from django.urls import path
+from drf_spectacular.utils import extend_schema
+from emails.api.emails_config import EMAILS_CONFIG
+from emails.api.render_template import prepare_template_context, render_template_to_html
+from emails.models import EmailLog
+from management.helpers import IsAdminOrMatchingUser
+from rest_framework import serializers
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
 
 
 class SendEmailSerializer(serializers.Serializer):
@@ -100,7 +100,11 @@ def send_template_email_api(request, template_name):
     serializer.is_valid(raise_exception=True)
 
     match_id = None if serializer.data.get("match_id", -1) == -1 else serializer.data.get("match_id", None)
-    proposed_match_id = None if serializer.data.get("proposed_match_id", None) is None else serializer.data.get("proposed_match_id", None)
+    proposed_match_id = (
+        None
+        if serializer.data.get("proposed_match_id", None) is None
+        else serializer.data.get("proposed_match_id", None)
+    )
     return send_template_email(
         template_name,
         user_id=serializer.data["user_id"],

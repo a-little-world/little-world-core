@@ -1,11 +1,11 @@
-from rest_framework import authentication, permissions
-from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema
-from rest_framework.views import APIView
-from rest_framework import serializers
-from management.models.help_message import HelpMessage
 from django.core.validators import MaxLengthValidator, MinLengthValidator
 from django.utils.html import escape
+from drf_spectacular.utils import extend_schema
+from rest_framework import authentication, permissions, serializers
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from management.models.help_message import HelpMessage
 from management.tasks import slack_notify_communication_channel_async
 
 
@@ -54,7 +54,9 @@ class SendHelpMessage(APIView):
             message=data["message"],
             **patt,
         )
-        
-        slack_notify_communication_channel_async.delay(f"New Help Message from {request.user.username}:\n{data['message']}\n\nCheck as super user at https://little-world.com/admin/management/helpmessage/{help_message.id}/change/")
+
+        slack_notify_communication_channel_async.delay(
+            f"New Help Message from {request.user.username}:\n{data['message']}\n\nCheck as super user at https://little-world.com/admin/management/helpmessage/{help_message.id}/change/"
+        )
 
         return Response("Successfully submitted help message!")

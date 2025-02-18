@@ -1,5 +1,7 @@
-from back import utils
 from django.db import models
+
+from back import utils
+
 from .user import User
 
 

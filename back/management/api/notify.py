@@ -1,108 +1,174 @@
-from drf_spectacular.utils import extend_schema, OpenApiParameter, inline_serializer
-from typing import Optional
-from rest_framework import authentication, permissions
-from rest_framework.views import APIView
-from rest_framework.response import Response
 from dataclasses import dataclass, field
-from rest_framework import serializers
+from typing import Optional
+
 from django.core.paginator import Paginator
+from django.urls import path
+from drf_spectacular.utils import OpenApiParameter, extend_schema
+from rest_framework import authentication, permissions, serializers
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.response import Response
+from rest_framework_dataclasses.serializers import DataclassSerializer
+
+from management.helpers import DetailedPagination
 from management.models.notifications import Notification, SelfNotificationSerializer
 from management.models.user import User
 
 
 @dataclass
-class NotificationApiParams:
-    page: int = 1
-    paginate_by: int = 20
-    options: bool = False
+class NotificationGetPaginatedParams:
+    page: int
+    paginate_by: int
+
+    include_unread: bool
+    include_read: bool
+    include_archived: bool
 
 
-class NotificationApiSerializer(serializers.Serializer):
-    page = serializers.IntegerField(min_value=1, required=False)
-    paginate_by = serializers.IntegerField(min_value=1, required=False)
-    options = serializers.BooleanField(required=False)
+class NotificationGetPaginatedSerializer(serializers.Serializer):
+    page = serializers.IntegerField(min_value=1, default=1, required=False)
+    paginate_by = serializers.IntegerField(min_value=1, default=20, required=False)
+    include_unread = serializers.BooleanField(default=True, required=False)
+    include_read = serializers.BooleanField(default=False, required=False)
+    include_archived = serializers.BooleanField(default=False, required=False)
 
     def create(self, validated_data):
-        return NotificationApiParams(**validated_data)  # type: ignore
-
-
-class NotificationGetApi(APIView):
-    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
-
-    permission_classes = [permissions.IsAuthenticated]
-
-    @extend_schema(
-        description="Retrive notifications",
-        request=NotificationApiSerializer(many=False),
-        parameters=[
-            OpenApiParameter(name="page", description="default: 1", required=False, type=str, location=OpenApiParameter.QUERY),
-            OpenApiParameter(name="paginate_by", description="default: 20", required=False, type=str, location=OpenApiParameter.QUERY),
-        ],
-    )
-    def get(self, request):
-        serializer = NotificationApiSerializer(data=request.query_params)
-        serializer.is_valid(raise_exception=True)
-        params = serializer.save()
-        assert isinstance(request.user, User)
-        notifications_user = request.user.get_notifications()
-        paged_notificatons = Paginator(notifications_user, params.paginate_by).page(params.page)
-
-        # TODO: we could allow admins to use the raw NotificationsSerializer
-        return Response([SelfNotificationSerializer(p).data for p in paged_notificatons])
+        return NotificationGetPaginatedParams(**validated_data)
 
 
 @dataclass
-class NotificationActionParams(NotificationApiParams):
-    hash: "list[str]" = field(default_factory=list)
-    action: Optional[str] = None
+class NotificationGetParams:
+    id: int
 
 
-class NotificationActionSerializer(NotificationApiSerializer):
-    hash = serializers.ListField(required=True)
-    action = serializers.CharField(required=True)
+class NotificationGetSerializer(serializers.Serializer):
+    id = serializers.IntegerField(required=True)
 
     def create(self, validated_data):
-        return NotificationActionParams(**validated_data)  # type: ignore
+        return NotificationGetParams(**validated_data)
 
 
-actions = ["read", "archive"]
+@dataclass
+class NotificationUpdateParams:
+    state: Notification.NotificationState
 
 
-class NotificationActionApi(APIView):
-    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
+class NotificationUpdateSerializer(serializers.Serializer):
+    state = serializers.ChoiceField(choices=Notification.NotificationState.choices, required=True)
 
-    permission_classes = [permissions.IsAuthenticated]
+    def create(self, validated_data):
+        return NotificationUpdateParams(**validated_data)
 
-    @extend_schema(
-        parameters=[
-            OpenApiParameter(name="action", description="one of: " + ", ".join([f"'{a}'" for a in actions]), required=True, type=str, location="path"),
-        ],
-        request=inline_serializer(
-            name="hash",
-            fields={
-                "hash": serializers.ListSerializer(child=serializers.CharField()),
-            },
+
+@extend_schema(
+    description="Retrieve notifications",
+    request=NotificationGetPaginatedSerializer(many=False),
+    parameters=[
+        OpenApiParameter(
+            name="page",
+            required=False,
+            type=int,
+            default=1,
+            location=OpenApiParameter.QUERY,
         ),
+        OpenApiParameter(
+            name="paginate_by",
+            required=False,
+            type=int,
+            default=20,
+            location=OpenApiParameter.QUERY,
+        ),
+        OpenApiParameter(
+            name="include_unread",
+            required=False,
+            default=True,
+            type=bool,
+            location=OpenApiParameter.QUERY,
+        ),
+        OpenApiParameter(
+            name="include_read",
+            required=False,
+            default=False,
+            type=bool,
+            location=OpenApiParameter.QUERY,
+        ),
+        OpenApiParameter(
+            name="include_archived",
+            required=False,
+            default=False,
+            type=bool,
+            location=OpenApiParameter.QUERY,
+        ),
+    ],
+)
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated])
+@authentication_classes([authentication.SessionAuthentication])
+def get_notifications(request):
+    serializer: NotificationGetPaginatedSerializer = NotificationGetPaginatedSerializer(data=request.query_params)
+    serializer.is_valid(raise_exception=True)
+    params: NotificationGetPaginatedParams = serializer.save()
+
+    assert isinstance(request.user, User)
+
+    notifications_user = request.user.get_notifications(
+        include_unread=params.include_unread, include_read=params.include_read, include_archived=params.include_archived
     )
-    def post(self, request, **kwargs):
-        """
-        this expects some low profile update action like e.g.:  'read', 'archive'
-        -> ntfy/read hash=XXXX
-        """
-        serializer = NotificationActionSerializer(data={**request.data, "action": kwargs.get("action", None)})  # type: ignore
-        serializer.is_valid(raise_exception=True)
-        params = serializer.save()
+    paginator = DetailedPagination()
+    pages = paginator.get_paginated_response(paginator.paginate_queryset(notifications_user, request)).data
+    pages["results"] = SelfNotificationSerializer(pages["results"], many=True).data
+    return Response(pages)
 
-        assert isinstance(request.user, User)
 
-        usr_notifications = Notification.objects.filter(user=request.user)
+@extend_schema(
+    description="Retrieve a single notification",
+    request=NotificationGetPaginatedSerializer(many=False),
+    parameters=[
+        OpenApiParameter(
+            name="id",
+            required=True,
+            type=int,
+            location=OpenApiParameter.PATH,
+        ),
+    ],
+)
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated])
+@authentication_classes([authentication.SessionAuthentication])
+def get_notification(request, id):
+    assert isinstance(request.user, User)
 
-        for notification_hash in params.hash:
-            notification = usr_notifications.filter(hash=notification_hash)
-            assert notification.exists()
-            notification = notification.first()
-            if params.action == "read":
-                notification.mark_read()
-            elif params.action == "archive":
-                notification.mark_archived()
-        return Response("Sucessfully performed notification actions")
+    notification = Notification.objects.get(id=id)
+    return Response(SelfNotificationSerializer(notification).data)
+
+
+@extend_schema(
+    description="Update a notification",
+    request=NotificationUpdateSerializer(many=False),
+    parameters=[
+        OpenApiParameter(
+            name="id",
+            required=True,
+            type=int,
+            location=OpenApiParameter.PATH,
+        ),
+    ],
+)
+@api_view(["PATCH"])
+@permission_classes([permissions.IsAuthenticated])
+@authentication_classes([authentication.SessionAuthentication])
+def update_notification(request, id):
+    serializer: NotificationUpdateSerializer = NotificationUpdateSerializer(data={"id": id, **request.data})
+    serializer.is_valid(raise_exception=True)
+    params: NotificationUpdateParams = serializer.save()
+
+    notification = Notification.objects.get(id=id)
+    notification.update_state(params.state)
+
+    return Response(SelfNotificationSerializer(notification).data)
+
+
+api_routes = [
+    path("api/notifications/", get_notifications),
+    path("api/notifications/<int:id>", get_notification),
+    path("api/notifications/<int:id>/update", update_notification),
+]

@@ -1,4 +1,5 @@
-from back import utils
+from uuid import uuid4
+
 from django.db import models
 from rest_framework import serializers
 from translations import get_translation
@@ -14,7 +15,7 @@ class Notification(models.Model):
 
     user = models.ForeignKey("management.User", on_delete=models.CASCADE)
 
-    hash = models.CharField(max_length=100, blank=True, unique=True, default=utils._double_uuid)  # type: ignore
+    hash = models.CharField(max_length=100, blank=True, unique=True, default=uuid4)  # type: ignore
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -35,7 +36,7 @@ class Notification(models.Model):
 
     type = models.CharField(choices=NotificationType.choices, default=NotificationType.NONE, max_length=255)
 
-    title = models.CharField(max_length=255, default=get_translation("notification.title"))
+    title = models.CharField(max_length=255, default=get_translation("notification.title"), blank=True)
     description = models.TextField(default=get_translation("notification.no_description"))
 
     meta = models.JSONField(default=dict, blank=True)
@@ -52,6 +53,14 @@ class Notification(models.Model):
     def get_archived_notifications(cls, user, order_by="-created_at"):
         return cls.objects.filter(user=user, state=cls.NotificationState.ARCHIVED).order_by(order_by)
 
+    def update_state(self, state: NotificationState):
+        if state == Notification.NotificationState.READ:
+            self.mark_read()
+        elif state == Notification.NotificationState.UNREAD:
+            self.mark_unread()
+        elif state == Notification.NotificationState.ARCHIVED:
+            self.archive()
+
     def mark_read(self):
         from datetime import datetime
 
@@ -59,7 +68,12 @@ class Notification(models.Model):
         self.state = self.NotificationState.READ
         self.save()
 
-    def mark_archived(self):
+    def mark_unread(self):
+        self.time_read = None
+        self.state = self.NotificationState.UNREAD
+        self.save()
+
+    def archive(self):
         self.state = self.NotificationState.ARCHIVED
         self.save()
 
@@ -67,7 +81,7 @@ class Notification(models.Model):
 class SelfNotificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Notification
-        fields = ["hash", "type", "state", "title", "description", "created_at"]
+        fields = ["id", "hash", "type", "state", "title", "description", "created_at"]
 
 
 class NotificationSerializer(serializers.ModelSerializer):

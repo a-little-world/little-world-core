@@ -3,19 +3,28 @@ from django.core.management.base import BaseCommand
 
 class Command(BaseCommand):
     def handle(self, **options):
+        import datetime
+
+        from django.db.models import Q
+        from django.utils import timezone
+        from emails import mails
+
         from management.models.matches import Match
         from management.models.state import State
         from management.models.user import User
-        from django.db.models import Q
-        from django.utils import timezone
-        import datetime
-
-        from emails import mails
 
         consider_only_registered_within_last_x_days = 120
 
         today = timezone.now()
-        all_users_to_consider = User.objects.filter(~(Q(state__user_category=State.UserCategoryChoices.SPAM) | Q(state__user_category=State.UserCategoryChoices.TEST)), state__user_form_state=State.UserFormStateChoices.FILLED, state__email_authenticated=True, is_staff=False)
+        all_users_to_consider = User.objects.filter(
+            ~(
+                Q(state__user_category=State.UserCategoryChoices.SPAM)
+                | Q(state__user_category=State.UserCategoryChoices.TEST)
+            ),
+            state__user_form_state=State.UserFormStateChoices.FILLED,
+            state__email_authenticated=True,
+            is_staff=False,
+        )
 
         x_days_ago = today - datetime.timedelta(days=consider_only_registered_within_last_x_days)
         all_users_to_consider = all_users_to_consider.filter(date_joined__gte=x_days_ago)
@@ -35,7 +44,15 @@ class Command(BaseCommand):
         if user_input == "Y":
             print("Sending emails...")
             users = list(all_users_to_consider)
-            users = filter(lambda user: not (("oliver" in user.email) or ("rwth" in user.email) or ("berlin" in user.email) or ("hauptstadt" in user.email)), users)
+            users = filter(
+                lambda user: not (
+                    ("oliver" in user.email)
+                    or ("rwth" in user.email)
+                    or ("berlin" in user.email)
+                    or ("hauptstadt" in user.email)
+                ),
+                users,
+            )
             users = list(users)
 
             print("Collected", len(users), "users to send to")
@@ -44,7 +61,13 @@ class Command(BaseCommand):
 
             user_input = input()
             if user_input == "Y":
-                controller.send_group_mail(users=users, subject="Kommende Impulsbeiträge und unser monatliches Come-Together", mail_name="impuls_beitraege2", mail_params_func=get_params, unsubscribe_group="event_announcement")
+                controller.send_group_mail(
+                    users=users,
+                    subject="Kommende Impulsbeiträge und unser monatliches Come-Together",
+                    mail_name="impuls_beitraege2",
+                    mail_params_func=get_params,
+                    unsubscribe_group="event_announcement",
+                )
             else:
                 print("Not send")
         else:
@@ -52,7 +75,13 @@ class Command(BaseCommand):
             print("Send Test Email to tim.timschupp+420@gmail.com (Y/N) ?")
 
             users = [controller.get_user_by_email("tim.timschupp+420@gmail.com")]
-            controller.send_group_mail(users=users, subject="Kommende Impulsbeiträge und unser monatliches Come-Together", mail_name="impuls_beitraege2", mail_params_func=get_params, unsubscribe_group="event_announcement")
+            controller.send_group_mail(
+                users=users,
+                subject="Kommende Impulsbeiträge und unser monatliches Come-Together",
+                mail_name="impuls_beitraege2",
+                mail_params_func=get_params,
+                unsubscribe_group="event_announcement",
+            )
 
         MESSAGE_ANNOUNCEMENT = """
 <span class="announcement-badge">Ankündigung</span>
@@ -85,7 +114,9 @@ Den Zoom Link für die kommenden Veranstaltungen findest du nach dem Einloggen u
             for user in users:
                 print("Sending message announcement to", user.email, "(", i, "/", total, ")")
                 i += 1
-                tim_is_support = str(Match.get_support_matches(user).first().get_partner(user).email).startswith("tim.timschupp+420@gmail.com")
+                tim_is_support = str(Match.get_support_matches(user).first().get_partner(user).email).startswith(
+                    "tim.timschupp+420@gmail.com"
+                )
                 if tim_is_support:
                     user.message(MESSAGE_ANNOUNCEMENT)
                 else:

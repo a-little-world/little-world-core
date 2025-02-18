@@ -1,11 +1,12 @@
-from django.db import models
-from back import utils
-from django.utils.translation import gettext_lazy as _
+from chat.models import Chat, ChatSerializer, Message, MessageSerializer
 from django.conf import settings
-from rest_framework import serializers
 from django.contrib.auth.models import AbstractUser, BaseUserManager
-from chat.models import Message, MessageSerializer, Chat, ChatSerializer
+from django.db import models
 from emails.api.send_email import send_template_email
+from rest_framework import serializers
+
+from back import utils
+from management.models.notifications import Notification
 
 
 class UserManager(BaseUserManager):
@@ -17,9 +18,7 @@ class UserManager(BaseUserManager):
     def _create_user(self, email=None, password=None, **kwargs):
         # TODO: defering the import here is suboptimal, import stucture should be impoved
         # But importing them on top level will cause circular import currently
-        from . import state
-        from . import profile
-        from . import settings
+        from . import profile, settings, state
 
         assert email and password
         email = email.lower()
@@ -118,9 +117,32 @@ class User(AbstractUser):
         super().save(*args, **kwargs)
         self.__original_username = self.username
 
-    def get_notifications(self):
+    def get_notifications(
+        self, include_unread: bool = True, include_read: bool = False, include_archived: bool = False
+    ):
         """Returns a list of matches"""
-        return self.state.notifications.all()
+
+        states = []
+        if include_unread:
+            states.append(Notification.NotificationState.UNREAD.value)
+        if include_read:
+            states.append(Notification.NotificationState.READ.value)
+        if include_archived:
+            states.append(Notification.NotificationState.ARCHIVED.value)
+
+        if len(states) == 0:
+            return self.state.notifications.none()
+
+        return Notification.objects.filter(user=self, state__in=states).order_by("-created_at")
+
+    def notify(self, notification):
+        """Notifies the user about a notification via websockets"""
+        assert notification.user == self
+        from chat.consumers.messages import NotificationMessage
+
+        from management.models.notifications import NotificationSerializer
+
+        NotificationMessage(notification=NotificationSerializer(notification).data).send(str(self.hash))
 
     def change_email(self, email, send_verification_mail=True):
         """
@@ -133,6 +155,7 @@ class User(AbstractUser):
         wich has a button `change-email` which redirects to `/change_email`
         """
         from emails import mails
+
         from ..api.user import ChangeEmailSerializer
 
         # We do an aditional email serialization here!
@@ -155,7 +178,11 @@ class User(AbstractUser):
                 overwrite_mail=prms.email,
                 subject="Email Changed, Please verify your new email",
                 mail_data=mails.get_mail_data_by_name("welcome"),
-                mail_params=mails.WelcomeEmailParams(first_name=self.profile.first_name, verification_url=verifiaction_url, verification_code=str(self.state.get_email_auth_pin())),
+                mail_params=mails.WelcomeEmailParams(
+                    first_name=self.profile.first_name,
+                    verification_url=verifiaction_url,
+                    verification_code=str(self.state.get_email_auth_pin()),
+                ),
             )
         self.email = prms.email.lower()
         # NOTE the save() method automaicly detects the email change and also changes the username
@@ -163,7 +190,15 @@ class User(AbstractUser):
         # self.username = prms.email  # <- so the user can login with that email now
         self.save()
 
-    def message(self, msg, sender=None, auto_mark_read=False, send_message_incoming=True, parsable_message=True, send_message_incoming_to_sender=False):
+    def message(
+        self,
+        msg,
+        sender=None,
+        auto_mark_read=False,
+        send_message_incoming=True,
+        parsable_message=True,
+        send_message_incoming_to_sender=False,
+    ):
         """
         Sends the users a chat message
         theoreticly this could be used to send a message from any sender
@@ -175,7 +210,15 @@ class User(AbstractUser):
             sender = get_base_management_user()
 
         chat = Chat.get_or_create_chat(sender, self)
-        message = Message.objects.create(chat=chat, sender=sender, recipient=self, read=auto_mark_read, recipient_notified=auto_mark_read, text=msg, parsable_message=parsable_message)
+        message = Message.objects.create(
+            chat=chat,
+            sender=sender,
+            recipient=self,
+            read=auto_mark_read,
+            recipient_notified=auto_mark_read,
+            text=msg,
+            parsable_message=parsable_message,
+        )
 
         serialized_message = MessageSerializer(message).data
 
@@ -208,7 +251,9 @@ class User(AbstractUser):
     def send_email_v2(self, template_name, match_id=None, proposed_match_id=None, context={}):
         user_id = self.id
 
-        send_template_email(template_name, user_id=user_id, match_id=match_id, proposed_match_id=proposed_match_id, context=context)
+        send_template_email(
+            template_name, user_id=user_id, match_id=match_id, proposed_match_id=proposed_match_id, context=context
+        )
 
     def send_email(
         self,
@@ -226,12 +271,20 @@ class User(AbstractUser):
         """
 
         from emails.mails import send_email
+
         # TODO: depricate / replace with 'send_email_v2'
-        
+
         if settings.DISABLE_LEGACY_EMAIL_SENDING:
             raise Exception("Legacy email sending is disabled, use 'send_email_v2' instead!")
         recivers = [overwrite_mail] if overwrite_mail else [self.email]
-        send_email(subject=subject, recivers=recivers, mail_data=mail_data, mail_params=mail_params, attachments=attachments, **kwargs)
+        send_email(
+            subject=subject,
+            recivers=recivers,
+            mail_data=mail_data,
+            mail_params=mail_params,
+            attachments=attachments,
+            **kwargs,
+        )
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -254,4 +307,5 @@ class SelfUserSerializer(UserSerializer):
 class CensoredUserSerializer(UserSerializer):
     class Meta:
         model = User
+        fields = ["hash", "is_admin"]
         fields = ["hash", "is_admin"]

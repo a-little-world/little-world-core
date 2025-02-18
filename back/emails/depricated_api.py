@@ -1,12 +1,13 @@
-from rest_framework.views import APIView
-from dataclasses import dataclass
-from rest_framework import authentication, permissions, viewsets, status
-from drf_spectacular.utils import extend_schema
-from django.utils.translation import gettext_lazy as _
-from django.conf import settings
 from copy import deepcopy
-from rest_framework import serializers
+from dataclasses import dataclass
+
+from django.conf import settings
+from django.utils.translation import gettext_lazy as _
+from drf_spectacular.utils import extend_schema
+from rest_framework import authentication, permissions, serializers, status, viewsets
 from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from . import mails
 from .models import EmailLog, EmailLogSerializer
 
@@ -78,7 +79,9 @@ class EncodeTemplate(APIView):
         try:
             template = mails.get_mail_data_by_name(params.template)
         except mails.MailDataNotFoundErr:
-            return Response(_("Can't find email template '{name}'".format(name=params.template)), status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                _("Can't find email template '{name}'".format(name=params.template)), status=status.HTTP_400_BAD_REQUEST
+            )
         assert template, "Template retrival failed with undefined error"
         for param in template.params.__annotations__:
             if param not in params.params:

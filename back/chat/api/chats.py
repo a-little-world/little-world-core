@@ -1,16 +1,13 @@
-from rest_framework import serializers, viewsets
-from django.db.models import Q, Max
-
-from rest_framework.permissions import IsAuthenticated
-from chat.models import Chat, ChatSerializer
+from django.db.models import Max, Q
+from drf_spectacular.utils import extend_schema, inline_serializer
 from management.helpers import DetailedPaginationMixin
-
 from management.models.profile import ProfileSerializer
-from drf_spectacular.utils import inline_serializer
-from drf_spectacular.utils import extend_schema
-from chat.models import MessageSerializer
+from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+from chat.models import Chat, ChatSerializer, MessageSerializer
 
 
 def chat_res_seralizer(many=True):

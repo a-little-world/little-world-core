@@ -6,6 +6,50 @@ Main management models:
 - Settings (user): All user settings
 """
 
-from . import profile, user, state, settings, notifications, rooms, community_events, backend_state, news_and_updates, help_message, past_matches, translation_logs, unconfirmed_matches, matches, management_tasks, sms, scores, pre_matching_appointment, newsletter, stats, banner
+from . import (
+    backend_state,
+    banner,
+    community_events,
+    help_message,
+    management_tasks,
+    matches,
+    news_and_updates,
+    newsletter,
+    notifications,
+    past_matches,
+    pre_matching_appointment,
+    profile,
+    rooms,
+    scores,
+    settings,
+    sms,
+    state,
+    stats,
+    translation_logs,
+    unconfirmed_matches,
+    user,
+)
 
-__all__ = ["profile", "user", "state", "settings", "notifications", "rooms", "banner", "community_events", "backend_state", "news_and_updates", "help_message", "past_matches", "translation_logs", "unconfirmed_matches", "matches", "management_tasks", "sms", "scores", "pre_matching_appointment", "newsletter", "stats"]
+__all__ = [
+    "profile",
+    "user",
+    "state",
+    "settings",
+    "notifications",
+    "rooms",
+    "banner",
+    "community_events",
+    "backend_state",
+    "news_and_updates",
+    "help_message",
+    "past_matches",
+    "translation_logs",
+    "unconfirmed_matches",
+    "matches",
+    "management_tasks",
+    "sms",
+    "scores",
+    "pre_matching_appointment",
+    "newsletter",
+    "stats",
+]
