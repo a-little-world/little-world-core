@@ -382,67 +382,46 @@ def bucket_statistics(request):
     return Response(stats)
 
 
-@extend_schema(
-    request=inline_serializer(
-        name="MatchBucketStatisticsCountOverTimeRequest",
-        fields={
-            "selected_filters": serializers.ListField(
-                child=serializers.ChoiceField(
-                    choices=[entry.name for entry in MATCH_JOURNEY_FILTERS],
-                ),
-                required=True,
-            ),
-            "start_date": serializers.DateField(default="2021-01-01", required=False),
-            "end_date": serializers.DateField(default=date.today(), required=False),
-        },
-    ),
-)
-@api_view(["POST"])
-@permission_classes([IsAdminOrMatchingUser])
-def match_bucket_statistics(request):
-    today = date.today()
-
-    start_date = request.data.get("start_date", "2022-01-01")
-    end_date = request.data.get("end_date", today)
-
-    pre_filtered_users = User.objects.all()
-    if not request.user.is_staff:
-        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
-
-    pre_filtered_matches = Match.objects.filter(
-        Q(user1__in=pre_filtered_users) | Q(user2__in=pre_filtered_users), created_at__range=[start_date, end_date]
-    )
-
-    selected_filters = request.data.get("selected_filters", None)
-
+def get_match_bucket_statistics(pre_filtered_matches, selected_filters=None, filter_lists=MATCH_JOURNEY_FILTERS):
+    """
+    Calculate match bucket statistics for a given set of matches and filters.
+    
+    Args:
+        pre_filtered_matches: QuerySet of pre-filtered Match objects
+        selected_filters: List of filter names to apply (default: None, uses all filters)
+        filter_lists: List of filter definitions to use (default: MATCH_JOURNEY_FILTERS)
+    
+    Returns:
+        dict: Contains buckets, missing_ids, and intersecting_ids_lists
+    """
     if selected_filters is None:
-        selected_filters = [entry.name for entry in MATCH_JOURNEY_FILTERS]
+        selected_filters = [entry.name for entry in filter_lists]
 
     if "match_journey_v2__all" not in selected_filters:
         selected_filters.append("match_journey_v2__all")
 
-    # Uncomment this and re-set the if flag if you want to log query speeds
-    from django.db import connection
-
     query_logger = QueryLogger()
-
+    last_query_log_index = 0
     all_ids_set = set()
     user_list_ids = {}
+
     with connection.execute_wrapper(query_logger):
         match_buckets = []
-        selected_filters_list = [entry for entry in MATCH_JOURNEY_FILTERS if entry.name in selected_filters]
+        selected_filters_list = [entry for entry in filter_lists if entry.name in selected_filters]
+        
         for i, filter_list in enumerate(selected_filters_list):
             queryset = filter_list.queryset(qs=pre_filtered_matches)
             count = queryset.count()
-            match_buckets.append(
-                {
-                    "name": filter_list.name,
-                    "description": filter_list.description,
-                    "count": count,
-                    "id": i,
-                    "query_duration": query_logger.queries[-1]["duration"],
-                }
-            )
+            duration = sum([query["duration"] for query in query_logger.queries[last_query_log_index:]])
+            last_query_log_index = len(query_logger.queries) - 1
+            
+            match_buckets.append({
+                "name": filter_list.name,
+                "description": filter_list.description,
+                "count": count,
+                "id": i,
+                "query_duration": duration,
+            })
 
             user_list_ids[filter_list.name] = {
                 "ids": queryset.values_list("id", flat=True),
@@ -451,6 +430,7 @@ def match_bucket_statistics(request):
             if filter_list.name != "match_journey_v2__all":
                 all_ids_set.update(user_list_ids[filter_list.name]["ids"])
 
+    # Calculate intersecting IDs
     exclude_intersection_check = [
         "all",
         "needs_matching",
@@ -478,13 +458,56 @@ def match_bucket_statistics(request):
     all_ids = set(user_list_ids["match_journey_v2__all"]["ids"])
     missing_ids = all_ids.difference(all_ids_set)
 
-    return Response(
-        {
-            "buckets": match_buckets,
-            "intersecting_ids_lists": intersecting_ids_lists,
-            "missing_ids": list(missing_ids),
-        }
+    return {
+        "buckets": match_buckets,
+        "intersecting_ids_lists": intersecting_ids_lists,
+        "missing_ids": list(missing_ids),
+    }
+
+@extend_schema(
+    request=inline_serializer(
+        name="MatchBucketStatisticsCountOverTimeRequest",
+        fields={
+            "selected_filters": serializers.ListField(
+                child=serializers.ChoiceField(
+                    choices=[entry.name for entry in MATCH_JOURNEY_FILTERS],
+                ),
+                required=True,
+            ),
+            "start_date": serializers.DateField(default="2021-01-01", required=False),
+            "end_date": serializers.DateField(default=date.today(), required=False),
+        },
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
+def match_bucket_statistics(request):
+    today = date.today()
+    start_date = request.data.get("start_date", "2022-01-01")
+    end_date = request.data.get("end_date", today)
+
+    # Get pre-filtered users based on permissions
+    pre_filtered_users = User.objects.all()
+    if not request.user.is_staff:
+        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+
+    # Get pre-filtered matches based on users and date range
+    pre_filtered_matches = Match.objects.filter(
+        Q(user1__in=pre_filtered_users) | Q(user2__in=pre_filtered_users),
+        created_at__range=[start_date, end_date]
     )
+
+    # Get selected filters from request
+    selected_filters = request.data.get("selected_filters", None)
+
+    # Get match bucket statistics using the extracted function
+    stats = get_match_bucket_statistics(
+        pre_filtered_matches=pre_filtered_matches,
+        selected_filters=selected_filters,
+        filter_lists=MATCH_JOURNEY_FILTERS
+    )
+
+    return Response(stats)
 
 
 @api_view(["POST"])
