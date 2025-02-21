@@ -20,6 +20,11 @@ from management.api.user_advanced_filter import (
     users_with_open_tasks,
 )
 from management.api.user_journey_filters import (
+    not_too_low_german_level__is_onboarded,
+    email_not_verified_or_form_not_completed,
+    too_low_german_level_or_not_onboarded,
+    email_verified_and_form_completed,
+    never_active_or_deleted_or_created,
     active_match,
     booked_onboarding_call,
     community_calls,
@@ -134,6 +139,11 @@ USER_JOURNEY_FILTER_LISTS = [
     FilterListEntry("journey_v2__gave_up_searching", None, gave_up_searching),
     FilterListEntry("journey_v2__user_deleted", None, user_deleted),
     FilterListEntry("journey_v2__marked_unresponsive", None, marked_unresponsive),
+    FilterListEntry("journey_v2__never_active_or_deleted_or_created", None, never_active_or_deleted_or_created),
+    FilterListEntry("journey_v2__email_verified_and_form_completed", None, email_verified_and_form_completed),
+    FilterListEntry("journey_v2__email_not_verified_or_form_not_completed", None, email_not_verified_or_form_not_completed),
+    FilterListEntry("journey_v2__not_too_low_german_level__is_onboarded", None, not_too_low_german_level__is_onboarded),
+    FilterListEntry("journey_v2__too_low_german_level_or_not_onboarded", None, too_low_german_level_or_not_onboarded),
     FilterListEntry("needs_matching_volunteers", None, needs_matching_volunteers),
     FilterListEntry("herrduenschnlate", None, only_hd_test_user),
     FilterListEntry("community", None, community_calls),
