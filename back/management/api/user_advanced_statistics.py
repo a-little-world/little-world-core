@@ -981,6 +981,38 @@ match_journey_exclude_sum_buckets = ["all", "match_journey_v2__proposed_matches"
 
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
+def kpi_dashboard_statistics_searching_users(request):
+    # - Searching for the first time ( learners vs volunteers )
+    # searching again learners vs volunteers
+
+    from management.api.user_journey_filters import first_search_v2, user_searching, get_user_involved, user_searching_again
+    from management.api.match_journey_filters import matching_proposals
+    pre_filtered_users = User.objects.all()
+    if not request.user.is_staff:
+        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+        
+    
+    users_with_proposals = get_user_involved(matching_proposals(), pre_filtered_users)
+        
+    fs1 = first_search_v2(pre_filtered_users, require_min_lang_level=True).exclude(id__in=users_with_proposals)
+    
+    first_search_volunteers = fs1.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER).count()
+    first_search_learners = fs1.filter(profile__user_type=Profile.TypeChoices.LEARNER).count()
+    
+    searching_again = user_searching_again(pre_filtered_users).exclude(id__in=users_with_proposals)
+    searching_again_volunteers = searching_again.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER).count()
+    searching_again_learners = searching_again.filter(profile__user_type=Profile.TypeChoices.LEARNER).count()
+    
+    return Response({
+        "first_search_volunteers": first_search_volunteers,
+        "first_search_learners": first_search_learners,
+        "searching_again_volunteers": searching_again_volunteers,
+        "searching_again_learners": searching_again_learners,
+    })
+
+
+@api_view(["GET"])
+@permission_classes([IsAdminOrMatchingUser])
 def kpi_dashboard_statistics_matching(request):
     # - % angenommenen Match proposals  (letzte 2-4 Wochen)
     # - % failed vs ongoing+finished Matches (total)
@@ -1042,5 +1074,6 @@ api_urls = [
     path("api/matching/users/statistics/user_match_waiting_time/", user_match_waiting_time_statistics),
     path("api/matching/users/statistics/kpi_singup/", kpi_dashboard_statistics_signups),
     path("api/matching/users/statistics/kpi_matching/", kpi_dashboard_statistics_matching),
+    path("api/matching/users/statistics/kpi_searching/", kpi_dashboard_statistics_searching_users),
     path("api/matching/users/statistics/company_report/<str:company>/", comany_video_call_and_matching_report),
 ]

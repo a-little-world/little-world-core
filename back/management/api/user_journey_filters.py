@@ -148,7 +148,7 @@ def first_search_v1(qs=User.objects.all()):
     )
 
 
-def first_search_v2(qs=User.objects.all()):
+def first_search_v2(qs=User.objects.all(), require_min_lang_level=True):
     """
     (Sign-Up) User is doing first search i.e.: has no 'non-support' match
     """
@@ -161,22 +161,25 @@ def first_search_v2(qs=User.objects.all()):
     users_w_open_proposals = set([id for pair in users_with_open_proposals for id in pair])
     users_w_open_proposals = qs.filter(id__in=users_w_open_proposals)
 
-    return (
-        qs.filter(
+    qs = qs.filter(
             is_active=True,
             state__user_form_state=State.UserFormStateChoices.FILLED,
             state__searching_state=State.SearchingStateChoices.SEARCHING,
             state__email_authenticated=True,
             state__unresponsive=False,
             state__had_prematching_call=True,
-        )
-        .exclude(id__in=users_w_open_proposals)
-        .annotate(
+        ).exclude(id__in=users_w_open_proposals).annotate(
             num_matches=Count("match_user1", filter=Q(match_user1__support_matching=False))
             + Count("match_user2", filter=Q(match_user2__support_matching=False))
+        ).filter(num_matches=0)
+        
+    if require_min_lang_level:
+        qs = qs.exclude(
+            profile__lang_skill__contains=[
+                {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
+            ],
         )
-        .filter(num_matches=0)
-    )
+    return qs
 
 
 def first_search_volunteers(qs=User.objects.all()):
@@ -214,7 +217,9 @@ def user_searching(qs=User.objects.all()):
         )
         .filter(num_matches__gt=0)
     )
-
+    
+def user_searching_again(qs=User.objects.all()):
+    return user_searching(qs).filter(num_matches__gt=1)
 
 def pre_matching(qs=User.objects.all()):
     """
