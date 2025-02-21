@@ -84,9 +84,61 @@ def user_form_completed(qs=User.objects.all()):
     
 def never_active_or_deleted(qs=User.objects.all()):
     ud = user_deleted(qs)
-    na = never_active(qs)
-    return qs.filter(id__in=ud) | qs.filter(id__in=na)
+    return qs.filter(
+        Q(is_active=False) | Q(id__in=ud) | Q(
+            state__user_form_state=State.UserFormStateChoices.UNFILLED,
+            state__email_authenticated=False,
+        )
+    )
 
+def never_active_or_deleted_or_created(qs=User.objects.all()):
+    ud = user_deleted(qs)
+    #na = never_active(qs)
+    created = user_created(qs)
+    return qs.filter(id__in=ud) | qs.filter(id__in=created)
+
+def email_verified_and_form_completed(qs=User.objects.all()):
+    ev = email_verified(qs)
+    fc = user_form_completed(qs)
+    # also not! too low german level
+    return qs.filter(Q(id__in=ev) | Q(id__in=fc)).exclude(
+        profile__lang_skill__contains=[
+            {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
+        ],
+    )
+
+def email_not_verified_or_form_not_completed(qs=User.objects.all()):
+    ev = email_verified(qs)
+    fc = user_form_completed(qs)
+    never_active_or_delete_or_created = never_active_or_deleted_or_created(qs)
+    return qs.filter(
+        state__user_form_state=State.UserFormStateChoices.UNFILLED,
+        state__email_authenticated=False,
+    ).exclude(id__in=never_active_or_delete_or_created)
+
+def too_low_german_level_or_not_onboarded(qs=User.objects.all()):
+    tlg = too_low_german_level(qs)
+    never_active_or_delete_or_created = never_active_or_deleted_or_created(qs)
+    _email_not_verified_or_form_not_completed = email_verified_and_form_completed(qs)
+    return qs.filter(
+        Q(id__in=tlg) | Q(
+            is_active=True,
+            state__user_form_state=State.UserFormStateChoices.FILLED,
+            state__email_authenticated=True,
+            state__unresponsive=False,
+            state__had_prematching_call=False,
+        )
+    ).exclude(id__in=never_active_or_delete_or_created).exclude(id__in=_email_not_verified_or_form_not_completed)
+
+def not_too_low_german_level__is_onboarded(qs=User.objects.all()):
+    tlg = too_low_german_level(qs)
+    return qs.filter(
+        is_active=True,
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
+        state__unresponsive=False,
+        state__had_prematching_call=True,
+    ).exclude(id__in=tlg)
 
 def booked_onboarding_call(qs=User.objects.all()):
     """
