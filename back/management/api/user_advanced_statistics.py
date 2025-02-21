@@ -1011,6 +1011,21 @@ def kpi_dashboard_statistics_searching_users(request):
     })
 
 
+def get_match_bucket_statistics_cluster(pre_filtered_matches):
+    all_buckets = []
+    for bucket_cluster in match_journey_bucket_clusters.keys():
+        all_buckets.extend(match_journey_bucket_clusters[bucket_cluster])
+        
+    match_bucket_counts = get_match_bucket_statistics(pre_filtered_matches, selected_filters=all_buckets)
+    match_bucket_count_map = {bucket["name"]: bucket for bucket in match_bucket_counts["buckets"]}
+    
+    cluster_sums = {}
+    for bucket_cluster in match_journey_bucket_clusters.keys():
+        cluster_sums[bucket_cluster] = 0
+        for bucket in match_journey_bucket_clusters[bucket_cluster]:
+            if not bucket in match_journey_exclude_sum_buckets:
+                cluster_sums[bucket_cluster] += match_bucket_count_map[bucket]['count']
+    return cluster_sums
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
 def kpi_dashboard_statistics_matching(request):
@@ -1033,26 +1048,17 @@ def kpi_dashboard_statistics_matching(request):
     
     # Calculating ongoing vs failed/finished is a little tricky
     # first we sum over all match_journey_bucket clusters
-    all_buckets = []
-    for bucket_cluster in match_journey_bucket_clusters.keys():
-        all_buckets.extend(match_journey_bucket_clusters[bucket_cluster])
-        
-    match_bucket_counts = get_match_bucket_statistics(pre_filtered_matches, selected_filters=all_buckets)
-    match_bucket_count_map = {bucket["name"]: bucket for bucket in match_bucket_counts["buckets"]}
-    
-    cluster_sums = {}
-    for bucket_cluster in match_journey_bucket_clusters.keys():
-        cluster_sums[bucket_cluster] = 0
-        for bucket in match_journey_bucket_clusters[bucket_cluster]:
-            if not bucket in match_journey_exclude_sum_buckets:
-                cluster_sums[bucket_cluster] += match_bucket_count_map[bucket]['count']
+    cluster_sums = get_match_bucket_statistics_cluster(pre_filtered_matches)
                 
     finished_and_ongoing_matches = cluster_sums["ongoing-matching"] + cluster_sums["finished-matching"]
     amount_total_matches = cluster_sums["ongoing-matching"] + cluster_sums["finished-matching"] + cluster_sums["failed-matching"]
-    failed_vs_ongoing_finished_matches_percentage = cluster_sums["failed-matching"] / amount_total_matches * 100.0
+    failed_vs_ongoing_finished_matches_percentage = 100.0 - (cluster_sums["failed-matching"] / amount_total_matches * 100.0)
     
     # Now total_matches started 6-12 weeks ago
     matches_6_12_weeks_ago = Match.objects.filter(created_at__range=[timezone.now() - timedelta(days=126), timezone.now() - timedelta(days=63)], support_matching=False)
+    cluster_sums_6_12_weeks_ago = get_match_bucket_statistics_cluster(matches_6_12_weeks_ago)
+    total_matches_6_12_weeks_ago = cluster_sums_6_12_weeks_ago["ongoing-matching"] + cluster_sums_6_12_weeks_ago["finished-matching"] + cluster_sums_6_12_weeks_ago["failed-matching"]
+    matches_6_12_weeks_ago_failed_vs_ongoing_finished_percentage = 100.0 - (cluster_sums_6_12_weeks_ago["failed-matching"] / total_matches_6_12_weeks_ago * 100.0)
                 
     return Response({
         "proposals_two_weeks": proposals_two_weeks.count(),
@@ -1061,6 +1067,7 @@ def kpi_dashboard_statistics_matching(request):
         "cluster_sums": cluster_sums,
         "failed_vs_ongoing_finished_matches_percentage": round(failed_vs_ongoing_finished_matches_percentage, 2),
         "matches_started_6_12_weeks_ago": matches_6_12_weeks_ago.count(),
+        "matches_6_12_weeks_ago_failed_vs_ongoing_finished_percentage": round(matches_6_12_weeks_ago_failed_vs_ongoing_finished_percentage, 2),
     })
 
 api_urls = [
