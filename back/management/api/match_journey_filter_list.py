@@ -18,6 +18,9 @@ from management.api.match_journey_filters import (
     only_non_support_matching,
     reported_or_removed_match,
     user_ghosted,
+    sucess_matches,
+    ongoing_matches,
+    failed_matches,
 )
 
 
@@ -116,8 +119,27 @@ MATCH_JOURNEY_FILTERS = [
         "(Failed-Matching) Reported or removed matches.",
         reported_or_removed_match,
     ),
+    FilterListEntry(
+        "match_journey_v2__sucess_matches",
+        "(Success-Matching) Matches that are over 10 weeks old, inactive, still in contact, and exchanged a desired number of messages and video calls.",
+        sucess_matches,
+    ),
+    FilterListEntry(
+        "match_journey_v2__ongoing_matches",
+        "(Ongoing-Matching) Matches that are over 10 weeks old, inactive, still in contact, and exchanged a desired number of messages and video calls.",
+        ongoing_matches,
+    ),
+    FilterListEntry(
+        "match_journey_v2__failed_matches",
+        "(Failed-Matching) Matches that are over 10 weeks old, inactive, still in contact, and exchanged a desired number of messages and video calls.",
+        failed_matches,
+    ),
+    FilterListEntry(
+        "all",
+        "All matches",
+        all_matches,
+    )
 ]
-
 
 def get_match_list_by_name(name):
     for element in MATCH_JOURNEY_FILTERS:
