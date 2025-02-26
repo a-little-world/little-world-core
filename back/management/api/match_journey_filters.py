@@ -271,3 +271,20 @@ def reported_or_removed_match(qs=Match.objects.all()):
         support_matching=False,
         active=False,
     )
+
+
+def sucess_matches(qs=Match.objects.all()):
+    completed_matches = completed_match(qs)
+    free_play_matches = match_free_play(qs)
+    return completed_matches | free_play_matches
+
+def ongoing_matches(qs=Match.objects.all()):
+    first_contact_matches = match_first_contact(qs)
+    ongoing_matches = match_ongoing(qs)
+    return first_contact_matches | ongoing_matches
+
+def failed_matches(qs=Match.objects.all()):
+    never_confirmed_matches = never_confirmed(qs)
+    no_contact_matches = no_contact(qs)
+    user_ghosted_matches = user_ghosted(qs)
+    return never_confirmed_matches | no_contact_matches | user_ghosted_matches
