@@ -212,6 +212,7 @@
   "notification.state.unread": "Ungelesen",
   "notification.state.read": "Gelesen",
   "notification.state.archived": "Archiviert",
+  "notification.state.deleted": "Gelöscht",
   "notification.type.none": "Kein Typ",
   "notification.type.match": "Match",
   "notification.type.message": "Nachricht",

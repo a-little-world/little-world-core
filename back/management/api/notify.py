@@ -174,8 +174,32 @@ def update_notification(request, id):
     return Response(SelfNotificationSerializer(notification).data)
 
 
+@extend_schema(
+    description="Delete a notification",
+    request=NotificationGetSerializer(many=False),
+    parameters=[
+        OpenApiParameter(
+            name="id",
+            required=True,
+            type=int,
+            location=OpenApiParameter.PATH,
+        ),
+    ],
+)
+@api_view(["DELETE"])
+@permission_classes([permissions.IsAuthenticated])
+@authentication_classes([authentication.SessionAuthentication])
+def delete_notification(request, id):
+    notification = Notification.objects.get(id=id)
+    assert request.user == notification.user
+
+    notification.update_state(Notification.NotificationState.DELETED)
+    return Response(status=200)
+
+
 api_routes = [
     path("api/notifications", get_notifications),
     path("api/notifications/<int:id>", get_notification),
+    path("api/notifications/<int:id>/delete", delete_notification),
     path("api/notifications/<int:id>/update", update_notification),
 ]
