@@ -17,7 +17,7 @@ from management.models.user import User
 @dataclass
 class NotificationGetPaginatedParams:
     page: int
-    paginate_by: int
+    page_size: int
 
     include_unread: bool
     include_read: bool
@@ -26,7 +26,7 @@ class NotificationGetPaginatedParams:
 
 class NotificationGetPaginatedSerializer(serializers.Serializer):
     page = serializers.IntegerField(min_value=1, default=1, required=False)
-    paginate_by = serializers.IntegerField(min_value=1, default=20, required=False)
+    page_size = serializers.IntegerField(min_value=1, default=20, required=False)
     include_unread = serializers.BooleanField(default=True, required=False)
     include_read = serializers.BooleanField(default=False, required=False)
     include_archived = serializers.BooleanField(default=False, required=False)
@@ -59,9 +59,16 @@ class NotificationUpdateSerializer(serializers.Serializer):
         return NotificationUpdateParams(**validated_data)
 
 
+class PaginatedNotificationResponse(DetailedPagination):
+    items = SelfNotificationSerializer(many=True)
+
+
 @extend_schema(
     description="Retrieve notifications",
     request=NotificationGetPaginatedSerializer(many=False),
+    responses={
+        200: PaginatedNotificationResponse,
+    },
     parameters=[
         OpenApiParameter(
             name="page",
@@ -71,7 +78,7 @@ class NotificationUpdateSerializer(serializers.Serializer):
             location=OpenApiParameter.QUERY,
         ),
         OpenApiParameter(
-            name="paginate_by",
+            name="page_size",
             required=False,
             type=int,
             default=20,
@@ -168,7 +175,7 @@ def update_notification(request, id):
 
 
 api_routes = [
-    path("api/notifications/", get_notifications),
+    path("api/notifications", get_notifications),
     path("api/notifications/<int:id>", get_notification),
     path("api/notifications/<int:id>/update", update_notification),
 ]
