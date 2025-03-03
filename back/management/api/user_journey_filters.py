@@ -685,3 +685,27 @@ def community_calls(qs=User.objects.all(), last_x_days=28 * 3):
     all_distinct_users = User.objects.filter(id__in=all_users).distinct()
 
     return all_distinct_users
+
+def completed_form__created_within_6months(qs=User.objects.all()):
+    """
+    Completed form within 6 months
+    """
+    return qs.filter(date_joined__gte=days_ago(6 * 30))
+
+def completed_form__no__onboarding_call(qs=User.objects.all()):
+    """
+    Completed form but no onboarding call
+    """
+    return qs.filter(state__user_form_state=State.UserFormStateChoices.FILLED, state__had_prematching_call=False)
+
+def completed_form__created_within_6months_no_onboarding_call(qs=User.objects.all()):
+    """
+    Completed form within 6 months but no onboarding call
+    """
+    return qs.filter(date_joined__gte=days_ago(6 * 30), state__had_prematching_call=False)
+
+def completed_form__created_within_6months_no_onboarding_call_volunteer(qs=User.objects.all()):
+    """
+    Completed form within 6 months but no onboarding call
+    """
+    return qs.filter(date_joined__gte=days_ago(6 * 30), state__had_prematching_call=False, profile__user_type=Profile.TypeChoices.VOLUNTEER)
