@@ -1162,6 +1162,14 @@ def time_slot_counts(request):
             default=False,
             required=False,
         ),
+        OpenApiParameter(
+            name="base_list",
+            description="The base list to use for the optimization",
+            type=OpenApiTypes.STR,
+            enum=[entry.name for entry in FILTER_LISTS],
+            default="all",
+            required=False,
+        ),
     ]
 )
 @api_view(["GET"])
@@ -1176,10 +1184,14 @@ def time_slot_combination_optimization(request, n=1):
     import itertools
     import heapq
     
-    # Get pre-filtered users based on permissions
+    list_name = request.query_params.get("base_list", "all")
+    selected_filter = next(filter(lambda entry: entry.name == list_name, FILTER_LISTS))
+
     pre_filtered_users = User.objects.all()
     if not request.user.is_staff:
         pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+
+    pre_filtered_users = selected_filter.queryset(qs=pre_filtered_users)
     
     # Initialize the counts dictionary with all days and slots set to 0
     counts = {day: {slot: 0 for slot in SLOTS} for day in DAYS}
@@ -1193,7 +1205,7 @@ def time_slot_combination_optimization(request, n=1):
     # Get limit for number of combinations to test
     limit_tested_combs = int(request.query_params.get("limit_tested_combs", 10000))
     # Get limit for number of top combinations to return
-    top_n_results = int(request.query_params.get("top_n_results", 10))
+    top_n_results = int(request.query_params.get("top_n_results", 100))
     # Option to disallow combinations with the same day
     disallow_same_day_combinations = request.query_params.get("disallow_same_day_combinations", "false").lower() == "true"
     
