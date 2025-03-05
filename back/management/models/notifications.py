@@ -28,6 +28,9 @@ class Notification(models.Model):
         ARCHIVED = "archived", get_translation("notification.state.archived")
         DELETED = "deleted", get_translation("notification.state.deleted")
 
+    class NotificationStateFilterAll(models.TextChoices):
+        ALL = "all", get_translation("notification.state.all")
+
     state = models.CharField(choices=NotificationState.choices, default=NotificationState.UNREAD, max_length=255)
 
     class NotificationType(models.TextChoices):

@@ -19,17 +19,13 @@ class NotificationGetPaginatedParams:
     page: int
     page_size: int
 
-    include_unread: bool
-    include_read: bool
-    include_archived: bool
+    filter: Notification.NotificationState | Notification.NotificationStateFilterAll
 
 
 class NotificationGetPaginatedSerializer(serializers.Serializer):
     page = serializers.IntegerField(min_value=1, default=1, required=False)
     page_size = serializers.IntegerField(min_value=1, default=20, required=False)
-    include_unread = serializers.BooleanField(default=True, required=False)
-    include_read = serializers.BooleanField(default=False, required=False)
-    include_archived = serializers.BooleanField(default=False, required=False)
+    filter = serializers.CharField(default=Notification.NotificationState.UNREAD, required=False)
 
     def create(self, validated_data):
         return NotificationGetPaginatedParams(**validated_data)
@@ -85,24 +81,10 @@ class PaginatedNotificationResponse(DetailedPagination):
             location=OpenApiParameter.QUERY,
         ),
         OpenApiParameter(
-            name="include_unread",
+            name="filter",
             required=False,
-            default=True,
-            type=bool,
-            location=OpenApiParameter.QUERY,
-        ),
-        OpenApiParameter(
-            name="include_read",
-            required=False,
-            default=False,
-            type=bool,
-            location=OpenApiParameter.QUERY,
-        ),
-        OpenApiParameter(
-            name="include_archived",
-            required=False,
-            default=False,
-            type=bool,
+            default=Notification.NotificationState.UNREAD,
+            type=Notification.NotificationState | Notification.NotificationStateFilterAll,
             location=OpenApiParameter.QUERY,
         ),
     ],
@@ -117,9 +99,7 @@ def get_notifications(request):
 
     assert isinstance(request.user, User)
 
-    notifications_user = request.user.get_notifications(
-        include_unread=params.include_unread, include_read=params.include_read, include_archived=params.include_archived
-    )
+    notifications_user = request.user.get_notifications(state=params.filter)
     paginator = DetailedPagination()
     pages = paginator.get_paginated_response(paginator.paginate_queryset(notifications_user, request)).data
     pages["results"] = SelfNotificationSerializer(pages["results"], many=True).data
