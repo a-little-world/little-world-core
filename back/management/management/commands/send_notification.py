@@ -23,6 +23,6 @@ class Command(BaseCommand):
         user = User.objects.get(email=email)
         for i in range(count):
             notification = Notification.objects.create(
-                user=user, title=title + (" " + str(i + 1)) if count != 1 else "", description=description
+                user=user, title=title + (" " + str(i + 1) if count != 1 else ""), description=description
             )
             user.notify(notification=notification)
