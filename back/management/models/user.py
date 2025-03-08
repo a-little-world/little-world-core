@@ -120,10 +120,14 @@ class User(AbstractUser):
     def get_notifications(self, state):
         """Returns a list of matches"""
 
-        notifications = Notification.objects.filter(user=self)
+        notifications = Notification.objects.filter(user=self).exclude(state=Notification.NotificationState.DELETED)
 
         if state != "all":
             notifications = notifications.filter(state=state)
+        else:
+            notifications = notifications.filter(
+                state__in=[Notification.NotificationState.UNREAD, Notification.NotificationState.READ]
+            )
         return notifications.order_by("-created_at")
 
     def notify(self, notification):
