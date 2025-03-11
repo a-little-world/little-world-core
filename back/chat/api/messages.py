@@ -158,13 +158,9 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         file = serializer.validated_data["file"]
         attachment = MessageAttachment.objects.create(file=file)
 
-        MAX_FILE_TITLE_LENGTH = 15
-        file_title = file.name.split(".")[0]
+        
+        file_title = file.name
         file_ending = file.name.split(".")[-1]
-        if len(file_title) > MAX_FILE_TITLE_LENGTH:
-            file_title = file_title[:MAX_FILE_TITLE_LENGTH] + "." + file_ending
-        else:
-            file_title = file_title + "." + file_ending
 
         def get_attachment_widget(is_image, attachment_link):
             if is_image:
@@ -172,7 +168,6 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
             else:
                 return f'<AttachmentWidget {{"attachmentTitle": "{file_title}", "attachmentLink": "{attachment_link}", "imageSrc": null}} ></AttachmentWidget>'
 
-        file_ending = file.name.split(".")[-1]
         is_image = file_ending in ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "ico", "webp"]
         attachment_link = attachment.file.url
         attachment_widget = get_attachment_widget(is_image, attachment_link)
