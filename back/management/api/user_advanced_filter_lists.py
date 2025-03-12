@@ -53,6 +53,10 @@ from management.api.user_journey_filters import (
     user_deleted,
     user_form_completed,
     user_searching,
+    completed_form__no__onboarding_call,
+    completed_form__created_within_6months,
+    completed_form__created_within_6months_no_onboarding_call,
+    completed_form__created_within_6months_no_onboarding_call_volunteer
 )
 from management.models.dynamic_user_list import DynamicUserList
 
@@ -148,6 +152,10 @@ USER_JOURNEY_FILTER_LISTS = [
     FilterListEntry("herrduenschnlate", None, only_hd_test_user),
     FilterListEntry("community", None, community_calls),
     FilterListEntry("newsletter_subscribed", None, subscribed_to_newsletter),
+    FilterListEntry("completed_form__no__onboarding_call", None, completed_form__no__onboarding_call),
+    FilterListEntry("completed_form__created_within_6months", None, completed_form__created_within_6months),
+    FilterListEntry("completed_form__created_within_6months_no_onboarding_call", None, completed_form__created_within_6months_no_onboarding_call),
+    FilterListEntry("completed_form__created_within_6months_no_onboarding_call_volunteer", None, completed_form__created_within_6months_no_onboarding_call_volunteer),
 ]
 
 FILTER_LISTS = PANEL_V1_FILTER_LISTS + USER_JOURNEY_FILTER_LISTS
