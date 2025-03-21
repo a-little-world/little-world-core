@@ -702,10 +702,10 @@ def completed_form__created_within_6months_no_onboarding_call(qs=User.objects.al
     """
     Completed form within 6 months but no onboarding call
     """
-    return qs.filter(date_joined__gte=days_ago(6 * 30), state__had_prematching_call=False)
+    return qs.filter(state__user_form_state=State.UserFormStateChoices.FILLED, date_joined__gte=days_ago(6 * 30), state__had_prematching_call=False)
 
 def completed_form__created_within_6months_no_onboarding_call_volunteer(qs=User.objects.all()):
     """
     Completed form within 6 months but no onboarding call
     """
-    return qs.filter(date_joined__gte=days_ago(6 * 30), state__had_prematching_call=False, profile__user_type=Profile.TypeChoices.VOLUNTEER)
+    return qs.filter(state__user_form_state=State.UserFormStateChoices.FILLED, date_joined__gte=days_ago(6 * 30), state__had_prematching_call=False, profile__user_type=Profile.TypeChoices.VOLUNTEER)
