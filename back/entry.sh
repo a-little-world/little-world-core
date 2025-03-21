@@ -1,11 +1,14 @@
 # This is the general entry point for server startup ( dev )
 # "rediss://:$DJ_REDIS_PASSWORD@$DJ_REDIS_HOST:DJ_REDIS_PORT"
 
-celery -A back worker --loglevel=info &
+if [ "$BUILD_TYPE" != "staging" ]; then
+    celery -A back worker --loglevel=info &
+fi
+
 if [ "$BUILD_TYPE" = "deployment" ]; then
     SINGLE_BEAT_REDIS_SERVER="$FULL_ACCESS_REDIS_URL" single-beat celery -A back beat --loglevel=info &
 elif [ "$BUILD_TYPE" = "staging" ]; then
-    SINGLE_BEAT_REDIS_SERVER="$FULL_ACCESS_REDIS_URL" single-beat celery -A back beat --loglevel=info &
+    # SINGLE_BEAT_REDIS_SERVER="$FULL_ACCESS_REDIS_URL" single-beat celery -A back beat --loglevel=info &
 else
     celery -A back beat --loglevel=info &
 fi
