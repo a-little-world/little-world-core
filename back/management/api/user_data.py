@@ -262,7 +262,7 @@ def frontend_data(user, items_per_page=10, request=None):
 
     is_matching_user = user_state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
 
-    community_events = get_paginated(CommunityEvent.get_all_active_events(), items_per_page, 1)
+    community_events = get_paginated(CommunityEvent.get_active_events_for_user(user), items_per_page, 1)
     community_events["items"] = serialize_community_events(community_events["items"])
 
     confirmed_matches = get_paginated(Match.get_confirmed_matches(user), items_per_page, 1)
