@@ -125,8 +125,7 @@ class CommunityEventAdmin(admin.ModelAdmin):
 
 @admin.register(models.community_events.CommunityEvent)
 class CommunityEventAdmin(admin.ModelAdmin):
-    list_display = ("title", "active", "description", "time", "frequency", "link")
-
+    list_display = ("title", "active", "description", "time", "frequency", "link", "custom_filter")
 
 @admin.register(models.news_and_updates.NewsItem)
 class NewsItemAdmin(admin.ModelAdmin):
