@@ -12,6 +12,7 @@ from hijack.contrib.admin import HijackUserAdminMixin
 
 from management import models
 from management.models import (
+    short_links,
     dynamic_user_list,
     newsletter,
     post_call_review,
@@ -21,6 +22,16 @@ from management.models import (
     stats,
     sms,
 )
+
+
+@admin.register(short_links.ShortLink)
+class ShortLinkAdmin(admin.ModelAdmin):
+    list_display = ("tag", "url", "created_at", "updated_at")
+
+
+@admin.register(short_links.ShortLinkClick)
+class ShortLinkClickAdmin(admin.ModelAdmin):
+    list_display = ("user", "short_link", "created_at")
 
 
 @admin.register(stats.Statistic)
