@@ -30,7 +30,12 @@ class ShortLinkAdmin(admin.ModelAdmin):
 
 @admin.register(short_links.ShortLinkClick)
 class ShortLinkClickAdmin(admin.ModelAdmin):
-    list_display = ("user", "short_link", "created_at")
+    list_display = ("display_user", "short_link", "created_at")
+    
+    def display_user(self, obj):
+        return obj.user if obj.user else "Anonymous"
+    
+    display_user.short_description = "User"
 
 
 @admin.register(stats.Statistic)
