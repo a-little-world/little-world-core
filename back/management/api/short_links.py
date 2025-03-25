@@ -8,7 +8,9 @@ from management.models.short_links import ShortLink, ShortLinkClick
 @api_view(["GET"])
 def short_link_click(request, tag):
     short_link = ShortLink.objects.get(tag=tag)
-    ShortLinkClick.objects.create(user=request.user, short_link=short_link)
+    # Only associate the user if they're authenticated
+    user = request.user if request.user.is_authenticated else None
+    ShortLinkClick.objects.create(user=user, short_link=short_link)
     return redirect(short_link.url)
 
 

@@ -11,9 +11,9 @@ class ShortLink(models.Model):
         return f"{self.tag} -> {self.url}"
 
 class ShortLinkClick(models.Model):
-    user = models.ForeignKey("management.User", on_delete=models.CASCADE)
+    user = models.ForeignKey("management.User", on_delete=models.CASCADE, null=True, blank=True)
     short_link = models.ForeignKey(ShortLink, on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.user.email} -> {self.short_link.tag}"
+        return f"{self.user.email if self.user else 'Anonymous'} -> {self.short_link.tag}"
