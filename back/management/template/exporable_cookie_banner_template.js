@@ -19,7 +19,8 @@ const initCode = () => {
 
     const div = document.createElement('div');
     div.id = "shadow-root"; // The root container for the cookie banner
-    div.style.zIndex = "100"
+    div.style.zIndex = "1000"
+    div.style.position = "fixed";
     document.body.appendChild(div);
 
     const scriptPromise = new Promise((resolve, reject) => {
