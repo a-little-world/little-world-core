@@ -6,13 +6,7 @@ from django.db.models import Q
 
 from back.utils import get_options_serializer
 from management.helpers import PathRename
-
-def filter__capegemini(user):
-    lang_skill_german = list(filter(lambda x: x["lang"] == "german", user.profile.lang_skill))
-    german_level = lang_skill_german[0]["level"] if len(lang_skill_german) > 0 else Profile.LanguageSkillChoices.LEVEL_0
-    better_than_a1a2 = german_level != Profile.LanguageSkillChoices.LEVEL_0
-
-    return (user.profile.user_type == Profile.TypeChoices.LEARNER) and better_than_a1a2
+from management.models import custom_banner_event_filters
 
 class CommunityEvent(models.Model):
     """
@@ -27,11 +21,7 @@ class CommunityEvent(models.Model):
 
     link = models.CharField(default="", max_length=255)
     
-    class CustomFilterChoices(models.TextChoices):
-        CAPEGEMINI = "capegemini", "capegemini"
-        NONE = "none", "None"
-    
-    custom_filter = models.CharField(default=CustomFilterChoices.NONE, max_length=255, choices=CustomFilterChoices.choices)
+    custom_filter = models.CharField(default=custom_banner_event_filters.CustomFilterChoices.NONE, max_length=255, choices=custom_banner_event_filters.CustomFilterChoices.choices)
 
     class EventFrequencyChoices(models.TextChoices):
         MONTHLY = "monthly", get_translation("model.community_event.frequency.monthly")
@@ -56,9 +46,9 @@ class CommunityEvent(models.Model):
         filter_events = cls.objects.all().filter(~Q(custom_filter="none"), active=True)
         extra_events = []
         for event in filter_events:
-            if event.custom_filter == "capegemini":
-                if filter__capegemini(user):
-                    extra_events.append(event.id)
+            filter_func = custom_banner_event_filters.FILTER_FUNC_MAP.get(event.custom_filter)
+            if filter_func and filter_func(user):
+                extra_events.append(event.id)
         extra_events_qs = cls.objects.filter(id__in=extra_events)
         return non_filter_events | extra_events_qs
 
