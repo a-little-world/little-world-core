@@ -28,6 +28,7 @@ from . import (
     translation_logs,
     unconfirmed_matches,
     user,
+    short_links,
 )
 
 __all__ = [
@@ -52,4 +53,5 @@ __all__ = [
     "pre_matching_appointment",
     "newsletter",
     "stats",
+    "short_links",
 ]
