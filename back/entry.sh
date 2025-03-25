@@ -9,6 +9,7 @@ if [ "$BUILD_TYPE" = "deployment" ]; then
     SINGLE_BEAT_REDIS_SERVER="$FULL_ACCESS_REDIS_URL" single-beat celery -A back beat --loglevel=info &
 elif [ "$BUILD_TYPE" = "staging" ]; then
     # SINGLE_BEAT_REDIS_SERVER="$FULL_ACCESS_REDIS_URL" single-beat celery -A back beat --loglevel=info &
+    echo ""
 else
     celery -A back beat --loglevel=info &
 fi
