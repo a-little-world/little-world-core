@@ -137,8 +137,7 @@ class EmailSettingsAdmin(admin.ModelAdmin):
 
 @admin.register(models.banner.Banner)
 class CommunityEventAdmin(admin.ModelAdmin):
-    list_display = ("name", "title", "active", "text", "cta_1_text", "cta_2_text")
-
+    list_display = ("name", "title", "active", "text", "cta_1_text", "cta_2_text", "custom_filter", "filter_priority")
 
 @admin.register(models.community_events.CommunityEvent)
 class CommunityEventAdmin(admin.ModelAdmin):
