@@ -1,5 +1,6 @@
 from colorfield.fields import ColorField
 from django.db import models
+from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 from management.models import custom_banner_event_filters
@@ -62,6 +63,22 @@ class Banner(models.Model):
     
     custom_filter = models.CharField(default=custom_banner_event_filters.CustomFilterChoices.NONE, max_length=255, choices=custom_banner_event_filters.CustomFilterChoices.choices)
     filter_priority = models.IntegerField(default=0) # If multiple banners are possible for a user the newest one with the highest priority will be shown
+    
+    @classmethod
+    def get_active_banner(cls, user):
+        no_filter_banners = cls.objects.filter(active=True, custom_filter=custom_banner_event_filters.CustomFilterChoices.NONE)
+        filter_banners = cls.objects.filter(~Q(custom_filter=custom_banner_event_filters.CustomFilterChoices.NONE), active=True)
+        
+        extra_filter_banners = []
+        for banner in filter_banners:
+            custom_filter_func = custom_banner_event_filters.FILTER_FUNC_MAP.get(banner.custom_filter)
+            if custom_filter_func and custom_filter_func(user):
+                extra_filter_banners.append(banner.id)
+                
+        filter_banners_qs = filter_banners.filter(id__in=extra_filter_banners)
+        all_possible_banners = no_filter_banners | filter_banners_qs
+        best_banner = all_possible_banners.order_by("-filter_priority", "-created_at").first()
+        return best_banner
 
     class Meta:
         verbose_name = _("Banner")
