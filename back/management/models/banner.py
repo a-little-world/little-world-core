@@ -2,6 +2,7 @@ from colorfield.fields import ColorField
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
+from management.models import custom_banner_event_filters
 
 from management.helpers import PathRename
 
@@ -58,6 +59,9 @@ class Banner(models.Model):
 
     activation_time = models.DateTimeField(null=True, blank=True, help_text=_("Activation time"))
     expiration_time = models.DateTimeField(null=True, blank=True, help_text=_("Expiration time"))
+    
+    custom_filter = models.CharField(default=custom_banner_event_filters.CustomFilterChoices.NONE, max_length=255, choices=custom_banner_event_filters.CustomFilterChoices.choices)
+    filter_priority = models.IntegerField(default=0) # If multiple banners are possible for a user the newest one with the highest priority will be shown
 
     class Meta:
         verbose_name = _("Banner")
