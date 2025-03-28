@@ -12,6 +12,15 @@ def short_link_click(request, tag):
     # Only associate the user if they're authenticated
     source = request.query_params.get("source", "none")
     user_hash = request.query_params.get("user_hash", "none")
+
+    # also allow 'abreviations' for the query params
+    if source == "none":
+        source = request.query_params.get("s", "none")
+    if user_hash == "none":
+        user_hash = request.query_params.get("u", "none")
+        if user_hash == "none":
+            user_hash = request.query_params.get("h", "none")
+
     if not request.user.is_authenticated:
         user = None
         if user_hash:
@@ -28,4 +37,5 @@ def short_link_click(request, tag):
 
 api_urls = [
     path("links/<str:tag>/", short_link_click, name="short_link_click"),
+    path("links/<str:tag>", short_link_click, name="short_link_click2"),
 ]
