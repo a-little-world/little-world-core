@@ -21,12 +21,13 @@ def short_link_click(request, tag):
         if user_hash == "none":
             user_hash = request.query_params.get("h", "none")
 
+    user = None
     if not request.user.is_authenticated:
-        user = None
         if user_hash:
             qs_user = User.objects.filter(hash=user_hash)
             if qs_user.exists():
                 user = qs_user.first()
+
     ShortLinkClick.objects.create(
         user=user, 
         short_link=short_link,
