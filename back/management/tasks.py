@@ -587,6 +587,7 @@ def slack_notify_communication_channel_async(message):
 
 @shared_task
 def hourly_check_banner_activation():
+    from django.utils import timezone
     current_time = timezone.now()
 
     bc = {
