@@ -1,10 +1,12 @@
 from django.db import models
 from rest_framework import serializers
 from translations import get_translation
+from management.models.profile import Profile
+from django.db.models import Q
 
 from back.utils import get_options_serializer
 from management.helpers import PathRename
-
+from management.models import custom_banner_event_filters
 
 class CommunityEvent(models.Model):
     """
@@ -18,6 +20,8 @@ class CommunityEvent(models.Model):
     end_time = models.DateTimeField(null=True, blank=True)
 
     link = models.CharField(default="", max_length=255)
+    
+    custom_filter = models.CharField(default=custom_banner_event_filters.CustomFilterChoices.NONE, max_length=255, choices=custom_banner_event_filters.CustomFilterChoices.choices)
 
     class EventFrequencyChoices(models.TextChoices):
         MONTHLY = "monthly", get_translation("model.community_event.frequency.monthly")
@@ -35,6 +39,18 @@ class CommunityEvent(models.Model):
     """
     If the event is active, if you don't want users to see this event just set it to inactive!
     """
+    
+    @classmethod
+    def get_active_events_for_user(cls, user):
+        non_filter_events = cls.objects.all().filter(active=True, custom_filter="none")
+        filter_events = cls.objects.all().filter(~Q(custom_filter="none"), active=True)
+        extra_events = []
+        for event in filter_events:
+            filter_func = custom_banner_event_filters.FILTER_FUNC_MAP.get(event.custom_filter)
+            if filter_func and filter_func(user):
+                extra_events.append(event.id)
+        extra_events_qs = cls.objects.filter(id__in=extra_events)
+        return non_filter_events | extra_events_qs
 
     @classmethod
     def get_all_active_events(cls, order_by="time"):

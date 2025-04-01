@@ -12,6 +12,7 @@ from hijack.contrib.admin import HijackUserAdminMixin
 
 from management import models
 from management.models import (
+    short_links,
     dynamic_user_list,
     newsletter,
     post_call_review,
@@ -20,6 +21,21 @@ from management.models import (
     scores,
     stats,
 )
+
+
+@admin.register(short_links.ShortLink)
+class ShortLinkAdmin(admin.ModelAdmin):
+    list_display = ("tag", "url", "created_at", "updated_at")
+
+
+@admin.register(short_links.ShortLinkClick)
+class ShortLinkClickAdmin(admin.ModelAdmin):
+    list_display = ("display_user", "short_link", "created_at")
+    
+    def display_user(self, obj):
+        return obj.user if obj.user else "Anonymous"
+    
+    display_user.short_description = "User"
 
 
 @admin.register(stats.Statistic)
@@ -120,13 +136,11 @@ class EmailSettingsAdmin(admin.ModelAdmin):
 
 @admin.register(models.banner.Banner)
 class CommunityEventAdmin(admin.ModelAdmin):
-    list_display = ("name", "title", "active", "text", "cta_1_text", "cta_2_text")
-
+    list_display = ("name", "title", "active", "text", "cta_1_text", "cta_2_text", "custom_filter", "filter_priority")
 
 @admin.register(models.community_events.CommunityEvent)
 class CommunityEventAdmin(admin.ModelAdmin):
-    list_display = ("title", "active", "description", "time", "frequency", "link")
-
+    list_display = ("title", "active", "description", "time", "frequency", "link", "custom_filter")
 
 @admin.register(models.news_and_updates.NewsItem)
 class NewsItemAdmin(admin.ModelAdmin):
