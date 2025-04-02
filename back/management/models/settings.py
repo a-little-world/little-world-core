@@ -52,13 +52,16 @@ class EmailSettings(models.Model):
             )
 
         # send the mail
-        controller.send_group_mail(
-            users=[user],
-            subject="Umfrage beenden für Bekanntschaften aus aller Welt",
-            mail_name="unfinished_user_form_1",
-            mail_params_func=get_params,
-            unsubscribe_group=UnsubscibeOptions.finish_reminders,
-        )
+        if settings.USE_V2_EMAIL_APIS:
+            user.send_email_v2("unfinished_user_form_1")
+        else:
+            controller.send_group_mail(
+                users=[user],
+                subject="Umfrage beenden für Bekanntschaften aus aller Welt",
+                mail_name="unfinished_user_form_1",
+                mail_params_func=get_params,
+                unsubscribe_group=UnsubscibeOptions.finish_reminders,
+            )
 
         self.save()
 
