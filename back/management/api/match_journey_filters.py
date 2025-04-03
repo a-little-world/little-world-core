@@ -183,7 +183,7 @@ def completed_match(
     )
 
     now = timezone.now()
-    qs = (
+    completed_by_criteria = (
         qs.filter(
             Q(Exists(user1_to_user2_message_exists) & Exists(user2_to_user1_message_exists)),
             active=True,
@@ -205,11 +205,17 @@ def completed_match(
         )
     )
     
-    # Now we add all ther matches from the completed_or_completed_off_plattform queryset
-    qs = qs.union(completed_or_completed_off_plattform)
-
-    return qs
-
+    return qs.filter(
+        Q(id__in=completed_or_completed_off_plattform.values_list('id', flat=True)) |
+        Q(id__in=completed_by_criteria.values_list('id', flat=True))
+    ).annotate(
+        duration_since_last_interaction_in_days=ExpressionWrapper(
+            Greatest(ExtractDay(now - F("latest_interaction_at")), 0), output_field=DurationField()
+        ),
+        duration_between_first_and_last_interaction_days=ExpressionWrapper(
+            Greatest(ExtractDay(F("latest_interaction_at") - F("created_at")), 0), output_field=DurationField()
+        ),
+    )
 
 def never_confirmed(qs=Match.objects.all()):
     """
