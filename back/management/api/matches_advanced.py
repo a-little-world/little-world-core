@@ -35,6 +35,7 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
             "total_mutal_video_calls_counter",
             "user1",
             "user2",
+            "completed_off_plattform"
         ]
 
     def to_representation(self, instance):
@@ -207,6 +208,14 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
             return super().get_object()
         else:
             return super().get_queryset().get(uuid=self.kwargs["pk"])
+        
+    @action(detail=True, methods=["post"])
+    def set_completed_off_plattform(self, request, pk=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+        obj.completed_off_plattform = request.data["completed_off_plattform"]
+        obj.save()
+        return Response({"msg": "Match completed off plattform set"})
 
     @action(detail=True, methods=["get", "post"])
     def notes(self, request, pk=None):
@@ -229,5 +238,6 @@ api_urls = [
     path("api/matching/matches/filters/", AdvancedMatchViewset.as_view({"get": "get_filter_schema"})),
     path("api/matching/matches/<pk>/", AdvancedMatchViewset.as_view({"get": "retrieve"})),
     path("api/matching/matches/<pk>/resolve/", AdvancedMatchViewset.as_view({"post": "resolve_match"})),
+    path("api/matching/matches/<pk>/completed_off_plattform/", AdvancedMatchViewset.as_view({"post": "set_completed_off_plattform"})),
     path("api/matching/matches/<pk>/notes/", AdvancedMatchViewset.as_view({"get": "notes", "post": "notes"})),
 ]
