@@ -175,8 +175,12 @@ def completed_match(
     Filters matches that are over 10 weeks old, inactive, still in contact, and exchanged desired_x_messages and desired_x_video_calls.
     """
     user1_to_user2_message_exists = Message.objects.filter(sender=OuterRef("user1"), recipient=OuterRef("user2"))
-
     user2_to_user1_message_exists = Message.objects.filter(sender=OuterRef("user2"), recipient=OuterRef("user1"))
+    
+    # Now we also consider matches manually marked as 'completed' or 'completed_off_plattform'
+    completed_or_completed_off_plattform = Match.objects.filter(
+        Q(completed=True) | Q(completed_off_plattform=True)
+    )
 
     now = timezone.now()
     qs = (
@@ -200,6 +204,9 @@ def completed_match(
             duration_since_last_interaction_in_days__gte=last_interaction_days,
         )
     )
+    
+    # Now we add all ther matches from the completed_or_completed_off_plattform queryset
+    qs = qs.union(completed_or_completed_off_plattform)
 
     return qs
 
