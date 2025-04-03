@@ -14,6 +14,7 @@ from management.models.matches import Match
 from management.models.profile import MinimalProfileSerializer
 from management.models.state import State
 from management.models.user import User
+from management.api.user_data import determine_match_bucket
 
 
 class AdvancedMatchSerializer(serializers.ModelSerializer):
@@ -68,6 +69,13 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
                 representation["status"] = "reported_or_removed"
         else:
             representation["status"] = "proposed"
+
+        bucket = determine_match_bucket(instance.pk)
+        if bucket is not None:
+            representation["bucket"] = bucket
+        else:
+            representation["bucket"] = "unknown"
+
         return representation
 
 
