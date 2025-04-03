@@ -53,6 +53,7 @@ def get_paginated_format_v2(query_set, items_per_page, page):
 def determine_match_bucket(match_pk):
     try:
         match_categorie_buckets = [
+            "special__support_matching",
             "match_journey_v2__unviewed",
             "match_journey_v2__one_user_viewed",
             "match_journey_v2__confirmed_no_contact",
