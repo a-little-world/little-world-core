@@ -297,6 +297,8 @@ def match_users(
         room = Room.objects.create(usr1=usr1, usr2=usr2)
 
     if send_notification:
+        usr1.sms("<Insert new match message to user>")
+        usr2.sms("<Insert new match message to user>")
         pass  # TODO: send notification should be used to trigger an SMS notification
 
     if send_message:

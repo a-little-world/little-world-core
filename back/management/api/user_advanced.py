@@ -1,3 +1,5 @@
+import json
+from back.utils import CoolerJson
 from chat.models import Chat, ChatSerializer, Message, MessageSerializer
 from django.conf import settings
 from django.db.models import Q
@@ -542,14 +544,11 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
                 send_initator=request.user,
                 message=request.data["message"],
             )
-            client = _get_client()
-            response = client.messages.create(
-                body=request.data["message"],
-                from_=settings.TWILIO_SMS_NUMBER,
-                to=obj.profile.phone_mobile,
-            )
-
-            sms.twilio_response = response.__dict__
+            response = obj.sms(request.data["message"])
+            try:
+                sms.twilio_response = json.dumps(response.__dict__, cls=CoolerJson)
+            except:
+                return Response(data="User has not set sms notification on!", status=400)
             sms.save()
             return Response(SmsSerializer(sms).data)
         else:

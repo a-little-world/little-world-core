@@ -19,6 +19,7 @@ from management.models import (
     question_deck,
     scores,
     stats,
+    sms,
 )
 
 
@@ -368,3 +369,7 @@ class DynamicUserListAdmin(admin.ModelAdmin):
 @admin.register(post_call_review.PostCallReview)
 class PostCallReviewAdmin(admin.ModelAdmin):
     list_display = ("user", "live_session", "rating", "created_at", "updated_at")
+
+@admin.register(sms.SmsModel)
+class SmsModelAdmin(admin.ModelAdmin):
+    list_display = ("recipient", "send_initator", "message", "twilio_response")
