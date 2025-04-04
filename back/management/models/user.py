@@ -172,6 +172,7 @@ class User(AbstractUser):
                 return SmsSerializer(response).data
             except:
                 response.success = False
+                response.save()
                 return 500
         else:
             return 403
