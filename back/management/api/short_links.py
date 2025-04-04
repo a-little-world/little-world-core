@@ -27,6 +27,8 @@ def short_link_click(request, tag):
             qs_user = User.objects.filter(hash=user_hash)
             if qs_user.exists():
                 user = qs_user.first()
+    else:
+        user = request.user
 
     ShortLinkClick.objects.create(
         user=user, 
