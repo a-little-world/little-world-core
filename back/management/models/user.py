@@ -158,8 +158,8 @@ class User(AbstractUser):
             send_initator=send_initator,
             message=message
         )
-        try:
-            if self.profile.notify_channel == "sms" and self.profile.phone_mobile != "":
+        if self.profile.notify_channel == "sms" and self.profile.phone_mobile != "":
+            try:
                 client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
                 twilio_response = client.messages.create(
                     body=message,
@@ -167,12 +167,12 @@ class User(AbstractUser):
                     to=str(self.profile.phone_mobile)
                 )
                 response.twilio_response = json.dumps(twilio_response.__dict__, cls=CoolerJson)
+                response.success = True
                 response.save()
                 return SmsSerializer(response).data
-            else:
+            except:
+                response.success = False
                 return None
-        except:
-            return None
 
     def change_email(self, email, send_verification_mail=True):
         """
