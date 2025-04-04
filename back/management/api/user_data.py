@@ -50,6 +50,34 @@ def get_paginated_format_v2(query_set, items_per_page, page):
         "previous_page": pages.previous_page_number() if pages.has_previous() else None,
     }
 
+def determine_match_bucket(match_pk):
+    try:
+        match_categorie_buckets = [
+            "special__support_matching",
+            "match_journey_v2__unviewed",
+            "match_journey_v2__one_user_viewed",
+            "match_journey_v2__confirmed_no_contact",
+            "match_journey_v2__confirmed_single_party_contact",
+            "match_journey_v2__first_contact",
+            "match_journey_v2__match_ongoing",
+            "match_journey_v2__completed_match",
+            "match_journey_v2__match_free_play",
+            "match_journey_v2__never_confirmed",
+            "match_journey_v2__no_contact",
+            "match_journey_v2__user_ghosted",
+            "match_journey_v2__contact_stopped",
+            "match_journey_v2__reported_or_removed",
+        ]
+        bucket_map = {
+            entry.name: entry for entry in MATCH_JOURNEY_FILTERS if entry.name in match_categorie_buckets
+        }
+        for bucket in match_categorie_buckets:
+            if bucket_map[bucket].queryset(Match.objects.filter(pk=match_pk)).exists():
+                return bucket
+        return None
+    except Exception as e:
+        print(e)
+        return None
 
 class AdvancedUserMatchSerializer(serializers.ModelSerializer):
     class Meta:
@@ -98,32 +126,10 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
             representation["status"] = self.context["status"]
 
         if ("determine_bucket" in self.context) and self.context["determine_bucket"]:
-            try:
-                match_categorie_buckets = [
-                    "match_journey_v2__unviewed",
-                    "match_journey_v2__one_user_viewed",
-                    "match_journey_v2__confirmed_no_contact",
-                    "match_journey_v2__confirmed_single_party_contact",
-                    "match_journey_v2__first_contact",
-                    "match_journey_v2__match_ongoing",
-                    "match_journey_v2__completed_match",
-                    "match_journey_v2__match_free_play",
-                    "match_journey_v2__never_confirmed",
-                    "match_journey_v2__no_contact",
-                    "match_journey_v2__user_ghosted",
-                    "match_journey_v2__contact_stopped",
-                    "match_journey_v2__reported_or_removed",
-                ]
-                bucket_map = {
-                    entry.name: entry for entry in MATCH_JOURNEY_FILTERS if entry.name in match_categorie_buckets
-                }
-                for bucket in match_categorie_buckets:
-                    if bucket_map[bucket].queryset(Match.objects.filter(pk=instance.pk)).exists():
-                        representation["bucket"] = bucket
-                if "bucket" not in representation:
-                    representation["bucket"] = "unknown"
-            except Exception as e:
-                print(e)
+            bucket = determine_match_bucket(instance.pk)
+            if bucket is not None:
+                representation["bucket"] = bucket
+            else:
                 representation["bucket"] = "unknown"
 
         return representation
