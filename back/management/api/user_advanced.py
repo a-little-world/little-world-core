@@ -539,18 +539,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             return res
 
         if request.method == "POST":
-            sms = SmsModel.objects.create(
-                recipient=obj,
-                send_initator=request.user,
-                message=request.data["message"],
-            )
-            response = obj.sms(request.data["message"])
-            try:
-                sms.twilio_response = json.dumps(response.__dict__, cls=CoolerJson)
-            except:
-                return Response(data="User has not set sms notification on!", status=400)
-            sms.save()
-            return Response(SmsSerializer(sms).data)
+            return Response(obj.sms(request.user, request.data["message"]))
         else:
             sms = SmsModel.objects.filter(recipient=obj).order_by("-created_at")
 

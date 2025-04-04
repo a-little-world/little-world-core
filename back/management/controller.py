@@ -26,6 +26,7 @@ from management.models.settings import Settings
 from management.models.state import State
 from management.models.unconfirmed_matches import ProposedMatch
 from management.models.user import User, UserSerializer
+from management.models.sms import SmsModel
 from management.tasks import (
     create_default_banners,
     create_default_community_events,
@@ -296,9 +297,9 @@ def match_users(
     if create_video_room:
         room = Room.objects.create(usr1=usr1, usr2=usr2)
 
-    if send_notification:
-        usr1.sms("<Insert new match message to user>")
-        usr2.sms("<Insert new match message to user>")
+    if send_notification: #finde heraus wie man den matching user verweisen kan
+        usr1.sms(get_base_management_user(),"<Insert new match message to user>")
+        usr2.sms(get_base_management_user(),"<Insert new match message to user>")
         pass  # TODO: send notification should be used to trigger an SMS notification
 
     if send_message:

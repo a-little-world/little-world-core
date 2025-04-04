@@ -144,21 +144,34 @@ class User(AbstractUser):
 
         NotificationMessage(notification=NotificationSerializer(notification).data).send(str(self.hash))
 
-    def sms(self, message):
+    def sms(self, send_initator, message):
         """"Sends SMS to User if user has SMS Notification allowed and valid Phone number"""
         from management.models.user import User
         from django.conf import settings
         from twilio.rest import Client
-
-        if self.profile.notify_channel == "sms" and self.profile.phone_mobile != "":
-            client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-            response = client.messages.create(
-                body=message,
-                from_=settings.TWILIO_SMS_NUMBER,
-                to=str(self.profile.phone_mobile)
-            )
-            return response
-        else:
+        from management.models.sms import SmsModel, SmsSerializer
+        import json
+        from back.utils import CoolerJson
+        #try catch mantel, im catch success auf FALSE
+        response = SmsModel.objects.create(
+            recipient=self,
+            send_initator=send_initator,
+            message=message
+        )
+        try:
+            if self.profile.notify_channel == "sms" and self.profile.phone_mobile != "":
+                client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+                twilio_response = client.messages.create(
+                    body=message,
+                    from_=settings.TWILIO_SMS_NUMBER,
+                    to=str(self.profile.phone_mobile)
+                )
+                response.twilio_response = json.dumps(twilio_response.__dict__, cls=CoolerJson)
+                response.save()
+                return SmsSerializer(response).data
+            else:
+                return None
+        except:
             return None
 
     def change_email(self, email, send_verification_mail=True):
