@@ -152,13 +152,13 @@ class User(AbstractUser):
         from management.models.sms import SmsModel, SmsSerializer
         import json
         from back.utils import CoolerJson
-        #try catch mantel, im catch success auf FALSE
-        response = SmsModel.objects.create(
-            recipient=self,
-            send_initator=send_initator,
-            message=message
-        )
+
         if self.profile.notify_channel == "sms" and self.profile.phone_mobile != "":
+            response = SmsModel.objects.create(
+                recipient=self,
+                send_initator=send_initator,
+                message=message
+            )
             try:
                 client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
                 twilio_response = client.messages.create(
@@ -172,7 +172,9 @@ class User(AbstractUser):
                 return SmsSerializer(response).data
             except:
                 response.success = False
-                return None
+                return 500
+        else:
+            return 403
 
     def change_email(self, email, send_verification_mail=True):
         """

@@ -539,7 +539,13 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             return res
 
         if request.method == "POST":
-            return Response(obj.sms(request.user, request.data["message"]))
+            result = obj.sms(request.user, request.data["message"])
+            if result == 403:
+                return Response(data="User has not set SMS notification!",status=403)
+            elif result == 500:
+                return Response(data="Something went wrong sending the message...",status=500)
+            else:
+                return Response(result)
         else:
             sms = SmsModel.objects.filter(recipient=obj).order_by("-created_at")
 
