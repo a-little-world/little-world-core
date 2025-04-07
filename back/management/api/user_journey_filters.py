@@ -551,8 +551,7 @@ def too_low_german_level(qs=User.objects.all()):
     (Inactive-User) User never active, but was flagged with a 'state.to_low_german_level=True'
     """
     return qs.filter(
-        profile__user_type=Profile.TypeChoices.LEARNER
-    ).exclude(
+        profile__user_type=Profile.TypeChoices.LEARNER,
         profile__lang_skill__contains=[
             {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
         ]
