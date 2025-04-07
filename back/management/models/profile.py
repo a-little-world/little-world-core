@@ -599,6 +599,7 @@ class MinimalProfileSerializer(serializers.ModelSerializer):
             "user_type",
             "target_groups",
             "newsletter_subscribed",
+            "phone_mobile",
         ]
 
 

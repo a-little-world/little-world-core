@@ -26,6 +26,7 @@ from management.models.settings import Settings
 from management.models.state import State
 from management.models.unconfirmed_matches import ProposedMatch
 from management.models.user import User, UserSerializer
+from management.models.sms import SmsModel
 from management.tasks import (
     create_default_banners,
     create_default_community_events,
@@ -297,7 +298,9 @@ def match_users(
         room = Room.objects.create(usr1=usr1, usr2=usr2)
 
     if send_notification:
-        pass  # TODO: send notification should be used to trigger an SMS notification
+        # send sms message ( only if the user enabled sms notifications )
+        usr1.sms(get_base_management_user(), get_translation("sms.match_message", lang="de"))
+        usr2.sms(get_base_management_user(), get_translation("sms.match_message", lang="de"))
 
     if send_message:
         match_message = get_translation("auto_messages.match_message", lang="de")

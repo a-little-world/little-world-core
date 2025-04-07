@@ -58,9 +58,10 @@ DOCS_PASSWORD = os.environ.get("DJ_DOCS_PASSWORD", "Test123!")
 DOCS_USER_LOGIN_TOKEN = os.environ.get("DJ_DOCS_USER_LOGIN_TOKEN", "Test123!")
 
 TWILIO_SMS_NUMBER = os.environ.get("DJ_TWILIO_SMS_NUMBER", "+1234567890")
-TWILIO_ACCOUNT_SID = os.environ["DJ_TWILIO_ACCOUNT_SID"]
-TWILIO_API_KEY_SID = os.environ["DJ_TWILIO_API_KEY_SID"]
-TWILIO_API_SECRET = os.environ["DJ_TWILIO_API_SECRET"]
+TWILIO_ACCOUNT_SID = os.environ.get("DJ_TWILIO_ACCOUNT_SID", "")
+TWILIO_API_KEY_SID = os.environ.get("DJ_TWILIO_API_KEY_SID", "")
+TWILIO_API_SECRET = os.environ.get("DJ_TWILIO_API_SECRET", "")
+TWILIO_AUTH_TOKEN = os.environ.get("DJ_TWILIO_AUTH_TOKEN", "")
 EXTERNAL_S3 = os.environ.get("DJ_EXTERNAL_S3", "false").lower() in ("true", "1", "t")
 PREMATCHING_CALL_JOIN_LINK = os.environ.get("PREMATCHING_CALL_JOIN_LINK", None)
 
