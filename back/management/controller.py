@@ -297,10 +297,10 @@ def match_users(
     if create_video_room:
         room = Room.objects.create(usr1=usr1, usr2=usr2)
 
-    if send_notification: #finde heraus wie man den matching user verweisen kan
-        usr1.sms(get_base_management_user(),"<Insert new match message to user>")
-        usr2.sms(get_base_management_user(),"<Insert new match message to user>")
-        pass  # TODO: send notification should be used to trigger an SMS notification
+    if send_notification:
+        # send sms message ( only if the user enabled sms notifications )
+        usr1.sms(get_base_management_user(), get_translation("sms.match_message", lang="de"))
+        usr2.sms(get_base_management_user(), get_translation("sms.match_message", lang="de"))
 
     if send_message:
         match_message = get_translation("auto_messages.match_message", lang="de")
