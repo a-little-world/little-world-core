@@ -38,11 +38,9 @@ class ShortLinkClickAdmin(admin.ModelAdmin):
     
     display_user.short_description = "User"
 
-
 @admin.register(stats.Statistic)
 class StatisticAdmin(admin.ModelAdmin):
     list_display = ("created_at", "updated_at", "kind")
-
 
 @admin.register(models.backend_state.BackendState)
 class BackendStateAdmin(admin.ModelAdmin):
