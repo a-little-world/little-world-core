@@ -101,7 +101,14 @@ def make_match(request):
         ).update(matchable=False)
 
         InMatchProposalAdded(matches[0]).send(learner.hash)
-        return Response("Matching Proposal Created")
+
+        if user1.profile.user_type == "learner":
+            sms1_response = user1.sms(request.user, "You have a new match proposal!")
+
+        if user2.profile.user_type == "learner":
+            sms2_response = user2.sms(request.user, "You have a new match proposal!")
+
+        return Response(f"Matching Proposal Created")
     else:
         # Perfor a full match directly
         match_obj = controller.match_users(
