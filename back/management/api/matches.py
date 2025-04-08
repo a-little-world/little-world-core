@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from translations import get_translation
 from chat.consumers.messages import InMatchProposalAdded, InUnconfirmedMatchAdded
 from django.db.models import Q
 from drf_spectacular.utils import extend_schema, inline_serializer
@@ -103,10 +104,10 @@ def make_match(request):
         InMatchProposalAdded(matches[0]).send(learner.hash)
 
         if user1.profile.user_type == "learner":
-            sms1_response = user1.sms(request.user, "You have a new match proposal!")
+            sms1_response = user1.sms(request.user, get_translation("sms.proposal_message", lang="de"))
 
         if user2.profile.user_type == "learner":
-            sms2_response = user2.sms(request.user, "You have a new match proposal!")
+            sms2_response = user2.sms(request.user, get_translation("sms.proposal_message", lang="de"))
 
         return Response(f"Matching Proposal Created")
     else:

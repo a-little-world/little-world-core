@@ -208,6 +208,8 @@
   "notification.type.message": "Message",
   "notification.title": "Title",
   "notification.no_description": "No Description",
+  "sms.match_message": "You have a new match! Log in and find out who your new partner is: https://little-world.com/login",
+  "sms.proposal_message": "You have a new match proposal! Log in and see who your new partner could be: https://little-world.com/login",
   "models.state.searching_state.idle": "Idle",
   "models.state.searching_state.searching": "Searching",
   "model.community_event.frequency.monthly": "Monthly",
