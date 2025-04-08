@@ -96,10 +96,9 @@ def get_notifications(request):
     serializer: NotificationGetPaginatedSerializer = NotificationGetPaginatedSerializer(data=request.query_params)
     serializer.is_valid(raise_exception=True)
     params: NotificationGetPaginatedParams = serializer.save()
+    user : User = request.user
 
-    assert isinstance(request.user, User)
-
-    notifications_user = request.user.get_notifications(state=params.filter)
+    notifications_user = user.get_notifications(state=params.filter)
     paginator = DetailedPagination()
     pages = paginator.get_paginated_response(paginator.paginate_queryset(notifications_user, request)).data
     pages["results"] = SelfNotificationSerializer(pages["results"], many=True).data
@@ -122,9 +121,13 @@ def get_notifications(request):
 @permission_classes([permissions.IsAuthenticated])
 @authentication_classes([authentication.SessionAuthentication])
 def get_notification(request, id):
-    assert isinstance(request.user, User)
+    user : User = request.user
 
     notification = Notification.objects.get(id=id)
+
+    if user != notification.user:
+        return Response("You are not allowed to view this notification", status=403)
+
     return Response(SelfNotificationSerializer(notification).data)
 
 
@@ -147,8 +150,13 @@ def update_notification(request, id):
     serializer: NotificationUpdateSerializer = NotificationUpdateSerializer(data={"id": id, **request.data})
     serializer.is_valid(raise_exception=True)
     params: NotificationUpdateParams = serializer.save()
+    user : User = request.user
 
     notification = Notification.objects.get(id=id)
+
+    if user != notification.user:
+        return Response("You are not allowed to update this notification", status=403)
+
     notification.update_state(params.state)
 
     return Response(SelfNotificationSerializer(notification).data)
@@ -171,7 +179,9 @@ def update_notification(request, id):
 @authentication_classes([authentication.SessionAuthentication])
 def delete_notification(request, id):
     notification = Notification.objects.get(id=id)
-    assert request.user == notification.user
+
+    if request.user != notification.user:
+        return Response("You are not allowed to delete this notification", status=403)
 
     notification.update_state(Notification.NotificationState.DELETED)
     return Response(status=200)
