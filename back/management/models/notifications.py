@@ -26,6 +26,10 @@ class Notification(models.Model):
         UNREAD = "unread", get_translation("notification.state.unread")
         READ = "read", get_translation("notification.state.read")
         ARCHIVED = "archived", get_translation("notification.state.archived")
+        DELETED = "deleted", get_translation("notification.state.deleted")
+
+    class NotificationStateFilterAll(models.TextChoices):
+        ALL = "all", get_translation("notification.state.all")
 
     state = models.CharField(choices=NotificationState.choices, default=NotificationState.UNREAD, max_length=255)
 
@@ -60,6 +64,8 @@ class Notification(models.Model):
             self.mark_unread()
         elif state == Notification.NotificationState.ARCHIVED:
             self.archive()
+        elif state == Notification.NotificationState.DELETED:
+            self.mark_deleted()
 
     def mark_read(self):
         from datetime import datetime
@@ -75,6 +81,10 @@ class Notification(models.Model):
 
     def archive(self):
         self.state = self.NotificationState.ARCHIVED
+        self.save()
+
+    def mark_deleted(self):
+        self.state = self.NotificationState.DELETED
         self.save()
 
 

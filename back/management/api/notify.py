@@ -17,19 +17,15 @@ from management.models.user import User
 @dataclass
 class NotificationGetPaginatedParams:
     page: int
-    paginate_by: int
+    page_size: int
 
-    include_unread: bool
-    include_read: bool
-    include_archived: bool
+    filter: Notification.NotificationState | Notification.NotificationStateFilterAll
 
 
 class NotificationGetPaginatedSerializer(serializers.Serializer):
     page = serializers.IntegerField(min_value=1, default=1, required=False)
-    paginate_by = serializers.IntegerField(min_value=1, default=20, required=False)
-    include_unread = serializers.BooleanField(default=True, required=False)
-    include_read = serializers.BooleanField(default=False, required=False)
-    include_archived = serializers.BooleanField(default=False, required=False)
+    page_size = serializers.IntegerField(min_value=1, default=20, required=False)
+    filter = serializers.CharField(default=Notification.NotificationState.UNREAD, required=False)
 
     def create(self, validated_data):
         return NotificationGetPaginatedParams(**validated_data)
@@ -59,9 +55,16 @@ class NotificationUpdateSerializer(serializers.Serializer):
         return NotificationUpdateParams(**validated_data)
 
 
+class PaginatedNotificationResponse(DetailedPagination):
+    items = SelfNotificationSerializer(many=True)
+
+
 @extend_schema(
     description="Retrieve notifications",
     request=NotificationGetPaginatedSerializer(many=False),
+    responses={
+        200: PaginatedNotificationResponse,
+    },
     parameters=[
         OpenApiParameter(
             name="page",
@@ -71,31 +74,17 @@ class NotificationUpdateSerializer(serializers.Serializer):
             location=OpenApiParameter.QUERY,
         ),
         OpenApiParameter(
-            name="paginate_by",
+            name="page_size",
             required=False,
             type=int,
             default=20,
             location=OpenApiParameter.QUERY,
         ),
         OpenApiParameter(
-            name="include_unread",
+            name="filter",
             required=False,
-            default=True,
-            type=bool,
-            location=OpenApiParameter.QUERY,
-        ),
-        OpenApiParameter(
-            name="include_read",
-            required=False,
-            default=False,
-            type=bool,
-            location=OpenApiParameter.QUERY,
-        ),
-        OpenApiParameter(
-            name="include_archived",
-            required=False,
-            default=False,
-            type=bool,
+            default=Notification.NotificationState.UNREAD,
+            type=Notification.NotificationState | Notification.NotificationStateFilterAll,
             location=OpenApiParameter.QUERY,
         ),
     ],
@@ -107,12 +96,9 @@ def get_notifications(request):
     serializer: NotificationGetPaginatedSerializer = NotificationGetPaginatedSerializer(data=request.query_params)
     serializer.is_valid(raise_exception=True)
     params: NotificationGetPaginatedParams = serializer.save()
+    user : User = request.user
 
-    assert isinstance(request.user, User)
-
-    notifications_user = request.user.get_notifications(
-        include_unread=params.include_unread, include_read=params.include_read, include_archived=params.include_archived
-    )
+    notifications_user = user.get_notifications(state=params.filter)
     paginator = DetailedPagination()
     pages = paginator.get_paginated_response(paginator.paginate_queryset(notifications_user, request)).data
     pages["results"] = SelfNotificationSerializer(pages["results"], many=True).data
@@ -135,9 +121,13 @@ def get_notifications(request):
 @permission_classes([permissions.IsAuthenticated])
 @authentication_classes([authentication.SessionAuthentication])
 def get_notification(request, id):
-    assert isinstance(request.user, User)
+    user : User = request.user
 
     notification = Notification.objects.get(id=id)
+
+    if user != notification.user:
+        return Response("You are not allowed to view this notification", status=403)
+
     return Response(SelfNotificationSerializer(notification).data)
 
 
@@ -160,15 +150,46 @@ def update_notification(request, id):
     serializer: NotificationUpdateSerializer = NotificationUpdateSerializer(data={"id": id, **request.data})
     serializer.is_valid(raise_exception=True)
     params: NotificationUpdateParams = serializer.save()
+    user : User = request.user
 
     notification = Notification.objects.get(id=id)
+
+    if user != notification.user:
+        return Response("You are not allowed to update this notification", status=403)
+
     notification.update_state(params.state)
 
     return Response(SelfNotificationSerializer(notification).data)
 
 
+@extend_schema(
+    description="Delete a notification",
+    request=NotificationGetSerializer(many=False),
+    parameters=[
+        OpenApiParameter(
+            name="id",
+            required=True,
+            type=int,
+            location=OpenApiParameter.PATH,
+        ),
+    ],
+)
+@api_view(["DELETE"])
+@permission_classes([permissions.IsAuthenticated])
+@authentication_classes([authentication.SessionAuthentication])
+def delete_notification(request, id):
+    notification = Notification.objects.get(id=id)
+
+    if request.user != notification.user:
+        return Response("You are not allowed to delete this notification", status=403)
+
+    notification.update_state(Notification.NotificationState.DELETED)
+    return Response(status=200)
+
+
 api_routes = [
-    path("api/notifications/", get_notifications),
+    path("api/notifications", get_notifications),
     path("api/notifications/<int:id>", get_notification),
+    path("api/notifications/<int:id>/delete", delete_notification),
     path("api/notifications/<int:id>/update", update_notification),
 ]

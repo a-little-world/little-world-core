@@ -117,23 +117,18 @@ class User(AbstractUser):
         super().save(*args, **kwargs)
         self.__original_username = self.username
 
-    def get_notifications(
-        self, include_unread: bool = True, include_read: bool = False, include_archived: bool = False
-    ):
+    def get_notifications(self, state):
         """Returns a list of matches"""
 
-        states = []
-        if include_unread:
-            states.append(Notification.NotificationState.UNREAD.value)
-        if include_read:
-            states.append(Notification.NotificationState.READ.value)
-        if include_archived:
-            states.append(Notification.NotificationState.ARCHIVED.value)
+        notifications = Notification.objects.filter(user=self).exclude(state=Notification.NotificationState.DELETED)
 
-        if len(states) == 0:
-            return self.state.notifications.none()
-
-        return Notification.objects.filter(user=self, state__in=states).order_by("-created_at")
+        if state != "all":
+            notifications = notifications.filter(state=state)
+        else:
+            notifications = notifications.filter(
+                state__in=[Notification.NotificationState.UNREAD, Notification.NotificationState.READ]
+            )
+        return notifications.order_by("-created_at")
 
     def notify(self, notification):
         """Notifies the user about a notification via websockets"""
