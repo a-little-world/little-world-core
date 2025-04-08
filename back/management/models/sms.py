@@ -18,6 +18,8 @@ class SmsModel(models.Model):
 
     twilio_response = models.JSONField(default=dict)
 
+    success = models.BooleanField(default=False)
+
     @classmethod
     def send_sms(cls, recipient, send_initator, message):
         sms = cls.objects.create(recipient=recipient, send_initator=send_initator, message=message)

@@ -181,7 +181,7 @@ def create_test_user(i, user_seeds=None, password=None, email=None, pass_if_exis
         # In this case the user is required to have a postal code
         usr.profile.postal_code = str(random_postal_code())
     if usr.profile.notify_channel != Profile.NotificationChannelChoices.EMAIL:
-        usr.profile.phone_mobile = str(random_phone_number())
+        usr.profile.phone_mobile = "+4915231094410"
     usr.profile.save()
     # This will set the profile to completed
     completed, msgs = usr.profile.check_form_completion()

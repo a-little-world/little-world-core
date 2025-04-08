@@ -551,13 +551,10 @@ def too_low_german_level(qs=User.objects.all()):
     (Inactive-User) User never active, but was flagged with a 'state.to_low_german_level=True'
     """
     return qs.filter(
-        is_active=True,
-        state__had_prematching_call=False,
-        state__user_form_state=State.UserFormStateChoices.FILLED,
+        profile__user_type=Profile.TypeChoices.LEARNER,
         profile__lang_skill__contains=[
             {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
-        ],
-        profile__user_type=Profile.TypeChoices.LEARNER,
+        ]
     )
 
 
@@ -685,6 +682,23 @@ def community_calls(qs=User.objects.all(), last_x_days=28 * 3):
     all_distinct_users = User.objects.filter(id__in=all_users).distinct()
 
     return all_distinct_users
+
+def community__learners_better_than_a1a2(qs=User.objects.all()):
+    qs = community_calls(qs)
+    return qs.filter(
+        state__email_authenticated=True,
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        profile__user_type=Profile.TypeChoices.LEARNER
+    ).exclude(
+        profile__lang_skill__contains=[{"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}], 
+    )
+
+def community__ehrenamtliche_und_lernende_with_a1a2(qs=User.objects.all(), only_last_6_weeks=False):
+
+    qs = qs.filter(date_joined__gte=days_ago(7 * 6))
+    return qs.filter(
+        state__email_authenticated=True,
+    )
 
 def completed_form__created_within_6months(qs=User.objects.all()):
     """

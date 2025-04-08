@@ -219,6 +219,7 @@
   "notification.type.message": "Nachricht",
   "notification.title": "Titel",
   "notification.no_description": "Keine Beschreibung",
+  "sms.match_message": "Du hast einen neuen Match! Logge dich ein und finde heraus wer dein neuer Partner ist: https://little-world.com/login",
   "models.state.searching_state.idle": "Nicht suchend (Idle)",
   "models.state.searching_state.searching": "Suche auf",
   "model.community_event.frequency.monthly": "Monatlich",

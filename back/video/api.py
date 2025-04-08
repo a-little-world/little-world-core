@@ -159,7 +159,7 @@ def livekit_webhook(request):
                         widget_recipient.message(
                             "<MissedCallWidget></MissedCallWidget>",
                             sender=session.first_active_user,
-                            auto_mark_read=True,
+                            auto_mark_read=False,
                             parsable_message=True,
                             send_message_incoming=True,
                             send_message_incoming_to_sender=True,
