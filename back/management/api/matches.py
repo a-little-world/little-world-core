@@ -103,11 +103,7 @@ def make_match(request):
 
         InMatchProposalAdded(matches[0]).send(learner.hash)
 
-        if user1.profile.user_type == "learner":
-            sms1_response = user1.sms(request.user, get_translation("sms.proposal_message", lang="de"))
-
-        if user2.profile.user_type == "learner":
-            sms2_response = user2.sms(request.user, get_translation("sms.proposal_message", lang="de"))
+        learner.sms(request.user, get_translation("sms.proposal_message", lang="de"))
 
         return Response(f"Matching Proposal Created")
     else:
