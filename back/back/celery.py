@@ -84,3 +84,9 @@ if not settings.PROD_ATTACH:
         },
         **(prod_shedules if settings.IS_PROD else {}),
     }
+
+'''
+Helper function to end a celery task using the AsyncResult ID
+'''
+def end_task(task_id):
+    app.control.revoke(task_id)
