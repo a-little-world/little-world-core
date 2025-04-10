@@ -203,6 +203,8 @@
   "notification.state.unread": "Unread",
   "notification.state.read": "Read",
   "notification.state.archived": "Archived",
+  "notification.state.deleted": "Deleted",
+  "notification.state.all": "Alle",
   "notification.type.none": "No Type",
   "notification.type.match": "Match",
   "notification.type.message": "Message",
