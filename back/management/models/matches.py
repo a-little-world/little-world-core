@@ -117,6 +117,9 @@ class Match(models.Model):
     def get_partner(self, user):
         return self.user1 if (self.user2 == user) else self.user2
 
+    def get_learner(self):
+        return self.user1 if self.user1.profile.user_type == profile.Profile.TypeChoices.LEARNER else self.user2
+
     def confirm(self, user):
         if user not in self.confirmed_by.all():
             self.confirmed_by.add(user)

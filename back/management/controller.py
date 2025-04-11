@@ -299,8 +299,8 @@ def match_users(
 
     if send_notification:
         # send sms message ( only if the user enabled sms notifications )
-        usr1.sms(get_base_management_user(), get_translation("sms.match_message", lang="de"))
-        usr2.sms(get_base_management_user(), get_translation("sms.match_message", lang="de"))
+        volunteer = matching_obj.get_volunteer()
+        volunteer.sms(get_base_management_user(), get_translation("sms.match_message", lang="de"))
 
     if send_message:
         match_message = get_translation("auto_messages.match_message", lang="de")
