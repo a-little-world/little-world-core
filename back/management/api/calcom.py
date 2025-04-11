@@ -53,6 +53,7 @@ bd34b6821b', 'HTTP_X_FORWARDED_FOR': '3.238.174.157', 'HTTP_X_FORWARDED_PROTO': 
 """
 
 import pytz
+from management.controller import get_base_management_user
 from babel.dates import format_datetime
 from dateutil import parser
 from django.conf import settings
@@ -129,7 +130,7 @@ def callcom_websocket_callback(request):
             appointment.start_time = start_time_parsed
             end_task(task_id=appointment.sms_task)
             new_async_result = send_sms_background.apply_async(
-                (user_hash, get_translation("sms.onboarding_in_30min", lang="de").format(appointment_time=start_time_normalized)),
+                (user_hash, get_translation("sms.onboarding_in_30min", lang="de")),
                 eta=start_time_parsed - timedelta(minutes=30)
             )
             appointment.sms_task = new_async_result.id
@@ -137,14 +138,15 @@ def callcom_websocket_callback(request):
         else:
             appointment = PreMatchingAppointment(user=user, start_time=start_time_parsed, end_time=end_time_parsed)
             async_result = send_sms_background.apply_async(
-                (user_hash, get_translation("sms.appointment_booked", lang="de").format(appointment_time=start_time_normalized)),
+                (user_hash, get_translation("sms.onboarding_in_30min", lang="de")),
                 eta=start_time_parsed - timedelta(minutes=30)
             )
             appointment.sms_task = async_result.id
             appointment.save()
-
+            
         from chat.consumers.messages import PreMatchingAppointmentBooked
-
         PreMatchingAppointmentBooked(appointment=PreMatchingAppointmentSerializer(appointment).data).send(user.hash)
+
+        user.sms(get_base_management_user(), get_translation("sms.appointment_booked", lang="de").format(appointment_time=start_time_normalized))
 
     return Response("ok")
