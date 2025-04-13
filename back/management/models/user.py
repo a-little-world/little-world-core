@@ -117,23 +117,18 @@ class User(AbstractUser):
         super().save(*args, **kwargs)
         self.__original_username = self.username
 
-    def get_notifications(
-        self, include_unread: bool = True, include_read: bool = False, include_archived: bool = False
-    ):
+    def get_notifications(self, state):
         """Returns a list of matches"""
 
-        states = []
-        if include_unread:
-            states.append(Notification.NotificationState.UNREAD.value)
-        if include_read:
-            states.append(Notification.NotificationState.READ.value)
-        if include_archived:
-            states.append(Notification.NotificationState.ARCHIVED.value)
+        notifications = Notification.objects.filter(user=self).exclude(state=Notification.NotificationState.DELETED)
 
-        if len(states) == 0:
-            return self.state.notifications.none()
-
-        return Notification.objects.filter(user=self, state__in=states).order_by("-created_at")
+        if state != "all":
+            notifications = notifications.filter(state=state)
+        else:
+            notifications = notifications.filter(
+                state__in=[Notification.NotificationState.UNREAD, Notification.NotificationState.READ]
+            )
+        return notifications.order_by("-created_at")
 
     def notify(self, notification):
         """Notifies the user about a notification via websockets"""
@@ -143,6 +138,42 @@ class User(AbstractUser):
         from management.models.notifications import NotificationSerializer
 
         NotificationMessage(notification=NotificationSerializer(notification).data).send(str(self.hash))
+
+    def sms(self, send_initator, message):
+        """"Sends SMS to User if user has SMS Notification allowed and valid Phone number"""
+        from management.models.user import User
+        from django.conf import settings
+        from twilio.rest import Client
+        from management.models.sms import SmsModel, SmsSerializer
+        import json
+        from back.utils import CoolerJson
+        
+        if settings.DISABLE_SMS_SENDING:
+            return 403
+
+        if self.profile.notify_channel == "sms" and self.profile.phone_mobile != "":
+            response = SmsModel.objects.create(
+                recipient=self,
+                send_initator=send_initator,
+                message=message
+            )
+            try:
+                client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+                twilio_response = client.messages.create(
+                    body=message,
+                    from_=settings.TWILIO_SMS_NUMBER,
+                    to=str(self.profile.phone_mobile)
+                )
+                response.twilio_response = json.dumps(twilio_response.__dict__, cls=CoolerJson)
+                response.success = True
+                response.save()
+                return SmsSerializer(response).data
+            except:
+                response.success = False
+                response.save()
+                return 500
+        else:
+            return 403
 
     def change_email(self, email, send_verification_mail=True):
         """

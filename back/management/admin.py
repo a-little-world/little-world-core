@@ -20,6 +20,7 @@ from management.models import (
     question_deck,
     scores,
     stats,
+    sms,
 )
 
 
@@ -37,11 +38,9 @@ class ShortLinkClickAdmin(admin.ModelAdmin):
     
     display_user.short_description = "User"
 
-
 @admin.register(stats.Statistic)
 class StatisticAdmin(admin.ModelAdmin):
     list_display = ("created_at", "updated_at", "kind")
-
 
 @admin.register(models.backend_state.BackendState)
 class BackendStateAdmin(admin.ModelAdmin):
@@ -382,3 +381,7 @@ class DynamicUserListAdmin(admin.ModelAdmin):
 @admin.register(post_call_review.PostCallReview)
 class PostCallReviewAdmin(admin.ModelAdmin):
     list_display = ("user", "live_session", "rating", "created_at", "updated_at")
+
+@admin.register(sms.SmsModel)
+class SmsModelAdmin(admin.ModelAdmin):
+    list_display = ("recipient", "send_initator", "message", "twilio_response")
