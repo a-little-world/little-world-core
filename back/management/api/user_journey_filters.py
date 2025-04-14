@@ -557,6 +557,14 @@ def too_low_german_level(qs=User.objects.all()):
         ]
     )
 
+def all_volunteers_min_one_no_ongoing_match(qs=User.objects.all()):
+    "Volunteers with at least one match but no open proposal"
+    open_proposals = ProposedMatch.objects.filter(closed=False)
+    return qs.exclude(Q(pk__in=open_proposals.values("user1")) |
+                      Q(pk__in=open_proposals.values("user2"))
+                      ).filter(
+                          pk__in=[user.pk for user in [user for user in qs if (Match.get_confirmed_matches(user).exists() and user.profile.user_type == "volunteer")]]
+                          ).distinct().order_by("-date_joined")
 
 # used to be 'unmatched'
 def over_30_days_after_prematching_still_searching(qs=User.objects.all()):
