@@ -260,7 +260,7 @@ class UserFilter(filters.FilterSet):
 
     state__company = filters.ChoiceFilter(
         field_name="state__company",
-        choices=[("null", None), ("accenture", "accenture")],
+        choices=[("null", None), ("accenture", "accenture"), ("capegemini", "capegemini"), ("germaninstitute", "germaninstitute")],
         help_text="Filter for users that are part of a company",
     )
 

@@ -185,6 +185,14 @@
       "subject": "Patenmatch.de Matching ist wieder online",
       "template": "react_emails/patenmatch-matching-back-online.html",
       "theme": "patenmatch"
+    },
+    "new-match-engage": {
+      "id": "new-match-engage",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Lust auf ein neuen Match?",
+      "template": "react_emails/new-match-engage.html",
+      "theme": "little-world"
     }
   },
   "senders": {

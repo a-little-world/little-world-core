@@ -147,6 +147,9 @@ class User(AbstractUser):
         from management.models.sms import SmsModel, SmsSerializer
         import json
         from back.utils import CoolerJson
+        
+        if settings.DISABLE_SMS_SENDING:
+            return 403
 
         if self.profile.notify_channel == "sms" and self.profile.phone_mobile != "":
             response = SmsModel.objects.create(

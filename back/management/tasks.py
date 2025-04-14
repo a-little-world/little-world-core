@@ -614,3 +614,14 @@ def hourly_check_banner_activation():
             banner.save()
             bc["deactivated"].append(banner.id)
     return bc
+
+@shared_task
+def send_sms_background(
+    user_hash,
+    message
+):
+    from management.controller import get_base_management_user
+    from management.models.user import User
+
+    receipient = User.objects.get(hash=user_hash)
+    receipient.sms(send_initator=get_base_management_user(), message=message)
