@@ -731,3 +731,21 @@ def completed_form__created_within_6months_no_onboarding_call_volunteer(qs=User.
     Completed form within 6 months but no onboarding call
     """
     return qs.filter(state__user_form_state=State.UserFormStateChoices.FILLED, date_joined__gte=days_ago(6 * 30), state__had_prematching_call=False, profile__user_type=Profile.TypeChoices.VOLUNTEER)
+
+def volunteers_with_completed_match_no_ongoing(qs=User.objects.all()):
+    """
+    Volunteers who have at least one completed match but no ongoing matches
+    """
+    # Get users with completed matches
+    users_with_completed_matches = get_user_involved(completed_match(), qs)
+    
+    # Get users with ongoing matches
+    users_with_ongoing_matches = get_user_involved(match_ongoing(), qs)
+    
+    # Return volunteers with completed matches but no ongoing matches
+    return qs.filter(
+        profile__user_type=Profile.TypeChoices.VOLUNTEER,
+        pk__in=users_with_completed_matches
+    ).exclude(
+        pk__in=users_with_ongoing_matches
+    ).distinct().order_by("-date_joined")

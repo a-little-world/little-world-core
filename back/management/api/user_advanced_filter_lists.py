@@ -59,7 +59,8 @@ from management.api.user_journey_filters import (
     completed_form__created_within_6months,
     completed_form__created_within_6months_no_onboarding_call,
     completed_form__created_within_6months_no_onboarding_call_volunteer,
-    all_volunteers_min_one_no_ongoing_match
+    all_volunteers_min_one_no_ongoing_match,
+    volunteers_with_completed_match_no_ongoing,
 )
 from management.models.dynamic_user_list import DynamicUserList
 
@@ -162,7 +163,10 @@ USER_JOURNEY_FILTER_LISTS = [
     FilterListEntry("completed_form__created_within_6months", None, completed_form__created_within_6months),
     FilterListEntry("completed_form__created_within_6months_no_onboarding_call", None, completed_form__created_within_6months_no_onboarding_call),
     FilterListEntry("completed_form__created_within_6months_no_onboarding_call_volunteer", None, completed_form__created_within_6months_no_onboarding_call_volunteer),
-    FilterListEntry("TEST__all_volunteers_min_one_no_ongoing_match", None, all_volunteers_min_one_no_ongoing_match)
+    FilterListEntry("TEST__all_volunteers_min_one_no_ongoing_match", None, all_volunteers_min_one_no_ongoing_match),
+    FilterListEntry("EXTRA__volunteers_with_completed_match_no_ongoing", 
+                    "Volunteers with at least one completed match and no ongoing matches", 
+                    volunteers_with_completed_match_no_ongoing),
 ]
 
 FILTER_LISTS = PANEL_V1_FILTER_LISTS + USER_JOURNEY_FILTER_LISTS
