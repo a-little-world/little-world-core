@@ -2,6 +2,7 @@ from django.core.management.base import BaseCommand
 
 
 # e.g.:
+# 'python3 manage.py reactivate_volunteers --list herrduenschnlate'
 # 'python3 manage.py reactivate_volunteers --list TEST__all_volunteers_min_one_no_ongoing_match'
 class Command(BaseCommand):
     help = "Send reactivation emails to users based on a specified filter list"

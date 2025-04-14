@@ -147,6 +147,7 @@ def callcom_websocket_callback(request):
         from chat.consumers.messages import PreMatchingAppointmentBooked
         PreMatchingAppointmentBooked(appointment=PreMatchingAppointmentSerializer(appointment).data).send(user.hash)
 
-        user.sms(get_base_management_user(), get_translation("sms.appointment_booked", lang="de").format(appointment_time=start_time_normalized))
+        # Comment Oliver: we don't need to send this you already see it in the app & you get an email.
+        # user.sms(get_base_management_user(), get_translation("sms.appointment_booked", lang="de").format(appointment_time=start_time_normalized))
 
     return Response("ok")

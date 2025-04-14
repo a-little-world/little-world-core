@@ -27,7 +27,7 @@ def all_users(qs=User.objects.all()):
 
 def only_hd_test_user(qs=User.objects.all()):
     """
-    Just a list of some test users for tim
+    TESTING: Just a list of some test users for tim
     """
     return qs.filter(email__startswith="herrduenschnlate")
 
