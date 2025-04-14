@@ -185,6 +185,22 @@
       "subject": "Patenmatch.de Matching ist wieder online",
       "template": "react_emails/patenmatch-matching-back-online.html",
       "theme": "patenmatch"
+    },
+    "new-match-engage": {
+      "id": "new-match-engage",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Lust auf ein neuen Match?",
+      "template": "react_emails/new-match-engage.html",
+      "theme": "little-world"
+    },
+    "still-in-contact-inactive": {
+      "id": "still-in-contact-inactive",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Bist du noch in Kontakt mit {{ partner_first_name }}?",
+      "template": "react_emails/still-in-contact-inactive.html",
+      "theme": "little-world"
     }
   },
   "senders": {
@@ -192,6 +208,22 @@
     "info-patenmatch": "\"Patenmatch\" <info@patenmatch.de>"
   },
   "parameters": {
+    "still_in_contact_no_url": {
+      "id": "still_in_contact_no_url",
+      "lookup": "emails.api.template_lookup.still_in_contact_no_url",
+      "depends_on": [
+        "user",
+        "match"
+      ]
+    },
+    "still_in_contact_yes_url": {
+      "id": "still_in_contact_yes_url",
+      "lookup": "emails.api.template_lookup.still_in_contact_yes_url",
+      "depends_on": [
+        "user",
+        "match"
+      ]
+    },
     "prematching_call_no_show_datetime": {
       "id": "prematching_call_no_show_datetime",
       "lookup": "emails.api.template_lookup.prematching_datetime",

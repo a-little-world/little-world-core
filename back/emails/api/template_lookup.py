@@ -145,3 +145,20 @@ def prematching_booking_link(user):
         ),
         calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID,
     )
+
+
+def still_in_contact_yes_url(user, match, **kwargs):
+    """
+    Generate URL for confirming continued contact with match partner outside the platform
+    """
+    base_url = settings.BASE_URL
+    token = "TODO" # TODO generate_token_for_user(user_id)
+    return f"{base_url}/still-in-contact/yes/{match.id}?token={token}"
+
+def still_in_contact_no_url(user, match, **kwargs):
+    """
+    Generate URL for indicating no continued contact with match partner
+    """
+    base_url = settings.BASE_URL
+    token = "TODO" # TODO generate_token_for_user(user_id)
+    return f"{base_url}/still-in-contact/no/{match.id}?token={token}"
