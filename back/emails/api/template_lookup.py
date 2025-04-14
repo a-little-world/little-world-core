@@ -147,7 +147,7 @@ def prematching_booking_link(user):
     )
 
 
-def get_still_in_contact_yes_url(user_id, match_id, **kwargs):
+def still_in_contact_yes_url(user_id, match_id, **kwargs):
     """
     Generate URL for confirming continued contact with match partner outside the platform
     """
@@ -156,7 +156,7 @@ def get_still_in_contact_yes_url(user_id, match_id, **kwargs):
     return f"{base_url}/still-in-contact/yes/{match_id}?token={token}"
 
 
-def get_still_in_contact_no_url(user_id, match_id, **kwargs):
+def still_in_contact_no_url(user_id, match_id, **kwargs):
     """
     Generate URL for indicating no continued contact with match partner
     """
