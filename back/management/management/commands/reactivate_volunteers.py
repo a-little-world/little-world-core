@@ -74,7 +74,7 @@ class Command(BaseCommand):
             for i, user in enumerate(users, 1):
                 self.stdout.write(f"Sending email ({i}/{total}) to {user.email}")
                 send_email_background.delay(
-                    template_name="reactivate_volunteers",
+                    template_name="new-match-engage",
                     user_id=user.id
                 )
             self.stdout.write(self.style.SUCCESS(f"Successfully scheduled {total} emails"))
@@ -93,7 +93,7 @@ class Command(BaseCommand):
                 test_user = controller.get_user_by_email(test_email)
                 self.stdout.write(f"Sending test email to {test_user.email}")
                 send_email_background.delay(
-                    template_name="reactivate_volunteers",
+                    template_name="new-match-engage",
                     user_id=test_user.id
                 )
                 self.stdout.write(self.style.SUCCESS("Test email scheduled"))
