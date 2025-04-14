@@ -5,7 +5,7 @@ class Command(BaseCommand):
     def handle(self, **options):
         from emails import mails
 
-        from management.models.matches import Match
+        from management.tasks import send_email_background
         from management.api.user_journey_filters import all_volunteers_min_one_no_ongoing_match
 
         all_users_to_consider = all_volunteers_min_one_no_ongoing_match()
@@ -29,13 +29,10 @@ class Command(BaseCommand):
 
             user_input = input()
             if user_input == "Y":
-                controller.send_group_mail(
-                    users=users,
-                    subject="Wir vermissen Dich – Deine Unterstützung zählt!",
-                    mail_name="reactivate_volunteers",
-                    mail_params_func=get_params,
-                    unsubscribe_group="none",
-                )
+                for user in users:
+                    send_email_background.delay(
+                        template_name="reactivate_volunteers"
+                    )
             else:
                 print("Not send")
         else:
