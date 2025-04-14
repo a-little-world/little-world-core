@@ -193,6 +193,14 @@
       "subject": "Lust auf ein neuen Match?",
       "template": "react_emails/new-match-engage.html",
       "theme": "little-world"
+    },
+    "still-in-contact-inactive": {
+      "id": "still-in-contact-inactive",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Bist du noch in Kontakt mit {{ partner_first_name }}?",
+      "template": "react_emails/still-in-contact-inactive.html",
+      "theme": "little-world"
     }
   },
   "senders": {
