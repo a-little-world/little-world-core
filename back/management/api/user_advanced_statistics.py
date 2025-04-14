@@ -354,6 +354,7 @@ def get_bucket_statistics(pre_filtered_users, selected_filters=None, filter_list
             ),
             "start_date": serializers.DateField(default="2021-01-01", required=False),
             "end_date": serializers.DateField(default=date.today(), required=False),
+            "volunteers_only": serializers.BooleanField(default=False, required=False),
         },
     ),
 )
@@ -369,6 +370,10 @@ def bucket_statistics(request):
     if not request.user.is_staff:
         pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
     pre_filtered_users = pre_filtered_users.filter(date_joined__range=[start_date, end_date])
+
+    volunteers_only = request.data.get("volunteers_only", False)
+    if volunteers_only:
+        pre_filtered_users = pre_filtered_users.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
 
     # Get selected filters from request
     selected_filters = request.data.get("selected_filters", None)
