@@ -208,6 +208,22 @@
     "info-patenmatch": "\"Patenmatch\" <info@patenmatch.de>"
   },
   "parameters": {
+    "still_in_contact_no_url": {
+      "id": "still_in_contact_no_url",
+      "lookup": "emails.api.template_lookup.still_in_contact_no_url",
+      "depends_on": [
+        "user",
+        "match"
+      ]
+    },
+    "still_in_contact_yes_url": {
+      "id": "still_in_contact_yes_url",
+      "lookup": "emails.api.template_lookup.still_in_contact_yes_url",
+      "depends_on": [
+        "user",
+        "match"
+      ]
+    },
     "prematching_call_no_show_datetime": {
       "id": "prematching_call_no_show_datetime",
       "lookup": "emails.api.template_lookup.prematching_datetime",
