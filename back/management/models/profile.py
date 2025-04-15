@@ -345,6 +345,8 @@ class Profile(models.Model):
 
     liability_accepted = models.BooleanField(default=False)
 
+    push_notifications_enabled = models.BooleanField(default=False)
+
     def add_profile_picture_from_local_path(self, path):
         print("Trying to add the pic", path)
         self.image.save(os.path.basename(path), File(open(path, "rb")))
@@ -464,6 +466,7 @@ class SelfProfileSerializer(ProfileSerializer):
             "other_target_group",
             "target_groups",
             "newsletter_subscribed",
+            "push_notifications_enabled",
         ]
 
         extra_kwargs = dict(
@@ -600,6 +603,7 @@ class MinimalProfileSerializer(serializers.ModelSerializer):
             "target_groups",
             "newsletter_subscribed",
             "phone_mobile",
+            "push_notifications_enabled",
         ]
 
 

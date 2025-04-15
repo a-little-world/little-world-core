@@ -2,7 +2,6 @@ from django.conf import settings
 from django.urls import path, re_path
 from django_rest_passwordreset.views import ResetPasswordConfirmViewSet, ResetPasswordValidateTokenViewSet
 from rest_framework.routers import DefaultRouter
-from management.api.short_links import api_urls as short_links_api_urls
 
 from back.utils import _api_url
 from management import api
@@ -10,6 +9,7 @@ from management.api import (
     ai,
     notify,
     prematch_appointment_advanced,
+    push_notifications,
     scores_advanced,
     slack,
     user_advanced_statistics,
@@ -31,6 +31,7 @@ from management.api.scores import (
     list_top_scores,
     score_maximization_matching,
 )
+from management.api.short_links import api_urls as short_links_api_urls
 from management.api.user_advanced import api_urls as user_advanced_api_urls
 from management.api.user_data import user_data_api
 from management.api.utils_advanced import CustomResetPasswordRequestTokenViewSet
@@ -191,6 +192,7 @@ view_routes = [
     path("api/dynamic_user_lists/<int:pk>/", dynamic_user_list_single_api),
     path("api/dynamic_user_lists/<int:list_id>/<int:user_id>/", dynamic_user_list_single_user_api),
     *notify.api_routes,
+    *push_notifications.api_urls,
 ]
 
 

@@ -1,6 +1,7 @@
-import base64
-import json
 import os
+
+from firebase_admin import credentials, initialize_app
+from management.helpers.get_base64_env import get_base64_env
 
 USE_SENTRY = os.environ.get("DJ_USE_SENTRY", "false").lower() in ("true", "1", "t")
 
@@ -105,13 +106,7 @@ AI_LANGUAGE_MODEL = os.environ.get("DJ_AI_LANGUAGE_MODEL", "none")
 AI_OPENAI_MODEL = os.environ.get("DJ_AI_OPENAI_MODEL", "none")
 AI_OPENAI_API_KEY = os.environ.get("DJ_AI_OPENAI_API_KEY", "none")
 
-# yeah google creds are annying to handle, 'e30=' is just an empty json '{}'
-try:
-    # They can be endoced as base64 strings:
-    # base64.b64encode(json.dumps(creds).encode("utf-8")).decode("utf-8")
-    GOOGLE_CLOUD_CREDENTIALS = json.loads(base64.b64decode(os.environ.get("DJ_GOOGLE_CLOUD_CREDENTIALS", "e30=")))
-except Exception:
-    GOOGLE_CLOUD_CREDENTIALS = {}
+GOOGLE_CLOUD_CREDENTIALS = get_base64_env("DJ_GOOGLE_CLOUD_CREDENTIALS")
 
 """
 Own applications:
@@ -158,6 +153,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     *(["revproxy"] if IS_STAGE else []),
     # *(['django.contrib.sessions'] if IS_PROD or IS_STAGE else []),
+    "push_notifications",  # django-push-notifications
 ]
 print("Installed apps:\n" + "\n- ".join(INSTALLED_APPS))
 
@@ -721,7 +717,7 @@ def print_tree(root_path, max_depth=3, indent=0):
 if DEBUG:
     info = "\n ".join(
         [
-            f'{n}: {globals()[n] if n in globals() else "NULL"}'
+            f"{n}: {globals()[n] if n in globals() else 'NULL'}"
             for n in [
                 "BASE_DIR",
                 "ALLOWED_HOSTS",
@@ -839,3 +835,55 @@ JAZZMIN_SETTINGS = {
 JAZZMIN_UI_TWEAKS = {
     "sidebar_nav_compact_style": True,
 }
+
+
+UPDATE_ON_DUPLICATE_REG_ID = True
+firebase_credentials = get_base64_env("DJ_FIREBASE_BACKEND_CREDENTIALS")
+
+
+FIREBASE_APP = None
+try:
+    firebase_certificate = credentials.Certificate(firebase_credentials)
+    FIREBASE_APP = initialize_app(firebase_certificate)
+except Exception as e:
+    print("ERROR INITIALIZING FIREBASE APP", e)
+
+# # # Initialize Firebase Messaging
+# from firebase_admin import messaging
+
+# # # Create a message
+# message = messaging.Message(
+#     notification=messaging.Notification(
+#         title="Test Title",
+#         body="Test Message Body",
+#     ),
+#     token="ees0ZZfPv7NDzkxYGXQ0sI:APA91bGAgnjQuoGKgM0Mwg_9IHnkNUEYyrfwGeoBuKx3qgldDEq_ps-8haeNH86IELoy-QK4rJs2TEvDrTIGDQbw_LK8gIKTn5I4BYcN8ZxWpOP4PK7XTtM",
+# )
+
+# # # Send message
+# response = messaging.send(message)
+# print("Successfully sent message:", response)
+
+# from push_notifications.models import GCMDevice
+
+# from back.management.models.user import User
+
+# user = User.objects.get(email="herrduenschnlate+1@gmail.com")
+# fcm_device = GCMDevice.objects.create(
+#     registration_id="ees0ZZfPv7NDzkxYGXQ0sI:APA91bGAgnjQuoGKgM0Mwg_9IHnkNUEYyrfwGeoBuKx3qgldDEq_ps-8haeNH86IELoy-QK4rJs2TEvDrTIGDQbw_LK8gIKTn5I4BYcN8ZxWpOP4PK7XTtM",
+#     user=user,
+# )
+# fcm_device.send_message
+
+
+# fcm_options = messaging.WebpushFCMOptions(link="https://youtube.com")
+# web_push_config = messaging.WebpushConfig(fcm_options=fcm_options)
+
+# message = messaging.Message(
+#     notification=messaging.Notification(
+#         title="Test Title",
+#         body="Test Message Body",
+#     ),
+#     webpush=web_push_config,
+#     token="ees0ZZfPv7NDzkxYGXQ0sI:APA91bGAgnjQuoGKgM0Mwg_9IHnkNUEYyrfwGeoBuKx3qgldDEq_ps-8haeNH86IELoy-QK4rJs2TEvDrTIGDQbw_LK8gIKTn5I4BYcN8ZxWpOP4PK7XTtM",
+# )
