@@ -4,6 +4,7 @@ from django.conf import settings
 from django.utils import timezone
 from management.models.pre_matching_appointment import PreMatchingAppointment
 from patenmatch.models import PatenmatchUser
+from management.api.match_journey_filters import completed_match
 
 
 def first_name(user):
@@ -162,3 +163,14 @@ def still_in_contact_no_url(user, match, **kwargs):
     base_url = settings.BASE_URL
     token = "TODO" # TODO generate_token_for_user(user_id)
     return f"{base_url}/still-in-contact/no/{match.id}?token={token}"
+
+
+def latest_completed_match_first_name(user):
+    from django.db.models import Q
+    completed_matches = completed_match().filter(
+        Q(user1=user) | Q(user2=user)
+    )
+    if completed_matches.count() == 0:
+        return "..."
+
+    return completed_matches.order_by('-created_at').first().get_partner(user).profile.first_name
