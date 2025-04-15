@@ -1,4 +1,4 @@
-FROM node:20 AS front_base_image
+FROM node:22 AS front_base_image
 
 # docker build -t full_image -f Dockerfile.full .
 # DOCKER_BUILDKIT=1 docker build --no-cache -t full_image -f Dockerfile.full .
@@ -23,7 +23,7 @@ RUN mkdir -p ../back/static/dist
 RUN mkdir -p /npm_cache && chown -R 1000:1000 /npm_cache
 RUN npm config set cache /npm_cache --global
 
-RUN npm install
+RUN npm ci
 RUN chmod -R 777 /front/node_modules && chmod u+x /front/node_modules/.bin/*
 
 # Now we have a base image setup with node modules
@@ -35,8 +35,8 @@ FROM front_base_image AS admin_panel_frontend_image
 RUN cp ./env_apps/admin_panel_frontend.${BUILD_TYPE}.env.js ./apps/admin_panel_frontend/src/ENVIRONMENT.js
 
 # npm install for all apps
-RUN cd apps/admin_panel_frontend && \
-    npm ci && cd ../../ && ./node_modules/.bin/webpack \
+RUN cd apps/admin_panel_frontend && npm ci
+RUN ./node_modules/.bin/webpack \
     --env PUBLIC_PATH=$PUBLIC_FRONTEND_PATH \
     --env DEV_TOOL=none \
     --env DEBUG=0 --no-devtool --mode production \
@@ -47,8 +47,8 @@ FROM front_base_image AS cookie_banner_frontend_image
 
 RUN cp ./env_apps/cookie_banner_frontend.${BUILD_TYPE}.env.js ./apps/cookie_banner_frontend/src/ENVIRONMENT.js
 
-RUN cd apps/cookie_banner_frontend && \
-    npm ci && cd ../../ && ./node_modules/.bin/webpack \
+RUN cd apps/cookie_banner_frontend && npm ci
+RUN ./node_modules/.bin/webpack \
     --env PUBLIC_PATH=$PUBLIC_FRONTEND_PATH \
     --env DEV_TOOL=none \
     --env DEBUG=0 --no-devtool --mode production \
@@ -59,8 +59,8 @@ FROM front_base_image AS main_frontend_image
 
 RUN cp ./env_apps/main_frontend.${BUILD_TYPE}.env.js ./apps/main_frontend/src/ENVIRONMENT.js
 
-RUN cd apps/main_frontend && \
-    npm ci && cd ../../ && ./node_modules/.bin/webpack \
+RUN cd apps/main_frontend && npm ci
+RUN ./node_modules/.bin/webpack \
     --env PUBLIC_PATH=$PUBLIC_FRONTEND_PATH \
     --env DEV_TOOL=none \
     --env DEBUG=0 --no-devtool --mode production \
