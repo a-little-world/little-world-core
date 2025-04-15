@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from management.helpers import IsAdminOrMatchingUser
+
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.http import HttpResponse
@@ -40,7 +42,7 @@ def get_firebase_service_worker(request):
     request=PushNotificationTokenParams,
 )
 @api_view(["POST"])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([IsAdminOrMatchingUser])
 @authentication_classes([authentication.SessionAuthentication])
 def register_push_notifications_token(request):
     assert isinstance(request.user, User)
@@ -60,7 +62,7 @@ def register_push_notifications_token(request):
     request=PushNotificationTokenParams,
 )
 @api_view(["POST"])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([IsAdminOrMatchingUser])
 @authentication_classes([authentication.SessionAuthentication])
 def un_register_push_notifications_token(request):
     assert isinstance(request.user, User)
@@ -82,7 +84,7 @@ def un_register_push_notifications_token(request):
     request=PushNotificationTokenParams,
 )
 @api_view(["POST"])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([IsAdminOrMatchingUser])
 @authentication_classes([authentication.SessionAuthentication])
 def send_push_notification(request):
     assert isinstance(request.user, User)
