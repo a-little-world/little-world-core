@@ -50,3 +50,5 @@ google-cloud-translate==3.15.3
 django-stubs[compatible-mypy]
 pre-commit
 django-colorfield # color picker in admin panel
+firebase-admin==6.7.0
+django-push-notifications==3.2.1
