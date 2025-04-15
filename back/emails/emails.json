@@ -190,7 +190,7 @@
       "id": "new-match-engage",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Lust auf ein neuen Match?",
+      "subject": "Dein Engagement bei Little World: Bereit f\u00fcr neue Gespr\u00e4che?",
       "template": "react_emails/new-match-engage.html",
       "theme": "little-world"
     },
