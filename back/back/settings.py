@@ -841,8 +841,12 @@ UPDATE_ON_DUPLICATE_REG_ID = True
 firebase_credentials = get_base64_env("DJ_FIREBASE_BACKEND_CREDENTIALS")
 
 firebase_certificate = credentials.Certificate(firebase_credentials)
-FIREBASE_APP = initialize_app(firebase_certificate)
 
+FIREBASE_APP = None
+try:
+    FIREBASE_APP = initialize_app(firebase_certificate)
+except Exception as e:
+    print("ERROR INITIALIZING FIREBASE APP", e)
 
 # # # Initialize Firebase Messaging
 # from firebase_admin import messaging
