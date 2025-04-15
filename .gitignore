@@ -170,3 +170,6 @@ front/cookie_banner_frontend.webpack-stats.json
 back/media/*
 components-js
 .aider*
+
+# SMS stuff
+envs/dev_local.env

@@ -1,4 +1,5 @@
-from django.db.models import Max, Q
+from django.db.models import Max, Q, Case, When, Value, IntegerField
+from django.db.models.functions import Cast, Coalesce
 from drf_spectacular.utils import extend_schema, inline_serializer
 from management.helpers import DetailedPaginationMixin
 from management.models.profile import ProfileSerializer
@@ -6,6 +7,8 @@ from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from management.models.state import State
+import datetime
 
 from chat.models import Chat, ChatSerializer, MessageSerializer
 
@@ -43,13 +46,26 @@ class ChatsModelViewSet(viewsets.ModelViewSet):
         return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
-        return (
-            Chat.objects.filter(Q(u1=self.request.user) | Q(u2=self.request.user))
-            .annotate(
+        is_matching_user = self.request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+        queryset = Chat.objects.filter(Q(u1=self.request.user) | Q(u2=self.request.user))
+        
+        if is_matching_user:
+            queryset = queryset.annotate(
                 newest_message_time=Max("message__created"),
-            )
-            .order_by("-newest_message_time")
-        )
+                has_messages=Case(
+                    When(newest_message_time__isnull=False, then=Value(1)),
+                    default=Value(0),
+                    output_field=IntegerField()
+                )
+            ).order_by("-has_messages", "-newest_message_time", "-created")
+        else:
+            queryset = queryset.annotate(
+                newest_message_time=Max("message__created")
+            ).filter(
+                newest_message_time__isnull=False
+            ).order_by("-newest_message_time")
+        
+        return queryset
 
     @extend_schema(responses={200: chat_res_seralizer(many=False)})
     @action(detail=False, methods=["post"])

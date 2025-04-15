@@ -551,15 +551,20 @@ def too_low_german_level(qs=User.objects.all()):
     (Inactive-User) User never active, but was flagged with a 'state.to_low_german_level=True'
     """
     return qs.filter(
-        is_active=True,
-        state__had_prematching_call=False,
-        state__user_form_state=State.UserFormStateChoices.FILLED,
+        profile__user_type=Profile.TypeChoices.LEARNER,
         profile__lang_skill__contains=[
             {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
-        ],
-        profile__user_type=Profile.TypeChoices.LEARNER,
+        ]
     )
 
+def all_volunteers_min_one_no_ongoing_match(qs=User.objects.all()):
+    "Volunteers with at least one match but no open proposal"
+    open_proposals = ProposedMatch.objects.filter(closed=False)
+    return qs.exclude(Q(pk__in=open_proposals.values("user1")) |
+                      Q(pk__in=open_proposals.values("user2"))
+                      ).filter(
+                          pk__in=[user.pk for user in [user for user in qs if (Match.get_confirmed_matches(user).exists() and user.profile.user_type == "volunteer")]]
+                          ).distinct().order_by("-date_joined")
 
 # used to be 'unmatched'
 def over_30_days_after_prematching_still_searching(qs=User.objects.all()):
@@ -686,6 +691,23 @@ def community_calls(qs=User.objects.all(), last_x_days=28 * 3):
 
     return all_distinct_users
 
+def community__learners_better_than_a1a2(qs=User.objects.all()):
+    qs = community_calls(qs)
+    return qs.filter(
+        state__email_authenticated=True,
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        profile__user_type=Profile.TypeChoices.LEARNER
+    ).exclude(
+        profile__lang_skill__contains=[{"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}], 
+    )
+
+def community__ehrenamtliche_und_lernende_with_a1a2(qs=User.objects.all(), only_last_6_weeks=False):
+
+    qs = qs.filter(date_joined__gte=days_ago(7 * 6))
+    return qs.filter(
+        state__email_authenticated=True,
+    )
+
 def completed_form__created_within_6months(qs=User.objects.all()):
     """
     Completed form within 6 months
@@ -702,10 +724,28 @@ def completed_form__created_within_6months_no_onboarding_call(qs=User.objects.al
     """
     Completed form within 6 months but no onboarding call
     """
-    return qs.filter(date_joined__gte=days_ago(6 * 30), state__had_prematching_call=False)
+    return qs.filter(state__user_form_state=State.UserFormStateChoices.FILLED, date_joined__gte=days_ago(6 * 30), state__had_prematching_call=False)
 
 def completed_form__created_within_6months_no_onboarding_call_volunteer(qs=User.objects.all()):
     """
     Completed form within 6 months but no onboarding call
     """
-    return qs.filter(date_joined__gte=days_ago(6 * 30), state__had_prematching_call=False, profile__user_type=Profile.TypeChoices.VOLUNTEER)
+    return qs.filter(state__user_form_state=State.UserFormStateChoices.FILLED, date_joined__gte=days_ago(6 * 30), state__had_prematching_call=False, profile__user_type=Profile.TypeChoices.VOLUNTEER)
+
+def volunteers_with_completed_match_no_ongoing(qs=User.objects.all()):
+    """
+    Volunteers who have at least one completed match but no ongoing matches
+    """
+    # Get users with completed matches
+    users_with_completed_matches = get_user_involved(completed_match(), qs)
+    
+    # Get users with ongoing matches
+    users_with_ongoing_matches = get_user_involved(match_ongoing(), qs)
+    
+    # Return volunteers with completed matches but no ongoing matches
+    return qs.filter(
+        profile__user_type=Profile.TypeChoices.VOLUNTEER,
+        pk__in=users_with_completed_matches
+    ).exclude(
+        pk__in=users_with_ongoing_matches
+    ).distinct().order_by("-date_joined")

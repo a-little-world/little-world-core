@@ -354,6 +354,7 @@ def get_bucket_statistics(pre_filtered_users, selected_filters=None, filter_list
             ),
             "start_date": serializers.DateField(default="2021-01-01", required=False),
             "end_date": serializers.DateField(default=date.today(), required=False),
+            "volunteers_only": serializers.BooleanField(default=False, required=False),
         },
     ),
 )
@@ -369,6 +370,10 @@ def bucket_statistics(request):
     if not request.user.is_staff:
         pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
     pre_filtered_users = pre_filtered_users.filter(date_joined__range=[start_date, end_date])
+
+    volunteers_only = request.data.get("volunteers_only", False)
+    if volunteers_only:
+        pre_filtered_users = pre_filtered_users.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
 
     # Get selected filters from request
     selected_filters = request.data.get("selected_filters", None)
@@ -1146,7 +1151,7 @@ def time_slot_counts(request):
         "total_profiles": total_profiles
     })
     
-def optimize_availability_for_n(profiles, n=1, limit_tested_combs=10000, disallow_same_day_combinations=False, flat_all_slots=None, slots_id_maps=None, slots_id_counts=None):
+def optimize_availability_for_n(users, n=1, limit_tested_combs=10000, disallow_same_day_combinations=False, flat_all_slots=None, slots_id_maps=None, slots_id_counts=None):
     """
     Helper function to find optimal time slot combinations for a specific size n.
     
@@ -1176,7 +1181,8 @@ def optimize_availability_for_n(profiles, n=1, limit_tested_combs=10000, disallo
         slots_id_counts = {slot: 0 for slot in flat_all_slots}
         
         # Count the occurrences of each time slot for each day
-        for profile in profiles:
+        for user in users:
+            profile = user.profile
             availability = profile.availability
             if not availability:
                 continue
@@ -1185,7 +1191,7 @@ def optimize_availability_for_n(profiles, n=1, limit_tested_combs=10000, disallo
                 if day in availability:
                     for slot in availability[day]:
                         if slot in SLOTS:
-                            slots_id_maps[f"{day}__{slot}"].add(profile.id)
+                            slots_id_maps[f"{day}__{slot}"].add(user.id)
                             slots_id_counts[f"{day}__{slot}"] += 1
     
     # Sort slots by count in descending order
@@ -1328,7 +1334,7 @@ def time_slot_combination_optimization(request, n=1):
     pre_filtered_users = selected_filter.queryset(qs=pre_filtered_users)
     
     # Get all profiles with non-null availability
-    profiles = Profile.objects.filter(user__in=pre_filtered_users, availability__isnull=False)
+    users = User.objects.filter(id__in=pre_filtered_users)
     
     # Get parameters
     limit_tested_combs = int(request.query_params.get("limit_tested_combs", 10000))
@@ -1336,23 +1342,35 @@ def time_slot_combination_optimization(request, n=1):
     disallow_same_day_combinations = request.query_params.get("disallow_same_day_combinations", "false").lower() == "true"
     consider_lower_n_combs = request.query_params.get("consider_lower_n_combs", "false").lower() == "true"
     
+    empty_availability_profiles = []
+    
     # Initialize data structures
     flat_all_slots = [f"{day}__{slot}" for day in DAYS for slot in SLOTS]
     slots_id_maps = {slot: set() for slot in flat_all_slots}
     slots_id_counts = {slot: 0 for slot in flat_all_slots}
     
     # Count the occurrences of each time slot for each day
-    for profile in profiles:
+    for user in users:
+        profile = user.profile
         availability = profile.availability
         if not availability:
             continue
+        
+        empty_availability = True
             
         for day in DAYS:
             if day in availability:
+                if len(availability[day]) > 0:
+                    empty_availability = False
                 for slot in availability[day]:
                     if slot in SLOTS:
-                        slots_id_maps[f"{day}__{slot}"].add(profile.id)
+                        slots_id_maps[f"{day}__{slot}"].add(user.id)
                         slots_id_counts[f"{day}__{slot}"] += 1
+        if empty_availability:
+            empty_availability_profiles.append(user.id)
+            
+    users = users.exclude(id__in=empty_availability_profiles)
+    pre_filtered_users = pre_filtered_users.exclude(id__in=empty_availability_profiles)
     
     # Calculate total possible combinations (n choose k)
     total_slots = len(flat_all_slots)
@@ -1377,7 +1395,7 @@ def time_slot_combination_optimization(request, n=1):
         
         # Find optimal combinations for this size
         size_combinations = optimize_availability_for_n(
-            profiles=profiles,
+            users=users,
             n=size,
             limit_tested_combs=size_limit,
             disallow_same_day_combinations=disallow_same_day_combinations,
@@ -1389,7 +1407,7 @@ def time_slot_combination_optimization(request, n=1):
         # Find the best coverage for this size
         if size_combinations:
             best_count, best_combo = max(size_combinations, key=lambda x: x[0])
-            coverage_percentage = (best_count / profiles.count()) * 100 if profiles.count() > 0 else 0
+            coverage_percentage = (best_count / users.count()) * 100 if users.count() > 0 else 0
             
             best_coverage_by_size[size] = {
                 'combination': [slot for slot in best_combo],
@@ -1415,7 +1433,7 @@ def time_slot_combination_optimization(request, n=1):
             formatted_slots.append(slot_code)
         
         # Calculate coverage percentage
-        coverage_percentage = (count / profiles.count()) * 100 if profiles.count() > 0 else 0
+        coverage_percentage = (count / users.count()) * 100 if users.count() > 0 else 0
         
         formatted_results.append({
             'combination': formatted_slots,
@@ -1426,14 +1444,16 @@ def time_slot_combination_optimization(request, n=1):
     
     return Response({
         "flat_all_slots": flat_all_slots,
-        "total_profiles": profiles.count(),
+        "total_users": users.count(),
         "ordered_highest_count_slots": {slot: count for slot, count in ordered_highest_count_slots[:20]},
         "total_possible_combinations": total_possible_combinations,
         "combinations_tested": sum(1 for size in combination_sizes for _ in range(min(limit_tested_combs // len(combination_sizes), math.comb(total_slots, size)))),
         "top_combinations": formatted_results,
         "best_coverage_by_size": best_coverage_by_size,
         "disallow_same_day_combinations": disallow_same_day_combinations,
-        "consider_lower_n_combs": consider_lower_n_combs
+        "consider_lower_n_combs": consider_lower_n_combs,
+        "count_empty_availability_profiles": len(empty_availability_profiles),
+        "empty_availability_profiles": empty_availability_profiles
     })
 
 api_urls = [

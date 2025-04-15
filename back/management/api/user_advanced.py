@@ -1,3 +1,5 @@
+import json
+from back.utils import CoolerJson
 from chat.models import Chat, ChatSerializer, Message, MessageSerializer
 from django.conf import settings
 from django.db.models import Q
@@ -258,7 +260,7 @@ class UserFilter(filters.FilterSet):
 
     state__company = filters.ChoiceFilter(
         field_name="state__company",
-        choices=[("null", None), ("accenture", "accenture")],
+        choices=[("null", None), ("accenture", "accenture"), ("capegemini", "capegemini"), ("germaninstitute", "germaninstitute")],
         help_text="Filter for users that are part of a company",
     )
 
@@ -537,21 +539,13 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             return res
 
         if request.method == "POST":
-            sms = SmsModel.objects.create(
-                recipient=obj,
-                send_initator=request.user,
-                message=request.data["message"],
-            )
-            client = _get_client()
-            response = client.messages.create(
-                body=request.data["message"],
-                from_=settings.TWILIO_SMS_NUMBER,
-                to=obj.profile.phone_mobile,
-            )
-
-            sms.twilio_response = response.__dict__
-            sms.save()
-            return Response(SmsSerializer(sms).data)
+            result = obj.sms(request.user, request.data["message"])
+            if result == 403:
+                return Response(data="User has not set SMS notification!",status=403)
+            elif result == 500:
+                return Response(data="Something went wrong sending the message...",status=500)
+            else:
+                return Response(result)
         else:
             sms = SmsModel.objects.filter(recipient=obj).order_by("-created_at")
 

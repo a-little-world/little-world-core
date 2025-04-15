@@ -28,6 +28,8 @@ from management.api.user_journey_filters import (
     active_match,
     booked_onboarding_call,
     community_calls,
+    community__ehrenamtliche_und_lernende_with_a1a2,
+    community__learners_better_than_a1a2,
     email_verified,
     failed_matching,
     first_search_learners,
@@ -56,7 +58,9 @@ from management.api.user_journey_filters import (
     completed_form__no__onboarding_call,
     completed_form__created_within_6months,
     completed_form__created_within_6months_no_onboarding_call,
-    completed_form__created_within_6months_no_onboarding_call_volunteer
+    completed_form__created_within_6months_no_onboarding_call_volunteer,
+    all_volunteers_min_one_no_ongoing_match,
+    volunteers_with_completed_match_no_ongoing,
 )
 from management.models.dynamic_user_list import DynamicUserList
 
@@ -151,11 +155,18 @@ USER_JOURNEY_FILTER_LISTS = [
     FilterListEntry("needs_matching_volunteers", None, needs_matching_volunteers),
     FilterListEntry("herrduenschnlate", None, only_hd_test_user),
     FilterListEntry("community", None, community_calls),
+    FilterListEntry("community__learners_better_than_a1a2", "Community-Call & Learners better than A1A2", community__learners_better_than_a1a2),
+    FilterListEntry("community__6weeks__ehrenamtliche_und_lernende_with_a1a2", "(Community) Last 6 Weeks & Ehrenamtliche und Lernende with A1A2", community__ehrenamtliche_und_lernende_with_a1a2),
+    #FilterListEntry("community__ehrenamtliche_und_lernende_with_a1a2", "Community-Call & Ehrenamtliche und Lernende with A1A2", community__ehrenamtliche_und_lernende_with_a1a2),
     FilterListEntry("newsletter_subscribed", None, subscribed_to_newsletter),
     FilterListEntry("completed_form__no__onboarding_call", None, completed_form__no__onboarding_call),
     FilterListEntry("completed_form__created_within_6months", None, completed_form__created_within_6months),
     FilterListEntry("completed_form__created_within_6months_no_onboarding_call", None, completed_form__created_within_6months_no_onboarding_call),
     FilterListEntry("completed_form__created_within_6months_no_onboarding_call_volunteer", None, completed_form__created_within_6months_no_onboarding_call_volunteer),
+    FilterListEntry("TEST__all_volunteers_min_one_no_ongoing_match", None, all_volunteers_min_one_no_ongoing_match),
+    FilterListEntry("EXTRA__volunteers_with_completed_match_no_ongoing", 
+                    "Volunteers with at least one completed match and no ongoing matches", 
+                    volunteers_with_completed_match_no_ongoing),
 ]
 
 FILTER_LISTS = PANEL_V1_FILTER_LISTS + USER_JOURNEY_FILTER_LISTS

@@ -2,6 +2,7 @@ from django.conf import settings
 from django.urls import path, re_path
 from django_rest_passwordreset.views import ResetPasswordConfirmViewSet, ResetPasswordValidateTokenViewSet
 from rest_framework.routers import DefaultRouter
+from management.api.short_links import api_urls as short_links_api_urls
 
 from back.utils import _api_url
 from management import api
@@ -79,6 +80,7 @@ dynamic_user_list_single_user_api = DynamicUserListSingleUserViewSet.as_view(
 )
 
 api_routes = [
+    *short_links_api_urls,
     *slack.api_routes,
     *ai.api_routes,
     *user_advanced_api_urls,

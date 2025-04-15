@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from translations import get_translation
 from chat.consumers.messages import InMatchProposalAdded, InUnconfirmedMatchAdded
 from django.db.models import Q
 from drf_spectacular.utils import extend_schema, inline_serializer
@@ -101,7 +102,10 @@ def make_match(request):
         ).update(matchable=False)
 
         InMatchProposalAdded(matches[0]).send(learner.hash)
-        return Response("Matching Proposal Created")
+
+        learner.sms(request.user, get_translation("sms.proposal_message", lang="de"))
+
+        return Response(f"Matching Proposal Created")
     else:
         # Perfor a full match directly
         match_obj = controller.match_users(
