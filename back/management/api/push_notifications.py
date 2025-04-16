@@ -13,6 +13,7 @@ from push_notifications.models import GCMDevice
 from rest_framework import authentication, permissions, serializers
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
+from django.conf import settings
 
 from management.helpers.get_base64_env import get_base64_env
 from management.models.user import User
@@ -31,8 +32,7 @@ class PushNotificationTokenSerializer(serializers.Serializer):
 
 
 def get_firebase_service_worker(request):
-    credentials = get_base64_env("DJ_FIREBASE_FRONTEND_CREDENTIALS")
-    code = render_to_string("firebase-worker.js", context=credentials)
+    code = render_to_string("firebase-worker.js", context=settings.FIREBASE_CLIENT_CONFIG)
 
     return HttpResponse(code, content_type="application/javascript", charset="utf-8")
 
