@@ -843,6 +843,8 @@ firebase_credentials = get_base64_env("DJ_FIREBASE_BACKEND_CREDENTIALS")
 FIREBASE_BACKEND_CREDENTIALS = firebase_credentials
 FIREBASE_CLIENT_CONFIG = get_base64_env("DJ_FIREBASE_FRONTEND_CREDENTIALS")
 
+FIREBASE_PUBLIC_VAPID_KEY = os.environ.get("DJ_FIREBASE_PUBLIC_VAPID_KEY", "")
+
 FIREBASE_APP = None
 try:
     firebase_certificate = credentials.Certificate(firebase_credentials)
