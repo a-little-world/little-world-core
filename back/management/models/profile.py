@@ -190,6 +190,9 @@ class Profile(models.Model):
 
     newsletter_subscribed = models.BooleanField(default=False)
 
+    job_search = models.BooleanField(default=False)
+    job_skill_description = models.TextField(default="", blank=True, max_length=300)
+
     """
     Postal code, char so we support international code for the future
     """
