@@ -470,6 +470,8 @@ class SelfProfileSerializer(ProfileSerializer):
             "target_groups",
             "newsletter_subscribed",
             "push_notifications_enabled",
+            "job_search",
+            "job_skill_description",
         ]
 
         extra_kwargs = dict(
