@@ -17,8 +17,7 @@ def create_dict(str_dict):
 
 @register.simple_tag
 def get_base_url():
-    # TODO: Depricate with new emails api
-    return ""
+    return settings.BASE_URL
 
 
 @register.simple_tag
