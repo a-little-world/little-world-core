@@ -733,6 +733,9 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         # send email to the users that did not attend the appointment
         for user_id in not_attended_appointment_users:
             user = User.objects.get(id=user_id)
+            if user.state.had_prematching_call:
+                # Don't apply this for people that already had a prematching call, but booked another appointment.
+                continue
             user.state.had_prematching_call = False
             user.state.save()
             if send_mail[str(user.id)]:
