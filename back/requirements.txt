@@ -7,7 +7,7 @@ django-celery-beat # For automatic and timed tasks
 djangorestframework==3.14.0
 uvicorn[standard]
 # [sidecar] only used to not need static files from CDN
-drf-spectacular[sidecar] # renders swagger, route will only be available for admins if in production
+drf-spectacular[sidecar]==0.28.0 # renders swagger, route will only be available for admins if in production
 whitenoise # Serving static files in development
 django-webpack-loader # Load the static file bundles
 django-cors-headers
