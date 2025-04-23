@@ -1,0 +1,1 @@
+docker compose exec backend sh -c "python3 manage.py makemigrations && python3 manage.py migrate"
