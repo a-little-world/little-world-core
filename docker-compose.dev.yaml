@@ -75,6 +75,7 @@ services:
       context: .
       dockerfile: ./Dockerfile.full
       args:
+        DEVELOPMENT: true
         DOCKER_BUILDKIT: 1
         PUBLIC_FRONTEND_PATH: ""
         BUILD_TYPE: "${BUILD_TYPE}"
@@ -82,10 +83,15 @@ services:
     image: "${APP_IMAGE_URL}"
     ports:
       - "8000:8000"
+      - "5678:5678"  # Debug port
+    environment:
+      PYTHONDONTWRITEBYTECODE: 1
+      PYTHONUNBUFFERED: 1
+      DJANGO_DEBUG: true
+      REDIS_URL: "${REDIS_URL}"
+      DEBUGPY_ENABLE: 1
     env_file:
       - ./envs/dev.env
-    environment:
-      REDIS_URL: "${REDIS_URL}"
     volumes:
       - ./back/:/back/
       - ./front/env_apps/:/front/env_apps/
