@@ -12,5 +12,27 @@
             "webRoot": "${workspaceRoot}/front",
             "sourceMaps": true
         },
+        {
+            "name": "Debug (Django)",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5678
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}/back",
+                    "remoteRoot": "/back"
+                }
+            ],
+            "django": true,
+            "justMyCode": false,
+            "presentation": {
+                "hidden": false,
+                "group": "Django",
+                "order": 1
+            }
+        }
     ]
 }

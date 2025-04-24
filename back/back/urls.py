@@ -42,6 +42,13 @@ urlpatterns += [
     *(statics if settings.IS_DEV else []),
 ]
 
+if settings.DEBUG:
+    import debug_toolbar
+
+    urlpatterns = [
+        path("__debug__/", include(debug_toolbar.urls)),
+    ] + urlpatterns
+
 # These view have extra accesibility control via 'management.middleware'
 urlpatterns += [
     path("martor/", include("martor.urls")),

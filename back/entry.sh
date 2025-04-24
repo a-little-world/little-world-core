@@ -30,4 +30,9 @@ if [ "$EMPHIRIAL" = "1" ]; then
     python3 manage.py shell --command 'from management.random_test_users import create_abunch_of_users; create_abunch_of_users()'
 fi
 
-uvicorn back.asgi:application --reload --port 8000 --host 0.0.0.0 --reload-include "**/template/**"
+
+if [ "$BUILD_TYPE" = "development" ]; then
+    python3 -Xfrozen_modules=off -m debugpy --listen 0.0.0.0:5678 -m uvicorn back.asgi:application --reload --port 8000 --host 0.0.0.0 --reload-include "**/template/**"
+else
+    uvicorn back.asgi:application --reload --port 8000 --host 0.0.0.0 --reload-include "**/template/**"
+fi

@@ -1,0 +1,1 @@
+COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml up

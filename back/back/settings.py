@@ -1,7 +1,17 @@
+import base64
+import json
 import os
 
 from firebase_admin import credentials, initialize_app
-from management.helpers.get_base64_env import get_base64_env
+
+
+def get_base64_env(env_name):
+    # define function locally, importing from management.helpers.get_base64_env causes error in swagger api generation
+    try:
+        return json.loads(base64.b64decode(os.environ.get(env_name, "e30=")))
+    except Exception:
+        return {}
+
 
 USE_SENTRY = os.environ.get("DJ_USE_SENTRY", "false").lower() in ("true", "1", "t")
 
@@ -142,6 +152,7 @@ INSTALLED_APPS = [
     "drf_spectacular",  # for api shema generation
     "drf_spectacular_sidecar",  # statics for redoc and swagger
     *(["django_spaghetti"] if BUILD_TYPE in ["staging", "development"] else []),
+    *(["debug_toolbar"] if BUILD_TYPE in ["development"] else []),
     "webpack_loader",  # Load bundled webpack files, check `./run.py front`
     "storages",  # django storages managing s3 bucket files!
     "django.contrib.admin",
@@ -176,6 +187,7 @@ MIDDLEWARE = [
         if (IS_DEV or DOCS_BUILD or USE_WHITENOISE)
         else []
     ),
+    *(["debug_toolbar.middleware.DebugToolbarMiddleware"] if DEBUG else []),
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "management.middleware.OverwriteSessionLangIfAcceptLangHeaderSet",
@@ -197,6 +209,21 @@ MIDDLEWARE_CLASSES = [
 if DEBUG:
     SECURE_CROSS_ORIGIN_OPENER_POLICY = None
     X_FRAME_OPTIONS = "ALLOWALL"
+
+    # Debug Toolbar settings
+    INTERNAL_IPS = [
+        "127.0.0.1",
+        "172.17.0.1",  # Docker host IP
+        "172.18.0.1",
+        "172.19.0.1",
+        "172.20.0.1",
+        "172.21.0.1",
+        "172.22.0.1",
+    ]
+
+    DEBUG_TOOLBAR_CONFIG = {
+        "SHOW_TOOLBAR_CALLBACK": lambda request: DEBUG,
+    }
 
 COOKIE_CONSENT_ENABLED = True
 

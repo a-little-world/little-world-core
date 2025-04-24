@@ -1,0 +1,2 @@
+debugpy==1.8.14
+django-debug-toolbar==5.1.0

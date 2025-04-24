@@ -70,10 +70,14 @@ RUN ./node_modules/.bin/webpack \
 # Now we build the main backend image
 FROM ghcr.io/tbscode/tims-packages/alpine-django-python:latest AS backend
 
+ARG DEVELOPMENT
+ENV DEVELOPMENT=${DEVELOPMENT:-false}
+
 WORKDIR /back
 COPY ./back .
 
 RUN pip install --no-cache-dir -r requirements.txt
+RUN if [ "$DEVELOPMENT" = "true" ]; then pip install --no-cache-dir -r requirements.dev.txt; fi
 RUN pip cache purge
 
 RUN mkdir -p /front
