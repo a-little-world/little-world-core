@@ -23,7 +23,6 @@
       "source.organizeImports": "always"
     },
     "editor.rulers": [120]
-
   },
 
   "files.watcherExclude": {

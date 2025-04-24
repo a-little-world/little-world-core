@@ -1,7 +1,17 @@
+import base64
+import json
 import os
 
 from firebase_admin import credentials, initialize_app
-from management.helpers.get_base64_env import get_base64_env
+
+
+def get_base64_env(env_name):
+    # define function locally, importing from management.helpers.get_base64_env causes error in swagger api generation
+    try:
+        return json.loads(base64.b64decode(os.environ.get(env_name, "e30=")))
+    except Exception:
+        return {}
+
 
 USE_SENTRY = os.environ.get("DJ_USE_SENTRY", "false").lower() in ("true", "1", "t")
 

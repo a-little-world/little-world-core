@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 
-from management.helpers import IsAdminOrMatchingUser
-
+from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
 from django.http import HttpResponse
@@ -10,12 +9,11 @@ from django.urls import path
 from drf_spectacular.utils import extend_schema
 from firebase_admin import messaging
 from push_notifications.models import GCMDevice
-from rest_framework import authentication, permissions, serializers
+from rest_framework import authentication, serializers
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
-from django.conf import settings
 
-from management.helpers.get_base64_env import get_base64_env
+from management.helpers import IsAdminOrMatchingUser
 from management.models.user import User
 
 
