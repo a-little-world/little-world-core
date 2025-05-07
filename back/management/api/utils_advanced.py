@@ -92,58 +92,16 @@ def filterset_schema_dict(filterset, include_lookup_expr=False, view_key="/api/m
 
         serializer.is_valid(raise_exception=True)
         _filters.append(serializer.data)
-    
-    # 2 - retrieve the query schema
-    try:
+        
+        # 2 - retrieve the query shema
         generator = SchemaGenerator(patterns=None, urlconf=None)
-        print(f"Attempting to generate schema for view_key: {view_key}")
         schema = generator.get_schema(request=request)
-        
-        # Debug information about available paths
-        available_paths = list(schema["paths"].keys())
-        print(f"Available schema paths: {available_paths}")
-        
-        if view_key not in schema["paths"]:
-            print(f"WARNING: view_key '{view_key}' not found in schema paths")
-            return _filters
-            
         filter_schemas = schema["paths"].get(view_key, {}).get("get", {}).get("parameters", [])
-        
-        # Debug information about the view's schema
-        view_info = schema["paths"].get(view_key, {})
-        view_methods = list(view_info.keys()) if view_info else []
-        print(f"Available methods for {view_key}: {view_methods}")
-        
-        if "get" not in view_methods:
-            print(f"WARNING: 'get' method not found for {view_key}")
-        
-        # Continue with the original logic
         for filter_schema in filter_schemas:
             for filter_data in _filters:
                 if filter_data["name"] == filter_schema["name"]:
                     filter_data["value_type"] = filter_schema["schema"]["type"]
                     filter_data["nullable"] = filter_schema["schema"].get("nullable", False)
                     break
-    except AssertionError as e:
-        # Detailed information about the assertion error
-        import traceback
-        print(f"Schema generation assertion error for view_key '{view_key}':")
-        print(f"Error message: {str(e)}")
-        print("Traceback:")
-        traceback.print_exc()
-        
-        # Try to identify the problematic view
-        if "Incompatible AutoSchema used on View" in str(e):
-            view_class = str(e).split("View ")[1].split(">")[0] if "View " in str(e) else "unknown"
-            print(f"Problematic view class: {view_class}")
-            print("This view needs to use drf_spectacular.openapi.AutoSchema")
-    except Exception as e:
-        # General exception handling with detailed information
-        import traceback
-        print(f"Unexpected error during schema generation for view_key '{view_key}':")
-        print(f"Error type: {type(e).__name__}")
-        print(f"Error message: {str(e)}")
-        print("Traceback:")
-        traceback.print_exc()
     
     return _filters
