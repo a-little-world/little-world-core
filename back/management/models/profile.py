@@ -609,6 +609,8 @@ class MinimalProfileSerializer(serializers.ModelSerializer):
             "newsletter_subscribed",
             "phone_mobile",
             "push_notifications_enabled",
+            "job_search",
+            "job_skill_description",
         ]
 
 

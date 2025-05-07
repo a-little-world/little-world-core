@@ -222,7 +222,7 @@ if DEBUG:
     ]
 
     DEBUG_TOOLBAR_CONFIG = {
-        "SHOW_TOOLBAR_CALLBACK": lambda request: DEBUG,
+        "SHOW_TOOLBAR_CALLBACK": lambda request: False,
     }
 
 COOKIE_CONSENT_ENABLED = True
