@@ -1,7 +1,17 @@
+import base64
+import json
 import os
 
 from firebase_admin import credentials, initialize_app
-from management.helpers.get_base64_env import get_base64_env
+
+
+def get_base64_env(env_name):
+    # define function locally, importing from management.helpers.get_base64_env causes error in swagger api generation
+    try:
+        return json.loads(base64.b64decode(os.environ.get(env_name, "e30=")))
+    except Exception:
+        return {}
+
 
 USE_SENTRY = os.environ.get("DJ_USE_SENTRY", "false").lower() in ("true", "1", "t")
 
@@ -57,6 +67,8 @@ CREATE_DOCS_USER = os.environ.get("DJ_CREATE_DOCS_USER", "false").lower() in ("t
 DOCS_USER = os.environ.get("DJ_DOCS_USER", "tim+docs@little-world.com")
 DOCS_PASSWORD = os.environ.get("DJ_DOCS_PASSWORD", "Test123!")
 DOCS_USER_LOGIN_TOKEN = os.environ.get("DJ_DOCS_USER_LOGIN_TOKEN", "Test123!")
+
+USE_DEBUG_TOOLBAR = os.environ.get("DJ_USE_DEBUG_TOOLBAR", "false").lower() in ("true", "1", "t")
 
 TWILIO_SMS_NUMBER = os.environ.get("DJ_TWILIO_SMS_NUMBER", "+1234567890")
 TWILIO_ACCOUNT_SID = os.environ.get("DJ_TWILIO_ACCOUNT_SID", "")
@@ -142,6 +154,7 @@ INSTALLED_APPS = [
     "drf_spectacular",  # for api shema generation
     "drf_spectacular_sidecar",  # statics for redoc and swagger
     *(["django_spaghetti"] if BUILD_TYPE in ["staging", "development"] else []),
+    *(["debug_toolbar"] if USE_DEBUG_TOOLBAR else []),
     "webpack_loader",  # Load bundled webpack files, check `./run.py front`
     "storages",  # django storages managing s3 bucket files!
     "django.contrib.admin",
@@ -176,6 +189,7 @@ MIDDLEWARE = [
         if (IS_DEV or DOCS_BUILD or USE_WHITENOISE)
         else []
     ),
+    *(["debug_toolbar.middleware.DebugToolbarMiddleware"] if USE_DEBUG_TOOLBAR else []),
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "management.middleware.OverwriteSessionLangIfAcceptLangHeaderSet",
@@ -197,6 +211,26 @@ MIDDLEWARE_CLASSES = [
 if DEBUG:
     SECURE_CROSS_ORIGIN_OPENER_POLICY = None
     X_FRAME_OPTIONS = "ALLOWALL"
+
+    # Debug Toolbar settings
+    INTERNAL_IPS = [
+        "127.0.0.1",
+        "172.17.0.1",  # Docker host IP
+        "172.18.0.1",
+        "172.19.0.1",
+        "172.20.0.1",
+        "172.21.0.1",
+        "172.22.0.1",
+    ]
+
+    if USE_DEBUG_TOOLBAR:
+        DEBUG_TOOLBAR_CONFIG = {
+            "SHOW_TOOLBAR_CALLBACK": lambda request: USE_DEBUG_TOOLBAR,
+        }
+    else:
+        DEBUG_TOOLBAR_CONFIG = {
+            "SHOW_TOOLBAR_CALLBACK": lambda request: False,
+        }
 
 COOKIE_CONSENT_ENABLED = True
 

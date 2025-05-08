@@ -311,3 +311,12 @@ This will:
 ```bash
 git config blame.ignoreRevsFile .git-blame-ignore-revs
 ```
+
+## Django debugging
+
+Debugging for the django backend is enabled by default during development. To connect to the backend:
+
+- Start the backend container using the docker-compose.dev.yaml
+- In VSCode navigate to the debug tab and run the Debug (Django) configuration
+- If everything is set up correctly the VSCode debugger should now be connected to the django backend inside docker
+- Now you can set you breakpoints inside VSCode

@@ -75,6 +75,7 @@ services:
       context: .
       dockerfile: ./Dockerfile.full
       args:
+        DEVELOPMENT: true
         DOCKER_BUILDKIT: 1
         PUBLIC_FRONTEND_PATH: ""
         BUILD_TYPE: "${BUILD_TYPE}"
@@ -82,10 +83,11 @@ services:
     image: "${APP_IMAGE_URL}"
     ports:
       - "8000:8000"
-    env_file:
-      - ./envs/dev.env
+      - "5678:5678"  # Debug port
     environment:
       REDIS_URL: "${REDIS_URL}"
+    env_file:
+      - ./envs/dev.env
     volumes:
       - ./back/:/back/
       - ./front/env_apps/:/front/env_apps/

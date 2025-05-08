@@ -42,6 +42,16 @@ urlpatterns += [
     *(statics if settings.IS_DEV else []),
 ]
 
+if settings.DEBUG and settings.USE_DEBUG_TOOLBAR:
+    try:
+        import debug_toolbar
+
+        urlpatterns = [
+            path("__debug__/", include(debug_toolbar.urls)),
+        ] + urlpatterns
+    except ImportError:
+        print("Debug toolbar not installed")
+
 # These view have extra accesibility control via 'management.middleware'
 urlpatterns += [
     path("martor/", include("martor.urls")),
