@@ -68,6 +68,8 @@ DOCS_USER = os.environ.get("DJ_DOCS_USER", "tim+docs@little-world.com")
 DOCS_PASSWORD = os.environ.get("DJ_DOCS_PASSWORD", "Test123!")
 DOCS_USER_LOGIN_TOKEN = os.environ.get("DJ_DOCS_USER_LOGIN_TOKEN", "Test123!")
 
+USE_DEBUG_TOOLBAR = os.environ.get("DJ_USE_DEBUG_TOOLBAR", "false").lower() in ("true", "1", "t")
+
 TWILIO_SMS_NUMBER = os.environ.get("DJ_TWILIO_SMS_NUMBER", "+1234567890")
 TWILIO_ACCOUNT_SID = os.environ.get("DJ_TWILIO_ACCOUNT_SID", "")
 TWILIO_API_KEY_SID = os.environ.get("DJ_TWILIO_API_KEY_SID", "")
@@ -152,7 +154,7 @@ INSTALLED_APPS = [
     "drf_spectacular",  # for api shema generation
     "drf_spectacular_sidecar",  # statics for redoc and swagger
     *(["django_spaghetti"] if BUILD_TYPE in ["staging", "development"] else []),
-    *(["debug_toolbar"] if BUILD_TYPE in ["development"] else []),
+    *(["debug_toolbar"] if USE_DEBUG_TOOLBAR else []),
     "webpack_loader",  # Load bundled webpack files, check `./run.py front`
     "storages",  # django storages managing s3 bucket files!
     "django.contrib.admin",
@@ -187,7 +189,7 @@ MIDDLEWARE = [
         if (IS_DEV or DOCS_BUILD or USE_WHITENOISE)
         else []
     ),
-    *(["debug_toolbar.middleware.DebugToolbarMiddleware"] if DEBUG else []),
+    *(["debug_toolbar.middleware.DebugToolbarMiddleware"] if USE_DEBUG_TOOLBAR else []),
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.locale.LocaleMiddleware",
     "management.middleware.OverwriteSessionLangIfAcceptLangHeaderSet",
@@ -221,9 +223,14 @@ if DEBUG:
         "172.22.0.1",
     ]
 
-    DEBUG_TOOLBAR_CONFIG = {
-        "SHOW_TOOLBAR_CALLBACK": lambda request: False,
-    }
+    if USE_DEBUG_TOOLBAR:
+        DEBUG_TOOLBAR_CONFIG = {
+            "SHOW_TOOLBAR_CALLBACK": lambda request: USE_DEBUG_TOOLBAR,
+        }
+    else:
+        DEBUG_TOOLBAR_CONFIG = {
+            "SHOW_TOOLBAR_CALLBACK": lambda request: False,
+        }
 
 COOKIE_CONSENT_ENABLED = True
 
