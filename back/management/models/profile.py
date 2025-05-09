@@ -190,7 +190,7 @@ class Profile(models.Model):
 
     newsletter_subscribed = models.BooleanField(default=False)
 
-    job_search = models.BooleanField(default=False)
+    job_search = models.BooleanField(blank=True, null=True)
     job_skill_description = models.TextField(default="", blank=True, max_length=300)
 
     """
