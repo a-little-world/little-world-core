@@ -27,7 +27,8 @@ class SendAttachmentSerializer(serializers.Serializer):
 
 
 class SendMessageSerializer(serializers.Serializer):
-    text = serializers.CharField()
+    text = serializers.CharField(required=False, allow_blank=True)
+    file = serializers.FileField(required=False)
 
 
 class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelViewSet):
@@ -107,91 +108,6 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
 
         return Response({"status": "ok"}, status=200)
 
-    @extend_schema(request=SendAttachmentSerializer)
-    @action(detail=False, methods=["post"])
-    def send_attachment(self, request, chat_uuid=None):
-        if not chat_uuid:
-            return Response({"error": "chat_uuid is required"}, status=400)
-
-        chat = Chat.objects.filter(uuid=chat_uuid)
-        if not chat.exists():
-            return Response(
-                {"error": "(1) Chat doesn't exist or you have no permission to interact with it!"}, status=403
-            )
-        chat = chat.first()
-        if not chat.is_participant(request.user):
-            return Response({"error": "(2) You have no permission to interact with this chat!"}, status=403)
-
-        serializer = SendAttachmentSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        partner = chat.get_partner(request.user)
-
-        match = Match.get_match(request.user, partner)
-        if not match.exists():
-            return Response({"error": "(3) You are not matched with this user!"}, status=403)
-        match = match.first()
-        match.total_messages_counter += 1
-        match.latest_interaction_at = timezone.now()
-        match.save()
-
-        latest_notified_message = Message.objects.filter(
-            recipient=partner,
-            recipient_notified=True,
-        ).order_by("-created")
-
-        def notify_recipient_email():
-            send_email_background.delay("new-messages", user_id=partner.id)
-
-        creation_time = timezone.now()
-        recipiend_was_email_notified = False
-        if latest_notified_message.exists():
-            latest_notified_message = latest_notified_message.first()
-            time_since_last_notif = (creation_time - latest_notified_message.created).total_seconds()
-            if time_since_last_notif > 300:
-                recipiend_was_email_notified = True
-                notify_recipient_email()
-        else:
-            recipiend_was_email_notified = True
-            notify_recipient_email()
-
-        file = serializer.validated_data["file"]
-        attachment = MessageAttachment.objects.create(file=file)
-
-        
-        file_title = file.name
-        file_ending = file.name.split(".")[-1]
-
-        def get_attachment_widget(is_image, attachment_link):
-            if is_image:
-                return f'<AttachmentWidget {{"attachmentTitle": "Image", "attachmentLink": null, "imageSrc": "{attachment_link}"}} ></AttachmentWidget>'
-            else:
-                return f'<AttachmentWidget {{"attachmentTitle": "{file_title}", "attachmentLink": "{attachment_link}", "imageSrc": null}} ></AttachmentWidget>'
-
-        is_image = file_ending in ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "ico", "webp"]
-        attachment_link = attachment.file.url
-        attachment_widget = get_attachment_widget(is_image, attachment_link)
-        message = Message.objects.create(
-            chat=chat,
-            sender=request.user,
-            recipient=partner,
-            recipient_notified=recipiend_was_email_notified,
-            text=attachment_widget,
-            attachments=attachment,
-            parsable_message=True,
-        )
-
-        serialized_message = self.serializer_class(message).data
-
-        from chat.consumers.messages import NewMessage
-
-        NewMessage(
-            message=serialized_message,
-            chat_id=chat.uuid,
-            meta_chat_obj=ChatSerializer(chat, context={"user": partner}).data,
-        ).send(partner.hash)
-        return Response(serialized_message, status=200)
-
     @extend_schema(request=SendMessageSerializer)
     @action(detail=False, methods=["post"])
     def send(self, request, chat_uuid=None):
@@ -222,9 +138,6 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
 
         # retrieve the newest message the recipient was notified about
         latest_notified_message = Message.objects.filter(
-            # regardless of which chat!
-            # sucht that the user doesn't get multiple emails in paralel
-            # just cause he got messages in different chats
             recipient=partner,
             recipient_notified=True,
         ).order_by("-created")
@@ -238,28 +151,55 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         if latest_notified_message.exists():
             latest_notified_message = latest_notified_message.first()
             # Min 5 min delay between notifications!
-            print("latest_notified_message", latest_notified_message)
             time_since_last_notif = (creation_time - latest_notified_message.created).total_seconds()
-            print("time_since_last_notif", time_since_last_notif)
 
             if time_since_last_notif > 300:
-                # ok fine to send an email
-                # TODO: in future check if user is online and send push notification instead!
-                # TODO: ALSO for rate limiting there should probably be another checK:
-                # for a maxium count of email notifications e.g.: within a day
                 recipiend_was_email_notified = True
                 notify_recipient_email()
         else:
-            # No previous message was sent
             recipiend_was_email_notified = True
             notify_recipient_email()
 
+        # Process attachment if present
+        attachment = None
+        attachment_widget = ""
+        if 'file' in serializer.validated_data and serializer.validated_data['file']:
+            file = serializer.validated_data['file']
+            attachment = MessageAttachment.objects.create(file=file)
+            
+            file_title = file.name
+            file_ending = file.name.split(".")[-1]
+            is_image = file_ending.lower() in ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "ico", "webp"]
+            attachment_link = attachment.file.url
+            
+            def get_attachment_widget(is_image, attachment_link):
+                if is_image:
+                    return f'<AttachmentWidget {{"attachmentTitle": "Image", "attachmentLink": null, "imageSrc": "{attachment_link}"}} ></AttachmentWidget>'
+                else:
+                    return f'<AttachmentWidget {{"attachmentTitle": "{file_title}", "attachmentLink": "{attachment_link}", "imageSrc": null}} ></AttachmentWidget>'
+            
+            attachment_widget = get_attachment_widget(is_image, attachment_link)
+
+        # Combine text and attachment if both are present
+        message_text = ""
+        if 'text' in serializer.validated_data and serializer.validated_data['text']:
+            message_text = serializer.validated_data['text']
+        
+        if attachment_widget:
+            if message_text:
+                message_text = f"{attachment_widget}\n{message_text}"
+            else:
+                message_text = attachment_widget
+
+        # Create message with combined content
         message = Message.objects.create(
             chat=chat,
             sender=request.user,
             recipient=partner,
             recipient_notified=recipiend_was_email_notified,
-            text=serializer.data["text"],
+            text=message_text,
+            attachments=attachment,
+            parsable_message=bool(attachment_widget),
         )
 
         serialized_message = self.serializer_class(message).data
@@ -273,3 +213,10 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         ).send(partner.hash)
 
         return Response(serialized_message, status=200)
+
+    # Keep the send_attachment method for backward compatibility
+    @extend_schema(request=SendAttachmentSerializer)
+    @action(detail=False, methods=["post"])
+    def send_attachment(self, request, chat_uuid=None):
+        # Convert the request to use the unified send method
+        return self.send(request, chat_uuid)
