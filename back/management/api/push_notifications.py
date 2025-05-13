@@ -61,8 +61,6 @@ def get_firebase_service_worker(request):
 @api_view(["POST"])
 @authentication_classes([authentication.SessionAuthentication])
 def register_push_notifications_token(request):
-    assert isinstance(request.user, User)
-
     serializer: PushNotificationTokenSerializer = PushNotificationTokenSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     params: PushNotificationTokenParams = serializer.save()
@@ -80,8 +78,6 @@ def register_push_notifications_token(request):
 @api_view(["POST"])
 @authentication_classes([authentication.SessionAuthentication])
 def un_register_push_notifications_token(request):
-    assert isinstance(request.user, User)
-
     serializer: PushNotificationTokenSerializer = PushNotificationTokenSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     params: PushNotificationTokenParams = serializer.save()
@@ -102,7 +98,6 @@ def un_register_push_notifications_token(request):
 @permission_classes([IsAdminOrMatchingUser])
 @authentication_classes([authentication.SessionAuthentication])
 def send_push_notification(request):
-    assert isinstance(request.user, User)
     serializer: PushNotificationSerializer = PushNotificationSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     params: PushNotificationParams = serializer.save()
@@ -131,7 +126,6 @@ def send_push_notification(request):
 @permission_classes([IsAdminOrMatchingUser])
 @authentication_classes([authentication.SessionAuthentication])
 def send_test_push_notification(request):
-    assert isinstance(request.user, User)
     serializer: PushNotificationTokenSerializer = PushNotificationTokenSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     params: PushNotificationTokenParams = serializer.save()
