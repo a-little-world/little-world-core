@@ -40,7 +40,6 @@ def get_firebase_service_worker(request):
     request=PushNotificationTokenParams,
 )
 @api_view(["POST"])
-@permission_classes([IsAdminOrMatchingUser])
 @authentication_classes([authentication.SessionAuthentication])
 def register_push_notifications_token(request):
     assert isinstance(request.user, User)
@@ -60,7 +59,6 @@ def register_push_notifications_token(request):
     request=PushNotificationTokenParams,
 )
 @api_view(["POST"])
-@permission_classes([IsAdminOrMatchingUser])
 @authentication_classes([authentication.SessionAuthentication])
 def un_register_push_notifications_token(request):
     assert isinstance(request.user, User)
