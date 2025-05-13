@@ -218,6 +218,7 @@
   "notification.type.none": "Kein Typ",
   "notification.type.match": "Match",
   "notification.type.message": "Nachricht",
+  "notification.headline": "Kopfzeile",
   "notification.title": "Titel",
   "notification.no_description": "Keine Beschreibung",
   "sms.onboarding_in_30min": "Dein Little World Onboarding beginnt in 30 Minuten! Klicke auf den Zoom-Link in deiner E-Mail oder auf der Plattform: https://little-world.com/login",
