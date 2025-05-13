@@ -6,6 +6,7 @@ from django.db import transaction
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.urls import path
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from firebase_admin import messaging
 from push_notifications.models import GCMDevice
@@ -27,6 +28,24 @@ class PushNotificationTokenSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         return PushNotificationTokenParams(**validated_data)
+
+
+@dataclass
+class PushNotificationParams:
+    user: int
+    headline: str
+    title: str
+    description: str
+
+
+class PushNotificationSerializer(serializers.Serializer):
+    user = serializers.CharField(required=True)
+    headline = serializers.CharField(required=True)
+    title = serializers.CharField(required=True)
+    description = serializers.CharField(required=True)
+
+    def create(self, validated_data):
+        return PushNotificationParams(**validated_data)
 
 
 def get_firebase_service_worker(request):
@@ -76,13 +95,42 @@ def un_register_push_notifications_token(request):
 
 
 @extend_schema(
+    description="Send a push notification to the user",
+    request=PushNotificationParams,
+)
+@api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
+@authentication_classes([authentication.SessionAuthentication])
+def send_push_notification(request):
+    assert isinstance(request.user, User)
+    serializer: PushNotificationSerializer = PushNotificationSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    params: PushNotificationParams = serializer.save()
+
+    user = User.objects.get(id=params.user)
+    devices = GCMDevice.objects.filter(user=user)
+
+    message = messaging.Message(
+        data={
+            "headline": params.headline,
+            "title": params.title,
+            "description": params.description,
+            "timestamp": str(timezone.now()),
+        },
+    )
+
+    devices.send_message(message)
+    return Response(status=200)
+
+
+@extend_schema(
     description="Send a test push notification to the device of the user with the provided token",
     request=PushNotificationTokenParams,
 )
 @api_view(["POST"])
 @permission_classes([IsAdminOrMatchingUser])
 @authentication_classes([authentication.SessionAuthentication])
-def send_push_notification(request):
+def send_test_push_notification(request):
     assert isinstance(request.user, User)
     serializer: PushNotificationTokenSerializer = PushNotificationTokenSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -92,8 +140,10 @@ def send_push_notification(request):
 
     message = messaging.Message(
         data={
+            "headline": "Test Headline",
             "title": "Test Title",
-            "body": "Test Message Body",
+            "description": "Test Description",
+            "timestamp": str(timezone.now()),
         },
         token=params.token,
     )
@@ -107,4 +157,5 @@ api_urls = [
     path("api/push_notifications/register", register_push_notifications_token),
     path("api/push_notifications/unregister", un_register_push_notifications_token),
     path("api/push_notifications/send", send_push_notification),
+    path("api/push_notifications/send_test", send_test_push_notification),
 ]
