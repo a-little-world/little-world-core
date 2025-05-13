@@ -2,7 +2,10 @@ from chat.models import Chat, ChatSerializer, Message, MessageSerializer
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
+from django.utils import timezone
 from emails.api.send_email import send_template_email
+from firebase_admin import messaging
+from push_notifications.models import GCMDevice
 from rest_framework import serializers
 
 from back import utils
@@ -130,39 +133,50 @@ class User(AbstractUser):
             )
         return notifications.order_by("-created_at")
 
-    def notify(self, notification):
+    def notification(self, headline, title, description, show_toast=True):
         """Notifies the user about a notification via websockets"""
-        assert notification.user == self
         from chat.consumers.messages import NotificationMessage
 
         from management.models.notifications import NotificationSerializer
 
-        NotificationMessage(notification=NotificationSerializer(notification).data).send(str(self.hash))
+        notification = Notification.objects.create(user=self, headline=headline, title=title, description=description)
+
+        NotificationMessage(notification=NotificationSerializer(notification).data, show_toast=show_toast).send(
+            str(self.hash)
+        )
+
+    def push_notification(self, headline: str, title: str, description: str):
+        fcm_devices = GCMDevice.objects.filter(user=self)
+        message = messaging.Message(
+            data={
+                "headline": headline,
+                "title": title,
+                "description": description,
+                "timestamp": str(timezone.now()),
+            },
+        )
+
+        fcm_devices.send_message(message)
 
     def sms(self, send_initator, message):
-        """"Sends SMS to User if user has SMS Notification allowed and valid Phone number"""
-        from management.models.user import User
+        """ "Sends SMS to User if user has SMS Notification allowed and valid Phone number"""
+        import json
+
         from django.conf import settings
         from twilio.rest import Client
-        from management.models.sms import SmsModel, SmsSerializer
-        import json
+
         from back.utils import CoolerJson
-        
+        from management.models.sms import SmsModel, SmsSerializer
+
         if settings.DISABLE_SMS_SENDING:
             return 403
 
         if self.profile.notify_channel == "sms" and self.profile.phone_mobile != "":
-            response = SmsModel.objects.create(
-                recipient=self,
-                send_initator=send_initator,
-                message=message
-            )
+            response = SmsModel.objects.create(recipient=self, send_initator=send_initator, message=message)
             try:
                 client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
                 twilio_response = client.messages.create(
-                    body=message,
-                    from_=settings.TWILIO_SMS_NUMBER,
-                    to=str(self.profile.phone_mobile)
+                    body=message, from_=settings.TWILIO_SMS_NUMBER, to=str(self.profile.phone_mobile)
                 )
                 response.twilio_response = json.dumps(twilio_response.__dict__, cls=CoolerJson)
                 response.success = True

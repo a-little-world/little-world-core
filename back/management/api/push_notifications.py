@@ -106,18 +106,8 @@ def send_push_notification(request):
     params: PushNotificationParams = serializer.save()
 
     user = User.objects.get(id=params.user)
-    devices = GCMDevice.objects.filter(user=user)
+    user.push_notification(headline=params.headline, title=params.title, description=params.description)
 
-    message = messaging.Message(
-        data={
-            "headline": params.headline,
-            "title": params.title,
-            "description": params.description,
-            "timestamp": str(timezone.now()),
-        },
-    )
-
-    devices.send_message(message)
     return Response(status=200)
 
 
