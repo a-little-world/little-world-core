@@ -12,6 +12,7 @@ from firebase_admin import messaging
 from push_notifications.models import GCMDevice
 from rest_framework import authentication, serializers
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from management.helpers import IsAdminOrMatchingUser
@@ -59,6 +60,7 @@ def get_firebase_service_worker(request):
     request=PushNotificationTokenParams,
 )
 @api_view(["POST"])
+@permission_classes([IsAuthenticated])
 @authentication_classes([authentication.SessionAuthentication])
 def register_push_notifications_token(request):
     serializer: PushNotificationTokenSerializer = PushNotificationTokenSerializer(data=request.data)
@@ -76,6 +78,7 @@ def register_push_notifications_token(request):
     request=PushNotificationTokenParams,
 )
 @api_view(["POST"])
+@permission_classes([IsAuthenticated])
 @authentication_classes([authentication.SessionAuthentication])
 def un_register_push_notifications_token(request):
     serializer: PushNotificationTokenSerializer = PushNotificationTokenSerializer(data=request.data)
