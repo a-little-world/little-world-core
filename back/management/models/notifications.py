@@ -40,6 +40,7 @@ class Notification(models.Model):
 
     type = models.CharField(choices=NotificationType.choices, default=NotificationType.NONE, max_length=255)
 
+    headline = models.CharField(max_length=255, default=get_translation("notification.headline"), blank=True)
     title = models.CharField(max_length=255, default=get_translation("notification.title"), blank=True)
     description = models.TextField(default=get_translation("notification.no_description"))
 

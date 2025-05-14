@@ -20,26 +20,15 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-async function onBackgroundMessage(payload) {
-  const notificationTitle = payload.data.title;
-  const notificationOptions = {
-    body: payload.data.body,
-  };
-
-  await self.registration.showNotification(
-    notificationTitle,
-    notificationOptions
-  );
-}
-
 messaging.onBackgroundMessage((payload) => {
-  const notificationTitle = payload.data.title;
+  const {title, description, icon} = payload.data;
   const notificationOptions = {
-    body: payload.data.body,
+    body: description,
+    icon,
   };
 
   return self.registration.showNotification(
-    notificationTitle,
+    title,
     notificationOptions
   );
 });
