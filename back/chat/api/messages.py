@@ -159,6 +159,10 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         else:
             recipiend_was_email_notified = True
             notify_recipient_email()
+            
+        message_text = ""
+        if 'text' in serializer.validated_data and serializer.validated_data['text']:
+            message_text = serializer.validated_data['text']
 
         # Process attachment if present
         attachment = None
@@ -172,24 +176,13 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
             is_image = file_ending.lower() in ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "ico", "webp"]
             attachment_link = attachment.file.url
             
-            def get_attachment_widget(is_image, attachment_link):
+            def get_attachment_widget(is_image, attachment_link, message_text):
                 if is_image:
-                    return f'<AttachmentWidget {{"attachmentTitle": "Image", "attachmentLink": null, "imageSrc": "{attachment_link}"}} ></AttachmentWidget>'
+                    return f'<AttachmentWidget {{"attachmentTitle": "Image", "attachmentLink": null, "imageSrc": "{attachment_link}", "caption": "{message_text}"}} ></AttachmentWidget>'
                 else:
-                    return f'<AttachmentWidget {{"attachmentTitle": "{file_title}", "attachmentLink": "{attachment_link}", "imageSrc": null}} ></AttachmentWidget>'
+                    return f'<AttachmentWidget {{"attachmentTitle": "{file_title}", "attachmentLink": "{attachment_link}", "imageSrc": null, "caption": "{message_text}"}} ></AttachmentWidget>'
             
-            attachment_widget = get_attachment_widget(is_image, attachment_link)
-
-        # Combine text and attachment if both are present
-        message_text = ""
-        if 'text' in serializer.validated_data and serializer.validated_data['text']:
-            message_text = serializer.validated_data['text']
-        
-        if attachment_widget:
-            if message_text:
-                message_text = f"{attachment_widget}\n{message_text}"
-            else:
-                message_text = attachment_widget
+            attachment_widget = get_attachment_widget(is_image, attachment_link, message_text)
 
         # Create message with combined content
         message = Message.objects.create(
@@ -197,7 +190,7 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
             sender=request.user,
             recipient=partner,
             recipient_notified=recipiend_was_email_notified,
-            text=message_text,
+            text=attachment_widget,
             attachments=attachment,
             parsable_message=bool(attachment_widget),
         )
