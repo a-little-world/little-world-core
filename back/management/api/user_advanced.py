@@ -639,7 +639,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             fields={"had_prematching_call": serializers.BooleanField(default=True)},
         )
     )
-    @action(detail=True, methods=["get","post"])
+    @action(detail=True, methods=["post"])
     def mark_prematching_call_completed(self, request, pk=None):
         self.kwargs["pk"] = pk
         obj = self.get_object()
@@ -653,7 +653,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             obj.state.save()
             return Response({"success": True})
         else:
-            return obj.state.had_prematching_call
+            return Response(obj.state.had_prematching_call)
 
     @extend_schema(
         request=inline_serializer(
@@ -955,10 +955,6 @@ viewset_actions = [
     path(
         "api/matching/users/<pk>/mark_prematching_call_completed/",
         AdvancedUserViewset.as_view({"get": "mark_prematching_call_completed", "post": "mark_prematching_call_completed"}),
-    ),
-    path(
-        "api/matching/users/<pk>/get_prematching_call_completed/",
-        AdvancedUserViewset.as_view({"get": "get_prematching_call_completed"}),
     ),
     path(
         "api/matching/users/<pk>/delete_user/",
