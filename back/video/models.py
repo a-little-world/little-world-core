@@ -55,6 +55,28 @@ class LivekitSession(models.Model):
 
     webhook_events = models.ManyToManyField("video.LivekitWebhookEvent", related_name="livekit_session")
 
+class RandomCallLobby(models.Model):
+    uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
+    user = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="user_in_lobby")
+    status = models.BooleanField(default=False)
+
+class RandomCallMatchings(models.Model):
+    uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
+    
+    u1 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u1_randomcall_session")
+    u2 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u2_randomcall_session")
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    end_time = models.DateTimeField(null=True, blank=True)
+
+    reportedFlag = models.BooleanField(default=False)
+    followUpMatchFlag = models.BooleanField(default=False)
+
+    def save_duration(self):
+        try:
+            return self.end_time - self.created_at
+        except Exception as e:
+            return e
 
 class SerializeLivekitSession(ModelSerializer):
     class Meta:
