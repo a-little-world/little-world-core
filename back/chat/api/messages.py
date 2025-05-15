@@ -183,6 +183,8 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
                     return f'<AttachmentWidget {{"attachmentTitle": "{file_title}", "attachmentLink": "{attachment_link}", "imageSrc": null, "caption": "{message_text}"}} ></AttachmentWidget>'
             
             attachment_widget = get_attachment_widget(is_image, attachment_link, message_text)
+            
+        final_message_text = attachment_widget or message_text
 
         # Create message with combined content
         message = Message.objects.create(
@@ -190,7 +192,7 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
             sender=request.user,
             recipient=partner,
             recipient_notified=recipiend_was_email_notified,
-            text=attachment_widget,
+            text=final_message_text,
             attachments=attachment,
             parsable_message=bool(attachment_widget),
         )
