@@ -163,9 +163,10 @@ class PostCallSurvey(MessageBase):
 class NotificationMessage(MessageBase):
     notification: dict
     type: str = MessageTypes.notification.value
+    show_toast: bool = True
 
     def build_redux_action(self):
-        return {"action": "addNotification", "payload": self.notification}
+        return {"action": "addNotification", "payload": {**self.notification, "showToast": self.show_toast}}
 
 
 CALLBACKS = {

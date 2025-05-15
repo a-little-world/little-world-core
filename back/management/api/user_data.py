@@ -50,6 +50,7 @@ def get_paginated_format_v2(query_set, items_per_page, page):
         "previous_page": pages.previous_page_number() if pages.has_previous() else None,
     }
 
+
 def determine_match_bucket(match_pk):
     try:
         match_categorie_buckets = [
@@ -68,9 +69,7 @@ def determine_match_bucket(match_pk):
             "match_journey_v2__contact_stopped",
             "match_journey_v2__reported_or_removed",
         ]
-        bucket_map = {
-            entry.name: entry for entry in MATCH_JOURNEY_FILTERS if entry.name in match_categorie_buckets
-        }
+        bucket_map = {entry.name: entry for entry in MATCH_JOURNEY_FILTERS if entry.name in match_categorie_buckets}
         for bucket in match_categorie_buckets:
             if bucket_map[bucket].queryset(Match.objects.filter(pk=match_pk)).exists():
                 return bucket
@@ -78,6 +77,7 @@ def determine_match_bucket(match_pk):
     except Exception as e:
         print(e)
         return None
+
 
 class AdvancedUserMatchSerializer(serializers.ModelSerializer):
     class Meta:
@@ -258,9 +258,8 @@ def user_data(user):
         "emailVerified": user_state.email_authenticated,
         "userFormCompleted": user_state.user_form_state == State.UserFormStateChoices.FILLED,  # TODO: depricate
         "profile": profile_data,
-        "firebaseClientConfig": settings.FIREBASE_CLIENT_CONFIG,
-        "firebasePublicVapidKey": settings.FIREBASE_PUBLIC_VAPID_KEY,
     }
+
 
 def frontend_data(user, items_per_page=10, request=None):
     user_state = user.state
@@ -335,6 +334,8 @@ def frontend_data(user, items_per_page=10, request=None):
         "apiOptions": get_options_dict(),
         "chats": paginated_chats,
         "activeCallRooms": SerializeLivekitSession(all_active_rooms, context={"user": user}, many=True).data,
+        "firebaseClientConfig": settings.FIREBASE_CLIENT_CONFIG,
+        "firebasePublicVapidKey": settings.FIREBASE_PUBLIC_VAPID_KEY,
     }
 
     return frontend_data
