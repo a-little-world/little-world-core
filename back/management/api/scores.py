@@ -114,6 +114,7 @@ class ScoringFunctionsEnum(Enum):
     already_matched_or_proposed = "already_matched_or_proposed"
     learner_no_match_bonus = "learner_no_match_bonus"
     match_in_past = "match_in_past"
+    target_group = "target_group"
 
 
 class ScoringBase:
@@ -136,6 +137,7 @@ class ScoringBase:
             ScoringFunctionsEnum.already_matched_or_proposed.value: self.score__already_matched_or_proposed,
             ScoringFunctionsEnum.learner_no_match_bonus.value: self.score__learner_no_match_bonus,
             ScoringFunctionsEnum.match_in_past.value: self.score__reported_or_unmatched_in_past,
+            ScoringFunctionsEnum.target_group.value: self.score__target_group,
         }
 
     def score__time_slot_overlap(self):
@@ -446,6 +448,66 @@ class ScoringBase:
             score=0,
             weight=1.0,
             markdown_info=f"Never been matched in the past / never was reported or unmatched: {mutal_past_match_exists} :white_check_mark: (score: 0)",
+        )
+
+    def score__target_group(self):
+        """
+        Checks if the target group preferences match between volunteer and learner.
+        
+        Hybrid approach:
+        - If volunteer specifically requests refugees but learner isn't a refugee -> unmatchable
+        - Otherwise, add positive scoring for matching target groups
+        """
+        volunteer = self.user1 if self.user1.profile.user_type == Profile.TypeChoices.VOLUNTEER else self.user2
+        learner = self.user1 if self.user1.profile.user_type == Profile.TypeChoices.LEARNER else self.user2
+        
+        volunteer_target_group = volunteer.profile.target_group
+        learner_target_groups = learner.profile.target_groups
+        
+        # If learner hasn't specified any target groups, use the single target_group field
+        if not learner_target_groups:
+            learner_target_groups = [learner.profile.target_group]
+        
+        # Case 1: Volunteer specifically requests refugees
+        if volunteer_target_group == Profile.TargetGroupChoices2.REFUGEE:
+            if Profile.TargetGroupChoices2.REFUGEE not in learner_target_groups:
+                return ScoringFuctionResult(
+                    matchable=False,
+                    score=0,
+                    weight=1.0,
+                    markdown_info="Volunteer specifically requested refugees, but learner is not a refugee (unmatchable)",
+                )
+            else:
+                return ScoringFuctionResult(
+                    matchable=True,
+                    score=30,
+                    weight=1.0,
+                    markdown_info="Volunteer requested refugees and learner is a refugee (score: 30)",
+                )
+        
+        # Case 2: Volunteer requests any specific target group (not ANY)
+        if volunteer_target_group != Profile.TargetGroupChoices2.ANY:
+            if volunteer_target_group in learner_target_groups:
+                return ScoringFuctionResult(
+                    matchable=True,
+                    score=20,
+                    weight=1.0,
+                    markdown_info=f"Volunteer requested {volunteer_target_group} and learner belongs to this group (score: 20)",
+                )
+            else:
+                return ScoringFuctionResult(
+                    matchable=True,
+                    score=-20,
+                    weight=1.0,
+                    markdown_info=f"Volunteer requested {volunteer_target_group} but learner doesn't belong to this group (score: -20)",
+                )
+        
+        # Case 3: Volunteer is fine with any target group
+        return ScoringFuctionResult(
+            matchable=True,
+            score=5,
+            weight=1.0,
+            markdown_info="Volunteer is fine with any target group (score: 5)",
         )
 
     def calculate_score(self, raise_exception=False):
