@@ -31,7 +31,7 @@ from translations import get_translation
 @permission_classes([IsAuthenticated])
 def get_prematch_status(request):
     user = request.user
-    return Response(user.email)
+    return Response(user.state.had_prematching_call)
 
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication])
