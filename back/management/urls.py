@@ -43,6 +43,7 @@ from management.views import (
     main_frontend,
     matching_panel,
 )
+from management.api.random_calls import api_urls as random_call_urls
 
 router = DefaultRouter()
 router.register(  # TODO: we might even wan't to exclude this api
@@ -90,6 +91,7 @@ api_routes = [
     *videocalls_advanced.api_urls,
     *user_advanced_statistics.api_urls,
     *prematch_appointment_advanced.api_urls,
+    *random_call_urls,
     # User
     path(_api_url("user_data_v2"), api.user_data.user_data_v2),
     path(_api_url("trans"), api.trans.get_translation_catalogue),

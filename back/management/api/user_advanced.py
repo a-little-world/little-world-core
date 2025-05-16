@@ -648,12 +648,9 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if not has_access:
             return res
 
-        if request.method == "POST":
-            obj.state.had_prematching_call = request.data.get("had_prematching_call", True)
-            obj.state.save()
-            return Response({"success": True})
-        else:
-            return Response(obj.state.had_prematching_call)
+        obj.state.had_prematching_call = request.data.get("had_prematching_call", True)
+        obj.state.save()
+        return Response({"success": True})
 
     @extend_schema(
         request=inline_serializer(
@@ -954,7 +951,7 @@ viewset_actions = [
     ),
     path(
         "api/matching/users/<pk>/mark_prematching_call_completed/",
-        AdvancedUserViewset.as_view({"get": "mark_prematching_call_completed", "post": "mark_prematching_call_completed"}),
+        AdvancedUserViewset.as_view({"post": "mark_prematching_call_completed"}),
     ),
     path(
         "api/matching/users/<pk>/delete_user/",
