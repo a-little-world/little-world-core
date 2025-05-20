@@ -232,10 +232,12 @@ def user_data(user):
 
     # Prematching join link depends on the support user
     pre_call_join_link = None
-    overwrite_pre_join_link = settings.PREMATCHING_CALL_JOIN_LINK
+    #overwrite_pre_join_link = settings.1344536-13728973
 
-    if overwrite_pre_join_link:
-        pre_call_join_link = overwrite_pre_join_link
+    #if overwrite_pre_join_link:
+    #    pre_call_join_link = overwrite_pre_join_link
+    if user_state.had_prematching_call_status():
+        pre_call_join_link = f"/app/random-call-setup/{support_matches['items'][0]['partner']['id']}/"
     elif len(support_matches["items"]) > 0:
         pre_call_join_link = f"/app/call-setup/{support_matches['items'][0]['partner']['id']}/"
 

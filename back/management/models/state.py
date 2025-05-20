@@ -335,6 +335,9 @@ class State(models.Model):
             )
         ).decode()
 
+    def had_prematching_call_status(self):
+        return self.had_prematching_call
+
     @classmethod
     def decode_email_auth_code_b64(cls, str_b64):
         return json.loads(zlib.decompress(base64.urlsafe_b64decode(str_b64.encode())).decode())
