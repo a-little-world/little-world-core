@@ -62,26 +62,29 @@ async def create_livekit_room(room_name):
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def authenticate_livekit_random_call(request):
-    user = request.user
-    partner = User.objects.get(email="tim.timschupp+420@gmail.com")
+    #user1 = request.user1
+    #user2 = request.user2
 
-    chat = ChatSerializer(Chat.get_chat([user, partner]), context={"user": user}).data
+    user1 = User.objects.get(email="herrduenschnlate+1@gmail.com")
+    user2 = User.objects.get(email="tim.timschupp+420@gmail.com")
 
-    livekit_room = LiveKitRoom.get_room(user, partner)
-    print(livekit_room)
+    temporary_chat = Chat.objects.create(u1=user1, u2=user2) #create temporary chat for the matched user
+    chat = ChatSerializer(temporary_chat).data
+    
+    temporary_room = LiveKitRoom(u1=user1, u2=user2) #create temporary livekitroom to passthrough to livekit_api
     
     loop = asyncio.new_event_loop()
-    loop.run_until_complete(create_livekit_room(str(livekit_room.uuid)))
+    loop.run_until_complete(create_livekit_room(str(temporary_room.uuid)))
     loop.close()
 
     token = (
         livekit_api.AccessToken(api_key=settings.LIVEKIT_API_KEY, api_secret=settings.LIVEKIT_API_SECRET)
-        .with_identity(user.hash)
-        .with_name(f"{user.profile.first_name} {user.profile.second_name[:1]}")
+        .with_identity(user1.hash)
+        .with_name(f"{user1.profile.first_name} {user1.profile.second_name[:1]}")
         .with_grants(
             livekit_api.VideoGrants(
                 room_join=True,
-                room=str(livekit_room.uuid),
+                room=str(temporary_room.uuid),
             )
         )
         .to_jwt()
