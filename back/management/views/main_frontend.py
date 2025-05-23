@@ -15,6 +15,7 @@ from management.api.user_data import frontend_data
 from management.controller import get_base_management_user
 from management.models.profile import SelfProfileSerializer
 from management.views.cookie_banner_frontend import get_cookie_banner_template_data
+from management.api.user_data_v3 import get_user_data
 
 # The following two are redundant with api.admin.UserListParams, api.admin.UserListApiSerializer
 # But that is desired I wan't to always handle admin logic separately this might come in handy in the future
@@ -58,23 +59,20 @@ class MainFrontendRouter(View):
             if (not settings.USE_LANDINGPAGE_REDIRECT)
             else settings.LANDINGPAGE_REDIRECT_URL
         )
+        ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
 
         if not request.user.is_authenticated:
             if any([path.startswith(p) for p in self.PUBLIC_PATHS]):
-                # TODO: we need a better way to extract the options!
-                ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
-                user_profile = get_base_management_user().profile
-                profile_data = ProfileWOptions(user_profile).data
-                profile_options = profile_data["options"]
-                data = {
-                    "apiOptions": {
-                        "profile": profile_options,
-                    },
-                }
-
                 cookie_context = get_cookie_banner_template_data(request)
+
                 return render(
-                    request, "main_frontend_public.html", {"data": json.dumps(data, cls=CoolerJson), **cookie_context}
+                    request, "main_frontend_v3.html", {
+                        "user": json.dumps({}),
+                        "api_options": json.dumps({
+                            "profile": ProfileWOptions(get_base_management_user().profile).data["options"],
+                        }),
+                        **cookie_context
+                    }
                 )
             if path == "":
                 # the root path is generally redirected to `little-world.com` in production ( otherwise to an app intern landing page )
@@ -102,13 +100,18 @@ class MainFrontendRouter(View):
 
         extra_template_data = {}
         with translation.override("tag"):
-            data = frontend_data(request.user)
+            user_data = get_user_data(request.user)
         extra_template_data["sentry_user_id"] = request.user.hash
 
         return render(
-            request, "main_frontend_public.html", {"data": json.dumps(data, cls=CoolerJson), **extra_template_data}
+            request, "main_frontend_v3.html", {
+                "user": json.dumps(user_data, cls=CoolerJson),
+                "api_options": json.dumps({
+                    "profile": ProfileWOptions(request.user.profile).data["options"],
+                }),
+                **extra_template_data
+            }
         )
-
 
 def info_card(
     request,
