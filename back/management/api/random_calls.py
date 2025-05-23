@@ -31,6 +31,7 @@ from video.models import (
     LivekitSession,
     LivekitWebhookEvent,
     SerializeLivekitSession,
+    RandomCallLobby,
 )
 
 @api_view(["GET"])
@@ -62,25 +63,26 @@ async def create_livekit_room(room_name):
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def authenticate_livekit_random_call(request):
-    #user1 = request.user1
-    #user2 = request.user2
+    user = User.objects.get(email="herrduenschnlate+1@gmail.com")
+    partner = User.objects.get(hash=request.data["partner_id"])
 
-    user1 = User.objects.get(email="herrduenschnlate+1@gmail.com")
-    user2 = User.objects.get(email="tim.timschupp+420@gmail.com")
-
-    temporary_chat = Chat.objects.create(u1=user1, u2=user2) #create temporary chat for the matched user
+    temporary_chat = Chat.objects.create(u1=user, u2=partner) #create temporary chat for the matched user
     chat = ChatSerializer(temporary_chat).data
     
-    temporary_room = LiveKitRoom(u1=user1, u2=user2) #create temporary livekitroom to passthrough to livekit_api
-    
+    try:
+        temporary_room = LiveKitRoom.get_room(user, partner)
+        print(f"TEMPORARY ROOM: {temporary_room}")
+    except:
+        temporary_room = LiveKitRoom.objects.create(u1=user, u2=partner)
+
     loop = asyncio.new_event_loop()
     loop.run_until_complete(create_livekit_room(str(temporary_room.uuid)))
     loop.close()
 
     token = (
         livekit_api.AccessToken(api_key=settings.LIVEKIT_API_KEY, api_secret=settings.LIVEKIT_API_SECRET)
-        .with_identity(user1.hash)
-        .with_name(f"{user1.profile.first_name} {user1.profile.second_name[:1]}")
+        .with_identity(user.hash)
+        .with_name(f"{user.profile.first_name} {user.profile.second_name[:1]}")
         .with_grants(
             livekit_api.VideoGrants(
                 room_join=True,
@@ -92,8 +94,23 @@ def authenticate_livekit_random_call(request):
 
     return Response({"token": str(token), "server_url": settings.LIVEKIT_URL, "chat": chat})
 
+@api_view(["POST"])
+def join_random_call_lobby(request):
+    user = User.objects.get(hash=request.data["userId"])
+    lobby = RandomCallLobby.objects.create(user=user, status=False)
+    print(f"LOBBY UUID:{lobby.uuid}")
+    return Response(lobby.uuid)
+
+@api_view(["POST"])
+def exit_random_call_lobby(request):
+    user = User.objects.get(hash=request.data["userId"])
+    tmp = RandomCallLobby.objects.filter(user=user).delete()
+    print(f"TMP: {tmp}")
+    return Response("SUCCESS")
 
 api_urls = [
     path('api/random_calls/allowed', get_prematch_status),
     path('api/random_calls/get_token_random_call', authenticate_livekit_random_call),
+    path('api/random_calls/join_lobby', join_random_call_lobby),
+    path('api/random_calls/exit_lobby', exit_random_call_lobby),
 ]
