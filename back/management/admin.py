@@ -26,7 +26,8 @@ from management.models import (
 
 @admin.register(short_links.ShortLink)
 class ShortLinkAdmin(admin.ModelAdmin):
-    list_display = ("tag", "url", "created_at", "updated_at")
+    list_display = ("tag", "url", "created_at", "updated_at", "tracking_cookies_enabled")
+    fields = ("tag", "url", "tracking_cookies_enabled", "tracking_cookies")
 
 
 @admin.register(short_links.ShortLinkClick)
