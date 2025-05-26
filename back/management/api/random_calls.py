@@ -98,14 +98,12 @@ def authenticate_livekit_random_call(request):
 def join_random_call_lobby(request):
     user = User.objects.get(hash=request.data["userId"])
     lobby = RandomCallLobby.objects.create(user=user, status=False)
-    print(f"LOBBY UUID:{lobby.uuid}")
-    return Response(lobby.uuid)
+    return Response({"lobby": lobby.uuid})
 
 @api_view(["POST"])
 def exit_random_call_lobby(request):
     user = User.objects.get(hash=request.data["userId"])
     tmp = RandomCallLobby.objects.filter(user=user).delete()
-    print(f"TMP: {tmp}")
     return Response("SUCCESS")
 
 api_urls = [
