@@ -19,6 +19,14 @@ class LiveKitRoom(models.Model):
     def get_room(cls, user1, user2):
         return cls.objects.get(Q(u1=user1, u2=user2) | Q(u1=user2, u2=user1))
 
+    @classmethod
+    def get_or_create_room(cls, user1, user2):
+        room = cls.objects.filter(Q(u1=user1, u2=user2) | Q(u1=user2, u2=user1))
+        if room.exists():
+            return room.first()
+        else:
+            return cls.objects.create(u1=user1, u2=user2)
+
 
 class LivekitWebhookEvent(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
@@ -59,6 +67,19 @@ class RandomCallLobby(models.Model):
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
     user = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="user_in_lobby")
     status = models.BooleanField(default=False)
+
+    @classmethod
+    def is_in_lobby(cls, user):
+        tmp = False
+        try:
+            tmp = cls.objects.get(user=user)
+        except Exception as e:
+            print(e)
+            
+        if (tmp):
+            return True
+        else: 
+            return False
 
 class RandomCallMatchings(models.Model):
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
