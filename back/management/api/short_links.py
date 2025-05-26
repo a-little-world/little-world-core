@@ -1,6 +1,6 @@
 from django.urls import path
 from django.shortcuts import redirect
-
+from django.conf import settings
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from management.models.user import User
@@ -35,8 +35,22 @@ def short_link_click(request, tag):
         short_link=short_link,
         source=source
     )
-    return redirect(short_link.url)
-
+    
+    response = redirect(short_link.url)
+    
+    if short_link.tracking_cookies_enabled:
+        for cookie in short_link.tracking_cookies:
+            response.set_cookie(
+                cookie["name"],
+                cookie["value"],
+                max_age=60 * 60 * 24 * 30,  # 30 days
+                domain=getattr(settings, "SESSION_COOKIE_DOMAIN", None),
+                path="/",
+                secure=getattr(settings, "SESSION_COOKIE_SECURE", False),
+                httponly=False,
+                samesite=getattr(settings, "SESSION_COOKIE_SAMESITE", "Lax"),
+            )
+    return response
 
 api_urls = [
     path("links/<str:tag>/", short_link_click, name="short_link_click"),
