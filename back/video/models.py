@@ -93,11 +93,13 @@ class RandomCallMatchings(models.Model):
     reportedFlag = models.BooleanField(default=False)
     followUpMatchFlag = models.BooleanField(default=False)
 
-    def save_duration(self):
-        try:
-            return self.end_time - self.created_at
-        except Exception as e:
-            return e
+    @classmethod
+    def get_or_create_match(cls, user1, user2):
+        match = cls.objects.filter(Q(u1=user1, u2=user2) | Q(u1=user2, u2=user1))
+        if match.exists():
+            return match.first()
+        else:
+            return cls.objects.create(u1=user1, u2=user2)
 
 class SerializeLivekitSession(ModelSerializer):
     class Meta:

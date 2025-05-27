@@ -32,6 +32,7 @@ from video.models import (
     LivekitWebhookEvent,
     SerializeLivekitSession,
     RandomCallLobby,
+    RandomCallMatchings,
 )
 
 @api_view(["GET"])
@@ -84,6 +85,8 @@ def authenticate_livekit_random_call(request):
         )
         .to_jwt()
     )
+
+    RandomCallMatchings.get_or_create_match(user1=user, user2=partner)
 
     return Response({"token": str(token), "server_url": settings.LIVEKIT_URL, "chat": ChatSerializer(temporary_chat).data, "room": temporary_room.uuid})
 
