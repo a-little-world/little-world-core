@@ -65,10 +65,10 @@ async def create_livekit_room(room_name):
 @permission_classes([IsAuthenticated])
 def authenticate_livekit_random_call(request):
     user = User.objects.get(hash=request.data["userId"])
-    in_lobby = True if (RandomCallLobby.is_in_lobby(user)) else False
+    in_lobby = True if (RandomCallLobby.is_in_lobby(user)) else False #checks if the given user is already in the Lobby DB and assign T/F
 
-    partner = RandomCallLobby.objects.exclude(user=user).order_by('?').first().user
-    temporary_chat = Chat.objects.create(u1=user, u2=partner)
+    partner = RandomCallLobby.objects.exclude(user=user).order_by('?').first().user #from the lobby a random user is selected, however in the future this selection logic must be more thoughtful
+    temporary_chat = Chat.objects.create(u1=user, u2=partner) #the livekit token can be generated without a chat or room, however in the current setup of our backend, the partner user seems to be unable to load the livekitsession without these infos
     temporary_room = LiveKitRoom.get_or_create_room(user, partner)
     loop = asyncio.new_event_loop()
     loop.run_until_complete(create_livekit_room(str(temporary_room.uuid)))
@@ -85,7 +85,7 @@ def authenticate_livekit_random_call(request):
         )
         .to_jwt()
     )
-
+    
     RandomCallMatchings.get_or_create_match(user1=user, user2=partner)
 
     return Response({"token": str(token), "server_url": settings.LIVEKIT_URL, "chat": ChatSerializer(temporary_chat).data, "room": temporary_room.uuid})

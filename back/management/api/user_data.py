@@ -232,7 +232,7 @@ def user_data(user):
 
     # Prematching join link depends on the support user
     pre_call_join_link = None
-    #overwrite_pre_join_link = settings.1344536-13728973
+    #overwrite_pre_join_link = settings.PREMATCHING_CALL_JOIN_LINK
 
     #if overwrite_pre_join_link:
     #    pre_call_join_link = overwrite_pre_join_link
