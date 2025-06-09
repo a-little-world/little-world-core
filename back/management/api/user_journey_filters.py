@@ -556,6 +556,29 @@ def too_low_german_level(qs=User.objects.all()):
             {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
         ]
     )
+    
+def learners_with_a1a2(qs=User.objects.all()):
+    """
+    Learners with A1 or A2 German level
+    """
+    return qs.filter(
+        state__email_authenticated=True,
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        profile__user_type=Profile.TypeChoices.LEARNER,
+        profile__lang_skill__contains=[{"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}],
+    )
+    
+def learners_better_than_a1a2(qs=User.objects.all()):
+    """
+    Learners with German level of at least B1
+    """
+    return qs.filter(
+        state__email_authenticated=True,
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        profile__user_type=Profile.TypeChoices.LEARNER
+    ).exclude(
+        profile__lang_skill__contains=[{"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}], 
+    )
 
 def all_volunteers_min_one_no_ongoing_match(qs=User.objects.all()):
     "Volunteers with at least one match but no open proposal"
@@ -690,18 +713,6 @@ def community_calls(qs=User.objects.all(), last_x_days=28 * 3):
     all_distinct_users = User.objects.filter(id__in=all_users).distinct()
 
     return all_distinct_users
-
-def community__learners_with_a1a2(qs=User.objects.all()):
-    """
-    Learners with A1 or A2 German level
-    """
-    qs = community_calls(qs)
-    return qs.filter(
-        state__email_authenticated=True,
-        state__user_form_state=State.UserFormStateChoices.FILLED,
-        profile__user_type=Profile.TypeChoices.LEARNER,
-        profile__lang_skill__contains=[{"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}],
-    )
 
 def community__learners_better_than_a1a2(qs=User.objects.all()):
     """
