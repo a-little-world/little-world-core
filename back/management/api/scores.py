@@ -79,6 +79,7 @@ from management.models.unconfirmed_matches import ProposedMatch
 from management.models.user import User
 from management.tasks import burst_calculate_matching_scores, matching_algo_v2
 from management.validators import DAYS, SLOTS
+from management.views.matching_panel import check_task_status
 
 
 @dataclass
@@ -453,21 +454,21 @@ class ScoringBase:
     def score__target_group(self):
         """
         Checks if the target group preferences match between volunteer and learner.
-        
+
         Hybrid approach:
         - If volunteer specifically requests refugees but learner isn't a refugee -> unmatchable
         - Otherwise, add positive scoring for matching target groups
         """
         volunteer = self.user1 if self.user1.profile.user_type == Profile.TypeChoices.VOLUNTEER else self.user2
         learner = self.user1 if self.user1.profile.user_type == Profile.TypeChoices.LEARNER else self.user2
-        
+
         volunteer_target_group = volunteer.profile.target_group
         learner_target_groups = learner.profile.target_groups
-        
+
         # If learner hasn't specified any target groups, use the single target_group field
         if not learner_target_groups:
             learner_target_groups = [learner.profile.target_group]
-        
+
         # Case 1: Volunteer specifically requests refugees
         if volunteer_target_group == Profile.TargetGroupChoices2.REFUGEE:
             if Profile.TargetGroupChoices2.REFUGEE not in learner_target_groups:
@@ -484,7 +485,7 @@ class ScoringBase:
                     weight=1.0,
                     markdown_info="Volunteer requested refugees and learner is a refugee (score: 30)",
                 )
-        
+
         # Case 2: Volunteer requests any specific target group (not ANY)
         if volunteer_target_group != Profile.TargetGroupChoices2.ANY:
             if volunteer_target_group in learner_target_groups:
@@ -501,7 +502,7 @@ class ScoringBase:
                     weight=1.0,
                     markdown_info=f"Volunteer requested {volunteer_target_group} but learner doesn't belong to this group (score: -20)",
                 )
-        
+
         # Case 3: Volunteer is fine with any target group
         return ScoringFuctionResult(
             matchable=True,
@@ -527,7 +528,6 @@ class ScoringBase:
                 )
             results.append({"score_function": score_function, "res": res.dict()})
 
-        print("Results:", results)
         total_score = sum([res["res"]["score"] * res["res"]["weight"] for res in results])
         matchable = all([res["res"]["matchable"] for res in results])
         return total_score, matchable, results
@@ -783,7 +783,10 @@ def get_active_burst_calculation(request):
     ongoing_update = BackendState.objects.filter(slug=BackendState.BackendStateEnum.updating_matching_scores)
 
     if ongoing_update.exists():
-        return Response({"active": True, "tasks": ongoing_update.first().meta["tasks"]})
+        tasks = ongoing_update.first().meta["tasks"]
+        task_states = [check_task_status(task_id) for task_id in tasks]
+
+        return Response({"active": True, "tasks": task_states})
     else:
         return Response({"active": False})
 
