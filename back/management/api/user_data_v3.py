@@ -269,7 +269,13 @@ def user_profile(request):
         return Response(get_user_data(request.user))
     except Exception as e:
         return Response({"error": str(e)}, status=400)
-
+    
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+@authentication_classes([SessionAuthentication])
+def api_translations(request):
+    from translations import get_translation_catalog
+    return Response(get_translation_catalog())
 
 api_urls = [
     path("api/notifications", notifications, name="notifications_api"),
@@ -280,4 +286,5 @@ api_urls = [
     path("api/chats", chats, name="chats_api"),
     path("api/call_rooms", active_call_rooms, name="active_call_rooms_api"),
     path("api/user", user_profile, name="user_profile_api"),
+    path("api/translations", api_translations, name="api_translations_api"),
 ]
