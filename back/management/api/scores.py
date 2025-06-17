@@ -752,7 +752,7 @@ def burst_calculate_matching_scores_v2(request):
         TwoUserMatchingScore.objects.all().delete()
 
     bmu = controller.get_base_management_user()
-    requires_matching = needs_matching(qs=User.objects.filter(id__in=bmu.state.managed_users.all()))
+    requires_matching = needs_matching(qs=User.objects.filter(id__in=bmu.state.managed_users.all()), learner_atleast_searching_for_x_days=5)
     user_id_set = set(requires_matching.values_list("id", flat=True))
     list_combinations = list(itertools.combinations(user_id_set, 2))
 

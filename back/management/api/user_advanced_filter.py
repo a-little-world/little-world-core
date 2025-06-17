@@ -1,7 +1,8 @@
 from datetime import timedelta
 
 from chat.models import Chat, Message
-from django.db.models import Count, F, OuterRef, Q, Subquery
+from django.db.models import Count, F, OuterRef, Q, Subquery, Case, When
+from django.db.models.functions import Extract
 from django.utils import timezone
 
 from management import controller
@@ -32,9 +33,10 @@ def only_hd_test_user(qs=User.objects.all()):
     return qs.filter(email__startswith="herrduenschnlate")
 
 
-def needs_matching(qs=User.objects.all()):
+def needs_matching(qs=User.objects.all(), learner_atleast_searching_for_x_days=-1):
     """
     All users in 'searching' without any user that has an open proposal!
+    Optionally, for learners, only include those who have been searching for at least X days.
     """
     now = timezone.now()
     users_with_open_proposals = ProposedMatch.objects.filter(
@@ -44,7 +46,7 @@ def needs_matching(qs=User.objects.all()):
     users_w_open_proposals = set([id for pair in users_with_open_proposals for id in pair])
     users_w_open_proposals = qs.filter(id__in=users_w_open_proposals)
 
-    return (
+    base_qs = (
         qs.filter(
             is_active=True,
             state__user_form_state=State.UserFormStateChoices.FILLED,
@@ -56,6 +58,49 @@ def needs_matching(qs=User.objects.all()):
         .exclude(id__in=users_w_open_proposals)
         .order_by("-date_joined")
     )
+
+    if learner_atleast_searching_for_x_days != -1:
+        # For learners, calculate waiting time using database queries
+        learners = base_qs.filter(profile__user_type=Profile.TypeChoices.LEARNER)
+        
+        # Get the latest pre-matching appointment for each learner
+        latest_appointments = PreMatchingAppointment.objects.filter(
+            user__in=learners
+        ).order_by('user', '-created').distinct('user')
+        
+        # Calculate days since appointment or state update
+        waiting_time = Case(
+            # If user has matches, use state update time
+            When(
+                Q(match_user1__support_matching=False) | Q(match_user2__support_matching=False),
+                then=Extract(timezone.now() - F('state__searching_state_last_updated'), 'day')
+            ),
+            # Otherwise use pre-matching appointment end time
+            default=Extract(
+                timezone.now() - Subquery(
+                    latest_appointments.filter(user=OuterRef('pk')).values('end_time')[:1]
+                ),
+                'day'
+            )
+        )
+        
+        # Annotate learners with their waiting time
+        learners = learners.annotate(waiting_days=waiting_time)
+        
+        # Filter learners based on waiting time
+        filtered_learners = learners.filter(
+            Q(waiting_days__gte=learner_atleast_searching_for_x_days) |
+            Q(waiting_days__isnull=True)  # Include users without waiting time calculation
+        )
+        
+        # Combine filtered learners with non-learners
+        non_learners = base_qs.exclude(profile__user_type=Profile.TypeChoices.LEARNER)
+        return base_qs.model.objects.filter(
+            Q(id__in=filtered_learners.values_list('id', flat=True)) |
+            Q(id__in=non_learners.values_list('id', flat=True))
+        ).order_by("-date_joined")
+    else:
+        return base_qs
 
 
 def needs_matching_volunteers(qs=User.objects.all()):
