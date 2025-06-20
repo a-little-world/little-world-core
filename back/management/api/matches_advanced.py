@@ -18,8 +18,6 @@ from management.api.user_data import determine_match_bucket
 
 
 class AdvancedMatchSerializer(serializers.ModelSerializer):
-    unmatched = serializers.JSONField(source="report_unmatch")
-
     class Meta:
         model = Match
         fields = [
@@ -31,7 +29,6 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
             "latest_interaction_at",
             "notes",
             "total_messages_counter",
-            "unmatched",
             "total_mutal_video_calls_counter",
             "user1",
             "user2",
@@ -64,6 +61,9 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
                 representation["status"] = "support"
             else:
                 representation["status"] = "unconfirmed"
+                
+        if hasattr(instance, "unmatched"):
+            representation["unmatched"] = instance.unmatched
 
         if hasattr(instance, "active"):
             if not instance.active:
