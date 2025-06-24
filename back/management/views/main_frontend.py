@@ -66,7 +66,7 @@ class MainFrontendRouter(View):
                 cookie_context = get_cookie_banner_template_data(request)
 
                 return render(
-                    request, "main_frontend_v3.html", {
+                    request, "main_frontend.html", {
                         "user": json.dumps({}),
                         "api_options": json.dumps({
                             "profile": ProfileWOptions(get_base_management_user().profile).data["options"],
@@ -104,7 +104,7 @@ class MainFrontendRouter(View):
         extra_template_data["sentry_user_id"] = request.user.hash
 
         return render(
-            request, "main_frontend_v3.html", {
+            request, "main_frontend.html", {
                 "user": json.dumps(user_data, cls=CoolerJson),
                 "api_options": json.dumps({
                     "profile": ProfileWOptions(request.user.profile).data["options"],
