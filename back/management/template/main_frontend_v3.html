@@ -40,6 +40,6 @@
   const apiTranslations = JSON.parse('{{ api_translations | escapejs }}');
   const apiOptions = JSON.parse('{{ api_options | escapejs }}')
 
-  renderAppV2({ user, apiTranslations, apiOptions })
+  renderApp({ user, apiTranslations, apiOptions })
 </script>
 <div style="display: none;">{{csrf_token}}</div>
