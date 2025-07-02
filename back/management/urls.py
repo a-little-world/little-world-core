@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.urls import path, re_path
 from django_rest_passwordreset.views import ResetPasswordConfirmViewSet, ResetPasswordValidateTokenViewSet
+from management.api.user_data_v3 import api_urls as user_data_v3_api_urls
 from rest_framework.routers import DefaultRouter
 
 from back.utils import _api_url
@@ -92,6 +93,7 @@ api_routes = [
     *user_advanced_statistics.api_urls,
     *prematch_appointment_advanced.api_urls,
     *random_call_urls,
+    *user_data_v3_api_urls,
     # User
     path(_api_url("user_data_v2"), api.user_data.user_data_v2),
     path(_api_url("trans"), api.trans.get_translation_catalogue),

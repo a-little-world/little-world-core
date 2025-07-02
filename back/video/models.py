@@ -68,19 +68,6 @@ class RandomCallLobby(models.Model):
     user = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="user_in_lobby")
     status = models.BooleanField(default=False)
 
-    @classmethod
-    def is_in_lobby(cls, user):
-        tmp = False
-        try:
-            tmp = cls.objects.get(user=user)
-        except Exception as e:
-            print(e)
-            
-        if (tmp):
-            return True
-        else: 
-            return False
-
 class RandomCallMatchings(models.Model):
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
     
@@ -90,16 +77,18 @@ class RandomCallMatchings(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     end_time = models.DateTimeField(null=True, blank=True)
 
-    reportedFlag = models.BooleanField(default=False)
-    followUpMatchFlag = models.BooleanField(default=False)
+    reported_flag = models.BooleanField(default=False)
+    follow_up_match_flag = models.BooleanField(default=False)
+
+    tmp_chat = models.ForeignKey("chat.Chat", on_delete=models.CASCADE, related_name="temporary_chat")
 
     @classmethod
-    def get_or_create_match(cls, user1, user2):
+    def get_or_create_match(cls, user1, user2, tmp_chat):
         match = cls.objects.filter(Q(u1=user1, u2=user2) | Q(u1=user2, u2=user1))
         if match.exists():
             return match.first()
         else:
-            return cls.objects.create(u1=user1, u2=user2)
+            return cls.objects.create(u1=user1, u2=user2, tmp_chat=tmp_chat)
 
 class SerializeLivekitSession(ModelSerializer):
     class Meta:
