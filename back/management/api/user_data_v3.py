@@ -18,7 +18,6 @@ from management.models.state import State, FrontendStatusSerializer
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from management.models.profile import SelfProfileSerializer
 from management.api.options import get_options_dict
-from management.api.user_data import serialize_notifications, serialize_community_events
 from management.models.unconfirmed_matches import serialize_proposed_matches
 from management.helpers.detailed_pagination import get_paginated_format_v2
 from management.models.unconfirmed_matches import ProposedMatch
@@ -86,13 +85,13 @@ def notifications(request):
     
     try:
         read_notifications = get_paginated_format_v2(Notification.get_read_notifications(request.user), items_per_page, page)
-        read_notifications["results"] = serialize_notifications(read_notifications["results"])
+        read_notifications["results"] = SelfNotificationSerializer(read_notifications["results"], many=True).data
 
         unread_notifications = get_paginated_format_v2(Notification.get_unread_notifications(request.user), items_per_page, page)
-        unread_notifications["results"] = serialize_notifications(unread_notifications["results"])
+        unread_notifications["results"] = SelfNotificationSerializer(unread_notifications["results"], many=True).data
 
         archived_notifications = get_paginated_format_v2(Notification.get_archived_notifications(request.user), items_per_page, page)
-        archived_notifications["results"] = serialize_notifications(archived_notifications["results"])
+        archived_notifications["results"] = SelfNotificationSerializer(archived_notifications["results"], many=True).data
         
         return Response({
             "unread": unread_notifications,
@@ -161,7 +160,7 @@ def community_events(request):
     
     try:
         events = get_paginated_format_v2(CommunityEvent.get_active_events_for_user(user), items_per_page, page)
-        events["results"] = serialize_community_events(events["results"])
+        events["results"] = CommunityEventSerializer(events["results"], many=True).data
         
         return Response(events)
     except Exception as e:

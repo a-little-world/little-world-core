@@ -190,7 +190,7 @@ view_routes = [
     path("api/matching/get_active_burst_calculation/", get_active_burst_calculation),
     path(
         "api/admin/delete_all_matching_scores/", delete_all_matching_scores
-    ),  # TODO: can be depricated / is perforemed automaticly on update
+    ),
     path("api/admin/top_scores/", list_top_scores),
     path("info_card_debug/", main_frontend.debug_info_card, name="info_card"),
     path("api/calcom/", calcom.callcom_websocket_callback),
