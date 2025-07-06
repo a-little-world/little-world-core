@@ -243,7 +243,11 @@ def authenticate_live_kit_room(request):
         .to_jwt()
     )
 
-    return Response({"token": str(token), "server_url": settings.LIVEKIT_URL, "chat": chat})
+    return Response({
+        "token": str(token), 
+        "server_url": settings.LIVEKIT_URL, 
+        "chat": chat
+    })
 
 
 class PostCallReviewParams(serializers.Serializer):
