@@ -79,7 +79,7 @@ from management.models.unconfirmed_matches import ProposedMatch
 from management.models.user import User
 from management.tasks import burst_calculate_matching_scores, matching_algo_v2
 from management.validators import DAYS, SLOTS
-from management.views.matching_panel import check_task_status
+from management.utils import check_task_status
 
 
 @dataclass

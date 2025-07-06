@@ -26,7 +26,8 @@ from management.helpers import (
 )
 from management.models.dynamic_user_list import DynamicUserList
 from management.models.management_tasks import ManagementTaskSerializer, MangementTask
-from management.models.matches import Match, AdvancedUserMatchSerializer
+from management.models.matches import Match
+from management.api.matches import AdvancedUserMatchSerializer
 from management.models.pre_matching_appointment import (
     PreMatchingAppointment,
     PreMatchingAppointmentSerializer,

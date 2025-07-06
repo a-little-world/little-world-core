@@ -15,7 +15,7 @@ from rest_framework_dataclasses.serializers import DataclassSerializer
 from translations import get_translation
 
 from management.controller import match_users
-from management.models.matches import AdvancedUserMatchSerializer
+from management.api.matches import AdvancedUserMatchSerializer
 from management.models.state import State
 from management.models.unconfirmed_matches import ProposedMatch
 

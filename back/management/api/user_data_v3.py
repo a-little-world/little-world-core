@@ -11,7 +11,8 @@ import urllib.parse
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from rest_framework import authentication, permissions, serializers, status
 from management.models.notifications import Notification, SelfNotificationSerializer
-from management.models.matches import Match, AdvancedUserMatchSerializer
+from management.api.matches import AdvancedUserMatchSerializer
+from management.models.matches import Match
 from management.models.community_events import CommunityEvent, CommunityEventSerializer
 from management.models.state import State, FrontendStatusSerializer
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer

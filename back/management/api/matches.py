@@ -14,11 +14,74 @@ from management import controller
 from management.models.unconfirmed_matches import serialize_proposed_matches
 from management.api.scores import score_between_db_update
 from management.helpers import IsAdminOrMatchingUser
-from management.models.matches import AdvancedUserMatchSerializer, Match
+
+from management.models import matches
 from management.models.scores import TwoUserMatchingScore
 from management.models.state import State
 from management.models.unconfirmed_matches import ProposedMatch
 from management.models.user import User
+from video.models import LivekitSession, SerializeLivekitSession
+from rest_framework import serializers
+from chat.models import Chat, ChatConnections, ChatSerializer
+from management.models.state import State
+from management.models.profile import CensoredProfileSerializer
+from management.api.match_journey_filter_list import determine_match_bucket
+
+class AdvancedUserMatchSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = matches.Match
+        fields = ["uuid"]
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        assert "user" in self.context, "User must be passed in context"
+        user = self.context["user"]
+        partner = instance.get_partner(user)
+
+        is_online = ChatConnections.is_user_online(partner)
+        chat = Chat.get_or_create_chat(user, partner)
+        chat_serialized = ChatSerializer(chat, context={"user": user}).data
+        # fetch incoming calls that are currently active
+        active_call_room = None
+        active_sessions = LivekitSession.objects.filter(
+            Q(room__u1=user, room__u2=partner, is_active=True, u1_active=True, u2_active=True)
+            | Q(room__u1=user, room__u2=partner, is_active=True, u1_active=True, u2_active=True)
+            | Q(room__u1=partner, room__u2=user, is_active=True, u1_active=True, u2_active=False)
+            | Q(room__u1=partner, room__u2=user, is_active=True, u1_active=False, u2_active=True)
+            | Q(room__u1=user, room__u2=partner, is_active=True, u1_active=True, u2_active=False)
+            | Q(room__u1=user, room__u2=partner, is_active=True, u1_active=False, u2_active=True)
+        )
+        if active_sessions.exists():
+            active_session = active_sessions.first()
+            active_call_room = SerializeLivekitSession(active_session).data
+
+        representation = {
+            "id": str(instance.uuid),
+            "chat": {**chat_serialized},
+            "chatId": str(chat.uuid),
+            "active": instance.active,
+            "activeCallRoom": active_call_room,
+            "unmatched": instance.report_unmatch,
+            "partner": {
+                "id": str(partner.hash),
+                "isOnline": is_online,
+                "isSupport": partner.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+                or partner.is_staff,
+                **CensoredProfileSerializer(partner.profile).data,
+            },
+        }
+        if "status" in self.context:
+            representation["status"] = self.context["status"]
+
+        if ("determine_bucket" in self.context) and self.context["determine_bucket"]:
+            bucket = determine_match_bucket(instance.pk)
+            if bucket is not None:
+                representation["bucket"] = bucket
+            else:
+                representation["bucket"] = "unknown"
+
+        return representation
+
 
 
 @dataclass
