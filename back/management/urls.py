@@ -1,7 +1,6 @@
 from django.conf import settings
 from django.urls import path, re_path
 from django_rest_passwordreset.views import ResetPasswordConfirmViewSet, ResetPasswordValidateTokenViewSet
-from management.api.user_data_v3 import api_urls as user_data_v3_api_urls
 from rest_framework.routers import DefaultRouter
 
 from management.api import (
@@ -24,10 +23,12 @@ from management.api import (
     profile,
     report_unmatch,
     matches,
+    notifications,
     googletrans,
     email_settings,
     translation_requests,
     options,
+    firebase,
 )
 from management.api.dynamic_user_list import (
     DynamicUserListGeneralViewSet,
@@ -96,6 +97,11 @@ dynamic_user_list_single_user_api = DynamicUserListSingleUserViewSet.as_view(
 user_data_apis = [
     path("api/api_options", options.api_options),
     path("api/user", user.user_profile, name="user_profile_api"),
+    path("api/notifications", notifications.notifications, name="notifications_api"),
+    path("api/matches", matches.matches, name="matches_api"),
+    path("api/community", community_events.community_events, name="community_events_api"),
+    path("api/translations", trans.api_translations, name="api_translations_api"),
+    path("api/firebase", firebase.firebase_config, name="firebase_config_api"),
 ]
 
 api_routes = [
@@ -108,7 +114,6 @@ api_routes = [
     *videocalls_advanced.api_urls,
     *user_advanced_statistics.api_urls,
     *prematch_appointment_advanced.api_urls,
-    *user_data_v3_api_urls,
     *user_data_apis,
     # User
     path("api/trans", trans.get_translation_catalogue),

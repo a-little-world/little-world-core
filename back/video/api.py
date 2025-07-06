@@ -3,6 +3,7 @@ import json
 import uuid
 from datetime import timedelta
 
+from django.db.models import Q
 from chat.consumers.messages import InBlockIncomingCall, NewActiveCallRoom
 from chat.models import Chat, ChatSerializer, Message
 from django.conf import settings
@@ -304,8 +305,30 @@ def post_call_review(request):
     return Response({"status": "ok", "review_id": review.id})
 
 
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+@authentication_classes([SessionAuthentication])
+def active_call_rooms(request):
+    """
+    Returns active call rooms for the authenticated user.
+    """
+    user = request.user
+    
+    try:
+        # find all active calls
+        all_active_rooms = LivekitSession.objects.filter(
+            Q(room__u1=user, is_active=True, u2_active=True, u1_active=False)
+            | Q(room__u2=user, is_active=True, u1_active=True, u2_active=False)
+        )
+        
+        return Response(SerializeLivekitSession(all_active_rooms, context={"user": user}, many=True).data)
+    except Exception as e:
+        return Response({"error": str(e)}, status=400)
+
+
 api_urls = [
     path("api/livekit/review", post_call_review),
+    path("api/call_rooms", active_call_rooms, name="active_call_rooms_api"),
     path("api/livekit/authenticate", authenticate_live_kit_room),
     path("api/livekit/webhook", livekit_webhook),
 ]
