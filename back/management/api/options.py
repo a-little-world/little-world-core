@@ -4,6 +4,8 @@ from rest_framework.response import Response
 from back.utils import transform_add_options_serializer
 from management.controller import get_base_management_user
 from management.models.profile import SelfProfileSerializer
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import SessionAuthentication
 
 
 def get_options_dict():
@@ -18,15 +20,13 @@ def get_options_dict():
 
 
 @api_view(["GET"])
-@authentication_classes([])
-@permission_classes([])
-def get_options(request):
+@permission_classes([IsAuthenticated])
+@authentication_classes([SessionAuthentication])
+def api_options(request):
     """
-    Get all notifications for the current user
+    Returns API options including form options.
     """
-    """
-    A helper tag that returns the api trasnlations  
-    This can be used by frontends to dynamicly change error translation lanugages without resending requrests
-    """
-
-    return Response(get_options_dict())
+    try:
+        return Response(get_options_dict())
+    except Exception as e:
+        return Response({"error": str(e)}, status=400)

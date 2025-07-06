@@ -7,6 +7,7 @@ from rest_framework import authentication, permissions, serializers, status, vie
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from translations import get_translation
+from management.api.user import get_user_data
 
 from back.utils import transform_add_options_serializer
 from management.models.profile import Profile, SelfProfileSerializer
@@ -111,7 +112,6 @@ class ProfileCompletedApi(APIView):
 
             user.message(default_message, auto_mark_read=True, send_message_incoming=True)
 
-            from management.api.user_data_v3 import get_user_data
 
             ud = get_user_data(user)
             return Response(ud)

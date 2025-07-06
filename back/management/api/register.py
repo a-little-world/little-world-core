@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from translations import get_translation
 
-from management.api.user_data_v3 import get_user_data
+from management.api.user import get_user_data
 from management.models.user import User
 
 from .. import controller, validators

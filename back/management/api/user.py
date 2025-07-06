@@ -20,8 +20,16 @@ from rest_framework.views import APIView
 from tracking import utils
 from tracking.models import Event
 from translations import get_translation
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.authentication import SessionAuthentication
+from drf_spectacular.utils import inline_serializer
+from rest_framework.decorators import authentication_classes
+import urllib.parse
 
 from management.controller import UserNotFoundErr, delete_user, get_user, get_user_by_email, get_user_by_hash
+from management.models.state import State, FrontendStatusSerializer
+from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
+from management.models.profile import SelfProfileSerializer
 from management.models.state import State
 
 """
@@ -139,7 +147,6 @@ class LoginApi(APIView):
                 return Response(get_translation("api.login_failed_staff"), status=status.HTTP_400_BAD_REQUEST)
             login(request, usr)
             # Also pass the whole user data on a sucessfull login!
-            from management.api.user_data_v3 import get_user_data
 
             return Response(get_user_data(request.user))
         else:
@@ -486,3 +493,80 @@ def delete_account(request):
     logout(request)
 
     return Response({"success": True})
+
+def get_user_data(user):
+    """
+    Returns user data similar to the original user_data function.
+    """
+    user_state = user.state
+    user_profile = user.profile
+
+    pre_match_appointent = None
+    pre_matching_app = PreMatchingAppointment.objects.filter(user=user).first()
+    if pre_matching_app:
+        pre_match_appointent = PreMatchingAppointmentSerializer(pre_matching_app).data
+
+    cal_data_link = None
+    if hasattr(settings, "CAL_COM_PROFILE_LINK") and settings.CAL_COM_PROFILE_LINK:
+        # encode the email to url safe string
+        cal_data_link = settings.CAL_COM_PROFILE_LINK.replace(
+            "{email}", urllib.parse.quote(user.email)
+        )
+
+    # Get video call join link if available
+    pre_call_join_link = None
+    try:
+        if pre_matching_app and pre_matching_app.call_room:
+            if pre_matching_app.call_room.join_link:
+                pre_call_join_link = pre_matching_app.call_room.join_link
+    except Exception:
+        pass
+
+    # User data including profile, permissions, and status
+    profile_data = SelfProfileSerializer(user_profile).data
+
+    return {
+        "id": str(user.hash),
+        "status": FrontendStatusSerializer(user_state).data,
+        "isSupport": user_state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+        or user.is_staff,
+        "isSearching": user_state.searching_state == State.SearchingStateChoices.SEARCHING,
+        "email": user.email,
+        "preMatchingAppointment": pre_match_appointent,
+        "preMatchingCallJoinLink": pre_call_join_link,
+        "calComAppointmentLink": cal_data_link,
+        "hadPreMatchingCall": user_state.had_prematching_call,
+        "emailVerified": user_state.email_authenticated,
+        "userFormCompleted": user_state.user_form_state == State.UserFormStateChoices.FILLED,
+        "profile": profile_data,
+    }
+
+@extend_schema(
+    responses=inline_serializer(
+        name="UserData",
+        fields={
+            "id": serializers.UUIDField(),
+            "status": serializers.CharField(),
+            "isSupport": serializers.BooleanField(),
+            "isSearching": serializers.BooleanField(),
+            "email": serializers.EmailField(),
+            "preMatchingAppointment": PreMatchingAppointmentSerializer(required=False),
+            "calComAppointmentLink": serializers.CharField(),
+            "hadPreMatchingCall": serializers.BooleanField(),
+            "emailVerified": serializers.BooleanField(),
+            "userFormCompleted": serializers.BooleanField(),
+            "profile": SelfProfileSerializer(),
+        },
+    ),
+)
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+@authentication_classes([SessionAuthentication])
+def user_profile(request):
+    """
+    Returns user profile data.
+    """
+    try:
+        return Response(get_user_data(request.user))
+    except Exception as e:
+        return Response({"error": str(e)}, status=400)

@@ -93,6 +93,11 @@ dynamic_user_list_single_user_api = DynamicUserListSingleUserViewSet.as_view(
     }
 )
 
+user_data_apis = [
+    path("api/api_options", options.api_options),
+    path("api/user", user.user_profile, name="user_profile_api"),
+]
+
 api_routes = [
     *short_links_api_urls,
     *slack.api_routes,
@@ -104,10 +109,10 @@ api_routes = [
     *user_advanced_statistics.api_urls,
     *prematch_appointment_advanced.api_urls,
     *user_data_v3_api_urls,
+    *user_data_apis,
     # User
     path("api/trans", trans.get_translation_catalogue),
     path("api/trans/<str:lang>/", trans.get_translation_catalogue),
-    path("api/options/", options.get_options),
     path("api/community/events/", community_events.GetActiveEventsApi.as_view()),
     path("api/register/", register.Register.as_view()),
     path(

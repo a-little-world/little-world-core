@@ -170,19 +170,6 @@ def community_events(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 @authentication_classes([SessionAuthentication])
-def api_options(request):
-    """
-    Returns API options including form options.
-    """
-    try:
-        return Response(get_options_dict())
-    except Exception as e:
-        return Response({"error": str(e)}, status=400)
-
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-@authentication_classes([SessionAuthentication])
 def firebase_config(request):
     """
     Returns Firebase configuration for the client.
@@ -258,9 +245,7 @@ api_urls = [
     path("api/notifications", notifications, name="notifications_api"),
     path("api/matches", matches, name="matches_api"),
     path("api/community", community_events, name="community_events_api"),
-    path("api/api_options", api_options, name="api_options_api"),
     path("api/firebase", firebase_config, name="firebase_config_api"),
     path("api/call_rooms", active_call_rooms, name="active_call_rooms_api"),
-    path("api/user", user_profile, name="user_profile_api"),
     path("api/translations", api_translations, name="api_translations_api"),
 ]
