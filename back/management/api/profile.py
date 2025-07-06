@@ -111,9 +111,9 @@ class ProfileCompletedApi(APIView):
 
             user.message(default_message, auto_mark_read=True, send_message_incoming=True)
 
-            from management.api.user_data import user_data
+            from management.api.user_data_v3 import get_user_data
 
-            ud = user_data(user)
+            ud = get_user_data(user)
             return Response(ud)
         else:
             return Response(info, status=status.HTTP_400_BAD_REQUEST)

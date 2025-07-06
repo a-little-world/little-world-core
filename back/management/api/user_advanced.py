@@ -15,10 +15,7 @@ from rest_framework.response import Response
 
 from management.api.scores import score_between_db_update
 from management.api.user_advanced_filter_lists import FILTER_LISTS, get_choices, get_dynamic_userlists
-from management.api.user_data import (
-    AdvancedUserMatchSerializer,
-    serialize_proposed_matches,
-)
+from management.models.unconfirmed_matches import serialize_proposed_matches
 from management.helpers.detailed_pagination import get_paginated_format_v2
 from management.api.utils_advanced import filterset_schema_dict
 from management.controller import delete_user, make_tim_support_user
@@ -29,7 +26,7 @@ from management.helpers import (
 )
 from management.models.dynamic_user_list import DynamicUserList
 from management.models.management_tasks import ManagementTaskSerializer, MangementTask
-from management.models.matches import Match
+from management.models.matches import Match, AdvancedUserMatchSerializer
 from management.models.pre_matching_appointment import (
     PreMatchingAppointment,
     PreMatchingAppointmentSerializer,

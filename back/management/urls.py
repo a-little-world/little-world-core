@@ -33,7 +33,6 @@ from management.api.scores import (
 )
 from management.api.short_links import api_urls as short_links_api_urls
 from management.api.user_advanced import api_urls as user_advanced_api_urls
-from management.api.user_data import user_data_api
 from management.api.utils_advanced import CustomResetPasswordRequestTokenViewSet
 from management.views import (
     admin_panel_devkit,
@@ -97,7 +96,6 @@ api_routes = [
     path("api/options/", api.options.get_options),
     path("api/community/events/", api.community_events.GetActiveEventsApi.as_view()),
     path("api/register/", api.register.Register.as_view()),
-    path("api/user/", user_data_api, name="user_data_api"),
     path(
         "api/cookies/cookie_banner.js",
         api.cookies.get_dynamic_cookie_banner_js,
@@ -132,7 +130,6 @@ api_routes = [
         "api/profile/<str:partner_hash>/match",
         api.matches.get_match,
     ),
-    path("api/matches/confirmed/", api.user_data.ConfirmedDataApi.as_view()),
     # e.g.: /user/verify/email/Base64{d=email&u=hash&k=pin:hash}
     path(
         "api/user/verify/email/<str:auth_data>",

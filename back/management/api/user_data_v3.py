@@ -8,19 +8,17 @@ from django.db.models import Q
 from django.core.paginator import Paginator
 import urllib.parse
 
+from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
+from rest_framework import authentication, permissions, serializers, status
 from management.models.notifications import Notification, SelfNotificationSerializer
-from management.models.matches import Match
+from management.models.matches import Match, AdvancedUserMatchSerializer
 from management.models.community_events import CommunityEvent, CommunityEventSerializer
 from management.models.state import State, FrontendStatusSerializer
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from management.models.profile import SelfProfileSerializer
 from management.api.options import get_options_dict
-from management.api.user_data import (
-    AdvancedUserMatchSerializer, 
-    serialize_notifications,
-    serialize_community_events,
-    serialize_proposed_matches,
-)
+from management.api.user_data import serialize_notifications, serialize_community_events
+from management.models.unconfirmed_matches import serialize_proposed_matches
 from management.helpers.detailed_pagination import get_paginated_format_v2
 from management.models.unconfirmed_matches import ProposedMatch
 from chat.models import Chat, ChatSerializer
@@ -219,6 +217,24 @@ def active_call_rooms(request):
         return Response({"error": str(e)}, status=400)
 
 
+@extend_schema(
+    responses=inline_serializer(
+        name="UserData",
+        fields={
+            "id": serializers.UUIDField(),
+            "status": serializers.CharField(),
+            "isSupport": serializers.BooleanField(),
+            "isSearching": serializers.BooleanField(),
+            "email": serializers.EmailField(),
+            "preMatchingAppointment": PreMatchingAppointmentSerializer(required=False),
+            "calComAppointmentLink": serializers.CharField(),
+            "hadPreMatchingCall": serializers.BooleanField(),
+            "emailVerified": serializers.BooleanField(),
+            "userFormCompleted": serializers.BooleanField(),
+            "profile": SelfProfileSerializer(),
+        },
+    ),
+)
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 @authentication_classes([SessionAuthentication])

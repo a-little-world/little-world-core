@@ -11,10 +11,10 @@ from rest_framework.response import Response
 from rest_framework_dataclasses.serializers import DataclassSerializer
 
 from management import controller
+from management.models.unconfirmed_matches import serialize_proposed_matches
 from management.api.scores import score_between_db_update
-from management.api.user_data import AdvancedUserMatchSerializer, serialize_proposed_matches
 from management.helpers import IsAdminOrMatchingUser
-from management.models.matches import Match
+from management.models.matches import AdvancedUserMatchSerializer, Match
 from management.models.scores import TwoUserMatchingScore
 from management.models.state import State
 from management.models.unconfirmed_matches import ProposedMatch
