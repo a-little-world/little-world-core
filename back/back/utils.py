@@ -1,7 +1,7 @@
 import json
 import random
 from copy import deepcopy
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from rest_framework.metadata import SimpleMetadata
 
@@ -26,6 +26,13 @@ class CoolerJson(json.JSONEncoder):
 def dataclass_as_dict(data):
     return {k: getattr(data, k) for k in data.__annotations__}
 
+# DON'T REMOVE used in migrations!
+def _double_uuid():
+    return str(uuid4()) + "-" + str(uuid4())
+
+# DON'T REMOVE used in migrations!
+def _rand_int5():
+    return random.randint(10000, 99999)
 
 def get_options_serializer(self, obj):
     """

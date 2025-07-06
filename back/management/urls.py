@@ -4,7 +4,6 @@ from django_rest_passwordreset.views import ResetPasswordConfirmViewSet, ResetPa
 from management.api.user_data_v3 import api_urls as user_data_v3_api_urls
 from rest_framework.routers import DefaultRouter
 
-from management import api
 from management.api import (
     ai,
     notify,
@@ -14,6 +13,21 @@ from management.api import (
     slack,
     user_advanced_statistics,
     videocalls_advanced,
+    trans,
+    user,
+    calcom,
+    register,
+    community_events,
+    cookies,
+    confirm_match,
+    developers,
+    profile,
+    report_unmatch,
+    matches,
+    googletrans,
+    email_settings,
+    translation_requests,
+    options,
 )
 from management.api.dynamic_user_list import (
     DynamicUserListGeneralViewSet,
@@ -91,54 +105,53 @@ api_routes = [
     *prematch_appointment_advanced.api_urls,
     *user_data_v3_api_urls,
     # User
-    path("api/trans", api.trans.get_translation_catalogue),
-    path("api/trans/<str:lang>/", api.trans.get_translation_catalogue),
-    path("api/options/", api.options.get_options),
-    path("api/community/events/", api.community_events.GetActiveEventsApi.as_view()),
-    path("api/register/", api.register.Register.as_view()),
+    path("api/trans", trans.get_translation_catalogue),
+    path("api/trans/<str:lang>/", trans.get_translation_catalogue),
+    path("api/options/", options.get_options),
+    path("api/community/events/", community_events.GetActiveEventsApi.as_view()),
+    path("api/register/", register.Register.as_view()),
     path(
         "api/cookies/cookie_banner.js",
-        api.cookies.get_dynamic_cookie_banner_js,
+        cookies.get_dynamic_cookie_banner_js,
     ),
-    path("api/user/confirm_match/", api.user.ConfirmMatchesApi.as_view()),
+    path("api/user/confirm_match/", user.ConfirmMatchesApi.as_view()),
     path(
         "api/user/search_state/<str:state_slug>",
-        api.user.UpdateSearchingStateApi.as_view(),
+        user.UpdateSearchingStateApi.as_view(),
     ),
-    path("api/user/login/", api.user.LoginApi.as_view()),
-    path("api/matching/report/", api.report_unmatch.report),
-    path("api/matching/unmatch/", api.report_unmatch.unmatch),
+    path("api/user/login/", user.LoginApi.as_view()),
+    path("api/matching/report/", report_unmatch.report),
+    path("api/matching/unmatch/", report_unmatch.unmatch),
     *(
-        [path("api/devlogin/", api.developers.DevLoginAPI.as_view())]  # Dev login only to be used in staging!
+        [path("api/devlogin/", developers.DevLoginAPI.as_view())]  # Dev login only to be used in staging!
         if (settings.IS_STAGE or settings.IS_DEV or settings.EXPOSE_DEV_LOGIN)
         else []
     ),
-    path("api/user/logout/", api.user.LogoutApi.as_view()),
-    path("api/user/checkpw/", api.user.CheckPasswordApi.as_view()),
-    path("api/user/changepw/", api.user.ChangePasswordApi.as_view()),
-    path("api/user/translate/", api.translation_requests.translate),
-    path("api/googletrans/translate/", api.googletrans.translate),
-    path("api/user/change_email/", api.user.ChangeEmailApi.as_view()),
-    path("api/emails/toggle_sub/", api.email_settings.unsubscribe_link),
-    path("api/emails/settings_update/", api.email_settings.unsubscribe_email),
+    path("api/user/logout/", user.LogoutApi.as_view()),
+    path("api/user/checkpw/", user.CheckPasswordApi.as_view()),
+    path("api/user/changepw/", user.ChangePasswordApi.as_view()),
+    path("api/user/translate/", translation_requests.translate),
+    path("api/googletrans/translate/", googletrans.translate),
+    path("api/user/change_email/", user.ChangeEmailApi.as_view()),
+    path("api/emails/toggle_sub/", email_settings.unsubscribe_link),
+    path("api/emails/settings_update/", email_settings.unsubscribe_email),
     path(
         "api/profile/",
-        api.profile.ProfileViewSet.as_view({"post": "partial_update", "get": "_get"}),
+        profile.ProfileViewSet.as_view({"post": "partial_update", "get": "_get"}),
     ),
-    path("api/profile/completed/", api.profile.ProfileCompletedApi.as_view()),
+    path("api/profile/completed/", profile.ProfileCompletedApi.as_view()),
     path(
         "api/profile/<str:partner_hash>/match",
-        api.matches.get_match,
+        matches.get_match,
     ),
     # e.g.: /user/verify/email/Base64{d=email&u=hash&k=pin:hash}
     path(
         "api/user/verify/email/<str:auth_data>",
-        api.user.VerifyEmail.as_view(),
+        user.VerifyEmail.as_view(),
     ),
-    path("api/user/verify/email_resend/", api.user.resend_verification_mail),
-    path("api/user/match/confirm_deny/", api.confirm_match.confirm_match),
-    path("api/matching/make_match", api.matches.make_match),
-    path("api/help_message/", api.help.SendHelpMessage.as_view()),
+    path("api/user/verify/email_resend/", user.resend_verification_mail),
+    path("api/user/match/confirm_deny/", confirm_match.confirm_match),
+    path("api/matching/make_match", matches.make_match),
     *router.urls,
 ]
 
@@ -156,14 +169,14 @@ view_routes = [
     ),
     path(
         "user/still_active/",
-        api.user.still_active_callback,
+        user.still_active_callback,
         name="still_active_callback",
     ),
     path("api/user/question_cards/", get_question_cards, name="question_cards"),
     path("api/user/archive_card/", archive_card, name="question_cards_archive"),
     path(
         "api/user/delete_account/",
-        api.user.delete_account,
+        user.delete_account,
         name="delete_account_api",
     ),
     path(
@@ -180,7 +193,7 @@ view_routes = [
     ),  # TODO: can be depricated / is perforemed automaticly on update
     path("api/admin/top_scores/", list_top_scores),
     path("info_card_debug/", main_frontend.debug_info_card, name="info_card"),
-    path("api/calcom/", api.calcom.callcom_websocket_callback),
+    path("api/calcom/", calcom.callcom_websocket_callback),
     *matching_panel.view_urls,
     *email_templates.view_urls,
     *admin_panel_emails.email_view_routes,
