@@ -11,7 +11,6 @@ from rest_framework.request import Request
 from translations import get_translation
 
 from back.utils import CoolerJson, transform_add_options_serializer
-from management.api.user_data import frontend_data
 from management.controller import get_base_management_user
 from management.models.profile import SelfProfileSerializer
 from management.views.cookie_banner_frontend import get_cookie_banner_template_data

@@ -26,31 +26,7 @@ from management.models.pre_matching_appointment import PreMatchingAppointment, P
 from management.models.profile import CensoredProfileSerializer, ProposalProfileSerializer, SelfProfileSerializer
 from management.models.state import FrontendStatusSerializer, State
 from management.models.unconfirmed_matches import ProposedMatch
-
-
-def get_paginated(query_set, items_per_page, page):
-    pages = Paginator(query_set, items_per_page).page(page)
-    return {
-        "items": list(pages),
-        "totalItems": pages.paginator.count,
-        "itemsPerPage": items_per_page,
-        "currentPage": page,
-    }
-
-
-def get_paginated_format_v2(query_set, items_per_page, page):
-    pages = Paginator(query_set, items_per_page).page(page)
-    return {
-        "results": list(pages),
-        "page_size": items_per_page,
-        "pages_total": pages.paginator.num_pages,
-        "total_results": pages.paginator.count,
-        "page": page,
-        "first_page": 1,
-        "next_page": pages.next_page_number() if pages.has_next() else None,
-        "previous_page": pages.previous_page_number() if pages.has_previous() else None,
-    }
-
+from management.helpers.detailed_pagination import get_paginated_format_v2
 
 def determine_match_bucket(match_pk):
     try:
@@ -212,7 +188,7 @@ def user_data(user):
     profile_data = ProfileWOptions(user_profile).data
     del profile_data["options"]
 
-    support_matches = get_paginated(Match.get_support_matches(user), 10, 1)
+    support_matches = get_paginated_format_v2(Match.get_support_matches(user), 10, 1)
     support_matches["items"] = AdvancedUserMatchSerializer(
         support_matches["items"], many=True, context={"user": user}
     ).data
@@ -262,85 +238,6 @@ def user_data(user):
     }
 
 
-def frontend_data(user, items_per_page=10, request=None):
-    user_state = user.state
-    user_profile = user.profile
-
-    is_matching_user = user_state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-
-    community_events = get_paginated(CommunityEvent.get_active_events_for_user(user), items_per_page, 1)
-    community_events["items"] = serialize_community_events(community_events["items"])
-
-    confirmed_matches = get_paginated(Match.get_confirmed_matches(user), items_per_page, 1)
-    confirmed_matches["items"] = AdvancedUserMatchSerializer(
-        confirmed_matches["items"], many=True, context={"user": user}
-    ).data
-
-    unconfirmed_matches = get_paginated(Match.get_unconfirmed_matches(user), items_per_page, 1)
-    unconfirmed_matches["items"] = AdvancedUserMatchSerializer(
-        unconfirmed_matches["items"], many=True, context={"user": user}
-    ).data
-
-    support_matches = get_paginated(Match.get_support_matches(user), items_per_page, 1)
-    support_matches["items"] = AdvancedUserMatchSerializer(
-        support_matches["items"], many=True, context={"user": user}
-    ).data
-
-    proposed_matches = get_paginated(ProposedMatch.get_open_proposals_learner(user), items_per_page, 1)
-    proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
-
-    read_notifications = get_paginated(Notification.get_read_notifications(user), 3, 1)
-    read_notifications["items"] = serialize_notifications(read_notifications["items"])
-
-    unread_notifications = get_paginated(Notification.get_unread_notifications(user), 3, 1)
-    unread_notifications["items"] = serialize_notifications(unread_notifications["items"])
-
-    archived_notifications = get_paginated(Notification.get_archived_notifications(user), 3, 1)
-    archived_notifications["items"] = serialize_notifications(archived_notifications["items"])
-
-    empty_list = {
-        "items": [],
-        "totalItems": 0,
-        "itemsPerPage": 0,
-        "currentPage": 0,
-    }
-
-    ud = user_data(user)
-
-    chats = Chat.get_chats(user)
-    paginated_chats = get_paginated_format_v2(chats, items_per_page, 1)
-    paginated_chats["results"] = ChatSerializer(paginated_chats["results"], many=True, context={"user": user}).data
-
-    # find all active calls
-    all_active_rooms = LivekitSession.objects.filter(
-        Q(room__u1=user, is_active=True, u2_active=True, u1_active=False)
-        | Q(room__u2=user, is_active=True, u1_active=True, u2_active=False)
-    )
-
-    frontend_data = {
-        "user": ud,
-        "communityEvents": community_events,
-        "matches": {
-            # Switch case here cause for support users all matches are 'support' matches :D
-            "support": empty_list if is_matching_user else support_matches,
-            "confirmed": support_matches if is_matching_user else confirmed_matches,
-            "unconfirmed": unconfirmed_matches,
-            "proposed": proposed_matches,
-        },
-        "notifications": {
-            "unread": unread_notifications,
-            "read": read_notifications,
-            "archived": archived_notifications,
-        },
-        "apiOptions": get_options_dict(),
-        "chats": paginated_chats,
-        "activeCallRooms": SerializeLivekitSession(all_active_rooms, context={"user": user}, many=True).data,
-        "firebaseClientConfig": settings.FIREBASE_CLIENT_CONFIG,
-        "firebasePublicVapidKey": settings.FIREBASE_PUBLIC_VAPID_KEY,
-    }
-
-    return frontend_data
-
 
 @dataclass
 class UserDataV2Params:
@@ -354,21 +251,6 @@ class ConfirmMatchSerializer(DataclassSerializer):
         dataclass = UserDataV2Params
 
 
-@extend_schema(
-    request=ConfirmMatchSerializer(many=False),
-)
-@api_view(["POST"])
-@authentication_classes([SessionAuthentication])
-@permission_classes([IsAuthenticated])
-def user_data_v2(request):
-    serializer = ConfirmMatchSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-
-    params = serializer.save()
-
-    return Response(frontend_data(request.user, params.items_per_page))
-
-
 class ConfirmedDataApi(APIView):
     """
     Returns the Confirmed matches data for a given user.
@@ -380,7 +262,7 @@ class ConfirmedDataApi(APIView):
     @extend_schema(
         parameters=[
             OpenApiParameter(name="page", type=int, description="Page number for pagination"),
-            OpenApiParameter(name="itemsPerPage", type=int, description="Number of items per page"),
+            OpenApiParameter(name="page_size", type=int, description="Number of items per page"),
         ],
     )
     def get(self, request):
@@ -388,7 +270,7 @@ class ConfirmedDataApi(APIView):
         Handle GET requests to retrieve confirmed matches data for the user.
         """
         page = int(request.GET.get("page", 1))
-        items_per_page = int(request.GET.get("itemsPerPage", 10))
+        items_per_page = int(request.GET.get("page_size", 10))
 
         is_matching_user = request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
 
@@ -399,7 +281,7 @@ class ConfirmedDataApi(APIView):
                 matches = Match.get_support_matches(request.user)
             else:
                 matches = Match.get_confirmed_matches(request.user)
-            confirmed_matches = get_paginated(matches, items_per_page, page)
+            confirmed_matches = get_paginated_format_v2(matches, items_per_page, page)
 
             # Serialize matches data for the user
             confirmed_matches["items"] = AdvancedUserMatchSerializer(

@@ -93,7 +93,6 @@ api_routes = [
     *prematch_appointment_advanced.api_urls,
     *user_data_v3_api_urls,
     # User
-    path(_api_url("user_data_v2"), api.user_data.user_data_v2),
     path(_api_url("trans"), api.trans.get_translation_catalogue),
     path(_api_url("trans/<str:lang>"), api.trans.get_translation_catalogue),
     path(_api_url("options"), api.options.get_options),

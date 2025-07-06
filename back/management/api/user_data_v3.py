@@ -17,12 +17,11 @@ from management.models.profile import SelfProfileSerializer
 from management.api.options import get_options_dict
 from management.api.user_data import (
     AdvancedUserMatchSerializer, 
-    get_paginated, 
-    get_paginated_format_v2,
     serialize_notifications,
     serialize_community_events,
     serialize_proposed_matches,
 )
+from management.helpers.detailed_pagination import get_paginated_format_v2
 from management.models.unconfirmed_matches import ProposedMatch
 from chat.models import Chat, ChatSerializer
 from video.models import LivekitSession, SerializeLivekitSession
@@ -84,17 +83,17 @@ def notifications(request):
     Returns notification data for the authenticated user.
     """
     page = int(request.GET.get("page", 1))
-    items_per_page = int(request.GET.get("itemsPerPage", 10))
+    items_per_page = int(request.GET.get("page_size", 10))
     
     try:
-        read_notifications = get_paginated(Notification.get_read_notifications(request.user), items_per_page, page)
-        read_notifications["items"] = serialize_notifications(read_notifications["items"])
+        read_notifications = get_paginated_format_v2(Notification.get_read_notifications(request.user), items_per_page, page)
+        read_notifications["results"] = serialize_notifications(read_notifications["results"])
 
-        unread_notifications = get_paginated(Notification.get_unread_notifications(request.user), items_per_page, page)
-        unread_notifications["items"] = serialize_notifications(unread_notifications["items"])
+        unread_notifications = get_paginated_format_v2(Notification.get_unread_notifications(request.user), items_per_page, page)
+        unread_notifications["results"] = serialize_notifications(unread_notifications["results"])
 
-        archived_notifications = get_paginated(Notification.get_archived_notifications(request.user), items_per_page, page)
-        archived_notifications["items"] = serialize_notifications(archived_notifications["items"])
+        archived_notifications = get_paginated_format_v2(Notification.get_archived_notifications(request.user), items_per_page, page)
+        archived_notifications["results"] = serialize_notifications(archived_notifications["results"])
         
         return Response({
             "unread": unread_notifications,
@@ -158,12 +157,12 @@ def community_events(request):
     Returns community events data for the authenticated user.
     """
     page = int(request.GET.get("page", 1))
-    items_per_page = int(request.GET.get("itemsPerPage", 10))
+    items_per_page = int(request.GET.get("page_size", 10))
     user = request.user
     
     try:
-        events = get_paginated(CommunityEvent.get_active_events_for_user(user), items_per_page, page)
-        events["items"] = serialize_community_events(events["items"])
+        events = get_paginated_format_v2(CommunityEvent.get_active_events_for_user(user), items_per_page, page)
+        events["results"] = serialize_community_events(events["results"])
         
         return Response(events)
     except Exception as e:

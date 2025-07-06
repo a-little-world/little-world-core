@@ -139,9 +139,9 @@ class LoginApi(APIView):
                 return Response(get_translation("api.login_failed_staff"), status=status.HTTP_400_BAD_REQUEST)
             login(request, usr)
             # Also pass the whole user data on a sucessfull login!
-            from management.api.user_data import frontend_data
+            from management.api.user_data_v3 import get_user_data
 
-            return Response(frontend_data(request.user))
+            return Response(get_user_data(request.user))
         else:
             return Response(get_translation("api.login_failed"), status=status.HTTP_400_BAD_REQUEST)
 
