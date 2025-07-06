@@ -206,40 +206,6 @@ def firebase_config(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 @authentication_classes([SessionAuthentication])
-def chats(request):
-    """
-    Returns chat data for the authenticated user.
-    """
-    page = int(request.GET.get("page", 1))
-    items_per_page = int(request.GET.get("itemsPerPage", 10))
-    user = request.user
-    
-    try:
-        user_chats = Chat.get_chats(user)
-        
-        def get_paginated_format_v2(query_set, items_per_page, page):
-            pages = Paginator(query_set, items_per_page).page(page)
-            return {
-                "results": list(pages),
-                "page_size": items_per_page,
-                "pages_total": pages.paginator.num_pages,
-                "page": page,
-                "first_page": 1,
-                "next_page": pages.next_page_number() if pages.has_next() else None,
-                "previous_page": pages.previous_page_number() if pages.has_previous() else None,
-            }
-        
-        paginated_chats = get_paginated_format_v2(user_chats, items_per_page, page)
-        paginated_chats["results"] = ChatSerializer(paginated_chats["results"], many=True, context={"user": user}).data
-        
-        return Response(paginated_chats)
-    except Exception as e:
-        return Response({"error": str(e)}, status=400)
-
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-@authentication_classes([SessionAuthentication])
 def active_call_rooms(request):
     """
     Returns active call rooms for the authenticated user.
@@ -283,7 +249,6 @@ api_urls = [
     path("api/community", community_events, name="community_events_api"),
     path("api/api_options", api_options, name="api_options_api"),
     path("api/firebase", firebase_config, name="firebase_config_api"),
-    path("api/chats", chats, name="chats_api"),
     path("api/call_rooms", active_call_rooms, name="active_call_rooms_api"),
     path("api/user", user_profile, name="user_profile_api"),
     path("api/translations", api_translations, name="api_translations_api"),
