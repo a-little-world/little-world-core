@@ -44,6 +44,7 @@ def get_paginated_format_v2(query_set, items_per_page, page):
         "results": list(pages),
         "page_size": items_per_page,
         "pages_total": pages.paginator.num_pages,
+        "total_results": pages.paginator.count,
         "page": page,
         "first_page": 1,
         "next_page": pages.next_page_number() if pages.has_next() else None,

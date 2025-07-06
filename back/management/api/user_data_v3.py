@@ -18,6 +18,7 @@ from management.api.options import get_options_dict
 from management.api.user_data import (
     AdvancedUserMatchSerializer, 
     get_paginated, 
+    get_paginated_format_v2,
     serialize_notifications,
     serialize_community_events,
     serialize_proposed_matches,
@@ -112,36 +113,31 @@ def matches(request):
     Returns match data for the authenticated user.
     """
     page = int(request.GET.get("page", 1))
-    items_per_page = int(request.GET.get("itemsPerPage", 10))
+    items_per_page = int(request.GET.get("page_size", 10))
     user = request.user
     
     try:
         is_matching_user = user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
         
-        empty_list = {
-            "items": [],
-            "totalItems": 0,
-            "itemsPerPage": 0,
-            "currentPage": 0,
-        }
+        empty_list = get_paginated_format_v2(Match.objects.none(), items_per_page, 1)
         
-        confirmed_matches = get_paginated(Match.get_confirmed_matches(user), items_per_page, page)
-        confirmed_matches["items"] = AdvancedUserMatchSerializer(
-            confirmed_matches["items"], many=True, context={"user": user}
+        confirmed_matches = get_paginated_format_v2(Match.get_confirmed_matches(user), items_per_page, 1 if is_matching_user else page)
+        confirmed_matches["results"] = AdvancedUserMatchSerializer(
+            confirmed_matches["results"], many=True, context={"user": user}
         ).data
 
-        unconfirmed_matches = get_paginated(Match.get_unconfirmed_matches(user), items_per_page, page)
-        unconfirmed_matches["items"] = AdvancedUserMatchSerializer(
-            unconfirmed_matches["items"], many=True, context={"user": user}
+        unconfirmed_matches = get_paginated_format_v2(Match.get_unconfirmed_matches(user), items_per_page, 1)
+        unconfirmed_matches["results"] = AdvancedUserMatchSerializer(
+            unconfirmed_matches["results"], many=True, context={"user": user}
         ).data
 
-        support_matches = get_paginated(Match.get_support_matches(user), items_per_page, page)
-        support_matches["items"] = AdvancedUserMatchSerializer(
-            support_matches["items"], many=True, context={"user": user}
+        support_matches = get_paginated_format_v2(Match.get_support_matches(user), items_per_page, page if is_matching_user else 1)
+        support_matches["results"] = AdvancedUserMatchSerializer(
+            support_matches["results"], many=True, context={"user": user}
         ).data
 
-        proposed_matches = get_paginated(ProposedMatch.get_open_proposals_learner(user), items_per_page, page)
-        proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
+        proposed_matches = get_paginated_format_v2(ProposedMatch.get_open_proposals_learner(user), items_per_page, 1)
+        proposed_matches["results"] = serialize_proposed_matches(proposed_matches["results"], user)
         
         return Response({
             # Switch case here cause for support users all matches are 'support' matches :D
