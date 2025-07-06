@@ -1,25 +1,9 @@
 import json
 import random
 from copy import deepcopy
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from rest_framework.metadata import SimpleMetadata
-
-VERSION = 1
-
-
-def _api_url(slug, _v=VERSION, admin=False, end_slash=True):
-    v = "" if _v == 1 else f"/v{_v}"
-    return (f"api/admin{v}/{slug}" if admin else f"api/{slug}{v}") + ("/" if end_slash else "")
-
-
-def _double_uuid():
-    return str(uuid4()) + "-" + str(uuid4())
-
-
-def _rand_int5():
-    return random.randint(10000, 99999)
-
 
 class CoolerJson(json.JSONEncoder):
     """

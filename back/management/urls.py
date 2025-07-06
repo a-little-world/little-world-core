@@ -4,7 +4,6 @@ from django_rest_passwordreset.views import ResetPasswordConfirmViewSet, ResetPa
 from management.api.user_data_v3 import api_urls as user_data_v3_api_urls
 from rest_framework.routers import DefaultRouter
 
-from back.utils import _api_url
 from management import api
 from management.api import (
     ai,
@@ -93,56 +92,56 @@ api_routes = [
     *prematch_appointment_advanced.api_urls,
     *user_data_v3_api_urls,
     # User
-    path(_api_url("trans"), api.trans.get_translation_catalogue),
-    path(_api_url("trans/<str:lang>"), api.trans.get_translation_catalogue),
-    path(_api_url("options"), api.options.get_options),
-    path(_api_url("community/events"), api.community_events.GetActiveEventsApi.as_view()),
-    path(_api_url("register"), api.register.Register.as_view()),
-    path(_api_url("user"), user_data_api, name="user_data_api"),
+    path("api/trans", api.trans.get_translation_catalogue),
+    path("api/trans/<str:lang>/", api.trans.get_translation_catalogue),
+    path("api/options/", api.options.get_options),
+    path("api/community/events/", api.community_events.GetActiveEventsApi.as_view()),
+    path("api/register/", api.register.Register.as_view()),
+    path("api/user/", user_data_api, name="user_data_api"),
     path(
-        _api_url("cookies/cookie_banner.js", end_slash=False),
+        "api/cookies/cookie_banner.js",
         api.cookies.get_dynamic_cookie_banner_js,
     ),
-    path(_api_url("user/confirm_match"), api.user.ConfirmMatchesApi.as_view()),
+    path("api/user/confirm_match/", api.user.ConfirmMatchesApi.as_view()),
     path(
-        _api_url("user/search_state/<str:state_slug>", end_slash=False),
+        "api/user/search_state/<str:state_slug>",
         api.user.UpdateSearchingStateApi.as_view(),
     ),
-    path(_api_url("user/login"), api.user.LoginApi.as_view()),
-    path(_api_url("matching/report"), api.report_unmatch.report),
-    path(_api_url("matching/unmatch"), api.report_unmatch.unmatch),
+    path("api/user/login/", api.user.LoginApi.as_view()),
+    path("api/matching/report/", api.report_unmatch.report),
+    path("api/matching/unmatch/", api.report_unmatch.unmatch),
     *(
-        [path(_api_url("devlogin"), api.developers.DevLoginAPI.as_view())]  # Dev login only to be used in staging!
+        [path("api/devlogin/", api.developers.DevLoginAPI.as_view())]  # Dev login only to be used in staging!
         if (settings.IS_STAGE or settings.IS_DEV or settings.EXPOSE_DEV_LOGIN)
         else []
     ),
-    path(_api_url("user/logout"), api.user.LogoutApi.as_view()),
-    path(_api_url("user/checkpw"), api.user.CheckPasswordApi.as_view()),
-    path(_api_url("user/changepw"), api.user.ChangePasswordApi.as_view()),
-    path(_api_url("user/translate"), api.translation_requests.translate),
-    path(_api_url("googletrans/translate"), api.googletrans.translate),
-    path(_api_url("user/change_email"), api.user.ChangeEmailApi.as_view()),
-    path(_api_url("emails/toggle_sub"), api.email_settings.unsubscribe_link),
-    path(_api_url("emails/settings_update/"), api.email_settings.unsubscribe_email),
+    path("api/user/logout/", api.user.LogoutApi.as_view()),
+    path("api/user/checkpw/", api.user.CheckPasswordApi.as_view()),
+    path("api/user/changepw/", api.user.ChangePasswordApi.as_view()),
+    path("api/user/translate/", api.translation_requests.translate),
+    path("api/googletrans/translate/", api.googletrans.translate),
+    path("api/user/change_email/", api.user.ChangeEmailApi.as_view()),
+    path("api/emails/toggle_sub/", api.email_settings.unsubscribe_link),
+    path("api/emails/settings_update/", api.email_settings.unsubscribe_email),
     path(
-        _api_url("profile"),
+        "api/profile/",
         api.profile.ProfileViewSet.as_view({"post": "partial_update", "get": "_get"}),
     ),
-    path(_api_url("profile/completed"), api.profile.ProfileCompletedApi.as_view()),
+    path("api/profile/completed/", api.profile.ProfileCompletedApi.as_view()),
     path(
-        _api_url("profile/<str:partner_hash>/match", end_slash=False),
+        "api/profile/<str:partner_hash>/match",
         api.matches.get_match,
     ),
-    path(_api_url("matches/confirmed"), api.user_data.ConfirmedDataApi.as_view()),
+    path("api/matches/confirmed/", api.user_data.ConfirmedDataApi.as_view()),
     # e.g.: /user/verify/email/Base64{d=email&u=hash&k=pin:hash}
     path(
-        _api_url("user/verify/email/<str:auth_data>", end_slash=False),
+        "api/user/verify/email/<str:auth_data>",
         api.user.VerifyEmail.as_view(),
     ),
-    path(_api_url("user/verify/email_resend"), api.user.resend_verification_mail),
-    path(_api_url("user/match/confirm_deny"), api.confirm_match.confirm_match),
+    path("api/user/verify/email_resend/", api.user.resend_verification_mail),
+    path("api/user/match/confirm_deny/", api.confirm_match.confirm_match),
     path("api/matching/make_match", api.matches.make_match),
-    path(_api_url("help_message"), api.help.SendHelpMessage.as_view()),
+    path("api/help_message/", api.help.SendHelpMessage.as_view()),
     *router.urls,
 ]
 
@@ -166,7 +165,7 @@ view_routes = [
     path("api/user/question_cards/", get_question_cards, name="question_cards"),
     path("api/user/archive_card/", archive_card, name="question_cards_archive"),
     path(
-        _api_url("user/delete_account", admin=False),
+        "api/user/delete_account/",
         api.user.delete_account,
         name="delete_account_api",
     ),
@@ -175,16 +174,16 @@ view_routes = [
         public_newsletter_subscribe,
         name="newsletter_subscribe",
     ),
-    path(_api_url("quick_matching_statistics", admin=True), get_quick_statistics),
-    path(_api_url("optimize_possible_matches", admin=True), score_maximization_matching),
+    path("api/admin/quick_matching_statistics/", get_quick_statistics),
+    path("api/admin/optimize_possible_matches/", score_maximization_matching),
     path("api/matching/burst_update_scores/", burst_calculate_matching_scores_v2),
     path("api/matching/get_active_burst_calculation/", get_active_burst_calculation),
     path(
-        _api_url("delete_all_matching_scores", admin=True), delete_all_matching_scores
+        "api/admin/delete_all_matching_scores/", delete_all_matching_scores
     ),  # TODO: can be depricated / is perforemed automaticly on update
-    path(_api_url("top_scores", admin=True), list_top_scores),
+    path("api/admin/top_scores/", list_top_scores),
     path("info_card_debug/", main_frontend.debug_info_card, name="info_card"),
-    path(_api_url("calcom", admin=False), api.calcom.callcom_websocket_callback),
+    path("api/calcom/", api.calcom.callcom_websocket_callback),
     *matching_panel.view_urls,
     *email_templates.view_urls,
     *admin_panel_emails.email_view_routes,
