@@ -506,12 +506,12 @@ def get_user_data(user):
     if pre_matching_app:
         pre_match_appointent = PreMatchingAppointmentSerializer(pre_matching_app).data
 
-    cal_data_link = None
-    if hasattr(settings, "CAL_COM_PROFILE_LINK") and settings.CAL_COM_PROFILE_LINK:
-        # encode the email to url safe string
-        cal_data_link = settings.CAL_COM_PROFILE_LINK.replace(
-            "{email}", urllib.parse.quote(user.email)
-        )
+    cal_data_link = "{calcom_meeting_id}?{encoded_params}".format(
+        encoded_params=urllib.parse.urlencode(
+            {"email": str(user.email), "hash": str(user.hash), "bookingcode": str(user.state.prematch_booking_code)}
+        ),
+        calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID,
+    )
 
     # Get video call join link if available
     pre_call_join_link = None
