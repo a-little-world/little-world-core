@@ -68,6 +68,14 @@ class RandomCallLobby(models.Model):
     user = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="user_in_lobby")
     status = models.BooleanField(default=False)
 
+    @classmethod
+    def get_or_create_lobby(cls, user):
+        lobby = cls.objects.filter(user=user)
+        if lobby.exists():
+            return lobby.first()
+        else:
+            return cls.objects.create(user=user,status=False)
+    
 class RandomCallMatchings(models.Model):
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
     
@@ -80,15 +88,16 @@ class RandomCallMatchings(models.Model):
     reported_flag = models.BooleanField(default=False)
     follow_up_match_flag = models.BooleanField(default=False)
 
-    tmp_chat = models.ForeignKey("chat.Chat", on_delete=models.CASCADE, related_name="temporary_chat")
+    tmp_chat = models.CharField(max_length=50)
+    tmp_match = models.CharField(max_length=50)
 
     @classmethod
-    def get_or_create_match(cls, user1, user2, tmp_chat):
+    def get_or_create_match(cls, user1, user2, tmp_chat, tmp_match):
         match = cls.objects.filter(Q(u1=user1, u2=user2) | Q(u1=user2, u2=user1))
         if match.exists():
             return match.first()
         else:
-            return cls.objects.create(u1=user1, u2=user2, tmp_chat=tmp_chat)
+            return cls.objects.create(u1=user1, u2=user2, tmp_chat=tmp_chat, tmp_match=tmp_match)
 
 class SerializeLivekitSession(ModelSerializer):
     class Meta:

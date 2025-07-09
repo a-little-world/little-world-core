@@ -149,7 +149,7 @@ class NewsItemAdmin(admin.ModelAdmin):
 
 @admin.register(models.matches.Match)
 class MatchModelAdmin(admin.ModelAdmin):
-    list_display = ("uuid", "active", "created_at", "updated_at", "user1", "user2")
+    list_display = ("uuid", "active", "created_at", "updated_at", "user1", "user2", "is_random_call_match")
     search_fields = ("uuid",)
 
 

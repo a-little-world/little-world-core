@@ -44,6 +44,8 @@ class Match(models.Model):
 
     send_automatic_message_1week = models.BooleanField(default=True)
 
+    is_random_call_match = models.BooleanField(default=False)
+
     def sync_counters(self):
         self.total_messages_counter = Message.objects.filter(
             Q(sender=self.user1, recipient=self.user2) | Q(sender=self.user2, recipient=self.user1)

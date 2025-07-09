@@ -4,6 +4,7 @@ from django.core.paginator import Paginator
 from django.db import models
 from django.db.models import Max, Q, Case, When, Value, IntegerField
 from management import models as management_models
+from video.models import RandomCallMatchings
 from rest_framework import serializers
 
 
@@ -40,8 +41,6 @@ class Chat(models.Model):
         else:
             queryset = queryset.annotate(
                 newest_message_time=Max("message__created")
-            ).filter(
-                newest_message_time__isnull=False
             ).order_by("-newest_message_time")
         
         return queryset
@@ -103,7 +102,14 @@ class ChatSerializer(serializers.ModelSerializer):
             user = self.context["request"].user if "request" in self.context else self.context["user"]
             partner = instance.get_partner(user)
 
-            if management_models.matches.Match.get_match(user, partner).exists():
+            if RandomCallMatchings.objects.filter(Q(u1=user, u2=partner) | Q(u1=partner, u2=user)).exists(): #if there is no match, but a randomCallMatch then exceptionally grant data
+                profile = management_models.profile.CensoredProfileSerializer(user.profile).data
+                representation["user"] = profile
+                representation["user"]["id"] = user.hash
+                profile = management_models.profile.CensoredProfileSerializer(partner.profile).data
+                representation["partner"] = profile
+                representation["partner"]["id"] = partner.hash
+            elif management_models.matches.Match.get_match(user, partner).exists():
                 profile = management_models.profile.CensoredProfileSerializer(partner.profile).data
                 representation["partner"] = profile
                 representation["partner"]["id"] = partner.hash
