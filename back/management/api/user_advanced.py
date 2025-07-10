@@ -2,7 +2,8 @@ import json
 from back.utils import CoolerJson
 from chat.models import Chat, ChatSerializer, Message, MessageSerializer
 from django.conf import settings
-from django.db.models import Q
+from django.db.models import Q, Value, CharField
+from django.db.models.functions import Concat
 from django.urls import path
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -248,6 +249,11 @@ class UserFilter(filters.FilterSet):
         help_text="Filter for users that are subscribed to the newsletter",
     )
 
+    profile__job_search = filters.BooleanFilter(
+        field_name="profile__job_search",
+        help_text="Filter for users that are searching for a job",
+    )
+
     state__email_authenticated = filters.BooleanFilter(
         field_name="state__email_authenticated",
         help_text="Filter for users that have authenticated their email",
@@ -295,11 +301,14 @@ class UserFilter(filters.FilterSet):
     search = filters.CharFilter(method="filter_search", label="Search")
 
     def filter_search(self, queryset, name, value):
-        return queryset.filter(
+        return queryset.annotate(
+            full_name=Concat('profile__first_name', Value(' '), 'profile__second_name', output_field=CharField())
+        ).filter(
             Q(hash__icontains=value)
             | Q(profile__first_name__icontains=value)
             | Q(profile__second_name__icontains=value)
             | Q(email__icontains=value)
+            | Q(full_name__icontains=value)
         )
 
     def filter_list(self, queryset, name, value):
