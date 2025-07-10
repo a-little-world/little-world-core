@@ -14,7 +14,7 @@ from management.models.matches import Match
 from management.models.profile import MinimalProfileSerializer
 from management.models.state import State
 from management.models.user import User
-from management.api.user_data import determine_match_bucket
+from management.api.match_journey_filter_list import determine_match_bucket
 
 
 class AdvancedMatchSerializer(serializers.ModelSerializer):

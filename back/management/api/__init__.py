@@ -24,11 +24,9 @@ from . import (
     user,
     user_advanced,
     user_advanced_filter,
-    user_data,
 )
 
 __all__ = [
-    "user_data",
     "register",
     "user",
     "profile",

@@ -1,6 +1,3 @@
-import json
-
-from django.core.serializers.json import DjangoJSONEncoder
 from django.shortcuts import render
 from django.urls import path, re_path
 from rest_framework.authentication import SessionAuthentication
@@ -8,6 +5,7 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.response import Response
 
 from management.helpers import IsAdminOrMatchingUser
+from management.utils import check_task_status
 
 
 @api_view(["GET"])
@@ -15,17 +13,6 @@ from management.helpers import IsAdminOrMatchingUser
 @authentication_classes([SessionAuthentication])
 def matching_panel(request, menu=None):
     return render(request, "admin_pannel_v3_frontend.html")
-
-
-def check_task_status(task_id):
-    from celery.result import AsyncResult
-
-    task = AsyncResult(task_id)
-
-    return {
-        "state": task.state,
-        "info": json.loads(json.dumps(task.info, cls=DjangoJSONEncoder, default=lambda o: str(o))),
-    }
 
 
 @api_view(["GET"])

@@ -15,12 +15,8 @@ from rest_framework.response import Response
 
 from management.api.scores import score_between_db_update
 from management.api.user_advanced_filter_lists import FILTER_LISTS, get_choices, get_dynamic_userlists
-from management.api.user_data import (
-    AdvancedUserMatchSerializer,
-    get_paginated,
-    get_paginated_format_v2,
-    serialize_proposed_matches,
-)
+from management.models.unconfirmed_matches import serialize_proposed_matches
+from management.helpers.detailed_pagination import get_paginated_format_v2
 from management.api.utils_advanced import filterset_schema_dict
 from management.controller import delete_user, make_tim_support_user
 from management.helpers import (
@@ -31,6 +27,7 @@ from management.helpers import (
 from management.models.dynamic_user_list import DynamicUserList
 from management.models.management_tasks import ManagementTaskSerializer, MangementTask
 from management.models.matches import Match
+from management.api.matches import AdvancedUserMatchSerializer
 from management.models.pre_matching_appointment import (
     PreMatchingAppointment,
     PreMatchingAppointmentSerializer,
@@ -102,9 +99,9 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
 
         items_per_page = 5
         user = instance
-        confirmed_matches = get_paginated(Match.get_confirmed_matches(user), items_per_page, 1)
-        confirmed_matches["items"] = AdvancedUserMatchSerializer(
-            confirmed_matches["items"],
+        confirmed_matches = get_paginated_format_v2(Match.get_confirmed_matches(user), items_per_page, 1)
+        confirmed_matches["results"] = AdvancedUserMatchSerializer(
+            confirmed_matches["results"],
             many=True,
             context={
                 "user": user,
@@ -113,9 +110,9 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
             },
         ).data
 
-        unconfirmed_matches = get_paginated(Match.get_unconfirmed_matches(user), items_per_page, 1)
-        unconfirmed_matches["items"] = AdvancedUserMatchSerializer(
-            unconfirmed_matches["items"],
+        unconfirmed_matches = get_paginated_format_v2(Match.get_unconfirmed_matches(user), items_per_page, 1)
+        unconfirmed_matches["results"] = AdvancedUserMatchSerializer(
+            unconfirmed_matches["results"],
             many=True,
             context={
                 "user": user,
@@ -124,9 +121,9 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
             },
         ).data
 
-        support_matches = get_paginated(Match.get_support_matches(user), items_per_page, 1)
-        support_matches["items"] = AdvancedUserMatchSerializer(
-            support_matches["items"],
+        support_matches = get_paginated_format_v2(Match.get_support_matches(user), items_per_page, 1)
+        support_matches["results"] = AdvancedUserMatchSerializer(
+            support_matches["results"],
             many=True,
             context={
                 "user": user,
@@ -135,16 +132,16 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
             },
         ).data
 
-        proposed_matches = get_paginated(ProposedMatch.get_open_proposals(user), items_per_page, 1)
-        proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
+        proposed_matches = get_paginated_format_v2(ProposedMatch.get_open_proposals(user), items_per_page, 1)
+        proposed_matches["results"] = serialize_proposed_matches(proposed_matches["results"], user)
 
         # proposlas that were rejected or expired
-        old_proposed_matches = get_paginated(ProposedMatch.get_unsuccessful_proposals(user), items_per_page, 1)
-        old_proposed_matches["items"] = serialize_proposed_matches(old_proposed_matches["items"], user)
+        old_proposed_matches = get_paginated_format_v2(ProposedMatch.get_unsuccessful_proposals(user), items_per_page, 1)
+        old_proposed_matches["results"] = serialize_proposed_matches(old_proposed_matches["results"], user)
 
-        inactive_matches = get_paginated(Match.get_inactive_matches(user), items_per_page, 1)
-        inactive_matches["items"] = AdvancedUserMatchSerializer(
-            inactive_matches["items"],
+        inactive_matches = get_paginated_format_v2(Match.get_inactive_matches(user), items_per_page, 1)
+        inactive_matches["results"] = AdvancedUserMatchSerializer(
+            inactive_matches["results"],
             many=True,
             context={
                 "user": user,

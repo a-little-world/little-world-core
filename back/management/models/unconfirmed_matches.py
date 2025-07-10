@@ -6,8 +6,7 @@ from django.db import models
 from django.db.models import Q
 from django.dispatch import receiver
 from django.utils import timezone
-
-from management.models.profile import Profile
+from management.models.profile import Profile, ProposalProfileSerializer
 
 
 def seven_days_from_now():
@@ -19,6 +18,29 @@ def three_days_from_now():
 
 def one_day_from_now():
     return timezone.now() + timedelta(days=1)
+
+def serialize_proposed_matches(matching_proposals, user):
+    serialized = []
+    for proposal in matching_proposals:
+        partner = proposal.get_partner(user)
+        rejected_by = None
+        if proposal.rejected_by is not None:
+            rejected_by = proposal.rejected_by.hash
+        serialized.append(
+            {
+                "id": str(proposal.hash),
+                "partner": {"id": str(partner.hash), **ProposalProfileSerializer(partner.profile).data},
+                "status": "proposed",
+                "closed": proposal.closed,
+                "rejected_by": rejected_by,
+                "rejected_at": proposal.rejected_at,
+                "rejected": proposal.rejected,
+                "expired": proposal.expired,
+                "expires_at": proposal.expires_at,
+            }
+        )
+
+    return serialized
 
 
 class ProposedMatch(models.Model):

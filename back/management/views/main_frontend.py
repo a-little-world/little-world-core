@@ -11,11 +11,10 @@ from rest_framework.request import Request
 from translations import get_translation
 
 from back.utils import CoolerJson, transform_add_options_serializer
-from management.api.user_data import frontend_data
 from management.controller import get_base_management_user
 from management.models.profile import SelfProfileSerializer
 from management.views.cookie_banner_frontend import get_cookie_banner_template_data
-from management.api.user_data_v3 import get_user_data
+from management.api.user import get_user_data
 
 # The following two are redundant with api.admin.UserListParams, api.admin.UserListApiSerializer
 # But that is desired I wan't to always handle admin logic separately this might come in handy in the future

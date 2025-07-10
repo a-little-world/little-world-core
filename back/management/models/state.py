@@ -13,11 +13,12 @@ from django.utils.translation import gettext_lazy as _
 from multiselectfield import MultiSelectField
 from rest_framework import serializers
 from translations import get_translation
+from management.models.matches import Match
 
 from back import utils
 from back.utils import get_options_serializer
 from management.models.management_tasks import MangementTask
-from management.models.matches import Match
+
 from management.models.notifications import Notification
 from management.models.question_deck import QuestionCardsDeck
 
@@ -381,8 +382,6 @@ class FrontendStatusSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
-
-        # TODO: some state for user has open poposals?
 
         if instance.user_form_state == State.UserFormStateChoices.UNFILLED:
             rep["status"] = FrontendStatusEnum.user_form_incomplete.value
