@@ -212,6 +212,17 @@ class AdvancedMatchingScoreSerializer(serializers.ModelSerializer):
         return representation
 
 
+def get_company_choices():
+    """
+    Get all unique company values from the database, including None for users without a company.
+    Returns a list of tuples suitable for ChoiceFilter choices.
+    """
+    companies = State.objects.exclude(company__isnull=True).exclude(company='').values_list('company', flat=True).distinct().order_by('company')
+    choices = [("null", "No Company")]
+    choices.extend([(company, company) for company in companies])
+    return choices
+
+
 class UserFilter(filters.FilterSet):
     profile__user_type = filters.ChoiceFilter(
         field_name="profile__user_type",
@@ -259,7 +270,8 @@ class UserFilter(filters.FilterSet):
 
     state__company = filters.ChoiceFilter(
         field_name="state__company",
-        choices=[("null", None), ("accenture", "accenture"), ("capegemini", "capegemini"), ("germaninstitute", "germaninstitute")],
+        choices=get_company_choices,
+        method="filter_company",
         help_text="Filter for users that are part of a company",
     )
 
@@ -313,6 +325,11 @@ class UserFilter(filters.FilterSet):
                 query |= Q(**{f"{name}__icontains": item})
             return queryset.filter(query)
         return queryset
+
+    def filter_company(self, queryset, name, value):
+        if value == "null":
+            return queryset.filter(Q(state__company__isnull=True) | Q(state__company=''))
+        return queryset.filter(state__company=value)
 
     class Meta:
         model = User
