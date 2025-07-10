@@ -345,7 +345,7 @@ def create_user_matching_proposal(users: set, send_confirm_match_email=True):
     return proposal
 
 
-def unmatch_users(users: set, delete_video_room=True, delete_dialog=True, unmatcher=None):
+def unmatch_users(users: set, delete_video_room=True, delete_dialog=True, unmatcher=None, reason=None):
     """
     Accepts a list of two users to unmatch
 
@@ -373,7 +373,7 @@ def unmatch_users(users: set, delete_video_room=True, delete_dialog=True, unmatc
     match.report_unmatch.append(
         {
             "kind": "unmatch",
-            "reason": "Manual User unmatch Matching pannel",
+            "reason": reason or "User unmatched via support user",
             "match_id": match.id,
             "time": str(timezone.now()),
             "user_id": unmatcher.pk if unmatcher else "no unmatcher specified",
