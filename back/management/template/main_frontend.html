@@ -36,9 +36,10 @@
 </body>
 {% render_bundle 'staticfiles' 'js' 'main_frontend' %}
 <script>
-  const initData = JSON.parse('{{ data | escapejs }}');
+  const user = JSON.parse('{{ user | escapejs }}');
   const apiTranslations = JSON.parse('{{ api_translations | escapejs }}');
+  const apiOptions = JSON.parse('{{ api_options | escapejs }}')
 
-  renderApp({ initData, apiTranslations})
+  renderApp({ user, apiTranslations, apiOptions })
 </script>
 <div style="display: none;">{{csrf_token}}</div>

@@ -7,7 +7,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from translations import get_translation_catalog
 
-from management.api.user_data import frontend_data
+from management.api.user import get_user_data
 
 
 @dataclass
@@ -47,6 +47,6 @@ class DevLoginAPI(APIView):
             except:
                 return Response("Authentication failed", status=403)
 
-            _frontend_data = frontend_data(usr)
+            _frontend_data = get_user_data(usr)
             return Response({"data": _frontend_data, "api_translations": get_translation_catalog()})
         return Response("Error, maybe dev_dataset doesn't exist?", status=400)

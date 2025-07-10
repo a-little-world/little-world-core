@@ -3,7 +3,6 @@ from django.urls import path
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
-from back.utils import _api_url
 from management.helpers import IsAdminOrMatchingUser
 
 
@@ -15,7 +14,7 @@ def is_devkit_enabled(request):
 
 devkit_urls = (
     [
-        path(_api_url("devkit/enabled", admin=True), is_devkit_enabled),
+        path("api/admin/devkit/enabled/", is_devkit_enabled),
     ]
     if settings.IS_DEV
     else []

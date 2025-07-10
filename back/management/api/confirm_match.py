@@ -14,8 +14,8 @@ from rest_framework.response import Response
 from rest_framework_dataclasses.serializers import DataclassSerializer
 from translations import get_translation
 
-from management.api.user_data import AdvancedUserMatchSerializer
 from management.controller import match_users
+from management.api.matches import AdvancedUserMatchSerializer
 from management.models.state import State
 from management.models.unconfirmed_matches import ProposedMatch
 
@@ -24,6 +24,7 @@ from management.models.unconfirmed_matches import ProposedMatch
 class ConfirmMatchData:
     unconfirmed_match_hash: str
     confirm: bool
+    deny_reason: str = None
 
 
 class ConfirmMatchSerializer(DataclassSerializer):
@@ -88,6 +89,7 @@ def confirm_match(request):
         unconfirmed_match.rejected = True
         unconfirmed_match.rejected_at = timezone.now()
         unconfirmed_match.rejected_by = request.user
+        unconfirmed_match.deny_reason = data.deny_reason
         unconfirmed_match.save()
 
         request.user.state.searching_state = State.SearchingStateChoices.IDLE

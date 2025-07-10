@@ -5,22 +5,6 @@ from uuid import UUID, uuid4
 
 from rest_framework.metadata import SimpleMetadata
 
-VERSION = 1
-
-
-def _api_url(slug, _v=VERSION, admin=False, end_slash=True):
-    v = "" if _v == 1 else f"/v{_v}"
-    return (f"api/admin{v}/{slug}" if admin else f"api/{slug}{v}") + ("/" if end_slash else "")
-
-
-def _double_uuid():
-    return str(uuid4()) + "-" + str(uuid4())
-
-
-def _rand_int5():
-    return random.randint(10000, 99999)
-
-
 class CoolerJson(json.JSONEncoder):
     """
     This is our custom json serializer that can also encode sets!
@@ -42,6 +26,13 @@ class CoolerJson(json.JSONEncoder):
 def dataclass_as_dict(data):
     return {k: getattr(data, k) for k in data.__annotations__}
 
+# DON'T REMOVE used in migrations!
+def _double_uuid():
+    return str(uuid4()) + "-" + str(uuid4())
+
+# DON'T REMOVE used in migrations!
+def _rand_int5():
+    return random.randint(10000, 99999)
 
 def get_options_serializer(self, obj):
     """

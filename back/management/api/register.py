@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from translations import get_translation
 
-from management.api.user_data import frontend_data
+from management.api.user import get_user_data
 from management.models.user import User
 
 from .. import controller, validators
@@ -148,6 +148,6 @@ class Register(APIView):
         login(request, usr)
 
         with translation.override("tag"):
-            data = frontend_data(usr)
+            data = get_user_data(usr)
 
         return Response(data)

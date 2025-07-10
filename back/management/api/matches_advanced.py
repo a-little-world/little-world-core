@@ -14,7 +14,7 @@ from management.models.matches import Match
 from management.models.profile import MinimalProfileSerializer
 from management.models.state import State
 from management.models.user import User
-from management.api.user_data import determine_match_bucket
+from management.api.match_journey_filter_list import determine_match_bucket
 
 
 class AdvancedMatchSerializer(serializers.ModelSerializer):
@@ -32,7 +32,7 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
             "total_mutal_video_calls_counter",
             "user1",
             "user2",
-            "completed_off_plattform"
+            "completed_off_plattform",
         ]
 
     def to_representation(self, instance):
@@ -62,8 +62,8 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
             else:
                 representation["status"] = "unconfirmed"
                 
-        if hasattr(instance, "unmatched"):
-            representation["unmatched"] = instance.unmatched
+        if hasattr(instance, "report_unmatch"):
+            representation["report_unmatch"] = instance.report_unmatch
 
         if hasattr(instance, "active"):
             if not instance.active:
@@ -172,7 +172,7 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
         request=inline_serializer(
             name="ResolveMatchRequest",
             fields={
-                "match_uuid": serializers.UUIDField(),
+                "reason": serializers.CharField(help_text="Reason for unmatching the users"),
             },
         ),
     )
@@ -196,7 +196,11 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
         ):
             return Response({"msg": "One of the users is a matching user and cannot be unmatch"}, status=400)
 
-        unmatch_users({obj.user1, obj.user2}, unmatcher=request.user)
+        reason = request.data.get("reason")
+        if not reason:
+            return Response({"msg": "Reason is required for unmatching users"}, status=400)
+
+        unmatch_users({obj.user1, obj.user2}, unmatcher=request.user, reason=reason)
 
         return Response({"msg": "Match resolved"})
 
