@@ -54,7 +54,6 @@ async def create_livekit_room(room_name):
         print("Created room that didn't exist:", room_name, room_info)
     await lkapi.aclose()
 
-#TODO:useSWR auto fetch, websockets
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -64,18 +63,16 @@ def authenticate_livekit_random_call(request):
     lobby_partner = RandomCallLobby.objects.exclude(Q(user=request.user) | Q(status=True)).order_by('?').first()
     partner = {"uuid": ""}
     try:
-        partner = lobby_partner.user
-        if lobby_user:
-            partner = RandomCallMatchings.objects.filter(u2=request.user).first().u1
-    except:
-        print("No RandomCallMatching yet")
-        
-    if not lobby_user.status:
-        lobby_partner.status = True
-        lobby_partner.save()
-        lobby_user.status = True
-        lobby_user.save()
-
+        if lobby_partner is None:
+            try:
+                partner = RandomCallMatchings.objects.filter(u1=request.user).first().u2
+            except:
+                partner = RandomCallMatchings.objects.filter(u2=request.user).first().u1
+        else:
+            partner = lobby_partner.user
+    except Exception as e:
+        print(e)
+    
     temporary_chat = Chat.get_or_create_chat(request.user, partner)
     temporary_room = LiveKitRoom.get_or_create_room(request.user, partner)
     temporary_match = ""
@@ -102,7 +99,13 @@ def authenticate_livekit_random_call(request):
         .to_jwt()
     )
 
-    RandomCallMatchings.objects.create(u1=request.user, u2=partner, tmp_chat=str(temporary_chat.uuid), tmp_match=str(temporary_match.uuid))
+    result = RandomCallMatchings.get_or_create_match(user1=request.user, user2=partner, tmp_chat=str(temporary_chat.uuid), tmp_match=str(temporary_match.uuid))
+    print(result)
+    if not lobby_user.status and result:
+        lobby_partner.status = True
+        lobby_partner.save()
+        lobby_user.status = True
+        lobby_user.save()
     
     return Response({"token": str(token), "server_url": settings.LIVEKIT_URL, "chat": ChatSerializer(temporary_chat).data, "room": temporary_room.uuid})
 
@@ -129,17 +132,9 @@ def exit_random_call_lobby(request):
         print(e)
     return Response("SUCCESS")
 
-@api_view(["GET"])
-@authentication_classes([SessionAuthentication])
-@permission_classes([IsAuthenticated])
-def get_users_in_lobby(request):
-    resp = serializers.serialize('json', RandomCallLobby.objects.all())
-    print(resp)
-    return Response(resp, safe=False)
 
 api_urls = [
     path('api/random_calls/get_token_random_call', authenticate_livekit_random_call),
     path('api/random_calls/join_lobby', join_random_call_lobby),
     path('api/random_calls/exit_lobby', exit_random_call_lobby),
-    path('api/random_calls/get_all_lobby', get_users_in_lobby),
 ]
