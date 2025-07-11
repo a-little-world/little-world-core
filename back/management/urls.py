@@ -116,7 +116,6 @@ api_routes = [
     *user_advanced_statistics.api_urls,
     *prematch_appointment_advanced.api_urls,
     *random_call_urls,
-    *user_data_v3_api_urls,
     *user_data_apis,
     # User
     path("api/trans", trans.get_translation_catalogue),

@@ -62,8 +62,9 @@ def authenticate_livekit_random_call(request):
     #in_lobby = True if (RandomCallLobby.objects.filter(user=request.user).exists()) else False #checks if the given user is already in the Lobby DB and assign T/F
     lobby_user = RandomCallLobby.objects.filter(user=request.user).first()
     lobby_partner = RandomCallLobby.objects.exclude(Q(user=request.user) | Q(status=True)).order_by('?').first()
-    partner = lobby_partner.user
+    partner = {"uuid": ""}
     try:
+        partner = lobby_partner.user
         if lobby_user:
             partner = RandomCallMatchings.objects.filter(u2=request.user).first().u1
     except:
@@ -128,8 +129,17 @@ def exit_random_call_lobby(request):
         print(e)
     return Response("SUCCESS")
 
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def get_users_in_lobby(request):
+    resp = serializers.serialize('json', RandomCallLobby.objects.all())
+    print(resp)
+    return Response(resp, safe=False)
+
 api_urls = [
     path('api/random_calls/get_token_random_call', authenticate_livekit_random_call),
     path('api/random_calls/join_lobby', join_random_call_lobby),
     path('api/random_calls/exit_lobby', exit_random_call_lobby),
+    path('api/random_calls/get_all_lobby', get_users_in_lobby),
 ]

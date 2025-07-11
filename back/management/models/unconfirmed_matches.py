@@ -70,6 +70,7 @@ class ProposedMatch(models.Model):
     rejected = models.BooleanField(default=False)
     rejected_at = models.DateTimeField(blank=True, null=True)
     rejected_by = models.ForeignKey("management.User", on_delete=models.CASCADE, blank=True, null=True)
+    deny_reason = models.TextField(blank=True, null=True)
 
     send_inital_mail = models.BooleanField(default=False)
 

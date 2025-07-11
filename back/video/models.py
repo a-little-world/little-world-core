@@ -129,3 +129,28 @@ class SerializeLivekitSession(ModelSerializer):
                 rep["partner"]["id"] = instance.u1.hash
 
         return rep
+
+class SerializeLobby(ModelSerializer):
+    class Meta:
+        model = RandomCallLobby
+        fields = ["user", "status"]
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        
+        
+        user = None
+        if "user" in self.context:
+            user = self.context["user"]
+        elif "request" in self.context:
+            user = self.context["request"].user
+
+        if user:
+            if user == instance.u1:
+                rep["partner"] = CensoredProfileSerializer(instance.u2.profile).data
+                rep["partner"]["id"] = instance.u2.hash
+            else:
+                rep["partner"] = CensoredProfileSerializer(instance.u1.profile).data
+                rep["partner"]["id"] = instance.u1.hash
+
+        return rep

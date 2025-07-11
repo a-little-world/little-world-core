@@ -63,7 +63,7 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
             "chatId": str(chat.uuid),
             "active": instance.active,
             "activeCallRoom": active_call_room,
-            "unmatched": instance.report_unmatch,
+            "report_unmatch": instance.report_unmatch,
             "partner": {
                 "id": str(partner.hash),
                 "isOnline": is_online,
