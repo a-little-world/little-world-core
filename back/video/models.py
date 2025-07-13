@@ -87,17 +87,19 @@ class RandomCallMatchings(models.Model):
 
     reported_flag = models.BooleanField(default=False)
     follow_up_match_flag = models.BooleanField(default=False)
+    active = models.BooleanField(default=False)
 
     tmp_chat = models.CharField(max_length=50)
     tmp_match = models.CharField(max_length=50)
 
     @classmethod
-    def get_or_create_match(cls, user1, user2, tmp_chat, tmp_match):
+    def get_or_create_match(cls, user1, user2, tmp_chat, tmp_match, active):
         match = cls.objects.filter(Q(u1=user1, u2=user2) | Q(u1=user2, u2=user1))
-        if match.exists():
+        if match.exists() and match.first().active:
+            print("RETURN EXISTING MATCH")
             return match.first()
         else:
-            return cls.objects.create(u1=user1, u2=user2, tmp_chat=tmp_chat, tmp_match=tmp_match)
+            return cls.objects.create(u1=user1, u2=user2, tmp_chat=tmp_chat, tmp_match=tmp_match, active=active)
 
 class SerializeLivekitSession(ModelSerializer):
     class Meta:

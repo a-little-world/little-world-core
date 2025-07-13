@@ -35,6 +35,7 @@ from video.models import (
     RandomCallMatchings,
 )
 from django.db.models import Q
+from django.db import transaction
 
 class AuthenticateRoomParams(serializers.Serializer):
     partner_id = serializers.CharField()
@@ -54,42 +55,56 @@ async def create_livekit_room(room_name):
         print("Created room that didn't exist:", room_name, room_info)
     await lkapi.aclose()
 
+def get_random_user_pair(user):
+    with transaction.atomic():
+        try:
+            user_lobby = RandomCallLobby.objects.select_for_update(skip_locked=True).get(user=user, status=False)
+            print(f"I am {user_lobby.user}")
+        except RandomCallLobby.DoesNotExist:
+            return (None, None)
+
+        partner = RandomCallLobby.objects.select_for_update(skip_locked=True).filter(status=False).exclude(user=user).order_by('id').first()
+        print(f"I am {user_lobby.user} and found {partner.user}")
+        if not partner:
+            return (None, None)
+
+        user_lobby.status = True
+        partner.status = True
+        user_lobby.save()
+        partner.save()
+
+        return (user_lobby.user, partner.user)
+
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def authenticate_livekit_random_call(request):
-    #in_lobby = True if (RandomCallLobby.objects.filter(user=request.user).exists()) else False #checks if the given user is already in the Lobby DB and assign T/F
-    lobby_user = RandomCallLobby.objects.filter(user=request.user).first()
-    lobby_partner = RandomCallLobby.objects.exclude(Q(user=request.user) | Q(status=True)).order_by('?').first()
-    partner = {"uuid": ""}
-    try:
-        if lobby_partner is None:
-            try:
-                partner = RandomCallMatchings.objects.filter(u1=request.user).first().u2
-            except:
-                partner = RandomCallMatchings.objects.filter(u2=request.user).first().u1
-        else:
-            partner = lobby_partner.user
-    except Exception as e:
-        print(e)
-    
-    temporary_chat = Chat.get_or_create_chat(request.user, partner)
-    temporary_room = LiveKitRoom.get_or_create_room(request.user, partner)
+
+    lobby_user, partner = get_random_user_pair(request.user)
+
+    if lobby_user is None or partner is None:
+        random_match = RandomCallMatchings.objects.filter(Q(u1=request.user) | Q(u2=request.user)).exclude(active=False).first()
+        if random_match:
+            lobby_user = request.user
+            partner = random_match.u1 if random_match.u2 == request.user else random_match.u2
+            print(f"I am {lobby_user} and already in an active match with {partner}")
+
+    temporary_chat = Chat.get_or_create_chat(lobby_user, partner)
+    temporary_room = LiveKitRoom.get_or_create_room(lobby_user, partner)
     temporary_match = ""
     try:
-        temporary_match = Match.get_match(request.user, partner).first()
+        temporary_match = Match.get_match(lobby_user, partner).first()
         if temporary_match is None:
             raise Exception("")
     except:
-        temporary_match = Match.objects.create(user1=request.user, user2=partner, is_random_call_match=True)
-
+        temporary_match = Match.objects.create(user1=lobby_user, user2=partner, is_random_call_match=True)
     loop = asyncio.new_event_loop()
     loop.run_until_complete(create_livekit_room(str(temporary_room.uuid)))
     loop.close()
     token = (
         livekit_api.AccessToken(api_key=settings.LIVEKIT_API_KEY, api_secret=settings.LIVEKIT_API_SECRET)
-        .with_identity(request.user.hash)
-        .with_name(f"{request.user.profile.first_name} {request.user.profile.second_name[:1]}")
+        .with_identity(lobby_user.hash)
+        .with_name(f"{lobby_user.profile.first_name} {lobby_user.profile.second_name[:1]}")
         .with_grants(
             livekit_api.VideoGrants(
                 room_join=True,
@@ -98,14 +113,7 @@ def authenticate_livekit_random_call(request):
         )
         .to_jwt()
     )
-
-    result = RandomCallMatchings.get_or_create_match(user1=request.user, user2=partner, tmp_chat=str(temporary_chat.uuid), tmp_match=str(temporary_match.uuid))
-    print(result)
-    if not lobby_user.status and result:
-        lobby_partner.status = True
-        lobby_partner.save()
-        lobby_user.status = True
-        lobby_user.save()
+    RandomCallMatchings.get_or_create_match(user1=lobby_user, user2=partner, tmp_chat=str(temporary_chat.uuid), tmp_match=str(temporary_match.uuid), active=True)
     
     return Response({"token": str(token), "server_url": settings.LIVEKIT_URL, "chat": ChatSerializer(temporary_chat).data, "room": temporary_room.uuid})
 
@@ -127,6 +135,8 @@ def exit_random_call_lobby(request):
     try:
         matchings = RandomCallMatchings.objects.filter(Q(u1=request.user) | Q(u2=request.user))
         for match in matchings:
+            match.active=False
+            match.save()
             Chat.objects.filter(uuid=match.tmp_chat).delete()
     except Exception as e:
         print(e)
