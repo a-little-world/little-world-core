@@ -5,6 +5,7 @@ from rest_framework.routers import DefaultRouter
 
 from management.api import (
     ai,
+    help,
     notify,
     prematch_appointment_advanced,
     push_notifications,
@@ -164,6 +165,7 @@ api_routes = [
     path("api/user/verify/email_resend/", user.resend_verification_mail),
     path("api/user/match/confirm_deny/", confirm_match.confirm_match),
     path("api/matching/make_match", matches.make_match),
+    path("api/help_message/", help.SendHelpMessage.as_view()),
     *router.urls,
 ]
 
