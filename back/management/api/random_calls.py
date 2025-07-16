@@ -125,7 +125,7 @@ def authenticate_livekit_random_call(request):
         eta=eta
         )
     
-    return Response({"token": str(token), "server_url": settings.LIVEKIT_URL, "chat": ChatSerializer(temporary_chat).data, "room": temporary_room.uuid})
+    return Response({"token": str(token), "server_url": settings.LIVEKIT_URL, "chat": ChatSerializer(temporary_chat).data, "room": temporary_room.uuid, "random_call_id": str(temporary_match.uuid)})
 
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication])
