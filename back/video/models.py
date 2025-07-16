@@ -131,15 +131,3 @@ class SerializeLivekitSession(ModelSerializer):
                 rep["partner"]["id"] = instance.u1.hash
 
         return rep
-
-    class Meta:
-        model = RandomCallLobby
-        fields = ["user", "status"]
-
-    def to_representation(self, instance):
-        rep = super().to_representation(instance)
-        
-        rep["user"] = instance.user
-        rep["status"] = instance.status
-
-        return rep
