@@ -196,18 +196,12 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
                         return f'<AttachmentWidget {{"attachmentTitle": "{file_title}", "attachmentLink": "{attachment_link}", "imageSrc": null, "caption": "{message_text}"}} ></AttachmentWidget>'
                 
                 attachment_widget = get_attachment_widget(is_image, attachment_link, message_text)
-                
-                if not attachment_widget:
-                    # If attachment processing failed, delete the attachment and return error
-                    if attachment:
-                        attachment.delete()
-                    return Response({"error": "Failed to process file attachment."}, status=400)
                     
             except Exception as e:
                 # If any error occurs during attachment processing, clean up and return error
                 if attachment:
                     attachment.delete()
-                return Response({"error": f"Failed to process file attachment: {str(e)}"}, status=400)
+                return Response({"error": f"Failed to process file attachment: {str(e)}"}, status=500)
             
         final_message_text = attachment_widget or message_text
 
