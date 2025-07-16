@@ -169,39 +169,32 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         attachment_widget = ""
         
         if 'file' in serializer.validated_data and serializer.validated_data['file']:
-            try:
-                file = serializer.validated_data['file']
-                
-                # Validate file size
-                if hasattr(file, 'size') and file.size > 3 * 1024 * 1024:  # 3MB limit
-                    return Response({"error": "File size too large. Maximum size is 3MB."}, status=400)
-                
-                # Validate file name
-                if not file.name or '.' not in file.name:
-                    return Response({"error": "Invalid file format. File must have a valid extension."}, status=400)
-                
-                attachment = MessageAttachment.objects.create(file=file)
-                if not attachment or not attachment.file:
-                    return Response({"error": "Failed to process file attachment."}, status=400)
-                
-                file_title = file.name
-                file_ending = file.name.split(".")[-1]
-                is_image = file_ending.lower() in ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "ico", "webp"]
-                attachment_link = attachment.file.url
-                
-                def get_attachment_widget(is_image, attachment_link, message_text):
-                    if is_image:
-                        return f'<AttachmentWidget {{"attachmentTitle": "Image", "attachmentLink": null, "imageSrc": "{attachment_link}", "caption": "{message_text}"}} ></AttachmentWidget>'
-                    else:
-                        return f'<AttachmentWidget {{"attachmentTitle": "{file_title}", "attachmentLink": "{attachment_link}", "imageSrc": null, "caption": "{message_text}"}} ></AttachmentWidget>'
-                
-                attachment_widget = get_attachment_widget(is_image, attachment_link, message_text)
-                    
-            except Exception as e:
-                # If any error occurs during attachment processing, clean up and return error
-                if attachment:
-                    attachment.delete()
-                return Response({"error": f"Failed to process file attachment: {str(e)}"}, status=500)
+            file = serializer.validated_data['file']
+            
+            # Validate file size
+            if hasattr(file, 'size') and file.size > 3 * 1024 * 1024:  # 3MB limit
+                return Response({"error": "File size too large. Maximum size is 3MB."}, status=400)
+            
+            # Validate file name
+            if not file.name or '.' not in file.name:
+                return Response({"error": "Invalid file format. File must have a valid extension."}, status=400)
+            
+            attachment = MessageAttachment.objects.create(file=file)
+            if not attachment or not attachment.file:
+                return Response({"error": "Failed to process file attachment."}, status=400)
+            
+            file_title = file.name
+            file_ending = file.name.split(".")[-1]
+            is_image = file_ending.lower() in ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "ico", "webp"]
+            attachment_link = attachment.file.url
+            
+            def get_attachment_widget(is_image, attachment_link, message_text):
+                if is_image:
+                    return f'<AttachmentWidget {{"attachmentTitle": "Image", "attachmentLink": null, "imageSrc": "{attachment_link}", "caption": "{message_text}"}} ></AttachmentWidget>'
+                else:
+                    return f'<AttachmentWidget {{"attachmentTitle": "{file_title}", "attachmentLink": "{attachment_link}", "imageSrc": null, "caption": "{message_text}"}} ></AttachmentWidget>'
+            
+            attachment_widget = get_attachment_widget(is_image, attachment_link, message_text)
             
         final_message_text = attachment_widget or message_text
 
