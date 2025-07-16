@@ -1,9 +1,12 @@
+from datetime import timedelta
+from django.utils import timezone
 from uuid import uuid4
 
 from django.db import models
 from django.db.models import Q
 from management.models.profile import CensoredProfileSerializer
 from rest_framework.serializers import ModelSerializer
+from django.db import transaction
 
 
 class LiveKitRoom(models.Model):
@@ -94,12 +97,14 @@ class RandomCallMatchings(models.Model):
 
     @classmethod
     def get_or_create_match(cls, user1, user2, tmp_chat, tmp_match, active):
-        match = cls.objects.filter(Q(u1=user1, u2=user2) | Q(u1=user2, u2=user1))
-        if match.exists() and match.first().active:
-            print("RETURN EXISTING MATCH")
-            return match.first()
-        else:
-            return cls.objects.create(u1=user1, u2=user2, tmp_chat=tmp_chat, tmp_match=tmp_match, active=active)
+        with transaction.atomic():
+            match = cls.objects.filter(Q(u1=user1, u2=user2) | Q(u1=user2, u2=user1))
+            end_time = timezone.now() + timedelta(minutes=1)
+            if match.exists() and match.first().active:
+                print("RETURN EXISTING MATCH")
+                return match.first()
+            else:
+                return cls.objects.create(u1=user1, u2=user2, tmp_chat=tmp_chat, tmp_match=tmp_match, active=active, end_time=end_time)
 
 class SerializeLivekitSession(ModelSerializer):
     class Meta:

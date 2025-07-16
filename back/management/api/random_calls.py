@@ -86,8 +86,9 @@ def authenticate_livekit_random_call(request):
     lobby_user, partner = get_random_user_pair(request.user)
 
     if lobby_user is None or partner is None:
-        random_match = RandomCallMatchings.objects.filter(Q(u1=request.user) | Q(u2=request.user)).exclude(active=False).first()
-        if random_match:
+        random_match = RandomCallMatchings.objects.filter(Q(u1=request.user) | Q(u2=request.user)).exclude(active=False)
+        if random_match.exists():
+            random_match = random_match.first()
             lobby_user = request.user
             partner = random_match.u1 if random_match.u2 == request.user else random_match.u2
             print(f"I am {lobby_user} and already in an active match with {partner}")
@@ -116,7 +117,7 @@ def authenticate_livekit_random_call(request):
         )
         .to_jwt()
     )
-    RandomCallMatchings.get_or_create_match(user1=lobby_user, user2=partner, tmp_chat=str(temporary_chat.uuid), tmp_match=str(temporary_match.uuid), active=True)
+    random_call_match = RandomCallMatchings.get_or_create_match(user1=lobby_user, user2=partner, tmp_chat=str(temporary_chat.uuid), tmp_match=str(temporary_match.uuid), active=True)
     
     from datetime import datetime, timedelta, timezone
     eta = datetime.now(timezone.utc) + timedelta(seconds=30)
@@ -125,7 +126,7 @@ def authenticate_livekit_random_call(request):
         eta=eta
         )
     
-    return Response({"token": str(token), "server_url": settings.LIVEKIT_URL, "chat": ChatSerializer(temporary_chat).data, "room": temporary_room.uuid, "random_call_id": str(temporary_match.uuid)})
+    return Response({"token": str(token), "server_url": settings.LIVEKIT_URL, "chat": ChatSerializer(temporary_chat).data, "room": temporary_room.uuid, "random_call_match_id": str(random_call_match.uuid)})
 
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication])
@@ -170,20 +171,14 @@ def get_random_call_status(request, random_match_id):
         Q(uuid=random_match_id) & (Q(u1=request.user) | Q(u2=request.user))
     )
     
-    completed = random_match.end_time is not None
-    
+    completed = timezone.now() > random_match.end_time
     remaining_time = 0.0
-    
     if not completed:
-        call_start_time = random_match.created_at
-        current_time = timezone.now()
-        elapsed_time = (current_time - call_start_time).total_seconds()
-        
         if random_match.end_time:
-            total_duration = (random_match.end_time - call_start_time).total_seconds()
-            remaining_time = max(0.0, total_duration - elapsed_time)
+            current_time = timezone.now()
+            remaining_time = max(0.0, (random_match.end_time - current_time).total_seconds())
         else:
-            remaining_time = float('inf')
+            remaining_time = 999999.0
     else:
         remaining_time = 0.0
     
