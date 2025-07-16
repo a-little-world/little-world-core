@@ -98,6 +98,7 @@ class DetailedPagination(PageNumberPagination):
                     ("previous", self.get_previous_link()),
                     ("results", data),  # The  following are extras added by me:
                     ("page_size", self.get_page_size(self.request)),
+                    ("pages_total", self.page.paginator.num_pages),
                     ("next_page", self.page.next_page_number() if self.page.has_next() else None),
                     ("results_total", self.page.paginator.count),
                     ("previous_page", self.page.previous_page_number() if self.page.has_previous() else None),
