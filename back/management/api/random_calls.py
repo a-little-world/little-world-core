@@ -36,6 +36,7 @@ from video.models import (
 )
 from django.db.models import Q
 from django.db import transaction
+from management.tasks import kill_livekit_room
 
 class AuthenticateRoomParams(serializers.Serializer):
     partner_id = serializers.CharField()
@@ -114,6 +115,13 @@ def authenticate_livekit_random_call(request):
         .to_jwt()
     )
     RandomCallMatchings.get_or_create_match(user1=lobby_user, user2=partner, tmp_chat=str(temporary_chat.uuid), tmp_match=str(temporary_match.uuid), active=True)
+    
+    from datetime import datetime, timedelta, timezone
+    eta = datetime.now(timezone.utc) + timedelta(seconds=30)
+    kill_livekit_room.apply_async(
+        (temporary_room.uuid,),
+        eta=eta
+        )
     
     return Response({"token": str(token), "server_url": settings.LIVEKIT_URL, "chat": ChatSerializer(temporary_chat).data, "room": temporary_room.uuid})
 

@@ -625,3 +625,20 @@ def send_sms_background(
 
     receipient = User.objects.get(hash=user_hash)
     receipient.sms(send_initator=get_base_management_user(), message=message)
+
+@shared_task
+def kill_livekit_room(room):
+    from livekit import api as livekit_api
+    from livekit.api import DeleteRoomRequest
+    from django.conf import settings
+
+    lkapi = livekit_api.LiveKitAPI(
+        url=settings.LIVEKIT_URL,
+        api_key=settings.LIVEKIT_API_KEY,
+        api_secret=settings.LIVEKIT_API_SECRET,
+    )
+
+    print(f"THE FOLLOWING ROOM WILL BE DELETED: {str(room)}")
+
+    lkapi.room.delete_room(DeleteRoomRequest(room=str(room),))
+    lkapi.aclose()
