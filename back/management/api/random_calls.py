@@ -37,6 +37,8 @@ from video.models import (
 from django.db.models import Q
 from django.db import transaction
 
+
+
 class AuthenticateRoomParams(serializers.Serializer):
     partner_id = serializers.CharField()
 
@@ -142,9 +144,50 @@ def exit_random_call_lobby(request):
         print(e)
     return Response("SUCCESS")
 
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def get_random_call_status(request, random_match_id):
+    random_match_exists = RandomCallMatchings.objects.filter(
+        Q(uuid=random_match_id) & (Q(u1=request.user) | Q(u2=request.user))
+    ).exists()
+    if not random_match_exists:
+        return Response({
+            "exists": False,
+            "completed": True,
+            "remaining_time": 0.0
+        })
+    
+    random_match = RandomCallMatchings.objects.get(
+        Q(uuid=random_match_id) & (Q(u1=request.user) | Q(u2=request.user))
+    )
+    
+    completed = random_match.end_time is not None
+    
+    remaining_time = 0.0
+    
+    if not completed:
+        call_start_time = random_match.created_at
+        current_time = timezone.now()
+        elapsed_time = (current_time - call_start_time).total_seconds()
+        
+        if random_match.end_time:
+            total_duration = (random_match.end_time - call_start_time).total_seconds()
+            remaining_time = max(0.0, total_duration - elapsed_time)
+        else:
+            remaining_time = float('inf')
+    else:
+        remaining_time = 0.0
+    
+    return Response({
+        "exists": True,
+        "completed": completed,
+        "remaining_time": remaining_time
+    })
 
 api_urls = [
     path('api/random_calls/get_token_random_call', authenticate_livekit_random_call),
     path('api/random_calls/join_lobby', join_random_call_lobby),
     path('api/random_calls/exit_lobby', exit_random_call_lobby),
+    path('api/random_calls/status/<uuid:random_match_id>', get_random_call_status),
 ]
