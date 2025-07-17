@@ -167,9 +167,21 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         # Process attachment if present
         attachment = None
         attachment_widget = ""
+        
         if 'file' in serializer.validated_data and serializer.validated_data['file']:
             file = serializer.validated_data['file']
+            
+            # Validate file size
+            if hasattr(file, 'size') and file.size > 3 * 1024 * 1024:  # 3MB limit
+                return Response({"error": "File size too large. Maximum size is 3MB."}, status=400)
+            
+            # Validate file name
+            if not file.name or '.' not in file.name:
+                return Response({"error": "Invalid file format. File must have a valid extension."}, status=400)
+            
             attachment = MessageAttachment.objects.create(file=file)
+            if not attachment or not attachment.file:
+                return Response({"error": "Failed to process file attachment."}, status=400)
             
             file_title = file.name
             file_ending = file.name.split(".")[-1]

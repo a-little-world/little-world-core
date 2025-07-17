@@ -31,6 +31,8 @@ from management.models.state import State, FrontendStatusSerializer
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from management.models.profile import SelfProfileSerializer
 from management.models.state import State
+from management.models.matches import Match
+from django.db.models import Q
 
 """
 The public /user api's
@@ -522,8 +524,15 @@ def get_user_data(user):
     except Exception:
         pass
 
-    # User data including profile, permissions, and status
     profile_data = SelfProfileSerializer(user_profile).data
+
+    has_atleast_one_match = (
+        Match.objects.filter(
+            Q(user1=user) | Q(user2=user),
+            support_matching=False,
+        ).count()
+        > 0
+    )
 
     return {
         "id": str(user.hash),
@@ -538,6 +547,7 @@ def get_user_data(user):
         "hadPreMatchingCall": user_state.had_prematching_call,
         "emailVerified": user_state.email_authenticated,
         "userFormCompleted": user_state.user_form_state == State.UserFormStateChoices.FILLED,
+        "hasMatch": has_atleast_one_match,
         "profile": profile_data,
     }
 
@@ -555,6 +565,7 @@ def get_user_data(user):
             "hadPreMatchingCall": serializers.BooleanField(),
             "emailVerified": serializers.BooleanField(),
             "userFormCompleted": serializers.BooleanField(),
+            "hasMatch": serializers.BooleanField(),
             "profile": SelfProfileSerializer(),
         },
     ),
