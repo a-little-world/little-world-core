@@ -66,46 +66,6 @@ class LivekitSession(models.Model):
 
     webhook_events = models.ManyToManyField("video.LivekitWebhookEvent", related_name="livekit_session")
 
-class RandomCallLobby(models.Model):
-    uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
-    user = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="user_in_lobby")
-    status = models.BooleanField(default=False)
-
-    @classmethod
-    def get_or_create_lobby(cls, user):
-        lobby = cls.objects.filter(user=user)
-        if lobby.exists():
-            return lobby.first()
-        else:
-            return cls.objects.create(user=user,status=False)
-    
-class RandomCallMatchings(models.Model):
-    uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
-    
-    u1 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u1_randomcall_session")
-    u2 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u2_randomcall_session")
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    end_time = models.DateTimeField(null=True, blank=True)
-
-    reported_flag = models.BooleanField(default=False)
-    follow_up_match_flag = models.BooleanField(default=False)
-    active = models.BooleanField(default=False)
-
-    tmp_chat = models.CharField(max_length=50)
-    tmp_match = models.CharField(max_length=50)
-
-    @classmethod
-    def get_or_create_match(cls, user1, user2, tmp_chat, tmp_match, active):
-        with transaction.atomic():
-            match = cls.objects.filter(Q(u1=user1, u2=user2) | Q(u1=user2, u2=user1))
-            end_time = timezone.now() + timedelta(minutes=1)
-            if match.exists() and match.first().active:
-                print("RETURN EXISTING MATCH")
-                return match.first()
-            else:
-                return cls.objects.create(u1=user1, u2=user2, tmp_chat=tmp_chat, tmp_match=tmp_match, active=active, end_time=end_time)
-
 class SerializeLivekitSession(ModelSerializer):
     class Meta:
         model = LivekitSession
@@ -136,3 +96,59 @@ class SerializeLivekitSession(ModelSerializer):
                 rep["partner"]["id"] = instance.u1.hash
 
         return rep
+    
+class RandomCallLobby(models.Model):
+    uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
+    user = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="user_in_lobby")
+    status = models.BooleanField(default=False)
+
+    @classmethod
+    def get_or_create_lobby(cls, user):
+        lobby = cls.objects.filter(user=user)
+        if lobby.exists():
+            return lobby.first()
+        else:
+            return cls.objects.create(user=user,status=False)
+    
+class RandomCallMatching(models.Model):
+    uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
+    
+    u1 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u1_randomcall_session")
+    u2 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u2_randomcall_session")
+    active = models.BooleanField(default=False)
+
+    @classmethod
+    def get_or_create_match(cls, user1, user2):
+        with transaction.atomic():
+            match = cls.objects.filter(Q(u1=user1, u2=user2) | Q(u1=user2, u2=user1))
+            if match.exists():
+                match = match.first()
+                if match.active:
+                    return match.first()
+                else:
+                    return cls.objects.create(u1=user1, u2=user2, active=True)
+            else:
+                return cls.objects.create(u1=user1, u2=user2, active=True)
+
+class RandomCallSession(models.Model):
+    uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
+    
+    random_match = models.CharField(max_length=50)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    end_time = models.DateTimeField(null=True, blank=True)
+
+    reported_flag = models.BooleanField(default=False)
+    active = models.BooleanField(default=False)
+
+    tmp_chat = models.CharField(max_length=50)
+    tmp_match = models.CharField(max_length=50)
+
+    @classmethod
+    def get_or_create(cls, random_match, tmp_chat, tmp_match, active):
+        session = cls.objects.filter(random_match=random_match)
+        end_time = timezone.now() + timedelta(minutes=1)
+        if session.exists() and session.first().active:
+            return session.first()
+        else:
+            return cls.objects.create(random_match=random_match, tmp_chat=tmp_chat, tmp_match=tmp_match, active=active, end_time=end_time)
