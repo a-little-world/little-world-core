@@ -213,10 +213,32 @@ def get_random_call_status(request, random_match_id):
         "remaining_time": remaining_time
     })
 
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def reset_match(request):
+    match = RandomCallMatching.objects.filter(uuid=str(request.data["matchId"]))
+    if match.exists():
+        match = match.first()
+        match.active = False
+        match.save()
+    else:
+        return Response("ERROR while deactivating Random Match", status=500)
+    sessions = RandomCallSession.objects.filter(random_match=str(request.data["matchId"]))
+    if sessions.exists():
+        for s in sessions:
+            s.active = False
+            s.save()
+    else:
+        return Response("ERROR while deactivating Random Session", status=500)
+    return Response("All good", status=200)
+    
+
 api_urls = [
     path('api/random_calls/get_token_random_call', authenticate_livekit_random_call),
     path('api/random_calls/join_lobby', join_random_call_lobby),
     path('api/random_calls/exit_lobby', exit_random_call_lobby),
     path('api/random_calls/status/<uuid:random_match_id>', get_random_call_status),
     path('api/random_calls/match_random_pair', match_random_pair),
+    path('api/random_calls/reset_match', reset_match),
 ]
