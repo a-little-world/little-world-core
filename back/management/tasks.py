@@ -627,14 +627,13 @@ def send_sms_background(
     receipient.sms(send_initator=get_base_management_user(), message=message)
 
 @shared_task
-def kill_livekit_room(room, session_id, matching_id):
+def kill_livekit_room(room, session_id, matching_id, chat_id):
     from livekit import api as livekit_api
     from livekit.api import DeleteRoomRequest
     from django.conf import settings
     from video.models import RandomCallMatching, RandomCallSession, LivekitSession, LiveKitRoom, RandomCallLobby
+    from chat.models import Chat
     import uuid
-
-    print(f"VVVVRoom: {room}, Session: {session_id}, Match: {matching_id}")
 
     session_id = uuid.UUID(session_id)
     matching_id = uuid.UUID(matching_id)
@@ -645,8 +644,6 @@ def kill_livekit_room(room, session_id, matching_id):
         api_key=settings.LIVEKIT_API_KEY,
         api_secret=settings.LIVEKIT_API_SECRET,
     )
-
-    print(f"THE FOLLOWING ROOM WILL BE DELETED: {room}")
 
     lkapi.room.delete_room(DeleteRoomRequest(room=room))
     lkapi.aclose()
@@ -671,8 +668,13 @@ def kill_livekit_room(room, session_id, matching_id):
     livekit_session = LivekitSession.objects.filter(room=livekit_room).exclude(is_active=False)
     if livekit_session.exists():
         for l in livekit_session:
-            print("LIVEKITSESSION:",l)
             l.is_active = False
             l.u1_active = False
             l.u2_active = False
             l.save()
+
+    chat = Chat.objects.filter(uuid=chat_id)
+    if chat.exists():
+        for c in chat:
+            print("DELETE CHAT:", c)
+            c.delete()

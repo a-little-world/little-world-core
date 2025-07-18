@@ -59,26 +59,36 @@ async def create_livekit_room(room_name):
         print("Created room that didn't exist:", room_name, room_info)
     await lkapi.aclose()
 
+def get_partner(user):
+    partner = RandomCallLobby.objects.filter(status=False).exclude(user=user).order_by('id')
+    if partner.exists():
+        partner = partner.first()
+        while partner.status:
+            partner = partner.delete()
+            partner = partner.first()
+        return partner
+    else:
+        return None
 
 def get_users_to_pair(user):
-    with transaction.atomic():
-        try:
-            user_lobby = RandomCallLobby.objects.select_for_update(skip_locked=True).get(user=user)
-            partner = RandomCallLobby.objects.select_for_update(skip_locked=True).filter(status=False).exclude(user=user).order_by('id')
-            if partner.exists():
-                partner = partner.first()
-            else:
-                raise Exception("Partner does not exists yet")
-
+    try:
+        user_lobby = RandomCallLobby.objects.get(user=user)
+        partner = get_partner(user)
+        if partner is None:
+            raise Exception("Partner does not exists yet")
+        with transaction.atomic():
+            if user_lobby.status:
+                raise Exception("I am already matched!")
             user_lobby.status = True
-            partner.status = True
             user_lobby.save()
-            partner.save()
-
-            return (user_lobby, partner)
-
-        except Exception as e:
-            return (user_lobby.user, None)
+            if partner.status:
+                partner = None
+            else:
+                partner.status = True
+                partner.save()
+        return (user_lobby, partner)
+    except Exception as e:
+        return (user_lobby.user, None)
 
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication])
@@ -142,12 +152,12 @@ def authenticate_livekit_random_call(request):
     print("NEW SESSION:", new_session)
 
     eta = new_session.end_time
-    print(eta)
-    print("ETA:", eta)
+   
     kill_livekit_room.apply_async(
         (str(temporary_room.uuid),
          str(new_session.uuid),
-         str(temporary_match.uuid)),
+         str(temporary_match.uuid),
+         str(temporary_chat.uuid)),
         eta=eta
         )
 
