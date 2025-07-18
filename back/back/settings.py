@@ -647,6 +647,7 @@ DATABASES = (
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": os.path.join(BASE_DIR, "db.sqlite3"),
+            "OPTIONS": {"timeout": 10},
         }
     }
     if ((IS_DEV and ("DJ_DATABASE_ENGINE" not in os.environ)) or USE_SQLITE)
@@ -658,7 +659,7 @@ DATABASES = (
             "PASSWORD": os.environ["DJ_DATABASE_PASSWORD"],
             "HOST": os.environ["DJ_DATABASE_HOST"],
             "PORT": os.environ["DJ_DATABASE_PORT"],
-            "OPTIONS": {}
+            "OPTIONS": {"timeout": 10}
             if (os.environ.get("DJ_DATABASE_DISABLE_SSL", "false").lower() in ("true", "t", "0"))
             else {"sslmode": "require"},
             # 'CONN_MAX_AGE': 10,

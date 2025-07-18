@@ -88,6 +88,10 @@ class Match(models.Model):
     @classmethod
     def get_match(cls, user1, user2):
         return cls.objects.filter(Q(user1=user1, user2=user2, active=True) | Q(user1=user2, user2=user1, active=True))
+    
+    @classmethod
+    def get_random_match(cls, user1, user2):
+        return cls.objects.filter(Q(user1=user1, user2=user2, is_random_call_match=True) | Q(user1=user2, user2=user1, is_random_call_match=True))
 
     @classmethod
     def get_matches(cls, user, order_by="created_at"):

@@ -627,18 +627,52 @@ def send_sms_background(
     receipient.sms(send_initator=get_base_management_user(), message=message)
 
 @shared_task
-def kill_livekit_room(room):
+def kill_livekit_room(room, session_id, matching_id):
     from livekit import api as livekit_api
     from livekit.api import DeleteRoomRequest
     from django.conf import settings
+    from video.models import RandomCallMatching, RandomCallSession, LivekitSession, LiveKitRoom, RandomCallLobby
+    import uuid
 
+    print(f"VVVVRoom: {room}, Session: {session_id}, Match: {matching_id}")
+
+    session_id = uuid.UUID(session_id)
+    matching_id = uuid.UUID(matching_id)
+
+    #close Random Call via livekitAPI
     lkapi = livekit_api.LiveKitAPI(
         url=settings.LIVEKIT_URL,
         api_key=settings.LIVEKIT_API_KEY,
         api_secret=settings.LIVEKIT_API_SECRET,
     )
 
-    print(f"THE FOLLOWING ROOM WILL BE DELETED: {str(room)}")
+    print(f"THE FOLLOWING ROOM WILL BE DELETED: {room}")
 
-    lkapi.room.delete_room(DeleteRoomRequest(room=str(room),))
+    lkapi.room.delete_room(DeleteRoomRequest(room=room))
     lkapi.aclose()
+
+    match = RandomCallMatching.objects.filter(uuid=matching_id)
+    if match.exists():
+        match = match.first()
+        match.active = False
+        match.save()
+        user1 = match.u1
+        user2 = match.u2
+        RandomCallLobby.objects.filter(user=user1).update(status=False)
+        RandomCallLobby.objects.filter(user=user2).update(status=False)
+    
+    sessions = RandomCallSession.objects.filter(uuid=session_id)
+    if sessions.exists():
+        for s in sessions:
+            s.active = False
+            s.save()
+            
+    livekit_room = LiveKitRoom.objects.get(uuid=room).pk
+    livekit_session = LivekitSession.objects.filter(room=livekit_room).exclude(is_active=False)
+    if livekit_session.exists():
+        for l in livekit_session:
+            print("LIVEKITSESSION:",l)
+            l.is_active = False
+            l.u1_active = False
+            l.u2_active = False
+            l.save()

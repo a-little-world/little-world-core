@@ -146,9 +146,10 @@ class RandomCallSession(models.Model):
 
     @classmethod
     def get_or_create(cls, random_match, tmp_chat, tmp_match, active):
-        session = cls.objects.filter(random_match=random_match)
-        end_time = timezone.now() + timedelta(minutes=1)
-        if session.exists() and session.first().active:
-            return session.first()
-        else:
-            return cls.objects.create(random_match=random_match, tmp_chat=tmp_chat, tmp_match=tmp_match, active=active, end_time=end_time)
+        with transaction.atomic():
+            session = cls.objects.select_for_update(skip_locked=True).filter(random_match=random_match)
+            end_time = timezone.now() + timedelta(seconds=60)
+            if session.exists() and session.first().active:
+                return session.first()
+            else:
+                return cls.objects.create(random_match=random_match, tmp_chat=tmp_chat, tmp_match=tmp_match, active=active, end_time=end_time)

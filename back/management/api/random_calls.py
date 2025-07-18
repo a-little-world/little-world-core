@@ -92,7 +92,7 @@ def match_random_pair(request):
         if existing_match.exists():
             return Response({"new_match": str(existing_match.first().uuid)})
         else:
-            return Response("Currently Match not possible", status=500)
+            return Response("Currently Match not possible", status=400)
 
     new_match = RandomCallMatching.get_or_create_match(user1 = user_lobby.user, user2 = partner.user)
     print("newmatchuuid",new_match.uuid)
@@ -111,11 +111,11 @@ def authenticate_livekit_random_call(request):
     temporary_room = LiveKitRoom.get_or_create_room(random_match.u1, random_match.u2)
     temporary_match = ""
     try:
-        temporary_match = Match.get_match(random_match.u1, random_match.u2).first()
+        temporary_match = Match.get_random_match(random_match.u1, random_match.u2).first()
         if temporary_match is None:
             raise Exception("")
     except:
-        temporary_match = Match.objects.create(user1=random_match.u1, user2=random_match.u2, is_random_call_match=True)
+        temporary_match = Match.objects.create(user1=random_match.u1, user2=random_match.u2, is_random_call_match=True, active=False)
     loop = asyncio.new_event_loop()
     loop.run_until_complete(create_livekit_room(str(temporary_room.uuid)))
     loop.close()
@@ -132,13 +132,6 @@ def authenticate_livekit_random_call(request):
         .to_jwt()
     )
     
-    from datetime import datetime, timedelta, timezone
-    eta = datetime.now(timezone.utc) + timedelta(seconds=30)
-    kill_livekit_room.apply_async(
-        (temporary_room.uuid,),
-        eta=eta
-        )
-    
     new_session = RandomCallSession.get_or_create(
         random_match=str(random_match.uuid),
         tmp_chat=temporary_chat,
@@ -147,6 +140,16 @@ def authenticate_livekit_random_call(request):
         )
     
     print("NEW SESSION:", new_session)
+
+    eta = new_session.end_time
+    print(eta)
+    print("ETA:", eta)
+    kill_livekit_room.apply_async(
+        (str(temporary_room.uuid),
+         str(new_session.uuid),
+         str(temporary_match.uuid)),
+        eta=eta
+        )
 
     return Response({
         "token": str(token),
