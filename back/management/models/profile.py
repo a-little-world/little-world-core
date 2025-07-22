@@ -597,7 +597,6 @@ class MinimalProfileSerializer(serializers.ModelSerializer):
         fields = [
             "first_name",
             "second_name",
-            "target_group",
             "lang_skill",
             "interests",
             "image_type",
@@ -605,7 +604,9 @@ class MinimalProfileSerializer(serializers.ModelSerializer):
             "image",
             "description",
             "user_type",
+            "target_group",
             "target_groups",
+            "partner_gender",
             "newsletter_subscribed",
             "phone_mobile",
             "push_notifications_enabled",
