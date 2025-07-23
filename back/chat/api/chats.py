@@ -61,8 +61,6 @@ class ChatsModelViewSet(viewsets.ModelViewSet):
         else:
             queryset = queryset.annotate(
                 newest_message_time=Max("message__created")
-            ).filter(
-                newest_message_time__isnull=False
             ).order_by("-newest_message_time")
         
         return queryset

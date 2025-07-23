@@ -215,6 +215,12 @@ class User(AbstractUser):
         # ... so user can not easily be locked out of their account
         verifiaction_url = f"{settings.BASE_URL}/api/user/verify/email/{self.state.get_email_auth_code_b64()}"
 
+        # NOTE the save() method automaicly detects the email change and also changes the username
+        # We do this so admins can edit emails in the admin pannel and changes are reflected as expected
+        # self.username = prms.email  # <- so the user can login with that email now
+        self.email = prms.email.lower()
+        self.save()
+
         if settings.USE_V2_EMAIL_APIS:
             self.send_email_v2("welcome")
         else:
@@ -229,11 +235,6 @@ class User(AbstractUser):
                     verification_code=str(self.state.get_email_auth_pin()),
                 ),
             )
-        self.email = prms.email.lower()
-        # NOTE the save() method automaicly detects the email change and also changes the username
-        # We do this so admins can edit emails in the admin pannel and changes are reflected as expected
-        # self.username = prms.email  # <- so the user can login with that email now
-        self.save()
 
     def message(
         self,

@@ -9,7 +9,7 @@ from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
-from back.utils import _api_url, dataclass_as_dict
+from back.utils import dataclass_as_dict
 from management.helpers import IsAdminOrMatchingUser
 from management.models.user import User
 
@@ -123,9 +123,9 @@ def list_email_logs(request):
 
 
 email_view_routes = [
-    path(_api_url("list_emails/logs", admin=True), list_email_logs),
-    path(_api_url("list_emails/<str:template_name>/render", admin=True), render_as_email),
-    path(_api_url("list_emails/<str:template_name>/send", admin=True), send_email_rendered),
-    path(_api_url("list_emails/templates", admin=True), list_email_templates),
-    path(_api_url("list_emails/<str:template_name>/params", admin=True), get_email_template_params),
+    path("api/admin/list_emails/logs/", list_email_logs),
+    path("api/admin/list_emails/<str:template_name>/render/", render_as_email),
+    path("api/admin/list_emails/<str:template_name>/send/", send_email_rendered),
+    path("api/admin/list_emails/templates/", list_email_templates),
+    path("api/admin/list_emails/<str:template_name>/params/", get_email_template_params),
 ]

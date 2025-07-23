@@ -2,7 +2,8 @@ import json
 from back.utils import CoolerJson
 from chat.models import Chat, ChatSerializer, Message, MessageSerializer
 from django.conf import settings
-from django.db.models import Q
+from django.db.models import Q, Value, CharField
+from django.db.models.functions import Concat
 from django.urls import path
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -15,12 +16,8 @@ from rest_framework.response import Response
 
 from management.api.scores import score_between_db_update
 from management.api.user_advanced_filter_lists import FILTER_LISTS, get_choices, get_dynamic_userlists
-from management.api.user_data import (
-    AdvancedUserMatchSerializer,
-    get_paginated,
-    get_paginated_format_v2,
-    serialize_proposed_matches,
-)
+from management.models.unconfirmed_matches import serialize_proposed_matches
+from management.helpers.detailed_pagination import get_paginated_format_v2
 from management.api.utils_advanced import filterset_schema_dict
 from management.controller import delete_user, make_tim_support_user
 from management.helpers import (
@@ -31,6 +28,7 @@ from management.helpers import (
 from management.models.dynamic_user_list import DynamicUserList
 from management.models.management_tasks import ManagementTaskSerializer, MangementTask
 from management.models.matches import Match
+from management.api.matches import AdvancedUserMatchSerializer
 from management.models.pre_matching_appointment import (
     PreMatchingAppointment,
     PreMatchingAppointmentSerializer,
@@ -102,9 +100,9 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
 
         items_per_page = 5
         user = instance
-        confirmed_matches = get_paginated(Match.get_confirmed_matches(user), items_per_page, 1)
-        confirmed_matches["items"] = AdvancedUserMatchSerializer(
-            confirmed_matches["items"],
+        confirmed_matches = get_paginated_format_v2(Match.get_confirmed_matches(user), items_per_page, 1)
+        confirmed_matches["results"] = AdvancedUserMatchSerializer(
+            confirmed_matches["results"],
             many=True,
             context={
                 "user": user,
@@ -113,9 +111,9 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
             },
         ).data
 
-        unconfirmed_matches = get_paginated(Match.get_unconfirmed_matches(user), items_per_page, 1)
-        unconfirmed_matches["items"] = AdvancedUserMatchSerializer(
-            unconfirmed_matches["items"],
+        unconfirmed_matches = get_paginated_format_v2(Match.get_unconfirmed_matches(user), items_per_page, 1)
+        unconfirmed_matches["results"] = AdvancedUserMatchSerializer(
+            unconfirmed_matches["results"],
             many=True,
             context={
                 "user": user,
@@ -124,9 +122,9 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
             },
         ).data
 
-        support_matches = get_paginated(Match.get_support_matches(user), items_per_page, 1)
-        support_matches["items"] = AdvancedUserMatchSerializer(
-            support_matches["items"],
+        support_matches = get_paginated_format_v2(Match.get_support_matches(user), items_per_page, 1)
+        support_matches["results"] = AdvancedUserMatchSerializer(
+            support_matches["results"],
             many=True,
             context={
                 "user": user,
@@ -135,16 +133,16 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
             },
         ).data
 
-        proposed_matches = get_paginated(ProposedMatch.get_open_proposals(user), items_per_page, 1)
-        proposed_matches["items"] = serialize_proposed_matches(proposed_matches["items"], user)
+        proposed_matches = get_paginated_format_v2(ProposedMatch.get_open_proposals(user), items_per_page, 1)
+        proposed_matches["results"] = serialize_proposed_matches(proposed_matches["results"], user)
 
         # proposlas that were rejected or expired
-        old_proposed_matches = get_paginated(ProposedMatch.get_unsuccessful_proposals(user), items_per_page, 1)
-        old_proposed_matches["items"] = serialize_proposed_matches(old_proposed_matches["items"], user)
+        old_proposed_matches = get_paginated_format_v2(ProposedMatch.get_unsuccessful_proposals(user), items_per_page, 1)
+        old_proposed_matches["results"] = serialize_proposed_matches(old_proposed_matches["results"], user)
 
-        inactive_matches = get_paginated(Match.get_inactive_matches(user), items_per_page, 1)
-        inactive_matches["items"] = AdvancedUserMatchSerializer(
-            inactive_matches["items"],
+        inactive_matches = get_paginated_format_v2(Match.get_inactive_matches(user), items_per_page, 1)
+        inactive_matches["results"] = AdvancedUserMatchSerializer(
+            inactive_matches["results"],
             many=True,
             context={
                 "user": user,
@@ -215,6 +213,17 @@ class AdvancedMatchingScoreSerializer(serializers.ModelSerializer):
         return representation
 
 
+def get_company_choices():
+    """
+    Get all unique company values from the database, including None for users without a company.
+    Returns a list of tuples suitable for ChoiceFilter choices.
+    """
+    companies = State.objects.exclude(company__isnull=True).exclude(company='').values_list('company', flat=True).distinct().order_by('company')
+    choices = [("null", "No Company")]
+    choices.extend([(company, company) for company in companies])
+    return choices
+
+
 class UserFilter(filters.FilterSet):
     profile__user_type = filters.ChoiceFilter(
         field_name="profile__user_type",
@@ -240,6 +249,11 @@ class UserFilter(filters.FilterSet):
         help_text="Filter for users that are subscribed to the newsletter",
     )
 
+    profile__job_search = filters.BooleanFilter(
+        field_name="profile__job_search",
+        help_text="Filter for users that are searching for a job",
+    )
+
     state__email_authenticated = filters.BooleanFilter(
         field_name="state__email_authenticated",
         help_text="Filter for users that have authenticated their email",
@@ -262,7 +276,8 @@ class UserFilter(filters.FilterSet):
 
     state__company = filters.ChoiceFilter(
         field_name="state__company",
-        choices=[("null", None), ("accenture", "accenture"), ("capegemini", "capegemini"), ("germaninstitute", "germaninstitute")],
+        choices=get_company_choices,
+        method="filter_company",
         help_text="Filter for users that are part of a company",
     )
 
@@ -286,11 +301,14 @@ class UserFilter(filters.FilterSet):
     search = filters.CharFilter(method="filter_search", label="Search")
 
     def filter_search(self, queryset, name, value):
-        return queryset.filter(
+        return queryset.annotate(
+            full_name=Concat('profile__first_name', Value(' '), 'profile__second_name', output_field=CharField())
+        ).filter(
             Q(hash__icontains=value)
             | Q(profile__first_name__icontains=value)
             | Q(profile__second_name__icontains=value)
             | Q(email__icontains=value)
+            | Q(full_name__icontains=value)
         )
 
     def filter_list(self, queryset, name, value):
@@ -316,6 +334,11 @@ class UserFilter(filters.FilterSet):
                 query |= Q(**{f"{name}__icontains": item})
             return queryset.filter(query)
         return queryset
+
+    def filter_company(self, queryset, name, value):
+        if value == "null":
+            return queryset.filter(Q(state__company__isnull=True) | Q(state__company=''))
+        return queryset.filter(state__company=value)
 
     class Meta:
         model = User

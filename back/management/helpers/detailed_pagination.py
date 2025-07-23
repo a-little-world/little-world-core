@@ -1,11 +1,12 @@
 from typing import OrderedDict
 
+from django.core.paginator import Paginator
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
 
 class DetailedPagination(PageNumberPagination):
-    page_size = 10
+    page_size = 20
     max_page_size = 100
     page_query_param = "page"
     page_size_query_param = "page_size"
@@ -40,6 +41,12 @@ class DetailedPagination(PageNumberPagination):
                     "type": "integer",
                     "example": "1",
                     "description": "The total number of items",
+                    "format": "int32",
+                },
+                "results_total": {
+                    "type": "integer",
+                    "example": "1",
+                    "description": "The total number of items in the results",
                     "format": "int32",
                 },
                 "next_page": {
@@ -91,7 +98,9 @@ class DetailedPagination(PageNumberPagination):
                     ("previous", self.get_previous_link()),
                     ("results", data),  # The  following are extras added by me:
                     ("page_size", self.get_page_size(self.request)),
+                    ("pages_total", self.page.paginator.num_pages),
                     ("next_page", self.page.next_page_number() if self.page.has_next() else None),
+                    ("results_total", self.page.paginator.count),
                     ("previous_page", self.page.previous_page_number() if self.page.has_previous() else None),
                     ("last_page", self.page.paginator.num_pages),
                     ("items_total", self.page.paginator.count),
@@ -103,3 +112,21 @@ class DetailedPagination(PageNumberPagination):
 
 class DetailedPaginationMixin(DetailedPagination):
     pass
+
+def get_paginated_format_v2(query_set, items_per_page, page):
+    pages = Paginator(query_set, items_per_page).page(page)
+    return {
+        "results": list(pages),
+        "page_size": items_per_page,
+        "pages_total": pages.paginator.num_pages,
+        "results_total": pages.paginator.count,
+        "page": page,
+        "first_page": 1,
+        "last_page": pages.paginator.num_pages,
+        "items_total": pages.paginator.count,
+        "count": pages.paginator.count,
+        "next_page": pages.next_page_number() if pages.has_next() else None,
+        "previous_page": pages.previous_page_number() if pages.has_previous() else None,
+    }
+
+
