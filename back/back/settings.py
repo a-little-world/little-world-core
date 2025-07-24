@@ -24,10 +24,16 @@ if USE_SENTRY:
     try:
         import sentry_sdk
 
+        SENTRY_SEND_DEFAULT_PII = os.environ.get("DJ_SENTRY_SEND_DEFAULT_PII", "false").lower() in ("true", "1", "t")
         sentry_sdk.init(
             dsn=SENTRY_DNS,
             traces_sample_rate=1.0,
             profiles_sample_rate=1.0,
+            send_default_pii=SENTRY_SEND_DEFAULT_PII,
+            sanitize_fields=[
+                "password",
+                "token",
+            ],
         )
     except Exception as e:
         print("WARINING: unable to start sentry", str(e))
