@@ -282,6 +282,7 @@ if IS_STAGE or DEBUG:
         "http://localhost:3000",
         "https://localhost:3333",
         "http://localhost:3333",
+        "http://localhost:9000",
     ]
 
     CORS_ALLOWED_ORIGINS += dev_origins

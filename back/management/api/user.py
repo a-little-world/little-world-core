@@ -516,23 +516,13 @@ def get_user_data(user):
     )
 
     # Get video call join link if available
-    pre_call_join_link = None
-    try:
-        if pre_matching_app and pre_matching_app.call_room:
-            if pre_matching_app.call_room.join_link:
-                pre_call_join_link = pre_matching_app.call_room.join_link
-    except Exception:
-        pass
-
+    pre_call_join_link = settings.PREMATCHING_CALL_JOIN_LINK
     profile_data = SelfProfileSerializer(user_profile).data
 
-    has_atleast_one_match = (
-        Match.objects.filter(
-            Q(user1=user) | Q(user2=user),
-            support_matching=False,
-        ).count()
-        > 0
-    )
+    has_atleast_one_match = Match.objects.filter(
+        Q(user1=user) | Q(user2=user),
+        support_matching=False,
+    ).exists()
 
     return {
         "id": str(user.hash),
