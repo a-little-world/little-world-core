@@ -26,6 +26,7 @@ from management.models.pre_matching_appointment import PreMatchingAppointment, P
 from management.models.profile import CensoredProfileSerializer, ProposalProfileSerializer, SelfProfileSerializer
 from management.models.state import FrontendStatusSerializer, State
 from management.models.unconfirmed_matches import ProposedMatch
+from management.api.utils_advanced import enrich_report_unmatch_with_user_info
 
 
 def get_paginated(query_set, items_per_page, page):
@@ -113,7 +114,7 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
             "chatId": str(chat.uuid),
             "active": instance.active,
             "activeCallRoom": active_call_room,
-            "report_unmatch": instance.report_unmatch,
+            "report_unmatch": enrich_report_unmatch_with_user_info(instance.report_unmatch, instance),
             "partner": {
                 "id": str(partner.hash),
                 "isOnline": is_online,
@@ -150,6 +151,7 @@ def serialize_proposed_matches(matching_proposals, user):
                 "closed": proposal.closed,
                 "rejected_by": rejected_by,
                 "rejected_at": proposal.rejected_at,
+                "rejected_reason": proposal.rejected_reason,
                 "rejected": proposal.rejected,
                 "expired": proposal.expired,
                 "expires_at": proposal.expires_at,
