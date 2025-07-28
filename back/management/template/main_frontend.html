@@ -15,9 +15,6 @@
   </script>
   {% get_reload_script_tag %}
   {% if sentry_user_id %}
-  <script>
-    Sentry.setUser({ id: '{{ sentry_user_id }}' });
-  </script>
   {% endif %}
     {% include "react_app_head_base.html" with app_name='main_frontend' title='Little World' %}
     {% if use_cookie_banner %}
