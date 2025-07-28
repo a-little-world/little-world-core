@@ -390,8 +390,8 @@ class FrontendStatusSerializer(serializers.ModelSerializer):
         # Now check if the user is matched
         # Use exists() instead of count() for better performance
         has_atleast_one_match = Match.objects.filter(
-            Q(user1=instance.user) | Q(user2=instance.user),
-            support_matching=False,
+                Q(user1=instance.user) | Q(user2=instance.user),
+                support_matching=False,
         ).exists()
 
         if has_atleast_one_match:
