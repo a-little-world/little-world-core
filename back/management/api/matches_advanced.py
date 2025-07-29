@@ -15,6 +15,7 @@ from management.models.profile import MinimalProfileSerializer
 from management.models.state import State
 from management.models.user import User
 from management.api.match_journey_filter_list import determine_match_bucket
+from management.api.utils_advanced import enrich_report_unmatch_with_user_info
 
 
 class AdvancedMatchSerializer(serializers.ModelSerializer):
@@ -63,7 +64,7 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
                 representation["status"] = "unconfirmed"
                 
         if hasattr(instance, "report_unmatch"):
-            representation["report_unmatch"] = instance.report_unmatch
+            representation["report_unmatch"] = enrich_report_unmatch_with_user_info(instance.report_unmatch, instance)
 
         if hasattr(instance, "active"):
             if not instance.active:

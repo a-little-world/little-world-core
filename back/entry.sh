@@ -31,7 +31,7 @@ if [ "$EMPHIRIAL" = "1" ]; then
 fi
 
 
-if [ "$BUILD_TYPE" = "development" ]; then
+if [ "$BUILD_TYPE" = "development" ] && [ "$DJ_USE_DEBUG_TOOLBAR" = "1" ]; then
     python3 -Xfrozen_modules=off -m debugpy --listen 0.0.0.0:5678 -m uvicorn back.asgi:application --reload --port 8000 --host 0.0.0.0 --reload-include "**/template/**"
 else
     uvicorn back.asgi:application --reload --port 8000 --host 0.0.0.0 --reload-include "**/template/**"

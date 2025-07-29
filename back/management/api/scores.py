@@ -17,13 +17,13 @@ while `user.gender.MALE (or FEMALE)` with `user.gender_partne.ANY` will give a s
 
 
 - [o] distance ( checkId: `postal_code_distance` )
-Perforing a simple postal code distance estimation using [pgeocode](https://github.com/symerio/pgeocode)
+Performing a simple postal code distance estimation using [pgeocode](https://github.com/symerio/pgeocode)
 then table based scoring:
 km disance `{"<50": 50, "<100": 40, "<200": 30, "<300": 20, "<400": 10, "<500": 5, ">500": 0}`
 
 - [o] Time Slot Overlap ( checkId: `time_slot_overlap` )
 Table based scores amount overlaps
-`{"<=0": -15, "=1: 15, "=2": 25, "=3": 29, "=4": 32, "=5": 35, ">=6": 37}
+`{"<=0": unmatchable, "=1: 15, "=2": 25, "=3": 29, "=4": 32, "=5": 35, ">=6": 37}
 
 - [o] Language Level ( checkId: `language_level` )
 > this considers the `profile.lang_skill` and `profile.min_lang_level_partner`
@@ -144,7 +144,7 @@ class ScoringBase:
     def score__time_slot_overlap(self):
         """
         Table based scores amount overlaps
-        `{"<=0": -15, "=1: 15, "=2": 25, "=3": 29, "=4": 32, "=5": 35, ">=6": 37}
+        `{"<=0": unmatchable, "=1: 15, "=2": 25, "=3": 29, "=4": 32, "=5": 35, ">=6": 37}
         """
         slots1 = self.user1.profile.availability
         slots2 = self.user2.profile.availability
@@ -157,8 +157,17 @@ class ScoringBase:
                 if day in slots1 and day in slots2 and slot in slots1[day] and slot in slots2[day]:
                     common_slots[day] = common_slots.get(day, []) + [slot]
                     amnt_common_slots += 1
+        
+        # If no common slots, make unmatchable
+        if amnt_common_slots <= 0:
+            return ScoringFuctionResult(
+                matchable=False,
+                score=0,
+                weight=1.0,
+                markdown_info=f"Common slots: ({str(amnt_common_slots)}) {str(common_slots)} (unmatchable: no overlap)",
+            )
+        
         conditions = [
-            [lambda x: x <= 0, -15],
             [lambda x: x == 1, 15],
             [lambda x: x == 2, 25],
             [lambda x: x == 3, 29],
