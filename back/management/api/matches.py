@@ -28,6 +28,8 @@ from chat.models import Chat, ChatConnections, ChatSerializer
 from management.models.state import State
 from management.models.profile import CensoredProfileSerializer
 from management.api.match_journey_filter_list import determine_match_bucket
+from management.api.utils_advanced import enrich_report_unmatch_with_user_info
+
 
 class AdvancedUserMatchSerializer(serializers.ModelSerializer):
     class Meta:
@@ -63,7 +65,7 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
             "chatId": str(chat.uuid),
             "active": instance.active,
             "activeCallRoom": active_call_room,
-            "report_unmatch": instance.report_unmatch,
+            "report_unmatch": enrich_report_unmatch_with_user_info(instance.report_unmatch, instance),
             "partner": {
                 "id": str(partner.hash),
                 "isOnline": is_online,

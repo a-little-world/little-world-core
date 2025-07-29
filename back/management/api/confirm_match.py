@@ -89,7 +89,7 @@ def confirm_match(request):
         unconfirmed_match.rejected = True
         unconfirmed_match.rejected_at = timezone.now()
         unconfirmed_match.rejected_by = request.user
-        unconfirmed_match.deny_reason = data.deny_reason
+        unconfirmed_match.rejected_reason = data.deny_reason
         unconfirmed_match.save()
 
         request.user.state.searching_state = State.SearchingStateChoices.IDLE
