@@ -115,11 +115,11 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         if not chat_uuid:
             return Response({"error": "chat_uuid is required"}, status=400)
 
-        # Optimize: Use select_related to reduce database queries
-        try:
-            chat = Chat.objects.select_related().get(uuid=chat_uuid)
-        except Chat.DoesNotExist:
+        # Use select_related to reduce database queries, but keep safe existence check
+        chat = Chat.objects.select_related().filter(uuid=chat_uuid)
+        if not chat.exists():
             return self.resp_chat_403
+        chat = chat.first()
             
         if not chat.is_participant(request.user):
             return self.resp_chat_403
@@ -140,9 +140,9 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         match.latest_interaction_at = timezone.now()
         match.save()
 
-        # Optimize: Only check for notifications if we have a partner
+        # Email notification logic - check if recipient should be notified
         creation_time = timezone.now()
-        recipiend_was_email_notified = False
+        recipient_was_email_notified = False
         
         # Simplified notification check - only get the latest one
         latest_notified_message = Message.objects.filter(
@@ -157,10 +157,10 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
             # Min 5 min delay between notifications!
             time_since_last_notif = (creation_time - latest_notified_message.created).total_seconds()
             if time_since_last_notif > 300:
-                recipiend_was_email_notified = True
+                recipient_was_email_notified = True
                 notify_recipient_email()
         else:
-            recipiend_was_email_notified = True
+            recipient_was_email_notified = True
             notify_recipient_email()
             
         message_text = serializer.validated_data.get('text', '')
@@ -206,7 +206,7 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
             chat=chat,
             sender=request.user,
             recipient=partner,
-            recipient_notified=recipiend_was_email_notified,
+            recipient_notified=recipient_was_email_notified,
             text=final_message_text,
             attachments=attachment,
             parsable_message=is_parsable,
