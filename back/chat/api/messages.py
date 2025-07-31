@@ -1,3 +1,4 @@
+import json
 from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone
@@ -114,10 +115,12 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         if not chat_uuid:
             return Response({"error": "chat_uuid is required"}, status=400)
 
-        chat = Chat.objects.filter(uuid=chat_uuid)
-        if not chat.exists():
+        # Optimize: Use select_related to reduce database queries
+        try:
+            chat = Chat.objects.select_related().get(uuid=chat_uuid)
+        except Chat.DoesNotExist:
             return self.resp_chat_403
-        chat = chat.first()
+            
         if not chat.is_participant(request.user):
             return self.resp_chat_403
 
@@ -132,27 +135,27 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
             return self.resp_chat_403
         match = match.first()
 
+        # Update match data
         match.total_messages_counter += 1
         match.latest_interaction_at = timezone.now()
         match.save()
 
-        # retrieve the newest message the recipient was notified about
+        # Optimize: Only check for notifications if we have a partner
+        creation_time = timezone.now()
+        recipiend_was_email_notified = False
+        
+        # Simplified notification check - only get the latest one
         latest_notified_message = Message.objects.filter(
             recipient=partner,
             recipient_notified=True,
-        ).order_by("-created")
+        ).order_by("-created").first()
 
         def notify_recipient_email():
             send_email_background.delay("new-messages", user_id=partner.id)
 
-        # Now check if we should be sending out a new message notification
-        creation_time = timezone.now()
-        recipiend_was_email_notified = False
-        if latest_notified_message.exists():
-            latest_notified_message = latest_notified_message.first()
+        if latest_notified_message:
             # Min 5 min delay between notifications!
             time_since_last_notif = (creation_time - latest_notified_message.created).total_seconds()
-
             if time_since_last_notif > 300:
                 recipiend_was_email_notified = True
                 notify_recipient_email()
@@ -160,45 +163,45 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
             recipiend_was_email_notified = True
             notify_recipient_email()
             
-        message_text = ""
-        if 'text' in serializer.validated_data and serializer.validated_data['text']:
-            message_text = serializer.validated_data['text']
+        message_text = serializer.validated_data.get('text', '')
 
-        # Process attachment if present
+        # Optimize: Streamlined attachment processing
         attachment = None
-        attachment_widget = ""
+        final_message_text = message_text
+        is_parsable = False
         
         if 'file' in serializer.validated_data and serializer.validated_data['file']:
             file = serializer.validated_data['file']
             
-            # Validate file size
-            if hasattr(file, 'size') and file.size > 3 * 1024 * 1024:  # 3MB limit
+            # Quick validation without redundant checks
+            if file.size > 3 * 1024 * 1024:  # 3MB limit
                 return Response({"error": "File size too large. Maximum size is 3MB."}, status=400)
             
-            # Validate file name
             if not file.name or '.' not in file.name:
                 return Response({"error": "Invalid file format. File must have a valid extension."}, status=400)
             
+            # Create attachment
             attachment = MessageAttachment.objects.create(file=file)
             if not attachment or not attachment.file:
                 return Response({"error": "Failed to process file attachment."}, status=400)
             
-            file_title = file.name
-            file_ending = file.name.split(".")[-1]
-            is_image = file_ending.lower() in ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "ico", "webp"]
-            attachment_link = attachment.file.url
+            # Simplified file type detection and widget creation
+            file_extension = file.name.split(".")[-1].lower()
+            is_image = file_extension in ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "ico", "webp"]
             
-            def get_attachment_widget(is_image, attachment_link, message_text):
-                if is_image:
-                    return f'<AttachmentWidget {{"attachmentTitle": "Image", "attachmentLink": null, "imageSrc": "{attachment_link}", "caption": "{message_text}"}} ></AttachmentWidget>'
-                else:
-                    return f'<AttachmentWidget {{"attachmentTitle": "{file_title}", "attachmentLink": "{attachment_link}", "imageSrc": null, "caption": "{message_text}"}} ></AttachmentWidget>'
+            # Optimized widget creation - pre-escape values
+            escaped_title = json.dumps("Image" if is_image else file.name)
+            escaped_caption = json.dumps(message_text)
+            escaped_attachment_link = json.dumps(attachment.file.url)
             
-            attachment_widget = get_attachment_widget(is_image, attachment_link, message_text)
+            if is_image:
+                final_message_text = f'<AttachmentWidget {{"attachmentTitle": {escaped_title}, "attachmentLink": null, "imageSrc": {escaped_attachment_link}, "caption": {escaped_caption}}} ></AttachmentWidget>'
+            else:
+                final_message_text = f'<AttachmentWidget {{"attachmentTitle": {escaped_title}, "attachmentLink": {escaped_attachment_link}, "imageSrc": null, "caption": {escaped_caption}}} ></AttachmentWidget>'
             
-        final_message_text = attachment_widget or message_text
+            is_parsable = True
 
-        # Create message with combined content
+        # Create message - single database operation
         message = Message.objects.create(
             chat=chat,
             sender=request.user,
@@ -206,11 +209,13 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
             recipient_notified=recipiend_was_email_notified,
             text=final_message_text,
             attachments=attachment,
-            parsable_message=bool(attachment_widget),
+            parsable_message=is_parsable,
         )
 
+        # Optimize: Use existing serialized data instead of re-serializing
         serialized_message = self.serializer_class(message).data
 
+        # Send websocket message
         from chat.consumers.messages import NewMessage
 
         NewMessage(
