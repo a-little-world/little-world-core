@@ -245,7 +245,6 @@ def authenticate_live_kit_room(request):
     )
 
     return Response({
-        "uuid": livekit_room.uuid,
         "token": str(token), 
         "server_url": settings.LIVEKIT_URL, 
         "chat": chat
