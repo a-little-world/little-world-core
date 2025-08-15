@@ -4,6 +4,7 @@ from django.db import models
 from django.db.models import Q
 from management.models.profile import CensoredProfileSerializer
 from rest_framework.serializers import ModelSerializer
+from rest_framework import serializers
 
 
 class LiveKitRoom(models.Model):
@@ -57,9 +58,11 @@ class LivekitSession(models.Model):
 
 
 class SerializeLivekitSession(ModelSerializer):
+    room_uuid = serializers.CharField(source='room.uuid', read_only=True, allow_null=True)
+    
     class Meta:
         model = LivekitSession
-        fields = ["uuid", "created_at"]
+        fields = ["uuid", "created_at", "room_uuid"]
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
