@@ -59,21 +59,19 @@ var config = function (env) {
         {
           test: /\.(js|jsx|tsx|ts)$/,
           exclude: /node_modules/,
-          use: ['babel-loader'],
+          use: ["babel-loader"],
           resolve: {
-            extensions: ['.js', '.jsx', '.ts', '.tsx'],
+            extensions: [".js", ".jsx", ".ts", ".tsx"],
           },
-          include: [
-            path.resolve(__dirname, 'apps/main_frontend/src'),
-          ],
+          include: [path.resolve(__dirname, "apps/main_frontend/src")],
         },
         {
-          test: /\.(jpg|png|svg|webp|gif|tff)$/,
-          type: 'asset/resource',
+          test: /\.(jpg|png|svg|webp|gif|ttf|woff|woff2|eot|otf)$/,
+          type: "asset/resource",
         },
         {
           test: /\.css$/,
-          use: ['style-loader', 'css-loader'],
+          use: ["style-loader", "css-loader"],
         },
       ],
     },
