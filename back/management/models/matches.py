@@ -152,3 +152,28 @@ class Match(models.Model):
         return cls.objects.filter(Q(user1=user) | Q(user2=user), active=False, support_matching=False).order_by(
             order_by
         )
+
+    @classmethod
+    def deactivate_all_user_matches(cls, user):
+        """
+        Get all active matches for a user and set them to inactive.
+        This is typically used when deleting a user account.
+        """
+        active_matches = cls.objects.filter(
+            Q(user1=user) | Q(user2=user), 
+            active=True
+        )
+        
+        for match in active_matches:
+            match.active = False
+            match.report_unmatch.append({
+                "kind": "unmatch",
+                "reason": "User account was deleted",
+                "match_id": match.id,
+                "time": str(timezone.now()),
+                "user_id": user.pk,
+                "user_uuid": user.hash,
+            })
+            match.save()
+        
+        return active_matches
