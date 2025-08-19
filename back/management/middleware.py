@@ -115,3 +115,29 @@ class OverwriteSessionLangIfAcceptLangHeaderSet:
                 return self.get_response(request)
         else:
             return self.get_response(request)
+
+
+class CsrfBypassMiddleware:
+    """
+    Middleware that allows bypassing CSRF checks for requests with a valid
+    X-CSRF-Bypass-Token header that matches tokens from environment variable.
+    """
+    
+    def __init__(self, get_response):
+        self.get_response = get_response
+        # Get bypass tokens from environment variable
+        self.bypass_tokens = self._get_bypass_tokens()
+    
+    def _get_bypass_tokens(self):
+        """Get CSRF bypass tokens from settings."""
+        from django.conf import settings
+        return getattr(settings, 'CSRF_BYPASS_TOKENS', [])
+    
+    def __call__(self, request):
+        bypass_token = request.headers.get('X-CSRF-Bypass-Token')
+        
+        if bypass_token and bypass_token in self.bypass_tokens:
+            request._csrf_bypass = True
+            setattr(request, "_dont_enforce_csrf_checks", True)
+        
+        return self.get_response(request)
