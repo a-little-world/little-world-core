@@ -134,7 +134,8 @@ class CsrfBypassMiddleware:
         return getattr(settings, 'CSRF_BYPASS_TOKENS', [])
     
     def __call__(self, request):
-        bypass_token = request.headers.get('X-CSRF-Bypass-Token')
+        bypass_token = request.META.get('HTTP_X_CSRF_BYPASS_TOKEN')
+        requested_with_header = request.META.get('HTTP_X_REQUESTED_WITH')
         
         if bypass_token and bypass_token in self.bypass_tokens:
             request._csrf_bypass = True

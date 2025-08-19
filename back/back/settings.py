@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+from corsheaders.defaults import default_headers, default_methods
 
 from firebase_admin import credentials, initialize_app
 
@@ -252,6 +253,11 @@ if EXTRA_CORS_ALLOWED_ORIGINS != "":
     EXTRA_CORS_ALLOWED_ORIGINS = EXTRA_CORS_ALLOWED_ORIGINS.split(",")
 else:
     EXTRA_CORS_ALLOWED_ORIGINS = []
+
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "x-csrftoken",
+    "x-usetagsonly",
+]
 
 
 EXTRA_CSRF_ALLOWED_ORIGINS = os.environ.get("DJ_EXTRA_CSRF_ALLOWED_ORIGINS", "")
