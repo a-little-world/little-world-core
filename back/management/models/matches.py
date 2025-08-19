@@ -154,7 +154,7 @@ class Match(models.Model):
         )
 
     @classmethod
-    def deactivate_all_user_matches(cls, user):
+    def update_deleted_user_matches(cls, user):
         """
         Get all active matches for a user and set them to inactive.
         This is typically used when deleting a user account.
@@ -165,7 +165,6 @@ class Match(models.Model):
         )
         
         for match in active_matches:
-            match.active = False
             match.report_unmatch.append({
                 "kind": "unmatch",
                 "reason": "User account was deleted",

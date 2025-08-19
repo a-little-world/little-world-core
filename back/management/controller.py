@@ -372,8 +372,8 @@ def unmatch_users(users: set, delete_video_room=True, delete_dialog=True, unmatc
     match.active = False
     match.report_unmatch.append(
         {
-            "kind": "unmatch",
-            "reason": reason or "User unmatched via support user",
+            "kind": "user_deleted",
+            "reason": reason or "User deleted by support user",
             "match_id": match.id,
             "time": str(timezone.now()),
             "user_id": unmatcher.pk if unmatcher else "no unmatcher specified",
@@ -591,7 +591,7 @@ def delete_user(user, management_user=None, send_deletion_email=False):
     if send_deletion_email:
         user.send_email_v2("account-deleted")
 
-    Match.deactivate_all_user_matches(user)
+    Match.update_deleted_user_matches(user)
 
     user.is_active = False
     user.email = f"deleted_{user.email}"
