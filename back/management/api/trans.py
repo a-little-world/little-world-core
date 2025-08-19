@@ -15,8 +15,8 @@ def get_translation_catalogue(request, lang=None):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
-@authentication_classes([SessionAuthentication])
+@permission_classes([])
+@authentication_classes([])
 def api_translations(request):
     from translations import get_translation_catalog
     return Response(get_translation_catalog())
