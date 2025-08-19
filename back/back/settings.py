@@ -200,6 +200,7 @@ MIDDLEWARE = [
     "django.middleware.locale.LocaleMiddleware",
     "management.middleware.OverwriteSessionLangIfAcceptLangHeaderSet",
     "django.middleware.common.CommonMiddleware",
+    "management.middleware.CsrfBypassMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -259,6 +260,13 @@ if EXTRA_CSRF_ALLOWED_ORIGINS != "":
 else:
     EXTRA_CSRF_ALLOWED_ORIGINS = []
 
+# CSRF bypass tokens for API requests
+CSRF_BYPASS_TOKENS = os.environ.get("DJ_CSRF_BYPASS_TOKENS", "")
+if CSRF_BYPASS_TOKENS != "":
+    CSRF_BYPASS_TOKENS = [token.strip() for token in CSRF_BYPASS_TOKENS.split(",") if token.strip()]
+else:
+    CSRF_BYPASS_TOKENS = []
+
 
 CORS_ALLOWED_ORIGINS = []
 if IS_STAGE or IS_PROD:
@@ -283,6 +291,7 @@ if IS_STAGE or DEBUG:
         "https://localhost:3333",
         "http://localhost:3333",
         "http://localhost:9000",
+        "http://localhost:9001",
     ]
 
     CORS_ALLOWED_ORIGINS += dev_origins
