@@ -262,7 +262,7 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
 ]
 
 # TODO: experimental change uncomment for easier native testing
-# CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_CREDENTIALS = True
 # SESSION_COOKIE_SAMESITE = 'None'  # Default SameSite setting
 # SESSION_COOKIE_SECURE = not DEBUG  # Secure cookies in production
 # SESSION_COOKIE_HTTPONLY = True
@@ -306,6 +306,7 @@ if IS_STAGE or DEBUG:
         "http://localhost:3333",
         "http://localhost:9000",
         "http://localhost:9001",
+        "https://568b7e6933ac.ngrok-free.app",
     ]
 
     CORS_ALLOWED_ORIGINS += dev_origins
