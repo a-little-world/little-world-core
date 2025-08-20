@@ -7,6 +7,7 @@ Main management models:
 """
 
 from . import (
+    multi_token_auth,
     backend_state,
     banner,
     community_events,
@@ -32,6 +33,7 @@ from . import (
 )
 
 __all__ = [
+    "multi_token_auth",
     "profile",
     "user",
     "state",

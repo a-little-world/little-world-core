@@ -2,6 +2,8 @@ from django.conf import settings
 from django.shortcuts import render
 from django.utils import translation
 
+from rest_framework.authentication import TokenAuthentication
+from management.models.multi_token_auth import MultiToken
 from management.models.state import State
 
 
@@ -134,11 +136,52 @@ class CsrfBypassMiddleware:
         return getattr(settings, 'CSRF_BYPASS_TOKENS', [])
     
     def __call__(self, request):
+        print("--------------------------------TBS:")
+        print(request.META)
         bypass_token = request.META.get('HTTP_X_CSRF_BYPASS_TOKEN')
         requested_with_header = request.META.get('HTTP_X_REQUESTED_WITH')
+        print("--------------------------------TBS:")
+        print(bypass_token)
+        print(requested_with_header)
         
         if bypass_token and bypass_token in self.bypass_tokens:
             request._csrf_bypass = True
             setattr(request, "_dont_enforce_csrf_checks", True)
+            # Set flag to modify session cookie SameSite attribute
+            request._modify_session_cookie_samesite = True
         
         return self.get_response(request)
+
+
+class SessionCookieSameSiteMiddleware:
+    """
+    Middleware that modifies session cookies to set SameSite=None
+    when CSRF bypass is requested, allowing cross-origin requests.
+    """
+    
+    def __init__(self, get_response):
+        self.get_response = get_response
+    
+    def __call__(self, request):
+        response = self.get_response(request)
+        
+        # Check if we need to modify session cookie SameSite attribute
+        if hasattr(request, '_modify_session_cookie_samesite') and request._modify_session_cookie_samesite:
+            # Get the session cookie name from Django settings
+            from django.conf import settings
+            session_cookie_name = getattr(settings, 'SESSION_COOKIE_NAME', 'sessionid')
+            
+            # Check if session cookie exists in response
+            if session_cookie_name in response.cookies:
+                cookie = response.cookies[session_cookie_name]
+                # Set SameSite=None to allow cross-origin requests
+                cookie['samesite'] = 'None'
+                # Note: SameSite=None requires Secure=True for HTTPS
+                if not settings.DEBUG:
+                    cookie['secure'] = True
+        
+        return response
+    
+
+class MultiTokenAuthMiddleware(TokenAuthentication):
+    model = MultiToken

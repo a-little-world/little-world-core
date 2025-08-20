@@ -1,6 +1,7 @@
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import SessionAuthentication
+from management.middleware import MultiTokenAuthMiddleware
 from rest_framework.response import Response
 from translations import get_translation_catalog
 
@@ -15,8 +16,8 @@ def get_translation_catalogue(request, lang=None):
 
 
 @api_view(["GET"])
-@permission_classes([])
-@authentication_classes([])
+@permission_classes([IsAuthenticated])
+@authentication_classes([SessionAuthentication, MultiTokenAuthMiddleware])
 def api_translations(request):
     from translations import get_translation_catalog
     return Response(get_translation_catalog())

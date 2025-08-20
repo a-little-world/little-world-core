@@ -2,14 +2,16 @@ from dataclasses import dataclass
 from typing import Optional
 
 from django.conf import settings
+from management.middleware import MultiTokenAuthMiddleware
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from management.models.multi_token_auth import MultiToken
 from django.dispatch import receiver
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
 from django.urls import reverse
 from django_rest_passwordreset.signals import reset_password_token_created
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 from emails import mails
 from emails.mails import PwResetMailParams, get_mail_data_by_name
 from rest_framework import authentication, permissions, serializers, status
@@ -125,12 +127,22 @@ class AutoLoginSerializer(serializers.Serializer):
 
 
 class LoginApi(APIView):
-    # TODO: this has to be throttled!
-    # TODO: als this need csrf protection
     permission_classes = []
     authentication_classes = []
 
-    @extend_schema(request=LoginSerializer(many=False))
+    @extend_schema(
+        request=LoginSerializer(many=False),
+        parameters=[
+            OpenApiParameter(
+                name="token_auth",
+                description="If true, returns an authentication token instead of creating a session",
+                type=bool,
+                required=False,
+                default=False,
+                location=OpenApiParameter.QUERY,
+            ),
+        ]
+    )
     def post(self, request):
         """
         This is to login regular users only!!!!
@@ -147,10 +159,15 @@ class LoginApi(APIView):
             if usr.is_staff:  # type: ignore
                 # pylint thinks this is a AbsUsr but we have overwritten it models.user.User
                 return Response(get_translation("api.login_failed_staff"), status=status.HTTP_400_BAD_REQUEST)
-            login(request, usr)
-            # Also pass the whole user data on a sucessfull login!
-
-            return Response(get_user_data(request.user))
+            
+            # token_auth is a query parameter that determines whether to return a token or create a session
+            token_auth = request.query_params.get("token_auth", False)
+            if token_auth:
+                token, created = MultiToken.objects.get_or_create(user=usr)
+                return Response({"token": token.key, **get_user_data(usr)})
+            else:
+                login(request, usr)
+                return Response(get_user_data(request.user))
         else:
             return Response(get_translation("api.login_failed"), status=status.HTTP_400_BAD_REQUEST)
 
@@ -562,7 +579,7 @@ def get_user_data(user):
 )
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, MultiTokenAuthMiddleware])
 def user_profile(request):
     """
     Returns user profile data.

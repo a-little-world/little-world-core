@@ -4,6 +4,7 @@ from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import SessionAuthentication
+from management.middleware import MultiTokenAuthMiddleware
 
 from management.models.community_events import CommunityEvent, CommunityEventSerializer
 from management.helpers.detailed_pagination import get_paginated_format_v2
@@ -25,7 +26,7 @@ class GetActiveEventsApi(APIView):
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, MultiTokenAuthMiddleware])
 def community_events(request):
     """
     Returns community events data for the authenticated user.
