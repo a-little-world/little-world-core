@@ -204,6 +204,7 @@ MIDDLEWARE = [
     "management.middleware.CsrfBypassMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "management.middleware.SessionCookieSameSiteMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "management.middleware.AdminPathBlockingMiddleware",
@@ -257,7 +258,14 @@ else:
 CORS_ALLOW_HEADERS = list(default_headers) + [
     "x-csrftoken",
     "x-usetagsonly",
+    "x-csrf-bypass-token",
 ]
+
+# TODO: experimental change uncomment for easier native testing
+# CORS_ALLOW_CREDENTIALS = True
+# SESSION_COOKIE_SAMESITE = 'None'  # Default SameSite setting
+# SESSION_COOKIE_SECURE = not DEBUG  # Secure cookies in production
+# SESSION_COOKIE_HTTPONLY = True
 
 
 EXTRA_CSRF_ALLOWED_ORIGINS = os.environ.get("DJ_EXTRA_CSRF_ALLOWED_ORIGINS", "")
@@ -580,6 +588,7 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.BasicAuthentication",
         "rest_framework.authentication.SessionAuthentication",
+        "management.middleware.MultiTokenAuthMiddleware",
     ],
     "DEFAULT_FILTER_BACKENDS": ("django_filters.rest_framework.DjangoFilterBackend",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
