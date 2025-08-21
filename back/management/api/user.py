@@ -197,7 +197,7 @@ class LoginApi(APIView):
 
 
 class LogoutApi(APIView):
-    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
+    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication, MultiTokenAuthMiddleware]
     permission_classes = [permissions.IsAuthenticated]
 
     @utils.track_event(
