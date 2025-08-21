@@ -24,9 +24,11 @@ def get_urls_patterns():
     return _urls
 
 
+from back.channels_auth import MultiAuthMiddlewareStack
+
 application = ProtocolTypeRouter(
     {
         "http": django_asgi_app,
-        "websocket": AllowedHostsOriginValidator(AuthMiddlewareStack(URLRouter(get_urls_patterns()))),
+        "websocket": AllowedHostsOriginValidator(MultiAuthMiddlewareStack(URLRouter(get_urls_patterns()))),
     }
 )

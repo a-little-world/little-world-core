@@ -39,7 +39,16 @@ class CoreConsumer(AsyncWebsocketConsumer):
 
             # Join 'user self' group
             await self.channel_layer.group_add(self.group_name, self.channel_name)
-            await self.accept()
+            # Echo subprotocol if client requested any (helps when token is sent via subprotocol)
+            selected_subprotocol = None
+            for proto in (self.scope.get("subprotocols", []) or []):
+                if proto and isinstance(proto, str):
+                    selected_subprotocol = proto.strip()
+                    break
+            if selected_subprotocol:
+                await self.accept(subprotocol=selected_subprotocol)
+            else:
+                await self.accept()
             print(f"User {self.user} connected to {self.channel_name} ({self.group_name})")
 
             if PERFORMANCE_RESTRICTON_STAFF:
