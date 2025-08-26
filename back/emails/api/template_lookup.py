@@ -1,4 +1,5 @@
 import urllib.parse
+import pytz
 
 from django.conf import settings
 from django.utils import timezone
@@ -132,7 +133,19 @@ def prematching_datetime(user, context={"appointment": None}):
         appointment = PreMatchingAppointment.objects.filter(user=user).first()
     else:
         appointment = context["appointment"]
-    return appointment.start_time.strftime("%d.%m.%Y um %H:%M Uhr")
+    
+    # Ensure the datetime is timezone-aware and convert to German time
+    start_time = appointment.start_time
+    
+    # If the datetime is naive (no timezone), assume it's UTC
+    if timezone.is_naive(start_time):
+        start_time = timezone.make_aware(start_time, pytz.UTC)
+    
+    # Convert to German timezone (Europe/Berlin)
+    german_tz = pytz.timezone("Europe/Berlin")
+    german_time = start_time.astimezone(german_tz)
+    
+    return german_time.strftime("%d.%m.%Y um %H:%M Uhr")
 
 
 def prematching_booking_link(user):
