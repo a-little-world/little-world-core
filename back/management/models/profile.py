@@ -528,7 +528,7 @@ class Profile(models.Model):
         ZAMBIA = "ZM", get_translation("profile.country.zm")
         ZIMBABWE = "ZW", get_translation("profile.country.zw")
         
-    country_of_residence = models.CharField(choices=CountryChoices.choices, default=CountryChoices.GERMANY, max_length=255)
+    country_of_residence = models.CharField(choices=CountryChoices.choices, null=True, max_length=255)
 
     class LanguageChoices(models.TextChoices):
         ENGLISH = "english", get_translation("profile.lang.english")
@@ -875,6 +875,7 @@ class MinimalProfileSerializer(serializers.ModelSerializer):
             "newsletter_subscribed",
             "phone_mobile",
             "push_notifications_enabled",
+            "country_of_residence",
             "job_search",
             "job_skill_description",
         ]
