@@ -184,9 +184,13 @@ def livekit_webhook(request):
         session.webhook_events.add(event)
         session.save()
 
-        # 4 - send 'BlockIncomingCall' enent to the parter of the user that left
+        # 4 - send 'BlockIncomingCall' event to the partner of the user that left
         partner = room.u1 if user == room.u2 else room.u2
         InBlockIncomingCall(sender_id=participant_id).send(partner.hash)
+        
+        # 5 - send 'outgoingCallRejected' event to the user who started the call
+        from chat.consumers.messages import OutgoingCallRejected
+        OutgoingCallRejected().send(participant_id)
 
     return JsonResponse({"status": "ok"})
 
@@ -326,9 +330,37 @@ def active_call_rooms(request):
         return Response({"error": str(e)}, status=400)
 
 
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def call_retrigger(request):
+    try:
+        partner = User.objects.get(hash=request.data["partner_id"])
+        room = LiveKitRoom.objects.get(uuid=request.data["session_id"])
+        active_session = LivekitSession.objects.filter(room=room, is_active=True)
+        
+        # Add logging to debug the request
+        print(f"[call_retrigger] Request data: {request.data}")
+        print(f"[call_retrigger] Partner: {partner.hash} ({partner.profile.first_name if hasattr(partner, 'profile') else 'No profile'})")
+        print(f"[call_retrigger] Room UUID: {room.uuid}")
+        print(f"[call_retrigger] Active sessions found: {active_session.count()}")
+        print(f"[call_retrigger] Request timestamp: {timezone.now()}")
+        
+        if active_session.exists():
+            session = active_session.first()
+            print(f"[call_retrigger] Session found: {session.uuid}")
+            NewActiveCallRoom(call_room=SerializeLivekitSession(session, context={"user": partner}).data).send(partner.hash)
+            return Response({"status": "ok"})
+        return Response({"error": "Session not found"}, status=400)
+    except Exception as e:
+        print(f"[call_retrigger] Error: {str(e)}")
+        return Response({"error": str(e)}, status=400)
+    
+
 api_urls = [
     path("api/livekit/review", post_call_review),
     path("api/call_rooms", active_call_rooms, name="active_call_rooms_api"),
+    path("api/call_retrigger", call_retrigger),
     path("api/livekit/authenticate", authenticate_live_kit_room),
     path("api/livekit/webhook", livekit_webhook),
 ]
