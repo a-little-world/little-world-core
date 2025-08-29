@@ -1,40 +1,36 @@
+import urllib.parse
 from dataclasses import dataclass
 from typing import Optional
 
 from django.conf import settings
-from management.middleware import MultiTokenAuthMiddleware
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from management.models.multi_token_auth import MultiToken
+from django.db.models import Q
 from django.dispatch import receiver
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
 from django.urls import reverse
 from django_rest_passwordreset.signals import reset_password_token_created
-from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from emails import mails
 from emails.mails import PwResetMailParams, get_mail_data_by_name
 from rest_framework import authentication, permissions, serializers, status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from tracking import utils
 from tracking.models import Event
 from translations import get_translation
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.authentication import SessionAuthentication
-from drf_spectacular.utils import inline_serializer
-from rest_framework.decorators import authentication_classes
-import urllib.parse
 
 from management.controller import UserNotFoundErr, delete_user, get_user, get_user_by_email, get_user_by_hash
-from management.models.state import State, FrontendStatusSerializer
+from management.middleware import MultiTokenAuthMiddleware
+from management.models.matches import Match
+from management.models.multi_token_auth import MultiToken
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from management.models.profile import SelfProfileSerializer
-from management.models.state import State
-from management.models.matches import Match
-from django.db.models import Q
+from management.models.state import FrontendStatusSerializer, State
 
 """
 The public /user api's
@@ -141,7 +137,7 @@ class LoginApi(APIView):
                 default=False,
                 location=OpenApiParameter.QUERY,
             ),
-        ]
+        ],
     )
     def post(self, request):
         """
@@ -159,7 +155,7 @@ class LoginApi(APIView):
             if usr.is_staff:  # type: ignore
                 # pylint thinks this is a AbsUsr but we have overwritten it models.user.User
                 return Response(get_translation("api.login_failed_staff"), status=status.HTTP_400_BAD_REQUEST)
-            
+
             # token_auth is a query parameter that determines whether to return a token or create a session
             token_auth = request.query_params.get("token_auth", False)
             if token_auth:
@@ -197,7 +193,11 @@ class LoginApi(APIView):
 
 
 class LogoutApi(APIView):
-    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication, MultiTokenAuthMiddleware]
+    authentication_classes = [
+        authentication.SessionAuthentication,
+        authentication.BasicAuthentication,
+        MultiTokenAuthMiddleware,
+    ]
     permission_classes = [permissions.IsAuthenticated]
 
     @utils.track_event(
@@ -251,7 +251,11 @@ class ChangePasswordSerializer(serializers.Serializer):
 
 
 class ChangePasswordApi(APIView):
-    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
+    authentication_classes = [
+        authentication.SessionAuthentication,
+        authentication.BasicAuthentication,
+        MultiTokenAuthMiddleware,
+    ]
     permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(request=ChangePasswordSerializer(many=False))
@@ -295,7 +299,11 @@ class ChangeEmailSerializer(serializers.Serializer):
 
 
 class ChangeEmailApi(APIView):
-    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
+    authentication_classes = [
+        authentication.SessionAuthentication,
+        authentication.BasicAuthentication,
+        MultiTokenAuthMiddleware,
+    ]
     permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(request=ChangeEmailSerializer(many=False))
@@ -513,6 +521,7 @@ def delete_account(request):
 
     return Response({"success": True})
 
+
 def get_user_data(user):
     """
     Returns user data similar to the original user_data function.
@@ -557,6 +566,7 @@ def get_user_data(user):
         "hasMatch": has_atleast_one_match,
         "profile": profile_data,
     }
+
 
 @extend_schema(
     responses=inline_serializer(
