@@ -786,7 +786,12 @@ class SelfProfileSerializer(ProfileSerializer):
         return value
 
     def validate_postal_code(self, value):
-        return validate_postal_code(value)
+        # Get the country_of_residence from the current data or instance
+        country = self.initial_data.get('country_of_residence') if hasattr(self, 'initial_data') else None
+        if not country and hasattr(self, 'instance') and self.instance:
+            country = self.instance.country_of_residence
+        
+        return validate_postal_code(value, country)
 
     def validate_interests(self, value):
         if len(value) < 3:
