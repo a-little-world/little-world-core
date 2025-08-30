@@ -59,7 +59,9 @@ var config = function (env) {
       }),
     ],
     devtool:
-      env.LOCAL_DEBUG === "1" ? "eval-cheap-module-source-map" : "source-map",
+      env.LOCAL_DEBUG === "1"
+        ? "eval-cheap-module-source-map"
+        : "eval-source-map",
     module: {
       rules: [
         {
