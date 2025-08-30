@@ -13,7 +13,6 @@ var config = function (env) {
   var outputPath = "../back/static/dist/admin_panel_frontend";
   var entry = "./apps/admin_panel_frontend";
   var entryPoint = `${entry}/src/index.js`;
-  var debug = env.DEBUG === "1";
 
   return {
     context: __dirname,
@@ -59,9 +58,7 @@ var config = function (env) {
       }),
     ],
     devtool:
-      env.LOCAL_DEBUG === "1"
-        ? "eval-cheap-module-source-map"
-        : "eval-source-map",
+      env.LOCAL_DEBUG === "1" ? "eval-cheap-module-source-map" : "source-map",
     module: {
       rules: [
         {
@@ -90,11 +87,16 @@ var config = function (env) {
         },
         {
           test: /\.(jpg|png|webp|gif|ttf|woff|woff2|eot|otf)$/,
-          type: "asset/resource",
+          use: {
+            loader: "file-loader",
+            options: {
+              name: "[name].[hash:8].[ext]",
+            },
+          },
         },
         {
           test: /\.css$/,
-          use: ["style-loader", "css-loader"],
+          use: ["style-loader", "css-loader", "postcss-loader"],
         },
       ],
     },
