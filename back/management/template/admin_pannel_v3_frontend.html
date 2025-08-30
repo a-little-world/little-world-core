@@ -15,8 +15,12 @@
 </body>
 {% render_bundle 'staticfiles' 'js' 'admin_panel_frontend' %}
 <script>
+  console.log('=== HTML TEMPLATE SCRIPT STARTING ===');
   const apiTranslations = JSON.parse('{{ api_translations | escapejs }}');
   const apiOptions = JSON.parse('{{ api_options | escapejs }}');
+  console.log('=== ABOUT TO CALL renderApp ===');
+  console.log('renderApp type:', typeof renderApp);
   renderApp({ apiTranslations, apiOptions })
+  console.log('=== renderApp CALLED SUCCESSFULLY ===');
 </script>
 <div style="display: none;">{{csrf_token}}</div>
