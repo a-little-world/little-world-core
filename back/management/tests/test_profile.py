@@ -16,6 +16,7 @@ valid_request_data = dict(
     password1="Test123!",
     password2="Test123!",
     birth_year=1984,
+    country_of_residence="DE",
 )
 
 valid_create_data = dict(
@@ -24,6 +25,7 @@ valid_create_data = dict(
     first_name=valid_request_data["first_name"],
     second_name=valid_request_data["second_name"],
     birth_year=valid_request_data["birth_year"],
+    country_of_residence=valid_request_data["country_of_residence"],
 )
 
 
