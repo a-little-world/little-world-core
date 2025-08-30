@@ -52,8 +52,15 @@ var config = function (env) {
       new webpack.ProvidePlugin({
         process: "process/browser",
       }),
+      new webpack.DefinePlugin({
+        "process.env.NODE_ENV": JSON.stringify("production"),
+        __DEV__: false,
+        // Add React 19 debugging
+        "global.__DEV__": false,
+      }),
     ],
-    devtool: devTool,
+    devtool:
+      env.LOCAL_DEBUG === "1" ? "eval-cheap-module-source-map" : "source-map",
     module: {
       rules: [
         {
@@ -66,7 +73,22 @@ var config = function (env) {
           include: [path.resolve(__dirname, "apps/admin_panel_frontend/src")],
         },
         {
-          test: /\.(jpg|png|svg|webp|gif|ttf|woff|woff2|eot|otf)$/,
+          test: /\.svg$/,
+          use: [
+            {
+              loader: "@svgr/webpack",
+            },
+            {
+              loader: "file-loader",
+            },
+          ],
+          type: "javascript/auto",
+          issuer: {
+            and: [/\.(ts|tsx|js|jsx|md|mdx)$/],
+          },
+        },
+        {
+          test: /\.(jpg|png|webp|gif|ttf|woff|woff2|eot|otf)$/,
           type: "asset/resource",
         },
         {
