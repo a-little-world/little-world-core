@@ -42,7 +42,7 @@ class UserManager(BaseUserManager):
             # Cause it should always be present! ( Note: for admin users we offer an default)
             first_name=kwargs.get("first_name"),
             # I like calling this 'last_name' more
-            second_name=kwargs.get("second_name"),
+            second_name=kwargs.get("last_name"),
         )
         settings.Settings.objects.create(user=user)
         return user
