@@ -76,7 +76,7 @@ def validate_postal_code(value: str, country_of_residence: str = None):
             raise serializers.ValidationError(get_translation("val.postal_code_too_small"))
     else:
         # For non-German countries, just check length (simple validation)
-        if len(value) >= 12:
+        if len(value) >= 11:
             raise serializers.ValidationError(get_translation("val.postal_code_too_long"))
     
     return value

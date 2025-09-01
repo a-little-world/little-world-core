@@ -15,6 +15,7 @@
   "val.second_name_unallowed_chars": "Nachname enthält ungültige Zeichen",
   "val.postal_code_not_numeric": "Postleitzahl sollte eine Zahl sein",
   "val.postal_code_too_big": "Postleitzahl sollte maximal 5 Ziffern haben",
+  "val.postal_code_too_long": "Postleitzahl sollte maximal 10 Ziffern haben",
   "val.postal_code_too_small": "Postleitzahl unmöglich klein",
   "val.availability.time_slot_08_10": "8 bis 10 Uhr",
   "val.availability.time_slot_10_12": "10 bis 12 Uhr",
