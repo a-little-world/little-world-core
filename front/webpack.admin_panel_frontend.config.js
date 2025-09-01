@@ -23,6 +23,10 @@ var config = function (env) {
       alias: {
         "@": path.resolve(__dirname, "apps/admin_panel_frontend/src/"),
         "@django": path.resolve(__dirname, "../back/static/"),
+        "prettier/standalone": path.resolve(
+          __dirname,
+          "apps/admin_panel_frontend/node_modules/prettier"
+        ),
       },
       fallback: { "process/browser": require.resolve("process/browser") },
     },
@@ -52,13 +56,17 @@ var config = function (env) {
         process: "process/browser",
       }),
       new webpack.DefinePlugin({
-        "process.env.NODE_ENV": JSON.stringify("production"),
-        __DEV__: false,
-        "global.__DEV__": false,
+        "process.env.NODE_ENV": JSON.stringify(
+          env.DEBUG === "1" ? "development" : "production"
+        ),
+        __DEV__: env.DEBUG === "1",
+        "global.__DEV__": env.DEBUG === "1",
+        "process.env.BUILD_TYPE": JSON.stringify(
+          env.DEBUG === "1" ? "dev" : "pro"
+        ),
       }),
     ],
-    devtool:
-      env.LOCAL_DEBUG === "1" ? "eval-cheap-module-source-map" : "source-map",
+    devtool: devTool,
     module: {
       rules: [
         {
@@ -96,7 +104,21 @@ var config = function (env) {
         },
         {
           test: /\.css$/,
-          use: ["style-loader", "css-loader", "postcss-loader"],
+          use: [
+            "style-loader",
+            "css-loader",
+            {
+              loader: "postcss-loader",
+              options: {
+                postcssOptions: {
+                  config: path.resolve(
+                    __dirname,
+                    "apps/admin_panel_frontend/postcss.config.js"
+                  ),
+                },
+              },
+            },
+          ],
         },
       ],
     },
