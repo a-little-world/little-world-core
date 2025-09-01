@@ -168,6 +168,7 @@ def create_test_user(i, user_seeds=None, password=None, email=None, pass_if_exis
         r = random.randint(0, len(c) - 1)
         interests.append(c[r])
 
+    usr.profile.country_of_residence = "DE"
     usr.profile.interests = interests
     usr.profile.availability = random_availabilities()
     for choice in user_form_choices:
