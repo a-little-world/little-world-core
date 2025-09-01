@@ -111,10 +111,21 @@ var config = function (env) {
               loader: "postcss-loader",
               options: {
                 postcssOptions: {
-                  config: path.resolve(
-                    __dirname,
-                    "apps/admin_panel_frontend/postcss.config.js"
-                  ),
+                  plugins: [
+                    require(path.resolve(
+                      __dirname,
+                      "apps/admin_panel_frontend/node_modules/tailwindcss"
+                    ))({
+                      config: path.resolve(
+                        __dirname,
+                        "apps/admin_panel_frontend/tailwind.config.js"
+                      ),
+                    }),
+                    require(path.resolve(
+                      __dirname,
+                      "apps/admin_panel_frontend/node_modules/autoprefixer"
+                    )),
+                  ],
                 },
               },
             },
