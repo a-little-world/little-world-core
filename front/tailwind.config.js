@@ -6,21 +6,6 @@ module.exports = {
   daisyUI: {
     darkMode: "selector",
   },
-  safelist: [
-    // Flowbite stepper classes
-    "steps",
-    "steps-vertical",
-    "steps-horizontal",
-    "step",
-    "step-primary",
-    "step-secondary",
-    "step-accent",
-    "step-neutral",
-    "step-info",
-    "step-success",
-    "step-warning",
-    "step-error",
-  ],
   theme: {
     screens: {
       mid: "800px",
@@ -81,7 +66,6 @@ module.exports = {
   plugins: [
     require("tailwindcss-animate"),
     require("daisyui"),
-    require("flowbite/plugin"),
     require("@tailwindcss/typography"),
   ],
 };
