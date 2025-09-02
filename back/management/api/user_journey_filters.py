@@ -703,7 +703,7 @@ def community_calls(qs=User.objects.all(), last_x_days=28 * 3):
         .values(*selected_fields)
         .union(
             match_takeoff(qs).values(*selected_fields),
-            active_match(qs, last_interaction_days=56).values(*selected_fields),
+            active_match(qs, last_interaction_days=35).values(*selected_fields),
         )
     )
 
