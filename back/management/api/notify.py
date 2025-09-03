@@ -12,7 +12,7 @@ from rest_framework_dataclasses.serializers import DataclassSerializer
 from management.helpers import DetailedPagination
 from management.models.notifications import Notification, SelfNotificationSerializer
 from management.models.user import User
-from management.middleware import MultiTokenAuthMiddleware
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 @dataclass
 class NotificationGetPaginatedParams:
@@ -91,7 +91,7 @@ class PaginatedNotificationResponse(DetailedPagination):
 )
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated])
-@authentication_classes([authentication.SessionAuthentication, MultiTokenAuthMiddleware])
+@authentication_classes([authentication.SessionAuthentication, JWTAuthentication])
 def get_notifications(request):
     serializer: NotificationGetPaginatedSerializer = NotificationGetPaginatedSerializer(data=request.query_params)
     serializer.is_valid(raise_exception=True)
@@ -119,7 +119,7 @@ def get_notifications(request):
 )
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated])
-@authentication_classes([authentication.SessionAuthentication, MultiTokenAuthMiddleware])
+@authentication_classes([authentication.SessionAuthentication, JWTAuthentication])
 def get_notification(request, id):
     user : User = request.user
 
@@ -145,7 +145,7 @@ def get_notification(request, id):
 )
 @api_view(["PATCH"])
 @permission_classes([permissions.IsAuthenticated])
-@authentication_classes([authentication.SessionAuthentication, MultiTokenAuthMiddleware])
+@authentication_classes([authentication.SessionAuthentication, JWTAuthentication])
 def update_notification(request, id):
     serializer: NotificationUpdateSerializer = NotificationUpdateSerializer(data={"id": id, **request.data})
     serializer.is_valid(raise_exception=True)
@@ -176,7 +176,7 @@ def update_notification(request, id):
 )
 @api_view(["DELETE"])
 @permission_classes([permissions.IsAuthenticated])
-@authentication_classes([authentication.SessionAuthentication, MultiTokenAuthMiddleware])
+@authentication_classes([authentication.SessionAuthentication, JWTAuthentication])
 def delete_notification(request, id):
     notification = Notification.objects.get(id=id)
 

@@ -261,6 +261,9 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
     "x-csrf-bypass-token",
 ]
 
+if DEBUG:
+    CORS_ALLOW_HEADERS += ["ngrok-skip-browser-warning"]
+
 # TODO: experimental change uncomment for easier native testing
 CORS_ALLOW_CREDENTIALS = True
 # SESSION_COOKIE_SAMESITE = 'None'  # Default SameSite setting
@@ -589,7 +592,7 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.BasicAuthentication",
         "rest_framework.authentication.SessionAuthentication",
-        "management.middleware.MultiTokenAuthMiddleware",
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
     "DEFAULT_FILTER_BACKENDS": ("django_filters.rest_framework.DjangoFilterBackend",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",

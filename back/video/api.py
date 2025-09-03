@@ -4,7 +4,7 @@ import uuid
 from datetime import timedelta
 
 from django.db.models import Q
-from management.middleware import MultiTokenAuthMiddleware
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from chat.consumers.messages import InBlockIncomingCall, NewActiveCallRoom
 from chat.models import Chat, ChatSerializer, Message
 from django.conf import settings
@@ -271,7 +271,7 @@ class PostCallReviewParams(serializers.Serializer):
 
 @extend_schema(request=PostCallReviewParams(many=False), responses={200: {"status": "ok"}})
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, MultiTokenAuthMiddleware])
+@authentication_classes([SessionAuthentication, JWTAuthentication])
 @permission_classes([IsAuthenticated])
 def post_call_review(request):
     serializer = PostCallReviewParams(data=request.data)
@@ -308,7 +308,7 @@ def post_call_review(request):
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-@authentication_classes([SessionAuthentication, MultiTokenAuthMiddleware])
+@authentication_classes([SessionAuthentication, JWTAuthentication])
 def active_call_rooms(request):
     """
     Returns active call rooms for the authenticated user.

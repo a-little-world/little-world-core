@@ -6,7 +6,7 @@ from management.controller import get_base_management_user
 from management.models.profile import SelfProfileSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import SessionAuthentication
-from management.middleware import MultiTokenAuthMiddleware
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 
 def get_options_dict():
@@ -22,7 +22,7 @@ def get_options_dict():
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-@authentication_classes([SessionAuthentication, MultiTokenAuthMiddleware])
+@authentication_classes([SessionAuthentication, JWTAuthentication])
 def api_options(request):
     """
     Returns API options including form options.

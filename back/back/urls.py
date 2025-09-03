@@ -6,6 +6,7 @@ from django.urls import include, path, re_path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from management.urls import public_routes_wildcard
 from rest_framework import status
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView, TokenVerifyView
 
 """
 We are adding all app urls under `'/'` their paths should be set under `<app>/urls.py`
@@ -98,3 +99,9 @@ if settings.USE_SENTRY:
 
 
 urlpatterns += [public_routes_wildcard]
+
+urlpatterns += [
+    path("api/token/obtain", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("api/token/refresh", TokenRefreshView.as_view(), name="token_refresh"),
+    path("api/token/verify", TokenVerifyView.as_view(), name="token_verify"),
+]

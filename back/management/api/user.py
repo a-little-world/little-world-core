@@ -25,9 +25,9 @@ from tracking.models import Event
 from translations import get_translation
 
 from management.controller import UserNotFoundErr, delete_user, get_user, get_user_by_email, get_user_by_hash
-from management.middleware import MultiTokenAuthMiddleware
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from management.models.matches import Match
-from management.models.multi_token_auth import MultiToken
+# # from management.models.multi_token_auth import MultiToken
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from management.models.profile import SelfProfileSerializer
 from management.models.state import FrontendStatusSerializer, State
@@ -159,8 +159,14 @@ class LoginApi(APIView):
             # token_auth is a query parameter that determines whether to return a token or create a session
             token_auth = request.query_params.get("token_auth", False)
             if token_auth:
-                token, created = MultiToken.objects.get_or_create(user=usr)
-                return Response({"token": token.key, **get_user_data(usr)})
+                from rest_framework_simplejwt.tokens import RefreshToken
+                refresh = RefreshToken.for_user(usr)
+                # You can add custom claims here later (aud, cnf, etc.)
+                return Response({
+                    "token_access": str(refresh.access_token),
+                    "token_refresh": str(refresh),
+                    **get_user_data(usr)
+                })
             else:
                 login(request, usr)
                 return Response(get_user_data(request.user))
@@ -196,7 +202,7 @@ class LogoutApi(APIView):
     authentication_classes = [
         authentication.SessionAuthentication,
         authentication.BasicAuthentication,
-        MultiTokenAuthMiddleware,
+        JWTAuthentication,
     ]
     permission_classes = [permissions.IsAuthenticated]
 
@@ -254,7 +260,7 @@ class ChangePasswordApi(APIView):
     authentication_classes = [
         authentication.SessionAuthentication,
         authentication.BasicAuthentication,
-        MultiTokenAuthMiddleware,
+        JWTAuthentication,
     ]
     permission_classes = [permissions.IsAuthenticated]
 
@@ -302,7 +308,7 @@ class ChangeEmailApi(APIView):
     authentication_classes = [
         authentication.SessionAuthentication,
         authentication.BasicAuthentication,
-        MultiTokenAuthMiddleware,
+        JWTAuthentication,
     ]
     permission_classes = [permissions.IsAuthenticated]
 
@@ -589,7 +595,7 @@ def get_user_data(user):
 )
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-@authentication_classes([SessionAuthentication, MultiTokenAuthMiddleware])
+@authentication_classes([SessionAuthentication, JWTAuthentication])
 def user_profile(request):
     """
     Returns user profile data.
