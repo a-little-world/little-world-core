@@ -27,7 +27,6 @@ from translations import get_translation
 from management.controller import UserNotFoundErr, delete_user, get_user, get_user_by_email, get_user_by_hash
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from management.models.matches import Match
-# # from management.models.multi_token_auth import MultiToken
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from management.models.profile import SelfProfileSerializer
 from management.models.state import FrontendStatusSerializer, State

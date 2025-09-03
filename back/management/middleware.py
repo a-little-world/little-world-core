@@ -3,7 +3,6 @@ from django.shortcuts import render
 from django.utils import translation
 
 from rest_framework.authentication import TokenAuthentication
-from management.models.multi_token_auth import MultiToken
 from management.models.state import State
 
 
@@ -181,7 +180,3 @@ class SessionCookieSameSiteMiddleware:
                     cookie['secure'] = True
         
         return response
-    
-
-class MultiTokenAuthMiddleware(TokenAuthentication):
-    model = MultiToken
