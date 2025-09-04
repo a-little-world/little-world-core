@@ -166,7 +166,7 @@ class Match(models.Model):
         
         for match in active_matches:
             match.report_unmatch.append({
-                "kind": "unmatch",
+                "kind": "user_deleted",
                 "reason": "User account was deleted",
                 "match_id": match.id,
                 "time": str(timezone.now()),
