@@ -11,6 +11,7 @@ from chat.consumers.messages import (
     NotificationMessage,
     OutUserWentOffline,
     OutUserWentOnline,
+    OutgoingCallRejected,
     PostCallSurvey,
     PreMatchingAppointmentBooked,
 )
@@ -113,6 +114,10 @@ class CoreConsumer(AsyncWebsocketConsumer):
     async def block_incoming_call(self, event):
         assert event["type"] == MessageTypes.block_incoming_call.value
         await self.send(text_data=InBlockIncomingCall(**event).action_json())
+
+    async def outgoing_call_rejected(self, event):
+        assert event["type"] == "outgoing_call_rejected"
+        await self.send(text_data=OutgoingCallRejected(**event).action_json())        
 
     async def new_active_call(self, event):
         assert event["type"] == MessageTypes.new_active_call.value
