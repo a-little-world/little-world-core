@@ -144,6 +144,7 @@ Selbst habe ich vier Jahre im Ausland gelebt, von Frankreich bis nach China. Den
 """
     usr = get_base_management_user()
     usr.profile.birth_year = 1984
+    usr.profile.country_of_residence = "DE"
     usr.profile.postal_code = 20480
     usr.profile.description = base_management_user_description
     usr.profile.add_profile_picture_from_local_path("/back/dev_test_data/oliver_berlin_management_user_profile_pic.jpg")
@@ -169,6 +170,7 @@ I'll take the time to answer all your messages but I might take a little time to
 """
     usr = get_base_management_user()
     usr.profile.birth_year = 1999
+    usr.profile.country_of_residence = "DE"
     usr.profile.postal_code = 52064
     usr.profile.description = base_management_user_description
     usr.profile.add_profile_picture_from_local_path("/back/dev_test_data/tim_schupp_base_management_profile_new.jpeg")

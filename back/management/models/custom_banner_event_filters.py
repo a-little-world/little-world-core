@@ -7,6 +7,7 @@ class CustomFilterChoices(models.TextChoices):
     LEARNERS_ABOVE_A1A2 = "learners_above_a1a2", "learners_above_a1a2"
     VOLUNTEERS = "volunteers", "volunteers"
     LEARNERS = "learners", "learners"
+    LEARNERS_OUTSIDE_GERMANY = "learners_outside_germany", "learners_outside_germany"
     NONE = "none", "None"
     
 def filter__learners_with_a1a2(user):
@@ -28,6 +29,8 @@ def filter__volunteers(user):
 def filter__learners(user):
     return user.profile.user_type == Profile.TypeChoices.LEARNER
 
+def filter__learners_outside_germany(user):
+    return (user.profile.user_type == Profile.TypeChoices.LEARNER) and (user.profile.residence_country != "DE")
 
 FILTER_FUNC_MAP = {
     CustomFilterChoices.CAPEGEMINI: filter__learners_above_a1a2,
@@ -35,4 +38,5 @@ FILTER_FUNC_MAP = {
     CustomFilterChoices.LEARNERS_ABOVE_A1A2: filter__learners_above_a1a2,
     CustomFilterChoices.VOLUNTEERS: filter__volunteers,
     CustomFilterChoices.LEARNERS: filter__learners,
+    CustomFilterChoices.LEARNERS_OUTSIDE_GERMANY: filter__learners_outside_germany,
 }

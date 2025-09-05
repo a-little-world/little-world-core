@@ -617,6 +617,11 @@ def get_users_to_consider(usr=None, consider_only_registered_within_last_x_days=
             has_open_proposal=False,
         )
         .exclude(state__user_category__in=[State.UserCategoryChoices.SPAM, State.UserCategoryChoices.TEST])
+        # Filter out LEARNERS not living in Germany
+        .exclude(
+            Q(profile__user_type=Profile.TypeChoices.LEARNER) & 
+            ~Q(profile__country_of_residence='DE')
+        )
     )
 
     if len(exlude_user_ids) > 0:
