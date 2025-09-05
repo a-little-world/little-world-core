@@ -170,7 +170,7 @@ def make_match(request):
 
         InMatchProposalAdded(matches[0]).send(learner.hash)
 
-        learner.sms(request.user, get_translation("sms.proposal_message", lang="de"))
+        learner.sms(request.user, get_translation("sms.proposal_message", lang="de").format(first_name=learner.first_name))
 
         return Response(f"Matching Proposal Created")
     else:
