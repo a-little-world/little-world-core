@@ -24,7 +24,7 @@ class UnmatchReportSerializer(DataclassSerializer):
 
 
 def process_report_unmatch(request, kind="report"):
-    assert kind in ["report", "unmatch"]
+    assert kind in ["report", "unmatch", "user_deleted"]
 
     serializer = UnmatchReportSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
