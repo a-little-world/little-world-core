@@ -61,6 +61,56 @@ user_category_buckets = [
     "journey_v2__marked_unresponsive",
 ]
 
+def get_match_waiting_time(user):
+    if not user.state.had_prematching_call:
+        return {
+            "number_of_days": None,
+            "waiting_time_string": "Prematch call not completed",
+            "first_search": None
+        }
+
+    if user.state.searching_state != State.SearchingStateChoices.SEARCHING:
+        return {
+            "number_of_days": None,
+            "waiting_time_string": "Not actively searching",
+            "first_search": None
+        }
+
+    # Check if the user has already been matched
+    already_matched = Match.objects.filter(
+        Q(user1=user) | Q(user2=user),
+        support_matching=False
+    ).exists()
+
+    # Determine waiting_since based on match status
+    if already_matched:
+        waiting_since = user.state.searching_state_last_updated
+    else:
+        latest_pre_match_appointment = PreMatchingAppointment.objects.filter(user=user).order_by("-created").first()
+        if not latest_pre_match_appointment:
+            return {
+                "number_of_days": None,
+                "waiting_time_string": "No pre-match appointment found",
+                "first_search": None
+            }
+        waiting_since = latest_pre_match_appointment.end_time
+
+    # Calculate waiting time
+    now = timezone.now()
+    number_of_days = (now - waiting_since).days
+
+    if number_of_days == 0:
+        waiting_time_string = "Waiting less than a day"
+    else:
+        day_text = "day" if number_of_days == 1 else "days"
+        waiting_time_string = f"Waiting {number_of_days} {day_text}"
+
+    return {
+        "number_of_days": number_of_days,
+        "waiting_time_string": waiting_time_string,
+        "first_search": not already_matched
+    }
+
 
 class ExportUserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -894,56 +944,6 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         obj = self.get_object()
 
         return Response(get_match_waiting_time(obj))
-
-def get_match_waiting_time(user):
-    if not user.state.had_prematching_call:
-        return {
-            "number_of_days": None,
-            "waiting_time_string": "Prematch call not completed",
-            "first_search": None
-        }
-
-    if user.state.searching_state != State.SearchingStateChoices.SEARCHING:
-        return {
-            "number_of_days": None,
-            "waiting_time_string": "Not actively searching",
-            "first_search": None
-        }
-
-    # Check if the user has already been matched
-    already_matched = Match.objects.filter(
-        Q(user1=user) | Q(user2=user),
-        support_matching=False
-    ).exists()
-
-    # Determine waiting_since based on match status
-    if already_matched:
-        waiting_since = user.state.searching_state_last_updated
-    else:
-        latest_pre_match_appointment = PreMatchingAppointment.objects.filter(user=user).order_by("-created").first()
-        if not latest_pre_match_appointment:
-            return {
-                "number_of_days": None,
-                "waiting_time_string": "No pre-match appointment found",
-                "first_search": None
-            }
-        waiting_since = latest_pre_match_appointment.end_time
-
-    # Calculate waiting time
-    now = timezone.now()
-    number_of_days = (now - waiting_since).days
-
-    if number_of_days == 0:
-        waiting_time_string = "Waiting less than a day"
-    else:
-        day_text = "day" if number_of_days == 1 else "days"
-        waiting_time_string = f"Waiting {number_of_days} {day_text}"
-
-    return {
-        "number_of_days": number_of_days,
-        "waiting_time_string": waiting_time_string,
-        "first_search": not already_matched
-    }
 
 viewset_actions = [
     path("api/matching/users_export/", AdvancedUserViewset.as_view({"get": "export"})),

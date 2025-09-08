@@ -301,7 +301,7 @@ def match_users(
         # send sms message ( only if the user enabled sms notifications )
         try:
             volunteer = matching_obj.get_volunteer()
-            volunteer.sms(get_base_management_user(), get_translation("sms.match_message", lang="de"))
+            volunteer.sms(get_base_management_user(), get_translation("sms.match_message", lang="de").format(first_name=volunteer.first_name))
         except:
             print("Could not send sms to volunteer")
             pass

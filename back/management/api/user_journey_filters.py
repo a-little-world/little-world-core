@@ -370,7 +370,7 @@ def ongoing_non_completed_match(qs=User.objects.all()):
     return qs
 
 
-def active_match(qs=User.objects.all()):
+def active_match(qs=User.objects.all(), last_interaction_days=21):
     """
     (Active-User) User has and confirmed and ongoing match, that is still having video calls or sending messages
     """
@@ -378,7 +378,7 @@ def active_match(qs=User.objects.all()):
 
     filtered_matches = Match.objects.filter(Q(user1__in=qs) | Q(user2__in=qs))
     ongoing_matches = match_ongoing(
-        qs=filtered_matches, last_interaction_days=21, only_consider_last_10_weeks_matches=False
+        qs=filtered_matches, last_interaction_days=last_interaction_days, only_consider_last_10_weeks_matches=False
     )
 
     users = User.objects.filter(
@@ -703,7 +703,7 @@ def community_calls(qs=User.objects.all(), last_x_days=28 * 3):
         .values(*selected_fields)
         .union(
             match_takeoff(qs).values(*selected_fields),
-            active_match(qs).values(*selected_fields),
+            active_match(qs, last_interaction_days=35).values(*selected_fields),
         )
     )
 

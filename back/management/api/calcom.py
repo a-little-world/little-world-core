@@ -130,16 +130,16 @@ def callcom_websocket_callback(request):
             appointment.start_time = start_time_parsed
             end_task(task_id=appointment.sms_task)
             new_async_result = send_sms_background.apply_async(
-                (user_hash, get_translation("sms.onboarding_in_30min", lang="de")),
-                eta=start_time_parsed - timedelta(minutes=30)
+                (user_hash, get_translation("sms.onboarding_in_1h", lang="de").format(first_name=user.first_name)),
+                eta=start_time_parsed - timedelta(hours=1)
             )
             appointment.sms_task = new_async_result.id
             appointment.save()
         else:
             appointment = PreMatchingAppointment(user=user, start_time=start_time_parsed, end_time=end_time_parsed)
             async_result = send_sms_background.apply_async(
-                (user_hash, get_translation("sms.onboarding_in_30min", lang="de")),
-                eta=start_time_parsed - timedelta(minutes=30)
+                (user_hash, get_translation("sms.onboarding_in_1h", lang="de").format(first_name=user.first_name)),
+                eta=start_time_parsed - timedelta(hours=1)
             )
             appointment.sms_task = async_result.id
             appointment.save()

@@ -1,19 +1,18 @@
-const path = require('path');
-const webpack = require('webpack');
-const BundleTracker = require('webpack-bundle-tracker');
-const CompressionPlugin = require('compression-webpack-plugin');
-const CopyPlugin = require('copy-webpack-plugin');
+const path = require("path");
+const webpack = require("webpack");
+const BundleTracker = require("webpack-bundle-tracker");
+const CompressionPlugin = require("compression-webpack-plugin");
+const CopyPlugin = require("copy-webpack-plugin");
 
 var config = function (env) {
-  var publicPath = '/static/dist/admin_panel_frontend/';
-  var devTool = env.DEV_TOOL == 'none' ? false : env.DEV_TOOL;
-  if (env.PUBLIC_PATH && env.PUBLIC_PATH !== '')
-    publicPath = env.PUBLIC_PATH + publicPath;
+  var publicPath = "/static/dist/admin_panel_frontend/";
+  var devTool = env.DEV_TOOL == "none" ? false : env.DEV_TOOL;
   // It is always assumed that the backend is mounted at /back
-  var outputPath = '../back/static/dist/admin_panel_frontend';
-  var entry = './apps/admin_panel_frontend';
+  if (env.PUBLIC_PATH && env.PUBLIC_PATH !== "")
+    publicPath = env.PUBLIC_PATH + publicPath;
+  var outputPath = "../back/static/dist/admin_panel_frontend";
+  var entry = "./apps/admin_panel_frontend";
   var entryPoint = `${entry}/src/index.js`;
-  var debug = env.DEBUG === '1';
 
   return {
     context: __dirname,
@@ -22,16 +21,18 @@ var config = function (env) {
     },
     resolve: {
       alias: {
-        '@': path.resolve(
+        "@": path.resolve(__dirname, "apps/admin_panel_frontend/src/"),
+        "@django": path.resolve(__dirname, "../back/static/"),
+        "prettier/standalone": path.resolve(
           __dirname,
-          'apps/admin_panel_frontend/src/'
+          "apps/admin_panel_frontend/node_modules/prettier"
         ),
-        '@django': path.resolve(__dirname, '../back/static/'),
       },
+      fallback: { "process/browser": require.resolve("process/browser") },
     },
     output: {
       path: path.join(__dirname, outputPath),
-      filename: '[name]-[hash].js',
+      filename: "[name]-[hash].js",
       publicPath: publicPath,
     },
 
@@ -39,7 +40,7 @@ var config = function (env) {
       new BundleTracker({
         filename: path.join(
           __dirname,
-          './admin_panel_frontend.webpack-stats.json'
+          "./admin_panel_frontend.webpack-stats.json"
         ),
       }),
       new CompressionPlugin(),
@@ -51,7 +52,19 @@ var config = function (env) {
           },
         ],
       }),
-      //['styled-components', { ssr: false }],
+      new webpack.ProvidePlugin({
+        process: "process/browser",
+      }),
+      new webpack.DefinePlugin({
+        "process.env.NODE_ENV": JSON.stringify(
+          env.DEBUG === "1" ? "development" : "production"
+        ),
+        __DEV__: env.DEBUG === "1",
+        "global.__DEV__": env.DEBUG === "1",
+        "process.env.BUILD_TYPE": JSON.stringify(
+          env.DEBUG === "1" ? "dev" : "pro"
+        ),
+      }),
     ],
     devtool: devTool,
     module: {
@@ -59,41 +72,50 @@ var config = function (env) {
         {
           test: /\.(js|jsx|tsx|ts)$/,
           exclude: /node_modules/,
-          use: ['babel-loader'],
+          use: ["babel-loader"],
           resolve: {
-            extensions: ['.js', '.jsx', '.tsx', '.ts'],
+            extensions: [".js", ".jsx", ".ts", ".tsx"],
           },
-          include: [
-            path.resolve(__dirname, 'apps/admin_panel_frontend/src'),
-          ],
-        },
-        {
-          test: /\.css$/,
-          use: ['style-loader', 'css-loader', 'postcss-loader'],
+          include: [path.resolve(__dirname, "apps/admin_panel_frontend/src")],
         },
         {
           test: /\.svg$/,
           use: [
             {
-              loader: '@svgr/webpack',
+              loader: "@svgr/webpack",
             },
             {
-              loader: 'file-loader',
+              loader: "file-loader",
             },
           ],
-          type: 'javascript/auto',
+          type: "javascript/auto",
           issuer: {
             and: [/\.(ts|tsx|js|jsx|md|mdx)$/],
           },
         },
         {
-          test: /\.(png|jpg|gif|ttf)$/,
+          test: /\.(jpg|png|webp|gif|ttf|woff|woff2|eot|otf)$/,
           use: {
-            loader: 'file-loader',
+            loader: "file-loader",
             options: {
-              name: '[name].[hash:8].[ext]',
+              name: "[name].[hash:8].[ext]",
             },
           },
+        },
+        {
+          test: /\.css$/,
+          use: [
+            "style-loader",
+            "css-loader",
+            {
+              loader: "postcss-loader",
+              options: {
+                postcssOptions: {
+                  config: path.resolve(__dirname, "postcss.config.js"),
+                },
+              },
+            },
+          ],
         },
       ],
     },

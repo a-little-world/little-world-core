@@ -54,14 +54,14 @@ class ProfileApiTests(TestCase):
             "12",
             "ad2134",
         ]:
-            resp = self._some_profile_call({"postal_code": code}, usr)
+            resp = self._some_profile_call({"postal_code": code, "country_of_residence": "DE"}, usr)
             assert resp.status_code == 400
 
     def test_valid_postal_code(self):
         register_user(valid_request_data)
         usr = get_user_by_email(valid_request_data["email"])
         for code in ["52062", "04230"]:
-            resp = self._some_profile_call({"postal_code": code}, usr)
+            resp = self._some_profile_call({"postal_code": code, "country_of_residence": "DE"}, usr)
             assert resp.status_code == 200
 
     def dont_test_change_values_all(self):
