@@ -101,7 +101,7 @@ class ChatSerializer(serializers.ModelSerializer):
             user = self.context["request"].user if "request" in self.context else self.context["user"]
             partner = instance.get_partner(user)
 
-            if management_models.matches.Match.get_match(user, partner).exists():
+            if management_models.matches.Match.get_match(user, partner).exists() and partner.is_active:
                 profile = management_models.profile.CensoredProfileSerializer(partner.profile).data
                 representation["partner"] = profile
                 representation["partner"]["id"] = partner.hash

@@ -4,7 +4,7 @@ import uuid
 from datetime import timedelta
 
 from django.db.models import Q
-from chat.consumers.messages import InBlockIncomingCall, NewActiveCallRoom
+from chat.consumers.messages import InBlockIncomingCall, NewActiveCallRoom, OutgoingCallRejected
 from chat.models import Chat, ChatSerializer, Message
 from django.conf import settings
 from django.http import JsonResponse
@@ -184,7 +184,7 @@ def livekit_webhook(request):
         session.webhook_events.add(event)
         session.save()
 
-        # 4 - send 'BlockIncomingCall' enent to the parter of the user that left
+        # 4 - send 'BlockIncomingCall' event to the partner of the user that left
         partner = room.u1 if user == room.u2 else room.u2
         InBlockIncomingCall(sender_id=participant_id).send(partner.hash)
 
@@ -326,9 +326,75 @@ def active_call_rooms(request):
         return Response({"error": str(e)}, status=400)
 
 
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def call_retrigger(request):
+    try:
+        partner = User.objects.get(hash=request.data["partner_id"])
+        room = LiveKitRoom.objects.get(uuid=request.data["session_id"])
+        active_session = LivekitSession.objects.filter(room=room, is_active=True)
+       
+        if active_session.exists():
+            session = active_session.first()
+            NewActiveCallRoom(call_room=SerializeLivekitSession(session, context={"user": partner}).data).send(partner.hash)
+            return Response({"status": "ok"})
+        return Response({"error": "Session not found"}, status=400)
+    except Exception as e:
+        return Response({"error": str(e)}, status=400)
+    
+
+class CallRejectedParams(serializers.Serializer):
+    partner_id = serializers.CharField(required=True)
+    session_id = serializers.CharField(required=True)
+
+
+@extend_schema(request=CallRejectedParams(many=False), responses={200: {"status": "ok"}})
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication])
+@permission_classes([IsAuthenticated])
+def call_rejected(request):
+    """
+    Handles call rejection and sends OutgoingCallRejected message to the call initiator.
+    """
+    serializer = CallRejectedParams(data=request.data)
+    if not serializer.is_valid():
+        return Response({"status": "error", "message": "Invalid parameters"}, status=400)
+    
+    validated_data = serializer.validated_data
+    
+    try:
+        # Get the partner who initiated the call
+        partner = User.objects.get(hash=validated_data["partner_id"])
+        
+        # Get the room/session
+        room = LiveKitRoom.objects.get(uuid=validated_data["session_id"])
+        
+        # Verify the room involves the authenticated user
+        if room.u1 != request.user and room.u2 != request.user:
+            return Response({"status": "error", "message": "Unauthorized access to this call"}, status=403)
+        
+        # Verify the partner is the other participant in the room
+        if room.u1 != partner and room.u2 != partner:
+            return Response({"status": "error", "message": "Invalid partner for this call"}, status=400)
+
+        # Send OutgoingCallRejected message to the partner (call initiator)
+        OutgoingCallRejected().send(partner.hash)
+        return Response({"status": "ok"})
+        
+    except User.DoesNotExist:
+        return Response({"status": "error", "message": "Partner not found"}, status=404)
+    except LiveKitRoom.DoesNotExist:
+        return Response({"status": "error", "message": "Call session not found"}, status=404)
+    except Exception as e:
+        return Response({"status": "error", "message": str(e)}, status=400)
+
+
 api_urls = [
     path("api/livekit/review", post_call_review),
     path("api/call_rooms", active_call_rooms, name="active_call_rooms_api"),
+    path("api/call_rejected", call_rejected),
+    path("api/call_retrigger", call_retrigger),
     path("api/livekit/authenticate", authenticate_live_kit_room),
     path("api/livekit/webhook", livekit_webhook),
 ]
