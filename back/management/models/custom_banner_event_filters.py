@@ -30,7 +30,7 @@ def filter__learners(user):
     return user.profile.user_type == Profile.TypeChoices.LEARNER
 
 def filter__learners_outside_germany(user):
-    return (user.profile.user_type == Profile.TypeChoices.LEARNER) and (user.profile.residence_country != "DE")
+    return (user.profile.user_type == Profile.TypeChoices.LEARNER) and (user.profile.country_of_residence != "DE")
 
 FILTER_FUNC_MAP = {
     CustomFilterChoices.CAPEGEMINI: filter__learners_above_a1a2,
