@@ -95,7 +95,7 @@ def needs_matching(qs=User.objects.all(), learner_atleast_searching_for_x_days=-
         
         # Combine filtered learners with non-learners
         non_learners = base_qs.exclude(profile__user_type=Profile.TypeChoices.LEARNER)
-        return base_qs.model.objects.filter(
+        return base_qs.filter(
             Q(id__in=filtered_learners.values_list('id', flat=True)) |
             Q(id__in=non_learners.values_list('id', flat=True))
         ).order_by("-date_joined")
