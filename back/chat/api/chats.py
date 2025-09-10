@@ -47,26 +47,22 @@ class ChatsModelViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         is_matching_user = self.request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-        queryset = Chat.objects.filter(Q(u1=self.request.user) | Q(u2=self.request.user))
-        
-        excluded_chats = Chat.objects.filter(Q(u1=self.request.user) | Q(u2=self.request.user)).annotate(
+
+        queryset = Chat.objects.filter(Q(u1=self.request.user) | Q(u2=self.request.user)).annotate(
             has_messages=Exists(
                 Message.objects.filter(chat_id=OuterRef('pk'))
-            )
+            ),
+            is_active_match=Exists(
+                Match.objects.filter(
+                    Q(user1=OuterRef('u1'), user2=OuterRef('u2')) |
+                    Q(user1=OuterRef('u2'), user2=OuterRef('u1')),
+                    active=True
+                )
+            ),
         ).filter(
-            has_messages=False
-        ).filter(
-            Q(
-                u1__match_user1__user2=F('u2'),
-                u1__match_user1__active=False
-            ) | Q(
-                u1__match_user2__user1=F('u2'),
-                u1__match_user2__active=False
-            )
-        ).values_list('id', flat=True)
-        
-        queryset = queryset.exclude(id__in=excluded_chats)
-        
+            Q(has_messages=True) | Q(is_active_match=True)
+        )        
+
         if is_matching_user:
             queryset = queryset.annotate(
                 newest_message_time=Max("message__created"),
