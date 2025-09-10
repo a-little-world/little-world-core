@@ -1,5 +1,4 @@
-from django.db.models import Max, Q, Case, When, Value, IntegerField, F
-from django.db.models.functions import Cast, Coalesce
+from django.db.models import Max, Q, Exists, OuterRef, F
 from drf_spectacular.utils import extend_schema, inline_serializer
 from management.helpers import DetailedPaginationMixin
 from management.models.profile import ProfileSerializer
@@ -50,17 +49,13 @@ class ChatsModelViewSet(viewsets.ModelViewSet):
         is_matching_user = self.request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
         queryset = Chat.objects.filter(Q(u1=self.request.user) | Q(u2=self.request.user))
         
-        # Filter out chats where the specific Match.active=False AND no messages exist    
-        excluded_chats = Chat.objects.annotate(
-            has_messages=Case(
-                When(message__isnull=False, then=Value(1)),
-                default=Value(0),
-                output_field=IntegerField()
+        excluded_chats = Chat.objects.filter(Q(u1=self.request.user) | Q(u2=self.request.user)).annotate(
+            has_messages=Exists(
+                Message.objects.filter(chat_id=OuterRef('pk'))
             )
         ).filter(
-            has_messages=0
+            has_messages=False
         ).filter(
-            # Check if the specific match for this chat's users is inactive
             Q(
                 u1__match_user1__user2=F('u2'),
                 u1__match_user1__active=False
@@ -75,10 +70,8 @@ class ChatsModelViewSet(viewsets.ModelViewSet):
         if is_matching_user:
             queryset = queryset.annotate(
                 newest_message_time=Max("message__created"),
-                has_messages=Case(
-                    When(newest_message_time__isnull=False, then=Value(1)),
-                    default=Value(0),
-                    output_field=IntegerField()
+                has_messages=Exists(
+                    Message.objects.filter(chat_id=OuterRef('pk'))
                 )
             ).order_by("-has_messages", "-newest_message_time", "-created")
         else:
