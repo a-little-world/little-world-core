@@ -1,8 +1,8 @@
 import base64
 import json
 import os
-from corsheaders.defaults import default_headers, default_methods
 
+from corsheaders.defaults import default_headers
 from firebase_admin import credentials, initialize_app
 
 
@@ -911,6 +911,9 @@ try:
     FIREBASE_APP = initialize_app(firebase_certificate)
 except Exception as e:
     print("ERROR INITIALIZING FIREBASE APP", e)
+
+
+SIMPLE_JWT = {"ROTATE_REFRESH_TOKENS": True}
 
 # # # Initialize Firebase Messaging
 # from firebase_admin import messaging
