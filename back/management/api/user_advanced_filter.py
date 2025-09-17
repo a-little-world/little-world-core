@@ -97,7 +97,7 @@ def needs_matching(qs=User.objects.all(), learner_atleast_searching_for_x_days=-
         non_learners = base_qs.exclude(profile__user_type=Profile.TypeChoices.LEARNER)
         
         if exclude_non_german_residents:
-            filtered_learners = filtered_learners.exclude(profile__country_of_residence__ne="DE")
+            filtered_learners = filtered_learners.filter(profile__country_of_residence="DE")
         
         return base_qs.filter(
             Q(id__in=filtered_learners.values_list('id', flat=True)) |
