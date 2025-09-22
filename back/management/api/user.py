@@ -29,7 +29,10 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from management.models.profile import SelfProfileSerializer
-from management.models.state import FrontendStatusSerializer, State
+from management.models.state import State
+from management.models.matches import Match
+from management.models.banner import Banner, BannerSerializer
+from django.db.models import Q
 
 """
 The public /user api's
@@ -554,9 +557,15 @@ def get_user_data(user):
         Q(user1=user) | Q(user2=user),
         support_matching=False,
     ).exists()
+    
+        # Retrieve the active banner for the specific user type
+    banner_query = Banner.get_active_banner(user)
+
+    banner = BannerSerializer(banner_query).data if banner_query else {}
 
     return {
         "id": str(user.hash),
+        "banner": banner,
         "status": FrontendStatusSerializer(user_state).data,
         "isSupport": user_state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
         or user.is_staff,

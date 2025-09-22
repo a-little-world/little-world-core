@@ -33,7 +33,7 @@ def only_hd_test_user(qs=User.objects.all()):
     return qs.filter(email__startswith="herrduenschnlate")
 
 
-def needs_matching(qs=User.objects.all(), learner_atleast_searching_for_x_days=-1):
+def needs_matching(qs=User.objects.all(), learner_atleast_searching_for_x_days=-1, exclude_non_german_residents=False):
     """
     All users in 'searching' without any user that has an open proposal!
     Optionally, for learners, only include those who have been searching for at least X days.
@@ -95,7 +95,11 @@ def needs_matching(qs=User.objects.all(), learner_atleast_searching_for_x_days=-
         
         # Combine filtered learners with non-learners
         non_learners = base_qs.exclude(profile__user_type=Profile.TypeChoices.LEARNER)
-        return base_qs.model.objects.filter(
+        
+        if exclude_non_german_residents:
+            filtered_learners = filtered_learners.filter(profile__country_of_residence="DE")
+        
+        return base_qs.filter(
             Q(id__in=filtered_learners.values_list('id', flat=True)) |
             Q(id__in=non_learners.values_list('id', flat=True))
         ).order_by("-date_joined")

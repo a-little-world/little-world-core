@@ -1,10 +1,10 @@
-from django.db.models import Max, Q, Case, When, Value, IntegerField
-from django.db.models.functions import Cast, Coalesce
+from django.db.models import Max, Q, Exists, OuterRef, F
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.authentication import SessionAuthentication
 from management.helpers import DetailedPaginationMixin
 from management.models.profile import ProfileSerializer
+from management.models.matches import Match
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -12,7 +12,7 @@ from rest_framework.response import Response
 from management.models.state import State
 import datetime
 
-from chat.models import Chat, ChatSerializer, MessageSerializer
+from chat.models import Chat, ChatSerializer, MessageSerializer, Message
 
 
 def chat_res_seralizer(many=True):
@@ -50,15 +50,27 @@ class ChatsModelViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         is_matching_user = self.request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-        queryset = Chat.objects.filter(Q(u1=self.request.user) | Q(u2=self.request.user))
-        
+
+        queryset = Chat.objects.filter(Q(u1=self.request.user) | Q(u2=self.request.user)).annotate(
+            has_messages=Exists(
+                Message.objects.filter(chat_id=OuterRef('pk'))
+            ),
+            is_active_match=Exists(
+                Match.objects.filter(
+                    Q(user1=OuterRef('u1'), user2=OuterRef('u2')) |
+                    Q(user1=OuterRef('u2'), user2=OuterRef('u1')),
+                    active=True
+                )
+            ),
+        ).filter(
+            Q(has_messages=True) | Q(is_active_match=True)
+        )        
+
         if is_matching_user:
             queryset = queryset.annotate(
                 newest_message_time=Max("message__created"),
-                has_messages=Case(
-                    When(newest_message_time__isnull=False, then=Value(1)),
-                    default=Value(0),
-                    output_field=IntegerField()
+                has_messages=Exists(
+                    Message.objects.filter(chat_id=OuterRef('pk'))
                 )
             ).order_by("-has_messages", "-newest_message_time", "-created")
         else:

@@ -584,7 +584,7 @@ CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 
 CELERY_RESULT_BACKEND = "django-db"
-
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
 
 # We enforce these authentication classes
 # By that we force a crsf token to be present on **every** POST request

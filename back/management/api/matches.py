@@ -59,7 +59,16 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
         if active_sessions.exists():
             active_session = active_sessions.first()
             active_call_room = SerializeLivekitSession(active_session).data
-
+            
+        partner_data = {
+            "id": str(partner.hash),
+            "isOnline": is_online,
+            "isDeleted": False,
+            "isSupport": partner.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+            or partner.is_staff,
+            **CensoredProfileSerializer(partner.profile).data,
+        }
+            
         representation = {
             "id": str(instance.uuid),
             "chat": {**chat_serialized},
@@ -67,13 +76,7 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
             "active": instance.active,
             "activeCallRoom": active_call_room,
             "report_unmatch": enrich_report_unmatch_with_user_info(instance.report_unmatch, instance),
-            "partner": {
-                "id": str(partner.hash),
-                "isOnline": is_online,
-                "isSupport": partner.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-                or partner.is_staff,
-                **CensoredProfileSerializer(partner.profile).data,
-            },
+            "partner": partner_data if partner.is_active else {"censored": True, "id": "censored", "isDeleted": True},
         }
         if "status" in self.context:
             representation["status"] = self.context["status"]
@@ -171,7 +174,7 @@ def make_match(request):
 
         InMatchProposalAdded(matches[0]).send(learner.hash)
 
-        learner.sms(request.user, get_translation("sms.proposal_message", lang="de"))
+        learner.sms(request.user, get_translation("sms.proposal_message", lang="de").format(first_name=learner.first_name))
 
         return Response(f"Matching Proposal Created")
     else:

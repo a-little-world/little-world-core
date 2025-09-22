@@ -107,6 +107,14 @@ class InBlockIncomingCall(MessageBase):
 
 
 @dataclass
+class OutgoingCallRejected(MessageBase):
+    type: str = "outgoing_call_rejected"
+
+    def build_redux_action(self):
+        return {"action": "outgoingCallRejected", "payload": {}}
+
+
+@dataclass
 class NewActiveCallRoom(MessageBase):
     call_room: dict
     type: str = MessageTypes.new_active_call.value
