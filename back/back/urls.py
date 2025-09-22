@@ -6,7 +6,7 @@ from django.urls import include, path, re_path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from management.urls import public_routes_wildcard
 from rest_framework import status
-from management.api.jwt import NativeTokenRefreshView, NativeTokenVerifyView
+from management.api.mobile_auth import NativeTokenRefreshView, NativeTokenVerifyView
 
 """
 We are adding all app urls under `'/'` their paths should be set under `<app>/urls.py`
