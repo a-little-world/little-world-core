@@ -26,10 +26,10 @@ from translations import get_translation
 
 from management.controller import UserNotFoundErr, delete_user, get_user, get_user_by_email, get_user_by_hash
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from management.models.state import FrontendStatusSerializer, State
 from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from management.models.profile import SelfProfileSerializer
-from management.models.state import State
 from management.models.matches import Match
 from management.models.banner import Banner, BannerSerializer
 from django.db.models import Q
