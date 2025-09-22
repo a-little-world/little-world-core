@@ -6,7 +6,7 @@ from django.urls import include, path, re_path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from management.urls import public_routes_wildcard
 from rest_framework import status
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView, TokenVerifyView
+from management.api.jwt import NativeTokenRefreshView, NativeTokenVerifyView
 
 """
 We are adding all app urls under `'/'` their paths should be set under `<app>/urls.py`
@@ -98,9 +98,9 @@ if settings.USE_SENTRY:
     ]
 
 urlpatterns += [
-    path("api/token/obtain", TokenObtainPairView.as_view(), name="token_obtain_pair"),
-    path("api/token/refresh", TokenRefreshView.as_view(), name="token_refresh"),
-    path("api/token/verify", TokenVerifyView.as_view(), name="token_verify"),
+    # Disable generic obtain endpoint; native apps must use /api/user/native-login/
+    path("api/token/refresh", NativeTokenRefreshView.as_view(), name="token_refresh"),
+    path("api/token/verify", NativeTokenVerifyView.as_view(), name="token_verify"),
 ]
 
 urlpatterns += [public_routes_wildcard]
