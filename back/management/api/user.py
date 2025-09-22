@@ -1,3 +1,7 @@
+import hashlib
+import hmac
+import secrets
+import time
 import urllib.parse
 from dataclasses import dataclass
 from typing import Optional
@@ -5,6 +9,7 @@ from typing import Optional
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from django.db.models import Q
 from django.dispatch import receiver
 from django.http import HttpResponseRedirect
@@ -25,7 +30,7 @@ from tracking.models import Event
 from translations import get_translation
 
 from management.controller import UserNotFoundErr, delete_user, get_user, get_user_by_email, get_user_by_hash
-from rest_framework_simplejwt.authentication import JWTAuthentication
+from management.authentication import NativeOnlyJWTAuthentication as JWTAuthentication
 from management.models.state import FrontendStatusSerializer, State
 from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
@@ -107,6 +112,38 @@ class LoginSerializer(serializers.Serializer):
 
 
 @dataclass
+class ChallengeData:
+    challenge: str
+    timestamp: int
+
+
+class ChallengeSerializer(serializers.Serializer):
+    challenge = serializers.CharField(required=True)
+    timestamp = serializers.IntegerField(required=True)
+
+    def create(self, validated_data):
+        return ChallengeData(**validated_data)
+
+
+@dataclass
+class NativeLoginData:
+    email: str
+    password: str
+    challenge: str
+    proof: str
+
+
+class NativeLoginSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(required=True)
+    challenge = serializers.CharField(required=True)
+    proof = serializers.CharField(required=True)
+
+    def create(self, validated_data):
+        return NativeLoginData(**validated_data)
+
+
+@dataclass
 class AutoLoginData:
     u: str  # user
     l: str  # lookup: hash | email | id
@@ -122,6 +159,97 @@ class AutoLoginSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         return AutoLoginData(**validated_data)
+
+
+class ChallengeApi(APIView):
+    """
+    Generates a challenge for native app authentication.
+    The client must prove possession of the native app secret using HMAC.
+    """
+    permission_classes = []
+    authentication_classes = []
+
+    def post(self, request):
+        # Generate a random challenge
+        challenge = secrets.token_urlsafe(32)
+        timestamp = int(time.time())
+        
+        # Store challenge in cache for 5 minutes
+        cache_key = f"native_challenge:{challenge}"
+        cache.set(cache_key, timestamp, timeout=300)
+        
+        return Response({
+            "challenge": challenge,
+            "timestamp": timestamp
+        })
+
+
+class NativeLoginApi(APIView):
+    """
+    Native app login with challenge-response authentication.
+    Proves possession of native app secret without transmitting it.
+    """
+    permission_classes = []
+    authentication_classes = []
+
+    @extend_schema(request=NativeLoginSerializer(many=False))
+    def post(self, request):
+        """
+        Native app login with HMAC-based proof of possession.
+        """
+        serializer = NativeLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        login_data = serializer.save()
+
+        # Verify challenge is valid and not expired
+        cache_key = f"native_challenge:{login_data.challenge}"
+        stored_timestamp = cache.get(cache_key)
+        if not stored_timestamp:
+            return Response("Invalid or expired challenge", status=status.HTTP_400_BAD_REQUEST)
+        
+        # Verify timestamp is recent (within 5 minutes)
+        if abs(time.time() - stored_timestamp) > 300:
+            cache.delete(cache_key)
+            return Response("Challenge expired", status=status.HTTP_400_BAD_REQUEST)
+
+        # Verify HMAC proof
+        native_secret = getattr(settings, 'NATIVE_APP_SECRET', None)
+        if not native_secret:
+            return Response("Native authentication not configured", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # Calculate expected proof: HMAC-SHA256(native_secret, challenge + timestamp + email)
+        message = f"{login_data.challenge}{stored_timestamp}{login_data.email.lower()}"
+        expected_proof = hmac.new(
+            native_secret.encode('utf-8'),
+            message.encode('utf-8'),
+            hashlib.sha256
+        ).hexdigest()
+        
+        if not hmac.compare_digest(login_data.proof, expected_proof):
+            cache.delete(cache_key)
+            return Response("Invalid proof of native app possession", status=status.HTTP_403_FORBIDDEN)
+
+        # Clean up used challenge
+        cache.delete(cache_key)
+
+        # Authenticate user
+        usr = authenticate(username=login_data.email.lower(), password=login_data.password)
+        if usr is None:
+            return Response(get_translation("api.login_failed"), status=status.HTTP_400_BAD_REQUEST)
+        
+        if usr.is_staff:
+            return Response(get_translation("api.login_failed_staff"), status=status.HTTP_400_BAD_REQUEST)
+
+        # Issue JWT token with native client claim
+        from rest_framework_simplejwt.tokens import RefreshToken
+        refresh = RefreshToken.for_user(usr)
+        refresh["client"] = "native"
+
+        return Response({
+            "token_access": str(refresh.access_token),
+            "token_refresh": str(refresh),
+            **get_user_data(usr)
+        })
 
 
 class LoginApi(APIView):
@@ -161,14 +289,8 @@ class LoginApi(APIView):
             # token_auth is a query parameter that determines whether to return a token or create a session
             token_auth = request.query_params.get("token_auth", False)
             if token_auth:
-                from rest_framework_simplejwt.tokens import RefreshToken
-                refresh = RefreshToken.for_user(usr)
-                # You can add custom claims here later (aud, cnf, etc.)
-                return Response({
-                    "token_access": str(refresh.access_token),
-                    "token_refresh": str(refresh),
-                    **get_user_data(usr)
-                })
+                # Legacy token auth - now deprecated in favor of native challenge-response
+                return Response("Token auth deprecated. Use /api/user/native-login for native apps", status=status.HTTP_400_BAD_REQUEST)
             else:
                 login(request, usr)
                 return Response(get_user_data(request.user))

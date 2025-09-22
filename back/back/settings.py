@@ -284,6 +284,9 @@ if CSRF_BYPASS_TOKENS != "":
 else:
     CSRF_BYPASS_TOKENS = []
 
+# Native app secret for challenge-response authentication
+NATIVE_APP_SECRET = os.environ.get("DJ_NATIVE_APP_SECRET", "")
+
 
 CORS_ALLOWED_ORIGINS = []
 if IS_STAGE or IS_PROD:
@@ -592,7 +595,7 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.BasicAuthentication",
         "rest_framework.authentication.SessionAuthentication",
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "management.authentication.NativeOnlyJWTAuthentication",
     ],
     "DEFAULT_FILTER_BACKENDS": ("django_filters.rest_framework.DjangoFilterBackend",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
