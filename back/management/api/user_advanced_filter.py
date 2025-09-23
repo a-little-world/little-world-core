@@ -247,6 +247,12 @@ def user_recent_activity(
 
     return filtered_users
 
+def get_users_with_company(qs=User.objects.all()):
+    """
+    Users who have a company set
+    """
+    return qs.filter(state__company__isnull=False).exclude(state__company='')
+
 
 def get_volunteers_booked_onboarding_call_but_never_visited(qs=User.objects.all()):
     """
