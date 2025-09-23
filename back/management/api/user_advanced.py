@@ -428,12 +428,6 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             }
         )
 
-    @action(detail=False, methods=["get"])
-    def get_companies(self, request):
-        """Get all companies associated with users"""
-        companies = get_company_choices()
-        return Response({"companies": companies})
-
     def get_serializer_context(self):
         if self.action == "list":
             return {}
@@ -1040,10 +1034,6 @@ api_urls = [
     path(
         "api/matching/users/filters/",
         AdvancedUserViewset.as_view({"get": "get_filter_schema"}),
-    ),
-    path(
-        "api/matching/users/companies/",
-        AdvancedUserViewset.as_view({"get": "get_companies"}),
     ),
     path(
         "api/matching/users/complete_prematching_call/",
