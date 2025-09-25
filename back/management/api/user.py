@@ -201,23 +201,22 @@ class NativeLoginApi(APIView):
         serializer.is_valid(raise_exception=True)
         login_data = serializer.save()
 
-        # Verify challenge is valid and not expired
+        # Challenge MUST be valid and not expired
         cache_key = f"native_challenge:{login_data.challenge}"
         stored_timestamp = cache.get(cache_key)
         if not stored_timestamp:
             return Response("Invalid or expired challenge", status=status.HTTP_400_BAD_REQUEST)
         
-        # Verify timestamp is recent (within 5 minutes)
+        # Time stamp MUST be recent < 5 min
         if abs(time.time() - stored_timestamp) > 300:
             cache.delete(cache_key)
             return Response("Challenge expired", status=status.HTTP_400_BAD_REQUEST)
 
-        # Verify HMAC proof
+        # Calculate a one-time hmac proof, that must match the user provided proof
         native_secret = getattr(settings, 'NATIVE_APP_SECRET', None)
         if not native_secret:
             return Response("Native authentication not configured", status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-        # Calculate expected proof: HMAC-SHA256(native_secret, challenge + timestamp + email)
         message = f"{login_data.challenge}{stored_timestamp}{login_data.email.lower()}"
         expected_proof = hmac.new(
             native_secret.encode('utf-8'),
@@ -228,11 +227,8 @@ class NativeLoginApi(APIView):
         if not hmac.compare_digest(login_data.proof, expected_proof):
             cache.delete(cache_key)
             return Response("Invalid proof of native app possession", status=status.HTTP_403_FORBIDDEN)
-
-        # Clean up used challenge
         cache.delete(cache_key)
 
-        # Authenticate user
         usr = authenticate(username=login_data.email.lower(), password=login_data.password)
         if usr is None:
             return Response(get_translation("api.login_failed"), status=status.HTTP_400_BAD_REQUEST)
@@ -240,7 +236,6 @@ class NativeLoginApi(APIView):
         if usr.is_staff:
             return Response(get_translation("api.login_failed_staff"), status=status.HTTP_400_BAD_REQUEST)
 
-        # Issue JWT token with native client claim
         from rest_framework_simplejwt.tokens import RefreshToken
         refresh = RefreshToken.for_user(usr)
         refresh["client"] = "native"
