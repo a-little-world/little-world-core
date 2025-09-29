@@ -170,11 +170,9 @@ class ChallengeApi(APIView):
     authentication_classes = []
 
     def post(self, request):
-        # Generate a random challenge
         challenge = secrets.token_urlsafe(32)
         timestamp = int(time.time())
         
-        # Store challenge in cache for 5 minutes
         cache_key = f"native_challenge:{challenge}"
         cache.set(cache_key, timestamp, timeout=300)
         
@@ -544,8 +542,6 @@ class UpdateSearchingStateApi(APIView):
         serializer.is_valid(raise_exception=True)
         params = serializer.save()
 
-        print("TBS", State.SearchingStateChoices.values)
-
         if params.state_slug not in State.SearchingStateChoices.values:
             raise serializers.ValidationError(
                 {
@@ -608,7 +604,6 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
     # We also pass the reset token to the view so it can be used to change the password
     usr_hash = reset_password_token.user.hash
     reset_password_url = f"{settings.BASE_URL}/set_password/{usr_hash}/{reset_password_token.key}"
-    print("GENERATED RESET URL", reset_password_url)
 
     if settings.USE_V2_EMAIL_APIS:
         reset_password_token.user.send_email_v2("reset-password", context={"reset_password_url": reset_password_url})
