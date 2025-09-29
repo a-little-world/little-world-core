@@ -4,6 +4,8 @@ from django.utils import translation
 
 from rest_framework.authentication import TokenAuthentication
 from management.models.state import State
+from rest_framework_simplejwt.tokens import UntypedToken
+from rest_framework_simplejwt.exceptions import InvalidToken
 
 
 def responde_404(request):
@@ -118,40 +120,6 @@ class OverwriteSessionLangIfAcceptLangHeaderSet:
             return self.get_response(request)
 
 
-class CsrfBypassMiddleware:
-    """
-    Middleware that allows bypassing CSRF checks for requests with a valid
-    X-CSRF-Bypass-Token header that matches tokens from environment variable.
-    """
-    
-    def __init__(self, get_response):
-        self.get_response = get_response
-        # Get bypass tokens from environment variable
-        self.bypass_tokens = self._get_bypass_tokens()
-    
-    def _get_bypass_tokens(self):
-        """Get CSRF bypass tokens from settings."""
-        from django.conf import settings
-        return getattr(settings, 'CSRF_BYPASS_TOKENS', [])
-    
-    def __call__(self, request):
-        print("--------------------------------TBS:")
-        print(request.META)
-        bypass_token = request.META.get('HTTP_X_CSRF_BYPASS_TOKEN')
-        requested_with_header = request.META.get('HTTP_X_REQUESTED_WITH')
-        print("--------------------------------TBS:")
-        print(bypass_token)
-        print(requested_with_header)
-        
-        if bypass_token and bypass_token in self.bypass_tokens:
-            request._csrf_bypass = True
-            setattr(request, "_dont_enforce_csrf_checks", True)
-            # Set flag to modify session cookie SameSite attribute
-            request._modify_session_cookie_samesite = True
-        
-        return self.get_response(request)
-
-
 class SessionCookieSameSiteMiddleware:
     """
     Middleware that modifies session cookies to set SameSite=None
@@ -180,3 +148,33 @@ class SessionCookieSameSiteMiddleware:
                     cookie['secure'] = True
         
         return response
+
+
+class NativeOnlyCsrfBypassMiddleware:
+	"""
+	Disable CSRF checks when a valid JWT bearing the claim {"client": "native"}
+	is presented via the Authorization: Bearer header. This ties CSRF bypass
+	directly to native JWT usage without touching session auth or login APIs.
+	"""
+
+	def __init__(self, get_response):
+		self.get_response = get_response
+
+	def __call__(self, request):
+		try:
+			auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+			if auth_header.startswith("Bearer "):
+				raw_token = auth_header.split(" ", 1)[1].strip()
+
+				try:
+					validated = UntypedToken(raw_token)
+					client = validated.payload.get("client")
+					if client == "native":
+						request._csrf_bypass = True
+						setattr(request, "_dont_enforce_csrf_checks", True)
+				except InvalidToken:
+					pass
+		except Exception:
+			pass # normal CSRF behavior...
+
+		return self.get_response(request)
