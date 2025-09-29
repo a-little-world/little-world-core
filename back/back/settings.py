@@ -201,7 +201,7 @@ MIDDLEWARE = [
     "django.middleware.locale.LocaleMiddleware",
     "management.middleware.OverwriteSessionLangIfAcceptLangHeaderSet",
     "django.middleware.common.CommonMiddleware",
-    "management.middleware.CsrfBypassMiddleware",
+    "management.middleware.NativeOnlyCsrfBypassMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "management.middleware.SessionCookieSameSiteMiddleware",
