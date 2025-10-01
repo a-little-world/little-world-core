@@ -35,7 +35,7 @@ class Command(BaseCommand):
         cutoff_hours = float(options.get("cutoff_hours", 4.0))
         cutoff_delta = timedelta(hours=cutoff_hours)
 
-        # Sessions where end_time exists and exceeds 4h duration
+        # Sessions where end_time exists and exceeds CUTTOFF duration
         sessions_with_end_too_long = LivekitSession.objects.filter(
             end_time__isnull=False,
             end_time__gt=models.F("created_at") + cutoff_delta,
@@ -47,7 +47,7 @@ class Command(BaseCommand):
             created_at__lt=now - cutoff_delta,
         )
 
-        # Sessions previously marked unusual should be re-evaluated with the new cutoff
+        # Its possible to change and old sessions end time, but you cannot change the backup of the old end_time again!
         previously_marked = LivekitSession.objects.filter(
             unusual_length=True,
         ).exclude(id__in=models.Subquery(
@@ -79,7 +79,6 @@ class Command(BaseCommand):
                 original_created_at = session.created_at.isoformat() if session.created_at else "None"
                 original_end_time = session.end_time.isoformat() if session.end_time else "None"
 
-                # If already capped correctly for this cutoff, skip
                 if session.end_time == new_end_time and session.unusual_length:
                     continue
 
@@ -92,8 +91,8 @@ class Command(BaseCommand):
                 )
 
                 if not dry_run:
-                    # Preserve original record if already present, otherwise store it
                     if not session.start_end_before_correction:
+                        # Don't update 'start_end_before_correction' again if it exists!!!
                         session.start_end_before_correction = before_txt
                     session.unusual_length = True
                     session.end_time = new_end_time
@@ -105,7 +104,6 @@ class Command(BaseCommand):
                     updated_count += 1
 
             if dry_run:
-                # In dry-run, do not persist any changes
                 transaction.set_rollback(True)
 
         if dry_run:
