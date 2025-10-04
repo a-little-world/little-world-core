@@ -312,7 +312,6 @@ if IS_STAGE or DEBUG:
         "http://localhost:3333",
         "http://localhost:9000",
         "http://localhost:9001",
-        "https://568b7e6933ac.ngrok-free.app",
     ]
 
     CORS_ALLOWED_ORIGINS += dev_origins
