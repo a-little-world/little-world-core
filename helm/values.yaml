@@ -68,3 +68,5 @@ backend:
     DJ_CALCOM_MEETING_ID: "herr-duenschnlate-iiscv9/15min"
     DJ_USE_SENTRY: "0"
     DJ_SENTRY_DNS: ""
+    DJ_USE_DEBUG_TOOLBAR: "0"
+    DJ_NATIVE_APP_SECRET: "jannisduftet"
