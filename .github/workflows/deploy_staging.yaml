@@ -75,7 +75,9 @@ jobs:
             -d '{"ref":"main","inputs":{"tag":"'"${TAG}"'","name":"'"${NAME}"'","prerelease":"'"${PRERELEASE}"'","baseUrl":"'"${BASE_URL}"'","COMMIT_REF":"'"${MAIN_FRONTEND_REPO_COMMIT_REF}"'"}}'
       - name: Delete all littleworld-bot comments
         run: |
-          comments=$(curl -s -H "Authorization: token ${{ secrets.BOT_PAT }}" https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.determine_pull_id.outputs.PULL_NUMBER }}/comments | jq -r '.[] | select(.user.login=="littleworld-bot") | .id')
+          comments=$(curl -s -H "Authorization: token ${{ secrets.BOT_PAT }}" \
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.determine_pull_id.outputs.PULL_NUMBER }}/comments \
+            | jq -r '.[] | select(.user.login=="littleworld-bot") | select(.body | contains("<!-- lw-staging-workflow -->")) | .id')
           for comment in $comments
           do
             curl -s -H "Authorization: token ${{ secrets.BOT_PAT }}" -X DELETE https://api.github.com/repos/${{ github.repository }}/issues/comments/$comment
@@ -93,6 +95,8 @@ jobs:
             > Triggered because PR has label `staging`
 
             - Android build: ${{ steps.determine_pull_id.outputs.SHOULD_BUILD_ANDROID != '' && 'triggered' || 'not triggered' }}
+
+            <!-- lw-staging-workflow -->
 
             1. Setup
       - name: Setup Emperial Env
@@ -123,6 +127,8 @@ jobs:
           body: |
             2. Building ![action](https://github.com/a-little-world/little-world-backend/actions/workflows/deploy_staging.yaml/badge.svg?branch=${{ steps.extract_branch.outputs.branch }}&event=pull_request)
             - Android build: ${{ steps.determine_pull_id.outputs.SHOULD_BUILD_ANDROID != '' && 'triggered' || 'not triggered' }}
+
+            <!-- lw-staging-workflow -->
       - name: Measure start time
         id: start
         run: |
@@ -155,6 +161,8 @@ jobs:
             Finished in ${{ steps.execution_time.outputs.DURATION }} seconds
             Pushed image to `${{ steps.setup_emperial_env.outputs.IMAGE_URL }}`
             3. Deploy ( to Kubernetes namespace `${{ steps.setup_emperial_env.outputs.NAMESPACE }}` )
+
+            <!-- lw-staging-workflow -->
       - uses: azure/setup-helm@v3
         with:
           version: "latest"
@@ -199,6 +207,8 @@ jobs:
             > **Note:** Setting up DNS and solving https challenge can take upto 5 minutes. Chill a little moment :wink:
 
             - Android build: ${{ steps.determine_pull_id.outputs.SHOULD_BUILD_ANDROID != '' && 'triggered' || 'not triggered' }}
+
+            <!-- lw-staging-workflow -->
 
             <details>
             <summary> Details </summary>
@@ -270,3 +280,5 @@ jobs:
               fromJSON('{"fail":"❌","pass":"✅"}')[steps.run_tests.outputs.test_result]
             }}
             Duration: ${{ steps.execution_time_tests.outputs.DURATION }} seconds
+
+            <!-- lw-staging-workflow -->
