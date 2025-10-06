@@ -3,8 +3,9 @@ name: Deploy temporary env
 on:
   pull_request:
     types:
-      - synchronize
       - opened
+      - synchronize
+      - labeled
 
 concurrency:
   group: ${{ github.event.pull_request.id }}
@@ -34,8 +35,8 @@ jobs:
         id: determine_pull_id
         run: |
           pull_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
-          branch=${{ steps.extract_branch.outputs.branch }}
-          SHOULD_STAGE=$(echo $branch | grep -E '^staging-')
+          # Determine if the PR currently has the 'staging' label
+          SHOULD_STAGE=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH" | grep -x 'staging' || true)
           echo "SHOULD_STAGE=$SHOULD_STAGE" >> $GITHUB_OUTPUT
           echo "SHOULD_BUILD_ANDROID=" >> $GITHUB_OUTPUT
           echo "PULL_NUMBER=$pull_number" >> $GITHUB_OUTPUT
@@ -68,7 +69,7 @@ jobs:
           body: |
             ## Deploying Temporary Feature Environment
 
-            > Triggered because branch starts with `staging-*`
+            > Triggered because PR has label `staging`
 
             1. Setup
       - name: Setup Emperial Env
