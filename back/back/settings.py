@@ -264,8 +264,7 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
 if DEBUG:
     CORS_ALLOW_HEADERS += ["ngrok-skip-browser-warning"]
 
-# TODO: experimental change uncomment for easier native testing
-CORS_ALLOW_CREDENTIALS = True
+# CORS_ALLOW_CREDENTIALS = True
 # SESSION_COOKIE_SAMESITE = 'None'  # Default SameSite setting
 # SESSION_COOKIE_SECURE = not DEBUG  # Secure cookies in production
 # SESSION_COOKIE_HTTPONLY = True
@@ -276,13 +275,6 @@ if EXTRA_CSRF_ALLOWED_ORIGINS != "":
     EXTRA_CSRF_ALLOWED_ORIGINS = EXTRA_CSRF_ALLOWED_ORIGINS.split(",")
 else:
     EXTRA_CSRF_ALLOWED_ORIGINS = []
-
-# CSRF bypass tokens for API requests
-CSRF_BYPASS_TOKENS = os.environ.get("DJ_CSRF_BYPASS_TOKENS", "")
-if CSRF_BYPASS_TOKENS != "":
-    CSRF_BYPASS_TOKENS = [token.strip() for token in CSRF_BYPASS_TOKENS.split(",") if token.strip()]
-else:
-    CSRF_BYPASS_TOKENS = []
 
 # Native app secret for challenge-response authentication
 NATIVE_APP_SECRET = os.environ.get("DJ_NATIVE_APP_SECRET", "")
