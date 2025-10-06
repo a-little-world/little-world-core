@@ -2,6 +2,7 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import SessionAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.urls import path
 
 from management.models.notifications import Notification, SelfNotificationSerializer
@@ -10,7 +11,7 @@ from management.helpers.detailed_pagination import get_paginated_format_v2
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, JWTAuthentication])
 def notifications(request):
     """
     Returns notification data for the authenticated user.

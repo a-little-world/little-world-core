@@ -8,6 +8,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import SessionAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.response import Response
 from rest_framework_dataclasses.serializers import DataclassSerializer
 
@@ -231,7 +232,7 @@ def get_match(request, partner_hash):
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, JWTAuthentication])
 def matches(request):
     """
     Returns match data for the authenticated user.
