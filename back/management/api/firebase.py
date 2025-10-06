@@ -2,13 +2,14 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import SessionAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from django.urls import path
 from django.conf import settings
 
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, JWTAuthentication])
 def firebase_config(request):
     """
     Returns Firebase configuration for the client.
