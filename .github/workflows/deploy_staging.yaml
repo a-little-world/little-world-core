@@ -55,6 +55,30 @@ jobs:
           echo "SHOULD_STAGE=$SHOULD_STAGE" >> $GITHUB_OUTPUT
           echo "SHOULD_BUILD_ANDROID=$SHOULD_BUILD_ANDROID" >> $GITHUB_OUTPUT
           echo "PULL_NUMBER=$pull_number" >> $GITHUB_OUTPUT
+      - name: Prepare Android section content
+        id: android_section
+        run: |
+          BADGE_URL="https://github.com/a-little-world/little-world-native/actions/workflows/android-apk-release.yml/badge.svg?branch=main"
+          RUNS_URL="https://github.com/a-little-world/little-world-native/actions/workflows/android-apk-release.yml?query=event%3Aworkflow_dispatch"
+          if [ -n "${{ steps.determine_pull_id.outputs.SHOULD_BUILD_ANDROID }}" ]; then
+            echo "section<<'EOF'" >> $GITHUB_OUTPUT
+            echo "### Android build" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "[![Workflow status]($BADGE_URL)]($RUNS_URL)" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "Triggered by label 'android'." >> $GITHUB_OUTPUT
+            echo "Tag: apk-${{ steps.main_frontend_commit.outputs.sha }}" >> $GITHUB_OUTPUT
+            echo "Commit: ${{ steps.main_frontend_commit.outputs.sha }}" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "section<<'EOF'" >> $GITHUB_OUTPUT
+            echo "### Android build" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "Status: not triggered" >> $GITHUB_OUTPUT
+            echo "" >> $GITHUB_OUTPUT
+            echo "Add the 'android' label to this PR to trigger a build." >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
       - name: Trigger Android App build
         env:
           COMMIT_REF: ${{ github.sha }}
@@ -94,11 +118,11 @@ jobs:
 
             > Triggered because PR has label `staging`
 
-            - Android build: ${{ steps.determine_pull_id.outputs.SHOULD_BUILD_ANDROID != '' && 'triggered' || 'not triggered' }}
-
             <!-- lw-staging-workflow -->
 
             1. Setup
+            
+            ${{ steps.android_section.outputs.section }}
       - name: Setup Emperial Env
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         id: setup_emperial_env
@@ -126,9 +150,10 @@ jobs:
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
           body: |
             2. Building ![action](https://github.com/a-little-world/little-world-backend/actions/workflows/deploy_staging.yaml/badge.svg?branch=${{ steps.extract_branch.outputs.branch }}&event=pull_request)
-            - Android build: ${{ steps.determine_pull_id.outputs.SHOULD_BUILD_ANDROID != '' && 'triggered' || 'not triggered' }}
 
             <!-- lw-staging-workflow -->
+            
+            ${{ steps.android_section.outputs.section }}
       - name: Measure start time
         id: start
         run: |
@@ -163,6 +188,8 @@ jobs:
             3. Deploy ( to Kubernetes namespace `${{ steps.setup_emperial_env.outputs.NAMESPACE }}` )
 
             <!-- lw-staging-workflow -->
+            
+            ${{ steps.android_section.outputs.section }}
       - uses: azure/setup-helm@v3
         with:
           version: "latest"
@@ -205,8 +232,6 @@ jobs:
             4. Done check: [`${{ steps.cluster_connection.outputs.STAGING_URL }}`](${{ steps.cluster_connection.outputs.STAGING_URL }})
 
             > **Note:** Setting up DNS and solving https challenge can take upto 5 minutes. Chill a little moment :wink:
-
-            - Android build: ${{ steps.determine_pull_id.outputs.SHOULD_BUILD_ANDROID != '' && 'triggered' || 'not triggered' }}
 
             <!-- lw-staging-workflow -->
 
@@ -282,3 +307,5 @@ jobs:
             Duration: ${{ steps.execution_time_tests.outputs.DURATION }} seconds
 
             <!-- lw-staging-workflow -->
+            
+            ${{ steps.android_section.outputs.section }}
