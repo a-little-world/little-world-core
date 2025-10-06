@@ -131,6 +131,8 @@ api_routes = [
         user.UpdateSearchingStateApi.as_view(),
     ),
     path("api/user/login/", user.LoginApi.as_view()),
+    path("api/user/challenge/", user.ChallengeApi.as_view()),
+    path("api/user/native-login/", user.NativeLoginApi.as_view()),
     path("api/matching/report/", report_unmatch.report),
     path("api/matching/unmatch/", report_unmatch.unmatch),
     *(

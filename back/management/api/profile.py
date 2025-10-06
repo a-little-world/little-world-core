@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from translations import get_translation
 from management.api.user import get_user_data
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from back.utils import transform_add_options_serializer
 from management.models.profile import Profile, SelfProfileSerializer
@@ -31,7 +32,7 @@ class ProfileViewSet(viewsets.GenericViewSet, viewsets.mixins.UpdateModelMixin):
     A viewset for viewing and editing user instances.
     """
 
-    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
+    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication, JWTAuthentication]
 
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = SelfProfileSerializer
