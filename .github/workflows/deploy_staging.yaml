@@ -61,23 +61,27 @@ jobs:
           BADGE_URL="https://github.com/a-little-world/little-world-native/actions/workflows/android-apk-release.yml/badge.svg?branch=main"
           RUNS_URL="https://github.com/a-little-world/little-world-native/actions/workflows/android-apk-release.yml?query=event%3Aworkflow_dispatch"
           if [ -n "${{ steps.determine_pull_id.outputs.SHOULD_BUILD_ANDROID }}" ]; then
-            echo "section<<'EOF'" >> $GITHUB_OUTPUT
-            echo "### Android build" >> $GITHUB_OUTPUT
-            echo "" >> $GITHUB_OUTPUT
-            echo "[![Workflow status]($BADGE_URL)]($RUNS_URL)" >> $GITHUB_OUTPUT
-            echo "" >> $GITHUB_OUTPUT
-            echo "Triggered by label 'android'." >> $GITHUB_OUTPUT
-            echo "Tag: apk-${{ steps.main_frontend_commit.outputs.sha }}" >> $GITHUB_OUTPUT
-            echo "Commit: ${{ steps.main_frontend_commit.outputs.sha }}" >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            {
+              echo "section<<EOF"
+              echo "### Android build"
+              echo ""
+              echo "[![Workflow status]($BADGE_URL)]($RUNS_URL)"
+              echo ""
+              echo "Triggered by label 'android'."
+              echo "Tag: apk-${{ steps.main_frontend_commit.outputs.sha }}"
+              echo "Commit: ${{ steps.main_frontend_commit.outputs.sha }}"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
           else
-            echo "section<<'EOF'" >> $GITHUB_OUTPUT
-            echo "### Android build" >> $GITHUB_OUTPUT
-            echo "" >> $GITHUB_OUTPUT
-            echo "Status: not triggered" >> $GITHUB_OUTPUT
-            echo "" >> $GITHUB_OUTPUT
-            echo "Add the 'android' label to this PR to trigger a build." >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
+            {
+              echo "section<<EOF"
+              echo "### Android build"
+              echo ""
+              echo "Status: not triggered"
+              echo ""
+              echo "Add the 'android' label to this PR to trigger a build."
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
           fi
       - name: Trigger Android App build
         env:
