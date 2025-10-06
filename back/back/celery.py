@@ -67,6 +67,10 @@ prod_shedules = {
         "task": "management.tasks.hourly_check_banner_activation",
         "schedule": 60.0 * 60.0,  # every hour
     },
+    "daily-fix-unusually-long-livekit-sessions": {
+        "task": "video.tasks.daily_fix_unusually_long_livekit_sessions",
+        "schedule": 60.0 * 60.0 * 24.0,  # once a day
+    },
 }
 
 prod_shedules.update(auto_emails)
