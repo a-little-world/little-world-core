@@ -156,8 +156,6 @@ jobs:
             2. Building ![action](https://github.com/a-little-world/little-world-backend/actions/workflows/deploy_staging.yaml/badge.svg?branch=${{ steps.extract_branch.outputs.branch }}&event=pull_request)
 
             <!-- lw-staging-workflow -->
-            
-            ${{ steps.android_section.outputs.section }}
       - name: Measure start time
         id: start
         run: |
@@ -192,8 +190,6 @@ jobs:
             3. Deploy ( to Kubernetes namespace `${{ steps.setup_emperial_env.outputs.NAMESPACE }}` )
 
             <!-- lw-staging-workflow -->
-            
-            ${{ steps.android_section.outputs.section }}
       - uses: azure/setup-helm@v3
         with:
           version: "latest"
@@ -311,5 +307,3 @@ jobs:
             Duration: ${{ steps.execution_time_tests.outputs.DURATION }} seconds
 
             <!-- lw-staging-workflow -->
-            
-            ${{ steps.android_section.outputs.section }}
