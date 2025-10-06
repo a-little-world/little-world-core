@@ -26,6 +26,19 @@ jobs:
           token: ${{ secrets.BOT_PAT }}
           submodules: recursive
           ref: ${{ github.event.pull_request.head.sha }}
+      - name: Read main_frontend submodule commit
+        id: main_frontend_commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d "front/apps/main_frontend/.git" ] || git -C front/apps/main_frontend rev-parse --git-dir >/dev/null 2>&1; then
+            SHA=$(git -C front/apps/main_frontend rev-parse HEAD)
+            echo "sha=$SHA" >> $GITHUB_OUTPUT
+            echo "MAIN_FRONTEND_REPO_COMMIT_REF=$SHA" >> $GITHUB_ENV
+          else
+            echo "front/apps/main_frontend not a git repo; leaving empty" >&2
+            echo "sha=" >> $GITHUB_OUTPUT
+          fi
       - name: Extract branch name
         shell: bash
         run: |
@@ -37,8 +50,10 @@ jobs:
           pull_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
           # Determine if the PR currently has the 'staging' label
           SHOULD_STAGE=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH" | grep -x 'staging' || true)
+          # Determine if the PR currently has the 'android' label
+          SHOULD_BUILD_ANDROID=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH" | grep -x 'android' || true)
           echo "SHOULD_STAGE=$SHOULD_STAGE" >> $GITHUB_OUTPUT
-          echo "SHOULD_BUILD_ANDROID=" >> $GITHUB_OUTPUT
+          echo "SHOULD_BUILD_ANDROID=$SHOULD_BUILD_ANDROID" >> $GITHUB_OUTPUT
           echo "PULL_NUMBER=$pull_number" >> $GITHUB_OUTPUT
       - name: Trigger Android App build
         env:
@@ -46,12 +61,17 @@ jobs:
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_BUILD_ANDROID != ''
         run: |
           # Triggers the build in a seperate workflow
-          export STAGING_HOST="${{ steps.extract_branch.outputs.branch }}-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}.t1m.me"
+          STAGING_HOST="${{ steps.extract_branch.outputs.branch }}-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}.t1m.me"
+          export MAIN_FRONTEND_REPO_COMMIT_REF="${{ steps.main_frontend_commit.outputs.sha }}"
+          export TAG="apk-${{ steps.main_frontend_commit.outputs.sha }}"
+          export NAME="apk-${{ steps.main_frontend_commit.outputs.sha }}"
+          export PRERELEASE="true"
+          export BASE_URL="https://${STAGING_HOST}"
           curl -X POST \
-            -H "Authorization: Bearer ${{ secrets.BOT_PAT }}" \
+            -H "Authorization: Bearer ${BOT_PAT}" \
             -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/a-little-world/little-world-backend/actions/workflows/build_android_app.yaml/dispatches \
-            -d '{"ref": "main", "inputs": {"COMMIT_REF":"'"$COMMIT_REF"'","BACKEND_URL":"'"$STAGING_HOST"'"}}'
+            https://api.github.com/repos/a-little-world/little-world-native/actions/workflows/android-apk-release.yml/dispatches \
+            -d '{"ref":"main","inputs":{"tag":"'"${TAG}"'","name":"'"${NAME}"'","prerelease":"'"${PRERELEASE}"'","baseUrl":"'"${BASE_URL}"'"}}'
       - name: Delete all littleworld-bot comments
         run: |
           comments=$(curl -s -H "Authorization: token ${{ secrets.BOT_PAT }}" https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.determine_pull_id.outputs.PULL_NUMBER }}/comments | jq -r '.[] | select(.user.login=="littleworld-bot") | .id')
@@ -70,6 +90,8 @@ jobs:
             ## Deploying Temporary Feature Environment
 
             > Triggered because PR has label `staging`
+
+            - Android build: ${{ steps.determine_pull_id.outputs.SHOULD_BUILD_ANDROID != '' && 'triggered' || 'not triggered' }}
 
             1. Setup
       - name: Setup Emperial Env
@@ -99,6 +121,7 @@ jobs:
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
           body: |
             2. Building ![action](https://github.com/a-little-world/little-world-backend/actions/workflows/deploy_staging.yaml/badge.svg?branch=${{ steps.extract_branch.outputs.branch }}&event=pull_request)
+            - Android build: ${{ steps.determine_pull_id.outputs.SHOULD_BUILD_ANDROID != '' && 'triggered' || 'not triggered' }}
       - name: Measure start time
         id: start
         run: |
@@ -173,6 +196,8 @@ jobs:
             4. Done check: [`${{ steps.cluster_connection.outputs.STAGING_URL }}`](${{ steps.cluster_connection.outputs.STAGING_URL }})
 
             > **Note:** Setting up DNS and solving https challenge can take upto 5 minutes. Chill a little moment :wink:
+
+            - Android build: ${{ steps.determine_pull_id.outputs.SHOULD_BUILD_ANDROID != '' && 'triggered' || 'not triggered' }}
 
             <details>
             <summary> Details </summary>
