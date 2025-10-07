@@ -278,6 +278,7 @@ else:
 
 # Native app secret for challenge-response authentication
 NATIVE_APP_SECRET = os.environ.get("DJ_NATIVE_APP_SECRET", "")
+NATIVE_APP_SECRET_DECRYPTION_KEY = os.environ.get("DJ_NATIVE_APP_DECRYPTION_KEY", "")
 
 
 CORS_ALLOWED_ORIGINS = []
@@ -584,7 +585,8 @@ CELERY_TASK_REJECT_ON_WORKER_LOST = True
 # By that we force a crsf token to be present on **every** POST request
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.BasicAuthentication",
+        # we cannot add basic authentication default cause this add a header with causes a login-popup in browsers
+        # "rest_framework.authentication.BasicAuthentication", 
         "rest_framework.authentication.SessionAuthentication",
         "management.authentication.NativeOnlyJWTAuthentication",
     ],

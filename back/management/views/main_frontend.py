@@ -89,15 +89,20 @@ class MainFrontendRouter(View):
                 path = f"/{path}"
             return redirect(f"{login_url_redirect}?next={path}")
 
-        # authenticated users
-
         if (not request.user.state.is_email_verified()) and (not path.startswith("app/verify-email")):
             return redirect("/app/verify-email/")
+
 
         if request.user.state.is_email_verified() and (
             (not request.user.state.is_user_form_filled()) and (not path.startswith("app/user-form"))
         ):
             return redirect("/app/user-form/")
+
+        if request.user.state.is_email_verified() and (
+            request.user.state.is_user_form_filled() and (
+                path.startswith("app/verify-email") or path.startswith("app/user-form"))
+        ):
+            return redirect("/app/")
 
         if (
             request.user.state.is_email_verified()
