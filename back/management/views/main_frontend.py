@@ -79,7 +79,12 @@ class MainFrontendRouter(View):
 
             root_short_links = ShortLink.objects.filter(register_at_app_root=True, tag=path)
             if root_short_links.exists():
-                return redirect(f"/links/{root_short_links.first().tag}/")
+                # Preserve incoming query parameters when redirecting to the short link target
+                query_string = request.META.get("QUERY_STRING", "")
+                target_url = f"/links/{root_short_links.first().tag}/"
+                if query_string:
+                    target_url = f"{target_url}?{query_string}"
+                return redirect(target_url)
 
 
             if path == "":
