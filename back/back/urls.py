@@ -6,6 +6,7 @@ from django.urls import include, path, re_path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from management.urls import public_routes_wildcard
 from rest_framework import status
+from management.api.mobile_auth import NativeTokenRefreshView, NativeTokenVerifyView
 
 """
 We are adding all app urls under `'/'` their paths should be set under `<app>/urls.py`
@@ -96,5 +97,10 @@ if settings.USE_SENTRY:
         path("sentry-debug/", trigger_error),
     ]
 
+urlpatterns += [
+    # Disable generic obtain endpoint; native apps must use /api/user/native-login/
+    path("api/token/refresh", NativeTokenRefreshView.as_view(), name="token_refresh"),
+    path("api/token/verify", NativeTokenVerifyView.as_view(), name="token_verify"),
+]
 
 urlpatterns += [public_routes_wildcard]

@@ -15,6 +15,7 @@ from management.controller import get_base_management_user
 from management.models.profile import SelfProfileSerializer
 from management.views.cookie_banner_frontend import get_cookie_banner_template_data
 from management.api.user import get_user_data
+from management.models.short_links import ShortLink
 
 # The following two are redundant with api.admin.UserListParams, api.admin.UserListApiSerializer
 # But that is desired I wan't to always handle admin logic separately this might come in handy in the future
@@ -53,6 +54,7 @@ class MainFrontendRouter(View):
         if path.endswith("/"):
             path = path[:-1]
 
+
         login_url_redirect = (
             ("https://home.little-world.com/" if settings.IS_PROD else "/login")
             if (not settings.USE_LANDINGPAGE_REDIRECT)
@@ -73,6 +75,13 @@ class MainFrontendRouter(View):
                         **cookie_context
                     }
                 )
+
+
+            root_short_links = ShortLink.objects.filter(register_at_app_root=True, tag=path)
+            if root_short_links.exists():
+                return redirect(f"/links/{root_short_links.first().tag}/")
+
+
             if path == "":
                 # the root path is generally redirected to `little-world.com` in production ( otherwise to an app intern landing page )
                 return redirect(login_url_redirect)
@@ -80,15 +89,20 @@ class MainFrontendRouter(View):
                 path = f"/{path}"
             return redirect(f"{login_url_redirect}?next={path}")
 
-        # authenticated users
-
         if (not request.user.state.is_email_verified()) and (not path.startswith("app/verify-email")):
             return redirect("/app/verify-email/")
+
 
         if request.user.state.is_email_verified() and (
             (not request.user.state.is_user_form_filled()) and (not path.startswith("app/user-form"))
         ):
             return redirect("/app/user-form/")
+
+        if request.user.state.is_email_verified() and (
+            request.user.state.is_user_form_filled() and (
+                path.startswith("app/verify-email") or path.startswith("app/user-form"))
+        ):
+            return redirect("/app/")
 
         if (
             request.user.state.is_email_verified()

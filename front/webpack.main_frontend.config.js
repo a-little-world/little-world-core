@@ -12,7 +12,7 @@ var config = function (env) {
     publicPath = env.PUBLIC_PATH + publicPath;
   var outputPath = '../back/static/dist/main_frontend';
   var entry = './apps/main_frontend';
-  var entryPoint = `${entry}/src/index.js`;
+  var entryPoint = `${entry}/src/main.js`;
   var debug = env.DEBUG === '1';
 
   return {
