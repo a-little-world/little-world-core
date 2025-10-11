@@ -5,6 +5,7 @@ from rest_framework.routers import DefaultRouter
 
 from management.api import (
     ai,
+    app_integrity,
     help,
     notify,
     prematch_appointment_advanced,
@@ -115,6 +116,7 @@ api_routes = [
     *videocalls_advanced.api_urls,
     *user_advanced_statistics.api_urls,
     *prematch_appointment_advanced.api_urls,
+    *app_integrity.api_urls,
     *user_data_apis,
     # User
     path("api/trans", trans.get_translation_catalogue),
@@ -133,6 +135,7 @@ api_routes = [
     path("api/user/login/", user.LoginApi.as_view()),
     path("api/user/challenge/", user.ChallengeApi.as_view()),
     path("api/user/native-login/", user.NativeLoginApi.as_view()),
+    # App Integrity APIs
     path("api/matching/report/", report_unmatch.report),
     path("api/matching/unmatch/", report_unmatch.unmatch),
     *(
