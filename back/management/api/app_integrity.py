@@ -78,7 +78,6 @@ logger = logging.getLogger("app_integrity")
 
 
 def _dbg(msg: str):
-    print(msg)
     try:
         if getattr(settings, 'APP_INTEGRITY_DEBUG_LOGS', False):
             # Use WARNING so it shows up in production handlers by default
