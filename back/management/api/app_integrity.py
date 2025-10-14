@@ -487,7 +487,7 @@ def app_integrity_verify_ios(request):
 
 
 api_urls = [
-    path("api/app-integrity/challenge", app_integrity_challenge),
+    path("api/app-integrity/challenge", app_integrity_challenge), # Use only in IOS
     path("api/app-integrity/verify-android", app_integrity_verify_android),
     path("api/app-integrity/verify-ios", app_integrity_verify_ios),
 ]

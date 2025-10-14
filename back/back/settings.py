@@ -308,7 +308,8 @@ if IS_STAGE or DEBUG:
         "http://localhost:3000",
         "https://localhost:3333",
         "http://localhost:3333",
-        "http://localhost:9000",
+        "http://localhost:8081",
+        "http://localhost:8080",
         "http://localhost:9001",
     ]
 
