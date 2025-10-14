@@ -484,10 +484,3 @@ def app_integrity_verify_ios(request):
 
     _dbg("[SUCCESS] iOS simplified verification passed (non-strict mode)")
     return Response({'outerLayerDecryptionKey': outer_layer_decryption_key}, status=status.HTTP_200_OK)
-
-
-api_urls = [
-    path("api/app-integrity/challenge", app_integrity_challenge),
-    path("api/app-integrity/verify-android", app_integrity_verify_android),
-    path("api/app-integrity/verify-ios", app_integrity_verify_ios),
-]
