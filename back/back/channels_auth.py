@@ -11,7 +11,6 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 class JWTAuthMiddleware(BaseMiddleware):
     async def __call__(self, scope, receive, send):
         user = scope.get("user", AnonymousUser())
-
         if isinstance(user, AnonymousUser):
             raw_token = self._get_raw_token_from_scope(scope)
             if raw_token:
@@ -28,16 +27,15 @@ class JWTAuthMiddleware(BaseMiddleware):
 
     @staticmethod
     def _get_raw_token_from_scope(scope):
-        # 1) Authorization: Bearer <token>
         headers = dict(scope.get("headers", []))
-        auth_header = headers.get(b"authorization")
+        auth_header = headers.get(b"sec-websocket-protocol")
         if auth_header:
             try:
                 value = auth_header.decode()
             except Exception:
                 value = ""
-            if value.lower().startswith("bearer "):
-                return value.split(" ", 1)[1].strip()
+            if value.lower().startswith("bearer."):
+                return value.split(".", 1)[1].strip()
 
         # 2) Query string: ?token=... or ?access=...
         query_string = scope.get("query_string", b"")
