@@ -154,7 +154,7 @@ View the local development docs at `localhost:8000/static/` ( other routes that 
   or `./envs/dev.env` for local development
 - specify `BUILD_TYPE=<build-type>` to change frontend environments
   `<build-type>=dev` for local developent and `<build-type>=pro` for staging
-- on build; `./front/env_apps/<frontend-name>.<build-type>.env.js` replaces `./front/apps/<frontend-name>/src/ENVIRONMENT.js`
+- on build; `./front/env_apps/<frontend-name>.<build-type>.env.js` replaces `./front/apps/<frontend-name>/src/environment.ts`
 
 ### Ephemeral Environments: Making Feature Deployments via Pull Request
 
@@ -189,7 +189,7 @@ curl -X 'GET' \
   'http://localhost:8000/api/options_translations/' \
   -o front/apps/main_frontend/src/options_translations.json
 # 1. Replace the env
-cp front/env_apps/main_frontend.capacitor.env.js front/apps/main_frontend/src/ENVIRONMENT.js
+cp front/env_apps/main_frontend.capacitor.env.js front/apps/main_frontend/src/environment.ts
 # 2. create a frontend static build
 COMPOSE_PROFILES=main_frontend docker compose -f docker-compose.dev.yaml exec frontend__main_frontend /bin/bash -c "
   cd /front/apps/main_frontend/ && npm i
@@ -201,7 +201,7 @@ COMPOSE_PROFILES=main_frontend docker compose -f docker-compose.dev.yaml down
 docker compose -f docker-compose.capacitor-dev.yaml up
 docker compose -f docker-compose.capacitor-dev.yaml down
 # 4. reset env
-cd front/apps/main_frontend && git stash -- src/ENVIRONMENT.js
+cd front/apps/main_frontend && git stash -- src/environment.ts
 ```
 
 Alternatively for hot-reload emulator development after step 2 run
