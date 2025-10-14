@@ -283,6 +283,7 @@ NATIVE_APP_SECRET_DECRYPTION_KEY = os.environ.get("DJ_NATIVE_APP_DECRYPTION_KEY"
 # Google Play Integrity API Configuration
 PLAY_INTEGRITY_ENABLED = os.environ.get("DJ_PLAY_INTEGRITY_ENABLED", "1").lower() in ("true", "1", "t")
 PLAY_INTEGRITY_STRICT_MODE = os.environ.get("DJ_PLAY_INTEGRITY_STRICT_MODE", "0").lower() in ("true", "1", "t")
+APP_INTEGRITY_DEBUG_LOGS = os.environ.get("DJ_APP_INTEGRITY_DEBUG_LOGS", "0").lower() in ("true", "1", "t")
 
 
 CORS_ALLOWED_ORIGINS = []
