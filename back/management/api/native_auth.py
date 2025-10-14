@@ -57,6 +57,7 @@ class NativeAuthApiSerializer(serializers.Serializer):
 
 @api_view(["POST"])
 @permission_classes([])
+@authentication_classes([])
 def native_auth(request):
     serializer = NativeAuthApiSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -144,7 +145,7 @@ class NativeTokenVerifyView(TokenVerifyView):
 
 
 api_urls = [
-    path("api/user/native-login", native_auth, name="native_auth"),
+    path("api/user/native-login/", native_auth, name="native_auth"),
     path("api/token/refresh", NativeTokenRefreshView.as_view(), name="token_refresh"),
     path("api/token/verify", NativeTokenVerifyView.as_view(), name="token_verify"),
 ]
