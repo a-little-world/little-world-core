@@ -30,7 +30,7 @@ from tracking.models import Event
 from translations import get_translation
 
 from management.controller import UserNotFoundErr, delete_user, get_user, get_user_by_email, get_user_by_hash
-from management.authentication import NativeOnlyJWTAuthentication as JWTAuthentication
+from management.authentication import NativeOnlyJWTAuthentication
 from management.models.state import FrontendStatusSerializer, State
 from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
@@ -234,7 +234,7 @@ class LogoutApi(APIView):
     authentication_classes = [
         authentication.SessionAuthentication,
         authentication.BasicAuthentication,
-        JWTAuthentication,
+        NativeOnlyJWTAuthentication,
     ]
     permission_classes = [permissions.IsAuthenticated]
 
@@ -292,7 +292,7 @@ class ChangePasswordApi(APIView):
     authentication_classes = [
         authentication.SessionAuthentication,
         authentication.BasicAuthentication,
-        JWTAuthentication,
+        NativeOnlyJWTAuthentication,
     ]
     permission_classes = [permissions.IsAuthenticated]
 
@@ -340,7 +340,7 @@ class ChangeEmailApi(APIView):
     authentication_classes = [
         authentication.SessionAuthentication,
         authentication.BasicAuthentication,
-        JWTAuthentication,
+        NativeOnlyJWTAuthentication,
     ]
     permission_classes = [permissions.IsAuthenticated]
 
@@ -630,7 +630,7 @@ def get_user_data(user):
 )
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-@authentication_classes([SessionAuthentication, JWTAuthentication])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 def user_profile(request):
     """
     Returns user profile data.

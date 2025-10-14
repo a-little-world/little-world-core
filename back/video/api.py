@@ -4,7 +4,6 @@ import uuid
 from datetime import timedelta
 
 from django.db.models import Q
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from chat.consumers.messages import InBlockIncomingCall, NewActiveCallRoom, OutgoingCallRejected
 from chat.models import Chat, ChatSerializer, Message
 from django.conf import settings
@@ -19,6 +18,7 @@ from management.models.post_call_review import PostCallReview
 from management.models.user import User
 from rest_framework import serializers
 from rest_framework.authentication import SessionAuthentication
+from management.authentication import NativeOnlyJWTAuthentication
 from rest_framework.decorators import (
     api_view,
     authentication_classes,
@@ -214,7 +214,7 @@ async def create_livekit_room(room_name):
 
 @extend_schema(request=AuthenticateRoomParams(many=False), responses={200: {"token": "string"}})
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def authenticate_live_kit_room(request):
     # 1 - gather the user
@@ -271,7 +271,7 @@ class PostCallReviewParams(serializers.Serializer):
 
 @extend_schema(request=PostCallReviewParams(many=False), responses={200: {"status": "ok"}})
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication, JWTAuthentication])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def post_call_review(request):
     serializer = PostCallReviewParams(data=request.data)
@@ -308,7 +308,7 @@ def post_call_review(request):
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-@authentication_classes([SessionAuthentication, JWTAuthentication])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 def active_call_rooms(request):
     """
     Returns active call rooms for the authenticated user.
@@ -328,7 +328,7 @@ def active_call_rooms(request):
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def call_retrigger(request):
     try:
@@ -352,7 +352,7 @@ class CallRejectedParams(serializers.Serializer):
 
 @extend_schema(request=CallRejectedParams(many=False), responses={200: {"status": "ok"}})
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def call_rejected(request):
     """
