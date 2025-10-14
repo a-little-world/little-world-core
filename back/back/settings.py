@@ -285,6 +285,7 @@ PLAY_INTEGRITY_ENABLED = os.environ.get("DJ_PLAY_INTEGRITY_ENABLED", "1").lower(
 PLAY_INTEGRITY_STRICT_MODE = os.environ.get("DJ_PLAY_INTEGRITY_STRICT_MODE", "0").lower() in ("true", "1", "t")
 APP_INTEGRITY_DEBUG_LOGS = os.environ.get("DJ_APP_INTEGRITY_DEBUG_LOGS", "0").lower() in ("true", "1", "t")
 
+CORS_ALLOWED_ORIGIN_REGEXES = ["file://.*"] # Native apps are serverd from a file:// origin!
 
 CORS_ALLOWED_ORIGINS = []
 if IS_STAGE or IS_PROD:
