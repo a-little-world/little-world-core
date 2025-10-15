@@ -103,12 +103,6 @@ class MainFrontendRouter(View):
         ):
             return redirect("/app/user-form/")
 
-        if request.user.state.is_email_verified() and (
-            request.user.state.is_user_form_filled() and (
-                path.startswith("app/verify-email") or path.startswith("app/user-form"))
-        ):
-            return redirect("/app/")
-
         if (
             request.user.state.is_email_verified()
             and request.user.state.is_user_form_filled()
