@@ -32,7 +32,7 @@ def community_events(request):
     Returns community events data for the authenticated user.
     """
     page = int(request.GET.get("page", 1))
-    items_per_page = int(request.GET.get("page_size", 10))
+    items_per_page = int(request.GET.get("page_size", 15))
     user = request.user
     
     try:
