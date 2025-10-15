@@ -15,15 +15,6 @@ def get_all_comunity_events_serialized():
     return [CommunityEventSerializer(e).data for e in active_event]
 
 
-class GetActiveEventsApi(APIView):
-    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
-
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request):
-        return Response(get_all_comunity_events_serialized())
-
-
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 @authentication_classes([SessionAuthentication, JWTAuthentication])
@@ -32,7 +23,7 @@ def community_events(request):
     Returns community events data for the authenticated user.
     """
     page = int(request.GET.get("page", 1))
-    items_per_page = int(request.GET.get("page_size", 10))
+    items_per_page = int(request.GET.get("page_size", 15))
     user = request.user
     
     try:
