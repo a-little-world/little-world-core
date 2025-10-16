@@ -376,7 +376,7 @@ def active_match(qs=User.objects.all(), last_interaction_days=21):
     """
     from management.api.match_journey_filters import match_ongoing
 
-    filtered_matches = Match.objects.filter(Q(user1__in=qs) | Q(user2__in=qs))
+    filtered_matches = Match.objects.filter(Q(user1__in=qs, user2__in=qs))
     ongoing_matches = match_ongoing(
         qs=filtered_matches, last_interaction_days=last_interaction_days, only_consider_last_10_weeks_matches=False
     )
@@ -713,6 +713,36 @@ def community_calls(qs=User.objects.all(), last_x_days=28 * 3):
     all_distinct_users = User.objects.filter(id__in=all_users).distinct()
 
     return all_distinct_users
+
+def community__active_volunteers(qs=User.objects.all()):
+    """
+    Active volunteers - have signed up in last 6 months or have been active in the last 3 months
+    """
+    selected_fields = ["id"]
+    
+    # Filter for volunteers only
+    volunteers = qs.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
+    
+    # Volunteers who signed up in the last 6 months
+    recent_signup_volunteers = volunteers.filter(date_joined__gte=days_ago(28 * 6))
+    
+    # Volunteers who have been active in the last 3 months (match_takeoff or active_match)
+    active_volunteers = (
+        match_takeoff(volunteers)
+        .values(*selected_fields)
+        .union(
+            active_match(volunteers, last_interaction_days=28 * 3).values(*selected_fields),
+        )
+    )
+    active_volunteers = User.objects.filter(id__in=active_volunteers).distinct()
+    
+    # Combine both groups (recent signups OR recently active)
+    all_active_volunteers = (
+        recent_signup_volunteers.values(*selected_fields)
+        .union(active_volunteers.values(*selected_fields))
+    )
+    
+    return User.objects.filter(id__in=all_active_volunteers).distinct()
 
 def community__learners_better_than_a1a2(qs=User.objects.all()):
     """
