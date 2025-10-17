@@ -55,3 +55,4 @@ django-push-notifications==3.2.1
 djangorestframework-simplejwt
 PyJWT==2.8.0
 cryptography==41.0.7
+pyattest==1.0.4
