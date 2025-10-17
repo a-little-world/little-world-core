@@ -3,7 +3,6 @@ name: Deploy temporary env
 on:
   pull_request:
     types:
-      - opened
       - synchronize
       - labeled
 

@@ -127,6 +127,9 @@ AI_OPENAI_API_KEY = os.environ.get("DJ_AI_OPENAI_API_KEY", "none")
 
 GOOGLE_CLOUD_CREDENTIALS = get_base64_env("DJ_GOOGLE_CLOUD_CREDENTIALS")
 
+NATIVE_APP_INTEGRITY_ALLOW_BYPASS = os.environ.get("DJ_NATIVE_APP_INTEGRITY_ALLOW_BYPASS", "false").lower() in ("true", "1", "t")
+NATIVE_APP_INTEGRITY_BYPASS_TOKEN = os.environ.get("DJ_NATIVE_APP_INTEGRITY_BYPASS_TOKEN", "bypassChangeMe!")
+
 """
 Own applications:
 management: for user management and general api usage
