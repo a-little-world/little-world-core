@@ -33,6 +33,12 @@ class ShortLinkAdmin(admin.ModelAdmin):
 @admin.register(short_links.ShortLinkClick)
 class ShortLinkClickAdmin(admin.ModelAdmin):
     list_display = ("display_user", "short_link", "created_at", "source")
+    ordering = ("-created_at", "short_link", "source")
+    list_filter = (
+        "short_link",
+        "source",
+        ("created_at", admin.DateFieldListFilter),
+    )
     
     def display_user(self, obj):
         return obj.user if obj.user else "Anonymous"
