@@ -162,7 +162,7 @@ USER_JOURNEY_FILTER_LISTS = [
     FilterListEntry("herrduenschnlate", None, only_hd_test_user),
     FilterListEntry("community", None, community_calls),
     FilterListEntry("community__active_volunteers", None, community__active_volunteers),
-    FilterListEntry("community__active_volunteers__volunteer_meetup", None, community__active_volunteers__volunteer_meetup),
+    FilterListEntry("community__active_volunteers__volunteer_meetup", "Community Active Volunteers (VolMeetup)", community__active_volunteers__volunteer_meetup),
     FilterListEntry("learners_with_a1a2", "Learners with A1/A2", learners_with_a1a2),
     FilterListEntry("learners_better_than_a1a2", "Learners with at least B1", learners_better_than_a1a2),
     FilterListEntry("community__learners_better_than_a1a2", "Commmunity and Learners with at least B1", community__learners_better_than_a1a2),
