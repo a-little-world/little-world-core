@@ -139,7 +139,7 @@ def native_auth_common_login(email, password):
 # --------------- Native Token Refresh API -----------------
 
 
-class NativeTokenRefreshView(TokenRefreshView):
+class NativeTokenAndroidRefreshView(TokenRefreshView):
     """
     Allows to re-fesh native token but only if integrity challenged again
     """
@@ -172,9 +172,89 @@ class NativeTokenRefreshView(TokenRefreshView):
         return response
 
 
+class NativeTokenIosRefreshView(TokenRefreshView):
+    """
+    Allows to re-fesh native token but only if integrity challenged again
+    """
+
+    def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:  # type: ignore[override]
+        refresh_raw: str | None = request.data.get("refresh")  # type: ignore[assignment]
+        if not refresh_raw:
+            return Response({"detail": "Missing refresh token"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            refresh = RefreshToken(refresh_raw)
+        except TokenError as exc:  # includes ExpiredSignatureError etc
+            raise InvalidToken(str(exc))
+
+        key_id = request.data.get("keyId")
+        attestation_object = request.data.get("attestationObject")
+
+        challenge = cache.get(key=key_id)
+
+        apple_team_id = os.environ.get("APPLE_TEAM_ID")
+        app_bundle_identifier = os.environ.get("APP_BUNDLE_IDENTIFIER")
+
+        config = AppleConfig(
+            key_id=key_id, app_id=f"{apple_team_id}.{app_bundle_identifier}", production=settings.IS_PROD
+        )
+        attestation = pyattest.attestation.Attestation(raw=attestation_object, nonce=challenge, config=config)
+
+        await attestation.verify()
+
+        client = refresh.get("client")
+        if client != "native":
+            return Response(
+                {"detail": "Refresh token not valid for native client"}, status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        response = super().post(request, *args, **kwargs)
+        return response
+
+
+class NativeTokenWebRefreshView(TokenRefreshView):
+    """
+    Allows to re-fesh native token but only if integrity challenged again
+    """
+
+    def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:  # type: ignore[override]
+        refresh_raw: str | None = request.data.get("refresh")  # type: ignore[assignment]
+        if not refresh_raw:
+            return Response({"detail": "Missing refresh token"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            refresh = RefreshToken(refresh_raw)
+        except TokenError as exc:  # includes ExpiredSignatureError etc
+            raise InvalidToken(str(exc))
+
+        if settings.IS_PROD:
+            return Response(
+                {"detail": "Invalid integrity token or request hash"}, status=status.HTTP_405_METHOD_NOT_ALLOWED
+            )
+
+        bypass_token = request.data.get("bypassToken")
+
+        bypass_integrity_check = settings.NATIVE_APP_INTEGRITY_ALLOW_BYPASS and (
+            bypass_token == settings.NATIVE_APP_INTEGRITY_BYPASS_TOKEN
+        )
+        if not bypass_integrity_check:
+            return Response({"detail": "Invalid integrity check bypass token"}, status=status.HTTP_400_BAD_REQUEST)
+
+        client = refresh.get("client")
+        if client != "native":
+            return Response(
+                {"detail": "Refresh token not valid for native client"}, status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        response = super().post(request, *args, **kwargs)
+        return response
+
+
 api_urls = [
     path("api/user/native-login/android", native_auth_android, name="native_auth_android"),
     path("api/user/native-login/ios", native_auth_ios, name="native_auth_ios"),
     path("api/user/native-login/web", native_auth_web, name="native_auth_web"),
-    path("api/token/refresh", NativeTokenRefreshView.as_view(), name="token_refresh"),
+    path("api/token/refresh/android", NativeTokenAndroidRefreshView.as_view(), name="token_refresh_android"),
+    path("api/token/refresh/ios", NativeTokenIosRefreshView.as_view(), name="token_refresh_ios"),
+    path("api/token/refresh/web", NativeTokenWebRefreshView.as_view(), name="token_refresh_web"),
 ]
