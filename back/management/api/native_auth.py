@@ -12,8 +12,8 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
-from rest_framework_simplejwt.tokens import RefreshToken, UntypedToken
-from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenRefreshView
 from translations import get_translation
 
 from management.api.app_integrity import _verify_play_integrity_token
@@ -192,36 +192,9 @@ class NativeTokenRefreshView(TokenRefreshView):
         return response
 
 
-class NativeTokenVerifyView(TokenVerifyView):
-    def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:  # type: ignore[override]
-        token_raw: str | None = request.data.get("token")  # type: ignore[assignment]
-        if not token_raw:
-            return Response({"detail": "Missing token"}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            untyped = UntypedToken(token_raw)
-        except TokenError as exc:
-            raise InvalidToken(str(exc))
-
-        client = untyped.get("client")
-        if client != "native":
-            return Response({"detail": "Token not valid for native client"}, status=status.HTTP_401_UNAUTHORIZED)
-
-        integrity_token = request.data.get("integrity_token")
-        request_hash = request.data.get("request_hash")
-        if not integrity_token or not request_hash:
-            return Response({"detail": "Missing integrity token or request hash"}, status=status.HTTP_400_BAD_REQUEST)
-
-        if not _verify_play_integrity_token(integrity_token, request_hash):
-            return Response({"detail": "Invalid integrity token or request hash"}, status=status.HTTP_400_BAD_REQUEST)
-
-        return super().post(request, *args, **kwargs)
-
-
 api_urls = [
     path("api/user/native-login/android", native_auth_android, name="native_auth_android"),
     path("api/user/native-login/ios", native_auth_ios, name="native_auth_ios"),
     path("api/user/native-login/web", native_auth_web, name="native_auth_web"),
     path("api/token/refresh", NativeTokenRefreshView.as_view(), name="token_refresh"),
-    path("api/token/verify", NativeTokenVerifyView.as_view(), name="token_verify"),
 ]
