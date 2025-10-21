@@ -109,20 +109,13 @@ def _verify_play_integrity_token(integrity_token: str, request_hash: str) -> boo
         # Check if token has the expected JWT format (3 segments separated by dots)
         token_segments = integrity_token.split(".")
         _dbg(f"[DEBUG] Token segments count: {len(token_segments)}")
-
-        # Handle different token formats
-        if len(token_segments) == 3:
-            # Standard JWT format - proceed with normal JWT verification
-            _dbg("[DEBUG] Token appears to be JWT format, proceeding with JWT verification")
-            return _verify_jwt_token(integrity_token, request_hash)
-        elif len(token_segments) == 1:
-            # Single segment - likely an opaque token that must be verified via Google API
-            # In non-strict mode we allow GrapheneOS devices by validating basic shape
-            _dbg("[DEBUG] Token appears to be binary/encoded format (GrapheneOS / opaque token)")
-            if getattr(settings, "PLAY_INTEGRITY_STRICT_MODE", False):
-                _dbg("[ERROR] Strict mode enabled: rejecting non-JWT integrity token")
-                return False
-            return _verify_binary_token_lenient(integrity_token, request_hash)
+        
+        if len(token_segments) == 1:
+            # Single segment - opaque token that must be verified via Google Play Integrity API
+            _dbg("[DEBUG] Token appears to be opaque format - verifying via Google Play Integrity API")
+            # TODO: implement fallback for graphene devices!
+            _dbg("[DEBUG] Using secure Play Integrity API verification")
+            return _verify_play_integrity_token_via_api(integrity_token, request_hash)
         else:
             _dbg(f"[ERROR] Invalid token format: expected 1 or 3 segments, got {len(token_segments)}")
             _dbg(f"[ERROR] Token segments: {token_segments}")
@@ -133,161 +126,95 @@ def _verify_play_integrity_token(integrity_token: str, request_hash: str) -> boo
         return False
 
 
-def _verify_jwt_token(integrity_token: str, request_hash: str) -> bool:
+def _verify_play_integrity_token_via_api(integrity_token: str, request_hash: str) -> bool:
+    """
+    Securely verify opaque Play Integrity tokens by calling Google's Play Integrity API.
+    
+    This is the proper way to verify opaque tokens from Google-managed encryption.
+    """
     try:
-        unverified_header = jwt.get_unverified_header(integrity_token)
-        unverified_payload = jwt.get_unverified_claims(integrity_token)
-        _dbg(f"[DEBUG] Unverified header: {unverified_header}")
-        _dbg(f"[DEBUG] Unverified payload keys: {list(unverified_payload.keys())}")
-
-        key_id = unverified_header.get("kid")
-        if not key_id:
-            _dbg("[ERROR] No key ID found in token header")
-            return False
-
-        _dbg(f"[DEBUG] Key ID: {key_id}")
-
-        public_keys = _get_google_public_keys()
-        if not public_keys:
-            _dbg("[ERROR] Failed to fetch Google public keys")
-            return False
-
-        _dbg(f"[DEBUG] Fetched {len(public_keys.get('keys', []))} public keys")
-
-        matching_key = None
-        for key_info in public_keys.get("keys", []):
-            if key_info.get("kid") == key_id:
-                matching_key = key_info
-                break
-
-        if not matching_key:
-            _dbg(f"[ERROR] No matching public key found for key ID: {key_id}")
-            _dbg(f"[DEBUG] Available key IDs: {[k.get('kid') for k in public_keys.get('keys', [])]}")
-            return False
-
-        _dbg(f"[DEBUG] Found matching public key for key ID: {key_id}")
-
-        n = int.from_bytes(base64.urlsafe_b64decode(matching_key["n"] + "=="), "big")
-        e = int.from_bytes(base64.urlsafe_b64decode(matching_key["e"] + "=="), "big")
-
-        # Create RSA public key
-        public_key = rsa.RSAPublicNumbers(e, n).public_key()
-        pem_key = public_key.public_bytes(
-            encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo
-        )
-
-        _dbg("[DEBUG] Created PEM key for verification")
-
-        # Verify the token signature
+        _dbg("[DEBUG] Verifying opaque token via Google Play Integrity API")
+        
+        # Get configuration from settings
+        package_name = getattr(settings, "ANDROID_PACKAGE_NAME", "com.littleworld.littleworldapp")
+        
+        # Import Google Play Integrity API client
         try:
-            decoded_payload = jwt.decode(
-                integrity_token,
-                pem_key,
-                algorithms=["RS256"],
-                audience=None,  # Play Integrity tokens don't have standard audience
-                options={"verify_aud": False, "verify_exp": True},
-            )
-            _dbg("[DEBUG] JWT verification successful")
-            _dbg(f"[DEBUG] Decoded payload keys: {list(decoded_payload.keys())}")
-        except jwt.InvalidTokenError as e:
-            _dbg(f"[ERROR] JWT verification failed: {e}")
+            from google.oauth2 import service_account
+            from googleapiclient.discovery import build
+        except ImportError:
+            _dbg("[ERROR] Google API client libraries not installed. Install with: pip install google-api-python-client google-auth")
             return False
-
-        # Validate the integrity signals
-        return _validate_integrity_signals(decoded_payload, request_hash)
-
-    except Exception as e:
-        _dbg(f"[ERROR] JWT token verification failed: {e}")
-        return False
-
-
-def _verify_binary_token_lenient(integrity_token: str, request_hash: str) -> bool:
-    """
-    Lenient acceptance path for opaque Play Integrity tokens (e.g., GrapheneOS)
-    when PLAY_INTEGRITY_STRICT_MODE is disabled.
-
-    We perform minimal validation on the token's shape (length and charset) and
-    then validate the logical integrity signals using a conservative mock payload
-    requiring MEETS_BASIC_INTEGRITY.
-    """
-    try:
-        _dbg("[DEBUG] Lenient verification for opaque integrity token")
-        # Basic sanity checks: non-empty, sufficiently long, base64url charset
-        if not integrity_token or len(integrity_token) < 100:
-            _dbg("[ERROR] Opaque token too short or empty")
+        
+        # Get Google Cloud credentials from settings (same as Google Translate)
+        google_cloud_credentials = getattr(settings, "GOOGLE_CLOUD_CREDENTIALS_ANDROID_INTEGRITY", None)
+        if not google_cloud_credentials:
+            _dbg("[ERROR] GOOGLE_CLOUD_CREDENTIALS not configured in settings")
             return False
-        import re
-
-        if not re.match(r"^[A-Za-z0-9_-]+$", integrity_token):
-            _dbg("[ERROR] Opaque token contains invalid characters")
-            return False
-
-        # Construct a payload that encodes our policy: basic integrity only
-        payload = {
-            "requestHash": request_hash,
-            "appIntegrity": {
-                # We cannot verify Play recognition here, assume recognized in lenient mode
-                "appRecognitionVerdict": "PLAY_RECOGNIZED",
-            },
-            "deviceIntegrity": {
-                "deviceRecognitionVerdict": ["MEETS_BASIC_INTEGRITY"],
-            },
+        
+        # Load service account credentials from settings
+        credentials = service_account.Credentials.from_service_account_info(
+            google_cloud_credentials,
+            scopes=['https://www.googleapis.com/auth/playintegrity']
+        )
+        
+        # Build the Play Integrity API service
+        service = build('playintegrity', 'v1', credentials=credentials)
+        
+        # Call the Play Integrity API to verify the token
+        request_body = {
+            'integrityToken': integrity_token
         }
-        return _validate_integrity_signals(payload, request_hash)
-    except Exception as e:
-        _dbg(f"[ERROR] Lenient opaque token verification failed: {e}")
-        return False
-
-
-def _validate_integrity_signals(payload: dict, request_hash: str) -> bool:
-    try:
-        _dbg("[DEBUG] Validating integrity signals")
-        _dbg(f"[DEBUG] Full payload: {payload}")
-
-        if not getattr(settings, "PLAY_INTEGRITY_ENABLED", True):
-            _dbg("[DEBUG] Play Integrity API is disabled, skipping validation")
-            return True
-
-        payload_request_hash = payload.get("requestHash")
-        _dbg(f"[DEBUG] Request hash comparison: expected='{request_hash}', got='{payload_request_hash}'")
-        if payload_request_hash != request_hash:
-            _dbg(f"[ERROR] Request hash mismatch: expected {request_hash}, got {payload_request_hash}")
+        
+        _dbg(f"[DEBUG] Undecoded token: {integrity_token}")
+        _dbg(f"[DEBUG] Calling Play Integrity API for package: {package_name}")
+        response = service.v1().decodeIntegrityToken(
+            packageName=package_name,
+            body=request_body
+        ).execute()
+        
+        _dbg(f"[DEBUG] Play Integrity API response: {response}")
+        
+        # Extract the token payload
+        token_payload = response.get('tokenPayloadExternal', {})
+        
+        # Validate the request details
+        request_details = token_payload.get('requestDetails', {})
+        if request_details.get('requestHash') != request_hash:
+            _dbg(f"[ERROR] Request hash mismatch: expected {request_hash}, got {request_details.get('requestHash')}")
             return False
-
-        app_integrity = payload.get("appIntegrity", {})
-        app_recognition_state = app_integrity.get("appRecognitionVerdict")
-        _dbg(f"[DEBUG] App integrity: {app_integrity}")
-        _dbg(f"[DEBUG] App recognition state: {app_recognition_state}")
-
-        if app_recognition_state != "PLAY_RECOGNIZED":
-            _dbg(f"[ERROR] App not recognized by Play: {app_recognition_state}")
+        
+        # Validate app integrity
+        app_integrity = token_payload.get('appIntegrity', {})
+        app_recognition_verdict = app_integrity.get('appRecognitionVerdict')
+        if app_recognition_verdict != 'PLAY_RECOGNIZED':
+            _dbg(f"[ERROR] App not recognized by Play: {app_recognition_verdict}")
             return False
-
-        device_integrity = payload.get("deviceIntegrity", {})
-        device_recognition_labels = device_integrity.get("deviceRecognitionVerdict", [])
-        _dbg(f"[DEBUG] Device integrity: {device_integrity}")
-        _dbg(f"[DEBUG] Device recognition labels: {device_recognition_labels}")
-
-        if "MEETS_BASIC_INTEGRITY" not in device_recognition_labels:
-            _dbg(f"[ERROR] Device does not meet basic integrity requirements: {device_recognition_labels}")
+        
+        # Validate device integrity
+        # TODO: add a simple fallback for graphene! Here integrity will not pass!
+        device_integrity = token_payload.get('deviceIntegrity', {})
+        device_recognition_verdicts = device_integrity.get('deviceRecognitionVerdict', [])
+        
+        if 'MEETS_BASIC_INTEGRITY' not in device_recognition_verdicts:
+            _dbg(f"[ERROR] Device does not meet basic integrity: {device_recognition_verdicts}")
             return False
-
-        compromised_indicators = ["EMULATOR", "DEBUGGABLE"]
-
+        
+        # Check for compromised indicators
+        compromised_indicators = ['EMULATOR', 'DEBUGGABLE']
         if getattr(settings, "PLAY_INTEGRITY_STRICT_MODE", False):
-            compromised_indicators.extend(["DEVELOPER_BUILD", "UNKNOWN_DEVICE"])
-
-        _dbg(f"[DEBUG] Checking for compromised indicators: {compromised_indicators}")
+            compromised_indicators.extend(['DEVELOPER_BUILD', 'UNKNOWN_DEVICE'])
+        
         for indicator in compromised_indicators:
-            if indicator in device_recognition_labels:
+            if indicator in device_recognition_verdicts:
                 _dbg(f"[ERROR] Device shows compromise indicator: {indicator}")
                 return False
-
-        _dbg("[SUCCESS] Play Integrity verification passed")
+        
+        _dbg("[SUCCESS] Play Integrity API verification passed")
         return True
-
+        
     except Exception as e:
-        _dbg(f"[ERROR] Integrity signals validation failed: {e}")
+        _dbg(f"[ERROR] Play Integrity API verification failed: {e}")
         return False
 
 
@@ -330,66 +257,6 @@ def app_integrity_challenge(request):
     cache.set(key_id, challenge, timeout=300)
 
     return Response({"challenge": challenge}, status=status.HTTP_200_OK)
-
-
-@extend_schema(
-    description="Verify Android Play Integrity token and exchange for decryption key",
-    methods=["POST"],
-    request=AppIntegrityAndroidSerializer(many=False),
-    responses={
-        200: {
-            "type": "object",
-            "properties": {
-                "outerLayerDecryptionKey": {"type": "string", "description": "Base64 encoded decryption key"}
-            },
-        },
-        400: {"description": "Invalid request data"},
-        403: {"description": "Android integrity verification failed"},
-        500: {"description": "Server configuration error"},
-    },
-)
-@api_view(["POST"])
-@permission_classes([AllowAny])
-def app_integrity_verify_android(request):
-    """
-    Verify Android Play Integrity token and exchange for the outer layer decryption key.
-
-    This endpoint:
-    1. Validates the Android Play Integrity token
-    2. Checks device and app integrity
-    3. Returns the outer layer decryption key if verification passes
-    """
-    _dbg("[DEBUG] Android verification request received")
-    _dbg(f"[DEBUG] Request data: {request.data}")
-
-    serializer = AppIntegrityAndroidSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-
-    integrity_token = serializer.validated_data["integrityToken"]
-    request_hash = serializer.validated_data["requestHash"]
-
-    _dbg("[DEBUG] Starting Android Play Integrity verification")
-    _dbg(f"[DEBUG] Integrity token length: {len(integrity_token)}")
-    _dbg(f"[DEBUG] Request hash: {request_hash}")
-
-    # Verify the Play Integrity token using official Google methods
-    if not _verify_play_integrity_token(integrity_token, request_hash):
-        _dbg("[ERROR] Android Play Integrity verification failed")
-        return Response({"detail": "Android integrity verification failed"}, status=status.HTTP_403_FORBIDDEN)
-
-    _dbg("[SUCCESS] Android Play Integrity verification passed")
-
-    # Get the outer layer decryption key from settings
-    outer_layer_decryption_key = getattr(settings, "NATIVE_APP_SECRET_DECRYPTION_KEY", None)
-    if not outer_layer_decryption_key:
-        _dbg("[ERROR] Native app decryption key not configured")
-        return Response(
-            {"detail": "Native app decryption key not configured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-    _dbg("[SUCCESS] Returning decryption key to client")
-    return Response({"outerLayerDecryptionKey": outer_layer_decryption_key}, status=status.HTTP_200_OK)
-
 
 @extend_schema(
     description="Verify iOS App Attest (simplified staging flow) and exchange for decryption key",
@@ -478,7 +345,7 @@ def app_integrity_verify_ios(request):
     #     )
 
     cache.delete(key=key_id)
-    outer_layer_decryption_key = getattr(settings, "NATIVE_APP_SECRET_DECRYPTION_KEY", None)
+    outer_layer_decryption_key = getattr(settings, "ANDROID_DECRYPTION_KEY", None)
     if not outer_layer_decryption_key:
         _dbg("[ERROR] Native app decryption key not configured (iOS)")
         return Response(
