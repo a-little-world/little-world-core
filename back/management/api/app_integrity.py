@@ -1,5 +1,6 @@
 import base64
 import logging
+import os
 import secrets
 import time
 
@@ -428,7 +429,10 @@ def app_integrity_verify_ios(request):
 
     challenge = cache.get(key=key_id)
 
-    config = AppleConfig(key_id=key_id, app_id="com.littleworld.littleworldapp", production=settings.IS_PROD)
+    apple_team_id = os.environ.get("APPLE_TEAM_ID")
+    app_bundle_identifier = os.environ.get("APP_BUNDLE_IDENTIFIER")
+
+    config = AppleConfig(key_id=key_id, app_id=f"{apple_team_id}.{app_bundle_identifier}", production=settings.IS_PROD)
     attestation = pyattest.attestation.Attestation(raw=attestation_object, nonce=challenge, config=config)
 
     # Extract challenge from attestation object (expect JSON with field 'challenge')
