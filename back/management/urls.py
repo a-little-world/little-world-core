@@ -167,7 +167,6 @@ api_routes = [
     path("api/matching/make_match", matches.make_match),
     path("api/help_message/", help.SendHelpMessage.as_view()),
     path("api/integrity/challenge", app_integrity.app_integrity_challenge),
-    path("api/integrity/verify_android", app_integrity.app_integrity_verify_android),
     path("api/integrity/verify_ios", app_integrity.app_integrity_verify_ios),
     *router.urls,
 ]
