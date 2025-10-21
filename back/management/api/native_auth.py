@@ -67,19 +67,7 @@ def native_auth_android(request):
     if not _verify_play_integrity_token(integrity_token, request_hash):
         return Response({"detail": "Invalid integrity token or request hash"}, status=status.HTTP_400_BAD_REQUEST)
 
-    usr = authenticate(username=email.lower(), password=password)
-    if usr is None:
-        return Response(get_translation("api.login_failed"), status=status.HTTP_400_BAD_REQUEST)
-
-    if usr.is_staff:
-        return Response(get_translation("api.login_failed_staff"), status=status.HTTP_400_BAD_REQUEST)
-
-    from rest_framework_simplejwt.tokens import RefreshToken
-
-    refresh = RefreshToken.for_user(usr)
-    refresh["client"] = "native"
-
-    return Response({"token_access": str(refresh.access_token), "token_refresh": str(refresh), **get_user_data(usr)})
+    return native_auth_common_login(email=email.lower(), password=password)
 
 
 @api_view(["POST"])
@@ -102,21 +90,9 @@ def native_auth_ios(request):
     config = AppleConfig(key_id=key_id, app_id=f"{apple_team_id}.{app_bundle_identifier}", production=settings.IS_PROD)
     attestation = pyattest.attestation.Attestation(raw=attestation_object, nonce=challenge, config=config)
 
-    attestation.verify()
+    await attestation.verify()
 
-    usr = authenticate(username=email.lower(), password=password)
-    if usr is None:
-        return Response(get_translation("api.login_failed"), status=status.HTTP_400_BAD_REQUEST)
-
-    if usr.is_staff:
-        return Response(get_translation("api.login_failed_staff"), status=status.HTTP_400_BAD_REQUEST)
-
-    from rest_framework_simplejwt.tokens import RefreshToken
-
-    refresh = RefreshToken.for_user(usr)
-    refresh["client"] = "native"
-
-    return Response({"token_access": str(refresh.access_token), "token_refresh": str(refresh), **get_user_data(usr)})
+    return native_auth_common_login(email=email.lower(), password=password)
 
 
 @api_view(["POST"])
@@ -141,6 +117,10 @@ def native_auth_web(request):
     if not bypass_integrity_check:
         return Response({"detail": "Invalid integrity check bypass token"}, status=status.HTTP_400_BAD_REQUEST)
 
+    return native_auth_common_login(email=email.lower(), password=password)
+
+
+def native_auth_common_login(email, password):
     usr = authenticate(username=email.lower(), password=password)
     if usr is None:
         return Response(get_translation("api.login_failed"), status=status.HTTP_400_BAD_REQUEST)
