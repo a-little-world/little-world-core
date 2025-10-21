@@ -320,14 +320,18 @@ def app_integrity_challenge(request):
 
     # Generate a random challenge string
     challenge_bytes = secrets.token_bytes(32)
-    challenge = challenge_bytes.hex()  # Convert to hex string for easier handling
+
+    challenge = challenge_bytes.hex().encode("utf-8").decode("utf-8")
+    # challenge = base64.b64encode(challenge_bytes).decode("utf-8")
+    # challenge = challenge_bytes.encode("utf-8")  # Convert to hex string for easier handling
+    # challenge = hashlib.sha256(challenge_bytes).hexdigest()
 
     # Store challenge in cache with expiration (5 minutes)
     cache_key = f"app_integrity_challenge:{key_id}:{challenge}"
     cache.set(
         cache_key, {"keyId": key_id, "timestamp": time.time(), "challenge": challenge}, timeout=300
     )  # 5 minutes timeout
-    cache.set(key_id, challenge, timeout=300)
+    cache.set(key_id, challenge_bytes, timeout=300)
 
     return Response({"challenge": challenge}, status=status.HTTP_200_OK)
 
