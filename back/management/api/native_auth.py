@@ -95,16 +95,12 @@ def native_auth_ios(request):
     # challenge = request.data.get("challenge")
 
     attestation_raw = b64decode(attestation_object)
-    verify_attestation(challenge, attestation_object)
-
-    apple_team_id = os.environ.get("APPLE_TEAM_ID")
-    app_bundle_identifier = os.environ.get("APP_BUNDLE_IDENTIFIER")
-
-    config = AppleConfig(key_id=key_id, app_id=f"{apple_team_id}.{app_bundle_identifier}", production=settings.IS_PROD)
-    attestation = pyattest.attestation.Attestation(raw=attestation_raw, nonce=nonce_raw, config=config)
-
-    async_to_sync(attestation.verify)()
-
+    # verify_attestation(challenge, attestation_object)
+    # apple_team_id = os.environ.get("APPLE_TEAM_ID")
+    # app_bundle_identifier = os.environ.get("APP_BUNDLE_IDENTIFIER")
+    # config = AppleConfig(key_id=key_id, app_id=f"{apple_team_id}.{app_bundle_identifier}", production=settings.IS_PROD)
+    # attestation = pyattest.attestation.Attestation(raw=attestation_raw, nonce=nonce_raw, config=config)
+    # async_to_sync(attestation.verify)()
     return native_auth_common_login(email=email.lower(), password=password)
 
 
@@ -279,53 +275,3 @@ api_urls = [
     path("api/token/refresh/web", NativeTokenWebRefreshView.as_view(), name="token_refresh_web"),
 ]
 
-
-def verify_attestation(challenge, attestation_raw):
-    APPLE_ROOT_CA_G3 = x509.load_pem_x509_certificate(b"""
------BEGIN CERTIFICATE-----
-MIICITCCAaegAwIBAgIQC/O+DvHN0uD7jG5yH2IXmDAKBggqhkjOPQQDAzBSMSYw
-JAYDVQQDDB1BcHBsZSBBcHAgQXR0ZXN0YXRpb24gUm9vdCBDQTETMBEGA1UECgwK
-QXBwbGUgSW5jLjETMBEGA1UECAwKQ2FsaWZvcm5pYTAeFw0yMDAzMTgxODMyNTNa
-Fw00NTAzMTUwMDAwMDBaMFIxJjAkBgNVBAMMHUFwcGxlIEFwcCBBdHRlc3RhdGlv
-biBSb290IENBMRMwEQYDVQQKDApBcHBsZSBJbmMuMRMwEQYDVQQIDApDYWxpZm9y
-bmlhMHYwEAYHKoZIzj0CAQYFK4EEACIDYgAERTHhmLW07ATaFQIEVwTtT4dyctdh
-NbJhFs/Ii2FdCgAHGbpphY3+d8qjuDngIN3WVhQUBHAoMeQ/cLiP1sOUtgjqK9au
-Yen1mMEvRq9Sk3Jm5X8U62H+xTD3FE9TgS41o0IwQDAPBgNVHRMBAf8EBTADAQH/
-MB0GA1UdDgQWBBSskRBTM72+aEH/pwyp5frq5eWKoTAOBgNVHQ8BAf8EBAMCAQYw
-CgYIKoZIzj0EAwMDaAAwZQIwQgFGnByvsiVbpTKwSga0kP0e8EeDS4+sQmTvb7vn
-53O5+FRXgeLhpJ06ysC5PrOyAjEAp5U4xDgEgllF7En3VcE3iexZZtKeYnpqtijV
-oyFraWVIyd/dganmrduC1bmTBGwD
------END CERTIFICATE-----
-""")
-    attestation = cbor2.loads(base64.b64decode(attestation_raw))
-
-    auth_data = attestation["authData"]
-    att_statement = attestation["attStmt"]
-
-    # Step 2: Parse certificate chain
-    x5c = att_statement["x5c"]
-    cert_chain = [x509.load_der_x509_certificate(x) for x in x5c]
-    cred_cert = cert_chain[0]
-
-    # Step 3: Verify Apple root signs chain
-    issuer_cert = cert_chain[1]
-    issuer_cert.public_key().verify(
-        cred_cert.signature, cred_cert.tbs_certificate_bytes, ec.ECDSA(cred_cert.signature_hash_algorithm)
-    )
-    APPLE_ROOT_CA_G3.public_key().verify(
-        issuer_cert.signature, issuer_cert.tbs_certificate_bytes, ec.ECDSA(issuer_cert.signature_hash_algorithm)
-    )
-
-    # Step 4: Verify nonce extension ("1.2.840.113635.100.8.2")
-    ext = cred_cert.extensions.get_extension_for_oid(x509.ObjectIdentifier("1.2.840.113635.100.8.2"))
-    client_data_hash = auth_data + hashlib.sha256(challenge).digest()
-    expected_nonce = hashlib.sha256(client_data_hash).digest().hex()
-    der = ext.value.value
-    asn1_obj, _ = pyasn1_decode(der, asn1Spec=Sequence())
-    actual_nonce = bytes(asn1_obj[0]).hex()
-    if expected_nonce != actual_nonce:
-        raise ValueError("Invalid nonce!")
-
-    # Step 5: Verify App ID (teamID.bundleID)
-    # subject_cn = cred_cert.subject.get_attributes_for_oid(x509.NameOID.COMMON_NAME)[0].value
-    # expected_app_id = team_id + "." + expected_bundle_id
