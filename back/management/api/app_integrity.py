@@ -196,8 +196,9 @@ def _verify_play_integrity_token_via_api(integrity_token: str, request_hash: str
         device_integrity = token_payload.get('deviceIntegrity', {})
         device_recognition_verdicts = device_integrity.get('deviceRecognitionVerdict', [])
         
-        if 'MEETS_BASIC_INTEGRITY' not in device_recognition_verdicts:
-            _dbg(f"[ERROR] Device does not meet basic integrity: {device_recognition_verdicts}")
+        # Check for device integrity - accept both MEETS_BASIC_INTEGRITY and MEETS_DEVICE_INTEGRITY
+        if not any(verdict in device_recognition_verdicts for verdict in ['MEETS_BASIC_INTEGRITY', 'MEETS_DEVICE_INTEGRITY']):
+            _dbg(f"[ERROR] Device does not meet integrity requirements: {device_recognition_verdicts}")
             return False
         
         # Check for compromised indicators
