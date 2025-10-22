@@ -126,10 +126,12 @@ AI_OPENAI_MODEL = os.environ.get("DJ_AI_OPENAI_MODEL", "none")
 AI_OPENAI_API_KEY = os.environ.get("DJ_AI_OPENAI_API_KEY", "none")
 
 GOOGLE_CLOUD_CREDENTIALS = get_base64_env("DJ_GOOGLE_CLOUD_CREDENTIALS")
+GOOGLE_CLOUD_CREDENTIALS_ANDROID_INTEGRITY = get_base64_env("DJ_GOOGLE_CLOUD_CREDENTIALS_ANDROID_INTEGRITY")
 
 NATIVE_APP_INTEGRITY_ALLOW_BYPASS = os.environ.get("DJ_NATIVE_APP_INTEGRITY_ALLOW_BYPASS", "false").lower() in ("true", "1", "t")
 NATIVE_APP_INTEGRITY_BYPASS_TOKEN = os.environ.get("DJ_NATIVE_APP_INTEGRITY_BYPASS_TOKEN", "bypassChangeMe!")
 
+# Debug logging for bypass settings
 """
 Own applications:
 management: for user management and general api usage
@@ -283,10 +285,18 @@ else:
 NATIVE_APP_SECRET = os.environ.get("DJ_NATIVE_APP_SECRET", "")
 NATIVE_APP_SECRET_DECRYPTION_KEY = os.environ.get("DJ_NATIVE_APP_DECRYPTION_KEY", "")
 
+# Android Play Integrity decryption key
+ANDROID_DECRYPTION_KEY = os.environ.get("DJ_ANDROID_DECRYPTION_KEY", "")
+ANDROID_VERIFICATION_KEY = os.environ.get("DJ_ANDROID_VERIFICATION_KEY", "")
+
 # Google Play Integrity API Configuration
 PLAY_INTEGRITY_ENABLED = os.environ.get("DJ_PLAY_INTEGRITY_ENABLED", "1").lower() in ("true", "1", "t")
 PLAY_INTEGRITY_STRICT_MODE = os.environ.get("DJ_PLAY_INTEGRITY_STRICT_MODE", "0").lower() in ("true", "1", "t")
+PLAY_INTEGRITY_USE_SECURE_API = os.environ.get("DJ_PLAY_INTEGRITY_USE_SECURE_API", "1").lower() in ("true", "1", "t")
 APP_INTEGRITY_DEBUG_LOGS = os.environ.get("DJ_APP_INTEGRITY_DEBUG_LOGS", "0").lower() in ("true", "1", "t")
+
+# Android v2 pyattest Configuration
+ANDROID_PACKAGE_NAME = os.environ.get("DJ_ANDROID_PACKAGE_NAME", "ch.dreipol.demo")
 
 CORS_ALLOWED_ORIGIN_REGEXES = ["file://.*"] # Native apps are serverd from a file:// origin!
 
