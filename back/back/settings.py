@@ -294,6 +294,7 @@ PLAY_INTEGRITY_ENABLED = os.environ.get("DJ_PLAY_INTEGRITY_ENABLED", "1").lower(
 PLAY_INTEGRITY_STRICT_MODE = os.environ.get("DJ_PLAY_INTEGRITY_STRICT_MODE", "0").lower() in ("true", "1", "t")
 PLAY_INTEGRITY_USE_SECURE_API = os.environ.get("DJ_PLAY_INTEGRITY_USE_SECURE_API", "1").lower() in ("true", "1", "t")
 APP_INTEGRITY_DEBUG_LOGS = os.environ.get("DJ_APP_INTEGRITY_DEBUG_LOGS", "0").lower() in ("true", "1", "t")
+ALLOW_UNEVALUATED_DEVICES_USING_DEVICE_ATTESTATION = os.environ.get("DJ_ALLOW_UNEVALUATED_DEVICES_USING_DEVICE_ATTESTATION", "0").lower() in ("true", "1", "t")
 
 # Android v2 pyattest Configuration
 ANDROID_PACKAGE_NAME = os.environ.get("DJ_ANDROID_PACKAGE_NAME", "ch.dreipol.demo")
