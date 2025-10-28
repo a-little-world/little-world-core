@@ -16,6 +16,13 @@ class Chat(models.Model):
 
     created = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["-created"], name="chat_created_desc"),
+            models.Index(fields=["u1", "u2"], name="chat_u1_u2"),
+            models.Index(fields=["u2", "u1"], name="chat_u2_u1"),
+        ]
+
     def get_partner(self, user):
         return self.u1 if self.u2 == user else self.u2
 
@@ -102,14 +109,8 @@ class ChatSerializer(serializers.ModelSerializer):
             user = self.context["request"].user if "request" in self.context else self.context["user"]
             partner = instance.get_partner(user)
 
-            if RandomCallMatching.objects.filter(Q(u1=user, u2=partner) | Q(u1=partner, u2=user)).exists(): #if there is no match, but a randomCallMatch then exceptionally grant data
-                profile = management_models.profile.CensoredProfileSerializer(user.profile).data
-                representation["user"] = profile
-                representation["user"]["id"] = user.hash
-                profile = management_models.profile.CensoredProfileSerializer(partner.profile).data
-                representation["partner"] = profile
-                representation["partner"]["id"] = partner.hash
-            elif management_models.matches.Match.get_match(user, partner).exists():
+            # TODO: add specific representation for random calls
+            if management_models.matches.Match.get_match(user, partner).exists() and partner.is_active:
                 profile = management_models.profile.CensoredProfileSerializer(partner.profile).data
                 representation["partner"] = profile
                 representation["partner"]["id"] = partner.hash
@@ -168,6 +169,14 @@ class Message(models.Model):
             models.Index(fields=["created"]),
             models.Index(fields=["recipient", "created"]),
             models.Index(fields=["sender", "created"]),
+            models.Index(fields=["chat"], name="msg_chat_only"),
+            models.Index(fields=["chat", "-created"], name="msg_chat_created_desc"),
+            models.Index(fields=["chat", "recipient", "read"], name="msg_chat_rec_read"),
+            models.Index(
+                fields=["chat", "recipient", "-created"],
+                name="msg_unread_chat_rec_created",
+                condition=Q(read=False),
+            ),
         ]
 
 

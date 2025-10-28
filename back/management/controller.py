@@ -301,7 +301,7 @@ def match_users(
         # send sms message ( only if the user enabled sms notifications )
         try:
             volunteer = matching_obj.get_volunteer()
-            volunteer.sms(get_base_management_user(), get_translation("sms.match_message", lang="de"))
+            volunteer.sms(get_base_management_user(), get_translation("sms.match_message", lang="de").format(first_name=volunteer.first_name))
         except:
             print("Could not send sms to volunteer")
             pass
@@ -372,8 +372,8 @@ def unmatch_users(users: set, delete_video_room=True, delete_dialog=True, unmatc
     match.active = False
     match.report_unmatch.append(
         {
-            "kind": "unmatch",
-            "reason": reason or "User unmatched via support user",
+            "kind": "user_deleted",
+            "reason": reason or "User deleted by support user",
             "match_id": match.id,
             "time": str(timezone.now()),
             "user_id": unmatcher.pk if unmatcher else "no unmatcher specified",
@@ -590,6 +590,8 @@ def delete_user(user, management_user=None, send_deletion_email=False):
 
     if send_deletion_email:
         user.send_email_v2("account-deleted")
+
+    Match.update_deleted_user_matches(user)
 
     user.is_active = False
     user.email = f"deleted_{user.email}"

@@ -2,6 +2,7 @@ import base64
 import json
 import os
 
+from corsheaders.defaults import default_headers
 from firebase_admin import credentials, initialize_app
 
 
@@ -24,10 +25,16 @@ if USE_SENTRY:
     try:
         import sentry_sdk
 
+        SENTRY_SEND_DEFAULT_PII = os.environ.get("DJ_SENTRY_SEND_DEFAULT_PII", "false").lower() in ("true", "1", "t")
         sentry_sdk.init(
             dsn=SENTRY_DNS,
             traces_sample_rate=1.0,
             profiles_sample_rate=1.0,
+            send_default_pii=SENTRY_SEND_DEFAULT_PII,
+            sanitize_fields=[
+                "password",
+                "token",
+            ],
         )
     except Exception as e:
         print("WARINING: unable to start sentry", str(e))
@@ -119,7 +126,12 @@ AI_OPENAI_MODEL = os.environ.get("DJ_AI_OPENAI_MODEL", "none")
 AI_OPENAI_API_KEY = os.environ.get("DJ_AI_OPENAI_API_KEY", "none")
 
 GOOGLE_CLOUD_CREDENTIALS = get_base64_env("DJ_GOOGLE_CLOUD_CREDENTIALS")
+GOOGLE_CLOUD_CREDENTIALS_ANDROID_INTEGRITY = get_base64_env("DJ_GOOGLE_CLOUD_CREDENTIALS_ANDROID_INTEGRITY")
 
+NATIVE_APP_INTEGRITY_ALLOW_BYPASS = os.environ.get("DJ_NATIVE_APP_INTEGRITY_ALLOW_BYPASS", "false").lower() in ("true", "1", "t")
+NATIVE_APP_INTEGRITY_BYPASS_TOKEN = os.environ.get("DJ_NATIVE_APP_INTEGRITY_BYPASS_TOKEN", "bypassChangeMe!")
+
+# Debug logging for bypass settings
 """
 Own applications:
 management: for user management and general api usage
@@ -194,8 +206,10 @@ MIDDLEWARE = [
     "django.middleware.locale.LocaleMiddleware",
     "management.middleware.OverwriteSessionLangIfAcceptLangHeaderSet",
     "django.middleware.common.CommonMiddleware",
+    "management.middleware.NativeOnlyCsrfBypassMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "management.middleware.SessionCookieSameSiteMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "management.middleware.AdminPathBlockingMiddleware",
@@ -246,6 +260,20 @@ if EXTRA_CORS_ALLOWED_ORIGINS != "":
 else:
     EXTRA_CORS_ALLOWED_ORIGINS = []
 
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "x-csrftoken",
+    "x-usetagsonly",
+    "x-csrf-bypass-token",
+]
+
+if DEBUG:
+    CORS_ALLOW_HEADERS += ["ngrok-skip-browser-warning"]
+
+# CORS_ALLOW_CREDENTIALS = True
+# SESSION_COOKIE_SAMESITE = 'None'  # Default SameSite setting
+# SESSION_COOKIE_SECURE = not DEBUG  # Secure cookies in production
+# SESSION_COOKIE_HTTPONLY = True
+
 
 EXTRA_CSRF_ALLOWED_ORIGINS = os.environ.get("DJ_EXTRA_CSRF_ALLOWED_ORIGINS", "")
 if EXTRA_CSRF_ALLOWED_ORIGINS != "":
@@ -253,6 +281,25 @@ if EXTRA_CSRF_ALLOWED_ORIGINS != "":
 else:
     EXTRA_CSRF_ALLOWED_ORIGINS = []
 
+# Native app secret for challenge-response authentication
+NATIVE_APP_SECRET = os.environ.get("DJ_NATIVE_APP_SECRET", "")
+NATIVE_APP_SECRET_DECRYPTION_KEY = os.environ.get("DJ_NATIVE_APP_DECRYPTION_KEY", "")
+
+# Android Play Integrity decryption key
+ANDROID_DECRYPTION_KEY = os.environ.get("DJ_ANDROID_DECRYPTION_KEY", "")
+ANDROID_VERIFICATION_KEY = os.environ.get("DJ_ANDROID_VERIFICATION_KEY", "")
+
+# Google Play Integrity API Configuration
+PLAY_INTEGRITY_ENABLED = os.environ.get("DJ_PLAY_INTEGRITY_ENABLED", "1").lower() in ("true", "1", "t")
+PLAY_INTEGRITY_STRICT_MODE = os.environ.get("DJ_PLAY_INTEGRITY_STRICT_MODE", "0").lower() in ("true", "1", "t")
+PLAY_INTEGRITY_USE_SECURE_API = os.environ.get("DJ_PLAY_INTEGRITY_USE_SECURE_API", "1").lower() in ("true", "1", "t")
+APP_INTEGRITY_DEBUG_LOGS = os.environ.get("DJ_APP_INTEGRITY_DEBUG_LOGS", "0").lower() in ("true", "1", "t")
+ALLOW_UNEVALUATED_DEVICES_USING_DEVICE_ATTESTATION = os.environ.get("DJ_ALLOW_UNEVALUATED_DEVICES_USING_DEVICE_ATTESTATION", "0").lower() in ("true", "1", "t")
+
+# Android v2 pyattest Configuration
+ANDROID_PACKAGE_NAME = os.environ.get("DJ_ANDROID_PACKAGE_NAME", "ch.dreipol.demo")
+
+CORS_ALLOWED_ORIGIN_REGEXES = ["file://.*"] # Native apps are serverd from a file:// origin!
 
 CORS_ALLOWED_ORIGINS = []
 if IS_STAGE or IS_PROD:
@@ -276,6 +323,9 @@ if IS_STAGE or DEBUG:
         "http://localhost:3000",
         "https://localhost:3333",
         "http://localhost:3333",
+        "http://localhost:8081",
+        "http://localhost:8080",
+        "http://localhost:9001",
     ]
 
     CORS_ALLOWED_ORIGINS += dev_origins
@@ -550,14 +600,16 @@ CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 
 CELERY_RESULT_BACKEND = "django-db"
-
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
 
 # We enforce these authentication classes
 # By that we force a crsf token to be present on **every** POST request
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.BasicAuthentication",
+        # we cannot add basic authentication default cause this add a header with causes a login-popup in browsers
+        # "rest_framework.authentication.BasicAuthentication", 
         "rest_framework.authentication.SessionAuthentication",
+        "management.authentication.NativeOnlyJWTAuthentication",
     ],
     "DEFAULT_FILTER_BACKENDS": ("django_filters.rest_framework.DjangoFilterBackend",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
@@ -878,42 +930,5 @@ try:
 except Exception as e:
     print("ERROR INITIALIZING FIREBASE APP", e)
 
-# # # Initialize Firebase Messaging
-# from firebase_admin import messaging
 
-# # # Create a message
-# message = messaging.Message(
-#     notification=messaging.Notification(
-#         title="Test Title",
-#         body="Test Message Body",
-#     ),
-#     token="ees0ZZfPv7NDzkxYGXQ0sI:APA91bGAgnjQuoGKgM0Mwg_9IHnkNUEYyrfwGeoBuKx3qgldDEq_ps-8haeNH86IELoy-QK4rJs2TEvDrTIGDQbw_LK8gIKTn5I4BYcN8ZxWpOP4PK7XTtM",
-# )
-
-# # # Send message
-# response = messaging.send(message)
-# print("Successfully sent message:", response)
-
-# from push_notifications.models import GCMDevice
-
-# from back.management.models.user import User
-
-# user = User.objects.get(email="herrduenschnlate+1@gmail.com")
-# fcm_device = GCMDevice.objects.create(
-#     registration_id="ees0ZZfPv7NDzkxYGXQ0sI:APA91bGAgnjQuoGKgM0Mwg_9IHnkNUEYyrfwGeoBuKx3qgldDEq_ps-8haeNH86IELoy-QK4rJs2TEvDrTIGDQbw_LK8gIKTn5I4BYcN8ZxWpOP4PK7XTtM",
-#     user=user,
-# )
-# fcm_device.send_message
-
-
-# fcm_options = messaging.WebpushFCMOptions(link="https://youtube.com")
-# web_push_config = messaging.WebpushConfig(fcm_options=fcm_options)
-
-# message = messaging.Message(
-#     notification=messaging.Notification(
-#         title="Test Title",
-#         body="Test Message Body",
-#     ),
-#     webpush=web_push_config,
-#     token="ees0ZZfPv7NDzkxYGXQ0sI:APA91bGAgnjQuoGKgM0Mwg_9IHnkNUEYyrfwGeoBuKx3qgldDEq_ps-8haeNH86IELoy-QK4rJs2TEvDrTIGDQbw_LK8gIKTn5I4BYcN8ZxWpOP4PK7XTtM",
-# )
+SIMPLE_JWT = {"ROTATE_REFRESH_TOKENS": True}

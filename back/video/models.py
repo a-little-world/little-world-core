@@ -7,6 +7,7 @@ from django.db.models import Q
 from management.models.profile import CensoredProfileSerializer
 from rest_framework.serializers import ModelSerializer
 from django.db import transaction
+from rest_framework import serializers
 
 
 class LiveKitRoom(models.Model):
@@ -56,6 +57,9 @@ class LivekitSession(models.Model):
     u2_was_active = models.BooleanField(default=False)
 
     both_have_been_active = models.BooleanField(default=False)
+    
+    unusual_length = models.BooleanField(default=False)
+    start_end_before_correction = models.TextField(null=True, blank=True)
 
     u1 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u1_livekit_session")
     u2 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u2_livekit_session")
@@ -67,9 +71,11 @@ class LivekitSession(models.Model):
     webhook_events = models.ManyToManyField("video.LivekitWebhookEvent", related_name="livekit_session")
 
 class SerializeLivekitSession(ModelSerializer):
+    room_uuid = serializers.CharField(source='room.uuid', read_only=True, allow_null=True)
+    
     class Meta:
         model = LivekitSession
-        fields = ["uuid", "created_at"]
+        fields = ["uuid", "created_at", "room_uuid"]
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)

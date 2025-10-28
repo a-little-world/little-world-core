@@ -1,3 +1,4 @@
+import pgeocode
 from django.db import models
 from management.models.profile import Profile
 
@@ -7,6 +8,8 @@ class CustomFilterChoices(models.TextChoices):
     LEARNERS_ABOVE_A1A2 = "learners_above_a1a2", "learners_above_a1a2"
     VOLUNTEERS = "volunteers", "volunteers"
     LEARNERS = "learners", "learners"
+    LEARNERS_OUTSIDE_GERMANY = "learners_outside_germany", "learners_outside_germany"
+    NRW_RESIDENTS = "nrw_residents", "nrw_residents"
     NONE = "none", "None"
     
 def filter__learners_with_a1a2(user):
@@ -28,6 +31,15 @@ def filter__volunteers(user):
 def filter__learners(user):
     return user.profile.user_type == Profile.TypeChoices.LEARNER
 
+def filter__learners_outside_germany(user):
+    return (user.profile.user_type == Profile.TypeChoices.LEARNER) and (user.profile.country_of_residence != "DE")
+
+def filter__nrw_residents(user):
+    dist = pgeocode.GeoDistance("de")
+    postal_code_nrw = 51107
+    nrw_radius = 150
+    distance = dist.query_postal_code(postal_code_nrw, user.profile.postal_code)
+    return user.profile.country_of_residence == "DE" and distance < nrw_radius
 
 FILTER_FUNC_MAP = {
     CustomFilterChoices.CAPEGEMINI: filter__learners_above_a1a2,
@@ -35,4 +47,6 @@ FILTER_FUNC_MAP = {
     CustomFilterChoices.LEARNERS_ABOVE_A1A2: filter__learners_above_a1a2,
     CustomFilterChoices.VOLUNTEERS: filter__volunteers,
     CustomFilterChoices.LEARNERS: filter__learners,
+    CustomFilterChoices.LEARNERS_OUTSIDE_GERMANY: filter__learners_outside_germany,
+    CustomFilterChoices.NRW_RESIDENTS: filter__nrw_residents,
 }

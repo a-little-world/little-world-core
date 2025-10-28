@@ -1,5 +1,7 @@
 from django.urls import path
 from django.shortcuts import redirect
+from urllib.parse import urlparse, urlunparse
+from django.http import QueryDict
 from django.conf import settings
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -36,7 +38,17 @@ def short_link_click(request, tag):
         source=source
     )
     
-    response = redirect(short_link.url)
+    try:
+        parsed_dest = urlparse(short_link.url)
+        dest_qd = QueryDict(parsed_dest.query, mutable=True)
+        for key in request.query_params:
+            if key not in dest_qd:
+                dest_qd.setlist(key, request.query_params.getlist(key))
+        merged_url = urlunparse(parsed_dest._replace(query=dest_qd.urlencode()))
+    except Exception as e:
+        merged_url = short_link.url
+
+    response = redirect(merged_url)
     
     if short_link.tracking_cookies_enabled:
         for cookie in short_link.tracking_cookies:

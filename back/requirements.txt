@@ -52,3 +52,10 @@ pre-commit
 django-colorfield # color picker in admin panel
 firebase-admin==6.7.0
 django-push-notifications==3.2.1
+djangorestframework-simplejwt
+PyJWT==2.8.0
+cryptography==41.0.7
+pyattest==1.0.4
+pyasn1==0.6.1
+google-api-python-client==2.108.0
+google-auth==2.23.4

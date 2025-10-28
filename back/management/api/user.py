@@ -1,37 +1,42 @@
+import hashlib
+import hmac
+import secrets
+import time
+import urllib.parse
 from dataclasses import dataclass
 from typing import Optional
 
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
+from django.db.models import Q
 from django.dispatch import receiver
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
 from django.urls import reverse
 from django_rest_passwordreset.signals import reset_password_token_created
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from emails import mails
 from emails.mails import PwResetMailParams, get_mail_data_by_name
 from rest_framework import authentication, permissions, serializers, status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from tracking import utils
 from tracking.models import Event
 from translations import get_translation
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.authentication import SessionAuthentication
-from drf_spectacular.utils import inline_serializer
-from rest_framework.decorators import authentication_classes
-import urllib.parse
 
 from management.controller import UserNotFoundErr, delete_user, get_user, get_user_by_email, get_user_by_hash
-from management.models.state import State, FrontendStatusSerializer
+from management.authentication import NativeOnlyJWTAuthentication
+from management.models.state import FrontendStatusSerializer, State
+from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from management.models.profile import SelfProfileSerializer
-from management.models.state import State
 from management.models.matches import Match
+from management.models.banner import Banner, BannerSerializer
 from django.db.models import Q
 
 """
@@ -107,6 +112,38 @@ class LoginSerializer(serializers.Serializer):
 
 
 @dataclass
+class ChallengeData:
+    challenge: str
+    timestamp: int
+
+
+class ChallengeSerializer(serializers.Serializer):
+    challenge = serializers.CharField(required=True)
+    timestamp = serializers.IntegerField(required=True)
+
+    def create(self, validated_data):
+        return ChallengeData(**validated_data)
+
+
+@dataclass
+class NativeLoginData:
+    email: str
+    password: str
+    challenge: str
+    proof: str
+
+
+class NativeLoginSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    password = serializers.CharField(required=True)
+    challenge = serializers.CharField(required=True)
+    proof = serializers.CharField(required=True)
+
+    def create(self, validated_data):
+        return NativeLoginData(**validated_data)
+
+
+@dataclass
 class AutoLoginData:
     u: str  # user
     l: str  # lookup: hash | email | id
@@ -123,14 +160,23 @@ class AutoLoginSerializer(serializers.Serializer):
     def create(self, validated_data):
         return AutoLoginData(**validated_data)
 
-
 class LoginApi(APIView):
-    # TODO: this has to be throttled!
-    # TODO: als this need csrf protection
     permission_classes = []
     authentication_classes = []
 
-    @extend_schema(request=LoginSerializer(many=False))
+    @extend_schema(
+        request=LoginSerializer(many=False),
+        parameters=[
+            OpenApiParameter(
+                name="token_auth",
+                description="If true, returns an authentication token instead of creating a session",
+                type=bool,
+                required=False,
+                default=False,
+                location=OpenApiParameter.QUERY,
+            ),
+        ],
+    )
     def post(self, request):
         """
         This is to login regular users only!!!!
@@ -147,10 +193,15 @@ class LoginApi(APIView):
             if usr.is_staff:  # type: ignore
                 # pylint thinks this is a AbsUsr but we have overwritten it models.user.User
                 return Response(get_translation("api.login_failed_staff"), status=status.HTTP_400_BAD_REQUEST)
-            login(request, usr)
-            # Also pass the whole user data on a sucessfull login!
 
-            return Response(get_user_data(request.user))
+            # token_auth is a query parameter that determines whether to return a token or create a session
+            token_auth = request.query_params.get("token_auth", False)
+            if token_auth:
+                # Legacy token auth - now deprecated in favor of native challenge-response
+                return Response("Token auth deprecated. Use /api/user/native-login for native apps", status=status.HTTP_400_BAD_REQUEST)
+            else:
+                login(request, usr)
+                return Response(get_user_data(request.user))
         else:
             return Response(get_translation("api.login_failed"), status=status.HTTP_400_BAD_REQUEST)
 
@@ -180,7 +231,11 @@ class LoginApi(APIView):
 
 
 class LogoutApi(APIView):
-    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
+    authentication_classes = [
+        authentication.SessionAuthentication,
+        authentication.BasicAuthentication,
+        NativeOnlyJWTAuthentication,
+    ]
     permission_classes = [permissions.IsAuthenticated]
 
     @utils.track_event(
@@ -234,7 +289,11 @@ class ChangePasswordSerializer(serializers.Serializer):
 
 
 class ChangePasswordApi(APIView):
-    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
+    authentication_classes = [
+        authentication.SessionAuthentication,
+        authentication.BasicAuthentication,
+        NativeOnlyJWTAuthentication,
+    ]
     permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(request=ChangePasswordSerializer(many=False))
@@ -278,7 +337,11 @@ class ChangeEmailSerializer(serializers.Serializer):
 
 
 class ChangeEmailApi(APIView):
-    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
+    authentication_classes = [
+        authentication.SessionAuthentication,
+        authentication.BasicAuthentication,
+        NativeOnlyJWTAuthentication,
+    ]
     permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(request=ChangeEmailSerializer(many=False))
@@ -394,8 +457,6 @@ class UpdateSearchingStateApi(APIView):
         serializer.is_valid(raise_exception=True)
         params = serializer.save()
 
-        print("TBS", State.SearchingStateChoices.values)
-
         if params.state_slug not in State.SearchingStateChoices.values:
             raise serializers.ValidationError(
                 {
@@ -458,7 +519,6 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
     # We also pass the reset token to the view so it can be used to change the password
     usr_hash = reset_password_token.user.hash
     reset_password_url = f"{settings.BASE_URL}/set_password/{usr_hash}/{reset_password_token.key}"
-    print("GENERATED RESET URL", reset_password_url)
 
     if settings.USE_V2_EMAIL_APIS:
         reset_password_token.user.send_email_v2("reset-password", context={"reset_password_url": reset_password_url})
@@ -496,6 +556,7 @@ def delete_account(request):
 
     return Response({"success": True})
 
+
 def get_user_data(user):
     """
     Returns user data similar to the original user_data function.
@@ -516,26 +577,22 @@ def get_user_data(user):
     )
 
     # Get video call join link if available
-    pre_call_join_link = None
-    try:
-        if pre_matching_app and pre_matching_app.call_room:
-            if pre_matching_app.call_room.join_link:
-                pre_call_join_link = pre_matching_app.call_room.join_link
-    except Exception:
-        pass
-
+    pre_call_join_link = settings.PREMATCHING_CALL_JOIN_LINK
     profile_data = SelfProfileSerializer(user_profile).data
 
-    has_atleast_one_match = (
-        Match.objects.filter(
-            Q(user1=user) | Q(user2=user),
-            support_matching=False,
-        ).count()
-        > 0
-    )
+    has_atleast_one_match = Match.objects.filter(
+        Q(user1=user) | Q(user2=user),
+        support_matching=False,
+    ).exists()
+    
+        # Retrieve the active banner for the specific user type
+    banner_query = Banner.get_active_banner(user)
+
+    banner = BannerSerializer(banner_query).data if banner_query else {}
 
     return {
         "id": str(user.hash),
+        "banner": banner,
         "status": FrontendStatusSerializer(user_state).data,
         "isSupport": user_state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
         or user.is_staff,
@@ -550,6 +607,7 @@ def get_user_data(user):
         "hasMatch": has_atleast_one_match,
         "profile": profile_data,
     }
+
 
 @extend_schema(
     responses=inline_serializer(
@@ -572,7 +630,7 @@ def get_user_data(user):
 )
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 def user_profile(request):
     """
     Returns user profile data.

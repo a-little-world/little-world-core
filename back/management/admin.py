@@ -26,13 +26,19 @@ from management.models import (
 
 @admin.register(short_links.ShortLink)
 class ShortLinkAdmin(admin.ModelAdmin):
-    list_display = ("tag", "url", "created_at", "updated_at", "tracking_cookies_enabled")
-    fields = ("tag", "url", "tracking_cookies_enabled", "tracking_cookies")
+    list_display = ("tag", "url", "created_at", "updated_at", "tracking_cookies_enabled", "register_at_app_root")
+    fields = ("tag", "url", "tracking_cookies_enabled", "tracking_cookies", "register_at_app_root")
 
 
 @admin.register(short_links.ShortLinkClick)
 class ShortLinkClickAdmin(admin.ModelAdmin):
     list_display = ("display_user", "short_link", "created_at", "source")
+    ordering = ("-created_at", "short_link", "source")
+    list_filter = (
+        "short_link",
+        "source",
+        ("created_at", admin.DateFieldListFilter),
+    )
     
     def display_user(self, obj):
         return obj.user if obj.user else "Anonymous"

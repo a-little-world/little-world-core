@@ -5,31 +5,32 @@ from rest_framework.routers import DefaultRouter
 
 from management.api import (
     ai,
-    help,
-    notify,
-    prematch_appointment_advanced,
-    push_notifications,
-    scores_advanced,
-    slack,
-    user_advanced_statistics,
-    videocalls_advanced,
-    trans,
-    user,
+    app_integrity,
     calcom,
-    register,
     community_events,
-    cookies,
     confirm_match,
+    cookies,
     developers,
-    profile,
-    report_unmatch,
+    email_settings,
+    firebase,
+    googletrans,
+    help,
     matches,
     notifications,
-    googletrans,
-    email_settings,
-    translation_requests,
+    notify,
     options,
-    firebase,
+    prematch_appointment_advanced,
+    profile,
+    push_notifications,
+    register,
+    report_unmatch,
+    scores_advanced,
+    slack,
+    trans,
+    translation_requests,
+    user,
+    user_advanced_statistics,
+    videocalls_advanced,
 )
 from management.api.dynamic_user_list import (
     DynamicUserListGeneralViewSet,
@@ -38,6 +39,7 @@ from management.api.dynamic_user_list import (
 )
 from management.api.matches_advanced import api_urls as matches_advanced_api_urls
 from management.api.matching_stats import get_quick_statistics
+from management.api.native_auth import api_urls as api_urls_native_auth
 from management.api.newsletter_subscribe import public_newsletter_subscribe
 from management.api.questions import archive_card, get_question_cards
 from management.api.scores import (
@@ -121,7 +123,6 @@ api_routes = [
     # User
     path("api/trans", trans.get_translation_catalogue),
     path("api/trans/<str:lang>/", trans.get_translation_catalogue),
-    path("api/community/events/", community_events.GetActiveEventsApi.as_view()),
     path("api/register/", register.Register.as_view()),
     path(
         "api/cookies/cookie_banner.js",
@@ -133,6 +134,7 @@ api_routes = [
         user.UpdateSearchingStateApi.as_view(),
     ),
     path("api/user/login/", user.LoginApi.as_view()),
+    *api_urls_native_auth,
     path("api/matching/report/", report_unmatch.report),
     path("api/matching/unmatch/", report_unmatch.unmatch),
     *(
@@ -166,6 +168,8 @@ api_routes = [
     path("api/user/match/confirm_deny/", confirm_match.confirm_match),
     path("api/matching/make_match", matches.make_match),
     path("api/help_message/", help.SendHelpMessage.as_view()),
+    path("api/integrity/challenge", app_integrity.app_integrity_challenge),
+    path("api/integrity/verify_ios", app_integrity.app_integrity_verify_ios),
     *router.urls,
 ]
 
@@ -202,9 +206,7 @@ view_routes = [
     path("api/admin/optimize_possible_matches/", score_maximization_matching),
     path("api/matching/burst_update_scores/", burst_calculate_matching_scores_v2),
     path("api/matching/get_active_burst_calculation/", get_active_burst_calculation),
-    path(
-        "api/admin/delete_all_matching_scores/", delete_all_matching_scores
-    ),
+    path("api/admin/delete_all_matching_scores/", delete_all_matching_scores),
     path("api/admin/top_scores/", list_top_scores),
     path("info_card_debug/", main_frontend.debug_info_card, name="info_card"),
     path("api/calcom/", calcom.callcom_websocket_callback),

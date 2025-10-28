@@ -10,6 +10,50 @@ from management.api.user import ChangeEmailSerializer
 from management.models.user import User
 
 
+def enrich_report_unmatch_with_user_info(report_unmatch_list, match_instance):
+    """
+    Enriches report_unmatch objects with user information.
+    
+    Args:
+        report_unmatch_list: List of report_unmatch objects
+        match_instance: The match instance containing user1 and user2
+    
+    Returns:
+        List of enriched report_unmatch objects with user_first_name and user_type
+    """
+    if not report_unmatch_list:
+        return []
+    
+    enriched_list = []
+    for report_item in report_unmatch_list:
+        enriched_item = report_item.copy()
+        
+        user_id = report_item.get('user_id')
+        if not user_id or user_id == "no unmatcher specified":
+            enriched_item['user_first_name'] = 'Support Team'
+            enriched_item['user_type'] = None
+        else:
+            # Check if user_id matches user1 or user2
+            if match_instance.user1.id == user_id:
+                user = match_instance.user1
+            elif match_instance.user2.id == user_id:
+                user = match_instance.user2
+            else:
+                # If user_id doesn't match either participant, it's a support user
+                enriched_item['user_first_name'] = 'Support Team'
+                enriched_item['user_type'] = None
+                enriched_list.append(enriched_item)
+                continue
+            
+            # Get user information
+            enriched_item['user_first_name'] = user.profile.first_name if user.profile.first_name else 'Unknown'
+            enriched_item['user_type'] = user.profile.user_type if user.profile.user_type else None
+        
+        enriched_list.append(enriched_item)
+    
+    return enriched_list
+
+
 class CustomResetPasswordRequestTokenViewSet(ResetPasswordRequestTokenViewSet):
     @extend_schema(
         request=ChangeEmailSerializer,

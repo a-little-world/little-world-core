@@ -8,6 +8,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import SessionAuthentication
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.response import Response
 from rest_framework_dataclasses.serializers import DataclassSerializer
 
@@ -28,6 +29,8 @@ from chat.models import Chat, ChatConnections, ChatSerializer
 from management.models.state import State
 from management.models.profile import CensoredProfileSerializer
 from management.api.match_journey_filter_list import determine_match_bucket
+from management.api.utils_advanced import enrich_report_unmatch_with_user_info
+
 
 class AdvancedUserMatchSerializer(serializers.ModelSerializer):
     class Meta:
@@ -56,21 +59,24 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
         if active_sessions.exists():
             active_session = active_sessions.first()
             active_call_room = SerializeLivekitSession(active_session).data
-
+            
+        partner_data = {
+            "id": str(partner.hash),
+            "isOnline": is_online,
+            "isDeleted": False,
+            "isSupport": partner.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+            or partner.is_staff,
+            **CensoredProfileSerializer(partner.profile).data,
+        }
+            
         representation = {
             "id": str(instance.uuid),
             "chat": {**chat_serialized},
             "chatId": str(chat.uuid),
             "active": instance.active,
             "activeCallRoom": active_call_room,
-            "report_unmatch": instance.report_unmatch,
-            "partner": {
-                "id": str(partner.hash),
-                "isOnline": is_online,
-                "isSupport": partner.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-                or partner.is_staff,
-                **CensoredProfileSerializer(partner.profile).data,
-            },
+            "report_unmatch": enrich_report_unmatch_with_user_info(instance.report_unmatch, instance),
+            "partner": partner_data if partner.is_active else {"censored": True, "id": "censored", "isDeleted": True},
         }
         if "status" in self.context:
             representation["status"] = self.context["status"]
@@ -168,7 +174,7 @@ def make_match(request):
 
         InMatchProposalAdded(matches[0]).send(learner.hash)
 
-        learner.sms(request.user, get_translation("sms.proposal_message", lang="de"))
+        learner.sms(request.user, get_translation("sms.proposal_message", lang="de").format(first_name=learner.first_name))
 
         return Response(f"Matching Proposal Created")
     else:
@@ -226,7 +232,7 @@ def get_match(request, partner_hash):
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, JWTAuthentication])
 def matches(request):
     """
     Returns match data for the authenticated user.

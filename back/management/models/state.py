@@ -391,13 +391,11 @@ class FrontendStatusSerializer(serializers.ModelSerializer):
             return rep
 
         # Now check if the user is matched
-        has_atleast_one_match = (
-            Match.objects.filter(
+        # Use exists() instead of count() for better performance
+        has_atleast_one_match = Match.objects.filter(
                 Q(user1=instance.user) | Q(user2=instance.user),
                 support_matching=False,
-            ).count()
-            > 0
-        )
+        ).exists()
 
         if has_atleast_one_match:
             if instance.searching_state == State.SearchingStateChoices.IDLE:

@@ -275,6 +275,260 @@ class Profile(models.Model):
         default=MinLangLevelPartnerChoices.LEVEL_0,
         max_length=255,
     )
+    
+    class CountryChoices(models.TextChoices):
+        AFGHANISTAN = "AF", get_translation("profile.country.af")
+        ALAND_ISLANDS = "AX", get_translation("profile.country.ax")
+        ALBANIA = "AL", get_translation("profile.country.al")
+        ALGERIA = "DZ", get_translation("profile.country.dz")
+        AMERICAN_SAMOA = "AS", get_translation("profile.country.as")
+        ANDORRA = "AD", get_translation("profile.country.ad")
+        ANGOLA = "AO", get_translation("profile.country.ao")
+        ANGUILLA = "AI", get_translation("profile.country.ai")
+        ANTARCTICA = "AQ", get_translation("profile.country.aq")
+        ANTIGUA_AND_BARBUDA = "AG", get_translation("profile.country.ag")
+        ARGENTINA = "AR", get_translation("profile.country.ar")
+        ARMENIA = "AM", get_translation("profile.country.am")
+        ARUBA = "AW", get_translation("profile.country.aw")
+        AUSTRALIA = "AU", get_translation("profile.country.au")
+        AUSTRIA = "AT", get_translation("profile.country.at")
+        AZERBAIJAN = "AZ", get_translation("profile.country.az")
+        BAHAMAS = "BS", get_translation("profile.country.bs")
+        BAHRAIN = "BH", get_translation("profile.country.bh")
+        BANGLADESH = "BD", get_translation("profile.country.bd")
+        BARBADOS = "BB", get_translation("profile.country.bb")
+        BELARUS = "BY", get_translation("profile.country.by")
+        BELGIUM = "BE", get_translation("profile.country.be")
+        BELIZE = "BZ", get_translation("profile.country.bz")
+        BENIN = "BJ", get_translation("profile.country.bj")
+        BERMUDA = "BM", get_translation("profile.country.bm")
+        BHUTAN = "BT", get_translation("profile.country.bt")
+        BOLIVIA = "BO", get_translation("profile.country.bo")
+        BONAIRE_SINT_EUSTATIUS_AND_SABA = "BQ", get_translation("profile.country.bq")
+        BOSNIA_AND_HERZEGOVINA = "BA", get_translation("profile.country.ba")
+        BOTSWANA = "BW", get_translation("profile.country.bw")
+        BOUVET_ISLAND = "BV", get_translation("profile.country.bv")
+        BRAZIL = "BR", get_translation("profile.country.br")
+        BRITISH_INDIAN_OCEAN_TERRITORY = "IO", get_translation("profile.country.io")
+        BRUNEI_DARUSSALAM = "BN", get_translation("profile.country.bn")
+        BULGARIA = "BG", get_translation("profile.country.bg")
+        BURKINA_FASO = "BF", get_translation("profile.country.bf")
+        BURUNDI = "BI", get_translation("profile.country.bi")
+        CAMBODIA = "KH", get_translation("profile.country.kh")
+        CAMEROON = "CM", get_translation("profile.country.cm")
+        CANADA = "CA", get_translation("profile.country.ca")
+        CAPE_VERDE = "CV", get_translation("profile.country.cv")
+        CAYMAN_ISLANDS = "KY", get_translation("profile.country.ky")
+        CENTRAL_AFRICAN_REPUBLIC = "CF", get_translation("profile.country.cf")
+        CHAD = "TD", get_translation("profile.country.td")
+        CHILE = "CL", get_translation("profile.country.cl")
+        CHINA = "CN", get_translation("profile.country.cn")
+        CHRISTMAS_ISLAND = "CX", get_translation("profile.country.cx")
+        COCOS_KEELING_ISLANDS = "CC", get_translation("profile.country.cc")
+        COLOMBIA = "CO", get_translation("profile.country.co")
+        COMOROS = "KM", get_translation("profile.country.km")
+        CONGO = "CG", get_translation("profile.country.cg")
+        CONGO_DEMOCRATIC_REPUBLIC_OF_THE_CONGO = "CD", get_translation("profile.country.cd")
+        COOK_ISLANDS = "CK", get_translation("profile.country.ck")
+        COSTA_RICA = "CR", get_translation("profile.country.cr")
+        COTE_D_IVOIRE = "CI", get_translation("profile.country.ci")
+        CROATIA = "HR", get_translation("profile.country.hr")
+        CUBA = "CU", get_translation("profile.country.cu")
+        CURACAO = "CW", get_translation("profile.country.cw")
+        CYPRUS = "CY", get_translation("profile.country.cy")
+        CZECH_REPUBLIC = "CZ", get_translation("profile.country.cz")
+        DENMARK = "DK", get_translation("profile.country.dk")
+        DJIBOUTI = "DJ", get_translation("profile.country.dj")
+        DOMINICA = "DM", get_translation("profile.country.dm")
+        DOMINICAN_REPUBLIC = "DO", get_translation("profile.country.do")
+        ECUADOR = "EC", get_translation("profile.country.ec")
+        EGYPT = "EG", get_translation("profile.country.eg")
+        EL_SALVADOR = "SV", get_translation("profile.country.sv")
+        EQUATORIAL_GUINEA = "GQ", get_translation("profile.country.gq")
+        ERITREA = "ER", get_translation("profile.country.er")
+        ESTONIA = "EE", get_translation("profile.country.ee")
+        ETHIOPIA = "ET", get_translation("profile.country.et")
+        ESWATINI = "SZ", get_translation("profile.country.sz")
+        FALKLAND_ISLANDS_MALVINAS = "FK", get_translation("profile.country.fk")
+        FAROE_ISLANDS = "FO", get_translation("profile.country.fo")
+        FIJI = "FJ", get_translation("profile.country.fj")
+        FINLAND = "FI", get_translation("profile.country.fi")
+        FRANCE = "FR", get_translation("profile.country.fr")
+        FRENCH_GUIANA = "GF", get_translation("profile.country.gf")
+        FRENCH_POLYNESIA = "PF", get_translation("profile.country.pf")
+        FRENCH_SOUTHERN_TERRITORIES = "TF", get_translation("profile.country.tf")
+        GABON = "GA", get_translation("profile.country.ga")
+        GAMBIA = "GM", get_translation("profile.country.gm")
+        GEORGIA = "GE", get_translation("profile.country.ge")
+        GERMANY = "DE", get_translation("profile.country.de")
+        GHANA = "GH", get_translation("profile.country.gh")
+        GIBRALTAR = "GI", get_translation("profile.country.gi")
+        GREECE = "GR", get_translation("profile.country.gr")
+        GREENLAND = "GL", get_translation("profile.country.gl")
+        GRENADA = "GD", get_translation("profile.country.gd")
+        GUADELOUPE = "GP", get_translation("profile.country.gp")
+        GUAM = "GU", get_translation("profile.country.gu")
+        GUATEMALA = "GT", get_translation("profile.country.gt")
+        GUERNSEY = "GG", get_translation("profile.country.gg")
+        GUINEA = "GN", get_translation("profile.country.gn")
+        GUINEA_BISSAU = "GW", get_translation("profile.country.gw")
+        GUYANA = "GY", get_translation("profile.country.gy")
+        HAITI = "HT", get_translation("profile.country.ht")
+        HEARD_ISLAND_AND_MCDONALD_ISLANDS = "HM", get_translation("profile.country.hm")
+        HOLY_SEE_VATICAN_CITY_STATE = "VA", get_translation("profile.country.va")
+        HONDURAS = "HN", get_translation("profile.country.hn")
+        HONG_KONG = "HK", get_translation("profile.country.hk")
+        HUNGARY = "HU", get_translation("profile.country.hu")
+        ICELAND = "IS", get_translation("profile.country.is")
+        INDIA = "IN", get_translation("profile.country.in")
+        INDONESIA = "ID", get_translation("profile.country.id")
+        IRAN = "IR", get_translation("profile.country.ir")
+        IRAQ = "IQ", get_translation("profile.country.iq")
+        IRELAND = "IE", get_translation("profile.country.ie")
+        ISLE_OF_MAN = "IM", get_translation("profile.country.im")
+        ISRAEL = "IL", get_translation("profile.country.il")
+        ITALY = "IT", get_translation("profile.country.it")
+        JAMAICA = "JM", get_translation("profile.country.jm")
+        JAPAN = "JP", get_translation("profile.country.jp")
+        JERSEY = "JE", get_translation("profile.country.je")
+        JORDAN = "JO", get_translation("profile.country.jo")
+        KAZAKHSTAN = "KZ", get_translation("profile.country.kz")
+        KENYA = "KE", get_translation("profile.country.ke")
+        KIRIBATI = "KI", get_translation("profile.country.ki")
+        NORTH_KOREA = "KP", get_translation("profile.country.kp")
+        SOUTH_KOREA = "KR", get_translation("profile.country.kr")
+        KOSOVO = "XK", get_translation("profile.country.xk")
+        KUWAIT = "KW", get_translation("profile.country.kw")
+        KYRGYZSTAN = "KG", get_translation("profile.country.kg")
+        LAOS = "LA", get_translation("profile.country.la")
+        LATVIA = "LV", get_translation("profile.country.lv")
+        LEBANON = "LB", get_translation("profile.country.lb")
+        LESOTHO = "LS", get_translation("profile.country.ls")
+        LIBERIA = "LR", get_translation("profile.country.lr")
+        LIBYAN_ARAB_JAMAHIRIYA = "LY", get_translation("profile.country.ly")
+        LIECHTENSTEIN = "LI", get_translation("profile.country.li")
+        LITHUANIA = "LT", get_translation("profile.country.lt")
+        LUXEMBOURG = "LU", get_translation("profile.country.lu")
+        MACAO = "MO", get_translation("profile.country.mo")
+        MADAGASCAR = "MG", get_translation("profile.country.mg")
+        MALAWI = "MW", get_translation("profile.country.mw")
+        MALAYSIA = "MY", get_translation("profile.country.my")
+        MALDIVES = "MV", get_translation("profile.country.mv")
+        MALI = "ML", get_translation("profile.country.ml")
+        MALTA = "MT", get_translation("profile.country.mt")
+        MARSHALL_ISLANDS = "MH", get_translation("profile.country.mh")
+        MARTINIQUE = "MQ", get_translation("profile.country.mq")
+        MAURITANIA = "MR", get_translation("profile.country.mr")
+        MAURITIUS = "MU", get_translation("profile.country.mu")
+        MAYOTTE = "YT", get_translation("profile.country.yt")
+        MEXICO = "MX", get_translation("profile.country.mx")
+        MICRONESIA_FEDERATED_STATES_OF = "FM", get_translation("profile.country.fm")
+        MOLDOVA = "MD", get_translation("profile.country.md")
+        MONACO = "MC", get_translation("profile.country.mc")
+        MONGOLIA = "MN", get_translation("profile.country.mn")
+        MONTENEGRO = "ME", get_translation("profile.country.me")
+        MONTSERRAT = "MS", get_translation("profile.country.ms")
+        MOROCCO = "MA", get_translation("profile.country.ma")
+        MOZAMBIQUE = "MZ", get_translation("profile.country.mz")
+        MYANMAR = "MM", get_translation("profile.country.mm")
+        NAMIBIA = "NA", get_translation("profile.country.na")
+        NAURU = "NR", get_translation("profile.country.nr")
+        NEPAL = "NP", get_translation("profile.country.np")
+        NETHERLANDS = "NL", get_translation("profile.country.nl")
+        NEW_CALEDONIA = "NC", get_translation("profile.country.nc")
+        NEW_ZEALAND = "NZ", get_translation("profile.country.nz")
+        NICARAGUA = "NI", get_translation("profile.country.ni")
+        NIGER = "NE", get_translation("profile.country.ne")
+        NIGERIA = "NG", get_translation("profile.country.ng")
+        NIUE = "NU", get_translation("profile.country.nu")
+        NORFOLK_ISLAND = "NF", get_translation("profile.country.nf")
+        NORTH_MACEDONIA = "MK", get_translation("profile.country.mk")
+        NORTHERN_MARIANA_ISLANDS = "MP", get_translation("profile.country.mp")
+        NORWAY = "NO", get_translation("profile.country.no")
+        OMAN = "OM", get_translation("profile.country.om")
+        PAKISTAN = "PK", get_translation("profile.country.pk")
+        PALAU = "PW", get_translation("profile.country.pw")
+        PALESTINE = "PS", get_translation("profile.country.ps")
+        PANAMA = "PA", get_translation("profile.country.pa")
+        PAPUA_NEW_GUINEA = "PG", get_translation("profile.country.pg")
+        PARAGUAY = "PY", get_translation("profile.country.py")
+        PERU = "PE", get_translation("profile.country.pe")
+        PHILIPPINES = "PH", get_translation("profile.country.ph")
+        PITCAIRN = "PN", get_translation("profile.country.pn")
+        POLAND = "PL", get_translation("profile.country.pl")
+        PORTUGAL = "PT", get_translation("profile.country.pt")
+        PUERTO_RICO = "PR", get_translation("profile.country.pr")
+        QATAR = "QA", get_translation("profile.country.qa")
+        REUNION = "RE", get_translation("profile.country.re")
+        ROMANIA = "RO", get_translation("profile.country.ro")
+        RUSSIA = "RU", get_translation("profile.country.ru")
+        RWANDA = "RW", get_translation("profile.country.rw")
+        SAINT_BARTHELEMY = "BL", get_translation("profile.country.bl")
+        SAINT_HELENA = "SH", get_translation("profile.country.sh")
+        SAINT_KITTS_AND_NEVIS = "KN", get_translation("profile.country.kn")
+        SAINT_LUCIA = "LC", get_translation("profile.country.lc")
+        SAINT_MARTIN = "MF", get_translation("profile.country.mf")
+        SAINT_PIERRE_AND_MIQUELON = "PM", get_translation("profile.country.pm")
+        SAINT_VINCENT_AND_THE_GRENADINES = "VC", get_translation("profile.country.vc")
+        SAMOA = "WS", get_translation("profile.country.ws")
+        SAN_MARINO = "SM", get_translation("profile.country.sm")
+        SAO_TOME_AND_PRINCIPE = "ST", get_translation("profile.country.st")
+        SAUDI_ARABIA = "SA", get_translation("profile.country.sa")
+        SENEGAL = "SN", get_translation("profile.country.sn")
+        SERBIA = "RS", get_translation("profile.country.rs")
+        SEYCHELLES = "SC", get_translation("profile.country.sc")
+        SIERRA_LEONE = "SL", get_translation("profile.country.sl")
+        SINGAPORE = "SG", get_translation("profile.country.sg")
+        SINT_MAARTEN = "SX", get_translation("profile.country.sx")
+        SLOVAKIA = "SK", get_translation("profile.country.sk")
+        SLOVENIA = "SI", get_translation("profile.country.si")
+        SOLOMON_ISLANDS = "SB", get_translation("profile.country.sb")
+        SOMALIA = "SO", get_translation("profile.country.so")
+        SOUTH_AFRICA = "ZA", get_translation("profile.country.za")
+        SOUTH_GEORGIA_AND_THE_SOUTH_SANDWICH_ISLANDS = "GS", get_translation("profile.country.gs")
+        SOUTH_SUDAN = "SS", get_translation("profile.country.ss")
+        SPAIN = "ES", get_translation("profile.country.es")
+        SRI_LANKA = "LK", get_translation("profile.country.lk")
+        SUDAN = "SD", get_translation("profile.country.sd")
+        SURINAME = "SR", get_translation("profile.country.sr")
+        SVALBARD_AND_JAN_MAYEN = "SJ", get_translation("profile.country.sj")
+        SWEDEN = "SE", get_translation("profile.country.se")
+        SWITZERLAND = "CH", get_translation("profile.country.ch")
+        SYRIA = "SY", get_translation("profile.country.sy")
+        TAIWAN = "TW", get_translation("profile.country.tw")
+        TAJIKISTAN = "TJ", get_translation("profile.country.tj")
+        TANZANIA_UNITED_REPUBLIC_OF = "TZ", get_translation("profile.country.tz")
+        THAILAND = "TH", get_translation("profile.country.th")
+        TIMOR_LESTE = "TL", get_translation("profile.country.tl")
+        TOGO = "TG", get_translation("profile.country.tg")
+        TOKELAU = "TK", get_translation("profile.country.tk")
+        TONGA = "TO", get_translation("profile.country.to")
+        TRINIDAD_AND_TOBAGO = "TT", get_translation("profile.country.tt")
+        TUNISIA = "TN", get_translation("profile.country.tn")
+        TURKIYE = "TR", get_translation("profile.country.tr")
+        TURKMENISTAN = "TM", get_translation("profile.country.tm")
+        TURKS_AND_CAICOS_ISLANDS = "TC", get_translation("profile.country.tc")
+        TUVALU = "TV", get_translation("profile.country.tv")
+        UGANDA = "UG", get_translation("profile.country.ug")
+        UKRAINE = "UA", get_translation("profile.country.ua")
+        UNITED_ARAB_EMIRATES = "AE", get_translation("profile.country.ae")
+        UNITED_KINGDOM = "GB", get_translation("profile.country.gb")
+        UNITED_STATES = "US", get_translation("profile.country.us")
+        UNITED_STATES_MINOR_OUTLYING_ISLANDS = "UM", get_translation("profile.country.um")
+        URUGUAY = "UY", get_translation("profile.country.uy")
+        UZBEKISTAN = "UZ", get_translation("profile.country.uz")
+        VANUATU = "VU", get_translation("profile.country.vu")
+        VENEZUELA = "VE", get_translation("profile.country.ve")
+        VIET_NAM = "VN", get_translation("profile.country.vn")
+        VIRGIN_ISLANDS_BRITISH = "VG", get_translation("profile.country.vg")
+        VIRGIN_ISLANDS_U_S = "VI", get_translation("profile.country.vi")
+        WALLIS_AND_FUTUNA = "WF", get_translation("profile.country.wf")
+        WESTERN_SAHARA = "EH", get_translation("profile.country.eh")
+        YEMEN = "YE", get_translation("profile.country.ye")
+        ZAMBIA = "ZM", get_translation("profile.country.zm")
+        ZIMBABWE = "ZW", get_translation("profile.country.zw")
+        
+    country_of_residence = models.CharField(choices=CountryChoices.choices, null=True, max_length=255)
 
     class LanguageChoices(models.TextChoices):
         ENGLISH = "english", get_translation("profile.lang.english")
@@ -427,6 +681,16 @@ class ProfileSerializer(serializers.ModelSerializer):
                     }
                 }
             )
+        
+        if "country_of_residence" in self.Meta.fields:
+            d.update(
+                {
+                    "country_of_residence": [
+                        {"value": c0, "tag": force_str(c1, strings_only=True)}
+                        for c0, c1 in Profile.CountryChoices.choices
+                    ]
+                }
+            )
 
         # TODO: we might want to update the options for the language skill choices also
         return d
@@ -448,6 +712,7 @@ class SelfProfileSerializer(ProfileSerializer):
             "target_group",
             "speech_medium",
             "partner_location",
+            "country_of_residence",
             "postal_code",
             "interests",
             "availability",
@@ -521,7 +786,12 @@ class SelfProfileSerializer(ProfileSerializer):
         return value
 
     def validate_postal_code(self, value):
-        return validate_postal_code(value)
+        # Get the country_of_residence from the current data or instance
+        country = self.initial_data.get('country_of_residence') if hasattr(self, 'initial_data') else None
+        if not country and hasattr(self, 'instance') and self.instance:
+            country = self.instance.country_of_residence
+        
+        return validate_postal_code(value, country)
 
     def validate_interests(self, value):
         if len(value) < 3:
@@ -597,7 +867,6 @@ class MinimalProfileSerializer(serializers.ModelSerializer):
         fields = [
             "first_name",
             "second_name",
-            "target_group",
             "lang_skill",
             "interests",
             "image_type",
@@ -605,10 +874,13 @@ class MinimalProfileSerializer(serializers.ModelSerializer):
             "image",
             "description",
             "user_type",
+            "target_group",
             "target_groups",
+            "partner_gender",
             "newsletter_subscribed",
             "phone_mobile",
             "push_notifications_enabled",
+            "country_of_residence",
             "job_search",
             "job_skill_description",
         ]
@@ -626,3 +898,4 @@ class ProposalProfileSerializer(SelfProfileSerializer):
             "description",
             "user_type",
         ]
+

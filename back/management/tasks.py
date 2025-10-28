@@ -144,6 +144,7 @@ Selbst habe ich vier Jahre im Ausland gelebt, von Frankreich bis nach China. Den
 """
     usr = get_base_management_user()
     usr.profile.birth_year = 1984
+    usr.profile.country_of_residence = "DE"
     usr.profile.postal_code = 20480
     usr.profile.description = base_management_user_description
     usr.profile.add_profile_picture_from_local_path("/back/dev_test_data/oliver_berlin_management_user_profile_pic.jpg")
@@ -169,6 +170,7 @@ I'll take the time to answer all your messages but I might take a little time to
 """
     usr = get_base_management_user()
     usr.profile.birth_year = 1999
+    usr.profile.country_of_residence = "DE"
     usr.profile.postal_code = 52064
     usr.profile.description = base_management_user_description
     usr.profile.add_profile_picture_from_local_path("/back/dev_test_data/tim_schupp_base_management_profile_new.jpeg")
@@ -615,66 +617,40 @@ def hourly_check_banner_activation():
             bc["deactivated"].append(banner.id)
     return bc
 
-@shared_task
-def send_sms_background(
-    user_hash,
-    message
-):
+@shared_task(
+    autoretry_for=(),
+    retry_kwargs={'max_retries': 0},
+    reject_on_worker_lost=True,
+    acks_late=False,
+    bind=True
+)
+def send_sms_background(self, user_hash, message):
+    """
+    Send SMS background task that never retries on failure.
+    If the task fails, it should fail permanently to prevent duplicate SMS sending.
+    """
+    from django.utils import timezone
     from management.controller import get_base_management_user
     from management.models.user import User
+    from management.models.sms import SmsModel
 
-    receipient = User.objects.get(hash=user_hash)
-    receipient.sms(send_initator=get_base_management_user(), message=message)
-
-@shared_task
-def kill_livekit_room(room, session_id, matching_id, chat_id):
-    from livekit import api as livekit_api
-    from livekit.api import DeleteRoomRequest
-    from django.conf import settings
-    from video.models import RandomCallMatching, RandomCallSession, LivekitSession, LiveKitRoom, RandomCallLobby
-    from chat.models import Chat
-    import uuid
-
-    session_id = uuid.UUID(session_id)
-    matching_id = uuid.UUID(matching_id)
-
-    #close Random Call via livekitAPI
-    lkapi = livekit_api.LiveKitAPI(
-        url=settings.LIVEKIT_URL,
-        api_key=settings.LIVEKIT_API_KEY,
-        api_secret=settings.LIVEKIT_API_SECRET,
-    )
-
-    lkapi.room.delete_room(DeleteRoomRequest(room=room))
-    lkapi.aclose()
-
-    match = RandomCallMatching.objects.filter(uuid=matching_id)
-    if match.exists():
-        match = match.first()
-        match.active = False
-        match.save()
-        user1 = match.u1
-        user2 = match.u2
-        RandomCallLobby.objects.filter(user=user1).update(status=False)
-        RandomCallLobby.objects.filter(user=user2).update(status=False)
+    recent_sms = SmsModel.objects.filter(
+        recipient__hash=user_hash,
+        message=message,
+        created_at__gte=timezone.now() - timezone.timedelta(hours=2)
+    ).exists()
     
-    sessions = RandomCallSession.objects.filter(uuid=session_id)
-    if sessions.exists():
-        for s in sessions:
-            s.active = False
-            s.save()
-            
-    livekit_room = LiveKitRoom.objects.get(uuid=room).pk
-    livekit_session = LivekitSession.objects.filter(room=livekit_room).exclude(is_active=False)
-    if livekit_session.exists():
-        for l in livekit_session:
-            l.is_active = False
-            l.u1_active = False
-            l.u2_active = False
-            l.save()
+    if recent_sms:
+        print(f"Skipping duplicate SMS for user {user_hash} - already sent within last 2 hours")
+        return {"status": "skipped", "reason": "duplicate_message"}
 
-    chat = Chat.objects.filter(uuid=chat_id)
-    if chat.exists():
-        for c in chat:
-            print("DELETE CHAT:", c)
-            c.delete()
+    try:
+        receipient = User.objects.get(hash=user_hash)
+        result = receipient.sms(send_initator=get_base_management_user(), message=message)
+        return {"status": "sent", "result": result}
+    except Exception as e:
+        print(f"SMS task failed for user {user_hash}: {str(e)}")
+        raise  # Re-raise to mark task as failed
+
+
+# TODO: re-implement @Sungsoo's 'def kill_livekit_room(room, session_id, matching_id, chat_id):'

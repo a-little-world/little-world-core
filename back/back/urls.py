@@ -96,5 +96,4 @@ if settings.USE_SENTRY:
         path("sentry-debug/", trigger_error),
     ]
 
-
 urlpatterns += [public_routes_wildcard]

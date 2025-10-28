@@ -13,6 +13,8 @@ class ShortLink(models.Model):
     tracking_cookies_enabled = models.BooleanField(default=False)
     tracking_cookies = models.JSONField(default=_default_example_tracking_cookie)
 
+    register_at_app_root = models.BooleanField(default=False)
+
     def __str__(self):
         return f"{self.tag} -> {self.url}"
 
