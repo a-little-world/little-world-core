@@ -128,7 +128,11 @@ AI_OPENAI_API_KEY = os.environ.get("DJ_AI_OPENAI_API_KEY", "none")
 GOOGLE_CLOUD_CREDENTIALS = get_base64_env("DJ_GOOGLE_CLOUD_CREDENTIALS")
 GOOGLE_CLOUD_CREDENTIALS_ANDROID_INTEGRITY = get_base64_env("DJ_GOOGLE_CLOUD_CREDENTIALS_ANDROID_INTEGRITY")
 
-NATIVE_APP_INTEGRITY_ALLOW_BYPASS = os.environ.get("DJ_NATIVE_APP_INTEGRITY_ALLOW_BYPASS", "false").lower() in ("true", "1", "t")
+NATIVE_APP_INTEGRITY_ALLOW_BYPASS = os.environ.get("DJ_NATIVE_APP_INTEGRITY_ALLOW_BYPASS", "false").lower() in (
+    "true",
+    "1",
+    "t",
+)
 NATIVE_APP_INTEGRITY_BYPASS_TOKEN = os.environ.get("DJ_NATIVE_APP_INTEGRITY_BYPASS_TOKEN", "bypassChangeMe!")
 
 # Debug logging for bypass settings
@@ -294,12 +298,18 @@ PLAY_INTEGRITY_ENABLED = os.environ.get("DJ_PLAY_INTEGRITY_ENABLED", "1").lower(
 PLAY_INTEGRITY_STRICT_MODE = os.environ.get("DJ_PLAY_INTEGRITY_STRICT_MODE", "0").lower() in ("true", "1", "t")
 PLAY_INTEGRITY_USE_SECURE_API = os.environ.get("DJ_PLAY_INTEGRITY_USE_SECURE_API", "1").lower() in ("true", "1", "t")
 APP_INTEGRITY_DEBUG_LOGS = os.environ.get("DJ_APP_INTEGRITY_DEBUG_LOGS", "0").lower() in ("true", "1", "t")
-ALLOW_UNEVALUATED_DEVICES_USING_DEVICE_ATTESTATION = os.environ.get("DJ_ALLOW_UNEVALUATED_DEVICES_USING_DEVICE_ATTESTATION", "0").lower() in ("true", "1", "t")
+ALLOW_UNEVALUATED_DEVICES_USING_DEVICE_ATTESTATION = os.environ.get(
+    "DJ_ALLOW_UNEVALUATED_DEVICES_USING_DEVICE_ATTESTATION", "0"
+).lower() in ("true", "1", "t")
 
 # Android v2 pyattest Configuration
 ANDROID_PACKAGE_NAME = os.environ.get("DJ_ANDROID_PACKAGE_NAME", "ch.dreipol.demo")
 
-CORS_ALLOWED_ORIGIN_REGEXES = ["file://.*"] # Native apps are serverd from a file:// origin!
+# Load Apple App specifics
+APPLE_TEAM_ID = os.environ.get("DJ_APPLE_TEAM_ID", "")
+APP_BUNDLE_IDENTIFIER = os.environ.get("DJ_APP_BUNDLE_IDENTIFIER", "")
+
+CORS_ALLOWED_ORIGIN_REGEXES = ["file://.*"]  # Native apps are serverd from a file:// origin!
 
 CORS_ALLOWED_ORIGINS = []
 if IS_STAGE or IS_PROD:
@@ -607,7 +617,7 @@ CELERY_TASK_REJECT_ON_WORKER_LOST = True
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         # we cannot add basic authentication default cause this add a header with causes a login-popup in browsers
-        # "rest_framework.authentication.BasicAuthentication", 
+        # "rest_framework.authentication.BasicAuthentication",
         "rest_framework.authentication.SessionAuthentication",
         "management.authentication.NativeOnlyJWTAuthentication",
     ],

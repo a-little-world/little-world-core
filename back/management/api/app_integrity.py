@@ -1,22 +1,17 @@
-import base64
 import logging
-import os
 import secrets
 import time
 
-import jwt
-import pyattest
 import requests
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
 from django.conf import settings
 from django.core.cache import cache
 from drf_spectacular.utils import extend_schema
-from pyattest.configs.apple import AppleConfig
 from rest_framework import serializers, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
+
+from management.integrity.apple import verify_apple_attestation
 
 
 class AppIntegrityChallengeSerializer(serializers.Serializer):
@@ -109,7 +104,7 @@ def _verify_play_integrity_token(integrity_token: str, request_hash: str) -> boo
         # Check if token has the expected JWT format (3 segments separated by dots)
         token_segments = integrity_token.split(".")
         _dbg(f"[DEBUG] Token segments count: {len(token_segments)}")
-        
+
         if len(token_segments) == 1:
             # Single segment - opaque token that must be verified via Google Play Integrity API
             _dbg("[DEBUG] Token appears to be opaque format - verifying via Google Play Integrity API")
@@ -129,105 +124,103 @@ def _verify_play_integrity_token(integrity_token: str, request_hash: str) -> boo
 def _verify_play_integrity_token_via_api(integrity_token: str, request_hash: str) -> bool:
     """
     Securely verify opaque Play Integrity tokens by calling Google's Play Integrity API.
-    
+
     This is the proper way to verify opaque tokens from Google-managed encryption.
     """
     try:
         _dbg("[DEBUG] Verifying opaque token via Google Play Integrity API")
-        
+
         # Get configuration from settings
         package_name = getattr(settings, "ANDROID_PACKAGE_NAME", "com.littleworld.littleworldapp")
-        
+
         # Import Google Play Integrity API client
         try:
             from google.oauth2 import service_account
             from googleapiclient.discovery import build
         except ImportError:
-            _dbg("[ERROR] Google API client libraries not installed. Install with: pip install google-api-python-client google-auth")
+            _dbg(
+                "[ERROR] Google API client libraries not installed. Install with: pip install google-api-python-client google-auth"
+            )
             return False
-        
+
         # Get Google Cloud credentials from settings (same as Google Translate)
         google_cloud_credentials = getattr(settings, "GOOGLE_CLOUD_CREDENTIALS_ANDROID_INTEGRITY", None)
         if not google_cloud_credentials:
             _dbg("[ERROR] GOOGLE_CLOUD_CREDENTIALS not configured in settings")
             return False
-        
+
         # Load service account credentials from settings
         credentials = service_account.Credentials.from_service_account_info(
-            google_cloud_credentials,
-            scopes=['https://www.googleapis.com/auth/playintegrity']
+            google_cloud_credentials, scopes=["https://www.googleapis.com/auth/playintegrity"]
         )
-        
+
         # Build the Play Integrity API service
-        service = build('playintegrity', 'v1', credentials=credentials)
-        
+        service = build("playintegrity", "v1", credentials=credentials)
+
         # Call the Play Integrity API to verify the token
-        request_body = {
-            'integrityToken': integrity_token
-        }
-        
+        request_body = {"integrityToken": integrity_token}
+
         _dbg(f"[DEBUG] Undecoded token: {integrity_token}")
         _dbg(f"[DEBUG] Calling Play Integrity API for package: {package_name}")
-        response = service.v1().decodeIntegrityToken(
-            packageName=package_name,
-            body=request_body
-        ).execute()
-        
+        response = service.v1().decodeIntegrityToken(packageName=package_name, body=request_body).execute()
+
         _dbg(f"[DEBUG] Play Integrity API response: {response}")
-        
+
         # Extract the token payload
-        token_payload = response.get('tokenPayloadExternal', {})
-        
+        token_payload = response.get("tokenPayloadExternal", {})
+
         # Validate the request details
-        request_details = token_payload.get('requestDetails', {})
-        if request_details.get('requestHash') != request_hash:
+        request_details = token_payload.get("requestDetails", {})
+        if request_details.get("requestHash") != request_hash:
             _dbg(f"[ERROR] Request hash mismatch: expected {request_hash}, got {request_details.get('requestHash')}")
             return False
-        
+
         # Validate app integrity
-        app_integrity = token_payload.get('appIntegrity', {})
-        app_recognition_verdict = app_integrity.get('appRecognitionVerdict')
-        
+        app_integrity = token_payload.get("appIntegrity", {})
+        app_recognition_verdict = app_integrity.get("appRecognitionVerdict")
+
         # Handle UNEVALUATED case (e.g., graphene devices)
-        if app_recognition_verdict == 'UNEVALUATED':
+        if app_recognition_verdict == "UNEVALUATED":
             # Check if fallback to device attestation is allowed
             if not getattr(settings, "ALLOW_UNEVALUATED_DEVICES_USING_DEVICE_ATTESTATION", False):
-                _dbg(f"[ERROR] App integrity UNEVALUATED and fallback not enabled")
+                _dbg("[ERROR] App integrity UNEVALUATED and fallback not enabled")
                 return False
-            
+
             # TODO: in the future, implement actual device attestation verification here ( allows devices like grapheneOS to also log-in )
             _dbg("[INFO] App integrity UNEVALUATED - using device attestation fallback (request hash already verified)")
             _dbg("[SUCCESS] UNEVALUATED device verification passed via device attestation fallback")
             return True
-        
+
         # Normal path: require PLAY_RECOGNIZED
-        if app_recognition_verdict != 'PLAY_RECOGNIZED':
+        if app_recognition_verdict != "PLAY_RECOGNIZED":
             _dbg(f"[ERROR] App not recognized by Play: {app_recognition_verdict}")
             return False
-        
+
         # Validate device integrity
         # TODO: add a simple fallback for graphene! Here integrity will not pass!
-        device_integrity = token_payload.get('deviceIntegrity', {})
-        device_recognition_verdicts = device_integrity.get('deviceRecognitionVerdict', [])
-        
+        device_integrity = token_payload.get("deviceIntegrity", {})
+        device_recognition_verdicts = device_integrity.get("deviceRecognitionVerdict", [])
+
         # Check for device integrity - accept both MEETS_BASIC_INTEGRITY and MEETS_DEVICE_INTEGRITY
-        if not any(verdict in device_recognition_verdicts for verdict in ['MEETS_BASIC_INTEGRITY', 'MEETS_DEVICE_INTEGRITY']):
+        if not any(
+            verdict in device_recognition_verdicts for verdict in ["MEETS_BASIC_INTEGRITY", "MEETS_DEVICE_INTEGRITY"]
+        ):
             _dbg(f"[ERROR] Device does not meet integrity requirements: {device_recognition_verdicts}")
             return False
-        
+
         # Check for compromised indicators
-        compromised_indicators = ['EMULATOR', 'DEBUGGABLE']
+        compromised_indicators = ["EMULATOR", "DEBUGGABLE"]
         if getattr(settings, "PLAY_INTEGRITY_STRICT_MODE", False):
-            compromised_indicators.extend(['DEVELOPER_BUILD', 'UNKNOWN_DEVICE'])
-        
+            compromised_indicators.extend(["DEVELOPER_BUILD", "UNKNOWN_DEVICE"])
+
         for indicator in compromised_indicators:
             if indicator in device_recognition_verdicts:
                 _dbg(f"[ERROR] Device shows compromise indicator: {indicator}")
                 return False
-        
+
         _dbg("[SUCCESS] Play Integrity API verification passed")
         return True
-        
+
     except Exception as e:
         _dbg(f"[ERROR] Play Integrity API verification failed: {e}")
         return False
@@ -261,9 +254,9 @@ def app_integrity_challenge(request):
     key_id = serializer.validated_data["keyId"]
 
     # Generate a random challenge string
-    challenge_bytes = secrets.token_bytes(32)
+    challenge_bytes = secrets.token_bytes(32).hex().encode("utf-8")
 
-    challenge = challenge_bytes.hex().encode("utf-8").decode("utf-8")
+    challenge = challenge_bytes.decode("utf-8")
     # challenge = base64.b64encode(challenge_bytes).decode("utf-8")
     # challenge = challenge_bytes.encode("utf-8")  # Convert to hex string for easier handling
     # challenge = hashlib.sha256(challenge_bytes).hexdigest()
@@ -276,6 +269,7 @@ def app_integrity_challenge(request):
     cache.set(key_id, challenge_bytes, timeout=300)
 
     return Response({"challenge": challenge}, status=status.HTTP_200_OK)
+
 
 @extend_schema(
     description="Verify iOS App Attest (simplified staging flow) and exchange for decryption key",
@@ -315,53 +309,11 @@ def app_integrity_verify_ios(request):
 
     challenge = cache.get(key=key_id)
 
-    apple_team_id = os.environ.get("APPLE_TEAM_ID")
-    app_bundle_identifier = os.environ.get("APP_BUNDLE_IDENTIFIER")
-
-    config = AppleConfig(key_id=key_id, app_id=f"{apple_team_id}.{app_bundle_identifier}", production=settings.IS_PROD)
-    attestation = pyattest.attestation.Attestation(raw=attestation_object, nonce=challenge, config=config)
-
-    # Extract challenge from attestation object (expect JSON with field 'challenge')
     try:
-        attestation.verify()
-        # attestation_object_decoded = base64.b64decode(attestation_object)
-        # attestation = cbor2.loads(attestation_object_decoded)
-
-        # fmt = attestation.get("fmt")
-        # att_stmt = attestation.get("attStmt", {})
-        # auth_data = attestation.get("authData")
-
-        # attestation_cert_chain = att_stmt.get("x5c")
-        # signature = att_stmt.get("sig")
-        # attestation_data = json.loads(base64.b64decode(attestation_object))
-        # challenge = attestation_data.get("challenge")
+        verify_apple_attestation(key_id, challenge, attestation_object, settings.IS_PROD)
     except Exception as e:
         _dbg(f"[ERROR] Invalid iOS attestationObject format: {e}")
         return Response({"detail": "Invalid attestation object format"}, status=status.HTTP_400_BAD_REQUEST)
-
-    # if not challenge:
-    #     _dbg("[ERROR] Missing challenge in iOS attestationObject")
-    #     return Response({"detail": "Missing challenge in attestation"}, status=status.HTTP_400_BAD_REQUEST)
-
-    # cache_key = f"app_integrity_challenge:{key_id}:{challenge}"
-    # cached_data = cache.get(cache_key)
-    # if not cached_data:
-    #     _dbg("[ERROR] iOS challenge not found or expired")
-    #     return Response({"detail": "Invalid or expired challenge"}, status=status.HTTP_400_BAD_REQUEST)
-
-    # # Expiry check (5 minutes)
-    # if abs(time.time() - cached_data["timestamp"]) > 300:
-    #     cache.delete(cache_key)
-    #     _dbg("[ERROR] iOS challenge expired")
-    #     return Response({"detail": "Challenge expired"}, status=status.HTTP_400_BAD_REQUEST)
-
-    # # For now: accept in non-strict mode (staging), reject in strict mode until full verification is implemented
-    # if getattr(settings, "PLAY_INTEGRITY_STRICT_MODE", False):
-    #     cache.delete(cache_key)
-    #     _dbg("[ERROR] iOS verification requires strict mode attestation (not implemented)")
-    #     return Response(
-    #         {"detail": "iOS attestation strict verification not implemented"}, status=status.HTTP_403_FORBIDDEN
-    #     )
 
     cache.delete(key=key_id)
     outer_layer_decryption_key = getattr(settings, "ANDROID_DECRYPTION_KEY", None)
