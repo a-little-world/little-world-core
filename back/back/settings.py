@@ -336,7 +336,6 @@ if IS_STAGE or DEBUG:
         "http://localhost:8081",
         "http://localhost:8080",
         "http://localhost:9001",
-        "https://little-world.jannistoelle.de",
     ]
 
     CORS_ALLOWED_ORIGINS += dev_origins
