@@ -6,7 +6,7 @@ from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.constant_time import bytes_eq
-from django import settings
+from django.conf import settings
 from pyasn1.codec.der.decoder import decode as pyasn1_decode
 from pyasn1.type.univ import Sequence
 
