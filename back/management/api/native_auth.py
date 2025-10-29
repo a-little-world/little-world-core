@@ -1,20 +1,11 @@
-import base64
-import hashlib
-import os
-from base64 import b64decode
 from typing import Any
 
-import cbor2
 import pyattest
 from asgiref.sync import async_to_sync
-from cryptography import x509
-from cryptography.hazmat.primitives.asymmetric import ec
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.core.cache import cache
 from django.urls import path
-from pyasn1.codec.der.decoder import decode as pyasn1_decode
-from pyasn1.type.univ import Sequence
 from pyattest.configs.apple import AppleConfig
 from rest_framework import serializers, status
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -27,6 +18,7 @@ from translations import get_translation
 
 from management.api.app_integrity import _verify_play_integrity_token
 from management.api.user import get_user_data
+from management.integrity.apple import verify_apple_attestation
 
 # --------------- Native Login API ------------------
 
@@ -92,15 +84,10 @@ def native_auth_ios(request):
     attestation_object = serializer.validated_data["attestationObject"]
 
     challenge = cache.get(key=key_id)
-    # challenge = request.data.get("challenge")
+    verify_apple_attestation(
+        key_id=key_id, challenge_bytes=challenge, attestation_raw=attestation_object, is_prod=settings.IS_PROD
+    )
 
-    attestation_raw = b64decode(attestation_object)
-    # verify_attestation(challenge, attestation_object)
-    # apple_team_id = os.environ.get("APPLE_TEAM_ID")
-    # app_bundle_identifier = os.environ.get("APP_BUNDLE_IDENTIFIER")
-    # config = AppleConfig(key_id=key_id, app_id=f"{apple_team_id}.{app_bundle_identifier}", production=settings.IS_PROD)
-    # attestation = pyattest.attestation.Attestation(raw=attestation_raw, nonce=nonce_raw, config=config)
-    # async_to_sync(attestation.verify)()
     return native_auth_common_login(email=email.lower(), password=password)
 
 
@@ -202,14 +189,11 @@ class NativeTokenIosRefreshView(TokenRefreshView):
         # challenge = cache.get(key=key_id)
         challenge = request.data.get("challenge")
 
-        apple_team_id = os.environ.get("APPLE_TEAM_ID")
-        app_bundle_identifier = os.environ.get("APP_BUNDLE_IDENTIFIER")
+        apple_team_id = settings.APPLE_TEAM_ID
+        app_bundle_identifier = settings.APP_BUNDLE_IDENTIFIER
 
         attestation_raw = attestation_object.encode("utf-8")
         nonce_raw = bytes.fromhex(challenge)
-
-        apple_team_id = os.environ.get("APPLE_TEAM_ID")
-        app_bundle_identifier = os.environ.get("APP_BUNDLE_IDENTIFIER")
 
         config = AppleConfig(
             key_id=key_id, app_id=f"{apple_team_id}.{app_bundle_identifier}", production=settings.IS_PROD
@@ -274,4 +258,3 @@ api_urls = [
     path("api/token/refresh/ios", NativeTokenIosRefreshView.as_view(), name="token_refresh_ios"),
     path("api/token/refresh/web", NativeTokenWebRefreshView.as_view(), name="token_refresh_web"),
 ]
-
