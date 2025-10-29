@@ -1,12 +1,9 @@
 from typing import Any
 
-import pyattest
-from asgiref.sync import async_to_sync
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.core.cache import cache
 from django.urls import path
-from pyattest.configs.apple import AppleConfig
 from rest_framework import serializers, status
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.request import Request
@@ -186,21 +183,10 @@ class NativeTokenIosRefreshView(TokenRefreshView):
         key_id = request.data.get("keyId")
         attestation_object = request.data.get("attestationObject")
 
-        # challenge = cache.get(key=key_id)
-        challenge = request.data.get("challenge")
-
-        apple_team_id = settings.APPLE_TEAM_ID
-        app_bundle_identifier = settings.APP_BUNDLE_IDENTIFIER
-
-        attestation_raw = attestation_object.encode("utf-8")
-        nonce_raw = bytes.fromhex(challenge)
-
-        config = AppleConfig(
-            key_id=key_id, app_id=f"{apple_team_id}.{app_bundle_identifier}", production=settings.IS_PROD
+        challenge = cache.get(key=key_id)
+        verify_apple_attestation(
+            key_id=key_id, challenge_bytes=challenge, attestation_raw=attestation_object, is_prod=settings.IS_PROD
         )
-        attestation = pyattest.attestation.Attestation(raw=attestation_raw, nonce=nonce_raw, config=config)
-
-        async_to_sync(attestation.verify)()
 
         client = refresh.get("client")
         if client != "native":
