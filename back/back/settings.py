@@ -31,10 +31,6 @@ if USE_SENTRY:
             traces_sample_rate=1.0,
             profiles_sample_rate=1.0,
             send_default_pii=SENTRY_SEND_DEFAULT_PII,
-            sanitize_fields=[
-                "password",
-                "token",
-            ],
         )
     except Exception as e:
         print("WARINING: unable to start sentry", str(e))
