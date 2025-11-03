@@ -1,0 +1,42 @@
+# Cursor Agent Development Setup
+
+## Repository Checkout
+- Clone the backend repo and immediately initialize all sub-repositories:
+  - `git clone <repo-url> && cd little-world-backend`
+  - `git submodule update --init --recursive` (run after every fresh clone or when submodule refs change)
+- Always pull with `--recurse-submodules` when updating: `git pull --recurse-submodules`.
+- Enable faster Docker builds: export `DOCKER_BUILDKIT=1` before building.
+
+## Default Local Environment
+- Build all dev services: `COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml build`.
+- Ensure webpack stat files exist for bundled frontends:
+  - `for frontend in main_frontend admin_panel_frontend cookie_banner_frontend; do touch ./front/$frontend.webpack-stats.json ; done`
+- Start the full stack with hot reload: `COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml up`.
+- To include the optional `patenmatch` frontend, either:
+  - `COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml build patenmatch` then `... up patenmatch`, or
+  - `COMPOSE_PROFILES=all-pt docker compose -f docker-compose.dev.yaml up` for backend + all frontends.
+- Reset networks when containers cannot communicate: `docker network prune` and rerun compose with `--force-recreate`.
+
+## Focused Profiles & Testing
+- Run a specific frontend with hot reload once the full stack built at least once: `COMPOSE_PROFILES=<frontend-name> docker compose -f docker-compose.dev.yaml up` (e.g. `main_frontend`, `admin_panel_frontend`, `cookie_banner_frontend`).
+- Backend-only loop: `COMPOSE_PROFILES=backend docker compose -f docker-compose.dev.yaml up`.
+- Execute targeted Django tests inside the running backend container, e.g. `COMPOSE_PROFILES=all docker compose -f docker-compose.dev.yaml exec backend sh -c "python manage.py test emails --parallel"`.
+
+## Sub-Repository Overview (MANDATORY)
+- All sub-repositories live as git submodules; the agent must keep them cloned and up to date before any build or test step.
+- `front/apps/main_frontend` ? main user-facing SPA served by the backend.
+- `front/apps/admin_panel_frontend` ? admin dashboard assets consumed by Django admin views.
+- `front/apps/cookie_banner_frontend` ? standalone cookie banner bundle injected into marketing surfaces.
+- `front/apps/patenmatch` ? optional PatenMatch partner frontend; only required when working on that experience.
+- `back/_cookie_consent_repo` ? shared cookie-consent snippets/templates embedded into backend views.
+- When switching branches, always run `git submodule sync --recursive && git submodule update --init --recursive` to align submodule commits.
+- Commit updates to submodule references whenever dependent frontend/back artifacts change.
+
+## Useful Defaults
+- Default Django test data loads automatically on first startup; delete `back/db.sqlite3` to reset.
+- Swagger UI: `http://localhost:8000/api/schema/swagger-ui/`.
+- Admin DB overview (requires login): `http://localhost:8000/db/`.
+
+## Documentation Preview (Optional)
+- Build docs locally: `docker compose -f docker-compose.docs.yaml build` then `... up`.
+- Automate docs rebuilds by adding `command: sh -c 'python3 generate_docs.py && sh ./back/entries/docs_entry.sh'` to the docs service definition.
