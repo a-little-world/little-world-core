@@ -4,8 +4,6 @@ The backend consists of a django application that is containerized using docker.
 Builds are manged using docker compose.
 This repo also builds all frontends using webpack and serves them via django views.
 
-> It's always recomended to use `DOCKER_BUILDKIT=1` it is the future default for docker anyways and speeds up builds significantly
-
 ## Servers
 
 1. All feature pull request starting with `staging-*` are auto-deployed. Without credentials!
