@@ -20,11 +20,21 @@
   - `dynamic_template.py` / `send_email.py` – CRUD + sending for dynamic templates and default-template deliveries.
 - `_scripts/pre_render_emails.sh`: Convenience script to fetch rendered email HTML + assets for manual QA.
 
+### LLM Agent Guardrails
+- Always register new default or delayed-match emails under the existing `automated` category in `emails.json`. Do not add new categories for recurring communications unless a human maintainer requests it.
+- Check HTML into `back/emails/template/react_emails/` only. Do not create sibling folders (for example `automatic-emails/`) for new templates.
+- Skip rendering or previewing emails yourself. Produce the template and configuration changes, and leave execution of preview/sync tooling to humans or automated jobs.
+- For auto-sent emails, prepare a sibling pull request in `front/apps/admin_panel_frontend` that updates `src/emails/data/text/automated.json` and `src/emails/data/automated.ts` so the frontend can generate the new HTML before it is copied into the backend.
+- In your final message for automated-email work, include two standalone JSON structures that precisely describe the planned edits: one for `src/emails/data/automated.ts` and one for `src/emails/data/text/automated.json`. Provide enough detail that a separate agent working inside the admin-panel repo can apply the changes verbatim.
+
 ### Default Templates (Automated Emails)
-1. **Design & generate HTML in the admin-panel frontend**
+1. **Define frontend source data**
+   - In the `front/apps/admin_panel_frontend` sub-repo, add or adjust entries in `src/emails/data/text/automated.json` and `src/emails/data/automated.ts` so the React-email builder can produce the new template.
+   - Bundle these edits into a pull request alongside the backend changes.
+2. **Design & generate HTML in the admin-panel frontend**
    - React-email sources live in `front/apps/admin_panel_frontend` (hardcoded; usually edited outside this repo).
    - Ensure the chosen slug matches the desired backend template ID (e.g. `react_emails/welcome.html`).
-2. **Sync frontend output into the backend**
+3. **Sync frontend output into the backend**
    - From `/matching/emails/` click `[DEVELOPMENT] Sync Emails` (requires `DEBUG=True`). This calls:
      - `POST /api/matching/emails/templates/<template_name>/overwrite/` with the freshly built HTML.
      - `POST /api/matching/emails/config/overwrite/` with the updated `emails.json` payload.
