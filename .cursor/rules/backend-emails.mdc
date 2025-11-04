@@ -1,0 +1,82 @@
+## Backend Email Playbook
+
+### Scope
+- Use this guide when creating, updating, or reviewing HTML emails served by the Django backend.
+- Covers both default (auto-sent) emails and ad-hoc dynamic templates.
+
+### Glossary
+- **Default templates**: Versioned HTML files in `back/emails/template/react_emails`. Listed in `back/emails/emails.json` and shipped with the repo. Required for any automatic or recurring communication.
+- **Dynamic templates**: Database-backed entries managed from `/matching/emails/dynamic/…` or the Django admin. Used for one-off or limited campaigns; no git commit required.
+- **Emails config**: Combined metadata, senders, parameter registry, and dependency map stored in `back/emails/emails.json`.
+
+### Key Files & APIs
+- `back/emails/emails.json`: Declares categories, senders, template metadata, parameter definitions, and dependencies.
+- `back/emails/template/react_emails/*.html`: Generated Django templates for default emails (prefixed with `{% load email_utils %}` and `{{ BASE_URL }}` substitutions).
+- `back/emails/templates.py` & `back/emails/mails.py`: Dataclasses defining template defaults and typed parameter bundles for programmatic sends.
+- `back/emails/api/`: REST surface powering `/matching/emails`. Notable modules:
+  - `backend_templates.py` – read-only views (`/templates/<slug>/`, `/templates/<slug>/test/`, `/config/`).
+  - `dev_update_backend_emails.py` – DEBUG-only POST endpoints hit by the `[DEVELOPMENT] Sync Emails` button to write HTML + `emails.json` to disk.
+  - `render_template.py` – resolves template variables using `emails.json` parameter definitions and lookup helpers in `template_lookup.py`.
+  - `dynamic_template.py` / `send_email.py` – CRUD + sending for dynamic templates and default-template deliveries.
+- `_scripts/pre_render_emails.sh`: Convenience script to fetch rendered email HTML + assets for manual QA.
+
+### Default Templates (Automated Emails)
+1. **Design & generate HTML in the admin-panel frontend**
+   - React-email sources live in `front/apps/admin_panel_frontend` (hardcoded; usually edited outside this repo).
+   - Ensure the chosen slug matches the desired backend template ID (e.g. `react_emails/welcome.html`).
+2. **Sync frontend output into the backend**
+   - From `/matching/emails/` click `[DEVELOPMENT] Sync Emails` (requires `DEBUG=True`). This calls:
+     - `POST /api/matching/emails/templates/<template_name>/overwrite/` with the freshly built HTML.
+     - `POST /api/matching/emails/config/overwrite/` with the updated `emails.json` payload.
+   - Agent limitation: you cannot trigger the button. Options:
+     - Ask a human to sync and commit the generated files.
+     - Or manually edit `back/emails/emails.json` and `back/emails/template/react_emails/<slug>.html`, mimicking the frontend output. If you do this manually, replicate the behaviour from `overwrite_backend_template` (prepend `{{ BASE_URL }}` to asset URLs and keep `{% load email_utils %}{% get_base_url as BASE_URL %}` at the top).
+3. **Register backend metadata**
+   - Add/update the email entry under `"emails"` in `emails.json` with unique `id`, `sender_id`, `category_id`, `subject`, `template`, and `theme`.
+   - If the HTML references new template variables, register them under `"parameters"` (lookup function + dependencies) and update `emails/api/template_lookup.py` to provide the lookup.
+   - Extend the dataclass defaults in `back/emails/templates.py` and parameter dataclasses in `back/emails/mails.py` when the email will be used via `send_template_email`.
+4. **Commit artefacts**
+   - Always commit the regenerated HTML file(s), `back/emails/emails.json`, and any modified Python helpers.
+5. **Verify**
+   - Preview in browser via `/matching/emails/templates/<slug>/test/` (DEBUG only) or run `_scripts/pre_render_emails.sh` to produce zipped previews suitable for testi.at. Configure `DJ_EMAIL_STATIC_URL` before running (see `localemailtesting.md`).
+   - Run `python manage.py test emails.tests.EmailTests` to render every template against mocked data.
+
+### Dynamic Templates (Ad-hoc Campaigns)
+- CRUD lives at `/api/matching/emails/dynamic_templates/…` and Django admin (`/admin/emails/dynamictemplate/`). Fields:
+  - `template_name` (unique slug) + `subject` – used when sending.
+  - `template` – Django template string (can reuse the same variables/filters available to default templates).
+  - `content` – optional structured data produced by the frontend builder.
+  - `theme`, `category_id`, `sender_id` – align with entries in `emails.json` (`categories` & `senders`).
+- Example create call (requires auth token for a matching/admin user):
+  ```bash
+  curl -X POST http://localhost:8000/api/matching/emails/dynamic_templates/ \
+    -H "Content-Type: application/json" \
+    -d '{
+      "template_name": "volunteer-nudge",
+      "subject": "Wir vermissen dich, {{ first_name }}",
+      "template": "{% load email_utils %}{% get_base_url as BASE_URL %}<p>Hallo {{ first_name }}</p>",
+      "content": {},
+      "sender_id": "noreply",
+      "category_id": "dynamic",
+      "theme": "little_world"
+    }'
+  ```
+- Sending: `POST /api/matching/emails/dynamic_templates/<template_name>/send/` with `{ "user_list": "<list name or :dyn:<id>>" }`. The view filters out unsubscribed users when the category allows opt-outs.
+- Dynamic templates reuse the same parameter registry as default templates. Adding new placeholders still requires updating `emails.json`/`template_lookup.py`.
+- For QA, fetch metadata via `GET /api/matching/emails/dynamic_templates/<template_name>/` and preview with `/matching/emails/templates/<slug>/test/?user_id=…` by mirroring the default template rendering logic (`render_template_dynamic_lookup`).
+
+### Template Variables & Dependencies
+- Parameter definitions live under `"parameters"` in `emails.json`. Each entry points to a helper in `emails/api/template_lookup.py` and lists required context dependencies (e.g. `user`, `match`, `context.reset_password_url`).
+- The dependency map at the bottom of `emails.json` tells `render_template.py` which query parameters to expect (`user_id`, `match_id`, `proposed_match_id`, plus arbitrary context keys).
+- When introducing a new placeholder:
+  1. Implement the lookup in `emails/api/template_lookup.py` returning the desired value.
+  2. Register the parameter and dependencies in `emails.json`.
+  3. If the dependency is context-driven, ensure callers provide it via `context` payloads (see `send_email.py`).
+  4. Update tests or add a dedicated scenario in `emails/tests.py` if needed.
+
+### Operational Checklist
+- ✅ Decide whether the email is default (requires code + commit) or dynamic (DB only).
+- ✅ Keep slugs consistent across frontend, `emails.json`, and template filenames.
+- ✅ Run the sync endpoints (or manual edits) before committing.
+- ✅ Verify rendering locally and via tests.
+- ✅ Ask a human to click `[DEVELOPMENT] Sync Emails` when automation is not possible.
