@@ -6,12 +6,6 @@
       "description": "Automated emails",
       "unsubscribe": false
     },
-    "automatic-emails": {
-      "id": "automatic-emails",
-      "name": "Automatic Emails",
-      "description": "Automatic follow-up emails",
-      "unsubscribe": false
-    },
     "dynamic": {
       "id": "dynamic",
       "name": "Dynamic",
@@ -211,7 +205,7 @@
     "automatic-emails-u084": {
       "id": "automatic-emails-u084",
       "sender_id": "noreply",
-      "category_id": "automatic-emails",
+      "category_id": "automated",
       "subject": "Wir haben dich nicht vergessen",
       "template": "automatic-emails/u084-delayed-match.html",
       "theme": "little-world"
