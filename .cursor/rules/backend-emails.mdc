@@ -25,6 +25,7 @@
 - Check HTML into `back/emails/template/react_emails/` only. Do not create sibling folders (for example `automatic-emails/`) for new templates.
 - Skip rendering or previewing emails yourself. Produce the template and configuration changes, and leave execution of preview/sync tooling to humans or automated jobs.
 - For auto-sent emails, prepare a sibling pull request in `front/apps/admin_panel_frontend` that updates `src/emails/data/text/automated.json` and `src/emails/data/automated.ts` so the frontend can generate the new HTML before it is copied into the backend.
+- In your final message for automated-email work, include two standalone JSON structures that precisely describe the planned edits: one for `src/emails/data/automated.ts` and one for `src/emails/data/text/automated.json`. Provide enough detail that a separate agent working inside the admin-panel repo can apply the changes verbatim.
 
 ### Default Templates (Automated Emails)
 1. **Define frontend source data**
