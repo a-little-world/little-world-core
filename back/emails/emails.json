@@ -207,7 +207,7 @@
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Wir haben dich nicht vergessen",
-      "template": "automatic-emails/u084-delayed-match.html",
+      "template": "react_emails/u084-delayed-match.html",
       "theme": "little-world"
     }
   },
