@@ -58,7 +58,6 @@ RUN ./node_modules/.bin/webpack \
 # Main Frontend
 FROM front_base_image AS main_frontend_image
 
-RUN cp ./env_apps/main_frontend.${BUILD_TYPE}.env.js ./apps/main_frontend/src/ENVIRONMENT.js
 
 RUN cd apps/main_frontend && npm ci --no-audit
 RUN ./node_modules/.bin/webpack \
