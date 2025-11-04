@@ -20,6 +20,11 @@
   - `dynamic_template.py` / `send_email.py` – CRUD + sending for dynamic templates and default-template deliveries.
 - `_scripts/pre_render_emails.sh`: Convenience script to fetch rendered email HTML + assets for manual QA.
 
+### LLM Agent Guardrails
+- Always register new default or delayed-match emails under the existing `automated` category in `emails.json`. Do not add new categories for recurring communications unless a human maintainer requests it.
+- Check HTML into `back/emails/template/react_emails/` only. Do not create sibling folders (for example `automatic-emails/`) for new templates.
+- Skip rendering or previewing emails yourself. Produce the template and configuration changes, and leave execution of preview/sync tooling to humans or automated jobs.
+
 ### Default Templates (Automated Emails)
 1. **Design & generate HTML in the admin-panel frontend**
    - React-email sources live in `front/apps/admin_panel_frontend` (hardcoded; usually edited outside this repo).
