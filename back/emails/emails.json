@@ -217,7 +217,15 @@
         "subject": "Wir haben dich nicht vergessen",
         "template": "react_emails/u084-delayed-match.html",
         "theme": "little-world"
-      }
+        },
+        "automatic-emails-u081": {
+          "id": "automatic-emails-u081",
+          "sender_id": "noreply",
+          "category_id": "automated",
+          "subject": "Wir starten jetzt die Suche für dich",
+          "template": "react_emails/u081-matching-started.html",
+          "theme": "little-world"
+        }
   },
   "senders": {
     "noreply": "\"Little World\" <noreply@little-world.com>",
