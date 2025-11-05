@@ -218,6 +218,14 @@
           "template": "react_emails/u082-group-calls.html",
           "theme": "little-world"
         },
+        "automatic-emails-u083": {
+          "id": "automatic-emails-u083",
+          "sender_id": "noreply",
+          "category_id": "automated",
+          "subject": "So können wir schneller jemanden für dich finden 💪",
+          "template": "react_emails/u083-availability-reminder.html",
+          "theme": "little-world"
+        },
         "automatic-emails-u084": {
         "id": "automatic-emails-u084",
         "sender_id": "noreply",
@@ -378,6 +386,13 @@
       "lookup": "emails.api.template_lookup.link_url",
       "depends_on": [
         "context.link_url"
+      ]
+    },
+    "availability_url": {
+      "id": "availability_url",
+      "lookup": "emails.api.template_lookup.availability_url",
+      "depends_on": [
+        "user"
       ]
     },
     "date": {
