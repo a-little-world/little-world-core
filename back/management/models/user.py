@@ -199,8 +199,6 @@ class User(AbstractUser):
         & user will be automaticly reidrected to `/mailverify/`
         wich has a button `change-email` which redirects to `/change_email`
         """
-        from emails import mails
-
         from ..api.user import ChangeEmailSerializer
 
         # We do an aditional email serialization here!
@@ -211,30 +209,12 @@ class User(AbstractUser):
         self.state.archive_email_adress(self.email)
         self.state.regnerate_email_auth_code()  # New auth code and pin !
 
-        # We send the email first so if this would fail the changing of email would also fail!
-        # ... so user can not easily be locked out of their account
-        verifiaction_url = f"{settings.BASE_URL}/api/user/verify/email/{self.state.get_email_auth_code_b64()}"
-
         # NOTE the save() method automaicly detects the email change and also changes the username
         # We do this so admins can edit emails in the admin pannel and changes are reflected as expected
         # self.username = prms.email  # <- so the user can login with that email now
         self.email = prms.email.lower()
         self.save()
-
-        if settings.USE_V2_EMAIL_APIS:
-            self.send_email_v2("welcome")
-        else:
-            self.send_email(
-                # We use this here so the models doesnt have to be saved jet
-                overwrite_mail=prms.email,
-                subject="Email Changed, Please verify your new email",
-                mail_data=mails.get_mail_data_by_name("welcome"),
-                mail_params=mails.WelcomeEmailParams(
-                    first_name=self.profile.first_name,
-                    verification_url=verifiaction_url,
-                    verification_code=str(self.state.get_email_auth_pin()),
-                ),
-            )
+        self.send_email_v2("welcome")
 
     def message(
         self,

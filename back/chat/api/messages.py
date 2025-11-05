@@ -3,7 +3,6 @@ from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
-from emails import mails
 from management.helpers import DetailedPaginationMixin, UserStaffRestricedModelViewsetMixin
 from management.models.matches import Match
 from management.tasks import send_email_background

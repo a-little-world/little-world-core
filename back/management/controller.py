@@ -12,7 +12,6 @@ from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
-from emails import mails
 from translations import get_translation
 
 from management import controller
@@ -505,7 +504,7 @@ class EmailSendReport:
     out: str = ""
 
 
-def send_email(
+def send_email( # TODO: deprecated
     user,
     subject: str,
     mail_name: str,
@@ -536,14 +535,14 @@ def send_email(
         report.checked_subscription = False
 
     try:
-        mails.send_email(
-            recivers=[user.email],
-            subject=subject,
-            mail_data=mails.get_mail_data_by_name(mail_name),
-            mail_params=mail_params,
-            raise_exception=True,
-            emulated_send=emulated_send,
-        )
+        #mails.send_email(
+        #    recivers=[user.email],
+        #    subject=subject,
+        #    mail_data=mails.get_mail_data_by_name(mail_name),
+        #    mail_params=mail_params,
+        #    raise_exception=True,
+        #    emulated_send=emulated_send,
+        #)
         report.send = not emulated_send
     except Exception as e:
         print("Error sending email", str(e), mail_name)
@@ -586,7 +585,6 @@ def send_group_mail(
 
 
 def delete_user(user, management_user=None, send_deletion_email=False):
-    from emails import mails
 
     if send_deletion_email:
         user.send_email_v2("account-deleted")

@@ -308,22 +308,11 @@ def check_match_still_in_contact_emails():
 @shared_task
 def dispatch_admin_email_notification(subject, message):
     from django.conf import settings
-    from emails import mails
 
     from . import controller
 
     base_management_user = controller.get_base_management_user()
-
-    if settings.USE_V2_EMAIL_APIS:
-        raise NotImplementedError("V2 email api not implemented yet!")
-    else:
-        base_management_user.send_email(
-            subject=subject,
-            mail_data=mails.get_mail_data_by_name("raw"),
-            mail_params=mails.RAWTemplateMailParams(
-                subject_header_text=subject, greeting=message, content_start_text=message
-            ),
-        )
+    raise NotImplementedError("V2 email api not implemented yet!")
 
 
 @shared_task

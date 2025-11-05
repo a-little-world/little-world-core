@@ -17,8 +17,6 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django_rest_passwordreset.signals import reset_password_token_created
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
-from emails import mails
-from emails.mails import PwResetMailParams, get_mail_data_by_name
 from rest_framework import authentication, permissions, serializers, status
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -487,25 +485,7 @@ class UnmatchSelfSerializer(serializers.Serializer):
 @login_required
 @api_view(["POST"])
 def resend_verification_mail(request):
-    if settings.USE_V2_EMAIL_APIS:
-        request.user.send_email_v2("verify-email")
-    else:
-        # TODO: depricate the old way
-        link_route = "mailverify_link"
-        verifiaction_url = f"{settings.BASE_URL}/{link_route}/{request.user.state.get_email_auth_code_b64()}"
-        mails.send_email(
-            recivers=[request.user.email],
-            subject="{code} - Verifizierungscode zur E-Mail Bestätigung".format(
-                code=request.user.state.get_email_auth_pin()
-            ),
-            mail_data=mails.get_mail_data_by_name("welcome"),
-            mail_params=mails.WelcomeEmailParams(
-                first_name=request.user.profile.first_name,
-                verification_url=verifiaction_url,
-                verification_code=str(request.user.state.get_email_auth_pin()),
-            ),
-        )
-
+    request.user.send_email_v2("verify-email")
     return Response("Resend verification mail")
 
 
@@ -520,15 +500,7 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
     usr_hash = reset_password_token.user.hash
     reset_password_url = f"{settings.BASE_URL}/set_password/{usr_hash}/{reset_password_token.key}"
 
-    if settings.USE_V2_EMAIL_APIS:
-        reset_password_token.user.send_email_v2("reset-password", context={"reset_password_url": reset_password_url})
-    else:
-        mail_data = get_mail_data_by_name("password_reset")
-        reset_password_token.user.send_email(
-            subject=get_translation("api.user_resetpw_mail_subject"),
-            mail_data=mail_data,
-            mail_params=PwResetMailParams(password_reset_url=reset_password_url),
-        )
+    reset_password_token.user.send_email_v2("reset-password", context={"reset_password_url": reset_password_url})
 
 
 @login_required
