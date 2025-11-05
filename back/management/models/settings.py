@@ -2,7 +2,6 @@ from uuid import uuid4
 
 from django.conf import settings
 from django.db import models
-from emails import mails
 from multiselectfield import MultiSelectField
 from rest_framework import serializers
 
@@ -38,30 +37,13 @@ class EmailSettings(models.Model):
         if self.user_form_unfinished_reminder1:
             return  # already sent
 
-        from management import controller
-
         self.user_form_unfinished_reminder1 = True
 
         # send groupmail function automaticly checks if users have unsubscribed!
         # we still mark email verification reminder 1 as True, since we at least tried to send it,
         # never wanna send twice! Not even **try** twice!
-        def get_params(user):
-            return mails.UnfinishedUserForm1Params(
-                first_name=user.profile.first_name,
-                unsubscribe_url1="",  # filled automatically
-            )
-
         # send the mail
-        if settings.USE_V2_EMAIL_APIS:
-            user.send_email_v2("unfinished_user_form_1")
-        else:
-            controller.send_group_mail(
-                users=[user],
-                subject="Umfrage beenden für Bekanntschaften aus aller Welt",
-                mail_name="unfinished_user_form_1",
-                mail_params_func=get_params,
-                unsubscribe_group=UnsubscibeOptions.finish_reminders,
-            )
+        user.send_email_v2("unfinished_user_form_1")
 
         self.save()
 
@@ -69,62 +51,27 @@ class EmailSettings(models.Model):
         if self.user_form_unfinished_reminder2:
             return  # already sent
 
-        from management import controller
 
         self.user_form_unfinished_reminder2 = True
 
         # send groupmail function automaticly checks if users have unsubscribed!
         # we still mark email verification reminder 1 as True, since we at least tried to send it,
         # never wanna send twice! Not even **try** twice!
-        def get_params(user):
-            return mails.UnfinishedUserForm2Params(
-                first_name=user.profile.first_name,
-                unsubscribe_url1="",  # filled automatically
-            )
-
-        if settings.USE_V2_EMAIL_APIS:
-            user.send_email_v2("verify-email")
-            # TODO: should be 'verify-email-2' ? atm we just reuse the first reminder
-        else:
-            controller.send_group_mail(
-                users=[user],
-                subject="Umfrage beenden für Bekanntschaften aus aller Welt",
-                mail_name="unfinished_user_form_2",
-                mail_params_func=get_params,
-                unsubscribe_group=UnsubscibeOptions.finish_reminders,
-            )
-
+        user.send_email_v2("verify-email")
         self.save()
 
     def send_email_verification_reminder1(self, user):
         if self.email_verification_reminder1:
             return  # already sent
-        from management import controller
 
         self.email_verification_reminder1 = True
 
         # send groupmail function automaticly checks if users have unsubscribed!
         # we still mark email verification reminder 1 as True, since we at least tried to send it,
         # never wanna send twice! Not even **try** twice!
-        def get_params(user):
-            return mails.UnfinishedEmailVerificationParams(
-                first_name=user.profile.first_name,
-                unsubscribe_url1="",  # filled automatically
-            )
 
         # send the mail
-        if settings.USE_V2_EMAIL_APIS:
-            user.send_email_v2("verify-email")
-        else:
-            controller.send_group_mail(
-                users=[user],
-                subject="Bitte bestätige deine E-Mail-Adresse für Little World",
-                mail_name="email_unverified",
-                mail_params_func=get_params,
-                unsubscribe_group=UnsubscibeOptions.finish_reminders,
-                emulated_send=True,  # TODO Just debug for now
-            )
-
+        user.send_email_v2("verify-email")
         self.save()
 
 
