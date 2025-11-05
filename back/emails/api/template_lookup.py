@@ -69,6 +69,10 @@ def link_url(user=None, match=None, context={"link_url": "Not set"}):
     return context["link_url"]
 
 
+def availability_url(user):
+    return f"{settings.BASE_URL}/app/profile/availability"
+
+
 def unsubscribe_url(user):
     return f"{settings.BASE_URL}/email-preferences/{user.settings.email_settings.hash}/"
 
