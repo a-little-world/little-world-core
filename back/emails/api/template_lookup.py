@@ -70,7 +70,7 @@ def link_url(user=None, match=None, context={"link_url": "Not set"}):
 
 
 def availability_url(user):
-    return f"{settings.BASE_URL}/app/profile/availability"
+    return f"{settings.BASE_URL}/app/profile"
 
 
 def unsubscribe_url(user):
