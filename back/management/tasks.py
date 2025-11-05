@@ -265,53 +265,13 @@ def check_registration_reminders():
 
 
 @shared_task
-def check_match_still_in_contact_emails():
-    # TODO: this is not active at the moment
-    # TODO: re-implement with v2 api
-    from django.db.models import Q
-    from django.utils import timezone
-    from emails import mails
-
-    from management.models.matches import Match
-
-    matches_older_than_3_weeks = Match.objects.filter(
-        Q(created_at__lte=timezone.now() - timezone.timedelta(days=21)),
-        still_in_contact_mail_send=False,
-    ).exclude(support_matching=True)
-
-    report = []
-
-    for match in matches_older_than_3_weeks:
-        for comb in [(match.user1, match.user2), (match.user2, match.user1)]:
-            comb[0].send_email(
-                subject="Matching noch aktiv?",
-                mail_data=mails.get_mail_data_by_name("still_in_contact"),
-                mail_params=mails.StillInContactParams(
-                    first_name=comb[0].profile.first_name,
-                    partner_first_name=comb[1].profile.first_name,
-                ),
-                emulated_send=True,
-            )
-        report.append(
-            {
-                "kind": "send_still_in_contanct_email",
-                "match": str(match.pk),
-                "user1": str(match.user1.hash),
-                "user2": str(match.user2.hash),
-            }
-        )
-        match.still_in_contact_mail_send = True
-        match.save()
-    return report
-
-
-@shared_task
 def dispatch_admin_email_notification(subject, message):
     from django.conf import settings
 
     from . import controller
 
     base_management_user = controller.get_base_management_user()
+
     raise NotImplementedError("V2 email api not implemented yet!")
 
 
