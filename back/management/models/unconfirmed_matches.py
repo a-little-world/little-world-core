@@ -133,7 +133,6 @@ class ProposedMatch(models.Model):
         if self.send_inital_mail:
             print("Initial mail, already sent")
             return
-        from management import controller
 
         self.send_inital_mail = True
         self.save()
@@ -147,8 +146,6 @@ class ProposedMatch(models.Model):
         if self.expired_mail_send:
             print("Expiration mail, already sent")
             return
-
-        from management import controller
 
         self.expired_mail_send = True
         self.save()
@@ -164,8 +161,6 @@ class ProposedMatch(models.Model):
         if send_reminder and reminder_due and (not self.reminder_send):
             self.reminder_send = True
             self.save()
-
-            from management import controller
 
             learner = self.get_learner()
             # send groupmail function automaticly checks if users have unsubscribed!
