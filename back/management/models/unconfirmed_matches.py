@@ -133,20 +133,13 @@ class ProposedMatch(models.Model):
         if self.send_inital_mail:
             print("Initial mail, already sent")
             return
-        from emails import mails
-
         from management import controller
 
         self.send_inital_mail = True
         self.save()
 
         learner = self.get_learner()
-
-        if settings.USE_V2_EMAIL_APIS:
-            learner.send_email_v2("confirm-match-1", proposed_match_id=self.id)
-        else:
-            if settings.DISABLE_LEGACY_EMAIL_SENDING:
-                raise Exception("Legacy email sending is disabled, but we are trying to send a legacy email")
+        learner.send_email_v2("confirm-match-1", proposed_match_id=self.id)
 
     def send_expiration_mail(self):
         # TODO: there are very rare concurrency issues possible here right?
@@ -154,7 +147,6 @@ class ProposedMatch(models.Model):
         if self.expired_mail_send:
             print("Expiration mail, already sent")
             return
-        from emails import mails
 
         from management import controller
 
@@ -162,12 +154,7 @@ class ProposedMatch(models.Model):
         self.save()
 
         learner = self.get_learner()
-
-        if settings.USE_V2_EMAIL_APIS:
-            learner.send_email_v2("expired-match", proposed_match_id=self.id)
-        else:
-            if settings.DISABLE_LEGACY_EMAIL_SENDING:
-                raise Exception("Legacy email sending is disabled, but we are trying to send a legacy email")
+        learner.send_email_v2("expired-match", proposed_match_id=self.id)
 
     def get_partner(self, user):
         return self.user1 if self.user2 == user else self.user2
@@ -178,8 +165,6 @@ class ProposedMatch(models.Model):
             self.reminder_send = True
             self.save()
 
-            from emails import mails
-
             from management import controller
 
             learner = self.get_learner()
@@ -187,17 +172,7 @@ class ProposedMatch(models.Model):
             # we still mark email verification reminder 1 as True, since we at least tried to send it,
             # never wanna send twice! Not even **try** twice!
             other = self.get_partner(learner)
-
-            def get_params(user):
-                return mails.MatchConfirmationMail2Params(
-                    match_first_name=other.profile.first_name, first_name=user.profile.first_name
-                )
-
-            if settings.USE_V2_EMAIL_APIS:
-                learner.send_email_v2("confirm-match-2", proposed_match_id=self.id)
-            else:
-                if settings.DISABLE_LEGACY_EMAIL_SENDING:
-                    raise Exception("Legacy email sending is disabled, but we are trying to send a legacy email")
+            learner.send_email_v2("confirm-match-2", proposed_match_id=self.id)
 
         return reminder_due
 
