@@ -104,6 +104,9 @@ LIVEKIT_API_SECRET = os.environ.get("DJ_LIVEKIT_API_SECRET", "")
 LIVEKIT_WEBHOOK_SECRET = os.environ.get("DJ_LIVEKIT_WEBHOOK_SECRET", "")
 LIVEKIT_URL = os.environ.get("DJ_LIVEKIT_URL", "")
 
+MATOMO_TOKEN_AUTH = os.environ.get("DJ_MATOMO_TOKEN_AUTH", "")
+MATOMO_URL = os.environ.get("DJ_MATOMO_URL", "")
+
 if IS_PROD and "K8_POD_IP" in os.environ:
     # So that we can further restrict access to the depoloyment kubernetes node
     ALLOWED_HOSTS.append(os.environ["K8_POD_IP"])
