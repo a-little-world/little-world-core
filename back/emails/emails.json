@@ -313,7 +313,15 @@
             "subject": "Schön, dass ihr in Kontakt bleibt",
             "template": "react_emails/m051-off-platform.html",
             "theme": "little-world"
-          }
+            },
+            "automatic-emails-m055": {
+              "id": "automatic-emails-m055",
+              "sender_id": "noreply",
+              "category_id": "automated",
+              "subject": "🏆 Glückwunsch! 10 Wochen Austausch mit {{ partner_first_name }}",
+              "template": "react_emails/m055-completed-match-poll.html",
+              "theme": "little-world"
+            }
   },
   "senders": {
     "noreply": "\"Little World\" <noreply@little-world.com>",
@@ -474,6 +482,13 @@
         "context.link_url"
       ]
     },
+      "completed_match_poll_url": {
+        "id": "completed_match_poll_url",
+        "lookup": "emails.api.template_lookup.completed_match_poll_url",
+        "depends_on": [
+          "context.completed_match_poll_url"
+        ]
+      },
     "availability_url": {
       "id": "availability_url",
       "lookup": "emails.api.template_lookup.availability_url",
