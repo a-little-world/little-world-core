@@ -54,7 +54,6 @@ from management.api.user_advanced import api_urls as user_advanced_api_urls
 from management.api.utils_advanced import CustomResetPasswordRequestTokenViewSet
 from management.views import (
     admin_panel_devkit,
-    admin_panel_emails,
     email_templates,
     landing_page,
     main_frontend,
@@ -210,7 +209,6 @@ view_routes = [
     path("api/calcom/", calcom.callcom_websocket_callback),
     *matching_panel.view_urls,
     *email_templates.view_urls,
-    *admin_panel_emails.email_view_routes,
     *admin_panel_devkit.devkit_urls,
     path("api/dynamic_user_lists/", dynamic_user_list_general_api),
     path("api/dynamic_user_lists/<int:pk>/", dynamic_user_list_single_api),
