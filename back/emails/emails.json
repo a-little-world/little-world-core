@@ -306,6 +306,14 @@
             "template": "react_emails/u081-matching-started.html",
             "theme": "little-world"
           },
+          "automatic-emails-m043": {
+            "id": "automatic-emails-m043",
+            "sender_id": "noreply",
+            "category_id": "automated",
+            "subject": "🎉 Wow! Schon 5 Videocalls mit {{ partner_first_name }}",
+            "template": "react_emails/m043-five-videocalls-survey.html",
+            "theme": "little-world"
+          },
             "automatic-emails-m044": {
               "id": "automatic-emails-m044",
               "sender_id": "noreply",
@@ -534,6 +542,13 @@
           "depends_on": [
             "context.five_week_survey_url"
           ]
+      },
+      "post_videocall_survey_url": {
+        "id": "post_videocall_survey_url",
+        "lookup": "emails.api.template_lookup.post_videocall_survey_url",
+        "depends_on": [
+          "context.post_videocall_survey_url"
+        ]
       },
     "availability_url": {
       "id": "availability_url",
