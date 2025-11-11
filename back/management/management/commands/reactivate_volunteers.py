@@ -21,7 +21,6 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        from emails import mails
         from management.tasks import send_email_background
         from management import controller
         from management.api.user_advanced_filter_lists import get_list_by_name
