@@ -270,16 +270,50 @@ jobs:
         id: run_tests
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         run: |
+          set -euo pipefail
           sed -i '/^REDIS_URL/d' .env
           REDIS_URL="redis://host.docker.internal:6379"
           echo "REDIS_URL=\"$REDIS_URL\"" >> .env
           docker run -d --name redis-test -p 6379:6379 redis
-          if docker compose run all python manage.py test; then
-            echo "test_result=pass" >> $GITHUB_OUTPUT
-          else
-            echo "test_result=fail" >> $GITHUB_OUTPUT
-          fi
+          # Run tests and capture logs to file while preserving exit code
+          LOG_FILE="test_output.log"
+          : > "$LOG_FILE"
+          set +e
+          docker compose run all python manage.py test 2>&1 | tee -a "$LOG_FILE"
+          TEST_EXIT=${PIPESTATUS[0]}
+          set -e
+          if [ $TEST_EXIT -eq 0 ]; then echo "test_result=pass" >> $GITHUB_OUTPUT; else echo "test_result=fail" >> $GITHUB_OUTPUT; fi
           docker rm -f redis-test
+      - name: Upload test log artifact
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: django-test-log
+          path: test_output.log
+          if-no-files-found: ignore
+      - name: Get test log artifact URL
+        id: get_test_artifact_url
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        run: |
+          set -euo pipefail
+          API_URL="https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts?per_page=100"
+          ARTIFACT_URL="$(curl -sS -H "Authorization: token ${{ secrets.BOT_PAT }}" "$API_URL" \
+            | jq -r '.artifacts[] | select(.name=="django-test-log") | .archive_download_url' || true)"
+          # In case not found yet due to eventual consistency, fall back to empty
+          ARTIFACT_URL="${ARTIFACT_URL:-}"
+          echo "url=$ARTIFACT_URL" >> "$GITHUB_OUTPUT"
+      - name: Prepare test log snippet
+        id: test_log_snippet
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.run_tests.outputs.test_result == 'fail'
+        run: |
+          # Prepare a truncated snippet to avoid exceeding GitHub comment limits
+          # Take the last 400 lines; fall back gracefully if file is small/missing
+          SNIPPET="$( (tail -n 400 test_output.log 2>/dev/null || true) )"
+          {
+            echo "snippet<<EOF"
+            echo "$SNIPPET"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
       - name: Measure end time
         id: end_tests
         run: |
@@ -304,5 +338,21 @@ jobs:
               fromJSON('{"fail":"❌","pass":"✅"}')[steps.run_tests.outputs.test_result]
             }}
             Duration: ${{ steps.execution_time_tests.outputs.DURATION }} seconds
+            Artifact: [django-test-log](${{ steps.get_test_artifact_url.outputs.url }})
 
             <!-- lw-staging-workflow -->
+      - name: Append test log on failure
+        uses: peter-evans/create-or-update-comment@v4
+        id: append_test_log_failure
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.run_tests.outputs.test_result == 'fail'
+        with:
+          token: ${{ secrets.BOT_PAT }}
+          comment-id: ${{ steps.create_comment.outputs.comment-id }}
+          body: |
+            <details>
+            <summary>Test log (last 400 lines)</summary>
+            
+            ```text
+            ${{ steps.test_log_snippet.outputs.snippet }}
+            ```
+            </details>
