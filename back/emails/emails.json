@@ -314,6 +314,14 @@
             "template": "react_emails/m051-off-platform.html",
             "theme": "little-world"
             },
+              "automatic-emails-m054": {
+                "id": "automatic-emails-m054",
+                "sender_id": "noreply",
+                "category_id": "automated",
+                "subject": "✨ Teile deine Geschichte und inspiriere andere",
+                "template": "react_emails/m054-share-story-invite.html",
+                "theme": "little-world"
+              },
             "automatic-emails-m055": {
               "id": "automatic-emails-m055",
               "sender_id": "noreply",
@@ -482,6 +490,13 @@
         "context.link_url"
       ]
     },
+      "share_story_url": {
+        "id": "share_story_url",
+        "lookup": "emails.api.template_lookup.share_story_url",
+        "depends_on": [
+          "context.share_story_url"
+        ]
+      },
       "completed_match_poll_url": {
         "id": "completed_match_poll_url",
         "lookup": "emails.api.template_lookup.completed_match_poll_url",
