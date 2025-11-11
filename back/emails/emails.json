@@ -226,6 +226,14 @@
           "template": "react_emails/u083-availability-reminder.html",
           "theme": "little-world"
         },
+          "automatic-emails-u073": {
+            "id": "automatic-emails-u073",
+            "sender_id": "noreply",
+            "category_id": "automated",
+            "subject": "Noch kein Match? So kannst du deine Chancen erhöhen",
+            "template": "react_emails/u073-availability-reminder.html",
+            "theme": "little-world"
+          },
           "automatic-emails-u084": {
           "id": "automatic-emails-u084",
           "sender_id": "noreply",
