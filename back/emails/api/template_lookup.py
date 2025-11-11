@@ -77,6 +77,10 @@ def completed_match_poll_url(user=None, match=None, context={"completed_match_po
     return context["completed_match_poll_url"]
 
 
+def five_week_survey_url(user=None, match=None, context={"five_week_survey_url": "Not set"}):
+    return context["five_week_survey_url"]
+
+
 def call_link(user=None, match=None, context={"call_link": "Not set"}):
     return context["call_link"]
 
