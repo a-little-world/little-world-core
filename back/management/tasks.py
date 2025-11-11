@@ -263,18 +263,6 @@ def check_registration_reminders():
         ems = user.settings.email_settings
         ems.send_user_form_unfinished_reminder2(user)
 
-
-@shared_task
-def dispatch_admin_email_notification(subject, message):
-    from django.conf import settings
-
-    from . import controller
-
-    base_management_user = controller.get_base_management_user()
-
-    raise NotImplementedError("V2 email api not implemented yet!")
-
-
 @shared_task
 def request_streamed_ai_response(messages, model="gpt-3.5-turbo", backend="default"):
     from django.conf import settings
