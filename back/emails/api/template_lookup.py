@@ -69,6 +69,10 @@ def link_url(user=None, match=None, context={"link_url": "Not set"}):
     return context["link_url"]
 
 
+def completed_match_poll_url(user=None, match=None, context={"completed_match_poll_url": "Not set"}):
+    return context["completed_match_poll_url"]
+
+
 def call_link(user=None, match=None, context={"call_link": "Not set"}):
     return context["call_link"]
 
