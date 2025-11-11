@@ -306,7 +306,15 @@
             "template": "react_emails/u081-matching-started.html",
             "theme": "little-world"
           },
-          "automatic-emails-m045": {
+            "automatic-emails-m044": {
+              "id": "automatic-emails-m044",
+              "sender_id": "noreply",
+              "category_id": "automated",
+              "subject": "✨ Teile deine Geschichte und inspiriere andere",
+              "template": "react_emails/m044-share-story-invite.html",
+              "theme": "little-world"
+            },
+            "automatic-emails-m045": {
             "id": "automatic-emails-m045",
             "sender_id": "noreply",
             "category_id": "automated",
