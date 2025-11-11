@@ -291,17 +291,12 @@ jobs:
           name: django-test-log
           path: test_output.log
           if-no-files-found: ignore
-      - name: Get test log artifact URL
+      - name: Get artifact page URL
         id: get_test_artifact_url
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         run: |
-          set -euo pipefail
-          API_URL="https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts?per_page=100"
-          ARTIFACT_URL="$(curl -sS -H "Authorization: token ${{ secrets.BOT_PAT }}" "$API_URL" \
-            | jq -r '.artifacts[] | select(.name=="django-test-log") | .archive_download_url' || true)"
-          # In case not found yet due to eventual consistency, fall back to empty
-          ARTIFACT_URL="${ARTIFACT_URL:-}"
-          echo "url=$ARTIFACT_URL" >> "$GITHUB_OUTPUT"
+          # Link to the Actions run page which shows artifacts in the GitHub UI
+          echo "url=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> "$GITHUB_OUTPUT"
       - name: Prepare test log snippet
         id: test_log_snippet
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.run_tests.outputs.test_result == 'fail'
@@ -338,7 +333,7 @@ jobs:
               fromJSON('{"fail":"❌","pass":"✅"}')[steps.run_tests.outputs.test_result]
             }}
             Duration: ${{ steps.execution_time_tests.outputs.DURATION }} seconds
-            Artifact: [django-test-log](${{ steps.get_test_artifact_url.outputs.url }})
+            Artifacts: [View in run](${{ steps.get_test_artifact_url.outputs.url }}) — django-test-log
 
             <!-- lw-staging-workflow -->
       - name: Append test log on failure
