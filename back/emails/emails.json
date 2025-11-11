@@ -202,14 +202,22 @@
         "template": "react_emails/still-in-contact-inactive.html",
         "theme": "little-world"
       },
-        "automatic-emails-u023": {
-          "id": "automatic-emails-u023",
-          "sender_id": "noreply",
-          "category_id": "automated",
-          "subject": "Starte jetzt bei Little World",
-          "template": "react_emails/u023-onboarding-reminder.html",
-          "theme": "little-world"
-        },
+          "automatic-emails-u023": {
+            "id": "automatic-emails-u023",
+            "sender_id": "noreply",
+            "category_id": "automated",
+            "subject": "Starte jetzt bei Little World",
+            "template": "react_emails/u023-onboarding-reminder.html",
+            "theme": "little-world"
+          },
+          "automatic-emails-u025": {
+            "id": "automatic-emails-u025",
+            "sender_id": "noreply",
+            "category_id": "automated",
+            "subject": "Viele Lernende warten – bist du dabei?",
+            "template": "react_emails/u025-onboarding-reminder.html",
+            "theme": "little-world"
+          },
         "automatic-emails-u043": {
           "id": "automatic-emails-u043",
           "sender_id": "noreply",
