@@ -226,14 +226,22 @@
           "template": "react_emails/u083-availability-reminder.html",
           "theme": "little-world"
         },
-        "automatic-emails-u084": {
-        "id": "automatic-emails-u084",
-        "sender_id": "noreply",
-        "category_id": "automated",
-        "subject": "Wir haben dich nicht vergessen",
-        "template": "react_emails/u084-delayed-match.html",
-        "theme": "little-world"
-        },
+          "automatic-emails-u084": {
+          "id": "automatic-emails-u084",
+          "sender_id": "noreply",
+          "category_id": "automated",
+          "subject": "Wir haben dich nicht vergessen",
+          "template": "react_emails/u084-delayed-match.html",
+          "theme": "little-world"
+          },
+          "automatic-emails-u074": {
+            "id": "automatic-emails-u074",
+            "sender_id": "noreply",
+            "category_id": "automated",
+            "subject": "Wir haben dich nicht vergessen",
+            "template": "react_emails/u074-delayed-match.html",
+            "theme": "little-world"
+          },
           "automatic-emails-u081": {
             "id": "automatic-emails-u081",
             "sender_id": "noreply",
