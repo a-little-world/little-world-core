@@ -69,6 +69,10 @@ def link_url(user=None, match=None, context={"link_url": "Not set"}):
     return context["link_url"]
 
 
+def call_link(user=None, match=None, context={"call_link": "Not set"}):
+    return context["call_link"]
+
+
 def availability_url(user):
     return f"{settings.BASE_URL}/app/profile"
 
