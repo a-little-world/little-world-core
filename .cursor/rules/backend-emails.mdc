@@ -12,7 +12,6 @@
 ### Key Files & APIs
 - `back/emails/emails.json`: Declares categories, senders, template metadata, parameter definitions, and dependencies.
 - `back/emails/template/react_emails/*.html`: Generated Django templates for default emails (prefixed with `{% load email_utils %}` and `{{ BASE_URL }}` substitutions).
-- `back/emails/templates.py` & `back/emails/mails.py`: Dataclasses defining template defaults and typed parameter bundles for programmatic sends.
 - `back/emails/api/`: REST surface powering `/matching/emails`. Notable modules:
   - `backend_templates.py` – read-only views (`/templates/<slug>/`, `/templates/<slug>/test/`, `/config/`).
   - `dev_update_backend_emails.py` – DEBUG-only POST endpoints hit by the `[DEVELOPMENT] Sync Emails` button to write HTML + `emails.json` to disk.
