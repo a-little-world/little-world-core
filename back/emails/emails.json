@@ -202,22 +202,30 @@
         "template": "react_emails/still-in-contact-inactive.html",
         "theme": "little-world"
       },
-            "automatic-emails-u023": {
-              "id": "automatic-emails-u023",
-              "sender_id": "noreply",
-              "category_id": "automated",
-              "subject": "Starte jetzt bei Little World",
-              "template": "react_emails/u023-onboarding-reminder.html",
-              "theme": "little-world"
-            },
-            "automatic-emails-u053": {
-              "id": "automatic-emails-u053",
-              "sender_id": "noreply",
-              "category_id": "automated",
-              "subject": "Erinnerung: Dein Onboarding-Gespräch",
-              "template": "react_emails/u053-onboarding-no-show-reminder.html",
-              "theme": "little-world"
-            },
+              "automatic-emails-u023": {
+                "id": "automatic-emails-u023",
+                "sender_id": "noreply",
+                "category_id": "automated",
+                "subject": "Starte jetzt bei Little World",
+                "template": "react_emails/u023-onboarding-reminder.html",
+                "theme": "little-world"
+              },
+              "automatic-emails-u044": {
+                "id": "automatic-emails-u044",
+                "sender_id": "noreply",
+                "category_id": "automated",
+                "subject": "In einer Stunde startet dein Onboarding",
+                "template": "react_emails/u044-onboarding-call-reminder.html",
+                "theme": "little-world"
+              },
+              "automatic-emails-u053": {
+                "id": "automatic-emails-u053",
+                "sender_id": "noreply",
+                "category_id": "automated",
+                "subject": "Erinnerung: Dein Onboarding-Gespräch",
+                "template": "react_emails/u053-onboarding-no-show-reminder.html",
+                "theme": "little-world"
+              },
           "automatic-emails-u072": {
             "id": "automatic-emails-u072",
             "sender_id": "noreply",
@@ -323,6 +331,13 @@
         "lookup": "emails.api.template_lookup.prematching_booking_link",
         "depends_on": [
           "user"
+        ]
+      },
+      "call_link": {
+        "id": "call_link",
+        "lookup": "emails.api.template_lookup.call_link",
+        "depends_on": [
+          "context.call_link"
         ]
       },
     "first_name": {
