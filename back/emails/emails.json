@@ -306,6 +306,14 @@
             "template": "react_emails/u081-matching-started.html",
             "theme": "little-world"
           },
+          "automatic-emails-m045": {
+            "id": "automatic-emails-m045",
+            "sender_id": "noreply",
+            "category_id": "automated",
+            "subject": "🏆 Glückwunsch! 10 Videocalls mit {{ partner_first_name }} abgeschlossen",
+            "template": "react_emails/m045-ten-videocalls-completed.html",
+            "theme": "little-world"
+          },
           "automatic-emails-m051": {
             "id": "automatic-emails-m051",
             "sender_id": "noreply",
@@ -313,7 +321,7 @@
             "subject": "Schön, dass ihr in Kontakt bleibt",
             "template": "react_emails/m051-off-platform.html",
             "theme": "little-world"
-            },
+          },
                 "automatic-emails-m053": {
                   "id": "automatic-emails-m053",
                   "sender_id": "noreply",
