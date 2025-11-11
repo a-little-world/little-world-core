@@ -314,6 +314,14 @@
             "template": "react_emails/m051-off-platform.html",
             "theme": "little-world"
             },
+                "automatic-emails-m053": {
+                  "id": "automatic-emails-m053",
+                  "sender_id": "noreply",
+                  "category_id": "automated",
+                  "subject": "🎉 Schon 5 Wochen im Austausch mit {{ partner_first_name }}",
+                  "template": "react_emails/m053-five-week-survey.html",
+                  "theme": "little-world"
+                },
               "automatic-emails-m054": {
                 "id": "automatic-emails-m054",
                 "sender_id": "noreply",
@@ -503,6 +511,13 @@
         "depends_on": [
           "context.completed_match_poll_url"
         ]
+        },
+        "five_week_survey_url": {
+          "id": "five_week_survey_url",
+          "lookup": "emails.api.template_lookup.five_week_survey_url",
+          "depends_on": [
+            "context.five_week_survey_url"
+          ]
       },
     "availability_url": {
       "id": "availability_url",
