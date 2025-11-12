@@ -330,6 +330,14 @@
               "template": "react_emails/m044-share-story-invite.html",
               "theme": "little-world"
             },
+            "automatic-emails-m033": {
+              "id": "automatic-emails-m033",
+              "sender_id": "noreply",
+              "category_id": "automated",
+              "subject": "⏳ Noch kein Video-Call – gebt uns bitte ein kurzes Update",
+              "template": "react_emails/m033-no-videocall-update.html",
+              "theme": "little-world"
+            },
             "automatic-emails-m045": {
             "id": "automatic-emails-m045",
             "sender_id": "noreply",
