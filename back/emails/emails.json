@@ -330,7 +330,15 @@
               "template": "react_emails/m044-share-story-invite.html",
               "theme": "little-world"
             },
-                  "automatic-emails-m023": {
+                    "automatic-emails-m014": {
+                      "id": "automatic-emails-m014",
+                      "sender_id": "noreply",
+                      "category_id": "automated",
+                      "subject": "Bitte nimm Kontakt zu deinem Match auf 🤝",
+                      "template": "react_emails/m014-contact-reminder.html",
+                      "theme": "little-world"
+                    },
+                    "automatic-emails-m023": {
                       "id": "automatic-emails-m023",
                       "sender_id": "noreply",
                       "category_id": "automated",
