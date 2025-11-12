@@ -330,7 +330,15 @@
               "template": "react_emails/m044-share-story-invite.html",
               "theme": "little-world"
             },
-                      "automatic-emails-m013": {
+                        "automatic-emails-m012": {
+                          "id": "automatic-emails-m012",
+                          "sender_id": "noreply",
+                          "category_id": "automated",
+                          "subject": "🎉 Dein Match ist da – starte deine erste Unterhaltung!",
+                          "template": "react_emails/m012-first-conversation-reminder.html",
+                          "theme": "little-world"
+                        },
+                        "automatic-emails-m013": {
                         "id": "automatic-emails-m013",
                         "sender_id": "noreply",
                         "category_id": "automated",
