@@ -330,6 +330,14 @@
               "template": "react_emails/m044-share-story-invite.html",
               "theme": "little-world"
             },
+                  "automatic-emails-m024": {
+                    "id": "automatic-emails-m024",
+                    "sender_id": "noreply",
+                    "category_id": "automated",
+                    "subject": "📩 Bitte antworte deinem Match – sonst wird es entfernt ⏳",
+                    "template": "react_emails/m024-no-answer-reminder.html",
+                    "theme": "little-world"
+                  },
                 "automatic-emails-m025": {
                   "id": "automatic-emails-m025",
                   "sender_id": "noreply",
@@ -575,6 +583,13 @@
         "depends_on": [
           "context.completed_match_poll_url"
         ]
+        },
+        "no_response_poll_url": {
+          "id": "no_response_poll_url",
+          "lookup": "emails.api.template_lookup.no_response_poll_url",
+          "depends_on": [
+            "context.no_response_poll_url"
+          ]
         },
         "five_week_survey_url": {
           "id": "five_week_survey_url",
