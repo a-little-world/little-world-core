@@ -330,7 +330,15 @@
               "template": "react_emails/m044-share-story-invite.html",
               "theme": "little-world"
             },
-                    "automatic-emails-m014": {
+                      "automatic-emails-m013": {
+                        "id": "automatic-emails-m013",
+                        "sender_id": "noreply",
+                        "category_id": "automated",
+                        "subject": "Dein Partner wartet schon auf dich 🙌",
+                        "template": "react_emails/m013-partner-waiting-reminder.html",
+                        "theme": "little-world"
+                      },
+                      "automatic-emails-m014": {
                       "id": "automatic-emails-m014",
                       "sender_id": "noreply",
                       "category_id": "automated",
