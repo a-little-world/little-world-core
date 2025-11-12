@@ -485,8 +485,8 @@ elif EXTERNAL_S3 or ((not DOCS_BUILD and (IS_PROD or IS_STAGE)) and (not USE_WHI
     # jprint("TBS:", MEDIA_URL)
     CACHES = {  # This is so wee can use multithreaded statics uploads!
         "default": {
-            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-            "LOCATION": "unique-snowflake",
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": "redis://redis-service:6379",
         },
         "collectfast": {
             "BACKEND": "django.core.cache.backends.redis.RedisCache",
