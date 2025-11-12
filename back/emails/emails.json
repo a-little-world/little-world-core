@@ -306,7 +306,15 @@
             "template": "react_emails/u081-matching-started.html",
             "theme": "little-world"
           },
-          "automatic-emails-m043": {
+            "automatic-emails-m042": {
+              "id": "automatic-emails-m042",
+              "sender_id": "noreply",
+              "category_id": "automated",
+              "subject": "⏳ Bist du noch im Kontakt mit {{ partner_first_name }}?",
+              "template": "react_emails/m042-contact-check.html",
+              "theme": "little-world"
+            },
+            "automatic-emails-m043": {
             "id": "automatic-emails-m043",
             "sender_id": "noreply",
             "category_id": "automated",
