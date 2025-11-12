@@ -38,7 +38,7 @@
       "id": "account-deleted",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Account erfolgreich gelöscht",
+      "subject": "Account erfolgreich gel\u00f6scht",
       "template": "react_emails/account-deleted.html",
       "theme": "little-world"
     },
@@ -46,7 +46,7 @@
       "id": "confirm-match-1",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Match gefunden - jetzt bestätigen",
+      "subject": "Match gefunden - jetzt best\u00e4tigen",
       "template": "react_emails/confirm-match-1.html",
       "theme": "little-world"
     },
@@ -54,7 +54,7 @@
       "id": "confirm-match-2",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Dein match wartet - höchste Zeit zu bestätigen",
+      "subject": "Dein match wartet - h\u00f6chste Zeit zu best\u00e4tigen",
       "template": "react_emails/confirm-match-2.html",
       "theme": "little-world"
     },
@@ -70,7 +70,7 @@
       "id": "new-match",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Glückwunsch! Lerne jetzt {{ partner_first_name }} kennen",
+      "subject": "Gl\u00fcckwunsch! Lerne jetzt {{ partner_first_name }} kennen",
       "template": "react_emails/new-match.html",
       "theme": "little-world"
     },
@@ -110,7 +110,7 @@
       "id": "unfinished_user_form_1",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Umfrage beenden für Bekanntschaften aus aller Welt",
+      "subject": "Umfrage beenden f\u00fcr Bekanntschaften aus aller Welt",
       "template": "react_emails/unfinished_user_form_1.html",
       "theme": "little-world"
     },
@@ -126,7 +126,7 @@
       "id": "verify-email",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Bitte bestätige deine E-Mail-Adresse für Little World",
+      "subject": "Bitte best\u00e4tige deine E-Mail-Adresse f\u00fcr Little World",
       "template": "react_emails/verify-email.html",
       "theme": "little-world"
     },
@@ -134,7 +134,7 @@
       "id": "babbel-subscription-winner",
       "sender_id": "noreply",
       "category_id": "partnerships",
-      "subject": "Herzlichen Glückwunsch! Du hast ein 6-monatiges Babbel-Abonnement gewonnen",
+      "subject": "Herzlichen Gl\u00fcckwunsch! Du hast ein 6-monatiges Babbel-Abonnement gewonnen",
       "template": "react_emails/babbel-subscription-winner.html",
       "theme": "little-world"
     },
@@ -150,7 +150,7 @@
       "id": "patenmatch-signup",
       "sender_id": "info-patenmatch",
       "category_id": "automated-patenmatch",
-      "subject": "Vielen Dank für deine Anmeldung bei Patenmatch",
+      "subject": "Vielen Dank f\u00fcr deine Anmeldung bei Patenmatch",
       "template": "react_emails/patenmatch-signup.html",
       "theme": "patenmatch"
     },
@@ -158,7 +158,7 @@
       "id": "patenmatch-orga-forward-user",
       "sender_id": "info-patenmatch",
       "category_id": "automated-patenmatch",
-      "subject": "Neue Mentee-Anfrage über patenmatch.de",
+      "subject": "Neue Mentee-Anfrage \u00fcber patenmatch.de",
       "template": "react_emails/patenmatch-orga-forward-user.html",
       "theme": "patenmatch"
     },
@@ -166,7 +166,7 @@
       "id": "prematching-call-no-show",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "{{ first_name }} & Little World: Bitte neues Einführungsgespräch buchen",
+      "subject": "{{ first_name }} & Little World: Bitte neues Einf\u00fchrungsgespr\u00e4ch buchen",
       "template": "react_emails/prematching-call-no-show.html",
       "theme": "little-world"
     },
@@ -174,7 +174,7 @@
       "id": "prematching-call-post-thanks",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "{{ first_name }} & Little World: Danke für die Teilnahme am Einführungsgespräch",
+      "subject": "{{ first_name }} & Little World: Danke f\u00fcr die Teilnahme am Einf\u00fchrungsgespr\u00e4ch",
       "template": "react_emails/prematching-call-post-thanks.html",
       "theme": "little-world"
     },
@@ -190,7 +190,7 @@
       "id": "new-match-engage",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Dein Engagement bei Little World: Bereit für neue Gespräche?",
+      "subject": "Dein Engagement bei Little World: Bereit f\u00fcr neue Gespr\u00e4che?",
       "template": "react_emails/new-match-engage.html",
       "theme": "little-world"
     },
@@ -207,7 +207,7 @@
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Starte jetzt bei Little World",
-      "template": "react_emails/u023-onboarding-reminder.html",
+      "template": "react_emails/automatic-emails-u023.html",
       "theme": "little-world"
     },
     "automatic-emails-u024": {
@@ -215,23 +215,23 @@
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Hast du dein Onboarding schon gebucht?",
-      "template": "react_emails/u024-onboarding-reminder.html",
+      "template": "react_emails/automatic-emails-u024.html",
       "theme": "little-world"
     },
     "automatic-emails-u025": {
       "id": "automatic-emails-u025",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Viele Lernende warten – bist du dabei?",
-      "template": "react_emails/u025-onboarding-reminder.html",
+      "subject": "Viele Lernende warten \u2013 bist du dabei?",
+      "template": "react_emails/automatic-emails-u025.html",
       "theme": "little-world"
     },
     "automatic-emails-u043": {
       "id": "automatic-emails-u043",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Morgen ist dein Onboarding-Gespräch",
-      "template": "react_emails/u043-onboarding-call-reminder.html",
+      "subject": "Morgen ist dein Onboarding-Gespr\u00e4ch",
+      "template": "react_emails/automatic-emails-u043.html",
       "theme": "little-world"
     },
     "automatic-emails-u044": {
@@ -239,38 +239,38 @@
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "In einer Stunde startet dein Onboarding",
-      "template": "react_emails/u044-onboarding-call-reminder.html",
+      "template": "react_emails/automatic-emails-u044.html",
       "theme": "little-world"
     },
     "automatic-emails-u053": {
       "id": "automatic-emails-u053",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Erinnerung: Dein Onboarding-Gespräch",
-      "template": "react_emails/u053-onboarding-no-show-reminder.html",
+      "subject": "Erinnerung: Dein Onboarding-Gespr\u00e4ch",
+      "template": "react_emails/automatic-emails-u053.html",
       "theme": "little-world"
     },
     "automatic-emails-u072": {
       "id": "automatic-emails-u072",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Wir suchen noch – bis dahin: Gruppengespräche!",
-      "template": "react_emails/u072-group-calls-invite.html",
+      "subject": "Wir suchen noch \u2013 bis dahin: Gruppengespr\u00e4che!",
+      "template": "react_emails/automatic-emails-u072.html",
       "theme": "little-world"
     },
     "automatic-emails-u082": {
       "id": "automatic-emails-u082",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Schon reingeschaut bei den Gruppengesprächen?",
-      "template": "react_emails/u082-group-calls.html",
+      "subject": "Schon reingeschaut bei den Gruppengespr\u00e4chen?",
+      "template": "react_emails/automatic-emails-u082.html",
       "theme": "little-world"
     },
     "automatic-emails-u083": {
       "id": "automatic-emails-u083",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "So können wir schneller jemanden für dich finden 💪",
+      "subject": "So k\u00f6nnen wir schneller jemanden f\u00fcr dich finden \ud83d\udcaa",
       "template": "react_emails/u083-availability-reminder.html",
       "theme": "little-world"
     },
@@ -278,8 +278,8 @@
       "id": "automatic-emails-u073",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Noch kein Match? So kannst du deine Chancen erhöhen",
-      "template": "react_emails/u073-availability-reminder.html",
+      "subject": "Noch kein Match? So kannst du deine Chancen erh\u00f6hen",
+      "template": "react_emails/automatic-emails-u073.html",
       "theme": "little-world"
     },
     "automatic-emails-u084": {
@@ -287,7 +287,7 @@
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Wir haben dich nicht vergessen",
-      "template": "react_emails/u084-delayed-match.html",
+      "template": "react_emails/automatic-emails-u084.html",
       "theme": "little-world"
     },
     "automatic-emails-u074": {
@@ -295,95 +295,95 @@
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Wir haben dich nicht vergessen",
-      "template": "react_emails/u074-delayed-match.html",
+      "template": "react_emails/automatic-emails-u074.html",
       "theme": "little-world"
     },
     "automatic-emails-u081": {
       "id": "automatic-emails-u081",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Wir starten jetzt die Suche für dich",
-      "template": "react_emails/u081-matching-started.html",
+      "subject": "Wir starten jetzt die Suche f\u00fcr dich",
+      "template": "react_emails/automatic-emails-u081.html",
       "theme": "little-world"
     },
     "automatic-emails-m042": {
       "id": "automatic-emails-m042",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "⏳ Bist du noch im Kontakt mit {{ partner_first_name }}?",
-      "template": "react_emails/m042-contact-check.html",
+      "subject": "\u23f3 Bist du noch im Kontakt mit {{ partner_first_name }}?",
+      "template": "react_emails/automatic-emails-m042.html",
       "theme": "little-world"
     },
     "automatic-emails-m043": {
       "id": "automatic-emails-m043",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "🎉 Wow! Schon 5 Videocalls mit {{ partner_first_name }}",
-      "template": "react_emails/m043-five-videocalls-survey.html",
+      "subject": "\ud83c\udf89 Wow! Schon 5 Videocalls mit {{ partner_first_name }}",
+      "template": "react_emails/automatic-emails-m043.html",
       "theme": "little-world"
     },
     "automatic-emails-m044": {
       "id": "automatic-emails-m044",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "✨ Teile deine Geschichte und inspiriere andere",
-      "template": "react_emails/m044-share-story-invite.html",
+      "subject": "\u2728 Teile deine Geschichte und inspiriere andere",
+      "template": "react_emails/automatic-emails-m044.html",
       "theme": "little-world"
     },
     "automatic-emails-m012": {
       "id": "automatic-emails-m012",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "🎉 Dein Match ist da – starte deine erste Unterhaltung!",
-      "template": "react_emails/m012-first-conversation-reminder.html",
+      "subject": "\ud83c\udf89 Dein Match ist da \u2013 starte deine erste Unterhaltung!",
+      "template": "react_emails/automatic-emails-m012.html",
       "theme": "little-world"
     },
     "automatic-emails-m013": {
       "id": "automatic-emails-m013",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Dein Partner wartet schon auf dich 🙌",
-      "template": "react_emails/m013-partner-waiting-reminder.html",
+      "subject": "Dein Partner wartet schon auf dich \ud83d\ude4c",
+      "template": "react_emails/automatic-emails-m013.html",
       "theme": "little-world"
     },
     "automatic-emails-m014": {
       "id": "automatic-emails-m014",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Bitte nimm Kontakt zu deinem Match auf 🤝",
-      "template": "react_emails/m014-contact-reminder.html",
+      "subject": "Bitte nimm Kontakt zu deinem Match auf \ud83e\udd1d",
+      "template": "react_emails/automatic-emails-m014.html",
       "theme": "little-world"
     },
     "automatic-emails-m023": {
       "id": "automatic-emails-m023",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "💬 Dein neuer Partner wartet auf deine Antwort ✨",
-      "template": "react_emails/m023-partner-waiting-reminder.html",
+      "subject": "\ud83d\udcac Dein neuer Partner wartet auf deine Antwort \u2728",
+      "template": "react_emails/automatic-emails-m023.html",
       "theme": "little-world"
     },
     "automatic-emails-m024": {
       "id": "automatic-emails-m024",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "📩 Bitte antworte deinem Match – sonst wird es entfernt ⏳",
-      "template": "react_emails/m024-no-answer-reminder.html",
+      "subject": "\ud83d\udce9 Bitte antworte deinem Match \u2013 sonst wird es entfernt \u23f3",
+      "template": "react_emails/automatic-emails-m024.html",
       "theme": "little-world"
     },
     "automatic-emails-m025": {
       "id": "automatic-emails-m025",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Wir melden uns bei {{ partner_first_name }} für dich",
-      "template": "react_emails/m025-partner-no-response.html",
+      "subject": "Wir melden uns bei {{ partner_first_name }} f\u00fcr dich",
+      "template": "react_emails/automatic-emails-m025.html",
       "theme": "little-world"
     },
     "automatic-emails-fm022": {
       "id": "automatic-emails-fm022",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "🌱 Dein Partner antwortet nicht – wir suchen ein neues Match für dich",
-      "template": "react_emails/fm022-priority-rematch.html",
+      "subject": "\ud83c\udf31 Dein Partner antwortet nicht \u2013 wir suchen ein neues Match f\u00fcr dich",
+      "template": "react_emails/automatic-emails-fm022.html",
       "theme": "little-world"
     },
     "automatic-emails-m031": {
@@ -391,63 +391,63 @@
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Brauchst du Hilfe beim Video-Call mit {{ partner_first_name }}?",
-      "template": "react_emails/m031-videocall-support-offer.html",
+      "template": "react_emails/automatic-emails-m031.html",
       "theme": "little-world"
     },
     "automatic-emails-m032": {
       "id": "automatic-emails-m032",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "📅 Habt ihr euren Video-Call schon geplant?",
-      "template": "react_emails/m032-videocall-planning-reminder.html",
+      "subject": "\ud83d\udcc5 Habt ihr euren Video-Call schon geplant?",
+      "template": "react_emails/automatic-emails-m032.html",
       "theme": "little-world"
     },
     "automatic-emails-m033": {
       "id": "automatic-emails-m033",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "⏳ Noch kein Video-Call – gebt uns bitte ein kurzes Update",
-      "template": "react_emails/m033-no-videocall-update.html",
+      "subject": "\u23f3 Noch kein Video-Call \u2013 gebt uns bitte ein kurzes Update",
+      "template": "react_emails/automatic-emails-m033.html",
       "theme": "little-world"
     },
     "automatic-emails-m045": {
       "id": "automatic-emails-m045",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "🏆 Glückwunsch! 10 Videocalls mit {{ partner_first_name }} abgeschlossen",
-      "template": "react_emails/m045-ten-videocalls-completed.html",
+      "subject": "\ud83c\udfc6 Gl\u00fcckwunsch! 10 Videocalls mit {{ partner_first_name }} abgeschlossen",
+      "template": "react_emails/automatic-emails-m045.html",
       "theme": "little-world"
     },
     "automatic-emails-m051": {
       "id": "automatic-emails-m051",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Schön, dass ihr in Kontakt bleibt",
-      "template": "react_emails/m051-off-platform.html",
+      "subject": "Sch\u00f6n, dass ihr in Kontakt bleibt",
+      "template": "react_emails/automatic-emails-m051.html",
       "theme": "little-world"
     },
     "automatic-emails-m053": {
       "id": "automatic-emails-m053",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "🎉 Schon 5 Wochen im Austausch mit {{ partner_first_name }}",
-      "template": "react_emails/m053-five-week-survey.html",
+      "subject": "\ud83c\udf89 Schon 5 Wochen im Austausch mit {{ partner_first_name }}",
+      "template": "react_emails/automatic-emails-m053.html",
       "theme": "little-world"
     },
     "automatic-emails-m054": {
       "id": "automatic-emails-m054",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "✨ Teile deine Geschichte und inspiriere andere",
-      "template": "react_emails/m054-share-story-invite.html",
+      "subject": "\u2728 Teile deine Geschichte und inspiriere andere",
+      "template": "react_emails/automatic-emails-m054.html",
       "theme": "little-world"
     },
     "automatic-emails-m055": {
       "id": "automatic-emails-m055",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "🏆 Glückwunsch! 10 Wochen Austausch mit {{ partner_first_name }}",
-      "template": "react_emails/m055-completed-match-poll.html",
+      "subject": "\ud83c\udfc6 Gl\u00fcckwunsch! 10 Wochen Austausch mit {{ partner_first_name }}",
+      "template": "react_emails/automatic-emails-m055.html",
       "theme": "little-world"
     }
   },
