@@ -81,6 +81,10 @@ def five_week_survey_url(user=None, match=None, context={"five_week_survey_url":
     return context["five_week_survey_url"]
 
 
+def post_videocall_survey_url(user=None, match=None, context={"post_videocall_survey_url": "Not set"}):
+    return context["post_videocall_survey_url"]
+
+
 def call_link(user=None, match=None, context={"call_link": "Not set"}):
     return context["call_link"]
 
