@@ -362,30 +362,38 @@
                       "template": "react_emails/m023-partner-waiting-reminder.html",
                       "theme": "little-world"
                     },
-                  "automatic-emails-m024": {
-                      "id": "automatic-emails-m024",
-                      "sender_id": "noreply",
-                      "category_id": "automated",
-                      "subject": "📩 Bitte antworte deinem Match – sonst wird es entfernt ⏳",
-                      "template": "react_emails/m024-no-answer-reminder.html",
-                      "theme": "little-world"
-                    },
-                "automatic-emails-m025": {
-                  "id": "automatic-emails-m025",
-                  "sender_id": "noreply",
-                  "category_id": "automated",
-                  "subject": "Wir melden uns bei {{ partner_first_name }} für dich",
-                  "template": "react_emails/m025-partner-no-response.html",
-                  "theme": "little-world"
-                },
-              "automatic-emails-m031": {
-                "id": "automatic-emails-m031",
-                "sender_id": "noreply",
-                "category_id": "automated",
-                "subject": "Brauchst du Hilfe beim Video-Call mit {{ partner_first_name }}?",
-                "template": "react_emails/m031-videocall-support-offer.html",
-                "theme": "little-world"
-              },
+          "automatic-emails-m024": {
+            "id": "automatic-emails-m024",
+            "sender_id": "noreply",
+            "category_id": "automated",
+            "subject": "📩 Bitte antworte deinem Match – sonst wird es entfernt ⏳",
+            "template": "react_emails/m024-no-answer-reminder.html",
+            "theme": "little-world"
+          },
+          "automatic-emails-m025": {
+            "id": "automatic-emails-m025",
+            "sender_id": "noreply",
+            "category_id": "automated",
+            "subject": "Wir melden uns bei {{ partner_first_name }} für dich",
+            "template": "react_emails/m025-partner-no-response.html",
+            "theme": "little-world"
+          },
+          "automatic-emails-fm022": {
+            "id": "automatic-emails-fm022",
+            "sender_id": "noreply",
+            "category_id": "automated",
+            "subject": "🌱 Dein Partner antwortet nicht – wir suchen ein neues Match für dich",
+            "template": "react_emails/fm022-priority-rematch.html",
+            "theme": "little-world"
+          },
+          "automatic-emails-m031": {
+            "id": "automatic-emails-m031",
+            "sender_id": "noreply",
+            "category_id": "automated",
+            "subject": "Brauchst du Hilfe beim Video-Call mit {{ partner_first_name }}?",
+            "template": "react_emails/m031-videocall-support-offer.html",
+            "theme": "little-world"
+          },
               "automatic-emails-m032": {
                   "id": "automatic-emails-m032",
                   "sender_id": "noreply",
