@@ -330,14 +330,22 @@
               "template": "react_emails/m044-share-story-invite.html",
               "theme": "little-world"
             },
-              "automatic-emails-m032": {
-                "id": "automatic-emails-m032",
+              "automatic-emails-m031": {
+                "id": "automatic-emails-m031",
                 "sender_id": "noreply",
                 "category_id": "automated",
-                "subject": "📅 Habt ihr euren Video-Call schon geplant?",
-                "template": "react_emails/m032-videocall-planning-reminder.html",
+                "subject": "Brauchst du Hilfe beim Video-Call mit {{ partner_first_name }}?",
+                "template": "react_emails/m031-videocall-support-offer.html",
                 "theme": "little-world"
               },
+              "automatic-emails-m032": {
+                  "id": "automatic-emails-m032",
+                  "sender_id": "noreply",
+                  "category_id": "automated",
+                  "subject": "📅 Habt ihr euren Video-Call schon geplant?",
+                  "template": "react_emails/m032-videocall-planning-reminder.html",
+                  "theme": "little-world"
+                },
             "automatic-emails-m033": {
               "id": "automatic-emails-m033",
               "sender_id": "noreply",
