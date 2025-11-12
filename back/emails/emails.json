@@ -330,6 +330,14 @@
               "template": "react_emails/m044-share-story-invite.html",
               "theme": "little-world"
             },
+                "automatic-emails-m025": {
+                  "id": "automatic-emails-m025",
+                  "sender_id": "noreply",
+                  "category_id": "automated",
+                  "subject": "Wir melden uns bei {{ partner_first_name }} für dich",
+                  "template": "react_emails/m025-partner-no-response.html",
+                  "theme": "little-world"
+                },
               "automatic-emails-m031": {
                 "id": "automatic-emails-m031",
                 "sender_id": "noreply",
