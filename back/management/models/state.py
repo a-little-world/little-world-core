@@ -4,6 +4,7 @@ import uuid
 import zlib
 from enum import Enum
 
+from back.utils import get_options_serializer
 from django.db import models
 from django.db.models import Q
 from django.db.models.signals import post_save
@@ -13,12 +14,10 @@ from django.utils.translation import gettext_lazy as _
 from multiselectfield import MultiSelectField
 from rest_framework import serializers
 from translations import get_translation
-from management.models.matches import Match
 
 from back import utils
-from back.utils import get_options_serializer
 from management.models.management_tasks import MangementTask
-
+from management.models.matches import Match
 from management.models.notifications import Notification
 from management.models.question_deck import QuestionCardsDeck
 
@@ -51,6 +50,13 @@ class State(models.Model):
         choices=UserFormStateChoices.choices,
         default=UserFormStateChoices.UNFILLED,
         max_length=255,
+    )
+    user_form_completed_at = models.DateTimeField(default=None, null=True, blank=True)
+    user_form_completed_reminder_sent_at = models.IntegerField(
+        default=0,
+        null=False,
+        blank=False,
+        help_text="Number of days between user form completed and last reminder sent",
     )
 
     # Just some hash for verifying the email
@@ -116,7 +122,7 @@ class State(models.Model):
     reference to models.notifications.Notification
     """
     notifications = models.ManyToManyField(Notification, related_name="n+", blank=True)
-    
+
     previous_management_users = models.JSONField(default=list, blank=True)
 
     class UserCategoryChoices(models.TextChoices):
@@ -255,7 +261,7 @@ class State(models.Model):
         self.save()
 
     def append_notes(self, message):
-        if not (self.notes is None):
+        if self.notes is not None:
             return self.notes + "\n{message}"
         else:
             return "\n{message}"
@@ -270,6 +276,10 @@ class State(models.Model):
 
     def set_user_form_completed(self):
         self.user_form_state = self.UserFormStateChoices.FILLED
+        self.save()
+
+    def set_user_form_completed_reminder_sent(self, days):
+        self.user_form_completed_reminder_sent_at = days
         self.save()
 
     def confirm_matches(self, matches: list):
@@ -392,8 +402,8 @@ class FrontendStatusSerializer(serializers.ModelSerializer):
         # Now check if the user is matched
         # Use exists() instead of count() for better performance
         has_atleast_one_match = Match.objects.filter(
-                Q(user1=instance.user) | Q(user2=instance.user),
-                support_matching=False,
+            Q(user1=instance.user) | Q(user2=instance.user),
+            support_matching=False,
         ).exists()
 
         if has_atleast_one_match:
