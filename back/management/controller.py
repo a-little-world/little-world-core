@@ -125,6 +125,30 @@ def make_tim_support_user(
         send_email=False,
         set_unconfirmed=False,
     )
+    
+    # 2.25 COPY THE CHAT (step missing before!)
+    def copy_chat():
+        old_chat = Chat.get_chat({admin_user, user})
+        new_chat = Chat.get_chat({base_management_user, user})
+        from chat.models import Message
+        
+        if old_chat and new_chat:
+            for message in old_chat.get_messages():
+                new_sender = base_management_user if message.sender == admin_user else user
+                new_recipient = user if message.sender == admin_user else base_management_user
+                new_message = Message.objects.create(
+                    chat=new_chat,
+                    sender=new_sender,
+                    recipient=new_recipient,
+                    text=message.text,
+                    read=message.read,
+                )
+                # Afterwards overwrite the 'created' time
+                new_message.created = message.created
+                new_message.save()
+    
+    # Wait for DB transactions to complete
+    transaction.on_commit(copy_chat)
 
     # 2.5 add that user to the managed users by Tim
     base_management_user.state.managed_users.add(user)
@@ -134,6 +158,7 @@ def make_tim_support_user(
     us = user.state
     us.still_active_reminder_send = True
     us.searching_state = State.SearchingStateChoices.IDLE
+    us.previous_management_users.append(f"{admin_user.email} ({admin_user.id})")
     us.save()
 
     # 4. send the 'still active' question message
