@@ -47,6 +47,7 @@ django-filter
 bs4
 livekit-api
 google-cloud-translate==3.15.3
+deepl>=1.24.0  # DeepL translation API
 django-stubs[compatible-mypy]
 pre-commit
 django-colorfield # color picker in admin panel
