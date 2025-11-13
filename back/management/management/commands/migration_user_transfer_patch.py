@@ -5,9 +5,6 @@ from management.controller import make_tim_support_user, get_base_management_use
 
 
 class Command(BaseCommand):
-    def add_arguments(self, parser):
-        # Positional arguments
-        parser.add_argument("arg1", type=str, help="User hash")
 
     def handle(self, **options):
         bs = get_base_management_user()
@@ -19,6 +16,9 @@ class Command(BaseCommand):
                 
         print(f"Currently already managed users: {all_new_matching_user_managed.count()}")
         print(f"Users to transfer: {all_users_to_transfer.count()}")
-        
-        
 
+        c = 0
+        for user in all_users_to_transfer:
+            c += 1
+            print(f"Transferring user {c} of {all_users_to_transfer.count()}")
+            make_tim_support_user(user, send_message=False)
