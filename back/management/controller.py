@@ -159,6 +159,7 @@ def make_tim_support_user(
     us = user.state
     us.still_active_reminder_send = True
     us.searching_state = State.SearchingStateChoices.IDLE
+    us.previous_management_users.append(f"{admin_user.email} ({admin_user.id})")
     us.save()
 
     # 4. send the 'still active' question message
