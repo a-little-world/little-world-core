@@ -11,6 +11,7 @@ from management.api.user import get_user_data
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from back.utils import transform_add_options_serializer
+from management.models import custom_banner_event_filters
 from management.models.profile import Profile, SelfProfileSerializer
 from management.models.state import State
 
@@ -108,6 +109,11 @@ class ProfileCompletedApi(APIView):
             german_level = list(filter(lambda x: x["lang"] == "german", user.profile.lang_skill))[0]["level"]
             if german_level == Profile.LanguageSkillChoices.LEVEL_0:
                 default_message = get_translation("auto_messages.prematching_lang_level_too_low", lang="de").format(
+                    first_name=user.profile.first_name
+                )
+            
+            if custom_banner_event_filters.filter__learners_outside_germany(user):
+                default_message = get_translation("auto_messages.learner_outside_germany", lang="de").format(
                     first_name=user.profile.first_name
                 )
 
