@@ -10,7 +10,6 @@ from management.models import profile
 from management.models import user as user_model
 
 
-
 class Match(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -38,6 +37,9 @@ class Match(models.Model):
     total_messages_counter = models.IntegerField(default=0)
     total_mutal_video_calls_counter = models.IntegerField(default=0)
     latest_interaction_at = models.DateTimeField(default=timezone.now)
+    interaction_reminder_last = models.IntegerField(
+        default=0, help_text="Number of days between last interaction last reminder sent", null=False, blank=False
+    )
 
     # If a certain match completed condition is met, this will be set to True
     completed = models.BooleanField(default=False)
@@ -120,7 +122,7 @@ class Match(models.Model):
 
     def get_learner(self):
         return self.user1 if self.user1.profile.user_type == profile.Profile.TypeChoices.LEARNER else self.user2
-    
+
     def get_volunteer(self):
         return self.user1 if self.user1.profile.user_type == profile.Profile.TypeChoices.VOLUNTEER else self.user2
 
@@ -159,20 +161,19 @@ class Match(models.Model):
         Get all active matches for a user and set them to inactive.
         This is typically used when deleting a user account.
         """
-        active_matches = cls.objects.filter(
-            Q(user1=user) | Q(user2=user), 
-            active=True
-        )
-        
+        active_matches = cls.objects.filter(Q(user1=user) | Q(user2=user), active=True)
+
         for match in active_matches:
-            match.report_unmatch.append({
-                "kind": "user_deleted",
-                "reason": "User account was deleted",
-                "match_id": match.id,
-                "time": str(timezone.now()),
-                "user_id": user.pk,
-                "user_uuid": user.hash,
-            })
+            match.report_unmatch.append(
+                {
+                    "kind": "user_deleted",
+                    "reason": "User account was deleted",
+                    "match_id": match.id,
+                    "time": str(timezone.now()),
+                    "user_id": user.pk,
+                    "user_uuid": user.hash,
+                }
+            )
             match.save()
-        
+
         return active_matches
