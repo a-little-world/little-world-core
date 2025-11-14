@@ -609,6 +609,6 @@ def automatic_emails_u023_u024_u025():
         users = users.exclude(id__in=user_prematching_join.values_list("user", flat=True))
         for user in users:
             send_email_background.delay(template, user_id=user.id)
-            user.state.set_user_form_completed_reminder_sent(last_sent_days)
+            user.state.set_user_form_completed_reminder_sent(days)
 
     return {"status": "sent"}
