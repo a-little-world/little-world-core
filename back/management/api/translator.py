@@ -12,6 +12,7 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from management.authentication import NativeOnlyJWTAuthentication
 from management.clients import get_deepl_client
 
 
@@ -27,7 +28,7 @@ class TranslateTextSerializer(serializers.Serializer):
     description="Get the list of supported languages for translation",
 )
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def languages(request):
     """
@@ -61,7 +62,7 @@ def languages(request):
     description="Translate text to a target language using DeepL",
 )
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def translate(request):
     """
