@@ -52,7 +52,7 @@ class State(models.Model):
         max_length=255,
     )
     user_form_completed_at = models.DateTimeField(default=None, null=True, blank=True)
-    user_form_completed_reminder_sent_at = models.IntegerField(
+    user_form_completed_reminder_sent_number_days = models.IntegerField(
         default=0,
         null=False,
         blank=False,
@@ -279,7 +279,7 @@ class State(models.Model):
         self.save()
 
     def set_user_form_completed_reminder_sent(self, days):
-        self.user_form_completed_reminder_sent_at = days
+        self.user_form_completed_reminder_sent_number_days = days
         self.save()
 
     def confirm_matches(self, matches: list):
