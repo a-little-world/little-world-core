@@ -641,4 +641,41 @@ def automatic_emails_m023():
             # send email to the user that received the last message
             send_email_background.delay("automatic-emails-m023", user_id=last_message.recipient.id)
 
-    return {"status": "sent", "number inactive chat reminder sent": inactive_counter}
+    return {"status": "sent", "number of three day inactive chat reminder sent": inactive_counter}
+
+
+@shared_task
+def automatic_emails_m024_m025():
+    """
+    Notify user when the didnt respond to a chat message for 7 days
+    """
+    from chat.models import Chat
+
+    # get all chats
+    chats = Chat.objects.all()
+
+    inactive_counter = 0
+
+    for chat in chats:
+        # check that both users are not admin and if chat three days inactive flag is already set
+        if chat.u1.is_staff or chat.u2.is_staff:
+            continue
+
+        # check that the last message is older than 3 days
+        last_message = chat.get_newest_message()
+        if (last_message is None) or last_message.created >= timezone.now() - timedelta(days=7):
+            continue
+
+        # the chat is for seven days inactive, set the respective flag
+        if not chat.seven_days_inactive:
+            chat.seven_days_inactive = True
+            chat.save()
+            inactive_counter += 1
+
+            # send email to the user that received the last message
+            send_email_background.delay("automatic-emails-m024", user_id=last_message.recipient.id)
+
+            # send email to the person that was ghosted
+            send_email_background.delay("automatic-emails-m025", user_id=last_message.sender.id)
+
+    return {"status": "sent", "number of 7 day inactive chat reminder sent": inactive_counter}

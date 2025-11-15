@@ -136,6 +136,7 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         match.save()
 
         chat.three_days_inactive = False
+        chat.seven_days_inactive = False
         chat.save()
 
         # Email notification logic - check if recipient should be notified
