@@ -1,9 +1,10 @@
 import math
 import random
-from datetime import datetime, timezone
+from datetime import datetime, timedelta
 
 from celery import shared_task
 from cookie_consent.models import Cookie, CookieGroup
+from django.utils import timezone
 from translations import get_translation
 
 from management.models.backend_state import BackendState
@@ -302,9 +303,7 @@ def request_streamed_ai_response(messages, model="gpt-3.5-turbo", backend="defau
 
         c += 1
         if c % update_mod == 0:
-            request_streamed_ai_response.backend.mark_as_started(
-                request_streamed_ai_response.request.id, progress=message_ft
-            )
+            request_streamed_ai_response.backend.mark_as_started(request_streamed_ai_response.request.id, progress=message_ft)
             c = 0
     request_streamed_ai_response.backend.mark_as_started(request_streamed_ai_response.request.id, progress=message_ft)
 
@@ -336,9 +335,7 @@ def burst_calculate_matching_scores(user_combinations=[]):
     print("combination")
 
     def report_progress(progress):
-        burst_calculate_matching_scores.backend.mark_as_started(
-            burst_calculate_matching_scores.request.id, progress=progress
-        )
+        burst_calculate_matching_scores.backend.mark_as_started(burst_calculate_matching_scores.request.id, progress=progress)
 
     total_combinations = len(user_combinations)
     combinations_processed = 0
@@ -365,9 +362,7 @@ def burst_calculate_matching_scores(user_combinations=[]):
 
     random_delay = math.floor(random.random() * 5)
 
-    mark_burst_task_completed_check_for_finish.apply_async(
-        (burst_calculate_matching_scores.request.id,), countdown=2 + random_delay
-    )
+    mark_burst_task_completed_check_for_finish.apply_async((burst_calculate_matching_scores.request.id,), countdown=2 + random_delay)
 
     return {
         "total_combinations": total_combinations,
@@ -569,9 +564,7 @@ def send_sms_background(self, user_hash, message):
     from management.models.sms import SmsModel
     from management.models.user import User
 
-    recent_sms = SmsModel.objects.filter(
-        recipient__hash=user_hash, message=message, created_at__gte=timezone.now() - timezone.timedelta(hours=2)
-    ).exists()
+    recent_sms = SmsModel.objects.filter(recipient__hash=user_hash, message=message, created_at__gte=timezone.now() - timezone.timedelta(hours=2)).exists()
 
     if recent_sms:
         print(f"Skipping duplicate SMS for user {user_hash} - already sent within last 2 hours")
@@ -615,3 +608,37 @@ def automatic_emails_m12_m13_m14():
             match.save()
 
     return {"status": "sent", "number of matches": matches.count()}
+
+
+@shared_task
+def automatic_emails_m023():
+    """
+    Notify user when the didnt respond to a chat message for 3 days
+    """
+    from chat.models import Chat
+
+    # get all chats
+    chats = Chat.objects.all()
+
+    inactive_counter = 0
+
+    for chat in chats:
+        # check that both users are not admin and if chat three days inactive flag is already set
+        if chat.u1.is_staff or chat.u2.is_staff:
+            continue
+
+        # check that the last message is older than 3 days
+        last_message = chat.get_newest_message()
+        if (last_message is None) or last_message.created >= timezone.now() - timedelta(days=3):
+            continue
+
+        # the chat is for three days inactive, set the respective flag
+        if not chat.three_days_inactive:
+            chat.three_days_inactive = True
+            chat.save()
+            inactive_counter += 1
+
+            # send email to the user that received the last message
+            send_email_background.delay("automatic-emails-m023", user_id=last_message.recipient.id)
+
+    return {"status": "sent", "number inactive chat reminder sent": inactive_counter}
