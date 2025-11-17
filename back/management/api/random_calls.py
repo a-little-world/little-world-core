@@ -40,9 +40,9 @@ from django.db import transaction
 from management.tasks import kill_livekit_room
 
 
-
 class AuthenticateRoomParams(serializers.Serializer):
     partner_id = serializers.CharField()
+
 
 async def create_livekit_room(room_name):
     lkapi = livekit_api.LiveKitAPI(
@@ -59,8 +59,9 @@ async def create_livekit_room(room_name):
         print("Created room that didn't exist:", room_name, room_info)
     await lkapi.aclose()
 
+
 def get_partner(user):
-    partner = RandomCallLobby.objects.filter(status=False).exclude(user=user).order_by('id')
+    partner = RandomCallLobby.objects.filter(status=False).exclude(user=user).order_by("id")
     if partner.exists():
         partner = partner.first()
         while partner.status:
@@ -69,6 +70,7 @@ def get_partner(user):
         return partner
     else:
         return None
+
 
 def get_users_to_pair(user):
     try:
@@ -90,11 +92,11 @@ def get_users_to_pair(user):
     except Exception as e:
         return (user_lobby.user, None)
 
+
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def match_random_pair(request):
-
     user_lobby, partner = get_users_to_pair(request.user)
 
     if partner is None:
@@ -104,16 +106,16 @@ def match_random_pair(request):
         else:
             return Response("Currently Match not possible", status=400)
 
-    new_match = RandomCallMatching.get_or_create_match(user1 = user_lobby.user, user2 = partner.user)
-    print("newmatchuuid",new_match.uuid)
+    new_match = RandomCallMatching.get_or_create_match(user1=user_lobby.user, user2=partner.user)
+    print("newmatchuuid", new_match.uuid)
     return Response({"new_match": str(new_match.uuid)})
+
 
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def authenticate_livekit_random_call(request):
-
-    random_match = RandomCallMatching.objects.get(uuid = request.data["matchId"])
+    random_match = RandomCallMatching.objects.get(uuid=request.data["matchId"])
 
     print(random_match.u1, random_match.u2)
 
@@ -125,7 +127,9 @@ def authenticate_livekit_random_call(request):
         if temporary_match is None:
             raise Exception("")
     except:
-        temporary_match = Match.objects.create(user1=random_match.u1, user2=random_match.u2, is_random_call_match=True, active=False)
+        temporary_match = Match.objects.create(
+            user1=random_match.u1, user2=random_match.u2, is_random_call_match=True, active=False
+        )
     loop = asyncio.new_event_loop()
     loop.run_until_complete(create_livekit_room(str(temporary_room.uuid)))
     loop.close()
@@ -141,33 +145,29 @@ def authenticate_livekit_random_call(request):
         )
         .to_jwt()
     )
-    
+
     new_session = RandomCallSession.get_or_create(
-        random_match=str(random_match.uuid),
-        tmp_chat=temporary_chat,
-        tmp_match=temporary_match,
-        active=True
-        )
-    
+        random_match=str(random_match.uuid), tmp_chat=temporary_chat, tmp_match=temporary_match, active=True
+    )
+
     print("NEW SESSION:", new_session)
 
     eta = new_session.end_time
-   
-    kill_livekit_room.apply_async(
-        (str(temporary_room.uuid),
-         str(new_session.uuid),
-         str(temporary_match.uuid),
-         str(temporary_chat.uuid)),
-        eta=eta
-        )
 
-    return Response({
-        "token": str(token),
-        "server_url": settings.LIVEKIT_URL,
-        "chat": ChatSerializer(temporary_chat).data,
-        "room": temporary_room.uuid,
-        "random_match_id": str(random_match.uuid)
-    })
+    kill_livekit_room.apply_async(
+        (str(temporary_room.uuid), str(new_session.uuid), str(temporary_match.uuid), str(temporary_chat.uuid)), eta=eta
+    )
+
+    return Response(
+        {
+            "token": str(token),
+            "server_url": settings.LIVEKIT_URL,
+            "chat": ChatSerializer(temporary_chat).data,
+            "room": temporary_room.uuid,
+            "random_match_id": str(random_match.uuid),
+        }
+    )
+
 
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication])
@@ -179,6 +179,7 @@ def join_random_call_lobby(request):
         lobby.save()
     return Response({"lobby": lobby.uuid})
 
+
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
@@ -187,12 +188,13 @@ def exit_random_call_lobby(request):
     try:
         matchings = RandomCallMatching.objects.filter(Q(u1=request.user) | Q(u2=request.user))
         for match in matchings:
-            match.active=False
+            match.active = False
             match.save()
             Chat.objects.filter(uuid=match.tmp_chat).delete()
     except Exception as e:
         print(e)
     return Response("SUCCESS")
+
 
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication])
@@ -201,14 +203,10 @@ def get_random_call_status(request, random_match_id):
     print("ARRIVED IN CALL STATUS")
     random_match_exists = RandomCallSession.objects.filter(random_match=random_match_id).exists()
     if not random_match_exists:
-        return Response({
-            "exists": False,
-            "completed": True,
-            "remaining_time": 0.0
-        })
-    
+        return Response({"exists": False, "completed": True, "remaining_time": 0.0})
+
     random_match = RandomCallSession.objects.get(random_match=random_match_id)
-    
+
     completed = timezone.now() > random_match.end_time
     remaining_time = 0.0
     if not completed:
@@ -219,12 +217,9 @@ def get_random_call_status(request, random_match_id):
             remaining_time = 999999.0
     else:
         remaining_time = 0.0
-    
-    return Response({
-        "exists": True,
-        "completed": completed,
-        "remaining_time": remaining_time
-    })
+
+    return Response({"exists": True, "completed": completed, "remaining_time": remaining_time})
+
 
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication])
@@ -245,13 +240,13 @@ def reset_match(request):
     else:
         return Response("ERROR while deactivating Random Session", status=500)
     return Response("All good", status=200)
-    
+
 
 api_urls = [
-    path('api/random_calls/get_token_random_call', authenticate_livekit_random_call),
-    path('api/random_calls/join_lobby', join_random_call_lobby),
-    path('api/random_calls/exit_lobby', exit_random_call_lobby),
-    path('api/random_calls/status/<uuid:random_match_id>', get_random_call_status),
-    path('api/random_calls/match_random_pair', match_random_pair),
-    path('api/random_calls/reset_match', reset_match),
+    path("api/random_calls/get_token_random_call", authenticate_livekit_random_call),
+    path("api/random_calls/join_lobby", join_random_call_lobby),
+    path("api/random_calls/exit_lobby", exit_random_call_lobby),
+    path("api/random_calls/status/<uuid:random_match_id>", get_random_call_status),
+    path("api/random_calls/match_random_pair", match_random_pair),
+    path("api/random_calls/reset_match", reset_match),
 ]
