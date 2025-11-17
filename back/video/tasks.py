@@ -1,6 +1,9 @@
+import random
+
 from celery import shared_task
 
-from video.models import RandomCallLobby, RandomCallLobbyUser
+from video.models import RandomCallLobby, RandomCallLobbyUser, RandomCallMatching
+from video.random_calls import is_lobby_active
 from video.services.livekit_session_correction import process_unusually_long_sessions
 
 
@@ -21,12 +24,18 @@ def daily_fix_unusually_long_livekit_sessions(cutoff_hours: float = 4.0):
 
 @shared_task(name="video.tasks.random_call_lobby_perform_matching")
 def random_call_lobby_perform_matching(lobby_name="default"):
+    # TODO: add locking mechanism that assures this tasks only runs once in parallel!
     # 1 - retrieve the lobby
     lobby = RandomCallLobby.objects.get(name=lobby_name)
     # 2 - check if the lobby is active
     if not is_lobby_active(lobby):
-        return Response("Lobby is not active", status=400)
-    # 3 - check if the user is in the lobby
-    user_in_lobby = RandomCallLobbyUser.objects.filter(user=request.user, lobby=lobby)
-    if not user_in_lobby.exists():
-        return Response("You are not in the lobby", status=400)
+        raise Exception("Lobby is not active")
+    # 3 - retrieve all users in the lobby
+    users_in_lobby = RandomCallLobbyUser.objects.filter(lobby=lobby)
+    # 4 - gather all user id's and select random pairs
+    user_ids = users_in_lobby.values_list("user_id", flat=True)
+    random_pairs = random.sample(user_ids, 2)
+    # 5 - create a new random call matches
+    for pair in random_pairs:
+        RandomCallMatching.objects.create(u1=pair[0], u2=pair[1])
+    return {"matchings": random_pairs}

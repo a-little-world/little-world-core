@@ -25,6 +25,7 @@ from video.models import (
     RandomCallMatching,
     RandomCallSession,
 )
+from video.tasks import random_call_lobby_perform_matching
 
 # from management.tasks import kill_livekit_room
 
@@ -165,7 +166,7 @@ def join_random_call_lobby(request, lobby_name="default"):
     if not user_in_lobby:
         RandomCallLobbyUser.objects.create(user=request.user, lobby=lobby)
     # 4 - a-new user joined so start the celery task that performs the matching
-    # TODO
+    random_call_lobby_perform_matching.apply_async(args=[lobby_name])
     return Response({"lobby": lobby.uuid, "already_joined": already_in_lobby})
 
 
@@ -228,7 +229,7 @@ def get_random_call_status(request, random_call_session_id):
     # 4 - check the random call session status
     # TODO: calculate remaining time, and possibly other status events
     # TODO: or atleast pass a session end time of sorts
-    return Response({"random_call_session": random_call_session.uuid, "status": random_call_session.status})
+    return Response({"random_call_session": str(random_call_session.uuid), "status": random_call_session.status})
 
 
 api_urls = [
