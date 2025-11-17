@@ -51,7 +51,11 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
                 qs = Chat.objects.get(uuid=self.chat_uuid).get_messages().order_by("-created")
                 return qs
             else:
-                qs = Chat.objects.get(Q(u1=self.request.user) | Q(u2=self.request.user), uuid=self.chat_uuid).get_messages().order_by("-created")
+                qs = (
+                    Chat.objects.get(Q(u1=self.request.user) | Q(u2=self.request.user), uuid=self.chat_uuid)
+                    .get_messages()
+                    .order_by("-created")
+                )
                 return qs
         return super().filter_queryset(queryset)
 
@@ -133,6 +137,8 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         # Update match data
         match.total_messages_counter += 1
         match.latest_interaction_at = timezone.now()
+        if match.first_chat_interaction is None:
+            match.first_chat_interaction = timezone.now()
         match.save()
 
         chat.three_days_inactive = False
@@ -198,13 +204,9 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
             escaped_attachment_link = json.dumps(attachment.file.url)
 
             if is_image:
-                final_message_text = (
-                    f'<AttachmentWidget {{"attachmentTitle": {escaped_title}, "attachmentLink": null, "imageSrc": {escaped_attachment_link}, "caption": {escaped_caption}}} ></AttachmentWidget>'
-                )
+                final_message_text = f'<AttachmentWidget {{"attachmentTitle": {escaped_title}, "attachmentLink": null, "imageSrc": {escaped_attachment_link}, "caption": {escaped_caption}}} ></AttachmentWidget>'
             else:
-                final_message_text = (
-                    f'<AttachmentWidget {{"attachmentTitle": {escaped_title}, "attachmentLink": {escaped_attachment_link}, "imageSrc": null, "caption": {escaped_caption}}} ></AttachmentWidget>'
-                )
+                final_message_text = f'<AttachmentWidget {{"attachmentTitle": {escaped_title}, "attachmentLink": {escaped_attachment_link}, "imageSrc": null, "caption": {escaped_caption}}} ></AttachmentWidget>'
 
             is_parsable = True
 
