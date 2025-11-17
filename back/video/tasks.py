@@ -3,7 +3,6 @@ import random
 from celery import shared_task
 
 from video.models import RandomCallLobby, RandomCallLobbyUser, RandomCallMatching
-from video.random_calls import is_lobby_active
 from video.services.livekit_session_correction import process_unusually_long_sessions
 
 
@@ -24,6 +23,9 @@ def daily_fix_unusually_long_livekit_sessions(cutoff_hours: float = 4.0):
 
 @shared_task(name="video.tasks.random_call_lobby_perform_matching")
 def random_call_lobby_perform_matching(lobby_name="default"):
+    # Import here to avoid circular import
+    from video.random_calls import is_lobby_active
+
     # TODO: add locking mechanism that assures this tasks only runs once in parallel!
     # 1 - retrieve the lobby
     lobby = RandomCallLobby.objects.get(name=lobby_name)
