@@ -1,7 +1,3 @@
-import hashlib
-import hmac
-import secrets
-import time
 import urllib.parse
 from dataclasses import dataclass
 from typing import Optional
@@ -9,7 +5,6 @@ from typing import Optional
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.core.cache import cache
 from django.db.models import Q
 from django.dispatch import receiver
 from django.http import HttpResponseRedirect
@@ -17,8 +12,6 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django_rest_passwordreset.signals import reset_password_token_created
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
-from emails import mails
-from emails.mails import PwResetMailParams, get_mail_data_by_name
 from rest_framework import authentication, permissions, serializers, status
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -29,15 +22,13 @@ from tracking import utils
 from tracking.models import Event
 from translations import get_translation
 
-from management.controller import UserNotFoundErr, delete_user, get_user, get_user_by_email, get_user_by_hash
 from management.authentication import NativeOnlyJWTAuthentication
-from management.models.state import FrontendStatusSerializer, State
+from management.controller import UserNotFoundErr, delete_user, get_user, get_user_by_email, get_user_by_hash
+from management.models.banner import Banner, BannerSerializer
 from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from management.models.profile import SelfProfileSerializer
-from management.models.matches import Match
-from management.models.banner import Banner, BannerSerializer
-from django.db.models import Q
+from management.models.state import FrontendStatusSerializer, State
 
 """
 The public /user api's
@@ -90,7 +81,7 @@ class VerifyEmail(APIView):
             raise serializers.ValidationError({"auth_data": get_translation("email.verify_auth_data_missing_post")})
         try:
             auth_pin = int(kwargs["auth_data"])
-        except:
+        except (ValueError, TypeError):
             raise serializers.ValidationError({"auth_data": get_translation("email.verify_failure_not_numeric")})
         if request.user.state.check_email_auth_pin(auth_pin):
             return Response(get_translation("email.verify_success_post"))
@@ -146,19 +137,20 @@ class NativeLoginSerializer(serializers.Serializer):
 @dataclass
 class AutoLoginData:
     u: str  # user
-    l: str  # lookup: hash | email | id
+    lookup: str  # lookup: hash | email | id
     token: str  # auto login token
     n: Optional[str] = None  # next page
 
 
 class AutoLoginSerializer(serializers.Serializer):
     u = serializers.CharField(required=True)
-    l = serializers.CharField(required=True)
+    lookup = serializers.CharField(required=True)
     n = serializers.CharField(required=False)
     token = serializers.CharField(required=True)
 
     def create(self, validated_data):
         return AutoLoginData(**validated_data)
+
 
 class LoginApi(APIView):
     permission_classes = []
@@ -198,7 +190,10 @@ class LoginApi(APIView):
             token_auth = request.query_params.get("token_auth", False)
             if token_auth:
                 # Legacy token auth - now deprecated in favor of native challenge-response
-                return Response("Token auth deprecated. Use /api/user/native-login for native apps", status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    "Token auth deprecated. Use /api/user/native-login for native apps",
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             else:
                 login(request, usr)
                 return Response(get_user_data(request.user))
@@ -217,7 +212,7 @@ class LoginApi(APIView):
         serializer.is_valid(raise_exception=True)
         params = serializer.save()
 
-        u = get_user(params.u, params.l)
+        u = get_user(params.u, params.lookup)
         if not u.state.has_extra_user_permission(State.ExtraUserPermissionChoices.AUTO_LOGIN):
             return Response("Unauthorized", status=status.HTTP_403_FORBIDDEN)
         else:
@@ -487,25 +482,7 @@ class UnmatchSelfSerializer(serializers.Serializer):
 @login_required
 @api_view(["POST"])
 def resend_verification_mail(request):
-    if settings.USE_V2_EMAIL_APIS:
-        request.user.send_email_v2("verify-email")
-    else:
-        # TODO: depricate the old way
-        link_route = "mailverify_link"
-        verifiaction_url = f"{settings.BASE_URL}/{link_route}/{request.user.state.get_email_auth_code_b64()}"
-        mails.send_email(
-            recivers=[request.user.email],
-            subject="{code} - Verifizierungscode zur E-Mail Bestätigung".format(
-                code=request.user.state.get_email_auth_pin()
-            ),
-            mail_data=mails.get_mail_data_by_name("welcome"),
-            mail_params=mails.WelcomeEmailParams(
-                first_name=request.user.profile.first_name,
-                verification_url=verifiaction_url,
-                verification_code=str(request.user.state.get_email_auth_pin()),
-            ),
-        )
-
+    request.user.send_email_v2("verify-email")
     return Response("Resend verification mail")
 
 
@@ -520,15 +497,7 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
     usr_hash = reset_password_token.user.hash
     reset_password_url = f"{settings.BASE_URL}/set_password/{usr_hash}/{reset_password_token.key}"
 
-    if settings.USE_V2_EMAIL_APIS:
-        reset_password_token.user.send_email_v2("reset-password", context={"reset_password_url": reset_password_url})
-    else:
-        mail_data = get_mail_data_by_name("password_reset")
-        reset_password_token.user.send_email(
-            subject=get_translation("api.user_resetpw_mail_subject"),
-            mail_data=mail_data,
-            mail_params=PwResetMailParams(password_reset_url=reset_password_url),
-        )
+    reset_password_token.user.send_email_v2("reset-password", context={"reset_password_url": reset_password_url})
 
 
 @login_required
@@ -584,8 +553,8 @@ def get_user_data(user):
         Q(user1=user) | Q(user2=user),
         support_matching=False,
     ).exists()
-    
-        # Retrieve the active banner for the specific user type
+
+    # Retrieve the active banner for the specific user type
     banner_query = Banner.get_active_banner(user)
 
     banner = BannerSerializer(banner_query).data if banner_query else {}

@@ -81,7 +81,7 @@ class MatchConfirmationTests(TestCase):
         """
         u1, u2 = self._create_two_user_prematching()
 
-        u1_unconf = get_unconfirmed_matches(u1)
+        get_unconfirmed_matches(u1)
         u2_unconf = get_unconfirmed_matches(u2)
 
         unconf_hash = u2_unconf[0]["hash"]
@@ -104,7 +104,7 @@ class MatchConfirmationTests(TestCase):
         """
         u1, u2 = self._create_two_user_prematching()
 
-        u1_unconf = get_unconfirmed_matches(u1)
+        get_unconfirmed_matches(u1)
         u2_unconf = get_unconfirmed_matches(u2)
 
         unconf_hash = u2_unconf[0]["hash"]

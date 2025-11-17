@@ -1,6 +1,6 @@
 import math
 import random
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from celery import shared_task
 from cookie_consent.models import Cookie, CookieGroup
@@ -87,7 +87,7 @@ def create_default_cookie_groups():
         is_deletable=True,
     )
 
-    little_world_functionality_cookies = CookieGroup.objects.create(
+    CookieGroup.objects.create(
         varname="lw_func_cookies",
         name="FunctionalityCookies",
         description="Cookies required for basic functionality of Little World",
@@ -95,7 +95,7 @@ def create_default_cookie_groups():
         is_deletable=False,
     )
 
-    google_analytics_cookie = Cookie.objects.create(
+    Cookie.objects.create(
         cookiegroup=analytics_cookiegroup,
         name="google_analytics_cookie",
         description="Google anlytics cookies and scripts",
@@ -117,7 +117,7 @@ def create_default_cookie_groups():
         + "fbq('init', '1108875150004843');\nfbq('track', 'PageView');\n    "
     )
 
-    facebook_pixel_cookie = Cookie.objects.create(
+    Cookie.objects.create(
         cookiegroup=analytics_cookiegroup,
         name="facebook_pixel_cookie",
         description="Facebook Pixel analytics cookies and scripts",
@@ -265,68 +265,6 @@ def check_registration_reminders():
 
 
 @shared_task
-def check_match_still_in_contact_emails():
-    # TODO: this is not active at the moment
-    # TODO: re-implement with v2 api
-    from django.db.models import Q
-    from django.utils import timezone
-    from emails import mails
-
-    from management.models.matches import Match
-
-    matches_older_than_3_weeks = Match.objects.filter(
-        Q(created_at__lte=timezone.now() - timezone.timedelta(days=21)),
-        still_in_contact_mail_send=False,
-    ).exclude(support_matching=True)
-
-    report = []
-
-    for match in matches_older_than_3_weeks:
-        for comb in [(match.user1, match.user2), (match.user2, match.user1)]:
-            comb[0].send_email(
-                subject="Matching noch aktiv?",
-                mail_data=mails.get_mail_data_by_name("still_in_contact"),
-                mail_params=mails.StillInContactParams(
-                    first_name=comb[0].profile.first_name,
-                    partner_first_name=comb[1].profile.first_name,
-                ),
-                emulated_send=True,
-            )
-        report.append(
-            {
-                "kind": "send_still_in_contanct_email",
-                "match": str(match.pk),
-                "user1": str(match.user1.hash),
-                "user2": str(match.user2.hash),
-            }
-        )
-        match.still_in_contact_mail_send = True
-        match.save()
-    return report
-
-
-@shared_task
-def dispatch_admin_email_notification(subject, message):
-    from django.conf import settings
-    from emails import mails
-
-    from . import controller
-
-    base_management_user = controller.get_base_management_user()
-
-    if settings.USE_V2_EMAIL_APIS:
-        raise NotImplementedError("V2 email api not implemented yet!")
-    else:
-        base_management_user.send_email(
-            subject=subject,
-            mail_data=mails.get_mail_data_by_name("raw"),
-            mail_params=mails.RAWTemplateMailParams(
-                subject_header_text=subject, greeting=message, content_start_text=message
-            ),
-        )
-
-
-@shared_task
 def request_streamed_ai_response(messages, model="gpt-3.5-turbo", backend="default"):
     from django.conf import settings
     from openai import OpenAI
@@ -450,7 +388,7 @@ def mark_burst_task_completed_check_for_finish(task_id=None):
     current_calculation_task_ids = current_caluclation.meta.get("tasks", [])
     completed_task_ids = current_caluclation.meta.get("completed_tasks", [])
 
-    if not (task_id in current_calculation_task_ids):
+    if task_id not in current_calculation_task_ids:
         return {"status": "done"}
 
     current_calculation_task_ids.remove(task_id)
@@ -537,7 +475,7 @@ def send_dynamic_email_backgruound(
         mail.send(fail_silently=False)
         mail_log.sucess = True
         mail_log.save()
-    except Exception as e:
+    except Exception:
         mail_log.sucess = False
         mail_log.save()
 
@@ -590,6 +528,7 @@ def slack_notify_communication_channel_async(message):
 @shared_task
 def hourly_check_banner_activation():
     from django.utils import timezone
+
     current_time = timezone.now()
 
     bc = {
@@ -617,29 +556,23 @@ def hourly_check_banner_activation():
             bc["deactivated"].append(banner.id)
     return bc
 
-@shared_task(
-    autoretry_for=(),
-    retry_kwargs={'max_retries': 0},
-    reject_on_worker_lost=True,
-    acks_late=False,
-    bind=True
-)
+
+@shared_task(autoretry_for=(), retry_kwargs={"max_retries": 0}, reject_on_worker_lost=True, acks_late=False, bind=True)
 def send_sms_background(self, user_hash, message):
     """
     Send SMS background task that never retries on failure.
     If the task fails, it should fail permanently to prevent duplicate SMS sending.
     """
     from django.utils import timezone
+
     from management.controller import get_base_management_user
-    from management.models.user import User
     from management.models.sms import SmsModel
+    from management.models.user import User
 
     recent_sms = SmsModel.objects.filter(
-        recipient__hash=user_hash,
-        message=message,
-        created_at__gte=timezone.now() - timezone.timedelta(hours=2)
+        recipient__hash=user_hash, message=message, created_at__gte=timezone.now() - timezone.timedelta(hours=2)
     ).exists()
-    
+
     if recent_sms:
         print(f"Skipping duplicate SMS for user {user_hash} - already sent within last 2 hours")
         return {"status": "skipped", "reason": "duplicate_message"}
@@ -654,3 +587,33 @@ def send_sms_background(self, user_hash, message):
 
 
 # TODO: re-implement @Sungsoo's 'def kill_livekit_room(room, session_id, matching_id, chat_id):'
+
+
+@shared_task
+def automatic_emails_u023_u024_u025():
+    """
+    Sends automatic emails to users who have not booked an onboarding call after completing the user form
+    """
+    from management.models.pre_matching_appointment import PreMatchingAppointment
+    from management.models.user import User
+
+    reminder = {
+        "automatic-emails-u023": [3, False, False, False],
+        "automatic-emails-u024": [7, True, False, False],
+        "automatic-emails-u025": [14, True, True, False],
+    }
+    for template, (days, three_days_reminder, seven_days_reminder, fourteen_days_reminder) in reminder.items():
+        users = User.objects.filter(
+            state__user_form_completed_at__lte=datetime.now(timezone.utc) - timedelta(days=days),
+            state__had_prematching_call=False,
+            state__user_form_completed_3_days_reminder_send=three_days_reminder,
+            state__user_form_completed_7_days_reminder_send=seven_days_reminder,
+            state__user_form_completed_14_days_reminder_send=fourteen_days_reminder,
+        )
+        user_prematching_join = PreMatchingAppointment.objects.filter(user__in=users)
+        users = users.exclude(id__in=user_prematching_join.values_list("user", flat=True))
+        for user in users:
+            send_email_background.delay(template, user_id=user.id)
+            user.state.set_user_form_completed_reminder_sent(days)
+
+    return {"status": "sent"}

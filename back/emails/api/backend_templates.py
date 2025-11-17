@@ -55,8 +55,6 @@ def render_backend_template(request, template_name):
     if not template_config:
         return Response({"error": "Template not found"}, status=404)
 
-    template = template_config.template
-
     query_params = request.query_params.copy()
 
     user_id = query_params.get("user_id", None)

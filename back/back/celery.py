@@ -52,10 +52,10 @@ auto_emails = {
         "task": "management.tasks.check_registration_reminders",
         "schedule": 60.0 * 60.0,  # Every hour
     },
-    #    "check-still-in-contact-emails": {
-    #        "task": "management.tasks.check_match_still_in_contact_emails",
-    #        "schedule": 60.0 * 60.0 * 12.0,  # Every 12 hours
-    #    },
+    # "automatic-emails-u023-u024-u025": { @tbscode: commented this out for now, wants further testing!
+    #     "task": "management.tasks.automatic_emails_u023_u024_u025",
+    #     "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+    # },
 }
 
 prod_shedules = {
@@ -89,8 +89,10 @@ if not settings.PROD_ATTACH:
         **(prod_shedules if settings.IS_PROD else {}),
     }
 
-'''
+"""
 Helper function to end a celery task using the AsyncResult ID
-'''
+"""
+
+
 def end_task(task_id):
     app.control.revoke(task_id)

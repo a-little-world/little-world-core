@@ -1,16 +1,17 @@
 import urllib.parse
 from dataclasses import dataclass
 
+from back.utils import transform_add_options_serializer
 from django.conf import settings
+from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import authentication, permissions, serializers, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from translations import get_translation
-from management.api.user import get_user_data
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from translations import get_translation
 
-from back.utils import transform_add_options_serializer
+from management.api.user import get_user_data
 from management.models import custom_banner_event_filters
 from management.models.profile import Profile, SelfProfileSerializer
 from management.models.state import State
@@ -33,7 +34,11 @@ class ProfileViewSet(viewsets.GenericViewSet, viewsets.mixins.UpdateModelMixin):
     A viewset for viewing and editing user instances.
     """
 
-    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication, JWTAuthentication]
+    authentication_classes = [
+        authentication.SessionAuthentication,
+        authentication.BasicAuthentication,
+        JWTAuthentication,
+    ]
 
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = SelfProfileSerializer
@@ -93,6 +98,7 @@ class ProfileCompletedApi(APIView):
             user = request.user
             state = user.state
             state.set_user_form_completed()
+            state.user_form_completed_at = timezone.now()
             state.searching_state = State.SearchingStateChoices.SEARCHING
             state.save()
             default_message = get_translation("auto_messages.prematching_invitation", lang="de").format(
@@ -111,14 +117,13 @@ class ProfileCompletedApi(APIView):
                 default_message = get_translation("auto_messages.prematching_lang_level_too_low", lang="de").format(
                     first_name=user.profile.first_name
                 )
-            
+
             if custom_banner_event_filters.filter__learners_outside_germany(user):
                 default_message = get_translation("auto_messages.learner_outside_germany", lang="de").format(
                     first_name=user.profile.first_name
                 )
 
             user.message(default_message, auto_mark_read=True, send_message_incoming=True)
-
 
             ud = get_user_data(user)
             return Response(ud)

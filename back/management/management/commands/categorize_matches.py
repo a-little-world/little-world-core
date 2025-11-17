@@ -7,4 +7,4 @@ class Command(BaseCommand):
         parser.add_argument("arg1", type=str, help="User hash")
 
     def handle(self, **options):
-        uuid = options["arg1"]
+        options["arg1"]

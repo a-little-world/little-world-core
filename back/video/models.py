@@ -1,13 +1,12 @@
 from datetime import timedelta
-from django.utils import timezone
 from uuid import uuid4
 
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Q
+from django.utils import timezone
 from management.models.profile import CensoredProfileSerializer
-from rest_framework.serializers import ModelSerializer
-from django.db import transaction
 from rest_framework import serializers
+from rest_framework.serializers import ModelSerializer
 
 
 class LiveKitRoom(models.Model):
@@ -57,7 +56,7 @@ class LivekitSession(models.Model):
     u2_was_active = models.BooleanField(default=False)
 
     both_have_been_active = models.BooleanField(default=False)
-    
+
     unusual_length = models.BooleanField(default=False)
     start_end_before_correction = models.TextField(null=True, blank=True)
 
@@ -70,9 +69,10 @@ class LivekitSession(models.Model):
 
     webhook_events = models.ManyToManyField("video.LivekitWebhookEvent", related_name="livekit_session")
 
+
 class SerializeLivekitSession(ModelSerializer):
-    room_uuid = serializers.CharField(source='room.uuid', read_only=True, allow_null=True)
-    
+    room_uuid = serializers.CharField(source="room.uuid", read_only=True, allow_null=True)
+
     class Meta:
         model = LivekitSession
         fields = ["uuid", "created_at", "room_uuid"]
@@ -102,7 +102,8 @@ class SerializeLivekitSession(ModelSerializer):
                 rep["partner"]["id"] = instance.u1.hash
 
         return rep
-    
+
+
 class RandomCallLobby(models.Model):
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
     user = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="user_in_lobby")
@@ -114,11 +115,12 @@ class RandomCallLobby(models.Model):
         if lobby.exists():
             return lobby.first()
         else:
-            return cls.objects.create(user=user,status=False)
-    
+            return cls.objects.create(user=user, status=False)
+
+
 class RandomCallMatching(models.Model):
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
-    
+
     u1 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u1_randomcall_session")
     u2 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u2_randomcall_session")
     active = models.BooleanField(default=False)
@@ -136,9 +138,10 @@ class RandomCallMatching(models.Model):
             else:
                 return cls.objects.create(u1=user1, u2=user2, active=True)
 
+
 class RandomCallSession(models.Model):
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
-    
+
     random_match = models.CharField(max_length=50)
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -158,4 +161,6 @@ class RandomCallSession(models.Model):
             if session.exists() and session.first().active:
                 return session.first()
             else:
-                return cls.objects.create(random_match=random_match, tmp_chat=tmp_chat, tmp_match=tmp_match, active=active, end_time=end_time)
+                return cls.objects.create(
+                    random_match=random_match, tmp_chat=tmp_chat, tmp_match=tmp_match, active=active, end_time=end_time
+                )

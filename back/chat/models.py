@@ -2,7 +2,7 @@ from uuid import uuid4
 
 from django.core.paginator import Paginator
 from django.db import models
-from django.db.models import Max, Q, Case, When, Value, IntegerField
+from django.db.models import Case, IntegerField, Max, Q, Value, When
 from management import models as management_models
 from video.models import RandomCallMatching
 from rest_framework import serializers
@@ -35,21 +35,19 @@ class Chat(models.Model):
             management_models.state.State.ExtraUserPermissionChoices.MATCHING_USER
         )
         queryset = Chat.objects.filter(Q(u1=user) | Q(u2=user))
-        
+
         if is_matching_user:
             queryset = queryset.annotate(
                 newest_message_time=Max("message__created"),
                 has_messages=Case(
                     When(newest_message_time__isnull=False, then=Value(1)),
                     default=Value(0),
-                    output_field=IntegerField()
-                )
+                    output_field=IntegerField(),
+                ),
             ).order_by("-has_messages", "-newest_message_time", "-created")
         else:
-            queryset = queryset.annotate(
-                newest_message_time=Max("message__created")
-            ).order_by("-newest_message_time")
-        
+            queryset = queryset.annotate(newest_message_time=Max("message__created")).order_by("-newest_message_time")
+
         return queryset
 
     def get_messages(self):

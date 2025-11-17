@@ -1,11 +1,13 @@
-from rest_framework.decorators import api_view, permission_classes
-from management.views.main_frontend import info_card
 from django.urls import path
+from rest_framework.decorators import api_view, permission_classes
+
+from management.views.main_frontend import info_card
+
 
 @api_view(["GET"])
 @permission_classes([])
 def still_in_contact__yes(request):
-    user_hash = request.query_params.get("u", None)
+    request.query_params.get("u", None)
 
     return info_card(
         request,
@@ -15,10 +17,11 @@ def still_in_contact__yes(request):
         linkTo="/login",
     )
 
+
 @api_view(["GET"])
 @permission_classes([])
 def still_in_contact__no(request):
-    user_hash = request.query_params.get("u", None)
+    request.query_params.get("u", None)
 
     return info_card(
         request,
@@ -27,6 +30,7 @@ def still_in_contact__no(request):
         linkText="Back to app",
         linkTo="/login",
     )
+
 
 api_urls = [
     path("still_in_contact/yes", still_in_contact__yes),

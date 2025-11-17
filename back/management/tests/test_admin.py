@@ -34,7 +34,7 @@ class AdminApiTests(TestCase):
     # def test_management_user_created(self): TODO
 
     def test_matches_made(self):
-        users = self._create_abunch_of_users(amnt=20)
+        self._create_abunch_of_users(amnt=20)
         # TODO: check if matches are created
 
     def test_user_list(self):

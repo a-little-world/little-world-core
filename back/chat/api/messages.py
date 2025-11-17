@@ -1,9 +1,8 @@
 import json
-from django.conf import settings
+
 from django.db.models import Q
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
-from emails import mails
 from management.helpers import DetailedPaginationMixin, UserStaffRestricedModelViewsetMixin
 from management.models.matches import Match
 from management.tasks import send_email_background
@@ -120,7 +119,7 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         if not chat.exists():
             return self.resp_chat_403
         chat = chat.first()
-            
+
         if not chat.is_participant(request.user):
             return self.resp_chat_403
 
@@ -143,12 +142,16 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         # Email notification logic - check if recipient should be notified
         creation_time = timezone.now()
         recipient_was_email_notified = False
-        
+
         # Simplified notification check - only get the latest one
-        latest_notified_message = Message.objects.filter(
-            recipient=partner,
-            recipient_notified=True,
-        ).order_by("-created").first()
+        latest_notified_message = (
+            Message.objects.filter(
+                recipient=partner,
+                recipient_notified=True,
+            )
+            .order_by("-created")
+            .first()
+        )
 
         def notify_recipient_email():
             send_email_background.delay("new-messages", user_id=partner.id)
@@ -162,43 +165,43 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         else:
             recipient_was_email_notified = True
             notify_recipient_email()
-            
-        message_text = serializer.validated_data.get('text', '')
+
+        message_text = serializer.validated_data.get("text", "")
 
         # Optimize: Streamlined attachment processing
         attachment = None
         final_message_text = message_text
         is_parsable = False
-        
-        if 'file' in serializer.validated_data and serializer.validated_data['file']:
-            file = serializer.validated_data['file']
-            
+
+        if "file" in serializer.validated_data and serializer.validated_data["file"]:
+            file = serializer.validated_data["file"]
+
             # Quick validation without redundant checks
             if file.size > 3 * 1024 * 1024:  # 3MB limit
                 return Response({"error": "File size too large. Maximum size is 3MB."}, status=400)
-            
-            if not file.name or '.' not in file.name:
+
+            if not file.name or "." not in file.name:
                 return Response({"error": "Invalid file format. File must have a valid extension."}, status=400)
-            
+
             # Create attachment
             attachment = MessageAttachment.objects.create(file=file)
             if not attachment or not attachment.file:
                 return Response({"error": "Failed to process file attachment."}, status=400)
-            
+
             # Simplified file type detection and widget creation
             file_extension = file.name.split(".")[-1].lower()
             is_image = file_extension in ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "ico", "webp"]
-            
+
             # Optimized widget creation - pre-escape values
             escaped_title = json.dumps("Image" if is_image else file.name)
             escaped_caption = json.dumps(message_text)
             escaped_attachment_link = json.dumps(attachment.file.url)
-            
+
             if is_image:
                 final_message_text = f'<AttachmentWidget {{"attachmentTitle": {escaped_title}, "attachmentLink": null, "imageSrc": {escaped_attachment_link}, "caption": {escaped_caption}}} ></AttachmentWidget>'
             else:
                 final_message_text = f'<AttachmentWidget {{"attachmentTitle": {escaped_title}, "attachmentLink": {escaped_attachment_link}, "imageSrc": null, "caption": {escaped_caption}}} ></AttachmentWidget>'
-            
+
             is_parsable = True
 
         # Create message - single database operation

@@ -59,6 +59,7 @@ from datetime import timedelta
 from enum import Enum
 
 import pgeocode
+from back.utils import CoolerJson
 from django.core.paginator import Paginator
 from django.db.models import Exists, OuterRef, Q
 from drf_spectacular.utils import extend_schema
@@ -67,10 +68,10 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework_dataclasses.serializers import DataclassSerializer
 
-from back.utils import CoolerJson
 from management import controller
 from management.api.user_advanced_filter import needs_matching
 from management.helpers import IsAdminOrMatchingUser
+from management.models import scores
 from management.models.matches import Match
 from management.models.profile import Profile
 from management.models.scores import TwoUserMatchingScore
@@ -78,8 +79,8 @@ from management.models.state import State
 from management.models.unconfirmed_matches import ProposedMatch
 from management.models.user import User
 from management.tasks import burst_calculate_matching_scores, matching_algo_v2
-from management.validators import DAYS, SLOTS
 from management.utils import check_task_status
+from management.validators import DAYS, SLOTS
 
 
 @dataclass
@@ -157,7 +158,7 @@ class ScoringBase:
                 if day in slots1 and day in slots2 and slot in slots1[day] and slot in slots2[day]:
                     common_slots[day] = common_slots.get(day, []) + [slot]
                     amnt_common_slots += 1
-        
+
         # If no common slots, make unmatchable
         if amnt_common_slots <= 0:
             return ScoringFuctionResult(
@@ -166,7 +167,7 @@ class ScoringBase:
                 weight=1.0,
                 markdown_info=f"Common slots: ({str(amnt_common_slots)}) {str(common_slots)} (unmatchable: no overlap)",
             )
-        
+
         conditions = [
             [lambda x: x == 1, 15],
             [lambda x: x == 2, 25],
@@ -522,13 +523,11 @@ class ScoringBase:
 
     def calculate_score(self, raise_exception=False):
         results = []
-        error_occured = False
         for score_function in list(self.scoring_fuctions.keys()):
             try:
                 res = self.scoring_fuctions[score_function]()
                 assert res, f"Score function must return a ScoringFuctionResult: {score_function} doesn't"
             except Exception as e:
-                error_occured = True
                 print(f"Error in score function {score_function}:", e)
                 if raise_exception:
                     raise e
@@ -618,10 +617,7 @@ def get_users_to_consider(usr=None, consider_only_registered_within_last_x_days=
         )
         .exclude(state__user_category__in=[State.UserCategoryChoices.SPAM, State.UserCategoryChoices.TEST])
         # Filter out LEARNERS not living in Germany
-        .exclude(
-            Q(profile__user_type=Profile.TypeChoices.LEARNER) & 
-            ~Q(profile__country_of_residence='DE')
-        )
+        .exclude(Q(profile__user_type=Profile.TypeChoices.LEARNER) & ~Q(profile__country_of_residence="DE"))
     )
 
     if len(exlude_user_ids) > 0:
@@ -722,9 +718,6 @@ class SimplePagination:
         return self.__dict__.copy()
 
 
-from management.models import scores
-
-
 class SimpleMatchingScoreSerializer(serializers.ModelSerializer):
     class Meta:
         model = scores.TwoUserMatchingScore
@@ -767,9 +760,9 @@ def burst_calculate_matching_scores_v2(request):
 
     bmu = controller.get_base_management_user()
     requires_matching = needs_matching(
-        qs=User.objects.filter(id__in=bmu.state.managed_users.all()), 
+        qs=User.objects.filter(id__in=bmu.state.managed_users.all()),
         learner_atleast_searching_for_x_days=5,
-        exclude_non_german_residents=True
+        exclude_non_german_residents=True,
     )
     user_id_set = set(requires_matching.values_list("id", flat=True))
     list_combinations = list(itertools.combinations(user_id_set, 2))

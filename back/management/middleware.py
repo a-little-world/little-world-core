@@ -1,11 +1,10 @@
 from django.conf import settings
 from django.shortcuts import render
 from django.utils import translation
-
-from rest_framework.authentication import TokenAuthentication
-from management.models.state import State
-from rest_framework_simplejwt.tokens import UntypedToken
 from rest_framework_simplejwt.exceptions import InvalidToken
+from rest_framework_simplejwt.tokens import UntypedToken
+
+from management.models.state import State
 
 
 def responde_404(request):
@@ -53,7 +52,7 @@ def _requires_extra_user_permission(path):
         try:
             if path.startswith(route):
                 return True, EXTRA_USER_AUTHORIZATION_ROUTES[route]
-        except:
+        except Exception:
             pass  # If the check fails we assume the user doesn't have reqired permissions
     return False, None
 
@@ -96,7 +95,7 @@ class AdminPathBlockingMiddleware:
                     has_permission = not auth_tools["check"](request.user)
                     if has_permission:
                         return auth_tools["else"](request)
-                except:
+                except Exception:
                     return auth_tools["else"](request)
 
         return self.get_response(request)
@@ -125,56 +124,57 @@ class SessionCookieSameSiteMiddleware:
     Middleware that modifies session cookies to set SameSite=None
     when CSRF bypass is requested, allowing cross-origin requests.
     """
-    
+
     def __init__(self, get_response):
         self.get_response = get_response
-    
+
     def __call__(self, request):
         response = self.get_response(request)
-        
+
         # Check if we need to modify session cookie SameSite attribute
-        if hasattr(request, '_modify_session_cookie_samesite') and request._modify_session_cookie_samesite:
+        if hasattr(request, "_modify_session_cookie_samesite") and request._modify_session_cookie_samesite:
             # Get the session cookie name from Django settings
             from django.conf import settings
-            session_cookie_name = getattr(settings, 'SESSION_COOKIE_NAME', 'sessionid')
-            
+
+            session_cookie_name = getattr(settings, "SESSION_COOKIE_NAME", "sessionid")
+
             # Check if session cookie exists in response
             if session_cookie_name in response.cookies:
                 cookie = response.cookies[session_cookie_name]
                 # Set SameSite=None to allow cross-origin requests
-                cookie['samesite'] = 'None'
+                cookie["samesite"] = "None"
                 # Note: SameSite=None requires Secure=True for HTTPS
                 if not settings.DEBUG:
-                    cookie['secure'] = True
-        
+                    cookie["secure"] = True
+
         return response
 
 
 class NativeOnlyCsrfBypassMiddleware:
-	"""
-	Disable CSRF checks when a valid JWT bearing the claim {"client": "native"}
-	is presented via the Authorization: Bearer header. This ties CSRF bypass
-	directly to native JWT usage without touching session auth or login APIs.
-	"""
+    """
+    Disable CSRF checks when a valid JWT bearing the claim {"client": "native"}
+    is presented via the Authorization: Bearer header. This ties CSRF bypass
+    directly to native JWT usage without touching session auth or login APIs.
+    """
 
-	def __init__(self, get_response):
-		self.get_response = get_response
+    def __init__(self, get_response):
+        self.get_response = get_response
 
-	def __call__(self, request):
-		try:
-			auth_header = request.META.get("HTTP_AUTHORIZATION", "")
-			if auth_header.startswith("Bearer "):
-				raw_token = auth_header.split(" ", 1)[1].strip()
+    def __call__(self, request):
+        try:
+            auth_header = request.META.get("HTTP_AUTHORIZATION", "")
+            if auth_header.startswith("Bearer "):
+                raw_token = auth_header.split(" ", 1)[1].strip()
 
-				try:
-					validated = UntypedToken(raw_token)
-					client = validated.payload.get("client")
-					if client == "native":
-						request._csrf_bypass = True
-						setattr(request, "_dont_enforce_csrf_checks", True)
-				except InvalidToken:
-					pass
-		except Exception:
-			pass # normal CSRF behavior...
+                try:
+                    validated = UntypedToken(raw_token)
+                    client = validated.payload.get("client")
+                    if client == "native":
+                        request._csrf_bypass = True
+                        setattr(request, "_dont_enforce_csrf_checks", True)
+                except InvalidToken:
+                    pass
+        except Exception:
+            pass  # normal CSRF behavior...
 
-		return self.get_response(request)
+        return self.get_response(request)

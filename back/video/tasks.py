@@ -16,5 +16,3 @@ def daily_fix_unusually_long_livekit_sessions(cutoff_hours: float = 4.0):
         dry_run=False,
     )
     return result
-
-
