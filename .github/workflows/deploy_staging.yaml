@@ -333,7 +333,8 @@ jobs:
               fromJSON('{"fail":"❌","pass":"✅"}')[steps.run_tests.outputs.test_result]
             }}
             Duration: ${{ steps.execution_time_tests.outputs.DURATION }} seconds
-            Artifacts: [View in run](${{ steps.get_test_artifact_url.outputs.url }}) — django-test-log
+            
+            Artifacts: [View in run](${{ steps.get_test_artifact_url.outputs.url }}) (`django-test-log`)
 
             <!-- lw-staging-workflow -->
       - name: Append test log on failure
