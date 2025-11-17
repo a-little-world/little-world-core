@@ -16,7 +16,7 @@ def random_names(amnt):
 
 
 valid_request_data = dict(
-    email="herrduenschnlate+@gmail.com",
+    email="jakob.elias.gebler+@gmail.com",
     first_name="?",  # We set them below,'?' would throw an error!
     second_name="?",
     password1="Test123!",
