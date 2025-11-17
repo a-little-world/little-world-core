@@ -1,1 +1,0 @@
-docker compose exec backend python3 manage.py send_notification herrduenschnlate+1@gmail.com "This is the headline" "This is the title" "This is the description"
