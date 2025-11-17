@@ -904,7 +904,6 @@ JAZZMIN_SETTINGS = {
         "management.Settings": "fas fa-cogs",
         "management.CommunityEvent": "fas fa-users",
         "management.Notification": "fas fa-comment-alt",
-        "management.User": "fas fa-user",
         "django_celery_results.TaskResult": "fas fa-poll-h",
         "django_celery_results.GroupResult": "fas fa-th-list",
         "django_rest_passwordreset.ResetPasswordToken": "fas fa-key",

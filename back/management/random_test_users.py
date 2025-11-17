@@ -145,7 +145,7 @@ def create_test_user(i, user_seeds=None, password=None, email=None, pass_if_exis
             usr = controller.get_user_by_email(_mail)
             if usr:
                 return
-        except:
+        except Exception:
             pass
 
     if password is not None:
@@ -204,7 +204,6 @@ def create_abunch_of_users(amnt=30, user_seeds=[42] * 20):
     # We can for now just create a range of seeds,
     # thereby it will give use the same rando users everytime!
     user_seeds = list(range(amnt))
-    mail_count = 0
 
     users = []
     for i in range(amnt):

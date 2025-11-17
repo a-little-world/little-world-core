@@ -1,6 +1,7 @@
 import urllib.parse
 from dataclasses import dataclass
 
+from back.utils import transform_add_options_serializer
 from django.conf import settings
 from django.utils import timezone
 from drf_spectacular.utils import OpenApiParameter, extend_schema
@@ -10,7 +11,6 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from translations import get_translation
 
-from back.utils import transform_add_options_serializer
 from management.api.user import get_user_data
 from management.models import custom_banner_event_filters
 from management.models.profile import Profile, SelfProfileSerializer

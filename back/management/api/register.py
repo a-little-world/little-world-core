@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import Optional
 
 import django.contrib.auth.password_validation as pw_validation
-from django.conf import settings
 from django.contrib.auth import login
 from django.core import exceptions
 from django.utils import translation
@@ -90,7 +89,7 @@ class RegistrationSerializer(serializers.Serializer):
         usr = None
         try:
             usr = controller.get_user_by_email(data["email"])
-        except:
+        except controller.UserNotFoundErr:
             pass  # If this doesnt fail the user doesn't exist!
 
         if usr is not None:

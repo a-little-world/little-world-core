@@ -1,7 +1,7 @@
 import importlib
 
 from django.contrib.auth import get_user_model
-from django.template import Context, Template
+from django.template import Template
 from django.template.base import NodeList, VariableNode
 from django.template.loader import get_template, render_to_string
 from emails.api.emails_config import EMAILS_CONFIG
@@ -174,7 +174,6 @@ def prepare_template_context(
 ):
     params = EMAILS_CONFIG.parameters
     template_config = EMAILS_CONFIG.emails.get(template_name)
-    template_path = template_config.template
 
     template_info = get_full_template_info(template_config)
     template_params = template_info["params"]

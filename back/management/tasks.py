@@ -87,7 +87,7 @@ def create_default_cookie_groups():
         is_deletable=True,
     )
 
-    little_world_functionality_cookies = CookieGroup.objects.create(
+    CookieGroup.objects.create(
         varname="lw_func_cookies",
         name="FunctionalityCookies",
         description="Cookies required for basic functionality of Little World",
@@ -95,7 +95,7 @@ def create_default_cookie_groups():
         is_deletable=False,
     )
 
-    google_analytics_cookie = Cookie.objects.create(
+    Cookie.objects.create(
         cookiegroup=analytics_cookiegroup,
         name="google_analytics_cookie",
         description="Google anlytics cookies and scripts",
@@ -117,7 +117,7 @@ def create_default_cookie_groups():
         + "fbq('init', '1108875150004843');\nfbq('track', 'PageView');\n    "
     )
 
-    facebook_pixel_cookie = Cookie.objects.create(
+    Cookie.objects.create(
         cookiegroup=analytics_cookiegroup,
         name="facebook_pixel_cookie",
         description="Facebook Pixel analytics cookies and scripts",

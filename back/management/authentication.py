@@ -28,5 +28,3 @@ class NativeOnlyJWTAuthentication(SimpleJWTAuthentication):
             return None
 
         return user, validated_token
-
-

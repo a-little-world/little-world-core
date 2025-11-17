@@ -52,23 +52,22 @@
 bd34b6821b', 'HTTP_X_FORWARDED_FOR': '3.238.174.157', 'HTTP_X_FORWARDED_PROTO': 'https', 'HTTP_X_VERCEL_ID': 'fra1::67l8j-1697028209487-020e577bdc4d'}
 """
 
+from datetime import timedelta
+
 import pytz
-from management.controller import get_base_management_user
 from babel.dates import format_datetime
+from back.celery import end_task
 from dateutil import parser
 from django.conf import settings
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from back.celery import end_task
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
 from translations import get_translation
 
 from management.controller import get_user_by_hash
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
-
 from management.tasks import send_sms_background
-from datetime import datetime, timedelta
 
 
 def translate_to_german_date(date_str, target_timezone="Europe/Berlin"):
@@ -131,7 +130,7 @@ def callcom_websocket_callback(request):
             end_task(task_id=appointment.sms_task)
             new_async_result = send_sms_background.apply_async(
                 (user_hash, get_translation("sms.onboarding_in_1h", lang="de").format(first_name=user.first_name)),
-                eta=start_time_parsed - timedelta(hours=1)
+                eta=start_time_parsed - timedelta(hours=1),
             )
             appointment.sms_task = new_async_result.id
             appointment.save()
@@ -139,12 +138,13 @@ def callcom_websocket_callback(request):
             appointment = PreMatchingAppointment(user=user, start_time=start_time_parsed, end_time=end_time_parsed)
             async_result = send_sms_background.apply_async(
                 (user_hash, get_translation("sms.onboarding_in_1h", lang="de").format(first_name=user.first_name)),
-                eta=start_time_parsed - timedelta(hours=1)
+                eta=start_time_parsed - timedelta(hours=1),
             )
             appointment.sms_task = async_result.id
             appointment.save()
-            
+
         from chat.consumers.messages import PreMatchingAppointmentBooked
+
         PreMatchingAppointmentBooked(appointment=PreMatchingAppointmentSerializer(appointment).data).send(user.hash)
 
         # Comment Oliver: we don't need to send this you already see it in the app & you get an email.

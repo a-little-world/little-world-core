@@ -1,6 +1,5 @@
 import os
 
-from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.security.websocket import AllowedHostsOriginValidator
 from django.core.asgi import get_asgi_application
@@ -8,6 +7,10 @@ from django.urls import re_path
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "back.settings")
 django_asgi_app = get_asgi_application()
+
+# Import after Django is initialized to avoid AppRegistryNotReady error
+# DON'T REMOVE THE NOQA COMMENT: IT WILL BREAK Django cause models can only be imported after django initalized!
+from back.channels_auth import MultiAuthMiddlewareStack  # noqa: E402
 
 
 def get_urls_patterns():
@@ -23,8 +26,6 @@ def get_urls_patterns():
 
     return _urls
 
-
-from back.channels_auth import MultiAuthMiddlewareStack
 
 application = ProtocolTypeRouter(
     {

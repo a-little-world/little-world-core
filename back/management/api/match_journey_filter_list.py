@@ -1,12 +1,11 @@
 from dataclasses import dataclass
-from management.models.matches import Match
 
 from management.api.match_journey_filters import (
     all_matches,
-    support_matching,
     completed_match,
     contact_stopped,
     expired_matching_proposals,
+    failed_matches,
     match_completed_off_plattform,
     match_confirmed_no_contact,
     match_confirmed_single_party_contact,
@@ -18,13 +17,14 @@ from management.api.match_journey_filters import (
     matching_proposals,
     never_confirmed,
     no_contact,
+    ongoing_matches,
     only_non_support_matching,
     reported_or_removed_match,
-    user_ghosted,
     sucess_matches,
-    ongoing_matches,
-    failed_matches,
+    support_matching,
+    user_ghosted,
 )
+from management.models.matches import Match
 
 
 @dataclass
@@ -157,11 +157,13 @@ MATCH_JOURNEY_FILTERS = [
     ),
 ]
 
+
 def get_match_list_by_name(name):
     for element in MATCH_JOURNEY_FILTERS:
         if element.name == name:
             return element
     return None
+
 
 def determine_match_bucket(match_pk):
     try:
