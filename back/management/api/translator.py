@@ -18,9 +18,15 @@ from management.clients import get_deepl_client
 
 class TranslateTextSerializer(serializers.Serializer):
     """Serializer for translation requests"""
+
     target = serializers.CharField(required=True, help_text="Target language code (e.g., 'DE', 'FR', 'ES')")
     text = serializers.CharField(required=True, help_text="Text to translate")
-    source = serializers.CharField(required=False, allow_null=True, allow_blank=True, help_text="Source language code (optional, auto-detected if not provided)")
+    source = serializers.CharField(
+        required=False,
+        allow_null=True,
+        allow_blank=True,
+        help_text="Source language code (optional, auto-detected if not provided)",
+    )
 
 
 @extend_schema(
@@ -33,26 +39,28 @@ class TranslateTextSerializer(serializers.Serializer):
 def languages(request):
     """
     Get the list of supported languages.
-    
+
     Returns a list of language objects with their codes and names.
     """
     translator = get_deepl_client()
-    
+
     # Get both source and target languages from DeepL
     source_languages = translator.get_source_languages()
     target_languages = translator.get_target_languages()
-    
+
     # Format response to match the structure of the old Google Translate API
     languages_list = []
-    
+
     # Use target languages as the main list (more comprehensive)
     for lang in target_languages:
-        languages_list.append({
-            "language": lang.code.lower(),  # DeepL uses uppercase, convert to lowercase for consistency
-            "name": lang.name,
-            "supports_formality": getattr(lang, "supports_formality", False),
-        })
-    
+        languages_list.append(
+            {
+                "language": lang.code.lower(),  # DeepL uses uppercase, convert to lowercase for consistency
+                "name": lang.name,
+                "supports_formality": getattr(lang, "supports_formality", False),
+            }
+        )
+
     return Response(languages_list)
 
 
@@ -67,12 +75,12 @@ def languages(request):
 def translate(request):
     """
     Translate text to a given target language.
-    
+
     Request body:
         - text (str): The text to translate
         - target (str): Target language code (e.g., 'DE', 'FR', 'ES')
         - source (str, optional): Source language code (auto-detected if not provided)
-    
+
     Returns:
         Translated text with metadata including detected source language
     """
@@ -102,4 +110,3 @@ def translate(request):
     }
 
     return Response(response_data)
-
