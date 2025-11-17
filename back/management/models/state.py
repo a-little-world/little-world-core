@@ -116,6 +116,8 @@ class State(models.Model):
     reference to models.notifications.Notification
     """
     notifications = models.ManyToManyField(Notification, related_name="n+", blank=True)
+    
+    previous_management_users = models.JSONField(default=list, blank=True)
 
     class UserCategoryChoices(models.TextChoices):
         # For this we can use the default translations '_()'

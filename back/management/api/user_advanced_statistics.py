@@ -12,6 +12,8 @@ from rest_framework import serializers
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from video.models import LivekitSession
+from django.conf import settings
+import requests
 
 from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS, get_match_list_by_name
 from management.api.user_advanced_filter_lists import FILTER_LISTS, USER_JOURNEY_FILTER_LISTS, get_list_by_name
@@ -19,6 +21,7 @@ from management.helpers import IsAdminOrMatchingUser
 from management.helpers.query_logger import QueryLogger
 from management.models.matches import Match
 from management.models.profile import Profile
+from management.models.short_links import ShortLinkClick
 from management.models.state import State
 from management.models.user import User
 
@@ -1456,6 +1459,222 @@ def time_slot_combination_optimization(request, n=1):
         "empty_availability_profiles": empty_availability_profiles
     })
 
+@extend_schema(
+    request=inline_serializer(
+        name="MarketingCampaignReportRequest",
+        fields={
+            "start_date": serializers.DateField(default="2022-01-01"),
+            "end_date": serializers.DateField(default=date.today()),
+        },
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
+def marketing_campaign_report(request):
+    """
+    Generate a marketing campaign report for users from 'sinnvoll' or 'mini' campaigns
+    who signed up within the specified date range.
+    """
+    start_date = request.data.get("start_date", "2022-01-01")
+    end_date = request.data.get("end_date", date.today())
+    
+    # Convert end_date to include the full day
+    from datetime import datetime
+    if isinstance(end_date, str):
+        end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
+    else:
+        end_date_obj = end_date
+    end_date_inclusive = datetime.combine(end_date_obj, datetime.max.time())
+    
+    # Filter users by signup date and campaign
+    users = User.objects.filter(
+        date_joined__range=[start_date, end_date_inclusive],
+        state__company__in=['campaign-sinnvoll', 'campaign-mini']
+    ).select_related('profile', 'state')
+    
+    total_users = users.count()
+    
+    full_report = ""
+    
+    def report(text):
+        nonlocal full_report
+        full_report += text + "\n"
+    
+    report("Marketing Campaign Report")
+    report("=" * 60)
+    report(f"Date Range: {start_date} to {end_date}")
+    report("Campaigns: sinnvoll, mini")
+    report("=" * 60)
+    report("")
+    
+    sinnvoll_users = users.filter(state__company='campaign-sinnvoll')
+    mini_users = users.filter(state__company='campaign-mini')
+    
+    sinnvoll_count = sinnvoll_users.count()
+    mini_count = mini_users.count()
+    
+    report(f"Total Sign Ups: {total_users}")
+    report("Sign Ups by Campaign:")
+    report(f"  Sinnvoll: {sinnvoll_count}")
+    report(f"  Mini: {mini_count}")
+    report("")
+    
+    report("Sinnvoll Campaign Breakdown:")
+    sinnvoll_volunteers = sinnvoll_users.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER).count()
+    sinnvoll_learners = sinnvoll_users.filter(profile__user_type=Profile.TypeChoices.LEARNER).count()
+    report(f"  Volunteers: {sinnvoll_volunteers}")
+    report(f"  Learners: {sinnvoll_learners}")
+    report("")
+    
+    report("Mini Campaign Breakdown:")
+    mini_volunteers = mini_users.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER).count()
+    mini_learners = mini_users.filter(profile__user_type=Profile.TypeChoices.LEARNER).count()
+    report(f"  Volunteers: {mini_volunteers}")
+    report(f"  Learners: {mini_learners}")
+    report("")
+    
+    # Short link click statistics
+    report("=" * 60)
+    report("Short Link Click Statistics:")
+    report("=" * 60)
+    report("")
+    
+    sinnvoll_clicks = ShortLinkClick.objects.filter(
+        short_link__tag='sinnvoll',
+        created_at__range=[start_date, end_date_inclusive]
+    )
+    
+    mini_clicks = ShortLinkClick.objects.filter(
+        short_link__tag='mini',
+        created_at__range=[start_date, end_date_inclusive]
+    )
+    
+    sinnvoll_clicks_count = sinnvoll_clicks.count()
+    mini_clicks_count = mini_clicks.count()
+    
+    report("Total Clicks by Campaign:")
+    report(f"  Sinnvoll: {sinnvoll_clicks_count}")
+    report(f"  Mini: {mini_clicks_count}")
+    report("")
+    
+    # Breakdown by source for Sinnvoll
+    report("Sinnvoll Campaign - Clicks by Source:")
+    sinnvoll_sources = sinnvoll_clicks.values('source').annotate(count=Count('id')).order_by('-count')
+    if sinnvoll_sources:
+        for source_data in sinnvoll_sources:
+            source_name = source_data['source'] if source_data['source'] else 'none'
+            report(f"  {source_name}: {source_data['count']}")
+    else:
+        report("  No clicks recorded")
+    report("")
+    
+    # Breakdown by source for Mini
+    report("Mini Campaign - Clicks by Source:")
+    mini_sources = mini_clicks.values('source').annotate(count=Count('id')).order_by('-count')
+    if mini_sources:
+        for source_data in mini_sources:
+            source_name = source_data['source'] if source_data['source'] else 'none'
+            report(f"  {source_name}: {source_data['count']}")
+    else:
+        report("  No clicks recorded")
+    report("")
+    
+    # Matomo Analytics - Page Views
+    if settings.MATOMO_URL and settings.MATOMO_TOKEN_AUTH:
+        report("=" * 60)
+        report("Matomo Analytics - Page Data:")
+        report("=" * 60)
+        report("")
+        
+        def fetch_all_matomo_pages(search_term):
+            try:
+                matomo_url = settings.MATOMO_URL.rstrip('/')
+                date_param = f"{start_date},{end_date}"
+                segment = f"pageUrl=@{search_term}"
+                
+                params = {
+                    'module': 'API',
+                    'method': 'Actions.getPageUrls',
+                    'idSite': 1,
+                    'period': 'range',
+                    'date': date_param,
+                    'format': 'json',
+                    'token_auth': settings.MATOMO_TOKEN_AUTH,
+                    'segment': segment,
+                    'filter_limit': 50,
+                    'expanded': 1,  # Try to get more detailed metrics
+                }
+                
+                response = requests.get(matomo_url, params=params, timeout=10)
+                if response.status_code == 200:
+                    return response.json()
+                return None
+            except Exception:
+                return None
+        
+        # Fetch data for sinnvoll page
+        report("Sinnvoll Campaign Page Analytics:")
+        sinnvoll_pages = fetch_all_matomo_pages("sinnvoll")
+        if sinnvoll_pages and isinstance(sinnvoll_pages, list) and len(sinnvoll_pages) > 0:
+            sinnvoll_page = None
+            for page in sinnvoll_pages:
+                if page.get('label', '') == 'sinnvoll':
+                    sinnvoll_page = page
+                    break
+            
+            if sinnvoll_page:
+                visits = sinnvoll_page.get('nb_visits', 0)
+                actions = sinnvoll_page.get('nb_hits', 0)
+                avg_time = sinnvoll_page.get('avg_time_on_page', 0)
+                bounce_rate = sinnvoll_page.get('bounce_rate', '0%')
+                exit_rate = sinnvoll_page.get('exit_rate', '0%')
+                
+                report(f"  Page: {sinnvoll_page.get('label', 'sinnvoll')}")
+                report(f"  Visits: {visits}")
+                report(f"  Page Views (Hits): {actions}")
+                report(f"  Avg. Time on Page: {avg_time}s")
+                report(f"  Bounce Rate: {bounce_rate}")
+                report(f"  Exit Rate: {exit_rate}")
+            else:
+                report("  No data found for exact page 'sinnvoll'")
+        else:
+            report("  No Matomo data available for sinnvoll")
+        report("")
+        
+        # Fetch data for mini page
+        report("Mini Campaign Page Analytics:")
+        mini_pages = fetch_all_matomo_pages("mini")
+        if mini_pages and isinstance(mini_pages, list) and len(mini_pages) > 0:
+            mini_page = None
+            for page in mini_pages:
+                if page.get('label', '') == 'mini':
+                    mini_page = page
+                    break
+            
+            if mini_page:
+                visits = mini_page.get('nb_visits', 0)
+                actions = mini_page.get('nb_hits', 0)
+                avg_time = mini_page.get('avg_time_on_page', 0)
+                bounce_rate = mini_page.get('bounce_rate', '0%')
+                exit_rate = mini_page.get('exit_rate', '0%')
+                
+                report(f"  Page: {mini_page.get('label', 'mini')}")
+                report(f"  Visits: {visits}")
+                report(f"  Page Views (Hits): {actions}")
+                report(f"  Avg. Time on Page: {avg_time}s")
+                report(f"  Bounce Rate: {bounce_rate}")
+                report(f"  Exit Rate: {exit_rate}")
+            else:
+                report("  No data found for exact page 'mini'")
+        else:
+            report("  No Matomo data available for mini")
+    else:
+        report("")
+        report("Matomo Analytics: Not configured (MATOMO_URL or MATOMO_TOKEN_AUTH missing)")
+    
+    return Response({"report": full_report})
+
+
 api_urls = [
     path("api/matching/users/statistics/signups/", user_signups),
     path("api/matching/users/statistics/time_slot_combination_optimization/<int:n>/", time_slot_combination_optimization),
@@ -1471,4 +1690,5 @@ api_urls = [
     path("api/matching/users/statistics/kpi_searching/", kpi_dashboard_statistics_searching_users),
     path("api/matching/users/statistics/time_slot_counts/", time_slot_counts),
     path("api/matching/users/statistics/company_report/<str:company>/", comany_video_call_and_matching_report),
+    path("api/matching/users/statistics/marketing_campaign/", marketing_campaign_report),
 ]

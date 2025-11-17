@@ -104,6 +104,9 @@ LIVEKIT_API_SECRET = os.environ.get("DJ_LIVEKIT_API_SECRET", "")
 LIVEKIT_WEBHOOK_SECRET = os.environ.get("DJ_LIVEKIT_WEBHOOK_SECRET", "")
 LIVEKIT_URL = os.environ.get("DJ_LIVEKIT_URL", "")
 
+MATOMO_TOKEN_AUTH = os.environ.get("DJ_MATOMO_TOKEN_AUTH", "")
+MATOMO_URL = os.environ.get("DJ_MATOMO_URL", "")
+
 if IS_PROD and "K8_POD_IP" in os.environ:
     # So that we can further restrict access to the depoloyment kubernetes node
     ALLOWED_HOSTS.append(os.environ["K8_POD_IP"])
@@ -123,6 +126,9 @@ AI_OPENAI_API_KEY = os.environ.get("DJ_AI_OPENAI_API_KEY", "none")
 
 GOOGLE_CLOUD_CREDENTIALS = get_base64_env("DJ_GOOGLE_CLOUD_CREDENTIALS")
 GOOGLE_CLOUD_CREDENTIALS_ANDROID_INTEGRITY = get_base64_env("DJ_GOOGLE_CLOUD_CREDENTIALS_ANDROID_INTEGRITY")
+
+# DeepL Translation API
+DEEPL_API_KEY = os.environ.get("DJ_DEEPL_API_KEY", None)
 
 NATIVE_APP_INTEGRITY_ALLOW_BYPASS = os.environ.get("DJ_NATIVE_APP_INTEGRITY_ALLOW_BYPASS", "false").lower() in (
     "true",
@@ -482,8 +488,8 @@ elif EXTERNAL_S3 or ((not DOCS_BUILD and (IS_PROD or IS_STAGE)) and (not USE_WHI
     # jprint("TBS:", MEDIA_URL)
     CACHES = {  # This is so wee can use multithreaded statics uploads!
         "default": {
-            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-            "LOCATION": "unique-snowflake",
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": "redis://redis-service:6379",
         },
         "collectfast": {
             "BACKEND": "django.core.cache.backends.redis.RedisCache",
