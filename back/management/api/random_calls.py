@@ -3,7 +3,6 @@ import asyncio
 from chat.models import Chat, ChatSerializer
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Q
 from django.urls import path
 from django.utils import timezone
 from livekit import api as livekit_api
@@ -86,24 +85,6 @@ def get_users_to_pair(user):
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
-def match_random_pair(request):
-    user_lobby, partner = get_users_to_pair(request.user)
-
-    if partner is None:
-        existing_match = RandomCallMatching.objects.filter(Q(u1=user_lobby) | Q(u2=user_lobby)).exclude(active=False)
-        if existing_match.exists():
-            return Response({"new_match": str(existing_match.first().uuid)})
-        else:
-            return Response("Currently Match not possible", status=400)
-
-    new_match = RandomCallMatching.get_or_create_match(user1=user_lobby.user, user2=partner.user)
-    print("newmatchuuid", new_match.uuid)
-    return Response({"new_match": str(new_match.uuid)})
-
-
-@api_view(["POST"])
-@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAuthenticated])
 def authenticate_livekit_random_call(request):
     random_match = RandomCallMatching.objects.get(uuid=request.data["matchId"])
 
@@ -159,13 +140,22 @@ def authenticate_livekit_random_call(request):
     )
 
 
+def is_lobby_active(lobby):
+    if lobby.start_time > timezone.now():
+        return False
+    if lobby.end_time < timezone.now():
+        return False
+    return True
+
+
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def join_random_call_lobby(request, lobby_name="default"):
     # 1 - retrieve the lobby 'default' always for now
     lobby = RandomCallLobby.objects.get(name=lobby_name)
-    # 1.2 TODO: check if the lobby is actually currently active 'compate start' & 'end' time
+    if not is_lobby_active(lobby):
+        return Response("Lobby is not active", status=400)
     # 2 - check if the user is already in the lobby
     user_in_lobby = RandomCallLobbyUser.objects.filter(user=request.user, lobby=lobby).exists()
     already_in_lobby = False
@@ -185,7 +175,8 @@ def join_random_call_lobby(request, lobby_name="default"):
 def exit_random_call_lobby(request, lobby_name="default"):
     # 1 - retrieve the lobby
     lobby = RandomCallLobby.objects.get(name=lobby_name)
-    # 1.2 TODO: check if the lobby is actually currently active 'compate start' & 'end' time
+    if not is_lobby_active(lobby):
+        return Response("Lobby is not active", status=400)
     # 2 - check if the user is in the lobby
     user_in_lobby = RandomCallLobbyUser.objects.filter(user=request.user, lobby=lobby)
     if not user_in_lobby.exists():
@@ -199,8 +190,18 @@ def exit_random_call_lobby(request, lobby_name="default"):
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def get_random_call_lobby_status(request, lobby_name="default"):
+    # 1 - retrieve the lobby
     lobby = RandomCallLobby.objects.get(name=lobby_name)
-    # TODO: finish implementation
+    # 2 - check if the lobby is active
+    if not is_lobby_active(lobby):
+        return Response("Lobby is not active", status=400)
+    # 3 - check if the user is in the lobby
+    user_in_lobby = RandomCallLobbyUser.objects.filter(user=request.user, lobby=lobby)
+    if not user_in_lobby.exists():
+        return Response("You are not in the lobby", status=400)
+    # 4 - check the users lobby status
+    # TODO: check if there is a random call matcing for that user
+
     return Response({"lobby": lobby.uuid, "status": lobby.status})
 
 
@@ -255,6 +256,5 @@ api_urls = [
     path("api/random_calls/lobby/<str:lobby_name>/exit", exit_random_call_lobby),
     path("api/random_calls/lobby/<str:lobby_name>/status", get_random_call_lobby_status),
     # path("api/random_calls/get_token_random_call", authenticate_livekit_random_call),
-    # path("api/random_calls/match_random_pair", match_random_pair), TODO: replace with task
     # path("api/random_calls/reset_match", reset_match),
 ]
