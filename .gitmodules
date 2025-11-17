@@ -13,3 +13,9 @@
 [submodule "front/apps/patenmatch"]
 	path = front/apps/patenmatch
 	url = https://github.com/a-little-world/little-world-patenmatch-frontend/
+[submodule "dev/docs"]
+	path = dev/docs
+	url = https://github.com/a-little-world/little-world-backend-docs
+[submodule "dev/scripts"]
+	path = dev/scripts
+	url = https://github.com/a-little-world/little-world-backend-scripts/
