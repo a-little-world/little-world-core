@@ -89,7 +89,7 @@ class RegistrationSerializer(serializers.Serializer):
         usr = None
         try:
             usr = controller.get_user_by_email(data["email"])
-        except (ValueError, LookupError):
+        except controller.UserNotFoundErr:
             pass  # If this doesnt fail the user doesn't exist!
 
         if usr is not None:
