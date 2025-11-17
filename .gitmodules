@@ -19,3 +19,6 @@
 [submodule "dev/scripts"]
 	path = dev/scripts
 	url = https://github.com/a-little-world/little-world-backend-scripts/
+[submodule ".cursor"]
+	path = .cursor
+	url = https://github.com/a-little-world/little-world-backend-cursor-rules
