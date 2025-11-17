@@ -1,6 +1,6 @@
 # Little World Core
 
-An open-source matching platform for meaningful connections.
+An open-source matching platform.
 
 This repository contains all backend code for Little World Software Core. Combined with our other open-source repositories, it provides everything needed to host a fully functional matching platform with live messaging and video calls.
 
