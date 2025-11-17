@@ -303,7 +303,9 @@ def request_streamed_ai_response(messages, model="gpt-3.5-turbo", backend="defau
 
         c += 1
         if c % update_mod == 0:
-            request_streamed_ai_response.backend.mark_as_started(request_streamed_ai_response.request.id, progress=message_ft)
+            request_streamed_ai_response.backend.mark_as_started(
+                request_streamed_ai_response.request.id, progress=message_ft
+            )
             c = 0
     request_streamed_ai_response.backend.mark_as_started(request_streamed_ai_response.request.id, progress=message_ft)
 
@@ -335,7 +337,9 @@ def burst_calculate_matching_scores(user_combinations=[]):
     print("combination")
 
     def report_progress(progress):
-        burst_calculate_matching_scores.backend.mark_as_started(burst_calculate_matching_scores.request.id, progress=progress)
+        burst_calculate_matching_scores.backend.mark_as_started(
+            burst_calculate_matching_scores.request.id, progress=progress
+        )
 
     total_combinations = len(user_combinations)
     combinations_processed = 0
@@ -362,7 +366,9 @@ def burst_calculate_matching_scores(user_combinations=[]):
 
     random_delay = math.floor(random.random() * 5)
 
-    mark_burst_task_completed_check_for_finish.apply_async((burst_calculate_matching_scores.request.id,), countdown=2 + random_delay)
+    mark_burst_task_completed_check_for_finish.apply_async(
+        (burst_calculate_matching_scores.request.id,), countdown=2 + random_delay
+    )
 
     return {
         "total_combinations": total_combinations,
@@ -564,7 +570,9 @@ def send_sms_background(self, user_hash, message):
     from management.models.sms import SmsModel
     from management.models.user import User
 
-    recent_sms = SmsModel.objects.filter(recipient__hash=user_hash, message=message, created_at__gte=timezone.now() - timezone.timedelta(hours=2)).exists()
+    recent_sms = SmsModel.objects.filter(
+        recipient__hash=user_hash, message=message, created_at__gte=timezone.now() - timezone.timedelta(hours=2)
+    ).exists()
 
     if recent_sms:
         print(f"Skipping duplicate SMS for user {user_hash} - already sent within last 2 hours")
@@ -677,5 +685,47 @@ def automatic_emails_m024_m025():
 
             # send email to the person that was ghosted
             send_email_background.delay("automatic-emails-m025", user_id=last_message.sender.id)
+
+    return {"status": "sent", "number of 7 day inactive chat reminder sent": inactive_counter}
+
+
+@shared_task
+def automatic_emails_m031():
+    """
+    No video call for 7 days after first message
+
+    !!!!!!!!!!!!!!!!!!!!!! Full of bugs ATM - WIP !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    """
+    from management.models.matches import Match
+
+    # get all chats
+    matches = Match.objects.exclude(total_messages_counter=0).filter(total_mutal_video_calls_counter=0)
+
+    reminder_last_days = [0, 7, 14, 21, 30]
+    reminder_last_templates = [
+        "automatic-emails-m031",
+        "automatic-emails-m032",
+        "automatic-emails-m033",
+        "automatic-emails-m042",
+    ]
+
+    for i in range(len(reminder_last_days) - 1):
+        for match in matches:
+            if (match.first_chat_interaction >= timezone.now() - timedelta(days=reminder_last_days[i])) or (
+                match.first_chat_interaction < timezone.now() - timedelta(days=reminder_last_days[i + 1])
+            ):
+                continue
+
+            # the chat is for seven days inactive, set the respective flag
+            if not chat.seven_days_inactive:
+                chat.seven_days_inactive = True
+                chat.save()
+                inactive_counter += 1
+
+                # send email to the user that received the last message
+                send_email_background.delay("automatic-emails-m024", user_id=last_message.recipient.id)
+
+                # send email to the person that was ghosted
+                send_email_background.delay("automatic-emails-m025", user_id=last_message.sender.id)
 
     return {"status": "sent", "number of 7 day inactive chat reminder sent": inactive_counter}
