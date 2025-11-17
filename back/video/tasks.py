@@ -31,6 +31,7 @@ def random_call_lobby_perform_matching(lobby_name="default"):
     if not is_lobby_active(lobby):
         raise Exception("Lobby is not active")
     # 3 - retrieve all users in the lobby
+    # TODO: we need to filter out user for which a non processed random call matching exists
     users_in_lobby = RandomCallLobbyUser.objects.filter(lobby=lobby)
     # 4 - gather all user id's and select random pairs
     user_ids = users_in_lobby.values_list("user_id", flat=True)
