@@ -41,7 +41,6 @@ from management.api.matching_stats import get_quick_statistics
 from management.api.native_auth import api_urls as api_urls_native_auth
 from management.api.newsletter_subscribe import public_newsletter_subscribe
 from management.api.questions import archive_card, get_question_cards
-from management.api.random_calls import api_urls as random_call_urls
 from management.api.scores import (
     burst_calculate_matching_scores_v2,
     delete_all_matching_scores,
@@ -116,7 +115,6 @@ api_routes = [
     *videocalls_advanced.api_urls,
     *user_advanced_statistics.api_urls,
     *prematch_appointment_advanced.api_urls,
-    *random_call_urls,
     *user_data_apis,
     # User
     path("api/trans", trans.get_translation_catalogue),
