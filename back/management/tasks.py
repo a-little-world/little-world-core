@@ -595,15 +595,17 @@ def automatic_emails_u023_u024_u025():
     from management.models.user import User
 
     reminder = {
-        3: [0, "automatic-emails-u023"],
-        7: [3, "automatic-emails-u024"],
-        14: [7, "automatic-emails-u025"],
+        "automatic-emails-u023": [3, False, False, False],
+        "automatic-emails-u024": [7, True, False, False],
+        "automatic-emails-u025": [14, True, True, False],
     }
-    for days, (last_sent_days, template) in reminder.items():
+    for template, (days, three_days_reminder, seven_days_reminder, fourteen_days_reminder) in reminder.items():
         users = User.objects.filter(
             state__user_form_completed_at__lte=datetime.now(timezone.utc) - timedelta(days=days),
             state__had_prematching_call=False,
-            state__user_form_completed_reminder_sent=last_sent_days,
+            state__user_form_completed_3_days_reminder_send=three_days_reminder,
+            state__user_form_completed_7_days_reminder_send=seven_days_reminder,
+            state__user_form_completed_14_days_reminder_send=fourteen_days_reminder,
         )
         user_prematching_join = PreMatchingAppointment.objects.filter(user__in=users)
         users = users.exclude(id__in=user_prematching_join.values_list("user", flat=True))
