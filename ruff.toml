@@ -1,4 +1,5 @@
 line-length = 120
-fix = true
+exclude = ["*/migrations/*", "*/_cookie_consent_repo/*"]
+
+[lint]
 extend-select = ["I"]
-extend-exclude = ["*/migrations/*"]

@@ -6,6 +6,7 @@ from django.urls import include, path, re_path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from management.urls import public_routes_wildcard
 from rest_framework import status
+from tbs_django_auto_reload.api import urlpatters as auto_reload_urlpatters
 
 """
 We are adding all app urls under `'/'` their paths should be set under `<app>/urls.py`
@@ -28,8 +29,6 @@ urlpatterns = [
     path("", include("tracking.urls")),
     path("", include("video.urls")),
 ]
-
-from tbs_django_auto_reload.api import urlpatters as auto_reload_urlpatters
 
 if settings.USE_AUTO_RELOAD:
     urlpatterns += auto_reload_urlpatters
@@ -90,7 +89,7 @@ if settings.DOCS_BUILD:
 if settings.USE_SENTRY:
 
     def trigger_error(request):
-        division_by_zero = 1 / 0
+        pass
 
     urlpatterns += [
         path("sentry-debug/", trigger_error),

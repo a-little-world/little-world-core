@@ -1,18 +1,16 @@
-from dataclasses import dataclass, field
-from typing import Optional
+from dataclasses import dataclass
 
-from django.core.paginator import Paginator
 from django.urls import path
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import authentication, permissions, serializers
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
-from rest_framework_dataclasses.serializers import DataclassSerializer
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from management.helpers import DetailedPagination
 from management.models.notifications import Notification, SelfNotificationSerializer
 from management.models.user import User
-from rest_framework_simplejwt.authentication import JWTAuthentication
+
 
 @dataclass
 class NotificationGetPaginatedParams:
@@ -96,7 +94,7 @@ def get_notifications(request):
     serializer: NotificationGetPaginatedSerializer = NotificationGetPaginatedSerializer(data=request.query_params)
     serializer.is_valid(raise_exception=True)
     params: NotificationGetPaginatedParams = serializer.save()
-    user : User = request.user
+    user: User = request.user
 
     notifications_user = user.get_notifications(state=params.filter)
     paginator = DetailedPagination()
@@ -121,7 +119,7 @@ def get_notifications(request):
 @permission_classes([permissions.IsAuthenticated])
 @authentication_classes([authentication.SessionAuthentication, JWTAuthentication])
 def get_notification(request, id):
-    user : User = request.user
+    user: User = request.user
 
     notification = Notification.objects.get(id=id)
 
@@ -150,7 +148,7 @@ def update_notification(request, id):
     serializer: NotificationUpdateSerializer = NotificationUpdateSerializer(data={"id": id, **request.data})
     serializer.is_valid(raise_exception=True)
     params: NotificationUpdateParams = serializer.save()
-    user : User = request.user
+    user: User = request.user
 
     notification = Notification.objects.get(id=id)
 

@@ -1,5 +1,5 @@
 from django.urls import include, path
-from rest_framework import permissions, routers, serializers, viewsets
+from rest_framework import routers
 
 from patenmatch.api import PatenmatchOrganizationViewSet, PatenmatchUserViewSet
 

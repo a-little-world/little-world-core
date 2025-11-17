@@ -4,6 +4,7 @@ from django.db import models
 def _default_example_tracking_cookie():
     return [{"name": "lw-company", "value": "accenture"}]
 
+
 class ShortLink(models.Model):
     tag = models.CharField(max_length=255)
     url = models.URLField(max_length=2048)
@@ -17,6 +18,7 @@ class ShortLink(models.Model):
 
     def __str__(self):
         return f"{self.tag} -> {self.url}"
+
 
 class ShortLinkClick(models.Model):
     user = models.ForeignKey("management.User", on_delete=models.CASCADE, null=True, blank=True)

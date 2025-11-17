@@ -1,11 +1,11 @@
 import urllib.parse
-import pytz
 
+import pytz
 from django.conf import settings
 from django.utils import timezone
+from management.api.match_journey_filters import completed_match
 from management.models.pre_matching_appointment import PreMatchingAppointment
 from patenmatch.models import PatenmatchUser
-from management.api.match_journey_filters import completed_match
 
 
 def first_name(user):
@@ -67,6 +67,34 @@ def messages_url(user):
 
 def link_url(user=None, match=None, context={"link_url": "Not set"}):
     return context["link_url"]
+
+
+def share_story_url(user=None, match=None, context={"share_story_url": "Not set"}):
+    return context["share_story_url"]
+
+
+def completed_match_poll_url(user=None, match=None, context={"completed_match_poll_url": "Not set"}):
+    return context["completed_match_poll_url"]
+
+
+def no_response_poll_url(user=None, match=None, context={"no_response_poll_url": "Not set"}):
+    return context["no_response_poll_url"]
+
+
+def five_week_survey_url(user=None, match=None, context={"five_week_survey_url": "Not set"}):
+    return context["five_week_survey_url"]
+
+
+def post_videocall_survey_url(user=None, match=None, context={"post_videocall_survey_url": "Not set"}):
+    return context["post_videocall_survey_url"]
+
+
+def call_link(user=None, match=None, context={"call_link": "Not set"}):
+    return context["call_link"]
+
+
+def availability_url(user):
+    return f"{settings.BASE_URL}/app/profile"
 
 
 def unsubscribe_url(user):
@@ -133,18 +161,18 @@ def prematching_datetime(user, context={"appointment": None}):
         appointment = PreMatchingAppointment.objects.filter(user=user).first()
     else:
         appointment = context["appointment"]
-    
+
     # Ensure the datetime is timezone-aware and convert to German time
     start_time = appointment.start_time
-    
+
     # If the datetime is naive (no timezone), assume it's UTC
     if timezone.is_naive(start_time):
         start_time = timezone.make_aware(start_time, pytz.UTC)
-    
+
     # Convert to German timezone (Europe/Berlin)
     german_tz = pytz.timezone("Europe/Berlin")
     german_time = start_time.astimezone(german_tz)
-    
+
     return german_time.strftime("%d.%m.%Y um %H:%M Uhr")
 
 
@@ -166,24 +194,24 @@ def still_in_contact_yes_url(user, match, **kwargs):
     Generate URL for confirming continued contact with match partner outside the platform
     """
     base_url = settings.BASE_URL
-    token = "TODO" # TODO generate_token_for_user(user_id)
+    token = "TODO"  # TODO generate_token_for_user(user_id)
     return f"{base_url}/still-in-contact/yes/{match.id}?token={token}"
+
 
 def still_in_contact_no_url(user, match, **kwargs):
     """
     Generate URL for indicating no continued contact with match partner
     """
     base_url = settings.BASE_URL
-    token = "TODO" # TODO generate_token_for_user(user_id)
+    token = "TODO"  # TODO generate_token_for_user(user_id)
     return f"{base_url}/still-in-contact/no/{match.id}?token={token}"
 
 
 def latest_completed_match_first_name(user):
     from django.db.models import Q
-    completed_matches = completed_match().filter(
-        Q(user1=user) | Q(user2=user)
-    )
+
+    completed_matches = completed_match().filter(Q(user1=user) | Q(user2=user))
     if completed_matches.count() == 0:
         return "..."
 
-    return completed_matches.order_by('-created_at').first().get_partner(user).profile.first_name
+    return completed_matches.order_by("-created_at").first().get_partner(user).profile.first_name

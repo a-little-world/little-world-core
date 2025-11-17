@@ -32,7 +32,6 @@ class Command(BaseCommand):
 
         # 1 - parse csv
         csv_file = options["arg1"]
-        results = []
 
         lines = []
 

@@ -1,0 +1,33 @@
+name: Ruff Format Check
+
+on:
+  pull_request:
+    branches:
+      - '*'
+    paths:
+      - '**.py'
+      - 'ruff.toml'
+      - '.github/workflows/ruff_check.yaml'
+
+jobs:
+  ruff-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Ruff
+        run: pip install ruff
+      
+      - name: Run Ruff format check
+        run: ruff format --check .
+      
+      - name: Run Ruff linter
+        run: ruff check .
+

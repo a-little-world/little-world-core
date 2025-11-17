@@ -64,7 +64,7 @@ class PerMatchBuckets:
             print(f"Checking Bucket: {bucket.name}")
             qs = getattr(self, bucket.query)()
             res[bucket.name] = qs.values_list("uuid", flat=True)
-            print(f"Bucket ({i+1}/{len(self.BUCKETS)}) has {len(res[bucket.name])} users")
+            print(f"Bucket ({i + 1}/{len(self.BUCKETS)}) has {len(res[bucket.name])} users")
         return res
 
     def check_all_buckets_single_match(self):

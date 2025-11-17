@@ -1,8 +1,4 @@
-from datetime import timedelta
-
 from django.core.management.base import BaseCommand
-from django.utils import timezone
-
 from video.services.livekit_session_correction import process_unusually_long_sessions
 
 
@@ -41,14 +37,6 @@ class Command(BaseCommand):
         )
 
         if dry_run:
-            self.stdout.write(
-                self.style.WARNING(
-                    f"Dry-run complete. {result['found']} session(s) would be updated."
-                )
-            )
+            self.stdout.write(self.style.WARNING(f"Dry-run complete. {result['found']} session(s) would be updated."))
         else:
-            self.stdout.write(
-                self.style.SUCCESS(f"Updated {result['updated']} unusually long session(s).")
-            )
-
-
+            self.stdout.write(self.style.SUCCESS(f"Updated {result['updated']} unusually long session(s)."))

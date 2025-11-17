@@ -4,7 +4,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from management.helpers.detailed_pagination import DetailedPagination
 from management.helpers.is_admin_or_matching_user import IsAdminOrMatchingUser
 from management.tasks import send_email_background
-from rest_framework import permissions, routers, serializers, viewsets
+from rest_framework import permissions, serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
