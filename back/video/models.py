@@ -106,16 +106,16 @@ class SerializeLivekitSession(ModelSerializer):
 
 class RandomCallLobby(models.Model):
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
+    name = models.CharField(max_length=50, null=True, blank=True)
+    start_time = models.DateTimeField(null=True, blank=True)
+    end_time = models.DateTimeField(null=True, blank=True)
+
+
+class RandomCallLobbyUser(models.Model):
+    uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
     user = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="user_in_lobby")
     status = models.BooleanField(default=False)
-
-    @classmethod
-    def get_or_create_lobby(cls, user):
-        lobby = cls.objects.filter(user=user)
-        if lobby.exists():
-            return lobby.first()
-        else:
-            return cls.objects.create(user=user, status=False)
+    lobby = models.ForeignKey("video.RandomCallLobby", on_delete=models.CASCADE, related_name="lobby_users")
 
 
 class RandomCallMatching(models.Model):

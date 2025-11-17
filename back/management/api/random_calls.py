@@ -19,10 +19,12 @@ from rest_framework.response import Response
 from video.models import (
     LiveKitRoom,
     RandomCallLobby,
+    RandomCallLobbyUser,
     RandomCallMatching,
     RandomCallSession,
 )
 
+from management.authentication import NativeOnlyJWTAuthentication
 from management.models.matches import Match
 
 # from management.tasks import kill_livekit_room
@@ -82,7 +84,7 @@ def get_users_to_pair(user):
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def match_random_pair(request):
     user_lobby, partner = get_users_to_pair(request.user)
@@ -100,7 +102,7 @@ def match_random_pair(request):
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def authenticate_livekit_random_call(request):
     random_match = RandomCallMatching.objects.get(uuid=request.data["matchId"])
@@ -158,34 +160,52 @@ def authenticate_livekit_random_call(request):
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
-def join_random_call_lobby(request):
-    lobby = RandomCallLobby.get_or_create_lobby(user=request.user)
-    if lobby.status:
-        lobby.status = False
-        lobby.save()
-    return Response({"lobby": lobby.uuid})
+def join_random_call_lobby(request, lobby_name="default"):
+    # 1 - retrieve the lobby 'default' always for now
+    lobby = RandomCallLobby.objects.get(name=lobby_name)
+    # 1.2 TODO: check if the lobby is actually currently active 'compate start' & 'end' time
+    # 2 - check if the user is already in the lobby
+    user_in_lobby = RandomCallLobbyUser.objects.filter(user=request.user, lobby=lobby).exists()
+    already_in_lobby = False
+    if user_in_lobby:
+        already_in_lobby = True
+    # 3 - if the user is not in the lobby, add them to the lobby
+    if not user_in_lobby:
+        RandomCallLobbyUser.objects.create(user=request.user, lobby=lobby)
+    # 4 - a-new user joined so start the celery task that performs the matching
+    # TODO
+    return Response({"lobby": lobby.uuid, "already_joined": already_in_lobby})
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
-def exit_random_call_lobby(request):
-    RandomCallLobby.objects.filter(user=request.user).delete()
-    try:
-        matchings = RandomCallMatching.objects.filter(Q(u1=request.user) | Q(u2=request.user))
-        for match in matchings:
-            match.active = False
-            match.save()
-            Chat.objects.filter(uuid=match.tmp_chat).delete()
-    except Exception as e:
-        print(e)
-    return Response("SUCCESS")
+def exit_random_call_lobby(request, lobby_name="default"):
+    # 1 - retrieve the lobby
+    lobby = RandomCallLobby.objects.get(name=lobby_name)
+    # 1.2 TODO: check if the lobby is actually currently active 'compate start' & 'end' time
+    # 2 - check if the user is in the lobby
+    user_in_lobby = RandomCallLobbyUser.objects.filter(user=request.user, lobby=lobby)
+    if not user_in_lobby.exists():
+        return Response("You are not in the lobby", status=400)
+    # 3 - remove the user from the lobby
+    user_in_lobby.delete()
+    return Response("You have been removed from the lobby")
 
 
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def get_random_call_lobby_status(request, lobby_name="default"):
+    lobby = RandomCallLobby.objects.get(name=lobby_name)
+    # TODO: finish implementation
+    return Response({"lobby": lobby.uuid, "status": lobby.status})
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def get_random_call_status(request, random_match_id):
     print("ARRIVED IN CALL STATUS")
@@ -210,7 +230,7 @@ def get_random_call_status(request, random_match_id):
 
 
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def reset_match(request):
     match = RandomCallMatching.objects.filter(uuid=str(request.data["matchId"]))
@@ -231,10 +251,10 @@ def reset_match(request):
 
 
 api_urls = [
-    path("api/random_calls/get_token_random_call", authenticate_livekit_random_call),
-    path("api/random_calls/join_lobby", join_random_call_lobby),
-    path("api/random_calls/exit_lobby", exit_random_call_lobby),
-    path("api/random_calls/status/<uuid:random_match_id>", get_random_call_status),
-    path("api/random_calls/match_random_pair", match_random_pair),
-    path("api/random_calls/reset_match", reset_match),
+    path("api/random_calls/lobby/<str:lobby_name>/join", join_random_call_lobby),
+    path("api/random_calls/lobby/<str:lobby_name>/exit", exit_random_call_lobby),
+    path("api/random_calls/lobby/<str:lobby_name>/status", get_random_call_lobby_status),
+    # path("api/random_calls/get_token_random_call", authenticate_livekit_random_call),
+    # path("api/random_calls/match_random_pair", match_random_pair), TODO: replace with task
+    # path("api/random_calls/reset_match", reset_match),
 ]
