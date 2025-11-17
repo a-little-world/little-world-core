@@ -11,6 +11,7 @@ from rest_framework.serializers import ModelSerializer
 
 class LiveKitRoom(models.Model):
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
+    random_call_room = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -123,7 +124,11 @@ class RandomCallMatching(models.Model):
 
     u1 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u1_randomcall_session")
     u2 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u2_randomcall_session")
-    active = models.BooleanField(default=False)
+
+    processed = models.BooleanField(default=False)
+    rejected = models.BooleanField(default=False)
+
+    in_session = models.BooleanField(default=False)
 
     @classmethod
     def get_or_create_match(cls, user1, user2):
