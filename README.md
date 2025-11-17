@@ -91,7 +91,7 @@ All these should be auto-created on first backend startup ( to reset them just d
 - Frontends are subrepos in `./front/apps/<frontend-name>`
 - `<frontend-name>` should be listed in `FR_FRONTENDS`
 - configure the environment in `docker-compose.yaml:services.all.evironment`
-  or `./envs/dev.env` for local development
+  or `./dev/envs/dev.env` for local development
 - specify `BUILD_TYPE=<build-type>` to change frontend environments
   `<build-type>=dev` for local developent and `<build-type>=pro` for staging
 - on build; `./front/env_apps/<frontend-name>.<build-type>.env.js` replaces `./front/apps/<frontend-name>/src/environment.ts`
