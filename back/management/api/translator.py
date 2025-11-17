@@ -45,7 +45,7 @@ def languages(request):
     translator = get_deepl_client()
 
     # Get both source and target languages from DeepL
-    source_languages = translator.get_source_languages()
+    # source_languages = translator.get_source_languages() @tbscode: uncommented as it causes 'unused var' by linter
     target_languages = translator.get_target_languages()
 
     # Format response to match the structure of the old Google Translate API
