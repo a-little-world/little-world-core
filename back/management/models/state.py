@@ -4,7 +4,6 @@ import uuid
 import zlib
 from enum import Enum
 
-from back.utils import get_options_serializer
 from django.db import models
 from django.db.models import Q
 from django.db.models.signals import post_save
@@ -16,6 +15,7 @@ from rest_framework import serializers
 from translations import get_translation
 
 from back import utils
+from back.utils import get_options_serializer
 from management.models.management_tasks import MangementTask
 from management.models.matches import Match
 from management.models.notifications import Notification
@@ -52,12 +52,10 @@ class State(models.Model):
         max_length=255,
     )
     user_form_completed_at = models.DateTimeField(default=None, null=True, blank=True)
-    user_form_completed_reminder_sent_number_days = models.IntegerField(
-        default=0,
-        null=False,
-        blank=False,
-        help_text="Number of days between user form completed and last reminder sent",
-    )
+
+    user_form_completed_3_days_reminder_send = models.BooleanField(default=False, null=False, blank=False)
+    user_form_completed_7_days_reminder_send = models.BooleanField(default=False, null=False, blank=False)
+    user_form_completed_14_days_reminder_send = models.BooleanField(default=False, null=False, blank=False)
 
     # Just some hash for verifying the email
     email_auth_hash = models.CharField(default=utils._double_uuid, max_length=255)
@@ -279,7 +277,15 @@ class State(models.Model):
         self.save()
 
     def set_user_form_completed_reminder_sent(self, days):
-        self.user_form_completed_reminder_sent_number_days = days
+        """
+        days need to be either 3, 7 or 14
+        """
+        if days == 3:
+            self.user_form_completed_3_days_reminder_send = True
+        if days == 7:
+            self.user_form_completed_7_days_reminder_send = True
+        if days == 14:
+            self.user_form_completed_14_days_reminder_send = True
         self.save()
 
     def confirm_matches(self, matches: list):
