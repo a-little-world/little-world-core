@@ -24,7 +24,8 @@ from video.models import (
 )
 
 from management.models.matches import Match
-from management.tasks import kill_livekit_room
+
+# from management.tasks import kill_livekit_room
 
 
 class AuthenticateRoomParams(serializers.Serializer):
@@ -139,11 +140,11 @@ def authenticate_livekit_random_call(request):
 
     print("NEW SESSION:", new_session)
 
-    eta = new_session.end_time
+    # eta = new_session.end_time
 
-    kill_livekit_room.apply_async(
-        (str(temporary_room.uuid), str(new_session.uuid), str(temporary_match.uuid), str(temporary_chat.uuid)), eta=eta
-    )
+    # kill_livekit_room.apply_async(
+    #     (str(temporary_room.uuid), str(new_session.uuid), str(temporary_match.uuid), str(temporary_chat.uuid)), eta=eta
+    # )
 
     return Response(
         {
