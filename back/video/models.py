@@ -121,12 +121,20 @@ class RandomCallLobbyUser(models.Model):
 
 class RandomCallMatching(models.Model):
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
+    lobby = models.ForeignKey("video.RandomCallLobby", on_delete=models.CASCADE, related_name="lobby_matchings")
 
     u1 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u1_randomcall_session")
     u2 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u2_randomcall_session")
 
-    processed = models.BooleanField(default=False)
-    rejected = models.BooleanField(default=False)
+    u1_accepted = models.BooleanField(default=False)
+    u2_accepted = models.BooleanField(default=False)
+
+    accepted = models.BooleanField(default=False)  # Both users accepted
+    rejected = models.BooleanField(default=False)  # At least one user rejected
+
+    @property
+    def is_processed(self):
+        return self.accepted or self.rejected
 
     in_session = models.BooleanField(default=False)
 
