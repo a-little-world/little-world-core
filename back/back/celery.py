@@ -52,10 +52,10 @@ auto_emails = {
         "task": "management.tasks.check_registration_reminders",
         "schedule": 60.0 * 60.0,  # Every hour
     },
-    "automatic-emails-u023-u024-u025": {
-        "task": "management.tasks.automatic_emails_u023_u024_u025",
-        "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
-    },
+    # "automatic-emails-u023-u024-u025": { @tbscode: commented this out for now, wants further testing!
+    #     "task": "management.tasks.automatic_emails_u023_u024_u025",
+    #     "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+    # },
 }
 
 prod_shedules = {
