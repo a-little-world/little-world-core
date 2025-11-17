@@ -183,6 +183,10 @@ def exit_random_call_lobby(request, lobby_name="default"):
         return Response("You are not in the lobby", status=400)
     # 3 - remove the user from the lobby
     user_in_lobby.delete()
+    # 4 TODO make 'cleanup'
+    # - check if users had matches already, if so deactivate them
+    # - for existing matches check if they where already in a session, if so deactivate them
+    # TODO: also ensure if a user exists a-lobby another way, to mark him as 'offline' again and not consider anymore
     return Response("You have been removed from the lobby")
 
 
@@ -201,54 +205,30 @@ def get_random_call_lobby_status(request, lobby_name="default"):
         return Response("You are not in the lobby", status=400)
     # 4 - check the users lobby status
     # TODO: check if there is a random call matcing for that user
-
     return Response({"lobby": lobby.uuid, "status": lobby.status})
 
 
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
-def get_random_call_status(request, random_match_id):
-    print("ARRIVED IN CALL STATUS")
-    random_match_exists = RandomCallSession.objects.filter(random_match=random_match_id).exists()
-    if not random_match_exists:
-        return Response({"exists": False, "completed": True, "remaining_time": 0.0})
-
-    random_match = RandomCallSession.objects.get(random_match=random_match_id)
-
-    completed = timezone.now() > random_match.end_time
-    remaining_time = 0.0
-    if not completed:
-        if random_match.end_time:
-            current_time = timezone.now()
-            remaining_time = max(0.0, (random_match.end_time - current_time).total_seconds())
-        else:
-            remaining_time = 999999.0
-    else:
-        remaining_time = 0.0
-
-    return Response({"exists": True, "completed": completed, "remaining_time": remaining_time})
-
-
-@api_view(["POST"])
-@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def reset_match(request):
-    match = RandomCallMatching.objects.filter(uuid=str(request.data["matchId"]))
-    if match.exists():
-        match = match.first()
-        match.active = False
-        match.save()
-    else:
-        return Response("ERROR while deactivating Random Match", status=500)
-    sessions = RandomCallSession.objects.filter(random_match=str(request.data["matchId"]))
-    if sessions.exists():
-        for s in sessions:
-            s.active = False
-            s.save()
-    else:
-        return Response("ERROR while deactivating Random Session", status=500)
-    return Response("All good", status=200)
+def get_random_call_status(request, random_call_session_id):
+    # 1 - retrieve the random call session
+    random_call_session = RandomCallSession.objects.get(uuid=random_call_session_id)
+    if not random_call_session.exists():
+        return Response("Random call session does not exist", status=400)
+    # 2 - check if the requesting user is part of the random call session
+    user_in_random_call_session = RandomCallLobbyUser.objects.filter(
+        user=request.user, random_call_session=random_call_session
+    )
+    if not user_in_random_call_session.exists():
+        return Response("You are not part of the random call session", status=400)
+    # 3 - check if the random call session is active
+    if not random_call_session.active:
+        return Response("Random call session is not active", status=400)
+    # 4 - check the random call session status
+    # TODO: calculate remaining time, and possibly other status events
+    # TODO: or atleast pass a session end time of sorts
+    return Response({"random_call_session": random_call_session.uuid, "status": random_call_session.status})
 
 
 api_urls = [
@@ -256,5 +236,4 @@ api_urls = [
     path("api/random_calls/lobby/<str:lobby_name>/exit", exit_random_call_lobby),
     path("api/random_calls/lobby/<str:lobby_name>/status", get_random_call_lobby_status),
     # path("api/random_calls/get_token_random_call", authenticate_livekit_random_call),
-    # path("api/random_calls/reset_match", reset_match),
 ]
