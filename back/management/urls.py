@@ -41,6 +41,7 @@ from management.api.matching_stats import get_quick_statistics
 from management.api.native_auth import api_urls as api_urls_native_auth
 from management.api.newsletter_subscribe import public_newsletter_subscribe
 from management.api.questions import archive_card, get_question_cards
+from management.api.random_calls import api_urls as random_call_urls
 from management.api.scores import (
     burst_calculate_matching_scores_v2,
     delete_all_matching_scores,
@@ -58,7 +59,6 @@ from management.views import (
     main_frontend,
     matching_panel,
 )
-from management.api.random_calls import api_urls as random_call_urls
 
 router = DefaultRouter()
 router.register(  # TODO: we might even wan't to exclude this api

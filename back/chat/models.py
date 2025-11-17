@@ -4,7 +4,6 @@ from django.core.paginator import Paginator
 from django.db import models
 from django.db.models import Case, IntegerField, Max, Q, Value, When
 from management import models as management_models
-from video.models import RandomCallMatching
 from rest_framework import serializers
 
 

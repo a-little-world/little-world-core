@@ -1,20 +1,12 @@
 import asyncio
-import json
-import uuid
-from datetime import timedelta
 
-from chat.consumers.messages import InBlockIncomingCall, NewActiveCallRoom
-from chat.models import Chat, ChatSerializer, Message
+from chat.models import Chat, ChatSerializer
 from django.conf import settings
-from django.http import JsonResponse
+from django.db import transaction
+from django.db.models import Q
 from django.urls import path
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
-from drf_spectacular.utils import extend_schema
 from livekit import api as livekit_api
-from management.models.matches import Match
-from management.models.post_call_review import PostCallReview
-from management.models.user import User
 from rest_framework import serializers
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import (
@@ -24,19 +16,14 @@ from rest_framework.decorators import (
 )
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from translations import get_translation
-
 from video.models import (
     LiveKitRoom,
-    LivekitSession,
-    LivekitWebhookEvent,
-    RandomCallSession,
-    SerializeLivekitSession,
     RandomCallLobby,
     RandomCallMatching,
+    RandomCallSession,
 )
-from django.db.models import Q
-from django.db import transaction
+
+from management.models.matches import Match
 from management.tasks import kill_livekit_room
 
 
@@ -89,7 +76,7 @@ def get_users_to_pair(user):
                 partner.status = True
                 partner.save()
         return (user_lobby, partner)
-    except Exception as e:
+    except Exception:
         return (user_lobby.user, None)
 
 
@@ -126,7 +113,7 @@ def authenticate_livekit_random_call(request):
         temporary_match = Match.get_random_match(random_match.u1, random_match.u2).first()
         if temporary_match is None:
             raise Exception("")
-    except:
+    except Exception:
         temporary_match = Match.objects.create(
             user1=random_match.u1, user2=random_match.u2, is_random_call_match=True, active=False
         )
