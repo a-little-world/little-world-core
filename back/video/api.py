@@ -21,7 +21,6 @@ from rest_framework.decorators import (
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from video.livekit_webhook import livekit_webhook
 from video.models import (
     LiveKitRoom,
     LivekitSession,
@@ -232,5 +231,4 @@ api_urls = [
     path("api/call_rejected", call_rejected),
     path("api/call_retrigger", call_retrigger),
     path("api/livekit/authenticate", authenticate_live_kit_room),
-    path("api/livekit/webhook", livekit_webhook),
 ]
