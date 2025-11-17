@@ -10,7 +10,6 @@ from management.models import profile
 from management.models import user as user_model
 
 
-
 class Match(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -120,7 +119,7 @@ class Match(models.Model):
 
     def get_learner(self):
         return self.user1 if self.user1.profile.user_type == profile.Profile.TypeChoices.LEARNER else self.user2
-    
+
     def get_volunteer(self):
         return self.user1 if self.user1.profile.user_type == profile.Profile.TypeChoices.VOLUNTEER else self.user2
 
@@ -159,20 +158,19 @@ class Match(models.Model):
         Get all active matches for a user and set them to inactive.
         This is typically used when deleting a user account.
         """
-        active_matches = cls.objects.filter(
-            Q(user1=user) | Q(user2=user), 
-            active=True
-        )
-        
+        active_matches = cls.objects.filter(Q(user1=user) | Q(user2=user), active=True)
+
         for match in active_matches:
-            match.report_unmatch.append({
-                "kind": "user_deleted",
-                "reason": "User account was deleted",
-                "match_id": match.id,
-                "time": str(timezone.now()),
-                "user_id": user.pk,
-                "user_uuid": user.hash,
-            })
+            match.report_unmatch.append(
+                {
+                    "kind": "user_deleted",
+                    "reason": "User account was deleted",
+                    "match_id": match.id,
+                    "time": str(timezone.now()),
+                    "user_id": user.pk,
+                    "user_uuid": user.hash,
+                }
+            )
             match.save()
-        
+
         return active_matches

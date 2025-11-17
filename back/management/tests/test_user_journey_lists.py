@@ -1,13 +1,7 @@
-import json
-
-from django.conf import settings
 from django.test import TestCase
-from rest_framework.test import RequestsClient
 
 from management.api.user_advanced_filter_lists import USER_JOURNEY_FILTER_LISTS
-from management.controller import get_user_by_email
 from management.models.user import User
-from management.tests.helpers import register_user, register_user_api, valid_register_request_data
 
 from .. import api
 

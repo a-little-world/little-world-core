@@ -1,11 +1,11 @@
 from datetime import timedelta
 from uuid import uuid4
 
-from django.conf import settings
 from django.db import models
 from django.db.models import Q
 from django.dispatch import receiver
 from django.utils import timezone
+
 from management.models.profile import Profile, ProposalProfileSerializer
 
 
@@ -16,8 +16,10 @@ def seven_days_from_now():
 def three_days_from_now():
     return timezone.now() + timedelta(days=3)
 
+
 def one_day_from_now():
     return timezone.now() + timedelta(days=1)
+
 
 def serialize_proposed_matches(matching_proposals, user):
     serialized = []
@@ -166,7 +168,7 @@ class ProposedMatch(models.Model):
             # send groupmail function automaticly checks if users have unsubscribed!
             # we still mark email verification reminder 1 as True, since we at least tried to send it,
             # never wanna send twice! Not even **try** twice!
-            other = self.get_partner(learner)
+            self.get_partner(learner)
             learner.send_email_v2("confirm-match-2", proposed_match_id=self.id)
 
         return reminder_due

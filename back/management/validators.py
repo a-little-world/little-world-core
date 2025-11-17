@@ -64,9 +64,9 @@ def validate_name(value: str):
 
 def validate_postal_code(value: str, country_of_residence: str = None):
     value = value.strip()
-    
+
     # If country is Germany (DE), apply strict German postal code validation
-    if country_of_residence == 'DE':
+    if country_of_residence == "DE":
         if not value.isnumeric():
             raise serializers.ValidationError(get_translation("val.postal_code_not_numeric"))
         as_int = int(value)
@@ -78,7 +78,7 @@ def validate_postal_code(value: str, country_of_residence: str = None):
         # For non-German countries, just check length (simple validation)
         if len(value) >= 11:
             raise serializers.ValidationError(get_translation("val.postal_code_too_long"))
-    
+
     return value
 
 

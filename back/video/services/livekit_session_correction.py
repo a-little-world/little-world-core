@@ -1,8 +1,7 @@
 from datetime import timedelta
 
-from django.db import transaction, models
+from django.db import models, transaction
 from django.utils import timezone
-
 from video.models import LivekitSession
 
 
@@ -61,9 +60,11 @@ def process_unusually_long_sessions(
         )
     )
 
-    to_fix_ids = list(sessions_with_end_too_long.values_list("id", flat=True)) + list(
-        sessions_without_end_too_long.values_list("id", flat=True)
-    ) + list(previously_marked.values_list("id", flat=True))
+    to_fix_ids = (
+        list(sessions_with_end_too_long.values_list("id", flat=True))
+        + list(sessions_without_end_too_long.values_list("id", flat=True))
+        + list(previously_marked.values_list("id", flat=True))
+    )
 
     if not to_fix_ids:
         if stdout:
@@ -98,16 +99,16 @@ def process_unusually_long_sessions(
                     )
                 session.unusual_length = True
                 session.end_time = new_end_time
-                session.save(update_fields=[
-                    "start_end_before_correction",
-                    "unusual_length",
-                    "end_time",
-                ])
+                session.save(
+                    update_fields=[
+                        "start_end_before_correction",
+                        "unusual_length",
+                        "end_time",
+                    ]
+                )
                 updated_count += 1
 
         if dry_run:
             transaction.set_rollback(True)
 
     return {"found": len(to_fix_ids), "updated": updated_count}
-
-

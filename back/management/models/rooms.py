@@ -1,7 +1,6 @@
+from back.utils import _double_uuid
 from django.db import models
 from django.db.models import Q
-
-from back.utils import _double_uuid
 
 from .user import User
 

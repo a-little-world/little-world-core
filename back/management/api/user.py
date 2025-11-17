@@ -1,7 +1,3 @@
-import hashlib
-import hmac
-import secrets
-import time
 import urllib.parse
 from dataclasses import dataclass
 from typing import Optional
@@ -9,7 +5,6 @@ from typing import Optional
 from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
-from django.core.cache import cache
 from django.db.models import Q
 from django.dispatch import receiver
 from django.http import HttpResponseRedirect
@@ -27,15 +22,13 @@ from tracking import utils
 from tracking.models import Event
 from translations import get_translation
 
-from management.controller import UserNotFoundErr, delete_user, get_user, get_user_by_email, get_user_by_hash
 from management.authentication import NativeOnlyJWTAuthentication
-from management.models.state import FrontendStatusSerializer, State
+from management.controller import UserNotFoundErr, delete_user, get_user, get_user_by_email, get_user_by_hash
+from management.models.banner import Banner, BannerSerializer
 from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from management.models.profile import SelfProfileSerializer
-from management.models.matches import Match
-from management.models.banner import Banner, BannerSerializer
-from django.db.models import Q
+from management.models.state import FrontendStatusSerializer, State
 
 """
 The public /user api's
@@ -88,7 +81,7 @@ class VerifyEmail(APIView):
             raise serializers.ValidationError({"auth_data": get_translation("email.verify_auth_data_missing_post")})
         try:
             auth_pin = int(kwargs["auth_data"])
-        except:
+        except (ValueError, TypeError):
             raise serializers.ValidationError({"auth_data": get_translation("email.verify_failure_not_numeric")})
         if request.user.state.check_email_auth_pin(auth_pin):
             return Response(get_translation("email.verify_success_post"))
@@ -144,19 +137,20 @@ class NativeLoginSerializer(serializers.Serializer):
 @dataclass
 class AutoLoginData:
     u: str  # user
-    l: str  # lookup: hash | email | id
+    lookup: str  # lookup: hash | email | id
     token: str  # auto login token
     n: Optional[str] = None  # next page
 
 
 class AutoLoginSerializer(serializers.Serializer):
     u = serializers.CharField(required=True)
-    l = serializers.CharField(required=True)
+    lookup = serializers.CharField(required=True)
     n = serializers.CharField(required=False)
     token = serializers.CharField(required=True)
 
     def create(self, validated_data):
         return AutoLoginData(**validated_data)
+
 
 class LoginApi(APIView):
     permission_classes = []
@@ -196,7 +190,10 @@ class LoginApi(APIView):
             token_auth = request.query_params.get("token_auth", False)
             if token_auth:
                 # Legacy token auth - now deprecated in favor of native challenge-response
-                return Response("Token auth deprecated. Use /api/user/native-login for native apps", status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    "Token auth deprecated. Use /api/user/native-login for native apps",
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             else:
                 login(request, usr)
                 return Response(get_user_data(request.user))
@@ -215,7 +212,7 @@ class LoginApi(APIView):
         serializer.is_valid(raise_exception=True)
         params = serializer.save()
 
-        u = get_user(params.u, params.l)
+        u = get_user(params.u, params.lookup)
         if not u.state.has_extra_user_permission(State.ExtraUserPermissionChoices.AUTO_LOGIN):
             return Response("Unauthorized", status=status.HTTP_403_FORBIDDEN)
         else:
@@ -556,8 +553,8 @@ def get_user_data(user):
         Q(user1=user) | Q(user2=user),
         support_matching=False,
     ).exists()
-    
-        # Retrieve the active banner for the specific user type
+
+    # Retrieve the active banner for the specific user type
     banner_query = Banner.get_active_banner(user)
 
     banner = BannerSerializer(banner_query).data if banner_query else {}

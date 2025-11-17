@@ -1,7 +1,5 @@
 import time
 
-from django.db import connection
-
 
 class QueryLogger:
     def __init__(self):
