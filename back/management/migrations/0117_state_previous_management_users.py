@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('management', '0115_alter_banner_custom_filter_and_more'),
+        ('management', '0116_alter_communityevent_description'),
     ]
 
     operations = [

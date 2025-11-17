@@ -1,6 +1,8 @@
 import glob
 import random
 
+from django.utils import timezone
+
 from management.models.profile import Profile
 
 from . import controller  # this will be used on script execution
@@ -191,6 +193,7 @@ def create_test_user(i, user_seeds=None, password=None, email=None, pass_if_exis
     us = usr.state
     us.email_authenticated = True
     us.had_prematching_call = True
+    us.user_form_completed_at = timezone.now()
     us.save()
 
     # Cool thing, we can actuly set them a profile picture from currently inside the container!

@@ -1,10 +1,10 @@
 import math
 import random
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from celery import shared_task
 from cookie_consent.models import Cookie, CookieGroup
-from django.utils import timezone
+from django.utils import timezone as dj_timezone
 from translations import get_translation
 
 from management.models.backend_state import BackendState
@@ -587,6 +587,35 @@ def send_sms_background(self, user_hash, message):
         raise  # Re-raise to mark task as failed
 
 
+def automatic_emails_u023_u024_u025():
+    """
+    Sends automatic emails to users who have not booked an onboarding call after completing the user form
+    """
+    from management.models.pre_matching_appointment import PreMatchingAppointment
+    from management.models.user import User
+
+    reminder = {
+        "automatic-emails-u023": [3, False, False, False],
+        "automatic-emails-u024": [7, True, False, False],
+        "automatic-emails-u025": [14, True, True, False],
+    }
+    for template, (days, three_days_reminder, seven_days_reminder, fourteen_days_reminder) in reminder.items():
+        users = User.objects.filter(
+            state__user_form_completed_at__lte=dj_timezone.now() - timedelta(days=days),
+            state__had_prematching_call=False,
+            state__user_form_completed_3_days_reminder_send=three_days_reminder,
+            state__user_form_completed_7_days_reminder_send=seven_days_reminder,
+            state__user_form_completed_14_days_reminder_send=fourteen_days_reminder,
+        )
+        user_prematching_join = PreMatchingAppointment.objects.filter(user__in=users)
+        users = users.exclude(id__in=user_prematching_join.values_list("user", flat=True))
+        for user in users:
+            send_email_background.delay(template, user_id=user.id)
+            user.state.set_user_form_completed_reminder_sent(days)
+
+    return {"status": "sent"}
+
+
 @shared_task
 def automatic_emails_m12_m13_m14():
     """
@@ -604,7 +633,7 @@ def automatic_emails_m12_m13_m14():
             confirmed=True,
             total_messages_counter=0,
             total_mutal_video_calls_counter=0,
-            latest_interaction_at__lte=timezone.now() - datetime.timedelta(days=days),
+            latest_interaction_at__lte=dj_timezone.now() - datetime.timedelta(days=days),
             interaction_reminder_last__gte=last_sent_days,
         )
 
@@ -637,7 +666,7 @@ def automatic_emails_m023():
 
         # check that the last message is older than 3 days
         last_message = chat.get_newest_message()
-        if (last_message is None) or last_message.created >= timezone.now() - timedelta(days=3):
+        if (last_message is None) or last_message.created >= dj_timezone.now() - timedelta(days=3):
             continue
 
         # the chat is for three days inactive, set the respective flag
@@ -671,7 +700,7 @@ def automatic_emails_m024_m025():
 
         # check that the last message is older than 3 days
         last_message = chat.get_newest_message()
-        if (last_message is None) or last_message.created >= timezone.now() - timedelta(days=7):
+        if (last_message is None) or last_message.created >= dj_timezone.now() - timedelta(days=7):
             continue
 
         # the chat is for seven days inactive, set the respective flag
@@ -711,8 +740,8 @@ def automatic_emails_m031():
 
     for i in range(len(reminder_last_days) - 1):
         for match in matches:
-            if (match.first_chat_interaction >= timezone.now() - timedelta(days=reminder_last_days[i])) or (
-                match.first_chat_interaction < timezone.now() - timedelta(days=reminder_last_days[i + 1])
+            if (match.first_chat_interaction >= dj_timezone.now() - timedelta(days=reminder_last_days[i])) or (
+                match.first_chat_interaction < dj_timezone.now() - timedelta(days=reminder_last_days[i + 1])
             ):
                 continue
 

@@ -52,8 +52,8 @@ auto_emails = {
         "task": "management.tasks.check_registration_reminders",
         "schedule": 60.0 * 60.0,  # Every hour
     },
-    "automatic-emails-m12-m13-m14": {
-        "task": "management.tasks.automatic_emails_m12_m13_m14",
+    "automatic-emails-u023-u024-u025": {
+        "task": "management.tasks.automatic_emails_u023_u024_u025",
         "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
     },
 }
