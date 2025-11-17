@@ -88,7 +88,8 @@ services:
     environment:
       REDIS_URL: "${REDIS_URL}"
     env_file:
-      - ./envs/dev.env
+      - ./dev/envs/dev.env
+      - ./dev/envs/local_dev.env
     volumes:
       - ./back/:/back/
       - ./front/env_apps/:/front/env_apps/
