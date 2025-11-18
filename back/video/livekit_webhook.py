@@ -26,11 +26,17 @@ def livekit_webhook(request):
     event = LivekitWebhookEvent.objects.create(data=data)
 
     # Events to track: ['participant_joined', 'participant_left']
-    # TODO: check if the room is a 'random_call_room', then handle events differently
+    # Handels webhook events for video calls and random calls
+    # The room is marked with 'room.random_call_room = True' if it is a random call
+    # Then we also:
+    # 1. Mark the session as 'random_call_session'
+    # 2. TODO: Several Events shoudn't be tracked for random calls!
     if data["event"] == "participant_joined":
         # 1 - we determine the Room
         room_id = data["room"]["name"]
         room = LiveKitRoom.objects.get(uuid=room_id)
+        if room.random_call_room:
+            random_call_session = True
 
         # 2 - we determine the user that just joined
         participant_id = data["participant"]["identity"]
@@ -58,6 +64,7 @@ def livekit_webhook(request):
                 u1_was_active=(user == room.u1),
                 u2_was_active=(user == room.u2),
                 first_active_user=user,
+                random_call_session=random_call_session,
             )
         session.webhook_events.add(event)
         session.save()
