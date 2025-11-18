@@ -1,6 +1,8 @@
 import random
+from datetime import timedelta
 
 from celery import shared_task
+from django.utils import timezone
 
 from video.models import RandomCallLobby, RandomCallLobbyUser, RandomCallMatching
 from video.services.livekit_session_correction import process_unusually_long_sessions
@@ -42,3 +44,16 @@ def random_call_lobby_perform_matching(lobby_name="default"):
     for pair in random_pairs:
         RandomCallMatching.objects.create(u1=pair[0], u2=pair[1])
     return {"matchings": random_pairs}
+
+
+@shared_task(name="video.tasks.create_default_random_call_lobby")
+def create_default_random_call_lobby():
+    # create a new random call lobby
+    existing_lobby = RandomCallLobby.objects.filter(name="default").exists()
+    if existing_lobby:
+        return {"lobby": "default"}
+    lobby = RandomCallLobby.objects.create(name="default")
+    lobby.start_time = timezone.now()
+    lobby.end_time = timezone.now() + timedelta(days=1)
+    lobby.save()
+    return {"lobby": "default"}

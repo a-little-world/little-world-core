@@ -514,6 +514,10 @@ def create_base_admin_and_add_standart_db_values():
 
     get_or_create_default_docs_user()
 
+    from video.tasks import create_default_random_call_lobby
+
+    create_default_random_call_lobby.delay()
+
     return usr_tim
 
 
