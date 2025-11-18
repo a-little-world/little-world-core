@@ -19,6 +19,7 @@ from rest_framework.response import Response
 
 from video.models import (
     LiveKitRoom,
+    LivekitSession,
     RandomCallLobby,
     RandomCallLobbyUser,
     RandomCallMatching,
@@ -91,11 +92,19 @@ def exit_random_call_lobby(request, lobby_name="default"):
     if not user_in_lobby.exists():
         return Response("You are not in the lobby", status=400)
     # 3 - remove the user from the lobby
-    user_in_lobby.delete()
-    # 4 TODO make 'cleanup'
-    # - check if users had matches already, if so deactivate them
-    # - for existing matches check if they where already in a session, if so deactivate them
-    # TODO: also ensure if a user exists a-lobby another way, to mark him as 'offline' again and not consider anymore
+    user_in_lobby.update(is_active=False)
+    # 4 - check if the user has a matching
+    matching = RandomCallMatching.objects.filter(
+        Q(u1=request.user) | Q(u2=request.user), lobby=lobby, is_processed=False
+    )
+    if matching.exists():
+        # - auto reject all existing matchings
+        matching.update(accepted=False, rejected=True)
+    sessions = LivekitSession.objects.filter(Q(u1=request.user) | Q(u2=request.user), random_call_session=True)
+    if sessions.exists():
+        # - auto reject all existing sessions
+        sessions.update(is_active=False)
+    # TODO: make sure user cannot still dangle in a random call session
     return Response("You have been removed from the lobby")
 
 
@@ -219,7 +228,35 @@ def authenticate_random_call_match_livekit_room(request, lobby_name, match_uuid)
     )
 
 
+class RandomCallLobbySerializer(serializers.Serializer):
+    name = serializers.CharField()
+    status = serializers.BooleanField()
+    start_time = serializers.DateTimeField()
+    end_time = serializers.DateTimeField()
+    active_users_count = serializers.IntegerField()
+
+    def to_representation(self, instance):
+        rep = super().to_representation(instance)
+        rep["status"] = is_lobby_active(instance)
+        rep["active_users_count"] = RandomCallLobbyUser.objects.filter(lobby=instance, is_active=True).count()
+        return rep
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def get_random_call_lobby_list(request, lobby_name="any"):
+    # 1 - retrieve all lobbies
+    lobbies = RandomCallLobby.objects.all()
+    if lobby_name != "any":
+        lobbies = lobbies.filter(name=lobby_name)
+        return Response(RandomCallLobbySerializer(lobbies.first()).data)
+    return Response(RandomCallLobbySerializer(lobbies, many=True).data)
+
+
 api_urls = [
+    path("api/random_calls/", get_random_call_lobby_list),
+    path("api/random_calls/lobby/<str:lobby_name>/", get_random_call_lobby_list),
     path("api/random_calls/lobby/<str:lobby_name>/join", join_random_call_lobby),
     path("api/random_calls/lobby/<str:lobby_name>/exit", exit_random_call_lobby),
     path("api/random_calls/lobby/<str:lobby_name>/status", get_random_call_lobby_status),
