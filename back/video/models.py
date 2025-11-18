@@ -68,6 +68,8 @@ class LivekitSession(models.Model):
         "management.User", on_delete=models.CASCADE, related_name="first_active_user", null=True, blank=True
     )
 
+    random_call_session = models.BooleanField(default=False)
+
     webhook_events = models.ManyToManyField("video.LivekitWebhookEvent", related_name="livekit_session")
 
 
@@ -115,7 +117,7 @@ class RandomCallLobby(models.Model):
 class RandomCallLobbyUser(models.Model):
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
     user = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="user_in_lobby")
-    status = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
     lobby = models.ForeignKey("video.RandomCallLobby", on_delete=models.CASCADE, related_name="lobby_users")
 
 
