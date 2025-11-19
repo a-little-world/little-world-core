@@ -230,15 +230,11 @@ def authenticate_random_call_match_livekit_room(request, lobby_name, match_uuid)
 
 class RandomCallLobbySerializer(serializers.Serializer):
     name = serializers.CharField()
-    status = serializers.BooleanField()
     start_time = serializers.DateTimeField()
     end_time = serializers.DateTimeField()
-    active_users_count = serializers.IntegerField()
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
-        rep["status"] = is_lobby_active(instance)
-        rep["active_users_count"] = RandomCallLobbyUser.objects.filter(lobby=instance, is_active=True).count()
         return rep
 
 
