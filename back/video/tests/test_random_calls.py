@@ -124,3 +124,37 @@ class RandomCallsTests(TestCase):
         # Should still be only 1 matching because we only have 1 unmatched user left
         # If the logic is broken, it might match the unmatched user with one of the already matched users
         self.assertEqual(RandomCallMatching.objects.count(), 1)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_exit_and_rejoin_lobby(self):
+        """
+        Test that users can exit the lobby and rejoin without getting already_joined=True.
+        """
+        # User 1 joins
+        self.client.force_authenticate(user=self.user1)
+        response = self.client.post("/api/random_calls/lobby/default/join")
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data["already_joined"])
+        
+        # Verify user is in lobby and active
+        lobby_user = RandomCallLobbyUser.objects.filter(user=self.user1, lobby=self.lobby).first()
+        self.assertIsNotNone(lobby_user)
+        self.assertTrue(lobby_user.is_active)
+        
+        # User 1 exits
+        response = self.client.post("/api/random_calls/lobby/default/exit")
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify user is marked as inactive
+        lobby_user.refresh_from_db()
+        self.assertFalse(lobby_user.is_active)
+        
+        # User 1 rejoins - should not say already_joined
+        response = self.client.post("/api/random_calls/lobby/default/join")
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data["already_joined"], "User should not be marked as already_joined after exiting")
+        
+        # Verify user is reactivated
+        lobby_user.refresh_from_db()
+        self.assertTrue(lobby_user.is_active)
+
