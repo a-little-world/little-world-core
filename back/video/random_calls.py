@@ -95,7 +95,7 @@ def exit_random_call_lobby(request, lobby_name="default"):
     user_in_lobby.update(is_active=False)
     # 4 - check if the user has a matching
     matching = RandomCallMatching.objects.filter(
-        Q(u1=request.user) | Q(u2=request.user), lobby=lobby, is_processed=False
+        Q(u1=request.user) | Q(u2=request.user), lobby=lobby, accepted=False, rejected=False
     )
     if matching.exists():
         # - auto reject all existing matchings
@@ -123,12 +123,11 @@ def get_random_call_lobby_status(request, lobby_name="default"):
         return Response("You are not in the lobby", status=400)
     response_data = {
         "lobby": lobby.uuid,
-        "status": lobby.status,
         "matching": None,
     }
     # 4 - check the users lobby status
     random_call_matching = RandomCallMatching.objects.filter(
-        Q(u1=request.user) | Q(u2=request.user), lobby=lobby, is_processed=False
+        Q(u1=request.user) | Q(u2=request.user), lobby=lobby, accepted=False, rejected=False
     )
     matching = random_call_matching.first()
     has_matching = random_call_matching.exists()
