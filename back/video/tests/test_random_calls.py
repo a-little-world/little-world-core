@@ -78,8 +78,24 @@ class RandomCallsTests(TestCase):
         # The task should have run synchronously and created the matching
         self.assertEqual(RandomCallMatching.objects.count(), 1, "Matching was not created in DB")
         
-        self.assertIsNotNone(response.data["matching"])
+        # Verify matching appears in status response
+        self.assertIsNotNone(response.data["matching"], "Matching should be present in status")
+        self.assertIn("uuid", response.data["matching"])
+        self.assertIn("partner", response.data["matching"])
+        self.assertIn("accepted", response.data["matching"])
+        self.assertIn("both_accepted", response.data["matching"])
+        
+        # Verify partner data
+        partner_data = response.data["matching"]["partner"]
+        self.assertIn("id", partner_data)
+        self.assertIn("name", partner_data)
+        self.assertIn("image", partner_data)
+        self.assertIn("image_type", partner_data)
+        self.assertEqual(partner_data["name"], self.user2.profile.first_name)
+        
+        # Verify acceptance status
         self.assertFalse(response.data["matching"]["accepted"])
+        self.assertFalse(response.data["matching"]["both_accepted"])
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_prevent_duplicate_matching(self):
@@ -157,4 +173,85 @@ class RandomCallsTests(TestCase):
         # Verify user is reactivated
         lobby_user.refresh_from_db()
         self.assertTrue(lobby_user.is_active)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_accept_matching(self):
+        """
+        Test that users can accept a matching and both_accepted is set when both accept.
+        """
+        # Both users join
+        self.client.force_authenticate(user=self.user1)
+        self.client.post("/api/random_calls/lobby/default/join")
+        self.client.force_authenticate(user=self.user2)
+        self.client.post("/api/random_calls/lobby/default/join")
+        
+        # Get the matching
+        matching = RandomCallMatching.objects.first()
+        self.assertIsNotNone(matching)
+        
+        # User 1 checks status and gets matching info
+        self.client.force_authenticate(user=self.user1)
+        response = self.client.get("/api/random_calls/lobby/default/status")
+        self.assertEqual(response.status_code, 200)
+        match_uuid = response.data["matching"]["uuid"]
+        
+        # User 1 accepts
+        response = self.client.post(f"/api/random_calls/lobby/default/match/{match_uuid}/accept")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["u1_accepted"] or response.data["u2_accepted"])
+        self.assertFalse(response.data["accepted"])
+        
+        # Verify status shows partner hasn't accepted yet
+        response = self.client.get("/api/random_calls/lobby/default/status")
+        self.assertFalse(response.data["matching"]["both_accepted"])
+        
+        # User 2 accepts
+        self.client.force_authenticate(user=self.user2)
+        response = self.client.post(f"/api/random_calls/lobby/default/match/{match_uuid}/accept")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["accepted"])
+        
+        # Verify both_accepted is now true in status
+        response = self.client.get("/api/random_calls/lobby/default/status")
+        self.assertTrue(response.data["matching"]["both_accepted"])
+        
+        # Verify matching in DB
+        matching.refresh_from_db()
+        self.assertTrue(matching.u1_accepted)
+        self.assertTrue(matching.u2_accepted)
+        self.assertTrue(matching.accepted)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_reject_matching(self):
+        """
+        Test that users can reject a matching and it's marked as rejected.
+        """
+        # Both users join
+        self.client.force_authenticate(user=self.user1)
+        self.client.post("/api/random_calls/lobby/default/join")
+        self.client.force_authenticate(user=self.user2)
+        self.client.post("/api/random_calls/lobby/default/join")
+        
+        # Get the matching
+        matching = RandomCallMatching.objects.first()
+        self.assertIsNotNone(matching)
+        match_uuid = str(matching.uuid)
+        
+        # User 1 rejects
+        self.client.force_authenticate(user=self.user1)
+        response = self.client.post(f"/api/random_calls/lobby/default/match/{match_uuid}/reject")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["rejected"])
+        
+        # Verify matching is marked as rejected
+        matching.refresh_from_db()
+        self.assertTrue(matching.rejected)
+        self.assertFalse(matching.accepted)
+        
+        # Verify status no longer shows this matching (it's processed)
+        response = self.client.get("/api/random_calls/lobby/default/status")
+        self.assertEqual(response.status_code, 200)
+        # Matching should be None because it's been processed (rejected)
+        self.assertIsNone(response.data["matching"])
+
 
