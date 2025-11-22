@@ -38,12 +38,13 @@ def random_call_lobby_perform_matching(lobby_name="default"):
     # TODO: we need to filter out user for which a non processed random call matching exists
     users_in_lobby = RandomCallLobbyUser.objects.filter(lobby=lobby)
     # 4 - gather all user id's and select random pairs
-    user_ids = users_in_lobby.values_list("user_id", flat=True)
-    random_pairs = random.sample(user_ids, 2)
+    user_ids = list(users_in_lobby.values_list("user_id", flat=True))
+    if len(user_ids) < 2:
+        return {"matchings": []}
+    pair = random.sample(user_ids, 2)
     # 5 - create a new random call matches
-    for pair in random_pairs:
-        RandomCallMatching.objects.create(u1=pair[0], u2=pair[1])
-    return {"matchings": random_pairs}
+    RandomCallMatching.objects.create(u1_id=pair[0], u2_id=pair[1], lobby=lobby)
+    return {"matchings": [pair]}
 
 
 @shared_task(name="video.tasks.create_default_random_call_lobby")
