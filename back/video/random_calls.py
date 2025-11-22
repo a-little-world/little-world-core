@@ -134,8 +134,9 @@ def get_random_call_lobby_status(request, lobby_name="default"):
         "matching": None,
     }
     # 4 - check the users lobby status
+    # Show matchings that are not rejected and not in a session yet
     random_call_matching = RandomCallMatching.objects.filter(
-        Q(u1=request.user) | Q(u2=request.user), lobby=lobby, accepted=False, rejected=False
+        Q(u1=request.user) | Q(u2=request.user), lobby=lobby, rejected=False, in_session=False
     )
     matching = random_call_matching.first()
     has_matching = random_call_matching.exists()
@@ -258,9 +259,11 @@ def authenticate_random_call_match_livekit_room(request, lobby_name, match_uuid)
     if not is_lobby_active(lobby):
         return Response("Lobby is not active", status=400)
     # 2 - retrieve the match
-    match = RandomCallMatching.objects.get(uuid=match_uuid)
+    match = RandomCallMatching.objects.filter(uuid=match_uuid)
     if not match.exists():
         return Response("Match does not exist", status=400)
+    match = match.first()
+
     # 3 - check if user is part of lobby
     user_in_lobby = RandomCallLobbyUser.objects.filter(user=request.user, lobby=lobby)
     if not user_in_lobby.exists():
@@ -277,9 +280,10 @@ def authenticate_random_call_match_livekit_room(request, lobby_name, match_uuid)
     # 7 - Start actual room authentication
     temporary_chat = Chat.get_or_create_chat(match.u1, match.u2)
     # TODO: possible double room creating here! TODO: maybe move this directly to matching?
-    temporary_room = LiveKitRoom.objects.get(u1=match.u1, u2=match.u2, random_call_room=True)
+    temporary_room = LiveKitRoom.objects.filter(u1=match.u1, u2=match.u2, random_call_room=True)
     if not temporary_room.exists():
         temporary_room = LiveKitRoom.objects.create(u1=match.u1, u2=match.u2, random_call_room=True)
+    temporary_room = temporary_room.first()
 
     # TODO: @sugsoo created a temporary 'Match' object here this should be avoided instead the chats and message filter should allow random call matches?
     loop = asyncio.new_event_loop()
