@@ -42,7 +42,7 @@ def random_call_lobby_perform_matching(lobby_name="default"):
     matched_u1 = active_matchings.values_list("u1_id", flat=True)
     matched_u2 = active_matchings.values_list("u2_id", flat=True)
     
-    users_in_lobby = RandomCallLobbyUser.objects.filter(lobby=lobby).exclude(
+    users_in_lobby = RandomCallLobbyUser.objects.filter(lobby=lobby, is_active=True).exclude(
         user_id__in=matched_u1
     ).exclude(
         user_id__in=matched_u2
