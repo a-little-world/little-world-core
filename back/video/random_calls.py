@@ -67,13 +67,21 @@ def join_random_call_lobby(request, lobby_name="default"):
     if not is_lobby_active(lobby):
         return Response("Lobby is not active", status=400)
     # 2 - check if the user is already in the lobby
-    user_in_lobby = RandomCallLobbyUser.objects.filter(user=request.user, lobby=lobby).exists()
+    user_in_lobby = RandomCallLobbyUser.objects.filter(user=request.user, lobby=lobby, is_active=True).exists()
     already_in_lobby = False
     if user_in_lobby:
         already_in_lobby = True
-    # 3 - if the user is not in the lobby, add them to the lobby
+    # 3 - if the user is not in the lobby, add them or reactivate them
     if not user_in_lobby:
-        RandomCallLobbyUser.objects.create(user=request.user, lobby=lobby)
+        # Check if user has an inactive entry
+        inactive_entry = RandomCallLobbyUser.objects.filter(user=request.user, lobby=lobby, is_active=False).first()
+        if inactive_entry:
+            # Reactivate the existing entry
+            inactive_entry.is_active = True
+            inactive_entry.save()
+        else:
+            # Create new entry
+            RandomCallLobbyUser.objects.create(user=request.user, lobby=lobby)
     # 4 - a-new user joined so start the celery task that performs the matching
     random_call_lobby_perform_matching.apply_async(args=[lobby_name])
     return Response({"lobby": lobby.uuid, "already_joined": already_in_lobby})
@@ -133,14 +141,89 @@ def get_random_call_lobby_status(request, lobby_name="default"):
     has_matching = random_call_matching.exists()
     if has_matching:
         own_number = 1 if (matching.u1 == request.user) else 2
+        partner = matching.u2 if own_number == 1 else matching.u1
+        partner_accepted = matching.u2_accepted if own_number == 1 else matching.u1_accepted
 
         matching_info = {
             "uuid": matching.uuid,
-            "accepted": matching.u2_accepted if own_number == 1 else matching.u1_accepted,
+            "accepted": partner_accepted,
+            "both_accepted": matching.accepted,
+            "partner": {
+                "id": partner.hash,
+                "name": f"{partner.profile.first_name}",
+                "image": str(partner.profile.image) if partner.profile.image else "",
+                "image_type": partner.profile.image_type,
+                "description": partner.profile.description or "",
+                "interests": []  # TODO: Add interests field to profile
+            }
         }
 
         response_data["matching"] = matching_info
     return Response(response_data)
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def accept_random_call_match(request, lobby_name, match_uuid):
+    # 1 - retrieve the lobby
+    lobby = RandomCallLobby.objects.get(name=lobby_name)
+    if not is_lobby_active(lobby):
+        return Response("Lobby is not active", status=400)
+    # 2 - retrieve the match
+    match = RandomCallMatching.objects.get(uuid=match_uuid)
+    # 3 - check if user is part of the match
+    if not (match.u1 == request.user or match.u2 == request.user):
+        return Response("You are not part of this match", status=400)
+    # 4 - check if match is already processed
+    if match.is_processed:
+        return Response("Match is already processed", status=400)
+    # 5 - set the user's acceptance
+    if match.u1 == request.user:
+        match.u1_accepted = True
+    else:
+        match.u2_accepted = True
+    
+    # 6 - check if both users accepted
+    if match.u1_accepted and match.u2_accepted:
+        match.accepted = True
+        # Create LiveKitRoom for the match
+        LiveKitRoom.objects.get_or_create(u1=match.u1, u2=match.u2, random_call_room=True)
+    
+    match.save()
+    
+    return Response({
+        "match_uuid": str(match.uuid),
+        "u1_accepted": match.u1_accepted,
+        "u2_accepted": match.u2_accepted,
+        "accepted": match.accepted,
+    })
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def reject_random_call_match(request, lobby_name, match_uuid):
+    # 1 - retrieve the lobby
+    lobby = RandomCallLobby.objects.get(name=lobby_name)
+    if not is_lobby_active(lobby):
+        return Response("Lobby is not active", status=400)
+    # 2 - retrieve the match
+    match = RandomCallMatching.objects.get(uuid=match_uuid)
+    # 3 - check if user is part of the match
+    if not (match.u1 == request.user or match.u2 == request.user):
+        return Response("You are not part of this match", status=400)
+    # 4 - check if match is already processed
+    if match.is_processed:
+        return Response("Match is already processed", status=400)
+    # 5 - set rejected
+    match.rejected = True
+    match.save()
+    
+    return Response({
+        "match_uuid": str(match.uuid),
+        "rejected": True,
+    })
 
 
 @api_view(["GET"])
@@ -234,6 +317,12 @@ class RandomCallLobbySerializer(serializers.Serializer):
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
+        # Add calculated status based on current time
+        rep["status"] = is_lobby_active(instance)
+        # Add count of active users in the lobby
+        rep["active_users_count"] = RandomCallLobbyUser.objects.filter(
+            lobby=instance, is_active=True
+        ).count()
         return rep
 
 
@@ -255,6 +344,8 @@ api_urls = [
     path("api/random_calls/lobby/<str:lobby_name>/join", join_random_call_lobby),
     path("api/random_calls/lobby/<str:lobby_name>/exit", exit_random_call_lobby),
     path("api/random_calls/lobby/<str:lobby_name>/status", get_random_call_lobby_status),
+    path("api/random_calls/lobby/<str:lobby_name>/match/<str:match_uuid>/accept", accept_random_call_match),
+    path("api/random_calls/lobby/<str:lobby_name>/match/<str:match_uuid>/reject", reject_random_call_match),
     path(
         "api/random_calls/lobby/<str:lobby_name>/match/<str:match_uuid>/room_authenticate",
         authenticate_random_call_match_livekit_room,
