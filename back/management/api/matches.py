@@ -1,35 +1,31 @@
 from dataclasses import dataclass
 
-from translations import get_translation
 from chat.consumers.messages import InMatchProposalAdded, InUnconfirmedMatchAdded
+from chat.models import Chat, ChatConnections, ChatSerializer
 from django.db.models import Q
 from drf_spectacular.utils import extend_schema, inline_serializer
-from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework import serializers, status
 from rest_framework.authentication import SessionAuthentication
-from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_dataclasses.serializers import DataclassSerializer
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from translations import get_translation
+from video.models import LivekitSession, SerializeLivekitSession
 
 from management import controller
-from management.models.unconfirmed_matches import serialize_proposed_matches
+from management.api.match_journey_filter_list import determine_match_bucket
 from management.api.scores import score_between_db_update
+from management.api.utils_advanced import enrich_report_unmatch_with_user_info
 from management.helpers import IsAdminOrMatchingUser
 from management.helpers.detailed_pagination import get_paginated_format_v2
-
 from management.models.matches import Match
+from management.models.profile import CensoredProfileSerializer
 from management.models.scores import TwoUserMatchingScore
 from management.models.state import State
-from management.models.unconfirmed_matches import ProposedMatch
+from management.models.unconfirmed_matches import ProposedMatch, serialize_proposed_matches
 from management.models.user import User
-from video.models import LivekitSession, SerializeLivekitSession
-from rest_framework import serializers
-from chat.models import Chat, ChatConnections, ChatSerializer
-from management.models.state import State
-from management.models.profile import CensoredProfileSerializer
-from management.api.match_journey_filter_list import determine_match_bucket
-from management.api.utils_advanced import enrich_report_unmatch_with_user_info
 
 
 class AdvancedUserMatchSerializer(serializers.ModelSerializer):
@@ -59,7 +55,7 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
         if active_sessions.exists():
             active_session = active_sessions.first()
             active_call_room = SerializeLivekitSession(active_session).data
-            
+
         partner_data = {
             "id": str(partner.hash),
             "isOnline": is_online,
@@ -68,7 +64,7 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
             or partner.is_staff,
             **CensoredProfileSerializer(partner.profile).data,
         }
-            
+
         representation = {
             "id": str(instance.uuid),
             "chat": {**chat_serialized},
@@ -89,7 +85,6 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
                 representation["bucket"] = "unknown"
 
         return representation
-
 
 
 @dataclass
@@ -174,9 +169,11 @@ def make_match(request):
 
         InMatchProposalAdded(matches[0]).send(learner.hash)
 
-        learner.sms(request.user, get_translation("sms.proposal_message", lang="de").format(first_name=learner.first_name))
+        learner.sms(
+            request.user, get_translation("sms.proposal_message", lang="de").format(first_name=learner.first_name)
+        )
 
-        return Response(f"Matching Proposal Created")
+        return Response("Matching Proposal Created")
     else:
         # Perfor a full match directly
         match_obj = controller.match_users(
@@ -240,13 +237,15 @@ def matches(request):
     page = int(request.GET.get("page", 1))
     items_per_page = int(request.GET.get("page_size", 10))
     user = request.user
-    
+
     try:
         is_matching_user = user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-        
+
         empty_list = get_paginated_format_v2(Match.objects.none(), items_per_page, 1)
-        
-        confirmed_matches = get_paginated_format_v2(Match.get_confirmed_matches(user), items_per_page, 1 if is_matching_user else page)
+
+        confirmed_matches = get_paginated_format_v2(
+            Match.get_confirmed_matches(user), items_per_page, 1 if is_matching_user else page
+        )
         confirmed_matches["results"] = AdvancedUserMatchSerializer(
             confirmed_matches["results"], many=True, context={"user": user}
         ).data
@@ -256,20 +255,24 @@ def matches(request):
             unconfirmed_matches["results"], many=True, context={"user": user}
         ).data
 
-        support_matches = get_paginated_format_v2(Match.get_support_matches(user), items_per_page, page if is_matching_user else 1)
+        support_matches = get_paginated_format_v2(
+            Match.get_support_matches(user), items_per_page, page if is_matching_user else 1
+        )
         support_matches["results"] = AdvancedUserMatchSerializer(
             support_matches["results"], many=True, context={"user": user}
         ).data
 
         proposed_matches = get_paginated_format_v2(ProposedMatch.get_open_proposals_learner(user), items_per_page, 1)
         proposed_matches["results"] = serialize_proposed_matches(proposed_matches["results"], user)
-        
-        return Response({
-            # Switch case here cause for support users all matches are 'support' matches :D
-            "support": empty_list if is_matching_user else support_matches,
-            "confirmed": support_matches if is_matching_user else confirmed_matches,
-            "unconfirmed": unconfirmed_matches,
-            "proposed": proposed_matches,
-        })
+
+        return Response(
+            {
+                # Switch case here cause for support users all matches are 'support' matches :D
+                "support": empty_list if is_matching_user else support_matches,
+                "confirmed": support_matches if is_matching_user else confirmed_matches,
+                "unconfirmed": unconfirmed_matches,
+                "proposed": proposed_matches,
+            }
+        )
     except Exception as e:
         return Response({"error": str(e)}, status=400)

@@ -28,5 +28,5 @@ for app in configs:
             model_admin.search_fields = model.admin_search_fields if hasattr(model, "admin_search_fields") else ()
 
             admin.site.register(model, model_admin)
-        except:
+        except Exception:
             print("Error registering model: " + model_name)

@@ -124,7 +124,7 @@ def get_users_by_slug_filter(
             try:
                 pass  # TODO: finish this functionality!
                 # field = getattr(user, lookup_field)
-            except:
+            except Exception:
                 assert False, f"Determined slug '{_v}' makrked with '*' but coudn't resolve!"
 
     filtered_user_list = []

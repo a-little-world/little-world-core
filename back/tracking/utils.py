@@ -1,11 +1,10 @@
 import json
 from functools import partial, wraps
 
+from back.utils import CoolerJson
 from django.utils.translation import gettext_lazy as _
 from ipware import get_client_ip  # django-ipware
 from rest_framework.request import Request
-
-from back.utils import CoolerJson
 
 from .models import Event
 
@@ -50,11 +49,11 @@ def inline_track_event(
             if "request" in str_type:
                 try:
                     metadata.update(_ip_meta(a))
-                except:
+                except Exception:
                     metadata["msg"].append(_("tracking: could not determine IP"))
                 try:
                     _user = a.user
-                except:
+                except Exception:
                     metadata["msg"].append(_("traking: could not deterine user"))
 
                 try:
@@ -63,7 +62,7 @@ def inline_track_event(
                         for arg in censor_kwargs:
                             if arg in metadata["request_data1"]:
                                 metadata["request_data1"].pop(arg)
-                except:
+                except Exception:
                     metadata["msg"].append(_("request.data 1 not existing"))
 
                 try:
@@ -77,12 +76,12 @@ def inline_track_event(
 
                 try:
                     # If the conversion above didn't work maybe it is a http request
-                    drf_request = Request(request=a)
+                    Request(request=a)
                     metadata["request_data3"] = a.data
                     if censor_kwargs:
                         for arg in censor_kwargs:
                             metadata["request_data3"].pop(arg)
-                except:
+                except Exception:
                     metadata["msg"].append(_("couldn't convert to drf request"))
 
     try:
@@ -90,7 +89,7 @@ def inline_track_event(
         if _user.is_anonymous:
             metadata["usr"] = str(_user)
             _user = None
-    except:
+    except Exception:
         metadata["usr"] = str(_user)
         _user = None
 
@@ -100,7 +99,7 @@ def inline_track_event(
         try:
             if not caller.is_anonymous:
                 _user = caller
-        except:
+        except Exception:
             metadata["usr3"] = str(_user)
 
     # metadata = {m: str(v) for m, v in metadata.items()}

@@ -12,7 +12,6 @@ from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
-from emails import mails
 from translations import get_translation
 
 from management import controller
@@ -26,7 +25,6 @@ from management.models.settings import Settings
 from management.models.state import State
 from management.models.unconfirmed_matches import ProposedMatch
 from management.models.user import User, UserSerializer
-from management.models.sms import SmsModel
 from management.tasks import (
     create_default_banners,
     create_default_community_events,
@@ -126,13 +124,13 @@ def make_tim_support_user(
         send_email=False,
         set_unconfirmed=False,
     )
-    
+
     # 2.25 COPY THE CHAT (step missing before!)
     def copy_chat():
         old_chat = Chat.get_chat({admin_user, user})
         new_chat = Chat.get_chat({base_management_user, user})
         from chat.models import Message
-        
+
         if old_chat and new_chat:
             for message in old_chat.get_messages():
                 new_sender = base_management_user if message.sender == admin_user else user
@@ -147,7 +145,7 @@ def make_tim_support_user(
                 # Afterwards overwrite the 'created' time
                 new_message.created = message.created
                 new_message.save()
-    
+
     # Wait for DB transactions to complete
     transaction.on_commit(copy_chat)
 
@@ -317,17 +315,20 @@ def match_users(
         # After the users are registered as matches
         # we still need to create a dialog for them
 
-        chat = Chat.get_or_create_chat(usr1, usr2)
+        Chat.get_or_create_chat(usr1, usr2)
 
     if create_video_room:
-        room = Room.objects.create(usr1=usr1, usr2=usr2)
+        Room.objects.create(usr1=usr1, usr2=usr2)
 
     if send_notification:
         # send sms message ( only if the user enabled sms notifications )
         try:
             volunteer = matching_obj.get_volunteer()
-            volunteer.sms(get_base_management_user(), get_translation("sms.match_message", lang="de").format(first_name=volunteer.first_name))
-        except:
+            volunteer.sms(
+                get_base_management_user(),
+                get_translation("sms.match_message", lang="de").format(first_name=volunteer.first_name),
+            )
+        except Exception:
             print("Could not send sms to volunteer")
             pass
 
@@ -436,7 +437,6 @@ def get_or_create_default_docs_user():
     if not settings.DOCS_PASSWORD:
         raise Exception("DOCS_USER_PW not set!")
 
-    user = None
     try:
         return get_user_by_email(settings.DOCS_USER)
     except UserNotFoundErr:
@@ -530,7 +530,7 @@ class EmailSendReport:
     out: str = ""
 
 
-def send_email(
+def send_email(  # TODO: deprecated
     user,
     subject: str,
     mail_name: str,
@@ -561,14 +561,14 @@ def send_email(
         report.checked_subscription = False
 
     try:
-        mails.send_email(
-            recivers=[user.email],
-            subject=subject,
-            mail_data=mails.get_mail_data_by_name(mail_name),
-            mail_params=mail_params,
-            raise_exception=True,
-            emulated_send=emulated_send,
-        )
+        # mails.send_email(
+        #    recivers=[user.email],
+        #    subject=subject,
+        #    mail_data=mails.get_mail_data_by_name(mail_name),
+        #    mail_params=mail_params,
+        #    raise_exception=True,
+        #    emulated_send=emulated_send,
+        # )
         report.send = not emulated_send
     except Exception as e:
         print("Error sending email", str(e), mail_name)
@@ -611,8 +611,6 @@ def send_group_mail(
 
 
 def delete_user(user, management_user=None, send_deletion_email=False):
-    from emails import mails
-
     if send_deletion_email:
         user.send_email_v2("account-deleted")
 

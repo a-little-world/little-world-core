@@ -2,6 +2,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Optional
 
+from back.utils import CoolerJson, transform_add_options_serializer
 from django.conf import settings
 from django.shortcuts import redirect, render
 from django.utils import translation
@@ -10,12 +11,11 @@ from rest_framework import serializers, status
 from rest_framework.request import Request
 from translations import get_translation
 
-from back.utils import CoolerJson, transform_add_options_serializer
+from management.api.user import get_user_data
 from management.controller import get_base_management_user
 from management.models.profile import SelfProfileSerializer
-from management.views.cookie_banner_frontend import get_cookie_banner_template_data
-from management.api.user import get_user_data
 from management.models.short_links import ShortLink
+from management.views.cookie_banner_frontend import get_cookie_banner_template_data
 
 # The following two are redundant with api.admin.UserListParams, api.admin.UserListApiSerializer
 # But that is desired I wan't to always handle admin logic separately this might come in handy in the future
@@ -54,7 +54,6 @@ class MainFrontendRouter(View):
         if path.endswith("/"):
             path = path[:-1]
 
-
         login_url_redirect = (
             ("https://home.little-world.com/" if settings.IS_PROD else "/login")
             if (not settings.USE_LANDINGPAGE_REDIRECT)
@@ -67,15 +66,18 @@ class MainFrontendRouter(View):
                 cookie_context = get_cookie_banner_template_data(request)
 
                 return render(
-                    request, "main_frontend.html", {
+                    request,
+                    "main_frontend.html",
+                    {
                         "user": json.dumps({}),
-                        "api_options": json.dumps({
-                            "profile": ProfileWOptions(get_base_management_user().profile).data["options"],
-                        }),
-                        **cookie_context
-                    }
+                        "api_options": json.dumps(
+                            {
+                                "profile": ProfileWOptions(get_base_management_user().profile).data["options"],
+                            }
+                        ),
+                        **cookie_context,
+                    },
                 )
-
 
             root_short_links = ShortLink.objects.filter(register_at_app_root=True, tag=path)
             if root_short_links.exists():
@@ -86,7 +88,6 @@ class MainFrontendRouter(View):
                     target_url = f"{target_url}?{query_string}"
                 return redirect(target_url)
 
-
             if path == "":
                 # the root path is generally redirected to `little-world.com` in production ( otherwise to an app intern landing page )
                 return redirect(login_url_redirect)
@@ -96,7 +97,6 @@ class MainFrontendRouter(View):
 
         if (not request.user.state.is_email_verified()) and (not path.startswith("app/verify-email")):
             return redirect("/app/verify-email/")
-
 
         if request.user.state.is_email_verified() and (
             (not request.user.state.is_user_form_filled()) and (not path.startswith("app/user-form"))
@@ -116,14 +116,19 @@ class MainFrontendRouter(View):
         extra_template_data["sentry_user_id"] = request.user.hash
 
         return render(
-            request, "main_frontend.html", {
+            request,
+            "main_frontend.html",
+            {
                 "user": json.dumps(user_data, cls=CoolerJson),
-                "api_options": json.dumps({
-                    "profile": ProfileWOptions(request.user.profile).data["options"],
-                }),
-                **extra_template_data
-            }
+                "api_options": json.dumps(
+                    {
+                        "profile": ProfileWOptions(request.user.profile).data["options"],
+                    }
+                ),
+                **extra_template_data,
+            },
         )
+
 
 def info_card(
     request,

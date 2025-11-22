@@ -3,8 +3,8 @@ from uuid import uuid4
 from django.db import models
 from django.db.models import Q
 from management.models.profile import CensoredProfileSerializer
-from rest_framework.serializers import ModelSerializer
 from rest_framework import serializers
+from rest_framework.serializers import ModelSerializer
 
 
 class LiveKitRoom(models.Model):
@@ -46,7 +46,7 @@ class LivekitSession(models.Model):
     u2_was_active = models.BooleanField(default=False)
 
     both_have_been_active = models.BooleanField(default=False)
-    
+
     unusual_length = models.BooleanField(default=False)
     start_end_before_correction = models.TextField(null=True, blank=True)
 
@@ -61,8 +61,8 @@ class LivekitSession(models.Model):
 
 
 class SerializeLivekitSession(ModelSerializer):
-    room_uuid = serializers.CharField(source='room.uuid', read_only=True, allow_null=True)
-    
+    room_uuid = serializers.CharField(source="room.uuid", read_only=True, allow_null=True)
+
     class Meta:
         model = LivekitSession
         fields = ["uuid", "created_at", "room_uuid"]

@@ -3,7 +3,6 @@ from datetime import datetime
 from typing import Optional
 
 import django.contrib.auth.password_validation as pw_validation
-from django.conf import settings
 from django.contrib.auth import login
 from django.core import exceptions
 from django.utils import translation
@@ -90,7 +89,7 @@ class RegistrationSerializer(serializers.Serializer):
         usr = None
         try:
             usr = controller.get_user_by_email(data["email"])
-        except:
+        except controller.UserNotFoundErr:
             pass  # If this doesnt fail the user doesn't exist!
 
         if usr is not None:
@@ -136,14 +135,6 @@ class Register(APIView):
         usr = controller.create_user(
             **{k: getattr(registration_data, k) for k in registration_data.__annotations__}, send_verification_mail=True
         )
-
-        if settings.IS_PROD:
-            from ..tasks import dispatch_admin_email_notification
-
-            dispatch_admin_email_notification.delay(
-                "New user registered",
-                f"{registration_data.email}, {registration_data.first_name}, {registration_data.second_name}, {registration_data.birth_year}",
-            )
 
         login(request, usr)
 

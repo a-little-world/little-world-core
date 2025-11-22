@@ -3,21 +3,15 @@ from datetime import timedelta
 
 from chat.models import Message
 from django.db.models import (
-    Count,
-    DateTimeField,
     DurationField,
     Exists,
     ExpressionWrapper,
     F,
-    Max,
     OuterRef,
     Q,
-    Subquery,
-    Sum,
 )
-from django.db.models.functions import Coalesce, ExtractDay, Greatest
+from django.db.models.functions import ExtractDay, Greatest
 from django.utils import timezone
-from video.models import LivekitSession
 
 from management.models.matches import Match
 from management.models.unconfirmed_matches import ProposedMatch
@@ -32,6 +26,7 @@ DESIRED_MATCH_DURATION_WEEKS = 10
 LAST_INTERACTION_DAYS = 21
 DAYS_UNTILL_GHOSTED = 21
 NEVER_CONFIRMED_DAYS = 10
+
 
 def only_non_support_matching(qs=Match.objects.all()):
     """
@@ -166,10 +161,8 @@ def completed_match(
     """
     user1_to_user2_message_exists = Message.objects.filter(sender=OuterRef("user1"), recipient=OuterRef("user2"))
     user2_to_user1_message_exists = Message.objects.filter(sender=OuterRef("user2"), recipient=OuterRef("user1"))
-    
-    completed_or_completed_off_plattform = Match.objects.filter(
-        Q(completed=True) | Q(completed_off_plattform=True)
-    )
+
+    completed_or_completed_off_plattform = Match.objects.filter(Q(completed=True) | Q(completed_off_plattform=True))
 
     now = timezone.now()
     completed_by_criteria = (
@@ -193,10 +186,10 @@ def completed_match(
             duration_since_last_interaction_in_days__gte=last_interaction_days,
         )
     )
-    
+
     return qs.filter(
-        Q(id__in=completed_or_completed_off_plattform.values_list('id', flat=True)) |
-        Q(id__in=completed_by_criteria.values_list('id', flat=True))
+        Q(id__in=completed_or_completed_off_plattform.values_list("id", flat=True))
+        | Q(id__in=completed_by_criteria.values_list("id", flat=True))
     ).annotate(
         duration_since_last_interaction_in_days=ExpressionWrapper(
             Greatest(ExtractDay(now - F("latest_interaction_at")), 0), output_field=DurationField()
@@ -211,7 +204,10 @@ def never_confirmed(qs=Match.objects.all()):
     """
     [Match-Journey] (Failed-Matching) Matches older than a specified number of days but still unconfirmed.
     """
-    return qs.filter(active=True, support_matching=False, confirmed=False, created_at__lt=days_ago(NEVER_CONFIRMED_DAYS))
+    return qs.filter(
+        active=True, support_matching=False, confirmed=False, created_at__lt=days_ago(NEVER_CONFIRMED_DAYS)
+    )
+
 
 def no_contact(qs=Match.objects.all()):
     """
@@ -312,6 +308,7 @@ def match_completed_off_plattform(qs=Match.objects.all()):
     [Special] Matches that are completed off the plattform.
     """
     return qs.filter(completed_off_plattform=True)
+
 
 def support_matching(qs=Match.objects.all()):
     """
