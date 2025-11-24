@@ -32,11 +32,11 @@ def random_call_lobby_perform_matching(lobby_name="default"):
     # 1 - retrieve the lobby
     lobby = RandomCallLobby.objects.get(name=lobby_name)
 
-    # 0 - cleanup inactive lobby users
+    # 0 - cleanup inactive lobby users TODO
     lobby_users = RandomCallLobbyUser.objects.filter(
         lobby=lobby, is_active=False, last_status_checked_at__lt=timezone.now() - timedelta(seconds=10)
     )
-    lobby_users.update(is_active=False)
+    lobby_users.update(is_active=False, last_status_checked_at=timezone.now())
 
     # 2 - check if the lobby is active
     if not is_lobby_active(lobby):
