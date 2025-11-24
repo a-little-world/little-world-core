@@ -1,4 +1,3 @@
-
 from back.celery import app
 from django.test import TestCase, override_settings
 from django.utils import timezone
