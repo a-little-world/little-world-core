@@ -68,10 +68,12 @@ def join_random_call_lobby(request, lobby_name="default"):
     if not is_lobby_active(lobby):
         return Response("Lobby is not active", status=400)
     # 2 - check if the user is already in the lobby
-    user_in_lobby = RandomCallLobbyUser.objects.filter(user=request.user, lobby=lobby, is_active=True).exists()
+    user_in_lobby = RandomCallLobbyUser.objects.filter(user=request.user, lobby=lobby, is_active=True)
     already_in_lobby = False
-    if user_in_lobby:
+    if user_in_lobby.exists():
         already_in_lobby = True
+        user_in_lobby = user_in_lobby.first()
+        user_in_lobby.update(last_status_checked_at=timezone.now(), is_active=True)
     # 3 - if the user is not in the lobby, add them or reactivate them
     if not user_in_lobby:
         # Check if user has an inactive entry
@@ -82,7 +84,9 @@ def join_random_call_lobby(request, lobby_name="default"):
             inactive_entry.save()
         else:
             # Create new entry
-            RandomCallLobbyUser.objects.create(user=request.user, lobby=lobby)
+            RandomCallLobbyUser.objects.create(
+                user=request.user, lobby=lobby, last_status_checked_at=timezone.now(), is_active=True
+            )
     # 4 - a-new user joined so start the celery task that performs the matching
     random_call_lobby_perform_matching.apply_async(args=[lobby_name])
     return Response({"lobby": lobby.uuid, "already_joined": already_in_lobby})
@@ -130,6 +134,8 @@ def get_random_call_lobby_status(request, lobby_name="default"):
     user_in_lobby = RandomCallLobbyUser.objects.filter(user=request.user, lobby=lobby)
     if not user_in_lobby.exists():
         return Response("You are not in the lobby", status=400)
+    # 4 - update the user's last status checked at
+    user_in_lobby.update(last_status_checked_at=timezone.now(), is_active=True)
     response_data = {
         "lobby": lobby.uuid,
         "matching": None,
