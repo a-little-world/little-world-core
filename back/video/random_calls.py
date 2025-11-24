@@ -7,6 +7,7 @@ from django.urls import path
 from django.utils import timezone
 from livekit import api as livekit_api
 from management.authentication import NativeOnlyJWTAuthentication
+from management.models.matches import Match
 from rest_framework import serializers
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import (
@@ -155,8 +156,8 @@ def get_random_call_lobby_status(request, lobby_name="default"):
                 "image": str(partner.profile.image) if partner.profile.image else "",
                 "image_type": partner.profile.image_type,
                 "description": partner.profile.description or "",
-                "interests": []  # TODO: Add interests field to profile
-            }
+                "interests": [],  # TODO: Add interests field to profile
+            },
         }
 
         response_data["matching"] = matching_info
@@ -184,21 +185,23 @@ def accept_random_call_match(request, lobby_name, match_uuid):
         match.u1_accepted = True
     else:
         match.u2_accepted = True
-    
+
     # 6 - check if both users accepted
     if match.u1_accepted and match.u2_accepted:
         match.accepted = True
         # Create LiveKitRoom for the match
         LiveKitRoom.objects.get_or_create(u1=match.u1, u2=match.u2, random_call_room=True)
-    
+
     match.save()
-    
-    return Response({
-        "match_uuid": str(match.uuid),
-        "u1_accepted": match.u1_accepted,
-        "u2_accepted": match.u2_accepted,
-        "accepted": match.accepted,
-    })
+
+    return Response(
+        {
+            "match_uuid": str(match.uuid),
+            "u1_accepted": match.u1_accepted,
+            "u2_accepted": match.u2_accepted,
+            "accepted": match.accepted,
+        }
+    )
 
 
 @api_view(["POST"])
@@ -220,11 +223,13 @@ def reject_random_call_match(request, lobby_name, match_uuid):
     # 5 - set rejected
     match.rejected = True
     match.save()
-    
-    return Response({
-        "match_uuid": str(match.uuid),
-        "rejected": True,
-    })
+
+    return Response(
+        {
+            "match_uuid": str(match.uuid),
+            "rejected": True,
+        }
+    )
 
 
 @api_view(["GET"])
@@ -278,14 +283,24 @@ def authenticate_random_call_match_livekit_room(request, lobby_name, match_uuid)
     if not (match.u1_accepted and match.u2_accepted):
         return Response("Both users must accept the matching", status=400)
     # 7 - Start actual room authentication
+    # 7.1 - create a temporary chat
     temporary_chat = Chat.get_or_create_chat(match.u1, match.u2)
-    # TODO: possible double room creating here! TODO: maybe move this directly to matching?
+
+    # 7.2 - create a temporary room
     temporary_room = LiveKitRoom.objects.filter(u1=match.u1, u2=match.u2, random_call_room=True)
     if not temporary_room.exists():
         temporary_room = LiveKitRoom.objects.create(u1=match.u1, u2=match.u2, random_call_room=True)
-    temporary_room = temporary_room.first()
+    else:
+        temporary_room = temporary_room.first()
 
-    # TODO: @sugsoo created a temporary 'Match' object here this should be avoided instead the chats and message filter should allow random call matches?
+    # 7.3 - create a temporary match ( TODO: ensure proper cleanup! )
+    temporary_match = Match.objects.filter(u1=match.u1, u2=match.u2, is_random_call=True)
+    if not temporary_match.exists():
+        temporary_match = Match.objects.create(u1=match.u1, u2=match.u2, is_random_call=True)
+    else:
+        temporary_match = temporary_match.first()
+
+    # The random call session gets created automaticly though the livekit apis
     loop = asyncio.new_event_loop()
     loop.run_until_complete(create_livekit_room(str(temporary_room.uuid)))
     loop.close()
@@ -324,9 +339,7 @@ class RandomCallLobbySerializer(serializers.Serializer):
         # Add calculated status based on current time
         rep["status"] = is_lobby_active(instance)
         # Add count of active users in the lobby
-        rep["active_users_count"] = RandomCallLobbyUser.objects.filter(
-            lobby=instance, is_active=True
-        ).count()
+        rep["active_users_count"] = RandomCallLobbyUser.objects.filter(lobby=instance, is_active=True).count()
         return rep
 
 
