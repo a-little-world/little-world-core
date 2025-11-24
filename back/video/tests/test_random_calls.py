@@ -1,16 +1,11 @@
-import json
-from unittest.mock import MagicMock, patch
-
-from django.test import TestCase, override_settings
-from django.utils import timezone
-from rest_framework.test import APIClient
-
-from management.models.user import User
-from management.tests.helpers import register_user
-from video.models import RandomCallLobby, RandomCallLobbyUser, RandomCallMatching
-
 
 from back.celery import app
+from django.test import TestCase, override_settings
+from django.utils import timezone
+from management.models.user import User
+from management.tests.helpers import register_user
+from rest_framework.test import APIClient
+from video.models import RandomCallLobby, RandomCallLobbyUser, RandomCallMatching
 
 
 class RandomCallsTests(TestCase):
