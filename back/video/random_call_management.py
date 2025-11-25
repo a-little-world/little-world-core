@@ -1,16 +1,14 @@
 from django.db.models import Q
 from django.urls import path
-from django.utils import timezone
 from management.authentication import NativeOnlyJWTAuthentication
+from management.helpers import IsAdminOrMatchingUser
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import (
     api_view,
     authentication_classes,
     permission_classes,
 )
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from management.helpers import IsAdminOrMatchingUser
 
 from video.models import (
     RandomCallLobby,
