@@ -27,8 +27,8 @@ from video.models import (
     RandomCallSession,
 )
 from video.tasks import (
-    cleanup_inactive_lobby_users,
     random_call_lobby_perform_matching,
+    cleanup_inactive_lobby_users,
 )
 
 # from management.tasks import kill_livekit_room
@@ -355,6 +355,69 @@ class RandomCallLobbySerializer(serializers.Serializer):
         return rep
 
 
+class RandomCallMatchHistorySerializer(serializers.Serializer):
+    """
+    Serializer for accepted random call matches with session information.
+    Used to display call history to users.
+    """
+    uuid = serializers.UUIDField(read_only=True)
+    
+    def to_representation(self, instance):
+        # Get the current user from context
+        request = self.context.get('request')
+        if not request or not request.user:
+            return {}
+        
+        current_user = request.user
+        
+        # Determine partner (the other user in the match)
+        if instance.u1 == current_user:
+            partner = instance.u2
+            current_user_requested = instance.u1_matching_requested
+            partner_requested = instance.u2_matching_requested
+        else:
+            partner = instance.u1
+            current_user_requested = instance.u2_matching_requested
+            partner_requested = instance.u1_matching_requested
+        
+        # Get session information
+        from video.models import LivekitSession
+        session = LivekitSession.objects.filter(
+            Q(u1=instance.u1, u2=instance.u2) | Q(u1=instance.u2, u2=instance.u1),
+            both_have_been_active=True,
+            random_call_session=True
+        ).order_by('-created_at').first()
+        
+        # Calculate duration if session exists
+        duration = None
+        session_date = instance.lobby.created_at if hasattr(instance.lobby, 'created_at') else None
+        
+        if session:
+            session_date = session.created_at
+            if session.end_time:
+                duration_delta = session.end_time - session.created_at
+                # Convert to seconds
+                duration = int(duration_delta.total_seconds())
+        
+        # Serialize partner profile using CensoredProfileSerializer
+        from management.models.profile import CensoredProfileSerializer
+        partner_data = CensoredProfileSerializer(partner.profile).data
+        
+        # Build the response
+        return {
+            'id': str(instance.uuid),
+            'name': partner.profile.first_name,
+            'date': session_date.isoformat() if session_date else None,
+            'image': str(partner.profile.image) if partner.profile.image else '',
+            'image_type': partner.profile.image_type,
+            'duration': duration,
+            'cannot_match': partner_requested,  # Cannot request if partner already requested
+            'matching_requested': current_user_requested,
+            'both_requested': current_user_requested and partner_requested,
+            'partner': partner_data,
+        }
+
+
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
@@ -365,6 +428,70 @@ def get_random_call_lobby_list(request, lobby_name="any"):
         lobbies = lobbies.filter(name=lobby_name)
         return Response(RandomCallLobbySerializer(lobbies.first()).data)
     return Response(RandomCallLobbySerializer(lobbies, many=True).data)
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def get_accepted_random_call_matches(request):
+    """
+    Get list of accepted past random call matches for the current user.
+    Returns matches ordered by most recent first.
+    """
+    # Filter for accepted matches where current user is either u1 or u2
+    matches = RandomCallMatching.objects.filter(
+        Q(u1=request.user) | Q(u2=request.user),
+        accepted=True
+    ).select_related('u1', 'u2', 'u1__profile', 'u2__profile', 'lobby').order_by('-lobby__start_time')
+    
+    # Serialize the matches
+    serializer = RandomCallMatchHistorySerializer(matches, many=True, context={'request': request})
+    return Response(serializer.data)
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def request_random_call_matching(request, match_uuid):
+    """
+    Request a re-match with a partner from a past random call.
+    Sets the appropriate matching_requested field for the current user.
+    """
+    # 1 - Retrieve the match
+    try:
+        match = RandomCallMatching.objects.select_related('u1', 'u2').get(uuid=match_uuid)
+    except RandomCallMatching.DoesNotExist:
+        return Response({"error": "Match not found"}, status=404)
+    
+    # 2 - Verify user is part of this match
+    if not (match.u1 == request.user or match.u2 == request.user):
+        return Response({"error": "You are not part of this match"}, status=403)
+    
+    # 3 - Verify match was accepted (only allow re-matching on completed calls)
+    if not match.accepted:
+        return Response({"error": "Match was not accepted"}, status=400)
+    
+    # 4 - Set the appropriate matching_requested field
+    if match.u1 == request.user:
+        if match.u1_matching_requested:
+            return Response({"error": "You have already requested matching with this partner"}, status=400)
+        match.u1_matching_requested = True
+    else:
+        if match.u2_matching_requested:
+            return Response({"error": "You have already requested matching with this partner"}, status=400)
+        match.u2_matching_requested = True
+    
+    match.save()
+    
+    # 5 - Check if both users have now requested matching
+    both_requested = match.u1_matching_requested and match.u2_matching_requested
+    
+    # 6 - Return the updated match data
+    serializer = RandomCallMatchHistorySerializer(match, context={'request': request})
+    response_data = serializer.data
+    response_data['both_requested'] = both_requested
+    
+    return Response(response_data)
 
 
 api_urls = [
@@ -379,5 +506,7 @@ api_urls = [
         "api/random_calls/lobby/<str:lobby_name>/match/<str:match_uuid>/room_authenticate",
         authenticate_random_call_match_livekit_room,
     ),
+    path("api/random_calls/history", get_accepted_random_call_matches),
+    path("api/random_calls/history/<str:match_uuid>/request_match", request_random_call_matching),
     # path("api/random_calls/get_token_random_call", authenticate_livekit_random_call),
 ]
