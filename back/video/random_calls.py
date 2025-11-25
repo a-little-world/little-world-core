@@ -360,16 +360,17 @@ class RandomCallMatchHistorySerializer(serializers.Serializer):
     Serializer for accepted random call matches with session information.
     Used to display call history to users.
     """
+
     uuid = serializers.UUIDField(read_only=True)
-    
+
     def to_representation(self, instance):
         # Get the current user from context
-        request = self.context.get('request')
+        request = self.context.get("request")
         if not request or not request.user:
             return {}
-        
+
         current_user = request.user
-        
+
         # Determine partner (the other user in the match)
         if instance.u1 == current_user:
             partner = instance.u2
@@ -379,42 +380,48 @@ class RandomCallMatchHistorySerializer(serializers.Serializer):
             partner = instance.u1
             current_user_requested = instance.u2_matching_requested
             partner_requested = instance.u1_matching_requested
-        
+
         # Get session information
         from video.models import LivekitSession
-        session = LivekitSession.objects.filter(
-            Q(u1=instance.u1, u2=instance.u2) | Q(u1=instance.u2, u2=instance.u1),
-            both_have_been_active=True,
-            random_call_session=True
-        ).order_by('-created_at').first()
-        
+
+        session = (
+            LivekitSession.objects.filter(
+                Q(u1=instance.u1, u2=instance.u2) | Q(u1=instance.u2, u2=instance.u1),
+                both_have_been_active=True,
+                random_call_session=True,
+            )
+            .order_by("-created_at")
+            .first()
+        )
+
         # Calculate duration if session exists
         duration = None
-        session_date = instance.lobby.created_at if hasattr(instance.lobby, 'created_at') else None
-        
+        session_date = instance.lobby.created_at if hasattr(instance.lobby, "created_at") else None
+
         if session:
             session_date = session.created_at
             if session.end_time:
                 duration_delta = session.end_time - session.created_at
                 # Convert to seconds
                 duration = int(duration_delta.total_seconds())
-        
+
         # Serialize partner profile using CensoredProfileSerializer
         from management.models.profile import CensoredProfileSerializer
+
         partner_data = CensoredProfileSerializer(partner.profile).data
-        
+
         # Build the response
         return {
-            'id': str(instance.uuid),
-            'name': partner.profile.first_name,
-            'date': session_date.isoformat() if session_date else None,
-            'image': str(partner.profile.image) if partner.profile.image else '',
-            'image_type': partner.profile.image_type,
-            'duration': duration,
-            'cannot_match': partner_requested,  # Cannot request if partner already requested
-            'matching_requested': current_user_requested,
-            'both_requested': current_user_requested and partner_requested,
-            'partner': partner_data,
+            "id": str(instance.uuid),
+            "name": partner.profile.first_name,
+            "date": session_date.isoformat() if session_date else None,
+            "image": str(partner.profile.image) if partner.profile.image else "",
+            "image_type": partner.profile.image_type,
+            "duration": duration,
+            "cannot_match": partner_requested,  # Cannot request if partner already requested
+            "matching_requested": current_user_requested,
+            "both_requested": current_user_requested and partner_requested,
+            "partner": partner_data,
         }
 
 
@@ -439,13 +446,14 @@ def get_accepted_random_call_matches(request):
     Returns matches ordered by most recent first.
     """
     # Filter for accepted matches where current user is either u1 or u2
-    matches = RandomCallMatching.objects.filter(
-        Q(u1=request.user) | Q(u2=request.user),
-        accepted=True
-    ).select_related('u1', 'u2', 'u1__profile', 'u2__profile', 'lobby').order_by('-lobby__start_time')
-    
+    matches = (
+        RandomCallMatching.objects.filter(Q(u1=request.user) | Q(u2=request.user), accepted=True)
+        .select_related("u1", "u2", "u1__profile", "u2__profile", "lobby")
+        .order_by("-lobby__start_time")
+    )
+
     # Serialize the matches
-    serializer = RandomCallMatchHistorySerializer(matches, many=True, context={'request': request})
+    serializer = RandomCallMatchHistorySerializer(matches, many=True, context={"request": request})
     return Response(serializer.data)
 
 
@@ -459,18 +467,18 @@ def request_random_call_matching(request, match_uuid):
     """
     # 1 - Retrieve the match
     try:
-        match = RandomCallMatching.objects.select_related('u1', 'u2').get(uuid=match_uuid)
+        match = RandomCallMatching.objects.select_related("u1", "u2").get(uuid=match_uuid)
     except RandomCallMatching.DoesNotExist:
         return Response({"error": "Match not found"}, status=404)
-    
+
     # 2 - Verify user is part of this match
     if not (match.u1 == request.user or match.u2 == request.user):
         return Response({"error": "You are not part of this match"}, status=403)
-    
+
     # 3 - Verify match was accepted (only allow re-matching on completed calls)
     if not match.accepted:
         return Response({"error": "Match was not accepted"}, status=400)
-    
+
     # 4 - Set the appropriate matching_requested field
     if match.u1 == request.user:
         if match.u1_matching_requested:
@@ -480,17 +488,17 @@ def request_random_call_matching(request, match_uuid):
         if match.u2_matching_requested:
             return Response({"error": "You have already requested matching with this partner"}, status=400)
         match.u2_matching_requested = True
-    
+
     match.save()
-    
+
     # 5 - Check if both users have now requested matching
     both_requested = match.u1_matching_requested and match.u2_matching_requested
-    
+
     # 6 - Return the updated match data
-    serializer = RandomCallMatchHistorySerializer(match, context={'request': request})
+    serializer = RandomCallMatchHistorySerializer(match, context={"request": request})
     response_data = serializer.data
-    response_data['both_requested'] = both_requested
-    
+    response_data["both_requested"] = both_requested
+
     return Response(response_data)
 
 
