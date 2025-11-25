@@ -27,8 +27,8 @@ from video.models import (
     RandomCallSession,
 )
 from video.tasks import (
-    random_call_lobby_perform_matching,
     cleanup_inactive_lobby_users,
+    random_call_lobby_perform_matching,
 )
 
 # from management.tasks import kill_livekit_room
