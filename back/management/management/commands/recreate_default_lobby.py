@@ -32,7 +32,7 @@ class Command(BaseCommand):
         # Create new default lobby with current time
         lobby = RandomCallLobby.objects.create(name="default")
         lobby.start_time = timezone.now()
-        lobby.end_time = timezone.now() + timedelta(days=1)
+        lobby.end_time = timezone.now() + timedelta(hours=2)
         lobby.save()
 
         self.stdout.write(
