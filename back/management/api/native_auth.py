@@ -37,7 +37,7 @@ class NativeAuthIosSerializer(serializers.Serializer):
 class NativeAuthWebSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     password = serializers.CharField(required=True)
-    bypassToken = serializers.CharField(required=True)
+    bypass_token = serializers.CharField(required=True)
 
 
 @api_view(["POST"])
