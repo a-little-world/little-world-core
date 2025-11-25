@@ -12,7 +12,8 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from translations import get_translation
 
 from management.api.user import get_user_data
-from management.models import NativeOnlyJWTAuthentication, custom_banner_event_filters
+from management.authentication import NativeOnlyJWTAuthentication
+from management.models import custom_banner_event_filters
 from management.models.profile import Profile, SelfProfileSerializer
 from management.models.state import State
 
