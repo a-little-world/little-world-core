@@ -51,23 +51,24 @@ def get_lobby_management_overview(request, lobby_name="default"):
         user = lobby_user.user
         # Check if user has pending match
         has_pending_match = RandomCallMatching.objects.filter(
-            Q(u1=user) | Q(u2=user),
-            lobby=lobby,
-            rejected=False,
-            accepted=False
+            Q(u1=user) | Q(u2=user), lobby=lobby, rejected=False, accepted=False
         ).exists()
 
-        active_users_data.append({
-            "uuid": str(lobby_user.uuid),
-            "user_hash": user.hash,
-            "user_name": f"{user.profile.first_name}",
-            "is_active": lobby_user.is_active,
-            "last_status_checked_at": lobby_user.last_status_checked_at.isoformat() if lobby_user.last_status_checked_at else None,
-            "has_pending_match": has_pending_match,
-        })
+        active_users_data.append(
+            {
+                "uuid": str(lobby_user.uuid),
+                "user_hash": user.hash,
+                "user_name": f"{user.profile.first_name}",
+                "is_active": lobby_user.is_active,
+                "last_status_checked_at": lobby_user.last_status_checked_at.isoformat()
+                if lobby_user.last_status_checked_at
+                else None,
+                "has_pending_match": has_pending_match,
+            }
+        )
 
     # 5 - Get all match proposals for this lobby
-    all_matches = RandomCallMatching.objects.filter(lobby=lobby).select_related('u1', 'u2')
+    all_matches = RandomCallMatching.objects.filter(lobby=lobby).select_related("u1", "u2")
 
     # 6 - Categorize matches by status
     pending_matches = []
@@ -96,7 +97,7 @@ def get_lobby_management_overview(request, lobby_name="default"):
         # Check if match is expired (users left lobby without accepting/rejecting)
         u1_in_lobby = active_lobby_users.filter(user=match.u1).exists()
         u2_in_lobby = active_lobby_users.filter(user=match.u2).exists()
-        
+
         if match.accepted:
             accepted_matches.append(match_data)
         elif match.rejected:

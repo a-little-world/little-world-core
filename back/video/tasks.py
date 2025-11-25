@@ -58,10 +58,11 @@ def random_call_lobby_perform_matching(lobby_name="default"):
     cleanup_if_not_accepted.apply_async(args=[random_match.uuid], countdown=30)
     return {"matchings": [pair]}
 
+
 @shared_task(name="video.tasks.cleanup_inactive_lobby_users")
 def cleanup_inactive_lobby_users(lobby_name="default"):
     lobby = RandomCallLobby.objects.get(name=lobby_name)
-    
+
     open_proposals = RandomCallMatching.objects.filter(lobby=lobby, accepted=False, rejected=False)
     # Get u1_id and u2_id separately and combine them into a single set
     u1_ids = open_proposals.values_list("u1_id", flat=True)
@@ -72,9 +73,10 @@ def cleanup_inactive_lobby_users(lobby_name="default"):
         lobby=lobby, is_active=True, last_status_checked_at__lt=timezone.now() - timedelta(seconds=10)
     ).exclude(user_id__in=open_proposals_user_ids)
     lobby_users.update(is_active=False)
-    
+
     cleaned_user_ids = list(lobby_users.values_list("user_id", flat=True))
     return {"cleaned_users": cleaned_user_ids}
+
 
 @shared_task(name="video.tasks.cleanup_if_not_accepted")
 def cleanup_if_not_accepted(match_uuid):
