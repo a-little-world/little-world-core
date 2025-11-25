@@ -1,9 +1,6 @@
 from back.utils import transform_add_options_serializer
-from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from management.controller import get_base_management_user
 from management.models.profile import SelfProfileSerializer
@@ -21,8 +18,8 @@ def get_options_dict():
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
-@authentication_classes([SessionAuthentication, JWTAuthentication])
+@permission_classes([])
+@authentication_classes([])
 def api_options(request):
     """
     Returns API options including form options.
