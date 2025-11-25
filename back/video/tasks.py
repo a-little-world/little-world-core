@@ -63,7 +63,10 @@ def cleanup_inactive_lobby_users(lobby_name="default"):
     lobby = RandomCallLobby.objects.get(name=lobby_name)
     
     open_proposals = RandomCallMatching.objects.filter(lobby=lobby, accepted=False, rejected=False)
-    open_proposals_user_ids = open_proposals.values_list("u1_id", "u2_id", flat=True)
+    # Get u1_id and u2_id separately and combine them into a single set
+    u1_ids = open_proposals.values_list("u1_id", flat=True)
+    u2_ids = open_proposals.values_list("u2_id", flat=True)
+    open_proposals_user_ids = set(list(u1_ids) + list(u2_ids))
 
     lobby_users = RandomCallLobbyUser.objects.filter(
         lobby=lobby, is_active=True, last_status_checked_at__lt=timezone.now() - timedelta(seconds=10)

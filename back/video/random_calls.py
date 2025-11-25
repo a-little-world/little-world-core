@@ -306,9 +306,9 @@ def authenticate_random_call_match_livekit_room(request, lobby_name, match_uuid)
         temporary_room = temporary_room.first()
 
     # 7.3 - create a temporary match ( TODO: ensure proper cleanup! )
-    temporary_match = Match.objects.filter(u1=match.u1, u2=match.u2, is_random_call=True)
+    temporary_match = Match.objects.filter(user1=match.u1, user2=match.u2, is_random_call_match=True)
     if not temporary_match.exists():
-        temporary_match = Match.objects.create(u1=match.u1, u2=match.u2, is_random_call=True)
+        temporary_match = Match.objects.create(user1=match.u1, user2=match.u2, is_random_call_match=True)
     else:
         temporary_match = temporary_match.first()
 
