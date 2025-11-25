@@ -28,15 +28,9 @@ def random_call_lobby_perform_matching(lobby_name="default"):
     # Import here to avoid circular import
     from video.random_calls import is_lobby_active
 
-    # TODO: add locking mechanism that assures this tasks only runs once in parallel!
     # 1 - retrieve the lobby
     lobby = RandomCallLobby.objects.get(name=lobby_name)
-
-    # 0 - cleanup inactive lobby users TODO
-    lobby_users = RandomCallLobbyUser.objects.filter(
-        lobby=lobby, is_active=False, last_status_checked_at__lt=timezone.now() - timedelta(seconds=10)
-    )
-    lobby_users.update(is_active=False, last_status_checked_at=timezone.now())
+    cleanup_inactive_lobby_users(lobby_name=lobby_name)
 
     # 2 - check if the lobby is active
     if not is_lobby_active(lobby):
@@ -64,7 +58,22 @@ def random_call_lobby_perform_matching(lobby_name="default"):
     cleanup_if_not_accepted.apply_async(args=[random_match.uuid], countdown=30)
     return {"matchings": [pair]}
 
+@shared_task(name="video.tasks.cleanup_inactive_lobby_users")
+def cleanup_inactive_lobby_users(lobby_name="default"):
+    lobby = RandomCallLobby.objects.get(name=lobby_name)
+    
+    open_proposals = RandomCallMatching.objects.filter(lobby=lobby, accepted=False, rejected=False)
+    open_proposals_user_ids = open_proposals.values_list("u1_id", "u2_id", flat=True)
 
+    lobby_users = RandomCallLobbyUser.objects.filter(
+        lobby=lobby, is_active=True, last_status_checked_at__lt=timezone.now() - timedelta(seconds=10)
+    ).exclude(user_id__in=open_proposals_user_ids)
+    lobby_users.update(is_active=False)
+    
+    cleaned_user_ids = list(lobby_users.values_list("user_id", flat=True))
+    return {"cleaned_users": cleaned_user_ids}
+
+@shared_task(name="video.tasks.cleanup_if_not_accepted")
 def cleanup_if_not_accepted(match_uuid):
     # 1 - retrieve the match
     match = RandomCallMatching.objects.get(uuid=match_uuid)

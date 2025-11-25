@@ -26,7 +26,10 @@ from video.models import (
     RandomCallMatching,
     RandomCallSession,
 )
-from video.tasks import random_call_lobby_perform_matching
+from video.tasks import (
+    random_call_lobby_perform_matching,
+    cleanup_inactive_lobby_users,
+)
 
 # from management.tasks import kill_livekit_room
 
@@ -73,7 +76,9 @@ def join_random_call_lobby(request, lobby_name="default"):
     if user_in_lobby.exists():
         already_in_lobby = True
         user_in_lobby = user_in_lobby.first()
-        user_in_lobby.update(last_status_checked_at=timezone.now(), is_active=True)
+        user_in_lobby.last_status_checked_at = timezone.now()
+        user_in_lobby.is_active = True
+        user_in_lobby.save()
     # 3 - if the user is not in the lobby, add them or reactivate them
     if not user_in_lobby:
         # Check if user has an inactive entry
@@ -89,6 +94,7 @@ def join_random_call_lobby(request, lobby_name="default"):
             )
     # 4 - a-new user joined so start the celery task that performs the matching
     random_call_lobby_perform_matching.apply_async(args=[lobby_name])
+    cleanup_inactive_lobby_users.apply_async(args=[lobby_name], countdown=12)
     return Response({"lobby": lobby.uuid, "already_joined": already_in_lobby})
 
 
