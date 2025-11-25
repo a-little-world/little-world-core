@@ -134,6 +134,8 @@ class RandomCallMatching(models.Model):
 
     accepted = models.BooleanField(default=False)  # Both users accepted
     rejected = models.BooleanField(default=False)  # At least one user rejected
+    
+    expired = models.BooleanField(default=False)  # The match acceptece timed out without a match being performed
 
     @property
     def is_processed(self):

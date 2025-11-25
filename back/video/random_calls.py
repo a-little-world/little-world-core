@@ -149,7 +149,7 @@ def get_random_call_lobby_status(request, lobby_name="default"):
     # 4 - check the users lobby status
     # Show matchings that are not rejected and not in a session yet
     random_call_matching = RandomCallMatching.objects.filter(
-        Q(u1=request.user) | Q(u2=request.user), lobby=lobby, rejected=False, in_session=False
+        Q(u1=request.user) | Q(u2=request.user), lobby=lobby, rejected=False, in_session=False, expired=False
     )
     matching = random_call_matching.first()
     has_matching = random_call_matching.exists()
@@ -190,7 +190,7 @@ def accept_random_call_match(request, lobby_name, match_uuid):
     if not (match.u1 == request.user or match.u2 == request.user):
         return Response("You are not part of this match", status=400)
     # 4 - check if match is already processed
-    if match.is_processed:
+    if match.accepted or match.rejected:
         return Response("Match is already processed", status=400)
     # 5 - set the user's acceptance
     if match.u1 == request.user:

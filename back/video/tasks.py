@@ -84,6 +84,7 @@ def cleanup_if_not_accepted(match_uuid):
     if not (match.accepted or match.rejected):
         # 2 - auto reject the match
         auto_rejected_match = True
+        match.expired = True
         match.rejected = True
         match.save()
     # TODO: websocket event for this change!
