@@ -2,6 +2,7 @@ from django.db.models import Q
 from django.urls import path
 from management.authentication import NativeOnlyJWTAuthentication
 from management.helpers import IsAdminOrMatchingUser
+from rest_framework import serializers
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import (
     api_view,
@@ -16,6 +17,38 @@ from video.models import (
     RandomCallMatching,
 )
 from video.random_calls import is_lobby_active
+
+
+class RandomCallLobbyManagementSerializer(serializers.Serializer):
+    name = serializers.CharField()
+    uuid = serializers.CharField()
+    is_active = serializers.BooleanField()
+    start_time = serializers.DateTimeField(allow_null=True)
+    end_time = serializers.DateTimeField(allow_null=True)
+    active_users_count = serializers.IntegerField()
+    total_users_count = serializers.IntegerField()
+
+
+class RandomCallUserSerializer(serializers.Serializer):
+    uuid = serializers.CharField()
+    user_hash = serializers.CharField()
+    user_name = serializers.CharField()
+    is_active = serializers.BooleanField()
+    last_status_checked_at = serializers.DateTimeField(allow_null=True)
+    has_pending_match = serializers.BooleanField()
+
+
+class RandomCallMatchSerializer(serializers.Serializer):
+    uuid = serializers.CharField()
+    u1_hash = serializers.CharField()
+    u1_name = serializers.CharField()
+    u2_hash = serializers.CharField()
+    u2_name = serializers.CharField()
+    u1_accepted = serializers.BooleanField()
+    u2_accepted = serializers.BooleanField()
+    accepted = serializers.BooleanField()
+    rejected = serializers.BooleanField()
+    in_session = serializers.BooleanField()
 
 
 @api_view(["GET"])
@@ -77,14 +110,10 @@ def get_lobby_management_overview(request, lobby_name="default"):
     for match in all_matches:
         match_data = {
             "uuid": str(match.uuid),
-            "u1": {
-                "hash": match.u1.hash,
-                "name": f"{match.u1.profile.first_name}",
-            },
-            "u2": {
-                "hash": match.u2.hash,
-                "name": f"{match.u2.profile.first_name}",
-            },
+            "u1_hash": match.u1.hash,
+            "u1_name": f"{match.u1.profile.first_name}",
+            "u2_hash": match.u2.hash,
+            "u2_name": f"{match.u2.profile.first_name}",
             "u1_accepted": match.u1_accepted,
             "u2_accepted": match.u2_accepted,
             "accepted": match.accepted,
@@ -116,23 +145,26 @@ def get_lobby_management_overview(request, lobby_name="default"):
         "expired_count": len(expired_matches),
     }
 
-    # 8 - Build response
+    # 8 - Build response using serializers following the pattern from the codebase
+    lobby_data = {
+        "name": lobby.name,
+        "uuid": str(lobby.uuid),
+        "is_active": lobby_active,
+        "start_time": lobby.start_time.isoformat() if lobby.start_time else None,
+        "end_time": lobby.end_time.isoformat() if lobby.end_time else None,
+        "active_users_count": active_lobby_users.count(),
+        "total_users_count": all_lobby_users.count(),
+    }
+
+    # Serialize all data following the pattern from the existing codebase
     response_data = {
-        "lobby": {
-            "name": lobby.name,
-            "uuid": str(lobby.uuid),
-            "is_active": lobby_active,
-            "start_time": lobby.start_time.isoformat() if lobby.start_time else None,
-            "end_time": lobby.end_time.isoformat() if lobby.end_time else None,
-            "active_users_count": active_lobby_users.count(),
-            "total_users_count": all_lobby_users.count(),
-        },
-        "active_users": active_users_data,
+        "lobby": RandomCallLobbyManagementSerializer(lobby_data).data,
+        "active_users": RandomCallUserSerializer(active_users_data, many=True).data,
         "match_proposals": {
-            "pending": pending_matches,
-            "accepted": accepted_matches,
-            "rejected": rejected_matches,
-            "expired": expired_matches,
+            "pending": RandomCallMatchSerializer(pending_matches, many=True).data,
+            "accepted": RandomCallMatchSerializer(accepted_matches, many=True).data,
+            "rejected": RandomCallMatchSerializer(rejected_matches, many=True).data,
+            "expired": RandomCallMatchSerializer(expired_matches, many=True).data,
         },
         "statistics": statistics,
     }

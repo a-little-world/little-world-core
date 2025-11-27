@@ -70,7 +70,9 @@ def cleanup_inactive_lobby_users(lobby_name="default"):
     open_proposals_user_ids = set(list(u1_ids) + list(u2_ids))
 
     lobby_users = RandomCallLobbyUser.objects.filter(
-        lobby=lobby, is_active=True, last_status_checked_at__lt=timezone.now() - timedelta(seconds=lobby.user_online_state_timeout)
+        lobby=lobby,
+        is_active=True,
+        last_status_checked_at__lt=timezone.now() - timedelta(seconds=lobby.user_online_state_timeout),
     ).exclude(user_id__in=open_proposals_user_ids)
     lobby_users.update(is_active=False)
 

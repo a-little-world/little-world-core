@@ -36,7 +36,7 @@ class Command(BaseCommand):
         lobby.user_online_state_timeout = 10
         lobby.match_proposal_timeout = 30
         lobby.video_call_timeout = 60 * 10
-        
+
         lobby.save()
 
         self.stdout.write(

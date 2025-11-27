@@ -98,6 +98,9 @@ def join_random_call_lobby(request, lobby_name="default"):
     return Response({"lobby": lobby.uuid, "already_joined": already_in_lobby})
 
 
+# pnpm dlx eas-cli build --platform ios --profile development-device --local
+
+
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
@@ -308,7 +311,9 @@ def authenticate_random_call_match_livekit_room(request, lobby_name, match_uuid)
     # 7.3 - create a temporary match ( TODO: ensure proper cleanup! )
     temporary_match = Match.objects.filter(user1=match.u1, user2=match.u2, is_random_call_match=True)
     if not temporary_match.exists():
-        temporary_match = Match.objects.create(user1=match.u1, user2=match.u2, is_random_call_match=True)
+        temporary_match = Match.objects.create(
+            user1=match.u1, user2=match.u2, is_random_call_match=True, confirmed=True, active=False
+        )
     else:
         temporary_match = temporary_match.first()
 

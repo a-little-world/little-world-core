@@ -113,6 +113,12 @@ class RandomCallLobby(models.Model):
     start_time = models.DateTimeField(null=True, blank=True)
     end_time = models.DateTimeField(null=True, blank=True)
 
+    user_online_state_timeout = models.IntegerField(
+        default=10
+    )  # 10 sends a user is considered 'offline' if not checked in again
+    match_proposal_timeout = models.IntegerField(default=10)  # 10 seconds to accept a match proposal
+    video_call_timeout = models.IntegerField(default=60 * 10)  # 10 minutes video calls
+
 
 class RandomCallLobbyUser(models.Model):
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
