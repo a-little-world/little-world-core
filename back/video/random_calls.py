@@ -126,7 +126,8 @@ def exit_random_call_lobby(request, lobby_name="default"):
     if sessions.exists():
         # - auto reject all existing sessions
         sessions.update(is_active=False)
-    # TODO: make sure user cannot still dangle in a random call session
+    cleanup_inactive_lobby_users.apply_async(args=[lobby_name], countdown=lobby.user_online_state_timeout)
+    # TODO: also make sure other users cannot still dangle in random call sessions
     return Response("You have been removed from the lobby")
 
 
@@ -152,7 +153,13 @@ def get_random_call_lobby_status(request, lobby_name="default"):
     # 4 - check the users lobby status
     # Show matchings that are not rejected and not in a session yet
     random_call_matching = RandomCallMatching.objects.filter(
-        Q(u1=request.user) | Q(u2=request.user), lobby=lobby, rejected=False, in_session=False, expired=False
+        Q(u1=request.user) | Q(u2=request.user),
+        both_requested_room_token=False,
+        completed=False,
+        lobby=lobby,
+        rejected=False,
+        in_session=False,
+        expired=False,
     )
     matching = random_call_matching.first()
     has_matching = random_call_matching.exists()
@@ -171,6 +178,9 @@ def get_random_call_lobby_status(request, lobby_name="default"):
                 "image": str(partner.profile.image) if partner.profile.image else "",
                 "image_type": partner.profile.image_type,
                 "description": partner.profile.description or "",
+                "requested_room_token": matching.u2_requested_room_token
+                if own_number == 1
+                else matching.u1_requested_room_token,
                 "interests": [],  # TODO: Add interests field to profile
             },
         }
@@ -298,6 +308,7 @@ def authenticate_random_call_match_livekit_room(request, lobby_name, match_uuid)
     if not (match.u1_accepted and match.u2_accepted):
         return Response("Both users must accept the matching", status=400)
     # 7 - Start actual room authentication
+
     # 7.1 - create a temporary chat
     temporary_chat = Chat.get_or_create_chat(match.u1, match.u2)
 
@@ -334,6 +345,13 @@ def authenticate_random_call_match_livekit_room(request, lobby_name, match_uuid)
         )
         .to_jwt()
     )
+    # 8.0 Mark that the user actually requested the room token
+    user_index = 1 if request.user == match.u1 else 2
+    setattr(match, f"u{user_index}_requested_room_token", True)
+    if match.u1_requested_room_token and match.u2_requested_room_token:
+        match.both_requested_room_token = True
+    match.save()
+
     # TODO @sungsso create a random call session object here, we would like to be able to tag a 'LiveKitSession' as random call session instead
     return Response(
         {

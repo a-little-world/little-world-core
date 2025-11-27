@@ -147,6 +147,11 @@ class RandomCallMatching(models.Model):
     u1_matching_requested = models.BooleanField(default=False)
     u2_matching_requested = models.BooleanField(default=False)
 
+    u1_requested_room_token = models.BooleanField(default=False)
+    u2_requested_room_token = models.BooleanField(default=False)
+
+    both_requested_room_token = models.BooleanField(default=False)
+
     @property
     def is_processed(self):
         return self.accepted or self.rejected
