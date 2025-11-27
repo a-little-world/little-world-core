@@ -2,6 +2,7 @@ import json
 from datetime import timedelta
 
 from chat.consumers.messages import InBlockIncomingCall, NewActiveCallRoom
+from django.db.models import Q
 from django.http import JsonResponse
 from django.urls import path
 from django.utils import timezone
@@ -13,6 +14,7 @@ from video.models import (
     LiveKitRoom,
     LivekitSession,
     LivekitWebhookEvent,
+    RandomCallMatching,
     SerializeLivekitSession,
 )
 
@@ -206,9 +208,11 @@ def process_webhook_random_call__participant_left(data, event, participant_id, u
                 # TOOD: do we want a minimum time threshold for a call to be considered 'ended/successful'?
                 partner = room.u1 if user == room.u2 else room.u2
                 # update the 'counters' on the Match object
-                # TODO: Look for the random call match objects instead and perform some action there
                 # call_duration = session.end_time - session.created_at
                 # Both active call
+                RandomCallMatching.objects.filter(
+                    Q(u1=user, u2=partner) | Q(u1=partner, u2=user), completed=False
+                ).update(completed=True, in_session=False)
 
             else:
                 # 2 - send 'MissedCall' event to the partner of the user that left
