@@ -5,6 +5,13 @@ import os
 from corsheaders.defaults import default_headers
 from firebase_admin import credentials, initialize_app
 
+DEBUG = os.environ["DJ_DEBUG"].lower() in ("true", "1", "t")
+
+if DEBUG:
+    import django_stubs_ext
+
+    django_stubs_ext.monkeypatch()
+
 
 def get_base64_env(env_name):
     # define function locally, importing from management.helpers.get_base64_env causes error in swagger api generation
@@ -53,7 +60,6 @@ USE_AUTO_RELOAD = os.environ.get("DJ_USE_AUTO_RELOAD", "false").lower() in ("tru
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = os.environ["DJ_SECRET_KEY"]
-DEBUG = os.environ["DJ_DEBUG"].lower() in ("true", "1", "t")
 BASE_URL = os.environ.get("DJ_BASE_URL", "http://localhost:8000")
 ALLOWED_HOSTS = os.environ.get("DJ_ALLOWED_HOSTS", "").split(",")
 FRONTENDS = os.environ["FR_FRONTENDS"].split(",")
