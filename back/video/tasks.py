@@ -55,7 +55,7 @@ def random_call_lobby_perform_matching(lobby_name="default"):
     # 5 - create a new random call matches
     random_match = RandomCallMatching.objects.create(u1_id=pair[0], u2_id=pair[1], lobby=lobby)
     # 6 - For every match start a 'cleanup_if_not_accepted' task that runs 30s after the match is created
-    cleanup_if_not_accepted.apply_async(args=[random_match.uuid], countdown=30)
+    cleanup_if_not_accepted.apply_async(args=[random_match.uuid], countdown=lobby.match_proposal_timeout)
     return {"matchings": [pair]}
 
 
@@ -70,7 +70,7 @@ def cleanup_inactive_lobby_users(lobby_name="default"):
     open_proposals_user_ids = set(list(u1_ids) + list(u2_ids))
 
     lobby_users = RandomCallLobbyUser.objects.filter(
-        lobby=lobby, is_active=True, last_status_checked_at__lt=timezone.now() - timedelta(seconds=10)
+        lobby=lobby, is_active=True, last_status_checked_at__lt=timezone.now() - timedelta(seconds=lobby.user_online_state_timeout)
     ).exclude(user_id__in=open_proposals_user_ids)
     lobby_users.update(is_active=False)
 
