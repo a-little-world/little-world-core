@@ -2,6 +2,7 @@ import asyncio
 
 from chat.models import Chat, ChatSerializer
 from django.conf import settings
+from django.db import transaction
 from django.db.models import Q
 from django.urls import path
 from django.utils import timezone
@@ -346,11 +347,16 @@ def authenticate_random_call_match_livekit_room(request, lobby_name, match_uuid)
         .to_jwt()
     )
     # 8.0 Mark that the user actually requested the room token
-    user_index = 1 if request.user == match.u1 else 2
-    setattr(match, f"u{user_index}_requested_room_token", True)
-    if match.u1_requested_room_token and match.u2_requested_room_token:
-        match.both_requested_room_token = True
-    match.save()
+    # Use atomic transaction with row-level locking to prevent race conditions
+    # when both users request the room token simultaneously
+    with transaction.atomic():
+        # Re-fetch the match with row-level lock to ensure atomicity
+        match = RandomCallMatching.objects.select_for_update().get(uuid=match_uuid)
+        user_index = 1 if request.user == match.u1 else 2
+        setattr(match, f"u{user_index}_requested_room_token", True)
+        if match.u1_requested_room_token and match.u2_requested_room_token:
+            match.both_requested_room_token = True
+        match.save()
 
     # TODO @sungsso create a random call session object here, we would like to be able to tag a 'LiveKitSession' as random call session instead
     return Response(
@@ -467,16 +473,23 @@ def get_accepted_random_call_matches(request):
     """
     Get list of accepted past random call matches for the current user.
     Returns matches ordered by most recent first.
+    Only shows one match per unique user pair (most recent match for each pair).
     """
-    # Filter for accepted matches where current user is either u1 or u2
     matches = (
         RandomCallMatching.objects.filter(Q(u1=request.user) | Q(u2=request.user), accepted=True)
         .select_related("u1", "u2", "u1__profile", "u2__profile", "lobby")
         .order_by("-lobby__start_time")
     )
 
-    # Serialize the matches
-    serializer = RandomCallMatchHistorySerializer(matches, many=True, context={"request": request})
+    unique_matches = {}
+    for match in matches:
+        user_pair = (min(match.u1.id, match.u2.id), max(match.u1.id, match.u2.id))
+        if user_pair not in unique_matches:
+            unique_matches[user_pair] = match
+
+    serializer = RandomCallMatchHistorySerializer(
+        list(unique_matches.values()), many=True, context={"request": request}
+    )
     return Response(serializer.data)
 
 
