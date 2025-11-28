@@ -1,4 +1,5 @@
 import asyncio
+import time
 
 from chat.models import Chat, ChatSerializer
 from django.conf import settings
@@ -346,17 +347,45 @@ def authenticate_random_call_match_livekit_room(request, lobby_name, match_uuid)
         )
         .to_jwt()
     )
-    # 8.0 Mark that the user actually requested the room token
-    # Use atomic transaction with row-level locking to prevent race conditions
-    # when both users request the room token simultaneously
-    with transaction.atomic():
-        # Re-fetch the match with row-level lock to ensure atomicity
-        match = RandomCallMatching.objects.select_for_update().get(uuid=match_uuid)
-        user_index = 1 if request.user == match.u1 else 2
-        setattr(match, f"u{user_index}_requested_room_token", True)
-        if match.u1_requested_room_token and match.u2_requested_room_token:
-            match.both_requested_room_token = True
-        match.save()
+    # 8.0 Mark that the user actually requested the room token.
+    # Use Django's update() method with filters for atomic updates at the database level.
+    # try attomic transactions with up-to 5 retries
+    is_u1 = request.user == match.u1
+    max_retries = 5
+    retry_delay = 0.1
+
+    for attempt in range(max_retries):
+        try:
+            with transaction.atomic():
+                # Atomically update the user's requested_room_token flag
+                # Only update if it's not already True
+                if is_u1:
+                    updated = RandomCallMatching.objects.filter(
+                        uuid=match_uuid, u1=request.user, u1_requested_room_token=False
+                    ).update(u1_requested_room_token=True)
+                else:
+                    updated = RandomCallMatching.objects.filter(
+                        uuid=match_uuid, u2=request.user, u2_requested_room_token=False
+                    ).update(u2_requested_room_token=True)
+
+                # If we updated the user's flag, check if both are now True
+                # and update both_requested_room_token atomically
+                if updated > 0:
+                    RandomCallMatching.objects.filter(
+                        uuid=match_uuid,
+                        u1_requested_room_token=True,
+                        u2_requested_room_token=True,
+                        both_requested_room_token=False,
+                    ).update(both_requested_room_token=True)
+
+            # Success - break out of retry loop
+            break
+        except Exception as e:
+            # If it's the last attempt or not a database lock error, re-raise
+            if attempt == max_retries - 1 or "locked" not in str(e).lower():
+                raise
+            # Otherwise, wait a bit and retry with exponential backoff
+            time.sleep(retry_delay * (2**attempt))
 
     # TODO @sungsso create a random call session object here, we would like to be able to tag a 'LiveKitSession' as random call session instead
     return Response(
