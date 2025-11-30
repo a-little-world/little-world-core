@@ -1,8 +1,5 @@
-from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from translations import get_translation_catalog
 
 
@@ -16,8 +13,8 @@ def get_translation_catalogue(request, lang=None):
 
 
 @api_view(["GET"])
-@permission_classes([IsAuthenticated])
-@authentication_classes([SessionAuthentication, JWTAuthentication])
+@permission_classes([])
+@authentication_classes([])
 def api_translations(request):
     from translations import get_translation_catalog
 
