@@ -15,6 +15,8 @@ class Chat(models.Model):
 
     created = models.DateTimeField(auto_now_add=True)
 
+    is_random_call_chat = models.BooleanField(default=False)
+
     class Meta:
         indexes = [
             models.Index(fields=["-created"], name="chat_created_desc"),
