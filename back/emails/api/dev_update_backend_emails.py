@@ -19,8 +19,6 @@ def update_config_json(request):
     with open("emails/emails.json", "w") as f:
         f.write(json.dumps(new_config.to_dict(), indent=2))
 
-    EMAILS_CONFIG = new_config
-
     return Response(new_config.to_dict())
 
 

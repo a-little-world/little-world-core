@@ -120,6 +120,8 @@ api_routes = [
     path("api/trans", trans.get_translation_catalogue),
     path("api/trans/<str:lang>/", trans.get_translation_catalogue),
     path("api/register/", register.Register.as_view()),
+    path("api/register/android", register.RegisterAndroid.as_view()),
+    path("api/register/ios", register.RegisterIOS.as_view()),
     path(
         "api/cookies/cookie_banner.js",
         cookies.get_dynamic_cookie_banner_js,

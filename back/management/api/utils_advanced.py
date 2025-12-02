@@ -13,25 +13,25 @@ from management.models.user import User
 def enrich_report_unmatch_with_user_info(report_unmatch_list, match_instance):
     """
     Enriches report_unmatch objects with user information.
-    
+
     Args:
         report_unmatch_list: List of report_unmatch objects
         match_instance: The match instance containing user1 and user2
-    
+
     Returns:
         List of enriched report_unmatch objects with user_first_name and user_type
     """
     if not report_unmatch_list:
         return []
-    
+
     enriched_list = []
     for report_item in report_unmatch_list:
         enriched_item = report_item.copy()
-        
-        user_id = report_item.get('user_id')
+
+        user_id = report_item.get("user_id")
         if not user_id or user_id == "no unmatcher specified":
-            enriched_item['user_first_name'] = 'Support Team'
-            enriched_item['user_type'] = None
+            enriched_item["user_first_name"] = "Support Team"
+            enriched_item["user_type"] = None
         else:
             # Check if user_id matches user1 or user2
             if match_instance.user1.id == user_id:
@@ -40,17 +40,17 @@ def enrich_report_unmatch_with_user_info(report_unmatch_list, match_instance):
                 user = match_instance.user2
             else:
                 # If user_id doesn't match either participant, it's a support user
-                enriched_item['user_first_name'] = 'Support Team'
-                enriched_item['user_type'] = None
+                enriched_item["user_first_name"] = "Support Team"
+                enriched_item["user_type"] = None
                 enriched_list.append(enriched_item)
                 continue
-            
+
             # Get user information
-            enriched_item['user_first_name'] = user.profile.first_name if user.profile.first_name else 'Unknown'
-            enriched_item['user_type'] = user.profile.user_type if user.profile.user_type else None
-        
+            enriched_item["user_first_name"] = user.profile.first_name if user.profile.first_name else "Unknown"
+            enriched_item["user_type"] = user.profile.user_type if user.profile.user_type else None
+
         enriched_list.append(enriched_item)
-    
+
     return enriched_list
 
 
@@ -138,7 +138,7 @@ def filterset_schema_dict(filterset, include_lookup_expr=False, view_key="/api/m
 
         serializer.is_valid(raise_exception=True)
         _filters.append(serializer.data)
-        
+
         # 2 - retrieve the query shema
         generator = SchemaGenerator(patterns=None, urlconf=None)
         schema = generator.get_schema(request=request)
@@ -149,5 +149,5 @@ def filterset_schema_dict(filterset, include_lookup_expr=False, view_key="/api/m
                     filter_data["value_type"] = filter_schema["schema"]["type"]
                     filter_data["nullable"] = filter_schema["schema"].get("nullable", False)
                     break
-    
+
     return _filters

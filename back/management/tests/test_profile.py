@@ -70,7 +70,6 @@ class ProfileApiTests(TestCase):
         Tests a lot of possible value for all values that can be changed
         """
         # All fields that the user can change are also all fields that are listed for him:
-        allowed_to_change = profile.SelfProfileSerializer.Meta.fields
         register_user(valid_request_data)
         usr = get_user_by_email(valid_request_data["email"])
         s_profile = profile.SelfProfileSerializer(usr.profile)
@@ -148,7 +147,7 @@ class ProfileApiTests(TestCase):
         register_user(valid_request_data)
         usr = get_user_by_email(valid_request_data["email"])
         s_profile = profile.SelfProfileSerializer(usr.profile)
-        options = profile.ProfileSerializer.get_options(s_profile, usr.profile)
+        profile.ProfileSerializer.get_options(s_profile, usr.profile)
         resp = self._get_profile_call(usr)
 
         resp = self._some_profile_call({"lang_skill": json.dumps([{"lang": "german", "level": "level-0"}])}, usr)
@@ -156,7 +155,7 @@ class ProfileApiTests(TestCase):
 
         _r = self._get_profile_call(usr)
         _r.render()
-        cur_usr_data = json.loads(_r.content)
+        json.loads(_r.content)
 
         # duplicate language
         resp = self._some_profile_call(

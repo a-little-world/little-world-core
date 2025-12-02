@@ -15,7 +15,7 @@ class RegisterTests(TestCase):
 
     def test_sucessfull_register(self):
         """Fully valid register"""
-        user = register_user(valid_register_request_data)
+        register_user(valid_register_request_data)
 
     def test_w_missing_params(self):
         """Request with missing params"""
@@ -77,7 +77,7 @@ class RegisterTests(TestCase):
         _data = valid_register_request_data.copy()
         random_typed = "second n ame"
         _data["second_name"] = random_typed
-        user = register_user(_data)
+        register_user(_data)
 
     def test_register_second_name_multispace(self):
         response = register_user_api(valid_register_request_data)
@@ -87,13 +87,13 @@ class RegisterTests(TestCase):
 
         _data["email"] = "randomemail1@mail.test"
         _data["second_name"] = "a long surname with many spaces"
-        user = register_user(_data)
+        register_user(_data)
 
         _data["email"] = "randomemail2@mail.test"
         _data["second_name"] = "surname  with to many spaces"
         failed = False
         try:
-            user = register_user(_data)
+            register_user(_data)
         except Exception:
             failed = True
         assert failed
@@ -147,10 +147,10 @@ class RegisterTests(TestCase):
         response = register_user_api(valid_register_request_data)
         assert response.status_code == 200
         # v-- base managment user should be automaticly created:
-        usr = get_user_by_email(settings.MANAGEMENT_USER_MAIL)
+        get_user_by_email(settings.MANAGEMENT_USER_MAIL)
 
     def test_auto_login_after_register(self):
-        usr = register_user(valid_register_request_data)
+        register_user(valid_register_request_data)
         # now if we render /app we should be redirected to /login
         client = RequestsClient()
         response = client.get("http://localhost:8000/app")

@@ -47,7 +47,7 @@ def archive_card(request):
 
     user = request.user
 
-    if data.archive == True:
+    if data.archive:
         card = user.state.question_card_deck.cards.get(uuid=data.uuid)
         user.state.question_card_deck.archive_card(card)
     else:

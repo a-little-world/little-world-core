@@ -6,16 +6,14 @@ from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS
-from management.api.utils_advanced import filterset_schema_dict
+from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS, determine_match_bucket
+from management.api.utils_advanced import enrich_report_unmatch_with_user_info, filterset_schema_dict
 from management.controller import unmatch_users
 from management.helpers import DetailedPaginationMixin, IsAdminOrMatchingUser
 from management.models.matches import Match
 from management.models.profile import MinimalProfileSerializer
 from management.models.state import State
 from management.models.user import User
-from management.api.match_journey_filter_list import determine_match_bucket
-from management.api.utils_advanced import enrich_report_unmatch_with_user_info
 
 
 class AdvancedMatchSerializer(serializers.ModelSerializer):
@@ -62,7 +60,7 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
                 representation["status"] = "support"
             else:
                 representation["status"] = "unconfirmed"
-                
+
         if hasattr(instance, "report_unmatch"):
             representation["report_unmatch"] = enrich_report_unmatch_with_user_info(instance.report_unmatch, instance)
 
@@ -213,7 +211,7 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
             return super().get_object()
         else:
             return super().get_queryset().get(uuid=self.kwargs["pk"])
-        
+
     @action(detail=True, methods=["post"])
     def set_completed_off_plattform(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -243,6 +241,9 @@ api_urls = [
     path("api/matching/matches/filters/", AdvancedMatchViewset.as_view({"get": "get_filter_schema"})),
     path("api/matching/matches/<pk>/", AdvancedMatchViewset.as_view({"get": "retrieve"})),
     path("api/matching/matches/<pk>/resolve/", AdvancedMatchViewset.as_view({"post": "resolve_match"})),
-    path("api/matching/matches/<pk>/completed_off_plattform/", AdvancedMatchViewset.as_view({"post": "set_completed_off_plattform"})),
+    path(
+        "api/matching/matches/<pk>/completed_off_plattform/",
+        AdvancedMatchViewset.as_view({"post": "set_completed_off_plattform"}),
+    ),
     path("api/matching/matches/<pk>/notes/", AdvancedMatchViewset.as_view({"get": "notes", "post": "notes"})),
 ]

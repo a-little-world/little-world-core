@@ -1,6 +1,5 @@
-from django.db import models
-
 from back.utils import _double_uuid
+from django.db import models
 
 
 class BackendState(models.Model):

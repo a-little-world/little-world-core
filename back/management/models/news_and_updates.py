@@ -1,7 +1,6 @@
+from back.utils import get_options_serializer
 from django.db import models
 from rest_framework import serializers
-
-from back.utils import get_options_serializer
 
 
 class NewsItem(models.Model):

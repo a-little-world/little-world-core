@@ -12,15 +12,15 @@ from hijack.contrib.admin import HijackUserAdminMixin
 
 from management import models
 from management.models import (
-    short_links,
     dynamic_user_list,
     newsletter,
     post_call_review,
     pre_matching_appointment,
     question_deck,
     scores,
-    stats,
+    short_links,
     sms,
+    stats,
 )
 
 
@@ -39,15 +39,17 @@ class ShortLinkClickAdmin(admin.ModelAdmin):
         "source",
         ("created_at", admin.DateFieldListFilter),
     )
-    
+
     def display_user(self, obj):
         return obj.user if obj.user else "Anonymous"
-    
+
     display_user.short_description = "User"
+
 
 @admin.register(stats.Statistic)
 class StatisticAdmin(admin.ModelAdmin):
     list_display = ("created_at", "updated_at", "kind")
+
 
 @admin.register(models.backend_state.BackendState)
 class BackendStateAdmin(admin.ModelAdmin):
@@ -141,12 +143,14 @@ class EmailSettingsAdmin(admin.ModelAdmin):
 
 
 @admin.register(models.banner.Banner)
-class CommunityEventAdmin(admin.ModelAdmin):
+class BannerAdmin(admin.ModelAdmin):
     list_display = ("name", "title", "active", "text", "cta_1_text", "cta_2_text", "custom_filter", "filter_priority")
+
 
 @admin.register(models.community_events.CommunityEvent)
 class CommunityEventAdmin(admin.ModelAdmin):
     list_display = ("title", "active", "description", "time", "frequency", "group_id", "link", "custom_filter")
+
 
 @admin.register(models.news_and_updates.NewsItem)
 class NewsItemAdmin(admin.ModelAdmin):
@@ -388,6 +392,7 @@ class DynamicUserListAdmin(admin.ModelAdmin):
 @admin.register(post_call_review.PostCallReview)
 class PostCallReviewAdmin(admin.ModelAdmin):
     list_display = ("user", "live_session", "rating", "created_at", "updated_at")
+
 
 @admin.register(sms.SmsModel)
 class SmsModelAdmin(admin.ModelAdmin):

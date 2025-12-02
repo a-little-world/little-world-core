@@ -29,9 +29,7 @@ def notify_communication_channel(message):
     bot_token = SLACK_API_TOKEN
     client = WebClient(token=bot_token)
 
-    response = client.chat_postMessage(
-        channel=CHANNEL_ID, mrkdwn=True, text=message, unfurl_links=False, unfurl_media=False
-    )
+    client.chat_postMessage(channel=CHANNEL_ID, mrkdwn=True, text=message, unfurl_links=False, unfurl_media=False)
 
 
 def process_slack_ai_response(message):

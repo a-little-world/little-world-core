@@ -22,13 +22,13 @@ from . import (
     rooms,
     scores,
     settings,
+    short_links,
     sms,
     state,
     stats,
     translation_logs,
     unconfirmed_matches,
     user,
-    short_links,
 )
 
 __all__ = [

@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 
 from rest_framework.metadata import SimpleMetadata
 
+
 class CoolerJson(json.JSONEncoder):
     """
     This is our custom json serializer that can also encode sets!
@@ -19,20 +20,23 @@ class CoolerJson(json.JSONEncoder):
             # But especially for __proxy__ elements this is the only way I found
             # I would love to type check for proxy instead but I can't find the __proxy__ type!
             return json.JSONEncoder.default(self, obj)
-        except:
+        except TypeError:
             return str(obj)
 
 
 def dataclass_as_dict(data):
     return {k: getattr(data, k) for k in data.__annotations__}
 
+
 # DON'T REMOVE used in migrations!
 def _double_uuid():
     return str(uuid4()) + "-" + str(uuid4())
 
+
 # DON'T REMOVE used in migrations!
 def _rand_int5():
     return random.randint(10000, 99999)
+
 
 def get_options_serializer(self, obj):
     """

@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from chat.models import Chat, Message
-from django.db.models import Count, F, OuterRef, Q, Subquery, Case, When
+from django.db.models import Case, Count, F, OuterRef, Q, Subquery, When
 from django.db.models.functions import Extract
 from django.utils import timezone
 
@@ -62,46 +62,43 @@ def needs_matching(qs=User.objects.all(), learner_atleast_searching_for_x_days=-
     if learner_atleast_searching_for_x_days != -1:
         # For learners, calculate waiting time using database queries
         learners = base_qs.filter(profile__user_type=Profile.TypeChoices.LEARNER)
-        
+
         # Get the latest pre-matching appointment for each learner
-        latest_appointments = PreMatchingAppointment.objects.filter(
-            user__in=learners
-        ).order_by('user', '-created').distinct('user')
-        
+        latest_appointments = (
+            PreMatchingAppointment.objects.filter(user__in=learners).order_by("user", "-created").distinct("user")
+        )
+
         # Calculate days since appointment or state update
         waiting_time = Case(
             # If user has matches, use state update time
             When(
                 Q(match_user1__support_matching=False) | Q(match_user2__support_matching=False),
-                then=Extract(timezone.now() - F('state__searching_state_last_updated'), 'day')
+                then=Extract(timezone.now() - F("state__searching_state_last_updated"), "day"),
             ),
             # Otherwise use pre-matching appointment end time
             default=Extract(
-                timezone.now() - Subquery(
-                    latest_appointments.filter(user=OuterRef('pk')).values('end_time')[:1]
-                ),
-                'day'
-            )
+                timezone.now() - Subquery(latest_appointments.filter(user=OuterRef("pk")).values("end_time")[:1]), "day"
+            ),
         )
-        
+
         # Annotate learners with their waiting time
         learners = learners.annotate(waiting_days=waiting_time)
-        
+
         # Filter learners based on waiting time
         filtered_learners = learners.filter(
-            Q(waiting_days__gte=learner_atleast_searching_for_x_days) |
-            Q(waiting_days__isnull=True)  # Include users without waiting time calculation
+            Q(waiting_days__gte=learner_atleast_searching_for_x_days)
+            | Q(waiting_days__isnull=True)  # Include users without waiting time calculation
         )
-        
+
         # Combine filtered learners with non-learners
         non_learners = base_qs.exclude(profile__user_type=Profile.TypeChoices.LEARNER)
-        
+
         if exclude_non_german_residents:
             filtered_learners = filtered_learners.filter(profile__country_of_residence="DE")
-        
+
         return base_qs.filter(
-            Q(id__in=filtered_learners.values_list('id', flat=True)) |
-            Q(id__in=non_learners.values_list('id', flat=True))
+            Q(id__in=filtered_learners.values_list("id", flat=True))
+            | Q(id__in=non_learners.values_list("id", flat=True))
         ).order_by("-date_joined")
     else:
         return base_qs
@@ -247,11 +244,12 @@ def user_recent_activity(
 
     return filtered_users
 
+
 def get_users_with_company(qs=User.objects.all()):
     """
     Users who have a company set
     """
-    return qs.filter(state__company__isnull=False).exclude(state__company='')
+    return qs.filter(state__company__isnull=False).exclude(state__company="")
 
 
 def get_volunteers_booked_onboarding_call_but_never_visited(qs=User.objects.all()):
@@ -275,7 +273,7 @@ def get_user_with_message_to_admin_that_are_read_but_not_replied(qs=User.objects
     Read messages to the management user that have not been replied to
     """
     admin_pk = controller.get_base_management_user()
-    dialogs_with_the_management_user = Chat.objects.filter(Q(u1=admin_pk) | Q(u2=admin_pk))
+    Chat.objects.filter(Q(u1=admin_pk) | Q(u2=admin_pk))
     last_message_per_user = (
         Message.objects.filter(
             (Q(sender_id=OuterRef("id"), recipient_id=admin_pk) | Q(sender_id=admin_pk, recipient_id=OuterRef("id")))

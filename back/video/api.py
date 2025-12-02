@@ -3,22 +3,22 @@ import json
 import uuid
 from datetime import timedelta
 
-from django.db.models import Q
 from chat.consumers.messages import InBlockIncomingCall, NewActiveCallRoom, OutgoingCallRejected
-from chat.models import Chat, ChatSerializer, Message
+from chat.models import Chat, ChatSerializer
 from django.conf import settings
+from django.db.models import Q
 from django.http import JsonResponse
 from django.urls import path
 from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.utils import extend_schema
 from livekit import api as livekit_api
+from management.authentication import NativeOnlyJWTAuthentication
 from management.models.matches import Match
 from management.models.post_call_review import PostCallReview
 from management.models.user import User
 from rest_framework import serializers
 from rest_framework.authentication import SessionAuthentication
-from management.authentication import NativeOnlyJWTAuthentication
 from rest_framework.decorators import (
     api_view,
     authentication_classes,
@@ -26,7 +26,6 @@ from rest_framework.decorators import (
 )
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from translations import get_translation
 
 from video.models import (
     LiveKitRoom,
@@ -145,7 +144,7 @@ def livekit_webhook(request):
                             send_message_incoming=True,
                             send_message_incoming_to_sender=True,
                         )
-                    except:
+                    except Exception:
                         print("Cound't send call widged to first_active_user")
                         pass
 
@@ -166,7 +165,7 @@ def livekit_webhook(request):
                             send_message_incoming=True,
                             send_message_incoming_to_sender=True,
                         )
-                    except:
+                    except Exception:
                         print("Cound't send call widged to first_active_user")
                         pass
 
@@ -178,7 +177,7 @@ def livekit_webhook(request):
                     from chat.consumers.messages import PostCallSurvey
 
                     PostCallSurvey(post_call_survey={"live_session_id": str(session.uuid)}).send(user.hash)
-                except:
+                except Exception:
                     print("Cound't tigger the post call survey")
                     pass
 
@@ -235,7 +234,7 @@ def authenticate_live_kit_room(request):
     token = (
         livekit_api.AccessToken(api_key=settings.LIVEKIT_API_KEY, api_secret=settings.LIVEKIT_API_SECRET)
         .with_identity(user.hash)
-        .with_name(f"{user.profile.first_name} {user.profile.second_name[:1]}")
+        .with_name(user.profile.first_name)
         .with_grants(
             livekit_api.VideoGrants(
                 room_join=True,
@@ -245,11 +244,7 @@ def authenticate_live_kit_room(request):
         .to_jwt()
     )
 
-    return Response({
-        "token": str(token), 
-        "server_url": settings.LIVEKIT_URL, 
-        "chat": chat
-    })
+    return Response({"token": str(token), "server_url": settings.LIVEKIT_URL, "chat": chat})
 
 
 class PostCallReviewParams(serializers.Serializer):
@@ -288,7 +283,7 @@ def post_call_review(request):
     review_text = validated_data.get("review", "")
     rating = validated_data["rating"]
     review_id = validated_data.get("review_id", None)
-    if not (review_id is None):
+    if review_id is not None:
         # then we just update the existing review
         review = PostCallReview.objects.get(id=review_id)
         review.rating = rating
@@ -314,14 +309,14 @@ def active_call_rooms(request):
     Returns active call rooms for the authenticated user.
     """
     user = request.user
-    
+
     try:
         # find all active calls
         all_active_rooms = LivekitSession.objects.filter(
             Q(room__u1=user, is_active=True, u2_active=True, u1_active=False)
             | Q(room__u2=user, is_active=True, u1_active=True, u2_active=False)
         )
-        
+
         return Response(SerializeLivekitSession(all_active_rooms, context={"user": user}, many=True).data)
     except Exception as e:
         return Response({"error": str(e)}, status=400)
@@ -335,15 +330,17 @@ def call_retrigger(request):
         partner = User.objects.get(hash=request.data["partner_id"])
         room = LiveKitRoom.objects.get(uuid=request.data["session_id"])
         active_session = LivekitSession.objects.filter(room=room, is_active=True)
-       
+
         if active_session.exists():
             session = active_session.first()
-            NewActiveCallRoom(call_room=SerializeLivekitSession(session, context={"user": partner}).data).send(partner.hash)
+            NewActiveCallRoom(call_room=SerializeLivekitSession(session, context={"user": partner}).data).send(
+                partner.hash
+            )
             return Response({"status": "ok"})
         return Response({"error": "Session not found"}, status=400)
     except Exception as e:
         return Response({"error": str(e)}, status=400)
-    
+
 
 class CallRejectedParams(serializers.Serializer):
     partner_id = serializers.CharField(required=True)
@@ -361,20 +358,20 @@ def call_rejected(request):
     serializer = CallRejectedParams(data=request.data)
     if not serializer.is_valid():
         return Response({"status": "error", "message": "Invalid parameters"}, status=400)
-    
+
     validated_data = serializer.validated_data
-    
+
     try:
         # Get the partner who initiated the call
         partner = User.objects.get(hash=validated_data["partner_id"])
-        
+
         # Get the room/session
         room = LiveKitRoom.objects.get(uuid=validated_data["session_id"])
-        
+
         # Verify the room involves the authenticated user
         if room.u1 != request.user and room.u2 != request.user:
             return Response({"status": "error", "message": "Unauthorized access to this call"}, status=403)
-        
+
         # Verify the partner is the other participant in the room
         if room.u1 != partner and room.u2 != partner:
             return Response({"status": "error", "message": "Invalid partner for this call"}, status=400)
@@ -382,7 +379,7 @@ def call_rejected(request):
         # Send OutgoingCallRejected message to the partner (call initiator)
         OutgoingCallRejected().send(partner.hash)
         return Response({"status": "ok"})
-        
+
     except User.DoesNotExist:
         return Response({"status": "error", "message": "Partner not found"}, status=404)
     except LiveKitRoom.DoesNotExist:

@@ -9,9 +9,9 @@ from chat.consumers.messages import (
     NewActiveCallRoom,
     NewMessage,
     NotificationMessage,
+    OutgoingCallRejected,
     OutUserWentOffline,
     OutUserWentOnline,
-    OutgoingCallRejected,
     PostCallSurvey,
     PreMatchingAppointmentBooked,
 )
@@ -42,7 +42,7 @@ class CoreConsumer(AsyncWebsocketConsumer):
             await self.channel_layer.group_add(self.group_name, self.channel_name)
             # Echo subprotocol if client requested any (helps when token is sent via subprotocol)
             selected_subprotocol = None
-            for proto in (self.scope.get("subprotocols", []) or []):
+            for proto in self.scope.get("subprotocols", []) or []:
                 if proto and isinstance(proto, str):
                     selected_subprotocol = proto.strip()
                     break
@@ -126,7 +126,7 @@ class CoreConsumer(AsyncWebsocketConsumer):
 
     async def outgoing_call_rejected(self, event):
         assert event["type"] == "outgoing_call_rejected"
-        await self.send(text_data=OutgoingCallRejected(**event).action_json())        
+        await self.send(text_data=OutgoingCallRejected(**event).action_json())
 
     async def new_active_call(self, event):
         assert event["type"] == MessageTypes.new_active_call.value

@@ -24,6 +24,6 @@ class TestTranslations(TestCase):
         return get_translation_catalog()
 
     def test_all_tags_translated(self):
-        context = self._get_translations()
+        self._get_translations()
 
         print("Checking for untranslated tags")

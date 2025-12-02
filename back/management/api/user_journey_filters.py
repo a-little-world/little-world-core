@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.db.models import BigIntegerField, Case, Count, F, Max, Q, When
+from django.db.models import Count, Max, Q
 from django.utils import timezone
 
 from management.api.match_journey_filters import (
@@ -20,7 +20,6 @@ from management.api.match_journey_filters import (
     user_ghosted,
 )
 from management.models.matches import Match
-from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.models.profile import Profile
 from management.models.state import State
 from management.models.unconfirmed_matches import ProposedMatch
@@ -81,21 +80,26 @@ def user_form_completed(qs=User.objects.all()):
             {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
         ],
     )
-    
+
+
 def never_active_or_deleted(qs=User.objects.all()):
     ud = user_deleted(qs)
     return qs.filter(
-        Q(is_active=False) | Q(id__in=ud) | Q(
+        Q(is_active=False)
+        | Q(id__in=ud)
+        | Q(
             state__user_form_state=State.UserFormStateChoices.UNFILLED,
             state__email_authenticated=False,
         )
     )
 
+
 def never_active_or_deleted_or_created(qs=User.objects.all()):
     ud = user_deleted(qs)
-    #na = never_active(qs)
+    # na = never_active(qs)
     created = user_created(qs)
     return qs.filter(id__in=ud) | qs.filter(id__in=created)
+
 
 def email_verified_and_form_completed(qs=User.objects.all()):
     ev = email_verified(qs)
@@ -107,28 +111,36 @@ def email_verified_and_form_completed(qs=User.objects.all()):
         ],
     )
 
+
 def email_not_verified_or_form_not_completed(qs=User.objects.all()):
-    ev = email_verified(qs)
-    fc = user_form_completed(qs)
+    email_verified(qs)
+    user_form_completed(qs)
     never_active_or_delete_or_created = never_active_or_deleted_or_created(qs)
     return qs.filter(
         state__user_form_state=State.UserFormStateChoices.UNFILLED,
         state__email_authenticated=False,
     ).exclude(id__in=never_active_or_delete_or_created)
 
+
 def too_low_german_level_or_not_onboarded(qs=User.objects.all()):
     tlg = too_low_german_level(qs)
     never_active_or_delete_or_created = never_active_or_deleted_or_created(qs)
     _email_not_verified_or_form_not_completed = email_verified_and_form_completed(qs)
-    return qs.filter(
-        Q(id__in=tlg) | Q(
-            is_active=True,
-            state__user_form_state=State.UserFormStateChoices.FILLED,
-            state__email_authenticated=True,
-            state__unresponsive=False,
-            state__had_prematching_call=False,
+    return (
+        qs.filter(
+            Q(id__in=tlg)
+            | Q(
+                is_active=True,
+                state__user_form_state=State.UserFormStateChoices.FILLED,
+                state__email_authenticated=True,
+                state__unresponsive=False,
+                state__had_prematching_call=False,
+            )
         )
-    ).exclude(id__in=never_active_or_delete_or_created).exclude(id__in=_email_not_verified_or_form_not_completed)
+        .exclude(id__in=never_active_or_delete_or_created)
+        .exclude(id__in=_email_not_verified_or_form_not_completed)
+    )
+
 
 def not_too_low_german_level__is_onboarded(qs=User.objects.all()):
     tlg = too_low_german_level(qs)
@@ -139,6 +151,7 @@ def not_too_low_german_level__is_onboarded(qs=User.objects.all()):
         state__unresponsive=False,
         state__had_prematching_call=True,
     ).exclude(id__in=tlg)
+
 
 def booked_onboarding_call(qs=User.objects.all()):
     """
@@ -213,18 +226,23 @@ def first_search_v2(qs=User.objects.all(), require_min_lang_level=True):
     users_w_open_proposals = set([id for pair in users_with_open_proposals for id in pair])
     users_w_open_proposals = qs.filter(id__in=users_w_open_proposals)
 
-    qs = qs.filter(
+    qs = (
+        qs.filter(
             is_active=True,
             state__user_form_state=State.UserFormStateChoices.FILLED,
             state__searching_state=State.SearchingStateChoices.SEARCHING,
             state__email_authenticated=True,
             state__unresponsive=False,
             state__had_prematching_call=True,
-        ).exclude(id__in=users_w_open_proposals).annotate(
+        )
+        .exclude(id__in=users_w_open_proposals)
+        .annotate(
             num_matches=Count("match_user1", filter=Q(match_user1__support_matching=False))
             + Count("match_user2", filter=Q(match_user2__support_matching=False))
-        ).filter(num_matches=0)
-        
+        )
+        .filter(num_matches=0)
+    )
+
     if require_min_lang_level:
         qs = qs.exclude(
             profile__lang_skill__contains=[
@@ -269,9 +287,11 @@ def user_searching(qs=User.objects.all()):
         )
         .filter(num_matches__gt=0)
     )
-    
+
+
 def user_searching_again(qs=User.objects.all()):
     return user_searching(qs).filter(num_matches__gt=1)
+
 
 def pre_matching(qs=User.objects.all()):
     """
@@ -554,9 +574,10 @@ def too_low_german_level(qs=User.objects.all()):
         profile__user_type=Profile.TypeChoices.LEARNER,
         profile__lang_skill__contains=[
             {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
-        ]
+        ],
     )
-    
+
+
 def learners_with_a1a2(qs=User.objects.all()):
     """
     Learners with A1 or A2 German level
@@ -565,9 +586,12 @@ def learners_with_a1a2(qs=User.objects.all()):
         state__email_authenticated=True,
         state__user_form_state=State.UserFormStateChoices.FILLED,
         profile__user_type=Profile.TypeChoices.LEARNER,
-        profile__lang_skill__contains=[{"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}],
+        profile__lang_skill__contains=[
+            {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
+        ],
     )
-    
+
+
 def learners_better_than_a1a2(qs=User.objects.all()):
     """
     Learners with German level of at least B1
@@ -575,19 +599,33 @@ def learners_better_than_a1a2(qs=User.objects.all()):
     return qs.filter(
         state__email_authenticated=True,
         state__user_form_state=State.UserFormStateChoices.FILLED,
-        profile__user_type=Profile.TypeChoices.LEARNER
+        profile__user_type=Profile.TypeChoices.LEARNER,
     ).exclude(
-        profile__lang_skill__contains=[{"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}], 
+        profile__lang_skill__contains=[
+            {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
+        ],
     )
+
 
 def all_volunteers_min_one_no_ongoing_match(qs=User.objects.all()):
     "Volunteers with at least one match but no open proposal"
     open_proposals = ProposedMatch.objects.filter(closed=False)
-    return qs.exclude(Q(pk__in=open_proposals.values("user1")) |
-                      Q(pk__in=open_proposals.values("user2"))
-                      ).filter(
-                          pk__in=[user.pk for user in [user for user in qs if (Match.get_confirmed_matches(user).exists() and user.profile.user_type == "volunteer")]]
-                          ).distinct().order_by("-date_joined")
+    return (
+        qs.exclude(Q(pk__in=open_proposals.values("user1")) | Q(pk__in=open_proposals.values("user2")))
+        .filter(
+            pk__in=[
+                user.pk
+                for user in [
+                    user
+                    for user in qs
+                    if (Match.get_confirmed_matches(user).exists() and user.profile.user_type == "volunteer")
+                ]
+            ]
+        )
+        .distinct()
+        .order_by("-date_joined")
+    )
+
 
 # used to be 'unmatched'
 def over_30_days_after_prematching_still_searching(qs=User.objects.all()):
@@ -714,18 +752,19 @@ def community_calls(qs=User.objects.all(), last_x_days=28 * 3):
 
     return all_distinct_users
 
+
 def community__active_volunteers(qs=User.objects.all()):
     """
     Active volunteers - have signed up in last 6 months or have been active in the last 3 months
     """
     selected_fields = ["id"]
-    
+
     # Filter for volunteers only
     volunteers = qs.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
-    
+
     # Volunteers who signed up in the last 6 months
     recent_signup_volunteers = volunteers.filter(date_joined__gte=days_ago(28 * 6))
-    
+
     # Volunteers who have been active in the last 3 months (match_takeoff or active_match)
     active_volunteers = (
         match_takeoff(volunteers)
@@ -735,27 +774,27 @@ def community__active_volunteers(qs=User.objects.all()):
         )
     )
     active_volunteers = User.objects.filter(id__in=active_volunteers).distinct()
-    
+
     # Combine both groups (recent signups OR recently active)
-    all_active_volunteers = (
-        recent_signup_volunteers.values(*selected_fields)
-        .union(active_volunteers.values(*selected_fields))
+    all_active_volunteers = recent_signup_volunteers.values(*selected_fields).union(
+        active_volunteers.values(*selected_fields)
     )
-    
+
     return User.objects.filter(id__in=all_active_volunteers).distinct()
+
 
 def community__active_volunteers__volunteer_meetup(qs=User.objects.all()):
     """
     Active volunteers - have signed up in last 6 months or have been active in the last 3 months
     """
     selected_fields = ["id"]
-    
+
     # Filter for volunteers only
     volunteers = qs.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
-    
+
     # Volunteers who signed up in the last 6 months
     recent_signup_volunteers = volunteers.filter(date_joined__gte=days_ago(28 * 6))
-    
+
     # Volunteers who have been active in the last 3 months (match_takeoff or active_match)
     active_volunteers = (
         match_takeoff(volunteers)
@@ -765,20 +804,20 @@ def community__active_volunteers__volunteer_meetup(qs=User.objects.all()):
         )
     )
     active_volunteers = User.objects.filter(id__in=active_volunteers).distinct()
-    
+
     # Combine both groups (recent signups OR recently active)
-    all_active_volunteers = (
-        recent_signup_volunteers.values(*selected_fields)
-        .union(active_volunteers.values(*selected_fields))
+    all_active_volunteers = recent_signup_volunteers.values(*selected_fields).union(
+        active_volunteers.values(*selected_fields)
     )
-    
+
     from emails.models import EmailLog
-    
+
     users_email_was_send_too = EmailLog.objects.filter(template="Volunteer Austausch")
     users = User.objects.filter(id__in=all_active_volunteers).distinct()
     only_new = users.exclude(id__in=users_email_was_send_too.values("receiver"))
-    
+
     return only_new
+
 
 def community__learners_better_than_a1a2(qs=User.objects.all()):
     """
@@ -788,17 +827,20 @@ def community__learners_better_than_a1a2(qs=User.objects.all()):
     return qs.filter(
         state__email_authenticated=True,
         state__user_form_state=State.UserFormStateChoices.FILLED,
-        profile__user_type=Profile.TypeChoices.LEARNER
+        profile__user_type=Profile.TypeChoices.LEARNER,
     ).exclude(
-        profile__lang_skill__contains=[{"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}], 
+        profile__lang_skill__contains=[
+            {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
+        ],
     )
 
-def community__ehrenamtliche_und_lernende_with_a1a2(qs=User.objects.all(), only_last_6_weeks=False):
 
+def community__ehrenamtliche_und_lernende_with_a1a2(qs=User.objects.all(), only_last_6_weeks=False):
     qs = qs.filter(date_joined__gte=days_ago(7 * 6))
     return qs.filter(
         state__email_authenticated=True,
     )
+
 
 def completed_form__created_within_6months(qs=User.objects.all()):
     """
@@ -806,23 +848,36 @@ def completed_form__created_within_6months(qs=User.objects.all()):
     """
     return qs.filter(date_joined__gte=days_ago(6 * 30))
 
+
 def completed_form__no__onboarding_call(qs=User.objects.all()):
     """
     Completed form but no onboarding call
     """
     return qs.filter(state__user_form_state=State.UserFormStateChoices.FILLED, state__had_prematching_call=False)
 
+
 def completed_form__created_within_6months_no_onboarding_call(qs=User.objects.all()):
     """
     Completed form within 6 months but no onboarding call
     """
-    return qs.filter(state__user_form_state=State.UserFormStateChoices.FILLED, date_joined__gte=days_ago(6 * 30), state__had_prematching_call=False)
+    return qs.filter(
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        date_joined__gte=days_ago(6 * 30),
+        state__had_prematching_call=False,
+    )
+
 
 def completed_form__created_within_6months_no_onboarding_call_volunteer(qs=User.objects.all()):
     """
     Completed form within 6 months but no onboarding call
     """
-    return qs.filter(state__user_form_state=State.UserFormStateChoices.FILLED, date_joined__gte=days_ago(6 * 30), state__had_prematching_call=False, profile__user_type=Profile.TypeChoices.VOLUNTEER)
+    return qs.filter(
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        date_joined__gte=days_ago(6 * 30),
+        state__had_prematching_call=False,
+        profile__user_type=Profile.TypeChoices.VOLUNTEER,
+    )
+
 
 def volunteers_with_completed_match_no_ongoing(qs=User.objects.all()):
     """
@@ -830,14 +885,14 @@ def volunteers_with_completed_match_no_ongoing(qs=User.objects.all()):
     """
     # Get users with completed matches
     users_with_completed_matches = get_user_involved(completed_match(), qs)
-    
+
     # Get users with ongoing matches
     users_with_ongoing_matches = get_user_involved(match_ongoing(), qs)
-    
+
     # Return volunteers with completed matches but no ongoing matches
-    return qs.filter(
-        profile__user_type=Profile.TypeChoices.VOLUNTEER,
-        pk__in=users_with_completed_matches
-    ).exclude(
-        pk__in=users_with_ongoing_matches
-    ).distinct().order_by("-date_joined")
+    return (
+        qs.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER, pk__in=users_with_completed_matches)
+        .exclude(pk__in=users_with_ongoing_matches)
+        .distinct()
+        .order_by("-date_joined")
+    )

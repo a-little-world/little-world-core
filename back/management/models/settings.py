@@ -1,6 +1,5 @@
 from uuid import uuid4
 
-from django.conf import settings
 from django.db import models
 from multiselectfield import MultiSelectField
 from rest_framework import serializers
@@ -50,7 +49,6 @@ class EmailSettings(models.Model):
     def send_user_form_unfinished_reminder2(self, user):
         if self.user_form_unfinished_reminder2:
             return  # already sent
-
 
         self.user_form_unfinished_reminder2 = True
 

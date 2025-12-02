@@ -162,10 +162,10 @@ class User(AbstractUser):
         """ "Sends SMS to User if user has SMS Notification allowed and valid Phone number"""
         import json
 
+        from back.utils import CoolerJson
         from django.conf import settings
         from twilio.rest import Client
 
-        from back.utils import CoolerJson
         from management.models.sms import SmsModel, SmsSerializer
 
         if settings.DISABLE_SMS_SENDING:
@@ -182,7 +182,7 @@ class User(AbstractUser):
                 response.success = True
                 response.save()
                 return SmsSerializer(response).data
-            except:
+            except Exception:
                 response.success = False
                 response.save()
                 return 500

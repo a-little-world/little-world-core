@@ -1,5 +1,6 @@
 import os
 
+from back.utils import _double_uuid, get_options_serializer
 from django.core.files import File
 from django.db import models
 from django.utils.deconstruct import deconstructible
@@ -9,7 +10,6 @@ from phonenumber_field.modelfields import PhoneNumberField
 from rest_framework import serializers
 from translations import get_translation
 
-from back.utils import _double_uuid, get_options_serializer
 from management.validators import (
     DAYS,
     SLOT_TRANS,
@@ -275,7 +275,7 @@ class Profile(models.Model):
         default=MinLangLevelPartnerChoices.LEVEL_0,
         max_length=255,
     )
-    
+
     class CountryChoices(models.TextChoices):
         AFGHANISTAN = "AF", get_translation("profile.country.af")
         ALAND_ISLANDS = "AX", get_translation("profile.country.ax")
@@ -527,7 +527,7 @@ class Profile(models.Model):
         YEMEN = "YE", get_translation("profile.country.ye")
         ZAMBIA = "ZM", get_translation("profile.country.zm")
         ZIMBABWE = "ZW", get_translation("profile.country.zw")
-        
+
     country_of_residence = models.CharField(choices=CountryChoices.choices, null=True, max_length=255)
 
     class LanguageChoices(models.TextChoices):
@@ -681,7 +681,7 @@ class ProfileSerializer(serializers.ModelSerializer):
                     }
                 }
             )
-        
+
         if "country_of_residence" in self.Meta.fields:
             d.update(
                 {
@@ -787,10 +787,10 @@ class SelfProfileSerializer(ProfileSerializer):
 
     def validate_postal_code(self, value):
         # Get the country_of_residence from the current data or instance
-        country = self.initial_data.get('country_of_residence') if hasattr(self, 'initial_data') else None
-        if not country and hasattr(self, 'instance') and self.instance:
+        country = self.initial_data.get("country_of_residence") if hasattr(self, "initial_data") else None
+        if not country and hasattr(self, "instance") and self.instance:
             country = self.instance.country_of_residence
-        
+
         return validate_postal_code(value, country)
 
     def validate_interests(self, value):
@@ -898,4 +898,3 @@ class ProposalProfileSerializer(SelfProfileSerializer):
             "description",
             "user_type",
         ]
-

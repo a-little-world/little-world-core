@@ -13,7 +13,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 from translations import get_translation
 
-from management.api.app_integrity import _verify_play_integrity_token
+from management.api.app_integrity import _verify_play_integrity_token, get_app_integrity_challenge_cache_key
 from management.api.user import get_user_data
 from management.integrity.apple import verify_apple_attestation
 
@@ -23,31 +23,21 @@ from management.integrity.apple import verify_apple_attestation
 class NativeAuthAndroidSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     password = serializers.CharField(required=True)
-    integrityToken = serializers.CharField(required=True)
-    requestHash = serializers.CharField(required=True)
+    integrity_token = serializers.CharField(required=True)
+    key_id = serializers.CharField(required=True)
 
 
 class NativeAuthIosSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     password = serializers.CharField(required=True)
-    keyId = serializers.CharField(max_length=255, required=True)
-    attestationObject = serializers.CharField(required=True)
-
-    def validate_keyId(self, value):
-        if not value or len(value.strip()) == 0:
-            raise serializers.ValidationError("keyId cannot be empty")
-        return value.strip()
-
-    def validate_attestationObject(self, value):
-        if not value or len(value.strip()) == 0:
-            raise serializers.ValidationError("attestationObject cannot be empty")
-        return value.strip()
+    key_id = serializers.CharField(max_length=255, required=True)
+    attestation_object = serializers.CharField(required=True)
 
 
 class NativeAuthWebSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     password = serializers.CharField(required=True)
-    bypassToken = serializers.CharField(required=True)
+    bypass_token = serializers.CharField(required=True)
 
 
 @api_view(["POST"])
@@ -59,10 +49,12 @@ def native_auth_android(request):
 
     email = serializer.validated_data["email"]
     password = serializer.validated_data["password"]
-    integrity_token = serializer.validated_data["integrityToken"]
-    request_hash = serializer.validated_data["requestHash"]
+    integrity_token = serializer.validated_data["integrity_token"]
+    key_id = serializer.validated_data["key_id"]
 
-    if not _verify_play_integrity_token(integrity_token, request_hash):
+    challenge = cache.get(key=get_app_integrity_challenge_cache_key(key_id))
+
+    if not _verify_play_integrity_token(integrity_token, request_hash=challenge):
         return Response({"detail": "Invalid integrity token or request hash"}, status=status.HTTP_400_BAD_REQUEST)
 
     return native_auth_common_login(email=email.lower(), password=password)
@@ -77,10 +69,10 @@ def native_auth_ios(request):
 
     email = serializer.validated_data["email"]
     password = serializer.validated_data["password"]
-    key_id = serializer.validated_data["keyId"]
-    attestation_object = serializer.validated_data["attestationObject"]
+    key_id = serializer.validated_data["key_id"]
+    attestation_object = serializer.validated_data["attestation_object"]
 
-    challenge = cache.get(key=key_id)
+    challenge = cache.get(key=get_app_integrity_challenge_cache_key(key_id))
     verify_apple_attestation(
         key_id=key_id, challenge_bytes=challenge, attestation_raw=attestation_object, is_prod=settings.IS_PROD
     )
@@ -102,7 +94,7 @@ def native_auth_web(request):
 
     email = serializer.validated_data["email"]
     password = serializer.validated_data["password"]
-    bypass_token = serializer.validated_data["bypassToken"]
+    bypass_token = serializer.validated_data["bypass_token"]
 
     bypass_integrity_check = settings.NATIVE_APP_INTEGRITY_ALLOW_BYPASS and (
         bypass_token == settings.NATIVE_APP_INTEGRITY_BYPASS_TOKEN
@@ -148,11 +140,13 @@ class NativeTokenAndroidRefreshView(TokenRefreshView):
             raise InvalidToken(str(exc))
 
         integrity_token = request.data.get("integrity_token")
-        request_hash = request.data.get("request_hash")
-        if not integrity_token or not request_hash:
+        key_id = request.data.get("key_id")
+        challenge = cache.get(key=get_app_integrity_challenge_cache_key(key_id))
+
+        if not integrity_token or not challenge:
             return Response({"detail": "Missing integrity token or request hash"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not _verify_play_integrity_token(integrity_token, request_hash):
+        if not _verify_play_integrity_token(integrity_token, request_hash=challenge):
             return Response({"detail": "Invalid integrity token or request hash"}, status=status.HTTP_400_BAD_REQUEST)
 
         client = refresh.get("client")
@@ -180,10 +174,10 @@ class NativeTokenIosRefreshView(TokenRefreshView):
         except TokenError as exc:  # includes ExpiredSignatureError etc
             raise InvalidToken(str(exc))
 
-        key_id = request.data.get("keyId")
-        attestation_object = request.data.get("attestationObject")
+        key_id = request.data.get("key_id")
+        attestation_object = request.data.get("attestation_object")
 
-        challenge = cache.get(key=key_id)
+        challenge = cache.get(key=get_app_integrity_challenge_cache_key(key_id))
         verify_apple_attestation(
             key_id=key_id, challenge_bytes=challenge, attestation_raw=attestation_object, is_prod=settings.IS_PROD
         )
@@ -218,7 +212,7 @@ class NativeTokenWebRefreshView(TokenRefreshView):
                 {"detail": "Invalid integrity token or request hash"}, status=status.HTTP_405_METHOD_NOT_ALLOWED
             )
 
-        bypass_token = request.data.get("bypassToken")
+        bypass_token = request.data.get("bypass_token")
 
         bypass_integrity_check = settings.NATIVE_APP_INTEGRITY_ALLOW_BYPASS and (
             bypass_token == settings.NATIVE_APP_INTEGRITY_BYPASS_TOKEN

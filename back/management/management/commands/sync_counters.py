@@ -1,16 +1,8 @@
-import json
-
 from django.core.management.base import BaseCommand
 from django.db.models import Q
 
 from management.models.matches import Match
 from management.models.profile import Profile
-from management.models.question_deck import (
-    QuestionCard,
-    QuestionCardCategories,
-    QuestionCardsDeck,
-    _base_translations_dict,
-)
 from management.models.user import User
 
 

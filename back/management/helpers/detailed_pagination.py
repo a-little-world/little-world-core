@@ -113,6 +113,7 @@ class DetailedPagination(PageNumberPagination):
 class DetailedPaginationMixin(DetailedPagination):
     pass
 
+
 def get_paginated_format_v2(query_set, items_per_page, page):
     pages = Paginator(query_set, items_per_page).page(page)
     return {
@@ -128,5 +129,3 @@ def get_paginated_format_v2(query_set, items_per_page, page):
         "next_page": pages.next_page_number() if pages.has_next() else None,
         "previous_page": pages.previous_page_number() if pages.has_previous() else None,
     }
-
-

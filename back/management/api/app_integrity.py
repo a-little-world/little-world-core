@@ -1,6 +1,5 @@
 import logging
 import secrets
-import time
 
 import requests
 from django.conf import settings
@@ -257,16 +256,10 @@ def app_integrity_challenge(request):
     challenge_bytes = secrets.token_bytes(32).hex().encode("utf-8")
 
     challenge = challenge_bytes.decode("utf-8")
-    # challenge = base64.b64encode(challenge_bytes).decode("utf-8")
-    # challenge = challenge_bytes.encode("utf-8")  # Convert to hex string for easier handling
-    # challenge = hashlib.sha256(challenge_bytes).hexdigest()
 
     # Store challenge in cache with expiration (5 minutes)
-    cache_key = f"app_integrity_challenge:{key_id}:{challenge}"
-    cache.set(
-        cache_key, {"keyId": key_id, "timestamp": time.time(), "challenge": challenge}, timeout=300
-    )  # 5 minutes timeout
-    cache.set(key_id, challenge_bytes, timeout=300)
+    cache_key = get_app_integrity_challenge_cache_key(key_id)
+    cache.set(cache_key, challenge_bytes, timeout=300)
 
     return Response({"challenge": challenge}, status=status.HTTP_200_OK)
 
@@ -307,7 +300,7 @@ def app_integrity_verify_ios(request):
     key_id = serializer.validated_data["keyId"]
     attestation_object = serializer.validated_data["attestationObject"]
 
-    challenge = cache.get(key=key_id)
+    challenge = cache.get(key=get_app_integrity_challenge_cache_key(key_id))
 
     try:
         verify_apple_attestation(key_id, challenge, attestation_object, settings.IS_PROD)
@@ -325,3 +318,7 @@ def app_integrity_verify_ios(request):
 
     _dbg("[SUCCESS] iOS simplified verification passed (non-strict mode)")
     return Response({"outerLayerDecryptionKey": outer_layer_decryption_key}, status=status.HTTP_200_OK)
+
+
+def get_app_integrity_challenge_cache_key(key_id):
+    return f"app_integrity_challenge:{key_id}"

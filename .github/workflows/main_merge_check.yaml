@@ -1,0 +1,38 @@
+name: Main Branch Merge Check
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  check-main-merged:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for all branches
+      
+      - name: Fetch main branch
+        run: |
+          git fetch origin main:main
+      
+      - name: Check if main is merged into current branch
+        run: |
+          # Get commits in main that are not in the current branch
+          MISSING_COMMITS=$(git log HEAD..main --oneline)
+          
+          if [ -n "$MISSING_COMMITS" ]; then
+            echo "❌ ERROR: The following commits from 'main' are not in this branch:"
+            echo ""
+            git log HEAD..main --oneline --decorate
+            echo ""
+            echo "Please merge or rebase 'main' into your branch before merging."
+            exit 1
+          else
+            echo "✅ SUCCESS: All commits from 'main' are present in this branch."
+            exit 0
+          fi
+

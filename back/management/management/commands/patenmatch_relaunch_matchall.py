@@ -1,9 +1,6 @@
-import csv
-import json
-
 from django.core.management.base import BaseCommand
 from patenmatch.matching import find_organization_match
-from patenmatch.models import PatenmatchOrganizationUserMatching, PatenmatchUser
+from patenmatch.models import PatenmatchUser
 
 
 class Command(BaseCommand):

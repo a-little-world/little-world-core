@@ -1,12 +1,14 @@
-from django.urls import path
-from django.shortcuts import redirect
 from urllib.parse import urlparse, urlunparse
-from django.http import QueryDict
+
 from django.conf import settings
+from django.http import QueryDict
+from django.shortcuts import redirect
+from django.urls import path
 from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from management.models.user import User
+
 from management.models.short_links import ShortLink, ShortLinkClick
+from management.models.user import User
+
 
 @api_view(["GET"])
 def short_link_click(request, tag):
@@ -32,12 +34,8 @@ def short_link_click(request, tag):
     else:
         user = request.user
 
-    ShortLinkClick.objects.create(
-        user=user, 
-        short_link=short_link,
-        source=source
-    )
-    
+    ShortLinkClick.objects.create(user=user, short_link=short_link, source=source)
+
     try:
         parsed_dest = urlparse(short_link.url)
         dest_qd = QueryDict(parsed_dest.query, mutable=True)
@@ -45,11 +43,11 @@ def short_link_click(request, tag):
             if key not in dest_qd:
                 dest_qd.setlist(key, request.query_params.getlist(key))
         merged_url = urlunparse(parsed_dest._replace(query=dest_qd.urlencode()))
-    except Exception as e:
+    except Exception:
         merged_url = short_link.url
 
     response = redirect(merged_url)
-    
+
     if short_link.tracking_cookies_enabled:
         for cookie in short_link.tracking_cookies:
             response.set_cookie(
@@ -63,6 +61,7 @@ def short_link_click(request, tag):
                 samesite=getattr(settings, "SESSION_COOKIE_SAMESITE", "Lax"),
             )
     return response
+
 
 api_urls = [
     path("links/<str:tag>/", short_link_click, name="short_link_click"),

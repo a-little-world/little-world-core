@@ -42,7 +42,7 @@ def _should_censor(path):
 def _try():
     try:
         yield None
-    except:
+    except Exception:
         pass
 
 

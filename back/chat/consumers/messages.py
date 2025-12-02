@@ -4,12 +4,11 @@ from enum import Enum
 from typing import Optional
 
 from asgiref.sync import async_to_sync
+from back.utils import CoolerJson
 from channels.layers import get_channel_layer
 from management.helpers import IsAdminOrMatchingUser
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
-
-from back.utils import CoolerJson
 
 
 class MessageTypes(Enum):
@@ -202,7 +201,7 @@ def send_test_callback(request, callback_name, user_id):
 
     try:
         get_user_by_hash(user_id)
-    except:
+    except (ValueError, LookupError):
         return Response({"status": "error", "message": "User not found"}, status=404)
     return Response({"status": "ok"})
 

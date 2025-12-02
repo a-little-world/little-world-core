@@ -171,5 +171,4 @@ back/media/*
 components-js
 .aider*
 
-# SMS stuff
-envs/dev_local.env
+dev/envs/local_dev.env

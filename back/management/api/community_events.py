@@ -1,13 +1,11 @@
-from rest_framework import authentication, permissions
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework.decorators import api_view, permission_classes, authentication_classes
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.authentication import SessionAuthentication
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from management.models.community_events import CommunityEvent, CommunityEventSerializer
 from management.helpers.detailed_pagination import get_paginated_format_v2
+from management.models.community_events import CommunityEvent, CommunityEventSerializer
 
 
 def get_all_comunity_events_serialized():
@@ -25,11 +23,11 @@ def community_events(request):
     page = int(request.GET.get("page", 1))
     items_per_page = int(request.GET.get("page_size", 15))
     user = request.user
-    
+
     try:
         events = get_paginated_format_v2(CommunityEvent.get_active_events_for_user(user), items_per_page, page)
         events["results"] = CommunityEventSerializer(events["results"], many=True).data
-        
+
         return Response(events)
     except Exception as e:
         return Response({"error": str(e)}, status=400)

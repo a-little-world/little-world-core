@@ -1,9 +1,10 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.5
+    rev: v0.14.4
     hooks:
       - id: ruff
         files: ^back/(?!.*migrations/).*\.py$
-        args: [--select, I, --fix]
+        args: [--config, ruff.toml, --fix]
       - id: ruff-format
         files: ^back/(?!.*migrations/).*\.py$
+        args: [--config, ruff.toml]

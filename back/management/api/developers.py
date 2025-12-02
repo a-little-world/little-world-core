@@ -44,7 +44,7 @@ class DevLoginAPI(APIView):
             try:
                 usr = authenticate(username=params.username, password=params.password)
                 login(request, usr)
-            except:
+            except Exception:
                 return Response("Authentication failed", status=403)
 
             _frontend_data = get_user_data(usr)

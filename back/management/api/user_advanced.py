@@ -1,8 +1,5 @@
-import json
-from back.utils import CoolerJson
 from chat.models import Chat, ChatSerializer, Message, MessageSerializer
-from django.conf import settings
-from django.db.models import Q, Value, CharField
+from django.db.models import CharField, Q, Value
 from django.db.models.functions import Concat
 from django.urls import path
 from django.utils import timezone
@@ -14,10 +11,9 @@ from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from management.api.matches import AdvancedUserMatchSerializer
 from management.api.scores import score_between_db_update
 from management.api.user_advanced_filter_lists import FILTER_LISTS, get_choices, get_dynamic_userlists
-from management.models.unconfirmed_matches import serialize_proposed_matches
-from management.helpers.detailed_pagination import get_paginated_format_v2
 from management.api.utils_advanced import filterset_schema_dict
 from management.controller import delete_user, make_tim_support_user
 from management.helpers import (
@@ -25,10 +21,10 @@ from management.helpers import (
     DetailedPaginationMixin,
     IsAdminOrMatchingUser,
 )
+from management.helpers.detailed_pagination import get_paginated_format_v2
 from management.models.dynamic_user_list import DynamicUserList
 from management.models.management_tasks import ManagementTaskSerializer, MangementTask
 from management.models.matches import Match
-from management.api.matches import AdvancedUserMatchSerializer
 from management.models.pre_matching_appointment import (
     PreMatchingAppointment,
     PreMatchingAppointmentSerializer,
@@ -37,10 +33,9 @@ from management.models.profile import MinimalProfileSerializer, Profile
 from management.models.scores import TwoUserMatchingScore
 from management.models.sms import SmsModel, SmsSerializer
 from management.models.state import State, StateSerializer
-from management.models.unconfirmed_matches import ProposedMatch
+from management.models.unconfirmed_matches import ProposedMatch, serialize_proposed_matches
 from management.models.user import User
 from management.tasks import matching_algo_v2, send_email_background
-from management.twilio_handler import _get_client
 
 user_category_buckets = [
     "journey_v2__user_created",
@@ -61,26 +56,16 @@ user_category_buckets = [
     "journey_v2__marked_unresponsive",
 ]
 
+
 def get_match_waiting_time(user):
     if not user.state.had_prematching_call:
-        return {
-            "number_of_days": None,
-            "waiting_time_string": "Prematch call not completed",
-            "first_search": None
-        }
+        return {"number_of_days": None, "waiting_time_string": "Prematch call not completed", "first_search": None}
 
     if user.state.searching_state != State.SearchingStateChoices.SEARCHING:
-        return {
-            "number_of_days": None,
-            "waiting_time_string": "Not actively searching",
-            "first_search": None
-        }
+        return {"number_of_days": None, "waiting_time_string": "Not actively searching", "first_search": None}
 
     # Check if the user has already been matched
-    already_matched = Match.objects.filter(
-        Q(user1=user) | Q(user2=user),
-        support_matching=False
-    ).exists()
+    already_matched = Match.objects.filter(Q(user1=user) | Q(user2=user), support_matching=False).exists()
 
     # Determine waiting_since based on match status
     if already_matched:
@@ -91,7 +76,7 @@ def get_match_waiting_time(user):
             return {
                 "number_of_days": None,
                 "waiting_time_string": "No pre-match appointment found",
-                "first_search": None
+                "first_search": None,
             }
         waiting_since = latest_pre_match_appointment.end_time
 
@@ -108,7 +93,7 @@ def get_match_waiting_time(user):
     return {
         "number_of_days": number_of_days,
         "waiting_time_string": waiting_time_string,
-        "first_search": not already_matched
+        "first_search": not already_matched,
     }
 
 
@@ -187,7 +172,9 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
         proposed_matches["results"] = serialize_proposed_matches(proposed_matches["results"], user)
 
         # proposlas that were rejected or expired
-        old_proposed_matches = get_paginated_format_v2(ProposedMatch.get_unsuccessful_proposals(user), items_per_page, 1)
+        old_proposed_matches = get_paginated_format_v2(
+            ProposedMatch.get_unsuccessful_proposals(user), items_per_page, 1
+        )
         old_proposed_matches["results"] = serialize_proposed_matches(old_proposed_matches["results"], user)
 
         inactive_matches = get_paginated_format_v2(Match.get_inactive_matches(user), items_per_page, 1)
@@ -209,7 +196,7 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
             "old_proposals": old_proposed_matches,
             "inactive": inactive_matches,
         }
-        
+
         representation["waiting_time"] = get_match_waiting_time(instance)
 
         representation["state"] = StateSerializer(instance.state).data
@@ -222,7 +209,7 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
                         representation["bucket"] = bucket
                 if "bucket" not in representation:
                     representation["bucket"] = "unknown"
-            except:
+            except (KeyError, AttributeError):
                 representation["bucket"] = "unknown"
 
         return representation
@@ -245,7 +232,7 @@ class AdvancedMatchingScoreSerializer(serializers.ModelSerializer):
             markdown_info += f"## Function `{score['score_function']}`\n"
             try:
                 markdown_info += f"{score['res']['markdown_info']}\n\n"
-            except:
+            except (KeyError, TypeError):
                 markdown_info += "No markdown info available\n\n"
 
         representation["markdown_info"] = markdown_info
@@ -268,7 +255,13 @@ def get_company_choices():
     Get all unique company values from the database, including None for users without a company.
     Returns a list of tuples suitable for ChoiceFilter choices.
     """
-    companies = State.objects.exclude(company__isnull=True).exclude(company='').values_list('company', flat=True).distinct().order_by('company')
+    companies = (
+        State.objects.exclude(company__isnull=True)
+        .exclude(company="")
+        .values_list("company", flat=True)
+        .distinct()
+        .order_by("company")
+    )
     choices = [("null", "No Company")]
     choices.extend([(company, company) for company in companies])
     return choices
@@ -352,7 +345,7 @@ class UserFilter(filters.FilterSet):
 
     def filter_search(self, queryset, name, value):
         return queryset.annotate(
-            full_name=Concat('profile__first_name', Value(' '), 'profile__second_name', output_field=CharField())
+            full_name=Concat("profile__first_name", Value(" "), "profile__second_name", output_field=CharField())
         ).filter(
             Q(hash__icontains=value)
             | Q(profile__first_name__icontains=value)
@@ -387,7 +380,7 @@ class UserFilter(filters.FilterSet):
 
     def filter_company(self, queryset, name, value):
         if value == "null":
-            return queryset.filter(Q(state__company__isnull=True) | Q(state__company=''))
+            return queryset.filter(Q(state__company__isnull=True) | Q(state__company=""))
         return queryset.filter(state__company=value)
 
     class Meta:
@@ -616,9 +609,9 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if request.method == "POST":
             result = obj.sms(request.user, request.data["message"])
             if result == 403:
-                return Response(data="User has not set SMS notification!",status=403)
+                return Response(data="User has not set SMS notification!", status=403)
             elif result == 500:
-                return Response(data="Something went wrong sending the message...",status=500)
+                return Response(data="Something went wrong sending the message...", status=500)
             else:
                 return Response(result)
         else:
@@ -944,6 +937,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         obj = self.get_object()
 
         return Response(get_match_waiting_time(obj))
+
 
 viewset_actions = [
     path("api/matching/users_export/", AdvancedUserViewset.as_view({"get": "export"})),

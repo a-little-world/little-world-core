@@ -1,1 +1,0 @@
-docker compose exec backend sh -c "python3 manage.py shell -c 'INSERT_PYTHON_CODE_HERE'"

@@ -4,6 +4,7 @@ import uuid
 import zlib
 from enum import Enum
 
+from back.utils import get_options_serializer
 from django.db import models
 from django.db.models import Q
 from django.db.models.signals import post_save
@@ -15,7 +16,6 @@ from rest_framework import serializers
 from translations import get_translation
 
 from back import utils
-from back.utils import get_options_serializer
 from management.models.management_tasks import MangementTask
 from management.models.matches import Match
 from management.models.notifications import Notification

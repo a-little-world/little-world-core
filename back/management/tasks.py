@@ -88,7 +88,7 @@ def create_default_cookie_groups():
         is_deletable=True,
     )
 
-    little_world_functionality_cookies = CookieGroup.objects.create(
+    CookieGroup.objects.create(
         varname="lw_func_cookies",
         name="FunctionalityCookies",
         description="Cookies required for basic functionality of Little World",
@@ -96,7 +96,7 @@ def create_default_cookie_groups():
         is_deletable=False,
     )
 
-    google_analytics_cookie = Cookie.objects.create(
+    Cookie.objects.create(
         cookiegroup=analytics_cookiegroup,
         name="google_analytics_cookie",
         description="Google anlytics cookies and scripts",
@@ -118,7 +118,7 @@ def create_default_cookie_groups():
         + "fbq('init', '1108875150004843');\nfbq('track', 'PageView');\n    "
     )
 
-    facebook_pixel_cookie = Cookie.objects.create(
+    Cookie.objects.create(
         cookiegroup=analytics_cookiegroup,
         name="facebook_pixel_cookie",
         description="Facebook Pixel analytics cookies and scripts",
@@ -718,43 +718,43 @@ def automatic_emails_m024_m025():
     return {"status": "sent", "number of 7 day inactive chat reminder sent": inactive_counter}
 
 
-@shared_task
-def automatic_emails_m031():
-    """
-    No video call for 7 days after first message
+# @shared_task
+# def automatic_emails_m031():
+#     """
+#     No video call for 7 days after first message
 
-    !!!!!!!!!!!!!!!!!!!!!! Full of bugs ATM - WIP !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    """
-    from management.models.matches import Match
+#     !!!!!!!!!!!!!!!!!!!!!! Full of bugs ATM - WIP !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#     """
+#     from management.models.matches import Match
 
-    # get all chats
-    matches = Match.objects.exclude(total_messages_counter=0).filter(total_mutal_video_calls_counter=0)
+#     # get all chats
+#     matches = Match.objects.exclude(total_messages_counter=0).filter(total_mutal_video_calls_counter=0)
 
-    reminder_last_days = [0, 7, 14, 21, 30]
-    reminder_last_templates = [
-        "automatic-emails-m031",
-        "automatic-emails-m032",
-        "automatic-emails-m033",
-        "automatic-emails-m042",
-    ]
+#     reminder_last_days = [0, 7, 14, 21, 30]
+#     reminder_last_templates = [
+#         "automatic-emails-m031",
+#         "automatic-emails-m032",
+#         "automatic-emails-m033",
+#         "automatic-emails-m042",
+#     ]
 
-    for i in range(len(reminder_last_days) - 1):
-        for match in matches:
-            if (match.first_chat_interaction >= dj_timezone.now() - timedelta(days=reminder_last_days[i])) or (
-                match.first_chat_interaction < dj_timezone.now() - timedelta(days=reminder_last_days[i + 1])
-            ):
-                continue
+#     for i in range(len(reminder_last_days) - 1):
+#         for match in matches:
+#             if (match.first_chat_interaction >= dj_timezone.now() - timedelta(days=reminder_last_days[i])) or (
+#                 match.first_chat_interaction < dj_timezone.now() - timedelta(days=reminder_last_days[i + 1])
+#             ):
+#                 continue
 
-            # the chat is for seven days inactive, set the respective flag
-            if not chat.seven_days_inactive:
-                chat.seven_days_inactive = True
-                chat.save()
-                inactive_counter += 1
+#             # the chat is for seven days inactive, set the respective flag
+#             if not chat.seven_days_inactive:
+#                 chat.seven_days_inactive = True
+#                 chat.save()
+#                 inactive_counter += 1
 
-                # send email to the user that received the last message
-                send_email_background.delay("automatic-emails-m024", user_id=last_message.recipient.id)
+#                 # send email to the user that received the last message
+#                 send_email_background.delay("automatic-emails-m024", user_id=last_message.recipient.id)
 
-                # send email to the person that was ghosted
-                send_email_background.delay("automatic-emails-m025", user_id=last_message.sender.id)
+#                 # send email to the person that was ghosted
+#                 send_email_background.delay("automatic-emails-m025", user_id=last_message.sender.id)
 
-    return {"status": "sent", "number of 7 day inactive chat reminder sent": inactive_counter}
+#     return {"status": "sent", "number of 7 day inactive chat reminder sent": inactive_counter}
