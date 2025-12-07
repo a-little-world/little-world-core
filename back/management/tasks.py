@@ -587,7 +587,7 @@ def send_sms_background(self, user_hash, message):
         raise  # Re-raise to mark task as failed
 
 
-def automatic_emails_u023_u024_u025():
+def automatic_emails_u023_u024_u025(test=False):
     """
     Sends automatic emails to users who have not booked an onboarding call after completing the user form
     """
@@ -599,6 +599,7 @@ def automatic_emails_u023_u024_u025():
         "automatic-emails-u024": [7, True, False, False],
         "automatic-emails-u025": [14, True, True, False],
     }
+    users_sended = []
     for template, (days, three_days_reminder, seven_days_reminder, fourteen_days_reminder) in reminder.items():
         users = User.objects.filter(
             state__user_form_completed_at__lte=dj_timezone.now() - timedelta(days=days),
@@ -609,11 +610,19 @@ def automatic_emails_u023_u024_u025():
         )
         user_prematching_join = PreMatchingAppointment.objects.filter(user__in=users)
         users = users.exclude(id__in=user_prematching_join.values_list("user", flat=True))
+
+        users_sended.append(users)
         for user in users:
-            send_email_background.delay(template, user_id=user.id)
+            if not test:
+                send_email_background.delay(template, user_id=user.id)
             user.state.set_user_form_completed_reminder_sent(days)
 
-    return {"status": "sent"}
+    return {
+        "status": "sent",
+        "users_u023": users_sended[0],
+        "users_u024": users_sended[1],
+        "users_u025": users_sended[2],
+    }
 
 
 @shared_task
