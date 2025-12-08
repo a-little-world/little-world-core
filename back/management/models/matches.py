@@ -38,9 +38,11 @@ class Match(models.Model):
     total_mutal_video_calls_counter = models.IntegerField(default=0)
     latest_interaction_at = models.DateTimeField(default=timezone.now)
     first_chat_interaction = models.DateTimeField(default=None, null=True, blank=False)
-    interaction_reminder_last = models.IntegerField(
-        default=0, help_text="Number of days between last interaction and last reminder sent.", null=False, blank=False
-    )
+
+    interaction_reminder_2_days_send = models.BooleanField(default=False, null=False, blank=False)
+    interaction_reminder_7_days_send = models.BooleanField(default=False, null=False, blank=False)
+    interaction_reminder_14_days_send = models.BooleanField(default=False, null=False, blank=False)
+
     no_videocall_reminder_last = models.IntegerField(
         default=0,
         help_text="Number of days between first chat interaction and last reminder sent.",

@@ -626,34 +626,46 @@ def automatic_emails_u023_u024_u025(test=False):
 
 
 @shared_task
-def automatic_emails_m12_m13_m14():
+def automatic_emails_m12_m13_m14(test=False):
     """
     Confirmed match between users but no interaction yet (no messages or video calls)
     """
     from management.models.matches import Match
 
-    reminder_last = {
-        "3": [0, "automatic-emails-m012"],
-        "7": [3, "automatic-emails-m013"],
-        "14": [7, "automatic-emails-m014"],
+    reminder = {
+        "automatic-emails-m012": [2, False, False, False],
+        "automatic-emails-m013": [7, True, False, False],
+        "automatic-emails-m014": [14, True, True, False],
     }
-    for days, (last_sent_days, template) in reminder_last.items():
+
+    matches_found = []
+
+    for template, (days, two_days_reminder, seven_days_reminder, fourteen_days_reminder) in reminder.items():
         matches = Match.objects.filter(
             confirmed=True,
             total_messages_counter=0,
             total_mutal_video_calls_counter=0,
-            latest_interaction_at__lte=dj_timezone.now() - datetime.timedelta(days=days),
-            interaction_reminder_last__gte=last_sent_days,
+            latest_interaction_at__lte=dj_timezone.now() - timedelta(days=days),
+            interaction_reminder_2_days_send=two_days_reminder,
+            interaction_reminder_7_days_send=seven_days_reminder,
+            interaction_reminder_14_days_send=fourteen_days_reminder,
         )
 
         for match in matches:
-            send_email_background.delay(template, user_id=match.user1.id, match_id=match.id)
-            send_email_background.delay(template, user_id=match.user2.id, match_id=match.id)
+            if not test:
+                send_email_background.delay(template, user_id=match.user1.id, match_id=match.id)
+                send_email_background.delay(template, user_id=match.user2.id, match_id=match.id)
 
             match.interaction_reminder_last = days
             match.save()
+        matches_found.append(matches)
 
-    return {"status": "sent", "number of matches": matches.count()}
+    return {
+        "status": "sent",
+        "matches_m012": matches_found[0],
+        "matches_m013": matches_found[1],
+        "matches_m014": matches_found[2],
+    }
 
 
 @shared_task
