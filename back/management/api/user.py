@@ -53,6 +53,7 @@ class VerifyEmail(APIView):
     # Everyone can acess this 'get' api,
     # we will enforce authentication for 'post' though
     permission_classes = []
+    authentication_classes = [SessionAuthentication, NativeOnlyJWTAuthentication]
 
     def get(self, request, **kwargs):
         """
