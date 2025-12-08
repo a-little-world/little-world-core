@@ -118,9 +118,13 @@ class TestAutomaticEmails_m12_m13_m14(TestCase):
     def setUp(self):
         self.simulation_date = dj_timezone.now() - timedelta(weeks=4)
 
-        with freeze_time(self.simulation_date):
+        with freeze_time(dj_timezone.now() - timedelta(days=3)):
             self.valid_user_m12 = create_test_user(20000, None, "Test123!", "email-test-valid-023@test.de")
+
+        with freeze_time(dj_timezone.now() - timedelta(days=9)):
             self.valid_user_m13 = create_test_user(20001, None, "Test123!", "email-test-valid-024@test.de")
+
+        with freeze_time(dj_timezone.now() - timedelta(days=15)):
             self.valid_user_m14 = create_test_user(20002, None, "Test123!", "email-test-valid-025@test.de")
 
         with freeze_time(dj_timezone.now() - timedelta(days=4)):
@@ -162,3 +166,9 @@ class TestAutomaticEmails_m12_m13_m14(TestCase):
         assert valids_m12[0].user1 == self.valid_user_m12 or valids_m12[0].user2 == self.valid_user_m12
         assert valids_m13[0].user1 == self.valid_user_m12 or valids_m13[0].user2 == self.valid_user_m13
         assert valids_m14[0].user1 == self.valid_user_m12 or valids_m14[0].user2 == self.valid_user_m14
+
+        result = automatic_emails_m12_m13_m14(True)
+
+        assert len(result["matches_m012"]) == 0
+        assert len(result["matches_m013"]) == 0
+        assert len(result["matches_m014"]) == 0

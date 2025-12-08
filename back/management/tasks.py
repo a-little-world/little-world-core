@@ -10,6 +10,7 @@ from translations import get_translation
 from management.models.backend_state import BackendState
 from management.models.banner import Banner
 from management.models.community_events import CommunityEvent
+from management.models.state import State
 from management.models.user import User
 
 """
@@ -656,7 +657,14 @@ def automatic_emails_m12_m13_m14(test=False):
                 send_email_background.delay(template, user_id=match.user1.id, match_id=match.id)
                 send_email_background.delay(template, user_id=match.user2.id, match_id=match.id)
 
-            match.interaction_reminder_last = days
+            match days:
+                case 2:
+                    match.interaction_reminder_2_days_send = True
+                case 7:
+                    match.interaction_reminder_7_days_send = True
+                case 14:
+                    match.interaction_reminder_14_days_send = True
+
             match.save()
         matches_found.append(matches)
 
@@ -682,7 +690,12 @@ def automatic_emails_m023():
 
     for chat in chats:
         # check that both users are not admin and if chat three days inactive flag is already set
-        if chat.u1.is_staff or chat.u2.is_staff:
+        if (
+            chat.u1.is_staff
+            or chat.u2.is_staff
+            or chat.u1.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+            or chat.u2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+        ):
             continue
 
         # check that the last message is older than 3 days
@@ -716,7 +729,12 @@ def automatic_emails_m024_m025():
 
     for chat in chats:
         # check that both users are not admin and if chat three days inactive flag is already set
-        if chat.u1.is_staff or chat.u2.is_staff:
+        if (
+            chat.u1.is_staff
+            or chat.u2.is_staff
+            or chat.u1.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+            or chat.u2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+        ):
             continue
 
         # check that the last message is older than 3 days
