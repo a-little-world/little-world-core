@@ -1,2 +1,5 @@
 debugpy==1.8.14
 django-debug-toolbar==5.1.0
+basedpyright==1.34.0
+django-types==0.22.0
+django-stubs-ext==5.2.7
