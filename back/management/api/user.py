@@ -560,6 +560,10 @@ def get_user_data(user):
 
     banner = BannerSerializer(banner_query).data if banner_query else {}
 
+    has_random_call_access = ("herrduenschnlate+" in str(user.email)) or user.state.has_extra_user_permission(
+        State.ExtraUserPermissionChoices.USE_BETA_RANDOM_CALL
+    )
+
     return {
         "id": str(user.hash),
         "banner": banner,
@@ -568,6 +572,7 @@ def get_user_data(user):
         or user.is_staff,
         "isSearching": user_state.searching_state == State.SearchingStateChoices.SEARCHING,
         "email": user.email,
+        "hasRandomCallAccess": has_random_call_access,
         "preMatchingAppointment": pre_match_appointent,
         "preMatchingCallJoinLink": pre_call_join_link,
         "calComAppointmentLink": cal_data_link,

@@ -163,6 +163,7 @@ class State(models.Model):
             "uncensored-admin-matcher",
             _("Is allowed to match users without censorship"),
         )
+        USE_BETA_RANDOM_CALL = "use-beta-random-call", _("Is allowed to use the beta random call")
 
     extra_user_permissions = MultiSelectField(
         max_length=8000,
