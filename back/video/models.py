@@ -1,7 +1,9 @@
+from datetime import timedelta
 from uuid import uuid4
 
-from django.db import models
+from django.db import models, transaction
 from django.db.models import Q
+from django.utils import timezone
 from management.models.profile import CensoredProfileSerializer
 from rest_framework import serializers
 from rest_framework.serializers import ModelSerializer
@@ -9,6 +11,7 @@ from rest_framework.serializers import ModelSerializer
 
 class LiveKitRoom(models.Model):
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
+    random_call_room = models.BooleanField(default=False)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -19,6 +22,14 @@ class LiveKitRoom(models.Model):
     @classmethod
     def get_room(cls, user1, user2):
         return cls.objects.get(Q(u1=user1, u2=user2) | Q(u1=user2, u2=user1))
+
+    @classmethod
+    def get_or_create_room(cls, user1, user2):
+        room = cls.objects.filter(Q(u1=user1, u2=user2) | Q(u1=user2, u2=user1))
+        if room.exists():
+            return room.first()
+        else:
+            return cls.objects.create(u1=user1, u2=user2)
 
 
 class LivekitWebhookEvent(models.Model):
@@ -57,6 +68,8 @@ class LivekitSession(models.Model):
         "management.User", on_delete=models.CASCADE, related_name="first_active_user", null=True, blank=True
     )
 
+    random_call_session = models.BooleanField(default=False)
+
     webhook_events = models.ManyToManyField("video.LivekitWebhookEvent", related_name="livekit_session")
 
 
@@ -92,3 +105,95 @@ class SerializeLivekitSession(ModelSerializer):
                 rep["partner"]["id"] = instance.u1.hash
 
         return rep
+
+
+class RandomCallLobby(models.Model):
+    uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
+    name = models.CharField(max_length=50, null=True, blank=True)
+    start_time = models.DateTimeField(null=True, blank=True)
+    end_time = models.DateTimeField(null=True, blank=True)
+
+    user_online_state_timeout = models.IntegerField(
+        default=10
+    )  # 10 sends a user is considered 'offline' if not checked in again
+    match_proposal_timeout = models.IntegerField(default=10)  # 10 seconds to accept a match proposal
+    video_call_timeout = models.IntegerField(default=60 * 10)  # 10 minutes video calls
+
+
+class RandomCallLobbyUser(models.Model):
+    uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
+    user = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="user_in_lobby")
+    is_active = models.BooleanField(default=True)
+    last_status_checked_at = models.DateTimeField(null=True, blank=True)
+    lobby = models.ForeignKey("video.RandomCallLobby", on_delete=models.CASCADE, related_name="lobby_users")
+
+
+class RandomCallMatching(models.Model):
+    uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
+    lobby = models.ForeignKey("video.RandomCallLobby", on_delete=models.CASCADE, related_name="lobby_matchings")
+
+    u1 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u1_randomcall_session")
+    u2 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u2_randomcall_session")
+
+    u1_accepted = models.BooleanField(default=False)
+    u2_accepted = models.BooleanField(default=False)
+
+    accepted = models.BooleanField(default=False)  # Both users accepted
+    rejected = models.BooleanField(default=False)  # At least one user rejected
+
+    expired = models.BooleanField(default=False)  # The match acceptance timed out without a match being performed
+    completed = models.BooleanField(default=False)  # The match was completed (both users left the call)
+
+    u1_matching_requested = models.BooleanField(default=False)
+    u2_matching_requested = models.BooleanField(default=False)
+
+    u1_requested_room_token = models.BooleanField(default=False)
+    u2_requested_room_token = models.BooleanField(default=False)
+
+    both_requested_room_token = models.BooleanField(default=False)
+
+    @property
+    def is_processed(self):
+        return self.accepted or self.rejected
+
+    in_session = models.BooleanField(default=False)
+
+    @classmethod
+    def get_or_create_match(cls, user1, user2):
+        with transaction.atomic():
+            match = cls.objects.filter(Q(u1=user1, u2=user2) | Q(u1=user2, u2=user1))
+            if match.exists():
+                match = match.first()
+                if match.active:
+                    return match.first()
+                else:
+                    return cls.objects.create(u1=user1, u2=user2, active=True)
+            else:
+                return cls.objects.create(u1=user1, u2=user2, active=True)
+
+
+class RandomCallSession(models.Model):
+    uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
+
+    random_match = models.CharField(max_length=50)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    end_time = models.DateTimeField(null=True, blank=True)
+
+    reported_flag = models.BooleanField(default=False)
+    active = models.BooleanField(default=False)
+
+    tmp_chat = models.CharField(max_length=50)
+    tmp_match = models.CharField(max_length=50)
+
+    @classmethod
+    def get_or_create(cls, random_match, tmp_chat, tmp_match, active):
+        with transaction.atomic():
+            session = cls.objects.select_for_update(skip_locked=True).filter(random_match=random_match)
+            end_time = timezone.now() + timedelta(seconds=60)
+            if session.exists() and session.first().active:
+                return session.first()
+            else:
+                return cls.objects.create(
+                    random_match=random_match, tmp_chat=tmp_chat, tmp_match=tmp_match, active=active, end_time=end_time
+                )

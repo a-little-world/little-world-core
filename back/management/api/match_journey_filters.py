@@ -162,7 +162,9 @@ def completed_match(
     user1_to_user2_message_exists = Message.objects.filter(sender=OuterRef("user1"), recipient=OuterRef("user2"))
     user2_to_user1_message_exists = Message.objects.filter(sender=OuterRef("user2"), recipient=OuterRef("user1"))
 
-    completed_or_completed_off_plattform = Match.objects.filter(Q(completed=True) | Q(completed_off_plattform=True))
+    completed_or_completed_off_plattform = Match.objects.filter(
+        Q(completed=True) | Q(completed_off_plattform=True), is_random_call_match=False
+    )
 
     now = timezone.now()
     completed_by_criteria = (

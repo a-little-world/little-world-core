@@ -5,6 +5,13 @@ import os
 from corsheaders.defaults import default_headers
 from firebase_admin import credentials, initialize_app
 
+DEBUG = os.environ["DJ_DEBUG"].lower() in ("true", "1", "t")
+
+if DEBUG:
+    import django_stubs_ext
+
+    django_stubs_ext.monkeypatch()
+
 
 def get_base64_env(env_name):
     # define function locally, importing from management.helpers.get_base64_env causes error in swagger api generation
@@ -53,13 +60,18 @@ USE_AUTO_RELOAD = os.environ.get("DJ_USE_AUTO_RELOAD", "false").lower() in ("tru
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = os.environ["DJ_SECRET_KEY"]
-DEBUG = os.environ["DJ_DEBUG"].lower() in ("true", "1", "t")
 BASE_URL = os.environ.get("DJ_BASE_URL", "http://localhost:8000")
 ALLOWED_HOSTS = os.environ.get("DJ_ALLOWED_HOSTS", "").split(",")
 FRONTENDS = os.environ["FR_FRONTENDS"].split(",")
 MANAGEMENT_USER_MAIL = os.environ["DJ_MANAGEMENT_USER_MAIL"]
-ADMIN_OPEN_KEYPHRASE = os.environ["DJ_ADMIN_OPEN_KEYPHRASE"]
-DEFAULT_FROM_EMAIL = os.environ["DJ_SG_DEFAULT_FROM_EMAIL"]
+MATCHING_USER_MAIL = os.environ.get("DJ_MATCHING_USER_MAIL", "tim.timschupp+420@gmail.com")
+MATCHING_USER_PASSWORD = os.environ.get(
+    "DJ_MATCHING_USER_PASSWORD", "Test123!"
+)  # TODO: changed from 'DJ_TIM_MANAGEMENT_PW'
+MATCHING_USER_FIRST_NAME = os.environ.get("DJ_MATCHING_USER_FIRST_NAME", "Tim")
+MATCHING_USER_SECOND_NAME = os.environ.get("DJ_MATCHING_USER_SECOND_NAME", "Schupp")
+ADMIN_OPEN_KEYPHRASE = os.environ["DJ_ADMIN_OPEN_KEYPHRASE"]  # TODO: convert to .get()
+DEFAULT_FROM_EMAIL = os.environ["DJ_SG_DEFAULT_FROM_EMAIL"]  # TODO: convert to .get()
 EXPOSE_DEV_LOGIN = os.environ.get("DJ_EXPOSE_DEV_LOGIN", "false").lower() in ("true", "1", "t")
 USE_MQ_AS_BROKER = os.environ.get("DJ_USE_MQ_AS_BROKER", "false").lower() in ("true", "1", "t")
 
@@ -711,6 +723,7 @@ DATABASES = (
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": os.path.join(BASE_DIR, "db.sqlite3"),
+            "OPTIONS": {"timeout": 10},
         }
     }
     if ((IS_DEV and ("DJ_DATABASE_ENGINE" not in os.environ)) or USE_SQLITE)
@@ -722,7 +735,7 @@ DATABASES = (
             "PASSWORD": os.environ["DJ_DATABASE_PASSWORD"],
             "HOST": os.environ["DJ_DATABASE_HOST"],
             "PORT": os.environ["DJ_DATABASE_PORT"],
-            "OPTIONS": {}
+            "OPTIONS": {"timeout": 10}
             if (os.environ.get("DJ_DATABASE_DISABLE_SSL", "false").lower() in ("true", "t", "0"))
             else {"sslmode": "require"},
             # 'CONN_MAX_AGE': 10,

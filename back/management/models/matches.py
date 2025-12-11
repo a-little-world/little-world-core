@@ -44,6 +44,8 @@ class Match(models.Model):
 
     send_automatic_message_1week = models.BooleanField(default=True)
 
+    is_random_call_match = models.BooleanField(default=False)
+
     def sync_counters(self):
         self.total_messages_counter = Message.objects.filter(
             Q(sender=self.user1, recipient=self.user2) | Q(sender=self.user2, recipient=self.user1)
@@ -83,8 +85,18 @@ class Match(models.Model):
         self.save()
 
     @classmethod
-    def get_match(cls, user1, user2):
-        return cls.objects.filter(Q(user1=user1, user2=user2, active=True) | Q(user1=user2, user2=user1, active=True))
+    def get_match(cls, user1, user2, random_call_match=False):
+        return cls.objects.filter(
+            Q(user1=user1, user2=user2, active=True, is_random_call_match=random_call_match)
+            | Q(user1=user2, user2=user1, active=True, is_random_call_match=random_call_match)
+        )
+
+    @classmethod
+    def get_random_match(cls, user1, user2):
+        return cls.objects.filter(
+            Q(user1=user1, user2=user2, is_random_call_match=True)
+            | Q(user1=user2, user2=user1, is_random_call_match=True)
+        )
 
     @classmethod
     def get_matches(cls, user, order_by="created_at"):
