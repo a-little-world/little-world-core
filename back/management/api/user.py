@@ -560,7 +560,9 @@ def get_user_data(user):
 
     banner = BannerSerializer(banner_query).data if banner_query else {}
 
-    has_random_call_access = "herrduenschnlate+" in str(user.email)
+    has_random_call_access = ("herrduenschnlate+" in str(user.email)) or user.state.has_extra_user_permission(
+        State.ExtraUserPermissionChoices.USE_BETA_RANDOM_CALL
+    )
 
     return {
         "id": str(user.hash),
