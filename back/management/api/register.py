@@ -241,14 +241,6 @@ def common_register(request, registration_data):
         **{k: getattr(registration_data, k) for k in registration_data.__annotations__}, send_verification_mail=True
     )
 
-    if settings.IS_PROD:
-        from ..tasks import dispatch_admin_email_notification
-
-        dispatch_admin_email_notification.delay(
-            "New user registered",
-            f"{registration_data.email}, {registration_data.first_name}, {registration_data.second_name}, {registration_data.birth_year}",
-        )
-
     login(request, usr)
 
     with translation.override("tag"):
