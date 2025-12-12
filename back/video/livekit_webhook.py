@@ -242,6 +242,7 @@ def livekit_webhook(request):
     # Then we also:
     # 1. Mark the session as 'random_call_session'
     # 2. TODO: Several Events shoudn't be tracked for random calls!
+    random_call_session = False
     if data["event"] == "participant_joined":
         # 1 - we determine the Room
         room_id = data["room"]["name"]
