@@ -52,7 +52,7 @@ def native_auth_android(request):
     integrity_token = serializer.validated_data["integrity_token"]
     key_id = serializer.validated_data["key_id"]
 
-    challenge = cache.get(key=get_app_integrity_challenge_cache_key(key_id))
+    challenge = cache.get(key=get_app_integrity_challenge_cache_key(key_id)).decode("utf-8")
 
     if not _verify_play_integrity_token(integrity_token, request_hash=challenge):
         return Response({"detail": "Invalid integrity token or request hash"}, status=status.HTTP_400_BAD_REQUEST)
