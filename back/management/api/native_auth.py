@@ -141,7 +141,7 @@ class NativeTokenAndroidRefreshView(TokenRefreshView):
 
         integrity_token = request.data.get("integrity_token")
         key_id = request.data.get("key_id")
-        challenge = cache.get(key=get_app_integrity_challenge_cache_key(key_id))
+        challenge = cache.get(key=get_app_integrity_challenge_cache_key(key_id)).decode("utf-8")
 
         if not integrity_token or not challenge:
             return Response({"detail": "Missing integrity token or request hash"}, status=status.HTTP_400_BAD_REQUEST)
@@ -197,7 +197,7 @@ class NativeTokenWebRefreshView(TokenRefreshView):
     Allows to re-fesh native token but only if integrity challenged again
     """
 
-    def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:  # type: ignore[override]
+    def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:  # apiFetchtype: ignore[override]
         refresh_raw: str | None = request.data.get("refresh")  # type: ignore[assignment]
         if not refresh_raw:
             return Response({"detail": "Missing refresh token"}, status=status.HTTP_400_BAD_REQUEST)
