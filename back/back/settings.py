@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+from datetime import timedelta
 
 from corsheaders.defaults import default_headers
 from firebase_admin import credentials, initialize_app
@@ -954,4 +955,24 @@ except Exception as e:
     print("ERROR INITIALIZING FIREBASE APP", e)
 
 
-SIMPLE_JWT = {"ROTATE_REFRESH_TOKENS": True}
+SIMPLE_JWT_TOKEN_LIFETIME_MINUTES = int(os.environ.get("DJ_SIMPLE_JWT_TOKEN_LIFETIME_MINUTES", "5"))
+SIMPLE_JWT_TOKEN_LIFETIME_HOURS = int(os.environ.get("DJ_SIMPLE_JWT_TOKEN_LIFETIME_HOURS", "0"))
+SIMPLE_JWT_TOKEN_LIFETIME_DAYS = int(os.environ.get("DJ_SIMPLE_JWT_TOKEN_LIFETIME_DAYS", "0"))
+
+SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_MINUTES = int(os.environ.get("DJ_SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_MINUTES", "30"))
+SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_HOURS = int(os.environ.get("DJ_SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_HOURS", "1"))
+SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_DAYS = int(os.environ.get("DJ_SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_DAYS", "0"))
+
+SIMPLE_JWT = {
+    "ROTATE_REFRESH_TOKENS": True,
+    "ACCESS_TOKEN_LIFETIME": timedelta(
+        minutes=SIMPLE_JWT_TOKEN_LIFETIME_MINUTES,
+        hours=SIMPLE_JWT_TOKEN_LIFETIME_HOURS,
+        days=SIMPLE_JWT_TOKEN_LIFETIME_DAYS,
+    ),
+    "REFRESH_TOKEN_LIFETIME": timedelta(
+        minutes=SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_MINUTES,
+        hours=SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_HOURS,
+        days=SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_DAYS,
+    ),
+}
