@@ -1,0 +1,44 @@
+{
+  "$schema": "https://raw.githubusercontent.com/all-contributors/all-contributors-cli/master/.schema/all-contributorsrc.schema.json",
+  "projectName": "little-world-backend",
+  "projectOwner": "a-little-world",
+  "repoType": "github",
+  "repoURL": "https://github.com/a-little-world/little-world-backend",
+  "files": [
+    "README.md"
+  ],
+  "imageSize": 100,
+  "commit": true,
+  "commitConvention": "conventionalCommits",
+  "contributorsPerLine": 7,
+  "contributors": [
+    {
+      "login": "tbscode",
+      "name": "Tim Schupp",
+      "avatar_url": "https://avatars.githubusercontent.com/u/25325944?v=4",
+      "profile": "https://github.com/tbscode",
+      "contributions": [
+        "code",
+        "doc",
+        "bug"
+      ]
+    }
+  ],
+  "skipCi": true,
+  "botNames": [
+    "dependabot",
+    "dependabot-preview",
+    "renovate",
+    "renovate-bot",
+    "allcontributors",
+    "allcontributors[bot]",
+    "imgbot",
+    "imgbot[bot]",
+    "greenkeeper",
+    "greenkeeper[bot]",
+    "codecov",
+    "codecov[bot]",
+    "snyk-bot",
+    "snyk-bot[bot]"
+  ]
+}
