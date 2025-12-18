@@ -1,7 +1,7 @@
 from django.urls import path
 from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
-from rest_framework import serializers, viewsets
+from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -78,10 +78,31 @@ class PreMatchingAppointmentViewSet(viewsets.ModelViewSet):
         if not request.user.is_staff and not request.user.state.has_extra_user_permission(
             State.ExtraUserPermissionChoices.MATCHING_USER
         ):
-            return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
+            return False, Response(
+                {"msg": "You are not allowed to access this user!"}, status=status.HTTP_401_UNAUTHORIZED
+            )
 
         if not request.user.is_staff and not request.user.state.managed_users.filter(pk=user.pk).exists():
-            return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
+            return False, Response(
+                {"msg": "You are not allowed to access this user!"}, status=status.HTTP_401_UNAUTHORIZED
+            )
+        return True, None
+
+    def check_management_user_access_for_user(self, user, request):
+        from management.models.state import State
+
+        if not request.user.is_staff and not request.user.state.has_extra_user_permission(
+            State.ExtraUserPermissionChoices.MATCHING_USER
+        ):
+            return False, Response(
+                {"msg": "You are not allowed to access this user!"}, status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        if not request.user.is_staff and not request.user.state.managed_users.filter(pk=user.pk).exists():
+            return False, Response(
+                {"msg": "You are not allowed to access this user!"}, status=status.HTTP_401_UNAUTHORIZED
+            )
+
         return True, None
 
     @action(detail=False, methods=["get"])
@@ -135,6 +156,83 @@ class PreMatchingAppointmentViewSet(viewsets.ModelViewSet):
         # Implement your resolve logic here
         return Response({"msg": "Appointment resolved"})
 
+    @extend_schema(
+        summary="Create an appointment for a user at a specific date",
+        request=inline_serializer(
+            name="CreateAppointmentForUserRequest",
+            fields={
+                "user_id": serializers.IntegerField(),
+                "start_time": serializers.DateTimeField(),
+                "end_time": serializers.DateTimeField(required=False),
+            },
+        ),
+        responses={201: PreMatchingAppointmentSerializer},
+    )
+    @action(detail=False, methods=["post"])
+    def create_appointment_for_user(self, request):
+        """
+        Create a pre-matching appointment for a specific user at a given start time.
+        If ``end_time`` is not provided it will default to one hour after ``start_time``.
+        """
+        from datetime import timedelta
+
+        from django.utils import timezone
+        from django.utils.dateparse import parse_datetime
+
+        from management.models.user import User
+
+        user_id = request.data.get("user_id")
+        start_time_raw = request.data.get("start_time")
+        end_time_raw = request.data.get("end_time")
+
+        if user_id is None or start_time_raw is None:
+            return Response(
+                {"error": "user_id and start_time are required"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({"error": "User not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        has_access, res = self.check_management_user_access_for_user(user, request)
+        if not has_access:
+            return res
+
+        # Parse datetimes
+        start_time = parse_datetime(start_time_raw) if isinstance(start_time_raw, str) else start_time_raw
+        if start_time is None:
+            return Response(
+                {"error": "start_time has the wrong format. Use YYYY-MM-DDTHH:MM:SSZ"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if end_time_raw:
+            end_time = parse_datetime(end_time_raw) if isinstance(end_time_raw, str) else end_time_raw
+            if end_time is None:
+                return Response(
+                    {"error": "end_time has the wrong format. Use YYYY-MM-DDTHH:MM:SSZ"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        else:
+            end_time = start_time + timedelta(hours=1)
+
+        # Ensure datetimes are timezone-aware
+        if timezone.is_naive(start_time):
+            start_time = timezone.make_aware(start_time, timezone.get_current_timezone())
+        if timezone.is_naive(end_time):
+            end_time = timezone.make_aware(end_time, timezone.get_current_timezone())
+
+        appointment = PreMatchingAppointment.objects.create(
+            user=user,
+            start_time=start_time,
+            end_time=end_time,
+        )
+
+        serializer = self.get_serializer(appointment)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
     def get_object(self):
         if isinstance(self.kwargs["pk"], int):
             return super().get_object()
@@ -150,6 +248,10 @@ api_urls = [
     path(
         "api/matching/prematchingappointments/filters/",
         PreMatchingAppointmentViewSet.as_view({"get": "get_filter_schema"}),
+    ),
+    path(
+        "api/matching/prematchingappointments/create_appointment_for_user/",
+        PreMatchingAppointmentViewSet.as_view({"post": "create_appointment_for_user"}),
     ),
     path("api/matching/prematchingappointments/<pk>/", PreMatchingAppointmentViewSet.as_view({"get": "retrieve"})),
     path(
