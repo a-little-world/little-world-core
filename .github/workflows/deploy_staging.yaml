@@ -205,7 +205,7 @@ jobs:
           repository: a-little-world/little-world-helm-chart
           token: ${{ secrets.BOT_PAT }}
           ref: main
-          path: little-world-backend/helm
+          path: helm
       - name: Setup Cluster Connection
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         id: cluster_connection
