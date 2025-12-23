@@ -198,6 +198,13 @@ jobs:
         with:
           version: "latest"
         id: install-kubectl
+      - name: Clone Helm Repository
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        uses: actions/checkout@main
+        with:
+          repository: a-little-world/little-world-helm-chart
+          token: ${{ secrets.BOT_PAT }}
+          path: little-world-backend/helm
       - name: Setup Cluster Connection
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         id: cluster_connection
