@@ -68,13 +68,14 @@ FRONTENDS = os.environ.get("FR_FRONTENDS", "main_frontend,admin_panel_frontend")
 MANAGEMENT_USER_MAIL = os.environ.get("DJ_MANAGEMENT_USER_MAIL", "littleworld.management@gmail.com")
 MATCHING_USER_MAIL = os.environ.get("DJ_MATCHING_USER_MAIL", "tim.timschupp+420@gmail.com")
 MATCHING_USER_PASSWORD = os.environ.get(
-    "DJ_MATCHING_USER_PASSWORD", None if IS_PROD else "Test123!" # No default on prod, just error!
+    "DJ_MATCHING_USER_PASSWORD",
+    None if IS_PROD else "Test123!",  # No default on prod, just error!
 )
 MATCHING_USER_FIRST_NAME = os.environ.get("DJ_MATCHING_USER_FIRST_NAME", "Tim")
 MATCHING_USER_SECOND_NAME = os.environ.get("DJ_MATCHING_USER_SECOND_NAME", "Schupp")
 ADMIN_OPEN_KEYPHRASE = os.environ.get(
-    "DJ_ADMIN_OPEN_KEYPHRASE", 
-    str(uuid.uuid4()) if IS_PROD else "opensesame" # random string if nothing is set in production
+    "DJ_ADMIN_OPEN_KEYPHRASE",
+    str(uuid.uuid4()) if IS_PROD else "opensesame",  # random string if nothing is set in production
 )
 DEFAULT_FROM_EMAIL = os.environ.get("DJ_SG_DEFAULT_FROM_EMAIL", "littleworld.management@gmail.com")
 EXPOSE_DEV_LOGIN = os.environ.get("DJ_EXPOSE_DEV_LOGIN", "false").lower() in ("true", "1", "t")
@@ -85,10 +86,10 @@ DOCS_URL = os.environ.get("DJ_DOCS_URL", "")
 # default use for acceing docs:
 CREATE_DOCS_USER = os.environ.get("DJ_CREATE_DOCS_USER", "false").lower() in ("true", "1", "t")
 DOCS_USER = os.environ.get("DJ_DOCS_USER", "tim+docs@little-world.com")
-DOCS_PASSWORD = os.environ.get("DJ_DOCS_PASSWORD", None if IS_PROD else "Test123!") # No default on prod, just error!
+DOCS_PASSWORD = os.environ.get("DJ_DOCS_PASSWORD", None if IS_PROD else "Test123!")  # No default on prod, just error!
 DOCS_USER_LOGIN_TOKEN = os.environ.get(
-    "DJ_DOCS_USER_LOGIN_TOKEN", 
-    None if IS_PROD else "Test123!" # No default on prod, just error!
+    "DJ_DOCS_USER_LOGIN_TOKEN",
+    None if IS_PROD else "Test123!",  # No default on prod, just error!
 )
 
 USE_DEBUG_TOOLBAR = os.environ.get("DJ_USE_DEBUG_TOOLBAR", "false").lower() in ("true", "1", "t")
