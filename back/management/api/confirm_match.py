@@ -39,7 +39,7 @@ class ConfirmMatchSerializer(DataclassSerializer):
 @authentication_classes([SessionAuthentication])
 @permission_classes([IsAuthenticated])
 def confirm_match(request):
-    # TODO Inconsisten naming this ist the accept / deny api
+    # Could be renamed to accept_reject_match or similar
     serializer = ConfirmMatchSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
 
