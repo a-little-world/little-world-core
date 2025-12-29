@@ -50,7 +50,7 @@ class ProposedMatch(models.Model):
 
     hash = models.UUIDField(default=uuid4, editable=False, unique=True)
 
-    # TODO: there are potential side effect here if users decide to change their user type after they recieved a matching suggestion!
+    # (monitor for bugs!) are there? potential side effect here? if users decide to change their user type after they recieved a matching suggestion!?
     # Maybe we should later save the users here as volunteer / learner and not perform any lookups on the current profile since it could have changed?
     user1 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="unconfirmed_match_user1")
 
@@ -143,7 +143,6 @@ class ProposedMatch(models.Model):
         learner.send_email_v2("confirm-match-1", proposed_match_id=self.id)
 
     def send_expiration_mail(self):
-        # TODO: there are very rare concurrency issues possible here right?
         # If this triggers ending a mail twice in a row very quick, could this be sending two mails then?
         if self.expired_mail_send:
             print("Expiration mail, already sent")
@@ -176,7 +175,6 @@ class ProposedMatch(models.Model):
     def get_shared_data(self, user):
         """
         Retrives all data from the other user that is allowed to be shared with the current user
-        TODO: we should ensure that this is only shared with the 'volunteer' user not the 'learner' cause the confirmation is up to the learner
         """
         other_user = self.user1 if self.user1 != user else self.user2
         current_time = timezone.now()
