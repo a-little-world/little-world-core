@@ -2,6 +2,7 @@ import base64
 import json
 import os
 from datetime import timedelta
+import uuid
 
 from corsheaders.defaults import default_headers
 from firebase_admin import credentials, initialize_app
@@ -63,16 +64,19 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = os.environ["DJ_SECRET_KEY"]
 BASE_URL = os.environ.get("DJ_BASE_URL", "http://localhost:8000")
 ALLOWED_HOSTS = os.environ.get("DJ_ALLOWED_HOSTS", "").split(",")
-FRONTENDS = os.environ["FR_FRONTENDS"].split(",")
-MANAGEMENT_USER_MAIL = os.environ["DJ_MANAGEMENT_USER_MAIL"]
+FRONTENDS = os.environ.get("FR_FRONTENDS", "main_frontend,admin_panel_frontend").split(",")
+MANAGEMENT_USER_MAIL = os.environ.get("DJ_MANAGEMENT_USER_MAIL", "littleworld.management@gmail.com")
 MATCHING_USER_MAIL = os.environ.get("DJ_MATCHING_USER_MAIL", "tim.timschupp+420@gmail.com")
 MATCHING_USER_PASSWORD = os.environ.get(
-    "DJ_MATCHING_USER_PASSWORD", "Test123!"
-)  # TODO: changed from 'DJ_TIM_MANAGEMENT_PW'
+    "DJ_MATCHING_USER_PASSWORD", None if IS_PROD else "Test123!" # No default on prod, just error!
+)
 MATCHING_USER_FIRST_NAME = os.environ.get("DJ_MATCHING_USER_FIRST_NAME", "Tim")
 MATCHING_USER_SECOND_NAME = os.environ.get("DJ_MATCHING_USER_SECOND_NAME", "Schupp")
-ADMIN_OPEN_KEYPHRASE = os.environ["DJ_ADMIN_OPEN_KEYPHRASE"]  # TODO: convert to .get()
-DEFAULT_FROM_EMAIL = os.environ["DJ_SG_DEFAULT_FROM_EMAIL"]  # TODO: convert to .get()
+ADMIN_OPEN_KEYPHRASE = os.environ.get(
+    "DJ_ADMIN_OPEN_KEYPHRASE", 
+    str(uuid.uuid4()) if IS_PROD else "opensesame" # random string if nothing is set in production
+)
+DEFAULT_FROM_EMAIL = os.environ.get("DJ_SG_DEFAULT_FROM_EMAIL", "littleworld.management@gmail.com")
 EXPOSE_DEV_LOGIN = os.environ.get("DJ_EXPOSE_DEV_LOGIN", "false").lower() in ("true", "1", "t")
 USE_MQ_AS_BROKER = os.environ.get("DJ_USE_MQ_AS_BROKER", "false").lower() in ("true", "1", "t")
 
@@ -81,8 +85,11 @@ DOCS_URL = os.environ.get("DJ_DOCS_URL", "")
 # default use for acceing docs:
 CREATE_DOCS_USER = os.environ.get("DJ_CREATE_DOCS_USER", "false").lower() in ("true", "1", "t")
 DOCS_USER = os.environ.get("DJ_DOCS_USER", "tim+docs@little-world.com")
-DOCS_PASSWORD = os.environ.get("DJ_DOCS_PASSWORD", "Test123!")
-DOCS_USER_LOGIN_TOKEN = os.environ.get("DJ_DOCS_USER_LOGIN_TOKEN", "Test123!")
+DOCS_PASSWORD = os.environ.get("DJ_DOCS_PASSWORD", None if IS_PROD else "Test123!") # No default on prod, just error!
+DOCS_USER_LOGIN_TOKEN = os.environ.get(
+    "DJ_DOCS_USER_LOGIN_TOKEN", 
+    None if IS_PROD else "Test123!" # No default on prod, just error!
+)
 
 USE_DEBUG_TOOLBAR = os.environ.get("DJ_USE_DEBUG_TOOLBAR", "false").lower() in ("true", "1", "t")
 
@@ -122,7 +129,9 @@ MATOMO_URL = os.environ.get("DJ_MATOMO_URL", "")
 
 if IS_PROD and "K8_POD_IP" in os.environ:
     # So that we can further restrict access to the depoloyment kubernetes node
-    ALLOWED_HOSTS.append(os.environ["K8_POD_IP"])
+    K8_POD_IP = os.environ.get("K8_POD_IP", None)
+    if K8_POD_IP is not None:
+        ALLOWED_HOSTS.append(K8_POD_IP)
 
 
 USE_SLACK_INTEGRATION = os.environ.get("DJ_USE_SLACK_INTEGRATION", "false").lower() in ("true", "1", "t")
@@ -574,7 +583,7 @@ ASGI_APPLICATION = "back.asgi.application"
 Some settings for celery
 CELERY_RESULT_EXTENDED is imporant for celery results to correctly display in db admin panel
 """
-CELERY_TIMEZONE = os.environ["DJ_CELERY_TIMEZONE"]
+CELERY_TIMEZONE = os.environ.get("DJ_CELERY_TIMEZONE", "Europe/Berlin")
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERY_RESULT_EXTENDED = True
@@ -930,7 +939,7 @@ JAZZMIN_SETTINGS = {
     # I'm pretty sure we can just load react avatar js here and render profile images / avatars
     "custom_js": None,
     # Whether to link font from fonts.googleapis.com (use custom_css to supply font otherwise)
-    "use_google_fonts_cdn": True,  # TODO: we don't want his
+    "use_google_fonts_cdn": True,  # TODO: we this shall be removed ( only used in mangement pannel not by all users! and not by main frontend! )
     "show_ui_builder": False,
 }
 
