@@ -3,11 +3,11 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 from back.utils import CoolerJson, transform_add_options_serializer
-from django_rest_passwordreset.serializers import ResetTokenSerializer
 from django.conf import settings
 from django.shortcuts import redirect, render
 from django.utils import translation
 from django.views import View
+from django_rest_passwordreset.serializers import ResetTokenSerializer
 from rest_framework import serializers, status
 from rest_framework.request import Request
 from translations import get_translation
