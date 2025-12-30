@@ -11,6 +11,7 @@ from . import (
     banner,
     community_events,
     help_message,
+    issue_report,
     management_tasks,
     matches,
     news_and_updates,
@@ -54,4 +55,5 @@ __all__ = [
     "newsletter",
     "stats",
     "short_links",
+    "issue_report",
 ]

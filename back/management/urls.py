@@ -22,6 +22,7 @@ from management.api import (
     profile,
     push_notifications,
     register,
+    report_issue,
     report_unmatch,
     scores_advanced,
     slack,
@@ -133,7 +134,8 @@ api_routes = [
     ),
     path("api/user/login/", user.LoginApi.as_view()),
     *api_urls_native_auth,
-    path("api/matching/report/", report_unmatch.report),
+    path("api/matching/report/", report_issue.report),
+    path("api/matching/report_match/", report_unmatch.report),
     path("api/matching/unmatch/", report_unmatch.unmatch),
     *(
         [path("api/devlogin/", developers.DevLoginAPI.as_view())]  # Dev login only to be used in staging!
