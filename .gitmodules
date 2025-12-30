@@ -19,3 +19,6 @@
 [submodule ".cursor"]
 	path = .cursor
 	url = https://github.com/a-little-world/little-world-backend-cursor-rules
+[submodule "front/apps/admin_panel_frontend"]
+	path = front/apps/admin_panel_frontend
+	url = https://github.com/a-little-world/little-world-management-panel
