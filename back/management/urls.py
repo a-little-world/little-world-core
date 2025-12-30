@@ -134,7 +134,7 @@ api_routes = [
     ),
     path("api/user/login/", user.LoginApi.as_view()),
     *api_urls_native_auth,
-    path("api/matching/report/", report_issue.report),
+    path("api/matching/report_issue/", report_issue.report),
     path("api/matching/report_match/", report_unmatch.report),
     path("api/matching/unmatch/", report_unmatch.unmatch),
     *(
