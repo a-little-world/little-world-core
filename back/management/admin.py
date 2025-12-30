@@ -60,7 +60,13 @@ class BackendStateAdmin(admin.ModelAdmin):
 class IssueReportAdmin(admin.ModelAdmin):
     list_display = ("id", "reporting_user", "reported_user", "kind", "reason", "keywords", "created_at")
     list_filter = ("kind", "created_at")
-    search_fields = ("reason", "reporting_user__email", "reporting_user__hash", "reported_user__email", "reported_user__hash")
+    search_fields = (
+        "reason",
+        "reporting_user__email",
+        "reporting_user__hash",
+        "reported_user__email",
+        "reported_user__hash",
+    )
     readonly_fields = ("created_at",)
     ordering = ("-created_at",)
 

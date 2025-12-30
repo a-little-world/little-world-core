@@ -67,4 +67,3 @@ def report(request):
     slack_notify_communication_channel_async.delay(slack_message)
 
     return Response({"id": reported_issue.id, "message": "Issue reported successfully"}, status=status.HTTP_201_CREATED)
-

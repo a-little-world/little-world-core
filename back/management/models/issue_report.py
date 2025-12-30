@@ -24,4 +24,3 @@ class IssueReport(models.Model):
 
     def __str__(self):
         return f"IssueReport {self.id}: {self.kind} by {self.reporting_user.hash[:8]}"
-
