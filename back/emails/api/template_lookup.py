@@ -54,7 +54,7 @@ def reset_password_url(user=None, match=None, context={"reset_password_url": "No
 def confirm_in_contact_url(user, match):
     assert (user == match.user1) or (user == match.user2)
     # return f"{settings.BASE_URL}/login?next=/app/"
-    raise NotImplementedError("correct link")
+    return "not_implemented"
 
 
 def user_form_url(user):
@@ -195,7 +195,7 @@ def still_in_contact_yes_url(user, match, **kwargs):
     """
     # base_url = settings.BASE_URL
     # return f"{base_url}/still-in-contact/yes/{match.id}?token={token}"
-    raise NotImplementedError("generate_token_for_user(user_id)")
+    return "not_implemented"
 
 
 def still_in_contact_no_url(user, match, **kwargs):
@@ -204,7 +204,7 @@ def still_in_contact_no_url(user, match, **kwargs):
     """
     # base_url = settings.BASE_URL
     # return f"{base_url}/still-in-contact/no/{match.id}?token={token}"
-    raise NotImplementedError("generate_token_for_user(user_id)")
+    return "not_implemented"
 
 
 def latest_completed_match_first_name(user):
