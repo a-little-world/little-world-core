@@ -7,6 +7,7 @@ from django.conf import settings
 from django.shortcuts import redirect, render
 from django.utils import translation
 from django.views import View
+from django_rest_passwordreset.serializers import ResetTokenSerializer
 from rest_framework import serializers, status
 from rest_framework.request import Request
 from translations import get_translation
@@ -223,9 +224,7 @@ class SetPasswordResetSerializer(serializers.Serializer):
 
 
 def set_password_reset(request, **kwargs):
-    # TODO: this url should only be opened with a valid token, otherwise this should error!
-    from django_rest_passwordreset.serializers import ResetTokenSerializer
-
+    # can only be opened with a valid token, ensured by reset token serializer
     serializer = SetPasswordResetSerializer(
         data={"usr_hash": kwargs.get("usr_hash", None), "token": kwargs.get("token", None)}
     )  # type: ignore

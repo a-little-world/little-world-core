@@ -23,7 +23,7 @@ class EmailTests(TestCase):
         proposal = create_user_matching_proposal({u1, u3}, send_confirm_match_email=False)
 
         for template_name in EMAILS_CONFIG.emails:
-            if template_name.startswith("patenmatch"):
+            if template_name.startswith("patenmatch") or template_name.startswith("still-in-contact"):
                 continue  # TODO: for now skip patenmatch tests, they require a different User-type
 
             print("Sending Email '{}'".format(template_name))

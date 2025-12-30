@@ -122,7 +122,6 @@ def unsubscribe_email(request):
 def unsubscribe_link(request):
     """
     A unsubscribe link that can be acessed by email settings hash rather than being signed in
-    TODO: do this need aditional security? can anyone brute force uuids?
     localhost:8000/api/emails/toggle_sub/?choice=False&unsubscribe_type=interview_requests&settings_hash=b489fcb7-ca4c-436a-9634-b87edc50e79e
     """
     serializer = UnsubscribeParamsLinkSerializer(data=request.query_params)
