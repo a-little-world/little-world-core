@@ -107,7 +107,6 @@ def _verify_play_integrity_token(integrity_token: str, request_hash: str) -> boo
         if len(token_segments) == 1:
             # Single segment - opaque token that must be verified via Google Play Integrity API
             _dbg("[DEBUG] Token appears to be opaque format - verifying via Google Play Integrity API")
-            # TODO: implement fallback for graphene devices!
             _dbg("[DEBUG] Using secure Play Integrity API verification")
             return _verify_play_integrity_token_via_api(integrity_token, request_hash)
         else:
@@ -185,7 +184,8 @@ def _verify_play_integrity_token_via_api(integrity_token: str, request_hash: str
                 _dbg("[ERROR] App integrity UNEVALUATED and fallback not enabled")
                 return False
 
-            # TODO: in the future, implement actual device attestation verification here ( allows devices like grapheneOS to also log-in )
+            # A glag can allow 'UNEVALUTED' devices ( like grapheneOS ) to login if they are able to pass the chellenge
+            # This can be should be updated in the future by implementing deveice attestation ( allso would allow new stores as download sources in the future )
             _dbg("[INFO] App integrity UNEVALUATED - using device attestation fallback (request hash already verified)")
             _dbg("[SUCCESS] UNEVALUATED device verification passed via device attestation fallback")
             return True
@@ -195,8 +195,6 @@ def _verify_play_integrity_token_via_api(integrity_token: str, request_hash: str
             _dbg(f"[ERROR] App not recognized by Play: {app_recognition_verdict}")
             return False
 
-        # Validate device integrity
-        # TODO: add a simple fallback for graphene! Here integrity will not pass!
         device_integrity = token_payload.get("deviceIntegrity", {})
         device_recognition_verdicts = device_integrity.get("deviceRecognitionVerdict", [])
 

@@ -1,0 +1,46 @@
+name: sync_mirror
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync_mirror:
+    runs-on: ubuntu-latest
+    name: Sync repository mirror
+    steps:
+      - name: Checkout source repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.BOT_PAT }}
+
+      - name: Configure git
+        run: |
+          git config user.name "littleworld-bot"
+          git config user.email "littleworld-bot@users.noreply.github.com"
+
+      - name: Remove .github folder from all branches
+        run: |
+          # Remove .github from all branches using git filter-branch
+          git filter-branch --force --index-filter \
+            "git rm -rf --cached --ignore-unmatch .github" \
+            --prune-empty --tag-name-filter cat -- --all
+
+      - name: Clean up filter-branch backups
+        run: |
+          rm -rf .git/refs/original/
+          git reflog expire --expire=now --all
+          git gc --prune=now --aggressive
+
+      - name: Add target repository as remote
+        run: |
+          git remote add mirror https://${{ secrets.BOT_PAT }}@github.com/a-little-world/little-world-core-oss-test.git || true
+          git remote set-url mirror https://${{ secrets.BOT_PAT }}@github.com/a-little-world/little-world-core-oss-test.git
+
+      - name: Push to mirror repository
+        run: |
+          git push --mirror --force mirror
+

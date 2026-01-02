@@ -586,9 +586,6 @@ def send_sms_background(self, user_hash, message):
         raise  # Re-raise to mark task as failed
 
 
-# TODO: re-implement @Sungsoo's 'def kill_livekit_room(room, session_id, matching_id, chat_id):'
-
-
 @shared_task
 def automatic_emails_u023_u024_u025():
     """

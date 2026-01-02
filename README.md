@@ -47,8 +47,9 @@ You should have received a copy of the GNU Lesser General Public License along w
 
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
-<sub>Contributors must sign our [Contributor License Agreement (CLA)](CLA.md) before contributions can be accepted.</sub>
+<sub>Contributors must sign our [Contributor License Agreement (CLA)](dev/CLA.md) before contributions can be accepted.</sub>
 
 ---
 
 **Looking for the internal developer documentation? [It moved here](https://github.com/a-little-world/little-world-backend-docs)**
+If you want to contribute we will happily invite you to our development repos, they also contain ephemeral environments and ci-tests.
