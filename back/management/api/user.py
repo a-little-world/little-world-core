@@ -368,7 +368,7 @@ class ChangeEmailApi(APIView):
             if email_exists:
                 raise serializers.ValidationError(
                     {
-                        "email":  # TODO: now we are exposing us to email enumeration this APIView should be throttled!
+                        "email":  # future: throttle this APIView to pre-vent email enumeration?
                         get_translation("api.user.change_email_failed_email_exists").format(email=params.email)
                     }
                 )

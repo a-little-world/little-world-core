@@ -10,7 +10,6 @@ from management.api import (
     community_events,
     confirm_match,
     cookies,
-    developers,
     email_settings,
     firebase,
     help,
@@ -137,11 +136,6 @@ api_routes = [
     path("api/matching/report_issue/", report_issue.report),
     path("api/matching/report_match/", report_unmatch.report),
     path("api/matching/unmatch/", report_unmatch.unmatch),
-    *(
-        [path("api/devlogin/", developers.DevLoginAPI.as_view())]  # Dev login only to be used in staging!
-        if (settings.IS_STAGE or settings.IS_DEV or settings.EXPOSE_DEV_LOGIN)
-        else []
-    ),
     path("api/user/logout/", user.LogoutApi.as_view()),
     path("api/user/checkpw/", user.CheckPasswordApi.as_view()),
     path("api/user/changepw/", user.ChangePasswordApi.as_view()),
