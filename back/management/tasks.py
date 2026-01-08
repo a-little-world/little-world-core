@@ -557,7 +557,7 @@ def hourly_check_banner_activation():
     return bc
 
 
-@shared_task(autoretry_for=(), retry_kwargs={"max_retries": 0}, reject_on_worker_lost=True, acks_late=False, bind=True)
+@shared_task(autoretry_for=(), retry_kwargs={"max_retries": 0}, reject_on_worker_lost=True, acks_late=False, bind=True, expires=300, time_limit=300)
 def send_sms_background(self, user_hash, message):
     """
     Send SMS background task that never retries on failure.
