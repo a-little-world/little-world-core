@@ -61,6 +61,7 @@ class CoreConsumer(AsyncWebsocketConsumer):
                 # as they are matched to Thousands of users
                 # For the matching / staff users to still be able to join channls of specific matches,
                 # they can join the socket from a channel route e.g.: `/ws/core/<int:match_id>/`
+                # NOTE: users can still see that the staff is online, they just have to wait for their client to re-fecth
                 matching_or_staff = await is_staff_or_matching(self.user)
                 if matching_or_staff:
                     # check if a specific group to join was specified
