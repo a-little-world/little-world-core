@@ -15,7 +15,6 @@ from chat.consumers.messages import (
     PostCallSurvey,
     PreMatchingAppointmentBooked,
 )
-
 from django.conf import settings
 
 UNAUTH_REJECT_CODE: int = 4001
