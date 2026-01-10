@@ -16,9 +16,13 @@ from chat.consumers.messages import (
     PreMatchingAppointmentBooked,
 )
 
+from django.conf import settings
+
 UNAUTH_REJECT_CODE: int = 4001
 
 PERFORMANCE_RESTRICTON_STAFF = False
+if settings.WEBSOCKET_PERFORMANCE_RESTRICTON_STAFF:
+    PERFORMANCE_RESTRICTON_STAFF = True
 
 
 class CoreConsumer(AsyncWebsocketConsumer):
@@ -83,6 +87,13 @@ class CoreConsumer(AsyncWebsocketConsumer):
             print(f"{self.user} disconnected, with code {close_code}", flush=True)
             # we mark the user as 'offline' in the database
             await disconnect_user(self.user)
+
+            if PERFORMANCE_RESTRICTON_STAFF:
+                matching_or_staff = await is_staff_or_matching(self.user)
+                if matching_or_staff:
+                    # Just discard the user and don't notify anyone
+                    await self.channel_layer.group_discard(self.group_name, self.channel_name)
+                    return
 
             # then we notify all the other users that this user went offline
             user_ids = await get_all_chat_user_ids(self.user)
