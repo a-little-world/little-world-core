@@ -4,8 +4,9 @@
 
 if [ "$USE_LECACY_CONFIG" = "false" ]; then
 if [ "$START_UVICORN" = "true" ]; then
+    AMNT_WORKERS=${UVICORN_WORKERS:-1}
     python3 manage.py shell --command 'from management.controller import create_base_admin_and_add_standart_db_values; create_base_admin_and_add_standart_db_values()'
-    uvicorn back.asgi:application --port 8000 --host 0.0.0.0
+    uvicorn back.asgi:application --port 8000 --host 0.0.0.0 --workers $AMNT_WORKERS
 fi
 
 if [ "$START_CELERY_WORKER" = "true" ]; then
