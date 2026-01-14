@@ -56,32 +56,30 @@ class BackendStateAdmin(admin.ModelAdmin):
     list_display = ("slug", "name", "hash", "meta", "created_at")
 
 
-@admin.register(models.issue_report.IssueReport)
-class IssueReportAdmin(admin.ModelAdmin):
-    list_display = ("id", "reporting_user", "reported_user", "kind", "reason", "keywords", "created_at")
-    list_filter = ("kind", "created_at")
-    search_fields = (
-        "reason",
-        "reporting_user__email",
-        "reporting_user__hash",
-        "reported_user__email",
-        "reported_user__hash",
-    )
-    readonly_fields = ("created_at",)
-    ordering = ("-created_at",)
-
-
 @admin.register(models.help_message.HelpMessage)
 class HelpMessageStateAdmin(admin.ModelAdmin):
     list_display = (
         "user",
+        "kind",
+        "reported_user",
         "message",
+        "keywords",
+        "origin",
         "created_at",
         "hash",
         "attachment1_links",
         "attachment2_links",
         "attachment3_links",
     )
+    list_filter = ("kind", "created_at", "origin")
+    search_fields = (
+        "message",
+        "user__email",
+        "user__hash",
+        "reported_user__email",
+        "reported_user__hash",
+    )
+    readonly_fields = ("created_at",)
 
     def attachment1_links(self, obj):
         return self._get_attachment_links(obj, "attachment1")
