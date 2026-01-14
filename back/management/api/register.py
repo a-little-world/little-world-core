@@ -150,7 +150,7 @@ class Register(APIView):
     Register a user by post request
     """
 
-    authentication_classes = []  # No authentication required, TODO: cors should still be enabled right?
+    authentication_classes = []  # No authentication required, only cors checks
     permission_classes = []  # Everyone can acess this api
     required_args = ["email", "first_name", "second_name", "password1", "password2", "birth_year"]
 
@@ -175,7 +175,7 @@ class RegisterAndroid(APIView):
     Register a user by post request
     """
 
-    authentication_classes = []  # No authentication required, TODO: cors should still be enabled right?
+    authentication_classes = []  # No authentication required, only cors checks
     permission_classes = []  # Everyone can acess this api
     required_args = ["email", "first_name", "second_name", "password1", "password2", "birth_year"]
 
@@ -208,7 +208,7 @@ class RegisterIOS(APIView):
     Register a user by post request
     """
 
-    authentication_classes = []  # No authentication required, TODO: cors should still be enabled right?
+    authentication_classes = []  # No authentication required, only cors checks
     permission_classes = []  # Everyone can acess this api
     required_args = ["email", "first_name", "second_name", "password1", "password2", "birth_year"]
 
@@ -240,14 +240,6 @@ def common_register(request, registration_data):
     usr = controller.create_user(
         **{k: getattr(registration_data, k) for k in registration_data.__annotations__}, send_verification_mail=True
     )
-
-    if settings.IS_PROD:
-        from ..tasks import dispatch_admin_email_notification
-
-        dispatch_admin_email_notification.delay(
-            "New user registered",
-            f"{registration_data.email}, {registration_data.first_name}, {registration_data.second_name}, {registration_data.birth_year}",
-        )
 
     login(request, usr)
 

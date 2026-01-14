@@ -163,6 +163,7 @@ class State(models.Model):
             "uncensored-admin-matcher",
             _("Is allowed to match users without censorship"),
         )
+        USE_BETA_RANDOM_CALL = "use-beta-random-call", _("Is allowed to use the beta random call")
 
     extra_user_permissions = MultiSelectField(
         max_length=8000,
@@ -353,6 +354,9 @@ class State(models.Model):
                 )
             )
         ).decode()
+
+    def had_prematching_call_status(self):
+        return self.had_prematching_call
 
     @classmethod
     def decode_email_auth_code_b64(cls, str_b64):

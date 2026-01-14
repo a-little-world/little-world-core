@@ -7,6 +7,7 @@ from django.conf import settings
 from django.shortcuts import redirect, render
 from django.utils import translation
 from django.views import View
+from django_rest_passwordreset.serializers import ResetTokenSerializer
 from rest_framework import serializers, status
 from rest_framework.request import Request
 from translations import get_translation
@@ -40,6 +41,17 @@ class MainFrontendParamsSerializer(serializers.Serializer):
         return MainFrontendParams(**validated_data)
 
 
+DATA_OPTIONS = None
+
+
+def get_cached_data_options():
+    global DATA_OPTIONS
+    ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
+    if DATA_OPTIONS is None:
+        DATA_OPTIONS = ProfileWOptions(get_base_management_user().profile).data["options"]
+    return DATA_OPTIONS
+
+
 class MainFrontendRouter(View):
     # react frontend public paths
     PUBLIC_PATHS = ["login", "sign-up", "forgot-password", "reset-password", "email-preferences"]
@@ -59,7 +71,6 @@ class MainFrontendRouter(View):
             if (not settings.USE_LANDINGPAGE_REDIRECT)
             else settings.LANDINGPAGE_REDIRECT_URL
         )
-        ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
 
         if not request.user.is_authenticated:
             if any([path.startswith(p) for p in self.PUBLIC_PATHS]):
@@ -70,11 +81,7 @@ class MainFrontendRouter(View):
                     "main_frontend.html",
                     {
                         "user": json.dumps({}),
-                        "api_options": json.dumps(
-                            {
-                                "profile": ProfileWOptions(get_base_management_user().profile).data["options"],
-                            }
-                        ),
+                        "api_options": json.dumps({"profile": get_cached_data_options()}),
                         **cookie_context,
                     },
                 )
@@ -122,7 +129,7 @@ class MainFrontendRouter(View):
                 "user": json.dumps(user_data, cls=CoolerJson),
                 "api_options": json.dumps(
                     {
-                        "profile": ProfileWOptions(request.user.profile).data["options"],
+                        "profile": get_cached_data_options(),
                     }
                 ),
                 **extra_template_data,
@@ -223,9 +230,7 @@ class SetPasswordResetSerializer(serializers.Serializer):
 
 
 def set_password_reset(request, **kwargs):
-    # TODO: this url should only be opened with a valid token, otherwise this should error!
-    from django_rest_passwordreset.serializers import ResetTokenSerializer
-
+    # can only be opened with a valid token, ensured by reset token serializer
     serializer = SetPasswordResetSerializer(
         data={"usr_hash": kwargs.get("usr_hash", None), "token": kwargs.get("token", None)}
     )  # type: ignore

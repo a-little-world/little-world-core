@@ -40,5 +40,11 @@
     "**/dist/**": true,
     "**/static/**": true,
     "**/venv/**": true,
-  }
+  },
+  "editor.semanticHighlighting.enabled": true,
+  "basedpyright.analysis.ignore": ["*"],
+  "basedpyright.analysis.inlayHints.variableTypes": false,
+  "basedpyright.analysis.inlayHints.functionReturnTypes": false,
+  "basedpyright.analysis.inlayHints.callArgumentNames": false,
+  "basedpyright.analysis.inlayHints.genericTypes": false
 }

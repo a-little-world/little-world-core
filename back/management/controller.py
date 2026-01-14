@@ -421,10 +421,8 @@ def get_base_management_user():
     """
     Always returns the BASE_MANAGEMENT_USER user
     """
-
-    TIM_MANAGEMENT_USER_MAIL = "tim.timschupp+420@gmail.com"
     try:
-        return get_user_by_email(TIM_MANAGEMENT_USER_MAIL)
+        return get_user_by_email(settings.MATCHING_USER_MAIL)
     except UserNotFoundErr:
         return create_base_admin_and_add_standart_db_values()
 
@@ -483,23 +481,22 @@ def create_base_admin_and_add_standart_db_values():
         print("Base Admin User: Newly created!")
 
     def update_profile():
-        usr_tim = get_user_by_email(TIM_MANAGEMENT_USER_MAIL)
+        usr_tim = get_user_by_email(settings.MATCHING_USER_MAIL)
         usr_tim.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.MATCHING_USER)
         usr_tim.state.email_authenticated = True
         usr_tim.state.save()
         usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
 
     # Tim Schupp is the new base admin user, we will now create a match with hin instead:
-    TIM_MANAGEMENT_USER_MAIL = "tim.timschupp+420@gmail.com"
     try:
-        usr_tim = get_user_by_email(TIM_MANAGEMENT_USER_MAIL)
+        usr_tim = get_user_by_email(settings.MATCHING_USER_MAIL)
     except UserNotFoundErr:
         usr_tim = User.objects.create_user(
-            email="tim.timschupp+420@gmail.com",
-            username="tim.timschupp+420@gmail.com",
-            password=os.environ["DJ_TIM_MANAGEMENT_PW"],
-            first_name="Tim",
-            last_name="Schupp",
+            email=settings.MATCHING_USER_MAIL,
+            username=settings.MATCHING_USER_MAIL,
+            password=settings.MATCHING_USER_PASSWORD,
+            first_name=settings.MATCHING_USER_FIRST_NAME,
+            last_name=settings.MATCHING_USER_SECOND_NAME,
         )
         print(f"Base Management user {usr_tim.email} newly created!")
 
@@ -516,6 +513,10 @@ def create_base_admin_and_add_standart_db_values():
     fill_base_management_user_tim_profile.delay()
 
     get_or_create_default_docs_user()
+
+    from video.tasks import create_default_random_call_lobby
+
+    create_default_random_call_lobby.delay()
 
     return usr_tim
 

@@ -1,9 +1,18 @@
 import base64
 import json
 import os
+import uuid
+from datetime import timedelta
 
 from corsheaders.defaults import default_headers
 from firebase_admin import credentials, initialize_app
+
+DEBUG = os.environ["DJ_DEBUG"].lower() in ("true", "1", "t")
+
+if DEBUG:
+    import django_stubs_ext
+
+    django_stubs_ext.monkeypatch()
 
 
 def get_base64_env(env_name):
@@ -53,13 +62,22 @@ USE_AUTO_RELOAD = os.environ.get("DJ_USE_AUTO_RELOAD", "false").lower() in ("tru
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = os.environ["DJ_SECRET_KEY"]
-DEBUG = os.environ["DJ_DEBUG"].lower() in ("true", "1", "t")
 BASE_URL = os.environ.get("DJ_BASE_URL", "http://localhost:8000")
 ALLOWED_HOSTS = os.environ.get("DJ_ALLOWED_HOSTS", "").split(",")
-FRONTENDS = os.environ["FR_FRONTENDS"].split(",")
-MANAGEMENT_USER_MAIL = os.environ["DJ_MANAGEMENT_USER_MAIL"]
-ADMIN_OPEN_KEYPHRASE = os.environ["DJ_ADMIN_OPEN_KEYPHRASE"]
-DEFAULT_FROM_EMAIL = os.environ["DJ_SG_DEFAULT_FROM_EMAIL"]
+FRONTENDS = os.environ.get("FR_FRONTENDS", "main_frontend,admin_panel_frontend").split(",")
+MANAGEMENT_USER_MAIL = os.environ.get("DJ_MANAGEMENT_USER_MAIL", "littleworld.management@gmail.com")
+MATCHING_USER_MAIL = os.environ.get("DJ_MATCHING_USER_MAIL", "tim.timschupp+420@gmail.com")
+MATCHING_USER_PASSWORD = os.environ.get(
+    "DJ_MATCHING_USER_PASSWORD",
+    None if IS_PROD else "Test123!",  # No default on prod, just error!
+)
+MATCHING_USER_FIRST_NAME = os.environ.get("DJ_MATCHING_USER_FIRST_NAME", "Tim")
+MATCHING_USER_SECOND_NAME = os.environ.get("DJ_MATCHING_USER_SECOND_NAME", "Schupp")
+ADMIN_OPEN_KEYPHRASE = os.environ.get(
+    "DJ_ADMIN_OPEN_KEYPHRASE",
+    str(uuid.uuid4()) if IS_PROD else "opensesame",  # random string if nothing is set in production
+)
+DEFAULT_FROM_EMAIL = os.environ.get("DJ_SG_DEFAULT_FROM_EMAIL", "littleworld.management@gmail.com")
 EXPOSE_DEV_LOGIN = os.environ.get("DJ_EXPOSE_DEV_LOGIN", "false").lower() in ("true", "1", "t")
 USE_MQ_AS_BROKER = os.environ.get("DJ_USE_MQ_AS_BROKER", "false").lower() in ("true", "1", "t")
 
@@ -68,8 +86,11 @@ DOCS_URL = os.environ.get("DJ_DOCS_URL", "")
 # default use for acceing docs:
 CREATE_DOCS_USER = os.environ.get("DJ_CREATE_DOCS_USER", "false").lower() in ("true", "1", "t")
 DOCS_USER = os.environ.get("DJ_DOCS_USER", "tim+docs@little-world.com")
-DOCS_PASSWORD = os.environ.get("DJ_DOCS_PASSWORD", "Test123!")
-DOCS_USER_LOGIN_TOKEN = os.environ.get("DJ_DOCS_USER_LOGIN_TOKEN", "Test123!")
+DOCS_PASSWORD = os.environ.get("DJ_DOCS_PASSWORD", None if IS_PROD else "Test123!")  # No default on prod, just error!
+DOCS_USER_LOGIN_TOKEN = os.environ.get(
+    "DJ_DOCS_USER_LOGIN_TOKEN",
+    None if IS_PROD else "Test123!",  # No default on prod, just error!
+)
 
 USE_DEBUG_TOOLBAR = os.environ.get("DJ_USE_DEBUG_TOOLBAR", "false").lower() in ("true", "1", "t")
 
@@ -80,6 +101,10 @@ TWILIO_API_SECRET = os.environ.get("DJ_TWILIO_API_SECRET", "")
 TWILIO_AUTH_TOKEN = os.environ.get("DJ_TWILIO_AUTH_TOKEN", "")
 EXTERNAL_S3 = os.environ.get("DJ_EXTERNAL_S3", "false").lower() in ("true", "1", "t")
 PREMATCHING_CALL_JOIN_LINK = os.environ.get("PREMATCHING_CALL_JOIN_LINK", None)
+
+WEBSOCKET_PERFORMANCE_RESTRICTON_STAFF = os.environ.get(
+    "DJ_WEBSOCKET_PERFORMANCE_RESTRICTON_STAFF", "false"
+).lower() in ("true", "1", "t")
 
 DISABLE_SMS_SENDING = os.environ.get("DJ_DISABLE_SMS_SENDING", "true").lower() in ("true", "1", "t")
 
@@ -109,7 +134,9 @@ MATOMO_URL = os.environ.get("DJ_MATOMO_URL", "")
 
 if IS_PROD and "K8_POD_IP" in os.environ:
     # So that we can further restrict access to the depoloyment kubernetes node
-    ALLOWED_HOSTS.append(os.environ["K8_POD_IP"])
+    K8_POD_IP = os.environ.get("K8_POD_IP", None)
+    if K8_POD_IP is not None:
+        ALLOWED_HOSTS.append(K8_POD_IP)
 
 
 USE_SLACK_INTEGRATION = os.environ.get("DJ_USE_SLACK_INTEGRATION", "false").lower() in ("true", "1", "t")
@@ -126,6 +153,8 @@ AI_OPENAI_API_KEY = os.environ.get("DJ_AI_OPENAI_API_KEY", "none")
 
 GOOGLE_CLOUD_CREDENTIALS = get_base64_env("DJ_GOOGLE_CLOUD_CREDENTIALS")
 GOOGLE_CLOUD_CREDENTIALS_ANDROID_INTEGRITY = get_base64_env("DJ_GOOGLE_CLOUD_CREDENTIALS_ANDROID_INTEGRITY")
+
+SLACK_SECURITY_REPORT_CHANNEL_ID = os.environ.get("DJ_SLACK_SECURITY_REPORT_CHANNEL_ID", "")
 
 # DeepL Translation API
 DEEPL_API_KEY = os.environ.get("DJ_DEEPL_API_KEY", None)
@@ -561,7 +590,7 @@ ASGI_APPLICATION = "back.asgi.application"
 Some settings for celery
 CELERY_RESULT_EXTENDED is imporant for celery results to correctly display in db admin panel
 """
-CELERY_TIMEZONE = os.environ["DJ_CELERY_TIMEZONE"]
+CELERY_TIMEZONE = os.environ.get("DJ_CELERY_TIMEZONE", "Europe/Berlin")
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERY_RESULT_EXTENDED = True
@@ -711,6 +740,7 @@ DATABASES = (
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": os.path.join(BASE_DIR, "db.sqlite3"),
+            "OPTIONS": {"timeout": 10},
         }
     }
     if ((IS_DEV and ("DJ_DATABASE_ENGINE" not in os.environ)) or USE_SQLITE)
@@ -722,10 +752,12 @@ DATABASES = (
             "PASSWORD": os.environ["DJ_DATABASE_PASSWORD"],
             "HOST": os.environ["DJ_DATABASE_HOST"],
             "PORT": os.environ["DJ_DATABASE_PORT"],
-            "OPTIONS": {}
+            "OPTIONS": {"timeout": 10}
             if (os.environ.get("DJ_DATABASE_DISABLE_SSL", "false").lower() in ("true", "t", "0"))
             else {"sslmode": "require"},
-            # 'CONN_MAX_AGE': 10,
+            "CONN_MAX_AGE": int(os.environ.get("DJ_DATABASE_CONN_MAX_AGE", "600")),
+            "CONN_HEALTH_CHECKS": os.environ.get("DJ_DATABASE_CONN_HEALTH_CHECKS", "true").lower()
+            in ("true", "1", "t"),
         },
     }
 )
@@ -855,7 +887,7 @@ JAZZMIN_SETTINGS = {
     "site_icon": None,
     "welcome_sign": "Waddup greetings fellow admin :)",
     "copyright": "Tim Schupp, A Little World gUG",
-    "search_model": ["auth.User", "auth.Group"],
+    "search_model": ["management.User", "auth.Group"],
     # Field name on user model that contains avatar ImageField/URLField/Charfield or a callable that receives the user
     "user_avatar": None,
     "topmenu_links": [
@@ -889,7 +921,6 @@ JAZZMIN_SETTINGS = {
     "custom_links": {},
     "icons": {
         "auth": "fas fa-users-cog",
-        "auth.user": "fas fa-user",
         "auth.Group": "fas fa-users",
         "emails.EmailLog": "fas fa-envelope",
         "cookie_consent.Cookie": "fas fa-cookie",
@@ -916,7 +947,7 @@ JAZZMIN_SETTINGS = {
     # I'm pretty sure we can just load react avatar js here and render profile images / avatars
     "custom_js": None,
     # Whether to link font from fonts.googleapis.com (use custom_css to supply font otherwise)
-    "use_google_fonts_cdn": True,  # TODO: we don't want his
+    "use_google_fonts_cdn": True,  # TODO: we this shall be removed ( only used in mangement pannel not by all users! and not by main frontend! )
     "show_ui_builder": False,
 }
 
@@ -941,4 +972,24 @@ except Exception as e:
     print("ERROR INITIALIZING FIREBASE APP", e)
 
 
-SIMPLE_JWT = {"ROTATE_REFRESH_TOKENS": True}
+SIMPLE_JWT_TOKEN_LIFETIME_MINUTES = int(os.environ.get("DJ_SIMPLE_JWT_TOKEN_LIFETIME_MINUTES", "5"))
+SIMPLE_JWT_TOKEN_LIFETIME_HOURS = int(os.environ.get("DJ_SIMPLE_JWT_TOKEN_LIFETIME_HOURS", "0"))
+SIMPLE_JWT_TOKEN_LIFETIME_DAYS = int(os.environ.get("DJ_SIMPLE_JWT_TOKEN_LIFETIME_DAYS", "0"))
+
+SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_MINUTES = int(os.environ.get("DJ_SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_MINUTES", "30"))
+SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_HOURS = int(os.environ.get("DJ_SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_HOURS", "1"))
+SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_DAYS = int(os.environ.get("DJ_SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_DAYS", "0"))
+
+SIMPLE_JWT = {
+    "ROTATE_REFRESH_TOKENS": True,
+    "ACCESS_TOKEN_LIFETIME": timedelta(
+        minutes=SIMPLE_JWT_TOKEN_LIFETIME_MINUTES,
+        hours=SIMPLE_JWT_TOKEN_LIFETIME_HOURS,
+        days=SIMPLE_JWT_TOKEN_LIFETIME_DAYS,
+    ),
+    "REFRESH_TOKEN_LIFETIME": timedelta(
+        minutes=SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_MINUTES,
+        hours=SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_HOURS,
+        days=SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_DAYS,
+    ),
+}

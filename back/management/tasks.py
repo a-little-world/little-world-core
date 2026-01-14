@@ -178,6 +178,8 @@ I'll take the time to answer all your messages but I might take a little time to
     usr.profile.description = base_management_user_description
     usr.profile.add_profile_picture_from_local_path("/back/dev_test_data/tim_schupp_base_management_profile_new.jpeg")
 
+    from management.models.state import State
+
     usr.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.MATCHING_USER)
     usr.state.save()
     usr.profile.save()
@@ -189,6 +191,7 @@ def check_prematch_email_reminders_and_expirations():
     Reoccuring task to check for email reminders that should be send out
     also check if there are expired unconfirmed_matches
     """
+    from management.models.state import State
     from management.models.unconfirmed_matches import ProposedMatch
 
     all_unclosed_unconfirmed = ProposedMatch.objects.filter(closed=False)
@@ -219,6 +222,8 @@ def check_registration_reminders():
     """
     from django.db.models import Q
     from django.utils import timezone
+
+    from management.models.state import State
 
     _3hrs_ago = timezone.now() - timezone.timedelta(hours=3)
 
@@ -524,6 +529,13 @@ def slack_notify_communication_channel_async(message):
 
 
 @shared_task
+def slack_notify_security_channel_async(message):
+    from management.api.slack import notify_security_channel
+
+    notify_security_channel(message)
+
+
+@shared_task
 def hourly_check_banner_activation():
     from django.utils import timezone
 
@@ -555,7 +567,15 @@ def hourly_check_banner_activation():
     return bc
 
 
-@shared_task(autoretry_for=(), retry_kwargs={"max_retries": 0}, reject_on_worker_lost=True, acks_late=False, bind=True)
+@shared_task(
+    autoretry_for=(),
+    retry_kwargs={"max_retries": 0},
+    reject_on_worker_lost=True,
+    acks_late=False,
+    bind=True,
+    expires=300,
+    time_limit=300,
+)
 def send_sms_background(self, user_hash, message):
     """
     Send SMS background task that never retries on failure.
@@ -745,44 +765,3 @@ def automatic_emails_m024_m025(test=False):
 
     return {"status": "sent", "inactive_chats": inactive_chats}
 
-
-# @shared_task
-# def automatic_emails_m031():
-#     """
-#     No video call for 7 days after first message
-
-#     !!!!!!!!!!!!!!!!!!!!!! Full of bugs ATM - WIP !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#     """
-#     from management.models.matches import Match
-
-#     # get all chats
-#     matches = Match.objects.exclude(total_messages_counter=0).filter(total_mutal_video_calls_counter=0)
-
-#     reminder_last_days = [0, 7, 14, 21, 30]
-#     reminder_last_templates = [
-#         "automatic-emails-m031",
-#         "automatic-emails-m032",
-#         "automatic-emails-m033",
-#         "automatic-emails-m042",
-#     ]
-
-#     for i in range(len(reminder_last_days) - 1):
-#         for match in matches:
-#             if (match.first_chat_interaction >= dj_timezone.now() - timedelta(days=reminder_last_days[i])) or (
-#                 match.first_chat_interaction < dj_timezone.now() - timedelta(days=reminder_last_days[i + 1])
-#             ):
-#                 continue
-
-#             # the chat is for seven days inactive, set the respective flag
-#             if not chat.seven_days_inactive:
-#                 chat.seven_days_inactive = True
-#                 chat.save()
-#                 inactive_counter += 1
-
-#                 # send email to the user that received the last message
-#                 send_email_background.delay("automatic-emails-m024", user_id=last_message.recipient.id)
-
-#                 # send email to the person that was ghosted
-#                 send_email_background.delay("automatic-emails-m025", user_id=last_message.sender.id)
-
-#     return {"status": "sent", "number of 7 day inactive chat reminder sent": inactive_counter}
