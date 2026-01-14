@@ -15,8 +15,8 @@ class Chat(models.Model):
 
     created = models.DateTimeField(auto_now_add=True)
 
-    three_days_inactive = models.BooleanField(default=False, blank=False, null=False)
-    seven_days_inactive = models.BooleanField(default=False, blank=False, null=False)
+    three_days_inactive_email_send = models.BooleanField(default=False, blank=False, null=False)
+    seven_days_inactive_email_send = models.BooleanField(default=False, blank=False, null=False)
 
     class Meta:
         indexes = [

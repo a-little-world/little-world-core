@@ -1,13 +1,20 @@
 from datetime import timedelta
 
+from chat.models import Chat, Message
 from django.db.models import Q
 from django.test import TestCase
 from django.utils import timezone as dj_timezone
 from freezegun import freeze_time
 
 from management.models.matches import Match
+from management.models.state import State
 from management.random_test_users import create_test_user
-from management.tasks import automatic_emails_m12_m13_m14, automatic_emails_u023_u024_u025
+from management.tasks import (
+    automatic_emails_m023,
+    automatic_emails_m024_m025,
+    automatic_emails_m12_m13_m14,
+    automatic_emails_u023_u024_u025,
+)
 
 
 class TestAutomaticEmails_023_024_025(TestCase):
@@ -172,3 +179,219 @@ class TestAutomaticEmails_m12_m13_m14(TestCase):
         assert len(result["matches_m012"]) == 0
         assert len(result["matches_m013"]) == 0
         assert len(result["matches_m014"]) == 0
+
+
+class TestAutomaticEmails_m023(TestCase):
+    def setUp(self):
+        # Create regular users for valid chat (3+ days inactive)
+        with freeze_time(dj_timezone.now() - timedelta(days=10)):
+            self.valid_user_1 = create_test_user(30000, None, "Test123!", "m023-valid-user1@test.de")
+            self.valid_user_2 = create_test_user(30001, None, "Test123!", "m023-valid-user2@test.de")
+
+        # Create chat and message older than 3 days
+        self.valid_chat = Chat.objects.create(u1=self.valid_user_1, u2=self.valid_user_2)
+        with freeze_time(dj_timezone.now() - timedelta(days=4)):
+            Message.objects.create(
+                chat=self.valid_chat,
+                sender=self.valid_user_1,
+                recipient=self.valid_user_2,
+                text="Hello, this is a test message",
+            )
+
+        # Create users for invalid chat (message too recent - only 2 days old)
+        with freeze_time(dj_timezone.now() - timedelta(days=10)):
+            self.invalid_user_1 = create_test_user(30002, None, "Test123!", "m023-invalid-user1@test.de")
+            self.invalid_user_2 = create_test_user(30003, None, "Test123!", "m023-invalid-user2@test.de")
+
+        self.invalid_chat_recent = Chat.objects.create(u1=self.invalid_user_1, u2=self.invalid_user_2)
+        with freeze_time(dj_timezone.now() - timedelta(days=2)):
+            Message.objects.create(
+                chat=self.invalid_chat_recent,
+                sender=self.invalid_user_1,
+                recipient=self.invalid_user_2,
+                text="Recent message",
+            )
+
+        # Create chat with staff user (should be excluded)
+        with freeze_time(dj_timezone.now() - timedelta(days=10)):
+            self.staff_user = create_test_user(30004, None, "Test123!", "m023-staff@test.de")
+            self.staff_user.is_staff = True
+            self.staff_user.save()
+            self.normal_user_with_staff = create_test_user(30005, None, "Test123!", "m023-normal-with-staff@test.de")
+
+        self.invalid_chat_staff = Chat.objects.create(u1=self.staff_user, u2=self.normal_user_with_staff)
+        with freeze_time(dj_timezone.now() - timedelta(days=4)):
+            Message.objects.create(
+                chat=self.invalid_chat_staff,
+                sender=self.staff_user,
+                recipient=self.normal_user_with_staff,
+                text="Staff message",
+            )
+
+        # Create chat with matching user (should be excluded)
+        with freeze_time(dj_timezone.now() - timedelta(days=10)):
+            self.matching_user = create_test_user(30006, None, "Test123!", "m023-matching@test.de")
+            self.matching_user.state.extra_user_permissions = [State.ExtraUserPermissionChoices.MATCHING_USER]
+            self.matching_user.state.save()
+            self.normal_user_with_matching = create_test_user(
+                30007, None, "Test123!", "m023-normal-with-matching@test.de"
+            )
+
+        self.invalid_chat_matching = Chat.objects.create(u1=self.matching_user, u2=self.normal_user_with_matching)
+        with freeze_time(dj_timezone.now() - timedelta(days=4)):
+            Message.objects.create(
+                chat=self.invalid_chat_matching,
+                sender=self.matching_user,
+                recipient=self.normal_user_with_matching,
+                text="Matching user message",
+            )
+
+        # Create chat with no messages (should be excluded)
+        with freeze_time(dj_timezone.now() - timedelta(days=10)):
+            self.no_msg_user_1 = create_test_user(30008, None, "Test123!", "m023-nomsg1@test.de")
+            self.no_msg_user_2 = create_test_user(30009, None, "Test123!", "m023-nomsg2@test.de")
+
+        self.invalid_chat_no_messages = Chat.objects.create(u1=self.no_msg_user_1, u2=self.no_msg_user_2)
+
+    def test_m023_identifies_inactive_chats(self):
+        result = automatic_emails_m023(test=True)
+
+        inactive_chats = result["inactive_chats"]
+
+        # Should only have the valid chat (3+ days inactive with regular users)
+        assert len(inactive_chats) == 1
+        assert inactive_chats[0] == self.valid_chat
+
+        # Verify the flag was set
+        self.valid_chat.refresh_from_db()
+        assert self.valid_chat.three_days_inactive_email_send is True
+
+        # Verify other chats weren't affected
+        self.invalid_chat_recent.refresh_from_db()
+        assert self.invalid_chat_recent.three_days_inactive_email_send is False
+
+    def test_m023_excludes_staff_and_matching_users(self):
+        result = automatic_emails_m023(test=True)
+
+        inactive_chats = result["inactive_chats"]
+
+        # Staff and matching user chats should not be in results
+        assert self.invalid_chat_staff not in inactive_chats
+        assert self.invalid_chat_matching not in inactive_chats
+
+    def test_m023_does_not_resend(self):
+        # First run
+        result1 = automatic_emails_m023(test=True)
+        assert len(result1["inactive_chats"]) == 1
+
+        # Second run should find no new chats
+        result2 = automatic_emails_m023(test=True)
+        assert len(result2["inactive_chats"]) == 0
+
+
+class TestAutomaticEmails_m024_m025(TestCase):
+    def setUp(self):
+        # Create regular users for valid chat (7+ days inactive)
+        with freeze_time(dj_timezone.now() - timedelta(days=14)):
+            self.valid_user_1 = create_test_user(31000, None, "Test123!", "m024-valid-user1@test.de")
+            self.valid_user_2 = create_test_user(31001, None, "Test123!", "m024-valid-user2@test.de")
+
+        # Create chat and message older than 7 days
+        self.valid_chat = Chat.objects.create(u1=self.valid_user_1, u2=self.valid_user_2)
+        with freeze_time(dj_timezone.now() - timedelta(days=8)):
+            Message.objects.create(
+                chat=self.valid_chat,
+                sender=self.valid_user_1,
+                recipient=self.valid_user_2,
+                text="Hello, this is a test message",
+            )
+
+        # Create users for invalid chat (message too recent - only 5 days old)
+        with freeze_time(dj_timezone.now() - timedelta(days=14)):
+            self.invalid_user_1 = create_test_user(31002, None, "Test123!", "m024-invalid-user1@test.de")
+            self.invalid_user_2 = create_test_user(31003, None, "Test123!", "m024-invalid-user2@test.de")
+
+        self.invalid_chat_recent = Chat.objects.create(u1=self.invalid_user_1, u2=self.invalid_user_2)
+        with freeze_time(dj_timezone.now() - timedelta(days=5)):
+            Message.objects.create(
+                chat=self.invalid_chat_recent,
+                sender=self.invalid_user_1,
+                recipient=self.invalid_user_2,
+                text="Recent message",
+            )
+
+        # Create chat with staff user (should be excluded)
+        with freeze_time(dj_timezone.now() - timedelta(days=14)):
+            self.staff_user = create_test_user(31004, None, "Test123!", "m024-staff@test.de")
+            self.staff_user.is_staff = True
+            self.staff_user.save()
+            self.normal_user_with_staff = create_test_user(31005, None, "Test123!", "m024-normal-with-staff@test.de")
+
+        self.invalid_chat_staff = Chat.objects.create(u1=self.staff_user, u2=self.normal_user_with_staff)
+        with freeze_time(dj_timezone.now() - timedelta(days=8)):
+            Message.objects.create(
+                chat=self.invalid_chat_staff,
+                sender=self.staff_user,
+                recipient=self.normal_user_with_staff,
+                text="Staff message",
+            )
+
+        # Create chat with matching user (should be excluded)
+        with freeze_time(dj_timezone.now() - timedelta(days=14)):
+            self.matching_user = create_test_user(31006, None, "Test123!", "m024-matching@test.de")
+            self.matching_user.state.extra_user_permissions = [State.ExtraUserPermissionChoices.MATCHING_USER]
+            self.matching_user.state.save()
+            self.normal_user_with_matching = create_test_user(
+                31007, None, "Test123!", "m024-normal-with-matching@test.de"
+            )
+
+        self.invalid_chat_matching = Chat.objects.create(u1=self.matching_user, u2=self.normal_user_with_matching)
+        with freeze_time(dj_timezone.now() - timedelta(days=8)):
+            Message.objects.create(
+                chat=self.invalid_chat_matching,
+                sender=self.matching_user,
+                recipient=self.normal_user_with_matching,
+                text="Matching user message",
+            )
+
+        # Create chat with no messages (should be excluded)
+        with freeze_time(dj_timezone.now() - timedelta(days=14)):
+            self.no_msg_user_1 = create_test_user(31008, None, "Test123!", "m024-nomsg1@test.de")
+            self.no_msg_user_2 = create_test_user(31009, None, "Test123!", "m024-nomsg2@test.de")
+
+        self.invalid_chat_no_messages = Chat.objects.create(u1=self.no_msg_user_1, u2=self.no_msg_user_2)
+
+    def test_m024_m025_identifies_inactive_chats(self):
+        result = automatic_emails_m024_m025(test=True)
+
+        inactive_chats = result["inactive_chats"]
+
+        # Should only have the valid chat (7+ days inactive with regular users)
+        assert len(inactive_chats) == 1
+        assert inactive_chats[0] == self.valid_chat
+
+        # Verify the flag was set
+        self.valid_chat.refresh_from_db()
+        assert self.valid_chat.seven_days_inactive_email_send is True
+
+        # Verify other chats weren't affected
+        self.invalid_chat_recent.refresh_from_db()
+        assert self.invalid_chat_recent.seven_days_inactive_email_send is False
+
+    def test_m024_m025_excludes_staff_and_matching_users(self):
+        result = automatic_emails_m024_m025(test=True)
+
+        inactive_chats = result["inactive_chats"]
+
+        # Staff and matching user chats should not be in results
+        assert self.invalid_chat_staff not in inactive_chats
+        assert self.invalid_chat_matching not in inactive_chats
+
+    def test_m024_m025_does_not_resend(self):
+        # First run
+        result1 = automatic_emails_m024_m025(test=True)
+        assert len(result1["inactive_chats"]) == 1
+
+        # Second run should find no new chats
+        result2 = automatic_emails_m024_m025(test=True)
+        assert len(result2["inactive_chats"]) == 0

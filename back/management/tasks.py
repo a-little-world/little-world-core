@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from celery import shared_task
 from cookie_consent.models import Cookie, CookieGroup
+from django.db.models import Q
 from django.utils import timezone as dj_timezone
 from translations import get_translation
 
@@ -177,8 +178,6 @@ I'll take the time to answer all your messages but I might take a little time to
     usr.profile.description = base_management_user_description
     usr.profile.add_profile_picture_from_local_path("/back/dev_test_data/tim_schupp_base_management_profile_new.jpeg")
 
-    from management.models.state import State
-
     usr.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.MATCHING_USER)
     usr.state.save()
     usr.profile.save()
@@ -190,7 +189,6 @@ def check_prematch_email_reminders_and_expirations():
     Reoccuring task to check for email reminders that should be send out
     also check if there are expired unconfirmed_matches
     """
-    from management.models.state import State
     from management.models.unconfirmed_matches import ProposedMatch
 
     all_unclosed_unconfirmed = ProposedMatch.objects.filter(closed=False)
@@ -221,8 +219,6 @@ def check_registration_reminders():
     """
     from django.db.models import Q
     from django.utils import timezone
-
-    from management.models.state import State
 
     _3hrs_ago = timezone.now() - timezone.timedelta(hours=3)
 
@@ -588,6 +584,7 @@ def send_sms_background(self, user_hash, message):
         raise  # Re-raise to mark task as failed
 
 
+@shared_task
 def automatic_emails_u023_u024_u025(test=False):
     """
     Sends automatic emails to users who have not booked an onboarding call after completing the user form
@@ -677,84 +674,76 @@ def automatic_emails_m12_m13_m14(test=False):
 
 
 @shared_task
-def automatic_emails_m023():
+def automatic_emails_m023(test=False):
     """
     Notify user when the didnt respond to a chat message for 3 days
     """
     from chat.models import Chat
 
-    # get all chats
-    chats = Chat.objects.all()
+    # get all chats, excluding admin and matching users
+    chats = Chat.objects.filter(three_days_inactive_email_send=False).exclude(
+        Q(u1__is_staff=True)
+        | Q(u2__is_staff=True)
+        | Q(u1__state__extra_user_permissions__contains="matching-user")
+        | Q(u2__state__extra_user_permissions__contains="matching-user")
+    )
 
-    inactive_counter = 0
+    inactive_chats = []
 
     for chat in chats:
-        # check that both users are not admin and if chat three days inactive flag is already set
-        if (
-            chat.u1.is_staff
-            or chat.u2.is_staff
-            or chat.u1.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-            or chat.u2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-        ):
-            continue
-
         # check that the last message is older than 3 days
         last_message = chat.get_newest_message()
         if (last_message is None) or last_message.created >= dj_timezone.now() - timedelta(days=3):
             continue
 
         # the chat is for three days inactive, set the respective flag
-        if not chat.three_days_inactive:
-            chat.three_days_inactive = True
-            chat.save()
-            inactive_counter += 1
+        chat.three_days_inactive_email_send = True
+        chat.save()
+        inactive_chats.append(chat)
 
+        if not test:
             # send email to the user that received the last message
             send_email_background.delay("automatic-emails-m023", user_id=last_message.recipient.id)
 
-    return {"status": "sent", "number of three day inactive chat reminder sent": inactive_counter}
+    return {"status": "sent", "inactive_chats": inactive_chats}
 
 
 @shared_task
-def automatic_emails_m024_m025():
+def automatic_emails_m024_m025(test=False):
     """
     Notify user when the didnt respond to a chat message for 7 days
     """
     from chat.models import Chat
 
-    # get all chats
-    chats = Chat.objects.all()
+    # get all chats, excluding admin and matching users
+    chats = Chat.objects.filter(seven_days_inactive_email_send=False).exclude(
+        Q(u1__is_staff=True)
+        | Q(u2__is_staff=True)
+        | Q(u1__state__extra_user_permissions__contains="matching-user")
+        | Q(u2__state__extra_user_permissions__contains="matching-user")
+    )
 
-    inactive_counter = 0
+    inactive_chats = []
 
     for chat in chats:
-        # check that both users are not admin and if chat three days inactive flag is already set
-        if (
-            chat.u1.is_staff
-            or chat.u2.is_staff
-            or chat.u1.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-            or chat.u2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-        ):
-            continue
-
-        # check that the last message is older than 3 days
+        # check that the last message is older than 7 days
         last_message = chat.get_newest_message()
         if (last_message is None) or last_message.created >= dj_timezone.now() - timedelta(days=7):
             continue
 
         # the chat is for seven days inactive, set the respective flag
-        if not chat.seven_days_inactive:
-            chat.seven_days_inactive = True
-            chat.save()
-            inactive_counter += 1
+        chat.seven_days_inactive_email_send = True
+        chat.save()
+        inactive_chats.append(chat)
 
+        if not test:
             # send email to the user that received the last message
             send_email_background.delay("automatic-emails-m024", user_id=last_message.recipient.id)
 
             # send email to the person that was ghosted
             send_email_background.delay("automatic-emails-m025", user_id=last_message.sender.id)
 
-    return {"status": "sent", "number of 7 day inactive chat reminder sent": inactive_counter}
+    return {"status": "sent", "inactive_chats": inactive_chats}
 
 
 # @shared_task

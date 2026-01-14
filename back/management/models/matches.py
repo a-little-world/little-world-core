@@ -43,13 +43,6 @@ class Match(models.Model):
     interaction_reminder_7_days_send = models.BooleanField(default=False, null=False, blank=False)
     interaction_reminder_14_days_send = models.BooleanField(default=False, null=False, blank=False)
 
-    no_videocall_reminder_last = models.IntegerField(
-        default=0,
-        help_text="Number of days between first chat interaction and last reminder sent.",
-        null=False,
-        blank=False,
-    )
-
     # If a certain match completed condition is met, this will be set to True
     completed = models.BooleanField(default=False)
     completed_off_plattform = models.BooleanField(default=False)
