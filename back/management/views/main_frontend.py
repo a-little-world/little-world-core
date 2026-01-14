@@ -40,13 +40,17 @@ class MainFrontendParamsSerializer(serializers.Serializer):
     def create(self, validated_data):
         return MainFrontendParams(**validated_data)
 
+
 DATA_OPTIONS = None
+
+
 def get_cached_data_options():
     global DATA_OPTIONS
     ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
     if DATA_OPTIONS is None:
         DATA_OPTIONS = ProfileWOptions(get_base_management_user().profile).data["options"]
     return DATA_OPTIONS
+
 
 class MainFrontendRouter(View):
     # react frontend public paths
@@ -77,11 +81,7 @@ class MainFrontendRouter(View):
                     "main_frontend.html",
                     {
                         "user": json.dumps({}),
-                        "api_options": json.dumps(
-                            {
-                                "profile": get_cached_data_options()
-                            }
-                        ),
+                        "api_options": json.dumps({"profile": get_cached_data_options()}),
                         **cookie_context,
                     },
                 )

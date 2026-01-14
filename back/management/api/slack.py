@@ -30,7 +30,7 @@ def notify_communication_channel(message):
     client = WebClient(token=bot_token)
 
     client.chat_postMessage(channel=CHANNEL_ID, mrkdwn=True, text=message, unfurl_links=False, unfurl_media=False)
-    
+
 
 def notify_security_channel(message):
     from slack_sdk import WebClient
