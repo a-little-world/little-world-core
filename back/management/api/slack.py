@@ -30,6 +30,24 @@ def notify_communication_channel(message):
     client = WebClient(token=bot_token)
 
     client.chat_postMessage(channel=CHANNEL_ID, mrkdwn=True, text=message, unfurl_links=False, unfurl_media=False)
+    
+
+def notify_security_channel(message):
+    from slack_sdk import WebClient
+
+    if not settings.USE_SLACK_INTEGRATION:
+        return
+
+    SLACK_API_TOKEN = settings.SLACK_API_TOKEN
+    CHANNEL_ID = settings.SLACK_SECURITY_REPORT_CHANNEL_ID
+    if CHANNEL_ID == "":
+        raise Exception("SLACK_SECURITY_REPORT_CHANNEL_ID is not set, cannot notify security channel")
+    bot_token = SLACK_API_TOKEN
+
+    bot_token = SLACK_API_TOKEN
+    client = WebClient(token=bot_token)
+
+    client.chat_postMessage(channel=CHANNEL_ID, mrkdwn=True, text=message, unfurl_links=False, unfurl_media=False)
 
 
 def process_slack_ai_response(message):
