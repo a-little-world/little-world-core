@@ -212,7 +212,7 @@ class LoginApi(APIView):
             if user_mail in [settings.MANAGEMENT_USER_MAIL, settings.MATCHING_USER_MAIL]:
                 # send security notification: Admin / Matching user failed login attepts are logged!
                 ip, routable = get_ip(request)
-                security_notification = f"FAILED login attempt for matching/staff user {usr.email} from {ip}"
+                security_notification = f"FAILED login attempt for matching/staff user {user_mail} from {ip}"
                 from management.tasks import slack_notify_security_channel_async
 
                 slack_notify_security_channel_async.delay(security_notification)
