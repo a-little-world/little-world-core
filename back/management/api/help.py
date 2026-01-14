@@ -16,7 +16,6 @@ class SendHelpMessageSerializer(serializers.Serializer):
         validators=[MinLengthValidator(3), MaxLengthValidator(2000)],
     )
     file = serializers.ListField(child=serializers.FileField(), required=False)
-    # Optional fields for issue reporting
     kind = serializers.CharField(required=False, allow_blank=True)
     keywords = serializers.ListField(child=serializers.CharField(), required=False, allow_null=True)
     reported_user_id = serializers.IntegerField(required=False, allow_null=True)
@@ -90,7 +89,7 @@ class SendHelpMessage(APIView):
         )
 
         # Create Slack message
-        slack_message = f"Help Message (kind: {kind}) by {request.user.hash} with message: {data['message']}\n\nCheck as super user at https://little-world.com/admin/management/helpmessage/{help_message.id}/change/"
+        slack_message = f"Help Message ({kind}) by {request.user.username} with message: {data['message']}\n\nCheck as super user at https://little-world.com/admin/management/helpmessage/{help_message.id}/change/"
 
         slack_notify_communication_channel_async.delay(slack_message)
 
