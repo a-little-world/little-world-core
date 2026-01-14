@@ -50,7 +50,9 @@ def process_webhook_random_call__participant_joined(data, event, participant_id,
         session.webhook_events.add(event)
         session.save()
     else:
-        raise Exception("Edge-Case Detected (@tbscode) random call participant joined: session not found for room:", room.uuid)
+        raise Exception(
+            "Edge-Case Detected (@tbscode) random call participant joined: session not found for room:", room.uuid
+        )
 
 
 def process_webhook_classic_call__participant_joined(data, event, participant_id, user, room_id, room):
@@ -79,7 +81,7 @@ def process_webhook_classic_call__participant_joined(data, event, participant_id
             first_active_user=user,
             random_call_session=False,
         )
-        
+
     if session is not None:
         session.webhook_events.add(event)
         session.save()
@@ -87,7 +89,9 @@ def process_webhook_classic_call__participant_joined(data, event, participant_id
         partner = room.u1 if user == room.u2 else room.u2
         NewActiveCallRoom(call_room=SerializeLivekitSession(session, context={"user": partner}).data).send(partner.hash)
     else:
-        raise Exception("Edge-Case Detected (@tbscode) classic call participant joined: session not found for room:", room.uuid)
+        raise Exception(
+            "Edge-Case Detected (@tbscode) classic call participant joined: session not found for room:", room.uuid
+        )
 
 
 def process_webhook_classic_call__participant_left(data, event, participant_id, user, room_id, room):
@@ -185,7 +189,9 @@ def process_webhook_classic_call__participant_left(data, event, participant_id, 
         session.webhook_events.add(event)
         session.save()
     else:
-        raise Exception("Edge-Case Detected (@tbscode) classic call participant left: session not found for room:", room.uuid)
+        raise Exception(
+            "Edge-Case Detected (@tbscode) classic call participant left: session not found for room:", room.uuid
+        )
 
     # 4 - send 'BlockIncomingCall' event to the partner of the user that left
     partner = room.u1 if user == room.u2 else room.u2
@@ -232,7 +238,9 @@ def process_webhook_random_call__participant_left(data, event, participant_id, u
         session.webhook_events.add(event)
         session.save()
     else:
-        raise Exception("Edge-Case Detected (@tbscode) random call participant left: session not found for room:", room.uuid)
+        raise Exception(
+            "Edge-Case Detected (@tbscode) random call participant left: session not found for room:", room.uuid
+        )
 
     # 4 - send 'BlockIncomingCall' event to the partner of the user that left
     partner = room.u1 if user == room.u2 else room.u2

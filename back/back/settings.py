@@ -753,9 +753,9 @@ DATABASES = (
             "OPTIONS": {"timeout": 10}
             if (os.environ.get("DJ_DATABASE_DISABLE_SSL", "false").lower() in ("true", "t", "0"))
             else {"sslmode": "require"},
-            # 'CONN_MAX_AGE': 10,
             "CONN_MAX_AGE": int(os.environ.get("DJ_DATABASE_CONN_MAX_AGE", "600")),
-            "CONN_HEALTH_CHECKS": os.environ.get("DJ_DATABASE_CONN_HEALTH_CHECKS", "true").lower() in ("true", "1", "t"),
+            "CONN_HEALTH_CHECKS": os.environ.get("DJ_DATABASE_CONN_HEALTH_CHECKS", "true").lower()
+            in ("true", "1", "t"),
         },
     }
 )
