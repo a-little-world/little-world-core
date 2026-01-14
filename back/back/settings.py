@@ -102,6 +102,10 @@ TWILIO_AUTH_TOKEN = os.environ.get("DJ_TWILIO_AUTH_TOKEN", "")
 EXTERNAL_S3 = os.environ.get("DJ_EXTERNAL_S3", "false").lower() in ("true", "1", "t")
 PREMATCHING_CALL_JOIN_LINK = os.environ.get("PREMATCHING_CALL_JOIN_LINK", None)
 
+WEBSOCKET_PERFORMANCE_RESTRICTON_STAFF = os.environ.get(
+    "DJ_WEBSOCKET_PERFORMANCE_RESTRICTON_STAFF", "false"
+).lower() in ("true", "1", "t")
+
 DISABLE_SMS_SENDING = os.environ.get("DJ_DISABLE_SMS_SENDING", "true").lower() in ("true", "1", "t")
 
 USE_SQLITE = os.environ.get("DJ_USE_SQLITE", "false").lower() in ("true", "1", "t")

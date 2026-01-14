@@ -40,6 +40,13 @@ class MainFrontendParamsSerializer(serializers.Serializer):
     def create(self, validated_data):
         return MainFrontendParams(**validated_data)
 
+DATA_OPTIONS = None
+def get_cached_data_options():
+    global DATA_OPTIONS
+    ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
+    if DATA_OPTIONS is None:
+        DATA_OPTIONS = ProfileWOptions(get_base_management_user().profile).data["options"]
+    return DATA_OPTIONS
 
 class MainFrontendRouter(View):
     # react frontend public paths
@@ -60,7 +67,6 @@ class MainFrontendRouter(View):
             if (not settings.USE_LANDINGPAGE_REDIRECT)
             else settings.LANDINGPAGE_REDIRECT_URL
         )
-        ProfileWOptions = transform_add_options_serializer(SelfProfileSerializer)
 
         if not request.user.is_authenticated:
             if any([path.startswith(p) for p in self.PUBLIC_PATHS]):
@@ -73,7 +79,7 @@ class MainFrontendRouter(View):
                         "user": json.dumps({}),
                         "api_options": json.dumps(
                             {
-                                "profile": ProfileWOptions(get_base_management_user().profile).data["options"],
+                                "profile": get_cached_data_options()
                             }
                         ),
                         **cookie_context,
@@ -123,7 +129,7 @@ class MainFrontendRouter(View):
                 "user": json.dumps(user_data, cls=CoolerJson),
                 "api_options": json.dumps(
                     {
-                        "profile": ProfileWOptions(request.user.profile).data["options"],
+                        "profile": get_cached_data_options(),
                     }
                 ),
                 **extra_template_data,
