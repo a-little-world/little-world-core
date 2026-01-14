@@ -141,10 +141,6 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
             match.first_chat_interaction = timezone.now()
         match.save()
 
-        chat.three_days_inactive = False
-        chat.seven_days_inactive = False
-        chat.save()
-
         # Email notification logic - check if recipient should be notified
         creation_time = timezone.now()
         recipient_was_email_notified = False
