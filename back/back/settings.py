@@ -154,6 +154,8 @@ AI_OPENAI_API_KEY = os.environ.get("DJ_AI_OPENAI_API_KEY", "none")
 GOOGLE_CLOUD_CREDENTIALS = get_base64_env("DJ_GOOGLE_CLOUD_CREDENTIALS")
 GOOGLE_CLOUD_CREDENTIALS_ANDROID_INTEGRITY = get_base64_env("DJ_GOOGLE_CLOUD_CREDENTIALS_ANDROID_INTEGRITY")
 
+SLACK_SECURITY_REPORT_CHANNEL_ID = os.environ.get("DJ_SLACK_SECURITY_REPORT_CHANNEL_ID", "")
+
 # DeepL Translation API
 DEEPL_API_KEY = os.environ.get("DJ_DEEPL_API_KEY", None)
 
@@ -885,7 +887,7 @@ JAZZMIN_SETTINGS = {
     "site_icon": None,
     "welcome_sign": "Waddup greetings fellow admin :)",
     "copyright": "Tim Schupp, A Little World gUG",
-    "search_model": ["auth.User", "auth.Group"],
+    "search_model": ["management.User", "auth.Group"],
     # Field name on user model that contains avatar ImageField/URLField/Charfield or a callable that receives the user
     "user_avatar": None,
     "topmenu_links": [
@@ -919,7 +921,6 @@ JAZZMIN_SETTINGS = {
     "custom_links": {},
     "icons": {
         "auth": "fas fa-users-cog",
-        "auth.user": "fas fa-user",
         "auth.Group": "fas fa-users",
         "emails.EmailLog": "fas fa-envelope",
         "cookie_consent.Cookie": "fas fa-cookie",
