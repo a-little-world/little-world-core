@@ -526,6 +526,13 @@ def slack_notify_communication_channel_async(message):
 
 
 @shared_task
+def slack_notify_security_channel_async(message):
+    from management.api.slack import notify_security_channel
+
+    notify_security_channel(message)
+
+
+@shared_task
 def hourly_check_banner_activation():
     from django.utils import timezone
 

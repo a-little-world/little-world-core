@@ -12,6 +12,7 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django_rest_passwordreset.signals import reset_password_token_created
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
+from ipware import get_client_ip as get_ip
 from rest_framework import authentication, permissions, serializers, status
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -180,12 +181,21 @@ class LoginApi(APIView):
 
         login_data = serializer.save()
 
-        usr = authenticate(username=login_data.email.lower(), password=login_data.password)
+        user_mail = login_data.email.lower()
+        usr = authenticate(username=user_mail, password=login_data.password)
 
         if usr is not None:
             if usr.is_staff:  # type: ignore
                 # pylint thinks this is a AbsUsr but we have overwritten it models.user.User
                 return Response(get_translation("api.login_failed_staff"), status=status.HTTP_400_BAD_REQUEST)
+
+            if usr.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+                # send security notification: Matching user new login
+                ip, routable = get_ip(request)
+                security_notification = f"Matching user {usr.email} logged in from {ip}"
+                from management.tasks import slack_notify_security_channel_async
+
+                slack_notify_security_channel_async.delay(security_notification)
 
             # token_auth is a query parameter that determines whether to return a token or create a session
             token_auth = request.query_params.get("token_auth", False)
@@ -199,6 +209,13 @@ class LoginApi(APIView):
                 login(request, usr)
                 return Response(get_user_data(request.user))
         else:
+            if user_mail in [settings.MANAGEMENT_USER_MAIL, settings.MATCHING_USER_MAIL]:
+                # send security notification: Admin / Matching user failed login attepts are logged!
+                ip, routable = get_ip(request)
+                security_notification = f"FAILED login attempt for matching/staff user {usr.email} from {ip}"
+                from management.tasks import slack_notify_security_channel_async
+
+                slack_notify_security_channel_async.delay(security_notification)
             return Response(get_translation("api.login_failed"), status=status.HTTP_400_BAD_REQUEST)
 
     @extend_schema(request=AutoLoginSerializer(many=False))
