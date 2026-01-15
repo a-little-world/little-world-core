@@ -535,7 +535,7 @@ elif EXTERNAL_S3 or ((not DOCS_BUILD and (IS_PROD or IS_STAGE)) and (not USE_WHI
             "BACKEND": 'storages.backends.s3.S3Storage',
         },
         'staticfiles': {
-            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'
+            'BACKEND': 'storages.backends.s3.S3Storage',
         }
     }
 else:
