@@ -55,11 +55,11 @@ firebase-admin==6.7.0
 django-push-notifications==3.2.1
 djangorestframework-simplejwt
 PyJWT==2.8.0
-cryptography==41.0.7
+# Use >= 42.0.4 to avoid CVE-2024-26130 (PKCS#12 serialize_key_and_certificates NULL deref DoS)
+cryptography>=42.0.4,<43
 pyattest==1.0.4
 pyasn1==0.6.1
 google-api-python-client==2.108.0
 google-auth==2.23.4
-cryptography==41.0.7
 cbor2===5.7.0
 pyasn1==0.6.1
