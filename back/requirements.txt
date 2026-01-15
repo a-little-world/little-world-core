@@ -61,5 +61,5 @@ pyasn1==0.6.1
 google-api-python-client==2.108.0
 google-auth==2.23.4
 cryptography==41.0.7
-cbor2===5.7.0
+cbor2===5.8.0
 pyasn1==0.6.1
