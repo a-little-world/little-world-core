@@ -1,7 +1,7 @@
 Django==5.1.15
 channels==4.1.0
 channels-redis==4.1.0 # For using channels with redis
-celery==5.2.7
+celery==5.6.2
 django-celery-results # Task and state admin displays for celery
 django-celery-beat # For automatic and timed tasks
 djangorestframework==3.15.2
@@ -62,4 +62,3 @@ pyasn1==0.6.1
 google-api-python-client==2.108.0
 google-auth==2.23.4
 cbor2===5.8.0
-pyasn1==0.6.1
