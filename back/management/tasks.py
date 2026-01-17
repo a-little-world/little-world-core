@@ -761,47 +761,79 @@ def automatic_emails_m024_m025(test=False):
     return {"status": "sent", "inactive_chats": inactive_chats}
 
 
-# @shared_task
-# def automatic_emails_m031():
-#     """
-#     No video call for 7 days after first message
+@shared_task
+def automatic_emails_m031_m032_m033(test=False):
+    """
+    No video call for 7, 14 and 21 days after first chat message or no video call for 30 days after the first interaction
+    """
+    from management.models.matches import Match
 
-#     !!!!!!!!!!!!!!!!!!!!!! Full of bugs ATM - WIP !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#     """
-#     from management.models.matches import Match
+    # 1 - automatic-emails-m031
+    matches_m031 = Match.objects.filter(
+        first_chat_interaction__isnull=False,
+        first_chat_interaction__lte=dj_timezone.now() - timedelta(days=7),
+        first_chat_interaction__gt=dj_timezone.now() - timedelta(days=14),
+        total_mutal_video_calls_counter=0,
+        auto_email_m031_send=False,
+    )
+    for match in matches_m031:
+        if not test:
+            send_email_background.delay("automatic-emails-m031", user_id=match.user1.id, match_id=match.id)
+            send_email_background.delay("automatic-emails-m031", user_id=match.user2.id, match_id=match.id)
 
-#     # get all chats
-#     matches = Match.objects.filter(
-#         first_chat_interaction__isnull=False,
-#         first_chat_interaction__lt=dj_timezone.now() - timedelta(days=7),
-#         total_mutal_video_calls_counter=0,
-#     )
+        match.auto_email_m031_send = True
+        match.save()
 
-#     reminder_last_days = [0, 7, 14, 21, 30]
-#     reminder_last_templates = [
-#         "automatic-emails-m031",
-#         "automatic-emails-m032",
-#         "automatic-emails-m033",
-#         "automatic-emails-m042",
-#     ]
+    # 2 - automatic-emails-m032
+    matches_m032 = Match.objects.filter(
+        first_chat_interaction__isnull=False,
+        first_chat_interaction__lte=dj_timezone.now() - timedelta(days=14),
+        first_chat_interaction__gt=dj_timezone.now() - timedelta(days=21),
+        total_mutal_video_calls_counter=0,
+        auto_email_m032_send=False,
+    )
+    for match in matches_m032:
+        if not test:
+            send_email_background.delay("automatic-emails-m032", user_id=match.user1.id, match_id=match.id)
+            send_email_background.delay("automatic-emails-m032", user_id=match.user2.id, match_id=match.id)
 
-#     for i in range(len(reminder_last_days) - 1):
-#         for match in matches:
-#             if (match.first_chat_interaction >= dj_timezone.now() - timedelta(days=reminder_last_days[i])) or (
-#                 match.first_chat_interaction < dj_timezone.now() - timedelta(days=reminder_last_days[i + 1])
-#             ):
-#                 continue
+        match.auto_email_m032_send = True
+        match.save()
 
-#             # the chat is for seven days inactive, set the respective flag
-#             if not chat.seven_days_inactive:
-#                 chat.seven_days_inactive = True
-#                 chat.save()
-#                 inactive_counter += 1
+    # 3 - automatic-emails-m033
+    matches_m033 = Match.objects.filter(
+        first_chat_interaction__isnull=False,
+        first_chat_interaction__lte=dj_timezone.now() - timedelta(days=21),
+        first_chat_interaction__gt=dj_timezone.now() - timedelta(days=30),
+        total_mutal_video_calls_counter=0,
+        auto_email_m033_send=False,
+    )
+    for match in matches_m033:
+        if not test:
+            send_email_background.delay("automatic-emails-m033", user_id=match.user1.id, match_id=match.id)
+            send_email_background.delay("automatic-emails-m033", user_id=match.user2.id, match_id=match.id)
 
-#                 # send email to the user that received the last message
-#                 send_email_background.delay("automatic-emails-m024", user_id=last_message.recipient.id)
+        match.auto_email_m033_send = True
+        match.save()
 
-#                 # send email to the person that was ghosted
-#                 send_email_background.delay("automatic-emails-m025", user_id=last_message.sender.id)
+    # 4 - automatic-emails-m042
+    matches_m042 = Match.objects.filter(
+        confirmed=True,
+        first_interaction_at__lte=dj_timezone.now() - timedelta(days=30),
+        total_mutal_video_calls_counter=0,
+        auto_email_m042_send=False,
+    )
+    for match in matches_m042:
+        if not test:
+            send_email_background.delay("automatic-emails-m042", user_id=match.user1.id, match_id=match.id)
+            send_email_background.delay("automatic-emails-m042", user_id=match.user2.id, match_id=match.id)
+        match.auto_email_m042_send = True
+        match.save()
 
-#     return {"status": "sent", "number of 7 day inactive chat reminder sent": inactive_counter}
+    return {
+        "status": "sent",
+        "matches_m031": matches_m031,
+        "matches_m032": matches_m032,
+        "matches_m033": matches_m033,
+        "matches_m042": matches_m042,
+    }

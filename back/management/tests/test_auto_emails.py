@@ -12,6 +12,7 @@ from management.random_test_users import create_test_user
 from management.tasks import (
     automatic_emails_m023,
     automatic_emails_m024_m025,
+    automatic_emails_m031_m032_m033,
     automatic_emails_m12_m13_m14,
     automatic_emails_u023_u024_u025,
 )
@@ -395,3 +396,184 @@ class TestAutomaticEmails_m024_m025(TestCase):
         # Second run should find no new chats
         result2 = automatic_emails_m024_m025(test=True)
         assert len(result2["inactive_chats"]) == 0
+
+
+class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
+    """Test for no video call reminders at 7, 14, 21, and 30 days."""
+
+    def setUp(self):
+        # Create users for valid matches (one for each email tier)
+        with freeze_time(dj_timezone.now() - timedelta(days=60)):
+            # Valid match for m031 (7+ days, no video calls)
+            self.valid_user_m031_1 = create_test_user(32000, None, "Test123!", "m031-valid-user1@test.de")
+            self.valid_user_m031_2 = create_test_user(32001, None, "Test123!", "m031-valid-user2@test.de")
+
+            # Valid match for m032 (14+ days, no video calls)
+            self.valid_user_m032_1 = create_test_user(32002, None, "Test123!", "m032-valid-user1@test.de")
+            self.valid_user_m032_2 = create_test_user(32003, None, "Test123!", "m032-valid-user2@test.de")
+
+            # Valid match for m033 (21+ days, no video calls)
+            self.valid_user_m033_1 = create_test_user(32004, None, "Test123!", "m033-valid-user1@test.de")
+            self.valid_user_m033_2 = create_test_user(32005, None, "Test123!", "m033-valid-user2@test.de")
+
+            # Invalid match - too recent (5 days)
+            self.invalid_user_recent_1 = create_test_user(32006, None, "Test123!", "m031-invalid-recent1@test.de")
+            self.invalid_user_recent_2 = create_test_user(32007, None, "Test123!", "m031-invalid-recent2@test.de")
+
+            # Invalid match - has video calls
+            self.invalid_user_video_1 = create_test_user(32008, None, "Test123!", "m031-invalid-video1@test.de")
+            self.invalid_user_video_2 = create_test_user(32009, None, "Test123!", "m031-invalid-video2@test.de")
+
+            # Valid match for m042 (confirmed, 30+ days since last interaction, no video calls)
+            self.valid_user_m042_1 = create_test_user(32010, None, "Test123!", "m042-valid-user1@test.de")
+            self.valid_user_m042_2 = create_test_user(32011, None, "Test123!", "m042-valid-user2@test.de")
+
+            # Invalid match for m042 - not confirmed
+            self.invalid_user_m042_unconfirmed_1 = create_test_user(
+                32012, None, "Test123!", "m042-invalid-unconf1@test.de"
+            )
+            self.invalid_user_m042_unconfirmed_2 = create_test_user(
+                32013, None, "Test123!", "m042-invalid-unconf2@test.de"
+            )
+
+            # Invalid match for m042 - recent interaction
+            self.invalid_user_m042_recent_1 = create_test_user(32014, None, "Test123!", "m042-invalid-recent1@test.de")
+            self.invalid_user_m042_recent_2 = create_test_user(32015, None, "Test123!", "m042-invalid-recent2@test.de")
+
+        # Create valid match for m031 (first_chat_interaction 8 days ago)
+        self.valid_match_m031 = Match.objects.create(
+            user1=self.valid_user_m031_1,
+            user2=self.valid_user_m031_2,
+            first_chat_interaction=dj_timezone.now() - timedelta(days=8),
+            total_mutal_video_calls_counter=0,
+            auto_email_m031_send=False,
+        )
+
+        # Create valid match for m032 (first_chat_interaction 15 days ago, m031 already sent)
+        self.valid_match_m032 = Match.objects.create(
+            user1=self.valid_user_m032_1,
+            user2=self.valid_user_m032_2,
+            first_chat_interaction=dj_timezone.now() - timedelta(days=15),
+            total_mutal_video_calls_counter=0,
+            auto_email_m031_send=True,  # m031 already sent
+            auto_email_m032_send=False,
+        )
+
+        # Create valid match for m033 (first_chat_interaction 22 days ago, m031 and m032 already sent)
+        self.valid_match_m033 = Match.objects.create(
+            user1=self.valid_user_m033_1,
+            user2=self.valid_user_m033_2,
+            first_chat_interaction=dj_timezone.now() - timedelta(days=22),
+            total_mutal_video_calls_counter=0,
+            auto_email_m031_send=True,  # m031 already sent
+            auto_email_m032_send=True,  # m032 already sent
+            auto_email_m033_send=False,
+        )
+
+        # Create invalid match - too recent (5 days)
+        self.invalid_match_recent = Match.objects.create(
+            user1=self.invalid_user_recent_1,
+            user2=self.invalid_user_recent_2,
+            first_chat_interaction=dj_timezone.now() - timedelta(days=5),
+            total_mutal_video_calls_counter=0,
+            auto_email_m031_send=False,
+        )
+
+        # Create invalid match - has video calls
+        self.invalid_match_video = Match.objects.create(
+            user1=self.invalid_user_video_1,
+            user2=self.invalid_user_video_2,
+            first_chat_interaction=dj_timezone.now() - timedelta(days=10),
+            total_mutal_video_calls_counter=1,  # Has video calls
+            auto_email_m031_send=False,
+        )
+
+        # Create valid match for m042 (confirmed, first_interaction_at 35 days ago, no video calls)
+        self.valid_match_m042 = Match.objects.create(
+            user1=self.valid_user_m042_1,
+            user2=self.valid_user_m042_2,
+            confirmed=True,
+            first_interaction_at=dj_timezone.now() - timedelta(days=35),
+            total_mutal_video_calls_counter=0,
+            auto_email_m042_send=False,
+        )
+
+        # Create invalid match for m042 - not confirmed
+        self.invalid_match_m042_unconfirmed = Match.objects.create(
+            user1=self.invalid_user_m042_unconfirmed_1,
+            user2=self.invalid_user_m042_unconfirmed_2,
+            confirmed=False,
+            first_interaction_at=dj_timezone.now() - timedelta(days=35),
+            total_mutal_video_calls_counter=0,
+            auto_email_m042_send=False,
+        )
+
+        # Create invalid match for m042 - recent interaction (only 20 days ago)
+        self.invalid_match_m042_recent = Match.objects.create(
+            user1=self.invalid_user_m042_recent_1,
+            user2=self.invalid_user_m042_recent_2,
+            confirmed=True,
+            first_interaction_at=dj_timezone.now() - timedelta(days=20),
+            total_mutal_video_calls_counter=0,
+            auto_email_m042_send=False,
+        )
+
+    def test_identifies_correct_matches(self):
+        """Test that the task identifies matches at correct time thresholds for all email types."""
+        result = automatic_emails_m031_m032_m033(test=True)
+
+        matches_m031 = list(result["matches_m031"])
+        matches_m032 = list(result["matches_m032"])
+        matches_m033 = list(result["matches_m033"])
+        matches_m042 = list(result["matches_m042"])
+
+        # Valid matches should be included in their respective lists
+        assert self.valid_match_m031 in matches_m031
+        assert self.valid_match_m032 in matches_m032
+        assert self.valid_match_m033 in matches_m033
+        assert self.valid_match_m042 in matches_m042
+
+        # Invalid matches should not be in any list
+        assert self.invalid_match_recent not in matches_m031
+        assert self.invalid_match_video not in matches_m031
+        assert self.invalid_match_m042_unconfirmed not in matches_m042
+        assert self.invalid_match_m042_recent not in matches_m042
+
+    def test_sets_flags_after_sending(self):
+        """Test that the task sets the appropriate flags after sending."""
+        automatic_emails_m031_m032_m033(test=True)
+
+        self.valid_match_m031.refresh_from_db()
+        self.valid_match_m032.refresh_from_db()
+        self.valid_match_m033.refresh_from_db()
+        self.valid_match_m042.refresh_from_db()
+
+        assert self.valid_match_m031.auto_email_m031_send is True
+        assert self.valid_match_m032.auto_email_m032_send is True
+        assert self.valid_match_m033.auto_email_m033_send is True
+        assert self.valid_match_m042.auto_email_m042_send is True
+
+    def test_does_not_resend(self):
+        """Test that the task doesn't resend emails to matches that already received them."""
+        # First run
+        result1 = automatic_emails_m031_m032_m033(test=True)
+        assert len(result1["matches_m031"]) > 0
+        assert len(result1["matches_m032"]) > 0
+        assert len(result1["matches_m033"]) > 0
+        assert len(result1["matches_m042"]) > 0
+
+        # Second run should find no new matches
+        result2 = automatic_emails_m031_m032_m033(test=True)
+        assert len(result2["matches_m031"]) == 0
+        assert len(result2["matches_m032"]) == 0
+        assert len(result2["matches_m033"]) == 0
+        assert len(result2["matches_m042"]) == 0
+
+    def test_excludes_matches_with_video_calls(self):
+        """Test that matches with video calls are excluded from all email types."""
+        result = automatic_emails_m031_m032_m033(test=True)
+
+        matches_m031 = list(result["matches_m031"])
+
+        # Match with video calls should be excluded
+        assert self.invalid_match_video not in matches_m031
