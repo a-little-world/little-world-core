@@ -524,6 +524,13 @@ def slack_notify_communication_channel_async(message):
 
 
 @shared_task
+def slack_notify_security_channel_async(message):
+    from management.api.slack import notify_security_channel
+
+    notify_security_channel(message)
+
+
+@shared_task
 def hourly_check_banner_activation():
     from django.utils import timezone
 
@@ -555,7 +562,15 @@ def hourly_check_banner_activation():
     return bc
 
 
-@shared_task(autoretry_for=(), retry_kwargs={"max_retries": 0}, reject_on_worker_lost=True, acks_late=False, bind=True)
+@shared_task(
+    autoretry_for=(),
+    retry_kwargs={"max_retries": 0},
+    reject_on_worker_lost=True,
+    acks_late=False,
+    bind=True,
+    expires=300,
+    time_limit=300,
+)
 def send_sms_background(self, user_hash, message):
     """
     Send SMS background task that never retries on failure.

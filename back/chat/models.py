@@ -17,6 +17,7 @@ class Chat(models.Model):
 
     three_days_inactive_email_send = models.BooleanField(default=False, blank=False, null=False)
     seven_days_inactive_email_send = models.BooleanField(default=False, blank=False, null=False)
+    is_random_call_chat = models.BooleanField(default=False)
 
     class Meta:
         indexes = [
@@ -109,6 +110,7 @@ class ChatSerializer(serializers.ModelSerializer):
             user = self.context["request"].user if "request" in self.context else self.context["user"]
             partner = instance.get_partner(user)
 
+            # TODO: add specific representation for random calls
             if management_models.matches.Match.get_match(user, partner).exists() and partner.is_active:
                 profile = management_models.profile.CensoredProfileSerializer(partner.profile).data
                 representation["partner"] = profile

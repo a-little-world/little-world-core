@@ -185,7 +185,7 @@ def determine_match_bucket(match_pk):
         ]
         bucket_map = {entry.name: entry for entry in MATCH_JOURNEY_FILTERS if entry.name in match_categorie_buckets}
         for bucket in match_categorie_buckets:
-            if bucket_map[bucket].queryset(Match.objects.filter(pk=match_pk)).exists():
+            if bucket_map[bucket].queryset(Match.objects.filter(pk=match_pk, is_random_call_match=False)).exists():
                 return bucket
         return None
     except Exception as e:

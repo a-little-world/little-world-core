@@ -201,15 +201,30 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
 
         representation["state"] = StateSerializer(instance.state).data
 
+        # NOTE:
+        # Some of the filter lists in FILTER_LISTS use JSONField `__contains`
+        # lookups (for example on `profile__lang_skill`). These are only
+        # supported on PostgreSQL and will raise NotSupportedError on SQLite.
+        # To avoid breaking the API in development (SQLite) while keeping the
+        # behaviour in production (PostgreSQL), we only evaluate bucket
+        # membership on PostgreSQL and fall back to "unknown" otherwise.
+        from django.db import connection
+
         if determine_bucket:
-            try:
-                bucket_map = {entry.name: entry for entry in FILTER_LISTS if entry.name in user_category_buckets}
-                for bucket in user_category_buckets:
-                    if bucket_map[bucket].queryset(User.objects.filter(pk=instance.pk)).exists():
-                        representation["bucket"] = bucket
-                if "bucket" not in representation:
+            if connection.vendor == "postgresql":
+                try:
+                    bucket_map = {entry.name: entry for entry in FILTER_LISTS if entry.name in user_category_buckets}
+                    for bucket in user_category_buckets:
+                        if bucket_map[bucket].queryset(User.objects.filter(pk=instance.pk)).exists():
+                            representation["bucket"] = bucket
+                    if "bucket" not in representation:
+                        representation["bucket"] = "unknown"
+                except (KeyError, AttributeError):
                     representation["bucket"] = "unknown"
-            except (KeyError, AttributeError):
+            else:
+                # On non-PostgreSQL backends (e.g. SQLite in development) we
+                # can't safely run the JSONField `contains` lookups used in
+                # the filter lists, so we just set a sensible default.
                 representation["bucket"] = "unknown"
 
         return representation
