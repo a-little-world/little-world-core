@@ -36,7 +36,7 @@ var config = function (env) {
       new BundleTracker({
         filename: path.join(
           __dirname,
-          './$frontendName.webpack-stats.json'
+          './webpack-stats/$frontendName/webpack-stats.json'
         ),
       }),
       new CompressionPlugin(),

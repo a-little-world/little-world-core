@@ -40,7 +40,7 @@ var config = function (env) {
       new BundleTracker({
         filename: path.join(
           __dirname,
-          './cookie_banner_frontend.webpack-stats.json'
+          './webpack-stats/cookie_banner_frontend/webpack-stats.json'
         ),
       }),
       new CompressionPlugin(),

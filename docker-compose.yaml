@@ -17,7 +17,7 @@ services:
       - ./front/package-lock.json:/front/package-lock.json
       - ./back/entries:/back/entries/
       - ./back/static/dist/main_frontend/:/back/static/dist/main_frontend/
-      - ./front/main_frontend.webpack-stats.json:/front/main_frontend.webpack-stats.json
+      - ./front/webpack-stats/main_frontend/:/front/webpack-stats/main_frontend/
       - ./front/apps/main_frontend/prebuild/:/front/apps/main_frontend/prebuild/
       - ./front/apps/main_frontend/src/:/front/apps/main_frontend/src/
       - ./front/apps/main_frontend/node_modules/:/front/apps/main_frontend/node_modules/
@@ -39,7 +39,7 @@ services:
     volumes:
       - ./back/entries:/back/entries/
       - ./back/static/dist/admin_panel_frontend/:/back/static/dist/admin_panel_frontend/
-      - ./front/admin_panel_frontend.webpack-stats.json:/front/admin_panel_frontend.webpack-stats.json
+      - ./front/webpack-stats/admin_panel_frontend/:/front/webpack-stats/admin_panel_frontend/
       - ./front/apps/admin_panel_frontend/prebuild/:/front/apps/admin_panel_frontend/prebuild/
       - ./front/apps/admin_panel_frontend/src/:/front/apps/admin_panel_frontend/src/
       - ./front/apps/admin_panel_frontend/package.json:/front/apps/admin_panel_frontend/package.json
@@ -60,7 +60,7 @@ services:
     volumes:
       - ./back/entries:/back/entries/
       - ./back/static/dist/cookie_banner_frontend/:/back/static/dist/cookie_banner_frontend/
-      - ./front/cookie_banner_frontend.webpack-stats.json:/front/cookie_banner_frontend.webpack-stats.json
+      - ./front/webpack-stats/cookie_banner_frontend/:/front/webpack-stats/cookie_banner_frontend/
       - ./front/apps/cookie_banner_frontend/src/:/front/apps/cookie_banner_frontend/src/
       - ./front/apps/cookie_banner_frontend/package.json:/front/apps/cookie_banner_frontend/package.json
       - ./front/apps/cookie_banner_frontend/package-lock.json:/front/apps/cookie_banner_frontend/package-lock.json
@@ -96,9 +96,9 @@ services:
     volumes:
       - ./back/:/back/
       - ./front/env_apps/:/front/env_apps/
-      - ./front/main_frontend.webpack-stats.json:/front/main_frontend.webpack-stats.json
-      - ./front/admin_panel_frontend.webpack-stats.json:/front/admin_panel_frontend.webpack-stats.json
-      - ./front/cookie_banner_frontend.webpack-stats.json:/front/cookie_banner_frontend.webpack-stats.json
+      - ./front/webpack-stats/main_frontend/:/front/webpack-stats/main_frontend/
+      - ./front/webpack-stats/admin_panel_frontend/:/front/webpack-stats/admin_panel_frontend/
+      - ./front/webpack-stats/cookie_banner_frontend/:/front/webpack-stats/cookie_banner_frontend/
     depends_on:
       - redis
   redis:

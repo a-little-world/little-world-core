@@ -810,7 +810,7 @@ For loading webpack static files
 WEBPACK_LOADER = {
     app: {  # Configure seperate loaders for every app!
         "CACHE": not DEBUG,
-        "STATS_FILE": f"/front/{app}.webpack-stats.json",
+        "STATS_FILE": f"/front/webpack-stats/{app}/webpack-stats.json",
         "BUNDLE_DIR_NAME": f"/front/dist/{app}",
         "POLL_INTERVAL": 0.1,
         "IGNORE": [r".+\.hot-update.js", r".+\.map"],
