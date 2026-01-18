@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('management', '0120_alter_state_extra_user_permissions'),
+        ('management', '0121_alter_profile_image'),
     ]
 
     operations = [
