@@ -472,7 +472,7 @@ elif False:
         },
         "collectfast": {
             "BACKEND": "django.core.cache.backends.redis.RedisCache",
-            "LOCATION": "redis://host.docker.internal:6379",
+            "LOCATION": "redis://redis-service:6379",
         },
     }
     COLLECTFAST_CACHE = "collectfast"
@@ -522,7 +522,7 @@ elif EXTERNAL_S3 or ((not DOCS_BUILD and (IS_PROD or IS_STAGE)) and (not USE_WHI
         },
         "collectfast": {
             "BACKEND": "django.core.cache.backends.redis.RedisCache",
-            "LOCATION": "redis://host.docker.internal:6379",
+            "LOCATION": "redis://redis-service:6379",
         },
     }
     COLLECTFAST_CACHE = "collectfast"
@@ -620,14 +620,15 @@ DJANGO_REST_MULTITOKENAUTH_REQUIRE_USABLE_PASSWORD = False
 
 
 def get_redis_connect_url_port():
-    return os.environ["DJ_REDIS_HOST"], os.environ["DJ_REDIS_PORT"]
+    return os.environ.get("DJ_REDIS_HOST", "redis"), int(os.environ.get("DJ_REDIS_PORT", "6379"))
 
 
 if (EMPHIRIAL or USE_REDIS_AS_BROKER) and (not USE_MQ_AS_BROKER):
     CELERY_BROKER_URL = os.environ["REDIS_URL"]
 elif IS_DEV and (not USE_MQ_AS_BROKER):
     # autmaticly renders index.html when entering an absolute static path
-    CELERY_BROKER_URL = "redis://host.docker.internal:6379"
+    REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
+    CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}"
 elif IS_STAGE or IS_PROD or USE_MQ_AS_BROKER:
     # Sadly it turnsour that celery doesn't support redis clusters
     # So we will need to use Rabbit MQ instead
@@ -689,12 +690,13 @@ SPECTACULAR_SETTINGS = {
 
 if IS_DEV and (not EMPHIRIAL):
     # or install redis in the container
+    REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
             # "BACKEND": "channels.layers.InMemoryChannelLayer",
             "CONFIG": {
-                "hosts": [("host.docker.internal", 6379)],
+                "hosts": [f"{REDIS_HOST}:{REDIS_PORT}"],
             },
         }
     }
