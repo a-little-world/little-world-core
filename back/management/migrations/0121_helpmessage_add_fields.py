@@ -25,7 +25,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='helpmessage',
             name='origin',
-            field=models.CharField(blank=True, max_length=255, null=True),
+            field=models.CharField(blank=True, default='Contact Form', max_length=255, null=True),
         ),
         migrations.AddField(
             model_name='helpmessage',
