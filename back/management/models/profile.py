@@ -586,7 +586,9 @@ class Profile(models.Model):
         IMAGE = "image", get_translation("profile.image_type.image")
 
     image_type = models.CharField(choices=ImageTypeChoice.choices, default=ImageTypeChoice.IMAGE, max_length=255)
-    image = models.ImageField(upload_to=PathRename("profile_pics/"), blank=True)
+    # NOTE: `PathRename` intentionally generates long, non-guessable filenames.
+    # Django's default FileField/ImageField `max_length` is 100 which is too small for these paths.
+    image = models.ImageField(upload_to=PathRename("profile_pics/"), blank=True, max_length=512)
     avatar_config = models.JSONField(default=dict, blank=True)  # Contains the avatar builder config
 
     display_language = models.CharField(
