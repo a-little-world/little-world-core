@@ -8,7 +8,8 @@ services:
       args:
         DOCKER_BUILDKIT: 1
         PUBLIC_FRONTEND_PATH: ""
-        BUILD_TYPE: "${BUILD_TYPE}"
+        BUILD_TYPE: "dev"
+        ENTRYPOINT: "./entry.sh"
     working_dir: /front
     entrypoint: sh /back/entries/frontend_hot_reload.sh main_frontend
     volumes:
@@ -31,7 +32,8 @@ services:
       args:
         DOCKER_BUILDKIT: 1
         PUBLIC_FRONTEND_PATH: ""
-        BUILD_TYPE: "${BUILD_TYPE}"
+        BUILD_TYPE: "dev"
+        ENTRYPOINT: "./entry.sh"
     working_dir: /front
     entrypoint: sh /back/entries/frontend_hot_reload.sh admin_panel_frontend
     volumes:
@@ -51,7 +53,8 @@ services:
       args:
         DOCKER_BUILDKIT: 1
         PUBLIC_FRONTEND_PATH: ""
-        BUILD_TYPE: "${BUILD_TYPE}"
+        BUILD_TYPE: "dev"
+        ENTRYPOINT: "./entry.sh"
     working_dir: /front
     entrypoint: sh /back/entries/frontend_hot_reload.sh cookie_banner_frontend
     volumes:
@@ -78,14 +81,14 @@ services:
         DEVELOPMENT: true
         DOCKER_BUILDKIT: 1
         PUBLIC_FRONTEND_PATH: ""
-        BUILD_TYPE: "${BUILD_TYPE}"
-        ENTRYPOINT: "${ENTRYPOINT}"
-    image: "${APP_IMAGE_URL}"
+        BUILD_TYPE: "dev"
+        ENTRYPOINT: "./entry.sh"
+    image: "littleworld-backend:dev"
     ports:
       - "8000:8000"
       - "5678:5678"  # Debug port
     environment:
-      REDIS_URL: "${REDIS_URL}"
+      REDIS_URL: "redis://redis:6379"
     env_file:
       - ./dev/envs/dev.env
       - ./dev/envs/local_dev.env
@@ -95,8 +98,8 @@ services:
       - ./front/main_frontend.webpack-stats.json:/front/main_frontend.webpack-stats.json
       - ./front/admin_panel_frontend.webpack-stats.json:/front/admin_panel_frontend.webpack-stats.json
       - ./front/cookie_banner_frontend.webpack-stats.json:/front/cookie_banner_frontend.webpack-stats.json
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    depends_on:
+      - redis
   redis:
     profiles:
       [
@@ -110,8 +113,6 @@ services:
     image: redis:5
     ports:
       - "6379:6379"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
   patenmatch:
     profiles: [ "patenmatch", "all-pt" ]
     ports:
@@ -121,5 +122,3 @@ services:
       dockerfile: ./Dockerfile.dev
     volumes:
       - ./front/apps/patenmatch:/app
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
