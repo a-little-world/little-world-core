@@ -864,6 +864,7 @@ def automatic_emails_m031_m032_m033():
         send_email_background.delay(
             "automatic-emails-m042", user_id=match.user2.id, match_id=match.id, emulated_send=emulated_send
         )
+
         match.auto_email_m042_send = True
         match.save()
 
