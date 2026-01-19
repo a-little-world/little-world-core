@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from chat.models import Chat, Message
+from django.conf import settings
 from django.db.models import Q
 from django.test import TestCase
 from django.utils import timezone as dj_timezone
@@ -19,6 +20,8 @@ from management.tasks import (
 
 class TestAutomaticEmails_023_024_025(TestCase):
     def setUp(self):
+        settings.DJANGO_TESTING = True
+
         self.simulation_date = dj_timezone.now() - timedelta(weeks=4)
 
         with freeze_time(self.simulation_date):
@@ -106,7 +109,7 @@ class TestAutomaticEmails_023_024_025(TestCase):
         self.invalid_user_025_3.state.save()
 
     def test_u023_u024_u025(self):
-        u023_res = automatic_emails_u023_u024_u025(True)
+        u023_res = automatic_emails_u023_u024_u025()
 
         valids_023 = u023_res["users_u023"]
         valids_024 = u023_res["users_u024"]
@@ -123,6 +126,8 @@ class TestAutomaticEmails_023_024_025(TestCase):
 
 class TestAutomaticEmails_m12_m13_m14(TestCase):
     def setUp(self):
+        settings.DJANGO_TESTING = True
+
         self.simulation_date = dj_timezone.now() - timedelta(weeks=4)
 
         with freeze_time(dj_timezone.now() - timedelta(days=3)):
@@ -160,7 +165,7 @@ class TestAutomaticEmails_m12_m13_m14(TestCase):
         confirm_all_matches_and_set_reminder_status(self.invalid_user_m14, True, False, False, True)
 
     def test_m12_m13_m14(self):
-        result = automatic_emails_m12_m13_m14(True)
+        result = automatic_emails_m12_m13_m14()
 
         valids_m12 = result["matches_m012"]
         valids_m13 = result["matches_m013"]
@@ -174,7 +179,7 @@ class TestAutomaticEmails_m12_m13_m14(TestCase):
         assert valids_m13[0].user1 == self.valid_user_m12 or valids_m13[0].user2 == self.valid_user_m13
         assert valids_m14[0].user1 == self.valid_user_m12 or valids_m14[0].user2 == self.valid_user_m14
 
-        result = automatic_emails_m12_m13_m14(True)
+        result = automatic_emails_m12_m13_m14()
 
         assert len(result["matches_m012"]) == 0
         assert len(result["matches_m013"]) == 0
@@ -183,6 +188,8 @@ class TestAutomaticEmails_m12_m13_m14(TestCase):
 
 class TestAutomaticEmails_m023(TestCase):
     def setUp(self):
+        settings.DJANGO_TESTING = True
+
         # Create regular users for valid chat (3+ days inactive)
         with freeze_time(dj_timezone.now() - timedelta(days=10)):
             self.valid_user_1 = create_test_user(30000, None, "Test123!", "m023-valid-user1@test.de")
@@ -254,7 +261,7 @@ class TestAutomaticEmails_m023(TestCase):
         self.invalid_chat_no_messages = Chat.objects.create(u1=self.no_msg_user_1, u2=self.no_msg_user_2)
 
     def test_m023_identifies_inactive_chats(self):
-        result = automatic_emails_m023(test=True)
+        result = automatic_emails_m023()
 
         inactive_chats = result["inactive_chats"]
 
@@ -271,7 +278,7 @@ class TestAutomaticEmails_m023(TestCase):
         assert self.invalid_chat_recent.three_days_inactive_email_send is False
 
     def test_m023_excludes_staff_and_matching_users(self):
-        result = automatic_emails_m023(test=True)
+        result = automatic_emails_m023()
 
         inactive_chats = result["inactive_chats"]
 
@@ -281,16 +288,18 @@ class TestAutomaticEmails_m023(TestCase):
 
     def test_m023_does_not_resend(self):
         # First run
-        result1 = automatic_emails_m023(test=True)
+        result1 = automatic_emails_m023()
         assert len(result1["inactive_chats"]) == 1
 
         # Second run should find no new chats
-        result2 = automatic_emails_m023(test=True)
+        result2 = automatic_emails_m023()
         assert len(result2["inactive_chats"]) == 0
 
 
 class TestAutomaticEmails_m024_m025(TestCase):
     def setUp(self):
+        settings.DJANGO_TESTING = True
+
         # Create regular users for valid chat (7+ days inactive)
         with freeze_time(dj_timezone.now() - timedelta(days=14)):
             self.valid_user_1 = create_test_user(31000, None, "Test123!", "m024-valid-user1@test.de")
@@ -362,7 +371,7 @@ class TestAutomaticEmails_m024_m025(TestCase):
         self.invalid_chat_no_messages = Chat.objects.create(u1=self.no_msg_user_1, u2=self.no_msg_user_2)
 
     def test_m024_m025_identifies_inactive_chats(self):
-        result = automatic_emails_m024_m025(test=True)
+        result = automatic_emails_m024_m025()
 
         inactive_chats = result["inactive_chats"]
 
@@ -379,7 +388,7 @@ class TestAutomaticEmails_m024_m025(TestCase):
         assert self.invalid_chat_recent.seven_days_inactive_email_send is False
 
     def test_m024_m025_excludes_staff_and_matching_users(self):
-        result = automatic_emails_m024_m025(test=True)
+        result = automatic_emails_m024_m025()
 
         inactive_chats = result["inactive_chats"]
 
@@ -389,9 +398,9 @@ class TestAutomaticEmails_m024_m025(TestCase):
 
     def test_m024_m025_does_not_resend(self):
         # First run
-        result1 = automatic_emails_m024_m025(test=True)
+        result1 = automatic_emails_m024_m025()
         assert len(result1["inactive_chats"]) == 1
 
         # Second run should find no new chats
-        result2 = automatic_emails_m024_m025(test=True)
+        result2 = automatic_emails_m024_m025()
         assert len(result2["inactive_chats"]) == 0
