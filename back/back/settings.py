@@ -529,14 +529,14 @@ elif EXTERNAL_S3 or ((not DOCS_BUILD and (IS_PROD or IS_STAGE)) and (not USE_WHI
     COLLECTFAST_THREADS = 15
 
     EMAIL_STATIC_URL = "https://" + AWS_S3_CUSTOM_DOMAIN
-    
+
     STORAGES = {
-        'default': {
-            "BACKEND": 'storages.backends.s3.S3Storage',
+        "default": {
+            "BACKEND": "storages.backends.s3.S3Storage",
         },
-        'staticfiles': {
-            'BACKEND': 'storages.backends.s3.S3Storage',
-        }
+        "staticfiles": {
+            "BACKEND": "storages.backends.s3.S3Storage",
+        },
     }
 else:
     """
