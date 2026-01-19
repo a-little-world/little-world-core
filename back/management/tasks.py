@@ -743,6 +743,7 @@ def automatic_emails_m024_m025(test=False):
     for chat in chats:
         # check that the last message is older than 7 days
         last_message = chat.get_newest_message()
+        # Message.objects.filter(chat=self).order_by("-created").first()
         if (last_message is None) or last_message.created >= dj_timezone.now() - timedelta(days=7):
             continue
 
@@ -770,9 +771,9 @@ def automatic_emails_m031_m032_m033(test=False):
 
     # 1 - automatic-emails-m031
     matches_m031 = Match.objects.filter(
-        first_chat_interaction__isnull=False,
-        first_chat_interaction__lte=dj_timezone.now() - timedelta(days=7),
-        first_chat_interaction__gt=dj_timezone.now() - timedelta(days=14),
+        first_interaction_at__isnull=False,
+        first_interaction_at__lte=dj_timezone.now() - timedelta(days=7),
+        first_interaction_at__gt=dj_timezone.now() - timedelta(days=14),
         total_mutal_video_calls_counter=0,
         auto_email_m031_send=False,
     )
@@ -786,9 +787,9 @@ def automatic_emails_m031_m032_m033(test=False):
 
     # 2 - automatic-emails-m032
     matches_m032 = Match.objects.filter(
-        first_chat_interaction__isnull=False,
-        first_chat_interaction__lte=dj_timezone.now() - timedelta(days=14),
-        first_chat_interaction__gt=dj_timezone.now() - timedelta(days=21),
+        first_interaction_at__isnull=False,
+        first_interaction_at__lte=dj_timezone.now() - timedelta(days=14),
+        first_interaction_at__gt=dj_timezone.now() - timedelta(days=21),
         total_mutal_video_calls_counter=0,
         auto_email_m032_send=False,
     )
@@ -802,9 +803,9 @@ def automatic_emails_m031_m032_m033(test=False):
 
     # 3 - automatic-emails-m033
     matches_m033 = Match.objects.filter(
-        first_chat_interaction__isnull=False,
-        first_chat_interaction__lte=dj_timezone.now() - timedelta(days=21),
-        first_chat_interaction__gt=dj_timezone.now() - timedelta(days=30),
+        first_interaction_at__isnull=False,
+        first_interaction_at__lte=dj_timezone.now() - timedelta(days=21),
+        first_interaction_at__gt=dj_timezone.now() - timedelta(days=30),
         total_mutal_video_calls_counter=0,
         auto_email_m033_send=False,
     )

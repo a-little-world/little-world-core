@@ -440,30 +440,30 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
             self.invalid_user_m042_recent_1 = create_test_user(32014, None, "Test123!", "m042-invalid-recent1@test.de")
             self.invalid_user_m042_recent_2 = create_test_user(32015, None, "Test123!", "m042-invalid-recent2@test.de")
 
-        # Create valid match for m031 (first_chat_interaction 8 days ago)
+        # Create valid match for m031 (first_interaction_at 8 days ago)
         self.valid_match_m031 = Match.objects.create(
             user1=self.valid_user_m031_1,
             user2=self.valid_user_m031_2,
-            first_chat_interaction=dj_timezone.now() - timedelta(days=8),
+            first_interaction_at=dj_timezone.now() - timedelta(days=8),
             total_mutal_video_calls_counter=0,
             auto_email_m031_send=False,
         )
 
-        # Create valid match for m032 (first_chat_interaction 15 days ago, m031 already sent)
+        # Create valid match for m032 (first_interaction_at 15 days ago, m031 already sent)
         self.valid_match_m032 = Match.objects.create(
             user1=self.valid_user_m032_1,
             user2=self.valid_user_m032_2,
-            first_chat_interaction=dj_timezone.now() - timedelta(days=15),
+            first_interaction_at=dj_timezone.now() - timedelta(days=15),
             total_mutal_video_calls_counter=0,
             auto_email_m031_send=True,  # m031 already sent
             auto_email_m032_send=False,
         )
 
-        # Create valid match for m033 (first_chat_interaction 22 days ago, m031 and m032 already sent)
+        # Create valid match for m033 (first_interaction_at 22 days ago, m031 and m032 already sent)
         self.valid_match_m033 = Match.objects.create(
             user1=self.valid_user_m033_1,
             user2=self.valid_user_m033_2,
-            first_chat_interaction=dj_timezone.now() - timedelta(days=22),
+            first_interaction_at=dj_timezone.now() - timedelta(days=22),
             total_mutal_video_calls_counter=0,
             auto_email_m031_send=True,  # m031 already sent
             auto_email_m032_send=True,  # m032 already sent
@@ -474,7 +474,7 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
         self.invalid_match_recent = Match.objects.create(
             user1=self.invalid_user_recent_1,
             user2=self.invalid_user_recent_2,
-            first_chat_interaction=dj_timezone.now() - timedelta(days=5),
+            first_interaction_at=dj_timezone.now() - timedelta(days=5),
             total_mutal_video_calls_counter=0,
             auto_email_m031_send=False,
         )
@@ -483,7 +483,7 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
         self.invalid_match_video = Match.objects.create(
             user1=self.invalid_user_video_1,
             user2=self.invalid_user_video_2,
-            first_chat_interaction=dj_timezone.now() - timedelta(days=10),
+            first_interaction_at=dj_timezone.now() - timedelta(days=10),
             total_mutal_video_calls_counter=1,  # Has video calls
             auto_email_m031_send=False,
         )

@@ -42,10 +42,10 @@ class TestFirstChatInteraction(TestCase):
         response = view(request, chat_uuid=str(self.chat.uuid))
         return response
 
-    def test_first_chat_interaction_set_on_first_message(self):
-        """Test that first_chat_interaction is set to current time when first message is sent."""
-        # Ensure first_chat_interaction is None initially
-        self.match.first_chat_interaction = None
+    def test_first_interaction_at_set_on_first_message(self):
+        """Test that first_interaction_at is set to current time when first message is sent."""
+        # Ensure first_interaction_at is None initially
+        self.match.first_interaction_at = None
         self.match.total_messages_counter = 0
         self.match.save()
 
@@ -56,18 +56,18 @@ class TestFirstChatInteraction(TestCase):
             assert response.status_code == 200
 
         self.match.refresh_from_db()
-        assert self.match.first_chat_interaction is not None
-        assert self.match.first_chat_interaction == first_message_time
+        assert self.match.first_interaction_at is not None
+        assert self.match.first_interaction_at == first_message_time
 
-    def test_first_chat_interaction_not_overwritten_on_subsequent_messages(self):
-        """Test that first_chat_interaction is not changed when additional messages are sent."""
-        # Send first message via API to set first_chat_interaction
+    def test_first_interaction_at_not_overwritten_on_subsequent_messages(self):
+        """Test that first_interaction_at is not changed when additional messages are sent."""
+        # Send first message via API to set first_interaction_at
         response = self._send_message_via_api(self.user1, "First message")
         assert response.status_code == 200
 
         self.match.refresh_from_db()
-        original_first_chat_interaction = self.match.first_chat_interaction
-        assert original_first_chat_interaction is not None
+        original_first_interaction_at = self.match.first_interaction_at
+        assert original_first_interaction_at is not None
 
         # Send additional messages via API
         response = self._send_message_via_api(self.user2, "Second message")
@@ -77,11 +77,11 @@ class TestFirstChatInteraction(TestCase):
         assert response.status_code == 200
 
         self.match.refresh_from_db()
-        # first_chat_interaction should remain unchanged
-        assert self.match.first_chat_interaction == original_first_chat_interaction
+        # first_interaction_at should remain unchanged
+        assert self.match.first_interaction_at == original_first_interaction_at
 
-    def test_first_chat_interaction_backfilled_from_existing_messages(self):
-        """Test that first_chat_interaction is set to the first message's datetime when messages exist but first_chat_interaction is None."""
+    def test_first_interaction_at_backfilled_from_existing_messages(self):
+        """Test that first_interaction_at is set to the first message's datetime when messages exist but first_interaction_at is None."""
         # Create several messages with different timestamps (directly, not via API)
         first_message_time = dj_timezone.now() - timedelta(days=10)
         second_message_time = dj_timezone.now() - timedelta(days=8)
@@ -111,8 +111,8 @@ class TestFirstChatInteraction(TestCase):
                 text="Third message",
             )
 
-        # Set match state as if first_chat_interaction was never set (simulating legacy data)
-        self.match.first_chat_interaction = None
+        # Set match state as if first_interaction_at was never set (simulating legacy data)
+        self.match.first_interaction_at = None
         self.match.total_messages_counter = 3
         self.match.save()
 
@@ -121,5 +121,5 @@ class TestFirstChatInteraction(TestCase):
         assert response.status_code == 200
 
         self.match.refresh_from_db()
-        # first_chat_interaction should be set to the first message's created time
-        assert self.match.first_chat_interaction == first_message_time
+        # first_interaction_at should be set to the first message's created time
+        assert self.match.first_interaction_at == first_message_time
