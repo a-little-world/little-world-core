@@ -63,4 +63,3 @@ google-auth==2.23.4
 cryptography==41.0.7
 cbor2===5.7.0
 pyasn1==0.6.1
-freezegun==1.5.5
