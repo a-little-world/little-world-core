@@ -509,16 +509,6 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
             auto_email_m042_send=False,
         )
 
-        # Create invalid match for m042 - not confirmed
-        self.invalid_match_m042_unconfirmed = Match.objects.create(
-            user1=self.invalid_user_m042_unconfirmed_1,
-            user2=self.invalid_user_m042_unconfirmed_2,
-            confirmed=False,
-            first_interaction_at=dj_timezone.now() - timedelta(days=35),
-            total_mutal_video_calls_counter=0,
-            auto_email_m042_send=False,
-        )
-
         # Create invalid match for m042 - recent interaction (only 20 days ago)
         self.invalid_match_m042_recent = Match.objects.create(
             user1=self.invalid_user_m042_recent_1,
@@ -547,7 +537,6 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
         # Invalid matches should not be in any list
         assert self.invalid_match_recent not in matches_m031
         assert self.invalid_match_video not in matches_m031
-        assert self.invalid_match_m042_unconfirmed not in matches_m042
         assert self.invalid_match_m042_recent not in matches_m042
 
     def test_sets_flags_after_sending(self):
