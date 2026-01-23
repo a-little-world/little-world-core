@@ -1,6 +1,7 @@
 import math
 import random
 from datetime import datetime, timedelta, timezone
+from management.models.state import State
 
 from celery import shared_task
 from cookie_consent.models import Cookie, CookieGroup
@@ -161,6 +162,7 @@ def fill_base_management_user_tim_profile():
         return  # Allready filled base management user profile
 
     from management.controller import get_base_management_user
+    from management.models.state import State
 
     base_management_user_description = """
 Hello there 👋🏼
@@ -178,6 +180,7 @@ I'll take the time to answer all your messages but I might take a little time to
     usr.profile.description = base_management_user_description
     usr.profile.add_profile_picture_from_local_path("/back/dev_test_data/tim_schupp_base_management_profile_new.jpeg")
 
+
     usr.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.MATCHING_USER)
     usr.state.save()
     usr.profile.save()
@@ -189,6 +192,7 @@ def check_prematch_email_reminders_and_expirations():
     Reoccuring task to check for email reminders that should be send out
     also check if there are expired unconfirmed_matches
     """
+    from management.models.state import State
     from management.models.unconfirmed_matches import ProposedMatch
 
     all_unclosed_unconfirmed = ProposedMatch.objects.filter(closed=False)
@@ -219,6 +223,7 @@ def check_registration_reminders():
     """
     from django.db.models import Q
     from django.utils import timezone
+
 
     _3hrs_ago = timezone.now() - timezone.timedelta(hours=3)
 
