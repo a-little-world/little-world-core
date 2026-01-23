@@ -43,6 +43,34 @@ jobs:
         run: |
           echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
         id: extract_branch
+      - name: Sanitize branch name for hostname
+        shell: bash
+        run: |
+          # Validate branch name, convert determinsticly if required
+          BRANCH="${{ steps.extract_branch.outputs.branch }}"
+          SANITIZED=$(echo "$BRANCH" | tr '[:upper:]' '[:lower:]')
+          SANITIZED=$(echo "$SANITIZED" | sed 's/[^a-z0-9.-]/-/g')
+          SANITIZED=$(echo "$SANITIZED" | sed 's/-\+/-/g' | sed 's/\.\+/./g')
+          SANITIZED=$(echo "$SANITIZED" | sed 's/^[.-]\+//;s/[.-]\+$//')
+          if [ -z "$SANITIZED" ]; then
+            SANITIZED="branch"
+          fi
+          if ! echo "$SANITIZED" | grep -q '^[a-z0-9]'; then
+            SANITIZED="b${SANITIZED}"
+          fi
+          if ! echo "$SANITIZED" | grep -q '[a-z0-9]$'; then
+            SANITIZED="${SANITIZED}e"
+          fi
+          SANITIZED=$(echo "$SANITIZED" | cut -c1-63)
+          SANITIZED=$(echo "$SANITIZED" | sed 's/[.-]\+$//')
+          if [ -z "$SANITIZED" ] || ! echo "$SANITIZED" | grep -q '[a-z0-9]$'; then
+            # If empty or doesn't end with alphanumeric, append 'e'
+            SANITIZED="${SANITIZED}e"
+            # Re-truncate if needed
+            SANITIZED=$(echo "$SANITIZED" | cut -c1-63)
+          fi
+          echo "sanitized_branch=$SANITIZED" >> $GITHUB_OUTPUT
+        id: sanitize_branch
       - name: Determine Pull ID and if this should be staged
         id: determine_pull_id
         run: |
@@ -88,7 +116,7 @@ jobs:
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_BUILD_ANDROID != ''
         run: |
           # Triggers the build in a seperate workflow
-          STAGING_HOST="${{ steps.extract_branch.outputs.branch }}-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}.t1m.me"
+          STAGING_HOST="${{ steps.sanitize_branch.outputs.sanitized_branch }}-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}.t1m.me"
           export MAIN_FRONTEND_REPO_COMMIT_REF="${{ steps.main_frontend_commit.outputs.sha }}"
           export TAG="apk-${{ steps.main_frontend_commit.outputs.sha }}"
           export NAME="apk-${{ steps.main_frontend_commit.outputs.sha }}"
@@ -215,7 +243,7 @@ jobs:
           echo "${{ secrets.ENCRYPTED_KUBE_CONFIG_BASE64 }}" | base64 --decode > kubeconfig.enc
           openssl aes-256-cbc -d -pbkdf2 -in ./kubeconfig.enc -out kubeconfig.yaml -k ${{ secrets.KUBE_CONFIG_PASSWORD }}
           GH_CR_AUTH=$(echo -n "littleworld-bot:${{ secrets.BOT_PAT }}" | base64)
-          STAGING_HOST="${{ steps.extract_branch.outputs.branch }}-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}.t1m.me"
+          STAGING_HOST="${{ steps.sanitize_branch.outputs.sanitized_branch }}-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}.t1m.me"
           STAGING_URL="https://$STAGING_HOST"
           cat << EOF | while read eval_command; do yq -i eval "$eval_command" ./helm/values.yaml; done
             .rootNamespace = "${{ steps.setup_emperial_env.outputs.NAMESPACE }}"
