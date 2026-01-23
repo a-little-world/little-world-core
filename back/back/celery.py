@@ -44,6 +44,7 @@ def close_db_connections_after_task(**kwargs):
     Whilist A high connection time out is desirable for the API endpoints, as then the backend re-uses connections.
     """
     from django import db
+
     db.connections.close_all()
 
 

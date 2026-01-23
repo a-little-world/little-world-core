@@ -170,18 +170,26 @@ def user_sessions(request):
     # Session created_at ≈ expire_date - SESSION_COOKIE_AGE
     # So for sessions created in [start_date, end_date], we look for
     # expire_date in [start_date + session_duration, end_date + session_duration]
-    expire_start = timezone.make_aware(
-        timezone.datetime.combine(
-            start_date if isinstance(start_date, date) else timezone.datetime.strptime(start_date, "%Y-%m-%d").date(),
-            timezone.datetime.min.time(),
+    expire_start = (
+        timezone.make_aware(
+            timezone.datetime.combine(
+                start_date
+                if isinstance(start_date, date)
+                else timezone.datetime.strptime(start_date, "%Y-%m-%d").date(),
+                timezone.datetime.min.time(),
+            )
         )
-    ) + session_duration
-    expire_end = timezone.make_aware(
-        timezone.datetime.combine(
-            end_date if isinstance(end_date, date) else timezone.datetime.strptime(end_date, "%Y-%m-%d").date(),
-            timezone.datetime.max.time(),
+        + session_duration
+    )
+    expire_end = (
+        timezone.make_aware(
+            timezone.datetime.combine(
+                end_date if isinstance(end_date, date) else timezone.datetime.strptime(end_date, "%Y-%m-%d").date(),
+                timezone.datetime.max.time(),
+            )
         )
-    ) + session_duration
+        + session_duration
+    )
 
     # Annotate sessions with estimated creation date and bucket
     session_counts = (
