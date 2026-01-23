@@ -315,7 +315,7 @@ jobs:
           sed -i '/^REDIS_URL/d' .env
           REDIS_URL="redis://redis:6379"
           echo "REDIS_URL=\"$REDIS_URL\"" >> .env
-          docker compose up redis
+          docker compose up redis -d
           # Run tests and capture logs to file while preserving exit code
           LOG_FILE="test_output.log"
           : > "$LOG_FILE"
