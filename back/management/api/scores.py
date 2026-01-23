@@ -751,7 +751,6 @@ def burst_calculate_matching_scores_v2(request):
             slug=BackendState.BackendStateEnum.updating_matching_scores, meta={"tasks": []}
         )
 
-
     serializer = BurstCalculateMatchingScoresV2RequestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
 
