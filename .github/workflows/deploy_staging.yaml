@@ -172,6 +172,8 @@ jobs:
           echo "RANDOM_STRING=$RANDOM_STRING" >> $GITHUB_OUTPUT
           echo "IMAGE_URL=$IMAGE_URL" >> $GITHUB_OUTPUT
           echo "NAMESPACE=$NAMESPACE" >> $GITHUB_OUTPUT
+          # development true so that dev-packages are also included at build time
+          echo "DEVELOPMENT=true" >> $GITHUB_OUTPUT
       - name: Add build step comment
         uses: peter-evans/create-or-update-comment@v4
         id: update_comment
@@ -313,7 +315,7 @@ jobs:
           sed -i '/^REDIS_URL/d' .env
           REDIS_URL="redis://redis:6379"
           echo "REDIS_URL=\"$REDIS_URL\"" >> .env
-          docker run -d --name redis-test -p 6379:6379 redis
+          docker compose up redis
           # Run tests and capture logs to file while preserving exit code
           LOG_FILE="test_output.log"
           : > "$LOG_FILE"
@@ -322,7 +324,7 @@ jobs:
           TEST_EXIT=${PIPESTATUS[0]}
           set -e
           if [ $TEST_EXIT -eq 0 ]; then echo "test_result=pass" >> $GITHUB_OUTPUT; else echo "test_result=fail" >> $GITHUB_OUTPUT; fi
-          docker rm -f redis-test
+          docker compose down redis
       - name: Upload test log artifact
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         uses: actions/upload-artifact@v4
