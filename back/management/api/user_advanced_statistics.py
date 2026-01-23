@@ -173,10 +173,7 @@ def email_statistics(request):
         queryset = queryset.filter(template__in=dynamic_template_names)
 
     email_counts = (
-        queryset.annotate(bucket=trunc_func("time"))
-        .values("bucket")
-        .annotate(count=Count("id"))
-        .order_by("bucket")
+        queryset.annotate(bucket=trunc_func("time")).values("bucket").annotate(count=Count("id")).order_by("bucket")
     )
 
     data = [{"date": stats["bucket"], "count": stats["count"]} for stats in email_counts]
