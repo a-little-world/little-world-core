@@ -123,3 +123,17 @@ services:
       dockerfile: ./Dockerfile.dev
     volumes:
       - ./front/apps/patenmatch:/app
+  postgres:
+    profiles: [ "postgres" ]
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: "dbname"
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "dbpass"
+    volumes:
+      - ./dev/postgres_data:/var/lib/postgresql/data
+      - ./dev/scripts/init_db.sh:/docker-entrypoint-initdb.d/init_db.sh:ro
+      - ./dev/db_backup/:/docker-entrypoint-initdb.d/db_backup/
+    command: ["postgres", "-c", "max_connections=1000"]
