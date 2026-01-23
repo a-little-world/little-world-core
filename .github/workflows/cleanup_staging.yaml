@@ -59,7 +59,7 @@ jobs:
           STAGING_URL="https://$STAGING_HOST"
           NAMESPACE=lw-tmp-env-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}
           KUBECONFIG=./kubeconfig.yaml helm uninstall backend-tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }} || true
-          KUBECONFIG=./kubeconfig.yaml kubectl delete namespace $NAMESPACE || true
+          KUBECONFIG=./kubeconfig.yaml timeout 120 kubectl delete namespace $NAMESPACE --wait=false || true
           echo "STAGING_URL=$STAGING_URL" >> $GITHUB_OUTPUT
       - name: Add build step comment
         uses: peter-evans/create-or-update-comment@v4
