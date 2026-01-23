@@ -472,7 +472,7 @@ elif False:
         },
         "collectfast": {
             "BACKEND": "django.core.cache.backends.redis.RedisCache",
-            "LOCATION": "redis://redis-service:6379",
+            "LOCATION": "redis://redis:6379",
         },
     }
     COLLECTFAST_CACHE = "collectfast"
