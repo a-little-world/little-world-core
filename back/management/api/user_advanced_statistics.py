@@ -11,6 +11,7 @@ from django.urls import path
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
+from emails.models import DynamicTemplate, EmailLog
 from rest_framework import serializers
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -27,8 +28,6 @@ from management.models.short_links import ShortLinkClick
 from management.models.state import State
 from management.models.unconfirmed_matches import ProposedMatch
 from management.models.user import User
-
-from emails.models import DynamicTemplate, EmailLog
 
 
 @extend_schema(
