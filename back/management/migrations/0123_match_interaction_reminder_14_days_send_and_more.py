@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('management', '0121_alter_profile_image'),
+        ('management', '0122_helpmessage_add_fields'),
     ]
 
     operations = [
