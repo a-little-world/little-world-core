@@ -750,6 +750,10 @@ def burst_calculate_matching_scores_v2(request):
             slug=BackendState.BackendStateEnum.updating_matching_scores, meta={"tasks": []}
         )
 
+    slack_notify_security_channel_async.delay(
+        f"Score calculation triggered at {timezone.now()} by {request.user.email}, {request.user.id}\nCaclulating for {total_combinations} combinations, with {parallel_tasks} parallel tasks and {len(user_id_set)} users in total"
+    )
+
     serializer = BurstCalculateMatchingScoresV2RequestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
 
