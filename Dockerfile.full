@@ -72,12 +72,19 @@ FROM ghcr.io/tbscode/tims-packages/alpine-django-python:latest AS backend
 ARG DEVELOPMENT
 ENV DEVELOPMENT=${DEVELOPMENT:-false}
 
+RUN apk add gettext
+RUN apk add --update --no-cache py3-numpy
+
+COPY ./back/requirements.txt /tmp/requirements.txt
+COPY ./back/requirements.dev.txt /tmp/requirements.dev.txt
+
+
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+RUN if [ "$DEVELOPMENT" = "true" ]; then pip install --no-cache-dir -r /tmp/requirements.dev.txt; fi
+RUN pip cache purge
+
 WORKDIR /back
 COPY ./back .
-
-RUN pip install --no-cache-dir -r requirements.txt
-RUN if [ "$DEVELOPMENT" = "true" ]; then pip install --no-cache-dir -r requirements.dev.txt; fi
-RUN pip cache purge
 
 RUN mkdir -p /front
 
@@ -97,8 +104,6 @@ COPY --from=main_frontend_image /back/static/dist/main_frontend ./static/dist/ma
 ARG ENTRYPOINT="./entry.sh"
 ENV ENTRYPOINT=$ENTRYPOINT
 
-RUN apk add gettext
-RUN apk add --update --no-cache py3-numpy
 # link the numpy installation
 ENV PYTHONPATH="/usr/lib/python3.11/site-packages/:${PYTHONPATH}"
 
