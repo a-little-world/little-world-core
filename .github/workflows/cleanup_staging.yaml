@@ -28,8 +28,8 @@ jobs:
         id: determine_pull_id
         run: |
           pull_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
-          branch=${{ steps.extract_branch.outputs.branch }}
-          SHOULD_STAGE=$(echo $branch | grep -E '^staging-')
+          # Determine if the PR had the 'staging' label (matching deploy_staging.yaml logic)
+          SHOULD_STAGE=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH" | grep -x 'staging' || true)
           echo "SHOULD_STAGE=$SHOULD_STAGE" >> $GITHUB_OUTPUT
           echo "PULL_NUMBER=$pull_number" >> $GITHUB_OUTPUT
       - name: Delete all littleworld-bot comments

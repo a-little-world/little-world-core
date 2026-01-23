@@ -38,6 +38,10 @@ class Match(models.Model):
     total_mutal_video_calls_counter = models.IntegerField(default=0)
     latest_interaction_at = models.DateTimeField(default=timezone.now)
 
+    interaction_reminder_2_days_send = models.BooleanField(default=False, null=False, blank=False)
+    interaction_reminder_7_days_send = models.BooleanField(default=False, null=False, blank=False)
+    interaction_reminder_14_days_send = models.BooleanField(default=False, null=False, blank=False)
+
     # If a certain match completed condition is met, this will be set to True
     completed = models.BooleanField(default=False)
     completed_off_plattform = models.BooleanField(default=False)
