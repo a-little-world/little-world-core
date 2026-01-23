@@ -311,14 +311,14 @@ jobs:
         run: |
           set -euo pipefail
           sed -i '/^REDIS_URL/d' .env
-          REDIS_URL="redis://host.docker.internal:6379"
+          REDIS_URL="redis://redis:6379"
           echo "REDIS_URL=\"$REDIS_URL\"" >> .env
           docker run -d --name redis-test -p 6379:6379 redis
           # Run tests and capture logs to file while preserving exit code
           LOG_FILE="test_output.log"
           : > "$LOG_FILE"
           set +e
-          docker compose run all python manage.py test 2>&1 | tee -a "$LOG_FILE"
+          docker compose run -T all python manage.py test 2>&1 | tee -a "$LOG_FILE"
           TEST_EXIT=${PIPESTATUS[0]}
           set -e
           if [ $TEST_EXIT -eq 0 ]; then echo "test_result=pass" >> $GITHUB_OUTPUT; else echo "test_result=fail" >> $GITHUB_OUTPUT; fi
