@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 
 from celery import Celery
-from celery.signals import worker_ready
+from celery.signals import task_postrun, worker_ready
 from django.conf import settings
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "back.settings")
@@ -33,6 +33,19 @@ def debug_task(self):
 @worker_ready.connect
 def startup_task(sender, **k):
     return "Started " + datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
+
+
+@task_postrun.connect
+def close_db_connections_after_task(**kwargs):
+    """
+    Automatically close all database connections after each task completes.
+    This prevents connection exhaustion by ensuring connections don't stay
+    open for CONN_MAX_AGE (600s) after task completion.
+    Whilist A high connection time out is desirable for the API endpoints, as then the backend re-uses connections.
+    """
+    from django import db
+
+    db.connections.close_all()
 
 
 @app.task(bind=True, name="im_allive_task")

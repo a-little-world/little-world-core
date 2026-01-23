@@ -482,7 +482,8 @@ def create_base_admin_and_add_standart_db_values():
 
     def update_profile():
         usr_tim = get_user_by_email(settings.MATCHING_USER_MAIL)
-        usr_tim.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.MATCHING_USER)
+        if not usr_tim.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+            usr_tim.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.MATCHING_USER)
         usr_tim.state.email_authenticated = True
         usr_tim.state.save()
         usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
