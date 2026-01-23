@@ -82,15 +82,15 @@ RUN pip cache purge
 RUN mkdir -p /front
 
 # Now copy the generated stats files and bundles
-COPY --from=admin_panel_frontend_image /front/admin_panel_frontend.webpack-stats.json /front/
+COPY --from=admin_panel_frontend_image /front/webpack-stats/admin_panel_frontend/ /front/webpack-stats/admin_panel_frontend/
 RUN mkdir -p ./static/dist/admin_panel_frontend
 COPY --from=admin_panel_frontend_image /back/static/dist/admin_panel_frontend ./static/dist/admin_panel_frontend
 
-COPY --from=cookie_banner_frontend_image /front/cookie_banner_frontend.webpack-stats.json /front/
+COPY --from=cookie_banner_frontend_image /front/webpack-stats/cookie_banner_frontend/ /front/webpack-stats/cookie_banner_frontend/
 RUN mkdir -p ./static/dist/cookie_banner_frontend
 COPY --from=cookie_banner_frontend_image /back/static/dist/cookie_banner_frontend ./static/dist/cookie_banner_frontend
 
-COPY --from=main_frontend_image /front/main_frontend.webpack-stats.json /front/
+COPY --from=main_frontend_image /front/webpack-stats/main_frontend/ /front/webpack-stats/main_frontend/
 RUN mkdir -p ./static/dist/main_frontend
 COPY --from=main_frontend_image /back/static/dist/main_frontend ./static/dist/main_frontend
 
