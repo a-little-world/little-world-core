@@ -65,17 +65,23 @@ var config = function (env) {
         },
         {
           test: /\.svg$/,
-          issuer: /\.jsx?$/,
+          issuer: /\.[jt]sx?$/,
           use: [
-            'babel-loader',
             {
-              loader: 'react-svg-loader',
+              loader: '@svgr/webpack',
               options: {
-                svgo: {
-                  plugins: [{ removeTitle: false }],
-                  floatPrecision: 2,
+                svgoConfig: {
+                  plugins: [
+                    {
+                      name: 'preset-default',
+                      params: {
+                        overrides: {
+                          removeTitle: false,
+                        },
+                      },
+                    },
+                  ],
                 },
-                jsx: true,
               },
             },
           ],
