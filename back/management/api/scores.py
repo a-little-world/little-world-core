@@ -62,6 +62,7 @@ import pgeocode
 from back.utils import CoolerJson
 from django.core.paginator import Paginator
 from django.db.models import Exists, OuterRef, Q
+from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
 from rest_framework.decorators import api_view, permission_classes
@@ -78,7 +79,7 @@ from management.models.scores import TwoUserMatchingScore
 from management.models.state import State
 from management.models.unconfirmed_matches import ProposedMatch
 from management.models.user import User
-from management.tasks import burst_calculate_matching_scores, matching_algo_v2
+from management.tasks import burst_calculate_matching_scores, matching_algo_v2, slack_notify_security_channel_async
 from management.utils import check_task_status
 from management.validators import DAYS, SLOTS
 
@@ -750,9 +751,6 @@ def burst_calculate_matching_scores_v2(request):
             slug=BackendState.BackendStateEnum.updating_matching_scores, meta={"tasks": []}
         )
 
-    slack_notify_security_channel_async.delay(
-        f"Score calculation triggered at {timezone.now()} by {request.user.email}, {request.user.id}\nCaclulating for {total_combinations} combinations, with {parallel_tasks} parallel tasks and {len(user_id_set)} users in total"
-    )
 
     serializer = BurstCalculateMatchingScoresV2RequestSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -786,6 +784,10 @@ def burst_calculate_matching_scores_v2(request):
     ongoing_update.meta["tasks"] = created_tasks_ids
     ongoing_update.meta["completed_tasks"] = []
     ongoing_update.save()
+
+    slack_notify_security_channel_async.delay(
+        f"Score calculation triggered at {timezone.now()} by {request.user.email}, {request.user.id}\nCaclulating for {total_combinations} combinations, with {parallel_tasks} parallel tasks and {len(user_id_set)} users in total"
+    )
 
     return Response(created_tasks_ids)
 
