@@ -1002,4 +1002,5 @@ SIMPLE_JWT = {
         days=SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_DAYS,
     ),
 }
+
 DJANGO_TESTING = os.environ.get("DJANGO_TESTING", False) in ("True", "true", "1", "yes", "y")
