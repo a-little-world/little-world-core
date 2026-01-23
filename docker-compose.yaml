@@ -115,7 +115,7 @@ services:
     ports:
       - "6379:6379"
   patenmatch:
-    profiles: [ "patenmatch", "all-pt", "" ]
+    profiles: [ "patenmatch", "all-pt" ]
     ports:
       - "3000:3000"
     build:
