@@ -54,8 +54,6 @@ def im_allive_task(self):
     print("=========================================")
     print("==== Server: I'm happily chilli'n ;) ====")
     print("=========================================")
-    
-
 
 
 auto_emails = {
@@ -72,39 +70,47 @@ auto_emails = {
 
 if os.environ.get("DJ_ENABLE_AUTO_EMAILS__U023_U024_U025", "false").lower() in ("true", "1", "t"):
     # TODO: Remove once in prod for a while without bugs
-    auto_emails.update({
-        "automatic-emails-u023-u024-u025": {
-            "task": "management.tasks.automatic_emails_u023_u024_u025",
-            "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+    auto_emails.update(
+        {
+            "automatic-emails-u023-u024-u025": {
+                "task": "management.tasks.automatic_emails_u023_u024_u025",
+                "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+            }
         }
-    })
-    
+    )
+
 if os.environ.get("DJ_ENABLE_AUTO_EMAILS__M12_M13_M14", "false").lower() in ("true", "1", "t"):
     # TODO: Remove once in prod for a while without bugs
-    auto_emails.update({
-        "automatic-emails-m12-m13-m14": {
-            "task": "management.tasks.automatic_emails_m12_m13_m14",
-            "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+    auto_emails.update(
+        {
+            "automatic-emails-m12-m13-m14": {
+                "task": "management.tasks.automatic_emails_m12_m13_m14",
+                "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+            }
         }
-    })
-    
+    )
+
 if os.environ.get("DJ_ENABLE_AUTO_EMAILS__M023", "false").lower() in ("true", "1", "t"):
     # TODO: Remove once in prod for a while without bugs
-    auto_emails.update({
-        "automatic-emails-m023": {
-            "task": "management.tasks.automatic_emails_m023",
-            "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+    auto_emails.update(
+        {
+            "automatic-emails-m023": {
+                "task": "management.tasks.automatic_emails_m023",
+                "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+            }
         }
-    })
-    
+    )
+
 if os.environ.get("DJ_ENABLE_AUTO_EMAILS__M024_M025", "false").lower() in ("true", "1", "t"):
     # TODO: Remove once in prod for a while without bugs
-    auto_emails.update({
-        "automatic-emails-m024-m025": {
-            "task": "management.tasks.automatic_emails_m024_m025",
-            "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+    auto_emails.update(
+        {
+            "automatic-emails-m024-m025": {
+                "task": "management.tasks.automatic_emails_m024_m025",
+                "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+            }
         }
-    })
+    )
 
 prod_shedules = {
     "record-bucket-statistics": {
