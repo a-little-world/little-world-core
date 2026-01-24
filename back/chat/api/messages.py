@@ -137,8 +137,7 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         match.total_messages_counter += 1
         match.latest_interaction_at = timezone.now()
         if match.first_interaction_at is None:
-            if match.total_messages_counter == 1:
-                match.first_interaction_at = timezone.now()
+            match.first_interaction_at = timezone.now()
         match.save()
 
         # Email notification logic - check if recipient should be notified
