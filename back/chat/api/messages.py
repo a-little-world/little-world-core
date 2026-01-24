@@ -139,8 +139,6 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         if match.first_interaction_at is None:
             if match.total_messages_counter == 1:
                 match.first_interaction_at = timezone.now()
-            else:
-                match.first_interaction_at = Message.objects.filter(chat=chat).order_by("created").first().created
         match.save()
 
         # Email notification logic - check if recipient should be notified
