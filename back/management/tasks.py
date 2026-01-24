@@ -782,3 +782,98 @@ def automatic_emails_m024_m025():
         )
 
     return {"status": "sent", "inactive_chats": inactive_chats}
+
+
+@shared_task
+def automatic_emails_m031_m032_m033_m042():
+    """
+    No video call for 7, 14 and 21 days after first chat message or no video call for 30 days after the first interaction
+    """
+    from django.conf import settings
+
+    from management.models.matches import Match
+
+    emulated_send = bool(settings.DJANGO_TESTING)
+
+    # 1 - automatic-emails-m031
+    matches_m031 = Match.objects.filter(
+        first_interaction_at__isnull=False,
+        first_interaction_at__lte=dj_timezone.now() - timedelta(days=7),
+        first_interaction_at__gt=dj_timezone.now() - timedelta(days=14),
+        total_mutal_video_calls_counter=0,
+        auto_email_m031_send=False,
+    )
+    for match in matches_m031:
+        send_email_background.delay(
+            "automatic-emails-m031", user_id=match.user1.id, match_id=match.id, emulated_send=emulated_send
+        )
+        send_email_background.delay(
+            "automatic-emails-m031", user_id=match.user2.id, match_id=match.id, emulated_send=emulated_send
+        )
+
+        match.auto_email_m031_send = True
+        match.save()
+
+    # 2 - automatic-emails-m032
+    matches_m032 = Match.objects.filter(
+        first_interaction_at__isnull=False,
+        first_interaction_at__lte=dj_timezone.now() - timedelta(days=14),
+        first_interaction_at__gt=dj_timezone.now() - timedelta(days=21),
+        total_mutal_video_calls_counter=0,
+        auto_email_m032_send=False,
+    )
+    for match in matches_m032:
+        send_email_background.delay(
+            "automatic-emails-m032", user_id=match.user1.id, match_id=match.id, emulated_send=emulated_send
+        )
+        send_email_background.delay(
+            "automatic-emails-m032", user_id=match.user2.id, match_id=match.id, emulated_send=emulated_send
+        )
+
+        match.auto_email_m032_send = True
+        match.save()
+
+    # 3 - automatic-emails-m033
+    matches_m033 = Match.objects.filter(
+        first_interaction_at__isnull=False,
+        first_interaction_at__lte=dj_timezone.now() - timedelta(days=21),
+        first_interaction_at__gt=dj_timezone.now() - timedelta(days=30),
+        total_mutal_video_calls_counter=0,
+        auto_email_m033_send=False,
+    )
+    for match in matches_m033:
+        send_email_background.delay(
+            "automatic-emails-m033", user_id=match.user1.id, match_id=match.id, emulated_send=emulated_send
+        )
+        send_email_background.delay(
+            "automatic-emails-m033", user_id=match.user2.id, match_id=match.id, emulated_send=emulated_send
+        )
+
+        match.auto_email_m033_send = True
+        match.save()
+
+    # 4 - automatic-emails-m042
+    matches_m042 = Match.objects.filter(
+        first_interaction_at__isnull=False,
+        first_interaction_at__lte=dj_timezone.now() - timedelta(days=30),
+        total_mutal_video_calls_counter=0,
+        auto_email_m042_send=False,
+    )
+    for match in matches_m042:
+        send_email_background.delay(
+            "automatic-emails-m042", user_id=match.user1.id, match_id=match.id, emulated_send=emulated_send
+        )
+        send_email_background.delay(
+            "automatic-emails-m042", user_id=match.user2.id, match_id=match.id, emulated_send=emulated_send
+        )
+
+        match.auto_email_m042_send = True
+        match.save()
+
+    return {
+        "status": "sent",
+        "matches_m031": matches_m031,
+        "matches_m032": matches_m032,
+        "matches_m033": matches_m033,
+        "matches_m042": matches_m042,
+    }
