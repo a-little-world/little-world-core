@@ -521,7 +521,7 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
 
     def test_identifies_correct_matches(self):
         """Test that the task identifies matches at correct time thresholds for all email types."""
-        result = automatic_emails_m031_m032_m033()
+        result = automatic_emails_m031_m032_m033_m042()
 
         matches_m031 = list(result["matches_m031"])
         matches_m032 = list(result["matches_m032"])
@@ -541,7 +541,7 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
 
     def test_sets_flags_after_sending(self):
         """Test that the task sets the appropriate flags after sending."""
-        automatic_emails_m031_m032_m033()
+        automatic_emails_m031_m032_m033_m042()
 
         self.valid_match_m031.refresh_from_db()
         self.valid_match_m032.refresh_from_db()
@@ -556,14 +556,14 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
     def test_does_not_resend(self):
         """Test that the task doesn't resend emails to matches that already received them."""
         # First run
-        result1 = automatic_emails_m031_m032_m033()
+        result1 = automatic_emails_m031_m032_m033_m042()
         assert len(result1["matches_m031"]) > 0
         assert len(result1["matches_m032"]) > 0
         assert len(result1["matches_m033"]) > 0
         assert len(result1["matches_m042"]) > 0
 
         # Second run should find no new matches
-        result2 = automatic_emails_m031_m032_m033()
+        result2 = automatic_emails_m031_m032_m033_m042()
         assert len(result2["matches_m031"]) == 0
         assert len(result2["matches_m032"]) == 0
         assert len(result2["matches_m033"]) == 0
@@ -571,7 +571,7 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
 
     def test_excludes_matches_with_video_calls(self):
         """Test that matches with video calls are excluded from all email types."""
-        result = automatic_emails_m031_m032_m033()
+        result = automatic_emails_m031_m032_m033_m042()
 
         matches_m031 = list(result["matches_m031"])
 
