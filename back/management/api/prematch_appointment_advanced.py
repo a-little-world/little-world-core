@@ -11,7 +11,7 @@ from management.helpers import DetailedPaginationMixin, IsAdminOrMatchingUser
 from management.models.pre_matching_appointment import PreMatchingAppointment
 
 
-class PreMatchingAppointmentSerializer(serializers.ModelSerializer):
+class PreMatchingAppointmentAdvancedSerializer(serializers.ModelSerializer):
     class Meta:
         model = PreMatchingAppointment
         fields = ["uuid", "start_time", "end_time", "created", "user"]
@@ -56,7 +56,7 @@ class PreMatchingAppointmentViewSet(viewsets.ModelViewSet):
     queryset = PreMatchingAppointment.objects.all().order_by("-created")
     filter_backends = (filters.DjangoFilterBackend,)
     filterset_class = PreMatchingAppointmentFilter
-    serializer_class = PreMatchingAppointmentSerializer
+    serializer_class = PreMatchingAppointmentAdvancedSerializer
     pagination_class = DetailedPaginationMixin
     permission_classes = [IsAdminOrMatchingUser]
 
@@ -166,7 +166,7 @@ class PreMatchingAppointmentViewSet(viewsets.ModelViewSet):
                 "end_time": serializers.DateTimeField(required=False),
             },
         ),
-        responses={201: PreMatchingAppointmentSerializer},
+        responses={201: PreMatchingAppointmentAdvancedSerializer},
     )
     @action(detail=False, methods=["post"])
     def create_appointment_for_user(self, request):

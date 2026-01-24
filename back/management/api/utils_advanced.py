@@ -1,3 +1,6 @@
+import logging
+import warnings
+
 from django_filters import rest_framework as filters
 from django_rest_passwordreset.views import ResetPasswordRequestTokenViewSet
 from drf_spectacular.generators import SchemaGenerator
@@ -139,15 +142,21 @@ def filterset_schema_dict(filterset, include_lookup_expr=False, view_key="/api/m
         serializer.is_valid(raise_exception=True)
         _filters.append(serializer.data)
 
-        # 2 - retrieve the query shema
+    # 2 - retrieve the query schema (only once, outside the loop)
+    # Suppress drf-spectacular warnings during schema generation
+    with warnings.catch_warnings():
+        warnings.filterwarnings("ignore", module="drf_spectacular")
+        logging.getLogger("drf_spectacular").setLevel(logging.ERROR)
         generator = SchemaGenerator(patterns=None, urlconf=None)
         schema = generator.get_schema(request=request)
-        filter_schemas = schema["paths"].get(view_key, {}).get("get", {}).get("parameters", [])
-        for filter_schema in filter_schemas:
-            for filter_data in _filters:
-                if filter_data["name"] == filter_schema["name"]:
-                    filter_data["value_type"] = filter_schema["schema"]["type"]
-                    filter_data["nullable"] = filter_schema["schema"].get("nullable", False)
-                    break
+        logging.getLogger("drf_spectacular").setLevel(logging.WARNING)
+
+    filter_schemas = schema["paths"].get(view_key, {}).get("get", {}).get("parameters", [])
+    for filter_schema in filter_schemas:
+        for filter_data in _filters:
+            if filter_data["name"] == filter_schema["name"]:
+                filter_data["value_type"] = filter_schema["schema"]["type"]
+                filter_data["nullable"] = filter_schema["schema"].get("nullable", False)
+                break
 
     return _filters
