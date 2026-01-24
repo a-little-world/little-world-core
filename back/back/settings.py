@@ -646,6 +646,12 @@ SPECTACULAR_SETTINGS = {
         "persistAuthorization": True,
         "displayOperationId": True,
     },
+    # Register custom OpenAPI extensions
+    "EXTENSIONS": [
+        "management.openapi_extensions",
+    ],
+    # Suppress noisy warnings for views that don't need serializers
+    "WARN_RESPONSE_CODES": False,
 }
 
 
