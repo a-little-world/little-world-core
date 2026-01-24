@@ -93,7 +93,9 @@ DOCS_USER_LOGIN_TOKEN = os.environ.get(
 )
 
 USE_DEBUG_TOOLBAR = os.environ.get("DJ_USE_DEBUG_TOOLBAR", "false").lower() in ("true", "1", "t")
-REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379") # TODO: Reduce duplication with REDIS_PORT and REDIS_HOST!
+REDIS_URL = os.environ.get(
+    "REDIS_URL", "redis://redis:6379"
+)  # TODO: Reduce duplication with REDIS_PORT and REDIS_HOST!
 
 TWILIO_SMS_NUMBER = os.environ.get("DJ_TWILIO_SMS_NUMBER", "+1234567890")
 TWILIO_ACCOUNT_SID = os.environ.get("DJ_TWILIO_ACCOUNT_SID", "")
@@ -581,7 +583,6 @@ DJANGO_REST_MULTITOKENAUTH_REQUIRE_USABLE_PASSWORD = False
 
 def get_redis_connect_url_port():
     return os.environ.get("DJ_REDIS_HOST", "redis"), int(os.environ.get("DJ_REDIS_PORT", "6379"))
-
 
 
 if (EMPHIRIAL or USE_REDIS_AS_BROKER) and (not USE_MQ_AS_BROKER):
