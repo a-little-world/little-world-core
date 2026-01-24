@@ -13,7 +13,7 @@ from management.random_test_users import create_test_user
 from management.tasks import (
     automatic_emails_m023,
     automatic_emails_m024_m025,
-    automatic_emails_m031_m032_m033,
+    automatic_emails_m031_m032_m033_m042,
     automatic_emails_m12_m13_m14,
     automatic_emails_u023_u024_u025,
 )
