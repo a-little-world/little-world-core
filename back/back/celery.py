@@ -112,12 +112,12 @@ if os.environ.get("DJ_ENABLE_AUTO_EMAILS__M024_M025", "false").lower() in ("true
         }
     )
 
-if os.environ.get("DJ_ENABLE_AUTO_EMAILS__M031_M032_M033", "false").lower() in ("true", "1", "t"):
+if os.environ.get("DJ_ENABLE_AUTO_EMAILS__M031_M032_M033_M042", "false").lower() in ("true", "1", "t"):
     # TODO: Remove once in prod for a while without bugs
     auto_emails.update(
         {
-            "automatic-emails-m031-m032-m033": {
-                "task": "management.tasks.automatic_emails_m031_m032_m033",
+            "automatic-emails-m031-m032-m033-m042": {
+                "task": "management.tasks.automatic_emails_m031_m032_m033_m042",
                 "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
             }
         }

@@ -785,7 +785,7 @@ def automatic_emails_m024_m025():
 
 
 @shared_task
-def automatic_emails_m031_m032_m033():
+def automatic_emails_m031_m032_m033_m042():
     """
     No video call for 7, 14 and 21 days after first chat message or no video call for 30 days after the first interaction
     """
