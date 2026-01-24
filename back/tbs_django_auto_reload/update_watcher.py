@@ -8,7 +8,7 @@ if __name__ == "__main__":
 
     def try_get_timestamp(name):
         try:
-            return os.path.getmtime(f"/front/{name}.webpack-stats.json")
+            return os.path.getmtime(f"/front/webpack-stats/{name}/webpack-stats.json")
         except FileNotFoundError:
             return None
 
@@ -18,7 +18,7 @@ if __name__ == "__main__":
         time.sleep(4.0)
         while True:
             time.sleep(1.0)
-            f = os.path.getmtime("/front/main_frontend.webpack-stats.json")
+            f = os.path.getmtime("/front/webpack-stats/main_frontend/webpack-stats.json")
 
             changed = False
             new_frontend_timestamps = {name: try_get_timestamp(name) for name in FRONTEND_TO_WATCH}

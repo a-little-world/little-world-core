@@ -3,6 +3,7 @@ from datetime import date, timedelta
 import requests
 from chat.models import Message
 from django.conf import settings
+from django.contrib.sessions.models import Session
 from django.db import connection
 from django.db.models import Avg, Count, F, Q, Sum
 from django.db.models.functions import TruncDay, TruncMonth, TruncWeek
@@ -10,6 +11,7 @@ from django.urls import path
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
+from emails.models import DynamicTemplate, EmailLog
 from rest_framework import serializers
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -124,6 +126,133 @@ def user_signups(request):
                     "count_vol": volunteer_count,
                 }
             )
+
+    return Response(data)
+
+
+@extend_schema(
+    request=inline_serializer(
+        name="EmailStatisticsCountOverTimeRequest",
+        fields={
+            "bucket_size": serializers.IntegerField(default=1),
+            "start_date": serializers.DateField(default="2022-01-01"),
+            "end_date": serializers.DateField(default=date.today()),
+        },
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
+def email_statistics(request):
+    """
+    Returns the count of emails sent over time.
+
+    If dynamic_only query param is set to true, only returns statistics for dynamic emails.
+    """
+    today = date.today()
+    bucket_size = request.data.get("bucket_size", 1)
+    start_date = request.data.get("start_date", "2022-01-01")
+    end_date = request.data.get("end_date", today)
+    dynamic_only = request.query_params.get("dynamic_only", "false").lower() == "true"
+
+    if bucket_size == 1:
+        trunc_func = TruncDay
+    elif bucket_size == 7:
+        trunc_func = TruncWeek
+    elif bucket_size == 30:
+        trunc_func = TruncMonth
+    else:
+        return Response({"msg": "Bucket size not supported. Only 1, 7, & 30 days are supported"}, status=400)
+
+    # Base queryset for email logs
+    queryset = EmailLog.objects.filter(time__range=[start_date, end_date], sucess=True)
+
+    # If dynamic_only is True, filter to only emails using dynamic templates
+    if dynamic_only:
+        dynamic_template_names = DynamicTemplate.objects.values_list("template_name", flat=True)
+        queryset = queryset.filter(template__in=dynamic_template_names)
+
+    email_counts = (
+        queryset.annotate(bucket=trunc_func("time")).values("bucket").annotate(count=Count("id")).order_by("bucket")
+    )
+
+    data = [{"date": stats["bucket"], "count": stats["count"]} for stats in email_counts]
+
+    return Response(data)
+
+
+@extend_schema(
+    request=inline_serializer(
+        name="SessionStatisticsCountOverTimeRequest",
+        fields={
+            "bucket_size": serializers.IntegerField(default=1),
+            "start_date": serializers.DateField(default="2022-01-01"),
+            "end_date": serializers.DateField(default=date.today()),
+        },
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
+def user_sessions(request):
+    """
+    Returns the count of user sessions created over time.
+
+    Since Django's Session model only stores expire_date, we estimate the session
+    creation date by subtracting SESSION_COOKIE_AGE from expire_date.
+    """
+    today = date.today()
+    bucket_size = request.data.get("bucket_size", 1)
+    start_date = request.data.get("start_date", "2022-01-01")
+    end_date = request.data.get("end_date", today)
+
+    if bucket_size == 1:
+        trunc_func = TruncDay
+    elif bucket_size == 7:
+        trunc_func = TruncWeek
+    elif bucket_size == 30:
+        trunc_func = TruncMonth
+    else:
+        return Response({"msg": "Bucket size not supported. Only 1, 7, & 30 days are supported"}, status=400)
+
+    # Django's default SESSION_COOKIE_AGE is 2 weeks (1209600 seconds)
+    session_cookie_age = getattr(settings, "SESSION_COOKIE_AGE", 1209600)
+    session_duration = timedelta(seconds=session_cookie_age)
+
+    # Calculate estimated session creation date range based on expire_date
+    # Session created_at ≈ expire_date - SESSION_COOKIE_AGE
+    # So for sessions created in [start_date, end_date], we look for
+    # expire_date in [start_date + session_duration, end_date + session_duration]
+    expire_start = (
+        timezone.make_aware(
+            timezone.datetime.combine(
+                start_date
+                if isinstance(start_date, date)
+                else timezone.datetime.strptime(start_date, "%Y-%m-%d").date(),
+                timezone.datetime.min.time(),
+            )
+        )
+        + session_duration
+    )
+    expire_end = (
+        timezone.make_aware(
+            timezone.datetime.combine(
+                end_date if isinstance(end_date, date) else timezone.datetime.strptime(end_date, "%Y-%m-%d").date(),
+                timezone.datetime.max.time(),
+            )
+        )
+        + session_duration
+    )
+
+    # Annotate sessions with estimated creation date and bucket
+    session_counts = (
+        Session.objects.filter(expire_date__range=[expire_start, expire_end])
+        .annotate(estimated_created_at=F("expire_date") - session_duration)
+        .annotate(bucket=trunc_func("estimated_created_at"))
+        .values("bucket")
+        .annotate(count=Count("session_key"))
+        .order_by("bucket")
+    )
+
+    data = [{"date": stats["bucket"], "count": stats["count"]} for stats in session_counts]
 
     return Response(data)
 
@@ -1756,6 +1885,8 @@ def marketing_campaign_report(request):
 
 api_urls = [
     path("api/matching/users/statistics/signups/", user_signups),
+    path("api/matching/email_send_statistics/", email_statistics),
+    path("api/matching/users/statistics/sessions/", user_sessions),
     path(
         "api/matching/users/statistics/time_slot_combination_optimization/<int:n>/", time_slot_combination_optimization
     ),

@@ -72,33 +72,38 @@ FROM ghcr.io/tbscode/tims-packages/alpine-django-python:latest AS backend
 ARG DEVELOPMENT
 ENV DEVELOPMENT=${DEVELOPMENT:-false}
 
+RUN apk add gettext
+RUN apk add --update --no-cache py3-numpy
+
+COPY ./back/requirements.txt /tmp/requirements.txt
+COPY ./back/requirements.dev.txt /tmp/requirements.dev.txt
+
+
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+RUN if [ "$DEVELOPMENT" = "true" ]; then pip install --no-cache-dir -r /tmp/requirements.dev.txt; fi
+RUN pip cache purge
+
 WORKDIR /back
 COPY ./back .
-
-RUN pip install --no-cache-dir -r requirements.txt
-RUN if [ "$DEVELOPMENT" = "true" ]; then pip install --no-cache-dir -r requirements.dev.txt; fi
-RUN pip cache purge
 
 RUN mkdir -p /front
 
 # Now copy the generated stats files and bundles
-COPY --from=admin_panel_frontend_image /front/admin_panel_frontend.webpack-stats.json /front/
+COPY --from=admin_panel_frontend_image /front/webpack-stats/admin_panel_frontend/ /front/webpack-stats/admin_panel_frontend/
 RUN mkdir -p ./static/dist/admin_panel_frontend
 COPY --from=admin_panel_frontend_image /back/static/dist/admin_panel_frontend ./static/dist/admin_panel_frontend
 
-COPY --from=cookie_banner_frontend_image /front/cookie_banner_frontend.webpack-stats.json /front/
+COPY --from=cookie_banner_frontend_image /front/webpack-stats/cookie_banner_frontend/ /front/webpack-stats/cookie_banner_frontend/
 RUN mkdir -p ./static/dist/cookie_banner_frontend
 COPY --from=cookie_banner_frontend_image /back/static/dist/cookie_banner_frontend ./static/dist/cookie_banner_frontend
 
-COPY --from=main_frontend_image /front/main_frontend.webpack-stats.json /front/
+COPY --from=main_frontend_image /front/webpack-stats/main_frontend/ /front/webpack-stats/main_frontend/
 RUN mkdir -p ./static/dist/main_frontend
 COPY --from=main_frontend_image /back/static/dist/main_frontend ./static/dist/main_frontend
 
 ARG ENTRYPOINT="./entry.sh"
 ENV ENTRYPOINT=$ENTRYPOINT
 
-RUN apk add gettext
-RUN apk add --update --no-cache py3-numpy
 # link the numpy installation
 ENV PYTHONPATH="/usr/lib/python3.11/site-packages/:${PYTHONPATH}"
 

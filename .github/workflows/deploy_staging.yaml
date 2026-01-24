@@ -43,6 +43,34 @@ jobs:
         run: |
           echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
         id: extract_branch
+      - name: Sanitize branch name for hostname
+        shell: bash
+        run: |
+          # Validate branch name, convert determinsticly if required
+          BRANCH="${{ steps.extract_branch.outputs.branch }}"
+          SANITIZED=$(echo "$BRANCH" | tr '[:upper:]' '[:lower:]')
+          SANITIZED=$(echo "$SANITIZED" | sed 's/[^a-z0-9.-]/-/g')
+          SANITIZED=$(echo "$SANITIZED" | sed 's/-\+/-/g' | sed 's/\.\+/./g')
+          SANITIZED=$(echo "$SANITIZED" | sed 's/^[.-]\+//;s/[.-]\+$//')
+          if [ -z "$SANITIZED" ]; then
+            SANITIZED="branch"
+          fi
+          if ! echo "$SANITIZED" | grep -q '^[a-z0-9]'; then
+            SANITIZED="b${SANITIZED}"
+          fi
+          if ! echo "$SANITIZED" | grep -q '[a-z0-9]$'; then
+            SANITIZED="${SANITIZED}e"
+          fi
+          SANITIZED=$(echo "$SANITIZED" | cut -c1-63)
+          SANITIZED=$(echo "$SANITIZED" | sed 's/[.-]\+$//')
+          if [ -z "$SANITIZED" ] || ! echo "$SANITIZED" | grep -q '[a-z0-9]$'; then
+            # If empty or doesn't end with alphanumeric, append 'e'
+            SANITIZED="${SANITIZED}e"
+            # Re-truncate if needed
+            SANITIZED=$(echo "$SANITIZED" | cut -c1-63)
+          fi
+          echo "sanitized_branch=$SANITIZED" >> $GITHUB_OUTPUT
+        id: sanitize_branch
       - name: Determine Pull ID and if this should be staged
         id: determine_pull_id
         run: |
@@ -88,7 +116,7 @@ jobs:
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_BUILD_ANDROID != ''
         run: |
           # Triggers the build in a seperate workflow
-          STAGING_HOST="${{ steps.extract_branch.outputs.branch }}-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}.t1m.me"
+          STAGING_HOST="${{ steps.sanitize_branch.outputs.sanitized_branch }}-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}.t1m.me"
           export MAIN_FRONTEND_REPO_COMMIT_REF="${{ steps.main_frontend_commit.outputs.sha }}"
           export TAG="apk-${{ steps.main_frontend_commit.outputs.sha }}"
           export NAME="apk-${{ steps.main_frontend_commit.outputs.sha }}"
@@ -140,6 +168,8 @@ jobs:
           echo "REDIS_URL=\"$REDIS_URL\"" >> .env
           echo "BUILD_TYPE=\"pro\"" >> .env
           echo "ENTRYPOINT=\"./entry.sh\"" >> .env
+          # development true so that dev-packages are also included at build time
+          echo "DEVELOPMENT=true" >> .env
           echo "REDIS_URL=$REDIS_URL" >> $GITHUB_OUTPUT
           echo "RANDOM_STRING=$RANDOM_STRING" >> $GITHUB_OUTPUT
           echo "IMAGE_URL=$IMAGE_URL" >> $GITHUB_OUTPUT
@@ -163,6 +193,8 @@ jobs:
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         run: |
           echo ${{ secrets.BOT_PAT }} | docker login ghcr.io -u littleworld-bot --password-stdin
+          # use the ci compose instead of the development one
+          mv dev/ci/docker-compose.ci.yaml docker-compose.yaml
           DOCKER_BUILDKIT=1 docker compose build
           DOCKER_BUILDKIT=1 docker compose push
       - name: Measure end time
@@ -213,7 +245,7 @@ jobs:
           echo "${{ secrets.ENCRYPTED_KUBE_CONFIG_BASE64 }}" | base64 --decode > kubeconfig.enc
           openssl aes-256-cbc -d -pbkdf2 -in ./kubeconfig.enc -out kubeconfig.yaml -k ${{ secrets.KUBE_CONFIG_PASSWORD }}
           GH_CR_AUTH=$(echo -n "littleworld-bot:${{ secrets.BOT_PAT }}" | base64)
-          STAGING_HOST="${{ steps.extract_branch.outputs.branch }}-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}.t1m.me"
+          STAGING_HOST="${{ steps.sanitize_branch.outputs.sanitized_branch }}-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}.t1m.me"
           STAGING_URL="https://$STAGING_HOST"
           cat << EOF | while read eval_command; do yq -i eval "$eval_command" ./helm/values.yaml; done
             .rootNamespace = "${{ steps.setup_emperial_env.outputs.NAMESPACE }}"
@@ -281,18 +313,18 @@ jobs:
         run: |
           set -euo pipefail
           sed -i '/^REDIS_URL/d' .env
-          REDIS_URL="redis://host.docker.internal:6379"
+          REDIS_URL="redis://redis:6379"
           echo "REDIS_URL=\"$REDIS_URL\"" >> .env
-          docker run -d --name redis-test -p 6379:6379 redis
+          docker compose up redis -d
           # Run tests and capture logs to file while preserving exit code
           LOG_FILE="test_output.log"
           : > "$LOG_FILE"
           set +e
-          docker compose run all python manage.py test 2>&1 | tee -a "$LOG_FILE"
+          docker compose run -T all python manage.py test 2>&1 | tee -a "$LOG_FILE"
           TEST_EXIT=${PIPESTATUS[0]}
           set -e
           if [ $TEST_EXIT -eq 0 ]; then echo "test_result=pass" >> $GITHUB_OUTPUT; else echo "test_result=fail" >> $GITHUB_OUTPUT; fi
-          docker rm -f redis-test
+          docker compose down redis
       - name: Upload test log artifact
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         uses: actions/upload-artifact@v4

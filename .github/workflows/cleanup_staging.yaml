@@ -28,8 +28,8 @@ jobs:
         id: determine_pull_id
         run: |
           pull_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
-          branch=${{ steps.extract_branch.outputs.branch }}
-          SHOULD_STAGE=$(echo $branch | grep -E '^staging-')
+          # Determine if the PR had the 'staging' label (matching deploy_staging.yaml logic)
+          SHOULD_STAGE=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH" | grep -x 'staging' || true)
           echo "SHOULD_STAGE=$SHOULD_STAGE" >> $GITHUB_OUTPUT
           echo "PULL_NUMBER=$pull_number" >> $GITHUB_OUTPUT
       - name: Delete all littleworld-bot comments
@@ -59,7 +59,7 @@ jobs:
           STAGING_URL="https://$STAGING_HOST"
           NAMESPACE=lw-tmp-env-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}
           KUBECONFIG=./kubeconfig.yaml helm uninstall backend-tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }} || true
-          KUBECONFIG=./kubeconfig.yaml kubectl delete namespace $NAMESPACE || true
+          KUBECONFIG=./kubeconfig.yaml timeout 120 kubectl delete namespace $NAMESPACE --wait=false || true
           echo "STAGING_URL=$STAGING_URL" >> $GITHUB_OUTPUT
       - name: Add build step comment
         uses: peter-evans/create-or-update-comment@v4

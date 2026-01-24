@@ -1,60 +1,139 @@
-version: '3'
 services:
-  all:
+  frontend__main_frontend:
+    profiles: [ "main_frontend", "all", "main_frontend_only", "all-pt", ""]
+    build:
+      context: .
+      target: main_frontend_image
+      dockerfile: ./Dockerfile.full
+      args:
+        DOCKER_BUILDKIT: 1
+        PUBLIC_FRONTEND_PATH: ""
+        BUILD_TYPE: "dev"
+        ENTRYPOINT: "./entry.sh"
+    working_dir: /front
+    entrypoint: sh /back/entries/frontend_hot_reload.sh main_frontend
+    volumes:
+      - ./front/package.json:/front/package.json
+      - ./front/package-lock.json:/front/package-lock.json
+      - ./back/entries:/back/entries/
+      - ./back/static/dist/main_frontend/:/back/static/dist/main_frontend/
+      - ./front/webpack-stats/main_frontend/:/front/webpack-stats/main_frontend/
+      - ./front/apps/main_frontend/prebuild/:/front/apps/main_frontend/prebuild/
+      - ./front/apps/main_frontend/src/:/front/apps/main_frontend/src/
+      - ./front/apps/main_frontend/package.json:/front/apps/main_frontend/package.json
+      - ./front/apps/main_frontend/package-lock.json:/front/apps/main_frontend/package-lock.json
+  frontend__admin_panel_frontend:
+    profiles: [ "admin_panel_frontend", "all", "all-pt", ""]
+    build:
+      context: .
+      target: admin_panel_frontend_image
+      dockerfile: ./Dockerfile.full
+      args:
+        DOCKER_BUILDKIT: 1
+        PUBLIC_FRONTEND_PATH: ""
+        BUILD_TYPE: "dev"
+        ENTRYPOINT: "./entry.sh"
+    working_dir: /front
+    entrypoint: sh /back/entries/frontend_hot_reload.sh admin_panel_frontend
+    volumes:
+      - ./back/entries:/back/entries/
+      - ./back/static/dist/admin_panel_frontend/:/back/static/dist/admin_panel_frontend/
+      - ./front/webpack-stats/admin_panel_frontend/:/front/webpack-stats/admin_panel_frontend/
+      - ./front/apps/admin_panel_frontend/prebuild/:/front/apps/admin_panel_frontend/prebuild/
+      - ./front/apps/admin_panel_frontend/src/:/front/apps/admin_panel_frontend/src/
+      - ./front/apps/admin_panel_frontend/package.json:/front/apps/admin_panel_frontend/package.json
+      - ./front/apps/admin_panel_frontend/package-lock.json:/front/apps/admin_panel_frontend/package-lock.json
+  frontend__cookie_banner:
+    profiles: [ "cookie_banner_frontend", "all", "all-pt", ""]
+    build:
+      context: .
+      target: cookie_banner_frontend_image
+      dockerfile: ./Dockerfile.full
+      args:
+        DOCKER_BUILDKIT: 1
+        PUBLIC_FRONTEND_PATH: ""
+        BUILD_TYPE: "dev"
+        ENTRYPOINT: "./entry.sh"
+    working_dir: /front
+    entrypoint: sh /back/entries/frontend_hot_reload.sh cookie_banner_frontend
+    volumes:
+      - ./back/entries:/back/entries/
+      - ./back/static/dist/cookie_banner_frontend/:/back/static/dist/cookie_banner_frontend/
+      - ./front/webpack-stats/cookie_banner_frontend/:/front/webpack-stats/cookie_banner_frontend/
+      - ./front/apps/cookie_banner_frontend/src/:/front/apps/cookie_banner_frontend/src/
+      - ./front/apps/cookie_banner_frontend/package.json:/front/apps/cookie_banner_frontend/package.json
+      - ./front/apps/cookie_banner_frontend/package-lock.json:/front/apps/cookie_banner_frontend/package-lock.json
+  backend:
+    profiles:
+      [
+        "backend",
+        "admin_panel_frontend",
+        "main_frontend",
+        "cookie_banner_frontend",
+        "all",
+        "all-pt",
+        ""
+      ]
     build:
       context: .
       dockerfile: ./Dockerfile.full
       args:
+        DEVELOPMENT: true
         DOCKER_BUILDKIT: 1
-        PUBLIC_FRONTEND_PATH: "${WEBPACK_PUBLIC_PATH}"
-        BUILD_TYPE: "${BUILD_TYPE}"
-        ENTRYPOINT: "${ENTRYPOINT}"
-    image: "${APP_IMAGE_URL}"
+        PUBLIC_FRONTEND_PATH: ""
+        BUILD_TYPE: "dev"
+        ENTRYPOINT: "./entry.sh"
+    image: "littleworld-backend:dev"
     ports:
       - "8000:8000"
+      - "5678:5678"  # Debug port
     environment:
-      BUILD_TYPE: development
-      REDIS_URL: "${REDIS_URL}"
-      EMPHIRIAL: "1"
-      DJ_DEBUG: 1
-      DJ_SECRET_KEY: "bla bla"
-      DJ_ALLOWED_HOSTS: "*"
-      DJ_TIME_ZONE: UTC
-      DJ_CELERY_TIMEZONE: Australia/Tasmania
-      DJ_MANAGEMENT_USER_MAIL: admin@user.com
-      DJ_MANAGEMENT_PW: Admin123!
-      DJ_TIM_MANAGEMENT_PW: Test123!
-      DJ_ADMIN_OPEN_KEYPHRASE: opensesame
-      DJ_USE_MINIO: 0
-      DJ_MINIO_ROOT_USER: ""
-      DJ_MINIO_ROOT_PASSWORD: ""
-      DJ_MINIO_BUCKET_NAME: ""
-      DJ_MINIO_MEDIA_BUCKET_NAME: ""
-      DJ_MINIO_ENDPOINT: ""
-      DJ_TWILIO_ACCOUNT_SID: AccSidNotProvidedInDev
-      DJ_TWILIO_API_KEY_SID: TwApiKeyNotIncludedDev
-      DJ_TWILIO_API_SECRET: TwApiSecretNotIncludedDev
-      WEBPACK_PUBLIC_PATH: "${WEBPACK_PUBLIC_PATH}"
-      DJ_AWS_STATIC_ACCESS_KEY_ID: "${DJ_AWS_STATIC_ACCESS_KEY_ID}"
-      DJ_USE_AUTO_RELOAD: "true"
-      DJ_AWS_STATIC_SECRET_KEY: "${DJ_AWS_STATIC_SECRET_KEY}"
-      DJ_AWS_STATIC_BUCKET_NAME": "${DJ_AWS_STATIC_BUCKET_NAME}"
-      DJ_AWS_REGION_NAME: "${DJ_AWS_REGION_NAME}"
-      FR_FRONTENDS: main_frontend,cookie_banner_frontend,admin_panel_frontend
-      WEBPACK_DEV_TOOL: eval-cheap-module-source-map
-      WEBPACK_DEBUG: 1
-      DJ_SG_SENDGRID_API_KEY: "not_an_api_key"
-      DJ_SG_DEFAULT_FROM_EMAIL: "admin@user.com"
-      DJ_BASE_URL: http://localhost:8000
-      DJ_CALCOM_QUERY_ACCESS_PARAM: "secret"
-      DJ_CALCOM_MEETING_ID: "herr-duenschnlate-iiscv9/15min"
-      DJ_USE_SENTRY: 0
-      DJ_SENTRY_DNS: ""
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      REDIS_URL: "redis://redis:6379"
+    env_file:
+      - ./dev/envs/dev.env
+      - ./dev/envs/local_dev.env
+    volumes:
+      - ./back/:/back/
+      - ./front/env_apps/:/front/env_apps/
+      - ./front/webpack-stats/main_frontend/:/front/webpack-stats/main_frontend/
+      - ./front/webpack-stats/admin_panel_frontend/:/front/webpack-stats/admin_panel_frontend/
+      - ./front/webpack-stats/cookie_banner_frontend/:/front/webpack-stats/cookie_banner_frontend/
+    depends_on:
+      - redis
   redis:
+    profiles:
+      [
+        "backend",
+        "admin_panel_frontend",
+        "main_frontend",
+        "cookie_banner_frontend",
+        "all",
+        "all-pt",
+        ""
+      ]
     image: redis:5
     ports:
       - "6379:6379"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+  patenmatch:
+    profiles: [ "patenmatch", "all-pt" ]
+    ports:
+      - "3000:3000"
+    build:
+      context: ./front/apps/patenmatch
+      dockerfile: ./Dockerfile.dev
+    volumes:
+      - ./front/apps/patenmatch:/app
+  postgres:
+    profiles: [ "postgres" ]
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: "dbname"
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "dbpass"
+    volumes:
+      - ./dev/postgres_data:/var/lib/postgresql/data
+      - ./dev/scripts/init_db.sh:/docker-entrypoint-initdb.d/init_db.sh:ro
+      - ./dev/db_backup/:/docker-entrypoint-initdb.d/db_backup/
+    command: ["postgres", "-c", "max_connections=1000"]

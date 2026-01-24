@@ -93,6 +93,9 @@ DOCS_USER_LOGIN_TOKEN = os.environ.get(
 )
 
 USE_DEBUG_TOOLBAR = os.environ.get("DJ_USE_DEBUG_TOOLBAR", "false").lower() in ("true", "1", "t")
+REDIS_URL = os.environ.get(
+    "REDIS_URL", "redis://redis:6379"
+)  # TODO: Reduce duplication with REDIS_PORT and REDIS_HOST!
 
 TWILIO_SMS_NUMBER = os.environ.get("DJ_TWILIO_SMS_NUMBER", "+1234567890")
 TWILIO_ACCOUNT_SID = os.environ.get("DJ_TWILIO_ACCOUNT_SID", "")
@@ -436,47 +439,6 @@ if USE_MINIO:
     MINIO_STORAGE_AUTO_CREATE_MEDIA_BUCKET = True
     MINIO_STORAGE_STATIC_BUCKET_NAME = os.getenv("DJ_MINIO_BUCKET_NAME")
     MINIO_STORAGE_AUTO_CREATE_STATIC_BUCKET = True
-elif False:
-    print("USING MINIO")
-
-    COLLECTFAST_ENABLED = False
-    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
-    STATICFILES_STORAGE = "storages.backends.s3boto3.S3StaticStorage"
-
-    # COLLECTFAST_STRATEGY = "collectfast.strategies.boto3.Boto3Strategy"
-
-    MINIO_ACCESS_KEY = os.getenv("DJ_MINIO_ROOT_USER")
-    MINIO_SECRET_KEY = os.getenv("DJ_MINIO_ROOT_PASSWORD")
-    MINIO_BUCKET_NAME = os.getenv("DJ_MINIO_BUCKET_NAME")
-    MINIO_ENDPOINT = os.getenv("DJ_MINIO_ENDPOINT")
-
-    AWS_ACCESS_KEY_ID = MINIO_ACCESS_KEY
-    AWS_SECRET_ACCESS_KEY = MINIO_SECRET_KEY
-    AWS_STORAGE_BUCKET_NAME = MINIO_BUCKET_NAME
-    AWS_S3_ENDPOINT_URL = MINIO_ENDPOINT
-    AWS_DEFAULT_ACL = None
-    AWS_QUERYSTRING_AUTH = True
-    AWS_S3_FILE_OVERWRITE = True
-
-    # AWS_LOCATION = f'static'
-    # AWS_DEFAULT_ACL = 'public-read'
-
-    STATIC_ROOT = os.path.join(BASE_DIR, "static")
-    AWS_STATIC_ROOT = "static"
-    STATIC_URL = "{}/{}/".format(AWS_S3_ENDPOINT_URL, AWS_STORAGE_BUCKET_NAME)
-
-    CACHES = {  # This is so wee can use multithreaded statics uploads!
-        "default": {
-            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-            "LOCATION": "unique-snowflake",
-        },
-        "collectfast": {
-            "BACKEND": "django.core.cache.backends.redis.RedisCache",
-            "LOCATION": "redis://host.docker.internal:6379",
-        },
-    }
-    COLLECTFAST_CACHE = "collectfast"
-    COLLECTFAST_THREADS = 20
 
 elif EXTERNAL_S3 or ((not DOCS_BUILD and (IS_PROD or IS_STAGE)) and (not USE_WHITENOISE)):
     print("TRYING to push statics to bucket")
@@ -518,11 +480,11 @@ elif EXTERNAL_S3 or ((not DOCS_BUILD and (IS_PROD or IS_STAGE)) and (not USE_WHI
     CACHES = {  # This is so wee can use multithreaded statics uploads!
         "default": {
             "BACKEND": "django.core.cache.backends.redis.RedisCache",
-            "LOCATION": "redis://redis-service:6379",
+            "LOCATION": REDIS_URL,
         },
         "collectfast": {
             "BACKEND": "django.core.cache.backends.redis.RedisCache",
-            "LOCATION": "redis://host.docker.internal:6379",
+            "LOCATION": REDIS_URL,
         },
     }
     COLLECTFAST_CACHE = "collectfast"
@@ -620,14 +582,15 @@ DJANGO_REST_MULTITOKENAUTH_REQUIRE_USABLE_PASSWORD = False
 
 
 def get_redis_connect_url_port():
-    return os.environ["DJ_REDIS_HOST"], os.environ["DJ_REDIS_PORT"]
+    return os.environ.get("DJ_REDIS_HOST", "redis"), int(os.environ.get("DJ_REDIS_PORT", "6379"))
 
 
 if (EMPHIRIAL or USE_REDIS_AS_BROKER) and (not USE_MQ_AS_BROKER):
-    CELERY_BROKER_URL = os.environ["REDIS_URL"]
+    CELERY_BROKER_URL = REDIS_URL
 elif IS_DEV and (not USE_MQ_AS_BROKER):
     # autmaticly renders index.html when entering an absolute static path
-    CELERY_BROKER_URL = "redis://host.docker.internal:6379"
+    REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
+    CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}"
 elif IS_STAGE or IS_PROD or USE_MQ_AS_BROKER:
     # Sadly it turnsour that celery doesn't support redis clusters
     # So we will need to use Rabbit MQ instead
@@ -684,17 +647,24 @@ SPECTACULAR_SETTINGS = {
         "persistAuthorization": True,
         "displayOperationId": True,
     },
+    # Register custom OpenAPI extensions
+    "EXTENSIONS": [
+        "management.openapi_extensions",
+    ],
+    # Suppress noisy warnings for views that don't need serializers
+    "WARN_RESPONSE_CODES": False,
 }
 
 
 if IS_DEV and (not EMPHIRIAL):
     # or install redis in the container
+    REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
             # "BACKEND": "channels.layers.InMemoryChannelLayer",
             "CONFIG": {
-                "hosts": [("host.docker.internal", 6379)],
+                "hosts": [f"{REDIS_HOST}:{REDIS_PORT}"],
             },
         }
     }
@@ -705,7 +675,7 @@ elif EMPHIRIAL or USE_REDIS_AS_BROKER:
             "CONFIG": {
                 "hosts": [
                     {
-                        "address": os.environ["REDIS_URL"],
+                        "address": REDIS_URL,
                     }
                 ],
             },
@@ -761,7 +731,7 @@ DATABASES = (
             "PASSWORD": os.environ["DJ_DATABASE_PASSWORD"],
             "HOST": os.environ["DJ_DATABASE_HOST"],
             "PORT": os.environ["DJ_DATABASE_PORT"],
-            "OPTIONS": {"timeout": 10}
+            "OPTIONS": {"connect_timeout": 10}
             if (os.environ.get("DJ_DATABASE_DISABLE_SSL", "false").lower() in ("true", "t", "0"))
             else {"sslmode": "require"},
             "CONN_MAX_AGE": int(os.environ.get("DJ_DATABASE_CONN_MAX_AGE", "600")),
@@ -808,7 +778,7 @@ For loading webpack static files
 WEBPACK_LOADER = {
     app: {  # Configure seperate loaders for every app!
         "CACHE": not DEBUG,
-        "STATS_FILE": f"/front/{app}.webpack-stats.json",
+        "STATS_FILE": f"/front/webpack-stats/{app}/webpack-stats.json",
         "BUNDLE_DIR_NAME": f"/front/dist/{app}",
         "POLL_INTERVAL": 0.1,
         "IGNORE": [r".+\.hot-update.js", r".+\.map"],

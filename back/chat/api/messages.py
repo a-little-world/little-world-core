@@ -45,7 +45,6 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
     resp_chat_403 = Response({"error": "Chat doesn't exist or you have no permission to interact with it!"}, status=403)
 
     def filter_queryset(self, queryset):
-        print("FILTERING")
         if hasattr(self, "chat_uuid"):
             if self.request.user.is_staff:
                 qs = Chat.objects.get(uuid=self.chat_uuid).get_messages().order_by("-created")

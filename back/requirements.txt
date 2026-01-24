@@ -58,7 +58,7 @@ PyJWT==2.8.0
 # Use >= 42.0.4 to avoid CVE-2024-26130 (PKCS#12 serialize_key_and_certificates NULL deref DoS)
 cryptography>=43.0.1
 pyattest==1.0.4
-pyasn1==0.6.1
+pyasn1==0.6.2
 google-api-python-client==2.108.0
 google-auth==2.23.4
 cbor2===5.8.0
