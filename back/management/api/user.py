@@ -485,10 +485,10 @@ class UpdateSearchingStateApi(APIView):
         if params.state_slug == State.SearchingStateChoices.SEARCHING:
             # Now check if the user has receive a matching before
             if os.environ.get("DJ_ENABLE_AUTO_EMAILS__U081_U082_U083_U084", "false").lower() in ("true", "1", "t"):
-                if request.user.state.has_received_first_match and (not request.user.state.auto_email_u081_send):
+                if request.user.state.has_received_first_match and (not request.user.state.auto_emails_u081_send):
                     # send searching again email once
                     send_email_background.delay("automatic-emails-u081", user_id=request.user.id)
-                    request.user.state.auto_email_u081_send = True
+                    request.user.state.auto_emails_u081_send = True
                     request.user.state.save()
 
         if (params.state_slug == State.SearchingStateChoices.SEARCHING) and request.user.state.unresponsive:
