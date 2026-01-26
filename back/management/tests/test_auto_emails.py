@@ -378,7 +378,7 @@ class TestAutomaticEmails_m024_m025(TestCase):
 
         # Should only have the valid chat (7+ days inactive with regular users)
         assert len(inactive_chats) == 1
-        assert inactive_chats[0] == self.valid_chat
+        assert inactive_chats[0] == str(self.valid_chat.uuid)
 
         # Verify the flag was set
         self.valid_chat.refresh_from_db()
@@ -529,15 +529,29 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
         matches_m042 = list(result["matches_m042"])
 
         # Valid matches should be included in their respective lists
-        assert self.valid_match_m031 in matches_m031
-        assert self.valid_match_m032 in matches_m032
-        assert self.valid_match_m033 in matches_m033
-        assert self.valid_match_m042 in matches_m042
+        assert str(self.valid_match_m031.uuid) in matches_m031, (
+            f"Valid match m031: {self.valid_match_m031.uuid}, matches_m031: {matches_m031}"
+        )
+        assert str(self.valid_match_m032.uuid) in matches_m032, (
+            f"Valid match m032: {self.valid_match_m032.uuid}, matches_m032: {matches_m032}"
+        )
+        assert str(self.valid_match_m033.uuid) in matches_m033, (
+            f"Valid match m033: {self.valid_match_m033.uuid}, matches_m033: {matches_m033}"
+        )
+        assert str(self.valid_match_m042.uuid) in matches_m042, (
+            f"Valid match m042: {self.valid_match_m042.uuid}, matches_m042: {matches_m042}"
+        )
 
         # Invalid matches should not be in any list
-        assert self.invalid_match_recent not in matches_m031
-        assert self.invalid_match_video not in matches_m031
-        assert self.invalid_match_m042_recent not in matches_m042
+        assert str(self.invalid_match_recent.uuid) not in matches_m031, (
+            f"Invalid match recent: {self.invalid_match_recent.uuid}, matches_m031: {matches_m031}"
+        )
+        assert str(self.invalid_match_video.uuid) not in matches_m031, (
+            f"Invalid match video: {self.invalid_match_video.uuid}, matches_m031: {matches_m031}"
+        )
+        assert str(self.invalid_match_m042_recent.uuid) not in matches_m042, (
+            f"Invalid match m042 recent: {self.invalid_match_m042_recent.uuid}, matches_m042: {matches_m042}"
+        )
 
     def test_sets_flags_after_sending(self):
         """Test that the task sets the appropriate flags after sending."""
@@ -557,17 +571,18 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
         """Test that the task doesn't resend emails to matches that already received them."""
         # First run
         result1 = automatic_emails_m031_m032_m033_m042()
-        assert len(result1["matches_m031"]) > 0
-        assert len(result1["matches_m032"]) > 0
-        assert len(result1["matches_m033"]) > 0
-        assert len(result1["matches_m042"]) > 0
+        print(result1)
+        assert len(result1["matches_m031"]) > 0, f"Matches m031: {result1['matches_m031']}"
+        assert len(result1["matches_m032"]) > 0, f"Matches m032: {result1['matches_m032']}"
+        assert len(result1["matches_m033"]) > 0, f"Matches m033: {result1['matches_m033']}"
+        assert len(result1["matches_m042"]) > 0, f"Matches m042: {result1['matches_m042']}"
 
         # Second run should find no new matches
         result2 = automatic_emails_m031_m032_m033_m042()
-        assert len(result2["matches_m031"]) == 0
-        assert len(result2["matches_m032"]) == 0
-        assert len(result2["matches_m033"]) == 0
-        assert len(result2["matches_m042"]) == 0
+        assert len(result2["matches_m031"]) == 0, f"Matches m031: {result2['matches_m031']}"
+        assert len(result2["matches_m032"]) == 0, f"Matches m032: {result2['matches_m032']}"
+        assert len(result2["matches_m033"]) == 0, f"Matches m033: {result2['matches_m033']}"
+        assert len(result2["matches_m042"]) == 0, f"Matches m042: {result2['matches_m042']}"
 
     def test_excludes_matches_with_video_calls(self):
         """Test that matches with video calls are excluded from all email types."""
@@ -576,4 +591,6 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
         matches_m031 = list(result["matches_m031"])
 
         # Match with video calls should be excluded
-        assert self.invalid_match_video not in matches_m031
+        assert str(self.invalid_match_video.uuid) not in matches_m031, (
+            f"Invalid match video: {self.invalid_match_video.uuid}"
+        )

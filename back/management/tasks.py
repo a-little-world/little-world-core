@@ -781,7 +781,7 @@ def automatic_emails_m024_m025():
             "automatic-emails-m025", user_id=last_message.sender.id, emulated_send=emulated_send
         )
 
-    return {"status": "sent", "inactive_chats": inactive_chats}
+    return {"status": "sent", "inactive_chats": [str(chat.uuid) for chat in inactive_chats]}
 
 
 @shared_task
@@ -802,7 +802,10 @@ def automatic_emails_m031_m032_m033_m042():
         first_interaction_at__gt=dj_timezone.now() - timedelta(days=14),
         total_mutal_video_calls_counter=0,
         auto_email_m031_send=False,
+        support_matching=False,
     )
+    # Capture UUIDs before modifying (querysets are lazy and re-evaluate)
+    matches_m031_uuids = [str(uuid) for uuid in matches_m031.values_list("uuid", flat=True)]
     for match in matches_m031:
         send_email_background.delay(
             "automatic-emails-m031", user_id=match.user1.id, match_id=match.id, emulated_send=emulated_send
@@ -821,7 +824,10 @@ def automatic_emails_m031_m032_m033_m042():
         first_interaction_at__gt=dj_timezone.now() - timedelta(days=21),
         total_mutal_video_calls_counter=0,
         auto_email_m032_send=False,
+        support_matching=False,
     )
+    # Capture UUIDs before modifying (querysets are lazy and re-evaluate)
+    matches_m032_uuids = [str(uuid) for uuid in matches_m032.values_list("uuid", flat=True)]
     for match in matches_m032:
         send_email_background.delay(
             "automatic-emails-m032", user_id=match.user1.id, match_id=match.id, emulated_send=emulated_send
@@ -840,7 +846,10 @@ def automatic_emails_m031_m032_m033_m042():
         first_interaction_at__gt=dj_timezone.now() - timedelta(days=30),
         total_mutal_video_calls_counter=0,
         auto_email_m033_send=False,
+        support_matching=False,
     )
+    # Capture UUIDs before modifying (querysets are lazy and re-evaluate)
+    matches_m033_uuids = [str(uuid) for uuid in matches_m033.values_list("uuid", flat=True)]
     for match in matches_m033:
         send_email_background.delay(
             "automatic-emails-m033", user_id=match.user1.id, match_id=match.id, emulated_send=emulated_send
@@ -858,7 +867,10 @@ def automatic_emails_m031_m032_m033_m042():
         first_interaction_at__lte=dj_timezone.now() - timedelta(days=30),
         total_mutal_video_calls_counter=0,
         auto_email_m042_send=False,
+        support_matching=False,
     )
+    # Capture UUIDs before modifying (querysets are lazy and re-evaluate)
+    matches_m042_uuids = [str(uuid) for uuid in matches_m042.values_list("uuid", flat=True)]
     for match in matches_m042:
         send_email_background.delay(
             "automatic-emails-m042", user_id=match.user1.id, match_id=match.id, emulated_send=emulated_send
@@ -872,10 +884,10 @@ def automatic_emails_m031_m032_m033_m042():
 
     return {
         "status": "sent",
-        "matches_m031": [str(uuid) for uuid in list(matches_m031.values_list("uuid", flat=True))],
-        "matches_m032": [str(uuid) for uuid in list(matches_m032.values_list("uuid", flat=True))],
-        "matches_m033": [str(uuid) for uuid in list(matches_m033.values_list("uuid", flat=True))],
-        "matches_m042": [str(uuid) for uuid in list(matches_m042.values_list("uuid", flat=True))],
+        "matches_m031": matches_m031_uuids,
+        "matches_m032": matches_m032_uuids,
+        "matches_m033": matches_m033_uuids,
+        "matches_m042": matches_m042_uuids,
     }
 
 
