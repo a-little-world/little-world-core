@@ -718,9 +718,7 @@ class TestAutomaticEmails_u072_u073_u074(TestCase):
         )
 
         # Invalid users should not be in any list
-        assert self.invalid_user_recent.hash not in users_u072, (
-            f"Invalid user recent: {self.invalid_user_recent.hash}"
-        )
+        assert self.invalid_user_recent.hash not in users_u072, f"Invalid user recent: {self.invalid_user_recent.hash}"
         assert self.invalid_user_has_match.hash not in users_u072, (
             f"Invalid user has match: {self.invalid_user_has_match.hash}"
         )
@@ -887,9 +885,7 @@ class TestAutomaticEmails_u082_u083_u084(TestCase):
         assert self.invalid_user_no_match.hash not in users_u082, (
             f"Invalid user no match: {self.invalid_user_no_match.hash}"
         )
-        assert self.invalid_user_recent.hash not in users_u082, (
-            f"Invalid user recent: {self.invalid_user_recent.hash}"
-        )
+        assert self.invalid_user_recent.hash not in users_u082, f"Invalid user recent: {self.invalid_user_recent.hash}"
 
     def test_sets_flags_after_sending(self):
         """Test that the task sets the appropriate flags after sending."""
