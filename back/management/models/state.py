@@ -56,6 +56,15 @@ class State(models.Model):
     user_form_completed_3_days_reminder_send = models.BooleanField(default=False, null=False, blank=False)
     user_form_completed_7_days_reminder_send = models.BooleanField(default=False, null=False, blank=False)
     user_form_completed_14_days_reminder_send = models.BooleanField(default=False, null=False, blank=False)
+    
+    auto_email_u072_send = models.BooleanField(default=False, null=False, blank=False)
+    auto_email_u073_send = models.BooleanField(default=False, null=False, blank=False)
+    auto_email_u074_send = models.BooleanField(default=False, null=False, blank=False)
+    
+    auto_emails_u081_send = models.BooleanField(default=False, null=False, blank=False)
+    auto_emails_u082_send = models.BooleanField(default=False, null=False, blank=False)
+    auto_emails_u083_send = models.BooleanField(default=False, null=False, blank=False)
+    auto_emails_u084_send = models.BooleanField(default=False, null=False, blank=False)
 
     # Just some hash for verifying the email
     email_auth_hash = models.CharField(default=utils._double_uuid, max_length=255)
@@ -77,6 +86,7 @@ class State(models.Model):
     """
     require_pre_matching_call = models.BooleanField(default=False)
     had_prematching_call = models.BooleanField(default=False)
+    onboarding_call_completed_at = models.DateTimeField(default=None, null=True, blank=True)
 
     """
     These are referense to the actual user model of this persons matches 
