@@ -68,8 +68,7 @@ auto_emails = {
 }
 
 
-if os.environ.get("DJ_ENABLE_AUTO_EMAILS__U023_U024_U025", "false").lower() in ("true", "1", "t"):
-    # TODO: Remove once in prod for a while without bugs
+if settings.ENABLE_AUTO_EMAILS__U023_U024_U025:
     auto_emails.update(
         {
             "automatic-emails-u023-u024-u025": {
@@ -79,8 +78,7 @@ if os.environ.get("DJ_ENABLE_AUTO_EMAILS__U023_U024_U025", "false").lower() in (
         }
     )
 
-if os.environ.get("DJ_ENABLE_AUTO_EMAILS__M12_M13_M14", "false").lower() in ("true", "1", "t"):
-    # TODO: Remove once in prod for a while without bugs
+if settings.ENABLE_AUTO_EMAILS__M12_M13_M14:
     auto_emails.update(
         {
             "automatic-emails-m12-m13-m14": {
@@ -90,8 +88,7 @@ if os.environ.get("DJ_ENABLE_AUTO_EMAILS__M12_M13_M14", "false").lower() in ("tr
         }
     )
 
-if os.environ.get("DJ_ENABLE_AUTO_EMAILS__M023", "false").lower() in ("true", "1", "t"):
-    # TODO: Remove once in prod for a while without bugs
+if settings.ENABLE_AUTO_EMAILS__M023:
     auto_emails.update(
         {
             "automatic-emails-m023": {
@@ -101,8 +98,7 @@ if os.environ.get("DJ_ENABLE_AUTO_EMAILS__M023", "false").lower() in ("true", "1
         }
     )
 
-if os.environ.get("DJ_ENABLE_AUTO_EMAILS__M024_M025", "false").lower() in ("true", "1", "t"):
-    # TODO: Remove once in prod for a while without bugs
+if settings.ENABLE_AUTO_EMAILS__M024_M025:
     auto_emails.update(
         {
             "automatic-emails-m024-m025": {
@@ -112,8 +108,7 @@ if os.environ.get("DJ_ENABLE_AUTO_EMAILS__M024_M025", "false").lower() in ("true
         }
     )
 
-if os.environ.get("DJ_ENABLE_AUTO_EMAILS__M031_M032_M033_M042", "false").lower() in ("true", "1", "t"):
-    # TODO: Remove once in prod for a while without bugs
+if settings.ENABLE_AUTO_EMAILS__M031_M032_M033_M042:
     auto_emails.update(
         {
             "automatic-emails-m031-m032-m033-m042": {
@@ -123,8 +118,7 @@ if os.environ.get("DJ_ENABLE_AUTO_EMAILS__M031_M032_M033_M042", "false").lower()
         }
     )
 
-if os.environ.get("DJ_ENABLE_AUTO_EMAILS__U072_U073_U074", "false").lower() in ("true", "1", "t"):
-    # TODO: Remove once in prod for a while without bugs
+if settings.ENABLE_AUTO_EMAILS__U072_U073_U074:
     auto_emails.update(
         {
             "automatic-emails-u072-u073-u074": {
@@ -134,8 +128,7 @@ if os.environ.get("DJ_ENABLE_AUTO_EMAILS__U072_U073_U074", "false").lower() in (
         }
     )
 
-if os.environ.get("DJ_ENABLE_AUTO_EMAILS__U081_U082_U083_U084", "false").lower() in ("true", "1", "t"):
-    # TODO: Remove once in prod for a while without bugs
+if settings.ENABLE_AUTO_EMAILS__U081_U082_U083_U084:
     # The 81 email is handeled inside the api that change the searching state of the user
     auto_emails.update(
         {
