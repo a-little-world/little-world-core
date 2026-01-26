@@ -732,6 +732,8 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             return res
 
         obj.state.had_prematching_call = request.data.get("had_prematching_call", True)
+        if obj.state.had_prematching_call:
+            obj.state.onboarding_call_completed_at = timezone.now()
         obj.state.save()
         return Response({"success": True})
 
@@ -806,6 +808,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         # mark the users as completed
         for user in user_list_objects:
             user.state.had_prematching_call = True
+            user.state.onboarding_call_completed_at = timezone.now()
             user.state.save()
             if send_mail[str(user.id)]:
                 send_email_background.delay("prematching-call-post-thanks", user_id=user.id)
@@ -820,6 +823,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
                 # Don't apply this for people that already had a prematching call, but booked another appointment.
                 continue
             user.state.had_prematching_call = False
+            # user.state.onboarding_call_completed_at = None
             user.state.save()
             if send_mail[str(user.id)]:
                 send_email_background.delay("prematching-call-no-show", user_id=user_id)
