@@ -480,6 +480,13 @@ class UpdateSearchingStateApi(APIView):
             )
 
         request.user.state.change_searching_state(params.state_slug)
+        if (params.state_slug == State.SearchingStateChoices.SEARCHING)
+            # Now check if the user has receive a matching before
+            if request.user.state.has_received_first_match and (not user.state.auto_email_u081_send):
+                # send searching again email once
+                send_email_background.delay("automatic-emails-u081", user_id=request.user.id)
+                request.user.state.auto_email_u081_send = True
+                request.user.state.save()
 
         if (params.state_slug == State.SearchingStateChoices.SEARCHING) and request.user.state.unresponsive:
             # If the user was manaully set to 'unresponsive' he can self remove this flag by searching him-self again
