@@ -465,6 +465,14 @@
       "subject": "\ud83d\udcad Dein Match wurde beendet \u2013 sag uns bitte warum \ud83d\ude4f",
       "template": "react_emails/automatic-emails-fm011.html",
       "theme": "little-world"
+    },
+    "automatic-emails-fm021": {
+      "id": "automatic-emails-fm021",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "\u2753 Dein Match wurde beendet \u2013 magst du uns Feedback geben?",
+      "template": "react_emails/automatic-emails-fm021.html",
+      "theme": "little-world"
     }
   },
   "senders": {
