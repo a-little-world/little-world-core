@@ -742,6 +742,14 @@
         "user",
         "context.patenmatch_language"
       ]
+    },
+    "match_removed_survey_url": {
+      "id": "match_removed_survey_url",
+      "lookup": "emails.api.template_lookup.match_removed_survey_url",
+      "depends_on": [
+        "user",
+        "match"
+      ]
     }
   },
   "dependencies": {

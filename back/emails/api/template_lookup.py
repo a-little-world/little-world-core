@@ -207,6 +207,11 @@ def still_in_contact_no_url(user, match, **kwargs):
     return "not_implemented"
 
 
+def match_removed_survey_url(user, match, **kwargs):
+    # TODO: Add once implementation questions resolved
+    return "not_implemented"
+
+
 def latest_completed_match_first_name(user):
     from django.db.models import Q
 
