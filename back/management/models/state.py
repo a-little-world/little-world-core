@@ -87,6 +87,8 @@ class State(models.Model):
     require_pre_matching_call = models.BooleanField(default=False)
     had_prematching_call = models.BooleanField(default=False)
     onboarding_call_completed_at = models.DateTimeField(default=None, null=True, blank=True)
+    
+    has_received_first_match = models.BooleanField(default=False)
 
     """
     These are referense to the actual user model of this persons matches 
