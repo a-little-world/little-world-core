@@ -271,7 +271,7 @@
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "So k\u00f6nnen wir schneller jemanden f\u00fcr dich finden \ud83d\udcaa",
-      "template": "react_emails/u083-availability-reminder.html",
+      "template": "react_emails/automatic-emails-u083.html",
       "theme": "little-world"
     },
     "automatic-emails-u073": {
@@ -448,6 +448,22 @@
       "category_id": "automated",
       "subject": "\ud83c\udfc6 Gl\u00fcckwunsch! 10 Wochen Austausch mit {{ partner_first_name }}",
       "template": "react_emails/automatic-emails-m055.html",
+      "theme": "little-world"
+    },
+    "automatic-emails-fm001": {
+      "id": "automatic-emails-fm001",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "\u274c Dein vorgeschlagenes Match ist abgelaufen \u2013 starte neu \ud83d\udd04",
+      "template": "react_emails/automatic-emails-fm001.html",
+      "theme": "little-world"
+    },
+    "automatic-emails-fm011": {
+      "id": "automatic-emails-fm011",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "\ud83d\udcad Dein Match wurde beendet \u2013 sag uns bitte warum \ud83d\ude4f",
+      "template": "react_emails/automatic-emails-fm011.html",
       "theme": "little-world"
     }
   },
