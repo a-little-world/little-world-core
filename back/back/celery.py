@@ -122,7 +122,29 @@ if os.environ.get("DJ_ENABLE_AUTO_EMAILS__M031_M032_M033_M042", "false").lower()
             }
         }
     )
+    
+if os.environ.get("DJ_ENABLE_AUTO_EMAILS__U072_U073_U074", "false").lower() in ("true", "1", "t"):
+    # TODO: Remove once in prod for a while without bugs
+    auto_emails.update(
+        {
+            "automatic-emails-u072-u073-u074": {
+                "task": "management.tasks.automatic_emails_u072_u073_u074",
+                "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+            }
+        }
+    )
 
+if os.environ.get("DJ_ENABLE_AUTO_EMAILS__U081_U082_U083_U084", "false").lower() in ("true", "1", "t"):
+    # TODO: Remove once in prod for a while without bugs
+    # The 81 email is handeled inside the api that change the searching state of the user
+    auto_emails.update(
+        {
+            "automatic-emails-u082-u083-u084": {
+                "task": "management.tasks.automatic_emails_u082_u083_u084",
+                "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+            }
+        }
+    )
 prod_shedules = {
     "record-bucket-statistics": {
         "task": "management.tasks.record_bucket_ids",
