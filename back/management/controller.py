@@ -347,7 +347,6 @@ def match_users(
     if set_to_idle:
         usr1.state.set_idle()
         usr2.state.set_idle()
-        
 
     if set_received_first_match:
         if not usr1.state.has_received_first_match:

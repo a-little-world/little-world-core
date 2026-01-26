@@ -878,15 +878,18 @@ def automatic_emails_m031_m032_m033_m042():
         "matches_m042": [str(uuid) for uuid in list(matches_m042.values_list("uuid", flat=True))],
     }
 
+
 @shared_task
 def automatic_emails_u072_u073_u074():
     """
     User searching for the first time still no matching
     """
     from django.conf import settings
+
     from management.models.user import User
+
     emulated_send = bool(settings.DJANGO_TESTING)
-    
+
     users_u072 = User.objects.filter(
         state__onboarding_call_completed_at__lte=dj_timezone.now() - timedelta(days=10),
         state__onboarding_call_completed_at__gt=dj_timezone.now() - timedelta(days=21),
@@ -898,12 +901,10 @@ def automatic_emails_u072_u073_u074():
         state__has_received_first_match=False,
     )
     for user in users_u072:
-        send_email_background.delay(
-            "automatic-emails-u072", user_id=user.id, emulated_send=emulated_send
-        )
+        send_email_background.delay("automatic-emails-u072", user_id=user.id, emulated_send=emulated_send)
         user.state.auto_email_u072_send = True
         user.state.save()
-    
+
     users_u073 = User.objects.filter(
         state__onboarding_call_completed_at__lte=dj_timezone.now() - timedelta(days=21),
         state__onboarding_call_completed_at__gt=dj_timezone.now() - timedelta(days=30),
@@ -914,14 +915,12 @@ def automatic_emails_u072_u073_u074():
         state__auto_email_u073_send=False,
         state__has_received_first_match=False,
     )
-    
+
     for user in users_u073:
-        send_email_background.delay(
-            "automatic-emails-u073", user_id=user.id, emulated_send=emulated_send
-        )
+        send_email_background.delay("automatic-emails-u073", user_id=user.id, emulated_send=emulated_send)
         user.state.auto_email_u073_send = True
         user.state.save()
-    
+
     users_u074 = User.objects.filter(
         state__onboarding_call_completed_at__lte=dj_timezone.now() - timedelta(days=30),
         state__searching_state=State.SearchingStateChoices.SEARCHING,
@@ -931,30 +930,31 @@ def automatic_emails_u072_u073_u074():
         state__auto_email_u074_send=False,
         state__has_received_first_match=False,
     )
-    
+
     for user in users_u074:
-        send_email_background.delay(
-            "automatic-emails-u074", user_id=user.id, emulated_send=emulated_send
-        )
+        send_email_background.delay("automatic-emails-u074", user_id=user.id, emulated_send=emulated_send)
         user.state.auto_email_u074_send = True
         user.state.save()
-        
+
     return {
         "status": "sent",
         "users_u072": list(users_u072.values_list("hash", flat=True)),
         "users_u073": list(users_u073.values_list("hash", flat=True)),
         "users_u074": list(users_u074.values_list("hash", flat=True)),
     }
-    
+
+
 @shared_task
 def automatic_emails_u082_u083_u084():
     """
     User searching for the first time still no matching
     """
     from django.conf import settings
+
     from management.models.user import User
+
     emulated_send = bool(settings.DJANGO_TESTING)
-    
+
     # These emails are only triggere if u081 is trigger, this is triggered automatically when the user searche AGAIN
     users_u082 = User.objects.filter(
         state_onboarding_call_completed_at__lte=dj_timezone.now() - timedelta(days=10),
@@ -967,14 +967,12 @@ def automatic_emails_u082_u083_u084():
         state__auto_email_u082_send=False,
         state__has_received_first_match=True,
     )
-    
+
     for user in users_u082:
-        send_email_background.delay(
-            "automatic-emails-u082", user_id=user.id, emulated_send=emulated_send
-        )
+        send_email_background.delay("automatic-emails-u082", user_id=user.id, emulated_send=emulated_send)
         user.state.auto_email_u082_send = True
         user.state.save()
-        
+
     users_u083 = User.objects.filter(
         state_onboarding_call_completed_at__lte=dj_timezone.now() - timedelta(days=21),
         state_onboarding_call_completed_at__gt=dj_timezone.now() - timedelta(days=30),
@@ -986,12 +984,10 @@ def automatic_emails_u082_u083_u084():
         state__has_received_first_match=True,
     )
     for user in users_u083:
-        send_email_background.delay(
-            "automatic-emails-u083", user_id=user.id, emulated_send=emulated_send
-        )
+        send_email_background.delay("automatic-emails-u083", user_id=user.id, emulated_send=emulated_send)
         user.state.auto_email_u083_send = True
         user.state.save()
-    
+
     users_u084 = User.objects.filter(
         state_onboarding_call_completed_at__lte=dj_timezone.now() - timedelta(days=30),
         state__searching_state=State.SearchingStateChoices.SEARCHING,
@@ -1002,12 +998,10 @@ def automatic_emails_u082_u083_u084():
         state__has_received_first_match=True,
     )
     for user in users_u084:
-        send_email_background.delay(
-            "automatic-emails-u084", user_id=user.id, emulated_send=emulated_send
-        )
+        send_email_background.delay("automatic-emails-u084", user_id=user.id, emulated_send=emulated_send)
         user.state.auto_email_u084_send = True
         user.state.save()
-        
+
     return {
         "status": "sent",
         "users_u082": list(users_u082.values_list("hash", flat=True)),

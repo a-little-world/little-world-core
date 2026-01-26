@@ -122,7 +122,7 @@ if os.environ.get("DJ_ENABLE_AUTO_EMAILS__M031_M032_M033_M042", "false").lower()
             }
         }
     )
-    
+
 if os.environ.get("DJ_ENABLE_AUTO_EMAILS__U072_U073_U074", "false").lower() in ("true", "1", "t"):
     # TODO: Remove once in prod for a while without bugs
     auto_emails.update(
