@@ -1,11 +1,10 @@
-import os
 from datetime import timedelta
 from unittest.mock import patch
 
 from chat.models import Chat, Message
 from django.conf import settings
 from django.db.models import Q
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone as dj_timezone
 from freezegun import freeze_time
 
@@ -959,7 +958,7 @@ class TestAutomaticEmails_u081(TestCase):
         self.invalid_user_no_match.state.searching_state = State.SearchingStateChoices.IDLE
         self.invalid_user_no_match.state.save()
 
-    @patch.dict(os.environ, {"DJ_ENABLE_AUTO_EMAILS__U081_U082_U083_U084": "true"})
+    @override_settings(ENABLE_AUTO_EMAILS__U081_U082_U083_U084=True)
     @patch("management.api.user.send_email_background")
     def test_sends_u081_when_user_starts_searching_again(self, mock_send_email):
         """Test that u081 is sent when user with match starts searching again."""
@@ -982,7 +981,7 @@ class TestAutomaticEmails_u081(TestCase):
         self.valid_user.state.refresh_from_db()
         assert self.valid_user.state.auto_emails_u081_send is True
 
-    @patch.dict(os.environ, {"DJ_ENABLE_AUTO_EMAILS__U081_U082_U083_U084": "true"})
+    @override_settings(ENABLE_AUTO_EMAILS__U081_U082_U083_U084=True)
     @patch("management.api.user.send_email_background")
     def test_does_not_resend_u081(self, mock_send_email):
         """Test that u081 is not sent again if already sent."""
@@ -998,7 +997,7 @@ class TestAutomaticEmails_u081(TestCase):
         # Verify email was NOT sent
         mock_send_email.delay.assert_not_called()
 
-    @patch.dict(os.environ, {"DJ_ENABLE_AUTO_EMAILS__U081_U082_U083_U084": "true"})
+    @override_settings(ENABLE_AUTO_EMAILS__U081_U082_U083_U084=True)
     @patch("management.api.user.send_email_background")
     def test_does_not_send_u081_without_match(self, mock_send_email):
         """Test that u081 is not sent if user has not received first match."""
@@ -1014,7 +1013,7 @@ class TestAutomaticEmails_u081(TestCase):
         # Verify email was NOT sent
         mock_send_email.delay.assert_not_called()
 
-    @patch.dict(os.environ, {"DJ_ENABLE_AUTO_EMAILS__U081_U082_U083_U084": "false"})
+    @override_settings(ENABLE_AUTO_EMAILS__U081_U082_U083_U084=False)
     @patch("management.api.user.send_email_background")
     def test_does_not_send_u081_when_feature_disabled(self, mock_send_email):
         """Test that u081 is not sent when the feature flag is disabled."""
