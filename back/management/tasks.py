@@ -804,7 +804,6 @@ def automatic_emails_m031_m032_m033_m042():
         auto_email_m031_send=False,
         support_matching=False,
     )
-    # Capture UUIDs before modifying (querysets are lazy and re-evaluate)
     matches_m031_uuids = [str(uuid) for uuid in matches_m031.values_list("uuid", flat=True)]
     for match in matches_m031:
         send_email_background.delay(
@@ -826,7 +825,6 @@ def automatic_emails_m031_m032_m033_m042():
         auto_email_m032_send=False,
         support_matching=False,
     )
-    # Capture UUIDs before modifying (querysets are lazy and re-evaluate)
     matches_m032_uuids = [str(uuid) for uuid in matches_m032.values_list("uuid", flat=True)]
     for match in matches_m032:
         send_email_background.delay(
@@ -848,7 +846,6 @@ def automatic_emails_m031_m032_m033_m042():
         auto_email_m033_send=False,
         support_matching=False,
     )
-    # Capture UUIDs before modifying (querysets are lazy and re-evaluate)
     matches_m033_uuids = [str(uuid) for uuid in matches_m033.values_list("uuid", flat=True)]
     for match in matches_m033:
         send_email_background.delay(
@@ -869,7 +866,6 @@ def automatic_emails_m031_m032_m033_m042():
         auto_email_m042_send=False,
         support_matching=False,
     )
-    # Capture UUIDs before modifying (querysets are lazy and re-evaluate)
     matches_m042_uuids = [str(uuid) for uuid in matches_m042.values_list("uuid", flat=True)]
     for match in matches_m042:
         send_email_background.delay(
@@ -912,7 +908,6 @@ def automatic_emails_u072_u073_u074():
         state__auto_email_u072_send=False,
         state__has_received_first_match=False,
     )
-    # Capture hashes before modifying (querysets are lazy and re-evaluate)
     users_u072_hashes = list(users_u072.values_list("hash", flat=True))
     for user in users_u072:
         send_email_background.delay("automatic-emails-u072", user_id=user.id, emulated_send=emulated_send)
@@ -929,7 +924,6 @@ def automatic_emails_u072_u073_u074():
         state__auto_email_u073_send=False,
         state__has_received_first_match=False,
     )
-    # Capture hashes before modifying (querysets are lazy and re-evaluate)
     users_u073_hashes = list(users_u073.values_list("hash", flat=True))
     for user in users_u073:
         send_email_background.delay("automatic-emails-u073", user_id=user.id, emulated_send=emulated_send)
@@ -945,7 +939,6 @@ def automatic_emails_u072_u073_u074():
         state__auto_email_u074_send=False,
         state__has_received_first_match=False,
     )
-    # Capture hashes before modifying (querysets are lazy and re-evaluate)
     users_u074_hashes = list(users_u074.values_list("hash", flat=True))
     for user in users_u074:
         send_email_background.delay("automatic-emails-u074", user_id=user.id, emulated_send=emulated_send)
@@ -983,7 +976,6 @@ def automatic_emails_u082_u083_u084():
         state__auto_emails_u082_send=False,
         state__has_received_first_match=True,
     )
-    # Capture hashes before modifying (querysets are lazy and re-evaluate)
     users_u082_hashes = list(users_u082.values_list("hash", flat=True))
     for user in users_u082:
         send_email_background.delay("automatic-emails-u082", user_id=user.id, emulated_send=emulated_send)
@@ -1000,7 +992,6 @@ def automatic_emails_u082_u083_u084():
         state__auto_emails_u083_send=False,
         state__has_received_first_match=True,
     )
-    # Capture hashes before modifying (querysets are lazy and re-evaluate)
     users_u083_hashes = list(users_u083.values_list("hash", flat=True))
     for user in users_u083:
         send_email_background.delay("automatic-emails-u083", user_id=user.id, emulated_send=emulated_send)
@@ -1016,7 +1007,6 @@ def automatic_emails_u082_u083_u084():
         state__auto_emails_u084_send=False,
         state__has_received_first_match=True,
     )
-    # Capture hashes before modifying (querysets are lazy and re-evaluate)
     users_u084_hashes = list(users_u084.values_list("hash", flat=True))
     for user in users_u084:
         send_email_background.delay("automatic-emails-u084", user_id=user.id, emulated_send=emulated_send)
