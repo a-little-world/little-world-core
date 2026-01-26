@@ -872,8 +872,76 @@ def automatic_emails_m031_m032_m033_m042():
 
     return {
         "status": "sent",
-        "matches_m031": matches_m031,
-        "matches_m032": matches_m032,
-        "matches_m033": matches_m033,
-        "matches_m042": matches_m042,
+        "matches_m031": [str(uuid) for uuid in list(matches_m031.values_list("uuid", flat=True))],
+        "matches_m032": [str(uuid) for uuid in list(matches_m032.values_list("uuid", flat=True))],
+        "matches_m033": [str(uuid) for uuid in list(matches_m033.values_list("uuid", flat=True))],
+        "matches_m042": [str(uuid) for uuid in list(matches_m042.values_list("uuid", flat=True))],
+    }
+
+@shared_task
+def automatic_emails_u072_u073_u074():
+    """
+    User searching for the first time still no matching
+    """
+    from django.conf import settings
+    from management.models.user import User
+    emulated_send = bool(settings.DJANGO_TESTING)
+    
+    users_u072 = User.objects.filter(
+        state__onboarding_call_completed_at__lte=dj_timezone.now() - timedelta(days=10),
+        state__onboarding_call_completed_at__gt=dj_timezone.now() - timedelta(days=21),
+        state__searching_state=State.SearchingStateChoices.SEARCHING,
+        state__email_authenticated=True,
+        state__unresponsive=False,
+        state__had_prematching_call=True,
+        state__auto_email_u072_send=False,
+        state__has_received_first_match=False,
+    )
+    for user in users_u072:
+        send_email_background.delay(
+            "automatic-emails-u072", user_id=user.id, emulated_send=emulated_send
+        )
+        user.state.auto_email_u072_send = True
+        user.state.save()
+    
+    users_u073 = User.objects.filter(
+        state__onboarding_call_completed_at__lte=dj_timezone.now() - timedelta(days=21),
+        state__onboarding_call_completed_at__gt=dj_timezone.now() - timedelta(days=30),
+        state__searching_state=State.SearchingStateChoices.SEARCHING,
+        state__email_authenticated=True,
+        state__unresponsive=False,
+        state__had_prematching_call=True,
+        state__auto_email_u073_send=False,
+        state__has_received_first_match=False,
+    )
+    
+    for user in users_u073:
+        send_email_background.delay(
+            "automatic-emails-u073", user_id=user.id, emulated_send=emulated_send
+        )
+        user.state.auto_email_u073_send = True
+        user.state.save()
+    
+    users_u074 = User.objects.filter(
+        state__onboarding_call_completed_at__lte=dj_timezone.now() - timedelta(days=30),
+        state__searching_state=State.SearchingStateChoices.SEARCHING,
+        state__email_authenticated=True,
+        state__unresponsive=False,
+        state__had_prematching_call=True,
+        state__auto_email_u074_send=False,
+        state__has_received_first_match=False,
+    )
+    
+    for user in users_u074:
+        send_email_background.delay(
+            "automatic-emails-u074", user_id=user.id, emulated_send=emulated_send
+        )
+        user.state.auto_email_u074_send = True
+        user.state.save()
+        
+    return {
+        "status": "sent",
+        "users_u072": list(users_u072.values_list("hash", flat=True)),
+        "users_u073": list(users_u073.values_list("hash", flat=True)),
+        "users_u074": list(users_u074.values_list("hash", flat=True)),
     }
