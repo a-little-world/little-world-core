@@ -3,6 +3,7 @@ from django.urls import path
 from django.utils import timezone
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
+from translations import get_translation
 
 from management.models.matches import Match
 from management.models.user import User
@@ -34,9 +35,11 @@ def still_in_contact(request, match_uuid: str, answer: str):
         return Response({"error": "Invalid user token"}, status=403)
 
     # 1 - Mark the match as 'completed_off_plattform'
+    completed_off_plattform = True if answer == "yes" else False
     match = Match.objects.get(uuid=match_uuid)
-    match.completed_off_plattform = True
-    match.completed_off_plattform_auto_marked_at = timezone.now()
+    match.completed_off_plattform = completed_off_plattform
+    if match.completed_off_plattform_auto_marked_at is None:
+        match.completed_off_plattform_auto_marked_at = timezone.now()
     match.auto_marking_updated_logs.append(
         {
             "time": str(timezone.now()),
@@ -53,12 +56,11 @@ def still_in_contact(request, match_uuid: str, answer: str):
     if should_redirect:
         return redirect(redirect_url)
     else:
-        # TODO: refine what is rendered in this case!
         return info_card(
             request,
-            title="Thank you for your feedback!",
-            content="You've selected that you are still in contact. Please give us some feedback on your match.",
-            linkText="Back to app",
+            title=get_translation(f"info_card.still_in_contact_{answer}.title", lang="de"),
+            content=get_translation(f"info_card.still_in_contact_{answer}.content", lang="de"),
+            linkText=get_translation(f"info_card.still_in_contact_{answer}.link_text", lang="de"),
             linkTo="/login",
         )
 
