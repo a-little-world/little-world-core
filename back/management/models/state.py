@@ -118,7 +118,7 @@ class State(models.Model):
     )
     searching_state_last_updated = models.DateTimeField(auto_now=timezone.now)
     prematch_booking_code = models.CharField(max_length=255, default=uuid.uuid4)
-    
+
     # This is used to ensure no user can manipulate the responses of the still in contact form
     still_in_contact_form_access_token_user = models.UUIDField(default=uuid.uuid4)
 
@@ -243,7 +243,7 @@ class State(models.Model):
     unresponsive = models.BooleanField(default=False)
 
     to_low_german_level = models.BooleanField(default=False)
-    
+
     user_journey_path = models.JSONField(default=list)
     user_journey_path_last_updated = models.DateTimeField(null=True, blank=True)
 

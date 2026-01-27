@@ -538,7 +538,11 @@ def happy_inactive(qs=User.objects.all()):
     users_with_completed_matches = get_user_involved(completed_match(), qs)
     users_with_active_matches = get_user_involved(match_ongoing(), qs)
 
-    return qs.filter(Q(id__in=users_with_completed_matches) & ~Q(id__in=users_with_freeplay_matches) & ~Q(id__in=users_with_active_matches))
+    return qs.filter(
+        Q(id__in=users_with_completed_matches)
+        & ~Q(id__in=users_with_freeplay_matches)
+        & ~Q(id__in=users_with_active_matches)
+    )
 
 
 def happy_active(qs=User.objects.all()):
