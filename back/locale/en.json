@@ -475,5 +475,11 @@
   "patenmatch.supportgroups.senior": "Senior",
   "patenmatch.supportgroups.individual": "Individual (Adult)",
   "patenmatch.supportgroups.student": "Student",
-  "patenmatch.user.email.exists": "The email address is already taken."
+  "patenmatch.user.email.exists": "The email address is already taken.",
+  "info_card.still_in_contact_yes.title": "Thank you for your feedback!",
+  "info_card.still_in_contact_yes.content": "You have selected that you are still in contact. Please give us feedback on your match.",
+  "info_card.still_in_contact_yes.link_text": "Back to app",
+  "info_card.still_in_contact_no.title": "Thank you for your feedback!",
+  "info_card.still_in_contact_no.content": "You have selected that you are not in contact anymore. Please give us feedback on your match.",
+  "info_card.still_in_contact_no.link_text": "Back to app"
 }

@@ -645,7 +645,7 @@ def automatic_emails_u023_u024_u025():
 
 
 @shared_task
-def automatic_emails_m12_m13_m14():
+def automatic_emails_m012_m013_m014():
     """
     Confirmed match between users but no interaction yet (no messages or video calls)
     """
@@ -781,7 +781,7 @@ def automatic_emails_m024_m025():
             "automatic-emails-m025", user_id=last_message.sender.id, emulated_send=emulated_send
         )
 
-    return {"status": "sent", "inactive_chats": inactive_chats}
+    return {"status": "sent", "inactive_chats": [str(chat.uuid) for chat in inactive_chats]}
 
 
 @shared_task
@@ -802,7 +802,9 @@ def automatic_emails_m031_m032_m033_m042():
         first_interaction_at__gt=dj_timezone.now() - timedelta(days=14),
         total_mutal_video_calls_counter=0,
         auto_email_m031_send=False,
+        support_matching=False,
     )
+    matches_m031_uuids = [str(uuid) for uuid in matches_m031.values_list("uuid", flat=True)]
     for match in matches_m031:
         send_email_background.delay(
             "automatic-emails-m031", user_id=match.user1.id, match_id=match.id, emulated_send=emulated_send
@@ -814,6 +816,11 @@ def automatic_emails_m031_m032_m033_m042():
         match.auto_email_m031_send = True
         match.save()
 
+    redirect_slugs = {
+        "redirect_slug_no": "info-screen",
+        "redirect_slug_yes": "match-form1",
+    }
+
     # 2 - automatic-emails-m032
     matches_m032 = Match.objects.filter(
         first_interaction_at__isnull=False,
@@ -821,13 +828,23 @@ def automatic_emails_m031_m032_m033_m042():
         first_interaction_at__gt=dj_timezone.now() - timedelta(days=21),
         total_mutal_video_calls_counter=0,
         auto_email_m032_send=False,
+        support_matching=False,
     )
+    matches_m032_uuids = [str(uuid) for uuid in matches_m032.values_list("uuid", flat=True)]
     for match in matches_m032:
         send_email_background.delay(
-            "automatic-emails-m032", user_id=match.user1.id, match_id=match.id, emulated_send=emulated_send
+            "automatic-emails-m032",
+            user_id=match.user1.id,
+            match_id=match.id,
+            emulated_send=emulated_send,
+            context=redirect_slugs,
         )
         send_email_background.delay(
-            "automatic-emails-m032", user_id=match.user2.id, match_id=match.id, emulated_send=emulated_send
+            "automatic-emails-m032",
+            user_id=match.user2.id,
+            match_id=match.id,
+            emulated_send=emulated_send,
+            context=redirect_slugs,
         )
 
         match.auto_email_m032_send = True
@@ -840,13 +857,23 @@ def automatic_emails_m031_m032_m033_m042():
         first_interaction_at__gt=dj_timezone.now() - timedelta(days=30),
         total_mutal_video_calls_counter=0,
         auto_email_m033_send=False,
+        support_matching=False,
     )
+    matches_m033_uuids = [str(uuid) for uuid in matches_m033.values_list("uuid", flat=True)]
     for match in matches_m033:
         send_email_background.delay(
-            "automatic-emails-m033", user_id=match.user1.id, match_id=match.id, emulated_send=emulated_send
+            "automatic-emails-m033",
+            user_id=match.user1.id,
+            match_id=match.id,
+            emulated_send=emulated_send,
+            context=redirect_slugs,
         )
         send_email_background.delay(
-            "automatic-emails-m033", user_id=match.user2.id, match_id=match.id, emulated_send=emulated_send
+            "automatic-emails-m033",
+            user_id=match.user2.id,
+            match_id=match.id,
+            emulated_send=emulated_send,
+            context=redirect_slugs,
         )
 
         match.auto_email_m033_send = True
@@ -858,13 +885,23 @@ def automatic_emails_m031_m032_m033_m042():
         first_interaction_at__lte=dj_timezone.now() - timedelta(days=30),
         total_mutal_video_calls_counter=0,
         auto_email_m042_send=False,
+        support_matching=False,
     )
+    matches_m042_uuids = [str(uuid) for uuid in matches_m042.values_list("uuid", flat=True)]
     for match in matches_m042:
         send_email_background.delay(
-            "automatic-emails-m042", user_id=match.user1.id, match_id=match.id, emulated_send=emulated_send
+            "automatic-emails-m042",
+            user_id=match.user1.id,
+            match_id=match.id,
+            emulated_send=emulated_send,
+            context=redirect_slugs,
         )
         send_email_background.delay(
-            "automatic-emails-m042", user_id=match.user2.id, match_id=match.id, emulated_send=emulated_send
+            "automatic-emails-m042",
+            user_id=match.user2.id,
+            match_id=match.id,
+            emulated_send=emulated_send,
+            context=redirect_slugs,
         )
 
         match.auto_email_m042_send = True
@@ -872,8 +909,262 @@ def automatic_emails_m031_m032_m033_m042():
 
     return {
         "status": "sent",
-        "matches_m031": matches_m031,
-        "matches_m032": matches_m032,
-        "matches_m033": matches_m033,
-        "matches_m042": matches_m042,
+        "matches_m031": matches_m031_uuids,
+        "matches_m032": matches_m032_uuids,
+        "matches_m033": matches_m033_uuids,
+        "matches_m042": matches_m042_uuids,
+    }
+
+
+@shared_task
+def automatic_emails_u072_u073_u074():
+    """
+    User searching for the first time still no matching
+    """
+    from django.conf import settings
+
+    from management.models.user import User
+
+    emulated_send = bool(settings.DJANGO_TESTING)
+
+    users_u072 = User.objects.filter(
+        state__onboarding_call_completed_at__lte=dj_timezone.now() - timedelta(days=10),
+        state__onboarding_call_completed_at__gt=dj_timezone.now() - timedelta(days=21),
+        state__searching_state=State.SearchingStateChoices.SEARCHING,
+        state__email_authenticated=True,
+        state__unresponsive=False,
+        state__had_prematching_call=True,
+        state__auto_email_u072_send=False,
+        state__has_received_first_match=False,
+    )
+    users_u072_hashes = list(users_u072.values_list("hash", flat=True))
+    for user in users_u072:
+        send_email_background.delay("automatic-emails-u072", user_id=user.id, emulated_send=emulated_send)
+        user.state.auto_email_u072_send = True
+        user.state.save()
+
+    users_u073 = User.objects.filter(
+        state__onboarding_call_completed_at__lte=dj_timezone.now() - timedelta(days=21),
+        state__onboarding_call_completed_at__gt=dj_timezone.now() - timedelta(days=30),
+        state__searching_state=State.SearchingStateChoices.SEARCHING,
+        state__email_authenticated=True,
+        state__unresponsive=False,
+        state__had_prematching_call=True,
+        state__auto_email_u073_send=False,
+        state__has_received_first_match=False,
+    )
+    users_u073_hashes = list(users_u073.values_list("hash", flat=True))
+    for user in users_u073:
+        send_email_background.delay("automatic-emails-u073", user_id=user.id, emulated_send=emulated_send)
+        user.state.auto_email_u073_send = True
+        user.state.save()
+
+    users_u074 = User.objects.filter(
+        state__onboarding_call_completed_at__lte=dj_timezone.now() - timedelta(days=30),
+        state__searching_state=State.SearchingStateChoices.SEARCHING,
+        state__email_authenticated=True,
+        state__unresponsive=False,
+        state__had_prematching_call=True,
+        state__auto_email_u074_send=False,
+        state__has_received_first_match=False,
+    )
+    users_u074_hashes = list(users_u074.values_list("hash", flat=True))
+    for user in users_u074:
+        send_email_background.delay("automatic-emails-u074", user_id=user.id, emulated_send=emulated_send)
+        user.state.auto_email_u074_send = True
+        user.state.save()
+
+    return {
+        "status": "sent",
+        "users_u072": users_u072_hashes,
+        "users_u073": users_u073_hashes,
+        "users_u074": users_u074_hashes,
+    }
+
+
+@shared_task
+def automatic_emails_u082_u083_u084():
+    """
+    User searching for the first time still no matching
+    """
+    from django.conf import settings
+
+    from management.models.user import User
+
+    emulated_send = bool(settings.DJANGO_TESTING)
+
+    # These emails are only triggered if u081 is triggered, this is triggered automatically when the user searches AGAIN
+    users_u082 = User.objects.filter(
+        state__onboarding_call_completed_at__lte=dj_timezone.now() - timedelta(days=10),
+        state__onboarding_call_completed_at__gt=dj_timezone.now() - timedelta(days=21),
+        state__searching_state=State.SearchingStateChoices.SEARCHING,
+        state__email_authenticated=True,
+        state__unresponsive=False,
+        state__had_prematching_call=True,
+        state__auto_emails_u081_send=True,
+        state__auto_emails_u082_send=False,
+        state__has_received_first_match=True,
+    )
+    users_u082_hashes = list(users_u082.values_list("hash", flat=True))
+    for user in users_u082:
+        send_email_background.delay("automatic-emails-u082", user_id=user.id, emulated_send=emulated_send)
+        user.state.auto_emails_u082_send = True
+        user.state.save()
+
+    users_u083 = User.objects.filter(
+        state__onboarding_call_completed_at__lte=dj_timezone.now() - timedelta(days=21),
+        state__onboarding_call_completed_at__gt=dj_timezone.now() - timedelta(days=30),
+        state__searching_state=State.SearchingStateChoices.SEARCHING,
+        state__email_authenticated=True,
+        state__unresponsive=False,
+        state__auto_emails_u081_send=True,
+        state__auto_emails_u083_send=False,
+        state__has_received_first_match=True,
+    )
+    users_u083_hashes = list(users_u083.values_list("hash", flat=True))
+    for user in users_u083:
+        send_email_background.delay("automatic-emails-u083", user_id=user.id, emulated_send=emulated_send)
+        user.state.auto_emails_u083_send = True
+        user.state.save()
+
+    users_u084 = User.objects.filter(
+        state__onboarding_call_completed_at__lte=dj_timezone.now() - timedelta(days=30),
+        state__searching_state=State.SearchingStateChoices.SEARCHING,
+        state__email_authenticated=True,
+        state__unresponsive=False,
+        state__auto_emails_u081_send=True,
+        state__auto_emails_u084_send=False,
+        state__has_received_first_match=True,
+    )
+    users_u084_hashes = list(users_u084.values_list("hash", flat=True))
+    for user in users_u084:
+        send_email_background.delay("automatic-emails-u084", user_id=user.id, emulated_send=emulated_send)
+        user.state.auto_emails_u084_send = True
+        user.state.save()
+
+    return {
+        "status": "sent",
+        "users_u082": users_u082_hashes,
+        "users_u083": users_u083_hashes,
+        "users_u084": users_u084_hashes,
+    }
+
+
+@shared_task
+def daily_auto_email_report():
+    from collections import defaultdict
+    from datetime import timedelta
+
+    from django.conf import settings
+    from django.utils import timezone
+    from emails.models import EmailLog
+
+    from management.api.slack import notify_security_channel
+
+    enabled_emails = {
+        "AUTOMATIC_EMAILS__U023_U024_U025": settings.ENABLE_AUTO_EMAILS__U023_U024_U025,
+        "AUTOMATIC_EMAILS__M012_M013_M014": settings.ENABLE_AUTO_EMAILS__M012_M013_M014,
+        "AUTOMATIC_EMAILS__M023": settings.ENABLE_AUTO_EMAILS__M023,
+        "AUTOMATIC_EMAILS__M024_M025": settings.ENABLE_AUTO_EMAILS__M024_M025,
+        "AUTOMATIC_EMAILS__M031_M032_M033_M042": settings.ENABLE_AUTO_EMAILS__M031_M032_M033_M042,
+        "AUTOMATIC_EMAILS__U072_U073_U074": settings.ENABLE_AUTO_EMAILS__U072_U073_U074,
+        "AUTOMATIC_EMAILS__U081_U082_U083_U084": settings.ENABLE_AUTO_EMAILS__U081_U082_U083_U084,
+    }
+
+    check_emails = [
+        "automatic-emails-u023",
+        "automatic-emails-u024",
+        "automatic-emails-u025",
+        "automatic-emails-m012",
+        "automatic-emails-m013",
+        "automatic-emails-m014",
+        "automatic-emails-m023",
+        "automatic-emails-m024",
+        "automatic-emails-m025",
+        "automatic-emails-m031",
+        "automatic-emails-m032",
+        "automatic-emails-m033",
+        "automatic-emails-m042",
+        "automatic-emails-u072",
+        "automatic-emails-u073",
+        "automatic-emails-u074",
+        "automatic-emails-u081",
+        "automatic-emails-u082",
+        "automatic-emails-u083",
+        "automatic-emails-u084",
+    ]
+
+    # Get yesterday's date range
+    now = timezone.now()
+    yesterday_start = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    yesterday_end = yesterday_start + timedelta(days=1)
+
+    # Query EmailLog for auto emails sent yesterday
+    email_logs = EmailLog.objects.filter(
+        template__in=check_emails,
+        time__gte=yesterday_start,
+        time__lt=yesterday_end,
+        sucess=True,
+    ).select_related("receiver")
+
+    if not email_logs.exists():
+        # No auto emails sent yesterday, send a simple notification
+        message = (
+            f"*Auto Email Report:* ({yesterday_start.strftime('%Y-%m-%d')})\n\nNo automatic emails were sent yesterday."
+        )
+        notify_security_channel(message)
+        return {"status": "no_emails", "date": yesterday_start.strftime("%Y-%m-%d")}
+
+    # Group emails by template for summary
+    email_counts = defaultdict(int)
+    # Group emails by user for per-user breakdown
+    user_emails = defaultdict(list)
+
+    for log in email_logs:
+        email_counts[log.template] += 1
+        if log.receiver:
+            user_emails[log.receiver].append(log.template)
+
+    # Build the Slack message
+    message_parts = [
+        f"*Email Report:* ({yesterday_start.strftime('%Y-%m-%d')})",
+        "",
+        "*Email Summary:*",
+    ]
+
+    # Add email counts summary
+    for template in check_emails:
+        count = email_counts.get(template, 0)
+        if count > 0:
+            message_parts.append(f"• `{template}`: {count} sent")
+
+    total_emails = sum(email_counts.values())
+    message_parts.append(f"\n*Total:* {total_emails} emails sent to {len(user_emails)} users")
+
+    # Add enabled/disabled status
+    message_parts.append("")
+    message_parts.append("*Auto Email Settings:*")
+    for setting_name, is_enabled in enabled_emails.items():
+        status = "`True`" if is_enabled else "`False`"
+        message_parts.append(f"• {setting_name}: {status}")
+
+    # Add per-user breakdown with links
+    message_parts.append("")
+    message_parts.append("*Emails Per-User:*")
+
+    for user, templates in sorted(user_emails.items(), key=lambda x: x[0].email if x[0] else ""):
+        if user:
+            user_url = f"{settings.BASE_URL}/matching/user/{user.id}?tab=emails"
+            templates_str = ", ".join(sorted(set(templates)))
+            message_parts.append(f"• {user.email}: `{templates_str}` - `{user_url}`")
+
+    message = "\n".join(message_parts)
+    notify_security_channel(message)
+
+    return {
+        "status": "sent",
+        "date": yesterday_start.strftime("%Y-%m-%d"),
+        "total_emails": total_emails,
+        "unique_users": len(user_emails),
+        "email_counts": dict(email_counts),
     }

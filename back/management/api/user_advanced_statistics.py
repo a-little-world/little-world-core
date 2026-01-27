@@ -1883,7 +1883,171 @@ def marketing_campaign_report(request):
     return Response({"report": full_report})
 
 
+@extend_schema(
+    request=inline_serializer(
+        name="UpdateUserJourneyPathFromStatsRequest",
+        fields={
+            "start_date": serializers.DateField(default="2022-01-01"),
+            "end_date": serializers.DateField(default=date.today()),
+        },
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
+def update_user_journey_path_from_stats(request, user_hash: str):
+    """
+    It generates and overview of all the buckets uesrs have been in over the period of some time
+    """
+    user = User.objects.get(hash=user_hash)
+    user_state = user.state  # Store reference to avoid re-fetching
+    # check if management user has access to this user
+    print(f"User: {user.id}, Request User: {request.user.id}")
+
+    if not request.user.is_staff and not user_state.managed_users.contains(request.user):
+        return Response({"error": "You do not have access to this user"}, status=403)
+
+    # TODO: Remove - Reset to 999 days ago for testing
+    time_999_days_ago = timezone.now() - timedelta(days=999)
+    print(f"Time 999 Days Ago: {time_999_days_ago}")
+    user_state.user_journey_path_last_updated = time_999_days_ago
+    user_state.user_journey_path = []
+    user_state.save()
+    user_state.refresh_from_db()  # Refresh to get the saved value
+
+    current_time = timezone.now()
+    last_updated_time = user_state.user_journey_path_last_updated
+    if last_updated_time is None:
+        last_updated_time = current_time - timedelta(days=999)
+
+    print(f"Last Updated Time: {last_updated_time}")
+    print(f"Current Time: {current_time}")
+
+    from management.models.stats import Statistic
+
+    stats = Statistic.objects.filter(
+        kind=Statistic.StatisticTypes.USER_BUCKET_IDS, created_at__gte=last_updated_time, created_at__lt=current_time
+    ).all()
+
+    total_stats = stats.count()
+    print(f"Found {total_stats} stats")
+    i = 0
+    user_id = user.id
+    user_path = []
+
+    from management.api.user_advanced_filter_lists import MAIN_USER_JOURNEY
+
+    for stat in stats:
+        i += 1
+        stat_data = stat.data
+        for bucket_id in stat_data:
+            if bucket_id in MAIN_USER_JOURNEY:
+                if user_id in stat_data[bucket_id]:
+                    user_path.append((bucket_id, str(stat.created_at)))
+
+    old_user_path = user_state.user_journey_path
+    new_user_path = old_user_path + user_path
+    user_state.user_journey_path = new_user_path
+    user_state.user_journey_path_last_updated = current_time
+    user_state.save()
+
+    return Response({"user_path": user_path})
+
+
+def _group_user_journey_by_date(user_path: list) -> list:
+    """
+    Groups user journey data by date and collapses consecutive days with identical bucket sets.
+
+    Input: [["bucket1", "2024-07-31 19:07:22+00:00"], ["bucket2", "2024-07-31 19:07:22+00:00"], ...]
+    Output: [{"start_date": "2024-07-31", "end_date": "2024-08-05", "buckets": ["bucket1", "bucket2"]}, ...]
+    """
+    from collections import defaultdict
+
+    if not user_path:
+        return []
+
+    # Step 1: Group buckets by date
+    buckets_by_date = defaultdict(set)
+    for bucket_id, timestamp in user_path:
+        # Parse the date from timestamp string
+        if isinstance(timestamp, str):
+            # Handle various timestamp formats
+            date_str = timestamp.split(" ")[0]  # Get just the date part "2024-07-31"
+        else:
+            date_str = str(timestamp.date())
+        buckets_by_date[date_str].add(bucket_id)
+
+    # Step 2: Sort dates and convert sets to sorted lists for comparison
+    sorted_dates = sorted(buckets_by_date.keys())
+
+    if not sorted_dates:
+        return []
+
+    # Step 3: Collapse consecutive days with identical bucket sets
+    result = []
+    current_start = sorted_dates[0]
+    current_end = sorted_dates[0]
+    current_buckets = frozenset(buckets_by_date[sorted_dates[0]])
+
+    for date_str in sorted_dates[1:]:
+        date_buckets = frozenset(buckets_by_date[date_str])
+
+        if date_buckets == current_buckets:
+            # Same buckets, extend the range
+            current_end = date_str
+        else:
+            # Different buckets, save current range and start new one
+            result.append(
+                {
+                    "start_date": current_start,
+                    "end_date": current_end if current_end != current_start else None,
+                    "buckets": sorted(list(current_buckets)),
+                }
+            )
+            current_start = date_str
+            current_end = date_str
+            current_buckets = date_buckets
+
+    # Don't forget to add the last range
+    result.append(
+        {
+            "start_date": current_start,
+            "end_date": current_end if current_end != current_start else None,
+            "buckets": sorted(list(current_buckets)),
+        }
+    )
+
+    return result
+
+
+@api_view(["GET"])
+@permission_classes([IsAdminOrMatchingUser])
+def get_user_bucket_path(request, user_hash: str):
+    user = User.objects.get(hash=user_hash)
+    # check if management user has access to this user
+    if not request.user.is_staff and not user.state.managed_users.contains(request.user):
+        return Response({"error": "You do not have access to this user"}, status=403)
+
+    raw_path = user.state.user_journey_path or []
+    grouped_journey = _group_user_journey_by_date(raw_path)
+
+    return Response(
+        {
+            "user_journey": grouped_journey,
+            "raw_path": raw_path,  # Keep raw for debugging, can remove later
+        }
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAdminOrMatchingUser])
+def is_advanced_user_journey_enabled(request):
+    return Response({"enabled": settings.ADVANCED_USER_JOURNEY_ENABLED})
+
+
 api_urls = [
+    path("api/user_journey/<str:user_hash>/user_journey_path/", get_user_bucket_path),
+    path("api/user_journey/<str:user_hash>/update_user_journey_path/", update_user_journey_path_from_stats),
+    path("api/user_journey/is_advanced_user_journey_enabled/", is_advanced_user_journey_enabled),
     path("api/matching/users/statistics/signups/", user_signups),
     path("api/matching/email_send_statistics/", email_statistics),
     path("api/matching/users/statistics/sessions/", user_sessions),

@@ -57,6 +57,15 @@ class State(models.Model):
     user_form_completed_7_days_reminder_send = models.BooleanField(default=False, null=False, blank=False)
     user_form_completed_14_days_reminder_send = models.BooleanField(default=False, null=False, blank=False)
 
+    auto_email_u072_send = models.BooleanField(default=False, null=False, blank=False)
+    auto_email_u073_send = models.BooleanField(default=False, null=False, blank=False)
+    auto_email_u074_send = models.BooleanField(default=False, null=False, blank=False)
+
+    auto_emails_u081_send = models.BooleanField(default=False, null=False, blank=False)
+    auto_emails_u082_send = models.BooleanField(default=False, null=False, blank=False)
+    auto_emails_u083_send = models.BooleanField(default=False, null=False, blank=False)
+    auto_emails_u084_send = models.BooleanField(default=False, null=False, blank=False)
+
     # Just some hash for verifying the email
     email_auth_hash = models.CharField(default=utils._double_uuid, max_length=255)
     email_auth_pin = models.IntegerField(
@@ -77,6 +86,9 @@ class State(models.Model):
     """
     require_pre_matching_call = models.BooleanField(default=False)
     had_prematching_call = models.BooleanField(default=False)
+    onboarding_call_completed_at = models.DateTimeField(default=None, null=True, blank=True)
+
+    has_received_first_match = models.BooleanField(default=False)
 
     """
     These are referense to the actual user model of this persons matches 
@@ -106,6 +118,9 @@ class State(models.Model):
     )
     searching_state_last_updated = models.DateTimeField(auto_now=timezone.now)
     prematch_booking_code = models.CharField(max_length=255, default=uuid.uuid4)
+
+    # This is used to ensure no user can manipulate the responses of the still in contact form
+    still_in_contact_form_access_token_user = models.UUIDField(default=uuid.uuid4)
 
     """
     This contains a list of matches the user has not yet confirmed 
@@ -228,6 +243,9 @@ class State(models.Model):
     unresponsive = models.BooleanField(default=False)
 
     to_low_german_level = models.BooleanField(default=False)
+
+    user_journey_path = models.JSONField(default=list)
+    user_journey_path_last_updated = models.DateTimeField(null=True, blank=True, default=None)
 
     def save(self, *args, **kwargs):
         # Check if searching_state has changed

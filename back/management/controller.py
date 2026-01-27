@@ -269,6 +269,7 @@ def match_users(
     create_livekit_room=True,
     set_unconfirmed=True,
     set_to_idle=True,
+    set_received_first_match=True,
 ):
     """Accepts a list of two users to match"""
 
@@ -346,6 +347,14 @@ def match_users(
     if set_to_idle:
         usr1.state.set_idle()
         usr2.state.set_idle()
+
+    if set_received_first_match:
+        if not usr1.state.has_received_first_match:
+            usr1.state.has_received_first_match = True
+            usr1.state.save()
+        if not usr2.state.has_received_first_match:
+            usr2.state.has_received_first_match = True
+            usr2.state.save()
 
     # If there was a two user matching score we need to set it to matchable=False now as the users are matched
     # & also ofcourse all other scores of that users have to be set to matchable=False

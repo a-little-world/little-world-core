@@ -168,6 +168,11 @@ NATIVE_APP_INTEGRITY_ALLOW_BYPASS = os.environ.get("DJ_NATIVE_APP_INTEGRITY_ALLO
     "t",
 )
 NATIVE_APP_INTEGRITY_BYPASS_TOKEN = os.environ.get("DJ_NATIVE_APP_INTEGRITY_BYPASS_TOKEN", "bypassChangeMe!")
+ADVANCED_USER_JOURNEY_ENABLED = os.environ.get("DJ_ADVANCED_USER_JOURNEY_ENABLED", "false").lower() in (
+    "true",
+    "1",
+    "t",
+)
 
 # Debug logging for bypass settings
 """
@@ -973,3 +978,44 @@ SIMPLE_JWT = {
     ),
 }
 DJANGO_TESTING = os.environ.get("DJANGO_TESTING", False) in ("True", "true", "1", "yes", "y")
+
+
+## Auto E-Mails:
+# Note: There are some additional base emails that cannot be disabled via env flag
+# TODO: Enable all per default in the future
+ENABLE_AUTO_EMAILS__U023_U024_U025 = os.environ.get("DJ_ENABLE_AUTO_EMAILS__U023_U024_U025", "false").lower() in (
+    "true",
+    "1",
+    "t",
+)
+ENABLE_AUTO_EMAILS__M012_M013_M014 = os.environ.get("DJ_ENABLE_AUTO_EMAILS__M012_M013_M014", "false").lower() in (
+    "true",
+    "1",
+    "t",
+)
+ENABLE_AUTO_EMAILS__M023 = os.environ.get("DJ_ENABLE_AUTO_EMAILS__M023", "false").lower() in ("true", "1", "t")
+ENABLE_AUTO_EMAILS__M024_M025 = os.environ.get("DJ_ENABLE_AUTO_EMAILS__M024_M025", "false").lower() in (
+    "true",
+    "1",
+    "t",
+)
+ENABLE_AUTO_EMAILS__M031_M032_M033_M042 = os.environ.get(
+    "DJ_ENABLE_AUTO_EMAILS__M031_M032_M033_M042", "false"
+).lower() in ("true", "1", "t")
+ENABLE_AUTO_EMAILS__U072_U073_U074 = os.environ.get("DJ_ENABLE_AUTO_EMAILS__U072_U073_U074", "false").lower() in (
+    "true",
+    "1",
+    "t",
+)
+ENABLE_AUTO_EMAILS__U081_U082_U083_U084 = os.environ.get(
+    "DJ_ENABLE_AUTO_EMAILS__U081_U082_U083_U084", "false"
+).lower() in ("true", "1", "t")
+ENABLE_AUTO_EMAIL_LOGS = (
+    ENABLE_AUTO_EMAILS__U023_U024_U025
+    or ENABLE_AUTO_EMAILS__M012_M013_M014
+    or ENABLE_AUTO_EMAILS__M023
+    or ENABLE_AUTO_EMAILS__M024_M025
+    or ENABLE_AUTO_EMAILS__M031_M032_M033_M042
+    or ENABLE_AUTO_EMAILS__U072_U073_U074
+    or ENABLE_AUTO_EMAILS__U081_U082_U083_U084
+)

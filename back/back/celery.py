@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 
 from celery import Celery
+from celery.schedules import crontab
 from celery.signals import task_postrun, worker_ready
 from django.conf import settings
 
@@ -68,8 +69,7 @@ auto_emails = {
 }
 
 
-if os.environ.get("DJ_ENABLE_AUTO_EMAILS__U023_U024_U025", "false").lower() in ("true", "1", "t"):
-    # TODO: Remove once in prod for a while without bugs
+if settings.ENABLE_AUTO_EMAILS__U023_U024_U025:
     auto_emails.update(
         {
             "automatic-emails-u023-u024-u025": {
@@ -79,19 +79,17 @@ if os.environ.get("DJ_ENABLE_AUTO_EMAILS__U023_U024_U025", "false").lower() in (
         }
     )
 
-if os.environ.get("DJ_ENABLE_AUTO_EMAILS__M12_M13_M14", "false").lower() in ("true", "1", "t"):
-    # TODO: Remove once in prod for a while without bugs
+if settings.ENABLE_AUTO_EMAILS__M012_M013_M014:
     auto_emails.update(
         {
-            "automatic-emails-m12-m13-m14": {
-                "task": "management.tasks.automatic_emails_m12_m13_m14",
+            "automatic-emails-m012-m013-m014": {
+                "task": "management.tasks.automatic_emails_m012_m013_m014",
                 "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
             }
         }
     )
 
-if os.environ.get("DJ_ENABLE_AUTO_EMAILS__M023", "false").lower() in ("true", "1", "t"):
-    # TODO: Remove once in prod for a while without bugs
+if settings.ENABLE_AUTO_EMAILS__M023:
     auto_emails.update(
         {
             "automatic-emails-m023": {
@@ -101,8 +99,7 @@ if os.environ.get("DJ_ENABLE_AUTO_EMAILS__M023", "false").lower() in ("true", "1
         }
     )
 
-if os.environ.get("DJ_ENABLE_AUTO_EMAILS__M024_M025", "false").lower() in ("true", "1", "t"):
-    # TODO: Remove once in prod for a while without bugs
+if settings.ENABLE_AUTO_EMAILS__M024_M025:
     auto_emails.update(
         {
             "automatic-emails-m024-m025": {
@@ -112,13 +109,44 @@ if os.environ.get("DJ_ENABLE_AUTO_EMAILS__M024_M025", "false").lower() in ("true
         }
     )
 
-if os.environ.get("DJ_ENABLE_AUTO_EMAILS__M031_M032_M033_M042", "false").lower() in ("true", "1", "t"):
-    # TODO: Remove once in prod for a while without bugs
+if settings.ENABLE_AUTO_EMAILS__M031_M032_M033_M042:
     auto_emails.update(
         {
             "automatic-emails-m031-m032-m033-m042": {
                 "task": "management.tasks.automatic_emails_m031_m032_m033_m042",
                 "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+            }
+        }
+    )
+
+if settings.ENABLE_AUTO_EMAILS__U072_U073_U074:
+    auto_emails.update(
+        {
+            "automatic-emails-u072-u073-u074": {
+                "task": "management.tasks.automatic_emails_u072_u073_u074",
+                "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+            }
+        }
+    )
+
+if settings.ENABLE_AUTO_EMAILS__U081_U082_U083_U084:
+    # The 81 email is handeled inside the api that change the searching state of the user
+    auto_emails.update(
+        {
+            "automatic-emails-u082-u083-u084": {
+                "task": "management.tasks.automatic_emails_u082_u083_u084",
+                "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+            }
+        }
+    )
+
+
+if settings.ENABLE_AUTO_EMAIL_LOGS:
+    auto_emails.update(
+        {
+            "daily-auto-email-report": {
+                "task": "management.tasks.daily_auto_email_report",
+                "schedule": crontab(hour=0, minute=30),  # every day at 00:30
             }
         }
     )

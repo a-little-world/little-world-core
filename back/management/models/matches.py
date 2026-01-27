@@ -51,6 +51,8 @@ class Match(models.Model):
     # If a certain match completed condition is met, this will be set to True
     completed = models.BooleanField(default=False)
     completed_off_plattform = models.BooleanField(default=False)
+    completed_off_plattform_auto_marked_at = models.DateTimeField(default=None, null=True, blank=True)
+    auto_marking_updated_logs = models.JSONField(default=list)
 
     send_automatic_message_1week = models.BooleanField(default=True)
 

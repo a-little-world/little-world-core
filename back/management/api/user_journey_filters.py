@@ -450,22 +450,6 @@ def no_show(qs=User.objects.all()):
     )
 
 
-def ghoster(qs=User.objects.all()):
-    """
-    (Inactive-User) User has matching in [3.G] 'ghosted' his match
-    """
-    # TODO: depricated!!!!
-    # ghosted_matches = user_ghosted().annotate(
-    #    ghosted_user=Case(
-    #        When(user1_to_user2_message_exists_flag=False, then=F('user1')),
-    #        When(user2_to_user1_message_exists_flag=False, then=F('user2')),
-    #        output_field=BigIntegerField()
-    #    )
-    # )
-    # ghosted_user_ids = ghosted_matches.values_list('ghosted_user', flat=True)
-    return qs  # .filter(id__in=ghosted_user_ids, is_active=True)
-
-
 def get_user_involved(match_qs, user_qs):
     users = match_qs.values_list("user1", "user2")
     users = [id for pair in users for id in pair]
@@ -552,8 +536,13 @@ def happy_inactive(qs=User.objects.all()):
     # Users that are not searching and have a 'completed_match' and NO 'free-play-match'
     users_with_freeplay_matches = get_user_involved(match_free_play(), qs)
     users_with_completed_matches = get_user_involved(completed_match(), qs)
+    users_with_active_matches = get_user_involved(match_ongoing(), qs)
 
-    return qs.filter(Q(id__in=users_with_completed_matches) & ~Q(id__in=users_with_freeplay_matches))
+    return qs.filter(
+        Q(id__in=users_with_completed_matches)
+        & ~Q(id__in=users_with_freeplay_matches)
+        & ~Q(id__in=users_with_active_matches)
+    )
 
 
 def happy_active(qs=User.objects.all()):

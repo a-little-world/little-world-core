@@ -30,6 +30,7 @@ from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from management.models.profile import SelfProfileSerializer
 from management.models.state import FrontendStatusSerializer, State
+from management.tasks import send_email_background
 
 """
 The public /user api's
@@ -480,6 +481,14 @@ class UpdateSearchingStateApi(APIView):
             )
 
         request.user.state.change_searching_state(params.state_slug)
+        if params.state_slug == State.SearchingStateChoices.SEARCHING:
+            # Now check if the user has receive a matching before
+            if settings.ENABLE_AUTO_EMAILS__U081_U082_U083_U084:
+                if request.user.state.has_received_first_match and (not request.user.state.auto_emails_u081_send):
+                    # send searching again email once
+                    send_email_background.delay("automatic-emails-u081", user_id=request.user.id)
+                    request.user.state.auto_emails_u081_send = True
+                    request.user.state.save()
 
         if (params.state_slug == State.SearchingStateChoices.SEARCHING) and request.user.state.unresponsive:
             # If the user was manaully set to 'unresponsive' he can self remove this flag by searching him-self again
