@@ -12,10 +12,10 @@ from management.models.matches import Match
 from management.models.state import State
 from management.random_test_users import create_test_user
 from management.tasks import (
+    automatic_emails_m012_m013_m014,
     automatic_emails_m023,
     automatic_emails_m024_m025,
     automatic_emails_m031_m032_m033_m042,
-    automatic_emails_m12_m13_m14,
     automatic_emails_u023_u024_u025,
     automatic_emails_u072_u073_u074,
     automatic_emails_u082_u083_u084,
@@ -169,7 +169,7 @@ class TestAutomaticEmails_m12_m13_m14(TestCase):
         confirm_all_matches_and_set_reminder_status(self.invalid_user_m14, True, False, False, True)
 
     def test_m12_m13_m14(self):
-        result = automatic_emails_m12_m13_m14()
+        result = automatic_emails_m012_m013_m014()
 
         valids_m12 = result["matches_m012"]
         valids_m13 = result["matches_m013"]
@@ -183,7 +183,7 @@ class TestAutomaticEmails_m12_m13_m14(TestCase):
         assert valids_m13[0].user1 == self.valid_user_m12 or valids_m13[0].user2 == self.valid_user_m13
         assert valids_m14[0].user1 == self.valid_user_m12 or valids_m14[0].user2 == self.valid_user_m14
 
-        result = automatic_emails_m12_m13_m14()
+        result = automatic_emails_m012_m013_m014()
 
         assert len(result["matches_m012"]) == 0
         assert len(result["matches_m013"]) == 0

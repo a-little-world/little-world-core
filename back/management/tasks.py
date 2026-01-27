@@ -645,7 +645,7 @@ def automatic_emails_u023_u024_u025():
 
 
 @shared_task
-def automatic_emails_m12_m13_m14():
+def automatic_emails_m012_m013_m014():
     """
     Confirmed match between users but no interaction yet (no messages or video calls)
     """
@@ -1047,4 +1047,124 @@ def automatic_emails_u082_u083_u084():
         "users_u082": users_u082_hashes,
         "users_u083": users_u083_hashes,
         "users_u084": users_u084_hashes,
+    }
+
+
+@shared_task
+def daily_auto_email_report():
+    from collections import defaultdict
+    from datetime import timedelta
+
+    from django.conf import settings
+    from django.utils import timezone
+    from emails.models import EmailLog
+
+    from management.api.slack import notify_security_channel
+
+    enabled_emails = {
+        "AUTOMATIC_EMAILS__U023_U024_U025": settings.ENABLE_AUTO_EMAILS__U023_U024_U025,
+        "AUTOMATIC_EMAILS__M012_M013_M014": settings.ENABLE_AUTO_EMAILS__M012_M013_M014,
+        "AUTOMATIC_EMAILS__M023": settings.ENABLE_AUTO_EMAILS__M023,
+        "AUTOMATIC_EMAILS__M024_M025": settings.ENABLE_AUTO_EMAILS__M024_M025,
+        "AUTOMATIC_EMAILS__M031_M032_M033_M042": settings.ENABLE_AUTO_EMAILS__M031_M032_M033_M042,
+        "AUTOMATIC_EMAILS__U072_U073_U074": settings.ENABLE_AUTO_EMAILS__U072_U073_U074,
+        "AUTOMATIC_EMAILS__U081_U082_U083_U084": settings.ENABLE_AUTO_EMAILS__U081_U082_U083_U084,
+    }
+
+    check_emails = [
+        "automatic-emails-u023",
+        "automatic-emails-u024",
+        "automatic-emails-u025",
+        "automatic-emails-m012",
+        "automatic-emails-m013",
+        "automatic-emails-m014",
+        "automatic-emails-m023",
+        "automatic-emails-m024",
+        "automatic-emails-m025",
+        "automatic-emails-m031",
+        "automatic-emails-m032",
+        "automatic-emails-m033",
+        "automatic-emails-m042",
+        "automatic-emails-u072",
+        "automatic-emails-u073",
+        "automatic-emails-u074",
+        "automatic-emails-u081",
+        "automatic-emails-u082",
+        "automatic-emails-u083",
+        "automatic-emails-u084",
+    ]
+
+    # Get yesterday's date range
+    now = timezone.now()
+    yesterday_start = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    yesterday_end = yesterday_start + timedelta(days=1)
+
+    # Query EmailLog for auto emails sent yesterday
+    email_logs = EmailLog.objects.filter(
+        template__in=check_emails,
+        time__gte=yesterday_start,
+        time__lt=yesterday_end,
+        sucess=True,
+    ).select_related("receiver")
+
+    if not email_logs.exists():
+        # No auto emails sent yesterday, send a simple notification
+        message = (
+            f"*Auto Email Report:* ({yesterday_start.strftime('%Y-%m-%d')})\n\nNo automatic emails were sent yesterday."
+        )
+        notify_security_channel(message)
+        return {"status": "no_emails", "date": yesterday_start.strftime("%Y-%m-%d")}
+
+    # Group emails by template for summary
+    email_counts = defaultdict(int)
+    # Group emails by user for per-user breakdown
+    user_emails = defaultdict(list)
+
+    for log in email_logs:
+        email_counts[log.template] += 1
+        if log.receiver:
+            user_emails[log.receiver].append(log.template)
+
+    # Build the Slack message
+    message_parts = [
+        f"*Email Report:* ({yesterday_start.strftime('%Y-%m-%d')})",
+        "",
+        "*Email Summary:*",
+    ]
+
+    # Add email counts summary
+    for template in check_emails:
+        count = email_counts.get(template, 0)
+        if count > 0:
+            message_parts.append(f"• `{template}`: {count} sent")
+
+    total_emails = sum(email_counts.values())
+    message_parts.append(f"\n*Total:* {total_emails} emails sent to {len(user_emails)} users")
+
+    # Add enabled/disabled status
+    message_parts.append("")
+    message_parts.append("*Auto Email Settings:*")
+    for setting_name, is_enabled in enabled_emails.items():
+        status = "`True`" if is_enabled else "`False`"
+        message_parts.append(f"• {setting_name}: {status}")
+
+    # Add per-user breakdown with links
+    message_parts.append("")
+    message_parts.append("*Emails Per-User:*")
+
+    for user, templates in sorted(user_emails.items(), key=lambda x: x[0].email if x[0] else ""):
+        if user:
+            user_url = f"{settings.BASE_URL}/matching/user/{user.id}?tab=emails"
+            templates_str = ", ".join(sorted(set(templates)))
+            message_parts.append(f"• {user.email}: `{templates_str}` - `{user_url}`")
+
+    message = "\n".join(message_parts)
+    notify_security_channel(message)
+
+    return {
+        "status": "sent",
+        "date": yesterday_start.strftime("%Y-%m-%d"),
+        "total_emails": total_emails,
+        "unique_users": len(user_emails),
+        "email_counts": dict(email_counts),
     }

@@ -2,6 +2,7 @@ import os
 from datetime import datetime
 
 from celery import Celery
+from celery.schedules import crontab
 from celery.signals import task_postrun, worker_ready
 from django.conf import settings
 
@@ -78,11 +79,11 @@ if settings.ENABLE_AUTO_EMAILS__U023_U024_U025:
         }
     )
 
-if settings.ENABLE_AUTO_EMAILS__M12_M13_M14:
+if settings.ENABLE_AUTO_EMAILS__M012_M013_M014:
     auto_emails.update(
         {
-            "automatic-emails-m12-m13-m14": {
-                "task": "management.tasks.automatic_emails_m12_m13_m14",
+            "automatic-emails-m012-m013-m014": {
+                "task": "management.tasks.automatic_emails_m012_m013_m014",
                 "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
             }
         }
@@ -138,6 +139,18 @@ if settings.ENABLE_AUTO_EMAILS__U081_U082_U083_U084:
             }
         }
     )
+
+
+if settings.ENABLE_AUTO_EMAIL_LOGS:
+    auto_emails.update(
+        {
+            "daily-auto-email-report": {
+                "task": "management.tasks.daily_auto_email_report",
+                "schedule": crontab(hour=0, minute=30),  # every day at 00:30
+            }
+        }
+    )
+
 prod_shedules = {
     "record-bucket-statistics": {
         "task": "management.tasks.record_bucket_ids",
