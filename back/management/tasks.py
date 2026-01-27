@@ -816,6 +816,11 @@ def automatic_emails_m031_m032_m033_m042():
         match.auto_email_m031_send = True
         match.save()
 
+    redirect_slugs = {
+        "redirect_slug_no": "info-screen",
+        "redirect_slug_yes": "match-form1",
+    }
+
     # 2 - automatic-emails-m032
     matches_m032 = Match.objects.filter(
         first_interaction_at__isnull=False,
@@ -828,10 +833,18 @@ def automatic_emails_m031_m032_m033_m042():
     matches_m032_uuids = [str(uuid) for uuid in matches_m032.values_list("uuid", flat=True)]
     for match in matches_m032:
         send_email_background.delay(
-            "automatic-emails-m032", user_id=match.user1.id, match_id=match.id, emulated_send=emulated_send
+            "automatic-emails-m032",
+            user_id=match.user1.id,
+            match_id=match.id,
+            emulated_send=emulated_send,
+            context=redirect_slugs,
         )
         send_email_background.delay(
-            "automatic-emails-m032", user_id=match.user2.id, match_id=match.id, emulated_send=emulated_send
+            "automatic-emails-m032",
+            user_id=match.user2.id,
+            match_id=match.id,
+            emulated_send=emulated_send,
+            context=redirect_slugs,
         )
 
         match.auto_email_m032_send = True
@@ -849,10 +862,18 @@ def automatic_emails_m031_m032_m033_m042():
     matches_m033_uuids = [str(uuid) for uuid in matches_m033.values_list("uuid", flat=True)]
     for match in matches_m033:
         send_email_background.delay(
-            "automatic-emails-m033", user_id=match.user1.id, match_id=match.id, emulated_send=emulated_send
+            "automatic-emails-m033",
+            user_id=match.user1.id,
+            match_id=match.id,
+            emulated_send=emulated_send,
+            context=redirect_slugs,
         )
         send_email_background.delay(
-            "automatic-emails-m033", user_id=match.user2.id, match_id=match.id, emulated_send=emulated_send
+            "automatic-emails-m033",
+            user_id=match.user2.id,
+            match_id=match.id,
+            emulated_send=emulated_send,
+            context=redirect_slugs,
         )
 
         match.auto_email_m033_send = True
@@ -869,10 +890,18 @@ def automatic_emails_m031_m032_m033_m042():
     matches_m042_uuids = [str(uuid) for uuid in matches_m042.values_list("uuid", flat=True)]
     for match in matches_m042:
         send_email_background.delay(
-            "automatic-emails-m042", user_id=match.user1.id, match_id=match.id, emulated_send=emulated_send
+            "automatic-emails-m042",
+            user_id=match.user1.id,
+            match_id=match.id,
+            emulated_send=emulated_send,
+            context=redirect_slugs,
         )
         send_email_background.delay(
-            "automatic-emails-m042", user_id=match.user2.id, match_id=match.id, emulated_send=emulated_send
+            "automatic-emails-m042",
+            user_id=match.user2.id,
+            match_id=match.id,
+            emulated_send=emulated_send,
+            context=redirect_slugs,
         )
 
         match.auto_email_m042_send = True

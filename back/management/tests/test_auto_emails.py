@@ -1032,3 +1032,277 @@ class TestAutomaticEmails_u081(TestCase):
         # Verify flag was NOT set
         self.valid_user.state.refresh_from_db()
         assert self.valid_user.state.auto_emails_u081_send is False
+
+
+class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
+    """Test that m032, m033, and m042 emails contain correct still_in_contact URLs and redirect properly."""
+
+    def setUp(self):
+        settings.DJANGO_TESTING = True
+
+        # Create users for testing email content
+        with freeze_time(dj_timezone.now() - timedelta(days=60)):
+            self.user1 = create_test_user(40000, None, "Test123!", "m032-content-user1@test.de")
+            self.user2 = create_test_user(40001, None, "Test123!", "m032-content-user2@test.de")
+
+        # Create a match for testing
+        self.match = Match.objects.create(
+            user1=self.user1,
+            user2=self.user2,
+            first_interaction_at=dj_timezone.now() - timedelta(days=15),
+            total_mutal_video_calls_counter=0,
+            auto_email_m031_send=True,
+            auto_email_m032_send=False,
+        )
+
+    def _send_email_and_get_log(self, template_name, user, match, context):
+        """Helper to send an emulated email and return the EmailLog."""
+        from emails.api.send_email import send_template_email
+        from emails.models import EmailLog
+
+        # Send email with emulated_send=True
+        send_template_email(
+            template_name,
+            user_id=user.id,
+            match_id=match.id,
+            emulated_send=True,
+            context=context,
+        )
+
+        # Get the most recent EmailLog for this template and user
+        return (
+            EmailLog.objects.filter(
+                template=template_name,
+                receiver=user,
+            )
+            .order_by("-time")
+            .first()
+        )
+
+    def test_m032_email_contains_still_in_contact_url(self):
+        """Test that m032 email contains the correct still_in_contact URL."""
+
+        context = {
+            "redirect_slug_no": "info-screen",
+            "redirect_slug_yes": "match-form1",
+        }
+
+        email_log = self._send_email_and_get_log(
+            "automatic-emails-m032",
+            self.user1,
+            self.match,
+            context,
+        )
+
+        assert email_log is not None, "EmailLog should be created"
+        assert email_log.sucess is True, "Email should be sent successfully"
+        assert "emulated_send" in email_log.data, "Email should be marked as emulated"
+
+        # Verify the email HTML contains the still_in_contact URL
+        email_html = email_log.data.get("html", "")
+
+        # Check that the URL contains the correct match UUID
+        expected_url_part = f"/api/still_in_contact/{str(self.match.uuid)}/yes/"
+        assert expected_url_part in email_html, (
+            f"Email should contain still_in_contact URL with match UUID. Expected: {expected_url_part}"
+        )
+
+        # Check that the URL contains the user hash
+        assert f"user_hash={self.user1.hash}" in email_html, "Email should contain still_in_contact URL with user hash"
+
+        # Check that the URL contains the user token
+        assert f"user_token={self.user1.state.still_in_contact_form_access_token_user}" in email_html, (
+            "Email should contain still_in_contact URL with user token"
+        )
+
+        # Check that the redirect_slug is correct for the yes case
+        assert "redirect_slug=match-form1" in email_html, (
+            "Email should contain redirect_slug=match-form1 for the yes URL"
+        )
+
+    def test_m033_email_contains_still_in_contact_url(self):
+        """Test that m033 email contains the correct still_in_contact URL."""
+        # Update match for m033 scenario
+        self.match.first_interaction_at = dj_timezone.now() - timedelta(days=22)
+        self.match.auto_email_m032_send = True
+        self.match.auto_email_m033_send = False
+        self.match.save()
+
+        context = {
+            "redirect_slug_no": "info-screen",
+            "redirect_slug_yes": "match-form1",
+        }
+
+        email_log = self._send_email_and_get_log(
+            "automatic-emails-m033",
+            self.user1,
+            self.match,
+            context,
+        )
+
+        assert email_log is not None, "EmailLog should be created"
+        assert email_log.sucess is True, "Email should be sent successfully"
+
+        email_html = email_log.data.get("html", "")
+
+        # Check that the URL contains the correct match UUID
+        expected_url_part = f"/api/still_in_contact/{str(self.match.uuid)}/yes/"
+        assert expected_url_part in email_html, "Email should contain still_in_contact URL with match UUID"
+
+        # Check that the URL contains the user hash and token
+        assert f"user_hash={self.user1.hash}" in email_html
+        assert f"user_token={self.user1.state.still_in_contact_form_access_token_user}" in email_html
+
+        # Check that the redirect_slug is correct
+        assert "redirect_slug=match-form1" in email_html
+
+    def test_m042_email_contains_still_in_contact_url(self):
+        """Test that m042 email contains the correct still_in_contact URL."""
+        # Update match for m042 scenario
+        self.match.first_interaction_at = dj_timezone.now() - timedelta(days=35)
+        self.match.confirmed = True
+        self.match.auto_email_m042_send = False
+        self.match.save()
+
+        context = {
+            "redirect_slug": "match-form1",
+        }
+
+        email_log = self._send_email_and_get_log(
+            "automatic-emails-m042",
+            self.user1,
+            self.match,
+            context,
+        )
+
+        assert email_log is not None, "EmailLog should be created"
+        assert email_log.sucess is True, "Email should be sent successfully"
+
+        email_html = email_log.data.get("html", "")
+
+        # Check that the URL contains the correct match UUID
+        expected_url_part = f"/api/still_in_contact/{str(self.match.uuid)}/yes/"
+        assert expected_url_part in email_html, "Email should contain still_in_contact URL with match UUID"
+
+        # Check that the URL contains the user hash and token
+        assert f"user_hash={self.user1.hash}" in email_html
+        assert f"user_token={self.user1.state.still_in_contact_form_access_token_user}" in email_html
+
+    def test_still_in_contact_yes_redirects_to_google_form(self):
+        """Test that the still_in_contact endpoint with answer='yes' and redirect_slug='match-form1' redirects to Google Form."""
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+
+        # Build the URL with proper parameters
+        url = (
+            f"/api/still_in_contact/{str(self.match.uuid)}/yes/"
+            f"?user_hash={self.user1.hash}"
+            f"&user_token={self.user1.state.still_in_contact_form_access_token_user}"
+            f"&redirect_slug=match-form1"
+        )
+
+        response = client.get(url)
+
+        # Should redirect (302 status code)
+        assert response.status_code == 302, f"Expected redirect (302), got {response.status_code}"
+
+        # Check the redirect URL is the Google Form
+        redirect_url = response.url
+        expected_google_form_base = (
+            "https://docs.google.com/forms/d/e/1FAIpQLScZpHVBkd9oXMTXGwH6aIUS8-Ep3LGbmHzx0wKYTA0fDpzJtQ/viewform"
+        )
+        assert redirect_url.startswith(expected_google_form_base), (
+            f"Expected redirect to Google Form. Got: {redirect_url}"
+        )
+
+        # Check that the redirect URL contains the user hash and match UUID as form pre-fill parameters
+        assert f"entry.1868418501={self.user1.hash}" in redirect_url, (
+            "Redirect URL should contain user hash as form parameter"
+        )
+        assert f"entry.1064841735={str(self.match.uuid)}" in redirect_url, (
+            "Redirect URL should contain match UUID as form parameter"
+        )
+
+        # Verify the match was marked as completed_off_plattform
+        self.match.refresh_from_db()
+        assert self.match.completed_off_plattform is True
+
+    def test_still_in_contact_no_shows_info_screen(self):
+        """Test that the still_in_contact endpoint with redirect_slug='info-screen' shows info card."""
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+
+        # Build the URL with info-screen redirect
+        url = (
+            f"/api/still_in_contact/{str(self.match.uuid)}/no/"
+            f"?user_hash={self.user1.hash}"
+            f"&user_token={self.user1.state.still_in_contact_form_access_token_user}"
+            f"&redirect_slug=info-screen"
+        )
+
+        response = client.get(url)
+
+        # Should return 200 with info card content (not a redirect)
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+
+        # Verify the match was still marked as completed_off_plattform
+        self.match.refresh_from_db()
+        assert self.match.completed_off_plattform is True
+
+    def test_still_in_contact_rejects_invalid_token(self):
+        """Test that the still_in_contact endpoint rejects requests with invalid user token."""
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+
+        # Build the URL with an invalid token
+        url = (
+            f"/api/still_in_contact/{str(self.match.uuid)}/yes/"
+            f"?user_hash={self.user1.hash}"
+            f"&user_token=invalid-token-12345"
+            f"&redirect_slug=match-form1"
+        )
+
+        response = client.get(url)
+
+        # Should return 403 Forbidden
+        assert response.status_code == 403, f"Expected 403, got {response.status_code}"
+
+    def test_m032_m033_emails_sent_to_both_users(self):
+        """Test that m032 emails are sent to both users in the match with correct URLs."""
+        context = {
+            "redirect_slug_no": "info-screen",
+            "redirect_slug_yes": "match-form1",
+        }
+
+        # Send emails to both users
+        email_log_user1 = self._send_email_and_get_log(
+            "automatic-emails-m032",
+            self.user1,
+            self.match,
+            context,
+        )
+        email_log_user2 = self._send_email_and_get_log(
+            "automatic-emails-m032",
+            self.user2,
+            self.match,
+            context,
+        )
+
+        # Verify both emails were created
+        assert email_log_user1 is not None
+        assert email_log_user2 is not None
+
+        # Verify user1's email contains user1's hash
+        email_html_user1 = email_log_user1.data.get("html", "")
+        assert f"user_hash={self.user1.hash}" in email_html_user1
+
+        # Verify user2's email contains user2's hash
+        email_html_user2 = email_log_user2.data.get("html", "")
+        assert f"user_hash={self.user2.hash}" in email_html_user2
+
+        # Both emails should reference the same match UUID
+        assert f"/api/still_in_contact/{str(self.match.uuid)}/yes/" in email_html_user1
+        assert f"/api/still_in_contact/{str(self.match.uuid)}/yes/" in email_html_user2

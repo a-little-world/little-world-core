@@ -48,6 +48,7 @@ from management.api.scores import (
     score_maximization_matching,
 )
 from management.api.short_links import api_urls as short_links_api_urls
+from management.api.still_in_contact import api_urls as still_in_contact_api_urls
 from management.api.user_advanced import api_urls as user_advanced_api_urls
 from management.api.utils_advanced import CustomResetPasswordRequestTokenViewSet
 from management.views import (
@@ -110,6 +111,7 @@ api_routes = [
     *ai.api_routes,
     *user_advanced_api_urls,
     *matches_advanced_api_urls,
+    *still_in_contact_api_urls,
     *scores_advanced.api_urls,
     *videocalls_advanced.api_urls,
     *user_advanced_statistics.api_urls,
