@@ -193,18 +193,16 @@ def still_in_contact_yes_url(user, match, **kwargs):
     """
     Generate URL for confirming continued contact with match partner outside the platform
     """
-    # base_url = settings.BASE_URL
-    # return f"{base_url}/still-in-contact/yes/{match.id}?token={token}"
-    return "not_implemented"
+    redirect_slug = kwargs.get("redirect_slug", "info-screen")
+    return f"{settings.BASE_URL}/api/still_in_contact/{str(match.uuid)}/yes/?user_hash={str(user.hash)}&user_token={str(user.state.still_in_contact_form_access_token_user)}&redirect_slug={redirect_slug}"
 
 
 def still_in_contact_no_url(user, match, **kwargs):
     """
     Generate URL for indicating no continued contact with match partner
     """
-    # base_url = settings.BASE_URL
-    # return f"{base_url}/still-in-contact/no/{match.id}?token={token}"
-    return "not_implemented"
+    redirect_slug = kwargs.get("redirect_slug", "info-screen")
+    return f"{settings.BASE_URL}/api/still_in_contact/{str(match.uuid)}/yes/?user_hash={str(user.hash)}&user_token={str(user.state.still_in_contact_form_access_token_user)}&redirect_slug={redirect_slug}"
 
 
 def match_removed_survey_url(user, match, **kwargs):

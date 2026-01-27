@@ -168,6 +168,11 @@ NATIVE_APP_INTEGRITY_ALLOW_BYPASS = os.environ.get("DJ_NATIVE_APP_INTEGRITY_ALLO
     "t",
 )
 NATIVE_APP_INTEGRITY_BYPASS_TOKEN = os.environ.get("DJ_NATIVE_APP_INTEGRITY_BYPASS_TOKEN", "bypassChangeMe!")
+ADVANCED_USER_JOURNEY_ENABLED = os.environ.get("DJ_ADVANCED_USER_JOURNEY_ENABLED", "false").lower() in (
+    "true",
+    "1",
+    "t",
+)
 
 # Debug logging for bypass settings
 """
