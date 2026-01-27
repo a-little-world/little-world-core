@@ -18,6 +18,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='state',
             name='user_journey_path_last_updated',
-            field=models.DateTimeField(null=True, blank=True),
+            field=models.DateTimeField(null=True, blank=True, default=None),
         ),
     ]

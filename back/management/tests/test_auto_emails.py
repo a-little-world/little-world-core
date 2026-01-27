@@ -1249,7 +1249,8 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
 
         # Verify the match was still marked as completed_off_plattform
         self.match.refresh_from_db()
-        assert self.match.completed_off_plattform is True
+        # Should be marked 'False' for the 'no' case
+        assert self.match.completed_off_plattform is False
 
     def test_still_in_contact_rejects_invalid_token(self):
         """Test that the still_in_contact endpoint rejects requests with invalid user token."""
