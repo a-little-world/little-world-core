@@ -37,6 +37,10 @@ def still_in_contact(request, match_uuid: str, answer: str):
     # 1 - Mark the match as 'completed_off_plattform'
     completed_off_plattform = True if answer == "yes" else False
     match = Match.objects.get(uuid=match_uuid)
+
+    if not match.user1 == user and not match.user2 == user:
+        return Response({"error": "You are not allowed to mark this match"}, status=403)
+
     match.completed_off_plattform = completed_off_plattform
     if match.completed_off_plattform_auto_marked_at is None:
         match.completed_off_plattform_auto_marked_at = timezone.now()
