@@ -150,7 +150,6 @@ def prepare_dynamic_template_context(template_name, user_id=None, match_id=None,
 
         lookup_context = {}
         for dependency in param_config.depends_on:
-            param_name = param
             if dependency == "user":
                 lookup_context["user"] = user
             elif dependency == "match":
@@ -158,14 +157,14 @@ def prepare_dynamic_template_context(template_name, user_id=None, match_id=None,
             elif dependency == "proposed_match":
                 lookup_context["proposed_match"] = proposed_match
             elif dependency.startswith("context."):
-                param_name = dependency.split(".")[1]
-                assert param_name in kwargs, f"Missing context dependency in **kwargs for {param}"
+                context_key = dependency.split(".")[1]
+                assert context_key in kwargs, f"Missing context dependency in **kwargs for {param}"
                 if "context" not in lookup_context:
                     lookup_context["context"] = {}
-                lookup_context["context"][param_name] = kwargs[param_name]
+                lookup_context["context"][context_key] = kwargs[context_key]
 
         # Perform the lookup injecting all dependencies
-        context[param_name] = lookup_function(**lookup_context)
+        context[param] = lookup_function(**lookup_context)
     return dynamic_template_info, context
 
 
@@ -220,7 +219,6 @@ def prepare_template_context(
 
         lookup_context = {}
         for dependency in param_config.depends_on:
-            param_name = param
             if dependency == "user":
                 lookup_context["user"] = user
             elif dependency == "match":
@@ -228,17 +226,17 @@ def prepare_template_context(
             elif dependency == "proposed_match":
                 lookup_context["proposed_match"] = proposed_match
             elif dependency.startswith("context."):
-                param_name = dependency.split(".")[1]
-                # assert param_name in kwargs, f"Missing context dependency in **kwargs for {param}" TODO: check disabled as we have vars with optional dependencies now
+                context_key = dependency.split(".")[1]
+                # assert context_key in kwargs, f"Missing context dependency in **kwargs for {param}" TODO: check disabled as we have vars with optional dependencies now
                 if "context" not in lookup_context:
                     lookup_context["context"] = {}
-                if param_name in kwargs:
-                    lookup_context["context"][param_name] = kwargs[param_name]
+                if context_key in kwargs:
+                    lookup_context["context"][context_key] = kwargs[context_key]
                 else:
-                    lookup_context["context"][param_name] = None
+                    lookup_context["context"][context_key] = None
 
         # Perform the lookup injecting all dependencies
-        context[param_name] = lookup_function(**lookup_context)
+        context[param] = lookup_function(**lookup_context)
     return template_info, context
 
 

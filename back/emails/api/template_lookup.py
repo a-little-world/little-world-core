@@ -189,19 +189,19 @@ def prematching_booking_link(user):
     )
 
 
-def still_in_contact_yes_url(user, match, **kwargs):
+def still_in_contact_yes_url(user, match, context={"redirect_slug_yes": "info-screen"}):
     """
     Generate URL for confirming continued contact with match partner outside the platform
     """
-    redirect_slug = kwargs.get("redirect_slug", "info-screen")
+    redirect_slug = context.get("redirect_slug_yes", "info-screen")
     return f"{settings.BASE_URL}/api/still_in_contact/{str(match.uuid)}/yes/?user_hash={str(user.hash)}&user_token={str(user.state.still_in_contact_form_access_token_user)}&redirect_slug={redirect_slug}"
 
 
-def still_in_contact_no_url(user, match, **kwargs):
+def still_in_contact_no_url(user, match, context={"redirect_slug_no": "info-screen"}):
     """
     Generate URL for indicating no continued contact with match partner
     """
-    redirect_slug = kwargs.get("redirect_slug", "info-screen")
+    redirect_slug = context.get("redirect_slug_no", "info-screen")
     return f"{settings.BASE_URL}/api/still_in_contact/{str(match.uuid)}/yes/?user_hash={str(user.hash)}&user_token={str(user.state.still_in_contact_form_access_token_user)}&redirect_slug={redirect_slug}"
 
 
