@@ -6,7 +6,11 @@ from django.conf import settings
 from django.core.cache import cache
 from drf_spectacular.utils import extend_schema
 from rest_framework import serializers, status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import (
+    api_view,
+    authentication_classes,
+    permission_classes,
+)
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
@@ -238,6 +242,7 @@ def _verify_play_integrity_token_via_api(integrity_token: str, request_hash: str
 )
 @api_view(["POST"])
 @permission_classes([AllowAny])
+@authentication_classes([])
 def app_integrity_challenge(request):
     """
     Generate a challenge for app integrity verification.
