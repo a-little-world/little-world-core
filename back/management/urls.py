@@ -97,6 +97,7 @@ dynamic_user_list_single_user_api = DynamicUserListSingleUserViewSet.as_view(
 user_data_apis = [
     path("api/api_options", options.api_options),
     path("api/user", user.user_profile, name="user_profile_api"),
+    path("api/user/authenticated", user.is_authenticated, name="user_is_authenticated_api"),
     path("api/notifications", notifications.notifications, name="notifications_api"),
     path("api/matches", matches.matches, name="matches_api"),
     path("api/community", community_events.community_events, name="community_events_api"),

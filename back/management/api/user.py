@@ -15,7 +15,7 @@ from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serial
 from rest_framework import authentication, permissions, serializers, status
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from tracking import utils
@@ -614,3 +614,13 @@ def user_profile(request):
         return Response(get_user_data(request.user))
     except Exception as e:
         return Response({"error": str(e)}, status=400)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+@authentication_classes([])
+def is_authenticated(request):
+    """
+    Returns whether the user is authenticated.
+    """
+    return Response(request.user.is_authenticated)
