@@ -816,7 +816,6 @@ def user_signup_loss_statistic_v2(start_date="2022-01-01", end_date=date.today()
         "journey_v2__active_matching",
         "journey_v2__never_active",
         "journey_v2__no_show",
-        "journey_v2__user_ghosted",
         "journey_v2__no_confirm",
         "journey_v2__happy_inactive",
         "journey_v2__too_low_german_level",
