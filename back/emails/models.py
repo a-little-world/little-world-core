@@ -21,8 +21,6 @@ class EmailLog(models.Model):
 
     # This marks wheather or not the code to send the email as trown an error
     sucess = models.BooleanField(default=False)
-
-    # hash as wike like to have everywhere :)
     is_dyanmic_email = models.BooleanField(default=False)
 
     # For this we always expect:
