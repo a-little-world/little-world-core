@@ -460,6 +460,7 @@ def send_dynamic_email_backgruound(
         sender=get_base_management_user(),
         receiver=user,
         template=template_name,
+        is_dyanmic_email=True,
         data={"html": html, "params": _context, "user_id": user.id, "match_id": None, "subject": subject},
     )
 

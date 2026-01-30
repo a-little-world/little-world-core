@@ -65,7 +65,7 @@ class DynamicEmailTemplateViewset(viewsets.ModelViewSet):
             qs = qs.exclude(settings__email_settings__unsubscribed_categories__contains=[category_id])
             count_after = qs.count()
 
-        last_dynamic_bulk_emails_send_at = EmailLog.objects.filter(category_id="dynamic").order_by("-time").first()
+        last_dynamic_bulk_emails_send_at = EmailLog.objects.filter(is_dyanmic_email=True).order_by("-time").first()
 
         # Check if last dynamic bulk email was sent less than 5 minutes ago
         if last_dynamic_bulk_emails_send_at:

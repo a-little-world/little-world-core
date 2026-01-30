@@ -23,6 +23,7 @@ class EmailLog(models.Model):
     sucess = models.BooleanField(default=False)
 
     # hash as wike like to have everywhere :)
+    is_dyanmic_email = models.BooleanField(default=False)
 
     # For this we always expect:
     # template: '...html', email_rendered_html: '...html_str', kwargs: kwargs for creating the mail
