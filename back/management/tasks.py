@@ -1101,6 +1101,8 @@ def daily_auto_email_report():
     now = timezone.now()
     yesterday_start = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
     yesterday_end = yesterday_start + timedelta(days=1)
+    
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.AUTO_EMAILS_EMULATE_ONLY)
 
     # Query EmailLog for auto emails sent yesterday
     email_logs = EmailLog.objects.filter(
@@ -1134,6 +1136,11 @@ def daily_auto_email_report():
         "",
         "*Email Summary:*",
     ]
+    
+    if emulated_send:
+        message_parts.append("*Emulated Send (E-Mails aren't truely send!):* `True`")
+    else:
+        message_parts.append("*Emulated Send:* `False`")
 
     # Add email counts summary
     for template in check_emails:
