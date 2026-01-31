@@ -8,15 +8,18 @@ importScripts(
   "https://www.gstatic.com/firebasejs/11.5.0/firebase-messaging-compat.js"
 );
 
-firebase.initializeApp({
-  apiKey: "{{ apiKey }}",
-  authDomain: "{{ authDomain }}",
-  projectId: "{{ projectId }}",
-  storageBucket: "{{ storageBucket }}",
-  messagingSenderId: "{{ messagingSenderId }}",
-  appId: "{{ appId }}",
-  measurementId: "{{ measurementId }}",
-});
+// Check if Firebase app is already initialized to prevent duplicate-app error
+if (!firebase.apps.length) {
+  firebase.initializeApp({
+    apiKey: "{{ apiKey }}",
+    authDomain: "{{ authDomain }}",
+    projectId: "{{ projectId }}",
+    storageBucket: "{{ storageBucket }}",
+    messagingSenderId: "{{ messagingSenderId }}",
+    appId: "{{ appId }}",
+    measurementId: "{{ measurementId }}",
+  });
+}
 
 const messaging = firebase.messaging();
 
