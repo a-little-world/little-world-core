@@ -1019,3 +1019,7 @@ ENABLE_AUTO_EMAIL_LOGS = (
     or ENABLE_AUTO_EMAILS__U072_U073_U074
     or ENABLE_AUTO_EMAILS__U081_U082_U083_U084
 )
+
+
+# Per-default we only emulate the sending of auto emails
+AUTO_EMAILS_EMULATE_ONLY = os.environ.get("DJ_AUTO_EMAILS_EMULATE_ONLY", "true").lower() in ("true", "1", "t")
