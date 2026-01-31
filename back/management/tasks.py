@@ -750,7 +750,6 @@ def automatic_emails_m024_m025():
 
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.AUTO_EMAILS_EMULATE_ONLY)
 
-
     # get all chats, excluding admin and matching users
     chats = (
         Chat.objects.annotate(last_message_at=Max("message__created"))
@@ -796,7 +795,6 @@ def automatic_emails_m031_m032_m033_m042():
     from management.models.matches import Match
 
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.AUTO_EMAILS_EMULATE_ONLY)
-
 
     # 1 - automatic-emails-m031
     matches_m031 = Match.objects.filter(
@@ -1101,7 +1099,7 @@ def daily_auto_email_report():
     now = timezone.now()
     yesterday_start = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
     yesterday_end = yesterday_start + timedelta(days=1)
-    
+
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.AUTO_EMAILS_EMULATE_ONLY)
 
     # Query EmailLog for auto emails sent yesterday
@@ -1136,7 +1134,7 @@ def daily_auto_email_report():
         "",
         "*Email Summary:*",
     ]
-    
+
     if emulated_send:
         message_parts.append("*Emulated Send (E-Mails aren't truely send!):* `True`")
     else:
