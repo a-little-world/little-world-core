@@ -1274,21 +1274,25 @@ def time_slot_counts(request):
 
     # Initialize the counts dictionary with all days and slots set to 0
     counts = {day: {slot: 0 for slot in SLOTS} for day in DAYS}
+    counts_volunteer = {day: {slot: 0 for slot in SLOTS} for day in DAYS}
+    counts_learner = {day: {slot: 0 for slot in SLOTS} for day in DAYS}
 
-    # Get all profiles with non-null availability
+    # Get all profiles with non-null availability (single query, single loop)
     profiles = Profile.objects.filter(user__in=pre_filtered_users, availability__isnull=False)
 
-    # Count the occurrences of each time slot for each day
+    # Count the occurrences of each time slot for each day (and by user_type in same pass)
     for profile in profiles:
         availability = profile.availability
         if not availability:
             continue
 
+        target = counts_volunteer if profile.user_type == Profile.TypeChoices.VOLUNTEER else counts_learner
         for day in DAYS:
             if day in availability:
                 for slot in availability[day]:
                     if slot in SLOTS:
                         counts[day][slot] += 1
+                        target[day][slot] += 1
 
     # Calculate totals for each day and each slot
     day_totals = {day: sum(counts[day].values()) for day in DAYS}
@@ -1317,6 +1321,10 @@ def time_slot_counts(request):
     return Response(
         {
             "counts": counts,
+            "counts_by_user_type": {
+                "volunteer": counts_volunteer,
+                "learner": counts_learner,
+            },
             "day_totals": day_totals,
             "slot_totals": slot_totals,
             "most_popular_day": {
