@@ -885,3 +885,34 @@ def volunteers_with_completed_match_no_ongoing(qs=User.objects.all()):
         .distinct()
         .order_by("-date_joined")
     )
+
+
+def users_with_duplicate_automatic_emails_29_01_2026(qs=User.objects.all()):
+    """
+    Users who received multiple emails (automatic-emails-u023/u024/u025) on 29.01.2026
+    """
+    from datetime import date
+
+    from emails.models import EmailLog
+
+    target_date = date(2026, 1, 29)
+    target_templates = [
+        "automatic-emails-u023",
+        "automatic-emails-u024",
+        "automatic-emails-u025",
+    ]
+
+    # Find user IDs who received more than one of these emails on the target date
+    users_with_duplicates = (
+        EmailLog.objects.filter(
+            template__in=target_templates,
+            time__date=target_date,
+            receiver__in=qs,
+        )
+        .values("receiver")
+        .annotate(email_count=Count("id"))
+        .filter(email_count__gt=1)
+        .values_list("receiver", flat=True)
+    )
+
+    return qs.filter(pk__in=users_with_duplicates).distinct().order_by("-date_joined")
