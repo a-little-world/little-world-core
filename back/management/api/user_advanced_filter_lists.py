@@ -64,6 +64,7 @@ from management.api.user_journey_filters import (
     user_deleted,
     user_form_completed,
     user_searching,
+    users_with_duplicate_automatic_emails_29_01_2026,
     volunteers_with_completed_match_no_ongoing,
 )
 from management.models.dynamic_user_list import DynamicUserList
@@ -233,6 +234,11 @@ USER_JOURNEY_FILTER_LISTS = [
         "EXTRA__volunteers_with_completed_match_no_ongoing",
         "Volunteers with at least one completed match and no ongoing matches",
         volunteers_with_completed_match_no_ongoing,
+    ),
+    FilterListEntry(
+        "EXTRA__users_with_duplicate_automatic_emails_29_01_2026",
+        "Users who received multiple emails (u023/u024/u025) on 29.01.2026",
+        users_with_duplicate_automatic_emails_29_01_2026,
     ),
 ]
 
