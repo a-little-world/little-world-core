@@ -244,6 +244,8 @@ class State(models.Model):
 
     to_low_german_level = models.BooleanField(default=False)
 
+    force_match_eligible = models.BooleanField(default=False)
+
     user_journey_path = models.JSONField(default=list, blank=True)
     user_journey_path_last_updated = models.DateTimeField(null=True, blank=True, default=None)
 

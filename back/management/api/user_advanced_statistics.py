@@ -651,93 +651,211 @@ def match_bucket_statistics(request):
     return Response(stats)
 
 
+@extend_schema(
+    request=inline_serializer(
+        name="CompanyUsersReportRequest",
+        fields={
+            "start_date": serializers.DateField(default="2024-01-01"),
+            "end_date": serializers.DateField(default=date.today()),
+            "format": serializers.ChoiceField(
+                choices=[("json", "JSON"), ("text", "Plain text")],
+                default="json",
+            ),
+        },
+    ),
+)
 @api_view(["POST"])
 @permission_classes([IsAdminOrMatchingUser])
-def comany_video_call_and_matching_report(request, company):
-    users = User.objects.filter(state__company=company)
+def company_users_report(request, company):
+    """
+    Generate a company report for users associated with a specific company.
+    Merges match/video-call details with user journey and engagement metrics.
+    Supports both structured JSON and plain text output formats.
+    """
+    from datetime import datetime
 
-    total_video_time_seconds_all_users = 0  # Variable to keep track of total video time for all users
+    start_date = request.data.get("start_date", "2024-01-01")
+    end_date = request.data.get("end_date", date.today())
+    output_format = request.data.get("format", "json")
 
-    MAX_VIDEO_CALL_DURATION_SECONDS = 2 * 60 * 60  # 2 hours in seconds
+    if isinstance(end_date, str):
+        end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
+    else:
+        end_date_obj = end_date
+    end_date_inclusive = datetime.combine(end_date_obj, datetime.max.time())
 
+    users = User.objects.filter(
+        date_joined__range=[start_date, end_date_inclusive],
+        state__company=company,
+    ).select_related("profile", "state")
+
+    MAX_VIDEO_CALL_DURATION_SECONDS = 2 * 60 * 60  # 2 hours
+    total_video_time_seconds_all_users = 0
     full_report = ""
 
     def report(text):
         nonlocal full_report
         full_report += text + "\n"
 
+    user_data = []
+
     for user in users:
-        report(f"User: {user.username}")
-        report("=" * 40)
+        # Matches
+        all_matches = Match.objects.filter(
+            Q(user1=user) | Q(user2=user),
+            support_matching=False,
+        ).order_by("-created_at")
 
-        # Retrieve user's matches excluding support matches
-        matches_as_user1 = Match.objects.filter(user1=user, support_matching=False)
-        matches_as_user2 = Match.objects.filter(user2=user, support_matching=False)
+        total_matches = all_matches.count()
+        active_matches = all_matches.filter(active=True).count()
 
-        matches = matches_as_user1.union(matches_as_user2)
+        match_status = []
+        if active_matches > 0:
+            match_status.append("Active")
+        if all_matches.filter(confirmed=True).exists():
+            match_status.append("Confirmed")
+        if all_matches.filter(completed=True).exists():
+            match_status.append("Completed")
+        if not match_status:
+            match_status = ["No matches"]
 
-        report("Matches:")
-        for match in matches:
+        match_details = []
+        for match in all_matches:
             status = "Confirmed" if match.confirmed else "Pending Confirmation"
-            match_user1 = match.user1.username
-            match_user2 = match.user2.username
-            confirmation_status = []
-
+            other_username = match.user2.username if match.user1 == user else match.user1.username
+            confirmation_parts = []
             if match.confirmed_by == match.user1:
-                confirmation_status.append(f"{match_user1} confirmed")
+                confirmation_parts.append(f"{match.user1.username} confirmed")
             elif match.confirmed_by == match.user2:
-                confirmation_status.append(f"{match_user2} confirmed")
+                confirmation_parts.append(f"{match.user2.username} confirmed")
             else:
-                if match.confirmed:
-                    confirmation_status.append("Both confirmed")
-                else:
-                    confirmation_status.append("No one confirmed")
-
-            report(
-                f"\tMatch with {match_user1 if match_user1 != user.username else match_user2} - {status} ({', '.join(confirmation_status)})"
+                confirmation_parts.append("Both confirmed" if match.confirmed else "No one confirmed")
+            match_details.append(
+                {
+                    "other_username": other_username,
+                    "status": status,
+                    "confirmation": ", ".join(confirmation_parts),
+                }
             )
 
-        report("=" * 20)
-
-        # Retrieve user's video calls where both users have been active
+        # Video calls
         video_calls_as_u1 = LivekitSession.objects.filter(u1=user, both_have_been_active=True)
         video_calls_as_u2 = LivekitSession.objects.filter(u2=user, both_have_been_active=True)
-
         video_calls = video_calls_as_u1.union(video_calls_as_u2)
 
-        total_video_time_seconds_user = 0  # Variable to keep track of video time for the current user
+        total_video_time_seconds_user = 0
+        video_call_details = []
 
-        report("Video Calls:")
         for call in video_calls:
             other_user = call.u1 if call.u1 != user else call.u2
             active_status = "Active" if call.is_active else "Inactive"
 
-            # Calculate call duration if end time is available
             if call.end_time:
-                start_time = call.created_at
-                end_time = call.end_time
-                duration = end_time - start_time
+                duration = call.end_time - call.created_at
                 if duration.total_seconds() > MAX_VIDEO_CALL_DURATION_SECONDS:
-                    report(f"\tSkipping excessively long video call with {other_user.username}: Duration {duration}")
-                    continue  # Skip calls longer than 2 hours
+                    video_call_details.append(
+                        {
+                            "other_username": other_user.username,
+                            "skipped": True,
+                            "reason": f"Duration {duration} exceeds 2 hours",
+                        }
+                    )
+                    continue
                 total_video_time_seconds_user += duration.total_seconds()
-                report(f"\tVideo call with {other_user.username}: Duration {duration}, Status: {active_status}")
+                video_call_details.append(
+                    {
+                        "other_username": other_user.username,
+                        "duration_seconds": duration.total_seconds(),
+                        "status": active_status,
+                    }
+                )
             else:
-                report(f"\tVideo call with {other_user.username}: Status: {active_status}")
+                video_call_details.append({"other_username": other_user.username, "status": active_status})
 
-        total_video_time_minutes_user = total_video_time_seconds_user / 60
-        report(f"Total Video Time for {user.username}: {total_video_time_minutes_user:.2f} minutes")
-        report("=" * 40)
-
-        # Add user's video time to the global total
         total_video_time_seconds_all_users += total_video_time_seconds_user
 
-    # Calculate total video time for all users
-    total_video_time_minutes_all_users = total_video_time_seconds_all_users / 60
-    report(f"Total Video Time for All Users: {total_video_time_minutes_all_users:.2f} minutes")
-    total_hours = total_video_time_minutes_all_users / 60.0
-    report(f"Total Video Time for All Users: {total_hours:.2f} hours")
-    return Response({"report": full_report})
+        # Most recent match metrics
+        most_recent_match = all_matches.first()
+        video_calls_with_recent_match = 0
+        messages_with_recent_match = 0
+
+        if most_recent_match:
+            other_user = most_recent_match.user2 if most_recent_match.user1 == user else most_recent_match.user1
+            video_calls_with_recent_match = LivekitSession.objects.filter(
+                Q(u1=user, u2=other_user) | Q(u1=other_user, u2=user),
+                both_have_been_active=True,
+            ).count()
+            messages_with_recent_match = Message.objects.filter(
+                Q(sender=user, recipient=other_user) | Q(sender=other_user, recipient=user)
+            ).count()
+
+        last_message = Message.objects.filter(recipient=user).order_by("-created").first()
+
+        raw_path = user.state.user_journey_path or []
+        grouped_journey = _group_user_journey_by_date(raw_path)
+
+        user_entry = {
+            "user_id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "date_joined": (user.date_joined.isoformat() if user.date_joined else None),
+            "user_journey_path": grouped_journey,
+            "match_status": ", ".join(match_status),
+            "total_matches": total_matches,
+            "active_matches": active_matches,
+            "match_details": match_details,
+            "video_call_details": video_call_details,
+            "total_video_time_minutes": round(total_video_time_seconds_user / 60, 2),
+            "video_calls_with_most_recent_match": video_calls_with_recent_match,
+            "messages_with_most_recent_match": messages_with_recent_match,
+            "last_message_received": (last_message.created.isoformat() if last_message else None),
+        }
+        user_data.append(user_entry)
+
+        # Build text report for this user
+        if output_format == "text":
+            report(f"User: {user.username}")
+            report("=" * 40)
+            report("Matches:")
+            for m in match_details:
+                report(f"\tMatch with {m['other_username']} - {m['status']} ({m['confirmation']})")
+            report("=" * 20)
+            report("Video Calls:")
+            for v in video_call_details:
+                if v.get("skipped"):
+                    report(f"\tSkipping excessively long video call with {v['other_username']}: {v['reason']}")
+                elif "duration_seconds" in v:
+                    report(
+                        f"\tVideo call with {v['other_username']}: Duration {v['duration_seconds']:.0f}s, Status: {v['status']}"
+                    )
+                else:
+                    report(f"\tVideo call with {v['other_username']}: Status: {v['status']}")
+            report(f"Total Video Time for {user.username}: {user_entry['total_video_time_minutes']:.2f} minutes")
+            report(f"User Journey Path: {grouped_journey}")
+            report(f"Last message received: {user_entry['last_message_received'] or 'None'}")
+            report(f"Video calls with most recent match: {video_calls_with_recent_match}")
+            report(f"Messages with most recent match: {messages_with_recent_match}")
+            report("=" * 40)
+
+    if output_format == "text":
+        total_minutes = total_video_time_seconds_all_users / 60
+        total_hours = total_minutes / 60.0
+        report(f"Total Video Time for All Users: {total_minutes:.2f} minutes")
+        report(f"Total Video Time for All Users: {total_hours:.2f} hours")
+        return Response({"report": full_report})
+
+    total_video_minutes_all = total_video_time_seconds_all_users / 60
+    return Response(
+        {
+            "company": company,
+            "start_date": start_date,
+            "end_date": end_date,
+            "total_users": len(user_data),
+            "total_video_time_minutes_all_users": round(total_video_minutes_all, 2),
+            "total_video_time_hours_all_users": round(total_video_minutes_all / 60.0, 2),
+            "users": user_data,
+        }
+    )
 
 
 def user_signup_loss_statistic(start_date="2022-01-01", end_date=date.today(), caller=None):
@@ -2072,6 +2190,9 @@ api_urls = [
     path("api/matching/users/statistics/kpi_matching/", kpi_dashboard_statistics_matching),
     path("api/matching/users/statistics/kpi_searching/", kpi_dashboard_statistics_searching_users),
     path("api/matching/users/statistics/time_slot_counts/", time_slot_counts),
-    path("api/matching/users/statistics/company_report/<str:company>/", comany_video_call_and_matching_report),
+    path(
+        "api/matching/users/statistics/company_users_report/<str:company>/",
+        company_users_report,
+    ),
     path("api/matching/users/statistics/marketing_campaign/", marketing_campaign_report),
 ]

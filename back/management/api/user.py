@@ -606,6 +606,7 @@ def get_user_data(user):
         "preMatchingCallJoinLink": pre_call_join_link,
         "calComAppointmentLink": cal_data_link,
         "hadPreMatchingCall": user_state.had_prematching_call,
+        "forceMatchEligible": user_state.force_match_eligible,
         "emailVerified": user_state.email_authenticated,
         "userFormCompleted": user_state.user_form_state == State.UserFormStateChoices.FILLED,
         "hasMatch": has_atleast_one_match,
