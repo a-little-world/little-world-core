@@ -769,6 +769,7 @@ def burst_calculate_matching_scores_v2(request):
         )
     else:
         from management.api.user_advanced_filter_lists import get_list_by_name
+
         user_list = get_list_by_name(scoring_list)
         if user_list is None:
             return Response({"msg": f"Invalid scoring list: {scoring_list}"}, status=400)

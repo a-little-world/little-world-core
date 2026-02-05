@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from typing import List
 
 from management.api.user_advanced_filter import (
+    EXTRA__lingoda_learners_scoring,
+    EXTRA__lingoda_users,
     active_within_3weeks,
     all_users,
     get_active_match_query_set,
@@ -19,8 +21,6 @@ from management.api.user_advanced_filter import (
     users_with_booked_prematching_call,
     users_with_open_proposals,
     users_with_open_tasks,
-    EXTRA__lingoda_users,
-    EXTRA__lingoda_learners_scoring,
 )
 from management.api.user_journey_filters import (
     active_match,

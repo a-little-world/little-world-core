@@ -341,10 +341,11 @@ def users_require_prematching_call_not_booked(qs=User.objects.all()):
         .exclude(pk__in=user_with_prematching_booked)
         .order_by("-date_joined")
     )
-    
+
 
 def EXTRA__lingoda_users(qs=User.objects.all()):
     return qs.filter(state__company="lingoda")
+
 
 def EXTRA__lingoda_learners_scoring(qs=User.objects.all()):
     lingoda_users = EXTRA__lingoda_users(qs).filter(profile__user_type=Profile.TypeChoices.LEARNER)
