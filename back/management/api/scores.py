@@ -743,6 +743,7 @@ def burst_calculate_matching_scores_v2(request):
     from management.models.backend_state import BackendState
 
     ongoing_update = BackendState.objects.filter(slug=BackendState.BackendStateEnum.updating_matching_scores)
+    scoring_list = request.query_params.get("scoring_list", "default")
 
     if ongoing_update.exists():
         return Response({"msg": "Already updating scores"}, status=400)
@@ -760,12 +761,20 @@ def burst_calculate_matching_scores_v2(request):
         TwoUserMatchingScore.objects.all().delete()
 
     bmu = controller.get_base_management_user()
-    requires_matching = needs_matching(
-        qs=User.objects.filter(id__in=bmu.state.managed_users.all()),
-        learner_atleast_searching_for_x_days=5,
-        exclude_non_german_residents=True,
-    )
-    user_id_set = set(requires_matching.values_list("id", flat=True))
+    if scoring_list == "default":
+        user_list = needs_matching(
+            qs=User.objects.filter(id__in=bmu.state.managed_users.all()),
+            learner_atleast_searching_for_x_days=5,
+            exclude_non_german_residents=True,
+        )
+    else:
+        from management.api.user_advanced_filter_lists import get_list_by_name
+        user_list = get_list_by_name(scoring_list)
+        if user_list is None:
+            return Response({"msg": f"Invalid scoring list: {scoring_list}"}, status=400)
+        user_list = user_list.queryset(User.objects.filter(id__in=bmu.state.managed_users.all()))
+
+    user_id_set = set(user_list.values_list("id", flat=True))
     list_combinations = list(itertools.combinations(user_id_set, 2))
 
     total_combinations = len(list_combinations)
@@ -785,7 +794,7 @@ def burst_calculate_matching_scores_v2(request):
     ongoing_update.save()
 
     slack_notify_security_channel_async.delay(
-        f"Score calculation triggered at {timezone.now()} by {request.user.email}, {request.user.id}\nCaclulating for {total_combinations} combinations, with {parallel_tasks} parallel tasks and {len(user_id_set)} users in total"
+        f"Score calculation triggered at {timezone.now()} by {request.user.email}, {request.user.id}\nCaclulating for the list '{scoring_list}' with {total_combinations} combinations, with {parallel_tasks} parallel tasks and {len(user_id_set)} users in total"
     )
 
     return Response(created_tasks_ids)
