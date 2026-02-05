@@ -19,6 +19,8 @@ from management.api.user_advanced_filter import (
     users_with_booked_prematching_call,
     users_with_open_proposals,
     users_with_open_tasks,
+    EXTRA__lingoda_users,
+    EXTRA__lingoda_learners_scoring,
 )
 from management.api.user_journey_filters import (
     active_match,
@@ -240,6 +242,8 @@ USER_JOURNEY_FILTER_LISTS = [
         "Users who received multiple emails (u023/u024/u025) on 29.01.2026",
         users_with_duplicate_automatic_emails_29_01_2026,
     ),
+    FilterListEntry("EXTRA__lingoda_users", "Lingoda users", EXTRA__lingoda_users),
+    FilterListEntry("EXTRA__lingoda_learners_scoring", "Lingoda learners for scoring", EXTRA__lingoda_learners_scoring),
 ]
 
 FILTER_LISTS = PANEL_V1_FILTER_LISTS + USER_JOURNEY_FILTER_LISTS
