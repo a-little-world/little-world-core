@@ -78,18 +78,60 @@
 
           # 3. Docker compose build (idempotent)
           echo "🐳 Building Docker images..."
-          if command -v docker-compose &> /dev/null; then
-            docker-compose build
-          elif command -v docker &> /dev/null && docker compose version &> /dev/null; then
-            docker compose build
-          else
-            echo "⚠️  Docker Compose not found, skipping Docker build"
-            exit 1
-          fi
+          docker compose build
 
           echo "✅ Docker images built"
           echo ""
           echo "🎉 Development environment setup complete!"
+        '';
+
+        # Script to setup git mirror remote
+        setupMirrorScript = pkgs.writeShellScriptBin "setup-mirror" ''
+          set -euo pipefail
+
+          # Find project root by looking for docker-compose.yaml or .gitmodules
+          if [ -f docker-compose.yaml ] || [ -f .gitmodules ]; then
+            PROJECT_ROOT="$(pwd)"
+          elif [ -f ../docker-compose.yaml ] || [ -f ../.gitmodules ]; then
+            PROJECT_ROOT="$(cd .. && pwd)"
+          else
+            echo "❌ Error: Could not find project root (looking for docker-compose.yaml or .gitmodules)"
+            exit 1
+          fi
+          
+          cd "$PROJECT_ROOT"
+
+          # Check if we're in a git repository
+          if ! git rev-parse --git-dir > /dev/null 2>&1; then
+            echo "❌ Error: Not in a git repository"
+            exit 1
+          fi
+
+          MIRROR_URL="https://github.com/a-little-world/little-world-core"
+
+          echo "🔗 Setting up git mirror remote..."
+
+          # Check if mirror remote already exists
+          if git remote get-url mirror > /dev/null 2>&1; then
+            CURRENT_URL="$(git remote get-url mirror)"
+            if [ "$CURRENT_URL" = "$MIRROR_URL" ]; then
+              echo "✅ Mirror remote already configured correctly"
+            else
+              echo "🔄 Updating mirror remote URL from '$CURRENT_URL' to '$MIRROR_URL'"
+              git remote set-url mirror "$MIRROR_URL"
+              echo "✅ Mirror remote updated"
+            fi
+          else
+            echo "➕ Adding mirror remote..."
+            git remote add mirror "$MIRROR_URL"
+            echo "✅ Mirror remote added"
+          fi
+
+          echo ""
+          echo "📋 Current remotes:"
+          git remote -v
+          echo ""
+          echo "💡 You can now push to the mirror with: git push mirror main"
         '';
 
       in
@@ -103,18 +145,24 @@
             docker
             docker-compose
             setupScript
+            setupMirrorScript
           ];
 
           shellHook = ''
             echo "🚀 Little World Backend Development Environment"
             echo ""
             echo "Available commands:"
-            echo "  setup-dev  - Initialize submodules, setup Python venv, and build Docker images"
+            echo "  setup-dev    - Initialize submodules, setup Python venv, and build Docker images"
+            echo "  setup-mirror - Configure git remote 'mirror' for pushing to GitHub"
             echo ""
             echo "Run 'setup-dev' to set up the development environment."
           '';
         };
 
-        packages.default = setupScript;
+        packages = {
+          default = setupScript;
+          setup-dev = setupScript;
+          setup-mirror = setupMirrorScript;
+        };
       });
 }
