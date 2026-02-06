@@ -718,6 +718,25 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
     @extend_schema(
         request=inline_serializer(
+            name="SetHasMatchPriorityRequest",
+            fields={"has_match_priority": serializers.BooleanField()},
+        )
+    )
+    @action(detail=True, methods=["post"])
+    def set_has_match_priority(self, request, pk=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+
+        obj.state.has_match_priority = request.data.get("has_match_priority", False)
+        obj.state.save()
+        return Response({"success": True, "has_match_priority": obj.state.has_match_priority})
+
+    @extend_schema(
+        request=inline_serializer(
             name="MarkPrematchingCallCompletedRequest",
             fields={"had_prematching_call": serializers.BooleanField(default=True)},
         )
@@ -1039,6 +1058,10 @@ viewset_actions = [
     path(
         "api/matching/users/<pk>/change_newsletter_subscribed/",
         AdvancedUserViewset.as_view({"post": "change_newsletter_subscribed"}),
+    ),
+    path(
+        "api/matching/users/<pk>/set_has_match_priority/",
+        AdvancedUserViewset.as_view({"post": "set_has_match_priority"}),
     ),
 ]
 

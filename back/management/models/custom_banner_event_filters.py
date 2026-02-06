@@ -16,6 +16,8 @@ class CustomFilterChoices(models.TextChoices):
 
 
 def filter__learners_with_a1a2(user):
+    if user.state.force_match_eligible:
+        return False
     lang_skill_german = list(filter(lambda x: x["lang"] == "german", user.profile.lang_skill))
     german_level = lang_skill_german[0]["level"] if len(lang_skill_german) > 0 else Profile.LanguageSkillChoices.LEVEL_0
     has_a1a2 = german_level == Profile.LanguageSkillChoices.LEVEL_0
@@ -25,7 +27,7 @@ def filter__learners_with_a1a2(user):
 def filter__learners_above_a1a2(user):
     lang_skill_german = list(filter(lambda x: x["lang"] == "german", user.profile.lang_skill))
     german_level = lang_skill_german[0]["level"] if len(lang_skill_german) > 0 else Profile.LanguageSkillChoices.LEVEL_0
-    better_than_a1a2 = german_level != Profile.LanguageSkillChoices.LEVEL_0
+    better_than_a1a2 = german_level != Profile.LanguageSkillChoices.LEVEL_0 or user.state.force_match_eligible
 
     return (user.profile.user_type == Profile.TypeChoices.LEARNER) and better_than_a1a2
 
@@ -39,6 +41,8 @@ def filter__learners(user):
 
 
 def filter__learners_outside_germany(user):
+    if user.state.force_match_eligible:
+        return False
     return (user.profile.user_type == Profile.TypeChoices.LEARNER) and (user.profile.country_of_residence != "DE")
 
 

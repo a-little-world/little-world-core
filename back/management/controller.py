@@ -215,9 +215,12 @@ def create_user(
     # Error if user doesn't exist, would prob already happen on is_valid
     assert isinstance(usr, User)
 
-    # Step 3.5 - Check if the user has a 'comany' field
+    # Step 3.5 - Check if the user has a 'company' field
     if company is not None:
         usr.state.company = company
+        # Set force_match_eligible if company is in the eligible list
+        if company and company.lower() in settings.FORCE_MATCH_ELIGIBLE_COMPANIES:
+            usr.state.force_match_eligible = True
         usr.state.save()
 
     # Step 4 send mail

@@ -105,7 +105,14 @@ class ProfileCompletedApi(APIView):
             state.set_user_form_completed()
             state.user_form_completed_at = timezone.now()
             state.searching_state = State.SearchingStateChoices.SEARCHING
+
+            # Auto-complete onboarding call for companies with custom onboarding
+            if state.company and state.company.lower() in settings.CUSTOM_ONBOARDING_COMPANIES:
+                state.onboarding_call_completed_at = timezone.now()
+                state.had_prematching_call = True
+
             state.save()
+
             default_message = get_translation("auto_messages.prematching_invitation", lang="de").format(
                 first_name=user.profile.first_name,
                 encoded_params=urllib.parse.urlencode(
@@ -117,16 +124,17 @@ class ProfileCompletedApi(APIView):
                 ),
                 calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID,
             )
-            german_level = list(filter(lambda x: x["lang"] == "german", user.profile.lang_skill))[0]["level"]
-            if german_level == Profile.LanguageSkillChoices.LEVEL_0:
-                default_message = get_translation("auto_messages.prematching_lang_level_too_low", lang="de").format(
-                    first_name=user.profile.first_name
-                )
+            if not state.force_match_eligible:
+                german_level = list(filter(lambda x: x["lang"] == "german", user.profile.lang_skill))[0]["level"]
+                if german_level == Profile.LanguageSkillChoices.LEVEL_0:
+                    default_message = get_translation("auto_messages.prematching_lang_level_too_low", lang="de").format(
+                        first_name=user.profile.first_name
+                    )
 
-            if custom_banner_event_filters.filter__learners_outside_germany(user):
-                default_message = get_translation("auto_messages.learner_outside_germany", lang="de").format(
-                    first_name=user.profile.first_name
-                )
+                if custom_banner_event_filters.filter__learners_outside_germany(user):
+                    default_message = get_translation("auto_messages.learner_outside_germany", lang="de").format(
+                        first_name=user.profile.first_name
+                    )
 
             user.message(default_message, auto_mark_read=True, send_message_incoming=True)
 
