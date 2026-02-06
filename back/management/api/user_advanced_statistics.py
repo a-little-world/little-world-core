@@ -1,4 +1,6 @@
+import csv
 from datetime import date, timedelta
+from io import StringIO
 
 import requests
 from chat.models import Message
@@ -658,7 +660,7 @@ def match_bucket_statistics(request):
             "start_date": serializers.DateField(default="2024-01-01"),
             "end_date": serializers.DateField(default=date.today()),
             "format": serializers.ChoiceField(
-                choices=[("json", "JSON"), ("text", "Plain text")],
+                choices=[("json", "JSON"), ("csv", "CSV")],
                 default="json",
             ),
         },
@@ -670,7 +672,7 @@ def company_users_report(request, company):
     """
     Generate a company report for users associated with a specific company.
     Merges match/video-call details with user journey and engagement metrics.
-    Supports both structured JSON and plain text output formats.
+    Supports both structured JSON and CSV output formats.
     """
     from datetime import datetime
 
@@ -689,14 +691,7 @@ def company_users_report(request, company):
         state__company=company,
     ).select_related("profile", "state")
 
-    MAX_VIDEO_CALL_DURATION_SECONDS = 2 * 60 * 60  # 2 hours
     total_video_time_seconds_all_users = 0
-    full_report = ""
-
-    def report(text):
-        nonlocal full_report
-        full_report += text + "\n"
-
     user_data = []
 
     for user in users:
@@ -743,6 +738,7 @@ def company_users_report(request, company):
         video_calls_as_u2 = LivekitSession.objects.filter(u2=user, both_have_been_active=True)
         video_calls = video_calls_as_u1.union(video_calls_as_u2)
 
+        total_video_calls = video_calls.count()
         total_video_time_seconds_user = 0
         video_call_details = []
 
@@ -752,15 +748,7 @@ def company_users_report(request, company):
 
             if call.end_time:
                 duration = call.end_time - call.created_at
-                if duration.total_seconds() > MAX_VIDEO_CALL_DURATION_SECONDS:
-                    video_call_details.append(
-                        {
-                            "other_username": other_user.username,
-                            "skipped": True,
-                            "reason": f"Duration {duration} exceeds 2 hours",
-                        }
-                    )
-                    continue
+
                 total_video_time_seconds_user += duration.total_seconds()
                 video_call_details.append(
                     {
@@ -791,12 +779,20 @@ def company_users_report(request, company):
 
         last_message = Message.objects.filter(recipient=user).order_by("-created").first()
 
+        # Count messages sent and received
+        messages_sent = Message.objects.filter(sender=user).count()
+        messages_received = Message.objects.filter(recipient=user).count()
+
         raw_path = user.state.user_journey_path or []
         grouped_journey = _group_user_journey_by_date(raw_path)
 
+        total_video_time_minutes = round(total_video_time_seconds_user / 60, 2)
+        total_video_time_hours = round(total_video_time_minutes / 60.0, 2)
+
         user_entry = {
             "user_id": user.id,
-            "username": user.username,
+            "vorname": user.profile.first_name if user.profile else "",
+            "nachname": user.profile.second_name if user.profile else "",
             "email": user.email,
             "date_joined": (user.date_joined.isoformat() if user.date_joined else None),
             "user_journey_path": grouped_journey,
@@ -805,44 +801,72 @@ def company_users_report(request, company):
             "active_matches": active_matches,
             "match_details": match_details,
             "video_call_details": video_call_details,
-            "total_video_time_minutes": round(total_video_time_seconds_user / 60, 2),
+            "total_video_calls": total_video_calls,
+            "total_video_time_minutes": total_video_time_minutes,
+            "total_video_time_hours": total_video_time_hours,
+            "messages_sent": messages_sent,
+            "messages_received": messages_received,
             "video_calls_with_most_recent_match": video_calls_with_recent_match,
             "messages_with_most_recent_match": messages_with_recent_match,
             "last_message_received": (last_message.created.isoformat() if last_message else None),
         }
         user_data.append(user_entry)
 
-        # Build text report for this user
-        if output_format == "text":
-            report(f"User: {user.username}")
-            report("=" * 40)
-            report("Matches:")
-            for m in match_details:
-                report(f"\tMatch with {m['other_username']} - {m['status']} ({m['confirmation']})")
-            report("=" * 20)
-            report("Video Calls:")
-            for v in video_call_details:
-                if v.get("skipped"):
-                    report(f"\tSkipping excessively long video call with {v['other_username']}: {v['reason']}")
-                elif "duration_seconds" in v:
-                    report(
-                        f"\tVideo call with {v['other_username']}: Duration {v['duration_seconds']:.0f}s, Status: {v['status']}"
-                    )
-                else:
-                    report(f"\tVideo call with {v['other_username']}: Status: {v['status']}")
-            report(f"Total Video Time for {user.username}: {user_entry['total_video_time_minutes']:.2f} minutes")
-            report(f"User Journey Path: {grouped_journey}")
-            report(f"Last message received: {user_entry['last_message_received'] or 'None'}")
-            report(f"Video calls with most recent match: {video_calls_with_recent_match}")
-            report(f"Messages with most recent match: {messages_with_recent_match}")
-            report("=" * 40)
+    if output_format == "csv":
+        # Create CSV output
+        output = StringIO()
+        writer = csv.writer(output)
 
-    if output_format == "text":
-        total_minutes = total_video_time_seconds_all_users / 60
-        total_hours = total_minutes / 60.0
-        report(f"Total Video Time for All Users: {total_minutes:.2f} minutes")
-        report(f"Total Video Time for All Users: {total_hours:.2f} hours")
-        return Response({"report": full_report})
+        # CSV Header
+        header = [
+            "Vorname",
+            "Nachname",
+            "E-Mail",
+            "Date Joined",
+            "Total Video Calls",
+            "Total Video Time (Minutes)",
+            "Total Video Time (Hours)",
+            "Messages Sent",
+            "Messages Received",
+            "User ID",
+            "Total Matches",
+            "Active Matches",
+            "Match Status",
+            "Video Calls with Most Recent Match",
+            "Messages with Most Recent Match",
+            "Last Message Received",
+            "User Journey Path",
+        ]
+        writer.writerow(header)
+
+        # CSV Rows
+        for entry in user_data:
+            row = [
+                entry.get("vorname", ""),
+                entry.get("nachname", ""),
+                entry.get("email", ""),
+                entry.get("date_joined", ""),
+                entry.get("total_video_calls", 0),
+                entry.get("total_video_time_minutes", 0),
+                entry.get("total_video_time_hours", 0),
+                entry.get("messages_sent", 0),
+                entry.get("messages_received", 0),
+                entry.get("user_id", ""),
+                entry.get("total_matches", 0),
+                entry.get("active_matches", 0),
+                entry.get("match_status", ""),
+                entry.get("video_calls_with_most_recent_match", 0),
+                entry.get("messages_with_most_recent_match", 0),
+                entry.get("last_message_received", ""),
+                str(entry.get("user_journey_path", "")),
+            ]
+            writer.writerow(row)
+
+        csv_content = output.getvalue()
+        output.close()
+
+        # Return CSV wrapped in JSON response (consistent with other text reports)
+        return Response({"csv": csv_content})
 
     total_video_minutes_all = total_video_time_seconds_all_users / 60
     return Response(

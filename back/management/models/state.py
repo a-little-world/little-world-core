@@ -91,7 +91,7 @@ class State(models.Model):
     has_received_first_match = models.BooleanField(default=False)
 
     """
-    These are referense to the actual user model of this persons matches 
+    These are references to the actual user model of this persons matches 
     """
     matches = models.ManyToManyField("management.User", related_name="+", blank=True)
 
@@ -244,7 +244,10 @@ class State(models.Model):
 
     to_low_german_level = models.BooleanField(default=False)
 
+    # If true, the user is eligible for matching even if they don't meet the normal matching criteria
     force_match_eligible = models.BooleanField(default=False)
+
+    has_match_priority = models.BooleanField(default=False)
 
     user_journey_path = models.JSONField(default=list, blank=True)
     user_journey_path_last_updated = models.DateTimeField(null=True, blank=True, default=None)

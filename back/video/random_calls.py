@@ -177,7 +177,7 @@ def get_random_call_lobby_status(request, lobby_name="default"):
             "partner": {
                 "id": partner.hash,
                 "name": f"{partner.profile.first_name}",
-                "image": str(partner.profile.image) if partner.profile.image else "",
+                "image": str(partner.profile.image) if partner.profile.image else partner.profile.avatar_config,
                 "image_type": partner.profile.image_type,
                 "description": partner.profile.description or "",
                 "requested_room_token": matching.u2_requested_room_token
@@ -477,7 +477,7 @@ class RandomCallMatchHistorySerializer(serializers.Serializer):
             "id": str(instance.uuid),
             "name": partner.profile.first_name,
             "date": session_date.isoformat() if session_date else None,
-            "image": str(partner.profile.image) if partner.profile.image else "",
+            "image": str(partner.profile.image) if partner.profile.image else partner.profile.avatar_config,
             "image_type": partner.profile.image_type,
             "duration": duration,
             "cannot_match": partner_requested,  # Cannot request if partner already requested

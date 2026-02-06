@@ -17,9 +17,6 @@ from management.models import custom_banner_event_filters
 from management.models.profile import Profile, SelfProfileSerializer
 from management.models.state import State
 
-# Companies that use custom onboarding (prematching call is auto-completed)
-CUSTOM_ONBOARDING_COMPANIES = ["lingoda"]
-
 
 @dataclass
 class ProfileViewSetParams:
@@ -110,7 +107,7 @@ class ProfileCompletedApi(APIView):
             state.searching_state = State.SearchingStateChoices.SEARCHING
 
             # Auto-complete onboarding call for companies with custom onboarding
-            if state.company and state.company.lower() in CUSTOM_ONBOARDING_COMPANIES:
+            if state.company and state.company.lower() in settings.CUSTOM_ONBOARDING_COMPANIES:
                 state.onboarding_call_completed_at = timezone.now()
                 state.had_prematching_call = True
 

@@ -219,8 +219,7 @@ def create_user(
     if company is not None:
         usr.state.company = company
         # Set force_match_eligible if company is in the eligible list
-        FORCE_MATCH_ELIGIBLE_COMPANIES = ["lingoda"]
-        if company and company.lower() in FORCE_MATCH_ELIGIBLE_COMPANIES:
+        if company and company.lower() in settings.FORCE_MATCH_ELIGIBLE_COMPANIES:
             usr.state.force_match_eligible = True
         usr.state.save()
 
