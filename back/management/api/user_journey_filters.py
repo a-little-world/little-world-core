@@ -181,7 +181,7 @@ def booked_onboarding_call(qs=User.objects.all()):
 
 def first_search_v1(qs=User.objects.all()):
     """
-    (Sign-Up) User is doing first search i.e.: has no 'non-support' match
+    DEPRICATED (Sign-Up) User is doing first search i.e.: has no 'non-support' match
     """
 
     now = timezone.now()
