@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from typing import List
 
 from management.api.user_advanced_filter import (
+    EXTRA__lingoda_learners_scoring,
+    EXTRA__lingoda_users,
     active_within_3weeks,
     all_users,
     get_active_match_query_set,
@@ -240,6 +242,8 @@ USER_JOURNEY_FILTER_LISTS = [
         "Users who received multiple emails (u023/u024/u025) on 29.01.2026",
         users_with_duplicate_automatic_emails_29_01_2026,
     ),
+    FilterListEntry("EXTRA__lingoda_users", "Lingoda users", EXTRA__lingoda_users),
+    FilterListEntry("EXTRA__lingoda_learners_scoring", "Lingoda learners for scoring", EXTRA__lingoda_learners_scoring),
 ]
 
 FILTER_LISTS = PANEL_V1_FILTER_LISTS + USER_JOURNEY_FILTER_LISTS
