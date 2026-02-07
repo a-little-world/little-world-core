@@ -12,16 +12,12 @@ ENV BUILD_TYPE=${BUILD_TYPE:-dev}
 
 # First we build all the frontends in one container
 COPY ./front /front
-RUN chown -R 1000:1000 /front
-
 WORKDIR /front
 
 RUN npm config set fetch-retry-maxtimeout 120000
 
 # Placeholder output folder
 RUN mkdir -p ../back/static/dist
-
-RUN mkdir -p /npm_cache && chown -R 1000:1000 /npm_cache
 RUN npm config set cache /npm_cache --global
 
 RUN npm ci --no-audit
