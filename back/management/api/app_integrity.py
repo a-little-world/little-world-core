@@ -98,6 +98,8 @@ def _get_google_public_keys():
 
 
 def _verify_play_integrity_token(integrity_token: str, request_hash: str) -> bool:
+    if getattr(settings, "DEVELOPMENT_DISABLE_PLAY_INTEGRITY", False):
+        return True  # Full skip of integrity checks for native development
     try:
         _dbg("[DEBUG] Starting Play Integrity token verification")
         _dbg(f"[DEBUG] Token length: {len(integrity_token)}")
