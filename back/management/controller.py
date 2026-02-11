@@ -221,6 +221,9 @@ def create_user(
         # Set force_match_eligible if company is in the eligible list
         if company and company.lower() in settings.FORCE_MATCH_ELIGIBLE_COMPANIES:
             usr.state.force_match_eligible = True
+        # Set has_match_priority if company is in the priority list
+        if company and company.lower() in settings.MATCH_PRIORITY_COMPANIES:
+            usr.state.has_match_priority = True
         usr.state.save()
 
     # Step 4 send mail
