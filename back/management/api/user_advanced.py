@@ -168,20 +168,14 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
             },
         ).data
 
-        include_advanced_info = self.context.get("include_advanced_info", False)
-
         proposed_matches = get_paginated_format_v2(ProposedMatch.get_open_proposals(user), items_per_page, 1)
-        proposed_matches["results"] = serialize_proposed_matches(
-            proposed_matches["results"], user, context={"include_advanced_info": include_advanced_info}
-        )
+        proposed_matches["results"] = serialize_proposed_matches(proposed_matches["results"], user)
 
         # proposlas that were rejected or expired
         old_proposed_matches = get_paginated_format_v2(
             ProposedMatch.get_unsuccessful_proposals(user), items_per_page, 1
         )
-        old_proposed_matches["results"] = serialize_proposed_matches(
-            old_proposed_matches["results"], user, context={"include_advanced_info": include_advanced_info}
-        )
+        old_proposed_matches["results"] = serialize_proposed_matches(old_proposed_matches["results"], user)
 
         inactive_matches = get_paginated_format_v2(Match.get_inactive_matches(user), items_per_page, 1)
         inactive_matches["results"] = AdvancedUserMatchSerializer(
