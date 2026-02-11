@@ -136,7 +136,7 @@ class ProfileCompletedApi(APIView):
                         first_name=user.profile.first_name
                     )
 
-            user.message(default_message, auto_mark_read=True, send_message_incoming=True)
+            user.message(default_message, auto_mark_read=False, send_message_incoming=True)
 
             ud = get_user_data(user)
             return Response(ud)

@@ -21,21 +21,31 @@ def one_day_from_now():
     return timezone.now() + timedelta(days=1)
 
 
-def serialize_proposed_matches(matching_proposals, user):
+def serialize_proposed_matches(matching_proposals, user, context=None):
+    if context is None:
+        context = {}
+
+    include_advanced_info = context.get("include_advanced_info", False)
+
     serialized = []
     for proposal in matching_proposals:
         partner = proposal.get_partner(user)
         rejected_by = None
         if proposal.rejected_by is not None:
             rejected_by = proposal.rejected_by.hash
+
+        partner_data = {
+            "id": str(partner.hash),
+            **ProposalProfileSerializer(partner.profile).data,
+        }
+
+        if include_advanced_info:
+            partner_data["has_match_priority"] = partner.state.has_match_priority
+
         serialized.append(
             {
                 "id": str(proposal.hash),
-                "partner": {
-                    "id": str(partner.hash),
-                    "has_match_priority": partner.state.has_match_priority,
-                    **ProposalProfileSerializer(partner.profile).data,
-                },
+                "partner": partner_data,
                 "status": "proposed",
                 "closed": proposal.closed,
                 "rejected_by": rejected_by,
