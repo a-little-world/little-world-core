@@ -7,9 +7,11 @@ from datetime import timedelta
 from corsheaders.defaults import default_headers
 from firebase_admin import credentials, initialize_app
 
+
 def bool_env(name, default):
     # deliberately no default set, it should be explicit and visible what the default is
     return os.environ.get(name, default).lower() in ("true", "1", "t")
+
 
 DEBUG = os.environ["DJ_DEBUG"].lower() in ("true", "1", "t")
 

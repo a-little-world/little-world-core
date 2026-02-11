@@ -486,7 +486,9 @@ class UpdateSearchingStateApi(APIView):
             if settings.ENABLE_AUTO_EMAILS__U081_U082_U083_U084:
                 if request.user.state.has_received_first_match and (not request.user.state.auto_emails_u081_send):
                     # send searching again email once
-                    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__U081_U082_U083_U084)
+                    emulated_send = bool(settings.DJANGO_TESTING) or bool(
+                        settings.EMULATE_AUTO_EMAILS__U081_U082_U083_U084
+                    )
                     send_email_background.delay(
                         "automatic-emails-u081", user_id=request.user.id, emulated_send=emulated_send
                     )

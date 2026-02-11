@@ -2,9 +2,10 @@ from dataclasses import dataclass
 from typing import List
 
 from management.api.user_advanced_filter import (
+    EXTRA__learners_with_activity_in_last3weeks,
     EXTRA__lingoda_learners_scoring,
     EXTRA__lingoda_users,
-    active_within_3weeks,
+    EXTRA__volunteers_with_activity_in_last3weeks,
     all_users,
     get_active_match_query_set,
     get_quality_match_query_set,
@@ -12,6 +13,7 @@ from management.api.user_advanced_filter import (
     get_user_with_message_to_admin_that_are_read_but_not_replied,
     get_users_with_company,
     get_volunteers_booked_onboarding_call_but_never_visited,
+    logged_in_within_3weeks,
     needs_matching,
     needs_matching_volunteers,
     only_hd_test_user,
@@ -93,8 +95,8 @@ PANEL_V1_FILTER_LISTS = [
     FilterListEntry("searching", None, searching_users),
     FilterListEntry("needs_matching", None, needs_matching),
     FilterListEntry("in_registration", None, users_in_registration),
-    FilterListEntry("active_within_3weeks", None, active_within_3weeks),
     FilterListEntry("active_match", None, get_active_match_query_set),
+    FilterListEntry("logged_in_within_3weeks", None, logged_in_within_3weeks),
     FilterListEntry("highquality_matching", None, get_quality_match_query_set),
     FilterListEntry("message_reply_required", None, get_user_with_message_to_admin),
     FilterListEntry("read_message_but_not_replied", None, get_user_with_message_to_admin_that_are_read_but_not_replied),
@@ -244,6 +246,16 @@ USER_JOURNEY_FILTER_LISTS = [
     ),
     FilterListEntry("EXTRA__lingoda_users", "Lingoda users", EXTRA__lingoda_users),
     FilterListEntry("EXTRA__lingoda_learners_scoring", "Lingoda learners for scoring", EXTRA__lingoda_learners_scoring),
+    FilterListEntry(
+        "EXTRA__learners_with_activity_in_last3weeks",
+        "Learners with activity in the last 3 weeks",
+        EXTRA__learners_with_activity_in_last3weeks,
+    ),
+    FilterListEntry(
+        "EXTRA__volunteers_with_activity_in_last3weeks",
+        "Volunteers with activity in the last 3 weeks",
+        EXTRA__volunteers_with_activity_in_last3weeks,
+    ),
 ]
 
 FILTER_LISTS = PANEL_V1_FILTER_LISTS + USER_JOURNEY_FILTER_LISTS
