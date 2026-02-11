@@ -7,6 +7,10 @@ from datetime import timedelta
 from corsheaders.defaults import default_headers
 from firebase_admin import credentials, initialize_app
 
+def bool_env(name, default):
+    # deliberately no default set, it should be explicit and visible what the default is
+    return os.environ.get(name, default).lower() in ("true", "1", "t")
+
 DEBUG = os.environ["DJ_DEBUG"].lower() in ("true", "1", "t")
 
 if DEBUG:
@@ -988,33 +992,27 @@ DJANGO_TESTING = os.environ.get("DJANGO_TESTING", False) in ("True", "true", "1"
 ## Auto E-Mails:
 # Note: There are some additional base emails that cannot be disabled via env flag
 # TODO: Enable all per default in the future
-ENABLE_AUTO_EMAILS__U023_U024_U025 = os.environ.get("DJ_ENABLE_AUTO_EMAILS__U023_U024_U025", "false").lower() in (
-    "true",
-    "1",
-    "t",
-)
-ENABLE_AUTO_EMAILS__M012_M013_M014 = os.environ.get("DJ_ENABLE_AUTO_EMAILS__M012_M013_M014", "false").lower() in (
-    "true",
-    "1",
-    "t",
-)
-ENABLE_AUTO_EMAILS__M023 = os.environ.get("DJ_ENABLE_AUTO_EMAILS__M023", "false").lower() in ("true", "1", "t")
-ENABLE_AUTO_EMAILS__M024_M025 = os.environ.get("DJ_ENABLE_AUTO_EMAILS__M024_M025", "false").lower() in (
-    "true",
-    "1",
-    "t",
-)
-ENABLE_AUTO_EMAILS__M031_M032_M033_M042 = os.environ.get(
-    "DJ_ENABLE_AUTO_EMAILS__M031_M032_M033_M042", "false"
-).lower() in ("true", "1", "t")
-ENABLE_AUTO_EMAILS__U072_U073_U074 = os.environ.get("DJ_ENABLE_AUTO_EMAILS__U072_U073_U074", "false").lower() in (
-    "true",
-    "1",
-    "t",
-)
-ENABLE_AUTO_EMAILS__U081_U082_U083_U084 = os.environ.get(
-    "DJ_ENABLE_AUTO_EMAILS__U081_U082_U083_U084", "false"
-).lower() in ("true", "1", "t")
+ENABLE_AUTO_EMAILS__U023_U024_U025 = bool_env("DJ_ENABLE_AUTO_EMAILS__U023_U024_U025", "false")
+EMULATE_AUTO_EMAILS__U023_U024_U025 = bool_env("DJ_EMULATE_AUTO_EMAILS__U023_U024_U025", "true")
+
+ENABLE_AUTO_EMAILS__M012_M013_M014 = bool_env("DJ_ENABLE_AUTO_EMAILS__M012_M013_M014", "false")
+EMULATE_AUTO_EMAILS__M012_M013_M014 = bool_env("DJ_EMULATE_AUTO_EMAILS__M012_M013_M014", "true")
+
+ENABLE_AUTO_EMAILS__M023 = bool_env("DJ_ENABLE_AUTO_EMAILS__M023", "false")
+EMULATE_AUTO_EMAILS__M023 = bool_env("DJ_EMULATE_AUTO_EMAILS__M023", "true")
+
+ENABLE_AUTO_EMAILS__M024_M025 = bool_env("DJ_ENABLE_AUTO_EMAILS__M024_M025", "false")
+EMULATE_AUTO_EMAILS__M024_M025 = bool_env("DJ_EMULATE_AUTO_EMAILS__M024_M025", "true")
+
+ENABLE_AUTO_EMAILS__M031_M032_M033_M042 = bool_env("DJ_ENABLE_AUTO_EMAILS__M031_M032_M033_M042", "false")
+EMULATE_AUTO_EMAILS__M031_M032_M033_M042 = bool_env("DJ_EMULATE_AUTO_EMAILS__M031_M032_M033_M042", "true")
+
+ENABLE_AUTO_EMAILS__U072_U073_U074 = bool_env("DJ_ENABLE_AUTO_EMAILS__U072_U073_U074", "false")
+EMULATE_AUTO_EMAILS__U072_U073_U074 = bool_env("DJ_EMULATE_AUTO_EMAILS__U072_U073_U074", "true")
+
+ENABLE_AUTO_EMAILS__U081_U082_U083_U084 = bool_env("DJ_ENABLE_AUTO_EMAILS__U081_U082_U083_U084", "false")
+EMULATE_AUTO_EMAILS__U081_U082_U083_U084 = bool_env("DJ_EMULATE_AUTO_EMAILS__U081_U082_U083_U084", "true")
+
 ENABLE_AUTO_EMAIL_LOGS = (
     ENABLE_AUTO_EMAILS__U023_U024_U025
     or ENABLE_AUTO_EMAILS__M012_M013_M014
@@ -1024,10 +1022,6 @@ ENABLE_AUTO_EMAIL_LOGS = (
     or ENABLE_AUTO_EMAILS__U072_U073_U074
     or ENABLE_AUTO_EMAILS__U081_U082_U083_U084
 )
-
-
-# Per-default we only emulate the sending of auto emails
-AUTO_EMAILS_EMULATE_ONLY = os.environ.get("DJ_AUTO_EMAILS_EMULATE_ONLY", "true").lower() in ("true", "1", "t")
 
 # User Journey Related Settings
 FORCE_MATCH_ELIGIBLE_COMPANIES = ["lingoda"]
