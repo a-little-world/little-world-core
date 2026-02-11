@@ -43,12 +43,14 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
             "id": user1.id,
             "hash": user1.hash,
             "email": user1.email,
+            "has_match_priority": user1.state.has_match_priority,
             "profile": MinimalProfileSerializer(user1.profile).data,
         }
         representation["user2"] = {
             "id": user2.id,
             "hash": user2.hash,
             "email": user2.email,
+            "has_match_priority": user2.state.has_match_priority,
             "profile": MinimalProfileSerializer(user2.profile).data,
         }
 

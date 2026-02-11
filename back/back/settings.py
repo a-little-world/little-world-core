@@ -1032,3 +1032,6 @@ AUTO_EMAILS_EMULATE_ONLY = os.environ.get("DJ_AUTO_EMAILS_EMULATE_ONLY", "true")
 # User Journey Related Settings
 FORCE_MATCH_ELIGIBLE_COMPANIES = ["lingoda"]
 CUSTOM_ONBOARDING_COMPANIES = ["lingoda"]
+
+# Match Priority Settings
+MATCH_PRIORITY_COMPANIES = ["lingoda"]

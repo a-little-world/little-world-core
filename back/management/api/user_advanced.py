@@ -322,6 +322,11 @@ class UserFilter(filters.FilterSet):
         help_text="Filter for users that had a prematching call",
     )
 
+    state__has_match_priority = filters.BooleanFilter(
+        field_name="state__has_match_priority",
+        help_text="Filter for users that have match priority",
+    )
+
     joined_between = filters.DateFromToRangeFilter(
         field_name="date_joined",
         help_text="Range filter for when the user joined the platform, accepts string datetimes",
