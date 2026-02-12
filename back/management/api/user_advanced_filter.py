@@ -137,7 +137,6 @@ def users_in_registration(qs=User.objects.all()):
 def logged_in_within_3weeks(qs=User.objects.all()):
     """
     Users who have been active within the last 3 weeks!
-    TODO: Rename name doesn't fit
     """
     return qs.filter(last_login__gte=three_weeks_ago()).order_by("-date_joined")
 
