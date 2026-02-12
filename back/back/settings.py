@@ -699,15 +699,7 @@ elif EMPHIRIAL or USE_REDIS_AS_BROKER:
     }
 elif IS_STAGE or IS_PROD:
     """
-    There are some quirks setting this up in production: 
-    For aws memory db we can unly connect to channels from redis cli by using --tls
-    I can also connect to redis with redis-py if I use ssl=True
-    But I'm not sure how to tell django-channels to use ssl=True
-    I think there actually isn't such an option, see this issue: https://github.com/django/channels_redis/issues/235
-    Ok I did some digging in the channels_redis package
-    It seems that It uses: aioredis.create_redis_pool(**kwargs)
-    This is based on the host configuration and does accept an ssl=* param
-    And that did acutally fucking work lol, go read some code kids
+    SSL true seems required, 'diss://' in the url doesn't seem to suffice: https://github.com/django/channels_redis/issues/235
     """
     url, port = get_redis_connect_url_port()
     path = f"rediss://{url}:{port}"

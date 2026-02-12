@@ -673,6 +673,7 @@ def automatic_emails_m012_m013_m014():
             interaction_reminder_2_days_send=two_days_reminder,
             interaction_reminder_7_days_send=seven_days_reminder,
             interaction_reminder_14_days_send=fourteen_days_reminder,
+            support_matching=False,
         )
 
         for match in matches:
