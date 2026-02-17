@@ -678,14 +678,18 @@ def automatic_emails_m012_m013_m014():
 
         for match in matches:
             send_email_background.delay(
-                template, user_id=match.user1.id, match_id=match.id, emulated_send=emulated_send, context={
-                    "link_url": "https://drive.google.com/file/d/1XcY6_OMZES5QJoMkc6jbEzwYNdCWrnaU/view"
-                }
+                template,
+                user_id=match.user1.id,
+                match_id=match.id,
+                emulated_send=emulated_send,
+                context={"link_url": "https://drive.google.com/file/d/1XcY6_OMZES5QJoMkc6jbEzwYNdCWrnaU/view"},
             )
             send_email_background.delay(
-                template, user_id=match.user2.id, match_id=match.id, emulated_send=emulated_send, context={
-                    "link_url": "https://drive.google.com/file/d/1XcY6_OMZES5QJoMkc6jbEzwYNdCWrnaU/view"
-                }
+                template,
+                user_id=match.user2.id,
+                match_id=match.id,
+                emulated_send=emulated_send,
+                context={"link_url": "https://drive.google.com/file/d/1XcY6_OMZES5QJoMkc6jbEzwYNdCWrnaU/view"},
             )
 
             match days:
