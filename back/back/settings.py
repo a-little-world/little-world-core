@@ -1034,4 +1034,4 @@ FORCE_MATCH_ELIGIBLE_COMPANIES = ["lingoda"]
 CUSTOM_ONBOARDING_COMPANIES = ["lingoda"]
 
 # Match Priority Settings
-MATCH_PRIORITY_COMPANIES = ["lingoda"]
+MATCH_PRIORITY_COMPANIES = ["accenture", "generali", "lingoda"]
