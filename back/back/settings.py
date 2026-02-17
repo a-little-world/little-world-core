@@ -1020,3 +1020,6 @@ ENABLE_AUTO_EMAIL_LOGS = (
 # User Journey Related Settings
 FORCE_MATCH_ELIGIBLE_COMPANIES = ["lingoda"]
 CUSTOM_ONBOARDING_COMPANIES = ["lingoda"]
+
+# Match Priority Settings
+MATCH_PRIORITY_COMPANIES = ["accenture", "generali", "lingoda"]

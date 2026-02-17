@@ -62,6 +62,7 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
             "isDeleted": False,
             "isSupport": partner.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
             or partner.is_staff,
+            "has_match_priority": partner.state.has_match_priority,
             **CensoredProfileSerializer(partner.profile).data,
         }
 

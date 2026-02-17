@@ -31,7 +31,11 @@ def serialize_proposed_matches(matching_proposals, user):
         serialized.append(
             {
                 "id": str(proposal.hash),
-                "partner": {"id": str(partner.hash), **ProposalProfileSerializer(partner.profile).data},
+                "partner": {
+                    "id": str(partner.hash),
+                    "has_match_priority": partner.state.has_match_priority,
+                    **ProposalProfileSerializer(partner.profile).data,
+                },
                 "status": "proposed",
                 "closed": proposal.closed,
                 "rejected_by": rejected_by,
