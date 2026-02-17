@@ -79,9 +79,11 @@ def get_lobby_management_overview(request, lobby_name="default"):
     - Match proposals categorized by status (pending, accepted, rejected, expired)
     - Statistics summary
     """
-    # 1 - Retrieve the lobby
+    # 1 - Retrieve the lobby (most recent when multiple share the same name)
     try:
-        lobby = RandomCallLobby.objects.get(name=lobby_name)
+        lobby = RandomCallLobby.objects.filter(name=lobby_name).order_by("-id").first()
+        if lobby is None:
+            raise RandomCallLobby.DoesNotExist
     except RandomCallLobby.DoesNotExist:
         return Response({"error": "Lobby not found"}, status=404)
 
@@ -199,11 +201,22 @@ def reset_default_lobby(request, lobby_name="default"):
     """
     Admin API to reset the default random call lobby.
     Deletes all lobby users, matchings, and recreates the lobby with current time.
+    Only resets if the existing lobby is active.
     """
-    # Get the existing lobby first
-    existing_lobby = RandomCallLobby.objects.filter(name=lobby_name).first()
+    # Get the most recent lobby with this name
+    existing_lobby = RandomCallLobby.objects.filter(name=lobby_name).order_by("-id").first()
 
     if existing_lobby:
+        # Only reset if the lobby is active
+        if not is_lobby_active(existing_lobby):
+            return Response(
+                {
+                    "success": False,
+                    "message": f"Lobby '{lobby_name}' is not active and cannot be reset",
+                },
+                status=400,
+            )
+
         # Clear all lobby users
         RandomCallLobbyUser.objects.filter(lobby=existing_lobby).delete()
 
@@ -231,6 +244,109 @@ def reset_default_lobby(request, lobby_name="default"):
                 "name": lobby.name,
                 "uuid": str(lobby.uuid),
                 "start_time": lobby.start_time.isoformat(),
+                "end_time": lobby.end_time.isoformat(),
+            },
+        },
+        status=200,
+    )
+
+
+class CreateLobbySerializer(serializers.Serializer):
+    start_time = serializers.DateTimeField()
+    end_time = serializers.DateTimeField()
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAdminOrMatchingUser])
+def create_lobby(request, lobby_name):
+    """
+    Admin API to create a new lobby with the specified name, start_time, and end_time.
+    """
+    serializer = CreateLobbySerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response({"error": serializer.errors}, status=400)
+
+    start_time = serializer.validated_data["start_time"]
+    end_time = serializer.validated_data["end_time"]
+    current_time = timezone.now()
+
+    # Validate that start_time is in the future
+    if start_time <= current_time:
+        return Response(
+            {"error": "Start time must be in the future"},
+            status=400,
+        )
+
+    # Validate that end_time is after start_time
+    if end_time <= start_time:
+        return Response(
+            {"error": "End time must be after start time"},
+            status=400,
+        )
+
+    # Create new lobby
+    lobby = RandomCallLobby.objects.create(
+        name=lobby_name,
+        start_time=start_time,
+        end_time=end_time,
+        user_online_state_timeout=10,
+        match_proposal_timeout=30,
+        video_call_timeout=60 * 10,
+    )
+
+    return Response(
+        {
+            "success": True,
+            "message": f"Lobby '{lobby_name}' has been created",
+            "lobby": {
+                "name": lobby.name,
+                "uuid": str(lobby.uuid),
+                "start_time": lobby.start_time.isoformat(),
+                "end_time": lobby.end_time.isoformat(),
+            },
+        },
+        status=201,
+    )
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAdminOrMatchingUser])
+def end_lobby(request, lobby_name="default"):
+    """
+    Admin API to end an active lobby by setting end_time to current time.
+    Only ends the lobby if it is currently active.
+    """
+    try:
+        lobby = RandomCallLobby.objects.filter(name=lobby_name).order_by("-id").first()
+        if lobby is None:
+            raise RandomCallLobby.DoesNotExist
+    except RandomCallLobby.DoesNotExist:
+        return Response({"error": "Lobby not found"}, status=404)
+
+    # Check if the lobby is active
+    if not is_lobby_active(lobby):
+        return Response(
+            {
+                "success": False,
+                "message": f"Lobby '{lobby_name}' is not active and cannot be ended",
+            },
+            status=400,
+        )
+
+    # Update end_time to current time
+    lobby.end_time = timezone.now()
+    lobby.save()
+
+    return Response(
+        {
+            "success": True,
+            "message": f"Lobby '{lobby_name}' has been ended",
+            "lobby": {
+                "name": lobby.name,
+                "uuid": str(lobby.uuid),
+                "start_time": lobby.start_time.isoformat() if lobby.start_time else None,
                 "end_time": lobby.end_time.isoformat(),
             },
         },
@@ -342,5 +458,13 @@ api_urls = [
     path(
         "api/random_calls/lobby/<str:lobby_name>/management/tasks",
         get_random_call_tasks,
+    ),
+    path(
+        "api/random_calls/lobby/<str:lobby_name>/management/create",
+        create_lobby,
+    ),
+    path(
+        "api/random_calls/lobby/<str:lobby_name>/management/end",
+        end_lobby,
     ),
 ]

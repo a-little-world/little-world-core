@@ -150,6 +150,7 @@ def get_random_call_lobby_status(request, lobby_name="default"):
     user_in_lobby.update(last_status_checked_at=timezone.now(), is_active=True)
     response_data = {
         "lobby": lobby.uuid,
+        "match_proposal_timeout": lobby.match_proposal_timeout,
         "matching": None,
     }
     # 4 - check the users lobby status
