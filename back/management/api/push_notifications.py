@@ -1,53 +1,37 @@
 from dataclasses import dataclass
 
 from django.conf import settings
-from django.core.exceptions import ObjectDoesNotExist
 from django.db import transaction
+from django.db.models import Q
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from django.urls import path
-from django.utils import timezone
 from drf_spectacular.utils import extend_schema
-from firebase_admin import messaging
-from push_notifications.models import GCMDevice
 from rest_framework import authentication, serializers
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from management.helpers import IsAdminOrMatchingUser
-from management.models.user import User
+from management.models.user import MobileDevice
 
 
 @dataclass
-class PushNotificationTokenParams:
+class PushNotificationRegistrationParams:
+    install_id: str
     token: str
+    platform: str | None = None
+    model_name: str | None = None
 
 
-class PushNotificationTokenSerializer(serializers.Serializer):
+class PushNotificationRegistrationSerializer(serializers.Serializer):
+    install_id = serializers.CharField(required=True)
     token = serializers.CharField(required=True)
+    platform = serializers.CharField(required=False)
+    model_name = serializers.CharField(required=False)
 
     def create(self, validated_data):
-        return PushNotificationTokenParams(**validated_data)
-
-
-@dataclass
-class PushNotificationParams:
-    user: int
-    headline: str
-    title: str
-    description: str
-
-
-class PushNotificationSerializer(serializers.Serializer):
-    user = serializers.CharField(required=True)
-    headline = serializers.CharField(required=True)
-    title = serializers.CharField(required=True)
-    description = serializers.CharField(required=True)
-
-    def create(self, validated_data):
-        return PushNotificationParams(**validated_data)
+        return PushNotificationRegistrationParams(**validated_data)
 
 
 def get_firebase_service_worker(request):
@@ -58,85 +42,78 @@ def get_firebase_service_worker(request):
 
 @extend_schema(
     description="Register a new push notification device token",
-    request=PushNotificationTokenParams,
+    request=PushNotificationRegistrationParams,
 )
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 @authentication_classes([authentication.SessionAuthentication, JWTAuthentication])
 def register_push_notifications_token(request):
-    serializer: PushNotificationTokenSerializer = PushNotificationTokenSerializer(data=request.data)
+    serializer: PushNotificationRegistrationSerializer = PushNotificationRegistrationSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
-    params: PushNotificationTokenParams = serializer.save()
-    with transaction.atomic():
-        # ensure device cannot register more than once when calling this method multiple times in fast succession
-        GCMDevice.objects.get_or_create(registration_id=params.token, user=request.user)
+    params: PushNotificationRegistrationParams = serializer.save()
+
+    install_id = params.install_id
+    token = params.token
+    platform = params.platform
+    model_name = params.model_name
+    user = request.user
+
+    def apply_updates(device, update_install_id=False, update_registration_id=False):
+        if update_install_id:
+            device.install_id = install_id
+
+        if update_registration_id:
+            device.registration_id = token
+        device.user = user
+        device.platform = platform
+        device.model_name = model_name
+        device.active = True
+        device.cloud_message_type = "FCM"
+        device.save()
+
+    device = MobileDevice.objects.filter(registration_id=token).first()
+
+    if device:
+        apply_updates(device, update_install_id=True)
+        return Response(status=200)
+
+    device = MobileDevice.objects.filter(install_id=install_id).first()
+
+    if device:
+        apply_updates(device, update_registration_id=True)
+        return Response(status=200)
+
+    MobileDevice.objects.create(
+        registration_id=token,
+        install_id=install_id,
+        user=user,
+        platform=platform,
+        model_name=model_name,
+        active=True,
+        cloud_message_type="FCM",
+    )
 
     return Response(status=200)
 
 
 @extend_schema(
     description="Unregister a push notification device token",
-    request=PushNotificationTokenParams,
+    request=PushNotificationRegistrationParams,
 )
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 @authentication_classes([authentication.SessionAuthentication, JWTAuthentication])
 def un_register_push_notifications_token(request):
-    serializer: PushNotificationTokenSerializer = PushNotificationTokenSerializer(data=request.data)
+    serializer: PushNotificationRegistrationSerializer = PushNotificationRegistrationSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
-    params: PushNotificationTokenParams = serializer.save()
-    try:
-        GCMDevice.objects.get(registration_id=params.token, user=request.user).delete()
-    except ObjectDoesNotExist:
-        # ignore if token does not exist or was already deleted
-        pass
+    params: PushNotificationRegistrationParams = serializer.save()
 
-    return Response(status=200)
+    install_id = params.install_id
+    token = params.token
 
+    with transaction.atomic():
+        MobileDevice.objects.filter(Q(install_id=install_id) | Q(registration_id=token)).update(active=False)
 
-@extend_schema(
-    description="Send a push notification to the user",
-    request=PushNotificationParams,
-)
-@api_view(["POST"])
-@permission_classes([IsAdminOrMatchingUser])
-@authentication_classes([authentication.SessionAuthentication, JWTAuthentication])
-def send_push_notification(request):
-    serializer: PushNotificationSerializer = PushNotificationSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-    params: PushNotificationParams = serializer.save()
-
-    user = User.objects.get(id=params.user)
-    user.push_notification(headline=params.headline, title=params.title, description=params.description)
-
-    return Response(status=200)
-
-
-@extend_schema(
-    description="Send a test push notification to the device of the user with the provided token",
-    request=PushNotificationTokenParams,
-)
-@api_view(["POST"])
-@permission_classes([IsAdminOrMatchingUser])
-@authentication_classes([authentication.SessionAuthentication, JWTAuthentication])
-def send_test_push_notification(request):
-    serializer: PushNotificationTokenSerializer = PushNotificationTokenSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-    params: PushNotificationTokenParams = serializer.save()
-
-    fcm_device = GCMDevice.objects.get(registration_id=params.token, user=request.user)
-
-    message = messaging.Message(
-        data={
-            "headline": "Test Headline",
-            "title": "Test Title",
-            "description": "Test Description",
-            "timestamp": str(timezone.now()),
-        },
-        token=params.token,
-    )
-
-    fcm_device.send_message(message)
     return Response(status=200)
 
 
@@ -144,6 +121,4 @@ api_urls = [
     path("firebase-messaging-sw.js", get_firebase_service_worker),
     path("api/push_notifications/register", register_push_notifications_token),
     path("api/push_notifications/unregister", un_register_push_notifications_token),
-    path("api/push_notifications/send", send_push_notification),
-    path("api/push_notifications/send_test", send_test_push_notification),
 ]

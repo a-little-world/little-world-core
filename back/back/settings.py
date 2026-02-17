@@ -385,6 +385,7 @@ if IS_STAGE or DEBUG:
         "http://localhost:3333",
         "http://localhost:8081",
         "http://localhost:8080",
+        "http://localhost:9000",
         "http://localhost:9001",
     ]
 
@@ -1026,3 +1027,8 @@ CUSTOM_ONBOARDING_COMPANIES = ["lingoda"]
 
 # Match Priority Settings
 MATCH_PRIORITY_COMPANIES = ["accenture", "generali", "lingoda"]
+
+PUSH_NOTIFICATIONS_SETTINGS = {
+    "UNIQUE_REG_ID": True,
+    "GCM_DEVICE_MODEL": "management.MobileDevice",
+}
