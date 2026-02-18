@@ -134,7 +134,7 @@ def users_in_registration(qs=User.objects.all()):
     ).order_by("-date_joined")
 
 
-def active_within_3weeks(qs=User.objects.all()):
+def logged_in_within_3weeks(qs=User.objects.all()):
     """
     Users who have been active within the last 3 weeks!
     """
@@ -352,3 +352,37 @@ def EXTRA__lingoda_learners_scoring(qs=User.objects.all()):
     needs_matching_users = needs_matching(qs).filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
 
     return lingoda_users.order_by().union(needs_matching_users.order_by()).order_by("-date_joined")
+
+
+def EXTRA__learners_with_activity_in_last3weeks(qs=User.objects.all(), days_ago=21):
+    """
+    (Maddy) Learners with activity in the last 3 weeks
+    """
+    return qs.filter(
+        profile__user_type=Profile.TypeChoices.LEARNER,
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
+    ).filter(
+        Q(u1_livekit_session__created_at__gte=timezone.now() - timedelta(days=days_ago))
+        | Q(u2_livekit_session__created_at__gte=timezone.now() - timedelta(days=days_ago))
+        | Q(message_sender__created__gte=timezone.now() - timedelta(days=days_ago))
+        | Q(last_login__gte=timezone.now() - timedelta(days=days_ago))
+        | Q(message_receiver__created__gte=timezone.now() - timedelta(days=days_ago))
+    )
+
+
+def EXTRA__volunteers_with_activity_in_last3weeks(qs=User.objects.all(), days_ago=21):
+    """
+    (Maddy) Volunteers with activity in the last 3 weeks
+    """
+    return qs.filter(
+        profile__user_type=Profile.TypeChoices.VOLUNTEER,
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
+    ).filter(
+        Q(u1_livekit_session__created_at__gte=timezone.now() - timedelta(days=days_ago))
+        | Q(u2_livekit_session__created_at__gte=timezone.now() - timedelta(days=days_ago))
+        | Q(message_sender__created__gte=timezone.now() - timedelta(days=days_ago))
+        | Q(last_login__gte=timezone.now() - timedelta(days=days_ago))
+        | Q(message_receiver__created__gte=timezone.now() - timedelta(days=days_ago))
+    )
