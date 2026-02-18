@@ -613,7 +613,7 @@ def automatic_emails_u023_u024_u025():
     from management.models.pre_matching_appointment import PreMatchingAppointment
     from management.models.user import User
 
-    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.AUTO_EMAILS_EMULATE_ONLY)
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__U023_U024_U025)
 
     reminder = {
         "automatic-emails-u023": [3, False, False, False],
@@ -654,7 +654,7 @@ def automatic_emails_m012_m013_m014():
 
     from management.models.matches import Match
 
-    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.AUTO_EMAILS_EMULATE_ONLY)
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M012_M013_M014)
 
     reminder = {
         "automatic-emails-m012": [2, False, False, False],
@@ -673,14 +673,23 @@ def automatic_emails_m012_m013_m014():
             interaction_reminder_2_days_send=two_days_reminder,
             interaction_reminder_7_days_send=seven_days_reminder,
             interaction_reminder_14_days_send=fourteen_days_reminder,
+            support_matching=False,
         )
 
         for match in matches:
             send_email_background.delay(
-                template, user_id=match.user1.id, match_id=match.id, emulated_send=emulated_send
+                template,
+                user_id=match.user1.id,
+                match_id=match.id,
+                emulated_send=emulated_send,
+                context={"link_url": "https://drive.google.com/file/d/1XcY6_OMZES5QJoMkc6jbEzwYNdCWrnaU/view"},
             )
             send_email_background.delay(
-                template, user_id=match.user2.id, match_id=match.id, emulated_send=emulated_send
+                template,
+                user_id=match.user2.id,
+                match_id=match.id,
+                emulated_send=emulated_send,
+                context={"link_url": "https://drive.google.com/file/d/1XcY6_OMZES5QJoMkc6jbEzwYNdCWrnaU/view"},
             )
 
             match days:
@@ -711,7 +720,7 @@ def automatic_emails_m023():
     from django.conf import settings
     from django.db.models import Max
 
-    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.AUTO_EMAILS_EMULATE_ONLY)
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M023)
 
     chats = (
         Chat.objects.annotate(last_message_at=Max("message__created"))
@@ -748,7 +757,7 @@ def automatic_emails_m024_m025():
     from django.conf import settings
     from django.db.models import Max
 
-    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.AUTO_EMAILS_EMULATE_ONLY)
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M024_M025)
 
     # get all chats, excluding admin and matching users
     chats = (
@@ -794,7 +803,7 @@ def automatic_emails_m031_m032_m033_m042():
 
     from management.models.matches import Match
 
-    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.AUTO_EMAILS_EMULATE_ONLY)
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M031_M032_M033_M042)
 
     # 1 - automatic-emails-m031
     matches_m031 = Match.objects.filter(
@@ -926,7 +935,7 @@ def automatic_emails_u072_u073_u074():
 
     from management.models.user import User
 
-    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.AUTO_EMAILS_EMULATE_ONLY)
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__U072_U073_U074)
 
     users_u072 = User.objects.filter(
         state__onboarding_call_completed_at__lte=dj_timezone.now() - timedelta(days=10),
@@ -992,7 +1001,7 @@ def automatic_emails_u082_u083_u084():
 
     from management.models.user import User
 
-    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.AUTO_EMAILS_EMULATE_ONLY)
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__U081_U082_U083_U084)
 
     # These emails are only triggered if u081 is triggered, this is triggered automatically when the user searches AGAIN
     users_u082 = User.objects.filter(
@@ -1063,13 +1072,34 @@ def daily_auto_email_report():
     from management.api.slack import notify_security_channel
 
     enabled_emails = {
-        "AUTOMATIC_EMAILS__U023_U024_U025": settings.ENABLE_AUTO_EMAILS__U023_U024_U025,
-        "AUTOMATIC_EMAILS__M012_M013_M014": settings.ENABLE_AUTO_EMAILS__M012_M013_M014,
-        "AUTOMATIC_EMAILS__M023": settings.ENABLE_AUTO_EMAILS__M023,
-        "AUTOMATIC_EMAILS__M024_M025": settings.ENABLE_AUTO_EMAILS__M024_M025,
-        "AUTOMATIC_EMAILS__M031_M032_M033_M042": settings.ENABLE_AUTO_EMAILS__M031_M032_M033_M042,
-        "AUTOMATIC_EMAILS__U072_U073_U074": settings.ENABLE_AUTO_EMAILS__U072_U073_U074,
-        "AUTOMATIC_EMAILS__U081_U082_U083_U084": settings.ENABLE_AUTO_EMAILS__U081_U082_U083_U084,
+        "AUTOMATIC_EMAILS__U023_U024_U025": {
+            "enabled": settings.ENABLE_AUTO_EMAILS__U023_U024_U025,
+            "emulated": settings.EMULATE_AUTO_EMAILS__U023_U024_U025,
+        },
+        "AUTOMATIC_EMAILS__M012_M013_M014": {
+            "enabled": settings.ENABLE_AUTO_EMAILS__M012_M013_M014,
+            "emulated": settings.EMULATE_AUTO_EMAILS__M012_M013_M014,
+        },
+        "AUTOMATIC_EMAILS__M023": {
+            "enabled": settings.ENABLE_AUTO_EMAILS__M023,
+            "emulated": settings.EMULATE_AUTO_EMAILS__M023,
+        },
+        "AUTOMATIC_EMAILS__M024_M025": {
+            "enabled": settings.ENABLE_AUTO_EMAILS__M024_M025,
+            "emulated": settings.EMULATE_AUTO_EMAILS__M024_M025,
+        },
+        "AUTOMATIC_EMAILS__M031_M032_M033_M042": {
+            "enabled": settings.ENABLE_AUTO_EMAILS__M031_M032_M033_M042,
+            "emulated": settings.EMULATE_AUTO_EMAILS__M031_M032_M033_M042,
+        },
+        "AUTOMATIC_EMAILS__U072_U073_U074": {
+            "enabled": settings.ENABLE_AUTO_EMAILS__U072_U073_U074,
+            "emulated": settings.EMULATE_AUTO_EMAILS__U072_U073_U074,
+        },
+        "AUTOMATIC_EMAILS__U081_U082_U083_U084": {
+            "enabled": settings.ENABLE_AUTO_EMAILS__U081_U082_U083_U084,
+            "emulated": settings.EMULATE_AUTO_EMAILS__U081_U082_U083_U084,
+        },
     }
 
     check_emails = [
@@ -1099,8 +1129,6 @@ def daily_auto_email_report():
     now = timezone.now()
     yesterday_start = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
     yesterday_end = yesterday_start + timedelta(days=1)
-
-    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.AUTO_EMAILS_EMULATE_ONLY)
 
     # Query EmailLog for auto emails sent yesterday
     email_logs = EmailLog.objects.filter(
@@ -1135,11 +1163,6 @@ def daily_auto_email_report():
         "*Email Summary:*",
     ]
 
-    if emulated_send:
-        message_parts.append("*Emulated Send (E-Mails aren't truely send!):* `True`")
-    else:
-        message_parts.append("*Emulated Send:* `False`")
-
     # Add email counts summary
     for template in check_emails:
         count = email_counts.get(template, 0)
@@ -1149,12 +1172,13 @@ def daily_auto_email_report():
     total_emails = sum(email_counts.values())
     message_parts.append(f"\n*Total:* {total_emails} emails sent to {len(user_emails)} users")
 
-    # Add enabled/disabled status
+    # Add enabled/disabled and emulated status
     message_parts.append("")
     message_parts.append("*Auto Email Settings:*")
-    for setting_name, is_enabled in enabled_emails.items():
-        status = "`True`" if is_enabled else "`False`"
-        message_parts.append(f"• {setting_name}: {status}")
+    for setting_name, flags in enabled_emails.items():
+        enabled_status = "`True`" if flags["enabled"] else "`False`"
+        emulated_status = "`True`" if flags["emulated"] else "`False`"
+        message_parts.append(f"• {setting_name}: enabled={enabled_status}, emulated={emulated_status}")
 
     # Add per-user breakdown with links
     message_parts.append("")

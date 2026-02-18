@@ -41,8 +41,9 @@ def notify_security_channel(message):
     SLACK_API_TOKEN = settings.SLACK_API_TOKEN
     CHANNEL_ID = settings.SLACK_SECURITY_REPORT_CHANNEL_ID
     if CHANNEL_ID == "":
-        raise Exception("SLACK_SECURITY_REPORT_CHANNEL_ID is not set, cannot notify security channel")
-    bot_token = SLACK_API_TOKEN
+        # TODO: raising causes development issues, raise in prod or just return?
+        # raise Exception("SLACK_SECURITY_REPORT_CHANNEL_ID is not set, cannot notify security channel")
+        return
 
     bot_token = SLACK_API_TOKEN
     client = WebClient(token=bot_token)
