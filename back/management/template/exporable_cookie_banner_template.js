@@ -1,6 +1,6 @@
 console.log("Rendering imported banner js")
 {% load temp_utils %}
-{% get_cookie_banner_data request = request as cookie_data_json %}
+{% get_cookie_banner_data request hidden_cookie_banner as cookie_data_json %}
 const cookieData = JSON.parse(JSON.parse('{{ cookie_data_json | escapejs }}').cookie_data);
 {% load render_bundle from webpack_loader %}
 {% render_bundle 'staticfiles' 'js' 'cookie_banner_frontend' as JS_BASE_CODE %}
@@ -9,8 +9,6 @@ const baseUrl = "{{ BASE_URL }}";
 const script = '{{ JS_BASE_CODE }}';
 const scripUrl = script.split('"')[1];
 console.log("Script Url", scripUrl);
-// TODO: test if this works, normally cookies are not send cross domain, but this is the same domain only another sub-domain
-
 console.log("COOKIE DATA", cookieData);
 
 const initCode = () => {
