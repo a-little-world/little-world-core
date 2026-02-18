@@ -1,6 +1,6 @@
 console.log("Rendering imported banner js")
 {% load temp_utils %}
-{% get_cookie_banner_data request=request as cookie_data_json %}
+{% get_cookie_banner_data request = request as cookie_data_json %}
 const cookieData = JSON.parse(JSON.parse('{{ cookie_data_json | escapejs }}').cookie_data);
 {% load render_bundle from webpack_loader %}
 {% render_bundle 'staticfiles' 'js' 'cookie_banner_frontend' as JS_BASE_CODE %}
@@ -21,16 +21,19 @@ const initCode = () => {
     div.id = "shadow-root"; // The root container for the cookie banner
     div.style.zIndex = "1000"
     div.style.position = "fixed";
+    if (cookieData?.hiddenCookieBanner) {
+        div.style.visibility = "hidden"; // then the script will still be loaded based on the users pre-selection
+    }
     document.body.appendChild(div);
 
     const scriptPromise = new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    document.head.appendChild(script);
-    //document.head.insertBefore(script, document.head.firstElementChild)
-    script.onload = resolve;
-    script.onerror = reject;
-    script.async = true;
-    script.src = baseUrl + scripUrl;
+        const script = document.createElement('script');
+        document.head.appendChild(script);
+        // document.head.insertBefore(script, document.head.firstElementChild)
+        script.onload = resolve;
+        script.onerror = reject;
+        script.async = true;
+        script.src = baseUrl + scripUrl;
     });
     const toImpressum = () => {
         window.location.replace("https://home.little-world.com/impressum");
