@@ -135,8 +135,8 @@ class ProfileCompletedApi(APIView):
                     default_message = get_translation("auto_messages.learner_outside_germany", lang="de").format(
                         first_name=user.profile.first_name
                     )
-
-            user.message(default_message, auto_mark_read=False, send_message_incoming=True)
+            if not user.state.had_prematching_call:
+                user.message(default_message, auto_mark_read=False, send_message_incoming=True)
 
             ud = get_user_data(user)
             return Response(ud)
