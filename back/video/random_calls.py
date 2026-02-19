@@ -544,13 +544,65 @@ class RandomCallMatchHistorySerializer(serializers.Serializer):
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
-def get_random_call_lobby_list(request, lobby_uuid=None):
-    # 1 - retrieve all lobbies or single lobby by UUID
-    if lobby_uuid:
-        lobby = RandomCallLobby.objects.get(uuid=lobby_uuid)
-        return Response(RandomCallLobbySerializer(lobby).data)
+def get_random_call_lobbies(request):
+    """
+    Returns all random call lobbies, optionally filtered by name query parameter.
+    Query params:
+    - name (optional): Filter lobbies by name
+    """
     lobbies = RandomCallLobby.objects.all()
+    lobby_name = request.query_params.get("name")
+    if lobby_name:
+        lobbies = lobbies.filter(name=lobby_name)
     return Response(RandomCallLobbySerializer(lobbies, many=True).data)
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def get_random_call_lobby(request, lobby_uuid):
+    """
+    Returns a single random call lobby by UUID.
+    """
+    lobby = RandomCallLobby.objects.get(uuid=lobby_uuid)
+    return Response(RandomCallLobbySerializer(lobby).data)
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def get_active_or_upcoming_lobby_by_name(request, lobby_name):
+    """
+    Returns a lobby by name that is either currently active or the most upcoming (future) one.
+    Priority:
+    1. Active lobby (start_time <= now <= end_time)
+    2. Most upcoming future lobby (start_time > now, ordered by start_time ascending)
+    """
+    now = timezone.now()
+    # First try to get an active lobby
+    active_lobby = (
+        RandomCallLobby.objects.filter(
+            name=lobby_name,
+            start_time__lte=now,
+            end_time__gte=now,
+        )
+        .order_by("-id")
+        .first()
+    )
+    if active_lobby:
+        return Response(RandomCallLobbySerializer(active_lobby).data)
+    # If no active lobby, get the most upcoming future one
+    upcoming_lobby = (
+        RandomCallLobby.objects.filter(
+            name=lobby_name,
+            start_time__gt=now,
+        )
+        .order_by("start_time")
+        .first()
+    )
+    if upcoming_lobby:
+        return Response(RandomCallLobbySerializer(upcoming_lobby).data)
+    return Response({"error": "No active or upcoming lobby found with this name"}, status=404)
 
 
 @api_view(["GET"])
@@ -573,7 +625,7 @@ def get_upcoming_lobbies(request):
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
-def get_accepted_random_call_matches(request):
+def get_user_random_call_history(request):
     """
     Get list of accepted past random call matches for the current user.
     Returns matches ordered by most recent first.
@@ -643,9 +695,10 @@ def request_random_call_matching(request, match_uuid):
 
 
 api_urls = [
-    path("api/random_calls/", get_random_call_lobby_list),
+    path("api/random_calls/", get_random_call_lobbies),
     path("api/random_calls/upcoming", get_upcoming_lobbies),
-    path("api/random_calls/lobby/<uuid:lobby_uuid>/", get_random_call_lobby_list),
+    path("api/random_calls/lobby/<str:lobby_name>/active_or_upcoming", get_active_or_upcoming_lobby_by_name),
+    path("api/random_calls/lobby/<uuid:lobby_uuid>/", get_random_call_lobby),
     path("api/random_calls/lobby/<uuid:lobby_uuid>/join", join_random_call_lobby),
     path("api/random_calls/lobby/<uuid:lobby_uuid>/exit", exit_random_call_lobby),
     path("api/random_calls/lobby/<uuid:lobby_uuid>/status", get_random_call_lobby_status),
@@ -655,7 +708,7 @@ api_urls = [
         "api/random_calls/lobby/<uuid:lobby_uuid>/match/<uuid:match_uuid>/room_authenticate",
         authenticate_random_call_match_livekit_room,
     ),
-    path("api/random_calls/history", get_accepted_random_call_matches),
-    path("api/random_calls/history/<str:match_uuid>/request_match", request_random_call_matching),
+    path("api/random_calls/user/history", get_user_random_call_history),
+    path("api/random_calls/user/history/<str:match_uuid>/request_match", request_random_call_matching),
     # path("api/random_calls/get_token_random_call", authenticate_livekit_random_call),
 ]

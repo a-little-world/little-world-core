@@ -20,7 +20,7 @@ from video.models import (
     RandomCallLobbyUser,
     RandomCallMatching,
 )
-from video.random_calls import is_lobby_active
+from video.random_calls import RandomCallLobbySerializer, is_lobby_active
 
 
 class RandomCallLobbyManagementSerializer(serializers.Serializer):
@@ -193,6 +193,13 @@ def get_lobby_management_overview(request, lobby_name="default"):
         "total_users_count": all_lobby_users.count(),
     }
 
+    # 9 - Get upcoming lobbies (active or future) with the same name
+    upcoming_lobbies = RandomCallLobby.objects.filter(
+        name=lobby_name,
+        end_time__gte=now,
+    ).order_by("start_time")
+    schedule_data = RandomCallLobbySerializer(upcoming_lobbies, many=True).data
+
     # Serialize all data following the pattern from the existing codebase
     response_data = {
         "lobby": RandomCallLobbyManagementSerializer(lobby_data).data,
@@ -204,6 +211,7 @@ def get_lobby_management_overview(request, lobby_name="default"):
             "expired": RandomCallMatchSerializer(expired_matches, many=True).data,
         },
         "statistics": statistics,
+        "schedule": schedule_data,
     }
 
     return Response(response_data)
@@ -369,49 +377,94 @@ def end_lobby(request, lobby_name="default"):
     )
 
 
+def _get_lobby_for_tasks(lobby_name, lobby_uuid=None):
+    """
+    Resolve the lobby to use for task filtering.
+    - If lobby_uuid is given: return that lobby instance (404 if not found).
+    - Else: return the active lobby with that name, or the most recent past one.
+    """
+    if lobby_uuid:
+        return RandomCallLobby.objects.get(uuid=lobby_uuid)
+
+    now = timezone.now()
+    # Active lobby
+    lobby = (
+        RandomCallLobby.objects.filter(
+            name=lobby_name,
+            start_time__lte=now,
+            end_time__gte=now,
+        )
+        .order_by("-id")
+        .first()
+    )
+    if lobby is not None:
+        return lobby
+    # Most recent past lobby
+    lobby = (
+        RandomCallLobby.objects.filter(
+            name=lobby_name,
+            end_time__lt=now,
+        )
+        .order_by("-end_time")
+        .first()
+    )
+    if lobby is None:
+        raise RandomCallLobby.DoesNotExist
+    return lobby
+
+
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAdminOrMatchingUser])
 def get_random_call_tasks(request, lobby_name="default"):
     """
-    Admin API to get Celery task information for random call related tasks.
-    Returns recent task executions for:
-    - random_call_lobby_perform_matching
-    - cleanup_inactive_lobby_users
-    - cleanup_if_not_accepted
-    - create_default_random_call_lobby
+    Admin API to get Celery task information for random call related tasks,
+    scoped to a lobby.
+
+    Query params:
+    - lobby_uuid (optional): If set, return tasks only for this lobby instance.
+      If omitted, return tasks for the active lobby with lobby_name, or the
+      most recent finished lobby with that name.
+    - limit: Max number of task rows (default 50).
+    - task_name: Optional filter by task name.
+
+    Tasks that take a lobby UUID in args (perform_matching, cleanup_inactive_lobby_users)
+    are filtered by that lobby. Other task types are excluded when scoping by lobby.
     """
-    # Define the task names we're interested in
-    random_call_task_names = [
+    import json
+
+    # Only these tasks receive lobby_uuid in args; others are not scoped by lobby
+    task_names_with_lobby_arg = [
         "video.tasks.random_call_lobby_perform_matching",
         "video.tasks.cleanup_inactive_lobby_users",
-        "video.tasks.cleanup_if_not_accepted",
-        "video.tasks.create_default_random_call_lobby",
     ]
 
-    # Get query parameters
+    lobby_uuid_param = request.query_params.get("lobby_uuid", None)
     limit = int(request.query_params.get("limit", 50))
     task_name_filter = request.query_params.get("task_name", None)
 
-    # Build query
-    task_query = TaskResult.objects.filter(task_name__in=random_call_task_names)
+    try:
+        lobby = _get_lobby_for_tasks(lobby_name, lobby_uuid=lobby_uuid_param)
+    except RandomCallLobby.DoesNotExist:
+        return Response({"error": "Lobby not found"}, status=404)
 
-    # Filter by specific task name if provided
+    lobby_uuid_str = str(lobby.uuid)
+
+    task_query = TaskResult.objects.filter(
+        task_name__in=task_names_with_lobby_arg,
+        task_args__contains=lobby_uuid_str,
+    )
+
     if task_name_filter:
         task_query = task_query.filter(task_name=task_name_filter)
 
-    # Order by most recent first and limit results
     tasks = task_query.order_by("-date_created")[:limit]
 
-    # Serialize task data
     tasks_data = []
     for task in tasks:
-        # Parse result if it's a string
         result_str = None
         if task.result:
             try:
-                import json
-
                 result_str = json.dumps(task.result) if not isinstance(task.result, str) else task.result
             except (TypeError, ValueError):
                 result_str = str(task.result)
@@ -429,20 +482,24 @@ def get_random_call_tasks(request, lobby_name="default"):
             }
         )
 
-    # Get statistics
-    total_tasks = TaskResult.objects.filter(task_name__in=random_call_task_names).count()
-    successful_tasks = TaskResult.objects.filter(task_name__in=random_call_task_names, status="SUCCESS").count()
-    failed_tasks = TaskResult.objects.filter(task_name__in=random_call_task_names, status="FAILURE").count()
-    pending_tasks = TaskResult.objects.filter(task_name__in=random_call_task_names, status="PENDING").count()
+    base_filter = TaskResult.objects.filter(
+        task_name__in=task_names_with_lobby_arg,
+        task_args__contains=lobby_uuid_str,
+    )
 
-    # Group by task name for statistics
+    total_tasks = base_filter.count()
+    successful_tasks = base_filter.filter(status="SUCCESS").count()
+    failed_tasks = base_filter.filter(status="FAILURE").count()
+    pending_tasks = base_filter.filter(status="PENDING").count()
+
     task_stats = {}
-    for task_name in random_call_task_names:
+    for task_name in task_names_with_lobby_arg:
+        q = base_filter.filter(task_name=task_name)
         task_stats[task_name] = {
-            "total": TaskResult.objects.filter(task_name=task_name).count(),
-            "success": TaskResult.objects.filter(task_name=task_name, status="SUCCESS").count(),
-            "failure": TaskResult.objects.filter(task_name=task_name, status="FAILURE").count(),
-            "pending": TaskResult.objects.filter(task_name=task_name, status="PENDING").count(),
+            "total": q.count(),
+            "success": q.filter(status="SUCCESS").count(),
+            "failure": q.filter(status="FAILURE").count(),
+            "pending": q.filter(status="PENDING").count(),
         }
 
     return Response(
@@ -455,6 +512,10 @@ def get_random_call_tasks(request, lobby_name="default"):
                 "pending": pending_tasks,
             },
             "task_statistics": task_stats,
+            "lobby": {
+                "uuid": str(lobby.uuid),
+                "name": lobby.name,
+            },
         },
         status=200,
     )
