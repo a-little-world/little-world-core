@@ -1,10 +1,11 @@
+from unittest.mock import AsyncMock, patch
+
 from back.celery import app
 from django.test import TestCase, override_settings
 from django.utils import timezone
 from management.models.user import User
 from management.tests.helpers import register_user
 from rest_framework.test import APIClient
-from unittest.mock import AsyncMock, patch
 from video.models import RandomCallLobby, RandomCallLobbyUser, RandomCallMatching
 
 

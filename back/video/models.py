@@ -150,7 +150,7 @@ class RandomCallMatching(models.Model):
 
     u1_requested_room_token = models.BooleanField(default=False)
     u2_requested_room_token = models.BooleanField(default=False)
-    
+
     # Only required for the reject case on time-out.
     # If one user rejects by timeout, the 'match' object still has to wait for 'clearing' untill the other user confirmed
     rejected_at = models.DateTimeField(null=True, blank=True)

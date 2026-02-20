@@ -8,6 +8,7 @@ from django.db.models import Q
 from django.urls import path
 from django.utils import timezone
 from livekit import api as livekit_api
+from datetime import timedelta
 from management.authentication import NativeOnlyJWTAuthentication
 from management.models.matches import Match
 from rest_framework import serializers
@@ -164,18 +165,21 @@ def get_random_call_lobby_status(request, lobby_name="default"):
         in_session=False,
         expired=False,
     )
-    matching = random_call_matching.first() # TODO: invesetigate if there are any edge cases with this being > 1
+    matching = random_call_matching.first()  # TODO: invesetigate if there are any edge cases with this being > 1
     has_matching = random_call_matching.exists()
     if has_matching:
         own_number = 1 if (matching.u1 == request.user) else 2
         partner = matching.u2 if own_number == 1 else matching.u1
         partner_accepted = matching.u2_accepted if own_number == 1 else matching.u1_accepted
-        
 
-        partner_confirmed_rejection = matching.u2_confirmed_rejection if own_number == 1 else matching.u1_confirmed_rejection
-        partner_rejected = matching.rejected and partner_confirmed_rejection # <-- it was the other user that re-jected
-        self_rejected = matching.rejected and (not partner_confirmed_rejection) # <-- it was the user itself that rejected
-        
+        partner_confirmed_rejection = (
+            matching.u2_confirmed_rejection if own_number == 1 else matching.u1_confirmed_rejection
+        )
+        partner_rejected = matching.rejected and partner_confirmed_rejection  # <-- it was the other user that re-jected
+        self_rejected = matching.rejected and (
+            not partner_confirmed_rejection
+        )  # <-- it was the user itself that rejected
+
         if partner_rejected:
             if own_number == 1:
                 matching.u1_confirmed_rejection = True
@@ -184,21 +188,25 @@ def get_random_call_lobby_status(request, lobby_name="default"):
             matching.both_confirmed_rejection = True
             matching.save()
             # in this case we still return the matching
-            
-        if matching.rejected and (matching.rejected_at is not None) and (matching.rejected_at < timezone.now() - timedelta(seconds=lobby.match_rejection_confirmation_timeout)):
+
+        if (
+            matching.rejected
+            and (matching.rejected_at is not None)
+            and (matching.rejected_at < timezone.now() - timedelta(seconds=lobby.match_rejection_confirmation_timeout))
+        ):
             # after some time auto-confirm rejections
             matching.both_confirmed_rejection = True
             matching.u1_confirmed_rejection = True
             matching.u2_confirmed_rejection = True
             matching.save()
-        
+
         # TODO: make sure dangeling 'rejections' are cleared
         # TODO: make sure dangeling 'suggestions' are also cleared
 
         if self_rejected:
             # Yourself already rejected the match, but the partner hasn't confirmed the rejection yet
             # TODO: check if that can cause dangeling rejections
-            return Response(response_data) # TODO: do we actually need to return here?
+            return Response(response_data)  # TODO: do we actually need to return here?
 
         matching_info = {
             "uuid": matching.uuid,
@@ -280,7 +288,7 @@ def reject_random_call_match(request, lobby_name, match_uuid):
     # 4 - check if match is already processed
     if match.is_processed:
         return Response("Match is already processed", status=400)
-    
+
     if match.rejected:
         return Response("Match is already rejected", status=400)
     # 5 - set rejected

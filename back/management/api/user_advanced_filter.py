@@ -361,9 +361,9 @@ def EXTRA__learners_with_activity_in_last3weeks(qs=User.objects.all(), days_ago=
     cutoff_date = timezone.now() - timedelta(days=days_ago)
     return (
         qs.filter(
-        profile__user_type=Profile.TypeChoices.LEARNER,
-        state__user_form_state=State.UserFormStateChoices.FILLED,
-        state__email_authenticated=True,
+            profile__user_type=Profile.TypeChoices.LEARNER,
+            state__user_form_state=State.UserFormStateChoices.FILLED,
+            state__email_authenticated=True,
         )
         .filter(
             Q(u1_livekit_session__created_at__gte=cutoff_date)
@@ -382,9 +382,9 @@ def EXTRA__volunteers_with_activity_in_last3weeks(qs=User.objects.all(), days_ag
     cutoff_date = timezone.now() - timedelta(days=days_ago)
     return (
         qs.filter(
-        profile__user_type=Profile.TypeChoices.VOLUNTEER,
-        state__user_form_state=State.UserFormStateChoices.FILLED,
-        state__email_authenticated=True,
+            profile__user_type=Profile.TypeChoices.VOLUNTEER,
+            state__user_form_state=State.UserFormStateChoices.FILLED,
+            state__email_authenticated=True,
         )
         .filter(
             Q(u1_livekit_session__created_at__gte=cutoff_date)
