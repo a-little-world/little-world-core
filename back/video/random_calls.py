@@ -1,5 +1,6 @@
 import asyncio
 import time
+from datetime import timedelta
 
 from chat.models import Chat, ChatSerializer
 from django.conf import settings
@@ -8,7 +9,6 @@ from django.db.models import Q
 from django.urls import path
 from django.utils import timezone
 from livekit import api as livekit_api
-from datetime import timedelta
 from management.authentication import NativeOnlyJWTAuthentication
 from management.models.matches import Match
 from rest_framework import serializers
