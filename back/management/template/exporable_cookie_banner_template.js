@@ -10,6 +10,7 @@ const script = '{{ JS_BASE_CODE }}';
 const scripUrl = script.split('"')[1];
 console.log("Script Url", scripUrl);
 console.log("COOKIE DATA", cookieData);
+const cookieBannerIsHidden = cookieData?.hiddenCookieBanner;
 
 const initCode = () => {
     console.log("DOM loaded");
@@ -17,9 +18,13 @@ const initCode = () => {
 
     const div = document.createElement('div');
     div.id = "shadow-root"; // The root container for the cookie banner
-    div.style.zIndex = "1000"
+    if (!cookieBannerIsHidden) {
+        div.style.zIndex = "1000";
+    } else {
+        div.style.zIndex = "0";
+    }
     div.style.position = "fixed";
-    if (cookieData?.hiddenCookieBanner) {
+    if (cookieBannerIsHidden) {
         div.style.visibility = "hidden"; // then the script will still be loaded based on the users pre-selection
     }
     document.body.appendChild(div);
@@ -40,7 +45,7 @@ const initCode = () => {
         window.location.replace("https://home.little-world.com/datenschutz");
     }
     scriptPromise.then(() => {
-        cookieBanner(JSON.parse(cookieData.cookieGroups), JSON.parse(cookieData.cookieSets), null, toImpressum, toPrivacy);
+        cookieBanner(JSON.parse(cookieData.cookieGroups), JSON.parse(cookieData.cookieSets), null, toImpressum, toPrivacy, cookieBannerIsHidden);
     });
 }
 
