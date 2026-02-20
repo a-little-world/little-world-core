@@ -650,7 +650,7 @@ def user_profile(request):
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
-@authentication_classes([])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 def is_authenticated(request):
     """
     Returns whether the user is authenticated.
