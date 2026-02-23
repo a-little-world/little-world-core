@@ -71,18 +71,21 @@ jobs:
           fi
           echo "sanitized_branch=$SANITIZED" >> $GITHUB_OUTPUT
         id: sanitize_branch
-      - name: Determine Pull ID and if this should be staged
+      - name: Determine Pull ID and label-based actions
         id: determine_pull_id
         run: |
           pull_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
-          # Determine if the PR currently has the 'staging' label
-          SHOULD_STAGE=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH" | grep -x 'staging' || true)
+          # Determine if the PR currently has the 'deploy' label
+          SHOULD_DEPLOY=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH" | grep -x 'deploy' || true)
           # Determine if the PR currently has the 'android' label
           SHOULD_BUILD_ANDROID=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH" | grep -x 'android' || true)
+          # Determine if the PR currently has the 'test' label
+          SHOULD_RUN_TESTS=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH" | grep -x 'test' || true)
           # Determine if the PR currently has the 'e2e' label
           SHOULD_RUN_E2E=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH" | grep -x 'e2e' || true)
-          echo "SHOULD_STAGE=$SHOULD_STAGE" >> $GITHUB_OUTPUT
+          echo "SHOULD_DEPLOY=$SHOULD_DEPLOY" >> $GITHUB_OUTPUT
           echo "SHOULD_BUILD_ANDROID=$SHOULD_BUILD_ANDROID" >> $GITHUB_OUTPUT
+          echo "SHOULD_RUN_TESTS=$SHOULD_RUN_TESTS" >> $GITHUB_OUTPUT
           echo "SHOULD_RUN_E2E=$SHOULD_RUN_E2E" >> $GITHUB_OUTPUT
           echo "PULL_NUMBER=$pull_number" >> $GITHUB_OUTPUT
       - name: Prepare Android section content
@@ -143,22 +146,30 @@ jobs:
       - name: Create comment
         uses: peter-evans/create-or-update-comment@v4
         id: create_comment
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        if: steps.extract_branch.outputs.branch != 'main' && (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' || steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '')
         with:
           token: ${{ secrets.BOT_PAT }}
           issue-number: ${{ steps.determine_pull_id.outputs.PULL_NUMBER }}
           body: |
-            ## Deploying Temporary Feature Environment
-
-            > Triggered because PR has label `staging`
+            ## CI Progress
 
             <!-- lw-staging-workflow -->
 
-            1. Setup
-            
+            | Area | Selected | Status |
+            | --- | --- | --- |
+            | Deployment | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && 'Yes' || 'No' }} | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '⏳ Pending' || '⏭️ Skipped' }} |
+            | Django tests | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && 'Yes' || 'No' }} | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '⏳ Pending' || '⏭️ Skipped' }} |
+            | E2E tests | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && 'Yes' || 'No' }} | ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && '⏳ Pending' || '⏭️ Skipped' }} |
+
+            - [ ] Setup environment
+            - [ ] Build image
+            - [ ] Deploy to Helm
+            - [ ] Run Django tests
+            - [ ] Run E2E tests
+
             ${{ steps.android_section.outputs.section }}
       - name: Setup Emperial Env
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        if: steps.extract_branch.outputs.branch != 'main' && (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' || steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '')
         id: setup_emperial_env
         run: |
           touch .env
@@ -180,20 +191,32 @@ jobs:
       - name: Add build step comment
         uses: peter-evans/create-or-update-comment@v4
         id: update_comment
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        if: steps.extract_branch.outputs.branch != 'main' && (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' || steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '')
         with:
           token: ${{ secrets.BOT_PAT }}
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
           body: |
-            2. Building ![action](https://github.com/a-little-world/little-world-backend/actions/workflows/deploy_staging.yaml/badge.svg?branch=${{ steps.extract_branch.outputs.branch }}&event=pull_request)
+            ## CI Progress
 
             <!-- lw-staging-workflow -->
+
+            | Area | Selected | Status |
+            | --- | --- | --- |
+            | Deployment | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && 'Yes' || 'No' }} | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '🚧 In progress' || '⏭️ Skipped' }} |
+            | Django tests | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && 'Yes' || 'No' }} | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '⏳ Pending' || '⏭️ Skipped' }} |
+            | E2E tests | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && 'Yes' || 'No' }} | ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && '⏳ Pending' || '⏭️ Skipped' }} |
+
+            - [x] Setup environment
+            - [ ] Build image
+            - [ ] Deploy to Helm
+            - [ ] Run Django tests
+            - [ ] Run E2E tests
       - name: Measure start time
         id: start
         run: |
           echo "time=$(date +%s)" >> $GITHUB_OUTPUT
       - name: Build Image
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        if: steps.extract_branch.outputs.branch != 'main' && (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' || steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '')
         run: |
           echo ${{ secrets.BOT_PAT }} | docker login ghcr.io -u littleworld-bot --password-stdin
           # use the ci compose instead of the development one
@@ -214,16 +237,30 @@ jobs:
       - name: Add build step comment 2
         uses: peter-evans/create-or-update-comment@v4
         id: update_comment_2
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        if: steps.extract_branch.outputs.branch != 'main' && (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' || steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '')
         with:
           token: ${{ secrets.BOT_PAT }}
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
           body: |
-            Finished in ${{ steps.execution_time.outputs.DURATION }} seconds
-            Pushed image to `${{ steps.setup_emperial_env.outputs.IMAGE_URL }}`
-            3. Deploy ( to Kubernetes namespace `${{ steps.setup_emperial_env.outputs.NAMESPACE }}` )
+            ## CI Progress
 
             <!-- lw-staging-workflow -->
+
+            | Area | Selected | Status |
+            | --- | --- | --- |
+            | Deployment | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && 'Yes' || 'No' }} | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '🚧 In progress' || '⏭️ Skipped' }} |
+            | Django tests | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && 'Yes' || 'No' }} | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '⏳ Pending' || '⏭️ Skipped' }} |
+            | E2E tests | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && 'Yes' || 'No' }} | ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && '⏳ Pending' || '⏭️ Skipped' }} |
+
+            - [x] Setup environment
+            - [x] Build image
+            - [ ] Deploy to Helm
+            - [ ] Run Django tests
+            - [ ] Run E2E tests
+
+            Build duration: `${{ steps.execution_time.outputs.DURATION }}s`
+            Image: `${{ steps.setup_emperial_env.outputs.IMAGE_URL }}`
+            Namespace: `${{ steps.setup_emperial_env.outputs.NAMESPACE }}`
       - uses: azure/setup-helm@v4.3.0
         with:
           version: "latest"
@@ -234,7 +271,7 @@ jobs:
           version: "latest"
         id: install-kubectl
       - name: Clone Helm Repository
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != ''
         uses: actions/checkout@main
         with:
           repository: a-little-world/little-world-helm-chart
@@ -242,7 +279,7 @@ jobs:
           ref: main
           path: helm
       - name: Setup Cluster Connection
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != ''
         id: cluster_connection
         run: |
           echo "${{ secrets.ENCRYPTED_KUBE_CONFIG_BASE64 }}" | base64 --decode > kubeconfig.enc
@@ -266,39 +303,32 @@ jobs:
       - name: Add build step comment 3
         uses: peter-evans/create-or-update-comment@v4
         id: update_comment_3
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != ''
         with:
           token: ${{ secrets.BOT_PAT }}
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
           body: |
-            4. Done check: [`${{ steps.cluster_connection.outputs.STAGING_URL }}`](${{ steps.cluster_connection.outputs.STAGING_URL }})
-
-            > **Note:** Setting up DNS and solving https challenge can take upto 5 minutes. Chill a little moment :wink:
+            ## CI Progress
 
             <!-- lw-staging-workflow -->
 
-            <details>
-            <summary> Details </summary>
-             
-            - 30 users: `herrduenschnlate+$i@gmail.com` for `$i in {1..30}`
-            e.g.: `herrduenschnlate+17@gmail.com:Test123!`
-            at `${{ steps.cluster_connection.outputs.STAGING_URL  }}/login`
-            - checkout the new user form `${{ steps.cluster_connection.outputs.STAGING_URL  }}/from_v2/userType`
-            - admin: `admin@user.com:Admin123!`
-            at `${{ steps.cluster_connection.outputs.STAGING_URL  }}/admin`
-            - checkout the new admin_panel `${{ steps.cluster_connection.outputs.STAGING_URL  }}/admin_panel_v2/`
+            | Area | Selected | Status |
+            | --- | --- | --- |
+            | Deployment | Yes | ✅ Complete |
+            | Django tests | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && 'Yes' || 'No' }} | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '⏳ Pending' || '⏭️ Skipped' }} |
+            | E2E tests | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && 'Yes' || 'No' }} | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && '⏳ Pending' || '⏭️ Skipped' }} |
 
-            Run build localy
-            ```
-            echo "<your-git-token>" | docker login ghcr.io -u <your-git-user> --password-stdin
-            docker run -it --rm -p 8000:8000 ${{ steps.setup_emperial_env.outputs.IMAGE_URL }}
-            ... visit http://localhost:8000
-            ```
-            You have the image cached loally now, use this to develop locally with pull api access.
+            - [x] Setup environment
+            - [x] Build image
+            - [x] Deploy to Helm
+            - [ ] Run Django tests
+            - [ ] Run E2E tests
 
-            </details>
+            Deployed URL: [`${{ steps.cluster_connection.outputs.STAGING_URL }}`](${{ steps.cluster_connection.outputs.STAGING_URL }})
+            > Note: DNS/HTTPS provisioning can take up to ~5 minutes.
 
       - name: Notify Slack Channel
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != ''
         env:
           SLACK_API_TOKEN: ${{ secrets.SLACK_API_TOKEN }}
           CHANNEL_ID: "C0695SSFPMM"
@@ -312,7 +342,7 @@ jobs:
           echo "time=$(date +%s)" >> $GITHUB_OUTPUT
       - name: Run django tests
         id: run_tests
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != ''
         run: |
           set -euo pipefail
           sed -i '/^REDIS_URL/d' .env
@@ -330,12 +360,12 @@ jobs:
           docker compose down redis
       - name: Measure start time e2e tests
         id: start_e2e_tests
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
         run: |
           echo "time=$(date +%s)" >> $GITHUB_OUTPUT
       - name: Run e2e simulation tests
         id: run_e2e_tests
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
         run: |
           set -euo pipefail
           # Enable test-only dev API endpoints for e2e flows.
@@ -374,33 +404,33 @@ jobs:
           if [ $TEST_EXIT -eq 0 ]; then echo "test_result=pass" >> $GITHUB_OUTPUT; else echo "test_result=fail" >> $GITHUB_OUTPUT; fi
       - name: Measure end time e2e tests
         id: end_e2e_tests
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
         run: |
           echo "time=$(date +%s)" >> $GITHUB_OUTPUT
       - name: Calculate execution time e2e tests
         id: execution_time_e2e_tests
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
         run: |
           START=${{ steps.start_e2e_tests.outputs.time }}
           END=${{ steps.end_e2e_tests.outputs.time }}
           DIFF=$(( END - START ))
           echo "DURATION=$DIFF" >> $GITHUB_OUTPUT
       - name: Upload test log artifact
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != ''
         uses: actions/upload-artifact@v4
         with:
           name: django-test-log
           path: test_output.log
           if-no-files-found: ignore
       - name: Upload e2e test log artifact
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
         uses: actions/upload-artifact@v4
         with:
           name: e2e-test-log
           path: e2e_test_output.log
           if-no-files-found: ignore
       - name: Upload e2e service log artifact
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
         uses: actions/upload-artifact@v4
         with:
           name: e2e-service-log
@@ -408,17 +438,16 @@ jobs:
           if-no-files-found: ignore
       - name: Get artifact page URL
         id: get_test_artifact_url
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        if: steps.extract_branch.outputs.branch != 'main' && (steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' || (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''))
         run: |
           # Link to the Actions run page which shows artifacts in the GitHub UI
           echo "url=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> "$GITHUB_OUTPUT"
       - name: Prepare test log snippet
         id: test_log_snippet
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.run_tests.outputs.test_result == 'fail'
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != ''
         run: |
-          # Prepare a truncated snippet to avoid exceeding GitHub comment limits
-          # Take the last 400 lines; fall back gracefully if file is small/missing
-          SNIPPET="$( (tail -n 400 test_output.log 2>/dev/null || true) )"
+          # Capture output snippet for final progress message.
+          SNIPPET="$(tail -n 400 test_output.log 2>/dev/null || echo 'No django test output captured.')"
           {
             echo "snippet<<EOF"
             echo "$SNIPPET"
@@ -426,9 +455,9 @@ jobs:
           } >> "$GITHUB_OUTPUT"
       - name: Prepare e2e test log snippet
         id: e2e_test_log_snippet
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && steps.run_e2e_tests.outputs.test_result == 'fail'
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
         run: |
-          SNIPPET="$( (tail -n 400 e2e_test_output.log 2>/dev/null || true) )"
+          SNIPPET="$(tail -n 400 e2e_test_output.log 2>/dev/null || echo 'No e2e test output captured.')"
           {
             echo "snippet<<EOF"
             echo "$SNIPPET"
@@ -448,51 +477,44 @@ jobs:
       - name: Add build step comment 5
         uses: peter-evans/create-or-update-comment@v4
         id: update_comment_5
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
+        if: steps.extract_branch.outputs.branch != 'main' && (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' || steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '')
         with:
           token: ${{ secrets.BOT_PAT }}
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
           body: |
-            Django Test Result: ${{ steps.run_tests.outputs.test_result }} ${{
-              fromJSON('{"fail":"❌","pass":"✅"}')[steps.run_tests.outputs.test_result]
-            }}
-            Django Duration: ${{ steps.execution_time_tests.outputs.DURATION }} seconds
-            
-            Artifacts: [View in run](${{ steps.get_test_artifact_url.outputs.url }}) (`django-test-log`)
-            E2E Test Result: ${{ steps.run_e2e_tests.outputs.test_result || 'not-triggered' }} ${{
-              fromJSON('{"fail":"❌","pass":"✅","not-triggered":"➖"}')[steps.run_e2e_tests.outputs.test_result || 'not-triggered']
-            }}
-            E2E Duration: ${{ steps.execution_time_e2e_tests.outputs.DURATION || 'n/a' }} seconds
-            E2E Artifacts: [View in run](${{ steps.get_test_artifact_url.outputs.url }}) (`e2e-test-log`, `e2e-service-log`)
+            ## CI Progress
 
             <!-- lw-staging-workflow -->
-      - name: Append test log on failure
-        uses: peter-evans/create-or-update-comment@v4
-        id: append_test_log_failure
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.run_tests.outputs.test_result == 'fail'
-        with:
-          token: ${{ secrets.BOT_PAT }}
-          comment-id: ${{ steps.create_comment.outputs.comment-id }}
-          body: |
+
+            | Area | Selected | Status |
+            | --- | --- | --- |
+            | Deployment | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && 'Yes' || 'No' }} | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '✅ Complete' || '⏭️ Skipped' }} |
+            | Django tests | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && 'Yes' || 'No' }} | ${{ fromJSON('{"pass":"✅ Pass","fail":"❌ Fail","":"⏭️ Skipped"}')[steps.run_tests.outputs.test_result || ''] }} |
+            | E2E tests | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && 'Yes' || 'No' }} | ${{ fromJSON('{"pass":"✅ Pass","fail":"❌ Fail","":"⏭️ Skipped"}')[steps.run_e2e_tests.outputs.test_result || ''] }} |
+
+            - [x] Setup environment
+            - [x] Build image
+            - [${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && 'x' || ' ' }}] Deploy to Helm
+            - [${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && 'x' || ' ' }}] Run Django tests
+            - [${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && 'x' || ' ' }}] Run E2E tests
+
+            Build duration: `${{ steps.execution_time.outputs.DURATION }}s`
+            Django duration: `${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && format('{0}s', steps.execution_time_tests.outputs.DURATION) || 'n/a' }}`
+            E2E duration: `${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && format('{0}s', steps.execution_time_e2e_tests.outputs.DURATION) || 'n/a' }}`
+            Artifacts: [View in run](${{ steps.get_test_artifact_url.outputs.url || format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }})
+
             <details>
-            <summary>Test log (last 400 lines)</summary>
-            
-            ```text
-            ${{ steps.test_log_snippet.outputs.snippet }}
-            ```
-            </details>
-      - name: Append e2e test log on failure
-        uses: peter-evans/create-or-update-comment@v4
-        id: append_e2e_test_log_failure
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && steps.run_e2e_tests.outputs.test_result == 'fail'
-        with:
-          token: ${{ secrets.BOT_PAT }}
-          comment-id: ${{ steps.create_comment.outputs.comment-id }}
-          body: |
-            <details>
-            <summary>E2E test log (last 400 lines)</summary>
+            <summary>Django test output (last 400 lines)</summary>
 
             ```text
-            ${{ steps.e2e_test_log_snippet.outputs.snippet }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && steps.test_log_snippet.outputs.snippet || 'Django tests were not selected.' }}
+            ```
+            </details>
+
+            <details>
+            <summary>E2E test output (last 400 lines)</summary>
+
+            ```text
+            ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && steps.e2e_test_log_snippet.outputs.snippet || 'E2E tests were not selected.' }}
             ```
             </details>
