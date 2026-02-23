@@ -338,6 +338,10 @@ jobs:
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
         run: |
           set -euo pipefail
+          # Enable test-only dev API endpoints for e2e flows.
+          export CI="true"
+          export DJANGO_TESTING="true"
+          export DJ_ENABLE_E2E_TEST_APIS="true"
           cleanup() {
             docker compose logs --no-color all redis > e2e_services.log 2>&1 || true
             docker compose down all redis || true

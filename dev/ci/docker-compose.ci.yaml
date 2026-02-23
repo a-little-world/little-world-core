@@ -47,6 +47,9 @@ services:
       DJ_SG_SENDGRID_API_KEY: "not_an_api_key"
       DJ_SG_DEFAULT_FROM_EMAIL: "admin@user.com"
       DJ_BASE_URL: http://localhost:8000
+      CI: "${CI:-false}"
+      DJANGO_TESTING: "${DJANGO_TESTING:-false}"
+      DJ_ENABLE_E2E_TEST_APIS: "${DJ_ENABLE_E2E_TEST_APIS:-false}"
       DJ_CALCOM_QUERY_ACCESS_PARAM: "secret"
       DJ_CALCOM_MEETING_ID: "herr-duenschnlate-iiscv9/15min"
       DJ_USE_SENTRY: 0

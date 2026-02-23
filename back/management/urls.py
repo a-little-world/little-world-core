@@ -30,6 +30,7 @@ from management.api import (
     user_advanced_statistics,
     videocalls_advanced,
 )
+from management.api.dev_e2e_tests import api_urls as dev_e2e_test_api_urls
 from management.api.dynamic_user_list import (
     DynamicUserListGeneralViewSet,
     DynamicUserListSingleUserViewSet,
@@ -165,6 +166,7 @@ api_routes = [
     path("api/help_message/", help.SendHelpMessage.as_view()),
     path("api/integrity/challenge", app_integrity.app_integrity_challenge),
     path("api/integrity/verify_ios", app_integrity.app_integrity_verify_ios),
+    *(dev_e2e_test_api_urls if settings.E2E_TEST_APIS_ENABLED else []),
     *router.urls,
 ]
 
