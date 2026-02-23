@@ -155,18 +155,11 @@ jobs:
 
             <!-- lw-staging-workflow -->
 
-            | test | e2e | deploy |
-            | --- | --- | --- |
-            | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '⏳' || '⏭️' }} | ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && '⏳' || '⏭️' }} | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '⏳' || '⏭️' }} |
-
-            - [ ] setup `(1) 'setup'`
-            - [ ] build `(2) 'build'`
-            - [ ] deploy `(3) 'deploy'`
-            - [ ] test `(4) 'test'`
-            - [ ] e2e `(5) 'e2e'`
-
-            `url=<deployment-url-loading>`
-            `time-build=<build-time-loading> time-test=<test-time-loading> time-e2e=<e2e-time-loading>`
+            - [ ] `(1) 'setup'`
+            - [ ] `(2) 'build' t=<build-time-loading>`
+            ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && "- [ ] `(3) 'deploy' url=<deployment-url-loading>`" || "- [ ] ~~`(3) 'deploy' url=<deployment-url-loading>`~~" }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && "- [ ] `(4) 'test' t=<test-time-loading>`" || "- [ ] ~~`(4) 'test' t=<test-time-loading>`~~" }}
+            ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && "- [ ] `(5) 'e2e' t=<e2e-time-loading>`" || "- [ ] ~~`(5) 'e2e' t=<e2e-time-loading>`~~" }}
       - name: Setup Emperial Env
         if: steps.extract_branch.outputs.branch != 'main' && (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' || steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '')
         id: setup_emperial_env
@@ -200,18 +193,11 @@ jobs:
 
             <!-- lw-staging-workflow -->
 
-            | test | e2e | deploy |
-            | --- | --- | --- |
-            | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '⏳' || '⏭️' }} | ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && '⏳' || '⏭️' }} | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '🚧' || '⏭️' }} |
-
-            - [x] setup `(1) 'setup'`
-            - [ ] build `(2) 'build'`
-            - [ ] deploy `(3) 'deploy'`
-            - [ ] test `(4) 'test'`
-            - [ ] e2e `(5) 'e2e'`
-
-            `url=<deployment-url-loading>`
-            `time-build=<build-time-loading> time-test=<test-time-loading> time-e2e=<e2e-time-loading>`
+            - [x] `(1) 'setup'`
+            - [ ] `(2) 'build' t=<build-time-loading>`
+            ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && "- [ ] `(3) 'deploy' url=<deployment-url-loading>`" || "- [ ] ~~`(3) 'deploy' url=<deployment-url-loading>`~~" }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && "- [ ] `(4) 'test' t=<test-time-loading>`" || "- [ ] ~~`(4) 'test' t=<test-time-loading>`~~" }}
+            ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && "- [ ] `(5) 'e2e' t=<e2e-time-loading>`" || "- [ ] ~~`(5) 'e2e' t=<e2e-time-loading>`~~" }}
       - name: Measure start time
         id: start
         run: |
@@ -248,18 +234,11 @@ jobs:
 
             <!-- lw-staging-workflow -->
 
-            | test | e2e | deploy |
-            | --- | --- | --- |
-            | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '⏳' || '⏭️' }} | ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && '⏳' || '⏭️' }} | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '🚧' || '⏭️' }} |
-
-            - [x] setup `(1) 'setup'`
-            - [x] build `(2) 'build'`
-            - [ ] deploy `(3) 'deploy'`
-            - [ ] test `(4) 'test'`
-            - [ ] e2e `(5) 'e2e'`
-
-            `url=<deployment-url-loading>`
-            `time-build=${{ steps.execution_time.outputs.DURATION }}s time-test=<test-time-loading> time-e2e=<e2e-time-loading>`
+            - [x] `(1) 'setup'`
+            - [x] `(2) 'build' t=${{ steps.execution_time.outputs.DURATION }}s`
+            ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && "- [ ] `(3) 'deploy' url=<deployment-url-loading>`" || "- [ ] ~~`(3) 'deploy' url=<deployment-url-loading>`~~" }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && "- [ ] `(4) 'test' t=<test-time-loading>`" || "- [ ] ~~`(4) 'test' t=<test-time-loading>`~~" }}
+            ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && "- [ ] `(5) 'e2e' t=<e2e-time-loading>`" || "- [ ] ~~`(5) 'e2e' t=<e2e-time-loading>`~~" }}
       - uses: azure/setup-helm@v4.3.0
         with:
           version: "latest"
@@ -312,18 +291,11 @@ jobs:
 
             <!-- lw-staging-workflow -->
 
-            | test | e2e | deploy |
-            | --- | --- | --- |
-            | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '⏳' || '⏭️' }} | ${{ (steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && '⏳' || '⏭️' }} | ✅ |
-
-            - [x] setup `(1) 'setup'`
-            - [x] build `(2) 'build'`
-            - [x] deploy `(3) 'deploy'`
-            - [ ] test `(4) 'test'`
-            - [ ] e2e `(5) 'e2e'`
-
-            `url=${{ steps.cluster_connection.outputs.STAGING_URL }}`
-            `time-build=${{ steps.execution_time.outputs.DURATION }}s time-test=<test-time-loading> time-e2e=<e2e-time-loading>`
+            - [x] `(1) 'setup'`
+            - [x] `(2) 'build' t=${{ steps.execution_time.outputs.DURATION }}s`
+            - [x] `(3) 'deploy' url=${{ steps.cluster_connection.outputs.STAGING_URL }}`
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && "- [ ] `(4) 'test' t=<test-time-loading>`" || "- [ ] ~~`(4) 'test' t=<test-time-loading>`~~" }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && "- [ ] `(5) 'e2e' t=<e2e-time-loading>`" || "- [ ] ~~`(5) 'e2e' t=<e2e-time-loading>`~~" }}
 
       - name: Notify Slack Channel
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != ''
@@ -485,18 +457,11 @@ jobs:
 
             <!-- lw-staging-workflow -->
 
-            | test | e2e | deploy |
-            | --- | --- | --- |
-            | ${{ fromJSON('{"pass":"✅","fail":"❌","":"⏭️"}')[steps.run_tests.outputs.test_result || ''] }} | ${{ fromJSON('{"pass":"✅","fail":"❌","":"⏭️"}')[steps.run_e2e_tests.outputs.test_result || ''] }} | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '✅' || '⏭️' }} |
-
-            - [x] setup `(1) 'setup'`
-            - [x] build `(2) 'build'`
-            - [${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && 'x' || ' ' }}] deploy `(3) 'deploy'`
-            - [${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && 'x' || ' ' }}] test `(4) 'test'`
-            - [${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && 'x' || ' ' }}] e2e `(5) 'e2e'`
-
-            `url=${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.cluster_connection.outputs.STAGING_URL || '<deployment-url-loading>' }}`
-            `time-build=${{ steps.execution_time.outputs.DURATION }}s time-test=${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && format('{0}s', steps.execution_time_tests.outputs.DURATION) || '<test-time-loading>' }} time-e2e=${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && format('{0}s', steps.execution_time_e2e_tests.outputs.DURATION) || '<e2e-time-loading>' }}`
+            - [x] `(1) 'setup'`
+            - [x] `(2) 'build' t=${{ steps.execution_time.outputs.DURATION }}s`
+            ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && format('- [x] `(3) ''deploy'' url={0}`', steps.cluster_connection.outputs.STAGING_URL) || "- [ ] ~~`(3) 'deploy' url=<deployment-url-loading>`~~" }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && format('- [x] `(4) ''test'' t={0}s`', steps.execution_time_tests.outputs.DURATION) || "- [ ] ~~`(4) 'test' t=<test-time-loading>`~~" }}
+            ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && format('- [x] `(5) ''e2e'' t={0}s`', steps.execution_time_e2e_tests.outputs.DURATION) || "- [ ] ~~`(5) 'e2e' t=<e2e-time-loading>`~~" }}
             run: ${{ steps.get_test_artifact_url.outputs.url || format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}
 
             <details>
