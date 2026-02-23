@@ -127,3 +127,72 @@ def test_login_sets_session_cookie(page, e2e_base_url: str) -> None:
 
     cookies = page.context.cookies()
     assert any("session" in cookie.get("name", "").lower() for cookie in cookies)
+
+    dashboard_candidates = [
+        page.get_by_role("link", name="Dashboard"),
+        page.get_by_role("button", name="Dashboard"),
+        page.locator("a[href*='/app']"),
+        page.locator("a[href*='dashboard']"),
+    ]
+    for candidate in dashboard_candidates:
+        if candidate.count() > 0 and candidate.first.is_visible():
+            candidate.first.click()
+            break
+
+    page.wait_for_timeout(1500)
+
+    try:
+        logout_candidates = [
+            page.get_by_role("button", name="Logout"),
+            page.get_by_role("button", name="Log out"),
+            page.get_by_role("button", name="Sign out"),
+            page.get_by_role("link", name="Logout"),
+            page.get_by_role("link", name="Log out"),
+            page.get_by_role("link", name="Sign out"),
+        ]
+        clicked_logout = False
+        for candidate in logout_candidates:
+            if candidate.count() > 0 and candidate.first.is_visible():
+                candidate.first.click()
+                clicked_logout = True
+                break
+        if not clicked_logout:
+            raise RuntimeError("No visible logout control found")
+    except Exception:
+        debug_dir = os.path.join(os.getcwd(), "artifacts")
+        os.makedirs(debug_dir, exist_ok=True)
+        html_path = os.path.join(debug_dir, "dashboard_page.html")
+        screenshot_path = os.path.join(debug_dir, "dashboard_page.png")
+        buttons_path = os.path.join(debug_dir, "dashboard_page_buttons.txt")
+        links_path = os.path.join(debug_dir, "dashboard_page_links.txt")
+        with open(html_path, "w", encoding="utf-8") as handle:
+            handle.write(page.content())
+        with open(buttons_path, "w", encoding="utf-8") as handle:
+            handle.write(
+                "\n".join(
+                    page.evaluate(
+                        """
+                        () => Array.from(document.querySelectorAll('button')).map((button) => {
+                            const label = button.getAttribute('aria-label') || '';
+                            return `text=${(button.textContent || '').trim()} aria-label=${label}`.trim();
+                        })
+                        """
+                    )
+                )
+            )
+        with open(links_path, "w", encoding="utf-8") as handle:
+            handle.write(
+                "\n".join(
+                    page.evaluate(
+                        """
+                        () => Array.from(document.querySelectorAll('a')).map((link) => {
+                            const label = link.getAttribute('aria-label') || '';
+                            const href = link.getAttribute('href') || '';
+                            return `text=${(link.textContent || '').trim()} aria-label=${label} href=${href}`.trim();
+                        })
+                        """
+                    )
+                )
+            )
+        page.screenshot(path=screenshot_path, full_page=True)
+        raise
