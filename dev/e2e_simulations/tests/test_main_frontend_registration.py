@@ -68,6 +68,61 @@ def _dismiss_cookie_banner(page) -> None:
     page.wait_for_timeout(400)
 
 
+def _fetch_email_auth_pin(page, e2e_base_url: str, email: str, timeout_seconds: int = 10) -> str:
+    deadline = time.time() + timeout_seconds
+    last_response = ""
+    while time.time() < deadline:
+        response = page.request.get(
+            f"{e2e_base_url}/api/dev/e2e_tests/email_auth_pin/",
+            params={"email": email},
+        )
+        if response.status == 200:
+            payload = response.json()
+            pin = str(payload.get("email_auth_pin", "")).strip()
+            if re.fullmatch(r"\d{5}", pin):
+                return pin
+            last_response = f"200 with invalid payload: {payload}"
+        else:
+            try:
+                payload = response.json()
+            except Exception:
+                payload = response.text()
+            last_response = f"{response.status}: {payload}"
+
+        page.wait_for_timeout(400)
+
+    raise AssertionError(f"Could not fetch email auth pin for {email}. Last response: {last_response}")
+
+
+def _submit_email_verification_code(page, pin: str) -> None:
+    input_candidates = [
+        page.locator("input[name='verificationCode']"),
+        page.locator("input[placeholder*='code' i]"),
+        page.locator("input[type='number']").first,
+    ]
+    filled = False
+    for candidate in input_candidates:
+        if candidate.count() > 0 and candidate.first.is_visible():
+            candidate.first.fill(pin)
+            filled = True
+            break
+    if not filled:
+        raise RuntimeError("No visible verification code input found")
+
+    submit_candidates = [
+        page.locator("form button[type='submit']"),
+        page.get_by_role("button", name=re.compile(r"verify|confirm|submit", re.IGNORECASE)),
+    ]
+    clicked = False
+    for candidate in submit_candidates:
+        if candidate.count() > 0 and candidate.first.is_visible():
+            candidate.first.click(timeout=5000)
+            clicked = True
+            break
+    if not clicked:
+        raise RuntimeError("No visible verify-email submit button found")
+
+
 def test_registration_page_renders_form(page, e2e_base_url: str) -> None:
     response = page.goto(f"{e2e_base_url}/sign-up", wait_until="domcontentloaded")
 
@@ -206,6 +261,15 @@ def test_registration_flow_creates_user(page, e2e_base_url: str) -> None:
 
     assert "/sign-up" not in page.url
     assert "/app/verify-email" in page.url
+
+    email_auth_pin = _fetch_email_auth_pin(page, e2e_base_url, unique_email)
+    assert re.fullmatch(r"\d{5}", email_auth_pin)
+    _submit_email_verification_code(page, email_auth_pin)
+    page.wait_for_load_state("networkidle")
+    page.wait_for_url(re.compile(r"/app/user-form($|/)"), timeout=15000)
+
+    assert "/app/verify-email" not in page.url
+    assert "/app/user-form" in page.url
 
     cookies = page.context.cookies()
     assert any("session" in cookie.get("name", "").lower() for cookie in cookies)
