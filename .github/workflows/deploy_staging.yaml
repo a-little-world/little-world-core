@@ -151,7 +151,7 @@ jobs:
           token: ${{ secrets.BOT_PAT }}
           issue-number: ${{ steps.determine_pull_id.outputs.PULL_NUMBER }}
           body: |
-            ## CI Progress
+            @littleworld-bot : running tests and deployment for you ...
 
             <!-- lw-staging-workflow -->
 
@@ -196,7 +196,7 @@ jobs:
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
           edit-mode: replace
           body: |
-            ## CI Progress
+            @littleworld-bot : running tests and deployment for you ...
 
             <!-- lw-staging-workflow -->
 
@@ -244,7 +244,7 @@ jobs:
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
           edit-mode: replace
           body: |
-            ## CI Progress
+            @littleworld-bot : running tests and deployment for you ...
 
             <!-- lw-staging-workflow -->
 
@@ -308,7 +308,7 @@ jobs:
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
           edit-mode: replace
           body: |
-            ## CI Progress
+            @littleworld-bot : running tests and deployment for you ...
 
             <!-- lw-staging-workflow -->
 
@@ -481,7 +481,7 @@ jobs:
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
           edit-mode: replace
           body: |
-            ## CI Progress
+            @littleworld-bot : running tests and deployment for you ...
 
             <!-- lw-staging-workflow -->
 
