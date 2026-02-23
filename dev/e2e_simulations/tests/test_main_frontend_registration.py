@@ -262,6 +262,276 @@ def _fill_self_info_1_and_continue(page) -> None:
         raise
 
 
+def _fill_interests_and_continue(page) -> None:
+    _dump_debug_artifacts(page, "interests_before_fill")
+
+    selected_interest_count = 0
+    for label in ["Sport", "Art", "Music", "Travel", "Food"]:
+        option = page.get_by_role("button", name=re.compile(f"^{re.escape(label)}$", re.IGNORECASE))
+        if option.count() > 0 and option.first.is_visible():
+            option.first.click(timeout=5000)
+            selected_interest_count += 1
+            page.wait_for_timeout(100)
+        if selected_interest_count >= 3:
+            break
+
+    if selected_interest_count < 3:
+        selected_interest_count += page.evaluate(
+        """
+        () => {
+            const isVisible = (el) => {
+                const style = window.getComputedStyle(el);
+                const rect = el.getBoundingClientRect();
+                return style.visibility !== 'hidden' && style.display !== 'none' && rect.width > 0 && rect.height > 0;
+            };
+
+            const form = document.querySelector('form');
+            if (!form) return 0;
+
+            const checkboxInputs = Array.from(form.querySelectorAll("input[type='checkbox']:not([disabled])"));
+            let selected = 0;
+            for (const checkbox of checkboxInputs) {
+                if (!isVisible(checkbox)) continue;
+                if (checkbox.labels && checkbox.labels.length > 0) {
+                    checkbox.labels[0].click();
+                } else {
+                    checkbox.click();
+                }
+                selected += 1;
+                if (selected >= 3) return selected;
+            }
+
+            const clickables = Array.from(form.querySelectorAll("button, [role='checkbox'], [role='option']"));
+            for (const el of clickables) {
+                if (!isVisible(el)) continue;
+                const text = (el.textContent || '').trim().toLowerCase();
+                if (!text || text === 'next' || text === 'back' || text === 'questionicon') continue;
+                el.click();
+                selected += 1;
+                if (selected >= 3) return selected;
+            }
+            return selected;
+        }
+        """
+        )
+    if selected_interest_count < 3:
+        raise RuntimeError(f"Could not select enough interests on interests page (selected={selected_interest_count})")
+
+    description_candidates = [
+        page.locator("textarea[name='description']"),
+        page.locator("textarea"),
+    ]
+    description_filled = False
+    for candidate in description_candidates:
+        if candidate.count() > 0 and candidate.first.is_visible():
+            candidate.first.fill("I enjoy helping people practice German through friendly conversations.")
+            description_filled = True
+            break
+    if not description_filled:
+        raise RuntimeError("Could not fill description on interests page")
+
+    submit_button = page.locator("form button[type='submit']")
+    if submit_button.count() == 0 or not submit_button.first.is_visible():
+        raise RuntimeError("Could not find submit button on interests page")
+    try:
+        submit_button.first.click(timeout=5000)
+    except Exception:
+        _dismiss_cookie_banner(page)
+        submit_button.first.click(timeout=5000)
+
+    try:
+        page.wait_for_load_state("networkidle")
+        page.wait_for_url(re.compile(r"/app/user-form/picture($|\\?)"), timeout=15000)
+    except Exception:
+        _dump_debug_artifacts(page, "interests_submit_failed")
+        raise
+
+
+def _fill_picture_with_avatar_and_continue(page) -> None:
+    _dump_debug_artifacts(page, "picture_before_fill")
+
+    selected_avatar = False
+    avatar_select_candidates = [
+        page.locator("button:has-text('next avatar')"),
+        page.get_by_role("button", name=re.compile(r"next avatar", re.IGNORECASE)),
+    ]
+    for candidate in avatar_select_candidates:
+        if candidate.count() > 0 and candidate.first.is_visible():
+            candidate.first.click(timeout=5000)
+            selected_avatar = True
+            break
+
+    if not selected_avatar:
+        selected_avatar = page.evaluate(
+            """
+            () => {
+                const buttons = Array.from(document.querySelectorAll('button'));
+                const nextAvatar = buttons.find((button) =>
+                    /next avatar/i.test(button.textContent || '')
+                );
+                if (nextAvatar) {
+                    nextAvatar.click();
+                    return true;
+                }
+                return false;
+            }
+            """
+        )
+    if not selected_avatar:
+        raise RuntimeError("Could not select avatar option on picture page")
+
+    submit_button = page.locator("form button[type='submit']")
+    if submit_button.count() == 0 or not submit_button.first.is_visible():
+        raise RuntimeError("Could not find submit button on picture page")
+    submit_button.first.click(timeout=5000)
+
+    try:
+        page.wait_for_load_state("networkidle")
+        page.wait_for_url(re.compile(r"/app/user-form/partner-1($|\\?)"), timeout=15000)
+    except Exception:
+        _dump_debug_artifacts(page, "picture_submit_failed")
+        raise
+
+
+def _fill_partner_1_and_continue(page) -> None:
+    _dump_debug_artifacts(page, "partner_1_before_fill")
+
+    selected_count = page.evaluate(
+        """
+        () => {
+            const pickFirstRadioByName = (name) => {
+                const radios = Array.from(document.querySelectorAll(`input[type="radio"][name="${name}"]:not([disabled])`));
+                if (!radios.length) return false;
+                const radio = radios[0];
+                if (radio.labels && radio.labels.length > 0) {
+                    radio.labels[0].click();
+                } else {
+                    radio.click();
+                }
+                return true;
+            };
+
+            let selected = 0;
+            if (pickFirstRadioByName('target_group')) selected += 1;
+            if (pickFirstRadioByName('partner_gender')) selected += 1;
+            return selected;
+        }
+        """
+    )
+
+    if selected_count < 2:
+        # Fallback: click visible non-navigation option buttons in form.
+        selected_count += page.evaluate(
+            """
+            () => {
+                const isVisible = (el) => {
+                    const style = window.getComputedStyle(el);
+                    const rect = el.getBoundingClientRect();
+                    return style.visibility !== 'hidden' && style.display !== 'none' && rect.width > 0 && rect.height > 0;
+                };
+                const form = document.querySelector('form');
+                if (!form) return 0;
+                let selected = 0;
+                const buttons = Array.from(form.querySelectorAll('button'));
+                for (const button of buttons) {
+                    if (!isVisible(button)) continue;
+                    const text = (button.textContent || '').trim().toLowerCase();
+                    if (!text || text === 'back' || text === 'next') continue;
+                    button.click();
+                    selected += 1;
+                    if (selected >= 2) break;
+                }
+                return selected;
+            }
+            """
+        )
+
+    if selected_count < 2:
+        raise RuntimeError(f"Could not select required partner-1 options (selected={selected_count})")
+
+    submit_button = page.locator("form button[type='submit']")
+    if submit_button.count() == 0 or not submit_button.first.is_visible():
+        raise RuntimeError("Could not find submit button on partner-1 page")
+    submit_button.first.click(timeout=5000)
+
+    try:
+        page.wait_for_load_state("networkidle")
+        page.wait_for_url(re.compile(r"/app/user-form/availability($|\\?)"), timeout=15000)
+    except Exception:
+        _dump_debug_artifacts(page, "partner_1_submit_failed")
+        raise
+
+
+def _fill_availability_and_continue(page) -> None:
+    _dump_debug_artifacts(page, "availability_before_fill")
+
+    # Use "select all" controls first to quickly satisfy minimum slot requirements.
+    select_all_controls = page.locator("[role='checkbox'][aria-label^='Select all in']")
+    clicked_select_all = 0
+    for index in range(min(select_all_controls.count(), 2)):
+        control = select_all_controls.nth(index)
+        if control.is_visible():
+            control.click(timeout=5000)
+            clicked_select_all += 1
+            page.wait_for_timeout(120)
+    selected_slots = page.evaluate(
+        """
+        () => {
+            const checkedInputs = document.querySelectorAll(
+                "form input[type='checkbox'][name='availability']:checked"
+            ).length;
+            const checkedRoles = Array.from(
+                document.querySelectorAll("form [role='checkbox']")
+            ).filter((node) => node.getAttribute('aria-checked') === 'true').length;
+            return Math.max(checkedInputs, checkedRoles);
+        }
+        """
+    )
+
+    if selected_slots < 3:
+        # Fallback: click first few availability cells directly.
+        selected_slots = page.evaluate(
+            """
+            () => {
+                const cells = Array.from(
+                    document.querySelectorAll("form [role='checkbox']:not([aria-label^='Select all in'])")
+                );
+                let clicked = 0;
+                for (const cell of cells) {
+                    if (cell.getAttribute('aria-checked') === 'true') continue;
+                    (cell).click();
+                    clicked += 1;
+                    if (clicked >= 3) break;
+                }
+                const checkedInputs = document.querySelectorAll(
+                    "form input[type='checkbox'][name='availability']:checked"
+                ).length;
+                const checkedRoles = Array.from(
+                    document.querySelectorAll("form [role='checkbox']")
+                ).filter((node) => node.getAttribute('aria-checked') === 'true').length;
+                return Math.max(checkedInputs, checkedRoles, clicked);
+            }
+            """
+        )
+
+    if selected_slots < 3:
+        raise RuntimeError(
+            f"Could not select enough availability slots (selected={selected_slots}, select_all_clicked={clicked_select_all})"
+        )
+
+    submit_button = page.locator("form button[type='submit']")
+    if submit_button.count() == 0 or not submit_button.first.is_visible():
+        raise RuntimeError("Could not find submit button on availability page")
+    submit_button.first.click(timeout=5000)
+
+    try:
+        page.wait_for_load_state("networkidle")
+        page.wait_for_url(re.compile(r"/app/user-form/notifications($|\\?)"), timeout=15000)
+    except Exception:
+        _dump_debug_artifacts(page, "availability_submit_failed")
+        raise
+
+
 def test_registration_page_renders_form(page, e2e_base_url: str) -> None:
     response = page.goto(f"{e2e_base_url}/sign-up", wait_until="domcontentloaded")
 
@@ -410,9 +680,13 @@ def test_registration_flow_creates_user(page, e2e_base_url: str) -> None:
     page.wait_for_load_state("networkidle")
     page.wait_for_url(re.compile(r"/app/user-form/self-info-1($|\\?)"), timeout=15000)
     _fill_self_info_1_and_continue(page)
+    _fill_interests_and_continue(page)
+    _fill_picture_with_avatar_and_continue(page)
+    _fill_partner_1_and_continue(page)
+    _fill_availability_and_continue(page)
 
     assert "/app/verify-email" not in page.url
-    assert "/app/user-form/interests" in page.url
+    assert "/app/user-form/notifications" in page.url
 
     cookies = page.context.cookies()
     assert any("session" in cookie.get("name", "").lower() for cookie in cookies)
