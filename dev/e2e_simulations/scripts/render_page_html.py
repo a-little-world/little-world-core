@@ -2,13 +2,12 @@
 
 import argparse
 import os
+
 from playwright.sync_api import sync_playwright
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(
-        description="Render a page with Playwright and dump HTML."
-    )
+    parser = argparse.ArgumentParser(description="Render a page with Playwright and dump HTML.")
     parser.add_argument("url", help="URL to open")
     parser.add_argument(
         "--output",

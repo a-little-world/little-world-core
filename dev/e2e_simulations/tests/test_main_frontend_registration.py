@@ -1,6 +1,6 @@
 import os
-import time
 import re
+import time
 
 
 def _dismiss_cookie_banner(page) -> None:
