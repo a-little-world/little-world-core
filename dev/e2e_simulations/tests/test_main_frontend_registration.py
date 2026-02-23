@@ -175,6 +175,7 @@ def test_registration_flow_creates_user(page, e2e_base_url: str) -> None:
     page.wait_for_load_state("networkidle")
     try:
         page.wait_for_function("() => !window.location.pathname.includes('/sign-up')")
+        page.wait_for_url(re.compile(r"/app/verify-email"), timeout=15000)
     except Exception:
         debug_dir = os.path.join(os.getcwd(), "artifacts")
         os.makedirs(debug_dir, exist_ok=True)
@@ -204,6 +205,7 @@ def test_registration_flow_creates_user(page, e2e_base_url: str) -> None:
         raise
 
     assert "/sign-up" not in page.url
+    assert "/app/verify-email" in page.url
 
     cookies = page.context.cookies()
     assert any("session" in cookie.get("name", "").lower() for cookie in cookies)
