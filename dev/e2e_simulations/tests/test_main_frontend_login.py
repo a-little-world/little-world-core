@@ -125,9 +125,7 @@ def test_login_sets_session_cookie(page, e2e_base_url: str) -> None:
     assert "/login" not in page.url
 
     cookies = page.context.cookies()
-    assert any(
-        cookie.get("name", "").lower() == "sessionid" for cookie in cookies
-    )
+    assert any(cookie.get("name", "").lower() == "sessionid" for cookie in cookies)
 
     dashboard_candidates = [
         page.get_by_role("link", name="Dashboard"),
