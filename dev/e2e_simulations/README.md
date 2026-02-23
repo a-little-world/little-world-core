@@ -49,6 +49,24 @@ Run with visible browser windows:
 bash dev/e2e_simulations/run.sh --headed
 ```
 
+Run slowed-down simulation steps (default 250ms/action):
+
+```bash
+bash dev/e2e_simulations/run.sh --slow
+```
+
+Set a custom delay in milliseconds:
+
+```bash
+bash dev/e2e_simulations/run.sh --slow=700
+```
+
+Combine both (recommended for visual debugging):
+
+```bash
+bash dev/e2e_simulations/run.sh --headed --slow=700 -k login -vv
+```
+
 ## Host requirements
 
 - Chromium dependencies required by Playwright (script installs the browser itself)

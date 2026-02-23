@@ -16,6 +16,7 @@ if [ -z "${E2E_PYTHON_BIN:-}" ] && [ "${PY_BIN}" = "python3" ] && command -v pye
   fi
 fi
 HEADED=0
+SLOW_MO_MS=""
 PYTEST_ARGS=()
 
 export LD_LIBRARY_PATH="/run/current-system/sw/lib:/run/current-system/sw/share/nix-ld/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
@@ -23,10 +24,21 @@ export LD_LIBRARY_PATH="/run/current-system/sw/lib:/run/current-system/sw/share/
 for arg in "$@"; do
   if [ "${arg}" = "--headed" ]; then
     HEADED=1
+  elif [ "${arg}" = "--slow" ]; then
+    SLOW_MO_MS="${E2E_SLOW_MO_MS:-250}"
+  elif [[ "${arg}" == --slow=* ]]; then
+    SLOW_MO_MS="${arg#--slow=}"
+  elif [[ "${arg}" == --slow-ms=* ]]; then
+    SLOW_MO_MS="${arg#--slow-ms=}"
   else
     PYTEST_ARGS+=("${arg}")
   fi
 done
+
+if [ -n "${SLOW_MO_MS}" ] && ! [[ "${SLOW_MO_MS}" =~ ^[0-9]+$ ]]; then
+  echo "Invalid slow mode value: '${SLOW_MO_MS}'. Use --slow or --slow=<milliseconds>."
+  exit 1
+fi
 
 if [ ! -d "${VENV_DIR}" ]; then
   "${PY_BIN}" -m venv "${VENV_DIR}"
@@ -49,6 +61,9 @@ then
 fi
 
 export E2E_BASE_URL="${BASE_URL}"
+if [ -n "${SLOW_MO_MS}" ]; then
+  export E2E_SLOW_MO_MS="${SLOW_MO_MS}"
+fi
 cd "${E2E_DIR}"
 if [ "${HEADED}" = "1" ]; then
   python -m pytest -q --headed tests "${PYTEST_ARGS[@]}"

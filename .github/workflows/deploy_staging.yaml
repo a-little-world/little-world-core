@@ -79,8 +79,11 @@ jobs:
           SHOULD_STAGE=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH" | grep -x 'staging' || true)
           # Determine if the PR currently has the 'android' label
           SHOULD_BUILD_ANDROID=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH" | grep -x 'android' || true)
+          # Determine if the PR currently has the 'e2e' label
+          SHOULD_RUN_E2E=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH" | grep -x 'e2e' || true)
           echo "SHOULD_STAGE=$SHOULD_STAGE" >> $GITHUB_OUTPUT
           echo "SHOULD_BUILD_ANDROID=$SHOULD_BUILD_ANDROID" >> $GITHUB_OUTPUT
+          echo "SHOULD_RUN_E2E=$SHOULD_RUN_E2E" >> $GITHUB_OUTPUT
           echo "PULL_NUMBER=$pull_number" >> $GITHUB_OUTPUT
       - name: Prepare Android section content
         id: android_section
@@ -325,12 +328,55 @@ jobs:
           set -e
           if [ $TEST_EXIT -eq 0 ]; then echo "test_result=pass" >> $GITHUB_OUTPUT; else echo "test_result=fail" >> $GITHUB_OUTPUT; fi
           docker compose down redis
+      - name: Measure start time e2e tests
+        id: start_e2e_tests
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        run: |
+          echo "time=$(date +%s)" >> $GITHUB_OUTPUT
+      - name: Run e2e simulation tests
+        id: run_e2e_tests
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        run: |
+          set -euo pipefail
+          sed -i '/^REDIS_URL/d' .env
+          REDIS_URL="redis://redis:6379"
+          echo "REDIS_URL=\"$REDIS_URL\"" >> .env
+          docker compose up -d redis all
+          sleep 15
+          LOG_FILE="e2e_test_output.log"
+          : > "$LOG_FILE"
+          set +e
+          E2E_BASE_URL="http://localhost:8000" bash dev/e2e_simulations/run.sh 2>&1 | tee -a "$LOG_FILE"
+          TEST_EXIT=${PIPESTATUS[0]}
+          set -e
+          if [ $TEST_EXIT -eq 0 ]; then echo "test_result=pass" >> $GITHUB_OUTPUT; else echo "test_result=fail" >> $GITHUB_OUTPUT; fi
+          docker compose down all redis
+      - name: Measure end time e2e tests
+        id: end_e2e_tests
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        run: |
+          echo "time=$(date +%s)" >> $GITHUB_OUTPUT
+      - name: Calculate execution time e2e tests
+        id: execution_time_e2e_tests
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        run: |
+          START=${{ steps.start_e2e_tests.outputs.time }}
+          END=${{ steps.end_e2e_tests.outputs.time }}
+          DIFF=$(( END - START ))
+          echo "DURATION=$DIFF" >> $GITHUB_OUTPUT
       - name: Upload test log artifact
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != ''
         uses: actions/upload-artifact@v4
         with:
           name: django-test-log
           path: test_output.log
+          if-no-files-found: ignore
+      - name: Upload e2e test log artifact
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-log
+          path: e2e_test_output.log
           if-no-files-found: ignore
       - name: Get artifact page URL
         id: get_test_artifact_url
@@ -345,6 +391,16 @@ jobs:
           # Prepare a truncated snippet to avoid exceeding GitHub comment limits
           # Take the last 400 lines; fall back gracefully if file is small/missing
           SNIPPET="$( (tail -n 400 test_output.log 2>/dev/null || true) )"
+          {
+            echo "snippet<<EOF"
+            echo "$SNIPPET"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - name: Prepare e2e test log snippet
+        id: e2e_test_log_snippet
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && steps.run_e2e_tests.outputs.test_result == 'fail'
+        run: |
+          SNIPPET="$( (tail -n 400 e2e_test_output.log 2>/dev/null || true) )"
           {
             echo "snippet<<EOF"
             echo "$SNIPPET"
@@ -369,12 +425,18 @@ jobs:
           token: ${{ secrets.BOT_PAT }}
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
           body: |
-            Test Result: ${{ steps.run_tests.outputs.test_result }} ${{
+            Django Test Result: ${{ steps.run_tests.outputs.test_result }} ${{
               fromJSON('{"fail":"❌","pass":"✅"}')[steps.run_tests.outputs.test_result]
             }}
-            Duration: ${{ steps.execution_time_tests.outputs.DURATION }} seconds
+            Django Duration: ${{ steps.execution_time_tests.outputs.DURATION }} seconds
             
             Artifacts: [View in run](${{ steps.get_test_artifact_url.outputs.url }}) (`django-test-log`)
+
+            E2E Test Result: ${{ steps.run_e2e_tests.outputs.test_result || 'not-triggered' }} ${{
+              fromJSON('{"fail":"❌","pass":"✅","not-triggered":"➖"}')[steps.run_e2e_tests.outputs.test_result || 'not-triggered']
+            }}
+            E2E Duration: ${{ steps.execution_time_e2e_tests.outputs.DURATION || 'n/a' }} seconds
+            E2E Artifacts: [View in run](${{ steps.get_test_artifact_url.outputs.url }}) (`e2e-test-log`)
 
             <!-- lw-staging-workflow -->
       - name: Append test log on failure
@@ -390,5 +452,20 @@ jobs:
             
             ```text
             ${{ steps.test_log_snippet.outputs.snippet }}
+            ```
+            </details>
+      - name: Append e2e test log on failure
+        uses: peter-evans/create-or-update-comment@v4
+        id: append_e2e_test_log_failure
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && steps.run_e2e_tests.outputs.test_result == 'fail'
+        with:
+          token: ${{ secrets.BOT_PAT }}
+          comment-id: ${{ steps.create_comment.outputs.comment-id }}
+          body: |
+            <details>
+            <summary>E2E test log (last 400 lines)</summary>
+
+            ```text
+            ${{ steps.e2e_test_log_snippet.outputs.snippet }}
             ```
             </details>
