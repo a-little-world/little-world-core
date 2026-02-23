@@ -151,15 +151,15 @@ jobs:
           token: ${{ secrets.BOT_PAT }}
           issue-number: ${{ steps.determine_pull_id.outputs.PULL_NUMBER }}
           body: |
-            @littleworld-bot : running tests and deployment for you ...
+            running tests and deployment for you :)
 
             <!-- lw-staging-workflow -->
 
-            - [ ] `(1) 'setup'`
+            - [ ] `(1) 'setup'` [run](${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }})
             - [ ] `(2) 'build' t=<build-time-loading>`
             ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '- [ ] `(3) ''deploy'' url=<deployment-url-loading>`' || '- [ ] ~~`(3) ''deploy'' url=<deployment-url-loading>`~~' }}
-            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '- [ ] `(4) ''test'' t=<test-time-loading>`' || '- [ ] ~~`(4) ''test'' t=<test-time-loading>`~~' }}
-            ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && '- [ ] `(5) ''e2e'' t=<e2e-time-loading>`' || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '- [ ] `(4) ''test''` `loading` t=<test-time-loading>' || '- [ ] ~~`(4) ''test'' t=<test-time-loading>`~~' }}
+            ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && '- [ ] `(5) ''e2e''` `loading` t=<e2e-time-loading>' || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
       - name: Setup Emperial Env
         if: steps.extract_branch.outputs.branch != 'main' && (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' || steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '')
         id: setup_emperial_env
@@ -189,15 +189,15 @@ jobs:
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
           edit-mode: replace
           body: |
-            @littleworld-bot : running tests and deployment for you ...
+            running tests and deployment for you :)
 
             <!-- lw-staging-workflow -->
 
-            - [x] `(1) 'setup'`
+            - [x] `(1) 'setup'` [run](${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }})
             - [ ] `(2) 'build' t=<build-time-loading>`
             ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '- [ ] `(3) ''deploy'' url=<deployment-url-loading>`' || '- [ ] ~~`(3) ''deploy'' url=<deployment-url-loading>`~~' }}
-            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '- [ ] `(4) ''test'' t=<test-time-loading>`' || '- [ ] ~~`(4) ''test'' t=<test-time-loading>`~~' }}
-            ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && '- [ ] `(5) ''e2e'' t=<e2e-time-loading>`' || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '- [ ] `(4) ''test''` `loading` t=<test-time-loading>' || '- [ ] ~~`(4) ''test'' t=<test-time-loading>`~~' }}
+            ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && '- [ ] `(5) ''e2e''` `loading` t=<e2e-time-loading>' || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
       - name: Measure start time
         id: start
         run: |
@@ -230,15 +230,15 @@ jobs:
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
           edit-mode: replace
           body: |
-            @littleworld-bot : running tests and deployment for you ...
+            running tests and deployment for you :)
 
             <!-- lw-staging-workflow -->
 
-            - [x] `(1) 'setup'`
+            - [x] `(1) 'setup'` [run](${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }})
             - [x] `(2) 'build' t=${{ steps.execution_time.outputs.DURATION }}s`
             ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '- [ ] `(3) ''deploy'' url=<deployment-url-loading>`' || '- [ ] ~~`(3) ''deploy'' url=<deployment-url-loading>`~~' }}
-            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '- [ ] `(4) ''test'' t=<test-time-loading>`' || '- [ ] ~~`(4) ''test'' t=<test-time-loading>`~~' }}
-            ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && '- [ ] `(5) ''e2e'' t=<e2e-time-loading>`' || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '- [ ] `(4) ''test''` `loading` t=<test-time-loading>' || '- [ ] ~~`(4) ''test'' t=<test-time-loading>`~~' }}
+            ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && '- [ ] `(5) ''e2e''` `loading` t=<e2e-time-loading>' || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
       - uses: azure/setup-helm@v4.3.0
         with:
           version: "latest"
@@ -287,15 +287,15 @@ jobs:
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
           edit-mode: replace
           body: |
-            @littleworld-bot : running tests and deployment for you ...
+            running tests and deployment for you :)
 
             <!-- lw-staging-workflow -->
 
-            - [x] `(1) 'setup'`
+            - [x] `(1) 'setup'` [run](${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }})
             - [x] `(2) 'build' t=${{ steps.execution_time.outputs.DURATION }}s`
-            - [x] `(3) 'deploy' url=${{ steps.cluster_connection.outputs.STAGING_URL }}`
-            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '- [ ] `(4) ''test'' t=<test-time-loading>`' || '- [ ] ~~`(4) ''test'' t=<test-time-loading>`~~' }}
-            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && '- [ ] `(5) ''e2e'' t=<e2e-time-loading>`' || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
+            - [x] `(3) 'deploy'` [`url=${{ steps.cluster_connection.outputs.STAGING_URL }}`](${{ steps.cluster_connection.outputs.STAGING_URL }})
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '- [ ] `(4) ''test''` `running` t=<test-time-loading>' || '- [ ] ~~`(4) ''test'' t=<test-time-loading>`~~' }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && '- [ ] `(5) ''e2e''` `running` t=<e2e-time-loading>' || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
 
       - name: Notify Slack Channel
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != ''
@@ -453,16 +453,15 @@ jobs:
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
           edit-mode: replace
           body: |
-            @littleworld-bot : running tests and deployment for you ...
+            running tests and deployment for you :)
 
             <!-- lw-staging-workflow -->
 
-            - [x] `(1) 'setup'`
+            - [x] `(1) 'setup'` [run](${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }})
             - [x] `(2) 'build' t=${{ steps.execution_time.outputs.DURATION }}s`
-            ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && format('- [x] `(3) ''deploy'' url={0}`', steps.cluster_connection.outputs.STAGING_URL) || '- [ ] ~~`(3) ''deploy'' url=<deployment-url-loading>`~~' }}
-            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && format('- [x] `(4) ''test'' t={0}s`', steps.execution_time_tests.outputs.DURATION) || '- [ ] ~~`(4) ''test'' t=<test-time-loading>`~~' }}
-            ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && format('- [x] `(5) ''e2e'' t={0}s`', steps.execution_time_e2e_tests.outputs.DURATION) || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
-            run: ${{ steps.get_test_artifact_url.outputs.url || format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && format('- [x] `(3) ''deploy''` [`url={0}`]({0})', steps.cluster_connection.outputs.STAGING_URL) || '- [ ] ~~`(3) ''deploy'' url=<deployment-url-loading>`~~' }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && (steps.run_tests.outputs.test_result == 'pass' && format('- [x] `(4) ''test''` `success` t={0}s', steps.execution_time_tests.outputs.DURATION) || format('- [x] `(4) ''test''` `failed` t={0}s', steps.execution_time_tests.outputs.DURATION)) || '- [ ] ~~`(4) ''test'' t=<test-time-loading>`~~' }}
+            ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && (steps.run_e2e_tests.outputs.test_result == 'pass' && format('- [x] `(5) ''e2e''` `success` t={0}s', steps.execution_time_e2e_tests.outputs.DURATION) || format('- [x] `(5) ''e2e''` `failed` t={0}s', steps.execution_time_e2e_tests.outputs.DURATION)) || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
 
             <details>
             <summary>Django test output (last 400 lines)</summary>
