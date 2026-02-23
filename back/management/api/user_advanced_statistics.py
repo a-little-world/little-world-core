@@ -1,5 +1,5 @@
 import csv
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from io import StringIO
 
 import requests
@@ -1406,6 +1406,10 @@ def time_slot_counts(request):
     """
     Returns counts of how many users have selected each time slot for each day.
     This helps identify the most common availability patterns across all users.
+
+    Optional query params start_date and end_date (YYYY-MM-DD): when both are provided,
+    restrict to users who either signed up in that date range or had match activity
+    (latest_interaction_at) in that range. If omitted, returns counts for all users.
     """
     from management.validators import DAY_TRANS, DAYS, SLOT_TRANS, SLOTS
 
@@ -1413,6 +1417,36 @@ def time_slot_counts(request):
     pre_filtered_users = User.objects.all()
     if not request.user.is_staff:
         pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+
+    # Optional date range: only users who signed up or were active in [start_date, end_date]
+    start_date_str = request.GET.get("start_date")
+    end_date_str = request.GET.get("end_date")
+    if start_date_str and end_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            pass
+        else:
+            # Users who signed up in the date range
+            users_signup_in_range = pre_filtered_users.filter(
+                date_joined__date__gte=start_date,
+                date_joined__date__lte=end_date,
+            ).values_list("id", flat=True)
+            # Users who had match activity (latest_interaction_at) in the date range
+            matches_in_range = Match.objects.filter(
+                latest_interaction_at__date__gte=start_date,
+                latest_interaction_at__date__lte=end_date,
+            )
+            user_ids_active_in_range = set(matches_in_range.values_list("user1_id", flat=True)) | set(
+                matches_in_range.values_list("user2_id", flat=True)
+            )
+            user_ids_in_range = set(users_signup_in_range) | user_ids_active_in_range
+            if user_ids_in_range:
+                pre_filtered_users = pre_filtered_users.filter(id__in=user_ids_in_range)
+            else:
+                # No users in range -> return empty counts
+                pre_filtered_users = pre_filtered_users.none()
 
     # Initialize the counts dictionary with all days and slots set to 0
     counts = {day: {slot: 0 for slot in SLOTS} for day in DAYS}
