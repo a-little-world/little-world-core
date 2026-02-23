@@ -338,19 +338,36 @@ jobs:
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
         run: |
           set -euo pipefail
+          cleanup() {
+            docker compose logs --no-color all redis > e2e_services.log 2>&1 || true
+            docker compose down all redis || true
+          }
+          trap cleanup EXIT
           sed -i '/^REDIS_URL/d' .env
           REDIS_URL="redis://redis:6379"
           echo "REDIS_URL=\"$REDIS_URL\"" >> .env
           docker compose up -d redis all
-          sleep 15
+          echo "Waiting for backend readiness on http://127.0.0.1:8000/login ..."
+          READY=0
+          for i in $(seq 1 60); do
+            if curl -fsS "http://127.0.0.1:8000/login" >/dev/null; then
+              READY=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$READY" -ne 1 ]; then
+            echo "Backend did not become ready in time"
+            docker compose ps || true
+            exit 1
+          fi
           LOG_FILE="e2e_test_output.log"
           : > "$LOG_FILE"
           set +e
-          E2E_BASE_URL="http://localhost:8000" bash dev/e2e_simulations/run.sh 2>&1 | tee -a "$LOG_FILE"
+          E2E_BASE_URL="http://127.0.0.1:8000" bash dev/e2e_simulations/run.sh 2>&1 | tee -a "$LOG_FILE"
           TEST_EXIT=${PIPESTATUS[0]}
           set -e
           if [ $TEST_EXIT -eq 0 ]; then echo "test_result=pass" >> $GITHUB_OUTPUT; else echo "test_result=fail" >> $GITHUB_OUTPUT; fi
-          docker compose down all redis
       - name: Measure end time e2e tests
         id: end_e2e_tests
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
@@ -377,6 +394,13 @@ jobs:
         with:
           name: e2e-test-log
           path: e2e_test_output.log
+          if-no-files-found: ignore
+      - name: Upload e2e service log artifact
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_STAGE != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-service-log
+          path: e2e_services.log
           if-no-files-found: ignore
       - name: Get artifact page URL
         id: get_test_artifact_url
@@ -431,12 +455,11 @@ jobs:
             Django Duration: ${{ steps.execution_time_tests.outputs.DURATION }} seconds
             
             Artifacts: [View in run](${{ steps.get_test_artifact_url.outputs.url }}) (`django-test-log`)
-
             E2E Test Result: ${{ steps.run_e2e_tests.outputs.test_result || 'not-triggered' }} ${{
               fromJSON('{"fail":"❌","pass":"✅","not-triggered":"➖"}')[steps.run_e2e_tests.outputs.test_result || 'not-triggered']
             }}
             E2E Duration: ${{ steps.execution_time_e2e_tests.outputs.DURATION || 'n/a' }} seconds
-            E2E Artifacts: [View in run](${{ steps.get_test_artifact_url.outputs.url }}) (`e2e-test-log`)
+            E2E Artifacts: [View in run](${{ steps.get_test_artifact_url.outputs.url }}) (`e2e-test-log`, `e2e-service-log`)
 
             <!-- lw-staging-workflow -->
       - name: Append test log on failure
