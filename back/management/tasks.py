@@ -198,13 +198,15 @@ def check_prematch_email_reminders_and_expirations():
     # unconfirmed matches reminders
     for unclosed in all_unclosed_unconfirmed:
         if unclosed.is_expired(close_if_expired=True, send_mail_if_expired=True):
-            # Now we have to set the learner to unresponsive = True and to searching = IDLE
+            # Now we have to set the learner to unresponsive = True and to searching = IDLE unless user has match priority
             learner_state = unclosed.learner_when_created.state
-            learner_state.searching_state = State.SearchingStateChoices.IDLE
-            learner_state.unresponsive = True
-            learner_state.append_notes(f"Set to unresponsive cause let proposal expire: 'proposal:{unclosed.pk}'")
-            learner_state.save()
-            continue
+            if not learner_state.has_match_priority:
+                learner_state.searching_state = State.SearchingStateChoices.IDLE
+                learner_state.unresponsive = True
+                learner_state.append_notes(f"Set to unresponsive cause let proposal expire: 'proposal:{unclosed.pk}'")
+                learner_state.save()
+                continue
+
         unclosed.is_reminder_due(send_reminder=True)
 
 

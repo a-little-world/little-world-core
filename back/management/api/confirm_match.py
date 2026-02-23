@@ -92,7 +92,9 @@ def confirm_match(request):
         unconfirmed_match.rejected_reason = data.deny_reason
         unconfirmed_match.save()
 
-        request.user.state.searching_state = State.SearchingStateChoices.IDLE
+        if not request.user.state.has_match_priority:
+            request.user.state.searching_state = State.SearchingStateChoices.IDLE
+
         request.user.state.save()
 
         return Response(get_translation("confirm_match.match_rejected"))
