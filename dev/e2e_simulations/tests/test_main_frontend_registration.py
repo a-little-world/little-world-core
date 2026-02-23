@@ -277,7 +277,7 @@ def _fill_interests_and_continue(page) -> None:
 
     if selected_interest_count < 3:
         selected_interest_count += page.evaluate(
-        """
+            """
         () => {
             const isVisible = (el) => {
                 const style = window.getComputedStyle(el);
