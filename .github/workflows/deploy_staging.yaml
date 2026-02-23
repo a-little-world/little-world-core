@@ -5,6 +5,7 @@ on:
     types:
       - synchronize
       - labeled
+      - unlabeled
 
 concurrency:
   group: ${{ github.event.pull_request.id }}
@@ -16,9 +17,41 @@ permissions:
   id-token: write
 
 jobs:
-  make_docs:
+  no_labels_guidance:
+    runs-on: ubuntu-latest
+    name: Label Guidance
+    if: github.event.pull_request.head.ref != 'main' && !contains(github.event.pull_request.labels.*.name, 'deploy') && !contains(github.event.pull_request.labels.*.name, 'test') && !contains(github.event.pull_request.labels.*.name, 'e2e') && !contains(github.event.pull_request.labels.*.name, 'android')
+    steps:
+      - name: Delete previous workflow progress comments
+        run: |
+          comments=$(curl -s -H "Authorization: token ${{ secrets.BOT_PAT }}" \
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+            | jq -r '.[] | select(.user.login=="littleworld-bot") | select(.body | contains("<!-- lw-staging-workflow -->")) | .id')
+          for comment in $comments
+          do
+            curl -s -H "Authorization: token ${{ secrets.BOT_PAT }}" -X DELETE https://api.github.com/repos/${{ github.repository }}/issues/comments/$comment
+          done
+      - name: Post no-label guidance comment
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          token: ${{ secrets.BOT_PAT }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body-includes: "<!-- lw-staging-no-label-guidance -->"
+          edit-mode: replace
+          body: |
+            Hello there 🙂 if you add labels, I'll do things:
+
+            - `deploy`: deploy a test server
+            - `test`: run the django backend tests
+            - `e2e`: run the end to end tests
+
+            I'll only allow workflows to merge that have passed `e2e` and `test` ( only admin may bypass this rule ).
+
+            <!-- lw-staging-no-label-guidance -->
+  run_tests_and_deploy:
     runs-on: ubuntu-latest
     name: Test (api/e2e) & Deploy
+    if: contains(github.event.pull_request.labels.*.name, 'deploy') || contains(github.event.pull_request.labels.*.name, 'test') || contains(github.event.pull_request.labels.*.name, 'e2e') || contains(github.event.pull_request.labels.*.name, 'android')
     steps:
       - uses: actions/checkout@main
         with:
