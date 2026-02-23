@@ -26,7 +26,7 @@ jobs:
         run: |
           comments=$(curl -s -H "Authorization: token ${{ secrets.BOT_PAT }}" \
             https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
-            | jq -r '.[] | select(.user.login=="littleworld-bot") | select(.body | contains("<!-- lw-staging-workflow -->")) | .id')
+            | jq -r '.[] | select(.user.login=="littleworld-bot") | select((.body | contains("<!-- lw-staging-workflow -->")) or (.body | contains("<!-- lw-staging-no-label-guidance -->"))) | .id')
           for comment in $comments
           do
             curl -s -H "Authorization: token ${{ secrets.BOT_PAT }}" -X DELETE https://api.github.com/repos/${{ github.repository }}/issues/comments/$comment
@@ -48,7 +48,7 @@ jobs:
             I'll only allow workflows to merge that have passed `e2e` and `test` ( only admin may bypass this rule ).
 
             <!-- lw-staging-no-label-guidance -->
-  run_tests_and_deploy:
+  run-tests-and-deploy:
     runs-on: ubuntu-latest
     name: Test (api/e2e) & Deploy
     if: contains(github.event.pull_request.labels.*.name, 'deploy') || contains(github.event.pull_request.labels.*.name, 'test') || contains(github.event.pull_request.labels.*.name, 'e2e') || contains(github.event.pull_request.labels.*.name, 'android')
