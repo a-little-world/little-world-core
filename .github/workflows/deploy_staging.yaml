@@ -155,19 +155,15 @@ jobs:
 
             <!-- lw-staging-workflow -->
 
-            | Area | Selected | Status |
+            | test | e2e | deploy |
             | --- | --- | --- |
-            | Deployment | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && 'Yes' || 'No' }} | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '⏳ Pending' || '⏭️ Skipped' }} |
-            | Django tests | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && 'Yes' || 'No' }} | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '⏳ Pending' || '⏭️ Skipped' }} |
-            | E2E tests | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && 'Yes' || 'No' }} | ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && '⏳ Pending' || '⏭️ Skipped' }} |
+            | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '⏳' || '⏭️' }} | ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && '⏳' || '⏭️' }} | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '⏳' || '⏭️' }} |
 
-            - [ ] Setup environment
-            - [ ] Build image
-            - [ ] Deploy to Helm
-            - [ ] Run Django tests
-            - [ ] Run E2E tests
-
-            ${{ steps.android_section.outputs.section }}
+            - [ ] setup
+            - [ ] build
+            - [ ] deploy
+            - [ ] test
+            - [ ] e2e
       - name: Setup Emperial Env
         if: steps.extract_branch.outputs.branch != 'main' && (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' || steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '')
         id: setup_emperial_env
@@ -195,22 +191,21 @@ jobs:
         with:
           token: ${{ secrets.BOT_PAT }}
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
+          edit-mode: replace
           body: |
             ## CI Progress
 
             <!-- lw-staging-workflow -->
 
-            | Area | Selected | Status |
+            | test | e2e | deploy |
             | --- | --- | --- |
-            | Deployment | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && 'Yes' || 'No' }} | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '🚧 In progress' || '⏭️ Skipped' }} |
-            | Django tests | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && 'Yes' || 'No' }} | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '⏳ Pending' || '⏭️ Skipped' }} |
-            | E2E tests | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && 'Yes' || 'No' }} | ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && '⏳ Pending' || '⏭️ Skipped' }} |
+            | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '⏳' || '⏭️' }} | ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && '⏳' || '⏭️' }} | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '🚧' || '⏭️' }} |
 
-            - [x] Setup environment
-            - [ ] Build image
-            - [ ] Deploy to Helm
-            - [ ] Run Django tests
-            - [ ] Run E2E tests
+            - [x] setup
+            - [ ] build
+            - [ ] deploy
+            - [ ] test
+            - [ ] e2e
       - name: Measure start time
         id: start
         run: |
@@ -241,26 +236,23 @@ jobs:
         with:
           token: ${{ secrets.BOT_PAT }}
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
+          edit-mode: replace
           body: |
             ## CI Progress
 
             <!-- lw-staging-workflow -->
 
-            | Area | Selected | Status |
+            | test | e2e | deploy |
             | --- | --- | --- |
-            | Deployment | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && 'Yes' || 'No' }} | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '🚧 In progress' || '⏭️ Skipped' }} |
-            | Django tests | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && 'Yes' || 'No' }} | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '⏳ Pending' || '⏭️ Skipped' }} |
-            | E2E tests | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && 'Yes' || 'No' }} | ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && '⏳ Pending' || '⏭️ Skipped' }} |
+            | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '⏳' || '⏭️' }} | ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && '⏳' || '⏭️' }} | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '🚧' || '⏭️' }} |
 
-            - [x] Setup environment
-            - [x] Build image
-            - [ ] Deploy to Helm
-            - [ ] Run Django tests
-            - [ ] Run E2E tests
+            - [x] setup
+            - [x] build
+            - [ ] deploy
+            - [ ] test
+            - [ ] e2e
 
-            Build duration: `${{ steps.execution_time.outputs.DURATION }}s`
-            Image: `${{ steps.setup_emperial_env.outputs.IMAGE_URL }}`
-            Namespace: `${{ steps.setup_emperial_env.outputs.NAMESPACE }}`
+            b:${{ steps.execution_time.outputs.DURATION }}s
       - uses: azure/setup-helm@v4.3.0
         with:
           version: "latest"
@@ -307,25 +299,23 @@ jobs:
         with:
           token: ${{ secrets.BOT_PAT }}
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
+          edit-mode: replace
           body: |
             ## CI Progress
 
             <!-- lw-staging-workflow -->
 
-            | Area | Selected | Status |
+            | test | e2e | deploy |
             | --- | --- | --- |
-            | Deployment | Yes | ✅ Complete |
-            | Django tests | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && 'Yes' || 'No' }} | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '⏳ Pending' || '⏭️ Skipped' }} |
-            | E2E tests | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && 'Yes' || 'No' }} | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && '⏳ Pending' || '⏭️ Skipped' }} |
+            | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '⏳' || '⏭️' }} | ${{ (steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && '⏳' || '⏭️' }} | ✅ |
 
-            - [x] Setup environment
-            - [x] Build image
-            - [x] Deploy to Helm
-            - [ ] Run Django tests
-            - [ ] Run E2E tests
+            - [x] setup
+            - [x] build
+            - [x] deploy
+            - [ ] test
+            - [ ] e2e
 
-            Deployed URL: [`${{ steps.cluster_connection.outputs.STAGING_URL }}`](${{ steps.cluster_connection.outputs.STAGING_URL }})
-            > Note: DNS/HTTPS provisioning can take up to ~5 minutes.
+            url: ${{ steps.cluster_connection.outputs.STAGING_URL }}
 
       - name: Notify Slack Channel
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != ''
@@ -481,27 +471,24 @@ jobs:
         with:
           token: ${{ secrets.BOT_PAT }}
           comment-id: ${{ steps.create_comment.outputs.comment-id }}
+          edit-mode: replace
           body: |
             ## CI Progress
 
             <!-- lw-staging-workflow -->
 
-            | Area | Selected | Status |
+            | test | e2e | deploy |
             | --- | --- | --- |
-            | Deployment | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && 'Yes' || 'No' }} | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '✅ Complete' || '⏭️ Skipped' }} |
-            | Django tests | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && 'Yes' || 'No' }} | ${{ fromJSON('{"pass":"✅ Pass","fail":"❌ Fail","":"⏭️ Skipped"}')[steps.run_tests.outputs.test_result || ''] }} |
-            | E2E tests | ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && 'Yes' || 'No' }} | ${{ fromJSON('{"pass":"✅ Pass","fail":"❌ Fail","":"⏭️ Skipped"}')[steps.run_e2e_tests.outputs.test_result || ''] }} |
+            | ${{ fromJSON('{"pass":"✅","fail":"❌","":"⏭️"}')[steps.run_tests.outputs.test_result || ''] }} | ${{ fromJSON('{"pass":"✅","fail":"❌","":"⏭️"}')[steps.run_e2e_tests.outputs.test_result || ''] }} | ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '✅' || '⏭️' }} |
 
-            - [x] Setup environment
-            - [x] Build image
-            - [${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && 'x' || ' ' }}] Deploy to Helm
-            - [${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && 'x' || ' ' }}] Run Django tests
-            - [${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && 'x' || ' ' }}] Run E2E tests
+            - [x] setup
+            - [x] build
+            - [${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && 'x' || ' ' }}] deploy
+            - [${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && 'x' || ' ' }}] test
+            - [${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && 'x' || ' ' }}] e2e
 
-            Build duration: `${{ steps.execution_time.outputs.DURATION }}s`
-            Django duration: `${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && format('{0}s', steps.execution_time_tests.outputs.DURATION) || 'n/a' }}`
-            E2E duration: `${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && format('{0}s', steps.execution_time_e2e_tests.outputs.DURATION) || 'n/a' }}`
-            Artifacts: [View in run](${{ steps.get_test_artifact_url.outputs.url || format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }})
+            dur b/t/e: ${{ steps.execution_time.outputs.DURATION }}s / ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && format('{0}s', steps.execution_time_tests.outputs.DURATION) || 'n/a' }} / ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && format('{0}s', steps.execution_time_e2e_tests.outputs.DURATION) || 'n/a' }}
+            run: ${{ steps.get_test_artifact_url.outputs.url || format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}
 
             <details>
             <summary>Django test output (last 400 lines)</summary>
