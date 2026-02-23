@@ -1,6 +1,6 @@
 console.log("Rendering imported banner js")
 {% load temp_utils %}
-{% get_cookie_banner_data request=request as cookie_data_json %}
+{% get_cookie_banner_data request hidden_cookie_banner as cookie_data_json %}
 const cookieData = JSON.parse(JSON.parse('{{ cookie_data_json | escapejs }}').cookie_data);
 {% load render_bundle from webpack_loader %}
 {% render_bundle 'staticfiles' 'js' 'cookie_banner_frontend' as JS_BASE_CODE %}
@@ -9,9 +9,8 @@ const baseUrl = "{{ BASE_URL }}";
 const script = '{{ JS_BASE_CODE }}';
 const scripUrl = script.split('"')[1];
 console.log("Script Url", scripUrl);
-// TODO: test if this works, normally cookies are not send cross domain, but this is the same domain only another sub-domain
-
 console.log("COOKIE DATA", cookieData);
+const cookieBannerIsHidden = cookieData?.hiddenCookieBanner;
 
 const initCode = () => {
     console.log("DOM loaded");
@@ -19,18 +18,25 @@ const initCode = () => {
 
     const div = document.createElement('div');
     div.id = "shadow-root"; // The root container for the cookie banner
-    div.style.zIndex = "1000"
+    if (!cookieBannerIsHidden) {
+        div.style.zIndex = "1000";
+    } else {
+        div.style.zIndex = "0";
+    }
     div.style.position = "fixed";
+    if (cookieBannerIsHidden) {
+        div.style.visibility = "hidden"; // then the script will still be loaded based on the users pre-selection
+    }
     document.body.appendChild(div);
 
     const scriptPromise = new Promise((resolve, reject) => {
-    const script = document.createElement('script');
-    document.head.appendChild(script);
-    //document.head.insertBefore(script, document.head.firstElementChild)
-    script.onload = resolve;
-    script.onerror = reject;
-    script.async = true;
-    script.src = baseUrl + scripUrl;
+        const script = document.createElement('script');
+        document.head.appendChild(script);
+        // document.head.insertBefore(script, document.head.firstElementChild)
+        script.onload = resolve;
+        script.onerror = reject;
+        script.async = true;
+        script.src = baseUrl + scripUrl;
     });
     const toImpressum = () => {
         window.location.replace("https://home.little-world.com/impressum");
@@ -39,7 +45,7 @@ const initCode = () => {
         window.location.replace("https://home.little-world.com/datenschutz");
     }
     scriptPromise.then(() => {
-        cookieBanner(JSON.parse(cookieData.cookieGroups), JSON.parse(cookieData.cookieSets), null, toImpressum, toPrivacy);
+        cookieBanner(JSON.parse(cookieData.cookieGroups), JSON.parse(cookieData.cookieSets), null, toImpressum, toPrivacy, cookieBannerIsHidden);
     });
 }
 

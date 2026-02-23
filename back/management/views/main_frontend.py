@@ -122,6 +122,12 @@ class MainFrontendRouter(View):
             user_data = get_user_data(request.user)
         extra_template_data["sentry_user_id"] = request.user.hash
 
+        # The cookie banner must also be include inside the main app, cause this enabled conversion on the user form
+        # The cookie banner OPTIONALLY loads the tracking scripts ONLY IF the cookies where accepted before!
+        # If cookies are denied again, after they where added, existing cookies are deleted and tracking scripts unloaded!
+        cookie_context = get_cookie_banner_template_data(request, hidden_cookie_banner=True)
+        extra_template_data.update(cookie_context)
+
         return render(
             request,
             "main_frontend.html",

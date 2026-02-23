@@ -486,7 +486,9 @@ class UpdateSearchingStateApi(APIView):
             if settings.ENABLE_AUTO_EMAILS__U081_U082_U083_U084:
                 if request.user.state.has_received_first_match and (not request.user.state.auto_emails_u081_send):
                     # send searching again email once
-                    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.AUTO_EMAILS_EMULATE_ONLY)
+                    emulated_send = bool(settings.DJANGO_TESTING) or bool(
+                        settings.EMULATE_AUTO_EMAILS__U081_U082_U083_U084
+                    )
                     send_email_background.delay(
                         "automatic-emails-u081", user_id=request.user.id, emulated_send=emulated_send
                     )
@@ -648,7 +650,7 @@ def user_profile(request):
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
-@authentication_classes([])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 def is_authenticated(request):
     """
     Returns whether the user is authenticated.

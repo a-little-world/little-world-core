@@ -1,3 +1,5 @@
+from unittest.mock import AsyncMock, patch
+
 from back.celery import app
 from django.test import TestCase, override_settings
 from django.utils import timezone
@@ -250,6 +252,135 @@ class RandomCallsTests(TestCase):
         self.assertTrue(matching.u1_accepted)
         self.assertTrue(matching.u2_accepted)
         self.assertTrue(matching.accepted)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_three_user_frontend_flow_join_status_accept_and_room_authenticate(self):
+        """
+        First 3-user integration scenario that mirrors frontend lobby behavior.
+
+        Frontend flow mirrored in this test:
+        1) RandomCallsLobby.handleJoinComplete -> POST /join
+        2) useSWR polling -> GET /status
+        3) PartnerProposal.handleAccept -> POST /accept (both sides)
+        4) handleBothAccepted -> POST /room_authenticate (both sides)
+        """
+        user3 = register_user(
+            {
+                "email": "user3_frontend_flow@example.com",
+                "password1": "Test123!",
+                "password2": "Test123!",
+                "first_name": "User",
+                "second_name": "Three",
+                "birth_year": 1995,
+            }
+        )
+
+        class FakeAccessToken:
+            """
+            Lightweight token stub for deterministic room_authenticate tests.
+            """
+
+            def __init__(self, *args, **kwargs):
+                self._identity = None
+                self._name = None
+                self._grants = None
+
+            def with_identity(self, identity):
+                self._identity = identity
+                return self
+
+            def with_name(self, name):
+                self._name = name
+                return self
+
+            def with_grants(self, grants):
+                self._grants = grants
+                return self
+
+            def to_jwt(self):
+                return "test-livekit-jwt"
+
+        # Backend code path under test:
+        # - /join schedules matching via apply_async.
+        # - In eager mode this can produce cascading side effects.
+        # We disable those async triggers and explicitly run one matching cycle below.
+        with (
+            patch("video.random_calls.random_call_lobby_perform_matching.apply_async", return_value=None),
+            patch("video.random_calls.cleanup_inactive_lobby_users.apply_async", return_value=None),
+            patch("video.tasks.cleanup_if_not_accepted.apply_async", return_value=None),
+            patch("video.random_calls.create_livekit_room", new_callable=AsyncMock),
+            patch("video.random_calls.livekit_api.AccessToken", FakeAccessToken),
+        ):
+            # Frontend step: handleJoinComplete -> joinLobby() for each user.
+            for user in [self.user1, self.user2, user3]:
+                self.client.force_authenticate(user=user)
+                response = self.client.post("/api/random_calls/lobby/default/join")
+                self.assertEqual(response.status_code, 200)
+                self.assertFalse(response.data["already_joined"])
+
+            # Run one explicit matching cycle to emulate the background matcher.
+            from video.tasks import random_call_lobby_perform_matching
+
+            random_call_lobby_perform_matching("default")
+
+            # Frontend step: useSWR polling GET /status.
+            status_by_user = {}
+            for user in [self.user1, self.user2, user3]:
+                self.client.force_authenticate(user=user)
+                status = self.client.get("/api/random_calls/lobby/default/status")
+                self.assertEqual(status.status_code, 200)
+                status_by_user[user.id] = status.data
+
+            matched_users = []
+            unmatched_users = []
+            for user in [self.user1, self.user2, user3]:
+                if status_by_user[user.id]["matching"] is None:
+                    unmatched_users.append(user)
+                else:
+                    matched_users.append(user)
+
+            self.assertEqual(len(matched_users), 2, "Exactly one pair should be matched in a 3-user scenario")
+            self.assertEqual(len(unmatched_users), 1, "Exactly one user should remain unmatched")
+
+            match_uuid = str(status_by_user[matched_users[0].id]["matching"]["uuid"])
+
+            # Frontend step: PartnerProposal.handleAccept -> acceptMatch() by both users.
+            for user in matched_users:
+                self.client.force_authenticate(user=user)
+                accept_response = self.client.post(f"/api/random_calls/lobby/default/match/{match_uuid}/accept")
+                self.assertEqual(accept_response.status_code, 200)
+
+            matching = RandomCallMatching.objects.get(uuid=match_uuid)
+            self.assertTrue(matching.u1_accepted)
+            self.assertTrue(matching.u2_accepted)
+            self.assertTrue(matching.accepted)
+
+            # Frontend step: handleBothAccepted -> authenticateRoom() by both users.
+            for user in matched_users:
+                self.client.force_authenticate(user=user)
+                auth_response = self.client.post(
+                    f"/api/random_calls/lobby/default/match/{match_uuid}/room_authenticate"
+                )
+                self.assertEqual(auth_response.status_code, 200)
+                self.assertIn("token", auth_response.data)
+                self.assertEqual(auth_response.data["token"], "test-livekit-jwt")
+
+            matching.refresh_from_db()
+            self.assertTrue(matching.both_requested_room_token)
+
+            # Backend status filter behavior:
+            # once both users requested room token, the proposal no longer appears in /status.
+            for user in matched_users:
+                self.client.force_authenticate(user=user)
+                status_after_auth = self.client.get("/api/random_calls/lobby/default/status")
+                self.assertEqual(status_after_auth.status_code, 200)
+                self.assertIsNone(status_after_auth.data["matching"])
+
+            # The third user remains unmatched in this basic scenario.
+            self.client.force_authenticate(user=unmatched_users[0])
+            unmatched_status = self.client.get("/api/random_calls/lobby/default/status")
+            self.assertEqual(unmatched_status.status_code, 200)
+            self.assertIsNone(unmatched_status.data["matching"])
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_reject_matching(self):
