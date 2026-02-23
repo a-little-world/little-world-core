@@ -20,7 +20,7 @@ from video.models import (
     RandomCallLobbyUser,
     RandomCallMatching,
 )
-from video.random_calls import RandomCallLobbySerializer, is_lobby_active
+from video.random_calls import is_lobby_active
 
 
 class RandomCallLobbyManagementSerializer(serializers.Serializer):
@@ -193,13 +193,6 @@ def get_lobby_management_overview(request, lobby_name="default"):
         "total_users_count": all_lobby_users.count(),
     }
 
-    # 9 - Get upcoming lobbies (active or future) with the same name
-    upcoming_lobbies = RandomCallLobby.objects.filter(
-        name=lobby_name,
-        end_time__gte=now,
-    ).order_by("start_time")
-    schedule_data = RandomCallLobbySerializer(upcoming_lobbies, many=True).data
-
     # Serialize all data following the pattern from the existing codebase
     response_data = {
         "lobby": RandomCallLobbyManagementSerializer(lobby_data).data,
@@ -211,7 +204,6 @@ def get_lobby_management_overview(request, lobby_name="default"):
             "expired": RandomCallMatchSerializer(expired_matches, many=True).data,
         },
         "statistics": statistics,
-        "schedule": schedule_data,
     }
 
     return Response(response_data)
