@@ -1,4 +1,4 @@
-name: Deploy temporary env
+name: Test (api/e2e) & Deploy
 
 on:
   pull_request:
@@ -18,7 +18,7 @@ permissions:
 jobs:
   make_docs:
     runs-on: ubuntu-latest
-    name: Deploy emperial env
+    name: Test (api/e2e) & Deploy
     steps:
       - uses: actions/checkout@main
         with:
