@@ -4,10 +4,10 @@ import time
 
 
 def _dismiss_cookie_banner(page) -> None:
-    for label in ["Deny", "Reject all", "Reject", "Decline", "No thanks"]:
-        banner_button = page.get_by_role("button", name=label)
+    for label in ["Deny", "Reject all", "Reject", "Decline", "No thanks", "Only necessary", "Necessary"]:
+        banner_button = page.get_by_role("button", name=re.compile(label, re.IGNORECASE))
         if banner_button.count() > 0 and banner_button.is_visible():
-            banner_button.click()
+            banner_button.first.click(timeout=3000)
             break
     page.evaluate(
         """
@@ -28,6 +28,27 @@ def _dismiss_cookie_banner(page) -> None:
         }
         """
     )
+    try:
+        page.wait_for_function(
+            """
+            () => {
+                const host = document.querySelector('#shadow-root');
+                if (!host) return true;
+                const style = window.getComputedStyle(host);
+                return (
+                    style.display === 'none' ||
+                    style.visibility === 'hidden' ||
+                    style.pointerEvents === 'none' ||
+                    host.hidden ||
+                    host.getBoundingClientRect().height === 0
+                );
+            }
+            """,
+            timeout=3000,
+        )
+    except Exception:
+        # In CI the host may remain mounted a bit longer; keep going and retry if needed.
+        pass
     page.evaluate(
         """
         () => {
@@ -35,14 +56,16 @@ def _dismiss_cookie_banner(page) -> None:
             if (host) {
                 host.style.pointerEvents = 'none';
                 host.style.display = 'none';
+                host.setAttribute('aria-hidden', 'true');
             }
             const root = document.querySelector('#root');
-            if (root) {
-                root.removeAttribute('inert');
-            }
+            if (root) root.removeAttribute('inert');
+            document.documentElement?.removeAttribute('inert');
+            document.body?.removeAttribute('inert');
         }
         """
     )
+    page.wait_for_timeout(400)
 
 
 def test_registration_page_renders_form(page, e2e_base_url: str) -> None:
@@ -139,7 +162,11 @@ def test_registration_flow_creates_user(page, e2e_base_url: str) -> None:
     clicked = False
     for candidate in submit_candidates:
         if candidate.count() > 0 and candidate.first.is_visible():
-            candidate.first.click()
+            try:
+                candidate.first.click(timeout=5000)
+            except Exception:
+                _dismiss_cookie_banner(page)
+                candidate.first.click(timeout=5000)
             clicked = True
             break
     if not clicked:
