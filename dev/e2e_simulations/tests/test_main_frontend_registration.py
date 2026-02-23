@@ -532,6 +532,209 @@ def _fill_availability_and_continue(page) -> None:
         raise
 
 
+def _fill_notifications_and_continue(page) -> None:
+    _dump_debug_artifacts(page, "notifications_before_fill")
+
+    email_selected = False
+    email_candidates = [
+        page.get_by_role("radio", name=re.compile(r"email", re.IGNORECASE)),
+        page.get_by_text(re.compile(r"email", re.IGNORECASE)),
+    ]
+    for candidate in email_candidates:
+        if candidate.count() > 0 and candidate.first.is_visible():
+            candidate.first.click(timeout=5000)
+            email_selected = True
+            break
+
+    if not email_selected:
+        email_selected = page.evaluate(
+            """
+            () => {
+                const emailInput = document.querySelector("input[type='radio'][name='notify_channel'][value='email']");
+                if (emailInput) {
+                    if (emailInput.labels && emailInput.labels.length > 0) {
+                        emailInput.labels[0].click();
+                    } else {
+                        emailInput.click();
+                    }
+                    return true;
+                }
+                const radios = Array.from(document.querySelectorAll("input[type='radio'][name='notify_channel']:not([disabled])"));
+                if (!radios.length) return false;
+                const first = radios[0];
+                if (first.labels && first.labels.length > 0) {
+                    first.labels[0].click();
+                } else {
+                    first.click();
+                }
+                return true;
+            }
+            """
+        )
+    if not email_selected:
+        raise RuntimeError("Could not select email option on notifications page")
+
+    submit_button = page.locator("form button[type='submit']")
+    if submit_button.count() == 0 or not submit_button.first.is_visible():
+        raise RuntimeError("Could not find submit button on notifications page")
+    submit_button.first.click(timeout=5000)
+
+    try:
+        page.wait_for_load_state("networkidle")
+        page.wait_for_url(re.compile(r"/app/user-form/conditions($|\\?)"), timeout=15000)
+    except Exception:
+        _dump_debug_artifacts(page, "notifications_submit_failed")
+        raise
+
+
+def _fill_conditions_and_finish(page) -> None:
+    _dump_debug_artifacts(page, "conditions_before_fill")
+
+    accepted = False
+    checkbox_candidates = [
+        page.locator("[role='checkbox']#conditions\\ checkbox"),
+        page.locator("input[type='checkbox'][name='liability_accepted']"),
+        page.get_by_role("checkbox").first,
+    ]
+    for candidate in checkbox_candidates:
+        if candidate.count() > 0 and candidate.first.is_visible():
+            try:
+                candidate.first.click(timeout=5000)
+            except Exception:
+                candidate.first.check(force=True)
+            accepted = True
+            break
+    if not accepted:
+        raise RuntimeError("Could not find conditions checkbox")
+
+    submit_button = page.locator("form button[type='submit']")
+    if submit_button.count() == 0 or not submit_button.first.is_visible():
+        raise RuntimeError("Could not find submit button on conditions page")
+    submit_button.first.click(timeout=5000)
+
+    try:
+        page.wait_for_load_state("networkidle")
+        page.wait_for_function("() => !window.location.pathname.includes('/app/user-form/')", timeout=20000)
+        page.wait_for_url(re.compile(r"/app($|/.*)"), timeout=20000)
+    except Exception:
+        _dump_debug_artifacts(page, "conditions_submit_failed")
+        raise
+
+
+def _logout_from_dashboard(page) -> None:
+    page.wait_for_load_state("networkidle")
+    page.wait_for_timeout(800)
+    page.evaluate(
+        """
+        () => {
+            // Cal.com modal occasionally overlays the whole dashboard and intercepts clicks.
+            document.querySelectorAll('cal-modal-box, cal-floating-button, .cal-floating-button').forEach((node) => {
+                node.remove();
+            });
+            document.querySelectorAll('iframe').forEach((frame) => {
+                const src = frame.getAttribute('src') || '';
+                const title = frame.getAttribute('title') || '';
+                if (/cal\\.com/i.test(src) || /book a call/i.test(title)) {
+                    frame.style.pointerEvents = 'none';
+                    frame.style.display = 'none';
+                }
+            });
+        }
+        """
+    )
+
+    # Try direct logout controls first.
+    logout_candidates = [
+        page.get_by_role("button", name=re.compile(r"logout|log out|sign out", re.IGNORECASE)),
+        page.get_by_role("link", name=re.compile(r"logout|log out|sign out", re.IGNORECASE)),
+    ]
+    clicked = False
+    for candidate in logout_candidates:
+        if candidate.count() > 0 and candidate.first.is_visible():
+            try:
+                candidate.first.click(timeout=5000)
+            except Exception:
+                candidate.first.click(timeout=5000, force=True)
+            clicked = True
+            break
+
+    # Fallback to opening settings where logout is usually exposed.
+    if not clicked:
+        settings_candidates = [
+            page.get_by_role("link", name=re.compile(r"settings|einstellungen", re.IGNORECASE)),
+            page.get_by_role("button", name=re.compile(r"settings|einstellungen", re.IGNORECASE)),
+            page.locator("a[href*='/app/settings']"),
+        ]
+        for candidate in settings_candidates:
+            if candidate.count() > 0 and candidate.first.is_visible():
+                candidate.first.click(timeout=5000)
+                page.wait_for_load_state("networkidle")
+                break
+        for candidate in logout_candidates:
+            if candidate.count() > 0 and candidate.first.is_visible():
+                try:
+                    candidate.first.click(timeout=5000)
+                except Exception:
+                    candidate.first.click(timeout=5000, force=True)
+                clicked = True
+                break
+
+    if not clicked:
+        _dump_debug_artifacts(page, "logout_not_found")
+        raise RuntimeError("Could not find logout control from dashboard")
+
+    page.wait_for_load_state("networkidle")
+    page.wait_for_function("() => window.location.pathname.includes('/login')")
+
+
+def _login_and_assert_dashboard(page, e2e_base_url: str, email: str, password: str) -> None:
+    response = page.goto(f"{e2e_base_url}/login", wait_until="domcontentloaded")
+    assert response is not None and response.ok
+
+    _dismiss_cookie_banner(page)
+
+    email_candidates = [page.get_by_label("Email"), page.locator("input[name='email']")]
+    password_candidates = [page.get_by_label("Password"), page.locator("input[name='password']")]
+
+    email_filled = False
+    for candidate in email_candidates:
+        if candidate.count() > 0 and candidate.first.is_visible():
+            candidate.first.fill(email)
+            email_filled = True
+            break
+    if not email_filled:
+        raise RuntimeError("Could not find login email input")
+
+    password_filled = False
+    for candidate in password_candidates:
+        if candidate.count() > 0 and candidate.first.is_visible():
+            candidate.first.fill(password)
+            password_filled = True
+            break
+    if not password_filled:
+        raise RuntimeError("Could not find login password input")
+
+    login_candidates = [
+        page.get_by_role("button", name=re.compile(r"login|sign in", re.IGNORECASE)),
+        page.locator("form button[type='submit']"),
+    ]
+    clicked_login = False
+    for candidate in login_candidates:
+        if candidate.count() > 0 and candidate.first.is_visible():
+            candidate.first.click(timeout=5000)
+            clicked_login = True
+            break
+    if not clicked_login:
+        raise RuntimeError("Could not find login submit button")
+
+    page.wait_for_load_state("networkidle")
+    page.wait_for_function("() => !window.location.pathname.includes('/login')")
+
+    # Returning users with completed form should land in dashboard/app directly.
+    assert "/app/user-form" not in page.url
+    assert "/app" in page.url
+
+
 def test_registration_page_renders_form(page, e2e_base_url: str) -> None:
     response = page.goto(f"{e2e_base_url}/sign-up", wait_until="domcontentloaded")
 
@@ -684,9 +887,13 @@ def test_registration_flow_creates_user(page, e2e_base_url: str) -> None:
     _fill_picture_with_avatar_and_continue(page)
     _fill_partner_1_and_continue(page)
     _fill_availability_and_continue(page)
+    _fill_notifications_and_continue(page)
+    _fill_conditions_and_finish(page)
+    _logout_from_dashboard(page)
+    _login_and_assert_dashboard(page, e2e_base_url, unique_email, "Test123!")
 
     assert "/app/verify-email" not in page.url
-    assert "/app/user-form/notifications" in page.url
+    assert "/app" in page.url
 
     cookies = page.context.cookies()
     assert any("session" in cookie.get("name", "").lower() for cookie in cookies)
