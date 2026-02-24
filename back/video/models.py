@@ -144,6 +144,14 @@ class RandomCallMatching(models.Model):
 
     expired = models.BooleanField(default=False)  # The match acceptance timed out without a match being performed
     completed = models.BooleanField(default=False)  # The match was completed (both users left the call)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    ended_by = models.ForeignKey(
+        "management.User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="ended_random_call_matchings",
+    )
 
     u1_matching_requested = models.BooleanField(default=False)
     u2_matching_requested = models.BooleanField(default=False)

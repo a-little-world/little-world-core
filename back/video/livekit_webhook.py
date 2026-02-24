@@ -227,7 +227,7 @@ def process_webhook_random_call__participant_left(data, event, participant_id, u
                 # Both active call
                 RandomCallMatching.objects.filter(
                     Q(u1=user, u2=partner) | Q(u1=partner, u2=user), completed=False
-                ).update(completed=True, in_session=False)
+                ).update(completed=True, in_session=False, completed_at=end_time, ended_by=user)
 
             else:
                 # 2 - send 'MissedCall' event to the partner of the user that left
