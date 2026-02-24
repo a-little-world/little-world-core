@@ -24,16 +24,16 @@ if (!firebase.apps.length) {
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  const {title, description, icon} = payload.data;
-  const notificationOptions = {
-    body: description,
-    icon,
-  };
+  // const {title, body, icon} = payload.notification;
+  // const notificationOptions = {
+  //   body,
+  //   icon,
+  // };
 
-  return self.registration.showNotification(
-    title,
-    notificationOptions
-  );
+  // return self.registration.showNotification(
+  //   title,
+  //   notificationOptions
+  // );
 });
 
 self.addEventListener("notificationclick", (event) => {
