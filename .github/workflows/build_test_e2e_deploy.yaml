@@ -517,3 +517,26 @@ jobs:
             ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && steps.e2e_test_log_snippet.outputs.snippet || 'E2E tests were not selected.' }}
             ```
             </details>
+
+      - name: Enforce tests required for success
+        if: steps.extract_branch.outputs.branch != 'main'
+        run: |
+          set -euo pipefail
+
+          SHOULD_RUN_TESTS="${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS }}"
+          SHOULD_RUN_E2E="${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E }}"
+          TEST_RESULT="${{ steps.run_tests.outputs.test_result }}"
+          E2E_RESULT="${{ steps.run_e2e_tests.outputs.test_result }}"
+
+          if [ -z "$SHOULD_RUN_TESTS" ] || [ -z "$SHOULD_RUN_E2E" ]; then
+            echo "❌ Both 'test' and 'e2e' labels are required for a passing run."
+            exit 1
+          fi
+
+          if [ "$TEST_RESULT" != "pass" ] || [ "$E2E_RESULT" != "pass" ]; then
+            echo "❌ Required tests did not pass."
+            echo "test=$TEST_RESULT e2e=$E2E_RESULT"
+            exit 1
+          fi
+
+          echo "✅ Both test and e2e ran and passed."
