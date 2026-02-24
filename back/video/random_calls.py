@@ -205,9 +205,8 @@ def get_random_call_lobby_status(request, lobby_uuid):
         # TODO: make sure dangeling 'suggestions' are also cleared
 
         if self_rejected:
-            # Yourself already rejected the match, but the partner hasn't confirmed the rejection yet
-            # TODO: check if that can cause dangeling rejections
-            return Response(response_data)  # TODO: do we actually need to return here?
+            # If you rejected yourself, this match is already done...
+            return Response(response_data)
 
         matching_info = {
             "uuid": matching.uuid,
