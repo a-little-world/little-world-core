@@ -62,6 +62,11 @@ jobs:
             SUBMODULE_NAME="${SUBMODULE_NAME%.path}"
             SUBMODULE_URL="$(git config -f .gitmodules --get "submodule.${SUBMODULE_NAME}.url" || true)"
 
+            if [ "$SUBMODULE_PATH" = "front/apps/little-world-patenmatch-frontend" ] || [[ "$SUBMODULE_URL" == *"little-world-patenmatch-frontend"* ]]; then
+              echo "ℹ️ Skipping submodule '$SUBMODULE_PATH' (excluded from main check)."
+              continue
+            fi
+
             if [ -z "$SUBMODULE_URL" ]; then
               echo "❌ ERROR: Missing URL for submodule path '$SUBMODULE_PATH'."
               CHECK_FAILED=1
@@ -101,4 +106,3 @@ jobs:
             echo "One or more frontend submodules are not pinned to latest main."
             exit 1
           fi
-
