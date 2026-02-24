@@ -79,27 +79,12 @@ def get_lobby_management_overview(request, lobby_name="default"):
     - Match proposals categorized by status (pending, accepted, rejected, expired)
     - Statistics summary
     """
-    # 1 - Retrieve the active lobby with this name, or the most recent one in the past (not future)
-    now = timezone.now()
-    lobby = (
-        RandomCallLobby.objects.filter(
-            name=lobby_name,
-            start_time__lte=now,
-            end_time__gte=now,
-        )
-        .order_by("-id")
-        .first()
-    )
-    if lobby is None:
-        lobby = (
-            RandomCallLobby.objects.filter(
-                name=lobby_name,
-                end_time__lt=now,
-            )
-            .order_by("-end_time")
-            .first()
-        )
-    if lobby is None:
+    # 1 - Retrieve the lobby (most recent when multiple share the same name)
+    try:
+        lobby = RandomCallLobby.objects.filter(name=lobby_name).order_by("-id").first()
+        if lobby is None:
+            raise RandomCallLobby.DoesNotExist
+    except RandomCallLobby.DoesNotExist:
         return Response({"error": "Lobby not found"}, status=404)
 
     # 2 - Check if the lobby is active

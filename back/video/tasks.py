@@ -24,13 +24,13 @@ def daily_fix_unusually_long_livekit_sessions(cutoff_hours: float = 4.0):
 
 
 @shared_task(name="video.tasks.random_call_lobby_perform_matching")
-def random_call_lobby_perform_matching(lobby_uuid):
+def random_call_lobby_perform_matching(lobby_name="default"):
     # Import here to avoid circular import
     from video.random_calls import is_lobby_active
 
-    # 1 - retrieve the lobby by UUID
-    lobby = RandomCallLobby.objects.get(uuid=lobby_uuid)
-    cleanup_inactive_lobby_users(lobby_uuid=lobby_uuid)
+    # 1 - retrieve the lobby
+    lobby = RandomCallLobby.objects.get(name=lobby_name)
+    cleanup_inactive_lobby_users(lobby_name=lobby_name)
 
     # 2 - check if the lobby is active
     if not is_lobby_active(lobby):
@@ -60,8 +60,8 @@ def random_call_lobby_perform_matching(lobby_uuid):
 
 
 @shared_task(name="video.tasks.cleanup_inactive_lobby_users")
-def cleanup_inactive_lobby_users(lobby_uuid):
-    lobby = RandomCallLobby.objects.get(uuid=lobby_uuid)
+def cleanup_inactive_lobby_users(lobby_name="default"):
+    lobby = RandomCallLobby.objects.get(name=lobby_name)
 
     open_proposals = RandomCallMatching.objects.filter(lobby=lobby, accepted=False, rejected=False)
     # Get u1_id and u2_id separately and combine them into a single set
