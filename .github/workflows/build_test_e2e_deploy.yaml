@@ -198,7 +198,7 @@ jobs:
             - [ ] `(2) 'build' t=<build-time-loading>`
             ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '- [ ] `(3) ''deploy'' url=<deployment-url-loading>`' || '- [ ] ~~`(3) ''deploy'' url=<deployment-url-loading>`~~' }}
             ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '- [ ] `(4) ''test''` `loading` `t=<test-time-loading>`' || '- [ ] ~~`(4) ''test'' t=<test-time-loading>`~~' }}
-            ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && '- [ ] `(5) ''e2e''` `loading` `t=<e2e-time-loading>`' || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && '- [ ] `(5) ''e2e''` `loading` `t=<e2e-time-loading>`' || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
       - name: Setup Emperial Env
         if: steps.extract_branch.outputs.branch != 'main' && (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' || steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '')
         id: setup_emperial_env
@@ -236,7 +236,7 @@ jobs:
             - [ ] `(2) 'build' t=<build-time-loading>`
             ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '- [ ] `(3) ''deploy'' url=<deployment-url-loading>`' || '- [ ] ~~`(3) ''deploy'' url=<deployment-url-loading>`~~' }}
             ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '- [ ] `(4) ''test''` `loading` `t=<test-time-loading>`' || '- [ ] ~~`(4) ''test'' t=<test-time-loading>`~~' }}
-            ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && '- [ ] `(5) ''e2e''` `loading` `t=<e2e-time-loading>`' || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && '- [ ] `(5) ''e2e''` `loading` `t=<e2e-time-loading>`' || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
       - name: Measure start time
         id: start
         run: |
@@ -277,7 +277,7 @@ jobs:
             - [x] `(2) 'build' t=${{ steps.execution_time.outputs.DURATION }}s`
             ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '- [ ] `(3) ''deploy'' url=<deployment-url-loading>`' || '- [ ] ~~`(3) ''deploy'' url=<deployment-url-loading>`~~' }}
             ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '- [ ] `(4) ''test''` `loading` `t=<test-time-loading>`' || '- [ ] ~~`(4) ''test'' t=<test-time-loading>`~~' }}
-            ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && '- [ ] `(5) ''e2e''` `loading` `t=<e2e-time-loading>`' || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && '- [ ] `(5) ''e2e''` `loading` `t=<e2e-time-loading>`' || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
       - uses: azure/setup-helm@v4.3.0
         with:
           version: "latest"
@@ -369,12 +369,12 @@ jobs:
           docker compose down redis
       - name: Measure start time e2e tests
         id: start_e2e_tests
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
         run: |
           echo "time=$(date +%s)" >> $GITHUB_OUTPUT
       - name: Run e2e simulation tests
         id: run_e2e_tests
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
         run: |
           set -euo pipefail
           # Enable test-only dev API endpoints for e2e flows.
@@ -413,12 +413,12 @@ jobs:
           if [ $TEST_EXIT -eq 0 ]; then echo "test_result=pass" >> $GITHUB_OUTPUT; else echo "test_result=fail" >> $GITHUB_OUTPUT; fi
       - name: Measure end time e2e tests
         id: end_e2e_tests
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
         run: |
           echo "time=$(date +%s)" >> $GITHUB_OUTPUT
       - name: Calculate execution time e2e tests
         id: execution_time_e2e_tests
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
         run: |
           START=${{ steps.start_e2e_tests.outputs.time }}
           END=${{ steps.end_e2e_tests.outputs.time }}
@@ -432,14 +432,14 @@ jobs:
           path: test_output.log
           if-no-files-found: ignore
       - name: Upload e2e test log artifact
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
         uses: actions/upload-artifact@v4
         with:
           name: e2e-test-log
           path: e2e_test_output.log
           if-no-files-found: ignore
       - name: Upload e2e service log artifact
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
         uses: actions/upload-artifact@v4
         with:
           name: e2e-service-log
@@ -447,7 +447,7 @@ jobs:
           if-no-files-found: ignore
       - name: Get artifact page URL
         id: get_test_artifact_url
-        if: steps.extract_branch.outputs.branch != 'main' && (steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' || (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''))
+        if: steps.extract_branch.outputs.branch != 'main' && (steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' || steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '')
         run: |
           # Link to the Actions run page which shows artifacts in the GitHub UI
           echo "url=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> "$GITHUB_OUTPUT"
@@ -464,7 +464,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
       - name: Prepare e2e test log snippet
         id: e2e_test_log_snippet
-        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
         run: |
           SNIPPET="$(tail -n 400 e2e_test_output.log 2>/dev/null || echo 'No e2e test output captured.')"
           {
@@ -500,7 +500,7 @@ jobs:
             - [x] `(2) 'build' t=${{ steps.execution_time.outputs.DURATION }}s`
             ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && format('- [x] `(3) ''deploy''` [`url={0}`]({0})', steps.cluster_connection.outputs.STAGING_URL) || '- [ ] ~~`(3) ''deploy'' url=<deployment-url-loading>`~~' }}
             ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && (steps.run_tests.outputs.test_result == 'pass' && format('- [x] `(4) ''test''` `success` `t={0}s`', steps.execution_time_tests.outputs.DURATION) || format('- [x] `(4) ''test''` `failed` `t={0}s`', steps.execution_time_tests.outputs.DURATION)) || '- [ ] ~~`(4) ''test'' t=<test-time-loading>`~~' }}
-            ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && (steps.run_e2e_tests.outputs.test_result == 'pass' && format('- [x] `(5) ''e2e''` `success` `t={0}s`', steps.execution_time_e2e_tests.outputs.DURATION) || format('- [x] `(5) ''e2e''` `failed` `t={0}s`', steps.execution_time_e2e_tests.outputs.DURATION)) || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && (steps.run_e2e_tests.outputs.test_result == 'pass' && format('- [x] `(5) ''e2e''` `success` `t={0}s`', steps.execution_time_e2e_tests.outputs.DURATION) || format('- [x] `(5) ''e2e''` `failed` `t={0}s`', steps.execution_time_e2e_tests.outputs.DURATION)) || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
 
             <details>
             <summary>Django test output (last 400 lines)</summary>
@@ -514,6 +514,6 @@ jobs:
             <summary>E2E test output (last 400 lines)</summary>
 
             ```text
-            ${{ (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '') && steps.e2e_test_log_snippet.outputs.snippet || 'E2E tests were not selected.' }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && steps.e2e_test_log_snippet.outputs.snippet || 'E2E tests were not selected.' }}
             ```
             </details>
