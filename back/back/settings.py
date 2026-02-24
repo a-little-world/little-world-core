@@ -980,7 +980,10 @@ SIMPLE_JWT = {
         days=SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_DAYS,
     ),
 }
-DJANGO_TESTING = os.environ.get("DJANGO_TESTING", False) in ("True", "true", "1", "yes", "y")
+DJANGO_TESTING = bool_env("DJANGO_TESTING", "false")
+IS_CI = bool_env("CI", "false")
+ENABLE_E2E_TEST_APIS = bool_env("DJ_ENABLE_E2E_TEST_APIS", "false")
+E2E_TEST_APIS_ENABLED = ENABLE_E2E_TEST_APIS and IS_CI and DJANGO_TESTING and EMPHIRIAL
 
 
 ## Auto E-Mails:

@@ -36,3 +36,73 @@ jobs:
             exit 0
           fi
 
+      - name: Check frontend submodules are on latest main
+        env:
+          BOT_PAT: ${{ secrets.BOT_PAT }}
+        run: |
+          set -euo pipefail
+
+          if [ ! -f .gitmodules ]; then
+            echo "ℹ️ No .gitmodules file found; skipping submodule freshness check."
+            exit 0
+          fi
+
+          FRONTEND_ENTRIES="$(git config -f .gitmodules --get-regexp '^submodule\..*\.path$' | awk '$2 ~ /^front\/apps\/[^/]+$/')"
+          if [ -z "$FRONTEND_ENTRIES" ]; then
+            echo "ℹ️ No front/apps/<frontend_name> submodules found; skipping check."
+            exit 0
+          fi
+
+          CHECK_FAILED=0
+
+          while read -r SUBMODULE_PATH_KEY SUBMODULE_PATH; do
+            [ -n "$SUBMODULE_PATH" ] || continue
+
+            SUBMODULE_NAME="${SUBMODULE_PATH_KEY#submodule.}"
+            SUBMODULE_NAME="${SUBMODULE_NAME%.path}"
+            SUBMODULE_URL="$(git config -f .gitmodules --get "submodule.${SUBMODULE_NAME}.url" || true)"
+
+            if [ "$SUBMODULE_PATH" = "front/apps/little-world-patenmatch-frontend" ] || [[ "$SUBMODULE_URL" == *"little-world-patenmatch-frontend"* ]]; then
+              echo "ℹ️ Skipping submodule '$SUBMODULE_PATH' (excluded from main check)."
+              continue
+            fi
+
+            if [ -z "$SUBMODULE_URL" ]; then
+              echo "❌ ERROR: Missing URL for submodule path '$SUBMODULE_PATH'."
+              CHECK_FAILED=1
+              continue
+            fi
+
+            PINNED_SHA="$(git rev-parse "HEAD:${SUBMODULE_PATH}" 2>/dev/null || true)"
+            if [ -z "$PINNED_SHA" ]; then
+              echo "❌ ERROR: Could not resolve pinned commit for '$SUBMODULE_PATH' in HEAD."
+              CHECK_FAILED=1
+              continue
+            fi
+
+            REMOTE_URL="$SUBMODULE_URL"
+            if [[ "$SUBMODULE_URL" == https://github.com/* ]] && [ -n "${BOT_PAT:-}" ]; then
+              REMOTE_URL="https://x-access-token:${BOT_PAT}@${SUBMODULE_URL#https://}"
+            fi
+
+            MAIN_SHA="$(git ls-remote "$REMOTE_URL" refs/heads/main | awk 'NR==1 { print $1 }')"
+            if [ -z "$MAIN_SHA" ]; then
+              echo "❌ ERROR: Could not resolve remote main SHA for '$SUBMODULE_PATH'."
+              CHECK_FAILED=1
+              continue
+            fi
+
+            if [ "$PINNED_SHA" != "$MAIN_SHA" ]; then
+              echo "❌ ERROR: '$SUBMODULE_PATH' is not on latest main."
+              echo "   pinned: $PINNED_SHA"
+              echo "   main:   $MAIN_SHA"
+              CHECK_FAILED=1
+            else
+              echo "✅ '$SUBMODULE_PATH' matches latest main ($MAIN_SHA)."
+            fi
+          done <<< "$FRONTEND_ENTRIES"
+
+          if [ "$CHECK_FAILED" -ne 0 ]; then
+            echo "One or more frontend submodules are not pinned to latest main."
+            exit 1
+          fi
