@@ -13,7 +13,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from management.models.user import MobileDevice
+from management.helpers import IsAdminOrMatchingUser
+from management.models.user import MobileDevice, User
 
 
 @dataclass
@@ -32,6 +33,24 @@ class PushNotificationRegistrationSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         return PushNotificationRegistrationParams(**validated_data)
+
+
+@dataclass
+class PushNotificationParams:
+    user: int
+    headline: str
+    title: str
+    description: str
+
+
+class PushNotificationSerializer(serializers.Serializer):
+    user = serializers.CharField(required=True)
+    headline = serializers.CharField(required=True)
+    title = serializers.CharField(required=True)
+    description = serializers.CharField(required=True)
+
+    def create(self, validated_data):
+        return PushNotificationParams(**validated_data)
 
 
 def get_firebase_service_worker(request):
@@ -117,8 +136,39 @@ def un_register_push_notifications_token(request):
     return Response(status=200)
 
 
+@extend_schema(
+    description="Send a push notification to the user",
+    request=PushNotificationParams,
+)
+@api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
+@authentication_classes([authentication.SessionAuthentication, JWTAuthentication])
+def send_push_notification(request):
+    serializer: PushNotificationSerializer = PushNotificationSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    params: PushNotificationParams = serializer.save()
+
+    user = User.objects.get(id=params.user)
+    user.push_notification(title=params.title, description=params.description)
+
+    return Response(status=200)
+
+
+@extend_schema(
+    description="Send a test push notification to all devices of the user",
+)
+@api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
+@authentication_classes([authentication.SessionAuthentication, JWTAuthentication])
+def send_test_push_notification(request):
+    request.user.send_notification(title="Test notification headline", description="Test notification description")
+    return Response(status=200)
+
+
 api_urls = [
     path("firebase-messaging-sw.js", get_firebase_service_worker),
     path("api/push_notifications/register", register_push_notifications_token),
     path("api/push_notifications/unregister", un_register_push_notifications_token),
+    path("api/push_notifications/send", send_push_notification),
+    path("api/push_notifications/send_test", send_test_push_notification),
 ]
