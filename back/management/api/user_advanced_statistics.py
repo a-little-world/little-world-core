@@ -1,5 +1,5 @@
 import csv
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from io import StringIO
 
 import requests
@@ -1406,6 +1406,10 @@ def time_slot_counts(request):
     """
     Returns counts of how many users have selected each time slot for each day.
     This helps identify the most common availability patterns across all users.
+
+    Optional query params start_date and end_date (YYYY-MM-DD): when both are provided,
+    restrict to users who either signed up in that date range or had match activity
+    (latest_interaction_at) in that range. If omitted, returns counts for all users.
     """
     from management.validators import DAY_TRANS, DAYS, SLOT_TRANS, SLOTS
 
@@ -1413,6 +1417,36 @@ def time_slot_counts(request):
     pre_filtered_users = User.objects.all()
     if not request.user.is_staff:
         pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+
+    # Optional date range: only users who signed up or were active in [start_date, end_date]
+    start_date_str = request.GET.get("start_date")
+    end_date_str = request.GET.get("end_date")
+    if start_date_str and end_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            pass
+        else:
+            # Users who signed up in the date range
+            users_signup_in_range = pre_filtered_users.filter(
+                date_joined__date__gte=start_date,
+                date_joined__date__lte=end_date,
+            ).values_list("id", flat=True)
+            # Users who had match activity (latest_interaction_at) in the date range
+            matches_in_range = Match.objects.filter(
+                latest_interaction_at__date__gte=start_date,
+                latest_interaction_at__date__lte=end_date,
+            )
+            user_ids_active_in_range = set(matches_in_range.values_list("user1_id", flat=True)) | set(
+                matches_in_range.values_list("user2_id", flat=True)
+            )
+            user_ids_in_range = set(users_signup_in_range) | user_ids_active_in_range
+            if user_ids_in_range:
+                pre_filtered_users = pre_filtered_users.filter(id__in=user_ids_in_range)
+            else:
+                # No users in range -> return empty counts
+                pre_filtered_users = pre_filtered_users.none()
 
     # Initialize the counts dictionary with all days and slots set to 0
     counts = {day: {slot: 0 for slot in SLOTS} for day in DAYS}
@@ -2187,6 +2221,53 @@ def get_user_bucket_path(request, user_hash: str):
     )
 
 
+@extend_schema(
+    summary="Get video call summary for a user",
+    parameters=[OpenApiParameter(name="user_id", type=OpenApiTypes.INT, location=OpenApiParameter.PATH, required=True)],
+    responses={
+        200: inline_serializer(
+            name="UserVideoCallSummaryResponse",
+            fields={
+                "total_video_calls": serializers.IntegerField(),
+                "total_video_time_hours": serializers.FloatField(),
+            },
+        )
+    },
+)
+@api_view(["GET"])
+@permission_classes([IsAdminOrMatchingUser])
+def user_video_call_summary(request, user_id: int):
+    """Return total number of video calls and total hours in video calls for the given user."""
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({"error": "User not found"}, status=404)
+
+    if not request.user.is_staff and not request.user.state.managed_users.filter(pk=user.pk).exists():
+        return Response({"error": "You do not have access to this user"}, status=403)
+
+    video_calls_as_u1 = LivekitSession.objects.filter(u1=user, both_have_been_active=True)
+    video_calls_as_u2 = LivekitSession.objects.filter(u2=user, both_have_been_active=True)
+    video_calls = video_calls_as_u1.union(video_calls_as_u2)
+
+    total_video_calls = video_calls.count()
+    total_video_time_seconds = 0
+
+    for call in video_calls:
+        if call.end_time:
+            duration = call.end_time - call.created_at
+            total_video_time_seconds += duration.total_seconds()
+
+    total_video_time_hours = round(total_video_time_seconds / 3600.0, 2)
+
+    return Response(
+        {
+            "total_video_calls": total_video_calls,
+            "total_video_time_hours": total_video_time_hours,
+        }
+    )
+
+
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
 def is_advanced_user_journey_enabled(request):
@@ -2205,6 +2286,7 @@ api_urls = [
     ),
     path("api/matching/users/statistics/messages_send/", message_statistics),
     path("api/matching/users/statistics/video_calls/", livekit_session_statistics),
+    path("api/matching/users/statistics/video_call_summary/<int:user_id>/", user_video_call_summary),
     path("api/matching/users/statistics/user_journey_buckets/", bucket_statistics),
     path("api/matching/users/statistics/match_journey_buckets/", match_bucket_statistics),
     path("api/matching/users/statistics/user_signup_loss/", user_signup_loss_statistics),
