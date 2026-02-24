@@ -50,6 +50,10 @@ jobs:
             I'll only allow workflows to merge that have passed `e2e` and `test` ( only admin may bypass this rule ).
 
             <!-- lw-staging-no-label-guidance -->
+      - name: Fail when no labels selected
+        run: |
+          echo "❌ No action labels set (deploy/test/e2e/android)."
+          exit 1
   run-tests-and-deploy:
     runs-on: ubuntu-latest
     name: Test (api/e2e) & Deploy
