@@ -60,6 +60,15 @@ class LivekitSessionFilter(filters.FilterSet):
 
     u2 = filters.ModelChoiceFilter(field_name="u2", queryset=User.objects.all(), help_text="Filter for u2")
 
+    user_id = filters.NumberFilter(
+        method="filter_by_user", help_text="Filter sessions by user id (returns calls where user is u1 or u2)"
+    )
+
+    def filter_by_user(self, queryset, name, value):
+        if value is not None:
+            queryset = queryset.filter(Q(u1_id=value) | Q(u2_id=value))
+        return queryset
+
     created_between = filters.DateFromToRangeFilter(
         field_name="created_at", help_text="Range filter for when the session was created, accepts string datetimes"
     )
