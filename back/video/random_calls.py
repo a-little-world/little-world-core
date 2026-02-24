@@ -337,6 +337,49 @@ def get_random_call_status(request, random_call_session_id):
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
+def end_random_call(request, match_uuid):
+    match = RandomCallMatching.objects.filter(uuid=match_uuid)
+    if not match.exists():
+        return Response("Match does not exist", status=400)
+    match = match.first()
+
+    if not (match.u1 == request.user or match.u2 == request.user):
+        return Response("You are not part of this matching", status=400)
+
+    if not match.accepted:
+        return Response("Only accepted matches can be ended", status=400)
+
+    if match.completed:
+        return Response(
+            {
+                "match_uuid": str(match.uuid),
+                "completed": True,
+                "already_completed": True,
+                "completed_at": match.completed_at.isoformat() if match.completed_at else None,
+                "ended_by": match.ended_by.hash if match.ended_by else None,
+            }
+        )
+
+    match.completed = True
+    match.in_session = False
+    match.completed_at = timezone.now()
+    match.ended_by = request.user
+    match.save(update_fields=["completed", "in_session", "completed_at", "ended_by"])
+
+    return Response(
+        {
+            "match_uuid": str(match.uuid),
+            "completed": True,
+            "already_completed": False,
+            "completed_at": match.completed_at.isoformat() if match.completed_at else None,
+            "ended_by": request.user.hash,
+        }
+    )
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
 def authenticate_random_call_match_livekit_room(request, lobby_uuid, match_uuid):
     # 1 - retrieve the lobby by UUID
     lobby = RandomCallLobby.objects.get(uuid=lobby_uuid)
@@ -704,6 +747,7 @@ api_urls = [
     path("api/random_calls/lobby/<uuid:lobby_uuid>/status", get_random_call_lobby_status),
     path("api/random_calls/lobby/<uuid:lobby_uuid>/match/<uuid:match_uuid>/accept", accept_random_call_match),
     path("api/random_calls/lobby/<uuid:lobby_uuid>/match/<uuid:match_uuid>/reject", reject_random_call_match),
+    path("api/random_calls/match/<uuid:match_uuid>/end_call", end_random_call),
     path(
         "api/random_calls/lobby/<uuid:lobby_uuid>/match/<uuid:match_uuid>/room_authenticate",
         authenticate_random_call_match_livekit_room,
