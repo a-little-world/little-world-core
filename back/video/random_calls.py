@@ -188,7 +188,7 @@ def get_random_call_lobby_status(request, lobby_uuid):
                 matching.u2_confirmed_rejection = True
             matching.both_confirmed_rejection = True
             matching.save()
-            # in this case we still return the matching
+            # in this case we still return the matchin
 
         if (
             matching.rejected
@@ -203,6 +203,7 @@ def get_random_call_lobby_status(request, lobby_uuid):
 
         # TODO: make sure dangeling 'rejections' are cleared
         # TODO: make sure dangeling 'suggestions' are also cleared
+        # TODO: double check if match time-outs are correctly handeled
 
         if self_rejected:
             # If you rejected yourself, this match is already done...
