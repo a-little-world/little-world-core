@@ -769,6 +769,8 @@ def clear_active_burst_calculation(request):
                     not_cleared_tasks.append(task_id)
 
     if force_clear:
+        if ongoing_update.exists():
+            ongoing_update.first().delete()
         return Response(
             {
                 "msg": "Tasks forcefully cleared",
@@ -777,6 +779,8 @@ def clear_active_burst_calculation(request):
             }
         )
     if len(not_cleared_tasks) > 0:
+        # Here the user can re-run with ?force=true to just clear regardless
+        # BUT generally this SHOULD NOT be done cause it normally means the scoring is actually still running
         return Response(
             {
                 "msg": "Not all tasks could be cleared",
@@ -786,6 +790,8 @@ def clear_active_burst_calculation(request):
             status=400,
         )
     else:
+        if ongoing_update.exists():
+            ongoing_update.first().delete()
         return Response({"msg": "Tasks cleared", "cleared_tasks": cleared_tasks})
 
 
@@ -988,6 +994,7 @@ def list_top_scores(request):
 api_urls = [
     path("api/admin/optimize_possible_matches/", score_maximization_matching),
     path("api/matching/burst_update_scores/", burst_calculate_matching_scores_v2),
+    path("api/matching/clear_active_burst_calculation/", clear_active_burst_calculation),
     path("api/matching/get_active_burst_calculation/", get_active_burst_calculation),
     path("api/admin/delete_all_matching_scores/", delete_all_matching_scores),
     path("api/admin/top_scores/", list_top_scores),
