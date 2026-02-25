@@ -62,6 +62,7 @@ import pgeocode
 from back.utils import CoolerJson
 from django.core.paginator import Paginator
 from django.db.models import Exists, OuterRef, Q
+from django.urls import path
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
@@ -734,6 +735,60 @@ class BurstCalculateMatchingScoresV2RequestSerializer(serializers.Serializer):
     )
 
 
+@api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
+def clear_active_burst_calculation(request):
+    from management.models.backend_state import BackendState
+
+    force_clear = request.query_params.get("force", "false") == "true"
+    ongoing_update = BackendState.objects.filter(slug=BackendState.BackendStateEnum.updating_matching_scores)
+
+    cleared_tasks = []
+    not_cleared_tasks = []
+    forecefull_cleared_active_tasks = []
+
+    if ongoing_update.exists():
+        # Query the tasks to see if they completed
+        ongoing_tasks = ongoing_update.first().meta.get("tasks", [])
+        for task_id in ongoing_tasks:
+            task = check_task_status(task_id)
+            if not force_clear:
+                if task["state"] == "SUCCESS":
+                    ongoing_tasks.remove(task_id)
+                    cleared_tasks.append(task_id)
+                elif task["state"] == "FAILED":
+                    not_cleared_tasks.append(task_id)
+            else:
+                forecefull_cleared_active_tasks.append(task_id)
+                # also need to force stop the task
+                try:
+                    from back.celery import app
+
+                    app.control.revoke(task_id, terminate=True)
+                except Exception:
+                    not_cleared_tasks.append(task_id)
+
+    if force_clear:
+        return Response(
+            {
+                "msg": "Tasks forcefully cleared",
+                "cleared_tasks": forecefull_cleared_active_tasks,
+                "not_cleared_tasks": not_cleared_tasks,
+            }
+        )
+    if len(not_cleared_tasks) > 0:
+        return Response(
+            {
+                "msg": "Not all tasks could be cleared",
+                "not_cleared_tasks": not_cleared_tasks,
+                "cleared_tasks": cleared_tasks,
+            },
+            status=400,
+        )
+    else:
+        return Response({"msg": "Tasks cleared", "cleared_tasks": cleared_tasks})
+
+
 @extend_schema(
     request=BurstCalculateMatchingScoresV2RequestSerializer,
 )
@@ -928,3 +983,12 @@ def list_top_scores(request):
             results=serialized,
         ).dict()
     )
+
+
+api_urls = [
+    path("api/admin/optimize_possible_matches/", score_maximization_matching),
+    path("api/matching/burst_update_scores/", burst_calculate_matching_scores_v2),
+    path("api/matching/get_active_burst_calculation/", get_active_burst_calculation),
+    path("api/admin/delete_all_matching_scores/", delete_all_matching_scores),
+    path("api/admin/top_scores/", list_top_scores),
+]
