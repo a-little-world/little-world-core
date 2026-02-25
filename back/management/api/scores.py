@@ -846,6 +846,7 @@ def burst_calculate_matching_scores_v2(request):
     task_batches = [list_combinations[i : i + chunk_size] for i in range(0, total_combinations, chunk_size)]
 
     if not task_batches:
+        ongoing_update.delete()
         return Response({"msg": "No matching needed"}, status=200)
 
     created_tasks = [burst_calculate_matching_scores.delay(batch) for batch in task_batches]
@@ -868,15 +869,17 @@ def burst_calculate_matching_scores_v2(request):
 def get_active_burst_calculation(request):
     from management.models.backend_state import BackendState
 
-    ongoing_update = BackendState.objects.filter(slug=BackendState.BackendStateEnum.updating_matching_scores)
+    ongoing_update_qs = BackendState.objects.filter(slug=BackendState.BackendStateEnum.updating_matching_scores)
+    ongoing_update = ongoing_update_qs.first()
 
-    if ongoing_update.exists():
-        tasks = ongoing_update.first().meta["tasks"]
+    if ongoing_update is not None:
+        tasks = ongoing_update.meta.get("tasks") or []
+        if not tasks:
+            ongoing_update.delete()
+            return Response({"active": False})
         task_states = [check_task_status(task_id) for task_id in tasks]
-
         return Response({"active": True, "tasks": task_states})
-    else:
-        return Response({"active": False})
+    return Response({"active": False})
 
 
 def instantly_possible_matches():
