@@ -1,0 +1,542 @@
+name: Test (api/e2e) & Deploy
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - labeled
+      - unlabeled
+
+concurrency:
+  group: ${{ github.event.pull_request.id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  no_labels_guidance:
+    runs-on: ubuntu-latest
+    name: Label Guidance
+    if: github.event.pull_request.head.ref != 'main' && !contains(github.event.pull_request.labels.*.name, 'deploy') && !contains(github.event.pull_request.labels.*.name, 'test') && !contains(github.event.pull_request.labels.*.name, 'e2e') && !contains(github.event.pull_request.labels.*.name, 'android')
+    steps:
+      - name: Delete previous workflow progress comments
+        run: |
+          comments=$(curl -s -H "Authorization: token ${{ secrets.BOT_PAT }}" \
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments \
+            | jq -r '.[] | select(.user.login=="littleworld-bot") | select((.body | contains("<!-- lw-staging-workflow -->")) or (.body | contains("<!-- lw-staging-no-label-guidance -->"))) | .id')
+          for comment in $comments
+          do
+            curl -s -H "Authorization: token ${{ secrets.BOT_PAT }}" -X DELETE https://api.github.com/repos/${{ github.repository }}/issues/comments/$comment
+          done
+      - name: Post no-label guidance comment
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          token: ${{ secrets.BOT_PAT }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body-includes: "<!-- lw-staging-no-label-guidance -->"
+          edit-mode: replace
+          body: |
+            Hello there 🙂 if you add labels, I'll do things:
+
+            - `deploy`: deploy a test server
+            - `test`: run the django backend tests
+            - `e2e`: run the end to end tests
+
+            I'll only allow workflows to merge that have passed `e2e` and `test` ( only admin may bypass this rule ).
+
+            <!-- lw-staging-no-label-guidance -->
+      - name: Fail when no labels selected
+        run: |
+          echo "❌ No action labels set (deploy/test/e2e/android)."
+          exit 1
+  run-tests-and-deploy:
+    runs-on: ubuntu-latest
+    name: Test (api/e2e) & Deploy
+    if: contains(github.event.pull_request.labels.*.name, 'deploy') || contains(github.event.pull_request.labels.*.name, 'test') || contains(github.event.pull_request.labels.*.name, 'e2e') || contains(github.event.pull_request.labels.*.name, 'android')
+    steps:
+      - uses: actions/checkout@main
+        with:
+          token: ${{ secrets.BOT_PAT }}
+          submodules: recursive
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Read main_frontend submodule commit
+        id: main_frontend_commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -d "front/apps/main_frontend/.git" ] || git -C front/apps/main_frontend rev-parse --git-dir >/dev/null 2>&1; then
+            SHA=$(git -C front/apps/main_frontend rev-parse HEAD)
+            echo "sha=$SHA" >> $GITHUB_OUTPUT
+            echo "MAIN_FRONTEND_REPO_COMMIT_REF=$SHA" >> $GITHUB_ENV
+          else
+            echo "front/apps/main_frontend not a git repo; leaving empty" >&2
+            echo "sha=" >> $GITHUB_OUTPUT
+          fi
+      - name: Extract branch name
+        shell: bash
+        run: |
+          echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> $GITHUB_OUTPUT
+        id: extract_branch
+      - name: Sanitize branch name for hostname
+        shell: bash
+        run: |
+          # Validate branch name, convert determinsticly if required
+          BRANCH="${{ steps.extract_branch.outputs.branch }}"
+          SANITIZED=$(echo "$BRANCH" | tr '[:upper:]' '[:lower:]')
+          SANITIZED=$(echo "$SANITIZED" | sed 's/[^a-z0-9.-]/-/g')
+          SANITIZED=$(echo "$SANITIZED" | sed 's/-\+/-/g' | sed 's/\.\+/./g')
+          SANITIZED=$(echo "$SANITIZED" | sed 's/^[.-]\+//;s/[.-]\+$//')
+          if [ -z "$SANITIZED" ]; then
+            SANITIZED="branch"
+          fi
+          if ! echo "$SANITIZED" | grep -q '^[a-z0-9]'; then
+            SANITIZED="b${SANITIZED}"
+          fi
+          if ! echo "$SANITIZED" | grep -q '[a-z0-9]$'; then
+            SANITIZED="${SANITIZED}e"
+          fi
+          SANITIZED=$(echo "$SANITIZED" | cut -c1-63)
+          SANITIZED=$(echo "$SANITIZED" | sed 's/[.-]\+$//')
+          if [ -z "$SANITIZED" ] || ! echo "$SANITIZED" | grep -q '[a-z0-9]$'; then
+            # If empty or doesn't end with alphanumeric, append 'e'
+            SANITIZED="${SANITIZED}e"
+            # Re-truncate if needed
+            SANITIZED=$(echo "$SANITIZED" | cut -c1-63)
+          fi
+          echo "sanitized_branch=$SANITIZED" >> $GITHUB_OUTPUT
+        id: sanitize_branch
+      - name: Determine Pull ID and label-based actions
+        id: determine_pull_id
+        run: |
+          pull_number=$(jq --raw-output .pull_request.number "$GITHUB_EVENT_PATH")
+          # Determine if the PR currently has the 'deploy' label
+          SHOULD_DEPLOY=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH" | grep -x 'deploy' || true)
+          # Determine if the PR currently has the 'android' label
+          SHOULD_BUILD_ANDROID=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH" | grep -x 'android' || true)
+          # Determine if the PR currently has the 'test' label
+          SHOULD_RUN_TESTS=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH" | grep -x 'test' || true)
+          # Determine if the PR currently has the 'e2e' label
+          SHOULD_RUN_E2E=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH" | grep -x 'e2e' || true)
+          echo "SHOULD_DEPLOY=$SHOULD_DEPLOY" >> $GITHUB_OUTPUT
+          echo "SHOULD_BUILD_ANDROID=$SHOULD_BUILD_ANDROID" >> $GITHUB_OUTPUT
+          echo "SHOULD_RUN_TESTS=$SHOULD_RUN_TESTS" >> $GITHUB_OUTPUT
+          echo "SHOULD_RUN_E2E=$SHOULD_RUN_E2E" >> $GITHUB_OUTPUT
+          echo "PULL_NUMBER=$pull_number" >> $GITHUB_OUTPUT
+      - name: Prepare Android section content
+        id: android_section
+        run: |
+          BADGE_URL="https://github.com/a-little-world/little-world-native/actions/workflows/android-apk-release.yml/badge.svg?branch=main"
+          RUNS_URL="https://github.com/a-little-world/little-world-native/actions/workflows/android-apk-release.yml?query=event%3Aworkflow_dispatch"
+          if [ -n "${{ steps.determine_pull_id.outputs.SHOULD_BUILD_ANDROID }}" ]; then
+            {
+              echo "section<<EOF"
+              echo "### Android build"
+              echo ""
+              echo "[![Workflow status]($BADGE_URL)]($RUNS_URL)"
+              echo ""
+              echo "Triggered by label 'android'."
+              echo "Tag: apk-${{ steps.main_frontend_commit.outputs.sha }}"
+              echo "Commit: ${{ steps.main_frontend_commit.outputs.sha }}"
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo "section<<EOF"
+              echo "### Android build"
+              echo ""
+              echo "Status: not triggered"
+              echo ""
+              echo "Add the 'android' label to this PR to trigger a build."
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          fi
+      - name: Trigger Android App build
+        env:
+          COMMIT_REF: ${{ github.sha }}
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_BUILD_ANDROID != ''
+        run: |
+          # Triggers the build in a seperate workflow
+          STAGING_HOST="${{ steps.sanitize_branch.outputs.sanitized_branch }}-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}.t1m.me"
+          export MAIN_FRONTEND_REPO_COMMIT_REF="${{ steps.main_frontend_commit.outputs.sha }}"
+          export TAG="apk-${{ steps.main_frontend_commit.outputs.sha }}"
+          export NAME="apk-${{ steps.main_frontend_commit.outputs.sha }}"
+          export PRERELEASE="true"
+          export BOT_PAT="${{ secrets.BOT_PAT }}"
+          export BASE_URL="https://${STAGING_HOST}"
+          curl -X POST \
+            -H "Authorization: Bearer ${BOT_PAT}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            https://api.github.com/repos/a-little-world/little-world-native/actions/workflows/android-apk-release.yml/dispatches \
+            -d '{"ref":"main","inputs":{"tag":"'"${TAG}"'","name":"'"${NAME}"'","prerelease":"'"${PRERELEASE}"'","baseUrl":"'"${BASE_URL}"'","COMMIT_REF":"'"${MAIN_FRONTEND_REPO_COMMIT_REF}"'"}}'
+      - name: Delete all littleworld-bot comments
+        run: |
+          comments=$(curl -s -H "Authorization: token ${{ secrets.BOT_PAT }}" \
+            https://api.github.com/repos/${{ github.repository }}/issues/${{ steps.determine_pull_id.outputs.PULL_NUMBER }}/comments \
+            | jq -r '.[] | select(.user.login=="littleworld-bot") | select(.body | contains("<!-- lw-staging-workflow -->")) | .id')
+          for comment in $comments
+          do
+            curl -s -H "Authorization: token ${{ secrets.BOT_PAT }}" -X DELETE https://api.github.com/repos/${{ github.repository }}/issues/comments/$comment
+          done
+      - name: Create comment
+        uses: peter-evans/create-or-update-comment@v4
+        id: create_comment
+        if: steps.extract_branch.outputs.branch != 'main' && (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' || steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '')
+        with:
+          token: ${{ secrets.BOT_PAT }}
+          issue-number: ${{ steps.determine_pull_id.outputs.PULL_NUMBER }}
+          body: |
+            running tests and deployment for you 🙂
+
+            <!-- lw-staging-workflow -->
+
+            - [ ] `(1) 'setup'` [`run`](${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }})
+            - [ ] `(2) 'build' t=<build-time-loading>`
+            ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '- [ ] `(3) ''deploy'' url=<deployment-url-loading>`' || '- [ ] ~~`(3) ''deploy'' url=<deployment-url-loading>`~~' }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '- [ ] `(4) ''test''` `loading` `t=<test-time-loading>`' || '- [ ] ~~`(4) ''test'' t=<test-time-loading>`~~' }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && '- [ ] `(5) ''e2e''` `loading` `t=<e2e-time-loading>`' || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
+      - name: Setup Emperial Env
+        if: steps.extract_branch.outputs.branch != 'main' && (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' || steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '')
+        id: setup_emperial_env
+        run: |
+          touch .env
+          RANDOM_STRING="$( openssl rand -hex 3 )"
+          IMAGE_URL="ghcr.io/a-little-world/little-world-backend/littleworld-epherial-backend:tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}-$RANDOM_STRING"
+          touch .env; rm .env; touch .env
+          echo "APP_IMAGE_URL=\"$IMAGE_URL\"" >> .env
+          NAMESPACE="lw-tmp-env-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}"
+          REDIS_URL="redis://redis-service.$NAMESPACE.svc.cluster.local:6379"
+          echo "REDIS_URL=\"$REDIS_URL\"" >> .env
+          echo "BUILD_TYPE=\"pro\"" >> .env
+          echo "ENTRYPOINT=\"./entry.sh\"" >> .env
+          # development true so that dev-packages are also included at build time
+          echo "DEVELOPMENT=true" >> .env
+          echo "REDIS_URL=$REDIS_URL" >> $GITHUB_OUTPUT
+          echo "RANDOM_STRING=$RANDOM_STRING" >> $GITHUB_OUTPUT
+          echo "IMAGE_URL=$IMAGE_URL" >> $GITHUB_OUTPUT
+          echo "NAMESPACE=$NAMESPACE" >> $GITHUB_OUTPUT
+      - name: Add build step comment
+        uses: peter-evans/create-or-update-comment@v4
+        id: update_comment
+        if: steps.extract_branch.outputs.branch != 'main' && (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' || steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '')
+        with:
+          token: ${{ secrets.BOT_PAT }}
+          comment-id: ${{ steps.create_comment.outputs.comment-id }}
+          edit-mode: replace
+          body: |
+            running tests and deployment for you 🙂
+
+            <!-- lw-staging-workflow -->
+
+            - [x] `(1) 'setup'` [`run`](${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }})
+            - [ ] `(2) 'build' t=<build-time-loading>`
+            ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '- [ ] `(3) ''deploy'' url=<deployment-url-loading>`' || '- [ ] ~~`(3) ''deploy'' url=<deployment-url-loading>`~~' }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '- [ ] `(4) ''test''` `loading` `t=<test-time-loading>`' || '- [ ] ~~`(4) ''test'' t=<test-time-loading>`~~' }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && '- [ ] `(5) ''e2e''` `loading` `t=<e2e-time-loading>`' || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
+      - name: Measure start time
+        id: start
+        run: |
+          echo "time=$(date +%s)" >> $GITHUB_OUTPUT
+      - name: Build Image
+        if: steps.extract_branch.outputs.branch != 'main' && (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' || steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '')
+        run: |
+          echo ${{ secrets.BOT_PAT }} | docker login ghcr.io -u littleworld-bot --password-stdin
+          # use the ci compose instead of the development one
+          mv dev/ci/docker-compose.ci.yaml docker-compose.yaml
+          DOCKER_BUILDKIT=1 docker compose build
+          DOCKER_BUILDKIT=1 docker compose push
+      - name: Measure end time
+        id: end
+        run: |
+          echo "time=$(date +%s)" >> $GITHUB_OUTPUT
+      - name: Calculate execution time
+        id: execution_time
+        run: |
+          START=${{ steps.start.outputs.time }}
+          END=${{ steps.end.outputs.time }}
+          DIFF=$(( END - START ))
+          echo "DURATION=$DIFF" >> $GITHUB_OUTPUT
+      - name: Add build step comment 2
+        uses: peter-evans/create-or-update-comment@v4
+        id: update_comment_2
+        if: steps.extract_branch.outputs.branch != 'main' && (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' || steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '')
+        with:
+          token: ${{ secrets.BOT_PAT }}
+          comment-id: ${{ steps.create_comment.outputs.comment-id }}
+          edit-mode: replace
+          body: |
+            running tests and deployment for you 🙂
+
+            <!-- lw-staging-workflow -->
+
+            - [x] `(1) 'setup'` [`run`](${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }})
+            - [x] `(2) 'build' t=${{ steps.execution_time.outputs.DURATION }}s`
+            ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && '- [ ] `(3) ''deploy'' url=<deployment-url-loading>`' || '- [ ] ~~`(3) ''deploy'' url=<deployment-url-loading>`~~' }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '- [ ] `(4) ''test''` `loading` `t=<test-time-loading>`' || '- [ ] ~~`(4) ''test'' t=<test-time-loading>`~~' }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && '- [ ] `(5) ''e2e''` `loading` `t=<e2e-time-loading>`' || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
+      - uses: azure/setup-helm@v4.3.0
+        with:
+          version: "latest"
+          token: ${{ secrets.BOT_PAT }}
+        id: install-helm
+      - uses: azure/setup-kubectl@v3
+        with:
+          version: "latest"
+        id: install-kubectl
+      - name: Clone Helm Repository
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != ''
+        uses: actions/checkout@main
+        with:
+          repository: a-little-world/little-world-helm-chart
+          token: ${{ secrets.BOT_PAT }}
+          ref: main
+          path: helm
+      - name: Setup Cluster Connection
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != ''
+        id: cluster_connection
+        run: |
+          echo "${{ secrets.ENCRYPTED_KUBE_CONFIG_BASE64 }}" | base64 --decode > kubeconfig.enc
+          openssl aes-256-cbc -d -pbkdf2 -in ./kubeconfig.enc -out kubeconfig.yaml -k ${{ secrets.KUBE_CONFIG_PASSWORD }}
+          GH_CR_AUTH=$(echo -n "littleworld-bot:${{ secrets.BOT_PAT }}" | base64)
+          STAGING_HOST="${{ steps.sanitize_branch.outputs.sanitized_branch }}-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}.t1m.me"
+          STAGING_URL="https://$STAGING_HOST"
+          cat << EOF | while read eval_command; do yq -i eval "$eval_command" ./helm/values.yaml; done
+            .rootNamespace = "${{ steps.setup_emperial_env.outputs.NAMESPACE }}"
+            .backend.imageURL = "${{ steps.setup_emperial_env.outputs.IMAGE_URL }}"
+            .ingress.certManager = true
+            .ingress.host = "$STAGING_HOST"
+            .registryAuth.token = "$GH_CR_AUTH"
+            .registryAuth.use = true
+            .backend.env.REDIS_URL = "${{ steps.setup_emperial_env.outputs.REDIS_URL }}"
+          EOF
+          NAMESPACE=lw-tmp-env-${{ steps.determine_pull_id.outputs.PULL_NUMBER }}
+          KUBECONFIG=./kubeconfig.yaml kubectl create namespace $NAMESPACE || true
+          KUBECONFIG=./kubeconfig.yaml helm upgrade --install backend-tmp-${{ steps.determine_pull_id.outputs.PULL_NUMBER }} ./helm
+          echo "STAGING_URL=$STAGING_URL" >> $GITHUB_OUTPUT
+      - name: Add build step comment 3
+        uses: peter-evans/create-or-update-comment@v4
+        id: update_comment_3
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != ''
+        with:
+          token: ${{ secrets.BOT_PAT }}
+          comment-id: ${{ steps.create_comment.outputs.comment-id }}
+          edit-mode: replace
+          body: |
+            running tests and deployment for you 🙂
+
+            <!-- lw-staging-workflow -->
+
+            - [x] `(1) 'setup'` [`run`](${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }})
+            - [x] `(2) 'build' t=${{ steps.execution_time.outputs.DURATION }}s`
+            - [x] `(3) 'deploy'` [`url=${{ steps.cluster_connection.outputs.STAGING_URL }}`](${{ steps.cluster_connection.outputs.STAGING_URL }})
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && '- [ ] `(4) ''test''` `running` `t=<test-time-loading>`' || '- [ ] ~~`(4) ''test'' t=<test-time-loading>`~~' }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && '- [ ] `(5) ''e2e''` `running` `t=<e2e-time-loading>`' || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
+
+      - name: Notify Slack Channel
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_DEPLOY != ''
+        env:
+          SLACK_API_TOKEN: ${{ secrets.SLACK_API_TOKEN }}
+          CHANNEL_ID: "C0695SSFPMM"
+          MESSAGE: "*Feature environment deployed*\nImage: ${{ steps.setup_emperial_env.outputs.IMAGE_URL }}\nUrl ${{ steps.cluster_connection.outputs.STAGING_URL }}"
+        run: |
+          pip3 install slack_sdk
+          wget -qO- https://raw.githubusercontent.com/tbscode/tims-blog-posts/main/assets/send_slack_message.py | python3 -
+      - name: Measure start time
+        id: start_tests
+        run: |
+          echo "time=$(date +%s)" >> $GITHUB_OUTPUT
+      - name: Run django tests
+        id: run_tests
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != ''
+        run: |
+          set -euo pipefail
+          sed -i '/^REDIS_URL/d' .env
+          REDIS_URL="redis://redis:6379"
+          echo "REDIS_URL=\"$REDIS_URL\"" >> .env
+          docker compose up redis -d
+          # Run tests and capture logs to file while preserving exit code
+          LOG_FILE="test_output.log"
+          : > "$LOG_FILE"
+          set +e
+          docker compose run -T all python manage.py test 2>&1 | tee -a "$LOG_FILE"
+          TEST_EXIT=${PIPESTATUS[0]}
+          set -e
+          if [ $TEST_EXIT -eq 0 ]; then echo "test_result=pass" >> $GITHUB_OUTPUT; else echo "test_result=fail" >> $GITHUB_OUTPUT; fi
+          docker compose down redis
+      - name: Measure start time e2e tests
+        id: start_e2e_tests
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        run: |
+          echo "time=$(date +%s)" >> $GITHUB_OUTPUT
+      - name: Run e2e simulation tests
+        id: run_e2e_tests
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        run: |
+          set -euo pipefail
+          # Enable test-only dev API endpoints for e2e flows.
+          export CI="true"
+          export DJANGO_TESTING="true"
+          export DJ_ENABLE_E2E_TEST_APIS="true"
+          cleanup() {
+            docker compose logs --no-color all redis > e2e_services.log 2>&1 || true
+            docker compose down all redis || true
+          }
+          trap cleanup EXIT
+          sed -i '/^REDIS_URL/d' .env
+          REDIS_URL="redis://redis:6379"
+          echo "REDIS_URL=\"$REDIS_URL\"" >> .env
+          docker compose up -d redis all
+          echo "Waiting for backend readiness on http://127.0.0.1:8000/login ..."
+          READY=0
+          for i in $(seq 1 60); do
+            if curl -fsS "http://127.0.0.1:8000/login" >/dev/null; then
+              READY=1
+              break
+            fi
+            sleep 2
+          done
+          if [ "$READY" -ne 1 ]; then
+            echo "Backend did not become ready in time"
+            docker compose ps || true
+            exit 1
+          fi
+          LOG_FILE="e2e_test_output.log"
+          : > "$LOG_FILE"
+          set +e
+          E2E_BASE_URL="http://127.0.0.1:8000" bash dev/e2e_simulations/run.sh 2>&1 | tee -a "$LOG_FILE"
+          TEST_EXIT=${PIPESTATUS[0]}
+          set -e
+          if [ $TEST_EXIT -eq 0 ]; then echo "test_result=pass" >> $GITHUB_OUTPUT; else echo "test_result=fail" >> $GITHUB_OUTPUT; fi
+      - name: Measure end time e2e tests
+        id: end_e2e_tests
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        run: |
+          echo "time=$(date +%s)" >> $GITHUB_OUTPUT
+      - name: Calculate execution time e2e tests
+        id: execution_time_e2e_tests
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        run: |
+          START=${{ steps.start_e2e_tests.outputs.time }}
+          END=${{ steps.end_e2e_tests.outputs.time }}
+          DIFF=$(( END - START ))
+          echo "DURATION=$DIFF" >> $GITHUB_OUTPUT
+      - name: Upload test log artifact
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: django-test-log
+          path: test_output.log
+          if-no-files-found: ignore
+      - name: Upload e2e test log artifact
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-log
+          path: e2e_test_output.log
+          if-no-files-found: ignore
+      - name: Upload e2e service log artifact
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-service-log
+          path: e2e_services.log
+          if-no-files-found: ignore
+      - name: Get artifact page URL
+        id: get_test_artifact_url
+        if: steps.extract_branch.outputs.branch != 'main' && (steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' || steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '')
+        run: |
+          # Link to the Actions run page which shows artifacts in the GitHub UI
+          echo "url=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> "$GITHUB_OUTPUT"
+      - name: Prepare test log snippet
+        id: test_log_snippet
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != ''
+        run: |
+          # Capture output snippet for final progress message.
+          SNIPPET="$(tail -n 400 test_output.log 2>/dev/null || echo 'No django test output captured.')"
+          {
+            echo "snippet<<EOF"
+            echo "$SNIPPET"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - name: Prepare e2e test log snippet
+        id: e2e_test_log_snippet
+        if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        run: |
+          SNIPPET="$(tail -n 400 e2e_test_output.log 2>/dev/null || echo 'No e2e test output captured.')"
+          {
+            echo "snippet<<EOF"
+            echo "$SNIPPET"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+      - name: Measure end time
+        id: end_tests
+        run: |
+          echo "time=$(date +%s)" >> $GITHUB_OUTPUT
+      - name: Calculate execution time
+        id: execution_time_tests
+        run: |
+          START=${{ steps.start_tests.outputs.time }}
+          END=${{ steps.end_tests.outputs.time }}
+          DIFF=$(( END - START ))
+          echo "DURATION=$DIFF" >> $GITHUB_OUTPUT
+      - name: Add build step comment 5
+        uses: peter-evans/create-or-update-comment@v4
+        id: update_comment_5
+        if: steps.extract_branch.outputs.branch != 'main' && (steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' || steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '')
+        with:
+          token: ${{ secrets.BOT_PAT }}
+          comment-id: ${{ steps.create_comment.outputs.comment-id }}
+          edit-mode: replace
+          body: |
+            running tests and deployment for you 🙂
+
+            <!-- lw-staging-workflow -->
+
+            - [x] `(1) 'setup'` [`run`](${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }})
+            - [x] `(2) 'build' t=${{ steps.execution_time.outputs.DURATION }}s`
+            ${{ steps.determine_pull_id.outputs.SHOULD_DEPLOY != '' && format('- [x] `(3) ''deploy''` [`url={0}`]({0})', steps.cluster_connection.outputs.STAGING_URL) || '- [ ] ~~`(3) ''deploy'' url=<deployment-url-loading>`~~' }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && (steps.run_tests.outputs.test_result == 'pass' && format('- [x] `(4) ''test''` `success` `t={0}s`', steps.execution_time_tests.outputs.DURATION) || format('- [x] `(4) ''test''` `failed` `t={0}s`', steps.execution_time_tests.outputs.DURATION)) || '- [ ] ~~`(4) ''test'' t=<test-time-loading>`~~' }}
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && (steps.run_e2e_tests.outputs.test_result == 'pass' && format('- [x] `(5) ''e2e''` `success` `t={0}s`', steps.execution_time_e2e_tests.outputs.DURATION) || format('- [x] `(5) ''e2e''` `failed` `t={0}s`', steps.execution_time_e2e_tests.outputs.DURATION)) || '- [ ] ~~`(5) ''e2e'' t=<e2e-time-loading>`~~' }}
+
+            <details>
+            <summary>Django test output (last 400 lines)</summary>
+
+            ```text
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS != '' && steps.test_log_snippet.outputs.snippet || 'Django tests were not selected.' }}
+            ```
+            </details>
+
+            <details>
+            <summary>E2E test output (last 400 lines)</summary>
+
+            ```text
+            ${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E != '' && steps.e2e_test_log_snippet.outputs.snippet || 'E2E tests were not selected.' }}
+            ```
+            </details>
+
+      - name: Enforce tests required for success
+        if: steps.extract_branch.outputs.branch != 'main'
+        run: |
+          set -euo pipefail
+
+          SHOULD_RUN_TESTS="${{ steps.determine_pull_id.outputs.SHOULD_RUN_TESTS }}"
+          SHOULD_RUN_E2E="${{ steps.determine_pull_id.outputs.SHOULD_RUN_E2E }}"
+          TEST_RESULT="${{ steps.run_tests.outputs.test_result }}"
+          E2E_RESULT="${{ steps.run_e2e_tests.outputs.test_result }}"
+
+          if [ -z "$SHOULD_RUN_TESTS" ] || [ -z "$SHOULD_RUN_E2E" ]; then
+            echo "❌ Both 'test' and 'e2e' labels are required for a passing run."
+            exit 1
+          fi
+
+          if [ "$TEST_RESULT" != "pass" ] || [ "$E2E_RESULT" != "pass" ]; then
+            echo "❌ Required tests did not pass."
+            echo "test=$TEST_RESULT e2e=$E2E_RESULT"
+            exit 1
+          fi
+
+          echo "✅ Both test and e2e ran and passed."
