@@ -741,40 +741,41 @@ def clear_active_burst_calculation(request):
     from management.models.backend_state import BackendState
 
     force_clear = request.query_params.get("force", "false") == "true"
-    ongoing_update = BackendState.objects.filter(slug=BackendState.BackendStateEnum.updating_matching_scores)
+    ongoing_update = BackendState.objects.filter(slug=BackendState.BackendStateEnum.updating_matching_scores).first()
 
     cleared_tasks = []
     not_cleared_tasks = []
-    forecefull_cleared_active_tasks = []
+    forcefully_cleared_active_tasks = []
 
-    if ongoing_update.exists():
+    if ongoing_update:
         # Query the tasks to see if they completed
-        ongoing_tasks = ongoing_update.first().meta.get("tasks", [])
+        ongoing_tasks = list(ongoing_update.meta.get("tasks", []))
         for task_id in ongoing_tasks:
             task = check_task_status(task_id)
+            task_state = task.get("state")
             if not force_clear:
-                if task["state"] == "SUCCESS":
-                    ongoing_tasks.remove(task_id)
+                if task_state == "SUCCESS":
                     cleared_tasks.append(task_id)
-                elif task["state"] == "FAILED":
+                else:
+                    # Any non-success state means the task cannot be safely cleared yet.
                     not_cleared_tasks.append(task_id)
             else:
-                forecefull_cleared_active_tasks.append(task_id)
                 # also need to force stop the task
                 try:
                     from back.celery import app
 
                     app.control.revoke(task_id, terminate=True)
+                    forcefully_cleared_active_tasks.append(task_id)
                 except Exception:
                     not_cleared_tasks.append(task_id)
 
     if force_clear:
-        if ongoing_update.exists():
-            ongoing_update.first().delete()
+        if ongoing_update:
+            ongoing_update.delete()
         return Response(
             {
                 "msg": "Tasks forcefully cleared",
-                "cleared_tasks": forecefull_cleared_active_tasks,
+                "cleared_tasks": forcefully_cleared_active_tasks,
                 "not_cleared_tasks": not_cleared_tasks,
             }
         )
@@ -790,8 +791,8 @@ def clear_active_burst_calculation(request):
             status=400,
         )
     else:
-        if ongoing_update.exists():
-            ongoing_update.first().delete()
+        if ongoing_update:
+            ongoing_update.delete()
         return Response({"msg": "Tasks cleared", "cleared_tasks": cleared_tasks})
 
 
