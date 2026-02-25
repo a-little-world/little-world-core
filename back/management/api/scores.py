@@ -751,9 +751,9 @@ def clear_active_burst_calculation(request):
         # Query the tasks to see if they completed
         ongoing_tasks = list(ongoing_update.meta.get("tasks", []))
         for task_id in ongoing_tasks:
-            task = check_task_status(task_id)
-            task_state = task.get("state")
             if not force_clear:
+                task = check_task_status(task_id)
+                task_state = task.get("state")
                 if task_state == "SUCCESS":
                     cleared_tasks.append(task_id)
                 else:
