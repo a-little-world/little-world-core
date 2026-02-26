@@ -368,7 +368,7 @@ def burst_calculate_matching_scores(user_combinations=[]):
     random_delay = math.floor(random.random() * 5)
 
     mark_burst_task_completed_check_for_finish.apply_async(
-        (burst_calculate_matching_scores.request.id,), countdown=2 + random_delay
+        (burst_calculate_matching_scores.request.id,), countdown=5 + random_delay
     )
 
     return {
