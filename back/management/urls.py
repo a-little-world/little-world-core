@@ -41,13 +41,7 @@ from management.api.matching_stats import get_quick_statistics
 from management.api.native_auth import api_urls as api_urls_native_auth
 from management.api.newsletter_subscribe import public_newsletter_subscribe
 from management.api.questions import archive_card, get_question_cards
-from management.api.scores import (
-    burst_calculate_matching_scores_v2,
-    delete_all_matching_scores,
-    get_active_burst_calculation,
-    list_top_scores,
-    score_maximization_matching,
-)
+from management.api.scores import api_urls as scores_api_urls
 from management.api.short_links import api_urls as short_links_api_urls
 from management.api.still_in_contact import api_urls as still_in_contact_api_urls
 from management.api.user_advanced import api_urls as user_advanced_api_urls
@@ -200,11 +194,7 @@ view_routes = [
         name="newsletter_subscribe",
     ),
     path("api/admin/quick_matching_statistics/", get_quick_statistics),
-    path("api/admin/optimize_possible_matches/", score_maximization_matching),
-    path("api/matching/burst_update_scores/", burst_calculate_matching_scores_v2),
-    path("api/matching/get_active_burst_calculation/", get_active_burst_calculation),
-    path("api/admin/delete_all_matching_scores/", delete_all_matching_scores),
-    path("api/admin/top_scores/", list_top_scores),
+    *scores_api_urls,
     path("info_card_debug/", main_frontend.debug_info_card, name="info_card"),
     path("api/calcom/", calcom.callcom_websocket_callback),
     *matching_panel.view_urls,

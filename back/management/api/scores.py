@@ -62,6 +62,7 @@ import pgeocode
 from back.utils import CoolerJson
 from django.core.paginator import Paginator
 from django.db.models import Exists, OuterRef, Q
+from django.urls import path
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
@@ -734,6 +735,67 @@ class BurstCalculateMatchingScoresV2RequestSerializer(serializers.Serializer):
     )
 
 
+@api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
+def clear_active_burst_calculation(request):
+    from management.models.backend_state import BackendState
+
+    force_clear = request.query_params.get("force", "false") == "true"
+    ongoing_update = BackendState.objects.filter(slug=BackendState.BackendStateEnum.updating_matching_scores).first()
+
+    cleared_tasks = []
+    not_cleared_tasks = []
+    forcefully_cleared_active_tasks = []
+
+    if ongoing_update:
+        # Query the tasks to see if they completed
+        ongoing_tasks = list(ongoing_update.meta.get("tasks", []))
+        for task_id in ongoing_tasks:
+            if not force_clear:
+                task = check_task_status(task_id)
+                task_state = task.get("state")
+                if task_state == "SUCCESS":
+                    cleared_tasks.append(task_id)
+                else:
+                    # Any non-success state means the task cannot be safely cleared yet.
+                    not_cleared_tasks.append(task_id)
+            else:
+                # also need to force stop the task
+                try:
+                    from back.celery import app
+
+                    app.control.revoke(task_id, terminate=True)
+                    forcefully_cleared_active_tasks.append(task_id)
+                except Exception:
+                    not_cleared_tasks.append(task_id)
+
+    if force_clear:
+        if ongoing_update:
+            ongoing_update.delete()
+        return Response(
+            {
+                "msg": "Tasks forcefully cleared",
+                "cleared_tasks": forcefully_cleared_active_tasks,
+                "not_cleared_tasks": not_cleared_tasks,
+            }
+        )
+    if len(not_cleared_tasks) > 0:
+        # Here the user can re-run with ?force=true to just clear regardless
+        # BUT generally this SHOULD NOT be done cause it normally means the scoring is actually still running
+        return Response(
+            {
+                "msg": "Not all tasks could be cleared",
+                "not_cleared_tasks": not_cleared_tasks,
+                "cleared_tasks": cleared_tasks,
+            },
+            status=400,
+        )
+    else:
+        if ongoing_update:
+            ongoing_update.delete()
+        return Response({"msg": "Tasks cleared", "cleared_tasks": cleared_tasks})
+
+
 @extend_schema(
     request=BurstCalculateMatchingScoresV2RequestSerializer,
 )
@@ -784,6 +846,7 @@ def burst_calculate_matching_scores_v2(request):
     task_batches = [list_combinations[i : i + chunk_size] for i in range(0, total_combinations, chunk_size)]
 
     if not task_batches:
+        ongoing_update.delete()
         return Response({"msg": "No matching needed"}, status=200)
 
     created_tasks = [burst_calculate_matching_scores.delay(batch) for batch in task_batches]
@@ -806,15 +869,17 @@ def burst_calculate_matching_scores_v2(request):
 def get_active_burst_calculation(request):
     from management.models.backend_state import BackendState
 
-    ongoing_update = BackendState.objects.filter(slug=BackendState.BackendStateEnum.updating_matching_scores)
+    ongoing_update_qs = BackendState.objects.filter(slug=BackendState.BackendStateEnum.updating_matching_scores)
+    ongoing_update = ongoing_update_qs.first()
 
-    if ongoing_update.exists():
-        tasks = ongoing_update.first().meta["tasks"]
+    if ongoing_update is not None:
+        tasks = ongoing_update.meta.get("tasks") or []
+        if not tasks:
+            ongoing_update.delete()
+            return Response({"active": False})
         task_states = [check_task_status(task_id) for task_id in tasks]
-
         return Response({"active": True, "tasks": task_states})
-    else:
-        return Response({"active": False})
+    return Response({"active": False})
 
 
 def instantly_possible_matches():
@@ -928,3 +993,13 @@ def list_top_scores(request):
             results=serialized,
         ).dict()
     )
+
+
+api_urls = [
+    path("api/admin/optimize_possible_matches/", score_maximization_matching),
+    path("api/matching/burst_update_scores/", burst_calculate_matching_scores_v2),
+    path("api/matching/clear_active_burst_calculation/", clear_active_burst_calculation),
+    path("api/matching/get_active_burst_calculation/", get_active_burst_calculation),
+    path("api/admin/delete_all_matching_scores/", delete_all_matching_scores),
+    path("api/admin/top_scores/", list_top_scores),
+]
