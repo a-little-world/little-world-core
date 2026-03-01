@@ -200,6 +200,9 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
         representation["waiting_time"] = get_match_waiting_time(instance)
 
         representation["state"] = StateSerializer(instance.state).data
+        representation["state"]["random_call_beta_access"] = instance.state.has_extra_user_permission(
+            State.ExtraUserPermissionChoices.USE_BETA_RANDOM_CALL
+        )
 
         # NOTE:
         # Some of the filter lists in FILTER_LISTS use JSONField `__contains`
@@ -742,6 +745,40 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
     @extend_schema(
         request=inline_serializer(
+            name="SetRandomCallBetaAccessRequest",
+            fields={"random_call_beta_access": serializers.BooleanField()},
+        )
+    )
+    @action(detail=True, methods=["post"])
+    def set_random_call_beta_access(self, request, pk=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+
+        allow_access = request.data.get("random_call_beta_access", False)
+        permission_slug = State.ExtraUserPermissionChoices.USE_BETA_RANDOM_CALL
+        existing_permissions = list(obj.state.extra_user_permissions or [])
+
+        if allow_access and permission_slug not in existing_permissions:
+            existing_permissions.append(permission_slug)
+        if not allow_access and permission_slug in existing_permissions:
+            existing_permissions.remove(permission_slug)
+
+        obj.state.extra_user_permissions = existing_permissions
+        obj.state.save()
+
+        return Response(
+            {
+                "success": True,
+                "random_call_beta_access": obj.state.has_extra_user_permission(permission_slug),
+            }
+        )
+
+    @extend_schema(
+        request=inline_serializer(
             name="MarkPrematchingCallCompletedRequest",
             fields={"had_prematching_call": serializers.BooleanField(default=True)},
         )
@@ -1067,6 +1104,10 @@ viewset_actions = [
     path(
         "api/matching/users/<pk>/set_has_match_priority/",
         AdvancedUserViewset.as_view({"post": "set_has_match_priority"}),
+    ),
+    path(
+        "api/matching/users/<pk>/set_random_call_beta_access/",
+        AdvancedUserViewset.as_view({"post": "set_random_call_beta_access"}),
     ),
 ]
 
