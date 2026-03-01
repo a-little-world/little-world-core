@@ -473,6 +473,22 @@
       "subject": "\u2753 Dein Match wurde beendet \u2013 magst du uns Feedback geben?",
       "template": "react_emails/automatic-emails-fm021.html",
       "theme": "little-world"
+    },
+    "automatic-emails-native-app-beta-ios": {
+      "id": "automatic-emails-native-app-beta-ios",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Willkommen als Little World App Beta-Tester (iOS)",
+      "template": "react_emails/automatic-emails-native-app-beta-ios.html",
+      "theme": "little-world"
+    },
+    "automatic-emails-native-app-beta-android": {
+      "id": "automatic-emails-native-app-beta-android",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Willkommen als Little World App Beta-Tester (Android)",
+      "template": "react_emails/automatic-emails-native-app-beta-android.html",
+      "theme": "little-world"
     }
   },
   "senders": {
