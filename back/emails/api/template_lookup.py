@@ -210,6 +210,32 @@ def match_removed_survey_url(user, match, **kwargs):
     return "not_implemented"
 
 
+def beta_tester_email(user):
+    return str(user.email)
+
+
+def little_world_account_email(user=None, match=None, context={"little_world_account_email": None}):
+    if context.get("little_world_account_email"):
+        return context["little_world_account_email"]
+    return str(user.email)
+
+
+def ios_beta_app_url(user=None, match=None, context={"ios_beta_app_url": "Not set"}):
+    return context["ios_beta_app_url"]
+
+
+def android_beta_app_url(user=None, match=None, context={"android_beta_app_url": "Not set"}):
+    return context["android_beta_app_url"]
+
+
+def native_app_repo_url(user=None, match=None, context={"native_app_repo_url": "Not set"}):
+    return context["native_app_repo_url"]
+
+
+def native_app_bug_report_url(user=None, match=None, context={"native_app_bug_report_url": "Not set"}):
+    return context["native_app_bug_report_url"]
+
+
 def latest_completed_match_first_name(user):
     from django.db.models import Q
 
