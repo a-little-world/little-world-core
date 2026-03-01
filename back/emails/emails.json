@@ -773,7 +773,8 @@
       "id": "beta_tester_email",
       "lookup": "emails.api.template_lookup.beta_tester_email",
       "depends_on": [
-        "user"
+        "user",
+        "context.beta_tester_email"
       ]
     },
     "little_world_account_email": {

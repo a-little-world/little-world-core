@@ -210,7 +210,9 @@ def match_removed_survey_url(user, match, **kwargs):
     return "not_implemented"
 
 
-def beta_tester_email(user):
+def beta_tester_email(user=None, match=None, context={"beta_tester_email": None}):
+    if context.get("beta_tester_email"):
+        return context["beta_tester_email"]
     return str(user.email)
 
 
