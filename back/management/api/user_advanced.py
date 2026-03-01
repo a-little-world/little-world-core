@@ -823,9 +823,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             return Response({"error": "native_app_bug_report_url is required"}, status=400)
 
         template_name = (
-            "automatic-emails-native-app-beta-ios"
-            if platform == "ios"
-            else "automatic-emails-native-app-beta-android"
+            "automatic-emails-native-app-beta-ios" if platform == "ios" else "automatic-emails-native-app-beta-android"
         )
 
         context = {
