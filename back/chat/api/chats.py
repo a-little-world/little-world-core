@@ -53,7 +53,7 @@ class ChatsModelViewSet(viewsets.ModelViewSet):
         )
 
         queryset = (
-            Chat.objects.filter(Q(u1=self.request.user) | Q(u2=self.request.user))
+            Chat.objects.filter(Q(u1=self.request.user) | Q(u2=self.request.user), is_temporary=False)
             .annotate(
                 has_messages=Exists(Message.objects.filter(chat_id=OuterRef("pk"))),
                 is_active_match=Exists(
@@ -82,11 +82,13 @@ class ChatsModelViewSet(viewsets.ModelViewSet):
         if not chat_uuid:
             return Response({"error": "chat_uuid is required"}, status=400)
 
-        chat = self.get_queryset().filter(uuid=chat_uuid)
-        if not chat.exists():
+        # Fetch by UUID: allow any chat the user participates in (including random call chats).
+        chat = Chat.objects.filter(
+            Q(u1=request.user) | Q(u2=request.user),
+            uuid=chat_uuid,
+        ).first()
+        if not chat:
             return Response({"error": "Chat doesn't exist or you have no permission to interact with it!"}, status=403)
-
-        chat = chat.first()
         return Response(
             self.serializer_class(
                 chat,

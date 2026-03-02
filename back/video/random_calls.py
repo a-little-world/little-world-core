@@ -10,7 +10,9 @@ from django.urls import path
 from django.utils import timezone
 from livekit import api as livekit_api
 from management.authentication import NativeOnlyJWTAuthentication
+from management.controller import create_user_matching_proposal, match_users
 from management.models.matches import Match
+from management.models.unconfirmed_matches import MatchType, ProposedMatch
 from rest_framework import serializers
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import (
@@ -406,10 +408,10 @@ def authenticate_random_call_match_livekit_room(request, lobby_uuid, match_uuid)
         return Response("Both users must accept the matching", status=400)
     # 7 - Start actual room authentication
 
-    # 7.1 - create a temporary chat
-    temporary_chat = Chat.objects.filter(u1=match.u1, u2=match.u2, is_random_call_chat=True)
+    # 7.1 - create a temporary chat (excluded from main chat list)
+    temporary_chat = Chat.objects.filter(u1=match.u1, u2=match.u2, is_temporary=True)
     if not temporary_chat.exists():
-        temporary_chat = Chat.objects.create(u1=match.u1, u2=match.u2, is_random_call_chat=True)
+        temporary_chat = Chat.objects.create(u1=match.u1, u2=match.u2, is_temporary=True)
     else:
         temporary_chat = temporary_chat.first()
 
@@ -421,10 +423,14 @@ def authenticate_random_call_match_livekit_room(request, lobby_uuid, match_uuid)
         temporary_room = temporary_room.first()
 
     # 7.3 - create a temporary match ( TODO: ensure proper cleanup! )
-    temporary_match = Match.objects.filter(user1=match.u1, user2=match.u2, is_random_call_match=True)
+    temporary_match = Match.objects.filter(user1=match.u1, user2=match.u2, match_type=MatchType.TEMPORARY)
     if not temporary_match.exists():
         temporary_match = Match.objects.create(
-            user1=match.u1, user2=match.u2, is_random_call_match=True, confirmed=True, active=False
+            user1=match.u1,
+            user2=match.u2,
+            match_type=MatchType.TEMPORARY,
+            confirmed=True,
+            active=False,
         )
     else:
         temporary_match = temporary_match.first()
@@ -565,9 +571,15 @@ class RandomCallMatchHistorySerializer(serializers.Serializer):
                 duration = int(duration_delta.total_seconds())
 
         # Serialize partner profile using CensoredProfileSerializer
-        from management.models.profile import CensoredProfileSerializer
+        from management.models.profile import CensoredProfileSerializer, Profile
 
         partner_data = CensoredProfileSerializer(partner.profile).data
+
+        # Learners cannot match with one another
+        both_learners = (
+            instance.u1.profile.user_type == Profile.TypeChoices.LEARNER
+            and instance.u2.profile.user_type == Profile.TypeChoices.LEARNER
+        )
 
         # Build the response
         return {
@@ -577,8 +589,9 @@ class RandomCallMatchHistorySerializer(serializers.Serializer):
             "image": partner.profile.image.url if partner.profile.image else partner.profile.avatar_config,
             "image_type": partner.profile.image_type,
             "duration": duration,
-            "cannot_match": partner_requested,  # Cannot request if partner already requested
+            "cannot_match": both_learners,
             "matching_requested": current_user_requested,
+            "confirmed_match": instance.confirmed_match,
             "both_requested": current_user_requested and partner_requested,
             "partner": partner_data,
         }
@@ -726,8 +739,43 @@ def request_random_call_matching(request, match_uuid):
 
     match.save()
 
-    # 5 - Check if both users have now requested matching
+    # 5 - One user requested: create ProposedMatch for the other to confirm (if not already created).
+    #     Both requested: find existing ProposedMatch, close it, and create confirmed Match.
     both_requested = match.u1_matching_requested and match.u2_matching_requested
+    partner = match.u2 if match.u1 == request.user else match.u1
+
+    if both_requested:
+        proposal = (
+            ProposedMatch.get_proposal_between(match.u1, match.u2)
+            .filter(match_type=MatchType.RANDOM_CALL, closed=False)
+            .first()
+        )
+        if proposal:
+            proposal.closed = True
+            proposal.save()
+        existing_match = Match.get_match(match.u1, match.u2).filter(match_type=MatchType.RANDOM_CALL)
+        if not existing_match.exists():
+            match_users(
+                {match.u1, match.u2},
+                match_type=MatchType.RANDOM_CALL,
+                send_message=False,
+                send_email=False,
+                send_notification=False,
+            )
+    else:
+        # First requester: create proposal so the partner (non-requester) sees it in unconfirmed matches
+        existing_proposal = (
+            ProposedMatch.get_proposal_between(match.u1, match.u2)
+            .filter(match_type=MatchType.RANDOM_CALL, closed=False)
+            .exists()
+        )
+        if not existing_proposal:
+            create_user_matching_proposal(
+                {match.u1, match.u2},
+                send_confirm_match_email=True,  # no initial proposal email for random call
+                match_type=MatchType.RANDOM_CALL,
+                confirming_user=partner,
+            )
 
     # 6 - Return the updated match data
     serializer = RandomCallMatchHistorySerializer(match, context={"request": request})

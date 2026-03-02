@@ -168,6 +168,9 @@ class RandomCallMatching(models.Model):
 
     both_requested_room_token = models.BooleanField(default=False)
 
+    # True when these two users have been matched via match_users (Match exists for this pair, random_call type)
+    confirmed_match = models.BooleanField(default=False)
+
     @property
     def is_processed(self):
         return self.accepted or self.rejected

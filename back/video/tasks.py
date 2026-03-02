@@ -52,8 +52,16 @@ def random_call_lobby_perform_matching(lobby_uuid):
     if len(user_ids) < 2:
         return {"matchings": []}
     pair = random.sample(user_ids, 2)
-    # 5 - create a new random call matches
-    random_match = RandomCallMatching.objects.create(u1_id=pair[0], u2_id=pair[1], lobby=lobby)
+    # 5 - create a new random call match; set confirmed_match if these users are already matched
+    from management.models.matches import Match
+    from management.models.user import User
+
+    u1 = User.objects.get(id=pair[0])
+    u2 = User.objects.get(id=pair[1])
+    confirmed_match = Match.get_match(u1, u2).exists()
+    random_match = RandomCallMatching.objects.create(
+        u1_id=pair[0], u2_id=pair[1], lobby=lobby, confirmed_match=confirmed_match
+    )
     # 6 - For every match start a 'cleanup_if_not_accepted' task that runs 30s after the match is created
     cleanup_if_not_accepted.apply_async(args=[random_match.uuid], countdown=lobby.match_proposal_timeout)
     return {"matchings": [pair]}
