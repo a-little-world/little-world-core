@@ -200,6 +200,9 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
         representation["waiting_time"] = get_match_waiting_time(instance)
 
         representation["state"] = StateSerializer(instance.state).data
+        representation["state"]["random_call_beta_access"] = instance.state.has_extra_user_permission(
+            State.ExtraUserPermissionChoices.USE_BETA_RANDOM_CALL
+        )
 
         # NOTE:
         # Some of the filter lists in FILTER_LISTS use JSONField `__contains`
@@ -742,6 +745,112 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
     @extend_schema(
         request=inline_serializer(
+            name="SetRandomCallBetaAccessRequest",
+            fields={"random_call_beta_access": serializers.BooleanField()},
+        )
+    )
+    @action(detail=True, methods=["post"])
+    def set_random_call_beta_access(self, request, pk=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+
+        allow_access = request.data.get("random_call_beta_access", False)
+        permission_slug = State.ExtraUserPermissionChoices.USE_BETA_RANDOM_CALL
+        existing_permissions = list(obj.state.extra_user_permissions or [])
+
+        if allow_access and permission_slug not in existing_permissions:
+            existing_permissions.append(permission_slug)
+        if not allow_access and permission_slug in existing_permissions:
+            existing_permissions.remove(permission_slug)
+
+        obj.state.extra_user_permissions = existing_permissions
+        obj.state.save()
+
+        return Response(
+            {
+                "success": True,
+                "random_call_beta_access": obj.state.has_extra_user_permission(permission_slug),
+            }
+        )
+
+    @extend_schema(
+        request=inline_serializer(
+            name="InviteNativeAppTesterRequest",
+            fields={
+                "platform": serializers.ChoiceField(choices=["ios", "android"]),
+                "app_invite_url": serializers.CharField(),
+                "beta_tester_email": serializers.EmailField(),
+                "native_app_repo_url": serializers.CharField(),
+                "native_app_bug_report_url": serializers.CharField(),
+                "little_world_account_email": serializers.CharField(required=False, allow_blank=True),
+                "send_to_email": serializers.EmailField(required=False, allow_blank=True),
+                "emulate_send": serializers.BooleanField(required=False, default=False),
+            },
+        )
+    )
+    @action(detail=True, methods=["post"])
+    def invite_native_app_tester(self, request, pk=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+
+        platform = request.data.get("platform")
+        app_invite_url = request.data.get("app_invite_url")
+        beta_tester_email = request.data.get("beta_tester_email")
+        native_app_repo_url = request.data.get("native_app_repo_url")
+        native_app_bug_report_url = request.data.get("native_app_bug_report_url")
+        little_world_account_email = request.data.get("little_world_account_email", "")
+        send_to_email = request.data.get("send_to_email", "")
+        emulate_send = request.data.get("emulate_send", False)
+
+        if platform not in ["ios", "android"]:
+            return Response({"error": "platform must be either 'ios' or 'android'"}, status=400)
+
+        if not app_invite_url:
+            return Response({"error": "app_invite_url is required"}, status=400)
+        if not beta_tester_email:
+            return Response({"error": "beta_tester_email is required"}, status=400)
+        if not native_app_repo_url:
+            return Response({"error": "native_app_repo_url is required"}, status=400)
+        if not native_app_bug_report_url:
+            return Response({"error": "native_app_bug_report_url is required"}, status=400)
+
+        template_name = (
+            "automatic-emails-native-app-beta-ios" if platform == "ios" else "automatic-emails-native-app-beta-android"
+        )
+
+        context = {
+            "beta_tester_email": beta_tester_email,
+            "native_app_repo_url": native_app_repo_url,
+            "native_app_bug_report_url": native_app_bug_report_url,
+        }
+        if platform == "ios":
+            context["ios_beta_app_url"] = app_invite_url
+        else:
+            context["android_beta_app_url"] = app_invite_url
+
+        if little_world_account_email:
+            context["little_world_account_email"] = little_world_account_email
+
+        from emails.api.send_email import send_template_email
+
+        return send_template_email(
+            template_name=template_name,
+            user_id=obj.id,
+            emulated_send=emulate_send,
+            context=context,
+            send_to_email=send_to_email or beta_tester_email,
+        )
+
+    @extend_schema(
+        request=inline_serializer(
             name="MarkPrematchingCallCompletedRequest",
             fields={"had_prematching_call": serializers.BooleanField(default=True)},
         )
@@ -1067,6 +1176,14 @@ viewset_actions = [
     path(
         "api/matching/users/<pk>/set_has_match_priority/",
         AdvancedUserViewset.as_view({"post": "set_has_match_priority"}),
+    ),
+    path(
+        "api/matching/users/<pk>/set_random_call_beta_access/",
+        AdvancedUserViewset.as_view({"post": "set_random_call_beta_access"}),
+    ),
+    path(
+        "api/matching/users/<pk>/invite_native_app_tester/",
+        AdvancedUserViewset.as_view({"post": "invite_native_app_tester"}),
     ),
 ]
 
