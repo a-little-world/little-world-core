@@ -18,6 +18,7 @@ class SendEmailSerializer(serializers.Serializer):
     proposed_match_id = serializers.IntegerField(required=False, default=None)
     context = serializers.DictField(required=False, default={})
     emulate_send = serializers.BooleanField(required=False, default=False)
+    send_to_email = serializers.EmailField(required=False, allow_blank=True)
 
 
 class SendEmailDynamicUserListSerializer(serializers.Serializer):
@@ -33,6 +34,7 @@ def send_template_email(
     proposed_match_id=None,
     emulated_send=False,
     context={},
+    send_to_email=None,
     retrieve_user_model=get_user_model,
 ):
     user = retrieve_user_model().objects.get(pk=user_id)
@@ -65,16 +67,18 @@ def send_template_email(
             "user_id": user_id,
             "match_id": match_id,
             "subject": subject,
+            "send_to_email": send_to_email or user.email,
         },
     )
 
     try:
         from_email = EMAILS_CONFIG.senders[template_info["config"]["sender_id"]]
+        receiver_email = send_to_email or user.email
         mail = EmailMessage(
             subject=subject,
             body=email_html,
             from_email=from_email,
-            to=[user.email],
+            to=[receiver_email],
         )
         mail.content_subtype = "html"
         if emulated_send:
@@ -112,6 +116,7 @@ def send_template_email_api(request, template_name):
         proposed_match_id=proposed_match_id,
         emulated_send=serializer.data.get("emulate_send", False),
         context=serializer.data.get("context", {}),
+        send_to_email=serializer.data.get("send_to_email", None) or None,
     )
 
 
