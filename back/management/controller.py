@@ -328,8 +328,12 @@ def match_users(
     if create_dialog:
         # After the users are registered as matches
         # we still need to create a dialog for them
-
-        Chat.get_or_create_chat(usr1, usr2)
+        chat = Chat.get_or_create_chat(usr1, usr2)
+        if match_type == MatchType.RANDOM_CALL:
+            chat.is_temporary = True
+            chat.save(update_fields=["is_temporary"])
+    elif match_type == MatchType.RANDOM_CALL:
+        Chat.objects.filter(Q(u1=usr1, u2=usr2) | Q(u1=usr2, u2=usr1)).update(is_temporary=True)
 
     if create_video_room:
         Room.objects.create(usr1=usr1, usr2=usr2)

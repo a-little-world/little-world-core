@@ -82,11 +82,13 @@ class ChatsModelViewSet(viewsets.ModelViewSet):
         if not chat_uuid:
             return Response({"error": "chat_uuid is required"}, status=400)
 
-        # Fetch by UUID: allow any chat the user participates in (including random call chats).
-        chat = Chat.objects.filter(
-            Q(u1=request.user) | Q(u2=request.user),
-            uuid=chat_uuid,
-        ).first()
+        chat = self.get_queryset().filter(uuid=chat_uuid).first()
+        if not chat:
+            # Fallback: allow any chat the user participates in (e.g. temporary/random call chats)
+            chat = Chat.objects.filter(
+                Q(u1=request.user) | Q(u2=request.user),
+                uuid=chat_uuid,
+            ).first()
         if not chat:
             return Response({"error": "Chat doesn't exist or you have no permission to interact with it!"}, status=403)
         return Response(
