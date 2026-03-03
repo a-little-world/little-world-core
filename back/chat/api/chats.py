@@ -84,6 +84,7 @@ class ChatsModelViewSet(viewsets.ModelViewSet):
 
         chat = self.get_queryset().filter(uuid=chat_uuid).first()
         if not chat:
+            # TODO: @tbscode check if this can be improved.
             # Fallback: allow any chat the user participates in (e.g. temporary/random call chats)
             chat = Chat.objects.filter(
                 Q(u1=request.user) | Q(u2=request.user),
