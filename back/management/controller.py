@@ -23,7 +23,7 @@ from management.models.rooms import Room
 from management.models.scores import TwoUserMatchingScore
 from management.models.settings import Settings
 from management.models.state import State
-from management.models.unconfirmed_matches import ProposedMatch
+from management.models.unconfirmed_matches import MatchType, ProposedMatch
 from management.models.user import User, UserSerializer
 from management.tasks import (
     create_default_banners,
@@ -276,13 +276,14 @@ def match_users(
     set_unconfirmed=True,
     set_to_idle=True,
     set_received_first_match=True,
+    match_type=MatchType.STANDARD,
 ):
     """Accepts a list of two users to match"""
 
     assert len(users) == 2, f"Accepts only two users! ({', '.join(users)})"
     usr1, usr2 = list(users)
 
-    # Only match if they are not already matched!
+    # Only match if they are not already matched
     matching = Match.get_match(usr1, usr2)
     if matching.exists():
         # Before we raise the exception we check for 'dangeling' matches
@@ -307,7 +308,13 @@ def match_users(
         user2=usr2,
         confirmed=is_support_matching,  # if support matching always confimed = true prevents it from showing up in 'unconfirmed' initally
         support_matching=is_support_matching,
+        match_type=match_type,
     )
+
+    if match_type == MatchType.RANDOM_CALL:
+        from video.models import RandomCallMatching
+
+        RandomCallMatching.objects.filter(Q(u1=usr1, u2=usr2) | Q(u1=usr2, u2=usr1)).update(confirmed_match=True)
 
     if create_livekit_room:
         from video.models import LiveKitRoom
@@ -321,8 +328,12 @@ def match_users(
     if create_dialog:
         # After the users are registered as matches
         # we still need to create a dialog for them
-
-        Chat.get_or_create_chat(usr1, usr2)
+        chat = Chat.get_or_create_chat(usr1, usr2)
+        if match_type == MatchType.RANDOM_CALL:
+            chat.is_temporary = False
+            chat.save(update_fields=["is_temporary"])
+    elif match_type == MatchType.RANDOM_CALL:
+        Chat.objects.filter(Q(u1=usr1, u2=usr2) | Q(u1=usr2, u2=usr1)).update(is_temporary=False)
 
     if create_video_room:
         Room.objects.create(usr1=usr1, usr2=usr2)
@@ -371,18 +382,26 @@ def match_users(
     return matching_obj
 
 
-def create_user_matching_proposal(users: set, send_confirm_match_email=True):
+def create_user_matching_proposal(
+    users: set,
+    send_confirm_match_email=True,
+    match_type=MatchType.STANDARD,
+    confirming_user=None,
+):
     """
-    This represents the new intermediate matching step we created.
-    Users are not just matched directly but first a matching proposal is send to the 'learner' user.
+    Create a matching proposal. For STANDARD, the learner is set in ProposedMatch.save().
+    For RANDOM_CALL, pass confirming_user (the non-requester who should see the proposal).
     """
     u1, u2 = list(users)
-    proposal = ProposedMatch.objects.create(
-        user1=u1,
-        user2=u2,
-        # When this is faulse the create signal will not send an email!
-        send_inital_mail=(not send_confirm_match_email),
-    )
+    create_kwargs = {
+        "user1": u1,
+        "user2": u2,
+        "send_inital_mail": not send_confirm_match_email,
+        "match_type": match_type,
+    }
+    if confirming_user is not None:
+        create_kwargs["confirming_user"] = confirming_user
+    proposal = ProposedMatch.objects.create(**create_kwargs)
     return proposal
 
 

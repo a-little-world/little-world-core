@@ -127,18 +127,19 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
 
         partner = chat.get_partner(request.user)
 
-        # Check if the users are still matched, otherwise no new messages can be send
-        match = Match.get_match(request.user, partner)
-        if not match.exists():
-            return self.resp_chat_403
-        match = match.first()
-
-        # Update match data
-        match.total_messages_counter += 1
-        match.latest_interaction_at = timezone.now()
-        if match.first_interaction_at is None:
-            match.first_interaction_at = timezone.now()
-        match.save()
+        # Check if the users are still matched, otherwise no new messages can be sent.
+        # Temporary chats (e.g. random call) have no Match; allow sending and skip match updates.
+        if not chat.is_temporary:
+            match = Match.get_match(request.user, partner)
+            if not match.exists():
+                return self.resp_chat_403
+            match = match.first()
+            # Update match data
+            match.total_messages_counter += 1
+            match.latest_interaction_at = timezone.now()
+            if match.first_interaction_at is None:
+                match.first_interaction_at = timezone.now()
+            match.save()
 
         # Email notification logic - check if recipient should be notified
         creation_time = timezone.now()
