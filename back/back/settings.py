@@ -77,6 +77,11 @@ MATCHING_USER_PASSWORD = os.environ.get(
     "DJ_MATCHING_USER_PASSWORD",
     None if IS_PROD else "Test123!",  # No default on prod, just error!
 )
+MANAGEMENT_USER_PASSWORD = os.environ.get("DJ_MANAGEMENT_USER_PASSWORD", None)
+
+if MANAGEMENT_USER_PASSWORD is None:
+    raise ValueError("DJ_MANAGEMENT_USER_PASSWORD is not set")
+
 MATCHING_USER_FIRST_NAME = os.environ.get("DJ_MATCHING_USER_FIRST_NAME", "Tim")
 MATCHING_USER_SECOND_NAME = os.environ.get("DJ_MATCHING_USER_SECOND_NAME", "Schupp")
 ADMIN_OPEN_KEYPHRASE = os.environ.get(
@@ -740,7 +745,7 @@ DATABASES = (
             "HOST": os.environ["DJ_DATABASE_HOST"],
             "PORT": os.environ["DJ_DATABASE_PORT"],
             "OPTIONS": {"connect_timeout": 10}
-            if (os.environ.get("DJ_DATABASE_DISABLE_SSL", "false").lower() in ("true", "t", "0"))
+            if (os.environ.get("DJ_DATABASE_DISABLE_SSL", "false").lower() in ("true", "t", "1"))
             else {"sslmode": "require"},
             "CONN_MAX_AGE": int(os.environ.get("DJ_DATABASE_CONN_MAX_AGE", "600")),
             "CONN_HEALTH_CHECKS": os.environ.get("DJ_DATABASE_CONN_HEALTH_CHECKS", "true").lower()

@@ -62,7 +62,10 @@ def confirm_match(request):
 
     # now check the user choice
     if data.confirm:
-        matching = match_users({unconfirmed_match.user1, unconfirmed_match.user2})
+        matching = match_users(
+            {unconfirmed_match.user1, unconfirmed_match.user2},
+            match_type=unconfirmed_match.match_type,
+        )
         unconfirmed_match.closed = True
         unconfirmed_match.save()
 

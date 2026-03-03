@@ -17,7 +17,9 @@ class Chat(models.Model):
 
     three_days_inactive_email_send = models.BooleanField(default=False, blank=False, null=False)
     seven_days_inactive_email_send = models.BooleanField(default=False, blank=False, null=False)
-    is_random_call_chat = models.BooleanField(default=False)
+
+    # True only for in-call temporary chats (e.g. random call); excluded from main chat list
+    is_temporary = models.BooleanField(default=False)
 
     class Meta:
         indexes = [
@@ -106,12 +108,14 @@ class ChatSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
 
         if ("request" in self.context) or ("user" in self.context):
-            # We need to check if the users are still matched otherwise we censor the parter profile
+            # We need to check if the users are still matched otherwise we censor the partner profile.
+            # Temporary chats (e.g. random call) always show partner.
             user = self.context["request"].user if "request" in self.context else self.context["user"]
             partner = instance.get_partner(user)
+            is_matched = management_models.matches.Match.get_match(user, partner).exists()
+            show_partner = (is_matched or instance.is_temporary) and partner.is_active
 
-            # TODO: add specific representation for random calls
-            if management_models.matches.Match.get_match(user, partner).exists() and partner.is_active:
+            if show_partner:
                 profile = management_models.profile.CensoredProfileSerializer(partner.profile).data
                 representation["partner"] = profile
                 representation["partner"]["id"] = partner.hash
