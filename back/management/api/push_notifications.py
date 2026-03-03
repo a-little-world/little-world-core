@@ -38,14 +38,12 @@ class PushNotificationRegistrationSerializer(serializers.Serializer):
 @dataclass
 class PushNotificationParams:
     user: int
-    headline: str
     title: str
     description: str
 
 
 class PushNotificationSerializer(serializers.Serializer):
     user = serializers.CharField(required=True)
-    headline = serializers.CharField(required=True)
     title = serializers.CharField(required=True)
     description = serializers.CharField(required=True)
 
@@ -161,7 +159,7 @@ def send_push_notification(request):
 @permission_classes([IsAdminOrMatchingUser])
 @authentication_classes([authentication.SessionAuthentication, JWTAuthentication])
 def send_test_push_notification(request):
-    request.user.send_notification(title="Test notification headline", description="Test notification description")
+    request.user.send_notification(title="Test notification title", description="Test notification description")
     return Response(status=200)
 
 
