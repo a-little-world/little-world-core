@@ -506,7 +506,7 @@ def create_base_admin_and_add_standart_db_values():
         usr = User.objects.create_superuser(
             email=settings.MANAGEMENT_USER_MAIL,
             username=settings.MANAGEMENT_USER_MAIL,
-            password=settings.MANAGEMENT_USER_PASSWORD, # DJ_MANAGEMENT_PW
+            password=settings.MANAGEMENT_USER_PASSWORD,  # DJ_MANAGEMENT_PW
             first_name=os.environ.get("DJ_MANAGEMENT_FIRST_NAME", "Oliver (Support)"),
             second_name=os.environ.get("DJ_MANAGEMENT_SECOND_NAME", ""),
         )
