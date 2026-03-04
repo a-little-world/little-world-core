@@ -79,10 +79,27 @@ def get_lobby_management_overview(request, lobby_name="default"):
     - Match proposals categorized by status (pending, accepted, rejected, expired)
     - Statistics summary
     """
-    # 1 - Retrieve the lobby
-    try:
-        lobby = RandomCallLobby.objects.get(name=lobby_name)
-    except RandomCallLobby.DoesNotExist:
+    # 1 - Retrieve the active lobby with this name, or the most recent one in the past (not future)
+    now = timezone.now()
+    lobby = (
+        RandomCallLobby.objects.filter(
+            name=lobby_name,
+            start_time__lte=now,
+            end_time__gte=now,
+        )
+        .order_by("-id")
+        .first()
+    )
+    if lobby is None:
+        lobby = (
+            RandomCallLobby.objects.filter(
+                name=lobby_name,
+                end_time__lt=now,
+            )
+            .order_by("-end_time")
+            .first()
+        )
+    if lobby is None:
         return Response({"error": "Lobby not found"}, status=404)
 
     # 2 - Check if the lobby is active
@@ -199,11 +216,22 @@ def reset_default_lobby(request, lobby_name="default"):
     """
     Admin API to reset the default random call lobby.
     Deletes all lobby users, matchings, and recreates the lobby with current time.
+    Only resets if the existing lobby is active.
     """
-    # Get the existing lobby first
-    existing_lobby = RandomCallLobby.objects.filter(name=lobby_name).first()
+    # Get the most recent lobby with this name
+    existing_lobby = RandomCallLobby.objects.filter(name=lobby_name).order_by("-id").first()
 
     if existing_lobby:
+        # Only reset if the lobby is active
+        if not is_lobby_active(existing_lobby):
+            return Response(
+                {
+                    "success": False,
+                    "message": f"Lobby '{lobby_name}' is not active and cannot be reset",
+                },
+                status=400,
+            )
+
         # Clear all lobby users
         RandomCallLobbyUser.objects.filter(lobby=existing_lobby).delete()
 
@@ -238,49 +266,197 @@ def reset_default_lobby(request, lobby_name="default"):
     )
 
 
+class CreateLobbySerializer(serializers.Serializer):
+    start_time = serializers.DateTimeField()
+    end_time = serializers.DateTimeField()
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAdminOrMatchingUser])
+def create_lobby(request, lobby_name):
+    """
+    Admin API to create a new lobby with the specified name, start_time, and end_time.
+    """
+    serializer = CreateLobbySerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response({"error": serializer.errors}, status=400)
+
+    start_time = serializer.validated_data["start_time"]
+    end_time = serializer.validated_data["end_time"]
+    current_time = timezone.now()
+
+    # Validate that start_time is in the future
+    if start_time <= current_time:
+        return Response(
+            {"error": "Start time must be in the future"},
+            status=400,
+        )
+
+    # Validate that end_time is after start_time
+    if end_time <= start_time:
+        return Response(
+            {"error": "End time must be after start time"},
+            status=400,
+        )
+
+    # Create new lobby
+    lobby = RandomCallLobby.objects.create(
+        name=lobby_name,
+        start_time=start_time,
+        end_time=end_time,
+        user_online_state_timeout=10,
+        match_proposal_timeout=30,
+        video_call_timeout=60 * 10,
+    )
+
+    return Response(
+        {
+            "success": True,
+            "message": f"Lobby '{lobby_name}' has been created",
+            "lobby": {
+                "name": lobby.name,
+                "uuid": str(lobby.uuid),
+                "start_time": lobby.start_time.isoformat(),
+                "end_time": lobby.end_time.isoformat(),
+            },
+        },
+        status=201,
+    )
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAdminOrMatchingUser])
+def end_lobby(request, lobby_name="default"):
+    """
+    Admin API to end an active lobby by setting end_time to current time.
+    Only ends the lobby if it is currently active.
+    """
+    try:
+        lobby = RandomCallLobby.objects.filter(name=lobby_name).order_by("-id").first()
+        if lobby is None:
+            raise RandomCallLobby.DoesNotExist
+    except RandomCallLobby.DoesNotExist:
+        return Response({"error": "Lobby not found"}, status=404)
+
+    # Check if the lobby is active
+    if not is_lobby_active(lobby):
+        return Response(
+            {
+                "success": False,
+                "message": f"Lobby '{lobby_name}' is not active and cannot be ended",
+            },
+            status=400,
+        )
+
+    # Update end_time to current time
+    lobby.end_time = timezone.now()
+    lobby.save()
+
+    return Response(
+        {
+            "success": True,
+            "message": f"Lobby '{lobby_name}' has been ended",
+            "lobby": {
+                "name": lobby.name,
+                "uuid": str(lobby.uuid),
+                "start_time": lobby.start_time.isoformat() if lobby.start_time else None,
+                "end_time": lobby.end_time.isoformat(),
+            },
+        },
+        status=200,
+    )
+
+
+def _get_lobby_for_tasks(lobby_name, lobby_uuid=None):
+    """
+    Resolve the lobby to use for task filtering.
+    - If lobby_uuid is given: return that lobby instance (404 if not found).
+    - Else: return the active lobby with that name, or the most recent past one.
+    """
+    if lobby_uuid:
+        return RandomCallLobby.objects.get(uuid=lobby_uuid)
+
+    now = timezone.now()
+    # Active lobby
+    lobby = (
+        RandomCallLobby.objects.filter(
+            name=lobby_name,
+            start_time__lte=now,
+            end_time__gte=now,
+        )
+        .order_by("-id")
+        .first()
+    )
+    if lobby is not None:
+        return lobby
+    # Most recent past lobby
+    lobby = (
+        RandomCallLobby.objects.filter(
+            name=lobby_name,
+            end_time__lt=now,
+        )
+        .order_by("-end_time")
+        .first()
+    )
+    if lobby is None:
+        raise RandomCallLobby.DoesNotExist
+    return lobby
+
+
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAdminOrMatchingUser])
 def get_random_call_tasks(request, lobby_name="default"):
     """
-    Admin API to get Celery task information for random call related tasks.
-    Returns recent task executions for:
-    - random_call_lobby_perform_matching
-    - cleanup_inactive_lobby_users
-    - cleanup_if_not_accepted
-    - create_default_random_call_lobby
+    Admin API to get Celery task information for random call related tasks,
+    scoped to a lobby.
+
+    Query params:
+    - lobby_uuid (optional): If set, return tasks only for this lobby instance.
+      If omitted, return tasks for the active lobby with lobby_name, or the
+      most recent finished lobby with that name.
+    - limit: Max number of task rows (default 50).
+    - task_name: Optional filter by task name.
+
+    Tasks that take a lobby UUID in args (perform_matching, cleanup_inactive_lobby_users)
+    are filtered by that lobby. Other task types are excluded when scoping by lobby.
     """
-    # Define the task names we're interested in
-    random_call_task_names = [
+    import json
+
+    # Only these tasks receive lobby_uuid in args; others are not scoped by lobby
+    task_names_with_lobby_arg = [
         "video.tasks.random_call_lobby_perform_matching",
         "video.tasks.cleanup_inactive_lobby_users",
-        "video.tasks.cleanup_if_not_accepted",
-        "video.tasks.create_default_random_call_lobby",
     ]
 
-    # Get query parameters
+    lobby_uuid_param = request.query_params.get("lobby_uuid", None)
     limit = int(request.query_params.get("limit", 50))
     task_name_filter = request.query_params.get("task_name", None)
 
-    # Build query
-    task_query = TaskResult.objects.filter(task_name__in=random_call_task_names)
+    try:
+        lobby = _get_lobby_for_tasks(lobby_name, lobby_uuid=lobby_uuid_param)
+    except RandomCallLobby.DoesNotExist:
+        return Response({"error": "Lobby not found"}, status=404)
 
-    # Filter by specific task name if provided
+    lobby_uuid_str = str(lobby.uuid)
+
+    task_query = TaskResult.objects.filter(
+        task_name__in=task_names_with_lobby_arg,
+        task_args__contains=lobby_uuid_str,
+    )
+
     if task_name_filter:
         task_query = task_query.filter(task_name=task_name_filter)
 
-    # Order by most recent first and limit results
     tasks = task_query.order_by("-date_created")[:limit]
 
-    # Serialize task data
     tasks_data = []
     for task in tasks:
-        # Parse result if it's a string
         result_str = None
         if task.result:
             try:
-                import json
-
                 result_str = json.dumps(task.result) if not isinstance(task.result, str) else task.result
             except (TypeError, ValueError):
                 result_str = str(task.result)
@@ -298,20 +474,24 @@ def get_random_call_tasks(request, lobby_name="default"):
             }
         )
 
-    # Get statistics
-    total_tasks = TaskResult.objects.filter(task_name__in=random_call_task_names).count()
-    successful_tasks = TaskResult.objects.filter(task_name__in=random_call_task_names, status="SUCCESS").count()
-    failed_tasks = TaskResult.objects.filter(task_name__in=random_call_task_names, status="FAILURE").count()
-    pending_tasks = TaskResult.objects.filter(task_name__in=random_call_task_names, status="PENDING").count()
+    base_filter = TaskResult.objects.filter(
+        task_name__in=task_names_with_lobby_arg,
+        task_args__contains=lobby_uuid_str,
+    )
 
-    # Group by task name for statistics
+    total_tasks = base_filter.count()
+    successful_tasks = base_filter.filter(status="SUCCESS").count()
+    failed_tasks = base_filter.filter(status="FAILURE").count()
+    pending_tasks = base_filter.filter(status="PENDING").count()
+
     task_stats = {}
-    for task_name in random_call_task_names:
+    for task_name in task_names_with_lobby_arg:
+        q = base_filter.filter(task_name=task_name)
         task_stats[task_name] = {
-            "total": TaskResult.objects.filter(task_name=task_name).count(),
-            "success": TaskResult.objects.filter(task_name=task_name, status="SUCCESS").count(),
-            "failure": TaskResult.objects.filter(task_name=task_name, status="FAILURE").count(),
-            "pending": TaskResult.objects.filter(task_name=task_name, status="PENDING").count(),
+            "total": q.count(),
+            "success": q.filter(status="SUCCESS").count(),
+            "failure": q.filter(status="FAILURE").count(),
+            "pending": q.filter(status="PENDING").count(),
         }
 
     return Response(
@@ -324,6 +504,10 @@ def get_random_call_tasks(request, lobby_name="default"):
                 "pending": pending_tasks,
             },
             "task_statistics": task_stats,
+            "lobby": {
+                "uuid": str(lobby.uuid),
+                "name": lobby.name,
+            },
         },
         status=200,
     )
@@ -342,5 +526,13 @@ api_urls = [
     path(
         "api/random_calls/lobby/<str:lobby_name>/management/tasks",
         get_random_call_tasks,
+    ),
+    path(
+        "api/random_calls/lobby/<str:lobby_name>/management/create",
+        create_lobby,
+    ),
+    path(
+        "api/random_calls/lobby/<str:lobby_name>/management/end",
+        end_lobby,
     ),
 ]

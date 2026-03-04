@@ -1,4 +1,3 @@
-console.log("Rendering imported banner js")
 {% load temp_utils %}
 {% get_cookie_banner_data request hidden_cookie_banner as cookie_data_json %}
 const cookieData = JSON.parse(JSON.parse('{{ cookie_data_json | escapejs }}').cookie_data);
@@ -8,14 +7,9 @@ const cookieData = JSON.parse(JSON.parse('{{ cookie_data_json | escapejs }}').co
 const baseUrl = "{{ BASE_URL }}";
 const script = '{{ JS_BASE_CODE }}';
 const scripUrl = script.split('"')[1];
-console.log("Script Url", scripUrl);
-console.log("COOKIE DATA", cookieData);
-const cookieBannerIsHidden = cookieData?.hiddenCookieBanner;
+let cookieBannerIsHidden = cookieData?.hiddenCookieBanner;
 
 const initCode = () => {
-    console.log("DOM loaded");
-    console.log("Script loaded");
-
     const div = document.createElement('div');
     div.id = "shadow-root"; // The root container for the cookie banner
     if (!cookieBannerIsHidden) {
@@ -59,4 +53,21 @@ if (document.readyState !== 'loading') {
 
 window.unloadCookieBanner = () => {
     document.getElementById("shadow-root").remove();
+}
+
+window.setCookieBannerHidden = (hidden) => {
+    cookieBannerIsHidden = hidden;
+
+    const root = document.getElementById("shadow-root");
+    if (!root) {
+        return;
+    }
+
+    if (hidden) {
+        root.style.zIndex = "0";
+        root.style.visibility = "hidden";
+    } else {
+        root.style.zIndex = "1000";
+        root.style.visibility = "visible";
+    }
 }
