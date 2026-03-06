@@ -6,7 +6,6 @@ from django.urls import include, path, re_path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
 from management.urls import public_routes_wildcard
 from rest_framework import status
-from tbs_django_auto_reload.api import urlpatters as auto_reload_urlpatters
 
 """
 We are adding all app urls under `'/'` their paths should be set under `<app>/urls.py`
@@ -31,7 +30,7 @@ urlpatterns = [
 ]
 
 if settings.USE_AUTO_RELOAD:
-    urlpatterns += auto_reload_urlpatters
+    urlpatterns += [path("", include("django_simple_reload.api"))]
 
 urlpatterns += [
     path("admin/", admin.site.urls),
