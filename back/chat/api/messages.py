@@ -130,8 +130,10 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         # Check if the users are still matched, otherwise no new messages can be sent.
         # Temporary chats (e.g. random call) have no Match; allow sending and skip match updates.
         if not chat.is_temporary:
+            # TODO: @tbscode check if we want to record also 'temporary_match' data.
             match = Match.get_match(request.user, partner)
             if not match.exists():
+                # TODO: @tbscode make duble sure this cannot bypass access restrictions
                 return self.resp_chat_403
             match = match.first()
             # Update match data

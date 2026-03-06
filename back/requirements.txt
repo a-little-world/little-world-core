@@ -62,3 +62,4 @@ pyasn1==0.6.2
 google-api-python-client==2.108.0
 google-auth==2.23.4
 cbor2===5.8.0
+django-simple-reload @ git+https://github.com/tbscode/django-simple-reload.git
