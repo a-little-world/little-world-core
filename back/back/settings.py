@@ -613,11 +613,11 @@ DJANGO_REST_MULTITOKENAUTH_REQUIRE_USABLE_PASSWORD = False
 
 
 # TODO: check if correctly covers CI ENVs
-if IS_DEV and (not USE_MQ_AS_BROKER):
+if (IS_DEV and (not USE_MQ_AS_BROKER)) or EMPHIRIAL or IS_STAGE:
     # autmaticly renders index.html when entering an absolute static path
     REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
     CELERY_BROKER_URL = f"{REDIS_PROTOCOL}://{REDIS_HOST}:{REDIS_PORT}"
-elif IS_STAGE or IS_PROD or USE_MQ_AS_BROKER:
+elif IS_PROD or USE_MQ_AS_BROKER:
     # Sadly it turnsour that celery doesn't support redis clusters
     # So we will need to use Rabbit MQ instead
     # url, port = get_redis_connect_url_port()
