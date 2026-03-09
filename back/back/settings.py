@@ -108,7 +108,7 @@ def get_redis_connect_url_port():
     return os.environ.get("DJ_REDIS_HOST", "redis"), int(os.environ.get("DJ_REDIS_PORT", "6379"))
 
 
-REDIS_PROTOCOL = "redis" if IS_DEV else "rediss"  # TODO Veryfy no issues on stage with this
+REDIS_PROTOCOL = os.environ.get("DJ_REDIS_PROTO", "redis" if IS_DEV else "rediss")
 REDIS_PASSWORD = os.environ.get("DJ_REDIS_PASSWORD", None)
 
 USE_DEBUG_TOOLBAR = os.environ.get("DJ_USE_DEBUG_TOOLBAR", "false").lower() in ("true", "1", "t")
