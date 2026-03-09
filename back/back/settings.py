@@ -103,9 +103,17 @@ DOCS_USER_LOGIN_TOKEN = os.environ.get(
     None if IS_PROD else "Test123!",  # No default on prod, just error!
 )
 
+
+def get_redis_connect_url_port():
+    return os.environ.get("DJ_REDIS_HOST", "redis"), int(os.environ.get("DJ_REDIS_PORT", "6379"))
+
+
+REDIS_PROTOCOL = "redis" if IS_DEV else "rediss"  # TODO Veryfy no issues on stage with this
+
 USE_DEBUG_TOOLBAR = os.environ.get("DJ_USE_DEBUG_TOOLBAR", "false").lower() in ("true", "1", "t")
+REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
 REDIS_URL = os.environ.get(
-    "REDIS_URL", "redis://redis:6379"
+    "REDIS_URL", f"{REDIS_PROTOCOL}://{REDIS_HOST}:{REDIS_PORT}"
 )  # TODO: Reduce duplication with REDIS_PORT and REDIS_HOST!
 
 TWILIO_SMS_NUMBER = os.environ.get("DJ_TWILIO_SMS_NUMBER", "+1234567890")
@@ -391,6 +399,7 @@ if IS_STAGE or DEBUG:
         "http://localhost:3333",
         "http://localhost:8081",
         "http://localhost:8080",
+        "http://localhost:9000",
         "http://localhost:9001",
     ]
 
@@ -603,16 +612,11 @@ DJANGO_REST_PASSWORDRESET_NO_INFORMATION_LEAKAGE = True
 DJANGO_REST_MULTITOKENAUTH_REQUIRE_USABLE_PASSWORD = False
 
 
-def get_redis_connect_url_port():
-    return os.environ.get("DJ_REDIS_HOST", "redis"), int(os.environ.get("DJ_REDIS_PORT", "6379"))
-
-
-if (EMPHIRIAL or USE_REDIS_AS_BROKER) and (not USE_MQ_AS_BROKER):
-    CELERY_BROKER_URL = REDIS_URL
-elif IS_DEV and (not USE_MQ_AS_BROKER):
+# TODO: check if correctly covers CI ENVs
+if IS_DEV and (not USE_MQ_AS_BROKER):
     # autmaticly renders index.html when entering an absolute static path
     REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
-    CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}"
+    CELERY_BROKER_URL = f"{REDIS_PROTOCOL}://{REDIS_HOST}:{REDIS_PORT}"
 elif IS_STAGE or IS_PROD or USE_MQ_AS_BROKER:
     # Sadly it turnsour that celery doesn't support redis clusters
     # So we will need to use Rabbit MQ instead
@@ -678,28 +682,25 @@ SPECTACULAR_SETTINGS = {
 }
 
 
-if IS_DEV and (not EMPHIRIAL):
-    # or install redis in the container
+# if IS_DEV or EMPHIRIAL:
+#    # or install redis in the container
+#    REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
+#    CHANNEL_LAYERS = {
+#        "default": {
+#            "BACKEND": "channels_redis.core.RedisChannelLayer",
+#            # "BACKEND": "channels.layers.InMemoryChannelLayer",
+#            "CONFIG": {
+#                "hosts": [f"{REDIS_HOST}:{REDIS_PORT}"],
+#            },
+#        }
+#    }
+if IS_DEV or EMPHIRIAL:
     REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
-            # "BACKEND": "channels.layers.InMemoryChannelLayer",
             "CONFIG": {
-                "hosts": [f"{REDIS_HOST}:{REDIS_PORT}"],
-            },
-        }
-    }
-elif EMPHIRIAL or USE_REDIS_AS_BROKER:
-    CHANNEL_LAYERS = {
-        "default": {
-            "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {
-                "hosts": [
-                    {
-                        "address": REDIS_URL,
-                    }
-                ],
+                "hosts": [{"address": f"{REDIS_PROTOCOL}://{REDIS_HOST}:{REDIS_PORT}"}],
             },
         }
     }
@@ -1032,3 +1033,8 @@ CUSTOM_ONBOARDING_COMPANIES = ["lingoda"]
 
 # Match Priority Settings
 MATCH_PRIORITY_COMPANIES = ["accenture", "generali", "lingoda"]
+
+PUSH_NOTIFICATIONS_SETTINGS = {
+    "UNIQUE_REG_ID": True,
+    "GCM_DEVICE_MODEL": "management.MobileDevice",
+}

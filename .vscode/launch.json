@@ -9,7 +9,7 @@
             "request": "launch",
             "type": "chrome",
             "url": "http://localhost:8000/",
-            "webRoot": "${workspaceRoot}/front",
+            "webRoot": "${workspaceRoot}/front/apps/main_frontend",
             "sourceMaps": true
         },
         {

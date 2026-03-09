@@ -47,7 +47,7 @@ def verify_apple_attestation(key_id, challenge_bytes, attestation_raw, is_prod):
     verify_sign_count(auth_data)
 
     # Step 8: Verify aaguid
-    verify_aaguid(auth_data, is_prod)
+    verify_aaguid(auth_data, True)
 
     # Step 9: Verify credential id
     verify_credential_id(key_id, auth_data)
