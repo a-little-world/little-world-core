@@ -44,6 +44,7 @@ class RandomCallsTests(TestCase):
                 "end_time": timezone.now() + timezone.timedelta(hours=1),
             },
         )
+        self.lobby_api_url = f"/api/random_calls/lobby/{self.lobby.uuid}"
 
     def create_multiple_users(self, count, base_email="testuser", base_name="TestUser"):
         """
@@ -86,20 +87,20 @@ class RandomCallsTests(TestCase):
         """
         # User 1 joins
         self.client.force_authenticate(user=self.user1)
-        response = self.client.post("/api/random_calls/lobby/default/join")
+        response = self.client.post(f"{self.lobby_api_url}/join")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["lobby"], self.lobby.uuid)
         self.assertFalse(response.data["already_joined"])
 
         # User 2 joins
         self.client.force_authenticate(user=self.user2)
-        response = self.client.post("/api/random_calls/lobby/default/join")
+        response = self.client.post(f"{self.lobby_api_url}/join")
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.data["already_joined"])
 
         # User 1 checks status
         self.client.force_authenticate(user=self.user1)
-        response = self.client.get("/api/random_calls/lobby/default/status")
+        response = self.client.get(f"{self.lobby_api_url}/status")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["lobby"], self.lobby.uuid)
 
@@ -145,7 +146,7 @@ class RandomCallsTests(TestCase):
         # Join all users to lobby
         for u in [self.user1, self.user2, user3]:
             self.client.force_authenticate(user=u)
-            self.client.post("/api/random_calls/lobby/default/join")
+            self.client.post(f"{self.lobby_api_url}/join")
 
         # Check matchings
         matchings = RandomCallMatching.objects.filter(lobby=self.lobby)
@@ -166,7 +167,7 @@ class RandomCallsTests(TestCase):
         # Let's try to manually trigger the task again to see if it picks up the already matched users
         from video.tasks import random_call_lobby_perform_matching
 
-        random_call_lobby_perform_matching("default")
+        random_call_lobby_perform_matching(str(self.lobby.uuid))
 
         # Should still be only 1 matching because we only have 1 unmatched user left
         # If the logic is broken, it might match the unmatched user with one of the already matched users
@@ -179,7 +180,7 @@ class RandomCallsTests(TestCase):
         """
         # User 1 joins
         self.client.force_authenticate(user=self.user1)
-        response = self.client.post("/api/random_calls/lobby/default/join")
+        response = self.client.post(f"{self.lobby_api_url}/join")
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.data["already_joined"])
 
@@ -189,7 +190,7 @@ class RandomCallsTests(TestCase):
         self.assertTrue(lobby_user.is_active)
 
         # User 1 exits
-        response = self.client.post("/api/random_calls/lobby/default/exit")
+        response = self.client.post(f"{self.lobby_api_url}/exit")
         self.assertEqual(response.status_code, 200)
 
         # Verify user is marked as inactive
@@ -197,7 +198,7 @@ class RandomCallsTests(TestCase):
         self.assertFalse(lobby_user.is_active)
 
         # User 1 rejoins - should not say already_joined
-        response = self.client.post("/api/random_calls/lobby/default/join")
+        response = self.client.post(f"{self.lobby_api_url}/join")
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.data["already_joined"], "User should not be marked as already_joined after exiting")
 
@@ -212,9 +213,9 @@ class RandomCallsTests(TestCase):
         """
         # Both users join
         self.client.force_authenticate(user=self.user1)
-        self.client.post("/api/random_calls/lobby/default/join")
+        self.client.post(f"{self.lobby_api_url}/join")
         self.client.force_authenticate(user=self.user2)
-        self.client.post("/api/random_calls/lobby/default/join")
+        self.client.post(f"{self.lobby_api_url}/join")
 
         # Get the matching
         matching = RandomCallMatching.objects.first()
@@ -222,28 +223,28 @@ class RandomCallsTests(TestCase):
 
         # User 1 checks status and gets matching info
         self.client.force_authenticate(user=self.user1)
-        response = self.client.get("/api/random_calls/lobby/default/status")
+        response = self.client.get(f"{self.lobby_api_url}/status")
         self.assertEqual(response.status_code, 200)
         match_uuid = response.data["matching"]["uuid"]
 
         # User 1 accepts
-        response = self.client.post(f"/api/random_calls/lobby/default/match/{match_uuid}/accept")
+        response = self.client.post(f"{self.lobby_api_url}/match/{match_uuid}/accept")
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data["u1_accepted"] or response.data["u2_accepted"])
         self.assertFalse(response.data["accepted"])
 
         # Verify status shows partner hasn't accepted yet
-        response = self.client.get("/api/random_calls/lobby/default/status")
+        response = self.client.get(f"{self.lobby_api_url}/status")
         self.assertFalse(response.data["matching"]["both_accepted"])
 
         # User 2 accepts
         self.client.force_authenticate(user=self.user2)
-        response = self.client.post(f"/api/random_calls/lobby/default/match/{match_uuid}/accept")
+        response = self.client.post(f"{self.lobby_api_url}/match/{match_uuid}/accept")
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data["accepted"])
 
         # Verify both_accepted is now true in status
-        response = self.client.get("/api/random_calls/lobby/default/status")
+        response = self.client.get(f"{self.lobby_api_url}/status")
         self.assertTrue(response.data["matching"]["both_accepted"])
 
         # Verify matching in DB
@@ -388,9 +389,9 @@ class RandomCallsTests(TestCase):
         """
         # Both users join
         self.client.force_authenticate(user=self.user1)
-        self.client.post("/api/random_calls/lobby/default/join")
+        self.client.post(f"{self.lobby_api_url}/join")
         self.client.force_authenticate(user=self.user2)
-        self.client.post("/api/random_calls/lobby/default/join")
+        self.client.post(f"{self.lobby_api_url}/join")
 
         # Get the matching
         matching = RandomCallMatching.objects.first()
@@ -399,7 +400,7 @@ class RandomCallsTests(TestCase):
 
         # User 1 rejects
         self.client.force_authenticate(user=self.user1)
-        response = self.client.post(f"/api/random_calls/lobby/default/match/{match_uuid}/reject")
+        response = self.client.post(f"{self.lobby_api_url}/match/{match_uuid}/reject")
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data["rejected"])
 
@@ -409,7 +410,7 @@ class RandomCallsTests(TestCase):
         self.assertFalse(matching.accepted)
 
         # Verify status no longer shows this matching (it's processed)
-        response = self.client.get("/api/random_calls/lobby/default/status")
+        response = self.client.get(f"{self.lobby_api_url}/status")
         self.assertEqual(response.status_code, 200)
         # Matching should be None because it's been processed (rejected)
         self.assertIsNone(response.data["matching"])
@@ -426,7 +427,7 @@ class RandomCallsTests(TestCase):
         # All users join the lobby
         for user in users:
             self.client.force_authenticate(user=user)
-            response = self.client.post("/api/random_calls/lobby/default/join")
+            response = self.client.post(f"{self.lobby_api_url}/join")
             self.assertEqual(response.status_code, 200)
 
         # Verify matchings created
@@ -457,7 +458,7 @@ class RandomCallsTests(TestCase):
 
         # Verify unmatched user has no matching when checking status
         self.client.force_authenticate(user=unmatched_users[0])
-        response = self.client.get("/api/random_calls/lobby/default/status")
+        response = self.client.get(f"{self.lobby_api_url}/status")
         self.assertEqual(response.status_code, 200)
         self.assertIsNone(response.data["matching"], "Unmatched user should have no matching")
 
@@ -473,7 +474,7 @@ class RandomCallsTests(TestCase):
         # All users join
         for user in users:
             self.client.force_authenticate(user=user)
-            self.client.post("/api/random_calls/lobby/default/join")
+            self.client.post(f"{self.lobby_api_url}/join")
 
         # Get management overview
         # Note: This assumes the user has admin permissions or we authenticate as admin
@@ -506,7 +507,7 @@ class RandomCallsTests(TestCase):
         # Cross-verify each user's state with individual API
         for user in users:
             self.client.force_authenticate(user=user)
-            user_status = self.client.get("/api/random_calls/lobby/default/status")
+            user_status = self.client.get(f"{self.lobby_api_url}/status")
             self.assertEqual(user_status.status_code, 200)
 
             # Find this user in management API data
@@ -548,7 +549,7 @@ class RandomCallsTests(TestCase):
         # All users join
         for user in users:
             self.client.force_authenticate(user=user)
-            self.client.post("/api/random_calls/lobby/default/join")
+            self.client.post(f"{self.lobby_api_url}/join")
 
         # Get all matches
         matchings = list(RandomCallMatching.objects.filter(lobby=self.lobby))
@@ -557,16 +558,16 @@ class RandomCallsTests(TestCase):
         # First match: both users accept
         match1 = matchings[0]
         self.client.force_authenticate(user=match1.u1)
-        self.client.post(f"/api/random_calls/lobby/default/match/{match1.uuid}/accept")
+        self.client.post(f"{self.lobby_api_url}/match/{match1.uuid}/accept")
         self.client.force_authenticate(user=match1.u2)
-        self.client.post(f"/api/random_calls/lobby/default/match/{match1.uuid}/accept")
+        self.client.post(f"{self.lobby_api_url}/match/{match1.uuid}/accept")
 
         # Second match: one user accepts, other rejects
         match2 = matchings[1]
         self.client.force_authenticate(user=match2.u1)
-        self.client.post(f"/api/random_calls/lobby/default/match/{match2.uuid}/accept")
+        self.client.post(f"{self.lobby_api_url}/match/{match2.uuid}/accept")
         self.client.force_authenticate(user=match2.u2)
-        self.client.post(f"/api/random_calls/lobby/default/match/{match2.uuid}/reject")
+        self.client.post(f"{self.lobby_api_url}/match/{match2.uuid}/reject")
 
         # Third match: no response (pending)
         match3 = matchings[2]
@@ -587,19 +588,19 @@ class RandomCallsTests(TestCase):
 
         # Verify individual user states for accepted match
         self.client.force_authenticate(user=match1.u1)
-        u1_status = self.client.get("/api/random_calls/lobby/default/status")
+        u1_status = self.client.get(f"{self.lobby_api_url}/status")
         # After both accepted, status should show in_session or no matching (processed)
         # Based on the implementation, accepted matches are filtered out (in_session=False filter)
 
         # Verify individual user states for rejected match
         self.client.force_authenticate(user=match2.u1)
-        u1_status = self.client.get("/api/random_calls/lobby/default/status")
+        u1_status = self.client.get(f"{self.lobby_api_url}/status")
         # Rejected match should not appear in status
         self.assertIsNone(u1_status.data["matching"], "Rejected match should not appear in user status")
 
         # Verify individual user state for pending match
         self.client.force_authenticate(user=match3.u1)
-        u3_status = self.client.get("/api/random_calls/lobby/default/status")
+        u3_status = self.client.get(f"{self.lobby_api_url}/status")
         self.assertIsNotNone(u3_status.data["matching"], "Pending match should appear in user status")
         self.assertFalse(u3_status.data["matching"]["both_accepted"], "Pending match should not be accepted")
 
@@ -614,7 +615,7 @@ class RandomCallsTests(TestCase):
         # All users join
         for user in users:
             self.client.force_authenticate(user=user)
-            self.client.post("/api/random_calls/lobby/default/join")
+            self.client.post(f"{self.lobby_api_url}/join")
 
         # Get all matches
         matchings = list(RandomCallMatching.objects.filter(lobby=self.lobby))
@@ -623,7 +624,7 @@ class RandomCallsTests(TestCase):
         # First user from first match exits without accepting/rejecting
         match1 = matchings[0]
         self.client.force_authenticate(user=match1.u1)
-        self.client.post("/api/random_calls/lobby/default/exit")
+        self.client.post(f"{self.lobby_api_url}/exit")
 
         # Get management overview
         self.client.force_authenticate(user=users[0] if users[0] != match1.u1 else users[1])
@@ -644,7 +645,7 @@ class RandomCallsTests(TestCase):
 
         # Verify the remaining user from the expired match sees no matching
         self.client.force_authenticate(user=match1.u2)
-        # u2_status = self.client.get("/api/random_calls/lobby/default/status")
+        # u2_status = self.client.get(f"{self.lobby_api_url}/status")
         # Status might still show the match or not depending on implementation
         # If it filters by both users being active, it should be None
 
@@ -664,7 +665,7 @@ class RandomCallsTests(TestCase):
         # Phase 1: All users join
         for user in users:
             self.client.force_authenticate(user=user)
-            response = self.client.post("/api/random_calls/lobby/default/join")
+            response = self.client.post(f"{self.lobby_api_url}/join")
             self.assertEqual(response.status_code, 200)
 
         # Phase 2: Verify initial matching state
@@ -683,35 +684,35 @@ class RandomCallsTests(TestCase):
         # Phase 3: Each matched user checks their status
         for user in matched_users:
             self.client.force_authenticate(user=user)
-            response = self.client.get("/api/random_calls/lobby/default/status")
+            response = self.client.get(f"{self.lobby_api_url}/status")
             self.assertEqual(response.status_code, 200)
             self.assertIsNotNone(response.data["matching"], f"User {user.hash} should have a matching")
 
         # Phase 4: First pair accepts
         match1 = matchings[0]
         self.client.force_authenticate(user=match1.u1)
-        accept_resp = self.client.post(f"/api/random_calls/lobby/default/match/{match1.uuid}/accept")
+        accept_resp = self.client.post(f"{self.lobby_api_url}/match/{match1.uuid}/accept")
         self.assertEqual(accept_resp.status_code, 200)
         self.assertFalse(accept_resp.data["accepted"], "Should not be fully accepted yet")
 
         self.client.force_authenticate(user=match1.u2)
-        accept_resp = self.client.post(f"/api/random_calls/lobby/default/match/{match1.uuid}/accept")
+        accept_resp = self.client.post(f"{self.lobby_api_url}/match/{match1.uuid}/accept")
         self.assertEqual(accept_resp.status_code, 200)
         self.assertTrue(accept_resp.data["accepted"], "Should be fully accepted now")
 
         # Phase 5: Second pair - one rejects
         match2 = matchings[1]
         self.client.force_authenticate(user=match2.u1)
-        reject_resp = self.client.post(f"/api/random_calls/lobby/default/match/{match2.uuid}/reject")
+        reject_resp = self.client.post(f"{self.lobby_api_url}/match/{match2.uuid}/reject")
         self.assertEqual(reject_resp.status_code, 200)
         self.assertTrue(reject_resp.data["rejected"])
 
         # Phase 6: Third pair - both exit without responding
         match3 = matchings[2]
         self.client.force_authenticate(user=match3.u1)
-        self.client.post("/api/random_calls/lobby/default/exit")
+        self.client.post(f"{self.lobby_api_url}/exit")
         self.client.force_authenticate(user=match3.u2)
-        self.client.post("/api/random_calls/lobby/default/exit")
+        self.client.post(f"{self.lobby_api_url}/exit")
 
         # Phase 7: Get management overview and verify all states
         # Use a user that's still active
@@ -736,7 +737,7 @@ class RandomCallsTests(TestCase):
         # The unmatched user and the two users from rejected/exited matches could be re-matched
         from video.tasks import random_call_lobby_perform_matching
 
-        random_call_lobby_perform_matching("default")
+        random_call_lobby_perform_matching(str(self.lobby.uuid))
 
         # Check if new matches were created for the rejected/unmatched users
         all_matchings = RandomCallMatching.objects.filter(lobby=self.lobby)

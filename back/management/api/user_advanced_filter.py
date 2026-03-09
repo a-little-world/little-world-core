@@ -40,7 +40,7 @@ def needs_matching(qs=User.objects.all(), learner_atleast_searching_for_x_days=-
     """
     now = timezone.now()
     users_with_open_proposals = ProposedMatch.objects.filter(
-        closed=False, expires_at__gt=now, learner_when_created__isnull=False
+        closed=False, expires_at__gt=now, confirming_user__isnull=False
     ).values_list("user1", "user2")
 
     users_w_open_proposals = set([id for pair in users_with_open_proposals for id in pair])

@@ -4,10 +4,6 @@ on:
   pull_request:
     branches:
       - '*'
-    paths:
-      - '**.py'
-      - 'ruff.toml'
-      - '.github/workflows/ruff_check.yaml'
 
 jobs:
   ruff-check:
