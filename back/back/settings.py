@@ -612,7 +612,7 @@ DJANGO_REST_PASSWORDRESET_NO_INFORMATION_LEAKAGE = True
 DJANGO_REST_MULTITOKENAUTH_REQUIRE_USABLE_PASSWORD = False
 
 
-if IS_PROD or USE_MQ_AS_BROKER:
+if (IS_PROD or USE_MQ_AS_BROKER) and (not USE_REDIS_AS_BROKER):
     # Sadly it turnsour that celery doesn't support redis clusters
     # So we will need to use Rabbit MQ instead
     # url, port = get_redis_connect_url_port()
