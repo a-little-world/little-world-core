@@ -109,6 +109,7 @@ def get_redis_connect_url_port():
 
 
 REDIS_PROTOCOL = "redis" if IS_DEV else "rediss"  # TODO Veryfy no issues on stage with this
+REDIS_PASSWORD = os.environ.get("DJ_REDIS_PASSWORD", None)
 
 USE_DEBUG_TOOLBAR = os.environ.get("DJ_USE_DEBUG_TOOLBAR", "false").lower() in ("true", "1", "t")
 REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
@@ -680,19 +681,7 @@ SPECTACULAR_SETTINGS = {
 }
 
 
-# if IS_DEV or EMPHIRIAL:
-#    # or install redis in the container
-#    REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
-#    CHANNEL_LAYERS = {
-#        "default": {
-#            "BACKEND": "channels_redis.core.RedisChannelLayer",
-#            # "BACKEND": "channels.layers.InMemoryChannelLayer",
-#            "CONFIG": {
-#                "hosts": [f"{REDIS_HOST}:{REDIS_PORT}"],
-#            },
-#        }
-#    }
-if IS_DEV or EMPHIRIAL:
+if IS_DEV or EMPHIRIAL or (REDIS_PASSWORD is None):
     REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
     CHANNEL_LAYERS = {
         "default": {
@@ -702,15 +691,15 @@ if IS_DEV or EMPHIRIAL:
             },
         }
     }
-elif IS_STAGE or IS_PROD:
+elif IS_PROD and (REDIS_PASSWORD is not None):
     """
     SSL true seems required, 'diss://' in the url doesn't seem to suffice: https://github.com/django/channels_redis/issues/235
     """
     url, port = get_redis_connect_url_port()
-    path = f"rediss://{url}:{port}"
+    path = f"{REDIS_PROTOCOL}://{url}:{port}"
     if IS_PROD:
         r_auth_token = os.environ["DJ_REDIS_PASSWORD"]
-        path = f"rediss://:{r_auth_token}@{url}:{port}"
+        path = f"{REDIS_PROTOCOL}://:{r_auth_token}@{url}:{port}"
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
