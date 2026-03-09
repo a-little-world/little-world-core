@@ -103,10 +103,12 @@ DOCS_USER_LOGIN_TOKEN = os.environ.get(
     None if IS_PROD else "Test123!",  # No default on prod, just error!
 )
 
+
 def get_redis_connect_url_port():
     return os.environ.get("DJ_REDIS_HOST", "redis"), int(os.environ.get("DJ_REDIS_PORT", "6379"))
 
-REDIS_PROTOCOL = "redis" if IS_DEV else "rediss" # TODO Veryfy no issues on stage with this
+
+REDIS_PROTOCOL = "redis" if IS_DEV else "rediss"  # TODO Veryfy no issues on stage with this
 
 USE_DEBUG_TOOLBAR = os.environ.get("DJ_USE_DEBUG_TOOLBAR", "false").lower() in ("true", "1", "t")
 REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
@@ -610,8 +612,6 @@ DJANGO_REST_PASSWORDRESET_NO_INFORMATION_LEAKAGE = True
 DJANGO_REST_MULTITOKENAUTH_REQUIRE_USABLE_PASSWORD = False
 
 
-
-
 # TODO: check if correctly covers CI ENVs
 if IS_DEV and (not USE_MQ_AS_BROKER):
     # autmaticly renders index.html when entering an absolute static path
@@ -682,7 +682,7 @@ SPECTACULAR_SETTINGS = {
 }
 
 
-#if IS_DEV or EMPHIRIAL:
+# if IS_DEV or EMPHIRIAL:
 #    # or install redis in the container
 #    REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
 #    CHANNEL_LAYERS = {
