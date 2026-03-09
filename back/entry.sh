@@ -19,7 +19,7 @@ if [ "$BUILD_TYPE" = "deployment" ]; then
 fi
 
 if [ "$DJ_USE_AUTO_RELOAD" = "1" ]; then
-    python3 /back/tbs_django_auto_reload/update_watcher.py &
+    python3 /usr/local/lib/python3.13/site-packages/django_simple_reload/update_watcher.py &
 fi
 
 if [ "$EMPHIRIAL" = "1" ]; then
