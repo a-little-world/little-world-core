@@ -2,13 +2,12 @@ from chat.models import Chat, ChatSerializer, Message, MessageSerializer
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
-from django.utils import timezone
 from emails.api.send_email import send_template_email
 from firebase_admin import messaging
-from push_notifications.models import GCMDevice
 from rest_framework import serializers
 
 from back import utils
+from management.models.mobile_device import MobileDevice
 from management.models.notifications import Notification
 
 
@@ -133,30 +132,33 @@ class User(AbstractUser):
             )
         return notifications.order_by("-created_at")
 
-    def notification(self, headline, title, description, show_toast=True):
+    # DEPRECATED, use send_notification instead
+    def notification(self, title, description, show_toast=True):
         """Notifies the user about a notification via websockets"""
         from chat.consumers.messages import NotificationMessage
 
         from management.models.notifications import NotificationSerializer
 
-        notification = Notification.objects.create(user=self, headline=headline, title=title, description=description)
+        notification = Notification.objects.create(user=self, title=title, description=description)
 
         NotificationMessage(notification=NotificationSerializer(notification).data, show_toast=show_toast).send(
             str(self.hash)
         )
 
-    def push_notification(self, headline: str, title: str, description: str):
-        fcm_devices = GCMDevice.objects.filter(user=self)
+    def send_notification(self, title, description, persist=False):
+        if persist:
+            Notification.objects.create(user=self, title=title, description=description)
+
+        self.push_notification(title=title, description=description)
+        pass
+
+    def push_notification(self, title: str, description: str):
+        devices = MobileDevice.objects.filter(user=self)
         message = messaging.Message(
-            data={
-                "headline": headline,
-                "title": title,
-                "description": description,
-                "timestamp": str(timezone.now()),
-            },
+            notification=messaging.Notification(title=title, body=description),
         )
 
-        fcm_devices.send_message(message)
+        devices.send_message(message)
 
     def sms(self, send_initator, message):
         """ "Sends SMS to User if user has SMS Notification allowed and valid Phone number"""
