@@ -139,6 +139,16 @@ class RegisterTests(TestCase):
         response = register_user_api(data=valid_register_request_data)
         assert response.status_code == 400
 
+    def test_user_type_is_set_on_profile(self):
+        _data = valid_register_request_data.copy()
+        _data["user_type"] = "volunteer"
+
+        response = register_user_api(_data)
+        assert response.status_code == 200
+
+        usr = get_user_by_email(_data["email"])
+        assert usr.profile.user_type == "volunteer"
+
     def test_email_verification_enforced(self):
         """Test that user has to verify email before being able to render the app"""
         pass  # TODO
