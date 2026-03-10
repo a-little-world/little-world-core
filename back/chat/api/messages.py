@@ -11,6 +11,7 @@ from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from video.models import LivekitSession
 
 from chat.models import Chat, ChatSerializer, Message, MessageAttachment, MessageSerializer
 
@@ -160,15 +161,27 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         def notify_recipient_email():
             send_email_background.delay("new-messages", user_id=partner.id)
 
+        def recipient_in_active_video_call():
+            return (
+                LivekitSession.objects.filter(
+                    is_active=True,
+                )
+                .filter(
+                    Q(u1=partner, u1_active=True) | Q(u2=partner, u2_active=True),
+                )
+                .exists()
+            )
+
         if latest_notified_message:
             # Min 5 min delay between notifications!
             time_since_last_notif = (creation_time - latest_notified_message.created).total_seconds()
-            if time_since_last_notif > 300:
+            if time_since_last_notif > 300 and not recipient_in_active_video_call():
                 recipient_was_email_notified = True
                 notify_recipient_email()
         else:
-            recipient_was_email_notified = True
-            notify_recipient_email()
+            if not recipient_in_active_video_call():
+                recipient_was_email_notified = True
+                notify_recipient_email()
 
         message_text = serializer.validated_data.get("text", "")
 

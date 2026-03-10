@@ -33,6 +33,8 @@
   "confirm_match.unconfimed_match_expired": "This unconfirmed match is expired",
   "confirm_match.match_confirmed": "The match has been confirmed, your match has been made!",
   "confirm_match.match_rejected": "The match has been rejected.",
+  "match.both_learners": "Matching with another learner is not possible.",
+  "match.both_volunteers": "Matching with another volunteer is not possible.",
   "info_view.email_unsubscribed": "You have been unsubscribed from this email type",
   "info_view.email_unsubscribed.title": "Email type unsubscribed",
   "info_view.back_to_home": "Back to home",

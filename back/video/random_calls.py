@@ -443,7 +443,7 @@ def authenticate_random_call_match_livekit_room(request, lobby_uuid, match_uuid)
     token = (
         livekit_api.AccessToken(api_key=settings.LIVEKIT_API_KEY, api_secret=settings.LIVEKIT_API_SECRET)
         .with_identity(request.user.hash)
-        .with_name(f"{request.user.profile.first_name} {request.user.profile.second_name[:1]}")
+        .with_name(f"{request.user.profile.first_name}")
         .with_grants(
             livekit_api.VideoGrants(
                 room_join=True,
@@ -572,14 +572,25 @@ class RandomCallMatchHistorySerializer(serializers.Serializer):
 
         # Serialize partner profile using CensoredProfileSerializer
         from management.models.profile import CensoredProfileSerializer, Profile
+        from translations import get_translation
 
         partner_data = CensoredProfileSerializer(partner.profile).data
 
-        # Learners cannot match with one another
         both_learners = (
             instance.u1.profile.user_type == Profile.TypeChoices.LEARNER
             and instance.u2.profile.user_type == Profile.TypeChoices.LEARNER
         )
+        both_volunteers = (
+            instance.u1.profile.user_type == Profile.TypeChoices.VOLUNTEER
+            and instance.u2.profile.user_type == Profile.TypeChoices.VOLUNTEER
+        )
+
+        if both_learners:
+            cannot_match_reason = get_translation("match.both_learners")
+        elif both_volunteers:
+            cannot_match_reason = get_translation("match.both_volunteers")
+        else:
+            cannot_match_reason = None
 
         # Build the response
         return {
@@ -589,7 +600,7 @@ class RandomCallMatchHistorySerializer(serializers.Serializer):
             "image": partner.profile.image.url if partner.profile.image else partner.profile.avatar_config,
             "image_type": partner.profile.image_type,
             "duration": duration,
-            "cannot_match": both_learners,
+            "cannot_match_reason": cannot_match_reason,
             "matching_requested": current_user_requested,
             "confirmed_match": instance.confirmed_match,
             "both_requested": current_user_requested and partner_requested,

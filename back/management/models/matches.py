@@ -154,15 +154,21 @@ class Match(models.Model):
 
     @classmethod
     def get_confirmed_matches(cls, user, order_by="created_at"):
-        return cls.objects.filter(
-            Q(user1=user) | Q(user2=user), active=True, confirmed_by=user, support_matching=False
-        ).order_by(order_by)
+        return (
+            cls.objects.filter(Q(user1=user) | Q(user2=user), active=True, confirmed_by=user, support_matching=False)
+            .exclude(match_type=MatchType.TEMPORARY)
+            .order_by(order_by)
+        )
 
     @classmethod
     def get_unconfirmed_matches(cls, user, order_by="created_at"):
-        return cls.objects.filter(
-            Q(user1=user) | Q(user2=user), ~Q(confirmed_by=user), active=True, support_matching=False
-        ).order_by(order_by)
+        return (
+            cls.objects.filter(
+                Q(user1=user) | Q(user2=user), ~Q(confirmed_by=user), active=True, support_matching=False
+            )
+            .exclude(match_type=MatchType.TEMPORARY)
+            .order_by(order_by)
+        )
 
     @classmethod
     def get_support_matches(cls, user, order_by="created_at"):

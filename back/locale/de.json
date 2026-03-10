@@ -41,6 +41,8 @@
   "confirm_match.unconfimed_match_expired": "Die unbestätigte Übereinstimmung ist abgelaufen",
   "confirm_match.match_confirmed": "Die Übereinstimmung wurde bestätigt, Ihre Übereinstimmung wurde gefunden!",
   "confirm_match.match_rejected": "Die Übereinstimmung wurde abgelehnt.",
+  "match.both_learners": "Kein Match mit einem anderen Lernenden möglich.",
+  "match.both_volunteers": "Kein Match mit einem Ehrenamtlichen möglich.",
   "info_view.email_unsubscribed": "Sie wurden von diesem E-Mail-Typ abgemeldet",
   "info_view.email_unsubscribed.title": "E-Mail-Typ abgemeldet",
   "info_view.back_to_home": "Zurück zur Startseite",
