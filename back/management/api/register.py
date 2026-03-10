@@ -17,6 +17,7 @@ from management.api.app_integrity import verify_play_integrity_token
 from management.api.native_auth import get_and_delete_challenge
 from management.api.user import get_user_data
 from management.integrity.apple import verify_apple_attestation
+from management.models.profile import Profile
 from management.models.user import User
 
 from .. import controller, validators
@@ -29,6 +30,7 @@ class RegistrationData:
     second_name: str
     password: str
     birth_year: str
+    user_type: str
     newsletter_subscribed: bool
 
     company: str = ""
@@ -75,6 +77,7 @@ class RegistrationSerializer(serializers.Serializer):
             "max_value": get_translation("register.birth_year_over_2024"),  # Updated key
         },
     )
+    user_type = serializers.ChoiceField(choices=Profile.TypeChoices.choices, required=True)
 
     newsletter_subscribed = serializers.BooleanField(required=False, default=False)
     company = serializers.CharField(max_length=255, required=False, allow_blank=True, allow_null=True)
@@ -155,7 +158,7 @@ class Register(APIView):
 
     authentication_classes = []  # No authentication required, only cors checks
     permission_classes = []  # Everyone can acess this api
-    required_args = ["email", "first_name", "second_name", "password1", "password2", "birth_year"]
+    required_args = ["email", "first_name", "second_name", "password1", "password2", "birth_year", "user_type"]
 
     @extend_schema(
         description="Little World Registration API called with data from the registration form",
@@ -180,7 +183,7 @@ class RegisterAndroid(APIView):
 
     authentication_classes = []  # No authentication required, only cors checks
     permission_classes = []  # Everyone can acess this api
-    required_args = ["email", "first_name", "second_name", "password1", "password2", "birth_year"]
+    required_args = ["email", "first_name", "second_name", "password1", "password2", "birth_year", "user_type"]
 
     @extend_schema(
         description="Little World Registration API called with data from the registration form",
@@ -213,7 +216,7 @@ class RegisterIOS(APIView):
 
     authentication_classes = []  # No authentication required, only cors checks
     permission_classes = []  # Everyone can acess this api
-    required_args = ["email", "first_name", "second_name", "password1", "password2", "birth_year"]
+    required_args = ["email", "first_name", "second_name", "password1", "password2", "birth_year", "user_type"]
 
     @extend_schema(
         description="Little World Registration API called with data from the registration form",
