@@ -108,7 +108,8 @@ def get_redis_connect_url_port():
     return os.environ.get("DJ_REDIS_HOST", "redis"), int(os.environ.get("DJ_REDIS_PORT", "6379"))
 
 
-REDIS_PROTOCOL = "redis" if IS_DEV else "rediss"  # TODO Veryfy no issues on stage with this
+REDIS_PROTOCOL = os.environ.get("DJ_REDIS_PROTO", "redis" if IS_DEV else "rediss")
+REDIS_PASSWORD = os.environ.get("DJ_REDIS_PASSWORD", None)
 
 USE_DEBUG_TOOLBAR = os.environ.get("DJ_USE_DEBUG_TOOLBAR", "false").lower() in ("true", "1", "t")
 REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
@@ -612,12 +613,7 @@ DJANGO_REST_PASSWORDRESET_NO_INFORMATION_LEAKAGE = True
 DJANGO_REST_MULTITOKENAUTH_REQUIRE_USABLE_PASSWORD = False
 
 
-# TODO: check if correctly covers CI ENVs
-if IS_DEV and (not USE_MQ_AS_BROKER):
-    # autmaticly renders index.html when entering an absolute static path
-    REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
-    CELERY_BROKER_URL = f"{REDIS_PROTOCOL}://{REDIS_HOST}:{REDIS_PORT}"
-elif IS_STAGE or IS_PROD or USE_MQ_AS_BROKER:
+if (IS_PROD or USE_MQ_AS_BROKER) and (not USE_REDIS_AS_BROKER):
     # Sadly it turnsour that celery doesn't support redis clusters
     # So we will need to use Rabbit MQ instead
     # url, port = get_redis_connect_url_port()
@@ -629,6 +625,9 @@ elif IS_STAGE or IS_PROD or USE_MQ_AS_BROKER:
         os.environ["DJ_RABBIT_MQ_PORT"],
     )
     CELERY_BROKER_URL = f"amqps://{mb_usr}:{mb_pass}@{mb_host}:{mb_port}"
+else:
+    REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
+    CELERY_BROKER_URL = f"{REDIS_PROTOCOL}://{REDIS_HOST}:{REDIS_PORT}"
 
 CELERY_RESULT_BACKEND = "django-db"
 CELERY_ACCEPT_CONTENT = ["application/json"]
@@ -682,19 +681,7 @@ SPECTACULAR_SETTINGS = {
 }
 
 
-# if IS_DEV or EMPHIRIAL:
-#    # or install redis in the container
-#    REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
-#    CHANNEL_LAYERS = {
-#        "default": {
-#            "BACKEND": "channels_redis.core.RedisChannelLayer",
-#            # "BACKEND": "channels.layers.InMemoryChannelLayer",
-#            "CONFIG": {
-#                "hosts": [f"{REDIS_HOST}:{REDIS_PORT}"],
-#            },
-#        }
-#    }
-if IS_DEV or EMPHIRIAL:
+if IS_DEV or EMPHIRIAL or (REDIS_PASSWORD is None):
     REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
     CHANNEL_LAYERS = {
         "default": {
@@ -704,15 +691,15 @@ if IS_DEV or EMPHIRIAL:
             },
         }
     }
-elif IS_STAGE or IS_PROD:
+elif IS_PROD and (REDIS_PASSWORD is not None):
     """
     SSL true seems required, 'diss://' in the url doesn't seem to suffice: https://github.com/django/channels_redis/issues/235
     """
     url, port = get_redis_connect_url_port()
-    path = f"rediss://{url}:{port}"
+    path = f"{REDIS_PROTOCOL}://{url}:{port}"
     if IS_PROD:
         r_auth_token = os.environ["DJ_REDIS_PASSWORD"]
-        path = f"rediss://:{r_auth_token}@{url}:{port}"
+        path = f"{REDIS_PROTOCOL}://:{r_auth_token}@{url}:{port}"
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
