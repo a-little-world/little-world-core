@@ -16,6 +16,8 @@ services:
     environment:
       BUILD_TYPE: development
       REDIS_URL: "${REDIS_URL}"
+      DJ_REDIS_HOST: "${DJ_REDIS_HOST:-redis}"
+      DJ_REDIS_PORT: "${DJ_REDIS_PORT:-6379}"
       EMPHIRIAL: "1"
       DJ_DEBUG: 1
       DJ_SECRET_KEY: "bla bla"

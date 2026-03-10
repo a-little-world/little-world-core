@@ -52,7 +52,7 @@ django-stubs[compatible-mypy]
 pre-commit
 django-colorfield # color picker in admin panel
 firebase-admin==6.7.0
-django-push-notifications==3.2.1
+django-push-notifications==3.3.0
 djangorestframework-simplejwt
 PyJWT==2.8.0
 # Use >= 42.0.4 to avoid CVE-2024-26130 (PKCS#12 serialize_key_and_certificates NULL deref DoS)

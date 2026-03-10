@@ -23,19 +23,6 @@ if (!firebase.apps.length) {
 
 const messaging = firebase.messaging();
 
-messaging.onBackgroundMessage((payload) => {
-  const {title, description, icon} = payload.data;
-  const notificationOptions = {
-    body: description,
-    icon,
-  };
-
-  return self.registration.showNotification(
-    title,
-    notificationOptions
-  );
-});
-
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 

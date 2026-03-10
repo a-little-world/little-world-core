@@ -1,11 +1,11 @@
 import logging
 import secrets
 
-import requests
+from back.utils import uuid4
 from django.conf import settings
 from django.core.cache import cache
 from drf_spectacular.utils import extend_schema
-from rest_framework import serializers, status
+from rest_framework import status
 from rest_framework.decorators import (
     api_view,
     authentication_classes,
@@ -14,62 +14,7 @@ from rest_framework.decorators import (
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from management.integrity.apple import verify_apple_attestation
-
-
-class AppIntegrityChallengeSerializer(serializers.Serializer):
-    keyId = serializers.CharField(max_length=255, required=True)
-
-    def validate_keyId(self, value):
-        if not value or len(value.strip()) == 0:
-            raise serializers.ValidationError("keyId cannot be empty")
-        return value.strip()
-
-
-class AppIntegrityExchangeSerializer(serializers.Serializer):
-    keyId = serializers.CharField(max_length=255, required=True)
-    attestationObject = serializers.CharField(required=True)
-
-    def validate_keyId(self, value):
-        if not value or len(value.strip()) == 0:
-            raise serializers.ValidationError("keyId cannot be empty")
-        return value.strip()
-
-    def validate_attestationObject(self, value):
-        if not value or len(value.strip()) == 0:
-            raise serializers.ValidationError("attestationObject cannot be empty")
-        return value.strip()
-
-
-class AppIntegrityAndroidSerializer(serializers.Serializer):
-    integrityToken = serializers.CharField(required=True)
-    requestHash = serializers.CharField(required=True)
-
-    def validate_integrityToken(self, value):
-        if not value or len(value.strip()) == 0:
-            raise serializers.ValidationError("integrityToken cannot be empty")
-        return value.strip()
-
-    def validate_requestHash(self, value):
-        if not value or len(value.strip()) == 0:
-            raise serializers.ValidationError("requestHash cannot be empty")
-        return value.strip()
-
-
-class AppIntegrityIOSSerializer(serializers.Serializer):
-    keyId = serializers.CharField(max_length=255, required=True)
-    attestationObject = serializers.CharField(required=True)
-
-    def validate_keyId(self, value):
-        if not value or len(value.strip()) == 0:
-            raise serializers.ValidationError("keyId cannot be empty")
-        return value.strip()
-
-    def validate_attestationObject(self, value):
-        if not value or len(value.strip()) == 0:
-            raise serializers.ValidationError("attestationObject cannot be empty")
-        return value.strip()
-
+challenge_bytes_length = 32
 
 logger = logging.getLogger("app_integrity")
 
@@ -84,20 +29,7 @@ def _dbg(msg: str):
         print(msg)
 
 
-def _get_google_public_keys():
-    """
-    Get Public Google API keys, required for device integrity verification.
-    """
-    try:
-        response = requests.get("https://www.googleapis.com/oauth2/v3/certs", timeout=10)
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        _dbg(f"[ERROR] Failed to fetch Google public keys: {e}")
-        return None
-
-
-def _verify_play_integrity_token(integrity_token: str, request_hash: str) -> bool:
+def verify_play_integrity_token(integrity_token: str, request_hash: str) -> bool:
     if getattr(settings, "DEVELOPMENT_DISABLE_PLAY_INTEGRITY", False):
         return True  # Full skip of integrity checks for native development
     try:
@@ -232,11 +164,16 @@ def _verify_play_integrity_token_via_api(integrity_token: str, request_hash: str
 @extend_schema(
     description="Generate app integrity challenge for device verification",
     methods=["POST"],
-    request=AppIntegrityChallengeSerializer(many=False),
     responses={
         200: {
             "type": "object",
-            "properties": {"challenge": {"type": "string", "description": "Base64 encoded challenge string"}},
+            "properties": {
+                "challenge": {"type": "string", "description": "Base64 encoded challenge string"},
+                "challengeId": {
+                    "type": "string",
+                    "description": "An identifier for this challenge to be used in the verification step",
+                },
+            },
         },
         400: {"description": "Invalid request data"},
         500: {"description": "Server configuration error"},
@@ -252,78 +189,18 @@ def app_integrity_challenge(request):
     The challenge is a random string that will be signed by the client's app integrity key.
     We store the challenge temporarily in cache for verification in the exchange step.
     """
-    serializer = AppIntegrityChallengeSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-
-    key_id = serializer.validated_data["keyId"]
-
     # Generate a random challenge string
-    challenge_bytes = secrets.token_bytes(32).hex().encode("utf-8")
+    challenge_bytes = secrets.token_bytes(challenge_bytes_length).hex().encode("utf-8")
 
     challenge = challenge_bytes.decode("utf-8")
+    challenge_id = uuid4()
 
     # Store challenge in cache with expiration (5 minutes)
-    cache_key = get_app_integrity_challenge_cache_key(key_id)
+    cache_key = get_app_integrity_challenge_cache_key(challenge_id)
     cache.set(cache_key, challenge_bytes, timeout=300)
 
-    return Response({"challenge": challenge}, status=status.HTTP_200_OK)
+    return Response({"challenge": challenge, "challengeId": challenge_id}, status=status.HTTP_200_OK)
 
 
-@extend_schema(
-    description="Verify iOS App Attest (simplified staging flow) and exchange for decryption key",
-    methods=["POST"],
-    request=AppIntegrityIOSSerializer(many=False),
-    responses={
-        200: {
-            "type": "object",
-            "properties": {
-                "outerLayerDecryptionKey": {"type": "string", "description": "Base64 encoded decryption key"}
-            },
-        },
-        400: {"description": "Invalid request data or expired challenge"},
-        403: {"description": "iOS integrity verification failed"},
-        500: {"description": "Server configuration error"},
-    },
-)
-@api_view(["POST"])
-@permission_classes([AllowAny])
-def app_integrity_verify_ios(request):
-    """
-    Staging-safe iOS verification flow:
-    - Validates presence of keyId and attestationObject
-    - Attempts to parse JSON attestation to extract challenge
-    - Verifies that challenge exists in cache (created by /challenge) and not expired
-    - In non-strict mode, accepts and returns key (we do not yet perform full App Attest statement verification)
-    - In strict mode (future), we would implement full Apple App Attest verification
-    """
-    _dbg("[DEBUG] iOS verification request received")
-    _dbg(f"[DEBUG] Request data: {request.data}")
-
-    serializer = AppIntegrityIOSSerializer(data=request.data)
-    serializer.is_valid(raise_exception=True)
-
-    key_id = serializer.validated_data["keyId"]
-    attestation_object = serializer.validated_data["attestationObject"]
-
-    challenge = cache.get(key=get_app_integrity_challenge_cache_key(key_id))
-
-    try:
-        verify_apple_attestation(key_id, challenge, attestation_object, settings.IS_PROD)
-    except Exception as e:
-        _dbg(f"[ERROR] Invalid iOS attestationObject format: {e}")
-        return Response({"detail": "Invalid attestation object format"}, status=status.HTTP_400_BAD_REQUEST)
-
-    cache.delete(key=key_id)
-    outer_layer_decryption_key = getattr(settings, "ANDROID_DECRYPTION_KEY", None)
-    if not outer_layer_decryption_key:
-        _dbg("[ERROR] Native app decryption key not configured (iOS)")
-        return Response(
-            {"detail": "Native app decryption key not configured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
-
-    _dbg("[SUCCESS] iOS simplified verification passed (non-strict mode)")
-    return Response({"outerLayerDecryptionKey": outer_layer_decryption_key}, status=status.HTTP_200_OK)
-
-
-def get_app_integrity_challenge_cache_key(key_id):
-    return f"app_integrity_challenge:{key_id}"
+def get_app_integrity_challenge_cache_key(challenge_id):
+    return f"app_integrity_challenge:{challenge_id}"
