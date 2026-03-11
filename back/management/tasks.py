@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from celery import shared_task
 from cookie_consent.models import Cookie, CookieGroup
+from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone as dj_timezone
 from translations import get_translation
@@ -598,6 +599,20 @@ def send_sms_background(self, user_hash, message):
 
     try:
         receipient = User.objects.get(hash=user_hash)
+
+        # we only send international 'sms' to prio users
+        # This is mianly cause prices are very high, they are per-segment and differnet for every country
+        # our sms have 3-10 segemtns, so this get quite expensive quickly
+        country_code = str(receipient.profile.phone_mobile.country_code)
+        if (receipient.company not in settings.MATCH_PRIORITY_COMPANIES) and (country_code != "49"):
+            receipient.sms(
+                send_initator=get_base_management_user(),
+                message=message,
+                dont_send=True,
+                skip_reason="Not prio user and not german phone number",
+            )
+            return {"status": "skipped", "reason": "Not prio user and not german phone number"}
+
         result = receipient.sms(send_initator=get_base_management_user(), message=message)
         return {"status": "sent", "result": result}
     except Exception as e:
