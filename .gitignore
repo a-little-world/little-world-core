@@ -174,3 +174,5 @@ components-js
 .aider*
 
 dev/envs/local_dev.env
+back/celerybeat-schedule-shm
+back/celerybeat-schedule-wal
