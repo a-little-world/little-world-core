@@ -1202,3 +1202,92 @@ def daily_auto_email_report():
         "unique_users": len(user_emails),
         "email_counts": dict(email_counts),
     }
+
+
+@shared_task
+def daily_sms_report():
+    from collections import defaultdict
+    from datetime import timedelta
+
+    from django.conf import settings
+    from django.utils import timezone
+
+    from management.api.slack import notify_security_channel
+    from management.models.sms import SmsModel
+
+    now = timezone.now()
+    yesterday_start = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    yesterday_end = yesterday_start + timedelta(days=1)
+
+    sms_logs = SmsModel.objects.filter(created_at__gte=yesterday_start, created_at__lt=yesterday_end).select_related(
+        "recipient", "send_initator"
+    )
+
+    if not sms_logs.exists():
+        message = f"*SMS Report:* ({yesterday_start.strftime('%Y-%m-%d')})\n\nNo SMS were sent yesterday."
+        notify_security_channel(message)
+        return {"status": "no_sms", "date": yesterday_start.strftime("%Y-%m-%d")}
+
+    total_sms = sms_logs.count()
+    successful_sms = sms_logs.filter(success=True).count()
+    failed_sms = total_sms - successful_sms
+
+    recipient_sms = defaultdict(lambda: {"total": 0, "success": 0, "failed": 0})
+    initiator_sms = defaultdict(lambda: {"total": 0, "success": 0, "failed": 0})
+
+    for sms in sms_logs:
+        if sms.recipient:
+            recipient_sms[sms.recipient]["total"] += 1
+            if sms.success:
+                recipient_sms[sms.recipient]["success"] += 1
+            else:
+                recipient_sms[sms.recipient]["failed"] += 1
+
+        if sms.send_initator:
+            initiator_sms[sms.send_initator]["total"] += 1
+            if sms.success:
+                initiator_sms[sms.send_initator]["success"] += 1
+            else:
+                initiator_sms[sms.send_initator]["failed"] += 1
+
+    message_parts = [
+        f"*SMS Report:* ({yesterday_start.strftime('%Y-%m-%d')})",
+        "",
+        f"*Summary:* total={total_sms}, success={successful_sms}, failed={failed_sms}",
+        f"*Unique Users:* recipients={len(recipient_sms)}, initiators={len(initiator_sms)}",
+        "",
+        "*SMS Per-Recipient:*",
+    ]
+
+    for recipient, counts in sorted(recipient_sms.items(), key=lambda x: x[0].email if x[0] else ""):
+        if recipient:
+            user_url = f"{settings.BASE_URL}/matching/user/{recipient.id}?tab=emails"
+            message_parts.append(
+                "• "
+                + f"{recipient.email}: total={counts['total']}, success={counts['success']}, failed={counts['failed']} "
+                + f"- `{user_url}`"
+            )
+
+    message_parts.append("")
+    message_parts.append("*SMS Per-Initiator:*")
+    for initiator, counts in sorted(initiator_sms.items(), key=lambda x: x[0].email if x[0] else ""):
+        if initiator:
+            user_url = f"{settings.BASE_URL}/matching/user/{initiator.id}?tab=emails"
+            message_parts.append(
+                "• "
+                + f"{initiator.email}: total={counts['total']}, success={counts['success']}, failed={counts['failed']} "
+                + f"- `{user_url}`"
+            )
+
+    message = "\n".join(message_parts)
+    notify_security_channel(message)
+
+    return {
+        "status": "sent",
+        "date": yesterday_start.strftime("%Y-%m-%d"),
+        "total_sms": total_sms,
+        "successful_sms": successful_sms,
+        "failed_sms": failed_sms,
+        "unique_recipients": len(recipient_sms),
+        "unique_initiators": len(initiator_sms),
+    }
