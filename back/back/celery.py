@@ -151,6 +151,16 @@ if settings.ENABLE_AUTO_EMAIL_LOGS:
         }
     )
 
+if settings.ENABLE_DAILY_SMS_REPORT:
+    auto_emails.update(
+        {
+            "daily-sms-report": {
+                "task": "management.tasks.daily_sms_report",
+                "schedule": crontab(hour=0, minute=40),  # every day at 00:40
+            }
+        }
+    )
+
 prod_shedules = {
     "record-bucket-statistics": {
         "task": "management.tasks.record_bucket_ids",

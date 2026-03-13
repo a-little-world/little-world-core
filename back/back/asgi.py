@@ -20,7 +20,7 @@ def get_urls_patterns():
     _urls = [re_path(r"^api/core/ws$", CoreConsumer.as_asgi())]
 
     if settings.USE_AUTO_RELOAD:
-        from tbs_django_auto_reload.consumer import ReloadConsumer
+        from django_simple_reload.consumer import ReloadConsumer
 
         _urls.append(re_path(r"^ws/reload$", ReloadConsumer.as_asgi()))
 

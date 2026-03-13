@@ -472,7 +472,6 @@
   "notification.type.none": "Kein Typ",
   "notification.type.match": "Match",
   "notification.type.message": "Nachricht",
-  "notification.headline": "Kopfzeile",
   "notification.title": "Titel",
   "notification.no_description": "Keine Beschreibung",
   "sms.onboarding_in_1h": "Hi {first_name},\nin 1 Stunde beginnt dein Einführungsgespräch bei Little World. Nur nach diesem Gespräch können wir dir einen Gesprächspartner vermitteln.\nSo findest du den Link zum Videocall:\n📧 In deiner E-Mail oder\n💬 Im Support-Chat auf der Plattform: https://little-world.com/login\nBis gleich – wir freuen uns auf dich! 😊",

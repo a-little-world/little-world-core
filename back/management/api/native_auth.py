@@ -13,7 +13,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 from translations import get_translation
 
-from management.api.app_integrity import _verify_play_integrity_token, get_app_integrity_challenge_cache_key
+from management.api.app_integrity import get_app_integrity_challenge_cache_key, verify_play_integrity_token
 from management.api.user import get_user_data
 from management.integrity.apple import verify_apple_attestation
 
@@ -23,14 +23,15 @@ from management.integrity.apple import verify_apple_attestation
 class NativeAuthAndroidSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     password = serializers.CharField(required=True)
+    challenge_id = serializers.CharField(required=True)
     integrity_token = serializers.CharField(required=True)
-    key_id = serializers.CharField(required=True)
 
 
 class NativeAuthIosSerializer(serializers.Serializer):
     email = serializers.EmailField(required=True)
     password = serializers.CharField(required=True)
     key_id = serializers.CharField(max_length=255, required=True)
+    challenge_id = serializers.CharField(required=True)
     attestation_object = serializers.CharField(required=True)
 
 
@@ -50,11 +51,11 @@ def native_auth_android(request):
     email = serializer.validated_data["email"]
     password = serializer.validated_data["password"]
     integrity_token = serializer.validated_data["integrity_token"]
-    key_id = serializer.validated_data["key_id"]
+    challenge_id = serializer.validated_data["challenge_id"]
 
-    challenge = cache.get(key=get_app_integrity_challenge_cache_key(key_id)).decode("utf-8")
+    challenge = get_and_delete_challenge(challenge_id)
 
-    if not _verify_play_integrity_token(integrity_token, request_hash=challenge):
+    if not verify_play_integrity_token(integrity_token, request_hash=challenge):
         return Response({"detail": "Invalid integrity token or request hash"}, status=status.HTTP_400_BAD_REQUEST)
 
     return native_auth_common_login(email=email.lower(), password=password)
@@ -65,16 +66,19 @@ def native_auth_android(request):
 @authentication_classes([])
 def native_auth_ios(request):
     serializer = NativeAuthIosSerializer(data=request.data)
+
     serializer.is_valid(raise_exception=True)
 
     email = serializer.validated_data["email"]
     password = serializer.validated_data["password"]
     key_id = serializer.validated_data["key_id"]
+    challenge_id = serializer.validated_data["challenge_id"]
     attestation_object = serializer.validated_data["attestation_object"]
 
-    challenge = cache.get(key=get_app_integrity_challenge_cache_key(key_id))
+    challenge_bytes = get_and_delete_challenge(challenge_id).encode("utf-8")
+
     verify_apple_attestation(
-        key_id=key_id, challenge_bytes=challenge, attestation_raw=attestation_object, is_prod=settings.IS_PROD
+        key_id=key_id, challenge_bytes=challenge_bytes, attestation_raw=attestation_object, is_prod=settings.IS_PROD
     )
 
     return native_auth_common_login(email=email.lower(), password=password)
@@ -140,13 +144,14 @@ class NativeTokenAndroidRefreshView(TokenRefreshView):
             raise InvalidToken(str(exc))
 
         integrity_token = request.data.get("integrity_token")
-        key_id = request.data.get("key_id")
-        challenge = cache.get(key=get_app_integrity_challenge_cache_key(key_id)).decode("utf-8")
+        challenge_id = request.data.get("challenge_id")
+
+        challenge = get_and_delete_challenge(challenge_id)
 
         if not integrity_token or not challenge:
             return Response({"detail": "Missing integrity token or request hash"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not _verify_play_integrity_token(integrity_token, request_hash=challenge):
+        if not verify_play_integrity_token(integrity_token, request_hash=challenge):
             return Response({"detail": "Invalid integrity token or request hash"}, status=status.HTTP_400_BAD_REQUEST)
 
         client = refresh.get("client")
@@ -176,10 +181,12 @@ class NativeTokenIosRefreshView(TokenRefreshView):
 
         key_id = request.data.get("key_id")
         attestation_object = request.data.get("attestation_object")
+        challenge_id = request.data.get("challenge_id")
 
-        challenge = cache.get(key=get_app_integrity_challenge_cache_key(key_id))
+        challenge_bytes = get_and_delete_challenge(challenge_id).encode("utf-8")
+
         verify_apple_attestation(
-            key_id=key_id, challenge_bytes=challenge, attestation_raw=attestation_object, is_prod=settings.IS_PROD
+            key_id=key_id, challenge_bytes=challenge_bytes, attestation_raw=attestation_object, is_prod=settings.IS_PROD
         )
 
         client = refresh.get("client")
@@ -228,6 +235,14 @@ class NativeTokenWebRefreshView(TokenRefreshView):
 
         response = super().post(request, *args, **kwargs)
         return response
+
+
+def get_and_delete_challenge(challenge_id) -> str:
+    cache_key = get_app_integrity_challenge_cache_key(challenge_id)
+    challenge = cache.get(key=cache_key).decode("utf-8")
+    cache.delete(cache_key)
+
+    return challenge
 
 
 api_urls = [

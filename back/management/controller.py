@@ -174,6 +174,7 @@ def create_user(
     first_name,
     second_name,
     birth_year,
+    user_type=None,
     company=None,
     newsletter_subscribed=False,
     send_verification_mail=True,
@@ -209,6 +210,8 @@ def create_user(
     usr = User.objects.create_user(**data)
 
     usr.profile.birth_year = int(birth_year)
+    if user_type:
+        usr.profile.user_type = user_type
     usr.profile.newsletter_subscribed = newsletter_subscribed
     usr.profile.save()
 

@@ -8,6 +8,7 @@ valid_request_data = dict(
     password1="Test123!",
     password2="Test123!",
     birth_year=1984,
+    user_type="learner",
 )
 
 valid_create_data = dict(
