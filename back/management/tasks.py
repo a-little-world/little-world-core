@@ -190,10 +190,9 @@ def check_prematch_email_reminders_and_expirations():
     Reoccuring task to check for email reminders that should be send out
     also check if there are expired unconfirmed_matches
     """
-    from management.models.state import State
-    from management.models.unconfirmed_matches import ProposedMatch
+    from management.models.unconfirmed_matches import MatchType, ProposedMatch
 
-    all_unclosed_unconfirmed = ProposedMatch.objects.filter(closed=False)
+    all_unclosed_unconfirmed = ProposedMatch.objects.filter(closed=False, match_type=MatchType.STANDARD)
 
     # unconfirmed matches reminders
     for unclosed in all_unclosed_unconfirmed:
@@ -655,6 +654,7 @@ def automatic_emails_m012_m013_m014():
     from django.conf import settings
 
     from management.models.matches import Match
+    from management.models.unconfirmed_matches import MatchType
 
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M012_M013_M014)
 
@@ -669,6 +669,7 @@ def automatic_emails_m012_m013_m014():
     for template, (days, two_days_reminder, seven_days_reminder, fourteen_days_reminder) in reminder.items():
         matches = Match.objects.filter(
             confirmed=True,
+            match_type=MatchType.STANDARD,
             total_messages_counter=0,
             total_mutal_video_calls_counter=0,
             latest_interaction_at__lte=dj_timezone.now() - timedelta(days=days),
@@ -716,7 +717,7 @@ def automatic_emails_m012_m013_m014():
 @shared_task
 def automatic_emails_m023():
     """
-    Notify user when the didnt respond to a chat message for 3 days
+    Notify user when they didn't respond to a chat message for 3 days
     """
     from chat.models import Chat
     from django.conf import settings
@@ -753,7 +754,7 @@ def automatic_emails_m023():
 @shared_task
 def automatic_emails_m024_m025():
     """
-    Notify user when the didnt respond to a chat message for 7 days
+    Notify user when they didn't respond to a chat message for 7 days
     """
     from chat.models import Chat
     from django.conf import settings
@@ -997,7 +998,7 @@ def automatic_emails_u072_u073_u074():
 @shared_task
 def automatic_emails_u082_u083_u084():
     """
-    User searching for the first time still no matching
+    User searching again after having a match
     """
     from django.conf import settings
 
