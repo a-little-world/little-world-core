@@ -754,10 +754,10 @@ def clear_active_burst_calculation(request):
             if not force_clear:
                 task = check_task_status(task_id)
                 task_state = task.get("state")
-                if task_state == "SUCCESS":
+                if task_state in {"SUCCESS", "FAILURE", "REVOKED"}:
                     cleared_tasks.append(task_id)
                 else:
-                    # Any non-success state means the task cannot be safely cleared yet.
+                    # Any non-terminal state means the task cannot be safely cleared yet.
                     not_cleared_tasks.append(task_id)
             else:
                 # also need to force stop the task
