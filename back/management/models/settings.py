@@ -55,7 +55,7 @@ class EmailSettings(models.Model):
         # send groupmail function automaticly checks if users have unsubscribed!
         # we still mark email verification reminder 1 as True, since we at least tried to send it,
         # never wanna send twice! Not even **try** twice!
-        user.send_email_v2("verify-email")
+        user.send_email_v2("unfinished_user_form_2")
         self.save()
 
     def send_email_verification_reminder1(self, user):
