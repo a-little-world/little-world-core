@@ -411,6 +411,17 @@ class UserFilter(filters.FilterSet):
         fields = ["hash", "id", "email"]
 
 
+class InviteNativeAppTesterRequestSerializer(serializers.Serializer):
+    platform = serializers.ChoiceField(choices=["ios", "android"])
+    app_invite_url = serializers.CharField()
+    beta_tester_email = serializers.EmailField()
+    native_app_repo_url = serializers.CharField()
+    native_app_bug_report_url = serializers.CharField()
+    little_world_account_email = serializers.CharField(required=False, allow_blank=True)
+    send_to_email = serializers.EmailField(required=False, allow_blank=True)
+    emulate_send = serializers.BooleanField(required=False, default=False)
+
+
 @extend_schema_view(
     list=extend_schema(summary="List users"),
     retrieve=extend_schema(summary="Retrieve user"),
@@ -777,21 +788,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             }
         )
 
-    @extend_schema(
-        request=inline_serializer(
-            name="InviteNativeAppTesterRequest",
-            fields={
-                "platform": serializers.ChoiceField(choices=["ios", "android"]),
-                "app_invite_url": serializers.CharField(),
-                "beta_tester_email": serializers.EmailField(),
-                "native_app_repo_url": serializers.CharField(),
-                "native_app_bug_report_url": serializers.CharField(),
-                "little_world_account_email": serializers.CharField(required=False, allow_blank=True),
-                "send_to_email": serializers.EmailField(required=False, allow_blank=True),
-                "emulate_send": serializers.BooleanField(required=False, default=False),
-            },
-        )
-    )
+    @extend_schema(request=InviteNativeAppTesterRequestSerializer)
     @action(detail=True, methods=["post"])
     def invite_native_app_tester(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -801,26 +798,18 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if not has_access:
             return res
 
-        platform = request.data.get("platform")
-        app_invite_url = request.data.get("app_invite_url")
-        beta_tester_email = request.data.get("beta_tester_email")
-        native_app_repo_url = request.data.get("native_app_repo_url")
-        native_app_bug_report_url = request.data.get("native_app_bug_report_url")
-        little_world_account_email = request.data.get("little_world_account_email", "")
-        send_to_email = request.data.get("send_to_email", "")
-        emulate_send = request.data.get("emulate_send", False)
+        serializer = InviteNativeAppTesterRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        payload = serializer.validated_data
 
-        if platform not in ["ios", "android"]:
-            return Response({"error": "platform must be either 'ios' or 'android'"}, status=400)
-
-        if not app_invite_url:
-            return Response({"error": "app_invite_url is required"}, status=400)
-        if not beta_tester_email:
-            return Response({"error": "beta_tester_email is required"}, status=400)
-        if not native_app_repo_url:
-            return Response({"error": "native_app_repo_url is required"}, status=400)
-        if not native_app_bug_report_url:
-            return Response({"error": "native_app_bug_report_url is required"}, status=400)
+        platform = payload["platform"]
+        app_invite_url = payload["app_invite_url"]
+        beta_tester_email = payload["beta_tester_email"]
+        native_app_repo_url = payload["native_app_repo_url"]
+        native_app_bug_report_url = payload["native_app_bug_report_url"]
+        little_world_account_email = payload.get("little_world_account_email", "")
+        send_to_email = payload.get("send_to_email", "")
+        emulate_send = payload.get("emulate_send", False)
 
         template_name = (
             "automatic-emails-native-app-beta-ios" if platform == "ios" else "automatic-emails-native-app-beta-android"
