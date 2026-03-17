@@ -478,7 +478,7 @@
       "id": "automatic-emails-native-app-beta-ios",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Willkommen als Little World App Beta-Tester (iOS)",
+      "subject": "Willkommen als iOS-Beta-Tester:in bei Little World",
       "template": "react_emails/automatic-emails-native-app-beta-ios.html",
       "theme": "little-world"
     },
@@ -486,7 +486,7 @@
       "id": "automatic-emails-native-app-beta-android",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Willkommen als Little World App Beta-Tester (Android)",
+      "subject": "Willkommen als Android-Beta-Tester:in bei Little World",
       "template": "react_emails/automatic-emails-native-app-beta-android.html",
       "theme": "little-world"
     }
