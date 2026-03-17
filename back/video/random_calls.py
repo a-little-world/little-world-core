@@ -1,4 +1,5 @@
 import asyncio
+import math
 import time
 from datetime import timedelta
 
@@ -237,10 +238,8 @@ def get_random_call_lobby_status(request, lobby_uuid):
         match_created_at = getattr(matching, "created_at", None)
         if match_created_at is not None:
             elapsed_seconds = (timezone.now() - match_created_at).total_seconds()
-            response_data["match_proposal_timeout"] = max(
-                0,
-                lobby.match_proposal_timeout - elapsed_seconds,
-            )
+            remaining_seconds = lobby.match_proposal_timeout - elapsed_seconds
+            response_data["match_proposal_timeout"] = max(0, math.ceil(remaining_seconds))
     return Response(response_data)
 
 
