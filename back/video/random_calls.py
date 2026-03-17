@@ -585,10 +585,12 @@ class RandomCallMatchHistorySerializer(serializers.Serializer):
             and instance.u2.profile.user_type == Profile.TypeChoices.VOLUNTEER
         )
 
+        user_lang = getattr(getattr(request, "session", None), "get", lambda *_: "de")("lang", "en")
+
         if both_learners:
-            cannot_match_reason = get_translation("match.both_learners")
+            cannot_match_reason = get_translation("match.both_learners", lang=user_lang)
         elif both_volunteers:
-            cannot_match_reason = get_translation("match.both_volunteers")
+            cannot_match_reason = get_translation("match.both_volunteers", lang=user_lang)
         else:
             cannot_match_reason = None
 
