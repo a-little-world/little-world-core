@@ -176,8 +176,10 @@ class Match(models.Model):
 
     @classmethod
     def get_inactive_matches(cls, user, order_by="created_at"):
-        return cls.objects.filter(Q(user1=user) | Q(user2=user), active=False, support_matching=False).order_by(
-            order_by
+        return (
+            cls.objects.filter(Q(user1=user) | Q(user2=user), active=False, support_matching=False)
+            .exclude(match_type=MatchType.TEMPORARY)
+            .order_by(order_by)
         )
 
     @classmethod
