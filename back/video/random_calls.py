@@ -91,6 +91,7 @@ def join_random_call_lobby(request, lobby_uuid):
         if inactive_entry:
             # Reactivate the existing entry
             inactive_entry.is_active = True
+            inactive_entry.last_status_checked_at = timezone.now()
             inactive_entry.save()
         else:
             # Create new entry
@@ -232,6 +233,14 @@ def get_random_call_lobby_status(request, lobby_uuid):
         }
 
         response_data["matching"] = matching_info
+        # Update timeout countdown when a creation timestamp is available.
+        match_created_at = getattr(matching, "created_at", None)
+        if match_created_at is not None:
+            elapsed_seconds = (timezone.now() - match_created_at).total_seconds()
+            response_data["match_proposal_timeout"] = max(
+                0,
+                lobby.match_proposal_timeout - elapsed_seconds,
+            )
     return Response(response_data)
 
 
