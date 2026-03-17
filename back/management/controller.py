@@ -289,13 +289,13 @@ def match_users(
     # Only match if they are not already matched
     matching = Match.get_match(usr1, usr2)
     if matching.exists():
-        # Before we raise the exception we check for 'dangeling' matches
+        # Before we raise the exception we check for 'dangling' matches
         from management.models.unconfirmed_matches import ProposedMatch
 
-        dangeling = ProposedMatch.get_proposal_between(usr1, usr2)
-        if dangeling.exists():
-            dangeling.delete()
-            raise Exception("Users are already matched, but dangeling proposals found, DELETED!")
+        dangling = ProposedMatch.get_proposal_between(usr1, usr2)
+        if dangling.exists():
+            dangling.delete()
+            raise Exception("Users are already matched, but dangling proposals found, DELETED!")
 
         raise Exception("Users are already matched!")
 
@@ -509,7 +509,7 @@ def create_base_admin_and_add_standart_db_values():
         usr = User.objects.create_superuser(
             email=settings.MANAGEMENT_USER_MAIL,
             username=settings.MANAGEMENT_USER_MAIL,
-            password=settings.MANAGEMENT_USER_PASSWORD,  # DJ_MANAGEMENT_PW
+            password=settings.MANAGEMENT_USER_PASSWORD,
             first_name=os.environ.get("DJ_MANAGEMENT_FIRST_NAME", "Oliver (Support)"),
             second_name=os.environ.get("DJ_MANAGEMENT_SECOND_NAME", ""),
         )

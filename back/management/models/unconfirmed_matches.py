@@ -43,6 +43,7 @@ def serialize_proposed_matches(matching_proposals, user):
                     **ProposalProfileSerializer(partner.profile).data,
                 },
                 "status": "proposed",
+                "match_type": proposal.match_type,
                 "closed": proposal.closed,
                 "rejected_by": rejected_by,
                 "rejected_at": proposal.rejected_at,
