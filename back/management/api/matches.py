@@ -72,6 +72,7 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
             "chatId": str(chat.uuid),
             "active": instance.active,
             "activeCallRoom": active_call_room,
+            "match_type": instance.match_type,
             "report_unmatch": enrich_report_unmatch_with_user_info(instance.report_unmatch, instance),
             "partner": partner_data if partner.is_active else {"censored": True, "id": "censored", "isDeleted": True},
         }

@@ -91,6 +91,7 @@ def join_random_call_lobby(request, lobby_uuid):
         if inactive_entry:
             # Reactivate the existing entry
             inactive_entry.is_active = True
+            inactive_entry.last_status_checked_at = timezone.now()
             inactive_entry.save()
         else:
             # Create new entry
@@ -232,6 +233,14 @@ def get_random_call_lobby_status(request, lobby_uuid):
         }
 
         response_data["matching"] = matching_info
+        # Update timeout countdown when a creation timestamp is available.
+        match_created_at = getattr(matching, "created_at", None)
+        if match_created_at is not None:
+            elapsed_seconds = (timezone.now() - match_created_at).total_seconds()
+            response_data["match_proposal_timeout"] = max(
+                0,
+                lobby.match_proposal_timeout - elapsed_seconds,
+            )
     return Response(response_data)
 
 
@@ -443,7 +452,7 @@ def authenticate_random_call_match_livekit_room(request, lobby_uuid, match_uuid)
     token = (
         livekit_api.AccessToken(api_key=settings.LIVEKIT_API_KEY, api_secret=settings.LIVEKIT_API_SECRET)
         .with_identity(request.user.hash)
-        .with_name(f"{request.user.profile.first_name} {request.user.profile.second_name[:1]}")
+        .with_name(f"{request.user.profile.first_name}")
         .with_grants(
             livekit_api.VideoGrants(
                 room_join=True,
@@ -572,14 +581,27 @@ class RandomCallMatchHistorySerializer(serializers.Serializer):
 
         # Serialize partner profile using CensoredProfileSerializer
         from management.models.profile import CensoredProfileSerializer, Profile
+        from translations import get_translation
 
         partner_data = CensoredProfileSerializer(partner.profile).data
 
-        # Learners cannot match with one another
         both_learners = (
             instance.u1.profile.user_type == Profile.TypeChoices.LEARNER
             and instance.u2.profile.user_type == Profile.TypeChoices.LEARNER
         )
+        both_volunteers = (
+            instance.u1.profile.user_type == Profile.TypeChoices.VOLUNTEER
+            and instance.u2.profile.user_type == Profile.TypeChoices.VOLUNTEER
+        )
+
+        user_lang = getattr(getattr(request, "session", None), "get", lambda *_: "de")("lang", "en")
+
+        if both_learners:
+            cannot_match_reason = get_translation("match.both_learners", lang=user_lang)
+        elif both_volunteers:
+            cannot_match_reason = get_translation("match.both_volunteers", lang=user_lang)
+        else:
+            cannot_match_reason = None
 
         # Build the response
         return {
@@ -589,7 +611,7 @@ class RandomCallMatchHistorySerializer(serializers.Serializer):
             "image": partner.profile.image.url if partner.profile.image else partner.profile.avatar_config,
             "image_type": partner.profile.image_type,
             "duration": duration,
-            "cannot_match": both_learners,
+            "cannot_match_reason": cannot_match_reason,
             "matching_requested": current_user_requested,
             "confirmed_match": instance.confirmed_match,
             "both_requested": current_user_requested and partner_requested,
