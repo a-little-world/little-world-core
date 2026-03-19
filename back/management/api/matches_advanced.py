@@ -1,4 +1,5 @@
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
 from django.urls import path
 from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
@@ -225,7 +226,10 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
             self.kwargs["pk"] = int(self.kwargs["pk"])
             return super().get_object()
         else:
-            return super().get_queryset().get(uuid=self.kwargs["pk"])
+            # Use 404-safe lookup so unknown UUIDs do not raise an uncaught DoesNotExist.
+            obj = get_object_or_404(super().get_queryset(), uuid=self.kwargs["pk"])
+            self.check_object_permissions(self.request, obj)
+            return obj
 
     @action(detail=True, methods=["post"])
     def set_completed_off_plattform(self, request, pk=None):
