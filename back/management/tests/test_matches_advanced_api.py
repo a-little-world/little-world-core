@@ -5,19 +5,27 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 
 from management.api.matches_advanced import AdvancedMatchViewset
 from management.models.matches import Match
-from management.tests.helpers import register_user
+from management.models.user import User
 
 
 class AdvancedMatchViewsetTests(TestCase):
+    def _create_user(self, email_prefix: str) -> User:
+        return User.objects.create_user(
+            email=f"{email_prefix}-{uuid4()}@example.com",
+            password="Test123!",
+            first_name="Test",
+            last_name="User",
+        )
+
     def setUp(self):
         self.factory = APIRequestFactory(enforce_csrf_checks=True)
         self.view = AdvancedMatchViewset.as_view({"get": "retrieve"})
 
-        self.staff_user = register_user()
+        self.staff_user = self._create_user("staff")
         self.staff_user.is_staff = True
         self.staff_user.save(update_fields=["is_staff"])
 
-        self.other_user = register_user()
+        self.other_user = self._create_user("other")
         self.match = Match.objects.create(user1=self.staff_user, user2=self.other_user)
 
     def test_retrieve_existing_match_by_uuid(self):
