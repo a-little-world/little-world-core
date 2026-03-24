@@ -190,16 +190,15 @@ def check_prematch_email_reminders_and_expirations():
     Reoccuring task to check for email reminders that should be send out
     also check if there are expired unconfirmed_matches
     """
-    from management.models.state import State
-    from management.models.unconfirmed_matches import ProposedMatch
+    from management.models.unconfirmed_matches import MatchType, ProposedMatch
 
-    all_unclosed_unconfirmed = ProposedMatch.objects.filter(closed=False)
+    all_unclosed_unconfirmed = ProposedMatch.objects.filter(closed=False, match_type=MatchType.STANDARD)
 
     # unconfirmed matches reminders
     for unclosed in all_unclosed_unconfirmed:
         if unclosed.is_expired(close_if_expired=True, send_mail_if_expired=True):
             # Now we have to set the learner to unresponsive = True and to searching = IDLE unless user has match priority
-            learner_state = unclosed.learner_when_created.state
+            learner_state = unclosed.confirming_user.state
             if not learner_state.has_match_priority:
                 learner_state.searching_state = State.SearchingStateChoices.IDLE
                 learner_state.unresponsive = True
@@ -655,6 +654,7 @@ def automatic_emails_m012_m013_m014():
     from django.conf import settings
 
     from management.models.matches import Match
+    from management.models.unconfirmed_matches import MatchType
 
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M012_M013_M014)
 
@@ -669,6 +669,7 @@ def automatic_emails_m012_m013_m014():
     for template, (days, two_days_reminder, seven_days_reminder, fourteen_days_reminder) in reminder.items():
         matches = Match.objects.filter(
             confirmed=True,
+            match_type=MatchType.STANDARD,
             total_messages_counter=0,
             total_mutal_video_calls_counter=0,
             latest_interaction_at__lte=dj_timezone.now() - timedelta(days=days),
@@ -716,7 +717,7 @@ def automatic_emails_m012_m013_m014():
 @shared_task
 def automatic_emails_m023():
     """
-    Notify user when the didnt respond to a chat message for 3 days
+    Notify user when they didn't respond to a chat message for 3 days
     """
     from chat.models import Chat
     from django.conf import settings
@@ -753,7 +754,7 @@ def automatic_emails_m023():
 @shared_task
 def automatic_emails_m024_m025():
     """
-    Notify user when the didnt respond to a chat message for 7 days
+    Notify user when they didn't respond to a chat message for 7 days
     """
     from chat.models import Chat
     from django.conf import settings
@@ -997,7 +998,7 @@ def automatic_emails_u072_u073_u074():
 @shared_task
 def automatic_emails_u082_u083_u084():
     """
-    User searching for the first time still no matching
+    User searching again after having a match
     """
     from django.conf import settings
 
@@ -1201,4 +1202,93 @@ def daily_auto_email_report():
         "total_emails": total_emails,
         "unique_users": len(user_emails),
         "email_counts": dict(email_counts),
+    }
+
+
+@shared_task
+def daily_sms_report():
+    from collections import defaultdict
+    from datetime import timedelta
+
+    from django.conf import settings
+    from django.utils import timezone
+
+    from management.api.slack import notify_security_channel
+    from management.models.sms import SmsModel
+
+    now = timezone.now()
+    yesterday_start = (now - timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    yesterday_end = yesterday_start + timedelta(days=1)
+
+    sms_logs = SmsModel.objects.filter(created_at__gte=yesterday_start, created_at__lt=yesterday_end).select_related(
+        "recipient", "send_initator"
+    )
+
+    if not sms_logs.exists():
+        message = f"*SMS Report:* ({yesterday_start.strftime('%Y-%m-%d')})\n\nNo SMS were sent yesterday."
+        notify_security_channel(message)
+        return {"status": "no_sms", "date": yesterday_start.strftime("%Y-%m-%d")}
+
+    total_sms = sms_logs.count()
+    successful_sms = sms_logs.filter(success=True).count()
+    failed_sms = total_sms - successful_sms
+
+    recipient_sms = defaultdict(lambda: {"total": 0, "success": 0, "failed": 0})
+    initiator_sms = defaultdict(lambda: {"total": 0, "success": 0, "failed": 0})
+
+    for sms in sms_logs:
+        if sms.recipient:
+            recipient_sms[sms.recipient]["total"] += 1
+            if sms.success:
+                recipient_sms[sms.recipient]["success"] += 1
+            else:
+                recipient_sms[sms.recipient]["failed"] += 1
+
+        if sms.send_initator:
+            initiator_sms[sms.send_initator]["total"] += 1
+            if sms.success:
+                initiator_sms[sms.send_initator]["success"] += 1
+            else:
+                initiator_sms[sms.send_initator]["failed"] += 1
+
+    message_parts = [
+        f"*SMS Report:* ({yesterday_start.strftime('%Y-%m-%d')})",
+        "",
+        f"*Summary:* total={total_sms}, success={successful_sms}, failed={failed_sms}",
+        f"*Unique Users:* recipients={len(recipient_sms)}, initiators={len(initiator_sms)}",
+        "",
+        "*SMS Per-Recipient:*",
+    ]
+
+    for recipient, counts in sorted(recipient_sms.items(), key=lambda x: x[0].email if x[0] else ""):
+        if recipient:
+            user_url = f"{settings.BASE_URL}/matching/user/{recipient.id}?tab=emails"
+            message_parts.append(
+                "• "
+                + f"{recipient.email}: total={counts['total']}, success={counts['success']}, failed={counts['failed']} "
+                + f"- `{user_url}`"
+            )
+
+    message_parts.append("")
+    message_parts.append("*SMS Per-Initiator:*")
+    for initiator, counts in sorted(initiator_sms.items(), key=lambda x: x[0].email if x[0] else ""):
+        if initiator:
+            user_url = f"{settings.BASE_URL}/matching/user/{initiator.id}?tab=emails"
+            message_parts.append(
+                "• "
+                + f"{initiator.email}: total={counts['total']}, success={counts['success']}, failed={counts['failed']} "
+                + f"- `{user_url}`"
+            )
+
+    message = "\n".join(message_parts)
+    notify_security_channel(message)
+
+    return {
+        "status": "sent",
+        "date": yesterday_start.strftime("%Y-%m-%d"),
+        "total_sms": total_sms,
+        "successful_sms": successful_sms,
+        "failed_sms": failed_sms,
+        "unique_recipients": len(recipient_sms),
+        "unique_initiators": len(initiator_sms),
     }

@@ -16,6 +16,8 @@ services:
     environment:
       BUILD_TYPE: development
       REDIS_URL: "${REDIS_URL}"
+      DJ_REDIS_HOST: "${DJ_REDIS_HOST:-redis}"
+      DJ_REDIS_PORT: "${DJ_REDIS_PORT:-6379}"
       EMPHIRIAL: "1"
       DJ_DEBUG: 1
       DJ_SECRET_KEY: "bla bla"
@@ -23,8 +25,9 @@ services:
       DJ_TIME_ZONE: UTC
       DJ_CELERY_TIMEZONE: Australia/Tasmania
       DJ_MANAGEMENT_USER_MAIL: admin@user.com
-      DJ_MANAGEMENT_PW: Admin123!
-      DJ_TIM_MANAGEMENT_PW: Test123!
+      DJ_MANAGEMENT_USER_PASSWORD: Admin123!
+      DJ_MATCHING_USER_PASSWORD: Test123!
+      DJ_MATCHING_USER_MAIL: "tim.timschupp+420@gmail.com"
       DJ_ADMIN_OPEN_KEYPHRASE: opensesame
       DJ_USE_MINIO: 0
       DJ_MINIO_ROOT_USER: ""

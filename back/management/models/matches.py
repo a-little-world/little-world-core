@@ -8,6 +8,7 @@ from video.models import LivekitSession
 
 from management.models import profile
 from management.models import user as user_model
+from management.models.unconfirmed_matches import MatchType
 
 
 class Match(models.Model):
@@ -56,7 +57,11 @@ class Match(models.Model):
 
     send_automatic_message_1week = models.BooleanField(default=True)
 
-    is_random_call_match = models.BooleanField(default=False)
+    match_type = models.CharField(
+        max_length=20,
+        choices=MatchType.choices,
+        default=MatchType.STANDARD,
+    )
 
     def sync_counters(self):
         self.total_messages_counter = Message.objects.filter(
@@ -97,18 +102,11 @@ class Match(models.Model):
         self.save()
 
     @classmethod
-    def get_match(cls, user1, user2, random_call_match=False):
+    def get_match(cls, user1, user2):
+        """Return active matches between two users (all types except TEMPORARY)."""
         return cls.objects.filter(
-            Q(user1=user1, user2=user2, active=True, is_random_call_match=random_call_match)
-            | Q(user1=user2, user2=user1, active=True, is_random_call_match=random_call_match)
-        )
-
-    @classmethod
-    def get_random_match(cls, user1, user2):
-        return cls.objects.filter(
-            Q(user1=user1, user2=user2, is_random_call_match=True)
-            | Q(user1=user2, user2=user1, is_random_call_match=True)
-        )
+            Q(user1=user1, user2=user2, active=True) | Q(user1=user2, user2=user1, active=True)
+        ).exclude(match_type=MatchType.TEMPORARY)
 
     @classmethod
     def get_matches(cls, user, order_by="created_at"):
@@ -156,15 +154,21 @@ class Match(models.Model):
 
     @classmethod
     def get_confirmed_matches(cls, user, order_by="created_at"):
-        return cls.objects.filter(
-            Q(user1=user) | Q(user2=user), active=True, confirmed_by=user, support_matching=False
-        ).order_by(order_by)
+        return (
+            cls.objects.filter(Q(user1=user) | Q(user2=user), active=True, confirmed_by=user, support_matching=False)
+            .exclude(match_type=MatchType.TEMPORARY)
+            .order_by(order_by)
+        )
 
     @classmethod
     def get_unconfirmed_matches(cls, user, order_by="created_at"):
-        return cls.objects.filter(
-            Q(user1=user) | Q(user2=user), ~Q(confirmed_by=user), active=True, support_matching=False
-        ).order_by(order_by)
+        return (
+            cls.objects.filter(
+                Q(user1=user) | Q(user2=user), ~Q(confirmed_by=user), active=True, support_matching=False
+            )
+            .exclude(match_type=MatchType.TEMPORARY)
+            .order_by(order_by)
+        )
 
     @classmethod
     def get_support_matches(cls, user, order_by="created_at"):
@@ -172,8 +176,10 @@ class Match(models.Model):
 
     @classmethod
     def get_inactive_matches(cls, user, order_by="created_at"):
-        return cls.objects.filter(Q(user1=user) | Q(user2=user), active=False, support_matching=False).order_by(
-            order_by
+        return (
+            cls.objects.filter(Q(user1=user) | Q(user2=user), active=False, support_matching=False)
+            .exclude(match_type=MatchType.TEMPORARY)
+            .order_by(order_by)
         )
 
     @classmethod

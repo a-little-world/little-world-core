@@ -1,4 +1,5 @@
 import asyncio
+import math
 import time
 from datetime import timedelta
 
@@ -10,7 +11,9 @@ from django.urls import path
 from django.utils import timezone
 from livekit import api as livekit_api
 from management.authentication import NativeOnlyJWTAuthentication
+from management.controller import create_user_matching_proposal, match_users
 from management.models.matches import Match
+from management.models.unconfirmed_matches import MatchType, ProposedMatch
 from rest_framework import serializers
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import (
@@ -68,9 +71,9 @@ def is_lobby_active(lobby):
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
-def join_random_call_lobby(request, lobby_name="default"):
-    # 1 - retrieve the lobby 'default' always for now
-    lobby = RandomCallLobby.objects.get(name=lobby_name)
+def join_random_call_lobby(request, lobby_uuid):
+    # 1 - retrieve the lobby by UUID
+    lobby = RandomCallLobby.objects.get(uuid=lobby_uuid)
     if not is_lobby_active(lobby):
         return Response("Lobby is not active", status=400)
     # 2 - check if the user is already in the lobby
@@ -89,6 +92,7 @@ def join_random_call_lobby(request, lobby_name="default"):
         if inactive_entry:
             # Reactivate the existing entry
             inactive_entry.is_active = True
+            inactive_entry.last_status_checked_at = timezone.now()
             inactive_entry.save()
         else:
             # Create new entry
@@ -96,8 +100,8 @@ def join_random_call_lobby(request, lobby_name="default"):
                 user=request.user, lobby=lobby, last_status_checked_at=timezone.now(), is_active=True
             )
     # 4 - a-new user joined so start the celery task that performs the matching
-    random_call_lobby_perform_matching.apply_async(args=[lobby_name])
-    cleanup_inactive_lobby_users.apply_async(args=[lobby_name], countdown=12)
+    random_call_lobby_perform_matching.apply_async(args=[str(lobby.uuid)])
+    cleanup_inactive_lobby_users.apply_async(args=[str(lobby.uuid)], countdown=12)
     return Response({"lobby": lobby.uuid, "already_joined": already_in_lobby})
 
 
@@ -107,9 +111,9 @@ def join_random_call_lobby(request, lobby_name="default"):
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
-def exit_random_call_lobby(request, lobby_name="default"):
-    # 1 - retrieve the lobby
-    lobby = RandomCallLobby.objects.get(name=lobby_name)
+def exit_random_call_lobby(request, lobby_uuid):
+    # 1 - retrieve the lobby by UUID
+    lobby = RandomCallLobby.objects.get(uuid=lobby_uuid)
     if not is_lobby_active(lobby):
         return Response("Lobby is not active", status=400)
     # 2 - check if the user is in the lobby
@@ -129,7 +133,7 @@ def exit_random_call_lobby(request, lobby_name="default"):
     if sessions.exists():
         # - auto reject all existing sessions
         sessions.update(is_active=False)
-    cleanup_inactive_lobby_users.apply_async(args=[lobby_name], countdown=lobby.user_online_state_timeout)
+    cleanup_inactive_lobby_users.apply_async(args=[str(lobby.uuid)], countdown=lobby.user_online_state_timeout)
     # TODO: also make sure other users cannot still dangle in random call sessions
     return Response("You have been removed from the lobby")
 
@@ -137,9 +141,9 @@ def exit_random_call_lobby(request, lobby_name="default"):
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
-def get_random_call_lobby_status(request, lobby_name="default"):
-    # 1 - retrieve the lobby
-    lobby = RandomCallLobby.objects.get(name=lobby_name)
+def get_random_call_lobby_status(request, lobby_uuid):
+    # 1 - retrieve the lobby by UUID
+    lobby = RandomCallLobby.objects.get(uuid=lobby_uuid)
     # 2 - check if the lobby is active
     if not is_lobby_active(lobby):
         return Response("Lobby is not active", status=400)
@@ -151,6 +155,7 @@ def get_random_call_lobby_status(request, lobby_name="default"):
     user_in_lobby.update(last_status_checked_at=timezone.now(), is_active=True)
     response_data = {
         "lobby": lobby.uuid,
+        "match_proposal_timeout": lobby.match_proposal_timeout,
         "matching": None,
     }
     # 4 - check the users lobby status
@@ -187,7 +192,7 @@ def get_random_call_lobby_status(request, lobby_name="default"):
                 matching.u2_confirmed_rejection = True
             matching.both_confirmed_rejection = True
             matching.save()
-            # in this case we still return the matching
+            # in this case we still return the matchin
 
         if (
             matching.rejected
@@ -202,11 +207,11 @@ def get_random_call_lobby_status(request, lobby_name="default"):
 
         # TODO: make sure dangeling 'rejections' are cleared
         # TODO: make sure dangeling 'suggestions' are also cleared
+        # TODO: double check if match time-outs are correctly handeled
 
         if self_rejected:
-            # Yourself already rejected the match, but the partner hasn't confirmed the rejection yet
-            # TODO: check if that can cause dangeling rejections
-            return Response(response_data)  # TODO: do we actually need to return here?
+            # If you rejected yourself, this match is already done...
+            return Response(response_data)
 
         matching_info = {
             "uuid": matching.uuid,
@@ -229,15 +234,21 @@ def get_random_call_lobby_status(request, lobby_name="default"):
         }
 
         response_data["matching"] = matching_info
+        # Update timeout countdown when a creation timestamp is available.
+        match_created_at = getattr(matching, "created_at", None)
+        if match_created_at is not None:
+            elapsed_seconds = (timezone.now() - match_created_at).total_seconds()
+            remaining_seconds = lobby.match_proposal_timeout - elapsed_seconds
+            response_data["match_proposal_timeout"] = max(0, math.ceil(remaining_seconds))
     return Response(response_data)
 
 
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
-def accept_random_call_match(request, lobby_name, match_uuid):
-    # 1 - retrieve the lobby
-    lobby = RandomCallLobby.objects.get(name=lobby_name)
+def accept_random_call_match(request, lobby_uuid, match_uuid):
+    # 1 - retrieve the lobby by UUID
+    lobby = RandomCallLobby.objects.get(uuid=lobby_uuid)
     if not is_lobby_active(lobby):
         return Response("Lobby is not active", status=400)
     # 2 - retrieve the match
@@ -275,9 +286,9 @@ def accept_random_call_match(request, lobby_name, match_uuid):
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
-def reject_random_call_match(request, lobby_name, match_uuid):
-    # 1 - retrieve the lobby
-    lobby = RandomCallLobby.objects.get(name=lobby_name)
+def reject_random_call_match(request, lobby_uuid, match_uuid):
+    # 1 - retrieve the lobby by UUID
+    lobby = RandomCallLobby.objects.get(uuid=lobby_uuid)
     if not is_lobby_active(lobby):
         return Response("Lobby is not active", status=400)
     # 2 - retrieve the match
@@ -336,9 +347,52 @@ def get_random_call_status(request, random_call_session_id):
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
-def authenticate_random_call_match_livekit_room(request, lobby_name, match_uuid):
-    # 1 - retrieve the lobby
-    lobby = RandomCallLobby.objects.get(name=lobby_name)
+def end_random_call(request, match_uuid):
+    match = RandomCallMatching.objects.filter(uuid=match_uuid)
+    if not match.exists():
+        return Response("Match does not exist", status=400)
+    match = match.first()
+
+    if not (match.u1 == request.user or match.u2 == request.user):
+        return Response("You are not part of this matching", status=400)
+
+    if not match.accepted:
+        return Response("Only accepted matches can be ended", status=400)
+
+    if match.completed:
+        return Response(
+            {
+                "match_uuid": str(match.uuid),
+                "completed": True,
+                "already_completed": True,
+                "completed_at": match.completed_at.isoformat() if match.completed_at else None,
+                "ended_by": match.ended_by.hash if match.ended_by else None,
+            }
+        )
+
+    match.completed = True
+    match.in_session = False
+    match.completed_at = timezone.now()
+    match.ended_by = request.user
+    match.save(update_fields=["completed", "in_session", "completed_at", "ended_by"])
+
+    return Response(
+        {
+            "match_uuid": str(match.uuid),
+            "completed": True,
+            "already_completed": False,
+            "completed_at": match.completed_at.isoformat() if match.completed_at else None,
+            "ended_by": request.user.hash,
+        }
+    )
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def authenticate_random_call_match_livekit_room(request, lobby_uuid, match_uuid):
+    # 1 - retrieve the lobby by UUID
+    lobby = RandomCallLobby.objects.get(uuid=lobby_uuid)
     if not is_lobby_active(lobby):
         return Response("Lobby is not active", status=400)
     # 2 - retrieve the match
@@ -362,10 +416,10 @@ def authenticate_random_call_match_livekit_room(request, lobby_name, match_uuid)
         return Response("Both users must accept the matching", status=400)
     # 7 - Start actual room authentication
 
-    # 7.1 - create a temporary chat
-    temporary_chat = Chat.objects.filter(u1=match.u1, u2=match.u2, is_random_call_chat=True)
+    # 7.1 - create a temporary chat (excluded from main chat list)
+    temporary_chat = Chat.objects.filter(u1=match.u1, u2=match.u2, is_temporary=True)
     if not temporary_chat.exists():
-        temporary_chat = Chat.objects.create(u1=match.u1, u2=match.u2, is_random_call_chat=True)
+        temporary_chat = Chat.objects.create(u1=match.u1, u2=match.u2, is_temporary=True)
     else:
         temporary_chat = temporary_chat.first()
 
@@ -377,10 +431,14 @@ def authenticate_random_call_match_livekit_room(request, lobby_name, match_uuid)
         temporary_room = temporary_room.first()
 
     # 7.3 - create a temporary match ( TODO: ensure proper cleanup! )
-    temporary_match = Match.objects.filter(user1=match.u1, user2=match.u2, is_random_call_match=True)
+    temporary_match = Match.objects.filter(user1=match.u1, user2=match.u2, match_type=MatchType.TEMPORARY)
     if not temporary_match.exists():
         temporary_match = Match.objects.create(
-            user1=match.u1, user2=match.u2, is_random_call_match=True, confirmed=True, active=False
+            user1=match.u1,
+            user2=match.u2,
+            match_type=MatchType.TEMPORARY,
+            confirmed=True,
+            active=False,
         )
     else:
         temporary_match = temporary_match.first()
@@ -393,7 +451,7 @@ def authenticate_random_call_match_livekit_room(request, lobby_name, match_uuid)
     token = (
         livekit_api.AccessToken(api_key=settings.LIVEKIT_API_KEY, api_secret=settings.LIVEKIT_API_SECRET)
         .with_identity(request.user.hash)
-        .with_name(f"{request.user.profile.first_name} {request.user.profile.second_name[:1]}")
+        .with_name(f"{request.user.profile.first_name}")
         .with_grants(
             livekit_api.VideoGrants(
                 room_join=True,
@@ -455,12 +513,14 @@ def authenticate_random_call_match_livekit_room(request, lobby_name, match_uuid)
 
 
 class RandomCallLobbySerializer(serializers.Serializer):
+    uuid = serializers.UUIDField(read_only=True)
     name = serializers.CharField()
     start_time = serializers.DateTimeField()
     end_time = serializers.DateTimeField()
 
     def to_representation(self, instance):
         rep = super().to_representation(instance)
+        rep["uuid"] = instance.uuid
         # Add calculated status based on current time
         rep["status"] = is_lobby_active(instance)
         # Add count of active users in the lobby
@@ -519,9 +579,28 @@ class RandomCallMatchHistorySerializer(serializers.Serializer):
                 duration = int(duration_delta.total_seconds())
 
         # Serialize partner profile using CensoredProfileSerializer
-        from management.models.profile import CensoredProfileSerializer
+        from management.models.profile import CensoredProfileSerializer, Profile
+        from translations import get_translation
 
         partner_data = CensoredProfileSerializer(partner.profile).data
+
+        both_learners = (
+            instance.u1.profile.user_type == Profile.TypeChoices.LEARNER
+            and instance.u2.profile.user_type == Profile.TypeChoices.LEARNER
+        )
+        both_volunteers = (
+            instance.u1.profile.user_type == Profile.TypeChoices.VOLUNTEER
+            and instance.u2.profile.user_type == Profile.TypeChoices.VOLUNTEER
+        )
+
+        user_lang = getattr(getattr(request, "session", None), "get", lambda *_: "de")("lang", "en")
+
+        if both_learners:
+            cannot_match_reason = get_translation("match.both_learners", lang=user_lang)
+        elif both_volunteers:
+            cannot_match_reason = get_translation("match.both_volunteers", lang=user_lang)
+        else:
+            cannot_match_reason = None
 
         # Build the response
         return {
@@ -531,8 +610,9 @@ class RandomCallMatchHistorySerializer(serializers.Serializer):
             "image": partner.profile.image.url if partner.profile.image else partner.profile.avatar_config,
             "image_type": partner.profile.image_type,
             "duration": duration,
-            "cannot_match": partner_requested,  # Cannot request if partner already requested
+            "cannot_match_reason": cannot_match_reason,
             "matching_requested": current_user_requested,
+            "confirmed_match": instance.confirmed_match,
             "both_requested": current_user_requested and partner_requested,
             "partner": partner_data,
         }
@@ -541,19 +621,88 @@ class RandomCallMatchHistorySerializer(serializers.Serializer):
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
-def get_random_call_lobby_list(request, lobby_name="any"):
-    # 1 - retrieve all lobbies
+def get_random_call_lobbies(request):
+    """
+    Returns all random call lobbies, optionally filtered by name query parameter.
+    Query params:
+    - name (optional): Filter lobbies by name
+    """
     lobbies = RandomCallLobby.objects.all()
-    if lobby_name != "any":
+    lobby_name = request.query_params.get("name")
+    if lobby_name:
         lobbies = lobbies.filter(name=lobby_name)
-        return Response(RandomCallLobbySerializer(lobbies.first()).data)
     return Response(RandomCallLobbySerializer(lobbies, many=True).data)
 
 
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
-def get_accepted_random_call_matches(request):
+def get_random_call_lobby(request, lobby_uuid):
+    """
+    Returns a single random call lobby by UUID.
+    """
+    lobby = RandomCallLobby.objects.get(uuid=lobby_uuid)
+    return Response(RandomCallLobbySerializer(lobby).data)
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def get_active_or_upcoming_lobby_by_name(request, lobby_name):
+    """
+    Returns a lobby by name that is either currently active or the most upcoming (future) one.
+    Priority:
+    1. Active lobby (start_time <= now <= end_time)
+    2. Most upcoming future lobby (start_time > now, ordered by start_time ascending)
+    """
+    now = timezone.now()
+    # First try to get an active lobby
+    active_lobby = (
+        RandomCallLobby.objects.filter(
+            name=lobby_name,
+            start_time__lte=now,
+            end_time__gte=now,
+        )
+        .order_by("-id")
+        .first()
+    )
+    if active_lobby:
+        return Response(RandomCallLobbySerializer(active_lobby).data)
+    # If no active lobby, get the most upcoming future one
+    upcoming_lobby = (
+        RandomCallLobby.objects.filter(
+            name=lobby_name,
+            start_time__gt=now,
+        )
+        .order_by("start_time")
+        .first()
+    )
+    if upcoming_lobby:
+        return Response(RandomCallLobbySerializer(upcoming_lobby).data)
+    return Response({"error": "No active or upcoming lobby found with this name"}, status=404)
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def get_upcoming_lobbies(request):
+    """
+    Return lobbies that are either active or in the future (end_time >= now).
+    Optional query param: name — filter by lobby name.
+    Ordered by start_time ascending (soonest first).
+    """
+    now = timezone.now()
+    lobbies = RandomCallLobby.objects.filter(end_time__gte=now).order_by("start_time")
+    lobby_name = request.query_params.get("name")
+    if lobby_name:
+        lobbies = lobbies.filter(name=lobby_name)
+    return Response(RandomCallLobbySerializer(lobbies, many=True).data)
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def get_user_random_call_history(request):
     """
     Get list of accepted past random call matches for the current user.
     Returns matches ordered by most recent first.
@@ -611,8 +760,43 @@ def request_random_call_matching(request, match_uuid):
 
     match.save()
 
-    # 5 - Check if both users have now requested matching
+    # 5 - One user requested: create ProposedMatch for the other to confirm (if not already created).
+    #     Both requested: find existing ProposedMatch, close it, and create confirmed Match.
     both_requested = match.u1_matching_requested and match.u2_matching_requested
+    partner = match.u2 if match.u1 == request.user else match.u1
+
+    if both_requested:
+        proposal = (
+            ProposedMatch.get_proposal_between(match.u1, match.u2)
+            .filter(match_type=MatchType.RANDOM_CALL, closed=False)
+            .first()
+        )
+        if proposal:
+            proposal.closed = True
+            proposal.save()
+        existing_match = Match.get_match(match.u1, match.u2).filter(match_type=MatchType.RANDOM_CALL)
+        if not existing_match.exists():
+            match_users(
+                {match.u1, match.u2},
+                match_type=MatchType.RANDOM_CALL,
+                send_message=False,
+                send_email=False,
+                send_notification=False,
+            )
+    else:
+        # First requester: create proposal so the partner (non-requester) sees it in unconfirmed matches
+        existing_proposal = (
+            ProposedMatch.get_proposal_between(match.u1, match.u2)
+            .filter(match_type=MatchType.RANDOM_CALL, closed=False)
+            .exists()
+        )
+        if not existing_proposal:
+            create_user_matching_proposal(
+                {match.u1, match.u2},
+                send_confirm_match_email=True,  # no initial proposal email for random call
+                match_type=MatchType.RANDOM_CALL,
+                confirming_user=partner,
+            )
 
     # 6 - Return the updated match data
     serializer = RandomCallMatchHistorySerializer(match, context={"request": request})
@@ -623,18 +807,21 @@ def request_random_call_matching(request, match_uuid):
 
 
 api_urls = [
-    path("api/random_calls/", get_random_call_lobby_list),
-    path("api/random_calls/lobby/<str:lobby_name>/", get_random_call_lobby_list),
-    path("api/random_calls/lobby/<str:lobby_name>/join", join_random_call_lobby),
-    path("api/random_calls/lobby/<str:lobby_name>/exit", exit_random_call_lobby),
-    path("api/random_calls/lobby/<str:lobby_name>/status", get_random_call_lobby_status),
-    path("api/random_calls/lobby/<str:lobby_name>/match/<str:match_uuid>/accept", accept_random_call_match),
-    path("api/random_calls/lobby/<str:lobby_name>/match/<str:match_uuid>/reject", reject_random_call_match),
+    path("api/random_calls/", get_random_call_lobbies),
+    path("api/random_calls/upcoming", get_upcoming_lobbies),
+    path("api/random_calls/lobby/<str:lobby_name>/active_or_upcoming", get_active_or_upcoming_lobby_by_name),
+    path("api/random_calls/lobby/<uuid:lobby_uuid>/", get_random_call_lobby),
+    path("api/random_calls/lobby/<uuid:lobby_uuid>/join", join_random_call_lobby),
+    path("api/random_calls/lobby/<uuid:lobby_uuid>/exit", exit_random_call_lobby),
+    path("api/random_calls/lobby/<uuid:lobby_uuid>/status", get_random_call_lobby_status),
+    path("api/random_calls/lobby/<uuid:lobby_uuid>/match/<uuid:match_uuid>/accept", accept_random_call_match),
+    path("api/random_calls/lobby/<uuid:lobby_uuid>/match/<uuid:match_uuid>/reject", reject_random_call_match),
+    path("api/random_calls/match/<uuid:match_uuid>/end_call", end_random_call),
     path(
-        "api/random_calls/lobby/<str:lobby_name>/match/<str:match_uuid>/room_authenticate",
+        "api/random_calls/lobby/<uuid:lobby_uuid>/match/<uuid:match_uuid>/room_authenticate",
         authenticate_random_call_match_livekit_room,
     ),
-    path("api/random_calls/history", get_accepted_random_call_matches),
-    path("api/random_calls/history/<str:match_uuid>/request_match", request_random_call_matching),
+    path("api/random_calls/user/history", get_user_random_call_history),
+    path("api/random_calls/user/history/<str:match_uuid>/request_match", request_random_call_matching),
     # path("api/random_calls/get_token_random_call", authenticate_livekit_random_call),
 ]

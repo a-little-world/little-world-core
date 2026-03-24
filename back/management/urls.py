@@ -15,7 +15,6 @@ from management.api import (
     help,
     matches,
     notifications,
-    notify,
     options,
     prematch_appointment_advanced,
     profile,
@@ -94,7 +93,6 @@ user_data_apis = [
     path("api/api_options", options.api_options),
     path("api/user", user.user_profile, name="user_profile_api"),
     path("api/user/authenticated", user.is_authenticated, name="user_is_authenticated_api"),
-    path("api/notifications", notifications.notifications, name="notifications_api"),
     path("api/matches", matches.matches, name="matches_api"),
     path("api/community", community_events.community_events, name="community_events_api"),
     path("api/translations", trans.api_translations, name="api_translations_api"),
@@ -113,6 +111,8 @@ api_routes = [
     *user_advanced_statistics.api_urls,
     *prematch_appointment_advanced.api_urls,
     *user_data_apis,
+    *notifications.api_urls,
+    *push_notifications.api_urls,
     # User
     path("api/trans", trans.get_translation_catalogue),
     path("api/trans/<str:lang>/", trans.get_translation_catalogue),
@@ -159,7 +159,6 @@ api_routes = [
     path("api/matching/make_match", matches.make_match),
     path("api/help_message/", help.SendHelpMessage.as_view()),
     path("api/integrity/challenge", app_integrity.app_integrity_challenge),
-    path("api/integrity/verify_ios", app_integrity.app_integrity_verify_ios),
     *(dev_e2e_test_api_urls if settings.E2E_TEST_APIS_ENABLED else []),
     *router.urls,
 ]
@@ -203,8 +202,6 @@ view_routes = [
     path("api/dynamic_user_lists/", dynamic_user_list_general_api),
     path("api/dynamic_user_lists/<int:pk>/", dynamic_user_list_single_api),
     path("api/dynamic_user_lists/<int:list_id>/<int:user_id>/", dynamic_user_list_single_user_api),
-    *notify.api_routes,
-    *push_notifications.api_urls,
 ]
 
 

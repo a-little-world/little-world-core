@@ -52,9 +52,9 @@ django-stubs[compatible-mypy]
 pre-commit
 django-colorfield # color picker in admin panel
 firebase-admin==6.7.0
-django-push-notifications==3.2.1
+django-push-notifications==3.3.0
 djangorestframework-simplejwt
-PyJWT==2.8.0
+PyJWT==2.12.0
 # Use >= 42.0.4 to avoid CVE-2024-26130 (PKCS#12 serialize_key_and_certificates NULL deref DoS)
 cryptography>=43.0.1
 pyattest==1.0.4
@@ -62,3 +62,4 @@ pyasn1==0.6.2
 google-api-python-client==2.108.0
 google-auth==2.23.4
 cbor2===5.8.0
+django-simple-reload @ git+https://github.com/tbscode/django-simple-reload.git

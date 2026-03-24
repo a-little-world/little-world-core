@@ -473,6 +473,22 @@
       "subject": "\u2753 Dein Match wurde beendet \u2013 magst du uns Feedback geben?",
       "template": "react_emails/automatic-emails-fm021.html",
       "theme": "little-world"
+    },
+    "automatic-emails-native-app-beta-ios": {
+      "id": "automatic-emails-native-app-beta-ios",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Willkommen als iOS-Beta-Tester:in bei Little World",
+      "template": "react_emails/automatic-emails-native-app-beta-ios.html",
+      "theme": "little-world"
+    },
+    "automatic-emails-native-app-beta-android": {
+      "id": "automatic-emails-native-app-beta-android",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Willkommen als Android-Beta-Tester:in bei Little World",
+      "template": "react_emails/automatic-emails-native-app-beta-android.html",
+      "theme": "little-world"
     }
   },
   "senders": {
@@ -751,6 +767,50 @@
       "depends_on": [
         "user",
         "match"
+      ]
+    },
+    "beta_tester_email": {
+      "id": "beta_tester_email",
+      "lookup": "emails.api.template_lookup.beta_tester_email",
+      "depends_on": [
+        "user",
+        "context.beta_tester_email"
+      ]
+    },
+    "little_world_account_email": {
+      "id": "little_world_account_email",
+      "lookup": "emails.api.template_lookup.little_world_account_email",
+      "depends_on": [
+        "user",
+        "context.little_world_account_email"
+      ]
+    },
+    "ios_beta_app_url": {
+      "id": "ios_beta_app_url",
+      "lookup": "emails.api.template_lookup.ios_beta_app_url",
+      "depends_on": [
+        "context.ios_beta_app_url"
+      ]
+    },
+    "android_beta_app_url": {
+      "id": "android_beta_app_url",
+      "lookup": "emails.api.template_lookup.android_beta_app_url",
+      "depends_on": [
+        "context.android_beta_app_url"
+      ]
+    },
+    "native_app_repo_url": {
+      "id": "native_app_repo_url",
+      "lookup": "emails.api.template_lookup.native_app_repo_url",
+      "depends_on": [
+        "context.native_app_repo_url"
+      ]
+    },
+    "native_app_bug_report_url": {
+      "id": "native_app_bug_report_url",
+      "lookup": "emails.api.template_lookup.native_app_bug_report_url",
+      "depends_on": [
+        "context.native_app_bug_report_url"
       ]
     }
   },

@@ -13,6 +13,7 @@ from hijack.contrib.admin import HijackUserAdminMixin
 from management import models
 from management.models import (
     dynamic_user_list,
+    mobile_device,
     newsletter,
     post_call_review,
     pre_matching_appointment,
@@ -172,7 +173,7 @@ class NewsItemAdmin(admin.ModelAdmin):
 
 @admin.register(models.matches.Match)
 class MatchModelAdmin(admin.ModelAdmin):
-    list_display = ("uuid", "active", "created_at", "updated_at", "user1", "user2", "is_random_call_match")
+    list_display = ("uuid", "active", "created_at", "updated_at", "user1", "user2", "match_type")
     search_fields = ("uuid",)
 
 
@@ -410,3 +411,17 @@ class PostCallReviewAdmin(admin.ModelAdmin):
 @admin.register(sms.SmsModel)
 class SmsModelAdmin(admin.ModelAdmin):
     list_display = ("recipient", "send_initator", "message", "twilio_response")
+
+
+@admin.register(mobile_device.MobileDevice)
+class MobileDeviceAdmin(admin.ModelAdmin):
+    list_display = (
+        "platform",
+        "model_name",
+        "active",
+        "user",
+        "install_id",
+        "registration_id",
+        "cloud_message_type",
+        "date_created",
+    )

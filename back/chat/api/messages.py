@@ -11,6 +11,7 @@ from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from video.models import LivekitSession
 
 from chat.models import Chat, ChatSerializer, Message, MessageAttachment, MessageSerializer
 
@@ -127,18 +128,21 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
 
         partner = chat.get_partner(request.user)
 
-        # Check if the users are still matched, otherwise no new messages can be send
-        match = Match.get_match(request.user, partner)
-        if not match.exists():
-            return self.resp_chat_403
-        match = match.first()
-
-        # Update match data
-        match.total_messages_counter += 1
-        match.latest_interaction_at = timezone.now()
-        if match.first_interaction_at is None:
-            match.first_interaction_at = timezone.now()
-        match.save()
+        # Check if the users are still matched, otherwise no new messages can be sent.
+        # Temporary chats (e.g. random call) have no Match; allow sending and skip match updates.
+        if not chat.is_temporary:
+            # TODO: @tbscode check if we want to record also 'temporary_match' data.
+            match = Match.get_match(request.user, partner)
+            if not match.exists():
+                # TODO: @tbscode make duble sure this cannot bypass access restrictions
+                return self.resp_chat_403
+            match = match.first()
+            # Update match data
+            match.total_messages_counter += 1
+            match.latest_interaction_at = timezone.now()
+            if match.first_interaction_at is None:
+                match.first_interaction_at = timezone.now()
+            match.save()
 
         # Email notification logic - check if recipient should be notified
         creation_time = timezone.now()
@@ -157,15 +161,27 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         def notify_recipient_email():
             send_email_background.delay("new-messages", user_id=partner.id)
 
+        def recipient_in_active_video_call():
+            return (
+                LivekitSession.objects.filter(
+                    is_active=True,
+                )
+                .filter(
+                    Q(u1=partner, u1_active=True) | Q(u2=partner, u2_active=True),
+                )
+                .exists()
+            )
+
         if latest_notified_message:
             # Min 5 min delay between notifications!
             time_since_last_notif = (creation_time - latest_notified_message.created).total_seconds()
-            if time_since_last_notif > 300:
+            if time_since_last_notif > 300 and not recipient_in_active_video_call():
                 recipient_was_email_notified = True
                 notify_recipient_email()
         else:
-            recipient_was_email_notified = True
-            notify_recipient_email()
+            if not recipient_in_active_video_call():
+                recipient_was_email_notified = True
+                notify_recipient_email()
 
         message_text = serializer.validated_data.get("text", "")
 

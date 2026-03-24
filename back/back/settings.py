@@ -77,6 +77,11 @@ MATCHING_USER_PASSWORD = os.environ.get(
     "DJ_MATCHING_USER_PASSWORD",
     None if IS_PROD else "Test123!",  # No default on prod, just error!
 )
+MANAGEMENT_USER_PASSWORD = os.environ.get("DJ_MANAGEMENT_USER_PASSWORD", None)
+
+if MANAGEMENT_USER_PASSWORD is None:
+    raise ValueError("DJ_MANAGEMENT_USER_PASSWORD is not set")
+
 MATCHING_USER_FIRST_NAME = os.environ.get("DJ_MATCHING_USER_FIRST_NAME", "Tim")
 MATCHING_USER_SECOND_NAME = os.environ.get("DJ_MATCHING_USER_SECOND_NAME", "Schupp")
 ADMIN_OPEN_KEYPHRASE = os.environ.get(
@@ -98,9 +103,18 @@ DOCS_USER_LOGIN_TOKEN = os.environ.get(
     None if IS_PROD else "Test123!",  # No default on prod, just error!
 )
 
+
+def get_redis_connect_url_port():
+    return os.environ.get("DJ_REDIS_HOST", "redis"), int(os.environ.get("DJ_REDIS_PORT", "6379"))
+
+
+REDIS_PROTOCOL = os.environ.get("DJ_REDIS_PROTO", "redis" if IS_DEV else "rediss")
+REDIS_PASSWORD = os.environ.get("DJ_REDIS_PASSWORD", None)
+
 USE_DEBUG_TOOLBAR = os.environ.get("DJ_USE_DEBUG_TOOLBAR", "false").lower() in ("true", "1", "t")
+REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
 REDIS_URL = os.environ.get(
-    "REDIS_URL", "redis://redis:6379"
+    "REDIS_URL", f"{REDIS_PROTOCOL}://{REDIS_HOST}:{REDIS_PORT}"
 )  # TODO: Reduce duplication with REDIS_PORT and REDIS_HOST!
 
 TWILIO_SMS_NUMBER = os.environ.get("DJ_TWILIO_SMS_NUMBER", "+1234567890")
@@ -201,7 +215,8 @@ INSTALLED_APPS = [
     "multiselectfield",
     "phonenumber_field",  # Conevnient handler for phone numbers with admin prefix
     "django_rest_passwordreset",
-    "tbs_django_auto_reload",
+    "channels",
+    "django_simple_reload",
     "colorfield",  # color picker in admin panel
     "jazzmin",  # The waaaaaay nicer admin interface
     "hijack",  # For admins to login as other users, for remote administration and support
@@ -385,6 +400,7 @@ if IS_STAGE or DEBUG:
         "http://localhost:3333",
         "http://localhost:8081",
         "http://localhost:8080",
+        "http://localhost:9000",
         "http://localhost:9001",
     ]
 
@@ -597,17 +613,7 @@ DJANGO_REST_PASSWORDRESET_NO_INFORMATION_LEAKAGE = True
 DJANGO_REST_MULTITOKENAUTH_REQUIRE_USABLE_PASSWORD = False
 
 
-def get_redis_connect_url_port():
-    return os.environ.get("DJ_REDIS_HOST", "redis"), int(os.environ.get("DJ_REDIS_PORT", "6379"))
-
-
-if (EMPHIRIAL or USE_REDIS_AS_BROKER) and (not USE_MQ_AS_BROKER):
-    CELERY_BROKER_URL = REDIS_URL
-elif IS_DEV and (not USE_MQ_AS_BROKER):
-    # autmaticly renders index.html when entering an absolute static path
-    REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
-    CELERY_BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}"
-elif IS_STAGE or IS_PROD or USE_MQ_AS_BROKER:
+if (IS_PROD or USE_MQ_AS_BROKER) and (not USE_REDIS_AS_BROKER):
     # Sadly it turnsour that celery doesn't support redis clusters
     # So we will need to use Rabbit MQ instead
     # url, port = get_redis_connect_url_port()
@@ -619,6 +625,9 @@ elif IS_STAGE or IS_PROD or USE_MQ_AS_BROKER:
         os.environ["DJ_RABBIT_MQ_PORT"],
     )
     CELERY_BROKER_URL = f"amqps://{mb_usr}:{mb_pass}@{mb_host}:{mb_port}"
+else:
+    REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
+    CELERY_BROKER_URL = f"{REDIS_PROTOCOL}://{REDIS_HOST}:{REDIS_PORT}"
 
 CELERY_RESULT_BACKEND = "django-db"
 CELERY_ACCEPT_CONTENT = ["application/json"]
@@ -672,40 +681,25 @@ SPECTACULAR_SETTINGS = {
 }
 
 
-if IS_DEV and (not EMPHIRIAL):
-    # or install redis in the container
+if IS_DEV or EMPHIRIAL or (REDIS_PASSWORD is None):
     REDIS_HOST, REDIS_PORT = get_redis_connect_url_port()
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
-            # "BACKEND": "channels.layers.InMemoryChannelLayer",
             "CONFIG": {
-                "hosts": [f"{REDIS_HOST}:{REDIS_PORT}"],
+                "hosts": [{"address": f"{REDIS_PROTOCOL}://{REDIS_HOST}:{REDIS_PORT}"}],
             },
         }
     }
-elif EMPHIRIAL or USE_REDIS_AS_BROKER:
-    CHANNEL_LAYERS = {
-        "default": {
-            "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {
-                "hosts": [
-                    {
-                        "address": REDIS_URL,
-                    }
-                ],
-            },
-        }
-    }
-elif IS_STAGE or IS_PROD:
+elif IS_PROD and (REDIS_PASSWORD is not None):
     """
     SSL true seems required, 'diss://' in the url doesn't seem to suffice: https://github.com/django/channels_redis/issues/235
     """
     url, port = get_redis_connect_url_port()
-    path = f"rediss://{url}:{port}"
+    path = f"{REDIS_PROTOCOL}://{url}:{port}"
     if IS_PROD:
         r_auth_token = os.environ["DJ_REDIS_PASSWORD"]
-        path = f"rediss://:{r_auth_token}@{url}:{port}"
+        path = f"{REDIS_PROTOCOL}://:{r_auth_token}@{url}:{port}"
     CHANNEL_LAYERS = {
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
@@ -740,7 +734,7 @@ DATABASES = (
             "HOST": os.environ["DJ_DATABASE_HOST"],
             "PORT": os.environ["DJ_DATABASE_PORT"],
             "OPTIONS": {"connect_timeout": 10}
-            if (os.environ.get("DJ_DATABASE_DISABLE_SSL", "false").lower() in ("true", "t", "0"))
+            if (os.environ.get("DJ_DATABASE_DISABLE_SSL", "false").lower() in ("true", "t", "1"))
             else {"sslmode": "require"},
             "CONN_MAX_AGE": int(os.environ.get("DJ_DATABASE_CONN_MAX_AGE", "600")),
             "CONN_HEALTH_CHECKS": os.environ.get("DJ_DATABASE_CONN_HEALTH_CHECKS", "true").lower()
@@ -983,7 +977,7 @@ SIMPLE_JWT = {
 DJANGO_TESTING = bool_env("DJANGO_TESTING", "false")
 IS_CI = bool_env("CI", "false")
 ENABLE_E2E_TEST_APIS = bool_env("DJ_ENABLE_E2E_TEST_APIS", "false")
-E2E_TEST_APIS_ENABLED = ENABLE_E2E_TEST_APIS and IS_CI and DJANGO_TESTING and EMPHIRIAL
+E2E_TEST_APIS_ENABLED = ENABLE_E2E_TEST_APIS and IS_CI and DJANGO_TESTING
 
 
 ## Auto E-Mails:
@@ -1020,9 +1014,16 @@ ENABLE_AUTO_EMAIL_LOGS = (
     or ENABLE_AUTO_EMAILS__U081_U082_U083_U084
 )
 
+ENABLE_DAILY_SMS_REPORT = bool_env("DJ_ENABLE_DAILY_SMS_REPORT", "false")
+
 # User Journey Related Settings
 FORCE_MATCH_ELIGIBLE_COMPANIES = ["lingoda"]
 CUSTOM_ONBOARDING_COMPANIES = ["lingoda"]
 
 # Match Priority Settings
 MATCH_PRIORITY_COMPANIES = ["accenture", "generali", "lingoda"]
+
+PUSH_NOTIFICATIONS_SETTINGS = {
+    "UNIQUE_REG_ID": True,
+    "GCM_DEVICE_MODEL": "management.MobileDevice",
+}

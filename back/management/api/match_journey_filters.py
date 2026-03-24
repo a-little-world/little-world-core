@@ -14,7 +14,7 @@ from django.db.models.functions import ExtractDay, Greatest
 from django.utils import timezone
 
 from management.models.matches import Match
-from management.models.unconfirmed_matches import ProposedMatch
+from management.models.unconfirmed_matches import MatchType, ProposedMatch
 
 
 def days_ago(days):
@@ -163,8 +163,8 @@ def completed_match(
     user2_to_user1_message_exists = Message.objects.filter(sender=OuterRef("user2"), recipient=OuterRef("user1"))
 
     completed_or_completed_off_plattform = Match.objects.filter(
-        Q(completed=True) | Q(completed_off_plattform=True), is_random_call_match=False
-    )
+        Q(completed=True) | Q(completed_off_plattform=True)
+    ).exclude(match_type=MatchType.TEMPORARY)
 
     now = timezone.now()
     completed_by_criteria = (

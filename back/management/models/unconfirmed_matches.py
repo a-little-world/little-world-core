@@ -9,6 +9,12 @@ from django.utils import timezone
 from management.models.profile import Profile, ProposalProfileSerializer
 
 
+class MatchType(models.TextChoices):
+    STANDARD = "standard", "Standard Match"
+    RANDOM_CALL = "random_call", "Random Call Match"
+    TEMPORARY = "temporary", "Temporary Match"
+
+
 def seven_days_from_now():
     return timezone.now() + timedelta(days=7)
 
@@ -37,6 +43,7 @@ def serialize_proposed_matches(matching_proposals, user):
                     **ProposalProfileSerializer(partner.profile).data,
                 },
                 "status": "proposed",
+                "match_type": proposal.match_type,
                 "closed": proposal.closed,
                 "rejected_by": rejected_by,
                 "rejected_at": proposal.rejected_at,
@@ -60,13 +67,12 @@ class ProposedMatch(models.Model):
 
     user2 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="unconfirmed_match_user2")
 
-    # This field is a patch fix for the issue if a user decided to changes their user type when this unconfirmed_match was created
-    # This way we don't check the current user_type based on the profile,
-    # but just teat that user by the user_type he had when this model was created
-    learner_when_created = models.ForeignKey(
+    # User who should see and confirm the proposal (STANDARD: the learner; RANDOM_CALL: the non-requester).
+    # Stored at creation so it doesn't change if user type changes later.
+    confirming_user = models.ForeignKey(
         "management.User",
         on_delete=models.CASCADE,
-        related_name="unconfirmed_match_learner_when_created",
+        related_name="unconfirmed_match_confirming_user",
         null=True,
         blank=True,
     )
@@ -85,6 +91,12 @@ class ProposedMatch(models.Model):
 
     potential_matching_created_at = models.DateTimeField(auto_now_add=True)
 
+    match_type = models.CharField(
+        max_length=20,
+        choices=MatchType.choices,
+        default=MatchType.STANDARD,
+    )
+
     expired = models.BooleanField(default=False)
     expires_at = models.DateTimeField(default=three_days_from_now)
 
@@ -95,25 +107,34 @@ class ProposedMatch(models.Model):
         proposals = cls.objects.filter(Q(user1=user) | Q(user2=user), closed=False)
         for prop in proposals:
             prop.is_expired(close_if_expired=True, send_mail_if_expired=True)
-        return cls.objects.filter(Q(user1=user) | Q(user2=user), closed=False).order_by(order_by)
+        return (
+            cls.objects.filter(Q(user1=user) | Q(user2=user), closed=False)
+            .exclude(match_type=MatchType.TEMPORARY)
+            .order_by(order_by)
+        )
 
     @classmethod
     def get_unsuccessful_proposals(cls, user, order_by="potential_matching_created_at"):
-        return cls.objects.filter(
-            (Q(user1=user) | Q(user2=user)),
-            (Q(expired=True) | Q(rejected=True)),
-            closed=True,
-        ).order_by(order_by)
+        return (
+            cls.objects.filter(
+                (Q(user1=user) | Q(user2=user)),
+                (Q(expired=True) | Q(rejected=True)),
+                closed=True,
+            )
+            .exclude(match_type=MatchType.TEMPORARY)
+            .order_by(order_by)
+        )
 
     @classmethod
     def get_open_proposals_learner(cls, user, order_by="potential_matching_created_at"):
+        """Open proposals where this user is the one who should confirm."""
         proposals = cls.objects.filter(
-            Q(user1=user, learner_when_created=user) | Q(user2=user, learner_when_created=user), closed=False
+            Q(user1=user, confirming_user=user) | Q(user2=user, confirming_user=user), closed=False
         )
         for prop in proposals:
             prop.is_expired(close_if_expired=True, send_mail_if_expired=True)
         return cls.objects.filter(
-            Q(user1=user, learner_when_created=user) | Q(user2=user, learner_when_created=user), closed=False
+            Q(user1=user, confirming_user=user) | Q(user2=user, confirming_user=user), closed=False
         ).order_by(order_by)
 
     @classmethod
@@ -132,31 +153,34 @@ class ProposedMatch(models.Model):
 
         return expired
 
+    def get_confirming_user(self):
+        """User who should confirm the proposal (receives proposal emails etc.)."""
+        return self.confirming_user
+
     def get_learner(self):
-        return self.learner_when_created
+        """Alias for get_confirming_user (the user who confirms is the learner for STANDARD proposals)."""
+        return self.get_confirming_user()
 
     def send_initial_mail(self):
+        """Send the new-match proposal email. No-op if already sent or if confirming_user is not set."""
         if self.send_inital_mail:
-            print("Initial mail, already sent")
             return
-
+        confirming_user = self.get_confirming_user()
+        if confirming_user is None:
+            return
         self.send_inital_mail = True
-        self.save()
-
-        learner = self.get_learner()
-        learner.send_email_v2("confirm-match-1", proposed_match_id=self.id)
+        self.save(update_fields=["send_inital_mail"])
+        confirming_user.send_email_v2("confirm-match-1", proposed_match_id=self.id)
 
     def send_expiration_mail(self):
-        # If this triggers ending a mail twice in a row very quick, could this be sending two mails then?
         if self.expired_mail_send:
-            print("Expiration mail, already sent")
             return
-
+        confirming_user = self.get_confirming_user()
+        if confirming_user is None:
+            return
         self.expired_mail_send = True
-        self.save()
-
-        learner = self.get_learner()
-        learner.send_email_v2("expired-match", proposed_match_id=self.id)
+        self.save(update_fields=["expired_mail_send"])
+        confirming_user.send_email_v2("expired-match", proposed_match_id=self.id)
 
     def get_partner(self, user):
         return self.user1 if self.user2 == user else self.user2
@@ -164,16 +188,11 @@ class ProposedMatch(models.Model):
     def is_reminder_due(self, send_reminder=True):
         reminder_due = self.reminder_due_at < timezone.now()
         if send_reminder and reminder_due and (not self.reminder_send):
-            self.reminder_send = True
-            self.save()
-
-            learner = self.get_learner()
-            # send groupmail function automaticly checks if users have unsubscribed!
-            # we still mark email verification reminder 1 as True, since we at least tried to send it,
-            # never wanna send twice! Not even **try** twice!
-            self.get_partner(learner)
-            learner.send_email_v2("confirm-match-2", proposed_match_id=self.id)
-
+            confirming_user = self.get_confirming_user()
+            if confirming_user is not None:
+                self.reminder_send = True
+                self.save(update_fields=["reminder_send"])
+                confirming_user.send_email_v2("confirm-match-2", proposed_match_id=self.id)
         return reminder_due
 
     def get_shared_data(self, user):
@@ -197,31 +216,42 @@ class ProposedMatch(models.Model):
         }
 
     def save(self, *args, **kwargs):
-        if self._state.adding is True:
-            self.learner_when_created = (
-                self.user1 if self.user1.profile.user_type == Profile.TypeChoices.LEARNER else self.user2
-            )
+        """
+        On first save (insert), set confirming_user when not already set:
+        - STANDARD: set to the learner (derived from user1/user2 profile).
+        - RANDOM_CALL: must be provided by the caller at creation (cannot be derived from model fields).
+        Both match types are handled in the same way: confirming_user is set before the insert completes.
+        """
+        if self._state.adding and self.confirming_user_id is None:
+            if self.match_type == MatchType.STANDARD:
+                self.confirming_user = (
+                    self.user1 if self.user1.profile.user_type == Profile.TypeChoices.LEARNER else self.user2
+                )
+            # RANDOM_CALL: confirming_user is set by the caller (e.g. create_user_matching_proposal(..., confirming_user=...))
         super(ProposedMatch, self).save(*args, **kwargs)
 
 
-# We automaticly send the new-match proposal mail when a new proposal is created
+# Send the new-match proposal email when a new proposal is created (for both STANDARD and RANDOM_CALL).
 @receiver(models.signals.post_save, sender=ProposedMatch)
 def execute_after_save(sender, instance, created, *args, **kwargs):
     if created:
-        # Send the new match proposal email
         instance.send_initial_mail()
 
 
 def get_unconfirmed_matches(user):
-    # First check if the user is 'volunteer' cause we only allow learners to confirm matches, otherwise return empty list
-    if user.profile.user_type == Profile.TypeChoices.VOLUNTEER:
-        return []
-
-    unconfirmed = list(
-        ProposedMatch.objects.filter(
-            Q(user1=user, learner_when_created=user) | Q(user2=user, learner_when_created=user)
-        ).filter(closed=False)
+    # Proposals where this user is the one who should confirm (confirming_user=user).
+    # STANDARD: only learners see them (volunteers do not confirm standard proposals).
+    # RANDOM_CALL: the person who didn't request sees the proposal (confirming_user set to non-requester).
+    qs = ProposedMatch.objects.filter(
+        Q(user1=user, confirming_user=user) | Q(user2=user, confirming_user=user),
+        closed=False,
     )
+    if user.profile.user_type == Profile.TypeChoices.VOLUNTEER:
+        qs = qs.filter(match_type=MatchType.RANDOM_CALL)
+    else:
+        qs = qs.filter(match_type__in=(MatchType.STANDARD, MatchType.RANDOM_CALL))
+
+    unconfirmed = list(qs)
 
     # Remove expired matches & get the shared data
     unconfirmed = [usr.get_shared_data(user) for usr in unconfirmed if not usr.is_expired(close_if_expired=True)]
