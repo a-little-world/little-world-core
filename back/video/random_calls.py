@@ -157,7 +157,87 @@ def get_random_call_lobby_status(request, lobby_uuid):
         "lobby": lobby.uuid,
         "match_proposal_timeout": lobby.match_proposal_timeout,
         "matching": None,
+        "test_matching": None,
     }
+    # Debug / comparison: a simpler \"pending match\" check used elsewhere (accepted/rejected only)
+    test_matching_qs = RandomCallMatching.objects.filter(
+        Q(u1=request.user) | Q(u2=request.user),
+        lobby=lobby,
+        rejected=False,
+        accepted=False,
+    )
+    test_match = test_matching_qs.first()
+    if test_match:
+        test_own_number = 1 if (test_match.u1 == request.user) else 2
+        test_partner = test_match.u2 if test_own_number == 1 else test_match.u1
+        test_partner_accepted = test_match.u2_accepted if test_own_number == 1 else test_match.u1_accepted
+        test_partner_confirmed_rejection = (
+            test_match.u2_confirmed_rejection if test_own_number == 1 else test_match.u1_confirmed_rejection
+        )
+        test_partner_rejected = test_match.rejected and test_partner_confirmed_rejection
+        test_self_rejected = test_match.rejected and (not test_partner_confirmed_rejection)
+
+        # Same predicates as random_call_matching queryset (lines below); if any is wrong, matching stays null.
+        mf_brt = test_match.both_requested_room_token is False
+        mf_completed = test_match.completed is False
+        mf_lobby = test_match.lobby_id == lobby.id
+        mf_bcr = test_match.both_confirmed_rejection is False
+        mf_session = test_match.in_session is False
+        mf_expired = test_match.expired is False
+        response_data["test_matching"] = {
+            "uuid": test_match.uuid,
+            "accepted": test_partner_accepted,
+            "both_accepted": test_match.accepted,
+            "both_confirmed_rejection": test_match.both_confirmed_rejection,
+            "self_rejected": test_self_rejected,
+            "partner_rejected": test_partner_rejected,
+            "partner": {
+                "id": test_partner.hash,
+                "name": f"{test_partner.profile.first_name}",
+                "image": test_partner.profile.image.url
+                if test_partner.profile.image
+                else test_partner.profile.avatar_config,
+                "image_type": test_partner.profile.image_type,
+                "description": test_partner.profile.description or "",
+                "requested_room_token": test_match.u2_requested_room_token
+                if test_own_number == 1
+                else test_match.u1_requested_room_token,
+                "interests": [],  # TODO: Add interests field to profile
+            },
+            "matching_queryset_filter": {
+                "both_requested_room_token": {
+                    "value": test_match.both_requested_room_token,
+                    "required": False,
+                    "passes": mf_brt,
+                },
+                "completed": {
+                    "value": test_match.completed,
+                    "required": False,
+                    "passes": mf_completed,
+                },
+                "lobby": {
+                    "match_lobby_uuid": str(test_match.lobby.uuid),
+                    "request_lobby_uuid": str(lobby.uuid),
+                    "passes": mf_lobby,
+                },
+                "both_confirmed_rejection": {
+                    "value": test_match.both_confirmed_rejection,
+                    "required": False,
+                    "passes": mf_bcr,
+                },
+                "in_session": {
+                    "value": test_match.in_session,
+                    "required": False,
+                    "passes": mf_session,
+                },
+                "expired": {
+                    "value": test_match.expired,
+                    "required": False,
+                    "passes": mf_expired,
+                },
+            },
+            "would_appear_in_matching": mf_brt and mf_completed and mf_lobby and mf_bcr and mf_session and mf_expired,
+        }
     # 4 - check the users lobby status
     # Show matchings that are not rejected and not in a session yet
     random_call_matching = RandomCallMatching.objects.filter(
@@ -170,7 +250,7 @@ def get_random_call_lobby_status(request, lobby_uuid):
         in_session=False,
         expired=False,
     )
-    matching = random_call_matching.first()  # TODO: invesetigate if there are any edge cases with this being > 1
+    matching = random_call_matching.first()  # TODO: investigate if there are any edge cases with this being > 1
     has_matching = random_call_matching.exists()
     if has_matching:
         own_number = 1 if (matching.u1 == request.user) else 2
@@ -184,7 +264,6 @@ def get_random_call_lobby_status(request, lobby_uuid):
         self_rejected = matching.rejected and (
             not partner_confirmed_rejection
         )  # <-- it was the user itself that rejected
-
         if partner_rejected:
             if own_number == 1:
                 matching.u1_confirmed_rejection = True
