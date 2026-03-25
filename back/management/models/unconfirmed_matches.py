@@ -181,6 +181,8 @@ class ProposedMatch(models.Model):
         self.expired_mail_send = True
         self.save(update_fields=["expired_mail_send"])
         confirming_user.send_email_v2("expired-match", proposed_match_id=self.id)
+        # TODO: (#831) also integrate https://little-world.com/matching/emails/automatic-emails-fm001 ( expired matches? )
+        # TODO (#831) check if we should actually chenge this now? http://localhost:8000/matching/emails/automatic-emails-fm001 ? 
 
     def get_partner(self, user):
         return self.user1 if self.user2 == user else self.user2

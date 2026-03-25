@@ -917,6 +917,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         user_list_objects = []
         # check permission on all user in the userlist
+        # TODO: improve with better querry
         for user_id in userlist:
             user = User.objects.get(id=user_id)
             has_access, res = self.check_management_user_access(user, request)
@@ -927,7 +928,9 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
                 )
             user_list_objects.append(user)
 
+
         # mark the users as completed
+        # TODO: use group send function in the future
         for user in user_list_objects:
             user.state.had_prematching_call = True
             user.state.onboarding_call_completed_at = timezone.now()
@@ -946,6 +949,9 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
                 continue
             user.state.had_prematching_call = False
             # user.state.onboarding_call_completed_at = None
+            # TODO: add fields
+            # user.state.last_not_attended_prematching_call_at = timezone.now()
+            # user.state.not_attended__auto_email_u053_send = True
             user.state.save()
             if send_mail[str(user.id)]:
                 send_email_background.delay("prematching-call-no-show", user_id=user_id)
