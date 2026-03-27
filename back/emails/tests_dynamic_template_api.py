@@ -1,22 +1,19 @@
 from django.test import TestCase
-from management.controller import create_user
+from management.models.user import User
 from rest_framework.test import APIClient
-
 from emails.models import DynamicTemplate
 
 
 class DynamicTemplateApiTests(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.matching_user = create_user(
+        self.matching_user = User.objects.create_user(
             email="matching-user@example.com",
             password="Test123!",
             first_name="Matching",
-            second_name="User",
-            birth_year=1989,
-            send_verification_mail=False,
+            last_name="User",
         )
-        self.matching_user.state.extra_user_permission = [
+        self.matching_user.state.extra_user_permissions = [
             self.matching_user.state.ExtraUserPermissionChoices.MATCHING_USER
         ]
         self.matching_user.state.save()
