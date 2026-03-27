@@ -17,6 +17,7 @@ class UnsubscibeOptions(models.TextChoices):
 class EmailSettings(models.Model):
     hash = models.UUIDField(default=uuid4, editable=False)
 
+    # TODO: migrate fields to state
     email_verification_reminder1 = models.BooleanField(default=False)
     user_form_unfinished_reminder1 = models.BooleanField(default=False)
     user_form_unfinished_reminder2 = models.BooleanField(default=False)
