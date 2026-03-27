@@ -13,6 +13,7 @@ from management.models.user import User
 from management.tasks import send_dynamic_email_backgruound
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import NotFound
 from rest_framework.response import Response
 
 
@@ -28,9 +29,25 @@ class DynamicEmailTemplateViewset(viewsets.ModelViewSet):
     permission_classes = [IsAdminOrMatchingUser]
     lookup_field = "template_name"
 
+    @staticmethod
+    def _normalize_template_name(template_name: str) -> str:
+        return " ".join(template_name.split())
+
+    def _get_template_or_404(self, template_name: str) -> DynamicTemplate:
+        try:
+            return DynamicTemplate.objects.get(template_name=template_name)
+        except DynamicTemplate.DoesNotExist:
+            normalized_template_name = self._normalize_template_name(template_name)
+            if normalized_template_name != template_name:
+                try:
+                    return DynamicTemplate.objects.get(template_name=normalized_template_name)
+                except DynamicTemplate.DoesNotExist:
+                    pass
+            raise NotFound(detail=f"Dynamic template '{template_name}' does not exist.")
+
     def retrieve(self, request, *args, **kwargs):
         template_name = kwargs["template_name"]
-        template = DynamicTemplate.objects.get(template_name=template_name)
+        template = self._get_template_or_404(template_name)
         template_data = DynamicTemplateSerializer(template).data
         return Response(template_data)
 
@@ -57,7 +74,7 @@ class DynamicEmailTemplateViewset(viewsets.ModelViewSet):
         count_before = qs.count()
         count_after = count_before
 
-        template = DynamicTemplate.objects.get(template_name=template_name)
+        template = self._get_template_or_404(template_name)
         category_id = template.category_id
 
         if EMAILS_CONFIG.categories[category_id].unsubscribe:
@@ -91,7 +108,7 @@ class DynamicEmailTemplateViewset(viewsets.ModelViewSet):
         c = 0
         task_ids = []
         for user in qs:
-            task_id = send_dynamic_email_backgruound.delay(template_name, user.id)
+            task_id = send_dynamic_email_backgruound.delay(template.template_name, user.id)
 
             task_ids.append(task_id.task_id)
             c += 1
