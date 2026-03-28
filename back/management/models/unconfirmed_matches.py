@@ -7,6 +7,7 @@ from django.dispatch import receiver
 from django.utils import timezone
 
 from management.models.profile import Profile, ProposalProfileSerializer
+from management.tasks import send_email_background
 
 
 class MatchType(models.TextChoices):
@@ -180,9 +181,8 @@ class ProposedMatch(models.Model):
             return
         self.expired_mail_send = True
         self.save(update_fields=["expired_mail_send"])
-        confirming_user.send_email_v2("expired-match", proposed_match_id=self.id)
-        # TODO: (#831) also integrate https://little-world.com/matching/emails/automatic-emails-fm001 ( expired matches? )
-        # TODO (#831) check if we should actually chenge this now? http://localhost:8000/matching/emails/automatic-emails-fm001 ? 
+        # confirming_user.send_email_v2("expired-match", proposed_match_id=self.id) TODO: check if it was correct to remove this
+        send_email_background.delay("automatic-emails-fm001", user_id=request.user.id)
 
     def get_partner(self, user):
         return self.user1 if self.user2 == user else self.user2
