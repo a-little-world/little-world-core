@@ -89,7 +89,7 @@ class State(models.Model):
     still_active_reminder_confirmed = models.BooleanField(default=False)
 
     """
-    For Tims experient of talking to all participants first 
+    For Tims experient of talking to all participants first
     If this flag is set to 'True' Tim has to make an appointment with that user first.
     """
     require_pre_matching_call = models.BooleanField(default=False)
@@ -99,7 +99,7 @@ class State(models.Model):
     has_received_first_match = models.BooleanField(default=False)
 
     """
-    These are references to the actual user model of this persons matches 
+    These are references to the actual user model of this persons matches
     """
     matches = models.ManyToManyField("management.User", related_name="+", blank=True)
 
@@ -131,10 +131,10 @@ class State(models.Model):
     still_in_contact_form_access_token_user = models.UUIDField(default=uuid.uuid4)
 
     """
-    This contains a list of matches the user has not yet confirmed 
+    This contains a list of matches the user has not yet confirmed
     this can be used by the frontend to display them as 'new'
     POST api/user/confirm_match/
-    data = [<usr-hash>, ... ] 
+    data = [<usr-hash>, ... ]
     """
     unconfirmed_matches_stack = models.JSONField(default=list, blank=True)
 
