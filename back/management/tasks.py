@@ -1061,7 +1061,7 @@ def automatic_emails_u082_u083_u084():
         "users_u083": users_u083_hashes,
         "users_u084": users_u084_hashes,
     }
-    
+
 
 @shared_task
 def daily_auto_email_report():
@@ -1293,8 +1293,8 @@ def daily_sms_report():
         "unique_initiators": len(initiator_sms),
     }
 
-def automatic_emails_m043_m044():
 
+def automatic_emails_m043_m044():
     """
     TODO: Implements after x video calls emails
     - [ ] [`automatic-emails-m043`](https://little-world.com/matching/emails/automatic-emails-m043)

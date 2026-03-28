@@ -66,11 +66,13 @@ class State(models.Model):
     auto_emails_u083_send = models.BooleanField(default=False, null=False, blank=False)
     auto_emails_u084_send = models.BooleanField(default=False, null=False, blank=False)
 
-    last_prematching_call_not_attended = models.BooleanField(default=False, null=False, blank=False) # just an extra boolean field to be explicit
+    last_prematching_call_not_attended = models.BooleanField(
+        default=False, null=False, blank=False
+    )  # just an extra boolean field to be explicit
     last_not_attended_prematching_call_at = models.DateTimeField(default=None, null=True, blank=True)
     # TODO: confirm with melina if they should be send again if he didn't attent an newly booked pre-matching call?
-    not_attended_auto_email_u053_send = models.BooleanField(default=False, null=False, blank=False) # After 2 days
-    not_attended_auto_email_u054_send = models.BooleanField(default=False, null=False, blank=False) # After TODO days
+    not_attended_auto_email_u053_send = models.BooleanField(default=False, null=False, blank=False)  # After 2 days
+    not_attended_auto_email_u054_send = models.BooleanField(default=False, null=False, blank=False)  # After TODO days
 
     # Just some hash for verifying the email
     email_auth_hash = models.CharField(default=utils._double_uuid, max_length=255)

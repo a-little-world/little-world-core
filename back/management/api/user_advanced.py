@@ -928,7 +928,6 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
                 )
             user_list_objects.append(user)
 
-
         # mark the users as completed
         # TODO: use group send function in the future
         for user in user_list_objects:
