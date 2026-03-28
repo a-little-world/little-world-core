@@ -1,0 +1,19 @@
+{
+  "include": [
+    "back"
+  ],
+  "exclude": [
+    "**/__pycache__",
+    "**/node_modules",
+    "front",
+    "dev",
+    "venv"
+  ],
+  "venvPath": ".",
+  "venv": "venv",
+  "executionEnvironments": [
+    {
+      "root": "back"
+    }
+  ]
+}
