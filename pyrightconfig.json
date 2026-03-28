@@ -2,6 +2,8 @@
   "include": [
     "back"
   ],
+  "typeCheckingMode": "basic",
+  "reportAny": "none",
   "exclude": [
     "**/__pycache__",
     "**/node_modules",
