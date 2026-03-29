@@ -140,11 +140,11 @@ if settings.ENABLE_AUTO_EMAILS__U081_U082_U083_U084:
         }
     )
 
-if settings.ENABLE_AUTO_EMAILS__M042_M043_M044:
+if settings.ENABLE_AUTO_EMAILS__M043_M044_M045:
     auto_emails.update(
         {
-            "automatic-emails-m042-m043-m044": {
-                "task": "management.tasks.automatic_emails_m042_m043_m044",
+            "automatic-emails-m043-m044-m045": {
+                "task": "management.tasks.automatic_emails_m043_m044_m045",
                 "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
             }
         }
@@ -189,7 +189,7 @@ prod_shedules = {
 prod_shedules.update(auto_emails)
 
 """
-All little world periodic tasks 
+All little world periodic tasks
 e.g.: notifying users that they have new messages
 """
 if not settings.PROD_ATTACH:

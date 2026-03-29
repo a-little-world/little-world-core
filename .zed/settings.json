@@ -1,11 +1,5 @@
 {
   "terminal": {
-    "shell": {
-      "with_arguments": {
-        "program": "tmux",
-        "args": ["new-session", "-A", "-s", "zed-little-world"]
-      }
-    },
     "detect_venv": {
       "on": {
         "directories": ["venv"],
