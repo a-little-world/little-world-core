@@ -100,6 +100,7 @@ class State(models.Model):
 
     self_onboarding_started = models.BooleanField(default=False)
     self_onboarding_walkthrough_step_id = models.IntegerField(default=0)
+    self_onboarding_walkthrough_completed_at = models.DateField(default=None, null=True, blank=True)
     self_onbiarding_walkthrough_completed = models.BooleanField(default=False)
 
     """

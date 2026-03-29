@@ -10,6 +10,7 @@ from django.dispatch import receiver
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils import timezone
 from django_rest_passwordreset.signals import reset_password_token_created
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from ipware import get_client_ip as get_ip
@@ -656,3 +657,26 @@ def is_authenticated(request):
     Returns whether the user is authenticated.
     """
     return Response(request.user.is_authenticated)
+
+
+ONBOARING_WALKTHROUGH_COMPLETED_STEPS = 5
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+def self_onboarding_start_walktrough_update(request):
+    walktrough_step = int(request.query_params.get("walktrough_step", "0"))
+    user = request.user
+
+    if user.state.self_onboarding_walkthrough_step_id < walktrough_step:
+        user.state.self_onboarding_walkthrough_step_id = walktrough_step
+
+    if walktrough_step >= ONBOARING_WALKTHROUGH_COMPLETED_STEPS:
+        user.state.self_onboarding_walkthrough_completed_at = timezone.now()
+        user.state.self_onboarding_walkthrough_completed = True
+
+    # TODO: add automatic email
+    user.state.save()
+
+    return Response()
