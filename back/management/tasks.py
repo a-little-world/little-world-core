@@ -8,6 +8,7 @@ from django.db.models import Q
 from django.utils import timezone as dj_timezone
 from translations import get_translation
 
+from management.api.slack import notify_communication_channel
 from management.models.backend_state import BackendState
 from management.models.banner import Banner
 from management.models.community_events import CommunityEvent
@@ -332,7 +333,7 @@ def burst_calculate_matching_scores(user_combinations=[]):
     from management.api.scores import score_between_db_update
 
     """
-    Calculates the matching scores for all users requiring a match at the moment 
+    Calculates the matching scores for all users requiring a match at the moment
     """
     print("combination")
 
@@ -1195,6 +1196,7 @@ def daily_auto_email_report():
 
     message = "\n".join(message_parts)
     notify_security_channel(message)
+    notify_communication_channel(message)
 
     return {
         "status": "sent",
@@ -1282,6 +1284,7 @@ def daily_sms_report():
 
     message = "\n".join(message_parts)
     notify_security_channel(message)
+    notify_communication_channel(message)
 
     return {
         "status": "sent",
@@ -1294,9 +1297,162 @@ def daily_sms_report():
     }
 
 
-def automatic_emails_m043_m044():
+def automatic_emails_m043_m044_m045():
     """
-    TODO: Implements after x video calls emails
-    - [ ] [`automatic-emails-m043`](https://little-world.com/matching/emails/automatic-emails-m043)
-    - [ ] [`automatic-emails-m044`](https://little-world.com/matching/emails/automatic-emails-m044)
+    Implements after 5, 8, 10 Video Calls Match Emails
+    and the
+    - [`automatic-emails-m043`](https://little-world.com/matching/emails/automatic-emails-m043) after 5 video calls, send once
+    - [`automatic-emails-m044`](https://little-world.com/matching/emails/automatic-emails-m044) after 8 video calls, send once
+    - [`automatic-emails-m045`](https://little-world.com/matching/emails/automatic-emails-m045) after 10 video calls, send once
+    TODO
+    - [ ] Add correct form urls...
     """
+    from django.conf import settings
+    from django.utils import timezone
+
+    from management.models.matches import Match, MatchType
+
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.ENABLE_AUTO_EMAILS__M043_M044_M045)
+
+    report = {
+        "counters_synced_m043": 0,
+        "counters_synced_m044": 0,
+        "counters_synced_m045": 0,
+        "m043_send_to": [],
+        "m044_send_to": [],
+        "m045_send_to": [],
+    }
+
+    # Counters are synced before this task
+    time_1week_ago = timezone.now() - timedelta(days=7)
+    from django.db.models import F
+
+    # 1 - Sync counters
+    # === 10 x Video Calls ===
+    sync__matches_video_call_m045 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        auto_email_m043_send=True,
+        auto_email_m044_send=True,
+        auto_email_m045_send=False,
+        latest_counter_sync__lte=F("latest_interaction_at"),
+    )
+
+    for match in sync__matches_video_call_m045:
+        report["counters_synced_m045"] += 1
+        match.sync_counters()
+
+    matches_video_call_m045 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        auto_email_m043_send=True,
+        auto_email_m044_send=True,
+        auto_email_m045_send=False,
+        completed_5_video_calls=True,
+        completed_8_video_calls=True,
+        completed_10_video_calls=True,
+        latest_interaction_at__gte=time_1week_ago,
+    )
+
+    # Send 10 x Video Call Emails
+    for match in matches_video_call_m045:
+        send_email_background.delay(
+            "automatic-emails-m045", user_id=match.user1.id, match_id=match.pk, emulated_send=emulated_send
+        )
+        send_email_background.delay(
+            "automatic-emails-m045", user_id=match.user2.id, match_id=match.pk, emulated_send=emulated_send
+        )
+        report["m045_send_to"].append([str(match.uuid), match.user1.id])
+        report["m045_send_to"].append([str(match.uuid), match.user2.id])
+        match.auto_email_m043_send = True
+        match.auto_email_m044_send = True
+        match.auto_email_m045_send = True
+        match.completed_10_video_calls = True
+        match.save()
+
+    # === 8 x Video Calls ===
+    sync__matches_video_call_m044 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        auto_email_m043_send=True,
+        auto_email_m044_send=False,
+        auto_email_m045_send=False,
+        latest_counter_sync__lte=F("latest_interaction_at"),
+    )
+
+    for match in sync__matches_video_call_m044:
+        report["counters_synced_m044"] += 1
+        match.sync_counters()
+
+    matches_video_call_m044 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        auto_email_m043_send=True,
+        auto_email_m044_send=False,
+        auto_email_m045_send=False,
+        completed_5_video_calls=True,
+        completed_8_video_calls=True,
+        completed_10_video_calls=False,
+        latest_interaction_at__gte=time_1week_ago,
+    )
+
+    # Send 8x Video Call Emails
+    for match in matches_video_call_m044:
+        send_email_background.delay(
+            "automatic-emails-m044", user_id=match.user1.id, match_id=match.pk, emulated_send=emulated_send
+        )
+        send_email_background.delay(
+            "automatic-emails-m044", user_id=match.user2.id, match_id=match.pk, emulated_send=emulated_send
+        )
+        report["m044_send_to"].append([str(match.uuid), match.user1.id])
+        report["m044_send_to"].append([str(match.uuid), match.user2.id])
+        match.auto_email_m043_send = True
+        match.auto_email_m044_send = True
+        match.completed_5_video_calls = True
+        match.completed_8_video_calls = True
+        match.save()
+
+    # === 5 x Video Calls ===
+    # Only check matches where latest_counter_sync <= latest_interaction_at
+    sync__matches_video_call_m043 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        auto_email_m043_send=False,
+        auto_email_m044_send=False,
+        auto_email_m045_send=False,
+        latest_counter_sync__lte=F("latest_interaction_at"),
+    )
+
+    for match in sync__matches_video_call_m043:
+        report["counters_synced_m043"] += 1
+        match.sync_counters()
+
+    matches_video_call_m043 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        auto_email_m043_send=False,
+        auto_email_m044_send=False,
+        auto_email_m045_send=False,
+        completed_5_video_calls=True,
+        completed_8_video_calls=False,
+        completed_10_video_calls=False,
+        latest_interaction_at__gte=time_1week_ago,
+    )
+
+    # Send 5x Video Call Emails
+    for match in matches_video_call_m043:
+        send_email_background.delay("automatic-emails-m043", user_id=match.user1.id, emulated_send=emulated_send)
+        send_email_background.delay("automatic-emails-m043", user_id=match.user2.id, emulated_send=emulated_send)
+        report["m043_send_to"].append([str(match.uuid), match.user1.id])
+        report["m043_send_to"].append([str(match.uuid), match.user2.id])
+        match.auto_email_m043_send = True
+        match.completed_5_video_calls = True
+        match.save()
+
+    return report
