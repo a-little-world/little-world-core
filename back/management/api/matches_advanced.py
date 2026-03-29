@@ -13,6 +13,7 @@ from management.helpers import DetailedPaginationMixin, IsAdminOrMatchingUser
 from management.models.matches import Match
 from management.models.profile import MinimalProfileSerializer
 from management.models.state import State
+from management.models.unconfirmed_matches import MatchType
 from management.models.user import User
 
 
@@ -23,6 +24,7 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
             "uuid",
             "created_at",
             "updated_at",
+            "match_type",
             "active",
             "confirmed",
             "latest_interaction_at",
@@ -98,6 +100,15 @@ class MatchFilter(filters.FilterSet):
 
     confirmed = filters.BooleanFilter(field_name="confirmed", help_text="Filter for confirmed matches")
 
+    match_type = filters.ChoiceFilter(
+        field_name="match_type",
+        choices=[
+            (MatchType.STANDARD, "Standard"),
+            (MatchType.RANDOM_CALL, "Random Call"),
+        ],
+        help_text="Filter by match type (standard or random_call)",
+    )
+
     order_by = filters.OrderingFilter(
         fields=(
             ("created_at", "created_at"),
@@ -122,7 +133,7 @@ class MatchFilter(filters.FilterSet):
 
     class Meta:
         model = Match
-        fields = ["uuid", "created_at", "updated_at", "active", "confirmed", "user1", "user2"]
+        fields = ["uuid", "created_at", "updated_at", "active", "confirmed", "match_type", "user1", "user2"]
 
 
 @extend_schema_view(
@@ -141,12 +152,14 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        base = Match.objects.all().exclude(match_type=MatchType.TEMPORARY).order_by("-created_at")
         if user.is_staff:
-            return Match.objects.all()
-        elif user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
-            return Match.objects.filter(
+            return base
+        if user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+            return base.filter(
                 Q(user1__in=user.state.managed_users.all()) | Q(user2__in=user.state.managed_users.all())
             )
+        return base
 
     def check_management_user_access(self, match, request):
         user = match.get_partner(request.user)

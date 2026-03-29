@@ -13,11 +13,11 @@ def daily_fix_unusually_long_livekit_sessions(cutoff_hours: float = 4.0):
     """
     Runs daily to cap unusually long sessions for records aged between 24 and 60 hours.
     """
-    # 24h <= age < 60h window
+    # 24h <= age < 1week window
     result = process_unusually_long_sessions(
         cutoff_hours=cutoff_hours,
         min_age_hours=24.0,
-        max_age_hours=60.0,
+        max_age_hours=7.0 * 24.0,
         dry_run=False,
     )
     return result
@@ -60,7 +60,7 @@ def random_call_lobby_perform_matching(lobby_uuid):
     u2 = User.objects.get(id=pair[1])
     confirmed_match = Match.get_match(u1, u2).exists()
     random_match = RandomCallMatching.objects.create(
-        u1_id=pair[0], u2_id=pair[1], lobby=lobby, confirmed_match=confirmed_match
+        u1_id=pair[0], u2_id=pair[1], lobby=lobby, confirmed_match=confirmed_match, created_at=timezone.now()
     )
     # 6 - For every match start a 'cleanup_if_not_accepted' task that runs 30s after the match is created
     cleanup_if_not_accepted.apply_async(args=[random_match.uuid], countdown=lobby.match_proposal_timeout)

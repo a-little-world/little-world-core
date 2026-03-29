@@ -43,6 +43,7 @@ def serialize_proposed_matches(matching_proposals, user):
                     **ProposalProfileSerializer(partner.profile).data,
                 },
                 "status": "proposed",
+                "match_type": proposal.match_type,
                 "closed": proposal.closed,
                 "rejected_by": rejected_by,
                 "rejected_at": proposal.rejected_at,
@@ -106,15 +107,23 @@ class ProposedMatch(models.Model):
         proposals = cls.objects.filter(Q(user1=user) | Q(user2=user), closed=False)
         for prop in proposals:
             prop.is_expired(close_if_expired=True, send_mail_if_expired=True)
-        return cls.objects.filter(Q(user1=user) | Q(user2=user), closed=False).order_by(order_by)
+        return (
+            cls.objects.filter(Q(user1=user) | Q(user2=user), closed=False)
+            .exclude(match_type=MatchType.TEMPORARY)
+            .order_by(order_by)
+        )
 
     @classmethod
     def get_unsuccessful_proposals(cls, user, order_by="potential_matching_created_at"):
-        return cls.objects.filter(
-            (Q(user1=user) | Q(user2=user)),
-            (Q(expired=True) | Q(rejected=True)),
-            closed=True,
-        ).order_by(order_by)
+        return (
+            cls.objects.filter(
+                (Q(user1=user) | Q(user2=user)),
+                (Q(expired=True) | Q(rejected=True)),
+                closed=True,
+            )
+            .exclude(match_type=MatchType.TEMPORARY)
+            .order_by(order_by)
+        )
 
     @classmethod
     def get_open_proposals_learner(cls, user, order_by="potential_matching_created_at"):
@@ -171,7 +180,10 @@ class ProposedMatch(models.Model):
             return
         self.expired_mail_send = True
         self.save(update_fields=["expired_mail_send"])
-        confirming_user.send_email_v2("expired-match", proposed_match_id=self.id)
+        # confirming_user.send_email_v2("expired-match", proposed_match_id=self.id) TODO: check if it was correct to remove this
+        from management.tasks import send_email_background
+
+        send_email_background.delay("automatic-emails-fm001", user_id=confirming_user.id)
 
     def get_partner(self, user):
         return self.user1 if self.user2 == user else self.user2

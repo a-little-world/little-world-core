@@ -17,6 +17,7 @@ class UnsubscibeOptions(models.TextChoices):
 class EmailSettings(models.Model):
     hash = models.UUIDField(default=uuid4, editable=False)
 
+    # TODO: migrate fields to state
     email_verification_reminder1 = models.BooleanField(default=False)
     user_form_unfinished_reminder1 = models.BooleanField(default=False)
     user_form_unfinished_reminder2 = models.BooleanField(default=False)
@@ -37,11 +38,6 @@ class EmailSettings(models.Model):
             return  # already sent
 
         self.user_form_unfinished_reminder1 = True
-
-        # send groupmail function automaticly checks if users have unsubscribed!
-        # we still mark email verification reminder 1 as True, since we at least tried to send it,
-        # never wanna send twice! Not even **try** twice!
-        # send the mail
         user.send_email_v2("unfinished_user_form_1")
 
         self.save()
@@ -51,11 +47,7 @@ class EmailSettings(models.Model):
             return  # already sent
 
         self.user_form_unfinished_reminder2 = True
-
-        # send groupmail function automaticly checks if users have unsubscribed!
-        # we still mark email verification reminder 1 as True, since we at least tried to send it,
-        # never wanna send twice! Not even **try** twice!
-        user.send_email_v2("verify-email")
+        user.send_email_v2("unfinished_user_form_2")
         self.save()
 
     def send_email_verification_reminder1(self, user):
@@ -63,12 +55,6 @@ class EmailSettings(models.Model):
             return  # already sent
 
         self.email_verification_reminder1 = True
-
-        # send groupmail function automaticly checks if users have unsubscribed!
-        # we still mark email verification reminder 1 as True, since we at least tried to send it,
-        # never wanna send twice! Not even **try** twice!
-
-        # send the mail
         user.send_email_v2("verify-email")
         self.save()
 

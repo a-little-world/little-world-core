@@ -411,6 +411,17 @@ class UserFilter(filters.FilterSet):
         fields = ["hash", "id", "email"]
 
 
+class InviteNativeAppTesterRequestSerializer(serializers.Serializer):
+    platform = serializers.ChoiceField(choices=["ios", "android"])
+    app_invite_url = serializers.CharField()
+    beta_tester_email = serializers.EmailField()
+    native_app_repo_url = serializers.CharField()
+    native_app_bug_report_url = serializers.CharField()
+    little_world_account_email = serializers.CharField(required=False, allow_blank=True)
+    send_to_email = serializers.EmailField(required=False, allow_blank=True)
+    emulate_send = serializers.BooleanField(required=False, default=False)
+
+
 @extend_schema_view(
     list=extend_schema(summary="List users"),
     retrieve=extend_schema(summary="Retrieve user"),
@@ -777,21 +788,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             }
         )
 
-    @extend_schema(
-        request=inline_serializer(
-            name="InviteNativeAppTesterRequest",
-            fields={
-                "platform": serializers.ChoiceField(choices=["ios", "android"]),
-                "app_invite_url": serializers.CharField(),
-                "beta_tester_email": serializers.EmailField(),
-                "native_app_repo_url": serializers.CharField(),
-                "native_app_bug_report_url": serializers.CharField(),
-                "little_world_account_email": serializers.CharField(required=False, allow_blank=True),
-                "send_to_email": serializers.EmailField(required=False, allow_blank=True),
-                "emulate_send": serializers.BooleanField(required=False, default=False),
-            },
-        )
-    )
+    @extend_schema(request=InviteNativeAppTesterRequestSerializer)
     @action(detail=True, methods=["post"])
     def invite_native_app_tester(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -801,26 +798,18 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if not has_access:
             return res
 
-        platform = request.data.get("platform")
-        app_invite_url = request.data.get("app_invite_url")
-        beta_tester_email = request.data.get("beta_tester_email")
-        native_app_repo_url = request.data.get("native_app_repo_url")
-        native_app_bug_report_url = request.data.get("native_app_bug_report_url")
-        little_world_account_email = request.data.get("little_world_account_email", "")
-        send_to_email = request.data.get("send_to_email", "")
-        emulate_send = request.data.get("emulate_send", False)
+        serializer = InviteNativeAppTesterRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        payload = serializer.validated_data
 
-        if platform not in ["ios", "android"]:
-            return Response({"error": "platform must be either 'ios' or 'android'"}, status=400)
-
-        if not app_invite_url:
-            return Response({"error": "app_invite_url is required"}, status=400)
-        if not beta_tester_email:
-            return Response({"error": "beta_tester_email is required"}, status=400)
-        if not native_app_repo_url:
-            return Response({"error": "native_app_repo_url is required"}, status=400)
-        if not native_app_bug_report_url:
-            return Response({"error": "native_app_bug_report_url is required"}, status=400)
+        platform = payload["platform"]
+        app_invite_url = payload["app_invite_url"]
+        beta_tester_email = payload["beta_tester_email"]
+        native_app_repo_url = payload["native_app_repo_url"]
+        native_app_bug_report_url = payload["native_app_bug_report_url"]
+        little_world_account_email = payload.get("little_world_account_email", "")
+        send_to_email = payload.get("send_to_email", "")
+        emulate_send = payload.get("emulate_send", False)
 
         template_name = (
             "automatic-emails-native-app-beta-ios" if platform == "ios" else "automatic-emails-native-app-beta-android"
@@ -928,6 +917,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         user_list_objects = []
         # check permission on all user in the userlist
+        # TODO: improve with better querry
         for user_id in userlist:
             user = User.objects.get(id=user_id)
             has_access, res = self.check_management_user_access(user, request)
@@ -938,12 +928,18 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
                 )
             user_list_objects.append(user)
 
+        attended_users = []
+        not_attended_users = []
+
         # mark the users as completed
+        # TODO: use group send function in the future
         for user in user_list_objects:
             user.state.had_prematching_call = True
             user.state.onboarding_call_completed_at = timezone.now()
             user.state.save()
+            attended_users.append(user)
             if send_mail[str(user.id)]:
+                # TODO: comply to automatic email naming conventions
                 send_email_background.delay("prematching-call-post-thanks", user_id=user.id)
 
         # get appointment_users set without userlist as a list
@@ -956,12 +952,28 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
                 # Don't apply this for people that already had a prematching call, but booked another appointment.
                 continue
             user.state.had_prematching_call = False
-            # user.state.onboarding_call_completed_at = None
+            user.state.last_prematching_call_not_attended = True
+            user.state.last_not_attended_prematching_call_at = timezone.now()
+
             user.state.save()
+            not_attended_users.append(user)
             if send_mail[str(user.id)]:
                 send_email_background.delay("prematching-call-no-show", user_id=user_id)
 
-        return Response({"success": True})
+        message_report = (
+            f"Prematching Call Manually marked by {request.user}\n"
+            f"Prematching Call Report - {appointment_date.strftime('%Y-%m-%d %H:%M:%S')}\n"
+            f"Attended: {len(attended_users)}\n"
+            f"Not attended: {len(not_attended_users)}\n"
+            f"Total: {len(appointments)}"
+        )
+
+        from management.tasks import slack_notify_communication_channel_async, slack_notify_security_channel_async
+
+        slack_notify_communication_channel_async.delay(message=message_report)
+        slack_notify_security_channel_async.delay(message=message_report)
+
+        return Response({"success": True, "message_report": message_report})
 
     @action(detail=True, methods=["get"])
     def request_score_update(self, request, pk=None):
