@@ -928,12 +928,16 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
                 )
             user_list_objects.append(user)
 
+        attended_users = []
+        not_attended_users = []
+
         # mark the users as completed
         # TODO: use group send function in the future
         for user in user_list_objects:
             user.state.had_prematching_call = True
             user.state.onboarding_call_completed_at = timezone.now()
             user.state.save()
+            attended_users.append(user)
             if send_mail[str(user.id)]:
                 # TODO: comply to automatic email naming conventions
                 send_email_background.delay("prematching-call-post-thanks", user_id=user.id)
@@ -952,10 +956,24 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             user.state.last_not_attended_prematching_call_at = timezone.now()
 
             user.state.save()
+            not_attended_users.append(user)
             if send_mail[str(user.id)]:
                 send_email_background.delay("prematching-call-no-show", user_id=user_id)
 
-        return Response({"success": True})
+        message_report = (
+            f"Prematching Call Manually marked by {request.user}\n"
+            f"Prematching Call Report - {appointment_date.strftime('%Y-%m-%d %H:%M:%S')}\n"
+            f"Attended: {len(attended_users)}\n"
+            f"Not attended: {len(not_attended_users)}\n"
+            f"Total: {len(appointments)}"
+        )
+
+        from management.tasks import slack_notify_communication_channel_async, slack_notify_security_channel_async
+
+        slack_notify_communication_channel_async.delay(message=message_report)
+        slack_notify_security_channel_async.delay(message=message_report)
+
+        return Response({"success": True, "message_report": message_report})
 
     @action(detail=True, methods=["get"])
     def request_score_update(self, request, pk=None):
