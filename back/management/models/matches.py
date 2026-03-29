@@ -116,6 +116,7 @@ class Match(models.Model):
         # check if the match should permanently be marked as completed!
         from management.api.match_journey_filters import completed_match
 
+        # TODO: can this be depricated?
         if completed_match(Match.objects.filter(id=self.id)).exists():
             self.completed = True
 
