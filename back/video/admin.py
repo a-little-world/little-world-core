@@ -5,6 +5,18 @@ configs = apps.get_app_configs()
 _configs = [c.name for c in configs]
 print("Registering models for admin interface", _configs)
 
+DEFAULT_LIST_FILTER_FIELD_TYPES = {"BooleanField", "NullBooleanField", "DateField", "DateTimeField"}
+
+
+def _get_default_list_filter(model):
+    return tuple(
+        field.name
+        for field in model._meta.fields
+        if not field.is_relation
+        and (bool(getattr(field, "choices", ())) or field.get_internal_type() in DEFAULT_LIST_FILTER_FIELD_TYPES)
+    )
+
+
 for app in configs:
     if app.name != "video":
         continue
@@ -19,7 +31,7 @@ for app in configs:
                 else tuple([field.name for field in model._meta.fields])
             )
             model_admin.list_filter = (
-                model.admin_list_filter if hasattr(model, "admin_list_filter") else model_admin.list_display
+                model.admin_list_filter if hasattr(model, "admin_list_filter") else _get_default_list_filter(model)
             )
             model_admin.list_display_links = (
                 model.admin_list_display_links if hasattr(model, "admin_list_display_links") else ()
