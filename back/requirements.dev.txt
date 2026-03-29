@@ -3,5 +3,6 @@ django-debug-toolbar==5.1.0
 basedpyright==1.34.0
 django-types==0.22.0
 django-stubs-ext==5.2.7
+djangorestframework-stubs==3.16.5
 ruff==0.14.11
 freezegun==1.5.5

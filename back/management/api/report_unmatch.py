@@ -63,6 +63,9 @@ def process_report_unmatch(request, kind="report"):
         default_message = get_translation("auto_messages.match_unmatched", lang="de").format(
             first_name=request.user.profile.first_name, match_name=user_name_match
         )
+
+        # TODO: send_email_background.delay("automatic-emails-fm021", user_id=request.user.id)
+        # TODO: (#831) also integrate https://little-world.com/matching/emails/automatic-emails-fm001
     else:
         default_message = get_translation("auto_messages.match_reported", lang="de").format(
             first_name=request.user.profile.first_name, match_name=user_name_match
