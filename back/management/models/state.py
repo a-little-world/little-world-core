@@ -98,6 +98,10 @@ class State(models.Model):
 
     has_received_first_match = models.BooleanField(default=False)
 
+    self_onboarding_started = models.BooleanField(default=False)
+    self_onboarding_walkthrough_step_id = models.IntegerField(default=0)
+    self_onbiarding_walkthrough_completed = models.BooleanField(default=False)
+
     """
     These are references to the actual user model of this persons matches
     """
