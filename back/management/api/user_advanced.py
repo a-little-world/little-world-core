@@ -935,6 +935,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             user.state.onboarding_call_completed_at = timezone.now()
             user.state.save()
             if send_mail[str(user.id)]:
+                # TODO: comply to automatic email naming conventions
                 send_email_background.delay("prematching-call-post-thanks", user_id=user.id)
 
         # get appointment_users set without userlist as a list
@@ -947,10 +948,9 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
                 # Don't apply this for people that already had a prematching call, but booked another appointment.
                 continue
             user.state.had_prematching_call = False
-            # user.state.onboarding_call_completed_at = None
-            # TODO: add fields
-            # user.state.last_not_attended_prematching_call_at = timezone.now()
-            # user.state.not_attended__auto_email_u053_send = True
+            user.state.last_prematching_call_not_attended = True
+            user.state.last_not_attended_prematching_call_at = timezone.now()
+
             user.state.save()
             if send_mail[str(user.id)]:
                 send_email_background.delay("prematching-call-no-show", user_id=user_id)
