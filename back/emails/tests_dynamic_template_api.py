@@ -1,6 +1,7 @@
 from django.test import TestCase
 from management.models.user import User
 from rest_framework.test import APIClient
+
 from emails.models import DynamicTemplate
 
 
