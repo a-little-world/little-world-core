@@ -8,7 +8,6 @@ from django.db.models import Q
 from django.utils import timezone as dj_timezone
 from translations import get_translation
 
-from management.api.slack import notify_communication_channel
 from management.models.backend_state import BackendState
 from management.models.banner import Banner
 from management.models.community_events import CommunityEvent
@@ -1074,7 +1073,7 @@ def daily_auto_email_report():
     from django.utils import timezone
     from emails.models import EmailLog
 
-    from management.api.slack import notify_security_channel
+    from management.api.slack import notify_communication_channel, notify_security_channel
 
     enabled_emails = {
         "AUTOMATIC_EMAILS__U023_U024_U025": {
@@ -1216,7 +1215,7 @@ def daily_sms_report():
     from django.conf import settings
     from django.utils import timezone
 
-    from management.api.slack import notify_security_channel
+    from management.api.slack import notify_communication_channel, notify_security_channel
     from management.models.sms import SmsModel
 
     now = timezone.now()
