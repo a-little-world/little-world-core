@@ -180,7 +180,10 @@ class ProposedMatch(models.Model):
             return
         self.expired_mail_send = True
         self.save(update_fields=["expired_mail_send"])
-        confirming_user.send_email_v2("expired-match", proposed_match_id=self.id)
+        # confirming_user.send_email_v2("expired-match", proposed_match_id=self.id) TODO: check if it was correct to remove this
+        from management.tasks import send_email_background
+
+        send_email_background.delay("automatic-emails-fm001", user_id=confirming_user.id)
 
     def get_partner(self, user):
         return self.user1 if self.user2 == user else self.user2

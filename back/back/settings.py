@@ -583,7 +583,7 @@ LOGIN_URL = "/login"
 
 """
 uvicorn can handle both WSGI & ASGI
-ASGI is veryimportant for chat websockets 
+ASGI is veryimportant for chat websockets
 and e.g.: incomming call popups
 """
 WSGI_APPLICATION = "back.wsgi.application"
@@ -605,7 +605,7 @@ if BUILD_TYPE in ["staging", "development"]:
 """
 django-rest-password reset config:
 Password reset tokens are only valid for 1h!
-This will nicely show all active tokens 
+This will nicely show all active tokens
 which are valid for only one password change!
 """
 DJANGO_REST_MULTITOKENAUTH_RESET_TOKEN_EXPIRY_TIME = 1
@@ -711,7 +711,7 @@ elif IS_PROD and (REDIS_PASSWORD is not None):
 
 
 """
-Development database is simply sq-lite, 
+Development database is simply sq-lite,
 it is not recommendet to store this database, rather you should load a fixture
 via:
 `./run.py dump` uses `manage.py dumpdata`
@@ -756,7 +756,7 @@ if IS_PROD or IS_STAGE or (os.environ.get("DJ_DEVELOPMENT_ALLOW_EMAILS", "false"
 
 """
 Default django password validator
-We *dont* allow: 
+We *dont* allow:
 - numeric passwords
 - password to similar to user.first_name
 - password to common ( sample of commonly enumerated passwords )
@@ -792,7 +792,7 @@ WEBPACK_LOADER = {
 Default language code of the application
 this reflects which language the translation of the app are written in
 so as long the default the incode translations are english **dont change this**
-as default language the user will always have a fallback langugae 
+as default language the user will always have a fallback langugae
 english no matter if frontent translation failes
 """
 LANGUAGE_CODE = "en"
@@ -801,7 +801,7 @@ TIME_ZONE = os.environ.get("DJ_TIME_ZONE", "UTC")
 PATENMATCH_URL = os.environ.get("DJ_PATENMATCH_URL", "https://patenmatch.de")
 
 """
-We use django internalization to enable use of 'django_language' cookie 
+We use django internalization to enable use of 'django_language' cookie
 And the use of Accept-Language: <lang> headers
 this e.g.: enables frontends to request api translation before calling the apis!
 They would request the pseudo language 'tag' as reference
@@ -1004,6 +1004,12 @@ EMULATE_AUTO_EMAILS__U072_U073_U074 = bool_env("DJ_EMULATE_AUTO_EMAILS__U072_U07
 ENABLE_AUTO_EMAILS__U081_U082_U083_U084 = bool_env("DJ_ENABLE_AUTO_EMAILS__U081_U082_U083_U084", "false")
 EMULATE_AUTO_EMAILS__U081_U082_U083_U084 = bool_env("DJ_EMULATE_AUTO_EMAILS__U081_U082_U083_U084", "true")
 
+ENABLE_AUTO_EMAILS__M043_M044_M045 = bool_env("DJ_ENABLE_AUTO_EMAILS__M042_M043_M044", "false")
+EMULATE_AUTO_EMAILS__M043_M044_M045 = bool_env("DJ_EMULATE_AUTO_EMAILS__M042_M043_M044", "true")
+
+ENABLE_AUTO_EMAILS__U053_U054 = bool_env("DJ_ENABLE_AUTO_EMAILS__U053_U054", "false")
+EMULATE_AUTO_EMAILS__U053_U054 = bool_env("DJ_EMULATE_AUTO_EMAILS__U053_U054", "true")
+
 ENABLE_AUTO_EMAIL_LOGS = (
     ENABLE_AUTO_EMAILS__U023_U024_U025
     or ENABLE_AUTO_EMAILS__M012_M013_M014
@@ -1012,6 +1018,8 @@ ENABLE_AUTO_EMAIL_LOGS = (
     or ENABLE_AUTO_EMAILS__M031_M032_M033_M042
     or ENABLE_AUTO_EMAILS__U072_U073_U074
     or ENABLE_AUTO_EMAILS__U081_U082_U083_U084
+    or ENABLE_AUTO_EMAILS__M043_M044_M045
+    or ENABLE_AUTO_EMAILS__U053_U054
 )
 
 ENABLE_DAILY_SMS_REPORT = bool_env("DJ_ENABLE_DAILY_SMS_REPORT", "false")
