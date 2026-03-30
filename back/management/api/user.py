@@ -682,6 +682,7 @@ def self_onboarding_start_walktrough_update(request):
     if walkthrough_step >= ONBOARING_WALKTHROUGH_COMPLETED_STEPS:
         user.state.self_onboarding_walkthrough_completed_at = timezone.now()
         user.state.self_onboarding_walkthrough_completed = True
+        user.state.had_prematching_call = True
         completed = True
 
     # TODO: add automatic email
