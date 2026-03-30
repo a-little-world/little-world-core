@@ -9,7 +9,7 @@ from django.db.models import Q
 from django.dispatch import receiver
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
-from django.urls import reverse
+from django.urls import path, reverse
 from django.utils import timezone
 from django_rest_passwordreset.signals import reset_password_token_created
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
@@ -609,6 +609,9 @@ def get_user_data(user):
         "preMatchingCallJoinLink": pre_call_join_link,
         "calComAppointmentLink": cal_data_link,
         "hadPreMatchingCall": user_state.had_prematching_call,
+        "selfOnboardingWalkthroughCompleted": user_state.self_onboarding_walkthrough_completed,
+        "selfOnboardingWalkthroughStep": user_state.self_onboarding_walkthrough_step_id,
+        "selfOnboardingWalkthroughStarted": user_state.self_onboarding_started,
         "forceMatchEligible": user_state.force_match_eligible,
         "emailVerified": user_state.email_authenticated,
         "userFormCompleted": user_state.user_form_state == State.UserFormStateChoices.FILLED,
@@ -666,17 +669,62 @@ ONBOARING_WALKTHROUGH_COMPLETED_STEPS = 5
 @permission_classes([IsAuthenticated])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 def self_onboarding_start_walktrough_update(request):
-    walktrough_step = int(request.query_params.get("walktrough_step", "0"))
+    walkthrough_step = int(request.query_params.get("walkthrough_step", "0"))
     user = request.user
+    completed = False
 
-    if user.state.self_onboarding_walkthrough_step_id < walktrough_step:
-        user.state.self_onboarding_walkthrough_step_id = walktrough_step
+    if user.state.self_onboarding_walkthrough_step_id < walkthrough_step:
+        user.state.self_onboarding_walkthrough_step_id = walkthrough_step
 
-    if walktrough_step >= ONBOARING_WALKTHROUGH_COMPLETED_STEPS:
+    if walkthrough_step > 0:
+        user.state.self_onboarding_started = True
+
+    if walkthrough_step >= ONBOARING_WALKTHROUGH_COMPLETED_STEPS:
         user.state.self_onboarding_walkthrough_completed_at = timezone.now()
         user.state.self_onboarding_walkthrough_completed = True
+        completed = True
 
     # TODO: add automatic email
     user.state.save()
+    return Response(
+        {
+            "completed": completed,
+            "message": "Walkthrough updated successfully",
+        }
+    )
 
-    return Response()
+
+api_urls = [
+    path("api/user", user_profile, name="user_profile_api"),
+    path("api/user/authenticated", is_authenticated, name="user_is_authenticated_api"),
+    path("api/user/confirm_match/", ConfirmMatchesApi.as_view()),
+    path(
+        "api/user/search_state/<str:state_slug>",
+        UpdateSearchingStateApi.as_view(),
+    ),
+    path("api/user/login/", LoginApi.as_view()),
+    path("api/user/logout/", LogoutApi.as_view()),
+    path("api/user/checkpw/", CheckPasswordApi.as_view()),
+    path("api/user/changepw/", ChangePasswordApi.as_view()),
+    path("api/user/change_email/", ChangeEmailApi.as_view()),
+    path(
+        "api/user/verify/email/<str:auth_data>",
+        VerifyEmail.as_view(),
+    ),
+    path("api/user/verify/email_resend/", resend_verification_mail),
+    path(
+        "user/still_active/",
+        still_active_callback,
+        name="still_active_callback",
+    ),
+    path(
+        "api/user/delete_account/",
+        delete_account,
+        name="delete_account_api",
+    ),
+    path(
+        "api/user/self_onboarding/walktrough_update/",
+        self_onboarding_start_walktrough_update,
+        name="self_onboarding_start_walktrough_update_api",
+    ),
+]

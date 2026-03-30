@@ -25,7 +25,6 @@ from management.api import (
     slack,
     trans,
     translator,
-    user,
     user_advanced_statistics,
     videocalls_advanced,
 )
@@ -43,6 +42,7 @@ from management.api.questions import archive_card, get_question_cards
 from management.api.scores import api_urls as scores_api_urls
 from management.api.short_links import api_urls as short_links_api_urls
 from management.api.still_in_contact import api_urls as still_in_contact_api_urls
+from management.api.user import api_urls as user_api_urls
 from management.api.user_advanced import api_urls as user_advanced_api_urls
 from management.api.utils_advanced import CustomResetPasswordRequestTokenViewSet
 from management.views import (
@@ -91,9 +91,8 @@ dynamic_user_list_single_user_api = DynamicUserListSingleUserViewSet.as_view(
 
 user_data_apis = [
     path("api/api_options", options.api_options),
-    path("api/user", user.user_profile, name="user_profile_api"),
-    path("api/user/authenticated", user.is_authenticated, name="user_is_authenticated_api"),
     path("api/matches", matches.matches, name="matches_api"),
+    *user_api_urls,
     path("api/community", community_events.community_events, name="community_events_api"),
     path("api/translations", trans.api_translations, name="api_translations_api"),
     path("api/firebase", firebase.firebase_config, name="firebase_config_api"),
@@ -123,19 +122,6 @@ api_routes = [
         "api/cookies/cookie_banner.js",
         cookies.get_dynamic_cookie_banner_js,
     ),
-    path("api/user/confirm_match/", user.ConfirmMatchesApi.as_view()),
-    path(
-        "api/user/search_state/<str:state_slug>",
-        user.UpdateSearchingStateApi.as_view(),
-    ),
-    path("api/user/login/", user.LoginApi.as_view()),
-    *api_urls_native_auth,
-    path("api/matching/report_match/", report_unmatch.report),
-    path("api/matching/unmatch/", report_unmatch.unmatch),
-    path("api/user/logout/", user.LogoutApi.as_view()),
-    path("api/user/checkpw/", user.CheckPasswordApi.as_view()),
-    path("api/user/changepw/", user.ChangePasswordApi.as_view()),
-    path("api/user/change_email/", user.ChangeEmailApi.as_view()),
     path("api/translator/translate/", translator.translate),
     path("api/translator/languages/", translator.languages),
     path("api/emails/toggle_sub/", email_settings.unsubscribe_link),
@@ -150,11 +136,9 @@ api_routes = [
         matches.get_match,
     ),
     # e.g.: /user/verify/email/Base64{d=email&u=hash&k=pin:hash}
-    path(
-        "api/user/verify/email/<str:auth_data>",
-        user.VerifyEmail.as_view(),
-    ),
-    path("api/user/verify/email_resend/", user.resend_verification_mail),
+    *api_urls_native_auth,
+    path("api/matching/report_match/", report_unmatch.report),
+    path("api/matching/unmatch/", report_unmatch.unmatch),
     path("api/user/match/confirm_deny/", confirm_match.confirm_match),
     path("api/matching/make_match", matches.make_match),
     path("api/help_message/", help.SendHelpMessage.as_view()),
@@ -175,18 +159,8 @@ view_routes = [
         main_frontend.email_verification_link,
         name="email_verification_link",
     ),
-    path(
-        "user/still_active/",
-        user.still_active_callback,
-        name="still_active_callback",
-    ),
     path("api/user/question_cards/", get_question_cards, name="question_cards"),
     path("api/user/archive_card/", archive_card, name="question_cards_archive"),
-    path(
-        "api/user/delete_account/",
-        user.delete_account,
-        name="delete_account_api",
-    ),
     path(
         "api/newsletter_subscribe",
         public_newsletter_subscribe,
