@@ -940,6 +940,8 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             attended_users.append(user)
             if send_mail[str(user.id)]:
                 # TODO: comply to automatic email naming conventions
+                # TODO: Just set a flag that auto email seding should be processed now
+                # TODO: find out if this email matches at mxXX email that we need to rename to here
                 send_email_background.delay("prematching-call-post-thanks", user_id=user.id)
 
         # get appointment_users set without userlist as a list
@@ -958,6 +960,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             user.state.save()
             not_attended_users.append(user)
             if send_mail[str(user.id)]:
+                # TODO: Also don't send this email just shedule the send...
                 send_email_background.delay("prematching-call-no-show", user_id=user_id)
 
         message_report = (
