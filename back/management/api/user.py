@@ -596,6 +596,12 @@ def get_user_data(user):
         State.ExtraUserPermissionChoices.USE_BETA_RANDOM_CALL
     )
 
+    # Self-onboarding progress as a fraction in [0, 1] based on the ordered step list.
+    onboarding_rank = get_rank_from_stored_self_onboarding_value(user_state.self_onboarding_step_id)
+    self_onboarding_progress = 0.0
+    if SELF_ONBOARDING_COMPLETED_RANK > 0:
+        self_onboarding_progress = max(0.0, min(1.0, onboarding_rank / float(SELF_ONBOARDING_COMPLETED_RANK)))
+
     return {
         "id": str(user.hash),
         "banner": banner,
@@ -609,9 +615,11 @@ def get_user_data(user):
         "preMatchingCallJoinLink": pre_call_join_link,
         "calComAppointmentLink": cal_data_link,
         "hadPreMatchingCall": user_state.had_prematching_call,
-        "selfOnboardingWalkthroughCompleted": user_state.self_onboarding_walkthrough_completed,
-        "selfOnboardingWalkthroughStep": user_state.self_onboarding_walkthrough_step_id,
-        "selfOnboardingWalkthroughStarted": user_state.self_onboarding_started,
+        "selfOnboardingCompleted": user_state.self_onboarding_completed,
+        "selfOnboardingStepId": user_state.self_onboarding_step_id or "",
+        "selfOnboardingProgress": self_onboarding_progress,
+        "isOnboarded": user_state.is_onboarded,
+        "selfOnboardingStarted": user_state.self_onboarding_started,
         "forceMatchEligible": user_state.force_match_eligible,
         "emailVerified": user_state.email_authenticated,
         "userFormCompleted": user_state.user_form_state == State.UserFormStateChoices.FILLED,
@@ -662,27 +670,61 @@ def is_authenticated(request):
     return Response(request.user.is_authenticated)
 
 
-ONBOARING_WALKTHROUGH_COMPLETED_STEPS = 5
+SELF_ONBOARDING_STEP_ORDER = (
+    "self_onboarding_c1_q_1",
+    "self_onboarding_c2_q_1",
+    "self_onboarding_c3_q_1",
+)
+SELF_ONBOARDING_STEP_TO_RANK = {step_id: idx + 1 for idx, step_id in enumerate(SELF_ONBOARDING_STEP_ORDER)}
+SELF_ONBOARDING_COMPLETED_RANK = len(SELF_ONBOARDING_STEP_ORDER)
+
+
+def get_rank_from_stored_self_onboarding_value(stored: str | None) -> int:
+    """Rank from stored canonical step id only; unknown or empty values are treated as not started."""
+    if not stored:
+        return 0
+    s = str(stored).strip()
+    if not s:
+        return 0
+    return SELF_ONBOARDING_STEP_TO_RANK.get(s, 0)
+
+
+def get_self_onboarding_step_rank(request) -> int | None:
+    step_id = request.query_params.get("self_onboarding_step_id")
+    if not step_id:
+        return None
+    return SELF_ONBOARDING_STEP_TO_RANK.get(step_id)
 
 
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-def self_onboarding_start_walktrough_update(request):
-    walkthrough_step = int(request.query_params.get("walkthrough_step", "0"))
+def self_onboarding_update(request):
+    step_id = request.query_params.get("self_onboarding_step_id")
+    self_onboarding_step_rank = get_self_onboarding_step_rank(request)
+    if self_onboarding_step_rank is None or not step_id:
+        return Response(
+            {
+                "completed": False,
+                "message": "Invalid self onboarding step id",
+            },
+            status=400,
+        )
+
     user = request.user
     completed = False
 
-    if user.state.self_onboarding_walkthrough_step_id < walkthrough_step:
-        user.state.self_onboarding_walkthrough_step_id = walkthrough_step
+    current_rank = get_rank_from_stored_self_onboarding_value(user.state.self_onboarding_step_id)
+    if self_onboarding_step_rank > current_rank:
+        user.state.self_onboarding_step_id = step_id
 
-    if walkthrough_step > 0:
+    if self_onboarding_step_rank > 0:
         user.state.self_onboarding_started = True
 
-    if walkthrough_step >= ONBOARING_WALKTHROUGH_COMPLETED_STEPS:
-        user.state.self_onboarding_walkthrough_completed_at = timezone.now()
-        user.state.self_onboarding_walkthrough_completed = True
-        user.state.had_prematching_call = True
+    if self_onboarding_step_rank >= SELF_ONBOARDING_COMPLETED_RANK:
+        user.state.self_onboarding_completed_at = timezone.now()
+        user.state.self_onboarding_completed = True
+        user.state.is_onboarded = True
         completed = True
 
     # TODO: add automatic email
@@ -690,7 +732,7 @@ def self_onboarding_start_walktrough_update(request):
     return Response(
         {
             "completed": completed,
-            "message": "Walkthrough updated successfully",
+            "message": "Self onboarding updated successfully",
         }
     )
 
@@ -724,8 +766,8 @@ api_urls = [
         name="delete_account_api",
     ),
     path(
-        "api/user/self_onboarding/walktrough_update/",
-        self_onboarding_start_walktrough_update,
-        name="self_onboarding_start_walktrough_update_api",
+        "api/user/self_onboarding/update/",
+        self_onboarding_update,
+        name="self_onboarding_update_api",
     ),
 ]

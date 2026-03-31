@@ -856,6 +856,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         obj.state.had_prematching_call = request.data.get("had_prematching_call", True)
         if obj.state.had_prematching_call:
             obj.state.onboarding_call_completed_at = timezone.now()
+            obj.state.is_onboarded = True
         obj.state.save()
         return Response({"success": True})
 
@@ -936,6 +937,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         for user in user_list_objects:
             user.state.had_prematching_call = True
             user.state.onboarding_call_completed_at = timezone.now()
+            user.state.is_onboarded = True
             user.state.save()
             attended_users.append(user)
             if send_mail[str(user.id)]:
