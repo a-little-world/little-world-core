@@ -65,7 +65,7 @@ def still_in_contact(request, match_uuid: str, answer: str):
             emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M051)
             # TODO: confirm if should send to one or both users
             send_email_background.delay(
-                "automatic-emails-m051", user_id=match.user1.id, match_id=match.pk, emulated_send=emulated_send
+                "automatic-emails-m051", user_id=user.id, match_id=match.pk, emulated_send=emulated_send
             )
             match.auto_email_m051_send = True
             match.save()
