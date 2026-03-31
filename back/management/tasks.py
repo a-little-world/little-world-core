@@ -1577,7 +1577,9 @@ def automatic_emails_fm021_fm022__ghosted_matches():
     from chat.models import Message
     from django.conf import settings
     from django.utils import timezone
+    from video.models import LivekitSession
 
+    from management.api.report_unmatch import process_report_unmatch
     from management.models.matches import Match
 
     time_15days_ago = timezone.now() - timedelta(days=15)
@@ -1592,6 +1594,8 @@ def automatic_emails_fm021_fm022__ghosted_matches():
 
     matches_single_party_contact = Match.objects.filter(
         confirmed=True,
+        completed=False,  # dont even consider removing completed matches!
+        completed_off_plattform=False,
         support_matching=False,
         active=True,
         auto_email_fm021_send=False,
@@ -1610,7 +1614,21 @@ def automatic_emails_fm021_fm022__ghosted_matches():
             .order_by("-created")
             .first()
         )
-        if newest_message and newest_message.created < time_15days_ago:
+        newest_video_call = (
+            LivekitSession.objects.filter(
+                Q(u1=match.user1, u2=match.user2) | Q(u1=match.user2, u2=match.user1),
+                both_have_been_active=True,
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if (
+            newest_message
+            and newest_message.created < time_15days_ago
+            and (newest_video_call and newest_video_call.created_at < time_15days_ago)
+        ):
+            # TODO: Also exlude completed and 'off-plattform' matches!
+            # TODO: Also prob exlucde matches that had a two user video call instead
             match.is_ghosted_match = True
             ghosted_user = newest_message.sender
             ghosted_by_user = newest_message.recipient
@@ -1627,5 +1645,9 @@ def automatic_emails_fm021_fm022__ghosted_matches():
             match.auto_email_fm021_send = True
             match.auto_email_fm022_send = True
             match.save()
+            # We actually remove the matching and mark it as 'ghosted'
+            process_report_unmatch(
+                match.user1, match, "ghosted", "Single party contact for 15 days", send_message=False
+            )
 
     return {"status": "sent", "matches": matches_single_party_contact}

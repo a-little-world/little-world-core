@@ -71,6 +71,7 @@ def still_in_contact(request, match_uuid: str, answer: str):
             match.save()
 
     # 2 - Either re-direct or render a info card
+    # TODO: restict to hardcoded or env list to avoid any injection option ( though we have the token so we would know the account that tried shenanigans )
     should_redirect, redirect_url = get_redirect_url(redirect_slug, user_hash, match_uuid)
     if should_redirect:
         return redirect(redirect_url)
