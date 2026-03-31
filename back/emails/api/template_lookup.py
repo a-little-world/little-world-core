@@ -194,6 +194,7 @@ def still_in_contact_yes_url(user, match, context={"redirect_slug_yes": "info-sc
     Generate URL for confirming continued contact with match partner outside the platform
     """
     redirect_slug = context.get("redirect_slug_yes", "info-screen")
+    # TODO: some yes causes 'automatic-emails-m051' -> another email
     return f"{settings.BASE_URL}/api/still_in_contact/{str(match.uuid)}/yes/?user_hash={str(user.hash)}&user_token={str(user.state.still_in_contact_form_access_token_user)}&redirect_slug={redirect_slug}"
 
 

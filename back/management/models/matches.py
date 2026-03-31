@@ -76,6 +76,9 @@ class Match(models.Model):
         "management.User", on_delete=models.CASCADE, related_name="ghosted_by", null=True, blank=True
     )
 
+    # YES - case confirm email 'automatic-emails-m051'
+    auto_email_m051_send = models.BooleanField(default=False, null=False, blank=False)
+
     match_type = models.CharField(
         max_length=20,
         choices=MatchType.choices,

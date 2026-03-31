@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.shortcuts import redirect
 from django.urls import path
 from django.utils import timezone
@@ -14,6 +15,7 @@ def get_redirect_url(redirect_slug: str, user_hash: str, match_uuid: str) -> (bo
     if redirect_slug == "info-screen":
         return False, "info-screen"
     elif redirect_slug == "match-form1":
+        # used by 'automatic-emails-m032' and 'automatic-emails-m033' and 'automatic-emails-m042'
         return (
             True,
             f"https://docs.google.com/forms/d/e/1FAIpQLScZpHVBkd9oXMTXGwH6aIUS8-Ep3LGbmHzx0wKYTA0fDpzJtQ/viewform?entry.1868418501={user_hash}&entry.1064841735={match_uuid}",
@@ -54,6 +56,19 @@ def still_in_contact(request, match_uuid: str, answer: str):
         }
     )
     match.save()
+
+    # 1.5 Check if auto action should be taken e.g.: after marking yes for a match we should send a confirm email 'automatic-emails-m051'
+    if answer == "yes" and redirect_slug == "match-form1" and not match.auto_email_m051_send:
+        if settings.ENABLE_AUTO_EMAILS__M051:
+            from management.tasks import send_email_background
+
+            emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M051)
+            # TODO: confirm if should send to one or both users
+            send_email_background.delay(
+                "automatic-emails-m051", user_id=match.user1.id, match_id=match.pk, emulated_send=emulated_send
+            )
+            match.auto_email_m051_send = True
+            match.save()
 
     # 2 - Either re-direct or render a info card
     should_redirect, redirect_url = get_redirect_url(redirect_slug, user_hash, match_uuid)
