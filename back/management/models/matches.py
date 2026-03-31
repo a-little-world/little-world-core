@@ -71,6 +71,10 @@ class Match(models.Model):
     # TODO: implement integration!
     auto_email_fm021_send = models.BooleanField(default=False, null=False, blank=False)
     auto_email_fm022_send = models.BooleanField(default=False, null=False, blank=False)
+    is_ghosted_match = models.BooleanField(default=False, null=False, blank=False)
+    ghosted_by = models.ForeignKey(
+        "management.User", on_delete=models.CASCADE, related_name="ghosted_by", null=True, blank=True
+    )
 
     match_type = models.CharField(
         max_length=20,
