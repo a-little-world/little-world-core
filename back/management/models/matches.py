@@ -66,12 +66,11 @@ class Match(models.Model):
     auto_marking_updated_logs = models.JSONField(default=list)
 
     send_automatic_message_1week = models.BooleanField(default=True)
-    
+
     # 15 days single party contact emails:
     # TODO: implement integration!
     auto_email_fm021_send = models.BooleanField(default=False, null=False, blank=False)
     auto_email_fm022_send = models.BooleanField(default=False, null=False, blank=False)
-    
 
     match_type = models.CharField(
         max_length=20,
