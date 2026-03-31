@@ -58,7 +58,7 @@ user_category_buckets = [
 
 
 def get_match_waiting_time(user):
-    if not user.state.had_prematching_call:
+    if not user.state.had_prematching_call:  # TODO #840; set 'is_onboarded' to True
         return {"number_of_days": None, "waiting_time_string": "Prematch call not completed", "first_search": None}
 
     if user.state.searching_state != State.SearchingStateChoices.SEARCHING:

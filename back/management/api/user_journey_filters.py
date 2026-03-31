@@ -47,7 +47,7 @@ def user_created(qs=User.objects.all()):
         state__user_form_state=State.UserFormStateChoices.UNFILLED,
         state__unresponsive=False,
         state__email_authenticated=False,
-        # state__had_prematching_call=False,
+        state__is_onboarded=False,
     )
 
 
@@ -73,7 +73,7 @@ def user_form_completed(qs=User.objects.all()):
         state__user_form_state=State.UserFormStateChoices.FILLED,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=False,
+        state__is_onboarded=False,
         prematchingappointment__isnull=True,
     ).exclude(
         profile__lang_skill__contains=[
@@ -134,7 +134,7 @@ def too_low_german_level_or_not_onboarded(qs=User.objects.all()):
                 state__user_form_state=State.UserFormStateChoices.FILLED,
                 state__email_authenticated=True,
                 state__unresponsive=False,
-                state__had_prematching_call=False,
+                state__had_prematching_call=False,  # TODO #840; set 'is_onboarded' to False
             )
         )
         .exclude(id__in=never_active_or_delete_or_created)
@@ -149,7 +149,7 @@ def not_too_low_german_level__is_onboarded(qs=User.objects.all()):
         state__user_form_state=State.UserFormStateChoices.FILLED,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=True,
+        state__had_prematching_call=True,  # TODO #840; set 'is_onboarded' to True
     ).exclude(id__in=tlg)
 
 
@@ -164,7 +164,7 @@ def booked_onboarding_call(qs=User.objects.all()):
             state__user_form_state=State.UserFormStateChoices.FILLED,
             state__email_authenticated=True,
             state__unresponsive=False,
-            state__had_prematching_call=False,  # TODO: check if this is correct
+            state__had_prematching_call=False,  # TODO #840; set 'is_onboarded' to False
         )
         .annotate(
             num_appointments=Count(
@@ -201,7 +201,7 @@ def first_search_v1(qs=User.objects.all()):
             state__searching_state=State.SearchingStateChoices.SEARCHING,
             state__email_authenticated=True,
             state__unresponsive=False,
-            state__had_prematching_call=True,
+            state__had_prematching_call=True,  # TODO #840; set 'is_onboarded' to True
         )
         .exclude(id__in=users_w_open_proposals)
         .exclude(id__in=searched_too_long)
@@ -233,7 +233,7 @@ def first_search_v2(qs=User.objects.all(), require_min_lang_level=True):
             state__searching_state=State.SearchingStateChoices.SEARCHING,
             state__email_authenticated=True,
             state__unresponsive=False,
-            state__had_prematching_call=True,
+            state__had_prematching_call=True,  # TODO #840; set 'is_onboarded' to True
         )
         .exclude(id__in=users_w_open_proposals)
         .annotate(
@@ -279,7 +279,7 @@ def user_searching(qs=User.objects.all()):
             state__searching_state=State.SearchingStateChoices.SEARCHING,
             state__email_authenticated=True,
             state__unresponsive=False,
-            state__had_prematching_call=True,
+            state__had_prematching_call=True,  # TODO #840; set 'is_onboarded' to True
         )
         .annotate(
             num_matches=Count("match_user1", filter=Q(match_user1__support_matching=False))
@@ -336,7 +336,7 @@ def match_takeoff(qs=User.objects.all()):
         state__user_form_state=State.UserFormStateChoices.FILLED,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=True,
+        state__had_prematching_call=True,  # TODO #840; set 'is_onboarded' to True
     )
 
     qs = (
@@ -369,7 +369,7 @@ def ongoing_non_completed_match(qs=User.objects.all()):
         state__user_form_state=State.UserFormStateChoices.FILLED,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=True,
+        state__had_prematching_call=True,  # TODO #840; set 'is_onboarded' to True
     )
 
     users_with_freeplay_matches = get_user_involved(match_free_play(), qs)
@@ -403,7 +403,7 @@ def active_match(qs=User.objects.all(), last_interaction_days=21):
 
     users = qs.filter(
         Q(match_user1__in=ongoing_matches) | Q(match_user2__in=ongoing_matches),
-        state__had_prematching_call=True,
+        state__had_prematching_call=True,  # TODO #840; set 'is_onboarded' to True
         is_active=True,
     ).distinct()
 
