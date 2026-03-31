@@ -162,6 +162,8 @@ def completed_match(
     user1_to_user2_message_exists = Message.objects.filter(sender=OuterRef("user1"), recipient=OuterRef("user2"))
     user2_to_user1_message_exists = Message.objects.filter(sender=OuterRef("user2"), recipient=OuterRef("user1"))
 
+    # TODO: update completed match criteria!
+
     completed_or_completed_off_plattform = Match.objects.filter(
         Q(completed=True) | Q(completed_off_plattform=True)
     ).exclude(match_type=MatchType.TEMPORARY)

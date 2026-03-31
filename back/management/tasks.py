@@ -1565,3 +1565,67 @@ def automatic_emails_u053_u054():
     }
 
     return report
+
+
+def automatic_emails_fm021_fm022__ghosted_matches():
+    """
+    Implements automatic emails for 15 days single party contact
+    sends 2 different emails:
+    - [ ] [`automatic-emails-fm021`](https://little-world.com/matching/emails/automatic-emails-fm021) to the ghoster
+    - [ ] [`automatic-emails-fm022`](https://little-world.com/matching/emails/automatic-emails-fm022) to the ghosted
+    """
+    from chat.models import Message
+    from django.conf import settings
+    from django.utils import timezone
+
+    from management.models.matches import Match
+
+    time_15days_ago = timezone.now() - timedelta(days=15)
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.ENABLE_AUTO_EMAILS__FM021_FM022)
+
+    report = {
+        "matches_single_party_contact": 0,
+        "matches_ghosted": [],
+        "fm021_send_to": [],
+        "fm022_send_to": [],
+    }
+
+    matches_single_party_contact = Match.objects.filter(
+        confirmed=True,
+        support_matching=False,
+        active=True,
+        auto_email_fm021_send=False,
+        auto_email_fm022_send=False,
+        is_ghosted_match=False,
+    )
+
+    # Check if matches should be marked 'ghosted'
+    # TODO: confirm if there should be a way to get out of 'ghosted' state
+    report["matches_single_party_contact"] = matches_single_party_contact.count()
+    for match in matches_single_party_contact:
+        newest_message = (
+            Message.objects.filter(
+                Q(sender=match.user1, recipient=match.user2) | Q(sender=match.user2, recipient=match.user1)
+            )
+            .order_by("-created")
+            .first()
+        )
+        if newest_message and newest_message.created < time_15days_ago:
+            match.is_ghosted_match = True
+            ghosted_user = newest_message.sender
+            ghosted_by_user = newest_message.recipient
+            match.ghosted_by = ghosted_by_user
+            match.marked_as_ghosted_at = timezone.now()
+            match.save()
+            report["matches_ghosted"].append(match.uuid)
+            send_email_background.delay("automatic-emails-fm021", user_id=ghosted_user.id, emulated_send=emulated_send)
+            send_email_background.delay(
+                "automatic-emails-fm022", user_id=ghosted_by_user.id, emulated_send=emulated_send
+            )
+            report["fm021_send_to"].append([str(match.uuid), ghosted_user.id])
+            report["fm022_send_to"].append([str(match.uuid), ghosted_by_user.id])
+            match.auto_email_fm021_send = True
+            match.auto_email_fm022_send = True
+            match.save()
+
+    return {"status": "sent", "matches": matches_single_party_contact}
