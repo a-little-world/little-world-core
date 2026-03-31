@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from celery import shared_task
 from cookie_consent.models import Cookie, CookieGroup
+from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone as dj_timezone
 from translations import get_translation
@@ -11,6 +12,7 @@ from translations import get_translation
 from management.models.backend_state import BackendState
 from management.models.banner import Banner
 from management.models.community_events import CommunityEvent
+from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.models.state import State
 from management.models.user import User
 
@@ -332,7 +334,7 @@ def burst_calculate_matching_scores(user_combinations=[]):
     from management.api.scores import score_between_db_update
 
     """
-    Calculates the matching scores for all users requiring a match at the moment 
+    Calculates the matching scores for all users requiring a match at the moment
     """
     print("combination")
 
@@ -597,6 +599,20 @@ def send_sms_background(self, user_hash, message):
 
     try:
         receipient = User.objects.get(hash=user_hash)
+
+        # we only send international 'sms' to prio users
+        # This is mianly cause prices are very high, they are per-segment and differnet for every country
+        # our sms have 3-10 segemtns, so this get quite expensive quickly
+        country_code = str(receipient.profile.phone_mobile.country_code)
+        if (receipient.company not in settings.MATCH_PRIORITY_COMPANIES) and (country_code != "49"):
+            receipient.sms(
+                send_initator=get_base_management_user(),
+                message=message,
+                dont_send=True,
+                skip_reason="Not prio user and not german phone number",
+            )
+            return {"status": "skipped", "reason": "Not prio user and not german phone number"}
+
         result = receipient.sms(send_initator=get_base_management_user(), message=message)
         return {"status": "sent", "result": result}
     except Exception as e:
@@ -1072,7 +1088,7 @@ def daily_auto_email_report():
     from django.utils import timezone
     from emails.models import EmailLog
 
-    from management.api.slack import notify_security_channel
+    from management.api.slack import notify_communication_channel, notify_security_channel
 
     enabled_emails = {
         "AUTOMATIC_EMAILS__U023_U024_U025": {
@@ -1195,6 +1211,7 @@ def daily_auto_email_report():
 
     message = "\n".join(message_parts)
     notify_security_channel(message)
+    notify_communication_channel(message)
 
     return {
         "status": "sent",
@@ -1213,7 +1230,7 @@ def daily_sms_report():
     from django.conf import settings
     from django.utils import timezone
 
-    from management.api.slack import notify_security_channel
+    from management.api.slack import notify_communication_channel, notify_security_channel
     from management.models.sms import SmsModel
 
     now = timezone.now()
@@ -1282,6 +1299,7 @@ def daily_sms_report():
 
     message = "\n".join(message_parts)
     notify_security_channel(message)
+    notify_communication_channel(message)
 
     return {
         "status": "sent",
@@ -1292,3 +1310,245 @@ def daily_sms_report():
         "unique_recipients": len(recipient_sms),
         "unique_initiators": len(initiator_sms),
     }
+
+
+def automatic_emails_m043_m044_m045():
+    """
+    Implements after 5, 8, 10 Video Calls Match Emails
+    and the
+    - [`automatic-emails-m043`](https://little-world.com/matching/emails/automatic-emails-m043) after 5 video calls, send once
+    - [`automatic-emails-m044`](https://little-world.com/matching/emails/automatic-emails-m044) after 8 video calls, send once
+    - [`automatic-emails-m045`](https://little-world.com/matching/emails/automatic-emails-m045) after 10 video calls, send once
+    TODO
+    - [ ] Add correct form urls...
+    """
+    from django.conf import settings
+    from django.utils import timezone
+
+    from management.models.matches import Match, MatchType
+
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.ENABLE_AUTO_EMAILS__M043_M044_M045)
+
+    report = {
+        "counters_synced_m043": 0,
+        "counters_synced_m044": 0,
+        "counters_synced_m045": 0,
+        "m043_send_to": [],
+        "m044_send_to": [],
+        "m045_send_to": [],
+    }
+
+    # Counters are synced before this task
+    time_1week_ago = timezone.now() - timedelta(days=7)
+    from django.db.models import F
+
+    # 1 - Sync counters
+    # === 10 x Video Calls ===
+    sync__matches_video_call_m045 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        auto_email_m043_send=True,
+        auto_email_m044_send=True,
+        auto_email_m045_send=False,
+        latest_counter_sync__lte=F("latest_interaction_at"),
+    )
+
+    for match in sync__matches_video_call_m045:
+        report["counters_synced_m045"] += 1
+        match.sync_counters()
+
+    matches_video_call_m045 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        auto_email_m043_send=True,
+        auto_email_m044_send=True,
+        auto_email_m045_send=False,
+        completed_5_video_calls=True,
+        completed_8_video_calls=True,
+        completed_10_video_calls=True,
+        latest_interaction_at__gte=time_1week_ago,
+    )
+
+    # Send 10 x Video Call Emails
+    for match in matches_video_call_m045:
+        send_email_background.delay(
+            "automatic-emails-m045", user_id=match.user1.id, match_id=match.pk, emulated_send=emulated_send
+        )
+        send_email_background.delay(
+            "automatic-emails-m045", user_id=match.user2.id, match_id=match.pk, emulated_send=emulated_send
+        )
+        report["m045_send_to"].append([str(match.uuid), match.user1.id])
+        report["m045_send_to"].append([str(match.uuid), match.user2.id])
+        match.auto_email_m043_send = True
+        match.auto_email_m044_send = True
+        match.auto_email_m045_send = True
+        match.completed_10_video_calls = True
+        match.save()
+
+    # === 8 x Video Calls ===
+    sync__matches_video_call_m044 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        auto_email_m043_send=True,
+        auto_email_m044_send=False,
+        auto_email_m045_send=False,
+        latest_counter_sync__lte=F("latest_interaction_at"),
+    )
+
+    for match in sync__matches_video_call_m044:
+        report["counters_synced_m044"] += 1
+        match.sync_counters()
+
+    matches_video_call_m044 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        auto_email_m043_send=True,
+        auto_email_m044_send=False,
+        auto_email_m045_send=False,
+        completed_5_video_calls=True,
+        completed_8_video_calls=True,
+        completed_10_video_calls=False,
+        latest_interaction_at__gte=time_1week_ago,
+    )
+
+    # Send 8x Video Call Emails
+    for match in matches_video_call_m044:
+        send_email_background.delay(
+            "automatic-emails-m044", user_id=match.user1.id, match_id=match.pk, emulated_send=emulated_send
+        )
+        send_email_background.delay(
+            "automatic-emails-m044", user_id=match.user2.id, match_id=match.pk, emulated_send=emulated_send
+        )
+        report["m044_send_to"].append([str(match.uuid), match.user1.id])
+        report["m044_send_to"].append([str(match.uuid), match.user2.id])
+        match.auto_email_m043_send = True
+        match.auto_email_m044_send = True
+        match.completed_5_video_calls = True
+        match.completed_8_video_calls = True
+        match.save()
+
+    # === 5 x Video Calls ===
+    # Only check matches where latest_counter_sync <= latest_interaction_at
+    sync__matches_video_call_m043 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        auto_email_m043_send=False,
+        auto_email_m044_send=False,
+        auto_email_m045_send=False,
+        latest_counter_sync__lte=F("latest_interaction_at"),
+    )
+
+    for match in sync__matches_video_call_m043:
+        report["counters_synced_m043"] += 1
+        match.sync_counters()
+
+    matches_video_call_m043 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        auto_email_m043_send=False,
+        auto_email_m044_send=False,
+        auto_email_m045_send=False,
+        completed_5_video_calls=True,
+        completed_8_video_calls=False,
+        completed_10_video_calls=False,
+        latest_interaction_at__gte=time_1week_ago,
+    )
+
+    # Send 5x Video Call Emails
+    for match in matches_video_call_m043:
+        send_email_background.delay("automatic-emails-m043", user_id=match.user1.id, emulated_send=emulated_send)
+        send_email_background.delay("automatic-emails-m043", user_id=match.user2.id, emulated_send=emulated_send)
+        report["m043_send_to"].append([str(match.uuid), match.user1.id])
+        report["m043_send_to"].append([str(match.uuid), match.user2.id])
+        match.auto_email_m043_send = True
+        match.completed_5_video_calls = True
+        match.save()
+
+    return report
+
+
+def automatic_emails_u053_u054():
+    """
+    Implements automatic emails for not attended pre-matching calls
+    u053: send if at least 2 days passed since missed appointment
+    u054: send if at least 7 days passed since missed appointment (follow-up to u053)
+    """
+    from django.conf import settings
+    from django.utils import timezone
+
+    time_2days_ago = timezone.now() - timedelta(days=2)
+    time_7days_ago = timezone.now() - timedelta(days=7)
+
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.ENABLE_AUTO_EMAILS__U053_U054)
+
+    users_missed_onboarding = User.objects.filter(
+        active=True,
+        state__last_prematching_call_not_attended=True,
+        state__last_not_attended_prematching_call_at__lte=time_2days_ago,
+        state__not_attended_auto_email_u053_send=False,
+        state__not_attended_auto_email_u054_send=False,
+        state__had_prematching_call=False,
+    )
+
+    users_with_new_appointment = set()
+    for user in users_missed_onboarding:
+        has_new_appointment = PreMatchingAppointment.objects.filter(
+            user=user,
+            start_time__gte=user.state.last_not_attended_prematching_call_at,
+        ).exists()
+        if has_new_appointment:
+            users_with_new_appointment.add(user.id)
+
+    user_missed_last_onboarding_u053 = users_missed_onboarding.exclude(id__in=users_with_new_appointment)
+
+    users_missed_onboarding_u054 = User.objects.filter(
+        active=True,
+        state__last_prematching_call_not_attended=True,
+        state__last_not_attended_prematching_call_at__lte=time_7days_ago,
+        state__not_attended_auto_email_u053_send=True,
+        state__not_attended_auto_email_u054_send=False,
+        state__had_prematching_call=False,
+    )
+
+    users_with_new_appointment_u054 = set()
+    for user in users_missed_onboarding_u054:
+        has_new_appointment = PreMatchingAppointment.objects.filter(
+            user=user,
+            start_time__gte=user.state.last_not_attended_prematching_call_at,
+        ).exists()
+        if has_new_appointment:
+            users_with_new_appointment_u054.add(user.id)
+
+    user_missed_last_onboarding_u054 = users_missed_onboarding_u054.exclude(id__in=users_with_new_appointment_u054)
+
+    u053_hashes = []
+    for user in user_missed_last_onboarding_u053:
+        send_email_background.delay("automatic-emails-u053", user_id=user.id, emulated_send=emulated_send)
+        user.state.not_attended_auto_email_u053_send = True
+        user.state.save()
+        u053_hashes.append(user.hash)
+
+    u054_hashes = []
+    for user in user_missed_last_onboarding_u054:
+        send_email_background.delay("automatic-emails-u054", user_id=user.id, emulated_send=emulated_send)
+        user.state.not_attended_auto_email_u054_send = True
+        user.state.save()
+        u054_hashes.append(user.hash)
+
+    report = {
+        "status": "sent",
+        "u053_count": len(u053_hashes),
+        "u053_users": u053_hashes,
+        "u054_count": len(u054_hashes),
+        "u054_users": u054_hashes,
+        "excluded_new_appointment_u053": len(users_with_new_appointment),
+        "excluded_new_appointment_u054": len(users_with_new_appointment_u054),
+    }
+
+    return report

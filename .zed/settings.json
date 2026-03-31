@@ -2,8 +2,23 @@
   "terminal": {
     "detect_venv": {
       "on": {
-        "directories": ["./back/venv"],
+        "directories": ["venv"],
         "activate_script": "default"
+      }
+    }
+  },
+  "lsp": {
+    "pyright": {
+      "settings": {
+        "python": {
+          "venvPath": ".",
+          "venv": "venv",
+          "analysis": {
+            "extraPaths": [
+              "./back"
+            ]
+          }
+        }
       }
     }
   }

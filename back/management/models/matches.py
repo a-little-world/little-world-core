@@ -39,6 +39,7 @@ class Match(models.Model):
     total_mutal_video_calls_counter = models.IntegerField(default=0)
     latest_interaction_at = models.DateTimeField(default=timezone.now)
     first_interaction_at = models.DateTimeField(default=None, null=True, blank=True)
+    latest_counter_sync = models.DateTimeField(default=timezone.now)
 
     interaction_reminder_2_days_send = models.BooleanField(default=False, null=False, blank=False)
     interaction_reminder_7_days_send = models.BooleanField(default=False, null=False, blank=False)
@@ -48,6 +49,15 @@ class Match(models.Model):
     auto_email_m032_send = models.BooleanField(default=False, null=False, blank=False)
     auto_email_m033_send = models.BooleanField(default=False, null=False, blank=False)
     auto_email_m042_send = models.BooleanField(default=False, null=False, blank=False)
+
+    # Video Call X conratulation
+    auto_email_m043_send = models.BooleanField(default=False, null=False, blank=False)
+    auto_email_m044_send = models.BooleanField(default=False, null=False, blank=False)
+    auto_email_m045_send = models.BooleanField(default=False, null=False, blank=False)
+
+    completed_5_video_calls = models.BooleanField(default=False, null=False, blank=False)
+    completed_8_video_calls = models.BooleanField(default=False, null=False, blank=False)
+    completed_10_video_calls = models.BooleanField(default=False, null=False, blank=False)
 
     # If a certain match completed condition is met, this will be set to True
     completed = models.BooleanField(default=False)
@@ -93,9 +103,20 @@ class Match(models.Model):
         if self.total_messages_counter > 0 or self.total_mutal_video_calls_counter > 0:
             self.confirmed = True
 
+        if self.total_mutal_video_calls_counter >= 5:
+            self.completed_5_video_calls = True
+
+        if self.total_mutal_video_calls_counter >= 8:
+            self.completed_8_video_calls = True
+
+        if self.total_mutal_video_calls_counter >= 10:
+            self.completed_10_video_calls = True
+
+        self.latest_counter_sync = timezone.now()
         # check if the match should permanently be marked as completed!
         from management.api.match_journey_filters import completed_match
 
+        # TODO: can this be depricated?
         if completed_match(Match.objects.filter(id=self.id)).exists():
             self.completed = True
 

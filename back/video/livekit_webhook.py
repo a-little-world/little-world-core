@@ -18,6 +18,8 @@ from video.models import (
     SerializeLivekitSession,
 )
 
+# TODO: add auto update to 'total_mutal_video_calls_counter'
+
 
 def process_webhook_random_call__participant_joined(data, event, participant_id, user, room_id, room):
     # 4 - we determine if a session is already active for that room
