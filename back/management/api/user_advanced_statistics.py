@@ -504,6 +504,13 @@ def bucket_statistics(request):
     start_date = request.data.get("start_date", "2022-01-01")
     end_date = request.data.get("end_date", today)
 
+    if isinstance(end_date, str):
+        end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
+    else:
+        end_date_obj = end_date
+    end_date_inclusive = datetime.combine(end_date_obj, datetime.max.time())
+    end_date = end_date_inclusive
+
     # Get pre-filtered users based on permissions and date range
     pre_filtered_users = User.objects.all()
     if not request.user.is_staff:
