@@ -641,7 +641,7 @@ def automatic_emails_u023_u024_u025():
     for template, (days, three_days_reminder, seven_days_reminder, fourteen_days_reminder) in reminder.items():
         users = User.objects.filter(
             state__user_form_completed_at__lte=dj_timezone.now() - timedelta(days=days),
-            state__had_prematching_call=False,  # TODO #840; set 'is_onboarded' to False
+            state__is_onboarded=False,
             state__user_form_completed_3_days_reminder_send=three_days_reminder,
             state__user_form_completed_7_days_reminder_send=seven_days_reminder,
             state__user_form_completed_14_days_reminder_send=fourteen_days_reminder,
@@ -969,7 +969,7 @@ def automatic_emails_u072_u073_u074():
         state__searching_state=State.SearchingStateChoices.SEARCHING,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=True,  # TODO #840; set 'is_onboarded' to False
+        state__is_onboarded=True,
         state__auto_email_u072_send=False,
         state__has_received_first_match=False,
     )
@@ -985,7 +985,7 @@ def automatic_emails_u072_u073_u074():
         state__searching_state=State.SearchingStateChoices.SEARCHING,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=True,  # TODO #840; set 'is_onboarded' to False
+        state__is_onboarded=True,
         state__auto_email_u073_send=False,
         state__has_received_first_match=False,
     )
@@ -1000,7 +1000,7 @@ def automatic_emails_u072_u073_u074():
         state__searching_state=State.SearchingStateChoices.SEARCHING,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=True,  # TODO #840; set 'is_onboarded' to False
+        state__is_onboarded=True,
         state__auto_email_u074_send=False,
         state__has_received_first_match=False,
     )
@@ -1036,7 +1036,7 @@ def automatic_emails_u082_u083_u084():
         state__searching_state=State.SearchingStateChoices.SEARCHING,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=True,  # TODO #840; set 'is_onboarded' to False
+        state__is_onboarded=True,
         state__auto_emails_u081_send=True,
         state__auto_emails_u082_send=False,
         state__has_received_first_match=True,
@@ -1513,7 +1513,7 @@ def automatic_emails_u053_u054():
         state__last_not_attended_prematching_call_at__lte=time_2days_ago,
         state__not_attended_auto_email_u053_send=False,
         state__not_attended_auto_email_u054_send=False,
-        state__had_prematching_call=False,  # TODO #840; set 'is_onboarded' to False
+        state__is_onboarded=False,
     )
 
     users_with_new_appointment = set()
@@ -1533,7 +1533,7 @@ def automatic_emails_u053_u054():
         state__last_not_attended_prematching_call_at__lte=time_7days_ago,
         state__not_attended_auto_email_u053_send=True,
         state__not_attended_auto_email_u054_send=False,
-        state__had_prematching_call=False,  # TODO #840; set 'is_onboarded' to False
+        state__is_onboarded=False,
     )
 
     users_with_new_appointment_u054 = set()

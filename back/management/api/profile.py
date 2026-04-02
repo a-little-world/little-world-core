@@ -109,7 +109,6 @@ class ProfileCompletedApi(APIView):
             # Auto-complete onboarding call for companies with custom onboarding
             if state.company and state.company.lower() in settings.CUSTOM_ONBOARDING_COMPANIES:
                 state.onboarding_call_completed_at = timezone.now()
-                state.had_prematching_call = True
                 state.is_onboarded = True
 
             state.save()

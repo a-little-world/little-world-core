@@ -612,7 +612,7 @@ def get_users_to_consider(usr=None, consider_only_registered_within_last_x_days=
         .filter(
             state__searching_state=State.SearchingStateChoices.SEARCHING,
             state__user_form_state=State.UserFormStateChoices.FILLED,
-            state__had_prematching_call=True,  # TODO #840; set 'is_onboarded' to FiTrue
+            state__is_onboarded=True,
             state__email_authenticated=True,
             is_staff=False,
             has_open_proposal=False,

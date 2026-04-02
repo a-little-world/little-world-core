@@ -192,7 +192,6 @@ def create_test_user(i, user_seeds=None, password=None, email=None, pass_if_exis
 
     us = usr.state
     us.email_authenticated = True
-    us.had_prematching_call = True
     us.is_onboarded = True
     us.user_form_completed_at = timezone.now()
     us.save()

@@ -21,7 +21,6 @@ class PreMatchingAppointmentAdvancedSerializer(serializers.ModelSerializer):
         user = instance.user
 
         representation["user"] = AdvancedUserSerializer(user).data
-        representation["had_prematching_call"] = user.state.had_prematching_call
         representation["is_onboarded"] = user.state.is_onboarded
 
         return representation
