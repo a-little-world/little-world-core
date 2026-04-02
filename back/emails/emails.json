@@ -170,12 +170,12 @@
       "template": "react_emails/prematching-call-no-show.html",
       "theme": "little-world"
     },
-    "prematching-call-post-thanks": {
-      "id": "prematching-call-post-thanks",
+    "automated-emails-u071": {
+      "id": "automated-emails-u071",
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "{{ first_name }} & Little World: Danke f\u00fcr die Teilnahme am Einf\u00fchrungsgespr\u00e4ch",
-      "template": "react_emails/prematching-call-post-thanks.html",
+      "template": "react_emails/u071-onboarding-completed.html",
       "theme": "little-world"
     },
     "patenmatch-matching-back-online": {
@@ -683,6 +683,27 @@
       "lookup": "emails.api.template_lookup.user_form_url",
       "depends_on": [
         "user"
+      ]
+    },
+    "newsletter_subscribe_url": {
+      "id": "newsletter_subscribe_url",
+      "lookup": "emails.api.template_lookup.newsletter_subscribe_url",
+      "depends_on": [
+        "context.newsletter_subscribe_url"
+      ]
+    },
+    "group_calls_url": {
+      "id": "group_calls_url",
+      "lookup": "emails.api.template_lookup.group_calls_url",
+      "depends_on": [
+        "context.group_calls_url"
+      ]
+    },
+    "self_onboarding_url": {
+      "id": "self_onboarding_url",
+      "lookup": "emails.api.template_lookup.self_onboarding_url",
+      "depends_on": [
+        "context.self_onboarding_url"
       ]
     },
     "confirm_in_contact_url": {

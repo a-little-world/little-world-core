@@ -105,6 +105,18 @@ def date():
     return str(timezone.now())
 
 
+def newsletter_subscribe_url():
+    return "https://home.little-world.com/newsletter/"
+
+
+def group_calls_url(user):
+    return f"{settings.BASE_URL}/app/events"
+
+
+def self_onboarding_url(user):
+    return f"{settings.BASE_URL}/app/onboarding/walkthrough"
+
+
 def patenmatch_email_verification_url(user):
     assert isinstance(user, PatenmatchUser)
     return settings.PATENMATCH_URL + user.get_verification_view_url()
