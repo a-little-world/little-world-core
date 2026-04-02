@@ -9,7 +9,7 @@ from rest_framework_dataclasses.serializers import DataclassSerializer
 from translations import get_translation
 
 from management import models as management_models
-from management.tasks import slack_notify_communication_channel_async
+from management.tasks import slack_notify_communication_channel_async, slack_notify_security_channel_async
 
 
 @dataclass
@@ -23,7 +23,7 @@ class UnmatchReportSerializer(DataclassSerializer):
         dataclass = UnmatchReportParam
 
 
-def process_report_unmatch(request, kind="report"):
+def process_request(request, kind="report"):
     assert kind in ["report", "unmatch", "user_deleted"]
 
     serializer = UnmatchReportSerializer(data=request.data)
@@ -37,17 +37,27 @@ def process_report_unmatch(request, kind="report"):
 
     matching = matching.first()
 
-    if matching.support_matching:
+    if matching and matching.support_matching:
         raise serializers.ValidationError("You can not report a support match!")
+    assert matching, "Match does not exist!"
 
+    return process_report_unmatch(request.user, matching, kind, data.reason, send_message=True)
+
+
+def process_report_unmatch(
+    user, matching: management_models.matches.Match, kind: str, reason: str, send_message: bool = True
+):
+    assert kind in ["report", "unmatch", "user_deleted", "ghosted"]
+
+    match_id = str(matching.uuid)
     matching.active = False
     matching.report_unmatch.append(
         {
             "kind": kind,
-            "reason": data.reason,
-            "match_id": data.match_id,
-            "user_id": request.user.pk,
-            "user_uuid": request.user.hash,
+            "reason": reason,
+            "match_id": match_id,
+            "user_id": user.pk,
+            "user_uuid": user.hash,
             "time": str(timezone.now()),
         }
     )
@@ -55,27 +65,29 @@ def process_report_unmatch(request, kind="report"):
 
     user_name_match = (
         matching.user2.profile.first_name
-        if matching.user2.profile.first_name != request.user.profile.first_name
+        if matching.user2.profile.first_name != user.profile.first_name
         else matching.user1.profile.first_name
     )
 
     if kind == "unmatch":
         default_message = get_translation("auto_messages.match_unmatched", lang="de").format(
-            first_name=request.user.profile.first_name, match_name=user_name_match
+            first_name=user.profile.first_name, match_name=user_name_match
         )
-
-        # TODO: send_email_background.delay("automatic-emails-fm021", user_id=request.user.id)
-        # TODO: (#831) also integrate https://little-world.com/matching/emails/automatic-emails-fm001
     else:
         default_message = get_translation("auto_messages.match_reported", lang="de").format(
-            first_name=request.user.profile.first_name, match_name=user_name_match
+            first_name=user.profile.first_name, match_name=user_name_match
         )
 
-    request.user.message(default_message)
+    if send_message:
+        user.message(default_message)
 
-    slack_notify_communication_channel_async.delay(
-        f"Match {data.match_id} has been {kind}-ed by {request.user.hash} with reason: {data.reason}"
-    )
+    slack_message = f"Match {match_id} has been {kind}-ed by {user.hash} with reason: {reason}"
+    if kind == "ghosted":
+        slack_message = f"*Automatic Match Removal* - {slack_message}"
+        slack_notify_security_channel_async.delay(slack_message)
+        slack_notify_communication_channel_async.delay(slack_message)
+    else:
+        slack_notify_communication_channel_async.delay(slack_message)
 
     return Response("Unmatched & Reported!", status=status.HTTP_200_OK)
 
@@ -86,7 +98,7 @@ def process_report_unmatch(request, kind="report"):
 @api_view(["POST"])
 @permission_classes([permissions.IsAuthenticated])
 def report(request):
-    return process_report_unmatch(request, kind="report")
+    return process_request(request, kind="report")
 
 
 @extend_schema(
@@ -95,4 +107,4 @@ def report(request):
 @api_view(["POST"])
 @permission_classes([permissions.IsAuthenticated])
 def unmatch(request):
-    return process_report_unmatch(request, kind="unmatch")
+    return process_request(request, kind="unmatch")

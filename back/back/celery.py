@@ -171,6 +171,16 @@ if settings.ENABLE_DAILY_SMS_REPORT:
         }
     )
 
+if settings.ENABLE_AUTO_EMAILS__FM021_FM022:
+    auto_emails.update(
+        {
+            "automatic-emails-fm021-fm022": {
+                "task": "management.tasks.automatic_emails_fm021_fm022__ghosted_matches",
+                "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+            }
+        }
+    )
+
 prod_shedules = {
     "record-bucket-statistics": {
         "task": "management.tasks.record_bucket_ids",

@@ -50,9 +50,9 @@ class TestAutomaticEmails_023_024_025(TestCase):
         self.valid_user_024.state.user_form_completed_at = dj_timezone.now() - timedelta(days=8)
         self.valid_user_025.state.user_form_completed_at = dj_timezone.now() - timedelta(days=15)
 
-        self.valid_user_023.state.had_prematching_call = False
-        self.valid_user_024.state.had_prematching_call = False
-        self.valid_user_025.state.had_prematching_call = False
+        self.valid_user_023.state.is_onboarded = False
+        self.valid_user_024.state.is_onboarded = False
+        self.valid_user_025.state.is_onboarded = False
 
         self.valid_user_024.state.user_form_completed_3_days_reminder_send = True
         self.valid_user_025.state.user_form_completed_3_days_reminder_send = True
@@ -68,9 +68,9 @@ class TestAutomaticEmails_023_024_025(TestCase):
         self.invalid_user_023_2.state.user_form_completed_at = dj_timezone.now() - timedelta(days=4)
         self.invalid_user_023_3.state.user_form_completed_at = dj_timezone.now() - timedelta(days=6)
 
-        self.invalid_user_023_1.state.had_prematching_call = False
-        self.invalid_user_023_2.state.had_prematching_call = False
-        self.invalid_user_023_3.state.had_prematching_call = True
+        self.invalid_user_023_1.state.is_onboarded = False
+        self.invalid_user_023_2.state.is_onboarded = False
+        self.invalid_user_023_3.state.is_onboarded = True
 
         self.invalid_user_023_2.state.user_form_completed_3_days_reminder_send = True
 
@@ -83,9 +83,9 @@ class TestAutomaticEmails_023_024_025(TestCase):
         self.invalid_user_024_2.state.user_form_completed_at = dj_timezone.now() - timedelta(days=4)
         self.invalid_user_024_3.state.user_form_completed_at = dj_timezone.now() - timedelta(days=8)
 
-        self.invalid_user_024_1.state.had_prematching_call = True
-        self.invalid_user_024_2.state.had_prematching_call = False
-        self.invalid_user_024_3.state.had_prematching_call = False
+        self.invalid_user_024_1.state.is_onboarded = True
+        self.invalid_user_024_2.state.is_onboarded = False
+        self.invalid_user_024_3.state.is_onboarded = False
 
         self.invalid_user_024_1.state.user_form_completed_3_days_reminder_send = True
         self.invalid_user_024_2.state.user_form_completed_3_days_reminder_send = True
@@ -100,9 +100,9 @@ class TestAutomaticEmails_023_024_025(TestCase):
         self.invalid_user_025_2.state.user_form_completed_at = dj_timezone.now() - timedelta(days=8)
         self.invalid_user_025_3.state.user_form_completed_at = dj_timezone.now() - timedelta(days=15)
 
-        self.invalid_user_025_1.state.had_prematching_call = False
-        self.invalid_user_025_2.state.had_prematching_call = False
-        self.invalid_user_025_3.state.had_prematching_call = False
+        self.invalid_user_025_1.state.is_onboarded = False
+        self.invalid_user_025_2.state.is_onboarded = False
+        self.invalid_user_025_3.state.is_onboarded = False
 
         self.invalid_user_025_1.state.user_form_completed_3_days_reminder_send = True
         self.invalid_user_025_2.state.user_form_completed_7_days_reminder_send = True
@@ -633,7 +633,7 @@ class TestAutomaticEmails_u072_u073_u074(TestCase):
         self.valid_user_u072.state.searching_state = State.SearchingStateChoices.SEARCHING
         self.valid_user_u072.state.email_authenticated = True
         self.valid_user_u072.state.unresponsive = False
-        self.valid_user_u072.state.had_prematching_call = True
+        self.valid_user_u072.state.is_onboarded = True
         self.valid_user_u072.state.has_received_first_match = False
         self.valid_user_u072.state.auto_email_u072_send = False
         self.valid_user_u072.state.save()
@@ -643,7 +643,7 @@ class TestAutomaticEmails_u072_u073_u074(TestCase):
         self.valid_user_u073.state.searching_state = State.SearchingStateChoices.SEARCHING
         self.valid_user_u073.state.email_authenticated = True
         self.valid_user_u073.state.unresponsive = False
-        self.valid_user_u073.state.had_prematching_call = True
+        self.valid_user_u073.state.is_onboarded = True
         self.valid_user_u073.state.has_received_first_match = False
         self.valid_user_u073.state.auto_email_u072_send = True  # u072 already sent
         self.valid_user_u073.state.auto_email_u073_send = False
@@ -654,7 +654,7 @@ class TestAutomaticEmails_u072_u073_u074(TestCase):
         self.valid_user_u074.state.searching_state = State.SearchingStateChoices.SEARCHING
         self.valid_user_u074.state.email_authenticated = True
         self.valid_user_u074.state.unresponsive = False
-        self.valid_user_u074.state.had_prematching_call = True
+        self.valid_user_u074.state.is_onboarded = True
         self.valid_user_u074.state.has_received_first_match = False
         self.valid_user_u074.state.auto_email_u072_send = True  # u072 already sent
         self.valid_user_u074.state.auto_email_u073_send = True  # u073 already sent
@@ -666,7 +666,7 @@ class TestAutomaticEmails_u072_u073_u074(TestCase):
         self.invalid_user_recent.state.searching_state = State.SearchingStateChoices.SEARCHING
         self.invalid_user_recent.state.email_authenticated = True
         self.invalid_user_recent.state.unresponsive = False
-        self.invalid_user_recent.state.had_prematching_call = True
+        self.invalid_user_recent.state.is_onboarded = False
         self.invalid_user_recent.state.has_received_first_match = False
         self.invalid_user_recent.state.save()
 
@@ -675,7 +675,7 @@ class TestAutomaticEmails_u072_u073_u074(TestCase):
         self.invalid_user_has_match.state.searching_state = State.SearchingStateChoices.SEARCHING
         self.invalid_user_has_match.state.email_authenticated = True
         self.invalid_user_has_match.state.unresponsive = False
-        self.invalid_user_has_match.state.had_prematching_call = True
+        self.invalid_user_has_match.state.is_onboarded = True
         self.invalid_user_has_match.state.has_received_first_match = True  # Has match
         self.invalid_user_has_match.state.save()
 
@@ -684,7 +684,7 @@ class TestAutomaticEmails_u072_u073_u074(TestCase):
         self.invalid_user_not_searching.state.searching_state = State.SearchingStateChoices.IDLE  # Not searching
         self.invalid_user_not_searching.state.email_authenticated = True
         self.invalid_user_not_searching.state.unresponsive = False
-        self.invalid_user_not_searching.state.had_prematching_call = True
+        self.invalid_user_not_searching.state.is_onboarded = False
         self.invalid_user_not_searching.state.has_received_first_match = False
         self.invalid_user_not_searching.state.save()
 
@@ -693,7 +693,6 @@ class TestAutomaticEmails_u072_u073_u074(TestCase):
         self.invalid_user_no_email.state.searching_state = State.SearchingStateChoices.SEARCHING
         self.invalid_user_no_email.state.email_authenticated = False  # Not authenticated
         self.invalid_user_no_email.state.unresponsive = False
-        self.invalid_user_no_email.state.had_prematching_call = True
         self.invalid_user_no_email.state.has_received_first_match = False
         self.invalid_user_no_email.state.save()
 
@@ -797,7 +796,7 @@ class TestAutomaticEmails_u082_u083_u084(TestCase):
         self.valid_user_u082.state.searching_state = State.SearchingStateChoices.SEARCHING
         self.valid_user_u082.state.email_authenticated = True
         self.valid_user_u082.state.unresponsive = False
-        self.valid_user_u082.state.had_prematching_call = True
+        self.valid_user_u082.state.is_onboarded = True
         self.valid_user_u082.state.has_received_first_match = True
         self.valid_user_u082.state.auto_emails_u081_send = True  # u081 sent
         self.valid_user_u082.state.auto_emails_u082_send = False
@@ -808,7 +807,7 @@ class TestAutomaticEmails_u082_u083_u084(TestCase):
         self.valid_user_u083.state.searching_state = State.SearchingStateChoices.SEARCHING
         self.valid_user_u083.state.email_authenticated = True
         self.valid_user_u083.state.unresponsive = False
-        self.valid_user_u083.state.had_prematching_call = True
+        self.valid_user_u083.state.is_onboarded = True
         self.valid_user_u083.state.has_received_first_match = True
         self.valid_user_u083.state.auto_emails_u081_send = True  # u081 sent
         self.valid_user_u083.state.auto_emails_u082_send = True  # u082 already sent
@@ -820,7 +819,7 @@ class TestAutomaticEmails_u082_u083_u084(TestCase):
         self.valid_user_u084.state.searching_state = State.SearchingStateChoices.SEARCHING
         self.valid_user_u084.state.email_authenticated = True
         self.valid_user_u084.state.unresponsive = False
-        self.valid_user_u084.state.had_prematching_call = True
+        self.valid_user_u084.state.is_onboarded = True
         self.valid_user_u084.state.has_received_first_match = True
         self.valid_user_u084.state.auto_emails_u081_send = True  # u081 sent
         self.valid_user_u084.state.auto_emails_u082_send = True  # u082 already sent
@@ -833,7 +832,7 @@ class TestAutomaticEmails_u082_u083_u084(TestCase):
         self.invalid_user_no_u081.state.searching_state = State.SearchingStateChoices.SEARCHING
         self.invalid_user_no_u081.state.email_authenticated = True
         self.invalid_user_no_u081.state.unresponsive = False
-        self.invalid_user_no_u081.state.had_prematching_call = True
+        self.invalid_user_no_u081.state.is_onboarded = True
         self.invalid_user_no_u081.state.has_received_first_match = True
         self.invalid_user_no_u081.state.auto_emails_u081_send = False  # u081 NOT sent
         self.invalid_user_no_u081.state.save()
@@ -843,7 +842,7 @@ class TestAutomaticEmails_u082_u083_u084(TestCase):
         self.invalid_user_no_match.state.searching_state = State.SearchingStateChoices.SEARCHING
         self.invalid_user_no_match.state.email_authenticated = True
         self.invalid_user_no_match.state.unresponsive = False
-        self.invalid_user_no_match.state.had_prematching_call = True
+        self.invalid_user_no_match.state.is_onboarded = True
         self.invalid_user_no_match.state.has_received_first_match = False  # No match
         self.invalid_user_no_match.state.auto_emails_u081_send = True
         self.invalid_user_no_match.state.save()
@@ -853,7 +852,7 @@ class TestAutomaticEmails_u082_u083_u084(TestCase):
         self.invalid_user_recent.state.searching_state = State.SearchingStateChoices.SEARCHING
         self.invalid_user_recent.state.email_authenticated = True
         self.invalid_user_recent.state.unresponsive = False
-        self.invalid_user_recent.state.had_prematching_call = True
+        self.invalid_user_recent.state.is_onboarded = True
         self.invalid_user_recent.state.has_received_first_match = True
         self.invalid_user_recent.state.auto_emails_u081_send = True
         self.invalid_user_recent.state.save()

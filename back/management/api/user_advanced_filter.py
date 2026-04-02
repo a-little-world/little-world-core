@@ -52,7 +52,7 @@ def needs_matching(qs=User.objects.all(), learner_atleast_searching_for_x_days=-
             state__user_form_state=State.UserFormStateChoices.FILLED,
             state__email_authenticated=True,
             state__unresponsive=False,
-            state__had_prematching_call=True,  # TODO: filter should only be applied, if require_prematching_call = True
+            state__is_onboarded=True,
             state__searching_state=State.SearchingStateChoices.SEARCHING,
         )
         .exclude(id__in=users_w_open_proposals)
@@ -118,7 +118,7 @@ def searching_users(qs=User.objects.all()):
     return qs.filter(
         state__user_form_state=State.UserFormStateChoices.FILLED,
         state__email_authenticated=True,
-        state__had_prematching_call=False,
+        state__is_onboarded=False,
         state__searching_state=State.SearchingStateChoices.SEARCHING,
     ).order_by("-date_joined")
 
@@ -130,7 +130,7 @@ def users_in_registration(qs=User.objects.all()):
     return qs.filter(
         Q(state__user_form_state=State.UserFormStateChoices.UNFILLED)
         | Q(state__email_authenticated=False)
-        | Q(state__had_prematching_call=False)
+        | Q(state__is_onboarded=False)
     ).order_by("-date_joined")
 
 
@@ -261,7 +261,7 @@ def get_volunteers_booked_onboarding_call_but_never_visited(qs=User.objects.all(
         state__user_form_state=State.UserFormStateChoices.FILLED,
         state__email_authenticated=True,
         state__searching_state=State.SearchingStateChoices.SEARCHING,
-        state__had_prematching_call=False,
+        state__is_onboarded=False,
         profile__user_type=Profile.TypeChoices.VOLUNTEER,
         state__unresponsive=False,
         pk__in=user_with_onboarding_booked,
@@ -319,7 +319,7 @@ def users_with_booked_prematching_call(qs=User.objects.all()):
         state__user_form_state=State.UserFormStateChoices.FILLED,
         state__email_authenticated=True,
         state__searching_state=State.SearchingStateChoices.SEARCHING,
-        state__had_prematching_call=False,
+        state__is_onboarded=False,
         state__unresponsive=False,
         pk__in=user_with_prematching_booked,
     ).order_by("-date_joined")
@@ -335,7 +335,7 @@ def users_require_prematching_call_not_booked(qs=User.objects.all()):
             state__user_form_state=State.UserFormStateChoices.FILLED,
             state__email_authenticated=True,
             state__searching_state=State.SearchingStateChoices.SEARCHING,
-            state__had_prematching_call=False,
+            state__is_onboarded=False,
             state__unresponsive=False,
         )
         .exclude(pk__in=user_with_prematching_booked)

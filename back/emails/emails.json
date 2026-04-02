@@ -769,6 +769,22 @@
         "match"
       ]
     },
+    "match_removed_fm011_no_contact_url": {
+      "id": "match_removed_fm011_no_contact_url",
+      "lookup": "emails.api.template_lookup.match_removed_fm011_no_contact_url",
+      "depends_on": [
+        "user",
+        "match"
+      ]
+    },
+    "match_removed_fm021_ghosted_url": {
+      "id": "match_removed_fm021_ghosted_url",
+      "lookup": "emails.api.template_lookup.match_removed_fm021_ghosted_url",
+      "depends_on": [
+        "user",
+        "match"
+      ]
+    },
     "beta_tester_email": {
       "id": "beta_tester_email",
       "lookup": "emails.api.template_lookup.beta_tester_email",
