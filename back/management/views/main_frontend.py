@@ -110,6 +110,17 @@ class MainFrontendRouter(View):
         ):
             return redirect("/app/user-form/")
 
+        # if (
+        #    request.user.state.is_email_verified()
+        #    and request.user.state.is_user_form_filled()
+        #    and (not request.user.state.is_onboarded)
+        #    and request.user.profile.user_type == Profile.TypeChoices.VOLUNTEER
+        #    and (not path.startswith("app/onboarding"))
+        # ):
+        #    return redirect("/app/onboarding/")
+
+        # and request.user.state.is_onboarded
+
         if (
             request.user.state.is_email_verified()
             and request.user.state.is_user_form_filled()

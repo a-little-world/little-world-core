@@ -641,7 +641,7 @@ def automatic_emails_u023_u024_u025():
     for template, (days, three_days_reminder, seven_days_reminder, fourteen_days_reminder) in reminder.items():
         users = User.objects.filter(
             state__user_form_completed_at__lte=dj_timezone.now() - timedelta(days=days),
-            state__had_prematching_call=False,
+            state__is_onboarded=False,
             state__user_form_completed_3_days_reminder_send=three_days_reminder,
             state__user_form_completed_7_days_reminder_send=seven_days_reminder,
             state__user_form_completed_14_days_reminder_send=fourteen_days_reminder,
@@ -948,7 +948,14 @@ def automatic_emails_m031_m032_m033_m042():
 @shared_task
 def automatic_emails_u072_u073_u074():
     """
-    User searching for the first time still no matching
+    TODO: check about u071
+    Send for
+    automatic-emails-u072: No matching after 10 days
+    Trigger: Timing/Trigger: 10 days after #U071#. But still no matching
+    automatic-emails-u073: No matching after 21 days
+    Trigger: Timing/Trigger: 21 days after #U071#. But still no matching
+    automatic-emails-u074: No matching after 30 days
+    Trigger: Timing/Trigger: 30 days after #U071#. But still no matching
     """
     from django.conf import settings
 
@@ -962,7 +969,7 @@ def automatic_emails_u072_u073_u074():
         state__searching_state=State.SearchingStateChoices.SEARCHING,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=True,
+        state__is_onboarded=True,
         state__auto_email_u072_send=False,
         state__has_received_first_match=False,
     )
@@ -978,7 +985,7 @@ def automatic_emails_u072_u073_u074():
         state__searching_state=State.SearchingStateChoices.SEARCHING,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=True,
+        state__is_onboarded=True,
         state__auto_email_u073_send=False,
         state__has_received_first_match=False,
     )
@@ -993,7 +1000,7 @@ def automatic_emails_u072_u073_u074():
         state__searching_state=State.SearchingStateChoices.SEARCHING,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=True,
+        state__is_onboarded=True,
         state__auto_email_u074_send=False,
         state__has_received_first_match=False,
     )
@@ -1029,7 +1036,7 @@ def automatic_emails_u082_u083_u084():
         state__searching_state=State.SearchingStateChoices.SEARCHING,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=True,
+        state__is_onboarded=True,
         state__auto_emails_u081_send=True,
         state__auto_emails_u082_send=False,
         state__has_received_first_match=True,
@@ -1119,6 +1126,14 @@ def daily_auto_email_report():
             "enabled": settings.ENABLE_AUTO_EMAILS__U081_U082_U083_U084,
             "emulated": settings.EMULATE_AUTO_EMAILS__U081_U082_U083_U084,
         },
+        "AUTOMATIC_EMAILS__M043_M044_M045": {
+            "enabled": settings.ENABLE_AUTO_EMAILS__M043_M044_M045,
+            "emulated": settings.EMULATE_AUTO_EMAILS__M043_M044_M045,
+        },
+        "AUTOMATIC_EMAILS__U053_U054": {
+            "enabled": settings.ENABLE_AUTO_EMAILS__U053_U054,
+            "emulated": settings.EMULATE_AUTO_EMAILS__U053_U054,
+        },
     }
 
     check_emails = [
@@ -1142,6 +1157,11 @@ def daily_auto_email_report():
         "automatic-emails-u082",
         "automatic-emails-u083",
         "automatic-emails-u084",
+        "automatic-emails-m043",
+        "automatic-emails-m044",
+        "automatic-emails-m045",
+        "automatic-emails-u053",
+        "automatic-emails-u054",
     ]
 
     # Get yesterday's date range
@@ -1493,7 +1513,7 @@ def automatic_emails_u053_u054():
         state__last_not_attended_prematching_call_at__lte=time_2days_ago,
         state__not_attended_auto_email_u053_send=False,
         state__not_attended_auto_email_u054_send=False,
-        state__had_prematching_call=False,
+        state__is_onboarded=False,
     )
 
     users_with_new_appointment = set()
@@ -1513,7 +1533,7 @@ def automatic_emails_u053_u054():
         state__last_not_attended_prematching_call_at__lte=time_7days_ago,
         state__not_attended_auto_email_u053_send=True,
         state__not_attended_auto_email_u054_send=False,
-        state__had_prematching_call=False,
+        state__is_onboarded=False,
     )
 
     users_with_new_appointment_u054 = set()
@@ -1552,3 +1572,89 @@ def automatic_emails_u053_u054():
     }
 
     return report
+
+
+def automatic_emails_fm021_fm022__ghosted_matches():
+    """
+    Implements automatic emails for 15 days single party contact
+    sends 2 different emails:
+    - [ ] [`automatic-emails-fm021`](https://little-world.com/matching/emails/automatic-emails-fm021) to the ghoster
+    - [ ] [`automatic-emails-fm022`](https://little-world.com/matching/emails/automatic-emails-fm022) to the ghosted
+    """
+    from chat.models import Message
+    from django.conf import settings
+    from django.utils import timezone
+    from video.models import LivekitSession
+
+    from management.api.report_unmatch import process_report_unmatch
+    from management.models.matches import Match
+
+    time_15days_ago = timezone.now() - timedelta(days=15)
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.ENABLE_AUTO_EMAILS__FM021_FM022)
+
+    report = {
+        "matches_single_party_contact": 0,
+        "matches_ghosted": [],
+        "fm021_send_to": [],
+        "fm022_send_to": [],
+    }
+
+    matches_single_party_contact = Match.objects.filter(
+        confirmed=True,
+        completed=False,  # dont even consider removing completed matches!
+        completed_off_plattform=False,
+        support_matching=False,
+        active=True,
+        auto_email_fm021_send=False,
+        auto_email_fm022_send=False,
+        is_ghosted_match=False,
+    )
+
+    # Check if matches should be marked 'ghosted'
+    # TODO: confirm if there should be a way to get out of 'ghosted' state
+    report["matches_single_party_contact"] = matches_single_party_contact.count()
+    for match in matches_single_party_contact:
+        newest_message = (
+            Message.objects.filter(
+                Q(sender=match.user1, recipient=match.user2) | Q(sender=match.user2, recipient=match.user1)
+            )
+            .order_by("-created")
+            .first()
+        )
+        newest_video_call = (
+            LivekitSession.objects.filter(
+                Q(u1=match.user1, u2=match.user2) | Q(u1=match.user2, u2=match.user1),
+                both_have_been_active=True,
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if (
+            newest_message
+            and newest_message.created < time_15days_ago
+            and (newest_video_call and newest_video_call.created_at < time_15days_ago)
+        ):
+            # TODO: Also exlude completed and 'off-plattform' matches!
+            # TODO: Also prob exlucde matches that had a two user video call instead
+            match.is_ghosted_match = True
+            ghosted_user = newest_message.sender
+            ghosted_by_user = newest_message.recipient
+            match.ghosted_by = ghosted_by_user
+            match.marked_as_ghosted_at = timezone.now()
+            match.save()
+            report["matches_ghosted"].append(match.uuid)
+            send_email_background.delay("automatic-emails-fm021", user_id=ghosted_user.id, emulated_send=emulated_send)
+            send_email_background.delay(
+                "automatic-emails-fm022", user_id=ghosted_by_user.id, emulated_send=emulated_send
+            )
+            report["fm021_send_to"].append([str(match.uuid), ghosted_user.id])
+            report["fm022_send_to"].append([str(match.uuid), ghosted_by_user.id])
+            match.auto_email_fm021_send = True
+            match.auto_email_fm022_send = True
+            match.save()
+            # We actually remove the matching and mark it as 'ghosted'
+            process_report_unmatch(
+                match.user1, match, "ghosted", "Single party contact for 15 days", send_message=False
+            )
+
+    return {"status": "sent", "matches": matches_single_party_contact}

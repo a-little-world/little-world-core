@@ -23,7 +23,7 @@ Per-User-States:
         - (b): [after XX days] send book pre-matching call reminder reminder [TODO]
                [after XX days] lands in `Inactive-User[0].Never-Active` [TODO]
         4) 'Booked Onboarding Call'
-        - (m): When the call was had a matching user marks the 'had_prematching_call=True` ( or `state.to_low_german_level=True` )
+        - (m): When the call was had a matching user marks `is_onboarded=True` ( or `state.to_low_german_level=True` )
     
     Active-User:
         0) 'First Search': user searching for the first time
