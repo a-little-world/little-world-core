@@ -30,8 +30,8 @@
       "id": "automatic-emails-u001",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Willkommen bei Little World",
-      "template": "react_emails/u001-verify-email.html",
+      "subject": "Bitte best\u00e4tige deine E-Mail-Adresse",
+      "template": "react_emails/automatic-emails-u001.html",
       "theme": "little-world"
     },
     "account-deleted": {
@@ -110,8 +110,8 @@
       "id": "automated-emails-u012",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Umfrage beenden f\u00fcr Bekanntschaften aus aller Welt",
-      "template": "react_emails/u012-user-form-reminder-1.html",
+      "subject": "Wer soll dein Gespr\u00e4chspartner sein? \ud83c\udf0d",
+      "template": "react_emails/automated-emails-u012.html",
       "theme": "little-world"
     },
     "unfinished_user_form_2": {
@@ -174,8 +174,8 @@
       "id": "automated-emails-u071",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "{{ first_name }} & Little World: Danke f\u00fcr die Teilnahme am Einf\u00fchrungsgespr\u00e4ch",
-      "template": "react_emails/u071-onboarding-completed.html",
+      "subject": "Danke, dass du dabei bist {{ first_name }}!",
+      "template": "react_emails/automated-emails-u071.html",
       "theme": "little-world"
     },
     "patenmatch-matching-back-online": {
@@ -512,30 +512,6 @@
       "category_id": "automated",
       "subject": "Willkommen als Android-Beta-Tester:in bei Little World",
       "template": "react_emails/automatic-emails-native-app-beta-android.html",
-      "theme": "little-world"
-    },
-    "automated-emails-u071": {
-      "id": "automated-emails-u071",
-      "sender_id": "noreply",
-      "category_id": "automated",
-      "subject": "Danke, dass du dabei bist {{ first_name }}!",
-      "template": "react_emails/automated-emails-u071.html",
-      "theme": "little-world"
-    },
-    "automatic-emails-u001": {
-      "id": "automatic-emails-u001",
-      "sender_id": "noreply",
-      "category_id": "automated",
-      "subject": "No Subject",
-      "template": "react_emails/automatic-emails-u001.html",
-      "theme": "little-world"
-    },
-    "automated-emails-u012": {
-      "id": "automated-emails-u012",
-      "sender_id": "noreply",
-      "category_id": "automated",
-      "subject": "Wer soll dein Gespr\u00e4chspartner sein? \ud83c\udf0d",
-      "template": "react_emails/automated-emails-u012.html",
       "theme": "little-world"
     }
   },
