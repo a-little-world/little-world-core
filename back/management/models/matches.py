@@ -67,6 +67,18 @@ class Match(models.Model):
 
     send_automatic_message_1week = models.BooleanField(default=True)
 
+    # 15 days single party contact emails:
+    auto_email_fm021_send = models.BooleanField(default=False, null=False, blank=False)
+    auto_email_fm022_send = models.BooleanField(default=False, null=False, blank=False)
+    is_ghosted_match = models.BooleanField(default=False, null=False, blank=False)
+    marked_as_ghosted_at = models.DateTimeField(default=None, null=True, blank=True)
+    ghosted_by = models.ForeignKey(
+        "management.User", on_delete=models.CASCADE, related_name="ghosted_by", null=True, blank=True
+    )
+
+    # YES - case confirm email 'automatic-emails-m051'
+    auto_email_m051_send = models.BooleanField(default=False, null=False, blank=False)
+
     match_type = models.CharField(
         max_length=20,
         choices=MatchType.choices,
@@ -113,13 +125,6 @@ class Match(models.Model):
             self.completed_10_video_calls = True
 
         self.latest_counter_sync = timezone.now()
-        # check if the match should permanently be marked as completed!
-        from management.api.match_journey_filters import completed_match
-
-        # TODO: can this be depricated?
-        if completed_match(Match.objects.filter(id=self.id)).exists():
-            self.completed = True
-
         self.save()
 
     @classmethod

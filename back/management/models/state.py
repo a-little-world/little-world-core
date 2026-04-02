@@ -98,6 +98,13 @@ class State(models.Model):
 
     has_received_first_match = models.BooleanField(default=False)
 
+    self_onboarding_started = models.BooleanField(default=False)
+    self_onboarding_step_id = models.CharField(max_length=64, default="", blank=True)
+    self_onboarding_completed_at = models.DateField(default=None, null=True, blank=True)
+    self_onboarding_completed = models.BooleanField(default=False)
+
+    is_onboarded = models.BooleanField(default=False)
+
     """
     These are references to the actual user model of this persons matches
     """
@@ -387,7 +394,7 @@ class State(models.Model):
         ).decode()
 
     def had_prematching_call_status(self):
-        return self.had_prematching_call
+        return self.is_onboarded
 
     @classmethod
     def decode_email_auth_code_b64(cls, str_b64):
@@ -436,7 +443,7 @@ class FrontendStatusSerializer(serializers.ModelSerializer):
         if instance.user_form_state == State.UserFormStateChoices.UNFILLED:
             rep["status"] = FrontendStatusEnum.user_form_incomplete.value
             return rep
-        elif instance.require_pre_matching_call and (not instance.had_prematching_call):
+        elif instance.require_pre_matching_call and (not instance.is_onboarded):
             rep["status"] = FrontendStatusEnum.pre_matching.value
             return rep
 

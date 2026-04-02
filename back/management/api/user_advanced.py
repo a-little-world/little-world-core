@@ -58,7 +58,7 @@ user_category_buckets = [
 
 
 def get_match_waiting_time(user):
-    if not user.state.had_prematching_call:
+    if not user.state.is_onboarded:
         return {"number_of_days": None, "waiting_time_string": "Prematch call not completed", "first_search": None}
 
     if user.state.searching_state != State.SearchingStateChoices.SEARCHING:
@@ -320,8 +320,8 @@ class UserFilter(filters.FilterSet):
         help_text="Filter for users that have authenticated their email",
     )
 
-    state__had_prematching_call = filters.BooleanFilter(
-        field_name="state__had_prematching_call",
+    state__is_onboarded = filters.BooleanFilter(
+        field_name="state__is_onboarded",
         help_text="Filter for users that had a prematching call",
     )
 
@@ -841,7 +841,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     @extend_schema(
         request=inline_serializer(
             name="MarkPrematchingCallCompletedRequest",
-            fields={"had_prematching_call": serializers.BooleanField(default=True)},
+            fields={"is_onboarded": serializers.BooleanField(default=True)},
         )
     )
     @action(detail=True, methods=["post"])
@@ -853,8 +853,8 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if not has_access:
             return res
 
-        obj.state.had_prematching_call = request.data.get("had_prematching_call", True)
-        if obj.state.had_prematching_call:
+        obj.state.is_onboarded = request.data.get("is_onboarded", True)
+        if obj.state.is_onboarded:
             obj.state.onboarding_call_completed_at = timezone.now()
         obj.state.save()
         return Response({"success": True})
@@ -934,12 +934,14 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         # mark the users as completed
         # TODO: use group send function in the future
         for user in user_list_objects:
-            user.state.had_prematching_call = True
+            user.state.is_onboarded = True
             user.state.onboarding_call_completed_at = timezone.now()
             user.state.save()
             attended_users.append(user)
             if send_mail[str(user.id)]:
                 # TODO: comply to automatic email naming conventions
+                # TODO: Just set a flag that auto email seding should be processed now
+                # TODO: find out if this email matches at mxXX email that we need to rename to here
                 send_email_background.delay("prematching-call-post-thanks", user_id=user.id)
 
         # get appointment_users set without userlist as a list
@@ -948,16 +950,17 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         # send email to the users that did not attend the appointment
         for user_id in not_attended_appointment_users:
             user = User.objects.get(id=user_id)
-            if user.state.had_prematching_call:
+            if user.state.is_onboarded:
                 # Don't apply this for people that already had a prematching call, but booked another appointment.
                 continue
-            user.state.had_prematching_call = False
+            user.state.is_onboarded = False
             user.state.last_prematching_call_not_attended = True
             user.state.last_not_attended_prematching_call_at = timezone.now()
 
             user.state.save()
             not_attended_users.append(user)
             if send_mail[str(user.id)]:
+                # TODO: Also don't send this email just shedule the send...
                 send_email_background.delay("prematching-call-no-show", user_id=user_id)
 
         message_report = (
