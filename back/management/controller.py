@@ -233,7 +233,7 @@ def create_user(
     if send_verification_mail:
 
         def send_verify_link():
-            usr.send_email_v2("welcome")
+            usr.send_email_v2("automatic-emails-u001")
 
         send_verify_link()
 

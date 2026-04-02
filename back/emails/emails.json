@@ -26,12 +26,12 @@
     }
   },
   "emails": {
-    "welcome": {
-      "id": "welcome",
+    "automatic-emails-u001": {
+      "id": "automatic-emails-u001",
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Willkommen bei Little World",
-      "template": "react_emails/welcome.html",
+      "template": "react_emails/u001-verify-email.html",
       "theme": "little-world"
     },
     "account-deleted": {
@@ -106,12 +106,12 @@
       "template": "react_emails/still-in-contact.html",
       "theme": "little-world"
     },
-    "unfinished_user_form_1": {
-      "id": "unfinished_user_form_1",
+    "automated-emails-u012": {
+      "id": "automated-emails-u012",
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Umfrage beenden f\u00fcr Bekanntschaften aus aller Welt",
-      "template": "react_emails/unfinished_user_form_1.html",
+      "template": "react_emails/u012-user-form-reminder-1.html",
       "theme": "little-world"
     },
     "unfinished_user_form_2": {
