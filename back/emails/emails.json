@@ -202,20 +202,36 @@
       "template": "react_emails/still-in-contact-inactive.html",
       "theme": "little-world"
     },
-    "automatic-emails-u023": {
-      "id": "automatic-emails-u023",
+    "automatic-emails-u023l": {
+      "id": "automatic-emails-u023l",
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Starte jetzt bei Little World",
-      "template": "react_emails/automatic-emails-u023.html",
+      "template": "react_emails/automatic-emails-u023l.html",
       "theme": "little-world"
     },
-    "automatic-emails-u024": {
-      "id": "automatic-emails-u024",
+    "automatic-emails-u023v": {
+      "id": "automatic-emails-u023v",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Willkommen bei Little World \u2013 so geht's weiter \ud83c\udf0d",
+      "template": "react_emails/automatic-emails-u023v.html",
+      "theme": "little-world"
+    },
+    "automatic-emails-u024l": {
+      "id": "automatic-emails-u024l",
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Hast du dein Onboarding schon gebucht?",
-      "template": "react_emails/automatic-emails-u024.html",
+      "template": "react_emails/automatic-emails-u024l.html",
+      "theme": "little-world"
+    },
+    "automatic-emails-u024v": {
+      "id": "automatic-emails-u024v",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Jemand in Little World wartet auf dich \ud83c\udf0d",
+      "template": "react_emails/automatic-emails-u024v.html",
       "theme": "little-world"
     },
     "automatic-emails-u025": {
@@ -242,12 +258,20 @@
       "template": "react_emails/automatic-emails-u044.html",
       "theme": "little-world"
     },
-    "automatic-emails-u053": {
-      "id": "automatic-emails-u053",
+    "automatic-emails-u053l": {
+      "id": "automatic-emails-u053l",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Erinnerung: Dein Onboarding-Gespr\u00e4ch",
-      "template": "react_emails/automatic-emails-u053.html",
+      "subject": "Dein Platz bei Little World wartet noch auf dich \ud83c\udf0d",
+      "template": "react_emails/automatic-emails-u053l.html",
+      "theme": "little-world"
+    },
+    "automatic-emails-u053v": {
+      "id": "automatic-emails-u053v",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Dein Ehrenamt wartet noch auf dich \u2013 neuen Termin sichern",
+      "template": "react_emails/automatic-emails-u053v.html",
       "theme": "little-world"
     },
     "automatic-emails-u072": {
@@ -488,6 +512,30 @@
       "category_id": "automated",
       "subject": "Willkommen als Android-Beta-Tester:in bei Little World",
       "template": "react_emails/automatic-emails-native-app-beta-android.html",
+      "theme": "little-world"
+    },
+    "automated-emails-u071": {
+      "id": "automated-emails-u071",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Danke, dass du dabei bist {{ first_name }}!",
+      "template": "react_emails/automated-emails-u071.html",
+      "theme": "little-world"
+    },
+    "automatic-emails-u001": {
+      "id": "automatic-emails-u001",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "No Subject",
+      "template": "react_emails/automatic-emails-u001.html",
+      "theme": "little-world"
+    },
+    "automated-emails-u012": {
+      "id": "automated-emails-u012",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Wer soll dein Gespr\u00e4chspartner sein? \ud83c\udf0d",
+      "template": "react_emails/automated-emails-u012.html",
       "theme": "little-world"
     }
   },

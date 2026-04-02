@@ -889,7 +889,7 @@ def volunteers_with_completed_match_no_ongoing(qs=User.objects.all()):
 
 def users_with_duplicate_automatic_emails_29_01_2026(qs=User.objects.all()):
     """
-    Users who received multiple emails (automatic-emails-u023/u024/u025) on 29.01.2026
+    Users who received multiple emails (u023/u024 learner or volunteer variants, u025) on 29.01.2026
     """
     from datetime import date
 
@@ -897,8 +897,10 @@ def users_with_duplicate_automatic_emails_29_01_2026(qs=User.objects.all()):
 
     target_date = date(2026, 1, 29)
     target_templates = [
-        "automatic-emails-u023",
-        "automatic-emails-u024",
+        "automatic-emails-u023l",
+        "automatic-emails-u023v",
+        "automatic-emails-u024l",
+        "automatic-emails-u024v",
         "automatic-emails-u025",
     ]
 

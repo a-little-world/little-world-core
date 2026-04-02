@@ -628,29 +628,39 @@ def automatic_emails_u023_u024_u025():
     from django.conf import settings
 
     from management.models.pre_matching_appointment import PreMatchingAppointment
+    from management.models.profile import Profile
     from management.models.user import User
+
+    def template_for_user_form_reminder(stage: str, user) -> str:
+        # u023/u024: distinct copy for volunteers (v) vs learners (l); u025 is still one template.
+        if stage in ("u023", "u024"):
+            if user.profile.user_type == Profile.TypeChoices.VOLUNTEER:
+                return f"automatic-emails-{stage}v"
+            return f"automatic-emails-{stage}l"
+        return "automatic-emails-u025"
 
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__U023_U024_U025)
 
-    reminder = {
-        "automatic-emails-u023": [3, False, False, False],
-        "automatic-emails-u024": [7, True, False, False],
-        "automatic-emails-u025": [14, True, True, False],
-    }
+    reminder_stages = [
+        ("u023", 3, False, False, False),
+        ("u024", 7, True, False, False),
+        ("u025", 14, True, True, False),
+    ]
     users_sended = []
-    for template, (days, three_days_reminder, seven_days_reminder, fourteen_days_reminder) in reminder.items():
+    for stage, days, three_days_reminder, seven_days_reminder, fourteen_days_reminder in reminder_stages:
         users = User.objects.filter(
             state__user_form_completed_at__lte=dj_timezone.now() - timedelta(days=days),
             state__is_onboarded=False,
             state__user_form_completed_3_days_reminder_send=three_days_reminder,
             state__user_form_completed_7_days_reminder_send=seven_days_reminder,
             state__user_form_completed_14_days_reminder_send=fourteen_days_reminder,
-        )
+        ).select_related("profile")
         user_prematching_join = PreMatchingAppointment.objects.filter(user__in=users)
         users = users.exclude(id__in=user_prematching_join.values_list("user", flat=True))
 
         users_sended.append(users)
         for user in users:
+            template = template_for_user_form_reminder(stage, user)
             send_email_background.delay(template, user_id=user.id, emulated_send=emulated_send)
             user.state.set_user_form_completed_reminder_sent(days)
 
@@ -1137,8 +1147,10 @@ def daily_auto_email_report():
     }
 
     check_emails = [
-        "automatic-emails-u023",
-        "automatic-emails-u024",
+        "automatic-emails-u023l",
+        "automatic-emails-u023v",
+        "automatic-emails-u024l",
+        "automatic-emails-u024v",
         "automatic-emails-u025",
         "automatic-emails-m012",
         "automatic-emails-m013",
@@ -1160,7 +1172,8 @@ def daily_auto_email_report():
         "automatic-emails-m043",
         "automatic-emails-m044",
         "automatic-emails-m045",
-        "automatic-emails-u053",
+        "automatic-emails-u053l",
+        "automatic-emails-u053v",
         "automatic-emails-u054",
     ]
 
@@ -1502,6 +1515,13 @@ def automatic_emails_u053_u054():
     from django.conf import settings
     from django.utils import timezone
 
+    from management.models.profile import Profile
+
+    def template_for_u053(user: User) -> str:
+        if user.profile.user_type == Profile.TypeChoices.VOLUNTEER:
+            return "automatic-emails-u053v"
+        return "automatic-emails-u053l"
+
     time_2days_ago = timezone.now() - timedelta(days=2)
     time_7days_ago = timezone.now() - timedelta(days=7)
 
@@ -1514,7 +1534,7 @@ def automatic_emails_u053_u054():
         state__not_attended_auto_email_u053_send=False,
         state__not_attended_auto_email_u054_send=False,
         state__is_onboarded=False,
-    )
+    ).select_related("profile")
 
     users_with_new_appointment = set()
     for user in users_missed_onboarding:
@@ -1549,7 +1569,11 @@ def automatic_emails_u053_u054():
 
     u053_hashes = []
     for user in user_missed_last_onboarding_u053:
-        send_email_background.delay("automatic-emails-u053", user_id=user.id, emulated_send=emulated_send)
+        send_email_background.delay(
+            template_for_u053(user),
+            user_id=user.id,
+            emulated_send=emulated_send,
+        )
         user.state.not_attended_auto_email_u053_send = True
         user.state.save()
         u053_hashes.append(user.hash)
