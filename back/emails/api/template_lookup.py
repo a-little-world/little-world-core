@@ -192,6 +192,7 @@ def prematching_booking_link(user):
 def still_in_contact_yes_url(user, match, context={"redirect_slug_yes": "info-screen"}):
     """
     Generate URL for confirming continued contact with match partner outside the platform
+    Also used by 'automatic-emails-m032' and 'automatic-emails-m033' and 'automatic-emails-m042'
     """
     redirect_slug = context.get("redirect_slug_yes", "info-screen")
     return f"{settings.BASE_URL}/api/still_in_contact/{str(match.uuid)}/yes/?user_hash={str(user.hash)}&user_token={str(user.state.still_in_contact_form_access_token_user)}&redirect_slug={redirect_slug}"
@@ -200,14 +201,27 @@ def still_in_contact_yes_url(user, match, context={"redirect_slug_yes": "info-sc
 def still_in_contact_no_url(user, match, context={"redirect_slug_no": "info-screen"}):
     """
     Generate URL for indicating no continued contact with match partner
+    Also used by 'automatic-emails-m032' and 'automatic-emails-m033' and 'automatic-emails-m042'
     """
     redirect_slug = context.get("redirect_slug_no", "info-screen")
-    return f"{settings.BASE_URL}/api/still_in_contact/{str(match.uuid)}/yes/?user_hash={str(user.hash)}&user_token={str(user.state.still_in_contact_form_access_token_user)}&redirect_slug={redirect_slug}"
+    return f"{settings.BASE_URL}/api/still_in_contact/{str(match.uuid)}/no/?user_hash={str(user.hash)}&user_token={str(user.state.still_in_contact_form_access_token_user)}&redirect_slug={redirect_slug}"
 
 
-def match_removed_survey_url(user, match, **kwargs):
-    # TODO: Add once implementation questions resolved
-    return "not_implemented"
+def match_removed_fm011_no_contact_url(user, match, **kwargs):
+    """
+    Send if a match was auto removed cause no contact was started after 21 days
+    Used by 'automatic-emails-fm011'
+    """
+    # TODO: Form implies 'contact eingeschaften'
+    return "https://docs.google.com/forms/d/e/1FAIpQLSdR9ZwNPra9Lt7SCsqiTR2E_xA4FIj4i2JAuKGp8bA-6Wj7xQ/viewform"
+
+
+def match_removed_fm021_ghosted_url(user, match, **kwargs):
+    """
+    Send if a match was auto removed cause no contact was started after 15 days
+    Used by 'automatic-emails-fm021'
+    """
+    return "https://docs.google.com/forms/d/e/1FAIpQLSck918AL9dST6Dqp9DtOvtBC0-3BWJfB2pPZc31DUjCSWEOyg/viewform"
 
 
 def beta_tester_email(user=None, match=None, context={"beta_tester_email": None}):

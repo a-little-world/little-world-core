@@ -394,7 +394,7 @@ class State(models.Model):
         ).decode()
 
     def had_prematching_call_status(self):
-        return self.had_prematching_call
+        return self.is_onboarded
 
     @classmethod
     def decode_email_auth_code_b64(cls, str_b64):
@@ -443,7 +443,7 @@ class FrontendStatusSerializer(serializers.ModelSerializer):
         if instance.user_form_state == State.UserFormStateChoices.UNFILLED:
             rep["status"] = FrontendStatusEnum.user_form_incomplete.value
             return rep
-        elif instance.require_pre_matching_call and (not instance.had_prematching_call):
+        elif instance.require_pre_matching_call and (not instance.is_onboarded):
             rep["status"] = FrontendStatusEnum.pre_matching.value
             return rep
 
