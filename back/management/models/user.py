@@ -230,7 +230,7 @@ class User(AbstractUser):
         # self.username = prms.email  # <- so the user can login with that email now
         self.email = prms.email.lower()
         self.save()
-        self.send_email_v2("welcome")
+        self.send_email_v2("automatic-emails-u001")
 
     def message(
         self,

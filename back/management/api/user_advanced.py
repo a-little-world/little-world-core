@@ -1,3 +1,5 @@
+from datetime import datetime, time
+
 from chat.models import Chat, ChatSerializer, Message, MessageSerializer
 from django.db.models import CharField, Q, Value
 from django.db.models.functions import Concat
@@ -42,6 +44,7 @@ user_category_buckets = [
     "journey_v2__email_verified",
     "journey_v2__user_form_completed",
     "journey_v2__booked_onboarding_call",
+    "journey_v2__self_onboarding_started",
     "journey_v2__too_low_german_level",
     "journey_v2__pre_matching",
     "journey_v2__match_takeoff",
@@ -59,7 +62,7 @@ user_category_buckets = [
 
 def get_match_waiting_time(user):
     if not user.state.is_onboarded:
-        return {"number_of_days": None, "waiting_time_string": "Prematch call not completed", "first_search": None}
+        return {"number_of_days": None, "waiting_time_string": "Not onboarded", "first_search": None}
 
     if user.state.searching_state != State.SearchingStateChoices.SEARCHING:
         return {"number_of_days": None, "waiting_time_string": "Not actively searching", "first_search": None}
@@ -72,13 +75,26 @@ def get_match_waiting_time(user):
         waiting_since = user.state.searching_state_last_updated
     else:
         latest_pre_match_appointment = PreMatchingAppointment.objects.filter(user=user).order_by("-created").first()
-        if not latest_pre_match_appointment:
-            return {
-                "number_of_days": None,
-                "waiting_time_string": "No pre-match appointment found",
-                "first_search": None,
-            }
-        waiting_since = latest_pre_match_appointment.end_time
+        if latest_pre_match_appointment:
+            waiting_since = latest_pre_match_appointment.end_time
+        else:
+            user_state = user.state
+            candidates = []
+            if user_state.onboarding_call_completed_at is not None:
+                candidates.append(user_state.onboarding_call_completed_at)
+            if user_state.self_onboarding_completed_at is not None:
+                d = user_state.self_onboarding_completed_at
+                candidates.append(
+                    timezone.make_aware(datetime.combine(d, time.min)),
+                )
+            if not candidates:
+                return {
+                    "number_of_days": None,
+                    "waiting_time_string": "No onboarding completion date found",
+                    "first_search": None,
+                }
+            # Earliest completion
+            waiting_since = min(candidates)
 
     # Calculate waiting time
     now = timezone.now()
@@ -939,10 +955,9 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             user.state.save()
             attended_users.append(user)
             if send_mail[str(user.id)]:
-                # TODO: comply to automatic email naming conventions
                 # TODO: Just set a flag that auto email seding should be processed now
                 # TODO: find out if this email matches at mxXX email that we need to rename to here
-                send_email_background.delay("prematching-call-post-thanks", user_id=user.id)
+                send_email_background.delay("automatic-emails-u071", user_id=user.id)
 
         # get appointment_users set without userlist as a list
         not_attended_appointment_users = list(set(appointment_users) - set(userlist))

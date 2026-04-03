@@ -899,6 +899,7 @@ def user_signup_loss_statistic(start_date="2022-01-01", end_date=date.today(), c
         "journey_v2__user_form_completed",
         "journey_v2__too_low_german_level",
         "journey_v2__booked_onboarding_call",
+        "journey_v2__self_onboarding_started",
         "journey_v2__no_show",
     ]
 
@@ -958,6 +959,7 @@ def user_signup_loss_statistic_v2(start_date="2022-01-01", end_date=date.today()
         "journey_v2__email_verified",
         "journey_v2__user_form_completed",
         "journey_v2__booked_onboarding_call",
+        "journey_v2__self_onboarding_started",
         "journey_v2__first_search",
         "journey_v2__user_searching_again",
         "journey_v2__pre_matching",
@@ -1213,6 +1215,7 @@ def kpi_dashboard_statistics_signups(request):
             "journey_v2__user_form_completed",
             # 'journey_v2__too_low_german_level',
             "journey_v2__booked_onboarding_call",
+            "journey_v2__self_onboarding_started",
             "journey_v2__no_show",
         ],
     )

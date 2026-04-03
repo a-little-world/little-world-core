@@ -150,6 +150,16 @@ if settings.ENABLE_AUTO_EMAILS__M043_M044_M045:
         }
     )
 
+if settings.ENABLE_AUTO_EMAILS__U053_U054:
+    auto_emails.update(
+        {
+            "automatic-emails-u053-u054": {
+                "task": "management.tasks.automatic_emails_u053_u054",
+                "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+            }
+        }
+    )
+
 
 if settings.ENABLE_AUTO_EMAIL_LOGS:
     auto_emails.update(

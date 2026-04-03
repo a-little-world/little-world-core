@@ -155,7 +155,7 @@ def not_too_low_german_level__is_onboarded(qs=User.objects.all()):
 
 def booked_onboarding_call(qs=User.objects.all()):
     """
-    (Sign-Up) User has filled form and booked onboarding call
+    (Sign-Up) User has filled form and has a future onboarding (prematching) appointment booked.
     """
     no_shows = no_show(qs)
     return (
@@ -173,6 +173,36 @@ def booked_onboarding_call(qs=User.objects.all()):
         )
         .filter(num_appointments__gt=0)
         .exclude(id__in=no_shows)
+    )
+
+
+def self_onboarding_started_no_booked_call(qs=User.objects.all()):
+    """
+    (Sign-Up) Self-service onboarding started but not completed; excludes users in
+    booked_onboarding_call (future prematching appointment).
+    """
+    booked = booked_onboarding_call(qs)
+    return qs.filter(
+        is_active=True,
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
+        state__unresponsive=False,
+        state__is_onboarded=False,
+        state__self_onboarding_started=True,
+        state__self_onboarding_completed=False,
+    ).exclude(id__in=booked)
+
+
+def onboarding_incomplete(qs=User.objects.all()):
+    """
+    (Sign-Up) Registration form completed but user is not yet onboarded.
+    """
+    return qs.filter(
+        is_active=True,
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
+        state__unresponsive=False,
+        state__is_onboarded=False,
     )
 
 
@@ -718,6 +748,7 @@ def community_calls(qs=User.objects.all(), last_x_days=28 * 3):
             user_form_completed(qs).values(*selected_fields),
             email_verified(qs).values(*selected_fields),
             booked_onboarding_call(qs).values(*selected_fields),
+            self_onboarding_started_no_booked_call(qs).values(*selected_fields),
             first_search_v2(qs).values(*selected_fields),
         )
     )
@@ -889,7 +920,7 @@ def volunteers_with_completed_match_no_ongoing(qs=User.objects.all()):
 
 def users_with_duplicate_automatic_emails_29_01_2026(qs=User.objects.all()):
     """
-    Users who received multiple emails (automatic-emails-u023/u024/u025) on 29.01.2026
+    Users who received multiple emails (u023/u024 learner or volunteer variants, u025) on 29.01.2026
     """
     from datetime import date
 
@@ -897,8 +928,10 @@ def users_with_duplicate_automatic_emails_29_01_2026(qs=User.objects.all()):
 
     target_date = date(2026, 1, 29)
     target_templates = [
-        "automatic-emails-u023",
-        "automatic-emails-u024",
+        "automatic-emails-u023l",
+        "automatic-emails-u023v",
+        "automatic-emails-u024l",
+        "automatic-emails-u024v",
         "automatic-emails-u025",
     ]
 

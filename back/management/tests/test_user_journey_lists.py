@@ -11,6 +11,7 @@ BUCKETS = {
         "journey_v2__email_verified",
         "journey_v2__user_form_completed",
         "journey_v2__booked_onboarding_call",
+        "journey_v2__self_onboarding_started",
         "journey_v2__first_search",
     ],
     "active-users": [
