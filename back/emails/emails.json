@@ -664,23 +664,17 @@
     "newsletter_subscribe_url": {
       "id": "newsletter_subscribe_url",
       "lookup": "emails.api.template_lookup.newsletter_subscribe_url",
-      "depends_on": [
-        "context.newsletter_subscribe_url"
-      ]
+      "depends_on": []
     },
     "group_calls_url": {
       "id": "group_calls_url",
       "lookup": "emails.api.template_lookup.group_calls_url",
-      "depends_on": [
-        "context.group_calls_url"
-      ]
+      "depends_on": []
     },
     "self_onboarding_url": {
       "id": "self_onboarding_url",
       "lookup": "emails.api.template_lookup.self_onboarding_url",
-      "depends_on": [
-        "context.self_onboarding_url"
-      ]
+      "depends_on": []
     },
     "confirm_in_contact_url": {
       "id": "confirm_in_contact_url",
