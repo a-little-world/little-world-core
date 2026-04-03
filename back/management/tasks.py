@@ -1353,6 +1353,7 @@ def daily_sms_report():
     }
 
 
+@shared_task
 def automatic_emails_m043_m044_m045():
     """
     Implements after 5, 8, 10 Video Calls Match Emails
@@ -1514,6 +1515,7 @@ def automatic_emails_m043_m044_m045():
     return report
 
 
+@shared_task
 def automatic_emails_u053_u054():
     """
     Implements automatic emails for not attending pre-matching appointments.
@@ -1606,6 +1608,7 @@ def automatic_emails_u053_u054():
     return report
 
 
+@shared_task
 def automatic_emails_fm021_fm022__ghosted_matches():
     """
     Implements automatic emails for 15 days single party contact
