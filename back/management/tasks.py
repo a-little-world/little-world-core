@@ -1200,13 +1200,15 @@ def daily_auto_email_report():
 
     # Group emails by template for summary
     email_counts = defaultdict(int)
-    # Group emails by user for per-user breakdown
-    user_emails = defaultdict(list)
+    # Group users by template for compact per-template breakdown
+    template_users = defaultdict(dict)
+    unique_user_ids = set()
 
     for log in email_logs:
         email_counts[log.template] += 1
         if log.receiver:
-            user_emails[log.receiver].append(log.template)
+            template_users[log.template][log.receiver.id] = log.receiver
+            unique_user_ids.add(log.receiver.id)
 
     # Build the Slack message
     message_parts = [
@@ -1222,7 +1224,7 @@ def daily_auto_email_report():
             message_parts.append(f"• `{template}`: {count} sent")
 
     total_emails = sum(email_counts.values())
-    message_parts.append(f"\n*Total:* {total_emails} emails sent to {len(user_emails)} users")
+    message_parts.append(f"\n*Total:* {total_emails} emails sent to {len(unique_user_ids)} users")
 
     # Add enabled/disabled and emulated status
     message_parts.append("")
@@ -1232,15 +1234,21 @@ def daily_auto_email_report():
         emulated_status = "`True`" if flags["emulated"] else "`False`"
         message_parts.append(f"• {setting_name}: enabled={enabled_status}, emulated={emulated_status}")
 
-    # Add per-user breakdown with links
+    # Add compact per-template breakdown with user links
     message_parts.append("")
-    message_parts.append("*Emails Per-User:*")
+    message_parts.append("*Emails Compact Summary:*")
 
-    for user, templates in sorted(user_emails.items(), key=lambda x: x[0].email if x[0] else ""):
-        if user:
-            user_url = f"{settings.BASE_URL}/matching/user/{user.id}?tab=emails"
-            templates_str = ", ".join(sorted(set(templates)))
-            message_parts.append(f"• {user.email}: `{templates_str}` - `{user_url}`")
+    for template in check_emails:
+        if email_counts.get(template, 0) == 0:
+            continue
+
+        template_url = f"{settings.BASE_URL}/matching/emails/{template}"
+        users_for_template = template_users.get(template, {})
+        user_links = ", ".join(
+            f"[{user.id}]({settings.BASE_URL}/matching/user/{user.id}?tab=emails)"
+            for user in sorted(users_for_template.values(), key=lambda u: u.id)
+        )
+        message_parts.append(f"- [{template}]({template_url}): {user_links or 'no users'}")
 
     message = "\n".join(message_parts)
     notify_security_channel(message)
@@ -1250,7 +1258,7 @@ def daily_auto_email_report():
         "status": "sent",
         "date": yesterday_start.strftime("%Y-%m-%d"),
         "total_emails": total_emails,
-        "unique_users": len(user_emails),
+        "unique_users": len(unique_user_ids),
         "email_counts": dict(email_counts),
     }
 
