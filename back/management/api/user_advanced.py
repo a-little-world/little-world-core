@@ -870,8 +870,8 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             return res
 
         obj.state.had_prematching_call = request.data.get("had_prematching_call", True)
-        obj.state.is_onboarded = request.data.get("had_prematching_call", True)
         if obj.state.had_prematching_call:
+            obj.state.is_onboarded = True
             latest_end = PreMatchingAppointment.objects.filter(user=obj).aggregate(m=Max("end_time"))["m"]
             obj.state.onboarding_call_completed_at = latest_end if latest_end is not None else timezone.now()
         obj.state.save()
