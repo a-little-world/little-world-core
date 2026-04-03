@@ -109,11 +109,11 @@ def newsletter_subscribe_url():
     return "https://home.little-world.com/newsletter/"
 
 
-def group_calls_url(user):
+def group_calls_url():
     return f"{settings.BASE_URL}/app/events"
 
 
-def self_onboarding_url(user):
+def self_onboarding_url():
     return f"{settings.BASE_URL}/app/onboarding/walkthrough"
 
 
