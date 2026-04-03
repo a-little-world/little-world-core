@@ -106,12 +106,12 @@
       "template": "react_emails/still-in-contact.html",
       "theme": "little-world"
     },
-    "automated-emails-u012": {
-      "id": "automated-emails-u012",
+    "automatic-emails-u012": {
+      "id": "automatic-emails-u012",
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Wer soll dein Gespr\u00e4chspartner sein? \ud83c\udf0d",
-      "template": "react_emails/automated-emails-u012.html",
+      "template": "react_emails/automatic-emails-u012.html",
       "theme": "little-world"
     },
     "unfinished_user_form_2": {
@@ -170,12 +170,12 @@
       "template": "react_emails/prematching-call-no-show.html",
       "theme": "little-world"
     },
-    "automated-emails-u071": {
-      "id": "automated-emails-u071",
+    "automatic-emails-u071": {
+      "id": "automatic-emails-u071",
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Danke, dass du dabei bist {{ first_name }}!",
-      "template": "react_emails/automated-emails-u071.html",
+      "template": "react_emails/automatic-emails-u071.html",
       "theme": "little-world"
     },
     "patenmatch-matching-back-online": {

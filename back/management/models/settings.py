@@ -38,7 +38,7 @@ class EmailSettings(models.Model):
             return  # already sent
 
         self.user_form_unfinished_reminder1 = True
-        user.send_email_v2("automated-emails-u012")
+        user.send_email_v2("automatic-emails-u012")
 
         self.save()
 

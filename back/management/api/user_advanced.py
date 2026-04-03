@@ -941,7 +941,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             if send_mail[str(user.id)]:
                 # TODO: Just set a flag that auto email seding should be processed now
                 # TODO: find out if this email matches at mxXX email that we need to rename to here
-                send_email_background.delay("automated-emails-u071", user_id=user.id)
+                send_email_background.delay("automatic-emails-u071", user_id=user.id)
 
         # get appointment_users set without userlist as a list
         not_attended_appointment_users = list(set(appointment_users) - set(userlist))

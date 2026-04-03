@@ -623,7 +623,7 @@ def send_sms_background(self, user_hash, message):
 @shared_task
 def automatic_emails_u023_u024_u025():
     """
-    Sends automatic emails to users who have not booked an onboarding call after completing the user form
+    Sends automatic emails to users who have not booked an appointment or completed the self-onboarding after completing the user form.
     """
     from django.conf import settings
 
@@ -1508,7 +1508,7 @@ def automatic_emails_m043_m044_m045():
 
 def automatic_emails_u053_u054():
     """
-    Implements automatic emails for not attended pre-matching calls
+    Implements automatic emails for not attending pre-matching appointments.
     u053: send if at least 2 days passed since missed appointment
     u054: send if at least 7 days passed since missed appointment (follow-up to u053)
     """
