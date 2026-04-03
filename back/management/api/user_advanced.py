@@ -1,7 +1,7 @@
 from datetime import datetime, time
 
 from chat.models import Chat, ChatSerializer, Message, MessageSerializer
-from django.db.models import CharField, Q, Value
+from django.db.models import CharField, Max, Q, Value
 from django.db.models.functions import Concat
 from django.urls import path
 from django.utils import timezone
@@ -857,7 +857,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     @extend_schema(
         request=inline_serializer(
             name="MarkPrematchingCallCompletedRequest",
-            fields={"is_onboarded": serializers.BooleanField(default=True)},
+            fields={"had_prematching_call": serializers.BooleanField(default=True)},
         )
     )
     @action(detail=True, methods=["post"])
@@ -869,9 +869,11 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if not has_access:
             return res
 
-        obj.state.is_onboarded = request.data.get("is_onboarded", True)
-        if obj.state.is_onboarded:
-            obj.state.onboarding_call_completed_at = timezone.now()
+        obj.state.had_prematching_call = request.data.get("had_prematching_call", True)
+        obj.state.is_onboarded = request.data.get("had_prematching_call", True)
+        if obj.state.had_prematching_call:
+            latest_end = PreMatchingAppointment.objects.filter(user=obj).aggregate(m=Max("end_time"))["m"]
+            obj.state.onboarding_call_completed_at = latest_end if latest_end is not None else timezone.now()
         obj.state.save()
         return Response({"success": True})
 
@@ -912,6 +914,9 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if appointment_date is None or userlist is None:
             return Response({"error": "appointment_date and userlist are required"}, status=400)
 
+        if timezone.is_naive(appointment_date):
+            appointment_date = timezone.make_aware(appointment_date, timezone.get_current_timezone())
+
         # get all appointment at this date
         appointments = PreMatchingAppointment.objects.filter(start_time=appointment_date)
         if appointments is None or len(appointments) < len(userlist):
@@ -950,8 +955,9 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         # mark the users as completed
         # TODO: use group send function in the future
         for user in user_list_objects:
+            user.state.had_prematching_call = True
             user.state.is_onboarded = True
-            user.state.onboarding_call_completed_at = timezone.now()
+            user.state.onboarding_call_completed_at = appointment_date
             user.state.save()
             attended_users.append(user)
             if send_mail[str(user.id)]:
@@ -970,7 +976,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
                 continue
             user.state.is_onboarded = False
             user.state.last_prematching_call_not_attended = True
-            user.state.last_not_attended_prematching_call_at = timezone.now()
+            user.state.last_not_attended_prematching_call_at = appointment_date
 
             user.state.save()
             not_attended_users.append(user)
