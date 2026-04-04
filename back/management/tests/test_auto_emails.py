@@ -9,6 +9,7 @@ from django.utils import timezone as dj_timezone
 from freezegun import freeze_time
 
 from management.models.matches import Match
+from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.models.state import State
 from management.random_test_users import create_test_user
 from management.tasks import (
@@ -17,6 +18,7 @@ from management.tasks import (
     automatic_emails_m024_m025,
     automatic_emails_m031_m032_m033_m042,
     automatic_emails_u023_u024_u025,
+    automatic_emails_u051_u052,
     automatic_emails_u072_u073_u074,
     automatic_emails_u082_u083_u084,
 )
@@ -1306,3 +1308,176 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
         # Both emails should reference the same match UUID
         assert f"/api/still_in_contact/{str(self.match.uuid)}/yes/" in email_html_user1
         assert f"/api/still_in_contact/{str(self.match.uuid)}/yes/" in email_html_user2
+
+
+class TestPrematchingCheckoffEmailQueue(TestCase):
+    def setUp(self):
+        settings.DJANGO_TESTING = True
+
+        self.staff_user = create_test_user(41000, None, "Test123!", "prematch-staff@test.de")
+        self.staff_user.is_staff = True
+        self.staff_user.save()
+
+        self.attended_user_1 = create_test_user(41001, None, "Test123!", "prematch-attended-1@test.de")
+        self.attended_user_2 = create_test_user(41002, None, "Test123!", "prematch-attended-2@test.de")
+        self.no_show_user_1 = create_test_user(41003, None, "Test123!", "prematch-no-show-1@test.de")
+        self.no_show_user_2 = create_test_user(41004, None, "Test123!", "prematch-no-show-2@test.de")
+
+        for user in [self.attended_user_1, self.attended_user_2, self.no_show_user_1, self.no_show_user_2]:
+            user.state.is_onboarded = False
+            user.state.save()
+
+        self.no_show_user_1.state.not_attended_auto_email_u053_send = True
+        self.no_show_user_1.state.not_attended_auto_email_u054_send = False
+        self.no_show_user_1.state.save()
+
+        self.no_show_user_2.state.not_attended_auto_email_u053_send = True
+        self.no_show_user_2.state.not_attended_auto_email_u054_send = True
+        self.no_show_user_2.state.save()
+
+        self.appointment_date = dj_timezone.now().replace(microsecond=0)
+        end_time = self.appointment_date + timedelta(hours=1)
+
+        for user in [self.attended_user_1, self.attended_user_2, self.no_show_user_1, self.no_show_user_2]:
+            PreMatchingAppointment.objects.create(user=user, start_time=self.appointment_date, end_time=end_time)
+
+    @patch("management.tasks.send_email_background")
+    def test_prematching_checkoff_queue_and_requeue_behavior(self, mock_task_send_email):
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+        client.force_authenticate(user=self.staff_user)
+
+        payload = {
+            "appointment_date": self.appointment_date.isoformat(),
+            "selected_users": [self.attended_user_1.id, self.attended_user_2.id],
+            "send_emails_now": False,
+        }
+
+        response = client.post(
+            "/api/matching/prematchingappointments/complete_prematching_call/", payload, format="json"
+        )
+        assert response.status_code == 200
+        assert response.data["unretrievable_user_ids"] == []
+
+        for user in [self.attended_user_1, self.attended_user_2]:
+            user.state.refresh_from_db()
+            assert user.state.is_onboarded is True
+            assert user.state.attended_auto_email_u051_send is False
+            assert user.state.attended_auto_email_u051_send_at is None
+            assert user.state.last_prematching_checkoff_at is not None
+
+        for user in [self.no_show_user_1, self.no_show_user_2]:
+            user.state.refresh_from_db()
+            assert user.state.is_onboarded is False
+            assert user.state.not_attended_auto_email_u052_send is False
+            assert user.state.not_attended_auto_email_u052_send_at is None
+            assert user.state.last_prematching_checkoff_at is not None
+
+        assert self.no_show_user_1.state.not_attended_auto_email_u053_send is True
+        assert self.no_show_user_1.state.not_attended_auto_email_u054_send is False
+        assert self.no_show_user_2.state.not_attended_auto_email_u053_send is True
+        assert self.no_show_user_2.state.not_attended_auto_email_u054_send is True
+
+        report = automatic_emails_u051_u052()
+        assert report["u051_count"] == 2
+        assert report["u052_count"] == 2
+        assert mock_task_send_email.delay.call_count == 4
+
+        sent_templates = [call[0][0] for call in mock_task_send_email.delay.call_args_list]
+        assert sent_templates.count("automatic-emails-u071") == 2
+        assert sent_templates.count("prematching-call-no-show") == 2
+
+        for user in [self.attended_user_1, self.attended_user_2]:
+            user.state.refresh_from_db()
+            assert user.state.attended_auto_email_u051_send is True
+            assert user.state.attended_auto_email_u051_send_at is not None
+
+        for user in [self.no_show_user_1, self.no_show_user_2]:
+            user.state.refresh_from_db()
+            assert user.state.not_attended_auto_email_u052_send is True
+            assert user.state.not_attended_auto_email_u052_send_at is not None
+
+        mock_task_send_email.reset_mock()
+
+        # Running check-off again must not requeue attended users, but should requeue no-show users.
+        response_repeat = client.post(
+            "/api/matching/prematchingappointments/complete_prematching_call/", payload, format="json"
+        )
+        assert response_repeat.status_code == 200
+
+        for user in [self.attended_user_1, self.attended_user_2]:
+            user.state.refresh_from_db()
+            assert user.state.is_onboarded is True
+            assert user.state.attended_auto_email_u051_send is True
+
+        for user in [self.no_show_user_1, self.no_show_user_2]:
+            user.state.refresh_from_db()
+            assert user.state.not_attended_auto_email_u052_send is False
+            assert user.state.not_attended_auto_email_u052_send_at is None
+
+        assert self.no_show_user_1.state.not_attended_auto_email_u053_send is True
+        assert self.no_show_user_1.state.not_attended_auto_email_u054_send is False
+        assert self.no_show_user_2.state.not_attended_auto_email_u053_send is True
+        assert self.no_show_user_2.state.not_attended_auto_email_u054_send is True
+
+        report_repeat = automatic_emails_u051_u052()
+        assert report_repeat["u051_count"] == 0
+        assert report_repeat["u052_count"] == 2
+        assert mock_task_send_email.delay.call_count == 2
+        sent_templates_repeat = [call[0][0] for call in mock_task_send_email.delay.call_args_list]
+        assert sent_templates_repeat == ["prematching-call-no-show", "prematching-call-no-show"]
+
+        mock_task_send_email.reset_mock()
+        report_third_run = automatic_emails_u051_u052()
+        assert report_third_run["u051_count"] == 0
+        assert report_third_run["u052_count"] == 0
+        mock_task_send_email.delay.assert_not_called()
+
+    def test_prematching_checkoff_collects_unretrievable_selected_users(self):
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+        client.force_authenticate(user=self.staff_user)
+
+        missing_id = 9999999
+        payload = {
+            "appointment_date": self.appointment_date.isoformat(),
+            "selected_users": [self.attended_user_1.id, missing_id],
+            "send_emails_now": False,
+        }
+
+        response = client.post(
+            "/api/matching/prematchingappointments/complete_prematching_call/", payload, format="json"
+        )
+        assert response.status_code == 200
+        assert response.data["unretrievable_user_ids"] == [missing_id]
+
+        self.attended_user_1.state.refresh_from_db()
+        assert self.attended_user_1.state.is_onboarded is True
+        assert self.attended_user_1.state.last_prematching_checkoff_at is not None
+
+    @patch("management.tasks.automatic_emails_u051_u052")
+    def test_prematching_checkoff_can_trigger_send_now(self, mock_u051_u052_task):
+        from types import SimpleNamespace
+
+        from rest_framework.test import APIClient
+
+        mock_u051_u052_task.delay.return_value = SimpleNamespace(id="task-u051-u052-1")
+
+        client = APIClient()
+        client.force_authenticate(user=self.staff_user)
+
+        payload = {
+            "appointment_date": self.appointment_date.isoformat(),
+            "selected_users": [self.attended_user_1.id, self.attended_user_2.id],
+            "send_emails_now": True,
+        }
+
+        response = client.post(
+            "/api/matching/prematchingappointments/complete_prematching_call/", payload, format="json"
+        )
+        assert response.status_code == 200
+        assert response.data["send_emails_now"] is True
+        assert response.data["send_task_id"] == "task-u051-u052-1"
+        mock_u051_u052_task.delay.assert_called_once()

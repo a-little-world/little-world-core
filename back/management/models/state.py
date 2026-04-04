@@ -71,8 +71,15 @@ class State(models.Model):
     )  # just an extra boolean field to be explicit
     last_not_attended_prematching_call_at = models.DateTimeField(default=None, null=True, blank=True)
     # TODO: confirm with melina if they should be send again if he didn't attent an newly booked pre-matching call?
+    last_prematching_checkoff_at = models.DateTimeField(default=None, null=True, blank=True)
+    attended_auto_email_u051_send = models.BooleanField(default=False, null=False, blank=False)
+    not_attended_auto_email_u052_send = models.BooleanField(default=False, null=False, blank=False)
+    attended_auto_email_u051_send_at = models.DateTimeField(default=None, null=True, blank=True)
+    not_attended_auto_email_u052_send_at = models.DateTimeField(default=None, null=True, blank=True)
     not_attended_auto_email_u053_send = models.BooleanField(default=False, null=False, blank=False)  # After 2 days
     not_attended_auto_email_u054_send = models.BooleanField(default=False, null=False, blank=False)  # After TODO days
+    not_attended_auto_email_u053_send_at = models.DateTimeField(default=None, null=True, blank=True)
+    not_attended_auto_email_u054_send_at = models.DateTimeField(default=None, null=True, blank=True)
 
     # Just some hash for verifying the email
     email_auth_hash = models.CharField(default=utils._double_uuid, max_length=255)
