@@ -1,14 +1,18 @@
 from django.urls import path
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
 from rest_framework import serializers, status, viewsets
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 
 from management.api.user_advanced import AdvancedUserSerializer
 from management.api.utils_advanced import filterset_schema_dict
 from management.helpers import DetailedPaginationMixin, IsAdminOrMatchingUser
 from management.models.pre_matching_appointment import PreMatchingAppointment
+from management.models.state import State
+from management.models.user import User
 
 
 class PreMatchingAppointmentAdvancedSerializer(serializers.ModelSerializer):
@@ -243,6 +247,133 @@ class PreMatchingAppointmentViewSet(viewsets.ModelViewSet):
             return super().get_queryset().get(uuid=self.kwargs["pk"])
 
 
+@extend_schema(
+    request=inline_serializer(
+        name="MarkPrematchingCallsCompletedRequest",
+        fields={
+            "appointment_date": serializers.DateTimeField(),
+            "selected_users": serializers.ListField(child=serializers.IntegerField()),
+            "send_emails_now": serializers.BooleanField(default=False),
+        },
+    )
+)
+@api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
+def mark_prematching_calls_completed(request):
+    appointment_date = request.data.get("appointment_date")
+    userlist = request.data.get("selected_users")
+    send_emails_now = bool(request.data.get("send_emails_now", False))
+
+    try:
+        appointment_date = parse_datetime(appointment_date)
+    except ValueError:
+        return Response(
+            {"error": "appointment_date has the wrong format. Use YYYY-MM-DDTHH:MM:SSZ"},
+            status=400,
+        )
+
+    if appointment_date is None or userlist is None:
+        return Response({"error": "appointment_date and userlist are required"}, status=400)
+
+    appointments = PreMatchingAppointment.objects.filter(start_time=appointment_date).select_related("user")
+    if appointments is None or len(appointments) == 0:
+        return Response(
+            {"error": "appointment not found"},
+            status=404,
+        )
+
+    appointment_users = [appointment.user.id for appointment in appointments if appointment.user is not None]
+
+    user_list_objects = []
+    unretrievable_user_ids = []
+    for user_id in userlist:
+        if user_id not in appointment_users:
+            unretrievable_user_ids.append(user_id)
+            continue
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            unretrievable_user_ids.append(user_id)
+            continue
+        if (
+            not request.user.is_staff
+            and request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+            and not request.user.state.managed_users.filter(pk=user.pk).exists()
+        ):
+            return Response(
+                {"error": "You are not allowed to access one or many users for this appointment!"},
+                status=401,
+            )
+        user_list_objects.append(user)
+
+    attended_users = []
+    not_attended_users = []
+    now = timezone.now()
+
+    for user in user_list_objects:
+        was_onboarded = bool(user.state.is_onboarded)
+        user.state.is_onboarded = True
+        user.state.last_prematching_checkoff_at = now
+        if not was_onboarded:
+            user.state.onboarding_call_completed_at = now
+        user.state.save()
+        attended_users.append(user)
+
+        if not was_onboarded:
+            user.state.attended_auto_email_u051_send = False
+            user.state.attended_auto_email_u051_send_at = None
+            user.state.save()
+
+    not_attended_appointment_users = list(set(appointment_users) - set(userlist))
+    for user_id in not_attended_appointment_users:
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            unretrievable_user_ids.append(user_id)
+            continue
+        if user.state.is_onboarded:
+            continue
+        user.state.is_onboarded = False
+        user.state.last_prematching_checkoff_at = now
+        user.state.last_prematching_call_not_attended = True
+        user.state.last_not_attended_prematching_call_at = now
+
+        user.state.not_attended_auto_email_u052_send = False
+        user.state.not_attended_auto_email_u052_send_at = None
+        user.state.save()
+        not_attended_users.append(user)
+
+    message_report = (
+        f"Prematching Call Manually marked by {request.user}\n"
+        f"Prematching Call Report - {appointment_date.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        f"Attended: {len(attended_users)}\n"
+        f"Not attended: {len(not_attended_users)}\n"
+        f"Unretrievable users: {len(unretrievable_user_ids)}\n"
+        f"Total: {len(appointments)}"
+    )
+
+    from management.tasks import slack_notify_communication_channel_async, slack_notify_security_channel_async
+
+    slack_notify_communication_channel_async.delay(message=message_report)
+    slack_notify_security_channel_async.delay(message=message_report)
+    send_task_id = None
+    if send_emails_now:
+        from management.tasks import automatic_emails_u051_u052
+
+        send_task = automatic_emails_u051_u052.delay()
+        send_task_id = send_task.id
+
+    return Response(
+        {
+            "success": True,
+            "message_report": message_report,
+            "unretrievable_user_ids": unretrievable_user_ids,
+            "send_emails_now": send_emails_now,
+            "send_task_id": send_task_id,
+        }
+    )
+
+
 api_urls = [
     path("api/matching/prematchingappointments/", PreMatchingAppointmentViewSet.as_view({"get": "list"})),
     path(
@@ -252,6 +383,10 @@ api_urls = [
     path(
         "api/matching/prematchingappointments/create_appointment_for_user/",
         PreMatchingAppointmentViewSet.as_view({"post": "create_appointment_for_user"}),
+    ),
+    path(
+        "api/matching/prematchingappointments/complete_prematching_call/",
+        mark_prematching_calls_completed,
     ),
     path("api/matching/prematchingappointments/<pk>/", PreMatchingAppointmentViewSet.as_view({"get": "retrieve"})),
     path(
