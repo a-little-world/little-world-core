@@ -13,12 +13,12 @@ from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.models.state import State
 from management.random_test_users import create_test_user
 from management.tasks import (
-    automatic_emails_u051_u052,
     automatic_emails_m012_m013_m014,
     automatic_emails_m023,
     automatic_emails_m024_m025,
     automatic_emails_m031_m032_m033_m042,
     automatic_emails_u023_u024_u025,
+    automatic_emails_u051_u052,
     automatic_emails_u072_u073_u074,
     automatic_emails_u082_u083_u084,
 )
@@ -1354,7 +1354,9 @@ class TestPrematchingCheckoffEmailQueue(TestCase):
             "send_emails_now": False,
         }
 
-        response = client.post("/api/matching/prematchingappointments/complete_prematching_call/", payload, format="json")
+        response = client.post(
+            "/api/matching/prematchingappointments/complete_prematching_call/", payload, format="json"
+        )
         assert response.status_code == 200
         assert response.data["unretrievable_user_ids"] == []
 
@@ -1445,7 +1447,9 @@ class TestPrematchingCheckoffEmailQueue(TestCase):
             "send_emails_now": False,
         }
 
-        response = client.post("/api/matching/prematchingappointments/complete_prematching_call/", payload, format="json")
+        response = client.post(
+            "/api/matching/prematchingappointments/complete_prematching_call/", payload, format="json"
+        )
         assert response.status_code == 200
         assert response.data["unretrievable_user_ids"] == [missing_id]
 
@@ -1470,7 +1474,9 @@ class TestPrematchingCheckoffEmailQueue(TestCase):
             "send_emails_now": True,
         }
 
-        response = client.post("/api/matching/prematchingappointments/complete_prematching_call/", payload, format="json")
+        response = client.post(
+            "/api/matching/prematchingappointments/complete_prematching_call/", payload, format="json"
+        )
         assert response.status_code == 200
         assert response.data["send_emails_now"] is True
         assert response.data["send_task_id"] == "task-u051-u052-1"
