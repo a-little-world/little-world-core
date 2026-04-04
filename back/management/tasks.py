@@ -1353,6 +1353,7 @@ def daily_sms_report():
     }
 
 
+@shared_task
 def automatic_emails_m043_m044_m045():
     """
     Implements after 5, 8, 10 Video Calls Match Emails
@@ -1514,6 +1515,47 @@ def automatic_emails_m043_m044_m045():
     return report
 
 
+@shared_task
+def automatic_emails_u051_u052():
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__U051_U052)
+
+    users_u051 = User.objects.filter(
+        is_active=True,
+        state__is_onboarded=True,
+        state__onboarding_call_completed_at__isnull=False,
+        state__attended_auto_email_u051_send=False,
+    )
+    users_u051_hashes = list(users_u051.values_list("hash", flat=True))
+    for user in users_u051:
+        send_email_background.delay("automatic-emails-u071", user_id=user.id, emulated_send=emulated_send)
+        user.state.attended_auto_email_u051_send = True
+        user.state.attended_auto_email_u051_send_at = dj_timezone.now()
+        user.state.save()
+
+    users_u052 = User.objects.filter(
+        is_active=True,
+        state__is_onboarded=False,
+        state__last_prematching_call_not_attended=True,
+        state__last_not_attended_prematching_call_at__isnull=False,
+        state__not_attended_auto_email_u052_send=False,
+    )
+    users_u052_hashes = list(users_u052.values_list("hash", flat=True))
+    for user in users_u052:
+        send_email_background.delay("prematching-call-no-show", user_id=user.id, emulated_send=emulated_send)
+        user.state.not_attended_auto_email_u052_send = True
+        user.state.not_attended_auto_email_u052_send_at = dj_timezone.now()
+        user.state.save()
+
+    return {
+        "status": "sent",
+        "u051_count": len(users_u051_hashes),
+        "u051_users": users_u051_hashes,
+        "u052_count": len(users_u052_hashes),
+        "u052_users": users_u052_hashes,
+    }
+
+
+@shared_task
 def automatic_emails_u053_u054():
     """
     Implements automatic emails for not attending pre-matching appointments.
@@ -1583,6 +1625,7 @@ def automatic_emails_u053_u054():
             emulated_send=emulated_send,
         )
         user.state.not_attended_auto_email_u053_send = True
+        user.state.not_attended_auto_email_u053_send_at = timezone.now()
         user.state.save()
         u053_hashes.append(user.hash)
 
@@ -1590,6 +1633,7 @@ def automatic_emails_u053_u054():
     for user in user_missed_last_onboarding_u054:
         send_email_background.delay("automatic-emails-u054", user_id=user.id, emulated_send=emulated_send)
         user.state.not_attended_auto_email_u054_send = True
+        user.state.not_attended_auto_email_u054_send_at = timezone.now()
         user.state.save()
         u054_hashes.append(user.hash)
 
@@ -1606,6 +1650,7 @@ def automatic_emails_u053_u054():
     return report
 
 
+@shared_task
 def automatic_emails_fm021_fm022__ghosted_matches():
     """
     Implements automatic emails for 15 days single party contact
