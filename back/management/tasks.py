@@ -1578,7 +1578,7 @@ def automatic_emails_u053_u054():
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.ENABLE_AUTO_EMAILS__U053_U054)
 
     users_missed_onboarding = User.objects.filter(
-        active=True,
+        is_active=True,
         state__last_prematching_call_not_attended=True,
         state__last_not_attended_prematching_call_at__lte=time_2days_ago,
         state__not_attended_auto_email_u053_send=False,
@@ -1598,7 +1598,7 @@ def automatic_emails_u053_u054():
     user_missed_last_onboarding_u053 = users_missed_onboarding.exclude(id__in=users_with_new_appointment)
 
     users_missed_onboarding_u054 = User.objects.filter(
-        active=True,
+        is_active=True,
         state__last_prematching_call_not_attended=True,
         state__last_not_attended_prematching_call_at__lte=time_7days_ago,
         state__not_attended_auto_email_u053_send=True,
