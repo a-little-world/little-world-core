@@ -1,9 +1,10 @@
+from datetime import datetime, time
+
 from chat.models import Chat, ChatSerializer, Message, MessageSerializer
-from django.db.models import CharField, Q, Value
+from django.db.models import CharField, Max, Q, Value
 from django.db.models.functions import Concat
 from django.urls import path
 from django.utils import timezone
-from django.utils.dateparse import parse_datetime
 from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
 from emails.models import AdvancedEmailLogSerializer, EmailLog
@@ -35,13 +36,14 @@ from management.models.sms import SmsModel, SmsSerializer
 from management.models.state import State, StateSerializer
 from management.models.unconfirmed_matches import ProposedMatch, serialize_proposed_matches
 from management.models.user import User
-from management.tasks import matching_algo_v2, send_email_background
+from management.tasks import matching_algo_v2
 
 user_category_buckets = [
     "journey_v2__user_created",
     "journey_v2__email_verified",
     "journey_v2__user_form_completed",
     "journey_v2__booked_onboarding_call",
+    "journey_v2__self_onboarding_started",
     "journey_v2__too_low_german_level",
     "journey_v2__pre_matching",
     "journey_v2__match_takeoff",
@@ -59,7 +61,7 @@ user_category_buckets = [
 
 def get_match_waiting_time(user):
     if not user.state.is_onboarded:
-        return {"number_of_days": None, "waiting_time_string": "Prematch call not completed", "first_search": None}
+        return {"number_of_days": None, "waiting_time_string": "Not onboarded", "first_search": None}
 
     if user.state.searching_state != State.SearchingStateChoices.SEARCHING:
         return {"number_of_days": None, "waiting_time_string": "Not actively searching", "first_search": None}
@@ -72,13 +74,26 @@ def get_match_waiting_time(user):
         waiting_since = user.state.searching_state_last_updated
     else:
         latest_pre_match_appointment = PreMatchingAppointment.objects.filter(user=user).order_by("-created").first()
-        if not latest_pre_match_appointment:
-            return {
-                "number_of_days": None,
-                "waiting_time_string": "No pre-match appointment found",
-                "first_search": None,
-            }
-        waiting_since = latest_pre_match_appointment.end_time
+        if latest_pre_match_appointment:
+            waiting_since = latest_pre_match_appointment.end_time
+        else:
+            user_state = user.state
+            candidates = []
+            if user_state.onboarding_call_completed_at is not None:
+                candidates.append(user_state.onboarding_call_completed_at)
+            if user_state.self_onboarding_completed_at is not None:
+                d = user_state.self_onboarding_completed_at
+                candidates.append(
+                    timezone.make_aware(datetime.combine(d, time.min)),
+                )
+            if not candidates:
+                return {
+                    "number_of_days": None,
+                    "waiting_time_string": "No onboarding completion date found",
+                    "first_search": None,
+                }
+            # Earliest completion
+            waiting_since = min(candidates)
 
     # Calculate waiting time
     now = timezone.now()
@@ -841,7 +856,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     @extend_schema(
         request=inline_serializer(
             name="MarkPrematchingCallCompletedRequest",
-            fields={"is_onboarded": serializers.BooleanField(default=True)},
+            fields={"had_prematching_call": serializers.BooleanField(default=True)},
         )
     )
     @action(detail=True, methods=["post"])
@@ -853,130 +868,13 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if not has_access:
             return res
 
-        obj.state.is_onboarded = request.data.get("is_onboarded", True)
-        if obj.state.is_onboarded:
-            obj.state.onboarding_call_completed_at = timezone.now()
+        obj.state.had_prematching_call = request.data.get("had_prematching_call", True)
+        if obj.state.had_prematching_call:
+            obj.state.is_onboarded = True
+            latest_end = PreMatchingAppointment.objects.filter(user=obj).aggregate(m=Max("end_time"))["m"]
+            obj.state.onboarding_call_completed_at = latest_end if latest_end is not None else timezone.now()
         obj.state.save()
         return Response({"success": True})
-
-    @extend_schema(
-        request=inline_serializer(
-            name="MarkPrematchingCallsCompletedRequest",
-            fields={
-                "appointment_date": serializers.DateTimeField(),
-                "selected_users": serializers.ListField(child=serializers.IntegerField()),
-                "send_mail": serializers.DictField(child=serializers.BooleanField()),
-            },
-        )
-    )
-    @action(detail=True, methods=["post"])
-    def mark_prematching_calls_completed(self, request):
-        """
-        appointment_date: date formated as YYYY-MM-DDTHH:MM:SSZ
-        userlist: list of user ids that attended the appointment
-        """
-
-        # get the post parameter. appointment date and userlist
-        appointment_date = request.data.get("appointment_date", None)
-        userlist = request.data.get("selected_users", None)
-        send_mail = request.data.get("send_mail", False)
-
-        print(userlist)
-        print(send_mail)
-
-        # check also if the date has the correct format
-        try:
-            appointment_date = parse_datetime(appointment_date)
-        except ValueError:
-            return Response(
-                {"error": "appointment_date has the wrong format. Use YYYY-MM-DDTHH:MM:SSZ"},
-                status=400,
-            )
-
-        if appointment_date is None or userlist is None:
-            return Response({"error": "appointment_date and userlist are required"}, status=400)
-
-        # get all appointment at this date
-        appointments = PreMatchingAppointment.objects.filter(start_time=appointment_date)
-        if appointments is None or len(appointments) < len(userlist):
-            return Response(
-                {"error": "appointment not found or not enough appointments for the number of marked users"},
-                status=404,
-            )
-
-        # get the users from the appontment queryset, every appointment has exactly one user
-        appointment_users = [appointment.user.id for appointment in appointments]
-
-        # verify that the users are in the userlist
-        for user_id in userlist:
-            if user_id not in appointment_users:
-                return Response(
-                    {"error": "Some user that was marked as completed was not found for this appointment"},
-                    status=404,
-                )
-
-        user_list_objects = []
-        # check permission on all user in the userlist
-        # TODO: improve with better querry
-        for user_id in userlist:
-            user = User.objects.get(id=user_id)
-            has_access, res = self.check_management_user_access(user, request)
-            if not has_access:
-                return Response(
-                    {"error": "You are not allowed to access one or many users for this appointment!"},
-                    status=401,
-                )
-            user_list_objects.append(user)
-
-        attended_users = []
-        not_attended_users = []
-
-        # mark the users as completed
-        # TODO: use group send function in the future
-        for user in user_list_objects:
-            user.state.is_onboarded = True
-            user.state.onboarding_call_completed_at = timezone.now()
-            user.state.save()
-            attended_users.append(user)
-            if send_mail[str(user.id)]:
-                # TODO: comply to automatic email naming conventions
-                # TODO: Just set a flag that auto email seding should be processed now
-                # TODO: find out if this email matches at mxXX email that we need to rename to here
-                send_email_background.delay("prematching-call-post-thanks", user_id=user.id)
-
-        # get appointment_users set without userlist as a list
-        not_attended_appointment_users = list(set(appointment_users) - set(userlist))
-
-        # send email to the users that did not attend the appointment
-        for user_id in not_attended_appointment_users:
-            user = User.objects.get(id=user_id)
-            if user.state.is_onboarded:
-                # Don't apply this for people that already had a prematching call, but booked another appointment.
-                continue
-            user.state.is_onboarded = False
-            user.state.last_prematching_call_not_attended = True
-            user.state.last_not_attended_prematching_call_at = timezone.now()
-
-            user.state.save()
-            not_attended_users.append(user)
-            if send_mail[str(user.id)]:
-                # TODO: Also don't send this email just shedule the send...
-                send_email_background.delay("prematching-call-no-show", user_id=user_id)
-
-        message_report = (
-            f"Prematching Call Manually marked by {request.user}\n"
-            f"Prematching Call Report - {appointment_date.strftime('%Y-%m-%d %H:%M:%S')}\n"
-            f"Attended: {len(attended_users)}\n"
-            f"Not attended: {len(not_attended_users)}\n"
-            f"Total: {len(appointments)}"
-        )
-
-        from management.tasks import slack_notify_communication_channel_async, slack_notify_security_channel_async
-
-        slack_notify_communication_channel_async.delay(message=message_report)
-        slack_notify_security_channel_async.delay(message=message_report)
-
-        return Response({"success": True, "message_report": message_report})
 
     @action(detail=True, methods=["get"])
     def request_score_update(self, request, pk=None):
@@ -1207,10 +1105,6 @@ api_urls = [
     path(
         "api/matching/users/filters/",
         AdvancedUserViewset.as_view({"get": "get_filter_schema"}),
-    ),
-    path(
-        "api/matching/users/complete_prematching_call/",
-        AdvancedUserViewset.as_view({"post": "mark_prematching_calls_completed"}),
     ),
     path("api/matching/users/<pk>/", AdvancedUserViewset.as_view({"get": "retrieve"})),
     *viewset_actions,

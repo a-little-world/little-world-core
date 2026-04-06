@@ -69,6 +69,17 @@ auto_emails = {
 }
 
 
+if settings.ENABLE_AUTO_EMAILS__U051_U052:
+    auto_emails.update(
+        {
+            "automatic-emails-u051-u052": {
+                "task": "management.tasks.automatic_emails_u051_u052",
+                "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+            }
+        }
+    )
+
+
 if settings.ENABLE_AUTO_EMAILS__U023_U024_U025:
     auto_emails.update(
         {
@@ -145,6 +156,16 @@ if settings.ENABLE_AUTO_EMAILS__M043_M044_M045:
         {
             "automatic-emails-m043-m044-m045": {
                 "task": "management.tasks.automatic_emails_m043_m044_m045",
+                "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+            }
+        }
+    )
+
+if settings.ENABLE_AUTO_EMAILS__U053_U054:
+    auto_emails.update(
+        {
+            "automatic-emails-u053-u054": {
+                "task": "management.tasks.automatic_emails_u053_u054",
                 "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
             }
         }

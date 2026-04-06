@@ -725,6 +725,7 @@ def self_onboarding_update(request):
         user.state.self_onboarding_completed_at = timezone.now()
         user.state.self_onboarding_completed = True
         user.state.is_onboarded = True
+        send_email_background.delay("automatic-emails-u071", user_id=user.id)
         completed = True
 
     # TODO: add automatic email

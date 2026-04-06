@@ -170,7 +170,7 @@ def get_random_call_lobby_status(request, lobby_uuid):
         in_session=False,
         expired=False,
     )
-    matching = random_call_matching.first()  # TODO: invesetigate if there are any edge cases with this being > 1
+    matching = random_call_matching.first()  # TODO: investigate if there are any edge cases with this being > 1
     has_matching = random_call_matching.exists()
     if has_matching:
         own_number = 1 if (matching.u1 == request.user) else 2

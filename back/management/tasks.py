@@ -623,34 +623,44 @@ def send_sms_background(self, user_hash, message):
 @shared_task
 def automatic_emails_u023_u024_u025():
     """
-    Sends automatic emails to users who have not booked an onboarding call after completing the user form
+    Sends automatic emails to users who have not booked an appointment or completed the self-onboarding after completing the user form.
     """
     from django.conf import settings
 
     from management.models.pre_matching_appointment import PreMatchingAppointment
+    from management.models.profile import Profile
     from management.models.user import User
+
+    def template_for_user_form_reminder(stage: str, user) -> str:
+        # u023/u024: distinct copy for volunteers (v) vs learners (l); u025 is still one template.
+        if stage in ("u023", "u024"):
+            if user.profile.user_type == Profile.TypeChoices.VOLUNTEER:
+                return f"automatic-emails-{stage}v"
+            return f"automatic-emails-{stage}l"
+        return "automatic-emails-u025"
 
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__U023_U024_U025)
 
-    reminder = {
-        "automatic-emails-u023": [3, False, False, False],
-        "automatic-emails-u024": [7, True, False, False],
-        "automatic-emails-u025": [14, True, True, False],
-    }
+    reminder_stages = [
+        ("u023", 3, False, False, False),
+        ("u024", 7, True, False, False),
+        ("u025", 14, True, True, False),
+    ]
     users_sended = []
-    for template, (days, three_days_reminder, seven_days_reminder, fourteen_days_reminder) in reminder.items():
+    for stage, days, three_days_reminder, seven_days_reminder, fourteen_days_reminder in reminder_stages:
         users = User.objects.filter(
             state__user_form_completed_at__lte=dj_timezone.now() - timedelta(days=days),
             state__is_onboarded=False,
             state__user_form_completed_3_days_reminder_send=three_days_reminder,
             state__user_form_completed_7_days_reminder_send=seven_days_reminder,
             state__user_form_completed_14_days_reminder_send=fourteen_days_reminder,
-        )
+        ).select_related("profile")
         user_prematching_join = PreMatchingAppointment.objects.filter(user__in=users)
         users = users.exclude(id__in=user_prematching_join.values_list("user", flat=True))
 
         users_sended.append(users)
         for user in users:
+            template = template_for_user_form_reminder(stage, user)
             send_email_background.delay(template, user_id=user.id, emulated_send=emulated_send)
             user.state.set_user_form_completed_reminder_sent(days)
 
@@ -1137,8 +1147,10 @@ def daily_auto_email_report():
     }
 
     check_emails = [
-        "automatic-emails-u023",
-        "automatic-emails-u024",
+        "automatic-emails-u023l",
+        "automatic-emails-u023v",
+        "automatic-emails-u024l",
+        "automatic-emails-u024v",
         "automatic-emails-u025",
         "automatic-emails-m012",
         "automatic-emails-m013",
@@ -1160,7 +1172,8 @@ def daily_auto_email_report():
         "automatic-emails-m043",
         "automatic-emails-m044",
         "automatic-emails-m045",
-        "automatic-emails-u053",
+        "automatic-emails-u053l",
+        "automatic-emails-u053v",
         "automatic-emails-u054",
     ]
 
@@ -1187,13 +1200,15 @@ def daily_auto_email_report():
 
     # Group emails by template for summary
     email_counts = defaultdict(int)
-    # Group emails by user for per-user breakdown
-    user_emails = defaultdict(list)
+    # Group users by template for compact per-template breakdown
+    template_users = defaultdict(dict)
+    unique_user_ids = set()
 
     for log in email_logs:
         email_counts[log.template] += 1
         if log.receiver:
-            user_emails[log.receiver].append(log.template)
+            template_users[log.template][log.receiver.id] = log.receiver
+            unique_user_ids.add(log.receiver.id)
 
     # Build the Slack message
     message_parts = [
@@ -1209,7 +1224,7 @@ def daily_auto_email_report():
             message_parts.append(f"• `{template}`: {count} sent")
 
     total_emails = sum(email_counts.values())
-    message_parts.append(f"\n*Total:* {total_emails} emails sent to {len(user_emails)} users")
+    message_parts.append(f"\n*Total:* {total_emails} emails sent to {len(unique_user_ids)} users")
 
     # Add enabled/disabled and emulated status
     message_parts.append("")
@@ -1219,15 +1234,21 @@ def daily_auto_email_report():
         emulated_status = "`True`" if flags["emulated"] else "`False`"
         message_parts.append(f"• {setting_name}: enabled={enabled_status}, emulated={emulated_status}")
 
-    # Add per-user breakdown with links
+    # Add compact per-template breakdown with user links
     message_parts.append("")
-    message_parts.append("*Emails Per-User:*")
+    message_parts.append("*Emails Compact Summary:*")
 
-    for user, templates in sorted(user_emails.items(), key=lambda x: x[0].email if x[0] else ""):
-        if user:
-            user_url = f"{settings.BASE_URL}/matching/user/{user.id}?tab=emails"
-            templates_str = ", ".join(sorted(set(templates)))
-            message_parts.append(f"• {user.email}: `{templates_str}` - `{user_url}`")
+    for template in check_emails:
+        if email_counts.get(template, 0) == 0:
+            continue
+
+        template_url = f"{settings.BASE_URL}/matching/emails/{template}"
+        users_for_template = template_users.get(template, {})
+        user_links = ", ".join(
+            f"[{user.id}]({settings.BASE_URL}/matching/user/{user.id}?tab=emails)"
+            for user in sorted(users_for_template.values(), key=lambda u: u.id)
+        )
+        message_parts.append(f"- [{template}]({template_url}): {user_links or 'no users'}")
 
     message = "\n".join(message_parts)
     notify_security_channel(message)
@@ -1237,7 +1258,7 @@ def daily_auto_email_report():
         "status": "sent",
         "date": yesterday_start.strftime("%Y-%m-%d"),
         "total_emails": total_emails,
-        "unique_users": len(user_emails),
+        "unique_users": len(unique_user_ids),
         "email_counts": dict(email_counts),
     }
 
@@ -1332,6 +1353,7 @@ def daily_sms_report():
     }
 
 
+@shared_task
 def automatic_emails_m043_m044_m045():
     """
     Implements after 5, 8, 10 Video Calls Match Emails
@@ -1493,14 +1515,62 @@ def automatic_emails_m043_m044_m045():
     return report
 
 
+@shared_task
+def automatic_emails_u051_u052():
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__U051_U052)
+
+    users_u051 = User.objects.filter(
+        is_active=True,
+        state__is_onboarded=True,
+        state__onboarding_call_completed_at__isnull=False,
+        state__attended_auto_email_u051_send=False,
+    )
+    users_u051_hashes = list(users_u051.values_list("hash", flat=True))
+    for user in users_u051:
+        send_email_background.delay("automatic-emails-u071", user_id=user.id, emulated_send=emulated_send)
+        user.state.attended_auto_email_u051_send = True
+        user.state.attended_auto_email_u051_send_at = dj_timezone.now()
+        user.state.save()
+
+    users_u052 = User.objects.filter(
+        is_active=True,
+        state__is_onboarded=False,
+        state__last_prematching_call_not_attended=True,
+        state__last_not_attended_prematching_call_at__isnull=False,
+        state__not_attended_auto_email_u052_send=False,
+    )
+    users_u052_hashes = list(users_u052.values_list("hash", flat=True))
+    for user in users_u052:
+        send_email_background.delay("prematching-call-no-show", user_id=user.id, emulated_send=emulated_send)
+        user.state.not_attended_auto_email_u052_send = True
+        user.state.not_attended_auto_email_u052_send_at = dj_timezone.now()
+        user.state.save()
+
+    return {
+        "status": "sent",
+        "u051_count": len(users_u051_hashes),
+        "u051_users": users_u051_hashes,
+        "u052_count": len(users_u052_hashes),
+        "u052_users": users_u052_hashes,
+    }
+
+
+@shared_task
 def automatic_emails_u053_u054():
     """
-    Implements automatic emails for not attended pre-matching calls
+    Implements automatic emails for not attending pre-matching appointments.
     u053: send if at least 2 days passed since missed appointment
     u054: send if at least 7 days passed since missed appointment (follow-up to u053)
     """
     from django.conf import settings
     from django.utils import timezone
+
+    from management.models.profile import Profile
+
+    def template_for_u053(user: User) -> str:
+        if user.profile.user_type == Profile.TypeChoices.VOLUNTEER:
+            return "automatic-emails-u053v"
+        return "automatic-emails-u053l"
 
     time_2days_ago = timezone.now() - timedelta(days=2)
     time_7days_ago = timezone.now() - timedelta(days=7)
@@ -1514,7 +1584,7 @@ def automatic_emails_u053_u054():
         state__not_attended_auto_email_u053_send=False,
         state__not_attended_auto_email_u054_send=False,
         state__is_onboarded=False,
-    )
+    ).select_related("profile")
 
     users_with_new_appointment = set()
     for user in users_missed_onboarding:
@@ -1549,8 +1619,13 @@ def automatic_emails_u053_u054():
 
     u053_hashes = []
     for user in user_missed_last_onboarding_u053:
-        send_email_background.delay("automatic-emails-u053", user_id=user.id, emulated_send=emulated_send)
+        send_email_background.delay(
+            template_for_u053(user),
+            user_id=user.id,
+            emulated_send=emulated_send,
+        )
         user.state.not_attended_auto_email_u053_send = True
+        user.state.not_attended_auto_email_u053_send_at = timezone.now()
         user.state.save()
         u053_hashes.append(user.hash)
 
@@ -1558,6 +1633,7 @@ def automatic_emails_u053_u054():
     for user in user_missed_last_onboarding_u054:
         send_email_background.delay("automatic-emails-u054", user_id=user.id, emulated_send=emulated_send)
         user.state.not_attended_auto_email_u054_send = True
+        user.state.not_attended_auto_email_u054_send_at = timezone.now()
         user.state.save()
         u054_hashes.append(user.hash)
 
@@ -1574,6 +1650,7 @@ def automatic_emails_u053_u054():
     return report
 
 
+@shared_task
 def automatic_emails_fm021_fm022__ghosted_matches():
     """
     Implements automatic emails for 15 days single party contact
