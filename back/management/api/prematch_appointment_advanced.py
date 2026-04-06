@@ -311,15 +311,16 @@ def mark_prematching_calls_completed(request):
     now = timezone.now()
 
     for user in user_list_objects:
-        was_onboarded = bool(user.state.is_onboarded)
+        previously_onboarded = bool(user.state.is_onboarded)
+        user.state.had_prematching_call = True
         user.state.is_onboarded = True
         user.state.last_prematching_checkoff_at = now
-        if not was_onboarded:
-            user.state.onboarding_call_completed_at = now
+        if not previously_onboarded:
+            user.state.onboarding_call_completed_at = appointment_date
         user.state.save()
         attended_users.append(user)
 
-        if not was_onboarded:
+        if not previously_onboarded:
             user.state.attended_auto_email_u051_send = False
             user.state.attended_auto_email_u051_send_at = None
             user.state.save()
@@ -336,7 +337,7 @@ def mark_prematching_calls_completed(request):
         user.state.is_onboarded = False
         user.state.last_prematching_checkoff_at = now
         user.state.last_prematching_call_not_attended = True
-        user.state.last_not_attended_prematching_call_at = now
+        user.state.last_not_attended_prematching_call_at = appointment_date
 
         user.state.not_attended_auto_email_u052_send = False
         user.state.not_attended_auto_email_u052_send_at = None

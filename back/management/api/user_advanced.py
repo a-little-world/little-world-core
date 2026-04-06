@@ -1,7 +1,7 @@
 from datetime import datetime, time
 
 from chat.models import Chat, ChatSerializer, Message, MessageSerializer
-from django.db.models import CharField, Q, Value
+from django.db.models import CharField, Max, Q, Value
 from django.db.models.functions import Concat
 from django.urls import path
 from django.utils import timezone
@@ -856,7 +856,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     @extend_schema(
         request=inline_serializer(
             name="MarkPrematchingCallCompletedRequest",
-            fields={"is_onboarded": serializers.BooleanField(default=True)},
+            fields={"had_prematching_call": serializers.BooleanField(default=True)},
         )
     )
     @action(detail=True, methods=["post"])
@@ -868,9 +868,11 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if not has_access:
             return res
 
-        obj.state.is_onboarded = request.data.get("is_onboarded", True)
-        if obj.state.is_onboarded:
-            obj.state.onboarding_call_completed_at = timezone.now()
+        obj.state.had_prematching_call = request.data.get("had_prematching_call", True)
+        if obj.state.had_prematching_call:
+            obj.state.is_onboarded = True
+            latest_end = PreMatchingAppointment.objects.filter(user=obj).aggregate(m=Max("end_time"))["m"]
+            obj.state.onboarding_call_completed_at = latest_end if latest_end is not None else timezone.now()
         obj.state.save()
         return Response({"success": True})
 
