@@ -197,10 +197,33 @@ class TestAutomaticEmails_m023(TestCase):
     def setUp(self):
         settings.DJANGO_TESTING = True
 
+        # Avoid Celery broker dependency in unit tests.
+        self._send_email_patch = patch("management.tasks.send_email_background")
+        self.mock_send_email_background = self._send_email_patch.start()
+        self.addCleanup(self._send_email_patch.stop)
+
+        user_model = get_user_model()
+
+        def create_user(email, first_name, *, is_staff=False, is_matching_user=False):
+            user = user_model.objects.create_user(
+                email=email,
+                username=email,
+                password="Test123!",
+                first_name=first_name,
+                last_name="Test",
+            )
+            if is_staff:
+                user.is_staff = True
+                user.save()
+            if is_matching_user:
+                user.state.extra_user_permissions = [State.ExtraUserPermissionChoices.MATCHING_USER]
+                user.state.save()
+            return user
+
         # Create regular users for valid chat (3+ days inactive)
         with freeze_time(dj_timezone.now() - timedelta(days=10)):
-            self.valid_user_1 = create_test_user(30000, None, "Test123!", "m023-valid-user1@test.de")
-            self.valid_user_2 = create_test_user(30001, None, "Test123!", "m023-valid-user2@test.de")
+            self.valid_user_1 = create_user("m023-valid-user1@test.de", "ValidOne")
+            self.valid_user_2 = create_user("m023-valid-user2@test.de", "ValidTwo")
 
         # Create chat and message older than 3 days
         self.valid_chat = Chat.objects.create(u1=self.valid_user_1, u2=self.valid_user_2)
@@ -214,8 +237,8 @@ class TestAutomaticEmails_m023(TestCase):
 
         # Create users for invalid chat (message too recent - only 2 days old)
         with freeze_time(dj_timezone.now() - timedelta(days=10)):
-            self.invalid_user_1 = create_test_user(30002, None, "Test123!", "m023-invalid-user1@test.de")
-            self.invalid_user_2 = create_test_user(30003, None, "Test123!", "m023-invalid-user2@test.de")
+            self.invalid_user_1 = create_user("m023-invalid-user1@test.de", "InvalidOne")
+            self.invalid_user_2 = create_user("m023-invalid-user2@test.de", "InvalidTwo")
 
         self.invalid_chat_recent = Chat.objects.create(u1=self.invalid_user_1, u2=self.invalid_user_2)
         with freeze_time(dj_timezone.now() - timedelta(days=2)):
@@ -228,10 +251,8 @@ class TestAutomaticEmails_m023(TestCase):
 
         # Create chat with staff user (should be excluded)
         with freeze_time(dj_timezone.now() - timedelta(days=10)):
-            self.staff_user = create_test_user(30004, None, "Test123!", "m023-staff@test.de")
-            self.staff_user.is_staff = True
-            self.staff_user.save()
-            self.normal_user_with_staff = create_test_user(30005, None, "Test123!", "m023-normal-with-staff@test.de")
+            self.staff_user = create_user("m023-staff@test.de", "StaffUser", is_staff=True)
+            self.normal_user_with_staff = create_user("m023-normal-with-staff@test.de", "NormalWithStaff")
 
         self.invalid_chat_staff = Chat.objects.create(u1=self.staff_user, u2=self.normal_user_with_staff)
         with freeze_time(dj_timezone.now() - timedelta(days=4)):
@@ -244,12 +265,8 @@ class TestAutomaticEmails_m023(TestCase):
 
         # Create chat with matching user (should be excluded)
         with freeze_time(dj_timezone.now() - timedelta(days=10)):
-            self.matching_user = create_test_user(30006, None, "Test123!", "m023-matching@test.de")
-            self.matching_user.state.extra_user_permissions = [State.ExtraUserPermissionChoices.MATCHING_USER]
-            self.matching_user.state.save()
-            self.normal_user_with_matching = create_test_user(
-                30007, None, "Test123!", "m023-normal-with-matching@test.de"
-            )
+            self.matching_user = create_user("m023-matching@test.de", "MatchingUser", is_matching_user=True)
+            self.normal_user_with_matching = create_user("m023-normal-with-matching@test.de", "NormalWithMatching")
 
         self.invalid_chat_matching = Chat.objects.create(u1=self.matching_user, u2=self.normal_user_with_matching)
         with freeze_time(dj_timezone.now() - timedelta(days=4)):
@@ -262,8 +279,8 @@ class TestAutomaticEmails_m023(TestCase):
 
         # Create chat with no messages (should be excluded)
         with freeze_time(dj_timezone.now() - timedelta(days=10)):
-            self.no_msg_user_1 = create_test_user(30008, None, "Test123!", "m023-nomsg1@test.de")
-            self.no_msg_user_2 = create_test_user(30009, None, "Test123!", "m023-nomsg2@test.de")
+            self.no_msg_user_1 = create_user("m023-nomsg1@test.de", "NoMsgOne")
+            self.no_msg_user_2 = create_user("m023-nomsg2@test.de", "NoMsgTwo")
 
         self.invalid_chat_no_messages = Chat.objects.create(u1=self.no_msg_user_1, u2=self.no_msg_user_2)
 
@@ -302,54 +319,14 @@ class TestAutomaticEmails_m023(TestCase):
         result2 = automatic_emails_m023()
         assert len(result2["inactive_chats"]) == 0
 
-    @patch("management.tasks.send_email_background")
-    def test_m023_sends_with_match_id(self, mock_send_email_background):
+    def test_m023_sends_with_match_id(self):
         match = Match.objects.create(user1=self.valid_user_1, user2=self.valid_user_2, active=True)
 
         automatic_emails_m023()
 
-        mock_send_email_background.delay.assert_called_once_with(
+        self.mock_send_email_background.delay.assert_called_once_with(
             "automatic-emails-m023",
             user_id=self.valid_user_2.id,
-            match_id=match.id,
-            emulated_send=True,
-        )
-
-
-class TestAutomaticEmails_m023Regression(TestCase):
-    @override_settings(DJANGO_TESTING=True)
-    @patch("management.tasks.send_email_background")
-    def test_m023_includes_match_id_in_email_task(self, mock_send_email_background):
-        user_model = get_user_model()
-        user_1 = user_model.objects.create_user(
-            email="m023-regression-user1@test.de",
-            username="m023-regression-user1@test.de",
-            password="Test123!",
-            first_name="Alex",
-            last_name="One",
-        )
-        user_2 = user_model.objects.create_user(
-            email="m023-regression-user2@test.de",
-            username="m023-regression-user2@test.de",
-            password="Test123!",
-            first_name="Sam",
-            last_name="Two",
-        )
-        chat = Chat.objects.create(u1=user_1, u2=user_2)
-        with freeze_time(dj_timezone.now() - timedelta(days=4)):
-            Message.objects.create(
-                chat=chat,
-                sender=user_1,
-                recipient=user_2,
-                text="Hello from regression test",
-            )
-        match = Match.objects.create(user1=user_1, user2=user_2, active=True)
-
-        automatic_emails_m023()
-
-        mock_send_email_background.delay.assert_called_once_with(
-            "automatic-emails-m023",
-            user_id=user_2.id,
             match_id=match.id,
             emulated_send=True,
         )
