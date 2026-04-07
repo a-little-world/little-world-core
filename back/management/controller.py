@@ -4,8 +4,6 @@ e.g.: Creating a new user, sending a notification to a users etc...
 """
 
 import os
-from dataclasses import dataclass
-from typing import Callable, Dict
 
 from chat.models import Chat
 from django.conf import settings
@@ -15,7 +13,6 @@ from django.utils import timezone
 from translations import get_translation
 
 from management import controller
-from management.models.management_tasks import MangementTask
 from management.models.matches import Match
 from management.models.past_matches import PastMatch
 from management.models.profile import Profile
@@ -560,96 +557,6 @@ def create_base_admin_and_add_standart_db_values():
     return usr_tim
 
 
-@dataclass
-class EmailSendReport:
-    send: bool = False
-    checked_subscription: bool = False
-    subscription_group: str = "none"
-    unsubscribable: bool = False
-    unsubscribed: bool = False
-    out: str = ""
-
-
-def send_email(  # TODO: deprecated
-    user,
-    subject: str,
-    mail_name: str,
-    mail_params_func: Callable,
-    unsubscribe_group=None,
-    emulated_send=False,
-):
-    # TODO: remove with the migration to new email apis
-    if settings.DISABLE_LEGACY_EMAIL_SENDING:
-        raise Exception("Legacy email sending is disabled!")
-
-    report = EmailSendReport()
-    settings_hash = str(user.settings.email_settings.hash)
-
-    mail_params = mail_params_func(user)
-
-    if unsubscribe_group is not None:
-        unsub_link = f"https://little-world.com/api/emails/toggle_sub/?choice=False&unsubscribe_type={unsubscribe_group}&settings_hash={settings_hash}"
-        mail_params.unsubscribe_url1 = unsub_link
-        report.checked_subscription = True
-        report.subscription_group = unsubscribe_group
-
-        if user.settings.email_settings.has_unsubscribed(unsubscribe_group):
-            print(f"User ({user.email}) has unsubscribed from", unsubscribe_group)
-            report.unsubscribed = True
-            return report
-    else:
-        report.checked_subscription = False
-
-    try:
-        # mails.send_email(
-        #    recivers=[user.email],
-        #    subject=subject,
-        #    mail_data=mails.get_mail_data_by_name(mail_name),
-        #    mail_params=mail_params,
-        #    raise_exception=True,
-        #    emulated_send=emulated_send,
-        # )
-        report.send = not emulated_send
-    except Exception as e:
-        print("Error sending email", str(e), mail_name)
-        report.send = False
-        report.out += f"Error sending email: {e}" + str(e)
-
-    return report
-
-
-def send_group_mail(
-    users,
-    subject: str,
-    mail_name: str,
-    mail_params_func: Callable,
-    unsubscribe_group=None,
-    debug=False,
-    # 'emulated_send' Allows to just petend sending a mail, will create a email log etc but **not** send the actuall email!
-    emulated_send=False,
-):
-    reports: Dict[str, EmailSendReport] = {}
-
-    total = len(users)
-    if debug:
-        print(f"Sending {total} bluk emails")
-    i = 0
-    for user in users:
-        i += 1
-        if debug:
-            print(f"Sending email ({i}/{total}) to {user.email}")
-        reports[user.hash] = send_email(
-            user,
-            subject,
-            mail_name,
-            mail_params_func,
-            unsubscribe_group=unsubscribe_group,
-            emulated_send=emulated_send,
-        )
-
-    return reports
-
-
 def delete_user(user, management_user=None, send_deletion_email=False):
     if send_deletion_email:
         user.send_email_v2("account-deleted")
@@ -662,12 +569,12 @@ def delete_user(user, management_user=None, send_deletion_email=False):
     user.set_unusable_password()
     user.save()
 
-    task = MangementTask.create_task(user=user, description="Cleanup user delete data", management_user=management_user)
-    user.state.management_tasks.add(task)
+    user.state.deleted_at = timezone.now()
+    user.state.deleted_full_user_data_cleared = False
     user.state.save()
 
-    user.profile.first_name = f"deleted, {user.profile.first_name}"
-    user.profile.second_name = f"deleted, {user.profile.second_name}"
+    user.profile.first_name = "Ghost"
+    user.profile.second_name = "User"
     user.profile.image_type = Profile.ImageTypeChoice.AVATAR
     user.profile.avatar_config = {}
     user.profile.phone_mobile = f"deleted, {user.profile.phone_mobile}"

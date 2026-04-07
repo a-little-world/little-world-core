@@ -215,6 +215,10 @@ prod_shedules = {
         "task": "video.tasks.daily_fix_unusually_long_livekit_sessions",
         "schedule": 60.0 * 60.0 * 24.0,  # once a day
     },
+    "cleanup-deleted-users-full-user-data": {
+        "task": "management.tasks.cleanup_deleted_users_full_user_data",
+        "schedule": 60.0 * 60.0 * 24.0,  # once a day
+    },
 }
 
 prod_shedules.update(auto_emails)
