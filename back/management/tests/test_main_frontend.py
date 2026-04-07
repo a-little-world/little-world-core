@@ -18,14 +18,12 @@ class MainFrontendTemplateTests(TestCase):
 
     def _extract_hidden_cookie_banner_value(self, script_content: str) -> bool:
         payload_match = re.search(
-            r"JSON\.parse\(JSON\.parse\('(?P<payload>\{.*?\})'\)\.cookie_data\);",
+            r"const cookieData = JSON\.parse\('(?P<payload>\{.*?\})'\);",
             script_content,
-            re.DOTALL,
         )
         self.assertIsNotNone(payload_match, "cookie banner payload not found in script")
 
-        outer_payload = json.loads(payload_match.group("payload"))
-        cookie_data = json.loads(outer_payload["cookie_data"])
+        cookie_data = json.loads(payload_match.group("payload"))
         return cookie_data["hiddenCookieBanner"]
 
     def test_public_login_page_loads_non_hidden_cookie_banner(self):
@@ -40,6 +38,8 @@ class MainFrontendTemplateTests(TestCase):
         script_response = self.client.get(script_url)
         self.assertEqual(script_response.status_code, 200)
         script_content = self._decoded_script_content(script_response.content)
+        self.assertNotIn("JSON.parse(JSON.parse(", script_content)
+        self.assertNotIn("?.hiddenCookieBanner", script_content)
         self.assertFalse(self._extract_hidden_cookie_banner_value(script_content))
 
     def test_authenticated_app_page_loads_hidden_cookie_banner(self):
@@ -59,4 +59,6 @@ class MainFrontendTemplateTests(TestCase):
         script_response = self.client.get(script_url)
         self.assertEqual(script_response.status_code, 200)
         script_content = self._decoded_script_content(script_response.content)
+        self.assertNotIn("JSON.parse(JSON.parse(", script_content)
+        self.assertNotIn("?.hiddenCookieBanner", script_content)
         self.assertTrue(self._extract_hidden_cookie_banner_value(script_content))
