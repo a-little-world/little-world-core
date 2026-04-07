@@ -4,20 +4,25 @@ from unittest.mock import patch
 from chat.models import Chat, Message
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.db import connection
 from django.db.models import Q
 from django.test import TestCase, override_settings
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone as dj_timezone
 from freezegun import freeze_time
+from video.models import LivekitSession
 
 from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.models.state import State
+from management.models.user import User
 from management.random_test_users import create_test_user
 from management.tasks import (
     automatic_emails_m012_m013_m014,
     automatic_emails_m023,
     automatic_emails_m024_m025,
     automatic_emails_m031_m032_m033_m042,
+    automatic_emails_m043_m044_m045,
     automatic_emails_u023_u024_u025,
     automatic_emails_u051_u052,
     automatic_emails_u072_u073_u074,
@@ -1511,3 +1516,83 @@ class TestPrematchingCheckoffEmailQueue(TestCase):
         assert response.data["send_emails_now"] is True
         assert response.data["send_task_id"] == "task-u051-u052-1"
         mock_u051_u052_task.delay.assert_called_once()
+
+
+class TestAutomaticEmailsM043M044M045Performance(TestCase):
+    def setUp(self):
+        settings.DJANGO_TESTING = True
+
+    def _create_pair_with_match(self, seed: int):
+        user1 = User.objects.create_user(
+            email=f"m043-perf-{seed}-1@test.de",
+            password="Test123!",
+            first_name=f"Perf{seed}A",
+            last_name="User",
+        )
+        user2 = User.objects.create_user(
+            email=f"m043-perf-{seed}-2@test.de",
+            password="Test123!",
+            first_name=f"Perf{seed}B",
+            last_name="User",
+        )
+
+        match = Match.objects.create(
+            user1=user1,
+            user2=user2,
+            active=True,
+            confirmed=True,
+            auto_email_m043_send=False,
+            auto_email_m044_send=False,
+            auto_email_m045_send=False,
+            latest_counter_sync=dj_timezone.now() - timedelta(days=2),
+            latest_interaction_at=dj_timezone.now() - timedelta(days=1),
+        )
+        return user1, user2, match
+
+    @patch("management.tasks.send_email_background")
+    def test_task_sync_queries_do_not_scale_linearly(self, mock_send_email):
+        _u1_a, _u2_a, _match_a = self._create_pair_with_match(1)
+
+        with CaptureQueriesContext(connection) as first_run_queries:
+            automatic_emails_m043_m044_m045()
+        first_run_query_count = len(first_run_queries)
+
+        _u1_b, _u2_b, _match_b = self._create_pair_with_match(2)
+        _u1_c, _u2_c, _match_c = self._create_pair_with_match(3)
+
+        with CaptureQueriesContext(connection) as second_run_queries:
+            automatic_emails_m043_m044_m045()
+        second_run_query_count = len(second_run_queries)
+
+        # Adding 2 more matches should not add ~8 sync queries (4 per match) anymore.
+        assert second_run_query_count - first_run_query_count <= 4
+
+        # No emails should be sent here because there are no video sessions.
+        mock_send_email.delay.assert_not_called()
+
+    @patch("management.tasks.send_email_background")
+    def test_task_sends_m043_after_bulk_counter_sync(self, mock_send_email):
+        user1, user2, match = self._create_pair_with_match(10)
+
+        for _ in range(5):
+            LivekitSession.objects.create(
+                u1=user1,
+                u2=user2,
+                both_have_been_active=True,
+                is_active=False,
+            )
+
+        report = automatic_emails_m043_m044_m045()
+        match.refresh_from_db()
+
+        assert report["counters_synced_m043"] == 1
+        assert match.total_mutal_video_calls_counter == 5
+        assert match.completed_5_video_calls is True
+        assert match.auto_email_m043_send is True
+        assert match.auto_email_m044_send is False
+        assert match.auto_email_m045_send is False
+
+        calls = mock_send_email.delay.call_args_list
+        assert len(calls) == 2
+        assert calls[0][0][0] == "automatic-emails-m043"
+        assert calls[1][0][0] == "automatic-emails-m043"
