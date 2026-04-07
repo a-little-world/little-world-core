@@ -748,6 +748,7 @@ def automatic_emails_m023():
     from chat.models import Chat
     from django.conf import settings
     from django.db.models import Max
+    from management.models.matches import Match
 
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M023)
 
@@ -770,8 +771,18 @@ def automatic_emails_m023():
 
         # send email to the user that received the last message
         last_message = chat.get_newest_message()
+        if not last_message:
+            continue
+
+        active_match = Match.get_match(last_message.sender, last_message.recipient).order_by("-created_at").first()
+        if not active_match:
+            continue
+
         send_email_background.delay(
-            "automatic-emails-m023", user_id=last_message.recipient.id, emulated_send=emulated_send
+            "automatic-emails-m023",
+            user_id=last_message.recipient.id,
+            match_id=active_match.id,
+            emulated_send=emulated_send,
         )
 
     return {"status": "sent", "inactive_chats": inactive_chats}
