@@ -7,7 +7,12 @@ const cookieData = JSON.parse('{{ cookie_data_json.cookie_data | escapejs }}');
 const baseUrl = "{{ BASE_URL }}";
 const script = '{{ JS_BASE_CODE }}';
 const scripUrl = script.split('"')[1];
-let cookieBannerIsHidden = cookieData.hiddenCookieBanner === true;
+let cookieBannerIsHidden = false;
+try {
+    cookieBannerIsHidden = cookieData.hiddenCookieBanner === true;
+} catch (e) {
+    console.error("Error getting cookie banner hidden state, using default value", e);
+}
 
 const initCode = () => {
     const div = document.createElement('div');
