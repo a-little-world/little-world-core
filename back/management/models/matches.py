@@ -87,95 +87,7 @@ class Match(models.Model):
     )
 
     def sync_counters(self):
-        self.__class__.bulk_sync_counters([self])
-
-    @classmethod
-    def bulk_sync_counters(cls, matches):
-        matches = list(matches)
-        if not matches:
-            return 0
-
-        now = timezone.now()
-        pair_to_matches = {}
-        for match in matches:
-            pair = tuple(sorted((match.user1_id, match.user2_id)))
-            pair_to_matches.setdefault(pair, []).append(match)
-
-        message_pair_filter = Q()
-        video_pair_filter = Q()
-        for u1_id, u2_id in pair_to_matches:
-            message_pair_filter |= Q(sender_id=u1_id, recipient_id=u2_id) | Q(sender_id=u2_id, recipient_id=u1_id)
-            video_pair_filter |= Q(u1_id=u1_id, u2_id=u2_id) | Q(u1_id=u2_id, u2_id=u1_id)
-
-        message_stats = {}
-        if message_pair_filter:
-            grouped_messages = (
-                Message.objects.filter(message_pair_filter)
-                .annotate(pair_user_low=Least("sender_id", "recipient_id"), pair_user_high=Greatest("sender_id", "recipient_id"))
-                .values("pair_user_low", "pair_user_high")
-                .annotate(total_messages=Count("id"), newest_message_at=Max("created"))
-            )
-            message_stats = {
-                (item["pair_user_low"], item["pair_user_high"]): item for item in grouped_messages
-            }
-
-        video_stats = {}
-        if video_pair_filter:
-            grouped_video_calls = (
-                LivekitSession.objects.filter(video_pair_filter, both_have_been_active=True)
-                .annotate(pair_user_low=Least("u1_id", "u2_id"), pair_user_high=Greatest("u1_id", "u2_id"))
-                .values("pair_user_low", "pair_user_high")
-                .annotate(total_video_calls=Count("id"), newest_video_call_at=Max("created_at"))
-            )
-            video_stats = {
-                (item["pair_user_low"], item["pair_user_high"]): item for item in grouped_video_calls
-            }
-
-        for match in matches:
-            pair = tuple(sorted((match.user1_id, match.user2_id)))
-
-            message_data = message_stats.get(pair, {})
-            video_data = video_stats.get(pair, {})
-
-            match.total_messages_counter = message_data.get("total_messages", 0)
-            match.total_mutal_video_calls_counter = video_data.get("total_video_calls", 0)
-
-            newest_message_at = message_data.get("newest_message_at")
-            newest_video_call_at = video_data.get("newest_video_call_at")
-            if newest_message_at and newest_video_call_at:
-                match.latest_interaction_at = max(newest_message_at, newest_video_call_at)
-
-            # also we have to check if a match is falsely confirmed=False
-            if match.total_messages_counter > 0 or match.total_mutal_video_calls_counter > 0:
-                match.confirmed = True
-
-            if match.total_mutal_video_calls_counter >= 5:
-                match.completed_5_video_calls = True
-
-            if match.total_mutal_video_calls_counter >= 8:
-                match.completed_8_video_calls = True
-
-            if match.total_mutal_video_calls_counter >= 10:
-                match.completed_10_video_calls = True
-
-            match.latest_counter_sync = now
-            match.updated_at = now
-
-        cls.objects.bulk_update(
-            matches,
-            [
-                "total_messages_counter",
-                "total_mutal_video_calls_counter",
-                "latest_interaction_at",
-                "confirmed",
-                "completed_5_video_calls",
-                "completed_8_video_calls",
-                "completed_10_video_calls",
-                "latest_counter_sync",
-                "updated_at",
-            ],
-        )
-        return len(matches)
+        sync_match_counters_for_queryset([self])
 
     @classmethod
     def get_match(cls, user1, user2):
@@ -280,3 +192,91 @@ class Match(models.Model):
             match.save()
 
         return active_matches
+
+
+def sync_match_counters_for_queryset(matches):
+    matches = list(matches)
+    if not matches:
+        return 0
+
+    now = timezone.now()
+    pair_to_matches = {}
+    for match in matches:
+        pair = tuple(sorted((match.user1_id, match.user2_id)))
+        pair_to_matches.setdefault(pair, []).append(match)
+
+    message_pair_filter = Q()
+    video_pair_filter = Q()
+    for u1_id, u2_id in pair_to_matches:
+        message_pair_filter |= Q(sender_id=u1_id, recipient_id=u2_id) | Q(sender_id=u2_id, recipient_id=u1_id)
+        video_pair_filter |= Q(u1_id=u1_id, u2_id=u2_id) | Q(u1_id=u2_id, u2_id=u1_id)
+
+    message_stats = {}
+    if message_pair_filter:
+        grouped_messages = (
+            Message.objects.filter(message_pair_filter)
+            .annotate(pair_user_low=Least("sender_id", "recipient_id"), pair_user_high=Greatest("sender_id", "recipient_id"))
+            .values("pair_user_low", "pair_user_high")
+            .annotate(total_messages=Count("id"), newest_message_at=Max("created"))
+        )
+        message_stats = {
+            (item["pair_user_low"], item["pair_user_high"]): item for item in grouped_messages
+        }
+
+    video_stats = {}
+    if video_pair_filter:
+        grouped_video_calls = (
+            LivekitSession.objects.filter(video_pair_filter, both_have_been_active=True)
+            .annotate(pair_user_low=Least("u1_id", "u2_id"), pair_user_high=Greatest("u1_id", "u2_id"))
+            .values("pair_user_low", "pair_user_high")
+            .annotate(total_video_calls=Count("id"), newest_video_call_at=Max("created_at"))
+        )
+        video_stats = {
+            (item["pair_user_low"], item["pair_user_high"]): item for item in grouped_video_calls
+        }
+
+    for match in matches:
+        pair = tuple(sorted((match.user1_id, match.user2_id)))
+
+        message_data = message_stats.get(pair, {})
+        video_data = video_stats.get(pair, {})
+
+        match.total_messages_counter = message_data.get("total_messages", 0)
+        match.total_mutal_video_calls_counter = video_data.get("total_video_calls", 0)
+
+        newest_message_at = message_data.get("newest_message_at")
+        newest_video_call_at = video_data.get("newest_video_call_at")
+        if newest_message_at and newest_video_call_at:
+            match.latest_interaction_at = max(newest_message_at, newest_video_call_at)
+
+        # also we have to check if a match is falsely confirmed=False
+        if match.total_messages_counter > 0 or match.total_mutal_video_calls_counter > 0:
+            match.confirmed = True
+
+        if match.total_mutal_video_calls_counter >= 5:
+            match.completed_5_video_calls = True
+
+        if match.total_mutal_video_calls_counter >= 8:
+            match.completed_8_video_calls = True
+
+        if match.total_mutal_video_calls_counter >= 10:
+            match.completed_10_video_calls = True
+
+        match.latest_counter_sync = now
+        match.updated_at = now
+
+    Match.objects.bulk_update(
+        matches,
+        [
+            "total_messages_counter",
+            "total_mutal_video_calls_counter",
+            "latest_interaction_at",
+            "confirmed",
+            "completed_5_video_calls",
+            "completed_8_video_calls",
+            "completed_10_video_calls",
+            "latest_counter_sync",
+            "updated_at",
+        ],
+    )
+    return len(matches)
