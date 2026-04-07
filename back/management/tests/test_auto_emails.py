@@ -301,6 +301,19 @@ class TestAutomaticEmails_m023(TestCase):
         result2 = automatic_emails_m023()
         assert len(result2["inactive_chats"]) == 0
 
+    @patch("management.tasks.send_email_background")
+    def test_m023_sends_with_match_id(self, mock_send_email_background):
+        match = Match.objects.create(user1=self.valid_user_1, user2=self.valid_user_2, active=True)
+
+        automatic_emails_m023()
+
+        mock_send_email_background.delay.assert_called_once_with(
+            "automatic-emails-m023",
+            user_id=self.valid_user_2.id,
+            match_id=match.id,
+            emulated_send=True,
+        )
+
 
 class TestAutomaticEmails_m024_m025(TestCase):
     def setUp(self):
