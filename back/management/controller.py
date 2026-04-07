@@ -13,7 +13,6 @@ from django.utils import timezone
 from translations import get_translation
 
 from management import controller
-from management.models.management_tasks import MangementTask
 from management.models.matches import Match
 from management.models.past_matches import PastMatch
 from management.models.profile import Profile
@@ -570,12 +569,12 @@ def delete_user(user, management_user=None, send_deletion_email=False):
     user.set_unusable_password()
     user.save()
 
-    task = MangementTask.create_task(user=user, description="Cleanup user delete data", management_user=management_user)
-    user.state.management_tasks.add(task)
+    user.state.deleted_at = timezone.now()
+    user.state.deleted_full_user_data_cleared = False
     user.state.save()
 
-    user.profile.first_name = f"deleted, {user.profile.first_name}"
-    user.profile.second_name = f"deleted, {user.profile.second_name}"
+    user.profile.first_name = "Ghost"
+    user.profile.second_name = "User"
     user.profile.image_type = Profile.ImageTypeChoice.AVATAR
     user.profile.avatar_config = {}
     user.profile.phone_mobile = f"deleted, {user.profile.phone_mobile}"

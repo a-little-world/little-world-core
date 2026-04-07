@@ -1747,3 +1747,57 @@ def automatic_emails_fm021_fm022__ghosted_matches():
             )
 
     return {"status": "sent", "matches": matches_single_party_contact}
+
+
+@shared_task(name="management.tasks.cleanup_deleted_users_full_user_data")
+def cleanup_deleted_users_full_user_data(days_since_deletion: int = 30):
+    from management.models.user import User
+
+    cutoff_date = dj_timezone.now() - timedelta(days=days_since_deletion)
+    users = User.objects.filter(
+        is_active=False,
+        state__deleted_at__isnull=False,
+        state__deleted_at__lt=cutoff_date,
+        state__deleted_full_user_data_cleared=False,
+    ).select_related("profile", "state")
+
+    processed_user_ids = []
+    for user in users.iterator():
+        # Remove data that can include personal content or contact details.
+        user.first_name = "deleted"
+        user.last_name = ""
+        user.email = f"deleted_user_{user.pk}@deleted.local"
+        user.username = user.email
+        user.set_unusable_password()
+        user.save(update_fields=["first_name", "last_name", "email", "username", "password"])
+
+        profile = user.profile
+        if profile.image:
+            profile.image.delete(save=False)
+        profile.first_name = "Ghost"
+        profile.second_name = "User"
+        profile.postal_code = ""
+        profile.phone_mobile = ""
+        profile.description = ""
+        profile.language_skill_description = ""
+        profile.additional_interests = ""
+        profile.job_skill_description = ""
+        profile.other_target_group = ""
+        profile.availability = {}
+        profile.avatar_config = {}
+        profile.image_type = profile.ImageTypeChoice.AVATAR
+        profile.save()
+
+        state = user.state
+        state.notes = ""
+        state.past_emails = []
+        state.deleted_full_user_data_cleared = True
+        state.save()
+
+        processed_user_ids.append(user.pk)
+
+    return {
+        "processed_users_count": len(processed_user_ids),
+        "processed_user_ids": processed_user_ids,
+        "cutoff_date": cutoff_date.isoformat(),
+    }
