@@ -37,6 +37,8 @@ class State(models.Model):
     # We love additional Information
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    deleted_at = models.DateTimeField(default=None, null=True, blank=True)
+    deleted_full_user_data_cleared = models.BooleanField(default=False)
 
     """ Form page the user is currently on """
     user_form_page = models.IntegerField(default=0)
@@ -259,6 +261,7 @@ class State(models.Model):
         null=True,
     )  # type: ignore
 
+    # TODO: depreacte!
     management_tasks = models.ManyToManyField(MangementTask, related_name="management_tasks", blank=True)
 
     # If the user is unresponsive this is a flag to exclue him from matching etc
