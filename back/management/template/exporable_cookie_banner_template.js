@@ -39,7 +39,7 @@ const initCode = () => {
         window.location.replace("https://home.little-world.com/datenschutz");
     }
     scriptPromise.then(() => {
-        cookieBanner(JSON.parse(cookieData.cookieGroups), JSON.parse(cookieData.cookieSets), null, toImpressum, toPrivacy, cookieBannerIsHidden);
+        cookieBanner(cookieData.cookieGroups, cookieData.cookieSets, cookieData.cookieStateDict, toImpressum, toPrivacy, cookieBannerIsHidden);
     });
 }
 
