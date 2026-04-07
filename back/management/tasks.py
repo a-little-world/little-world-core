@@ -1396,9 +1396,8 @@ def automatic_emails_m043_m044_m045():
         latest_counter_sync__lte=F("latest_interaction_at"),
     )
 
-    for match in sync__matches_video_call_m045:
-        report["counters_synced_m045"] += 1
-        match.sync_counters()
+    synced_m045 = Match.bulk_sync_counters(sync__matches_video_call_m045)
+    report["counters_synced_m045"] += synced_m045
 
     matches_video_call_m045 = Match.objects.filter(
         active=True,
@@ -1440,9 +1439,8 @@ def automatic_emails_m043_m044_m045():
         latest_counter_sync__lte=F("latest_interaction_at"),
     )
 
-    for match in sync__matches_video_call_m044:
-        report["counters_synced_m044"] += 1
-        match.sync_counters()
+    synced_m044 = Match.bulk_sync_counters(sync__matches_video_call_m044)
+    report["counters_synced_m044"] += synced_m044
 
     matches_video_call_m044 = Match.objects.filter(
         active=True,
@@ -1485,9 +1483,8 @@ def automatic_emails_m043_m044_m045():
         latest_counter_sync__lte=F("latest_interaction_at"),
     )
 
-    for match in sync__matches_video_call_m043:
-        report["counters_synced_m043"] += 1
-        match.sync_counters()
+    synced_m043 = Match.bulk_sync_counters(sync__matches_video_call_m043)
+    report["counters_synced_m043"] += synced_m043
 
     matches_video_call_m043 = Match.objects.filter(
         active=True,
