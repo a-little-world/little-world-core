@@ -50,7 +50,7 @@ def get_sentry_init_script():
 def get_cookie_banner_data(request, hidden_cookie_banner=False):
     from ..views.cookie_banner_frontend import get_cookie_banner_template_data
 
-    return json.dumps(get_cookie_banner_template_data(request, hidden_cookie_banner=hidden_cookie_banner))
+    return get_cookie_banner_template_data(request, hidden_cookie_banner=hidden_cookie_banner)
 
 
 @register.simple_tag
