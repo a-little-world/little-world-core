@@ -160,7 +160,7 @@ class User(AbstractUser):
 
         devices.send_message(message)
 
-    def sms(self, send_initator, message):
+    def sms(self, send_initator, message, dont_send=False, skip_reason="skipped"):
         """ "Sends SMS to User if user has SMS Notification allowed and valid Phone number"""
         import json
 
@@ -172,6 +172,20 @@ class User(AbstractUser):
 
         if settings.DISABLE_SMS_SENDING:
             return 403
+
+        if dont_send:
+            response = SmsModel.objects.create(
+                recipient=self,
+                send_initator=send_initator,
+                message=message,
+                success=False,
+                twilio_response=json.dumps(
+                    {
+                        "status": skip_reason,
+                    }
+                ),
+            )
+            return 200
 
         if self.profile.notify_channel == "sms" and self.profile.phone_mobile != "":
             response = SmsModel.objects.create(recipient=self, send_initator=send_initator, message=message)
@@ -216,7 +230,7 @@ class User(AbstractUser):
         # self.username = prms.email  # <- so the user can login with that email now
         self.email = prms.email.lower()
         self.save()
-        self.send_email_v2("welcome")
+        self.send_email_v2("automatic-emails-u001")
 
     def message(
         self,

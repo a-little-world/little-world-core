@@ -1,5 +1,5 @@
 import csv
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from io import StringIO
 
 import requests
@@ -504,6 +504,13 @@ def bucket_statistics(request):
     start_date = request.data.get("start_date", "2022-01-01")
     end_date = request.data.get("end_date", today)
 
+    if isinstance(end_date, str):
+        end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
+    else:
+        end_date_obj = end_date
+    end_date_inclusive = datetime.combine(end_date_obj, datetime.max.time())
+    end_date = end_date_inclusive
+
     # Get pre-filtered users based on permissions and date range
     pre_filtered_users = User.objects.all()
     if not request.user.is_staff:
@@ -892,6 +899,7 @@ def user_signup_loss_statistic(start_date="2022-01-01", end_date=date.today(), c
         "journey_v2__user_form_completed",
         "journey_v2__too_low_german_level",
         "journey_v2__booked_onboarding_call",
+        "journey_v2__self_onboarding_started",
         "journey_v2__no_show",
     ]
 
@@ -951,6 +959,7 @@ def user_signup_loss_statistic_v2(start_date="2022-01-01", end_date=date.today()
         "journey_v2__email_verified",
         "journey_v2__user_form_completed",
         "journey_v2__booked_onboarding_call",
+        "journey_v2__self_onboarding_started",
         "journey_v2__first_search",
         "journey_v2__user_searching_again",
         "journey_v2__pre_matching",
@@ -1144,7 +1153,7 @@ def user_match_waiting_time_statistics(request):
 
     # Get all eligible users who have had a pre-matching call and are currently searching
     eligible_users = User.objects.filter(
-        state__had_prematching_call=True,
+        state__is_onboarded=True,
         state__searching_state=State.SearchingStateChoices.SEARCHING,
         state__updated_at__gte=start_date,
         state__updated_at__lte=end_date,
@@ -1166,6 +1175,42 @@ def user_match_waiting_time_statistics(request):
         return Response({"average_waiting_time": average_waiting_time})
     else:
         return Response({"error": "No eligible users found within the specified date range."}, status=404)
+
+
+def _volunteer_onboarding_primary_path(row: dict) -> str:
+    """
+    Single bucket per user: self-onboarding vs prematch call by whichever completion
+    happened first. Matches get_match_waiting_time: self_onboarding_completed_at is
+    interpreted as start of that calendar day in the default timezone.
+    Returns 'self', 'prematch', or 'unclassified'.
+    """
+    self_completed = row["state__self_onboarding_completed"]
+    self_at = row["state__self_onboarding_completed_at"]
+    had_prematch = row["state__had_prematching_call"]
+    prematch_at = row["state__onboarding_call_completed_at"]
+
+    self_dt = None
+    if self_completed and self_at:
+        self_dt = timezone.make_aware(datetime.combine(self_at, time.min))
+
+    prematch_dt = prematch_at if had_prematch and prematch_at else None
+
+    has_self_time = self_dt is not None
+    has_prematch_time = prematch_dt is not None
+
+    if has_self_time and has_prematch_time:
+        return "self" if self_dt <= prematch_dt else "prematch"
+    if has_self_time:
+        return "self"
+    if has_prematch_time:
+        return "prematch"
+    if self_completed and had_prematch:
+        return "unclassified"
+    if self_completed:
+        return "self"
+    if had_prematch:
+        return "prematch"
+    return "unclassified"
 
 
 @api_view(["GET"])
@@ -1195,6 +1240,42 @@ def kpi_dashboard_statistics_signups(request):
         date_joined__range=[timezone.now() - timedelta(days=30), timezone.now()]
     ).count()
 
+    # Onboarded volunteers only; form completed after 5 Apr 2026.
+    volunteer_onboarding_path_cohort_cutoff = date(2026, 4, 5)
+    volunteer_onboarded_cohort = pre_filtered_users.filter(
+        profile__user_type=Profile.TypeChoices.VOLUNTEER,
+        state__is_onboarded=True,
+        state__user_form_completed_at__isnull=False,
+        state__user_form_completed_at__date__gt=volunteer_onboarding_path_cohort_cutoff,
+    )
+    volunteer_onboarded_cohort_total = volunteer_onboarded_cohort.count()
+    volunteer_cohort_self = 0
+    volunteer_cohort_prematch = 0
+    volunteer_cohort_unclassified = 0
+    for row in volunteer_onboarded_cohort.values(
+        "state__self_onboarding_completed",
+        "state__self_onboarding_completed_at",
+        "state__had_prematching_call",
+        "state__onboarding_call_completed_at",
+    ).iterator(chunk_size=2000):
+        branch = _volunteer_onboarding_primary_path(row)
+        if branch == "self":
+            volunteer_cohort_self += 1
+        elif branch == "prematch":
+            volunteer_cohort_prematch += 1
+        else:
+            volunteer_cohort_unclassified += 1
+    if volunteer_onboarded_cohort_total:
+        volunteer_cohort_pct_self = round(volunteer_cohort_self / volunteer_onboarded_cohort_total * 100, 2)
+        volunteer_cohort_pct_prematch = round(volunteer_cohort_prematch / volunteer_onboarded_cohort_total * 100, 2)
+        volunteer_cohort_pct_unclassified = round(
+            volunteer_cohort_unclassified / volunteer_onboarded_cohort_total * 100, 2
+        )
+    else:
+        volunteer_cohort_pct_self = 0.0
+        volunteer_cohort_pct_prematch = 0.0
+        volunteer_cohort_pct_unclassified = 0.0
+
     bucket_statistics = get_bucket_statistics(
         pre_filtered_users,
         selected_filters=[
@@ -1206,6 +1287,7 @@ def kpi_dashboard_statistics_signups(request):
             "journey_v2__user_form_completed",
             # 'journey_v2__too_low_german_level',
             "journey_v2__booked_onboarding_call",
+            "journey_v2__self_onboarding_started",
             "journey_v2__no_show",
         ],
     )
@@ -1249,6 +1331,11 @@ def kpi_dashboard_statistics_signups(request):
             "percent_volunteers_last_7_days": total_registered_volunteers_last_7_days / last_7_days * 100.0,
             "signups_last_30_days": signups_last_30_days,
             "percent_onboarded_users": modified_buckets[-1]["percentage"],
+            "volunteers_onboarded_after_2026_04_06_count": volunteer_onboarded_cohort_total,
+            "volunteers_onboarded_after_2026_04_06_self_onboarding_pct": volunteer_cohort_pct_self,
+            "volunteers_onboarded_after_2026_04_06_prematching_call_pct": volunteer_cohort_pct_prematch,
+            "volunteers_onboarded_after_2026_04_06_unclassified_count": volunteer_cohort_unclassified,
+            "volunteers_onboarded_after_2026_04_06_unclassified_pct": volunteer_cohort_pct_unclassified,
         }
     )
 

@@ -66,6 +66,21 @@ class State(models.Model):
     auto_emails_u083_send = models.BooleanField(default=False, null=False, blank=False)
     auto_emails_u084_send = models.BooleanField(default=False, null=False, blank=False)
 
+    last_prematching_call_not_attended = models.BooleanField(
+        default=False, null=False, blank=False
+    )  # just an extra boolean field to be explicit
+    last_not_attended_prematching_call_at = models.DateTimeField(default=None, null=True, blank=True)
+    # TODO: confirm with melina if they should be send again if he didn't attent an newly booked pre-matching call?
+    last_prematching_checkoff_at = models.DateTimeField(default=None, null=True, blank=True)
+    attended_auto_email_u051_send = models.BooleanField(default=False, null=False, blank=False)
+    not_attended_auto_email_u052_send = models.BooleanField(default=False, null=False, blank=False)
+    attended_auto_email_u051_send_at = models.DateTimeField(default=None, null=True, blank=True)
+    not_attended_auto_email_u052_send_at = models.DateTimeField(default=None, null=True, blank=True)
+    not_attended_auto_email_u053_send = models.BooleanField(default=False, null=False, blank=False)  # After 2 days
+    not_attended_auto_email_u054_send = models.BooleanField(default=False, null=False, blank=False)  # After TODO days
+    not_attended_auto_email_u053_send_at = models.DateTimeField(default=None, null=True, blank=True)
+    not_attended_auto_email_u054_send_at = models.DateTimeField(default=None, null=True, blank=True)
+
     # Just some hash for verifying the email
     email_auth_hash = models.CharField(default=utils._double_uuid, max_length=255)
     email_auth_pin = models.IntegerField(
@@ -81,7 +96,7 @@ class State(models.Model):
     still_active_reminder_confirmed = models.BooleanField(default=False)
 
     """
-    For Tims experient of talking to all participants first 
+    For Tims experient of talking to all participants first
     If this flag is set to 'True' Tim has to make an appointment with that user first.
     """
     require_pre_matching_call = models.BooleanField(default=False)
@@ -90,8 +105,15 @@ class State(models.Model):
 
     has_received_first_match = models.BooleanField(default=False)
 
+    self_onboarding_started = models.BooleanField(default=False)
+    self_onboarding_step_id = models.CharField(max_length=64, default="", blank=True)
+    self_onboarding_completed_at = models.DateField(default=None, null=True, blank=True)
+    self_onboarding_completed = models.BooleanField(default=False)
+
+    is_onboarded = models.BooleanField(default=False)
+
     """
-    These are references to the actual user model of this persons matches 
+    These are references to the actual user model of this persons matches
     """
     matches = models.ManyToManyField("management.User", related_name="+", blank=True)
 
@@ -123,10 +145,10 @@ class State(models.Model):
     still_in_contact_form_access_token_user = models.UUIDField(default=uuid.uuid4)
 
     """
-    This contains a list of matches the user has not yet confirmed 
+    This contains a list of matches the user has not yet confirmed
     this can be used by the frontend to display them as 'new'
     POST api/user/confirm_match/
-    data = [<usr-hash>, ... ] 
+    data = [<usr-hash>, ... ]
     """
     unconfirmed_matches_stack = models.JSONField(default=list, blank=True)
 
@@ -378,9 +400,6 @@ class State(models.Model):
             )
         ).decode()
 
-    def had_prematching_call_status(self):
-        return self.had_prematching_call
-
     @classmethod
     def decode_email_auth_code_b64(cls, str_b64):
         return json.loads(zlib.decompress(base64.urlsafe_b64decode(str_b64.encode())).decode())
@@ -428,7 +447,7 @@ class FrontendStatusSerializer(serializers.ModelSerializer):
         if instance.user_form_state == State.UserFormStateChoices.UNFILLED:
             rep["status"] = FrontendStatusEnum.user_form_incomplete.value
             return rep
-        elif instance.require_pre_matching_call and (not instance.had_prematching_call):
+        elif instance.require_pre_matching_call and (not instance.is_onboarded):
             rep["status"] = FrontendStatusEnum.pre_matching.value
             return rep
 

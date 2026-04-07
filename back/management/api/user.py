@@ -9,7 +9,8 @@ from django.db.models import Q
 from django.dispatch import receiver
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect
-from django.urls import reverse
+from django.urls import path, reverse
+from django.utils import timezone
 from django_rest_passwordreset.signals import reset_password_token_created
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from ipware import get_client_ip as get_ip
@@ -595,6 +596,12 @@ def get_user_data(user):
         State.ExtraUserPermissionChoices.USE_BETA_RANDOM_CALL
     )
 
+    # Self-onboarding progress as a fraction in [0, 1] based on the ordered step list.
+    onboarding_rank = get_rank_from_stored_self_onboarding_value(user_state.self_onboarding_step_id)
+    self_onboarding_progress = 0.0
+    if SELF_ONBOARDING_COMPLETED_RANK > 0:
+        self_onboarding_progress = max(0.0, min(1.0, onboarding_rank / float(SELF_ONBOARDING_COMPLETED_RANK)))
+
     return {
         "id": str(user.hash),
         "banner": banner,
@@ -608,6 +615,11 @@ def get_user_data(user):
         "preMatchingCallJoinLink": pre_call_join_link,
         "calComAppointmentLink": cal_data_link,
         "hadPreMatchingCall": user_state.had_prematching_call,
+        "selfOnboardingCompleted": user_state.self_onboarding_completed,
+        "selfOnboardingStepId": user_state.self_onboarding_step_id or "",
+        "selfOnboardingProgress": self_onboarding_progress,
+        "isOnboarded": user_state.is_onboarded,
+        "selfOnboardingStarted": user_state.self_onboarding_started,
         "forceMatchEligible": user_state.force_match_eligible,
         "emailVerified": user_state.email_authenticated,
         "userFormCompleted": user_state.user_form_state == State.UserFormStateChoices.FILLED,
@@ -656,3 +668,107 @@ def is_authenticated(request):
     Returns whether the user is authenticated.
     """
     return Response(request.user.is_authenticated)
+
+
+SELF_ONBOARDING_STEP_ORDER = (
+    "self_onboarding_c1_q_1",
+    "self_onboarding_c2_q_1",
+    "self_onboarding_c3_q_1",
+)
+SELF_ONBOARDING_STEP_TO_RANK = {step_id: idx + 1 for idx, step_id in enumerate(SELF_ONBOARDING_STEP_ORDER)}
+SELF_ONBOARDING_COMPLETED_RANK = len(SELF_ONBOARDING_STEP_ORDER)
+
+
+def get_rank_from_stored_self_onboarding_value(stored: str | None) -> int:
+    """Rank from stored canonical step id only; unknown or empty values are treated as not started."""
+    if not stored:
+        return 0
+    s = str(stored).strip()
+    if not s:
+        return 0
+    return SELF_ONBOARDING_STEP_TO_RANK.get(s, 0)
+
+
+def get_self_onboarding_step_rank(request) -> int | None:
+    step_id = request.query_params.get("self_onboarding_step_id")
+    if not step_id:
+        return None
+    return SELF_ONBOARDING_STEP_TO_RANK.get(step_id)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+def self_onboarding_update(request):
+    step_id = request.query_params.get("self_onboarding_step_id")
+    self_onboarding_step_rank = get_self_onboarding_step_rank(request)
+    if self_onboarding_step_rank is None or not step_id:
+        return Response(
+            {
+                "completed": False,
+                "message": "Invalid self onboarding step id",
+            },
+            status=400,
+        )
+
+    user = request.user
+    completed = False
+
+    current_rank = get_rank_from_stored_self_onboarding_value(user.state.self_onboarding_step_id)
+    if self_onboarding_step_rank > current_rank:
+        user.state.self_onboarding_step_id = step_id
+
+    if self_onboarding_step_rank > 0:
+        user.state.self_onboarding_started = True
+
+    if self_onboarding_step_rank >= SELF_ONBOARDING_COMPLETED_RANK:
+        user.state.self_onboarding_completed_at = timezone.now()
+        user.state.self_onboarding_completed = True
+        user.state.is_onboarded = True
+        send_email_background.delay("automatic-emails-u071", user_id=user.id)
+        completed = True
+
+    # TODO: add automatic email
+    user.state.save()
+    return Response(
+        {
+            "completed": completed,
+            "message": "Self onboarding updated successfully",
+        }
+    )
+
+
+api_urls = [
+    path("api/user", user_profile, name="user_profile_api"),
+    path("api/user/authenticated", is_authenticated, name="user_is_authenticated_api"),
+    path("api/user/confirm_match/", ConfirmMatchesApi.as_view()),
+    path(
+        "api/user/search_state/<str:state_slug>",
+        UpdateSearchingStateApi.as_view(),
+    ),
+    path("api/user/login/", LoginApi.as_view()),
+    path("api/user/logout/", LogoutApi.as_view()),
+    path("api/user/checkpw/", CheckPasswordApi.as_view()),
+    path("api/user/changepw/", ChangePasswordApi.as_view()),
+    path("api/user/change_email/", ChangeEmailApi.as_view()),
+    path(
+        "api/user/verify/email/<str:auth_data>",
+        VerifyEmail.as_view(),
+    ),
+    path("api/user/verify/email_resend/", resend_verification_mail),
+    path(
+        "user/still_active/",
+        still_active_callback,
+        name="still_active_callback",
+    ),
+    path(
+        "api/user/delete_account/",
+        delete_account,
+        name="delete_account_api",
+    ),
+    path(
+        "api/user/self_onboarding/update/",
+        self_onboarding_update,
+        name="self_onboarding_update_api",
+    ),
+]

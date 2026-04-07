@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 from celery import shared_task
 from cookie_consent.models import Cookie, CookieGroup
+from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone as dj_timezone
 from translations import get_translation
@@ -11,6 +12,7 @@ from translations import get_translation
 from management.models.backend_state import BackendState
 from management.models.banner import Banner
 from management.models.community_events import CommunityEvent
+from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.models.state import State
 from management.models.user import User
 
@@ -332,7 +334,7 @@ def burst_calculate_matching_scores(user_combinations=[]):
     from management.api.scores import score_between_db_update
 
     """
-    Calculates the matching scores for all users requiring a match at the moment 
+    Calculates the matching scores for all users requiring a match at the moment
     """
     print("combination")
 
@@ -597,6 +599,20 @@ def send_sms_background(self, user_hash, message):
 
     try:
         receipient = User.objects.get(hash=user_hash)
+
+        # we only send international 'sms' to prio users
+        # This is mianly cause prices are very high, they are per-segment and differnet for every country
+        # our sms have 3-10 segemtns, so this get quite expensive quickly
+        country_code = str(receipient.profile.phone_mobile.country_code)
+        if (receipient.company not in settings.MATCH_PRIORITY_COMPANIES) and (country_code != "49"):
+            receipient.sms(
+                send_initator=get_base_management_user(),
+                message=message,
+                dont_send=True,
+                skip_reason="Not prio user and not german phone number",
+            )
+            return {"status": "skipped", "reason": "Not prio user and not german phone number"}
+
         result = receipient.sms(send_initator=get_base_management_user(), message=message)
         return {"status": "sent", "result": result}
     except Exception as e:
@@ -607,34 +623,44 @@ def send_sms_background(self, user_hash, message):
 @shared_task
 def automatic_emails_u023_u024_u025():
     """
-    Sends automatic emails to users who have not booked an onboarding call after completing the user form
+    Sends automatic emails to users who have not booked an appointment or completed the self-onboarding after completing the user form.
     """
     from django.conf import settings
 
     from management.models.pre_matching_appointment import PreMatchingAppointment
+    from management.models.profile import Profile
     from management.models.user import User
+
+    def template_for_user_form_reminder(stage: str, user) -> str:
+        # u023/u024: distinct copy for volunteers (v) vs learners (l); u025 is still one template.
+        if stage in ("u023", "u024"):
+            if user.profile.user_type == Profile.TypeChoices.VOLUNTEER:
+                return f"automatic-emails-{stage}v"
+            return f"automatic-emails-{stage}l"
+        return "automatic-emails-u025"
 
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__U023_U024_U025)
 
-    reminder = {
-        "automatic-emails-u023": [3, False, False, False],
-        "automatic-emails-u024": [7, True, False, False],
-        "automatic-emails-u025": [14, True, True, False],
-    }
+    reminder_stages = [
+        ("u023", 3, False, False, False),
+        ("u024", 7, True, False, False),
+        ("u025", 14, True, True, False),
+    ]
     users_sended = []
-    for template, (days, three_days_reminder, seven_days_reminder, fourteen_days_reminder) in reminder.items():
+    for stage, days, three_days_reminder, seven_days_reminder, fourteen_days_reminder in reminder_stages:
         users = User.objects.filter(
             state__user_form_completed_at__lte=dj_timezone.now() - timedelta(days=days),
-            state__had_prematching_call=False,
+            state__is_onboarded=False,
             state__user_form_completed_3_days_reminder_send=three_days_reminder,
             state__user_form_completed_7_days_reminder_send=seven_days_reminder,
             state__user_form_completed_14_days_reminder_send=fourteen_days_reminder,
-        )
+        ).select_related("profile")
         user_prematching_join = PreMatchingAppointment.objects.filter(user__in=users)
         users = users.exclude(id__in=user_prematching_join.values_list("user", flat=True))
 
         users_sended.append(users)
         for user in users:
+            template = template_for_user_form_reminder(stage, user)
             send_email_background.delay(template, user_id=user.id, emulated_send=emulated_send)
             user.state.set_user_form_completed_reminder_sent(days)
 
@@ -932,7 +958,14 @@ def automatic_emails_m031_m032_m033_m042():
 @shared_task
 def automatic_emails_u072_u073_u074():
     """
-    User searching for the first time still no matching
+    TODO: check about u071
+    Send for
+    automatic-emails-u072: No matching after 10 days
+    Trigger: Timing/Trigger: 10 days after #U071#. But still no matching
+    automatic-emails-u073: No matching after 21 days
+    Trigger: Timing/Trigger: 21 days after #U071#. But still no matching
+    automatic-emails-u074: No matching after 30 days
+    Trigger: Timing/Trigger: 30 days after #U071#. But still no matching
     """
     from django.conf import settings
 
@@ -946,7 +979,7 @@ def automatic_emails_u072_u073_u074():
         state__searching_state=State.SearchingStateChoices.SEARCHING,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=True,
+        state__is_onboarded=True,
         state__auto_email_u072_send=False,
         state__has_received_first_match=False,
     )
@@ -962,7 +995,7 @@ def automatic_emails_u072_u073_u074():
         state__searching_state=State.SearchingStateChoices.SEARCHING,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=True,
+        state__is_onboarded=True,
         state__auto_email_u073_send=False,
         state__has_received_first_match=False,
     )
@@ -977,7 +1010,7 @@ def automatic_emails_u072_u073_u074():
         state__searching_state=State.SearchingStateChoices.SEARCHING,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=True,
+        state__is_onboarded=True,
         state__auto_email_u074_send=False,
         state__has_received_first_match=False,
     )
@@ -1013,7 +1046,7 @@ def automatic_emails_u082_u083_u084():
         state__searching_state=State.SearchingStateChoices.SEARCHING,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=True,
+        state__is_onboarded=True,
         state__auto_emails_u081_send=True,
         state__auto_emails_u082_send=False,
         state__has_received_first_match=True,
@@ -1072,7 +1105,7 @@ def daily_auto_email_report():
     from django.utils import timezone
     from emails.models import EmailLog
 
-    from management.api.slack import notify_security_channel
+    from management.api.slack import notify_communication_channel, notify_security_channel
 
     enabled_emails = {
         "AUTOMATIC_EMAILS__U023_U024_U025": {
@@ -1103,11 +1136,21 @@ def daily_auto_email_report():
             "enabled": settings.ENABLE_AUTO_EMAILS__U081_U082_U083_U084,
             "emulated": settings.EMULATE_AUTO_EMAILS__U081_U082_U083_U084,
         },
+        "AUTOMATIC_EMAILS__M043_M044_M045": {
+            "enabled": settings.ENABLE_AUTO_EMAILS__M043_M044_M045,
+            "emulated": settings.EMULATE_AUTO_EMAILS__M043_M044_M045,
+        },
+        "AUTOMATIC_EMAILS__U053_U054": {
+            "enabled": settings.ENABLE_AUTO_EMAILS__U053_U054,
+            "emulated": settings.EMULATE_AUTO_EMAILS__U053_U054,
+        },
     }
 
     check_emails = [
-        "automatic-emails-u023",
-        "automatic-emails-u024",
+        "automatic-emails-u023l",
+        "automatic-emails-u023v",
+        "automatic-emails-u024l",
+        "automatic-emails-u024v",
         "automatic-emails-u025",
         "automatic-emails-m012",
         "automatic-emails-m013",
@@ -1126,6 +1169,12 @@ def daily_auto_email_report():
         "automatic-emails-u082",
         "automatic-emails-u083",
         "automatic-emails-u084",
+        "automatic-emails-m043",
+        "automatic-emails-m044",
+        "automatic-emails-m045",
+        "automatic-emails-u053l",
+        "automatic-emails-u053v",
+        "automatic-emails-u054",
     ]
 
     # Get yesterday's date range
@@ -1151,13 +1200,15 @@ def daily_auto_email_report():
 
     # Group emails by template for summary
     email_counts = defaultdict(int)
-    # Group emails by user for per-user breakdown
-    user_emails = defaultdict(list)
+    # Group users by template for compact per-template breakdown
+    template_users = defaultdict(dict)
+    unique_user_ids = set()
 
     for log in email_logs:
         email_counts[log.template] += 1
         if log.receiver:
-            user_emails[log.receiver].append(log.template)
+            template_users[log.template][log.receiver.id] = log.receiver
+            unique_user_ids.add(log.receiver.id)
 
     # Build the Slack message
     message_parts = [
@@ -1173,7 +1224,7 @@ def daily_auto_email_report():
             message_parts.append(f"• `{template}`: {count} sent")
 
     total_emails = sum(email_counts.values())
-    message_parts.append(f"\n*Total:* {total_emails} emails sent to {len(user_emails)} users")
+    message_parts.append(f"\n*Total:* {total_emails} emails sent to {len(unique_user_ids)} users")
 
     # Add enabled/disabled and emulated status
     message_parts.append("")
@@ -1183,24 +1234,31 @@ def daily_auto_email_report():
         emulated_status = "`True`" if flags["emulated"] else "`False`"
         message_parts.append(f"• {setting_name}: enabled={enabled_status}, emulated={emulated_status}")
 
-    # Add per-user breakdown with links
+    # Add compact per-template breakdown with user links
     message_parts.append("")
-    message_parts.append("*Emails Per-User:*")
+    message_parts.append("*Emails Compact Summary:*")
 
-    for user, templates in sorted(user_emails.items(), key=lambda x: x[0].email if x[0] else ""):
-        if user:
-            user_url = f"{settings.BASE_URL}/matching/user/{user.id}?tab=emails"
-            templates_str = ", ".join(sorted(set(templates)))
-            message_parts.append(f"• {user.email}: `{templates_str}` - `{user_url}`")
+    for template in check_emails:
+        if email_counts.get(template, 0) == 0:
+            continue
+
+        template_url = f"{settings.BASE_URL}/matching/emails/{template}"
+        users_for_template = template_users.get(template, {})
+        user_links = ", ".join(
+            f"[{user.id}]({settings.BASE_URL}/matching/user/{user.id}?tab=emails)"
+            for user in sorted(users_for_template.values(), key=lambda u: u.id)
+        )
+        message_parts.append(f"- [{template}]({template_url}): {user_links or 'no users'}")
 
     message = "\n".join(message_parts)
     notify_security_channel(message)
+    notify_communication_channel(message)
 
     return {
         "status": "sent",
         "date": yesterday_start.strftime("%Y-%m-%d"),
         "total_emails": total_emails,
-        "unique_users": len(user_emails),
+        "unique_users": len(unique_user_ids),
         "email_counts": dict(email_counts),
     }
 
@@ -1213,7 +1271,7 @@ def daily_sms_report():
     from django.conf import settings
     from django.utils import timezone
 
-    from management.api.slack import notify_security_channel
+    from management.api.slack import notify_communication_channel, notify_security_channel
     from management.models.sms import SmsModel
 
     now = timezone.now()
@@ -1282,6 +1340,7 @@ def daily_sms_report():
 
     message = "\n".join(message_parts)
     notify_security_channel(message)
+    notify_communication_channel(message)
 
     return {
         "status": "sent",
@@ -1292,3 +1351,387 @@ def daily_sms_report():
         "unique_recipients": len(recipient_sms),
         "unique_initiators": len(initiator_sms),
     }
+
+
+@shared_task
+def automatic_emails_m043_m044_m045():
+    """
+    Implements after 5, 8, 10 Video Calls Match Emails
+    and the
+    - [`automatic-emails-m043`](https://little-world.com/matching/emails/automatic-emails-m043) after 5 video calls, send once
+    - [`automatic-emails-m044`](https://little-world.com/matching/emails/automatic-emails-m044) after 8 video calls, send once
+    - [`automatic-emails-m045`](https://little-world.com/matching/emails/automatic-emails-m045) after 10 video calls, send once
+    TODO
+    - [ ] Add correct form urls...
+    """
+    from django.conf import settings
+    from django.utils import timezone
+
+    from management.models.matches import Match, MatchType
+
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.ENABLE_AUTO_EMAILS__M043_M044_M045)
+
+    report = {
+        "counters_synced_m043": 0,
+        "counters_synced_m044": 0,
+        "counters_synced_m045": 0,
+        "m043_send_to": [],
+        "m044_send_to": [],
+        "m045_send_to": [],
+    }
+
+    # Counters are synced before this task
+    time_1week_ago = timezone.now() - timedelta(days=7)
+    from django.db.models import F
+
+    # 1 - Sync counters
+    # === 10 x Video Calls ===
+    sync__matches_video_call_m045 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        auto_email_m043_send=True,
+        auto_email_m044_send=True,
+        auto_email_m045_send=False,
+        latest_counter_sync__lte=F("latest_interaction_at"),
+    )
+
+    for match in sync__matches_video_call_m045:
+        report["counters_synced_m045"] += 1
+        match.sync_counters()
+
+    matches_video_call_m045 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        auto_email_m043_send=True,
+        auto_email_m044_send=True,
+        auto_email_m045_send=False,
+        completed_5_video_calls=True,
+        completed_8_video_calls=True,
+        completed_10_video_calls=True,
+        latest_interaction_at__gte=time_1week_ago,
+    )
+
+    # Send 10 x Video Call Emails
+    for match in matches_video_call_m045:
+        send_email_background.delay(
+            "automatic-emails-m045", user_id=match.user1.id, match_id=match.pk, emulated_send=emulated_send
+        )
+        send_email_background.delay(
+            "automatic-emails-m045", user_id=match.user2.id, match_id=match.pk, emulated_send=emulated_send
+        )
+        report["m045_send_to"].append([str(match.uuid), match.user1.id])
+        report["m045_send_to"].append([str(match.uuid), match.user2.id])
+        match.auto_email_m043_send = True
+        match.auto_email_m044_send = True
+        match.auto_email_m045_send = True
+        match.completed_10_video_calls = True
+        match.save()
+
+    # === 8 x Video Calls ===
+    sync__matches_video_call_m044 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        auto_email_m043_send=True,
+        auto_email_m044_send=False,
+        auto_email_m045_send=False,
+        latest_counter_sync__lte=F("latest_interaction_at"),
+    )
+
+    for match in sync__matches_video_call_m044:
+        report["counters_synced_m044"] += 1
+        match.sync_counters()
+
+    matches_video_call_m044 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        auto_email_m043_send=True,
+        auto_email_m044_send=False,
+        auto_email_m045_send=False,
+        completed_5_video_calls=True,
+        completed_8_video_calls=True,
+        completed_10_video_calls=False,
+        latest_interaction_at__gte=time_1week_ago,
+    )
+
+    # Send 8x Video Call Emails
+    for match in matches_video_call_m044:
+        send_email_background.delay(
+            "automatic-emails-m044", user_id=match.user1.id, match_id=match.pk, emulated_send=emulated_send
+        )
+        send_email_background.delay(
+            "automatic-emails-m044", user_id=match.user2.id, match_id=match.pk, emulated_send=emulated_send
+        )
+        report["m044_send_to"].append([str(match.uuid), match.user1.id])
+        report["m044_send_to"].append([str(match.uuid), match.user2.id])
+        match.auto_email_m043_send = True
+        match.auto_email_m044_send = True
+        match.completed_5_video_calls = True
+        match.completed_8_video_calls = True
+        match.save()
+
+    # === 5 x Video Calls ===
+    # Only check matches where latest_counter_sync <= latest_interaction_at
+    sync__matches_video_call_m043 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        auto_email_m043_send=False,
+        auto_email_m044_send=False,
+        auto_email_m045_send=False,
+        latest_counter_sync__lte=F("latest_interaction_at"),
+    )
+
+    for match in sync__matches_video_call_m043:
+        report["counters_synced_m043"] += 1
+        match.sync_counters()
+
+    matches_video_call_m043 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        auto_email_m043_send=False,
+        auto_email_m044_send=False,
+        auto_email_m045_send=False,
+        completed_5_video_calls=True,
+        completed_8_video_calls=False,
+        completed_10_video_calls=False,
+        latest_interaction_at__gte=time_1week_ago,
+    )
+
+    # Send 5x Video Call Emails
+    for match in matches_video_call_m043:
+        send_email_background.delay("automatic-emails-m043", user_id=match.user1.id, emulated_send=emulated_send)
+        send_email_background.delay("automatic-emails-m043", user_id=match.user2.id, emulated_send=emulated_send)
+        report["m043_send_to"].append([str(match.uuid), match.user1.id])
+        report["m043_send_to"].append([str(match.uuid), match.user2.id])
+        match.auto_email_m043_send = True
+        match.completed_5_video_calls = True
+        match.save()
+
+    return report
+
+
+@shared_task
+def automatic_emails_u051_u052():
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__U051_U052)
+
+    users_u051 = User.objects.filter(
+        is_active=True,
+        state__is_onboarded=True,
+        state__onboarding_call_completed_at__isnull=False,
+        state__attended_auto_email_u051_send=False,
+    )
+    users_u051_hashes = list(users_u051.values_list("hash", flat=True))
+    for user in users_u051:
+        send_email_background.delay("automatic-emails-u071", user_id=user.id, emulated_send=emulated_send)
+        user.state.attended_auto_email_u051_send = True
+        user.state.attended_auto_email_u051_send_at = dj_timezone.now()
+        user.state.save()
+
+    users_u052 = User.objects.filter(
+        is_active=True,
+        state__is_onboarded=False,
+        state__last_prematching_call_not_attended=True,
+        state__last_not_attended_prematching_call_at__isnull=False,
+        state__not_attended_auto_email_u052_send=False,
+    )
+    users_u052_hashes = list(users_u052.values_list("hash", flat=True))
+    for user in users_u052:
+        send_email_background.delay("prematching-call-no-show", user_id=user.id, emulated_send=emulated_send)
+        user.state.not_attended_auto_email_u052_send = True
+        user.state.not_attended_auto_email_u052_send_at = dj_timezone.now()
+        user.state.save()
+
+    return {
+        "status": "sent",
+        "u051_count": len(users_u051_hashes),
+        "u051_users": users_u051_hashes,
+        "u052_count": len(users_u052_hashes),
+        "u052_users": users_u052_hashes,
+    }
+
+
+@shared_task
+def automatic_emails_u053_u054():
+    """
+    Implements automatic emails for not attending pre-matching appointments.
+    u053: send if at least 2 days passed since missed appointment
+    u054: send if at least 7 days passed since missed appointment (follow-up to u053)
+    """
+    from django.conf import settings
+    from django.utils import timezone
+
+    from management.models.profile import Profile
+
+    def template_for_u053(user: User) -> str:
+        if user.profile.user_type == Profile.TypeChoices.VOLUNTEER:
+            return "automatic-emails-u053v"
+        return "automatic-emails-u053l"
+
+    time_2days_ago = timezone.now() - timedelta(days=2)
+    time_7days_ago = timezone.now() - timedelta(days=7)
+
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.ENABLE_AUTO_EMAILS__U053_U054)
+
+    users_missed_onboarding = User.objects.filter(
+        active=True,
+        state__last_prematching_call_not_attended=True,
+        state__last_not_attended_prematching_call_at__lte=time_2days_ago,
+        state__not_attended_auto_email_u053_send=False,
+        state__not_attended_auto_email_u054_send=False,
+        state__is_onboarded=False,
+    ).select_related("profile")
+
+    users_with_new_appointment = set()
+    for user in users_missed_onboarding:
+        has_new_appointment = PreMatchingAppointment.objects.filter(
+            user=user,
+            start_time__gte=user.state.last_not_attended_prematching_call_at,
+        ).exists()
+        if has_new_appointment:
+            users_with_new_appointment.add(user.id)
+
+    user_missed_last_onboarding_u053 = users_missed_onboarding.exclude(id__in=users_with_new_appointment)
+
+    users_missed_onboarding_u054 = User.objects.filter(
+        active=True,
+        state__last_prematching_call_not_attended=True,
+        state__last_not_attended_prematching_call_at__lte=time_7days_ago,
+        state__not_attended_auto_email_u053_send=True,
+        state__not_attended_auto_email_u054_send=False,
+        state__is_onboarded=False,
+    )
+
+    users_with_new_appointment_u054 = set()
+    for user in users_missed_onboarding_u054:
+        has_new_appointment = PreMatchingAppointment.objects.filter(
+            user=user,
+            start_time__gte=user.state.last_not_attended_prematching_call_at,
+        ).exists()
+        if has_new_appointment:
+            users_with_new_appointment_u054.add(user.id)
+
+    user_missed_last_onboarding_u054 = users_missed_onboarding_u054.exclude(id__in=users_with_new_appointment_u054)
+
+    u053_hashes = []
+    for user in user_missed_last_onboarding_u053:
+        send_email_background.delay(
+            template_for_u053(user),
+            user_id=user.id,
+            emulated_send=emulated_send,
+        )
+        user.state.not_attended_auto_email_u053_send = True
+        user.state.not_attended_auto_email_u053_send_at = timezone.now()
+        user.state.save()
+        u053_hashes.append(user.hash)
+
+    u054_hashes = []
+    for user in user_missed_last_onboarding_u054:
+        send_email_background.delay("automatic-emails-u054", user_id=user.id, emulated_send=emulated_send)
+        user.state.not_attended_auto_email_u054_send = True
+        user.state.not_attended_auto_email_u054_send_at = timezone.now()
+        user.state.save()
+        u054_hashes.append(user.hash)
+
+    report = {
+        "status": "sent",
+        "u053_count": len(u053_hashes),
+        "u053_users": u053_hashes,
+        "u054_count": len(u054_hashes),
+        "u054_users": u054_hashes,
+        "excluded_new_appointment_u053": len(users_with_new_appointment),
+        "excluded_new_appointment_u054": len(users_with_new_appointment_u054),
+    }
+
+    return report
+
+
+@shared_task
+def automatic_emails_fm021_fm022__ghosted_matches():
+    """
+    Implements automatic emails for 15 days single party contact
+    sends 2 different emails:
+    - [ ] [`automatic-emails-fm021`](https://little-world.com/matching/emails/automatic-emails-fm021) to the ghoster
+    - [ ] [`automatic-emails-fm022`](https://little-world.com/matching/emails/automatic-emails-fm022) to the ghosted
+    """
+    from chat.models import Message
+    from django.conf import settings
+    from django.utils import timezone
+    from video.models import LivekitSession
+
+    from management.api.report_unmatch import process_report_unmatch
+    from management.models.matches import Match
+
+    time_15days_ago = timezone.now() - timedelta(days=15)
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.ENABLE_AUTO_EMAILS__FM021_FM022)
+
+    report = {
+        "matches_single_party_contact": 0,
+        "matches_ghosted": [],
+        "fm021_send_to": [],
+        "fm022_send_to": [],
+    }
+
+    matches_single_party_contact = Match.objects.filter(
+        confirmed=True,
+        completed=False,  # dont even consider removing completed matches!
+        completed_off_plattform=False,
+        support_matching=False,
+        active=True,
+        auto_email_fm021_send=False,
+        auto_email_fm022_send=False,
+        is_ghosted_match=False,
+    )
+
+    # Check if matches should be marked 'ghosted'
+    # TODO: confirm if there should be a way to get out of 'ghosted' state
+    report["matches_single_party_contact"] = matches_single_party_contact.count()
+    for match in matches_single_party_contact:
+        newest_message = (
+            Message.objects.filter(
+                Q(sender=match.user1, recipient=match.user2) | Q(sender=match.user2, recipient=match.user1)
+            )
+            .order_by("-created")
+            .first()
+        )
+        newest_video_call = (
+            LivekitSession.objects.filter(
+                Q(u1=match.user1, u2=match.user2) | Q(u1=match.user2, u2=match.user1),
+                both_have_been_active=True,
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if (
+            newest_message
+            and newest_message.created < time_15days_ago
+            and (newest_video_call and newest_video_call.created_at < time_15days_ago)
+        ):
+            # TODO: Also exlude completed and 'off-plattform' matches!
+            # TODO: Also prob exlucde matches that had a two user video call instead
+            match.is_ghosted_match = True
+            ghosted_user = newest_message.sender
+            ghosted_by_user = newest_message.recipient
+            match.ghosted_by = ghosted_by_user
+            match.marked_as_ghosted_at = timezone.now()
+            match.save()
+            report["matches_ghosted"].append(match.uuid)
+            send_email_background.delay("automatic-emails-fm021", user_id=ghosted_user.id, emulated_send=emulated_send)
+            send_email_background.delay(
+                "automatic-emails-fm022", user_id=ghosted_by_user.id, emulated_send=emulated_send
+            )
+            report["fm021_send_to"].append([str(match.uuid), ghosted_user.id])
+            report["fm022_send_to"].append([str(match.uuid), ghosted_by_user.id])
+            match.auto_email_fm021_send = True
+            match.auto_email_fm022_send = True
+            match.save()
+            # We actually remove the matching and mark it as 'ghosted'
+            process_report_unmatch(
+                match.user1, match, "ghosted", "Single party contact for 15 days", send_message=False
+            )
+
+    return {"status": "sent", "matches": matches_single_party_contact}

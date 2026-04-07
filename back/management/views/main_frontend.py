@@ -14,7 +14,7 @@ from translations import get_translation
 
 from management.api.user import get_user_data
 from management.controller import get_base_management_user
-from management.models.profile import SelfProfileSerializer
+from management.models.profile import Profile, SelfProfileSerializer
 from management.models.short_links import ShortLink
 from management.views.cookie_banner_frontend import get_cookie_banner_template_data
 
@@ -113,6 +113,16 @@ class MainFrontendRouter(View):
         if (
             request.user.state.is_email_verified()
             and request.user.state.is_user_form_filled()
+            and (not request.user.state.is_onboarded)
+            and request.user.profile.user_type == Profile.TypeChoices.VOLUNTEER
+            and (not path.startswith("app/onboarding"))
+        ):
+            return redirect("/app/onboarding/")
+
+        if (
+            request.user.state.is_email_verified()
+            and request.user.state.is_user_form_filled()
+            and request.user.state.is_onboarded
             and (not any([path.startswith(p) for p in self.LOGGED_IN_NO_REDIRECT_PATHS]))
         ):
             return redirect("/app/")

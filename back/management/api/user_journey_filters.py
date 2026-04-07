@@ -47,7 +47,7 @@ def user_created(qs=User.objects.all()):
         state__user_form_state=State.UserFormStateChoices.UNFILLED,
         state__unresponsive=False,
         state__email_authenticated=False,
-        # state__had_prematching_call=False,
+        state__is_onboarded=False,
     )
 
 
@@ -60,7 +60,7 @@ def email_verified(qs=User.objects.all()):
         state__user_form_state=State.UserFormStateChoices.UNFILLED,
         state__email_authenticated=True,
         state__unresponsive=False,
-        # state__had_prematching_call=False, we marked some users as 'had_prematching_call' automatically, therefore we cannot require it to be False here!
+        # state__is_onboarded=False, we marked some users as onboarded automatically, therefore we cannot require it to be False here!
     )
 
 
@@ -73,7 +73,7 @@ def user_form_completed(qs=User.objects.all()):
         state__user_form_state=State.UserFormStateChoices.FILLED,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=False,
+        state__is_onboarded=False,
         prematchingappointment__isnull=True,
     ).exclude(
         profile__lang_skill__contains=[
@@ -134,7 +134,7 @@ def too_low_german_level_or_not_onboarded(qs=User.objects.all()):
                 state__user_form_state=State.UserFormStateChoices.FILLED,
                 state__email_authenticated=True,
                 state__unresponsive=False,
-                state__had_prematching_call=False,
+                state__is_onboarded=False,
             )
         )
         .exclude(id__in=never_active_or_delete_or_created)
@@ -149,13 +149,13 @@ def not_too_low_german_level__is_onboarded(qs=User.objects.all()):
         state__user_form_state=State.UserFormStateChoices.FILLED,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=True,
+        state__is_onboarded=True,
     ).exclude(id__in=tlg)
 
 
 def booked_onboarding_call(qs=User.objects.all()):
     """
-    (Sign-Up) User has filled form and booked onboarding call
+    (Sign-Up) User has filled form and has a future onboarding (prematching) appointment booked.
     """
     no_shows = no_show(qs)
     return (
@@ -164,7 +164,7 @@ def booked_onboarding_call(qs=User.objects.all()):
             state__user_form_state=State.UserFormStateChoices.FILLED,
             state__email_authenticated=True,
             state__unresponsive=False,
-            state__had_prematching_call=False,  # TODO: check if this is correct
+            state__is_onboarded=False,
         )
         .annotate(
             num_appointments=Count(
@@ -173,6 +173,36 @@ def booked_onboarding_call(qs=User.objects.all()):
         )
         .filter(num_appointments__gt=0)
         .exclude(id__in=no_shows)
+    )
+
+
+def self_onboarding_started_no_booked_call(qs=User.objects.all()):
+    """
+    (Sign-Up) Self-service onboarding started but not completed; excludes users in
+    booked_onboarding_call (future prematching appointment).
+    """
+    booked = booked_onboarding_call(qs)
+    return qs.filter(
+        is_active=True,
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
+        state__unresponsive=False,
+        state__is_onboarded=False,
+        state__self_onboarding_started=True,
+        state__self_onboarding_completed=False,
+    ).exclude(id__in=booked)
+
+
+def onboarding_incomplete(qs=User.objects.all()):
+    """
+    (Sign-Up) Registration form completed but user is not yet onboarded.
+    """
+    return qs.filter(
+        is_active=True,
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
+        state__unresponsive=False,
+        state__is_onboarded=False,
     )
 
 
@@ -201,7 +231,7 @@ def first_search_v1(qs=User.objects.all()):
             state__searching_state=State.SearchingStateChoices.SEARCHING,
             state__email_authenticated=True,
             state__unresponsive=False,
-            state__had_prematching_call=True,
+            state__is_onboarded=True,
         )
         .exclude(id__in=users_w_open_proposals)
         .exclude(id__in=searched_too_long)
@@ -233,7 +263,7 @@ def first_search_v2(qs=User.objects.all(), require_min_lang_level=True):
             state__searching_state=State.SearchingStateChoices.SEARCHING,
             state__email_authenticated=True,
             state__unresponsive=False,
-            state__had_prematching_call=True,
+            state__is_onboarded=True,
         )
         .exclude(id__in=users_w_open_proposals)
         .annotate(
@@ -279,7 +309,7 @@ def user_searching(qs=User.objects.all()):
             state__searching_state=State.SearchingStateChoices.SEARCHING,
             state__email_authenticated=True,
             state__unresponsive=False,
-            state__had_prematching_call=True,
+            state__is_onboarded=True,
         )
         .annotate(
             num_matches=Count("match_user1", filter=Q(match_user1__support_matching=False))
@@ -336,7 +366,7 @@ def match_takeoff(qs=User.objects.all()):
         state__user_form_state=State.UserFormStateChoices.FILLED,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=True,
+        state__is_onboarded=True,
     )
 
     qs = (
@@ -369,7 +399,7 @@ def ongoing_non_completed_match(qs=User.objects.all()):
         state__user_form_state=State.UserFormStateChoices.FILLED,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=True,
+        state__is_onboarded=True,
     )
 
     users_with_freeplay_matches = get_user_involved(match_free_play(), qs)
@@ -403,7 +433,7 @@ def active_match(qs=User.objects.all(), last_interaction_days=21):
 
     users = qs.filter(
         Q(match_user1__in=ongoing_matches) | Q(match_user2__in=ongoing_matches),
-        state__had_prematching_call=True,
+        state__is_onboarded=True,
         is_active=True,
     ).distinct()
 
@@ -418,7 +448,7 @@ def never_active(qs=User.objects.all(), days_since_creation=30):
         date_joined__lt=days_ago(days_since_creation),
         state__user_form_state=State.UserFormStateChoices.UNFILLED,
         state__email_authenticated=False,
-        state__had_prematching_call=False,
+        state__is_onboarded=False,
         state__unresponsive=False,
         is_active=True,
     ).exclude(
@@ -437,7 +467,7 @@ def no_show(qs=User.objects.all()):
             state__user_form_state=State.UserFormStateChoices.FILLED,
             state__email_authenticated=True,
             state__unresponsive=False,
-            state__had_prematching_call=False,
+            state__is_onboarded=False,
             prematchingappointment__isnull=False,
             is_active=True,
         )
@@ -466,7 +496,7 @@ def failed_matching(qs=User.objects.all()):
         state__user_form_state=State.UserFormStateChoices.FILLED,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=True,
+        state__is_onboarded=True,
     )
 
     user_with_freeplay_matches = get_user_involved(match_free_play(), qs)
@@ -509,7 +539,7 @@ def no_confirm(qs=User.objects.all()):
         state__user_form_state=State.UserFormStateChoices.FILLED,
         state__email_authenticated=True,
         state__unresponsive=False,
-        state__had_prematching_call=True,
+        state__is_onboarded=True,
     )
 
     user_with_freeplay_matches = get_user_involved(match_free_play(), qs)
@@ -634,7 +664,7 @@ def over_30_days_after_prematching_still_searching(qs=User.objects.all()):
             state__searching_state=State.SearchingStateChoices.SEARCHING,
             state__email_authenticated=True,
             state__unresponsive=False,
-            state__had_prematching_call=True,
+            state__is_onboarded=True,
             date_joined__lt=thirty_days_ago,
         )
         .annotate(
@@ -662,7 +692,7 @@ def gave_up_searching(qs=User.objects.all()):
             state__user_form_state=State.UserFormStateChoices.FILLED,
             state__email_authenticated=True,
             state__unresponsive=False,
-            state__had_prematching_call=True,
+            state__is_onboarded=True,
         )
         .exclude(
             Q(id__in=user_with_never_confirmed_matches)
@@ -718,6 +748,7 @@ def community_calls(qs=User.objects.all(), last_x_days=28 * 3):
             user_form_completed(qs).values(*selected_fields),
             email_verified(qs).values(*selected_fields),
             booked_onboarding_call(qs).values(*selected_fields),
+            self_onboarding_started_no_booked_call(qs).values(*selected_fields),
             first_search_v2(qs).values(*selected_fields),
         )
     )
@@ -842,7 +873,7 @@ def completed_form__no__onboarding_call(qs=User.objects.all()):
     """
     Completed form but no onboarding call
     """
-    return qs.filter(state__user_form_state=State.UserFormStateChoices.FILLED, state__had_prematching_call=False)
+    return qs.filter(state__user_form_state=State.UserFormStateChoices.FILLED, state__is_onboarded=False)
 
 
 def completed_form__created_within_6months_no_onboarding_call(qs=User.objects.all()):
@@ -852,7 +883,7 @@ def completed_form__created_within_6months_no_onboarding_call(qs=User.objects.al
     return qs.filter(
         state__user_form_state=State.UserFormStateChoices.FILLED,
         date_joined__gte=days_ago(6 * 30),
-        state__had_prematching_call=False,
+        state__is_onboarded=False,
     )
 
 
@@ -863,7 +894,7 @@ def completed_form__created_within_6months_no_onboarding_call_volunteer(qs=User.
     return qs.filter(
         state__user_form_state=State.UserFormStateChoices.FILLED,
         date_joined__gte=days_ago(6 * 30),
-        state__had_prematching_call=False,
+        state__is_onboarded=False,
         profile__user_type=Profile.TypeChoices.VOLUNTEER,
     )
 
@@ -889,7 +920,7 @@ def volunteers_with_completed_match_no_ongoing(qs=User.objects.all()):
 
 def users_with_duplicate_automatic_emails_29_01_2026(qs=User.objects.all()):
     """
-    Users who received multiple emails (automatic-emails-u023/u024/u025) on 29.01.2026
+    Users who received multiple emails (u023/u024 learner or volunteer variants, u025) on 29.01.2026
     """
     from datetime import date
 
@@ -897,8 +928,10 @@ def users_with_duplicate_automatic_emails_29_01_2026(qs=User.objects.all()):
 
     target_date = date(2026, 1, 29)
     target_templates = [
-        "automatic-emails-u023",
-        "automatic-emails-u024",
+        "automatic-emails-u023l",
+        "automatic-emails-u023v",
+        "automatic-emails-u024l",
+        "automatic-emails-u024v",
         "automatic-emails-u025",
     ]
 

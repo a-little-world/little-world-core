@@ -26,12 +26,12 @@
     }
   },
   "emails": {
-    "welcome": {
-      "id": "welcome",
+    "automatic-emails-u001": {
+      "id": "automatic-emails-u001",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Willkommen bei Little World",
-      "template": "react_emails/welcome.html",
+      "subject": "Bitte best\u00e4tige deine E-Mail-Adresse",
+      "template": "react_emails/automatic-emails-u001.html",
       "theme": "little-world"
     },
     "account-deleted": {
@@ -106,12 +106,12 @@
       "template": "react_emails/still-in-contact.html",
       "theme": "little-world"
     },
-    "unfinished_user_form_1": {
-      "id": "unfinished_user_form_1",
+    "automatic-emails-u012": {
+      "id": "automatic-emails-u012",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Umfrage beenden f\u00fcr Bekanntschaften aus aller Welt",
-      "template": "react_emails/unfinished_user_form_1.html",
+      "subject": "Wer soll dein Gespr\u00e4chspartner sein? \ud83c\udf0d",
+      "template": "react_emails/automatic-emails-u012.html",
       "theme": "little-world"
     },
     "unfinished_user_form_2": {
@@ -170,12 +170,12 @@
       "template": "react_emails/prematching-call-no-show.html",
       "theme": "little-world"
     },
-    "prematching-call-post-thanks": {
-      "id": "prematching-call-post-thanks",
+    "automatic-emails-u071": {
+      "id": "automatic-emails-u071",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "{{ first_name }} & Little World: Danke f\u00fcr die Teilnahme am Einf\u00fchrungsgespr\u00e4ch",
-      "template": "react_emails/prematching-call-post-thanks.html",
+      "subject": "Danke, dass du dabei bist {{ first_name }}!",
+      "template": "react_emails/automatic-emails-u071.html",
       "theme": "little-world"
     },
     "patenmatch-matching-back-online": {
@@ -202,20 +202,36 @@
       "template": "react_emails/still-in-contact-inactive.html",
       "theme": "little-world"
     },
-    "automatic-emails-u023": {
-      "id": "automatic-emails-u023",
+    "automatic-emails-u023l": {
+      "id": "automatic-emails-u023l",
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Starte jetzt bei Little World",
-      "template": "react_emails/automatic-emails-u023.html",
+      "template": "react_emails/automatic-emails-u023l.html",
       "theme": "little-world"
     },
-    "automatic-emails-u024": {
-      "id": "automatic-emails-u024",
+    "automatic-emails-u023v": {
+      "id": "automatic-emails-u023v",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Willkommen bei Little World \u2013 so geht's weiter \ud83c\udf0d",
+      "template": "react_emails/automatic-emails-u023v.html",
+      "theme": "little-world"
+    },
+    "automatic-emails-u024l": {
+      "id": "automatic-emails-u024l",
       "sender_id": "noreply",
       "category_id": "automated",
       "subject": "Hast du dein Onboarding schon gebucht?",
-      "template": "react_emails/automatic-emails-u024.html",
+      "template": "react_emails/automatic-emails-u024l.html",
+      "theme": "little-world"
+    },
+    "automatic-emails-u024v": {
+      "id": "automatic-emails-u024v",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Jemand in Little World wartet auf dich \ud83c\udf0d",
+      "template": "react_emails/automatic-emails-u024v.html",
       "theme": "little-world"
     },
     "automatic-emails-u025": {
@@ -242,12 +258,20 @@
       "template": "react_emails/automatic-emails-u044.html",
       "theme": "little-world"
     },
-    "automatic-emails-u053": {
-      "id": "automatic-emails-u053",
+    "automatic-emails-u053l": {
+      "id": "automatic-emails-u053l",
       "sender_id": "noreply",
       "category_id": "automated",
-      "subject": "Erinnerung: Dein Onboarding-Gespr\u00e4ch",
-      "template": "react_emails/automatic-emails-u053.html",
+      "subject": "Dein Platz bei Little World wartet noch auf dich \ud83c\udf0d",
+      "template": "react_emails/automatic-emails-u053l.html",
+      "theme": "little-world"
+    },
+    "automatic-emails-u053v": {
+      "id": "automatic-emails-u053v",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Dein Ehrenamt wartet noch auf dich \u2013 neuen Termin sichern",
+      "template": "react_emails/automatic-emails-u053v.html",
       "theme": "little-world"
     },
     "automatic-emails-u072": {
@@ -637,6 +661,21 @@
         "user"
       ]
     },
+    "newsletter_subscribe_url": {
+      "id": "newsletter_subscribe_url",
+      "lookup": "emails.api.template_lookup.newsletter_subscribe_url",
+      "depends_on": []
+    },
+    "group_calls_url": {
+      "id": "group_calls_url",
+      "lookup": "emails.api.template_lookup.group_calls_url",
+      "depends_on": []
+    },
+    "self_onboarding_url": {
+      "id": "self_onboarding_url",
+      "lookup": "emails.api.template_lookup.self_onboarding_url",
+      "depends_on": []
+    },
     "confirm_in_contact_url": {
       "id": "confirm_in_contact_url",
       "lookup": "emails.api.template_lookup.confirm_in_contact_url",
@@ -764,6 +803,22 @@
     "match_removed_survey_url": {
       "id": "match_removed_survey_url",
       "lookup": "emails.api.template_lookup.match_removed_survey_url",
+      "depends_on": [
+        "user",
+        "match"
+      ]
+    },
+    "match_removed_fm011_no_contact_url": {
+      "id": "match_removed_fm011_no_contact_url",
+      "lookup": "emails.api.template_lookup.match_removed_fm011_no_contact_url",
+      "depends_on": [
+        "user",
+        "match"
+      ]
+    },
+    "match_removed_fm021_ghosted_url": {
+      "id": "match_removed_fm021_ghosted_url",
+      "lookup": "emails.api.template_lookup.match_removed_fm021_ghosted_url",
       "depends_on": [
         "user",
         "match"

@@ -109,7 +109,7 @@ class ProfileCompletedApi(APIView):
             # Auto-complete onboarding call for companies with custom onboarding
             if state.company and state.company.lower() in settings.CUSTOM_ONBOARDING_COMPANIES:
                 state.onboarding_call_completed_at = timezone.now()
-                state.had_prematching_call = True
+                state.is_onboarded = True
 
             state.save()
 
@@ -135,7 +135,7 @@ class ProfileCompletedApi(APIView):
                     default_message = get_translation("auto_messages.learner_outside_germany", lang="de").format(
                         first_name=user.profile.first_name
                     )
-            if not user.state.had_prematching_call:
+            if not user.state.is_onboarded and user.profile.user_type == Profile.TypeChoices.LEARNER:
                 user.message(default_message, auto_mark_read=False, send_message_incoming=True)
 
             ud = get_user_data(user)

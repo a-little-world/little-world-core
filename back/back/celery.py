@@ -69,6 +69,17 @@ auto_emails = {
 }
 
 
+if settings.ENABLE_AUTO_EMAILS__U051_U052:
+    auto_emails.update(
+        {
+            "automatic-emails-u051-u052": {
+                "task": "management.tasks.automatic_emails_u051_u052",
+                "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+            }
+        }
+    )
+
+
 if settings.ENABLE_AUTO_EMAILS__U023_U024_U025:
     auto_emails.update(
         {
@@ -140,6 +151,26 @@ if settings.ENABLE_AUTO_EMAILS__U081_U082_U083_U084:
         }
     )
 
+if settings.ENABLE_AUTO_EMAILS__M043_M044_M045:
+    auto_emails.update(
+        {
+            "automatic-emails-m043-m044-m045": {
+                "task": "management.tasks.automatic_emails_m043_m044_m045",
+                "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+            }
+        }
+    )
+
+if settings.ENABLE_AUTO_EMAILS__U053_U054:
+    auto_emails.update(
+        {
+            "automatic-emails-u053-u054": {
+                "task": "management.tasks.automatic_emails_u053_u054",
+                "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+            }
+        }
+    )
+
 
 if settings.ENABLE_AUTO_EMAIL_LOGS:
     auto_emails.update(
@@ -157,6 +188,16 @@ if settings.ENABLE_DAILY_SMS_REPORT:
             "daily-sms-report": {
                 "task": "management.tasks.daily_sms_report",
                 "schedule": crontab(hour=0, minute=40),  # every day at 00:40
+            }
+        }
+    )
+
+if settings.ENABLE_AUTO_EMAILS__FM021_FM022:
+    auto_emails.update(
+        {
+            "automatic-emails-fm021-fm022": {
+                "task": "management.tasks.automatic_emails_fm021_fm022__ghosted_matches",
+                "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
             }
         }
     )
@@ -179,7 +220,7 @@ prod_shedules = {
 prod_shedules.update(auto_emails)
 
 """
-All little world periodic tasks 
+All little world periodic tasks
 e.g.: notifying users that they have new messages
 """
 if not settings.PROD_ATTACH:
