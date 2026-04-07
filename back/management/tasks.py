@@ -748,6 +748,7 @@ def automatic_emails_m023():
     from chat.models import Chat
     from django.conf import settings
     from django.db.models import Max
+
     from management.models.matches import Match
 
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M023)
