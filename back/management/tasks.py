@@ -1156,6 +1156,18 @@ def daily_auto_email_report():
             "enabled": settings.ENABLE_AUTO_EMAILS__U053_U054,
             "emulated": settings.EMULATE_AUTO_EMAILS__U053_U054,
         },
+        "AUTOMATIC_EMAILS__U051_U052": {
+            "enabled": settings.ENABLE_AUTO_EMAILS__U051_U052,
+            "emulated": settings.EMULATE_AUTO_EMAILS__U051_U052,
+        },
+        "AUTOMATIC_EMAILS__FM021_FM022": {
+            "enabled": settings.ENABLE_AUTO_EMAILS__FM021_FM022,
+            "emulated": settings.EMULATE_AUTO_EMAILS__FM021_FM022,
+        },
+        "AUTOMATIC_EMAILS__M051": {
+            "enabled": settings.ENABLE_AUTO_EMAILS__M051,
+            "emulated": settings.EMULATE_AUTO_EMAILS__M051,
+        },
     }
 
     check_emails = [
@@ -1187,6 +1199,11 @@ def daily_auto_email_report():
         "automatic-emails-u053l",
         "automatic-emails-u053v",
         "automatic-emails-u054",
+        "automatic-emails-u051",
+        "automatic-emails-u052",
+        "automatic-emails-fm021",
+        "automatic-emails-fm022",
+        "automatic-emails-m051",
     ]
 
     # Get yesterday's date range
