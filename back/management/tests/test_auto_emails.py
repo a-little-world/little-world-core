@@ -2,6 +2,7 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from chat.models import Chat, Message
+from django.contrib.auth import get_user_model
 from django.conf import settings
 from django.db.models import Q
 from django.test import TestCase, override_settings
@@ -310,6 +311,45 @@ class TestAutomaticEmails_m023(TestCase):
         mock_send_email_background.delay.assert_called_once_with(
             "automatic-emails-m023",
             user_id=self.valid_user_2.id,
+            match_id=match.id,
+            emulated_send=True,
+        )
+
+
+class TestAutomaticEmails_m023Regression(TestCase):
+    @override_settings(DJANGO_TESTING=True)
+    @patch("management.tasks.send_email_background")
+    def test_m023_includes_match_id_in_email_task(self, mock_send_email_background):
+        user_model = get_user_model()
+        user_1 = user_model.objects.create_user(
+            email="m023-regression-user1@test.de",
+            username="m023-regression-user1@test.de",
+            password="Test123!",
+            first_name="Alex",
+            last_name="One",
+        )
+        user_2 = user_model.objects.create_user(
+            email="m023-regression-user2@test.de",
+            username="m023-regression-user2@test.de",
+            password="Test123!",
+            first_name="Sam",
+            last_name="Two",
+        )
+        chat = Chat.objects.create(u1=user_1, u2=user_2)
+        with freeze_time(dj_timezone.now() - timedelta(days=4)):
+            Message.objects.create(
+                chat=chat,
+                sender=user_1,
+                recipient=user_2,
+                text="Hello from regression test",
+            )
+        match = Match.objects.create(user1=user_1, user2=user_2, active=True)
+
+        automatic_emails_m023()
+
+        mock_send_email_background.delay.assert_called_once_with(
+            "automatic-emails-m023",
+            user_id=user_2.id,
             match_id=match.id,
             emulated_send=True,
         )
