@@ -1240,8 +1240,8 @@ def kpi_dashboard_statistics_signups(request):
         date_joined__range=[timezone.now() - timedelta(days=30), timezone.now()]
     ).count()
 
-    # Onboarded volunteers only; form completed after 6 Apr 2026 (calendar dates from 7 Apr onward).
-    volunteer_onboarding_path_cohort_cutoff = date(2026, 4, 6)
+    # Onboarded volunteers only; form completed after 5 Apr 2026.
+    volunteer_onboarding_path_cohort_cutoff = date(2026, 4, 5)
     volunteer_onboarded_cohort = pre_filtered_users.filter(
         profile__user_type=Profile.TypeChoices.VOLUNTEER,
         state__is_onboarded=True,
