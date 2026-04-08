@@ -1,13 +1,18 @@
 {% load temp_utils %}
 {% get_cookie_banner_data request hidden_cookie_banner as cookie_data_json %}
-const cookieData = JSON.parse(JSON.parse('{{ cookie_data_json | escapejs }}').cookie_data);
+const cookieData = JSON.parse('{{ cookie_data_json.cookie_data | escapejs }}');
 {% load render_bundle from webpack_loader %}
 {% render_bundle 'staticfiles' 'js' 'cookie_banner_frontend' as JS_BASE_CODE %}
 {% get_base_page_url as BASE_URL %}
 const baseUrl = "{{ BASE_URL }}";
 const script = '{{ JS_BASE_CODE }}';
 const scripUrl = script.split('"')[1];
-let cookieBannerIsHidden = cookieData?.hiddenCookieBanner;
+let cookieBannerIsHidden = false;
+try {
+    cookieBannerIsHidden = cookieData.hiddenCookieBanner === true;
+} catch (e) {
+    console.error("Error getting cookie banner hidden state, using default value", e);
+}
 
 const initCode = () => {
     const div = document.createElement('div');
@@ -39,7 +44,7 @@ const initCode = () => {
         window.location.replace("https://home.little-world.com/datenschutz");
     }
     scriptPromise.then(() => {
-        cookieBanner(JSON.parse(cookieData.cookieGroups), JSON.parse(cookieData.cookieSets), null, toImpressum, toPrivacy, cookieBannerIsHidden);
+        cookieBanner(cookieData.cookieGroups, cookieData.cookieSets, cookieData.cookieStateDict, toImpressum, toPrivacy, cookieBannerIsHidden);
     });
 }
 

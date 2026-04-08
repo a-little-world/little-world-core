@@ -749,6 +749,8 @@ def automatic_emails_m023():
     from django.conf import settings
     from django.db.models import Max
 
+    from management.models.matches import Match
+
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M023)
 
     chats = (
@@ -770,8 +772,18 @@ def automatic_emails_m023():
 
         # send email to the user that received the last message
         last_message = chat.get_newest_message()
+        if not last_message:
+            continue
+
+        active_match = Match.get_match(last_message.sender, last_message.recipient).order_by("-created_at").first()
+        if not active_match:
+            continue
+
         send_email_background.delay(
-            "automatic-emails-m023", user_id=last_message.recipient.id, emulated_send=emulated_send
+            "automatic-emails-m023",
+            user_id=last_message.recipient.id,
+            match_id=active_match.id,
+            emulated_send=emulated_send,
         )
 
     return {"status": "sent", "inactive_chats": inactive_chats}
@@ -1144,6 +1156,18 @@ def daily_auto_email_report():
             "enabled": settings.ENABLE_AUTO_EMAILS__U053_U054,
             "emulated": settings.EMULATE_AUTO_EMAILS__U053_U054,
         },
+        "AUTOMATIC_EMAILS__U051_U052": {
+            "enabled": settings.ENABLE_AUTO_EMAILS__U051_U052,
+            "emulated": settings.EMULATE_AUTO_EMAILS__U051_U052,
+        },
+        "AUTOMATIC_EMAILS__FM021_FM022": {
+            "enabled": settings.ENABLE_AUTO_EMAILS__FM021_FM022,
+            "emulated": settings.EMULATE_AUTO_EMAILS__FM021_FM022,
+        },
+        "AUTOMATIC_EMAILS__M051": {
+            "enabled": settings.ENABLE_AUTO_EMAILS__M051,
+            "emulated": settings.EMULATE_AUTO_EMAILS__M051,
+        },
     }
 
     check_emails = [
@@ -1175,6 +1199,11 @@ def daily_auto_email_report():
         "automatic-emails-u053l",
         "automatic-emails-u053v",
         "automatic-emails-u054",
+        "automatic-emails-u051",
+        "automatic-emails-u052",
+        "automatic-emails-fm021",
+        "automatic-emails-fm022",
+        "automatic-emails-m051",
     ]
 
     # Get yesterday's date range
@@ -1244,11 +1273,11 @@ def daily_auto_email_report():
 
         template_url = f"{settings.BASE_URL}/matching/emails/{template}"
         users_for_template = template_users.get(template, {})
-        user_links = ", ".join(
+        user_links = " ".join(
             f"[{user.id}]({settings.BASE_URL}/matching/user/{user.id}?tab=emails)"
             for user in sorted(users_for_template.values(), key=lambda u: u.id)
         )
-        message_parts.append(f"- [{template}]({template_url}): {user_links or 'no users'}")
+        message_parts.append(f"- [{template}]({template_url}) - {user_links or 'no users'}")
 
     message = "\n".join(message_parts)
     notify_security_channel(message)
@@ -1367,7 +1396,7 @@ def automatic_emails_m043_m044_m045():
     from django.conf import settings
     from django.utils import timezone
 
-    from management.models.matches import Match, MatchType
+    from management.models.matches import Match, MatchType, sync_match_counters_for_queryset
 
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.ENABLE_AUTO_EMAILS__M043_M044_M045)
 
@@ -1396,9 +1425,8 @@ def automatic_emails_m043_m044_m045():
         latest_counter_sync__lte=F("latest_interaction_at"),
     )
 
-    for match in sync__matches_video_call_m045:
-        report["counters_synced_m045"] += 1
-        match.sync_counters()
+    synced_m045 = sync_match_counters_for_queryset(sync__matches_video_call_m045)
+    report["counters_synced_m045"] += synced_m045
 
     matches_video_call_m045 = Match.objects.filter(
         active=True,
@@ -1440,9 +1468,8 @@ def automatic_emails_m043_m044_m045():
         latest_counter_sync__lte=F("latest_interaction_at"),
     )
 
-    for match in sync__matches_video_call_m044:
-        report["counters_synced_m044"] += 1
-        match.sync_counters()
+    synced_m044 = sync_match_counters_for_queryset(sync__matches_video_call_m044)
+    report["counters_synced_m044"] += synced_m044
 
     matches_video_call_m044 = Match.objects.filter(
         active=True,
@@ -1485,9 +1512,8 @@ def automatic_emails_m043_m044_m045():
         latest_counter_sync__lte=F("latest_interaction_at"),
     )
 
-    for match in sync__matches_video_call_m043:
-        report["counters_synced_m043"] += 1
-        match.sync_counters()
+    synced_m043 = sync_match_counters_for_queryset(sync__matches_video_call_m043)
+    report["counters_synced_m043"] += synced_m043
 
     matches_video_call_m043 = Match.objects.filter(
         active=True,
@@ -1578,7 +1604,7 @@ def automatic_emails_u053_u054():
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.ENABLE_AUTO_EMAILS__U053_U054)
 
     users_missed_onboarding = User.objects.filter(
-        active=True,
+        is_active=True,
         state__last_prematching_call_not_attended=True,
         state__last_not_attended_prematching_call_at__lte=time_2days_ago,
         state__not_attended_auto_email_u053_send=False,
@@ -1598,7 +1624,7 @@ def automatic_emails_u053_u054():
     user_missed_last_onboarding_u053 = users_missed_onboarding.exclude(id__in=users_with_new_appointment)
 
     users_missed_onboarding_u054 = User.objects.filter(
-        active=True,
+        is_active=True,
         state__last_prematching_call_not_attended=True,
         state__last_not_attended_prematching_call_at__lte=time_7days_ago,
         state__not_attended_auto_email_u053_send=True,
@@ -1735,3 +1761,57 @@ def automatic_emails_fm021_fm022__ghosted_matches():
             )
 
     return {"status": "sent", "matches": matches_single_party_contact}
+
+
+@shared_task(name="management.tasks.cleanup_deleted_users_full_user_data")
+def cleanup_deleted_users_full_user_data(days_since_deletion: int = 30):
+    from management.models.user import User
+
+    cutoff_date = dj_timezone.now() - timedelta(days=days_since_deletion)
+    users = User.objects.filter(
+        is_active=False,
+        state__deleted_at__isnull=False,
+        state__deleted_at__lt=cutoff_date,
+        state__deleted_full_user_data_cleared=False,
+    ).select_related("profile", "state")
+
+    processed_user_ids = []
+    for user in users.iterator():
+        # Remove data that can include personal content or contact details.
+        user.first_name = "deleted"
+        user.last_name = ""
+        user.email = f"deleted_user_{user.pk}@deleted.local"
+        user.username = user.email
+        user.set_unusable_password()
+        user.save(update_fields=["first_name", "last_name", "email", "username", "password"])
+
+        profile = user.profile
+        if profile.image:
+            profile.image.delete(save=False)
+        profile.first_name = "Ghost"
+        profile.second_name = "User"
+        profile.postal_code = ""
+        profile.phone_mobile = ""
+        profile.description = ""
+        profile.language_skill_description = ""
+        profile.additional_interests = ""
+        profile.job_skill_description = ""
+        profile.other_target_group = ""
+        profile.availability = {}
+        profile.avatar_config = {}
+        profile.image_type = profile.ImageTypeChoice.AVATAR
+        profile.save()
+
+        state = user.state
+        state.notes = ""
+        state.past_emails = []
+        state.deleted_full_user_data_cleared = True
+        state.save()
+
+        processed_user_ids.append(user.pk)
+
+    return {
+        "processed_users_count": len(processed_user_ids),
+        "processed_user_ids": processed_user_ids,
+        "cutoff_date": cutoff_date.isoformat(),
+    }
