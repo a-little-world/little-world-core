@@ -13,6 +13,13 @@ def bool_env(name, default):
     return os.environ.get(name, default).lower() in ("true", "1", "t")
 
 
+def string_list_env(name, default=[]):
+    value = os.environ.get(name, "")
+    if value == "":  # cause python "".split(",") is [""]
+        return default
+    return value.split(",")
+
+
 DEBUG = os.environ["DJ_DEBUG"].lower() in ("true", "1", "t")
 
 if DEBUG:
@@ -1037,10 +1044,13 @@ ENABLE_AUTO_EMAIL_LOGS = (
 ENABLE_DAILY_SMS_REPORT = bool_env("DJ_ENABLE_DAILY_SMS_REPORT", "false")
 
 # User Journey Related Settings
-FORCE_MATCH_ELIGIBLE_COMPANIES = ["lingoda"]
-CUSTOM_ONBOARDING_COMPANIES = ["lingoda"]
+EXTRA_FORCE_MATCH_ELIGIBLE_COMPANIES = string_list_env("DJ_EXTRA_FORCE_MATCH_ELIGIBLE_COMPANIES", [])
+FORCE_MATCH_ELIGIBLE_COMPANIES = ["lingoda"] + EXTRA_FORCE_MATCH_ELIGIBLE_COMPANIES
+EXTRA_CUSTOM_ONBOARDING_COMPANIES = string_list_env("DJ_EXTRA_CUSTOM_ONBOARDING_COMPANIES", [])
+CUSTOM_ONBOARDING_COMPANIES = ["lingoda"] + EXTRA_CUSTOM_ONBOARDING_COMPANIES
 
 # Match Priority Settings
+EXTRA_MATCH_PRIORITY_COMPANIES = string_list_env("DJ_EXTRA_MATCH_PRIORITY_COMPANIES", [])
 MATCH_PRIORITY_COMPANIES = ["accenture", "generali", "lingoda"]
 
 PUSH_NOTIFICATIONS_SETTINGS = {
