@@ -1038,10 +1038,10 @@ ENABLE_DAILY_SMS_REPORT = bool_env("DJ_ENABLE_DAILY_SMS_REPORT", "false")
 
 # User Journey Related Settings
 FORCE_MATCH_ELIGIBLE_COMPANIES = ["lingoda"]
-CUSTOM_ONBOARDING_COMPANIES = ["lingoda"]
+CUSTOM_ONBOARDING_COMPANIES = ["lingoda", "fh-aachen"]
 
 # Match Priority Settings
-MATCH_PRIORITY_COMPANIES = ["accenture", "generali", "lingoda"]
+MATCH_PRIORITY_COMPANIES = ["accenture", "generali", "lingoda", "fh-aachen"]
 
 PUSH_NOTIFICATIONS_SETTINGS = {
     "UNIQUE_REG_ID": True,
