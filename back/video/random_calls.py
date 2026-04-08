@@ -158,6 +158,8 @@ def get_random_call_lobby_status(request, lobby_uuid):
         "match_proposal_timeout": lobby.match_proposal_timeout,
         "matching": None,
         "test_matching": None,
+        # Temporary investigation payload (frontend logging only); remove or gate once root cause is fixed.
+        "matching_debug": None,
     }
     # Debug / comparison: a simpler \"pending match\" check used elsewhere (accepted/rejected only)
     test_matching_qs = RandomCallMatching.objects.filter(
@@ -240,6 +242,8 @@ def get_random_call_lobby_status(request, lobby_uuid):
         }
     # 4 - check the users lobby status
     # Show matchings that are not rejected and not in a session yet
+    # Multiple rows can exist (re-match after reject/expire). Prefer the newest row — unordered .first() could pick
+    # an older self-rejected row still in the queryset and return early with matching=null while a pending row exists.
     random_call_matching = RandomCallMatching.objects.filter(
         Q(u1=request.user) | Q(u2=request.user),
         both_requested_room_token=False,
@@ -249,9 +253,33 @@ def get_random_call_lobby_status(request, lobby_uuid):
         both_confirmed_rejection=False,
         in_session=False,
         expired=False,
-    )
-    matching = random_call_matching.first()  # TODO: investigate if there are any edge cases with this being > 1
+    ).order_by("-pk")
+    matching = random_call_matching.first()
     has_matching = random_call_matching.exists()
+
+    # --- matching_debug: compare "management-style" pending vs strict queryset; explain null matching ---
+    _MAX_DEBUG_UUIDS = 30
+    _test_uuids_by_pk = [
+        str(u) for u in test_matching_qs.order_by("pk").values_list("uuid", flat=True)[:_MAX_DEBUG_UUIDS]
+    ]
+    _strict_uuids_by_pk = [
+        str(u) for u in random_call_matching.order_by("pk").values_list("uuid", flat=True)[:_MAX_DEBUG_UUIDS]
+    ]
+    _strict_first_by_pk = random_call_matching.order_by("pk").first()
+    response_data["matching_debug"] = {
+        "test_pending_count": test_matching_qs.count(),
+        "strict_count": random_call_matching.count(),
+        "test_first_uuid_unordered": str(test_match.uuid) if test_match else None,
+        "strict_first_uuid_unordered": str(matching.uuid) if has_matching else None,
+        "strict_first_uuid_by_pk": str(_strict_first_by_pk.uuid) if _strict_first_by_pk else None,
+        "unordered_first_test_vs_strict_same": (
+            (str(test_match.uuid) == str(matching.uuid)) if (test_match and has_matching) else None
+        ),
+        "test_uuids_ordered_by_pk": _test_uuids_by_pk,
+        "strict_uuids_ordered_by_pk": _strict_uuids_by_pk,
+        "note": "Strict queryset uses order_by(-pk) for .first(); test_pending still uses unordered .first().",
+    }
+
     if has_matching:
         own_number = 1 if (matching.u1 == request.user) else 2
         partner = matching.u2 if own_number == 1 else matching.u1
@@ -264,6 +292,18 @@ def get_random_call_lobby_status(request, lobby_uuid):
         self_rejected = matching.rejected and (
             not partner_confirmed_rejection
         )  # <-- it was the user itself that rejected
+        response_data["matching_debug"]["strict_first_row_before_side_effects"] = {
+            "uuid": str(matching.uuid),
+            "rejected": matching.rejected,
+            "accepted": matching.accepted,
+            "expired": matching.expired,
+            "both_confirmed_rejection": matching.both_confirmed_rejection,
+            "u1_confirmed_rejection": matching.u1_confirmed_rejection,
+            "u2_confirmed_rejection": matching.u2_confirmed_rejection,
+            "self_rejected": self_rejected,
+            "partner_rejected": partner_rejected,
+            "partner_confirmed_rejection": partner_confirmed_rejection,
+        }
         if partner_rejected:
             if own_number == 1:
                 matching.u1_confirmed_rejection = True
@@ -290,6 +330,8 @@ def get_random_call_lobby_status(request, lobby_uuid):
 
         if self_rejected:
             # If you rejected yourself, this match is already done...
+            response_data["matching_debug"]["returned_early"] = True
+            response_data["matching_debug"]["returned_early_reason"] = "self_rejected"
             return Response(response_data)
 
         matching_info = {
