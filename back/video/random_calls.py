@@ -157,128 +157,34 @@ def get_random_call_lobby_status(request, lobby_uuid):
         "lobby": lobby.uuid,
         "match_proposal_timeout": lobby.match_proposal_timeout,
         "matching": None,
-        "test_matching": None,
-        # Temporary investigation payload (frontend logging only); remove or gate once root cause is fixed.
-        "matching_debug": None,
     }
-    # Debug / comparison: a simpler \"pending match\" check used elsewhere (accepted/rejected only)
-    test_matching_qs = RandomCallMatching.objects.filter(
-        Q(u1=request.user) | Q(u2=request.user),
-        lobby=lobby,
-        rejected=False,
-        accepted=False,
-    )
-    test_match = test_matching_qs.first()
-    if test_match:
-        test_own_number = 1 if (test_match.u1 == request.user) else 2
-        test_partner = test_match.u2 if test_own_number == 1 else test_match.u1
-        test_partner_accepted = test_match.u2_accepted if test_own_number == 1 else test_match.u1_accepted
-        test_partner_confirmed_rejection = (
-            test_match.u2_confirmed_rejection if test_own_number == 1 else test_match.u1_confirmed_rejection
-        )
-        test_partner_rejected = test_match.rejected and test_partner_confirmed_rejection
-        test_self_rejected = test_match.rejected and (not test_partner_confirmed_rejection)
 
-        # Same predicates as random_call_matching queryset (lines below); if any is wrong, matching stays null.
-        mf_brt = test_match.both_requested_room_token is False
-        mf_completed = test_match.completed is False
-        mf_lobby = test_match.lobby_id == lobby.id
-        mf_bcr = test_match.both_confirmed_rejection is False
-        mf_session = test_match.in_session is False
-        mf_expired = test_match.expired is False
-        response_data["test_matching"] = {
-            "uuid": test_match.uuid,
-            "accepted": test_partner_accepted,
-            "both_accepted": test_match.accepted,
-            "both_confirmed_rejection": test_match.both_confirmed_rejection,
-            "self_rejected": test_self_rejected,
-            "partner_rejected": test_partner_rejected,
-            "partner": {
-                "id": test_partner.hash,
-                "name": f"{test_partner.profile.first_name}",
-                "image": test_partner.profile.image.url
-                if test_partner.profile.image
-                else test_partner.profile.avatar_config,
-                "image_type": test_partner.profile.image_type,
-                "description": test_partner.profile.description or "",
-                "requested_room_token": test_match.u2_requested_room_token
-                if test_own_number == 1
-                else test_match.u1_requested_room_token,
-                "interests": [],  # TODO: Add interests field to profile
-            },
-            "matching_queryset_filter": {
-                "both_requested_room_token": {
-                    "value": test_match.both_requested_room_token,
-                    "required": False,
-                    "passes": mf_brt,
-                },
-                "completed": {
-                    "value": test_match.completed,
-                    "required": False,
-                    "passes": mf_completed,
-                },
-                "lobby": {
-                    "match_lobby_uuid": str(test_match.lobby.uuid),
-                    "request_lobby_uuid": str(lobby.uuid),
-                    "passes": mf_lobby,
-                },
-                "both_confirmed_rejection": {
-                    "value": test_match.both_confirmed_rejection,
-                    "required": False,
-                    "passes": mf_bcr,
-                },
-                "in_session": {
-                    "value": test_match.in_session,
-                    "required": False,
-                    "passes": mf_session,
-                },
-                "expired": {
-                    "value": test_match.expired,
-                    "required": False,
-                    "passes": mf_expired,
-                },
-            },
-            "would_appear_in_matching": mf_brt and mf_completed and mf_lobby and mf_bcr and mf_session and mf_expired,
-        }
     # 4 - check the users lobby status
-    # Show matchings that are not rejected and not in a session yet
-    # Multiple rows can exist (re-match after reject/expire). Prefer the newest row — unordered .first() could pick
-    # an older self-rejected row still in the queryset and return early with matching=null while a pending row exists.
-    random_call_matching = RandomCallMatching.objects.filter(
-        Q(u1=request.user) | Q(u2=request.user),
+    # pending proposals (rejected=False) win over rejection-notification (rejected=True) so stale
+    _lobby_match_base = dict(
         both_requested_room_token=False,
         completed=False,
         lobby=lobby,
-        # rejected=False, also passing rejected=True is allowed, but not it 'both_confirmed_rejection=True' is set
         both_confirmed_rejection=False,
         in_session=False,
         expired=False,
+    )
+    pending_matching_qs = RandomCallMatching.objects.filter(
+        Q(u1=request.user) | Q(u2=request.user),
+        rejected=False,
+        **_lobby_match_base,
     ).order_by("-pk")
-    matching = random_call_matching.first()
-    has_matching = random_call_matching.exists()
+    rejection_notification_qs = RandomCallMatching.objects.filter(
+        Q(u1=request.user) | Q(u2=request.user),
+        rejected=True,
+        **_lobby_match_base,
+    ).order_by("-pk")
 
-    # --- matching_debug: compare "management-style" pending vs strict queryset; explain null matching ---
-    _MAX_DEBUG_UUIDS = 30
-    _test_uuids_by_pk = [
-        str(u) for u in test_matching_qs.order_by("pk").values_list("uuid", flat=True)[:_MAX_DEBUG_UUIDS]
-    ]
-    _strict_uuids_by_pk = [
-        str(u) for u in random_call_matching.order_by("pk").values_list("uuid", flat=True)[:_MAX_DEBUG_UUIDS]
-    ]
-    _strict_first_by_pk = random_call_matching.order_by("pk").first()
-    response_data["matching_debug"] = {
-        "test_pending_count": test_matching_qs.count(),
-        "strict_count": random_call_matching.count(),
-        "test_first_uuid_unordered": str(test_match.uuid) if test_match else None,
-        "strict_first_uuid_unordered": str(matching.uuid) if has_matching else None,
-        "strict_first_uuid_by_pk": str(_strict_first_by_pk.uuid) if _strict_first_by_pk else None,
-        "unordered_first_test_vs_strict_same": (
-            (str(test_match.uuid) == str(matching.uuid)) if (test_match and has_matching) else None
-        ),
-        "test_uuids_ordered_by_pk": _test_uuids_by_pk,
-        "strict_uuids_ordered_by_pk": _strict_uuids_by_pk,
-        "note": "Strict queryset uses order_by(-pk) for .first(); test_pending still uses unordered .first().",
-    }
+    matching = pending_matching_qs.first()
+    if not matching:
+        matching = rejection_notification_qs.first()
+
+    has_matching = matching is not None
 
     if has_matching:
         own_number = 1 if (matching.u1 == request.user) else 2
@@ -292,18 +198,6 @@ def get_random_call_lobby_status(request, lobby_uuid):
         self_rejected = matching.rejected and (
             not partner_confirmed_rejection
         )  # <-- it was the user itself that rejected
-        response_data["matching_debug"]["strict_first_row_before_side_effects"] = {
-            "uuid": str(matching.uuid),
-            "rejected": matching.rejected,
-            "accepted": matching.accepted,
-            "expired": matching.expired,
-            "both_confirmed_rejection": matching.both_confirmed_rejection,
-            "u1_confirmed_rejection": matching.u1_confirmed_rejection,
-            "u2_confirmed_rejection": matching.u2_confirmed_rejection,
-            "self_rejected": self_rejected,
-            "partner_rejected": partner_rejected,
-            "partner_confirmed_rejection": partner_confirmed_rejection,
-        }
         if partner_rejected:
             if own_number == 1:
                 matching.u1_confirmed_rejection = True
@@ -329,9 +223,7 @@ def get_random_call_lobby_status(request, lobby_uuid):
         # TODO: double check if match time-outs are correctly handeled
 
         if self_rejected:
-            # If you rejected yourself, this match is already done...
-            response_data["matching_debug"]["returned_early"] = True
-            response_data["matching_debug"]["returned_early_reason"] = "self_rejected"
+            # User rejected the proposal themselves — no `matching` payload (idle / limited client state).
             return Response(response_data)
 
         matching_info = {
