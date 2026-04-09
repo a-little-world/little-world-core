@@ -68,6 +68,23 @@ def is_lobby_active(lobby):
     return True
 
 
+def get_pending_random_call_matching_qs_for_user(user, lobby):
+    """
+    Shared "pending random call match" queryset used by both user-facing and management endpoints.
+    Keep this in one place so both views evaluate the same rows.
+    """
+    return RandomCallMatching.objects.filter(
+        Q(u1=user) | Q(u2=user),
+        lobby=lobby,
+        rejected=False,
+        both_requested_room_token=False,
+        completed=False,
+        both_confirmed_rejection=False,
+        in_session=False,
+        expired=False,
+    ).order_by("-pk")
+
+
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
@@ -161,23 +178,16 @@ def get_random_call_lobby_status(request, lobby_uuid):
 
     # 4 - check the users lobby status
     # pending proposals (rejected=False) win over rejection-notification (rejected=True) so stale
-    _lobby_match_base = dict(
-        both_requested_room_token=False,
-        completed=False,
-        lobby=lobby,
-        both_confirmed_rejection=False,
-        in_session=False,
-        expired=False,
-    )
-    pending_matching_qs = RandomCallMatching.objects.filter(
-        Q(u1=request.user) | Q(u2=request.user),
-        rejected=False,
-        **_lobby_match_base,
-    ).order_by("-pk")
+    pending_matching_qs = get_pending_random_call_matching_qs_for_user(request.user, lobby)
     rejection_notification_qs = RandomCallMatching.objects.filter(
         Q(u1=request.user) | Q(u2=request.user),
         rejected=True,
-        **_lobby_match_base,
+        lobby=lobby,
+        both_requested_room_token=False,
+        completed=False,
+        both_confirmed_rejection=False,
+        in_session=False,
+        expired=False,
     ).order_by("-pk")
 
     matching = pending_matching_qs.first()

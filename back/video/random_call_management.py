@@ -1,6 +1,5 @@
 from datetime import timedelta
 
-from django.db.models import Q
 from django.urls import path
 from django.utils import timezone
 from django_celery_results.models import TaskResult
@@ -20,7 +19,10 @@ from video.models import (
     RandomCallLobbyUser,
     RandomCallMatching,
 )
-from video.random_calls import is_lobby_active
+from video.random_calls import (
+    get_pending_random_call_matching_qs_for_user,
+    is_lobby_active,
+)
 
 
 class RandomCallLobbyManagementSerializer(serializers.Serializer):
@@ -114,9 +116,7 @@ def get_lobby_management_overview(request, lobby_name="default"):
     for lobby_user in active_lobby_users:
         user = lobby_user.user
         # Check if user has pending match
-        has_pending_match = RandomCallMatching.objects.filter(
-            Q(u1=user) | Q(u2=user), lobby=lobby, rejected=False, accepted=False
-        ).exists()
+        has_pending_match = get_pending_random_call_matching_qs_for_user(user, lobby).exists()
 
         active_users_data.append(
             {
