@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from typing import List
 
 from management.api.user_advanced_filter import (
+    EXTRA__fh_aachen_learners_scoring,
+    EXTRA__fh_aachen_users,
     EXTRA__learners_with_activity_in_last3weeks,
     EXTRA__lingoda_learners_scoring,
     EXTRA__lingoda_users,
@@ -252,6 +254,10 @@ USER_JOURNEY_FILTER_LISTS = [
     ),
     FilterListEntry("EXTRA__lingoda_users", "Lingoda users", EXTRA__lingoda_users),
     FilterListEntry("EXTRA__lingoda_learners_scoring", "Lingoda learners for scoring", EXTRA__lingoda_learners_scoring),
+    FilterListEntry("EXTRA__fh_aachen_users", "FH Aachen users", EXTRA__fh_aachen_users),
+    FilterListEntry(
+        "EXTRA__fh_aachen_learners_scoring", "FH Aachen learners for scoring", EXTRA__fh_aachen_learners_scoring
+    ),
     FilterListEntry(
         "EXTRA__learners_with_activity_in_last3weeks",
         "Learners with activity in the last 3 weeks",
