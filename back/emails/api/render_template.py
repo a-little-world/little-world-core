@@ -103,6 +103,10 @@ class MissingContextDependencyException(Exception):
     pass
 
 
+class UnknownEmailTemplateException(Exception):
+    pass
+
+
 def prepare_dynamic_template_context(template_name, user_id=None, match_id=None, proposed_match_id=None, **kwargs):
     params = EMAILS_CONFIG.parameters
     dynamic_template_info = get_full_dynamic_template_info(template_name)
@@ -173,6 +177,8 @@ def prepare_template_context(
 ):
     params = EMAILS_CONFIG.parameters
     template_config = EMAILS_CONFIG.emails.get(template_name)
+    if template_config is None:
+        raise UnknownEmailTemplateException(f"Unknown email template '{template_name}'")
 
     template_info = get_full_template_info(template_config)
     template_params = template_info["params"]
