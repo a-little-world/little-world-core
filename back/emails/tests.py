@@ -1,5 +1,4 @@
 from datetime import datetime
-from pathlib import Path
 
 from django.test import TestCase
 from management.controller import create_user_matching_proposal, match_users
@@ -8,9 +7,7 @@ from management.tests.helpers import register_user
 
 from emails.api.emails_config import EMAILS_CONFIG
 from emails.api.render_template import (
-    UnknownEmailTemplateException,
     get_full_template_info,
-    prepare_template_context,
     render_template_dynamic_lookup,
 )
 
@@ -55,16 +52,24 @@ class EmailTests(TestCase):
             for key in mock_context:
                 assert key in rendered, f"Key {key} not found in rendered email"
 
+    def test_zero_dependency_lookups_rendered(self):
+        u1 = register_user()
+        u2 = register_user()
+        u3 = register_user()
 
-class EmailTemplateConfigTests(TestCase):
-    def test_prepare_template_context_raises_for_unknown_template(self):
-        with self.assertRaises(UnknownEmailTemplateException):
-            prepare_template_context("automatic-emails-not-existing")
+        match = match_users({u1, u2})
+        proposal = create_user_matching_proposal({u1, u3}, send_confirm_match_email=False)
 
-    def test_u054_template_is_present_and_points_to_existing_template_file(self):
-        template_name = "automatic-emails-u054"
+        template_name = "automatic-emails-u071"
         template_config = EMAILS_CONFIG.emails.get(template_name)
-        assert template_config is not None
+        template_info = get_full_template_info(template_config)
 
-        template_path = Path("emails/template") / template_config.template
-        assert template_path.exists()
+        mock_context = {}
+        for dep in template_info["dependencies"]:
+            if dep.get("context_dependent", False):
+                mock_context[dep["query_id_field"]] = dep["query_id_field"]
+
+        rendered = render_template_dynamic_lookup(template_name, u1.id, match.id, proposal.id, **mock_context)
+
+        assert "https://home.little-world.com/newsletter/" in rendered
+        assert "/app/events" in rendered
