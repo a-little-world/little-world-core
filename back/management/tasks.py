@@ -648,13 +648,21 @@ def automatic_emails_u023_u024_u025():
     ]
     users_sended = []
     for stage, days, three_days_reminder, seven_days_reminder, fourteen_days_reminder in reminder_stages:
-        users = User.objects.filter(
-            state__user_form_completed_at__lte=dj_timezone.now() - timedelta(days=days),
-            state__is_onboarded=False,
-            state__user_form_completed_3_days_reminder_send=three_days_reminder,
-            state__user_form_completed_7_days_reminder_send=seven_days_reminder,
-            state__user_form_completed_14_days_reminder_send=fourteen_days_reminder,
-        ).select_related("profile")
+        users = (
+            User.objects.filter(
+                state__user_form_completed_at__lte=dj_timezone.now() - timedelta(days=days),
+                state__is_onboarded=False,
+                state__user_form_completed_3_days_reminder_send=three_days_reminder,
+                state__user_form_completed_7_days_reminder_send=seven_days_reminder,
+                state__user_form_completed_14_days_reminder_send=fourteen_days_reminder,
+            )
+            .exclude(
+                profile__lang_skill__contains=[
+                    {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
+                ],  # fix: https://github.com/a-little-world/little-world-backend/issues/868
+            )
+            .select_related("profile")
+        )
         user_prematching_join = PreMatchingAppointment.objects.filter(user__in=users)
         users = users.exclude(id__in=user_prematching_join.values_list("user", flat=True))
 
