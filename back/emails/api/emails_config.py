@@ -2,6 +2,8 @@ import json
 from dataclasses import dataclass
 from typing import OrderedDict
 
+from emails.app_settings import emails_settings
+
 
 @dataclass
 class EmailConfigEmail:
@@ -41,6 +43,7 @@ class EmailConfigParameter:
 class EmailConfigDependency:
     id: str
     query_id_field: str
+    model_source: str | None = None
 
 
 @dataclass
@@ -71,7 +74,7 @@ class EmailsConfig:
 
 
 EMAILS_CONFIG = {}
-with open("emails/emails.json", "r") as f:
+with emails_settings.config_path.open("r", encoding="utf-8") as f:
     EMAILS_CONFIG = json.load(f)
 
 

@@ -570,9 +570,13 @@ class Profile(models.Model):
         SWAHILI = "swahili", get_translation("profile.lang.swahili")
 
     class LanguageSkillChoices(models.TextChoices):
+        # A1 & A2 (Anfängerniveau)
         LEVEL_0 = "level-0", get_translation("profile.lang_level.level_0")
+        # B1 (Alltagssituationen, Geschichten)
         LEVEL_1 = "level-1", get_translation("profile.lang_level.level_1")
+        # B2 (fließende & spontane Gespräche)
         LEVEL_2 = "level-2", get_translation("profile.lang_level.level_2")
+        # C1 (komplexe Themen)
         LEVEL_3 = "level-3", get_translation("profile.lang_level.level_3")
         LEVEL_NATIVE_VOL = (
             "level-4",
