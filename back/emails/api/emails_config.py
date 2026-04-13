@@ -41,6 +41,7 @@ class EmailConfigParameter:
 class EmailConfigDependency:
     id: str
     query_id_field: str
+    model_source: str | None = None
 
 
 @dataclass

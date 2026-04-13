@@ -880,15 +880,18 @@
   "dependencies": {
     "user": {
       "id": "user",
-      "query_id_field": "user_id"
+      "query_id_field": "user_id",
+      "model_source": "django.contrib.auth.get_user_model"
     },
     "match": {
       "id": "match",
-      "query_id_field": "match_id"
+      "query_id_field": "match_id",
+      "model_source": "management.models.matches.Match"
     },
     "proposed_match": {
       "id": "proposed_match",
-      "query_id_field": "proposed_match_id"
+      "query_id_field": "proposed_match_id",
+      "model_source": "management.models.unconfirmed_matches.ProposedMatch"
     },
     "context": {
       "id": "context",

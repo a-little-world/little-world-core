@@ -1,13 +1,11 @@
 import importlib
+from typing import Any
 
-from django.contrib.auth import get_user_model
 from django.template import Template
 from django.template.base import NodeList, VariableNode
 from django.template.loader import get_template, render_to_string
 from emails.api.emails_config import EMAILS_CONFIG
 from emails.models import DynamicTemplate
-from management.models.matches import Match
-from management.models.unconfirmed_matches import ProposedMatch
 
 
 def extract_from_nodes(nodelist):
@@ -107,22 +105,29 @@ class UnknownEmailTemplateException(Exception):
     pass
 
 
-def _resolve_dependency_values(user_id, match_id, proposed_match_id, retrieve_user_model=get_user_model):
-    user = None if (not user_id) else retrieve_user_model().objects.get(id=user_id)
-    proposed_match = None if (not proposed_match_id) else ProposedMatch.objects.get(id=proposed_match_id)
-    match = None if (not match_id) else Match.objects.get(id=match_id)
-
-    query_id_field_values = {
-        "user_id": user,
-        "match_id": match,
-        "proposed_match_id": proposed_match,
-    }
-
+def _resolve_dependency_values(dependency_model_overrides=None, **context):
+    dependency_model_overrides = dependency_model_overrides or {}
     dependency_values = {}
     for dependency_id, dependency_config in EMAILS_CONFIG.dependencies.items():
         if dependency_id == "context":
             continue
-        dependency_values[dependency_id] = query_id_field_values.get(dependency_config.query_id_field)
+
+        dependency_query_value = context.get(dependency_config.query_id_field)
+        if not dependency_query_value:
+            dependency_values[dependency_id] = None
+            continue
+
+        if not dependency_config.model_source:
+            dependency_values[dependency_id] = dependency_query_value
+            continue
+
+        model_or_loader = dependency_model_overrides.get(dependency_id)
+        if model_or_loader is None:
+            model_source = dependency_config.model_source.split(".")
+            model_module = importlib.import_module(".".join(model_source[:-1]))
+            model_or_loader = getattr(model_module, model_source[-1])
+        model: Any = model_or_loader() if callable(model_or_loader) else model_or_loader
+        dependency_values[dependency_id] = model.objects.get(id=dependency_query_value)
 
     return dependency_values
 
@@ -135,7 +140,12 @@ def prepare_dynamic_template_context(template_name, user_id=None, match_id=None,
 
     available_dependencies = []
 
-    dependency_values = _resolve_dependency_values(user_id, match_id, proposed_match_id)
+    dependency_values = _resolve_dependency_values(
+        user_id=user_id,
+        match_id=match_id,
+        proposed_match_id=proposed_match_id,
+        **kwargs,
+    )
     for dependency_id, dependency_value in dependency_values.items():
         if dependency_value is not None:
             available_dependencies.append(dependency_id)
@@ -179,7 +189,7 @@ def prepare_dynamic_template_context(template_name, user_id=None, match_id=None,
 
 
 def prepare_template_context(
-    template_name, user_id=None, match_id=None, proposed_match_id=None, retrieve_user_model=get_user_model, **kwargs
+    template_name, user_id=None, match_id=None, proposed_match_id=None, retrieve_user_model=None, **kwargs
 ):
     params = EMAILS_CONFIG.parameters
     template_config = EMAILS_CONFIG.emails.get(template_name)
@@ -191,7 +201,13 @@ def prepare_template_context(
 
     available_dependencies = []
 
-    dependency_values = _resolve_dependency_values(user_id, match_id, proposed_match_id, retrieve_user_model)
+    dependency_values = _resolve_dependency_values(
+        dependency_model_overrides={"user": retrieve_user_model} if retrieve_user_model else None,
+        user_id=user_id,
+        match_id=match_id,
+        proposed_match_id=proposed_match_id,
+        **kwargs,
+    )
     for dependency_id, dependency_value in dependency_values.items():
         if dependency_value is not None:
             available_dependencies.append(dependency_id)
