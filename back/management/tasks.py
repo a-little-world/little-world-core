@@ -1204,6 +1204,7 @@ def daily_auto_email_report():
         "automatic-emails-fm021",
         "automatic-emails-fm022",
         "automatic-emails-m051",
+        "automatic-emails-u071",
     ]
 
     # Get yesterday's date range
@@ -1553,7 +1554,7 @@ def automatic_emails_u051_u052():
     )
     users_u051_hashes = list(users_u051.values_list("hash", flat=True))
     for user in users_u051:
-        send_email_background.delay("automatic-emails-u071", user_id=user.id, emulated_send=emulated_send)
+        send_email_background.delay("automatic-emails-u051", user_id=user.id, emulated_send=emulated_send)
         user.state.attended_auto_email_u051_send = True
         user.state.attended_auto_email_u051_send_at = dj_timezone.now()
         user.state.save()
