@@ -269,6 +269,7 @@ def reset_default_lobby(request, lobby_name="default"):
 class CreateLobbySerializer(serializers.Serializer):
     start_time = serializers.DateTimeField()
     end_time = serializers.DateTimeField()
+    match_proposal_timeout = serializers.IntegerField(required=False, min_value=1, default=60)
 
 
 @api_view(["POST"])
@@ -284,12 +285,13 @@ def create_lobby(request, lobby_name):
 
     start_time = serializer.validated_data["start_time"]
     end_time = serializer.validated_data["end_time"]
+    match_proposal_timeout = serializer.validated_data.get("match_proposal_timeout", 60)
     current_time = timezone.now()
 
-    # Validate that start_time is in the future
-    if start_time <= current_time:
+    # Validate that start_time is not before today (today is allowed, even if earlier than now)
+    if start_time.date() < current_time.date():
         return Response(
-            {"error": "Start time must be in the future"},
+            {"error": "Start time must be today or in the future"},
             status=400,
         )
 
@@ -306,7 +308,7 @@ def create_lobby(request, lobby_name):
         start_time=start_time,
         end_time=end_time,
         user_online_state_timeout=10,
-        match_proposal_timeout=30,
+        match_proposal_timeout=match_proposal_timeout,
         video_call_timeout=60 * 10,
     )
 
