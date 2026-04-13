@@ -48,3 +48,25 @@ class EmailTests(TestCase):
 
             for key in mock_context:
                 assert key in rendered, f"Key {key} not found in rendered email"
+
+    def test_zero_dependency_lookups_rendered(self):
+        u1 = register_user()
+        u2 = register_user()
+        u3 = register_user()
+
+        match = match_users({u1, u2})
+        proposal = create_user_matching_proposal({u1, u3}, send_confirm_match_email=False)
+
+        template_name = "automatic-emails-u071"
+        template_config = EMAILS_CONFIG.emails.get(template_name)
+        template_info = get_full_template_info(template_config)
+
+        mock_context = {}
+        for dep in template_info["dependencies"]:
+            if dep.get("context_dependent", False):
+                mock_context[dep["query_id_field"]] = dep["query_id_field"]
+
+        rendered = render_template_dynamic_lookup(template_name, u1.id, match.id, proposal.id, **mock_context)
+
+        assert "https://home.little-world.com/newsletter/" in rendered
+        assert "/app/events" in rendered

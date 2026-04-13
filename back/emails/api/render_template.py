@@ -135,8 +135,6 @@ def prepare_dynamic_template_context(template_name, user_id=None, match_id=None,
             raise UnknownParameterException(f"Unknown parameter {param}")
 
         param_config = params[param]
-        if not param_config.depends_on:
-            continue
 
         if not set(param_config.depends_on).issubset(available_dependencies):
             raise MissingContextDependencyException(
@@ -203,8 +201,6 @@ def prepare_template_context(
             raise UnknownParameterException(f"Unknown parameter {param}")
 
         param_config = params[param]
-        if not param_config.depends_on:
-            continue
 
         if False and (not set(param_config.depends_on).issubset(available_dependencies)):
             # Currently disabled features, as we have some params with 'optional' dependencies and have no way to mark them as such yet
