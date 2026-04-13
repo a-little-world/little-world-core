@@ -126,7 +126,12 @@ def _resolve_dependency_values(dependency_model_overrides=None, **context):
             model_source = dependency_config.model_source.split(".")
             model_module = importlib.import_module(".".join(model_source[:-1]))
             model_or_loader = getattr(model_module, model_source[-1])
-        model: Any = model_or_loader() if callable(model_or_loader) else model_or_loader
+        if hasattr(model_or_loader, "objects"):
+            model: Any = model_or_loader
+        elif callable(model_or_loader):
+            model = model_or_loader()
+        else:
+            model = model_or_loader
         dependency_values[dependency_id] = model.objects.get(id=dependency_query_value)
 
     return dependency_values
