@@ -1544,6 +1544,10 @@ def automatic_emails_m043_m044_m045():
 
 @shared_task
 def automatic_emails_u051_u052():
+    """
+    TODO: Correct email descriptions,
+    check if correct! 
+    """
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__U051_U052)
 
     users_u051 = User.objects.filter(
