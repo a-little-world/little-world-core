@@ -274,6 +274,14 @@
       "template": "react_emails/automatic-emails-u053v.html",
       "theme": "little-world"
     },
+    "automatic-emails-u054": {
+      "id": "automatic-emails-u054",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Erinnerung: Dein Onboarding-Gespr\u00e4ch",
+      "template": "react_emails/automatic-emails-u053.html",
+      "theme": "little-world"
+    },
     "automatic-emails-u072": {
       "id": "automatic-emails-u072",
       "sender_id": "noreply",

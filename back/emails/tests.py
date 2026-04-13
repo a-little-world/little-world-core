@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import Path
 
 from django.test import TestCase
 from management.controller import create_user_matching_proposal, match_users
@@ -6,7 +7,12 @@ from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.tests.helpers import register_user
 
 from emails.api.emails_config import EMAILS_CONFIG
-from emails.api.render_template import get_full_template_info, render_template_dynamic_lookup
+from emails.api.render_template import (
+    UnknownEmailTemplateException,
+    get_full_template_info,
+    prepare_template_context,
+    render_template_dynamic_lookup,
+)
 
 
 class EmailTests(TestCase):
@@ -48,3 +54,17 @@ class EmailTests(TestCase):
 
             for key in mock_context:
                 assert key in rendered, f"Key {key} not found in rendered email"
+
+
+class EmailTemplateConfigTests(TestCase):
+    def test_prepare_template_context_raises_for_unknown_template(self):
+        with self.assertRaises(UnknownEmailTemplateException):
+            prepare_template_context("automatic-emails-not-existing")
+
+    def test_u054_template_is_present_and_points_to_existing_template_file(self):
+        template_name = "automatic-emails-u054"
+        template_config = EMAILS_CONFIG.emails.get(template_name)
+        assert template_config is not None
+
+        template_path = Path("emails/template") / template_config.template
+        assert template_path.exists()
