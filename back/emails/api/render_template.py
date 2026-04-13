@@ -107,6 +107,26 @@ class UnknownEmailTemplateException(Exception):
     pass
 
 
+def _resolve_dependency_values(user_id, match_id, proposed_match_id, retrieve_user_model=get_user_model):
+    user = None if (not user_id) else retrieve_user_model().objects.get(id=user_id)
+    proposed_match = None if (not proposed_match_id) else ProposedMatch.objects.get(id=proposed_match_id)
+    match = None if (not match_id) else Match.objects.get(id=match_id)
+
+    query_id_field_values = {
+        "user_id": user,
+        "match_id": match,
+        "proposed_match_id": proposed_match,
+    }
+
+    dependency_values = {}
+    for dependency_id, dependency_config in EMAILS_CONFIG.dependencies.items():
+        if dependency_id == "context":
+            continue
+        dependency_values[dependency_id] = query_id_field_values.get(dependency_config.query_id_field)
+
+    return dependency_values
+
+
 def prepare_dynamic_template_context(template_name, user_id=None, match_id=None, proposed_match_id=None, **kwargs):
     params = EMAILS_CONFIG.parameters
     dynamic_template_info = get_full_dynamic_template_info(template_name)
@@ -115,18 +135,10 @@ def prepare_dynamic_template_context(template_name, user_id=None, match_id=None,
 
     available_dependencies = []
 
-    user = None if (not user_id) else get_user_model().objects.get(id=user_id)
-    proposed_match = None if (not proposed_match_id) else ProposedMatch.objects.get(id=proposed_match_id)
-    match = None if (not match_id) else Match.objects.get(id=match_id)
-
-    if user:
-        available_dependencies.append("user")
-
-    if match:
-        available_dependencies.append("match")
-
-    if proposed_match:
-        available_dependencies.append("proposed_match")
+    dependency_values = _resolve_dependency_values(user_id, match_id, proposed_match_id)
+    for dependency_id, dependency_value in dependency_values.items():
+        if dependency_value is not None:
+            available_dependencies.append(dependency_id)
 
     for key in kwargs:
         available_dependencies.append(f"context.{key}")
@@ -152,12 +164,8 @@ def prepare_dynamic_template_context(template_name, user_id=None, match_id=None,
 
         lookup_context = {}
         for dependency in param_config.depends_on:
-            if dependency == "user":
-                lookup_context["user"] = user
-            elif dependency == "match":
-                lookup_context["match"] = match
-            elif dependency == "proposed_match":
-                lookup_context["proposed_match"] = proposed_match
+            if dependency in dependency_values and dependency_values[dependency] is not None:
+                lookup_context[dependency] = dependency_values[dependency]
             elif dependency.startswith("context."):
                 context_key = dependency.split(".")[1]
                 assert context_key in kwargs, f"Missing context dependency in **kwargs for {param}"
@@ -183,18 +191,10 @@ def prepare_template_context(
 
     available_dependencies = []
 
-    user = None if (not user_id) else retrieve_user_model().objects.get(id=user_id)
-    proposed_match = None if (not proposed_match_id) else ProposedMatch.objects.get(id=proposed_match_id)
-    match = None if (not match_id) else Match.objects.get(id=match_id)
-
-    if user:
-        available_dependencies.append("user")
-
-    if match:
-        available_dependencies.append("match")
-
-    if proposed_match:
-        available_dependencies.append("proposed_match")
+    dependency_values = _resolve_dependency_values(user_id, match_id, proposed_match_id, retrieve_user_model)
+    for dependency_id, dependency_value in dependency_values.items():
+        if dependency_value is not None:
+            available_dependencies.append(dependency_id)
 
     for key in kwargs:
         available_dependencies.append(f"context.{key}")
@@ -221,12 +221,8 @@ def prepare_template_context(
 
         lookup_context = {}
         for dependency in param_config.depends_on:
-            if dependency == "user":
-                lookup_context["user"] = user
-            elif dependency == "match":
-                lookup_context["match"] = match
-            elif dependency == "proposed_match":
-                lookup_context["proposed_match"] = proposed_match
+            if dependency in dependency_values and dependency_values[dependency] is not None:
+                lookup_context[dependency] = dependency_values[dependency]
             elif dependency.startswith("context."):
                 context_key = dependency.split(".")[1]
                 # assert context_key in kwargs, f"Missing context dependency in **kwargs for {param}" TODO: check disabled as we have vars with optional dependencies now
