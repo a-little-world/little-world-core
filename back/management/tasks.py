@@ -648,28 +648,30 @@ def automatic_emails_u023_u024_u025():
     ]
     users_sended = []
     for stage, days, three_days_reminder, seven_days_reminder, fourteen_days_reminder in reminder_stages:
-        users = (
-            User.objects.filter(
-                state__user_form_completed_at__lte=dj_timezone.now() - timedelta(days=days),
-                state__is_onboarded=False,
-                state__user_form_completed_3_days_reminder_send=three_days_reminder,
-                state__user_form_completed_7_days_reminder_send=seven_days_reminder,
-                state__user_form_completed_14_days_reminder_send=fourteen_days_reminder,
-            )
-            .exclude(
-                profile__lang_skill__contains=[
-                    {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
-                ],  # fix: https://github.com/a-little-world/little-world-backend/issues/868
-            )
-            .select_related("profile")
-        )
+        users = User.objects.filter(
+            state__user_form_completed_at__lte=dj_timezone.now() - timedelta(days=days),
+            state__is_onboarded=False,
+            state__user_form_completed_3_days_reminder_send=three_days_reminder,
+            state__user_form_completed_7_days_reminder_send=seven_days_reminder,
+            state__user_form_completed_14_days_reminder_send=fourteen_days_reminder,
+        ).select_related("profile")
         user_prematching_join = PreMatchingAppointment.objects.filter(user__in=users)
         users = users.exclude(id__in=user_prematching_join.values_list("user", flat=True))
 
         users_sended.append(users)
         for user in users:
             template = template_for_user_form_reminder(stage, user)
-            send_email_background.delay(template, user_id=user.id, emulated_send=emulated_send)
+            german_level = list(
+                filter(lambda x: x["lang"] == Profile.LanguageChoices.GERMAN, user.profile.lang_skill or [])
+            )
+            if (not german_level) or (
+                german_level and german_level[0]["level"] == Profile.LanguageSkillChoices.LEVEL_0
+            ):
+                # don't send to too low german level A1 & A2 ( fix: https://github.com/a-little-world/little-world-backend/issues/868 )
+                # we still mark the boolean send flag just to ensure that arrent send accidently if this changes
+                pass
+            else:
+                send_email_background.delay(template, user_id=user.id, emulated_send=emulated_send)
             user.state.set_user_form_completed_reminder_sent(days)
 
     return {
@@ -1566,7 +1568,7 @@ def automatic_emails_u051_u052():
     )
     users_u051_hashes = list(users_u051.values_list("hash", flat=True))
     for user in users_u051:
-        send_email_background.delay("automatic-emails-u051", user_id=user.id, emulated_send=emulated_send)
+        send_email_background.delay("automatic-emails-u071", user_id=user.id, emulated_send=emulated_send)
         user.state.attended_auto_email_u051_send = True
         user.state.attended_auto_email_u051_send_at = dj_timezone.now()
         user.state.save()
