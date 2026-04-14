@@ -1,13 +1,11 @@
 import importlib
+from typing import Any
 
-from django.contrib.auth import get_user_model
 from django.template import Template
 from django.template.base import NodeList, VariableNode
 from django.template.loader import get_template, render_to_string
 from emails.api.emails_config import EMAILS_CONFIG
 from emails.models import DynamicTemplate
-from management.models.matches import Match
-from management.models.unconfirmed_matches import ProposedMatch
 
 
 def extract_from_nodes(nodelist):
@@ -103,6 +101,42 @@ class MissingContextDependencyException(Exception):
     pass
 
 
+class UnknownEmailTemplateException(Exception):
+    pass
+
+
+def _resolve_dependency_values(dependency_model_overrides=None, **context):
+    dependency_model_overrides = dependency_model_overrides or {}
+    dependency_values = {}
+    for dependency_id, dependency_config in EMAILS_CONFIG.dependencies.items():
+        if dependency_id == "context":
+            continue
+
+        dependency_query_value = context.get(dependency_config.query_id_field)
+        if not dependency_query_value:
+            dependency_values[dependency_id] = None
+            continue
+
+        if not dependency_config.model_source:
+            dependency_values[dependency_id] = dependency_query_value
+            continue
+
+        model_or_loader = dependency_model_overrides.get(dependency_id)
+        if model_or_loader is None:
+            model_source = dependency_config.model_source.split(".")
+            model_module = importlib.import_module(".".join(model_source[:-1]))
+            model_or_loader = getattr(model_module, model_source[-1])
+        if hasattr(model_or_loader, "objects"):
+            model: Any = model_or_loader
+        elif callable(model_or_loader):
+            model = model_or_loader()
+        else:
+            model = model_or_loader
+        dependency_values[dependency_id] = model.objects.get(id=dependency_query_value)
+
+    return dependency_values
+
+
 def prepare_dynamic_template_context(template_name, user_id=None, match_id=None, proposed_match_id=None, **kwargs):
     params = EMAILS_CONFIG.parameters
     dynamic_template_info = get_full_dynamic_template_info(template_name)
@@ -111,18 +145,15 @@ def prepare_dynamic_template_context(template_name, user_id=None, match_id=None,
 
     available_dependencies = []
 
-    user = None if (not user_id) else get_user_model().objects.get(id=user_id)
-    proposed_match = None if (not proposed_match_id) else ProposedMatch.objects.get(id=proposed_match_id)
-    match = None if (not match_id) else Match.objects.get(id=match_id)
-
-    if user:
-        available_dependencies.append("user")
-
-    if match:
-        available_dependencies.append("match")
-
-    if proposed_match:
-        available_dependencies.append("proposed_match")
+    dependency_values = _resolve_dependency_values(
+        user_id=user_id,
+        match_id=match_id,
+        proposed_match_id=proposed_match_id,
+        **kwargs,
+    )
+    for dependency_id, dependency_value in dependency_values.items():
+        if dependency_value is not None:
+            available_dependencies.append(dependency_id)
 
     for key in kwargs:
         available_dependencies.append(f"context.{key}")
@@ -135,8 +166,6 @@ def prepare_dynamic_template_context(template_name, user_id=None, match_id=None,
             raise UnknownParameterException(f"Unknown parameter {param}")
 
         param_config = params[param]
-        if not param_config.depends_on:
-            continue
 
         if not set(param_config.depends_on).issubset(available_dependencies):
             raise MissingContextDependencyException(
@@ -150,12 +179,8 @@ def prepare_dynamic_template_context(template_name, user_id=None, match_id=None,
 
         lookup_context = {}
         for dependency in param_config.depends_on:
-            if dependency == "user":
-                lookup_context["user"] = user
-            elif dependency == "match":
-                lookup_context["match"] = match
-            elif dependency == "proposed_match":
-                lookup_context["proposed_match"] = proposed_match
+            if dependency in dependency_values and dependency_values[dependency] is not None:
+                lookup_context[dependency] = dependency_values[dependency]
             elif dependency.startswith("context."):
                 context_key = dependency.split(".")[1]
                 assert context_key in kwargs, f"Missing context dependency in **kwargs for {param}"
@@ -169,28 +194,28 @@ def prepare_dynamic_template_context(template_name, user_id=None, match_id=None,
 
 
 def prepare_template_context(
-    template_name, user_id=None, match_id=None, proposed_match_id=None, retrieve_user_model=get_user_model, **kwargs
+    template_name, user_id=None, match_id=None, proposed_match_id=None, retrieve_user_model=None, **kwargs
 ):
     params = EMAILS_CONFIG.parameters
     template_config = EMAILS_CONFIG.emails.get(template_name)
+    if template_config is None:
+        raise UnknownEmailTemplateException(f"Unknown email template '{template_name}'")
 
     template_info = get_full_template_info(template_config)
     template_params = template_info["params"]
 
     available_dependencies = []
 
-    user = None if (not user_id) else retrieve_user_model().objects.get(id=user_id)
-    proposed_match = None if (not proposed_match_id) else ProposedMatch.objects.get(id=proposed_match_id)
-    match = None if (not match_id) else Match.objects.get(id=match_id)
-
-    if user:
-        available_dependencies.append("user")
-
-    if match:
-        available_dependencies.append("match")
-
-    if proposed_match:
-        available_dependencies.append("proposed_match")
+    dependency_values = _resolve_dependency_values(
+        dependency_model_overrides={"user": retrieve_user_model} if retrieve_user_model else None,
+        user_id=user_id,
+        match_id=match_id,
+        proposed_match_id=proposed_match_id,
+        **kwargs,
+    )
+    for dependency_id, dependency_value in dependency_values.items():
+        if dependency_value is not None:
+            available_dependencies.append(dependency_id)
 
     for key in kwargs:
         available_dependencies.append(f"context.{key}")
@@ -203,8 +228,6 @@ def prepare_template_context(
             raise UnknownParameterException(f"Unknown parameter {param}")
 
         param_config = params[param]
-        if not param_config.depends_on:
-            continue
 
         if False and (not set(param_config.depends_on).issubset(available_dependencies)):
             # Currently disabled features, as we have some params with 'optional' dependencies and have no way to mark them as such yet
@@ -219,12 +242,8 @@ def prepare_template_context(
 
         lookup_context = {}
         for dependency in param_config.depends_on:
-            if dependency == "user":
-                lookup_context["user"] = user
-            elif dependency == "match":
-                lookup_context["match"] = match
-            elif dependency == "proposed_match":
-                lookup_context["proposed_match"] = proposed_match
+            if dependency in dependency_values and dependency_values[dependency] is not None:
+                lookup_context[dependency] = dependency_values[dependency]
             elif dependency.startswith("context."):
                 context_key = dependency.split(".")[1]
                 # assert context_key in kwargs, f"Missing context dependency in **kwargs for {param}" TODO: check disabled as we have vars with optional dependencies now

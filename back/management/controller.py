@@ -216,8 +216,15 @@ def create_user(
     assert isinstance(usr, User)
 
     # Step 3.5 - Check if the user has a 'company' field
+    block_verifiction_mail_send = False
     if company is not None:
+        # TODO: This should be further contraint api auth wise!
         usr.state.company = company
+        # Allow skipping E-Mail verification for
+        if company and company.lower() in settings.SKIP_EMAIL_VERIFICATION_COMPANIES:
+            usr.state.email_authenticated = True
+            block_verifiction_mail_send = True
+            usr.state.save()
         # Set force_match_eligible if company is in the eligible list
         if company and company.lower() in settings.FORCE_MATCH_ELIGIBLE_COMPANIES:
             usr.state.force_match_eligible = True
@@ -226,8 +233,8 @@ def create_user(
             usr.state.has_match_priority = True
         usr.state.save()
 
-    # Step 4 send mail
-    if send_verification_mail:
+    # Step 4 send mail (if not blocked)
+    if send_verification_mail and not block_verifiction_mail_send:
 
         def send_verify_link():
             usr.send_email_v2("automatic-emails-u001")
