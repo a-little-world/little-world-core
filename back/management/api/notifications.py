@@ -5,8 +5,8 @@ from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import authentication, permissions, serializers
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from management.authentication import NativeOnlyJWTAuthentication
 from management.helpers import DetailedPagination, IsAdminOrMatchingUser
 from management.models.notifications import Notification, SelfNotificationSerializer
 from management.models.user import User
@@ -107,7 +107,7 @@ class NotificationSerializer(serializers.Serializer):
 )
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated])
-@authentication_classes([authentication.SessionAuthentication, JWTAuthentication])
+@authentication_classes([authentication.SessionAuthentication, NativeOnlyJWTAuthentication])
 def get_notifications(request):
     serializer: NotificationGetPaginatedSerializer = NotificationGetPaginatedSerializer(data=request.query_params)
     serializer.is_valid(raise_exception=True)
@@ -135,7 +135,7 @@ def get_notifications(request):
 )
 @api_view(["GET"])
 @permission_classes([permissions.IsAuthenticated])
-@authentication_classes([authentication.SessionAuthentication, JWTAuthentication])
+@authentication_classes([authentication.SessionAuthentication, NativeOnlyJWTAuthentication])
 def get_notification(request, id):
     user: User = request.user
 
@@ -161,7 +161,7 @@ def get_notification(request, id):
 )
 @api_view(["PATCH"])
 @permission_classes([permissions.IsAuthenticated])
-@authentication_classes([authentication.SessionAuthentication, JWTAuthentication])
+@authentication_classes([authentication.SessionAuthentication, NativeOnlyJWTAuthentication])
 def update_notification(request, id):
     serializer: NotificationUpdateSerializer = NotificationUpdateSerializer(data={"id": id, **request.data})
     serializer.is_valid(raise_exception=True)
@@ -192,7 +192,7 @@ def update_notification(request, id):
 )
 @api_view(["DELETE"])
 @permission_classes([permissions.IsAuthenticated])
-@authentication_classes([authentication.SessionAuthentication, JWTAuthentication])
+@authentication_classes([authentication.SessionAuthentication, NativeOnlyJWTAuthentication])
 def delete_notification(request, id):
     notification = Notification.objects.get(id=id)
 
@@ -209,7 +209,7 @@ def delete_notification(request, id):
 )
 @api_view(["POST"])
 @permission_classes([IsAdminOrMatchingUser])
-@authentication_classes([authentication.SessionAuthentication, JWTAuthentication])
+@authentication_classes([authentication.SessionAuthentication, NativeOnlyJWTAuthentication])
 def send_notification(request):
     serializer: NotificationSerializer = NotificationSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
