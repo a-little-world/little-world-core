@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_dataclasses.serializers import DataclassSerializer
 
+from management.authentication import NativeOnlyJWTAuthentication
 from management.controller import get_translation
 from management.models.settings import EmailSettings, UnsubscibeOptions
 
@@ -96,7 +97,7 @@ def update_email_settings(data, email_settings, request=None):
     request=UnsubscribeParamsSerializer(many=False),
 )
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def unsubscribe_email(request):
     serializer = UnsubscribeParamsSerializer(data=request.data)
