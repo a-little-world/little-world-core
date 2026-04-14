@@ -661,7 +661,17 @@ def automatic_emails_u023_u024_u025():
         users_sended.append(users)
         for user in users:
             template = template_for_user_form_reminder(stage, user)
-            send_email_background.delay(template, user_id=user.id, emulated_send=emulated_send)
+            german_level = list(
+                filter(lambda x: x["lang"] == Profile.LanguageChoices.GERMAN, user.profile.lang_skill or [])
+            )
+            if (not german_level) or (
+                german_level and german_level[0]["level"] == Profile.LanguageSkillChoices.LEVEL_0
+            ):
+                # don't send to too low german level A1 & A2 ( fix: https://github.com/a-little-world/little-world-backend/issues/868 )
+                # we still mark the boolean send flag just to ensure that arrent send accidently if this changes
+                pass
+            else:
+                send_email_background.delay(template, user_id=user.id, emulated_send=emulated_send)
             user.state.set_user_form_completed_reminder_sent(days)
 
     return {
@@ -1204,6 +1214,7 @@ def daily_auto_email_report():
         "automatic-emails-fm021",
         "automatic-emails-fm022",
         "automatic-emails-m051",
+        "automatic-emails-u071",
     ]
 
     # Get yesterday's date range
@@ -1543,6 +1554,10 @@ def automatic_emails_m043_m044_m045():
 
 @shared_task
 def automatic_emails_u051_u052():
+    """
+    TODO: Correct email descriptions,
+    check if correct!
+    """
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__U051_U052)
 
     users_u051 = User.objects.filter(

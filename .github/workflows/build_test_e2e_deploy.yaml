@@ -387,6 +387,9 @@ jobs:
       - name: Run e2e simulation tests
         id: run_e2e_tests
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''
+        env:
+          # Wall-clock cap for compose + readiness wait + simulations (GNU timeout exit 124 = exceeded).
+          E2E_STEP_TIMEOUT_SEC: "500"
         run: |
           set -euo pipefail
           # Enable test-only dev API endpoints for e2e flows.
@@ -398,6 +401,10 @@ jobs:
             docker compose down all redis || true
           }
           trap cleanup EXIT
+          E2E_STEP_TIMEOUT_SEC="${E2E_STEP_TIMEOUT_SEC:-500}"
+          set +e
+          timeout --kill-after=120 "$E2E_STEP_TIMEOUT_SEC" bash <<'E2E_INNER'
+          set -euo pipefail
           sed -i '/^REDIS_URL/d' .env
           sed -i '/^DJ_REDIS_HOST/d' .env
           sed -i '/^DJ_REDIS_PORT/d' .env
@@ -425,10 +432,20 @@ jobs:
           LOG_FILE="e2e_test_output.log"
           : > "$LOG_FILE"
           set +e
+          set -o pipefail
           E2E_BASE_URL="http://127.0.0.1:8000" bash dev/e2e_simulations/run.sh 2>&1 | tee -a "$LOG_FILE"
-          TEST_EXIT=${PIPESTATUS[0]}
+          exit "${PIPESTATUS[0]}"
+          E2E_INNER
+          TEST_EXIT=$?
           set -e
-          if [ $TEST_EXIT -eq 0 ]; then echo "test_result=pass" >> $GITHUB_OUTPUT; else echo "test_result=fail" >> $GITHUB_OUTPUT; fi
+          if [ "$TEST_EXIT" -eq 124 ]; then
+            echo "E2E step exceeded wall-clock limit (${E2E_STEP_TIMEOUT_SEC}s)" >&2
+            echo "test_result=fail" >> "$GITHUB_OUTPUT"
+          elif [ "$TEST_EXIT" -eq 0 ]; then
+            echo "test_result=pass" >> "$GITHUB_OUTPUT"
+          else
+            echo "test_result=fail" >> "$GITHUB_OUTPUT"
+          fi
       - name: Measure end time e2e tests
         id: end_e2e_tests
         if: steps.extract_branch.outputs.branch != 'main' && steps.determine_pull_id.outputs.SHOULD_RUN_E2E != ''

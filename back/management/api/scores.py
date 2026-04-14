@@ -60,6 +60,7 @@ from enum import Enum
 
 import pgeocode
 from back.utils import CoolerJson
+from django.conf import settings
 from django.core.paginator import Paginator
 from django.db.models import Exists, OuterRef, Q
 from django.urls import path
@@ -149,6 +150,19 @@ class ScoringBase:
         Table based scores amount overlaps
         `{"<=0": unmatchable, "=1: 15, "=2": 25, "=3": 29, "=4": 32, "=5": 35, ">=6": 37}
         """
+        companies_with_disabled_overlap = set(settings.SCORES_DISABLED_TIME_OVERLAP)
+        user1_company = self.user1.state.company
+        user2_company = self.user2.state.company
+        if user1_company in companies_with_disabled_overlap and user2_company in companies_with_disabled_overlap:
+            return ScoringFuctionResult(
+                matchable=True,
+                score=0,
+                weight=1.0,
+                markdown_info=(
+                    f"Time overlap scoring disabled for both users' companies ({user1_company}, {user2_company})"
+                ),
+            )
+
         slots1 = self.user1.profile.availability
         slots2 = self.user2.profile.availability
 
