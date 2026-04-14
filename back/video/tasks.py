@@ -47,11 +47,24 @@ def random_call_lobby_perform_matching(lobby_uuid):
         .exclude(user_id__in=matched_u1)
         .exclude(user_id__in=matched_u2)
     )
-    # 4 - gather all user id's and select random pairs
-    user_ids = list(users_in_lobby.values_list("user_id", flat=True))
-    if len(user_ids) < 2:
+    # 4 - gather all user ids by type and select a valid pair.
+    # Valid pairs: learner-learner or learner-volunteer. Prefer learner-volunteer when possible.
+    from management.models.profile import Profile
+
+    learner_ids = list(
+        users_in_lobby.filter(user__profile__user_type=Profile.TypeChoices.LEARNER).values_list("user_id", flat=True)
+    )
+    volunteer_ids = list(
+        users_in_lobby.filter(user__profile__user_type=Profile.TypeChoices.VOLUNTEER).values_list("user_id", flat=True)
+    )
+
+    if len(learner_ids) >= 1 and len(volunteer_ids) >= 1:
+        pair = [random.choice(learner_ids), random.choice(volunteer_ids)]
+    elif len(learner_ids) >= 2:
+        pair = random.sample(learner_ids, 2)
+    else:
         return {"matchings": []}
-    pair = random.sample(user_ids, 2)
+
     # 5 - create a new random call match; set confirmed_match if these users are already matched
     from management.models.matches import Match
     from management.models.user import User
