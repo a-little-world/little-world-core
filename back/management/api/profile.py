@@ -8,7 +8,6 @@ from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import authentication, permissions, serializers, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from translations import get_translation
 
 from management.api.user import get_user_data
@@ -38,7 +37,7 @@ class ProfileViewSet(viewsets.GenericViewSet, viewsets.mixins.UpdateModelMixin):
     authentication_classes = [
         authentication.SessionAuthentication,
         authentication.BasicAuthentication,
-        JWTAuthentication,
+        NativeOnlyJWTAuthentication,
     ]
 
     permission_classes = [permissions.IsAuthenticated]

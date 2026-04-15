@@ -10,7 +10,6 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework_dataclasses.serializers import DataclassSerializer
-from rest_framework_simplejwt.authentication import JWTAuthentication
 from translations import get_translation
 from video.models import LivekitSession, SerializeLivekitSession
 
@@ -18,6 +17,7 @@ from management import controller
 from management.api.match_journey_filter_list import determine_match_bucket
 from management.api.scores import score_between_db_update
 from management.api.utils_advanced import enrich_report_unmatch_with_user_info
+from management.authentication import NativeOnlyJWTAuthentication
 from management.helpers import IsAdminOrMatchingUser
 from management.helpers.detailed_pagination import get_paginated_format_v2
 from management.models.matches import Match
@@ -231,7 +231,7 @@ def get_match(request, partner_hash):
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-@authentication_classes([SessionAuthentication, JWTAuthentication])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 def matches(request):
     """
     Returns match data for the authenticated user.
