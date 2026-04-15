@@ -17,8 +17,9 @@ class JWTAuthMiddleware(BaseMiddleware):
                 jwt_auth = JWTAuthentication()
                 try:
                     validated_token = jwt_auth.get_validated_token(raw_token)
-                    user = await database_sync_to_async(jwt_auth.get_user)(validated_token)
-                    scope["user"] = user
+                    if validated_token.get("client") == "native":
+                        user = await database_sync_to_async(jwt_auth.get_user)(validated_token)
+                        scope["user"] = user
                 except Exception:
                     # Leave as AnonymousUser when token is invalid/expired
                     pass

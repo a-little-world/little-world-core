@@ -1,5 +1,6 @@
 from django.db.models import Exists, Max, OuterRef, Q
 from drf_spectacular.utils import extend_schema, inline_serializer
+from management.authentication import NativeOnlyJWTAuthentication
 from management.helpers import DetailedPaginationMixin
 from management.models.matches import Match
 from management.models.profile import ProfileSerializer
@@ -9,7 +10,6 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from chat.models import Chat, ChatSerializer, Message, MessageSerializer
 
@@ -36,7 +36,7 @@ class ChatsModelViewSet(viewsets.ModelViewSet):
     user_editable = []  # For users all fields are ready only on this one!
     serializer_class = ChatSerializer
     permission_classes = [IsAuthenticated]
-    authentication_classes = [SessionAuthentication, JWTAuthentication]
+    authentication_classes = [SessionAuthentication, NativeOnlyJWTAuthentication]
     queryset = Chat.objects.all()
 
     pagination_class = DetailedPaginationMixin
