@@ -832,14 +832,23 @@ def automatic_emails_m024_m025():
 
         last_message = chat.get_newest_message()
 
+        if not last_message:
+            continue
+
+        from management.models.matches import Match
+
+        active_match = Match.get_match(last_message.sender, last_message.recipient).order_by("-created_at").first()
+        if not active_match:
+            continue
+
         # send email to the user that received the last message
         send_email_background.delay(
-            "automatic-emails-m024", user_id=last_message.recipient.id, emulated_send=emulated_send
+            "automatic-emails-m024", user_id=last_message.recipient.id, match_id=active_match.id, emulated_send=emulated_send
         )
 
         # send email to the person that was ghosted
         send_email_background.delay(
-            "automatic-emails-m025", user_id=last_message.sender.id, emulated_send=emulated_send
+            "automatic-emails-m025", user_id=last_message.sender.id, match_id=active_match.id, emulated_send=emulated_send
         )
 
     return {"status": "sent", "inactive_chats": [str(chat.uuid) for chat in inactive_chats]}
