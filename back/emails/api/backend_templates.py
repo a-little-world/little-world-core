@@ -88,7 +88,9 @@ def test_render_email(request, template_name):
         model_or_loader = getattr(model_module, model_source[-1])
 
         model: Any = (
-            model_or_loader() if callable(model_or_loader) and not hasattr(model_or_loader, "objects") else model_or_loader
+            model_or_loader()
+            if callable(model_or_loader) and not hasattr(model_or_loader, "objects")
+            else model_or_loader
         )
         instance = model.objects.order_by("id").first()
         if instance is None:
