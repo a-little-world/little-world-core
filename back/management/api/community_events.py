@@ -2,8 +2,8 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from management.authentication import NativeOnlyJWTAuthentication
 from management.helpers.detailed_pagination import get_paginated_format_v2
 from management.models.community_events import CommunityEvent, CommunityEventSerializer
 
@@ -15,7 +15,7 @@ def get_all_comunity_events_serialized():
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-@authentication_classes([SessionAuthentication, JWTAuthentication])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 def community_events(request):
     """
     Returns community events data for the authenticated user.

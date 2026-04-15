@@ -15,6 +15,7 @@ from rest_framework_dataclasses.serializers import DataclassSerializer
 from translations import get_translation
 
 from management.api.matches import AdvancedUserMatchSerializer
+from management.authentication import NativeOnlyJWTAuthentication
 from management.controller import match_users
 from management.models.state import State
 from management.models.unconfirmed_matches import ProposedMatch
@@ -36,7 +37,7 @@ class ConfirmMatchSerializer(DataclassSerializer):
     request=ConfirmMatchSerializer(many=False),
 )
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def confirm_match(request):
     # Could be renamed to accept_reject_match or similar

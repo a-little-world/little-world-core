@@ -8,6 +8,8 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from management.authentication import NativeOnlyJWTAuthentication
+
 
 class TranslateTextData:
     target: str
@@ -30,7 +32,7 @@ def get_client():
     methods=["GET"],
 )
 @api_view(["GET"])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def languages(request):
     """
@@ -44,7 +46,7 @@ def languages(request):
 
 @extend_schema(methods=["POST"], request=TranslateTextSerializer(many=False))
 @api_view(["POST"])
-@authentication_classes([SessionAuthentication])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def translate(request):
     """
