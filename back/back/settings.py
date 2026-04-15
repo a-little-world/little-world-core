@@ -660,6 +660,16 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
+# Configure the reusable emails app to keep current project auth behavior.
+EMAILS_APP = {
+    "API_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "API_PERMISSION_CLASSES": [
+        "management.helpers.IsAdminOrMatchingUser",
+    ],
+}
+
 if IS_PROD:
     # disable browsable api in production
     REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"] = ["rest_framework.renderers.JSONRenderer"]

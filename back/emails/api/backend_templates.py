@@ -6,22 +6,24 @@ from django.views.decorators.clickjacking import xframe_options_exempt
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from emails.api.emails_config import EMAILS_CONFIG
 from emails.api.render_template import get_full_template_info, render_template_dynamic_lookup
+from emails.app_settings import emails_settings
 from management.controller import get_base_management_user
-from management.helpers import IsAdminOrMatchingUser
 from management.models.matches import Match
 from management.models.unconfirmed_matches import ProposedMatch
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
 
 
 @api_view(["GET"])
-@permission_classes([IsAdminOrMatchingUser])
+@authentication_classes(emails_settings.api_authentication_classes)
+@permission_classes(emails_settings.api_permission_classes)
 def email_config(request):
     return Response(EMAILS_CONFIG.to_dict())
 
 
 @api_view(["GET"])
-@permission_classes([IsAdminOrMatchingUser])
+@authentication_classes(emails_settings.api_authentication_classes)
+@permission_classes(emails_settings.api_permission_classes)
 def show_template_info(request, template_name):
     template_config = EMAILS_CONFIG.emails.get(template_name)
 
@@ -32,7 +34,8 @@ def show_template_info(request, template_name):
 
 
 @api_view(["GET"])
-@permission_classes([IsAdminOrMatchingUser])
+@authentication_classes(emails_settings.api_authentication_classes)
+@permission_classes(emails_settings.api_permission_classes)
 def list_templates(request):
     templates = []
     for template_name in EMAILS_CONFIG.emails:
@@ -48,7 +51,8 @@ def list_templates(request):
     ]
 )
 @api_view(["GET"])
-@permission_classes([IsAdminOrMatchingUser])
+@authentication_classes(emails_settings.api_authentication_classes)
+@permission_classes(emails_settings.api_permission_classes)
 def render_backend_template(request, template_name):
     template_config = EMAILS_CONFIG.emails.get(template_name)
 
@@ -78,7 +82,8 @@ def render_backend_template(request, template_name):
 
 
 @api_view(["GET"])
-@permission_classes([] if settings.DEBUG else [IsAdminOrMatchingUser])
+@authentication_classes([] if settings.DEBUG else emails_settings.api_authentication_classes)
+@permission_classes([] if settings.DEBUG else emails_settings.api_permission_classes)
 @xframe_options_exempt
 def test_render_email(request, template_name):
     assert settings.DEBUG
@@ -112,7 +117,8 @@ def test_render_email(request, template_name):
 
 
 @api_view(["GET"])
-@permission_classes([IsAdminOrMatchingUser])
+@authentication_classes(emails_settings.api_authentication_classes)
+@permission_classes(emails_settings.api_permission_classes)
 def render_logged_email(request, log_id):
     from emails.models import EmailLog
 

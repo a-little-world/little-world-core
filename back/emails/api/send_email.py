@@ -5,10 +5,10 @@ from django.urls import path
 from drf_spectacular.utils import extend_schema
 from emails.api.emails_config import EMAILS_CONFIG
 from emails.api.render_template import prepare_template_context, render_template_to_html
+from emails.app_settings import emails_settings
 from emails.models import EmailLog
-from management.helpers import IsAdminOrMatchingUser
 from rest_framework import serializers
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
 
 
@@ -98,7 +98,8 @@ def send_template_email(
     request=SendEmailSerializer,
 )
 @api_view(["POST"])
-@permission_classes([IsAdminOrMatchingUser])
+@authentication_classes(emails_settings.api_authentication_classes)
+@permission_classes(emails_settings.api_permission_classes)
 def send_template_email_api(request, template_name):
     serializer = SendEmailSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)

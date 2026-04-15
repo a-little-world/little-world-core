@@ -1,5 +1,6 @@
 from django.urls import path
 from emails.api.emails_config import EMAILS_CONFIG
+from emails.app_settings import emails_settings
 from management.models.settings import EmailSettings
 from rest_framework.decorators import (
     api_view,
@@ -17,8 +18,8 @@ def get_unsubscribed_categories():
 
 
 @api_view(["GET"])
-@permission_classes([])
-@authentication_classes([])
+@permission_classes(emails_settings.public_api_permission_classes)
+@authentication_classes(emails_settings.public_api_authentication_classes)
 def retrieve_email_settings(request, email_settings_hash):
     settings = EmailSettings.objects.filter(hash=email_settings_hash)
     if not settings.exists():
@@ -70,15 +71,15 @@ def toggle_category_subscribe(request, email_settings_hash, category, subscribed
 
 
 @api_view(["POST"])
-@permission_classes([])
-@authentication_classes([])
+@permission_classes(emails_settings.public_api_permission_classes)
+@authentication_classes(emails_settings.public_api_authentication_classes)
 def unscubscribe_category(request, email_settings_hash, category):
     return toggle_category_subscribe(request, email_settings_hash, category, subscribed=False)
 
 
 @api_view(["POST"])
-@permission_classes([])
-@authentication_classes([])
+@permission_classes(emails_settings.public_api_permission_classes)
+@authentication_classes(emails_settings.public_api_authentication_classes)
 def subscribe_category(request, email_settings_hash, category):
     return toggle_category_subscribe(request, email_settings_hash, category, subscribed=True)
 
