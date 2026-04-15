@@ -843,12 +843,18 @@ def automatic_emails_m024_m025():
 
         # send email to the user that received the last message
         send_email_background.delay(
-            "automatic-emails-m024", user_id=last_message.recipient.id, match_id=active_match.id, emulated_send=emulated_send
+            "automatic-emails-m024",
+            user_id=last_message.recipient.id,
+            match_id=active_match.id,
+            emulated_send=emulated_send,
         )
 
         # send email to the person that was ghosted
         send_email_background.delay(
-            "automatic-emails-m025", user_id=last_message.sender.id, match_id=active_match.id, emulated_send=emulated_send
+            "automatic-emails-m025",
+            user_id=last_message.sender.id,
+            match_id=active_match.id,
+            emulated_send=emulated_send,
         )
 
     return {"status": "sent", "inactive_chats": [str(chat.uuid) for chat in inactive_chats]}
