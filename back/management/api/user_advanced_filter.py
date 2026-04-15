@@ -349,7 +349,9 @@ def EXTRA__lingoda_users(qs=User.objects.all()):
 
 def EXTRA__lingoda_learners_scoring(qs=User.objects.all()):
     lingoda_users = EXTRA__lingoda_users(qs).filter(
-        profile__user_type=Profile.TypeChoices.LEARNER, state__unresponsive=False
+        profile__user_type=Profile.TypeChoices.LEARNER,
+        state__unresponsive=False,
+        state__searching_state=State.SearchingStateChoices.SEARCHING,
     )
     lingoda_users_with_active_match = get_active_match_query_set(lingoda_users).values("pk")
     lingoda_users = lingoda_users.exclude(pk__in=lingoda_users_with_active_match)
@@ -366,11 +368,23 @@ def EXTRA__fh_aachen_learners_scoring(qs=User.objects.all()):
     fh_aachen_users = EXTRA__fh_aachen_users(qs).filter(
         profile__user_type=Profile.TypeChoices.LEARNER, state__unresponsive=False
     )
-    fh_aachen_users_with_active_match = get_active_match_query_set(fh_aachen_users).values("pk")
-    fh_aachen_users = fh_aachen_users.exclude(pk__in=fh_aachen_users_with_active_match)
+    needs_matching_vols = needs_matching(qs).filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
+
+    return fh_aachen_users.order_by().union(needs_matching_vols.order_by()).order_by("-date_joined")
+
+
+def EXTRA__refugee_learners_scoring(qs=User.objects.all()):
+    refugee_learners = qs.filter(
+        profile__user_type=Profile.TypeChoices.LEARNER,
+        state__unresponsive=False,
+        profile__target_groups__icontains=Profile.TargetGroupChoices.REFUGEE,
+        state__searching_state=State.SearchingStateChoices.SEARCHING,
+    )
+    refugee_learners_with_active_match = get_active_match_query_set(refugee_learners).values("pk")
+    refugee_learners = refugee_learners.exclude(pk__in=refugee_learners_with_active_match)
     needs_matching_users = needs_matching(qs).filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
 
-    return fh_aachen_users.order_by().union(needs_matching_users.order_by()).order_by("-date_joined")
+    return refugee_learners.order_by().union(needs_matching_users.order_by()).order_by("-date_joined")
 
 
 def EXTRA__learners_with_activity_in_last3weeks(qs=User.objects.all(), days_ago=21):
