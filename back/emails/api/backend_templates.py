@@ -1,5 +1,7 @@
+import importlib
+from typing import Any
+
 from django.conf import settings
-from django.db.models import Q
 from django.http import HttpResponse
 from django.urls import path
 from django.views.decorators.clickjacking import xframe_options_exempt
@@ -7,9 +9,6 @@ from drf_spectacular.utils import OpenApiParameter, extend_schema
 from emails.api.emails_config import EMAILS_CONFIG
 from emails.api.render_template import get_full_template_info, render_template_dynamic_lookup
 from emails.app_settings import emails_settings
-from management.controller import get_base_management_user
-from management.models.matches import Match
-from management.models.unconfirmed_matches import ProposedMatch
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
 
@@ -48,6 +47,7 @@ def list_templates(request):
     parameters=[
         OpenApiParameter(name="user_id", type=str, location=OpenApiParameter.QUERY, required=False),
         OpenApiParameter(name="match_id", type=str, location=OpenApiParameter.QUERY, required=False),
+        OpenApiParameter(name="proposed_match_id", type=str, location=OpenApiParameter.QUERY, required=False),
     ]
 )
 @api_view(["GET"])
@@ -59,25 +59,7 @@ def render_backend_template(request, template_name):
     if not template_config:
         return Response({"error": "Template not found"}, status=404)
 
-    query_params = request.query_params.copy()
-
-    user_id = query_params.get("user_id", None)
-    if user_id:
-        del query_params["user_id"]
-
-    match_id = query_params.get("match_id", None)
-    if match_id:
-        del query_params["match_id"]
-
-    proposed_match_id = query_params.get("proposed_match_id", None)
-    if proposed_match_id:
-        del query_params["proposed_match_id"]
-
-    context = {}
-    for key in query_params:
-        context[key] = query_params[key]
-
-    rendered = render_template_dynamic_lookup(template_name, user_id, match_id, proposed_match_id, **context)
+    rendered = render_template_dynamic_lookup(template_name, **request.query_params)
     return HttpResponse(rendered, content_type="text/html")
 
 
@@ -93,24 +75,48 @@ def test_render_email(request, template_name):
 
     mock_context = {}
 
+    def _get_mock_dependency_value(dependency_id):
+        dependency_config = EMAILS_CONFIG.dependencies.get(dependency_id)
+        if dependency_config is None:
+            return None
+
+        if not dependency_config.model_source:
+            return "Mocked value"
+
+        model_source = dependency_config.model_source.split(".")
+        model_module = importlib.import_module(".".join(model_source[:-1]))
+        model_or_loader = getattr(model_module, model_source[-1])
+
+        model: Any = (
+            model_or_loader() if callable(model_or_loader) and not hasattr(model_or_loader, "objects") else model_or_loader
+        )
+        instance = model.objects.order_by("id").first()
+        if instance is None:
+            return None
+        return instance.id
+
     for dep in template_info["dependencies"]:
         context_dependent = dep.get("context_dependent", False)
         if context_dependent:
             mock_context[dep["query_id_field"]] = "Mocked value"
+            continue
 
-    mock_user_id = get_base_management_user().id
-    mock_match_id = Match.objects.filter(Q(user1=mock_user_id) | Q(user2=mock_user_id)).first().id
-    mock_proposed_match_id = ProposedMatch.objects.filter(~Q(user1=mock_user_id) & ~Q(user2=mock_user_id)).first().id
+        dependency_id = dep.get("id")
+        mock_dependency_value = _get_mock_dependency_value(dependency_id)
+        if mock_dependency_value is None:
+            return Response(
+                {"error": f"Could not resolve a mock value for dependency '{dependency_id}'"},
+                status=400,
+            )
+        mock_context[dep["query_id_field"]] = mock_dependency_value
 
-    rendered = render_template_dynamic_lookup(
-        template_name, mock_user_id, mock_match_id, mock_proposed_match_id, **mock_context
-    )
+    rendered = render_template_dynamic_lookup(template_name, **mock_context)
     response = HttpResponse(rendered, content_type="text/html")
 
     # Remove the 'cross-origin-opener-policy' header if it exists in debug
     # This allows the test view to be rendered within an iframe to test the email in testi.at
     if settings.DEBUG:
-        if "Cross-Origin-Opener-Policy" in response:
+        if response.has_header("Cross-Origin-Opener-Policy"):
             del response["Cross-Origin-Opener-Policy"]
 
     return response
