@@ -48,8 +48,10 @@ class RandomCallMatchSerializer(serializers.Serializer):
     uuid = serializers.CharField()
     u1_hash = serializers.CharField()
     u1_name = serializers.CharField()
+    u1_user_type = serializers.CharField()
     u2_hash = serializers.CharField()
     u2_name = serializers.CharField()
+    u2_user_type = serializers.CharField()
     u1_accepted = serializers.BooleanField()
     u2_accepted = serializers.BooleanField()
     accepted = serializers.BooleanField()
@@ -145,8 +147,10 @@ def get_lobby_management_overview(request, lobby_name="default"):
             "uuid": str(match.uuid),
             "u1_hash": match.u1.hash,
             "u1_name": f"{match.u1.profile.first_name}",
+            "u1_user_type": match.u1.profile.user_type,
             "u2_hash": match.u2.hash,
             "u2_name": f"{match.u2.profile.first_name}",
+            "u2_user_type": match.u2.profile.user_type,
             "u1_accepted": match.u1_accepted,
             "u2_accepted": match.u2_accepted,
             "accepted": match.accepted,
