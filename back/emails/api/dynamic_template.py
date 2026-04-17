@@ -98,9 +98,7 @@ class DynamicEmailTemplateViewset(viewsets.ModelViewSet):
 
         # 4 - Security notification that an bulk email is being sent
         ip, routable = get_ip(request)
-        security_notification = (
-            f"Matching user {request.user.email} is sending a dynamic bulk email to {len(user_ids)} users using ip {ip}"
-        )
+        security_notification = f"Matching user {request.user.email} is sending a dynamic bulk email to {len(user_ids)} users using ip {ip} to list '{user_list}'"
         from management.tasks import slack_notify_security_channel_async
 
         slack_notify_security_channel_async.delay(security_notification)
