@@ -96,16 +96,28 @@ def callcom_websocket_callback(request):
 
     assert request.query_params["secret"] == settings.DJ_CALCOM_QUERY_ACCESS_PARAM
 
-    event_type = request.data["triggerEvent"]
-    start_time_normalized = translate_to_german_date(request.data["payload"]["startTime"])
-    # end_time = translate_to_german_date(request.data["payload"]["endTime"])
-    # organizer_email = request.data["payload"]["organizer"]["email"]
-    user_hash = request.data["payload"]["userFieldsResponses"]["hash"]["value"]
-    booking_code = request.data["payload"]["userFieldsResponses"]["bookingcode"]["value"]
+    event_type = request.data.get("triggerEvent")
+    if event_type != "BOOKING_CREATED":
+        return Response("ok")
+
+    payload = request.data.get("payload")
+    if not isinstance(payload, dict):
+        return Response("ok")
+
+    user_fields_responses = payload.get("userFieldsResponses", {})
+    start_time = payload.get("startTime")
+    user_hash = user_fields_responses.get("hash", {}).get("value")
+    booking_code = user_fields_responses.get("bookingcode", {}).get("value")
+    if not start_time or not user_hash or not booking_code:
+        return Response("ok")
+
+    start_time_normalized = translate_to_german_date(start_time)
+    # end_time = translate_to_german_date(payload["endTime"])
+    # organizer_email = payload["organizer"]["email"]
 
     user = get_user_by_hash(user_hash)
 
-    print("EVENT TYPE", event_type, user, booking_code, start_time_normalized, request.data["payload"]["startTime"])
+    print("EVENT TYPE", event_type, user, booking_code, start_time_normalized, start_time)
     print(request.data)
 
     if event_type == "BOOKING_CREATED":
@@ -120,8 +132,8 @@ def callcom_websocket_callback(request):
         )
 
         appointment = PreMatchingAppointment.objects.filter(user=user)
-        start_time_parsed = parse_datetime(request.data["payload"]["startTime"])
-        end_time_parsed = parse_datetime(request.data["payload"]["endTime"])
+        start_time_parsed = parse_datetime(start_time)
+        end_time_parsed = parse_datetime(payload.get("endTime"))
         if appointment.exists():
             appointment = appointment.first()
             appointment.end_time = end_time_parsed
