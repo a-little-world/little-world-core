@@ -106,9 +106,10 @@ def callcom_websocket_callback(request):
 
     user_fields_responses = payload.get("userFieldsResponses", {})
     start_time = payload.get("startTime")
+    end_time = payload.get("endTime")
     user_hash = user_fields_responses.get("hash", {}).get("value")
     booking_code = user_fields_responses.get("bookingcode", {}).get("value")
-    if not start_time or not user_hash or not booking_code:
+    if not start_time or not end_time or not user_hash or not booking_code:
         return Response("ok")
 
     start_time_normalized = translate_to_german_date(start_time)
@@ -133,7 +134,9 @@ def callcom_websocket_callback(request):
 
         appointment = PreMatchingAppointment.objects.filter(user=user)
         start_time_parsed = parse_datetime(start_time)
-        end_time_parsed = parse_datetime(payload.get("endTime"))
+        end_time_parsed = parse_datetime(end_time)
+        if not start_time_parsed or not end_time_parsed:
+            return Response("ok")
         if appointment.exists():
             appointment = appointment.first()
             appointment.end_time = end_time_parsed

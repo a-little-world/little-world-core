@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch
 
 from django.test import TestCase, override_settings
@@ -15,7 +16,7 @@ class TestCalcomWebhookCallback(TestCase):
 
         response = self.client.post(
             "/api/calcom/?secret=test-secret",
-            data=webhook_body,
+            data=json.dumps(webhook_body),
             content_type="application/json",
         )
 
@@ -33,7 +34,7 @@ class TestCalcomWebhookCallback(TestCase):
 
         response = self.client.post(
             "/api/calcom/?secret=test-secret",
-            data=webhook_body,
+            data=json.dumps(webhook_body),
             content_type="application/json",
         )
 
