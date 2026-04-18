@@ -5,9 +5,7 @@ from django.utils.module_loading import import_string
 
 DEFAULT_EMAILS_CONFIG_PATH = Path(__file__).resolve().parent / "emails.json"
 
-# Defaults for "normal authenticated user" endpoints (currently unused by the
-# emails app itself, but exposed for projects that want to add user-facing
-# email endpoints in the future, e.g. user-managed templates / preferences).
+# normal authenticated user (currently unused, reserved for user-facing email endpoints)
 DEFAULT_API_AUTHENTICATION_CLASSES = [
     "rest_framework.authentication.SessionAuthentication",
 ]
@@ -15,12 +13,7 @@ DEFAULT_API_PERMISSION_CLASSES = [
     "rest_framework.permissions.IsAuthenticated",
 ]
 
-# Defaults for "management user / admin" endpoints (template management,
-# sending emails, dynamic templates, dev tooling, ...).  These endpoints are
-# always considered admin-only inside the host project.  We default to
-# `IsAdminUser` so a fresh integration is safe out of the box - any project
-# that wants to broaden this (e.g. allow non-staff "matching" users) MUST
-# explicitly override `ADMIN_API_PERMISSION_CLASSES`.
+# admin / management user; safe admin-only fallback so a fresh integration can't leak
 DEFAULT_ADMIN_API_AUTHENTICATION_CLASSES = [
     "rest_framework.authentication.SessionAuthentication",
 ]
@@ -28,8 +21,7 @@ DEFAULT_ADMIN_API_PERMISSION_CLASSES = [
     "rest_framework.permissions.IsAdminUser",
 ]
 
-# Defaults for "public" endpoints (hash / token authenticated, e.g. the
-# unsubscribe link clicked from an email).  No auth, no permission classes.
+# public (hash / token), e.g. unsubscribe links clicked from inside an email
 DEFAULT_PUBLIC_API_AUTHENTICATION_CLASSES: list[str] = []
 DEFAULT_PUBLIC_API_PERMISSION_CLASSES: list[str] = []
 

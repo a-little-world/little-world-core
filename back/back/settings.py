@@ -660,17 +660,9 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
-# Configure the reusable emails app to keep current project auth behavior.
-#
-# The emails app exposes three permission tiers:
-#   - API_*        -> "normal authenticated user" (currently unused inside
-#                     the emails app itself, kept at IsAuthenticated default)
-#   - ADMIN_API_*  -> "management user / admin", always admin-only in this
-#                     project.  We map this to IsAdminOrMatchingUser so that
-#                     both Django staff users AND users with the explicit
-#                     MATCHING_USER extra-permission can manage / send mails.
-#   - PUBLIC_API_* -> hash/token authenticated public endpoints (e.g. the
-#                     unsubscribe link clicked from inside an email).
+# Reusable emails app config: ADMIN_API_* covers all template / send / dynamic-template
+# endpoints, mapped here to IsAdminOrMatchingUser (staff OR users with MATCHING_USER perm).
+# API_* (normal user) and PUBLIC_API_* (hash-based unsubscribe) keep their safe defaults.
 EMAILS_APP = {
     "ADMIN_API_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
