@@ -35,12 +35,12 @@ provided by the tests below is sufficient.
 from unittest.mock import patch
 
 from django.test import TestCase, override_settings
-from rest_framework.response import Response
-from rest_framework.test import APIClient
-
 from emails.api.emails_config import EMAILS_CONFIG
 from emails.app_settings import emails_settings
 from emails.models import DynamicTemplate, EmailLog
+from rest_framework.response import Response
+from rest_framework.test import APIClient
+
 from management.helpers import IsAdminOrMatchingUser
 from management.models.settings import EmailSettings
 from management.models.state import State
@@ -78,9 +78,7 @@ class EmailApiAdminPermissionTests(TestCase):
             first_name="Matching",
             last_name="User",
         )
-        cls.matching_user.state.extra_user_permissions = [
-            State.ExtraUserPermissionChoices.MATCHING_USER
-        ]
+        cls.matching_user.state.extra_user_permissions = [State.ExtraUserPermissionChoices.MATCHING_USER]
         cls.matching_user.state.save()
 
         cls.admin_user = User.objects.create_user(
@@ -239,15 +237,9 @@ class EmailApiAdminPermissionTests(TestCase):
             url = f"/api/matching/emails/templates/{self.template_name}/send/"
             payload = {"user_id": self.admin_user.id}
 
-            self._assert_forbidden_for_anon_and_regular(
-                "post", url, data=payload, format="json"
-            )
-            self._assert_allowed_for(
-                self.admin_user, "post", url, data=payload, format="json"
-            )
-            self._assert_allowed_for(
-                self.matching_user, "post", url, data=payload, format="json"
-            )
+            self._assert_forbidden_for_anon_and_regular("post", url, data=payload, format="json")
+            self._assert_allowed_for(self.admin_user, "post", url, data=payload, format="json")
+            self._assert_allowed_for(self.matching_user, "post", url, data=payload, format="json")
 
     # --------------------------------------------- admin endpoints (dynamic_template)
 
@@ -295,11 +287,7 @@ class EmailApiAdminPermissionTests(TestCase):
         """
         email_settings = EmailSettings.objects.create()
 
-        unsubscribable_categories = [
-            category
-            for category, cfg in EMAILS_CONFIG.categories.items()
-            if cfg.unsubscribe
-        ]
+        unsubscribable_categories = [category for category, cfg in EMAILS_CONFIG.categories.items() if cfg.unsubscribe]
         category = unsubscribable_categories[0] if unsubscribable_categories else "dynamic"
 
         anon = self._client_for(None)
@@ -307,14 +295,10 @@ class EmailApiAdminPermissionTests(TestCase):
         retrieve_response = anon.get(f"/api/email_settings/{email_settings.hash}/")
         self.assertNotIn(retrieve_response.status_code, (401, 403))
 
-        unsubscribe_response = anon.post(
-            f"/api/email_settings/{email_settings.hash}/{category}/unsubscribe"
-        )
+        unsubscribe_response = anon.post(f"/api/email_settings/{email_settings.hash}/{category}/unsubscribe")
         self.assertNotIn(unsubscribe_response.status_code, (401, 403))
 
-        subscribe_response = anon.post(
-            f"/api/email_settings/{email_settings.hash}/{category}/subscribe"
-        )
+        subscribe_response = anon.post(f"/api/email_settings/{email_settings.hash}/{category}/subscribe")
         self.assertNotIn(subscribe_response.status_code, (401, 403))
 
 
