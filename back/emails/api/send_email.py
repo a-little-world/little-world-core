@@ -98,8 +98,8 @@ def send_template_email(
     request=SendEmailSerializer,
 )
 @api_view(["POST"])
-@authentication_classes(emails_settings.api_authentication_classes)
-@permission_classes(emails_settings.api_permission_classes)
+@authentication_classes(emails_settings.admin_api_authentication_classes)
+@permission_classes(emails_settings.admin_api_permission_classes)
 def send_template_email_api(request, template_name):
     serializer = SendEmailSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)

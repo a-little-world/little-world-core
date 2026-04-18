@@ -661,11 +661,21 @@ REST_FRAMEWORK = {
 }
 
 # Configure the reusable emails app to keep current project auth behavior.
+#
+# The emails app exposes three permission tiers:
+#   - API_*        -> "normal authenticated user" (currently unused inside
+#                     the emails app itself, kept at IsAuthenticated default)
+#   - ADMIN_API_*  -> "management user / admin", always admin-only in this
+#                     project.  We map this to IsAdminOrMatchingUser so that
+#                     both Django staff users AND users with the explicit
+#                     MATCHING_USER extra-permission can manage / send mails.
+#   - PUBLIC_API_* -> hash/token authenticated public endpoints (e.g. the
+#                     unsubscribe link clicked from inside an email).
 EMAILS_APP = {
-    "API_AUTHENTICATION_CLASSES": [
+    "ADMIN_API_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
     ],
-    "API_PERMISSION_CLASSES": [
+    "ADMIN_API_PERMISSION_CLASSES": [
         "management.helpers.IsAdminOrMatchingUser",
     ],
 }

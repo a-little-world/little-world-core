@@ -14,15 +14,15 @@ from rest_framework.response import Response
 
 
 @api_view(["GET"])
-@authentication_classes(emails_settings.api_authentication_classes)
-@permission_classes(emails_settings.api_permission_classes)
+@authentication_classes(emails_settings.admin_api_authentication_classes)
+@permission_classes(emails_settings.admin_api_permission_classes)
 def email_config(request):
     return Response(EMAILS_CONFIG.to_dict())
 
 
 @api_view(["GET"])
-@authentication_classes(emails_settings.api_authentication_classes)
-@permission_classes(emails_settings.api_permission_classes)
+@authentication_classes(emails_settings.admin_api_authentication_classes)
+@permission_classes(emails_settings.admin_api_permission_classes)
 def show_template_info(request, template_name):
     template_config = EMAILS_CONFIG.emails.get(template_name)
 
@@ -33,8 +33,8 @@ def show_template_info(request, template_name):
 
 
 @api_view(["GET"])
-@authentication_classes(emails_settings.api_authentication_classes)
-@permission_classes(emails_settings.api_permission_classes)
+@authentication_classes(emails_settings.admin_api_authentication_classes)
+@permission_classes(emails_settings.admin_api_permission_classes)
 def list_templates(request):
     templates = []
     for template_name in EMAILS_CONFIG.emails:
@@ -51,8 +51,8 @@ def list_templates(request):
     ]
 )
 @api_view(["GET"])
-@authentication_classes(emails_settings.api_authentication_classes)
-@permission_classes(emails_settings.api_permission_classes)
+@authentication_classes(emails_settings.admin_api_authentication_classes)
+@permission_classes(emails_settings.admin_api_permission_classes)
 def render_backend_template(request, template_name):
     template_config = EMAILS_CONFIG.emails.get(template_name)
 
@@ -64,8 +64,8 @@ def render_backend_template(request, template_name):
 
 
 @api_view(["GET"])
-@authentication_classes([] if settings.DEBUG else emails_settings.api_authentication_classes)
-@permission_classes([] if settings.DEBUG else emails_settings.api_permission_classes)
+@authentication_classes([] if settings.DEBUG else emails_settings.admin_api_authentication_classes)
+@permission_classes([] if settings.DEBUG else emails_settings.admin_api_permission_classes)
 @xframe_options_exempt
 def test_render_email(request, template_name):
     assert settings.DEBUG
@@ -125,8 +125,8 @@ def test_render_email(request, template_name):
 
 
 @api_view(["GET"])
-@authentication_classes(emails_settings.api_authentication_classes)
-@permission_classes(emails_settings.api_permission_classes)
+@authentication_classes(emails_settings.admin_api_authentication_classes)
+@permission_classes(emails_settings.admin_api_permission_classes)
 def render_logged_email(request, log_id):
     from emails.models import EmailLog
 

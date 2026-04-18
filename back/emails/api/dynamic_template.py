@@ -27,8 +27,8 @@ class DynamicEmailTemplateViewset(viewsets.ModelViewSet):
 
     serializer_class = DynamicTemplateSerializer
     pagination_class = DetailedPaginationMixin
-    authentication_classes = emails_settings.api_authentication_classes
-    permission_classes = emails_settings.api_permission_classes
+    authentication_classes = emails_settings.admin_api_authentication_classes
+    permission_classes = emails_settings.admin_api_permission_classes
     lookup_field = "template_name"
 
     @staticmethod
