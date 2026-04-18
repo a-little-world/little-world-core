@@ -28,11 +28,11 @@ permission split, and would catch a future refactor that:
 from unittest.mock import patch
 
 from django.test import TestCase, override_settings
-from rest_framework.test import APIClient
-
 from emails.api.emails_config import EMAILS_CONFIG
 from emails.app_settings import emails_settings
 from emails.models import DynamicTemplate, EmailLog
+from rest_framework.test import APIClient
+
 from management.helpers import IsAdminOrMatchingUser
 from management.models.settings import EmailSettings
 from management.models.state import State
@@ -64,9 +64,7 @@ class EmailApiAdminPermissionTests(TestCase):
             first_name="Matching",
             last_name="User",
         )
-        cls.matching_user.state.extra_user_permissions = [
-            State.ExtraUserPermissionChoices.MATCHING_USER
-        ]
+        cls.matching_user.state.extra_user_permissions = [State.ExtraUserPermissionChoices.MATCHING_USER]
         cls.matching_user.state.save()
 
         cls.admin_user = User.objects.create_user(
@@ -277,11 +275,7 @@ class EmailApiAdminPermissionTests(TestCase):
         email_settings = EmailSettings.objects.create()
 
         # Make sure there's at least one un-subscribable category to use.
-        unsubscribable_categories = [
-            category
-            for category, cfg in EMAILS_CONFIG.categories.items()
-            if cfg.unsubscribe
-        ]
+        unsubscribable_categories = [category for category, cfg in EMAILS_CONFIG.categories.items() if cfg.unsubscribe]
         category = unsubscribable_categories[0] if unsubscribable_categories else "dynamic"
 
         anon = self._client_for(None)
@@ -289,14 +283,10 @@ class EmailApiAdminPermissionTests(TestCase):
         retrieve_response = anon.get(f"/api/email_settings/{email_settings.hash}/")
         self.assertNotIn(retrieve_response.status_code, (401, 403))
 
-        unsubscribe_response = anon.post(
-            f"/api/email_settings/{email_settings.hash}/{category}/unsubscribe"
-        )
+        unsubscribe_response = anon.post(f"/api/email_settings/{email_settings.hash}/{category}/unsubscribe")
         self.assertNotIn(unsubscribe_response.status_code, (401, 403))
 
-        subscribe_response = anon.post(
-            f"/api/email_settings/{email_settings.hash}/{category}/subscribe"
-        )
+        subscribe_response = anon.post(f"/api/email_settings/{email_settings.hash}/{category}/subscribe")
         self.assertNotIn(subscribe_response.status_code, (401, 403))
 
 
@@ -323,9 +313,7 @@ class EmailApiAdminPermissionDebugOnlyTests(TestCase):
         from django.urls import NoReverseMatch, get_resolver
 
         try:
-            get_resolver().resolve(
-                f"/api/matching/emails/templates/{self.template_name}/overwrite/"
-            )
+            get_resolver().resolve(f"/api/matching/emails/templates/{self.template_name}/overwrite/")
         except Exception:
             self.skipTest("dev-only endpoint not registered (DEBUG is False)")
             return  # for type checkers; skipTest raises
