@@ -4,10 +4,11 @@ from django.urls import path
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from emails.api.emails_config import EMAILS_CONFIG
+from emails.app_settings import emails_settings
 from emails.models import DynamicTemplate, DynamicTemplateSerializer, EmailLog
 from ipware import get_client_ip as get_ip
 from management.api.user_advanced_filter_lists import get_list_by_name
-from management.helpers import DetailedPaginationMixin, IsAdminOrMatchingUser
+from management.helpers import DetailedPaginationMixin
 from management.models.dynamic_user_list import DynamicUserList
 from management.models.user import User
 from management.tasks import send_dynamic_email_backgruound
@@ -26,7 +27,8 @@ class DynamicEmailTemplateViewset(viewsets.ModelViewSet):
 
     serializer_class = DynamicTemplateSerializer
     pagination_class = DetailedPaginationMixin
-    permission_classes = [IsAdminOrMatchingUser]
+    authentication_classes = emails_settings.admin_api_authentication_classes
+    permission_classes = emails_settings.admin_api_permission_classes
     lookup_field = "template_name"
 
     @staticmethod
@@ -98,9 +100,7 @@ class DynamicEmailTemplateViewset(viewsets.ModelViewSet):
 
         # 4 - Security notification that an bulk email is being sent
         ip, routable = get_ip(request)
-        security_notification = (
-            f"Matching user {request.user.email} is sending a dynamic bulk email to {len(user_ids)} users using ip {ip}"
-        )
+        security_notification = f"Matching user {request.user.email} is sending a dynamic bulk email to {len(user_ids)} users using ip {ip} to list '{user_list}'"
         from management.tasks import slack_notify_security_channel_async
 
         slack_notify_security_channel_async.delay(security_notification)

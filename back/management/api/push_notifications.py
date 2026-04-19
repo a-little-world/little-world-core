@@ -11,8 +11,8 @@ from rest_framework import authentication, serializers
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from management.authentication import NativeOnlyJWTAuthentication
 from management.helpers import IsAdminOrMatchingUser
 from management.models.user import MobileDevice, User
 
@@ -63,7 +63,7 @@ def get_firebase_service_worker(request):
 )
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
-@authentication_classes([authentication.SessionAuthentication, JWTAuthentication])
+@authentication_classes([authentication.SessionAuthentication, NativeOnlyJWTAuthentication])
 def register_push_notifications_token(request):
     serializer: PushNotificationRegistrationSerializer = PushNotificationRegistrationSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -119,7 +119,7 @@ def register_push_notifications_token(request):
 )
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
-@authentication_classes([authentication.SessionAuthentication, JWTAuthentication])
+@authentication_classes([authentication.SessionAuthentication, NativeOnlyJWTAuthentication])
 def un_register_push_notifications_token(request):
     serializer: PushNotificationRegistrationSerializer = PushNotificationRegistrationSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -140,7 +140,7 @@ def un_register_push_notifications_token(request):
 )
 @api_view(["POST"])
 @permission_classes([IsAdminOrMatchingUser])
-@authentication_classes([authentication.SessionAuthentication, JWTAuthentication])
+@authentication_classes([authentication.SessionAuthentication, NativeOnlyJWTAuthentication])
 def send_push_notification(request):
     serializer: PushNotificationSerializer = PushNotificationSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -157,7 +157,7 @@ def send_push_notification(request):
 )
 @api_view(["POST"])
 @permission_classes([IsAdminOrMatchingUser])
-@authentication_classes([authentication.SessionAuthentication, JWTAuthentication])
+@authentication_classes([authentication.SessionAuthentication, NativeOnlyJWTAuthentication])
 def send_test_push_notification(request):
     request.user.send_notification(title="Test notification title", description="Test notification description")
     return Response(status=200)

@@ -169,7 +169,7 @@ class RandomCallMatching(models.Model):
 
     both_requested_room_token = models.BooleanField(default=False)
 
-    # True when these two users have been matched via match_users (Match exists for this pair, random_call type)
+    # True when these two users have been matched via match_users (Match exists for this pair)
     confirmed_match = models.BooleanField(default=False)
 
     @property

@@ -4,12 +4,13 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework_simplejwt.authentication import JWTAuthentication
+
+from management.authentication import NativeOnlyJWTAuthentication
 
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-@authentication_classes([SessionAuthentication, JWTAuthentication])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 def firebase_config(request):
     """
     Returns Firebase configuration for the client.
