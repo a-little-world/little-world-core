@@ -660,6 +660,18 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
+# Reusable emails app config: ADMIN_API_* covers all template / send / dynamic-template
+# endpoints, mapped here to IsAdminOrMatchingUser (staff OR users with MATCHING_USER perm).
+# API_* (normal user) and PUBLIC_API_* (hash-based unsubscribe) keep their safe defaults.
+EMAILS_APP = {
+    "ADMIN_API_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "ADMIN_API_PERMISSION_CLASSES": [
+        "management.helpers.IsAdminOrMatchingUser",
+    ],
+}
+
 if IS_PROD:
     # disable browsable api in production
     REST_FRAMEWORK["DEFAULT_RENDERER_CLASSES"] = ["rest_framework.renderers.JSONRenderer"]
