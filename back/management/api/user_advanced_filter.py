@@ -351,6 +351,7 @@ def EXTRA__lingoda_learners_scoring(qs=User.objects.all()):
     lingoda_users = EXTRA__lingoda_users(qs).filter(
         profile__user_type=Profile.TypeChoices.LEARNER,
         state__unresponsive=False,
+        state__is_onboarded=True,
         state__searching_state=State.SearchingStateChoices.SEARCHING,
     )
     lingoda_users_with_active_match = get_active_match_query_set(lingoda_users).values("pk")
@@ -366,7 +367,7 @@ def EXTRA__fh_aachen_users(qs=User.objects.all()):
 
 def EXTRA__fh_aachen_learners_scoring(qs=User.objects.all()):
     fh_aachen_users = EXTRA__fh_aachen_users(qs).filter(
-        profile__user_type=Profile.TypeChoices.LEARNER, state__unresponsive=False
+        profile__user_type=Profile.TypeChoices.LEARNER, state__unresponsive=False, state__is_onboarded=True
     )
     needs_matching_vols = needs_matching(qs).filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
 
@@ -377,6 +378,7 @@ def EXTRA__refugee_learners_scoring(qs=User.objects.all()):
     refugee_learners = qs.filter(
         profile__user_type=Profile.TypeChoices.LEARNER,
         state__unresponsive=False,
+        state__is_onboarded=True,
         profile__target_groups__icontains=Profile.TargetGroupChoices.REFUGEE,
         state__searching_state=State.SearchingStateChoices.SEARCHING,
     )

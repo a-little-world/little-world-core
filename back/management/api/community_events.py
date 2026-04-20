@@ -6,6 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from management.authentication import NativeOnlyJWTAuthentication
+from management.helpers import IsAdminOrMatchingUser
 from management.helpers.detailed_pagination import get_paginated_format_v2
 from management.models.community_events import (
     AdminCommunityEventSerializer,
@@ -40,7 +41,7 @@ def community_events(request):
 
 
 @api_view(["GET", "POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminOrMatchingUser])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 def admin_community_events(request):
     """
@@ -61,7 +62,7 @@ def admin_community_events(request):
 
 
 @api_view(["PUT", "PATCH"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminOrMatchingUser])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 def admin_community_event_detail(request, pk: int):
     """
