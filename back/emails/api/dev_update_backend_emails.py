@@ -3,13 +3,14 @@ import json
 from django.conf import settings
 from django.urls import path
 from emails.api.emails_config import EMAILS_CONFIG, EmailsConfig
-from management.helpers import IsAdminOrMatchingUser
-from rest_framework.decorators import api_view, permission_classes
+from emails.app_settings import emails_settings
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
 
 
 @api_view(["POST"])
-@permission_classes([IsAdminOrMatchingUser])
+@authentication_classes(emails_settings.admin_api_authentication_classes)
+@permission_classes(emails_settings.admin_api_permission_classes)
 def update_config_json(request):
     if not settings.DEBUG:
         return Response({"error": "This endpoint is only available in DEBUG mode"}, status=400)
@@ -23,7 +24,8 @@ def update_config_json(request):
 
 
 @api_view(["POST"])
-@permission_classes([IsAdminOrMatchingUser])
+@authentication_classes(emails_settings.admin_api_authentication_classes)
+@permission_classes(emails_settings.admin_api_permission_classes)
 def overwrite_backend_template(request, template_name):
     # Uploads a template html
     if not settings.DEBUG:

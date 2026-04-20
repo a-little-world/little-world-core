@@ -1,3 +1,5 @@
+import uuid as uuid_lib
+
 from django.db.models import Exists, Max, OuterRef, Q
 from drf_spectacular.utils import extend_schema, inline_serializer
 from management.authentication import NativeOnlyJWTAuthentication
@@ -81,6 +83,11 @@ class ChatsModelViewSet(viewsets.ModelViewSet):
     def get_by_uuid(self, request, chat_uuid=None):
         if not chat_uuid:
             return Response({"error": "chat_uuid is required"}, status=400)
+
+        try:
+            uuid_lib.UUID(chat_uuid)
+        except ValueError:
+            return Response({"error": "chat_uuid is not a valid UUID"}, status=400)
 
         chat = self.get_queryset().filter(uuid=chat_uuid).first()
         if not chat:

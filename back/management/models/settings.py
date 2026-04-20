@@ -14,7 +14,7 @@ class UnsubscibeOptions(models.TextChoices):
     event_announcement = "event_announcement"
 
 
-class EmailSettings(models.Model):
+class EmailSettings(models.Model):  # TODO: migrate to 'UserEmailSettings' from the new 'lw_emails' module
     hash = models.UUIDField(default=uuid4, editable=False)
 
     # TODO: migrate fields to state
