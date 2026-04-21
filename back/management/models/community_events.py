@@ -83,3 +83,27 @@ class CommunityEventSerializer(serializers.ModelSerializer):
             "image",
             "id",
         ]
+
+
+class AdminCommunityEventSerializer(serializers.ModelSerializer):
+    options = serializers.SerializerMethodField()
+
+    def get_options(self, obj):
+        return get_options_serializer(self, obj)
+
+    class Meta:
+        model = CommunityEvent
+        fields = [
+            "title",
+            "description",
+            "time",
+            "end_time",
+            "group_id",
+            "frequency",
+            "options",
+            "link",
+            "image",
+            "custom_filter",
+            "active",
+            "id",
+        ]
