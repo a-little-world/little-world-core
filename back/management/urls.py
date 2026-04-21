@@ -94,6 +94,16 @@ user_data_apis = [
     path("api/matches", matches.matches, name="matches_api"),
     *user_api_urls,
     path("api/community", community_events.community_events, name="community_events_api"),
+    path(
+        "api/admin/community_events/",
+        community_events.admin_community_events,
+        name="admin_community_events_api",
+    ),
+    path(
+        "api/admin/community_events/<int:pk>/",
+        community_events.admin_community_event_detail,
+        name="admin_community_event_detail_api",
+    ),
     path("api/translations", trans.api_translations, name="api_translations_api"),
     path("api/firebase", firebase.firebase_config, name="firebase_config_api"),
 ]

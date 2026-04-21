@@ -7,6 +7,7 @@ from management.api.user_advanced_filter import (
     EXTRA__learners_with_activity_in_last3weeks,
     EXTRA__lingoda_learners_scoring,
     EXTRA__lingoda_users,
+    EXTRA__refugee_learners_scoring,
     EXTRA__volunteers_with_activity_in_last3weeks,
     all_users,
     get_active_match_query_set,
@@ -258,6 +259,7 @@ USER_JOURNEY_FILTER_LISTS = [
     FilterListEntry(
         "EXTRA__fh_aachen_learners_scoring", "FH Aachen learners for scoring", EXTRA__fh_aachen_learners_scoring
     ),
+    FilterListEntry("EXTRA__refugee_learners_scoring", "Refugee learners for scoring", EXTRA__refugee_learners_scoring),
     FilterListEntry(
         "EXTRA__learners_with_activity_in_last3weeks",
         "Learners with activity in the last 3 weeks",
