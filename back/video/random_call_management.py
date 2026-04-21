@@ -1,6 +1,5 @@
 from datetime import timedelta
 
-from django.db.models import Q
 from django.urls import path
 from django.utils import timezone
 from django_celery_results.models import TaskResult
@@ -20,7 +19,10 @@ from video.models import (
     RandomCallLobbyUser,
     RandomCallMatching,
 )
-from video.random_calls import is_lobby_active
+from video.random_calls import (
+    get_pending_random_call_matching_qs_for_user,
+    is_lobby_active,
+)
 
 
 class RandomCallLobbyManagementSerializer(serializers.Serializer):
@@ -46,8 +48,10 @@ class RandomCallMatchSerializer(serializers.Serializer):
     uuid = serializers.CharField()
     u1_hash = serializers.CharField()
     u1_name = serializers.CharField()
+    u1_user_type = serializers.CharField()
     u2_hash = serializers.CharField()
     u2_name = serializers.CharField()
+    u2_user_type = serializers.CharField()
     u1_accepted = serializers.BooleanField()
     u2_accepted = serializers.BooleanField()
     accepted = serializers.BooleanField()
@@ -114,9 +118,7 @@ def get_lobby_management_overview(request, lobby_name="default"):
     for lobby_user in active_lobby_users:
         user = lobby_user.user
         # Check if user has pending match
-        has_pending_match = RandomCallMatching.objects.filter(
-            Q(u1=user) | Q(u2=user), lobby=lobby, rejected=False, accepted=False
-        ).exists()
+        has_pending_match = get_pending_random_call_matching_qs_for_user(user, lobby).exists()
 
         active_users_data.append(
             {
@@ -145,8 +147,10 @@ def get_lobby_management_overview(request, lobby_name="default"):
             "uuid": str(match.uuid),
             "u1_hash": match.u1.hash,
             "u1_name": f"{match.u1.profile.first_name}",
+            "u1_user_type": match.u1.profile.user_type,
             "u2_hash": match.u2.hash,
             "u2_name": f"{match.u2.profile.first_name}",
+            "u2_user_type": match.u2.profile.user_type,
             "u1_accepted": match.u1_accepted,
             "u2_accepted": match.u2_accepted,
             "accepted": match.accepted,
@@ -269,6 +273,7 @@ def reset_default_lobby(request, lobby_name="default"):
 class CreateLobbySerializer(serializers.Serializer):
     start_time = serializers.DateTimeField()
     end_time = serializers.DateTimeField()
+    match_proposal_timeout = serializers.IntegerField(required=False, min_value=1, default=60)
 
 
 @api_view(["POST"])
@@ -284,12 +289,13 @@ def create_lobby(request, lobby_name):
 
     start_time = serializer.validated_data["start_time"]
     end_time = serializer.validated_data["end_time"]
+    match_proposal_timeout = serializer.validated_data.get("match_proposal_timeout", 60)
     current_time = timezone.now()
 
-    # Validate that start_time is in the future
-    if start_time <= current_time:
+    # Validate that start_time is not before today (today is allowed, even if earlier than now)
+    if start_time.date() < current_time.date():
         return Response(
-            {"error": "Start time must be in the future"},
+            {"error": "Start time must be today or in the future"},
             status=400,
         )
 
@@ -306,7 +312,7 @@ def create_lobby(request, lobby_name):
         start_time=start_time,
         end_time=end_time,
         user_online_state_timeout=10,
-        match_proposal_timeout=30,
+        match_proposal_timeout=match_proposal_timeout,
         video_call_timeout=60 * 10,
     )
 

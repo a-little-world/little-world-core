@@ -68,6 +68,23 @@ def is_lobby_active(lobby):
     return True
 
 
+def get_pending_random_call_matching_qs_for_user(user, lobby):
+    """
+    Shared "pending random call match" queryset used by both user-facing and management endpoints.
+    Keep this in one place so both views evaluate the same rows.
+    """
+    return RandomCallMatching.objects.filter(
+        Q(u1=user) | Q(u2=user),
+        lobby=lobby,
+        rejected=False,
+        both_requested_room_token=False,
+        completed=False,
+        both_confirmed_rejection=False,
+        in_session=False,
+        expired=False,
+    ).order_by("-pk")
+
+
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
@@ -158,20 +175,27 @@ def get_random_call_lobby_status(request, lobby_uuid):
         "match_proposal_timeout": lobby.match_proposal_timeout,
         "matching": None,
     }
+
     # 4 - check the users lobby status
-    # Show matchings that are not rejected and not in a session yet
-    random_call_matching = RandomCallMatching.objects.filter(
+    # pending proposals (rejected=False) win over rejection-notification (rejected=True) so stale
+    pending_matching_qs = get_pending_random_call_matching_qs_for_user(request.user, lobby)
+    rejection_notification_qs = RandomCallMatching.objects.filter(
         Q(u1=request.user) | Q(u2=request.user),
+        rejected=True,
+        lobby=lobby,
         both_requested_room_token=False,
         completed=False,
-        lobby=lobby,
-        # rejected=False, also passing rejected=True is allowed, but not it 'both_confirmed_rejection=True' is set
         both_confirmed_rejection=False,
         in_session=False,
         expired=False,
-    )
-    matching = random_call_matching.first()  # TODO: investigate if there are any edge cases with this being > 1
-    has_matching = random_call_matching.exists()
+    ).order_by("-pk")
+
+    matching = pending_matching_qs.first()
+    if not matching:
+        matching = rejection_notification_qs.first()
+
+    has_matching = matching is not None
+
     if has_matching:
         own_number = 1 if (matching.u1 == request.user) else 2
         partner = matching.u2 if own_number == 1 else matching.u1
@@ -184,7 +208,6 @@ def get_random_call_lobby_status(request, lobby_uuid):
         self_rejected = matching.rejected and (
             not partner_confirmed_rejection
         )  # <-- it was the user itself that rejected
-
         if partner_rejected:
             if own_number == 1:
                 matching.u1_confirmed_rejection = True
@@ -210,7 +233,7 @@ def get_random_call_lobby_status(request, lobby_uuid):
         # TODO: double check if match time-outs are correctly handeled
 
         if self_rejected:
-            # If you rejected yourself, this match is already done...
+            # User rejected the proposal themselves — no `matching` payload (idle / limited client state).
             return Response(response_data)
 
         matching_info = {
