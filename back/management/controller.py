@@ -365,7 +365,7 @@ def match_users(
         usr1.message(match_message.format(other_name=usr2.profile.first_name), auto_mark_read=True)
         usr2.message(match_message.format(other_name=usr1.profile.first_name), auto_mark_read=True)
 
-    if send_email:
+    if send_email and match_type == MatchType.STANDARD:
         usr1.send_email_v2("new-match", match_id=matching_obj.id)
         usr2.send_email_v2("new-match", match_id=matching_obj.id)
 

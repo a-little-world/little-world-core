@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.db.models import Q
 from django.urls import path
 from django.utils import timezone
 from django_celery_results.models import TaskResult
@@ -23,6 +24,33 @@ from video.random_calls import (
     get_pending_random_call_matching_qs_for_user,
     is_lobby_active,
 )
+
+
+def _resolve_management_lobby(lobby_name: str):
+    """
+    Same lobby resolution as the management overview: active lobby for name,
+    else most recent finished lobby with that name.
+    """
+    now = timezone.now()
+    lobby = (
+        RandomCallLobby.objects.filter(
+            name=lobby_name,
+            start_time__lte=now,
+            end_time__gte=now,
+        )
+        .order_by("-id")
+        .first()
+    )
+    if lobby is None:
+        lobby = (
+            RandomCallLobby.objects.filter(
+                name=lobby_name,
+                end_time__lt=now,
+            )
+            .order_by("-end_time")
+            .first()
+        )
+    return lobby
 
 
 class RandomCallLobbyManagementSerializer(serializers.Serializer):
@@ -58,6 +86,7 @@ class RandomCallMatchSerializer(serializers.Serializer):
     rejected = serializers.BooleanField()
     expired = serializers.BooleanField()
     in_session = serializers.BooleanField()
+    created_at = serializers.DateTimeField(allow_null=True, required=False)
 
 
 class RandomCallTaskSerializer(serializers.Serializer):
@@ -83,26 +112,8 @@ def get_lobby_management_overview(request, lobby_name="default"):
     - Match proposals categorized by status (pending, accepted, rejected, expired)
     - Statistics summary
     """
-    # 1 - Retrieve the active lobby with this name, or the most recent one in the past (not future)
     now = timezone.now()
-    lobby = (
-        RandomCallLobby.objects.filter(
-            name=lobby_name,
-            start_time__lte=now,
-            end_time__gte=now,
-        )
-        .order_by("-id")
-        .first()
-    )
-    if lobby is None:
-        lobby = (
-            RandomCallLobby.objects.filter(
-                name=lobby_name,
-                end_time__lt=now,
-            )
-            .order_by("-end_time")
-            .first()
-        )
+    lobby = _resolve_management_lobby(lobby_name)
     if lobby is None:
         return Response({"error": "Lobby not found"}, status=404)
 
@@ -141,6 +152,9 @@ def get_lobby_management_overview(request, lobby_name="default"):
     accepted_matches = []
     rejected_matches = []
     expired_matches = []
+    dangling_matches = []
+
+    proposal_stale_threshold = now - timedelta(seconds=lobby.match_proposal_timeout)
 
     for match in all_matches:
         match_data = {
@@ -157,6 +171,7 @@ def get_lobby_management_overview(request, lobby_name="default"):
             "rejected": match.rejected,
             "expired": match.expired,
             "in_session": match.in_session,
+            "created_at": match.created_at,
         }
 
         # Check if match is expired (users left lobby without accepting/rejecting)
@@ -166,6 +181,14 @@ def get_lobby_management_overview(request, lobby_name="default"):
         # Check if match is expired first (before checking accepted/rejected)
         is_expired = match.expired or (not match.is_processed and (not u1_in_lobby or not u2_in_lobby))
 
+        is_dangling_open = (
+            not match.accepted
+            and not match.rejected
+            and not match.expired
+            and not match.completed
+            and (match.created_at is None or match.created_at <= proposal_stale_threshold)
+        )
+
         if match.accepted:
             accepted_matches.append(match_data)
         elif is_expired:
@@ -173,6 +196,8 @@ def get_lobby_management_overview(request, lobby_name="default"):
             expired_matches.append(match_data)
         elif match.rejected:
             rejected_matches.append(match_data)
+        elif is_dangling_open:
+            dangling_matches.append(match_data)
         elif not match.is_processed:
             # Match is pending and both users still in lobby
             pending_matches.append(match_data)
@@ -184,6 +209,7 @@ def get_lobby_management_overview(request, lobby_name="default"):
         "accepted_count": len(accepted_matches),
         "rejected_count": len(rejected_matches),
         "expired_count": len(expired_matches),
+        "dangling_count": len(dangling_matches),
     }
 
     # 8 - Build response using serializers following the pattern from the codebase
@@ -206,11 +232,88 @@ def get_lobby_management_overview(request, lobby_name="default"):
             "accepted": RandomCallMatchSerializer(accepted_matches, many=True).data,
             "rejected": RandomCallMatchSerializer(rejected_matches, many=True).data,
             "expired": RandomCallMatchSerializer(expired_matches, many=True).data,
+            "dangling": RandomCallMatchSerializer(dangling_matches, many=True).data,
         },
         "statistics": statistics,
     }
 
     return Response(response_data)
+
+
+class ClearUserProposalsSerializer(serializers.Serializer):
+    user_hash = serializers.CharField()
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAdminOrMatchingUser])
+def clear_user_random_call_proposals(request, lobby_name="default"):
+    """
+    Admin API to clear dangling random call proposals for a specific user.
+    Closes dangling random-call matchings where the user is involved.
+    """
+    serializer = ClearUserProposalsSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response({"error": serializer.errors}, status=400)
+
+    user_hash = serializer.validated_data["user_hash"]
+
+    updated_count = RandomCallMatching.objects.filter(
+        Q(u1__hash=user_hash) | Q(u2__hash=user_hash),
+        accepted=False,
+        rejected=False,
+        expired=False,
+        completed=False,
+    ).update(expired=True)
+
+    return Response(
+        {
+            "success": True,
+            "message": "Random call proposals cleared successfully",
+            "updated_count": updated_count,
+            "user_hash": user_hash,
+        },
+        status=200,
+    )
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAdminOrMatchingUser])
+def clear_dangling_random_call_proposals(request, lobby_name="default"):
+    """
+    Admin API: mark all dangling random-call proposals for this lobby as expired.
+
+    Dangling = not accepted, not rejected, not expired, not completed, and
+    created_at is older than lobby.match_proposal_timeout (or created_at is null).
+    """
+    lobby = _resolve_management_lobby(lobby_name)
+    if lobby is None:
+        return Response({"error": "Lobby not found"}, status=404)
+
+    now = timezone.now()
+    proposal_stale_threshold = now - timedelta(seconds=lobby.match_proposal_timeout)
+
+    updated_count = (
+        RandomCallMatching.objects.filter(
+            lobby=lobby,
+            accepted=False,
+            rejected=False,
+            expired=False,
+            completed=False,
+        )
+        .filter(Q(created_at__lte=proposal_stale_threshold) | Q(created_at__isnull=True))
+        .update(expired=True)
+    )
+
+    return Response(
+        {
+            "success": True,
+            "message": "Dangling random call matches cleared",
+            "updated_count": updated_count,
+        },
+        status=200,
+    )
 
 
 @api_view(["POST"])
@@ -528,6 +631,14 @@ api_urls = [
     path(
         "api/random_calls/lobby/<str:lobby_name>/management/reset",
         reset_default_lobby,
+    ),
+    path(
+        "api/random_calls/lobby/<str:lobby_name>/management/clear-user-proposals",
+        clear_user_random_call_proposals,
+    ),
+    path(
+        "api/random_calls/lobby/<str:lobby_name>/management/clear-dangling-proposals",
+        clear_dangling_random_call_proposals,
     ),
     path(
         "api/random_calls/lobby/<str:lobby_name>/management/tasks",
