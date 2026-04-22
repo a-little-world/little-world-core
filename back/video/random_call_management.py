@@ -6,6 +6,7 @@ from django.utils import timezone
 from django_celery_results.models import TaskResult
 from management.authentication import NativeOnlyJWTAuthentication
 from management.helpers import IsAdminOrMatchingUser
+from management.models.profile import Profile
 from rest_framework import serializers
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import (
@@ -67,6 +68,7 @@ class RandomCallUserSerializer(serializers.Serializer):
     uuid = serializers.CharField()
     user_hash = serializers.CharField()
     user_name = serializers.CharField()
+    user_type = serializers.ChoiceField(choices=Profile.TypeChoices.choices, required=True)
     is_active = serializers.BooleanField()
     last_status_checked_at = serializers.DateTimeField(allow_null=True)
     has_pending_match = serializers.BooleanField()
@@ -76,10 +78,10 @@ class RandomCallMatchSerializer(serializers.Serializer):
     uuid = serializers.CharField()
     u1_hash = serializers.CharField()
     u1_name = serializers.CharField()
-    u1_user_type = serializers.CharField()
+    u1_user_type = serializers.ChoiceField(choices=Profile.TypeChoices.choices, required=True)
     u2_hash = serializers.CharField()
     u2_name = serializers.CharField()
-    u2_user_type = serializers.CharField()
+    u2_user_type = serializers.ChoiceField(choices=Profile.TypeChoices.choices, required=True)
     u1_accepted = serializers.BooleanField()
     u2_accepted = serializers.BooleanField()
     accepted = serializers.BooleanField()
@@ -136,6 +138,7 @@ def get_lobby_management_overview(request, lobby_name="default"):
                 "uuid": str(lobby_user.uuid),
                 "user_hash": user.hash,
                 "user_name": f"{user.profile.first_name}",
+                "user_type": user.profile.user_type,
                 "is_active": lobby_user.is_active,
                 "last_status_checked_at": lobby_user.last_status_checked_at.isoformat()
                 if lobby_user.last_status_checked_at
