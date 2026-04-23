@@ -831,40 +831,68 @@ def request_random_call_matching(request, match_uuid):
 
 class RandomCallMatchStatusSerializer(serializers.Serializer):
     partner_timedout_joining = serializers.BooleanField(default=False)
-    pertner_in_session = serializers.BooleanField(default=False)
-    self_in_session = serializers.BooleanField(default=False)
+    partner_active_in_session = serializers.BooleanField(default=False)
+    partner_requested_room_token = serializers.BooleanField(default=False)
+    partner_left_session = serializers.BooleanField(default=False)
+    self_requested_room_token = serializers.BooleanField(default=False)
 
     def to_representation(self, instance):
-        rep = super().to_representation(instance)
         request_user = self.context.get("request_user")
         if not request_user:
             raise serializers.ValidationError("Request user is required")
 
         user_idx = 1 if instance.u1 == request_user else 2
         partner_requested_room_token = (
-            instance.u1_room_token_requested if user_idx == 1 else instance.u2_room_token_requested
+            instance.u2_requested_room_token if user_idx == 1 else instance.u1_requested_room_token
         )
         self_requested_room_token = (
-            instance.u1_room_token_requested if user_idx == 2 else instance.u2_room_token_requested
+            instance.u1_requested_room_token if user_idx == 1 else instance.u2_requested_room_token
         )
 
-        rep["partner_timedout_joining"] = instance.expired and (not partner_requested_room_token)
-        rep["partner_requested_room_token"] = partner_requested_room_token
-        rep["self_requested_room_token"] = self_requested_room_token
+        session = (
+            LivekitSession.objects.filter(
+                Q(u1=instance.u1, u2=instance.u2) | Q(u1=instance.u2, u2=instance.u1),
+                random_call_session=True,
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        partner_active_in_session = False
+        partner_left_session = False
+        if session:
+            if instance.u1 == request_user:
+                partner_active_in_session = session.u2_active
+                partner_was_active_in_session = session.u2_was_active
+            else:
+                partner_active_in_session = session.u1_active
+                partner_was_active_in_session = session.u1_was_active
+            partner_left_session = (not partner_active_in_session) and partner_was_active_in_session
+
         if instance.created_at:
-            rep["count_down_seconds"] = (
+            count_down_seconds = (
                 instance.lobby.video_call_timeout - (timezone.now() - instance.created_at).total_seconds()
             )
         else:
-            rep["count_down_seconds"] = instance.lobby.video_call_timeout
-        return rep
+            count_down_seconds = instance.lobby.video_call_timeout
+
+        return {
+            "partner_timedout_joining": instance.expired and (not partner_requested_room_token),
+            "partner_active_in_session": partner_active_in_session,
+            "partner_requested_room_token": partner_requested_room_token,
+            "partner_left_session": partner_left_session,
+            "self_requested_room_token": self_requested_room_token,
+            "count_down_seconds": count_down_seconds,
+        }
 
 
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def get_random_call_match_status(request, lobby_uuid, match_uuid):
-    lobby = RandomCallLobby.objects.get(uuid=lobby_uuid)
+    lobby = RandomCallLobby.objects.filter(uuid=lobby_uuid).first()
+    if not lobby:
+        return Response({"error": "Lobby not found"}, status=404)
+
     match = RandomCallMatching.objects.filter(uuid=match_uuid, lobby=lobby)
     if not match.exists():
         return Response({"error": "Match not found"}, status=404)
