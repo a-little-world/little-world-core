@@ -366,6 +366,11 @@ class UserFilter(filters.FilterSet):
         help_text="Filter for users that had a prematching call",
     )
 
+    state__user_form_completed = filters.BooleanFilter(
+        method="filter_user_form_completed",
+        help_text="Filter for users who have completed the registration user form",
+    )
+
     state__has_match_priority = filters.BooleanFilter(
         field_name="state__has_match_priority",
         help_text="Filter for users that have match priority",
@@ -446,6 +451,13 @@ class UserFilter(filters.FilterSet):
         if value == "null":
             return queryset.filter(Q(state__company__isnull=True) | Q(state__company=""))
         return queryset.filter(state__company=value)
+
+    def filter_user_form_completed(self, queryset, name, value):
+        if value is True:
+            return queryset.filter(state__user_form_state=State.UserFormStateChoices.FILLED)
+        if value is False:
+            return queryset.filter(state__user_form_state=State.UserFormStateChoices.UNFILLED)
+        return queryset
 
     def filter_country_of_residence(self, queryset, name, value):
         if value == "outside_de":
