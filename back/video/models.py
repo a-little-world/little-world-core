@@ -142,6 +142,8 @@ class RandomCallMatching(models.Model):
     accepted = models.BooleanField(default=False)  # Both users accepted
     rejected = models.BooleanField(default=False)  # At least one user rejected
 
+    accepted_at = models.DateTimeField(null=True, blank=True)
+
     expired = models.BooleanField(default=False)  # The match acceptance timed out without a match being performed
     completed = models.BooleanField(default=False)  # The match was completed (both users left the call)
     completed_at = models.DateTimeField(null=True, blank=True)
