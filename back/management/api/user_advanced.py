@@ -300,6 +300,25 @@ def get_company_choices():
     return choices
 
 
+def get_country_choices():
+    """
+    Return country choices with Germany first and an extra
+    "Outside of Germany" option.
+    """
+    german_code = Profile.CountryChoices.GERMANY
+    outside_germany_code = "outside_de"
+
+    country_choices = list(Profile.CountryChoices.choices)
+    germany_choice = next((choice for choice in country_choices if choice[0] == german_code), None)
+    other_choices = [choice for choice in country_choices if choice[0] != german_code]
+
+    ordered_choices = [germany_choice] if germany_choice else []
+    ordered_choices.append((outside_germany_code, "Outside of Germany"))
+    ordered_choices.extend(other_choices)
+
+    return ordered_choices
+
+
 class UserFilter(filters.FilterSet):
     profile__user_type = filters.ChoiceFilter(
         field_name="profile__user_type",
@@ -328,6 +347,13 @@ class UserFilter(filters.FilterSet):
     profile__job_search = filters.BooleanFilter(
         field_name="profile__job_search",
         help_text="Filter for users that are searching for a job",
+    )
+
+    profile__country_of_residence = filters.ChoiceFilter(
+        field_name="profile__country_of_residence",
+        choices=get_country_choices,
+        method="filter_country_of_residence",
+        help_text="Filter for users by their country of residence",
     )
 
     state__email_authenticated = filters.BooleanFilter(
@@ -432,6 +458,11 @@ class UserFilter(filters.FilterSet):
         if value is False:
             return queryset.filter(state__user_form_state=State.UserFormStateChoices.UNFILLED)
         return queryset
+
+    def filter_country_of_residence(self, queryset, name, value):
+        if value == "outside_de":
+            return queryset.exclude(profile__country_of_residence=Profile.CountryChoices.GERMANY)
+        return queryset.filter(**{name: value})
 
     class Meta:
         model = User

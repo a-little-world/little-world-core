@@ -101,6 +101,7 @@ class DynamicFilterSerializer(serializers.Serializer):
 
 def filterset_schema_dict(filterset, include_lookup_expr=False, view_key="/api/matching/users/", request=None):
     _filters = []
+    translation_lang = request.session.get("lang", "en") if request and hasattr(request, "session") else "en"
     for field_name, filter_instance in filterset.get_filters().items():
         filter_data = {
             "name": field_name,
@@ -114,7 +115,13 @@ def filterset_schema_dict(filterset, include_lookup_expr=False, view_key="/api/m
             choices = choices()
 
         if len(choices):
-            filter_data["choices"] = [{"tag": choice[1], "value": choice[0]} for choice in choices]
+            translated_choices = []
+            for choice_value, choice_label in choices:
+                tag = choice_label
+                if isinstance(choice_label, str) and "." in choice_label:
+                    tag = get_translation(choice_label, lang=translation_lang)
+                translated_choices.append({"tag": tag, "value": choice_value})
+            filter_data["choices"] = translated_choices
 
         if "help_text" in filter_instance.extra:
             filter_data["description"] = filter_instance.extra["help_text"]
