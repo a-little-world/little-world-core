@@ -119,6 +119,7 @@ class RandomCallLobby(models.Model):
     match_proposal_timeout = models.IntegerField(default=10)  # 10 seconds to accept a match proposal
     match_rejection_confirmation_timeout = models.IntegerField(default=10)  # 10 seconds to confirm a rejection
     video_call_timeout = models.IntegerField(default=60 * 10)  # 10 minutes video calls
+    match_accept_timeout = models.IntegerField(default=30)  # 10 seconds to accept a match
 
 
 class RandomCallLobbyUser(models.Model):
@@ -161,6 +162,8 @@ class RandomCallMatching(models.Model):
 
     u1_requested_room_token = models.BooleanField(default=False)
     u2_requested_room_token = models.BooleanField(default=False)
+
+    video_call_join_expired = models.BooleanField(default=False)
 
     # Only required for the reject case on time-out.
     # If one user rejects by timeout, the 'match' object still has to wait for 'clearing' untill the other user confirmed
