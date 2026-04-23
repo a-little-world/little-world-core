@@ -20,8 +20,11 @@ class LiveKitRoom(models.Model):
     u2 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u2_livekit_room")
 
     @classmethod
-    def get_room(cls, user1, user2):
-        return cls.objects.get(Q(u1=user1, u2=user2) | Q(u1=user2, u2=user1))
+    def get_room(cls, user1, user2, random_call_room=False):
+        return cls.objects.get(
+            Q(u1=user1, u2=user2, random_call_room=random_call_room)
+            | Q(u1=user2, u2=user1, random_call_room=random_call_room)
+        )
 
     @classmethod
     def get_or_create_room(cls, user1, user2):
