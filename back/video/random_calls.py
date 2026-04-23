@@ -82,6 +82,17 @@ def get_pending_random_call_matching_qs_for_user(user, lobby):
         both_confirmed_rejection=False,
         in_session=False,
         expired=False,
+        video_call_join_expired=False,
+    ).order_by("-pk")
+
+
+def get_accepted_matchings_expired_join_qs_for_user(user, lobby):
+    return RandomCallMatching.objects.filter(
+        Q(u1=user) | Q(u2=user),
+        lobby=lobby,
+        accepted=True,
+        accepted_at__lt=timezone.now() - timedelta(seconds=lobby.match_accept_timeout),
+        video_call_join_expired=False,
     ).order_by("-pk")
 
 
@@ -178,7 +189,14 @@ def get_random_call_lobby_status(request, lobby_uuid):
 
     # 4 - check the users lobby status
     # pending proposals (rejected=False) win over rejection-notification (rejected=True) so stale
+    accepted_matchings_expired_join = get_accepted_matchings_expired_join_qs_for_user(request.user, lobby)
+    if accepted_matchings_expired_join.exists():
+        # - auto reject all existing matchings
+        accepted_matchings_expired_join.update(accepted=False, rejected=True, video_call_join_expired=True)
     pending_matching_qs = get_pending_random_call_matching_qs_for_user(request.user, lobby)
+    pending_matching_qs = pending_matching_qs.exclude(
+        uuid__in=accepted_matchings_expired_join.values_list("uuid", flat=True)
+    )
     rejection_notification_qs = RandomCallMatching.objects.filter(
         Q(u1=request.user) | Q(u2=request.user),
         rejected=True,
@@ -291,6 +309,7 @@ def accept_random_call_match(request, lobby_uuid, match_uuid):
     # 6 - check if both users accepted
     if match.u1_accepted and match.u2_accepted:
         match.accepted = True
+        match.accepted_at = timezone.now()
         # Create LiveKitRoom for the match
         LiveKitRoom.objects.get_or_create(u1=match.u1, u2=match.u2, random_call_room=True)
 
@@ -835,6 +854,7 @@ class RandomCallMatchStatusSerializer(serializers.Serializer):
     partner_requested_room_token = serializers.BooleanField(default=False)
     partner_left_session = serializers.BooleanField(default=False)
     self_requested_room_token = serializers.BooleanField(default=False)
+    remaining_video_call_join_time = serializers.IntegerField(default=0)
 
     def to_representation(self, instance):
         request_user = self.context.get("request_user")
@@ -859,13 +879,14 @@ class RandomCallMatchStatusSerializer(serializers.Serializer):
         )
         partner_active_in_session = False
         partner_left_session = False
+        partner_was_active_in_session = False
         if session:
             if instance.u1 == request_user:
                 partner_active_in_session = session.u2_active
-                partner_was_active_in_session = session.u2_was_active
+                partner_was_active_in_session = session.u2_was_active or session.u2_active
             else:
                 partner_active_in_session = session.u1_active
-                partner_was_active_in_session = session.u1_was_active
+                partner_was_active_in_session = session.u1_was_active or session.u1_active
             partner_left_session = (not partner_active_in_session) and partner_was_active_in_session
 
         if instance.created_at:
@@ -875,13 +896,23 @@ class RandomCallMatchStatusSerializer(serializers.Serializer):
         else:
             count_down_seconds = instance.lobby.video_call_timeout
 
+        remaining_video_call_join_time = (
+            instance.lobby.match_accept_timeout - (timezone.now() - instance.accepted_at).total_seconds()
+        )
+
+        # possible states:
+        # - waiting for partner to join
+        # - partner missed joining
+        # - partner disconnected
+
         return {
-            "partner_timedout_joining": instance.expired and (not partner_requested_room_token),
+            "partner_timedout_joining": (remaining_video_call_join_time <= 0) and (not partner_was_active_in_session),
             "partner_active_in_session": partner_active_in_session,
             "partner_requested_room_token": partner_requested_room_token,
             "partner_left_session": partner_left_session,
             "self_requested_room_token": self_requested_room_token,
             "count_down_seconds": count_down_seconds,
+            "remaining_video_call_join_time": remaining_video_call_join_time,
         }
 
 
