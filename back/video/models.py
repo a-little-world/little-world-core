@@ -20,8 +20,11 @@ class LiveKitRoom(models.Model):
     u2 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u2_livekit_room")
 
     @classmethod
-    def get_room(cls, user1, user2):
-        return cls.objects.get(Q(u1=user1, u2=user2) | Q(u1=user2, u2=user1))
+    def get_room(cls, user1, user2, random_call_room=False):
+        return cls.objects.get(
+            Q(u1=user1, u2=user2, random_call_room=random_call_room)
+            | Q(u1=user2, u2=user1, random_call_room=random_call_room)
+        )
 
     @classmethod
     def get_or_create_room(cls, user1, user2):
@@ -119,6 +122,7 @@ class RandomCallLobby(models.Model):
     match_proposal_timeout = models.IntegerField(default=10)  # 10 seconds to accept a match proposal
     match_rejection_confirmation_timeout = models.IntegerField(default=10)  # 10 seconds to confirm a rejection
     video_call_timeout = models.IntegerField(default=60 * 10)  # 10 minutes video calls
+    match_accept_timeout = models.IntegerField(default=30)  # 10 seconds to accept a match
 
 
 class RandomCallLobbyUser(models.Model):
@@ -142,6 +146,8 @@ class RandomCallMatching(models.Model):
     accepted = models.BooleanField(default=False)  # Both users accepted
     rejected = models.BooleanField(default=False)  # At least one user rejected
 
+    accepted_at = models.DateTimeField(null=True, blank=True)
+
     expired = models.BooleanField(default=False)  # The match acceptance timed out without a match being performed
     completed = models.BooleanField(default=False)  # The match was completed (both users left the call)
     completed_at = models.DateTimeField(null=True, blank=True)
@@ -159,6 +165,8 @@ class RandomCallMatching(models.Model):
 
     u1_requested_room_token = models.BooleanField(default=False)
     u2_requested_room_token = models.BooleanField(default=False)
+
+    video_call_join_expired = models.BooleanField(default=False)
 
     # Only required for the reject case on time-out.
     # If one user rejects by timeout, the 'match' object still has to wait for 'clearing' untill the other user confirmed

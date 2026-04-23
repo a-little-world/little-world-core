@@ -604,7 +604,7 @@ def send_sms_background(self, user_hash, message):
         # This is mianly cause prices are very high, they are per-segment and differnet for every country
         # our sms have 3-10 segemtns, so this get quite expensive quickly
         country_code = str(receipient.profile.phone_mobile.country_code)
-        if (receipient.company not in settings.MATCH_PRIORITY_COMPANIES) and (country_code != "49"):
+        if (receipient.state.company not in settings.MATCH_PRIORITY_COMPANIES) and (country_code != "49"):
             receipient.sms(
                 send_initator=get_base_management_user(),
                 message=message,
