@@ -84,17 +84,22 @@ def random_call_lobby_perform_matching(lobby_uuid):
 def cleanup_inactive_lobby_users(lobby_uuid):
     lobby = RandomCallLobby.objects.get(uuid=lobby_uuid)
 
-    open_proposals = RandomCallMatching.objects.filter(lobby=lobby, accepted=False, rejected=False)
+    # open_proposals = RandomCallMatching.objects.filter(lobby=lobby, accepted=False, rejected=False)
     # Get u1_id and u2_id separately and combine them into a single set
-    u1_ids = open_proposals.values_list("u1_id", flat=True)
-    u2_ids = open_proposals.values_list("u2_id", flat=True)
-    open_proposals_user_ids = set(list(u1_ids) + list(u2_ids))
+    # u1_ids = open_proposals.values_list("u1_id", flat=True)
+    # u2_ids = open_proposals.values_list("u2_id", flat=True)
+    # open_proposals_user_ids = set(list(u1_ids) + list(u2_ids))
 
     lobby_users = RandomCallLobbyUser.objects.filter(
         lobby=lobby,
         is_active=True,
         last_status_checked_at__lt=timezone.now() - timedelta(seconds=lobby.user_online_state_timeout),
-    ).exclude(user_id__in=open_proposals_user_ids)
+    )
+    # TODO: Changes: Overserve different behavior!
+    # .exclude(user_id__in=open_proposals_user_ids) <-- was removed
+    # before: We waited for the match to expire, before setting the user to inactive
+    # now: We set the user to inactive immediately, the match expires indepenenctly
+    # TODO: check if we need another callback for 'User-left' and if this should also directly auto-reject?
     lobby_users.update(is_active=False)
 
     cleaned_user_ids = list(lobby_users.values_list("user_id", flat=True))
