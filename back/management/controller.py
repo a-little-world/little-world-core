@@ -326,10 +326,17 @@ def match_users(
     if create_livekit_room:
         from video.models import LiveKitRoom
 
-        if not (LiveKitRoom.objects.filter(Q(u1=usr1, u2=usr2) | Q(u1=usr2, u2=usr1)).exists()):
+        is_random_call_matching = match_type == MatchType.RANDOM_CALL
+
+        if not (
+            LiveKitRoom.objects.filter(
+                Q(u1=usr1, u2=usr2) | Q(u1=usr2, u2=usr1), random_call_room=is_random_call_matching
+            ).exists()
+        ):
             LiveKitRoom.objects.create(
                 u1=usr1,
                 u2=usr2,
+                random_call_room=is_random_call_matching,
             )
 
     if create_dialog:
