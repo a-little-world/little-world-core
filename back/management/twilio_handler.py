@@ -1,7 +1,7 @@
 """
-Handler for twilio video room authentication
+Handler for twilio video room authentication.
 This takes care of
-- creating / deleting video rooms ( they are stored in models.rooms.Room )
+- creating / deleting video rooms
 - authenticating video rooms
 - completing rooms ( marking them as completed, when both parties disconnect )
 """

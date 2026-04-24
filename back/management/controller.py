@@ -448,11 +448,11 @@ def unmatch_users(users: set, delete_video_room=True, delete_dialog=True, unmatc
     )
     match.save()
 
-    # Then disable the video room
+    # Then remove the persistent livekit room for this match
     if delete_video_room:
-        from .models.rooms import get_rooms_match
+        from video.models import LiveKitRoom
 
-        get_rooms_match(usr1, usr2).delete()
+        LiveKitRoom.objects.filter(Q(u1=usr1, u2=usr2) | Q(u1=usr2, u2=usr1), random_call_room=False).delete()
 
     return PastMatch.objects.create(user1=usr1, user2=usr2, who_unmatched=unmatcher)
 
