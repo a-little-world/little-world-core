@@ -16,7 +16,6 @@ from management import controller
 from management.models.matches import Match
 from management.models.past_matches import PastMatch
 from management.models.profile import Profile
-from management.models.rooms import Room
 from management.models.scores import TwoUserMatchingScore
 from management.models.settings import Settings
 from management.models.state import State
@@ -277,8 +276,7 @@ def match_users(
     send_notification=True,
     send_message=True,
     send_email=True,
-    create_dialog=True,
-    create_video_room=True,
+    create_chat=True,
     create_livekit_room=True,
     set_unconfirmed=True,
     set_to_idle=True,
@@ -326,32 +324,25 @@ def match_users(
     if create_livekit_room:
         from video.models import LiveKitRoom
 
-        is_random_call_matching = match_type == MatchType.RANDOM_CALL
-
-        if not (
-            LiveKitRoom.objects.filter(
-                Q(u1=usr1, u2=usr2) | Q(u1=usr2, u2=usr1), random_call_room=is_random_call_matching
-            ).exists()
-        ):
+        # Every user need a normal video room, even for random call matches!
+        if not (LiveKitRoom.objects.filter(Q(u1=usr1, u2=usr2) | Q(u1=usr2, u2=usr1), random_call_room=False).exists()):
             LiveKitRoom.objects.create(
                 u1=usr1,
                 u2=usr2,
-                random_call_room=is_random_call_matching,
+                random_call_room=False,
             )
 
-    if create_dialog:
+    if create_chat:
         # After the users are registered as matches
         # we still need to create a dialog for them
-        chat = Chat.get_or_create_chat(usr1, usr2)
-        if match_type == MatchType.RANDOM_CALL:
-            chat.is_temporary = False
-            chat.save(update_fields=["is_temporary"])
-    elif match_type == MatchType.RANDOM_CALL:
-        Chat.objects.filter(Q(u1=usr1, u2=usr2) | Q(u1=usr2, u2=usr1)).update(is_temporary=False)
-
-    if create_video_room:
-        # TODO: @tbscode / check / remove temporary room for the random call case
-        Room.objects.create(usr1=usr1, usr2=usr2)
+        chat = Chat.objects.filter(Q(u1=usr1, u2=usr2) | Q(u1=usr2, u2=usr1))
+        if not chat.exists():
+            chat = Chat.objects.create(u1=usr1, u2=usr2)
+        else:
+            chat = chat.first()
+            if chat.is_temporary:
+                chat.is_temporary = False
+                chat.save(update_fields=["is_temporary"])
 
     if send_notification:
         # send sms message ( only if the user enabled sms notifications )
