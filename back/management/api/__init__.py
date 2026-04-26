@@ -1,5 +1,6 @@
 from . import (
     app_integrity,
+    banner,
     calcom,
     community_events,
     confirm_match,
@@ -26,6 +27,7 @@ from . import (
 
 __all__ = [
     "app_integrity",
+    "banner",
     "register",
     "user",
     "profile",
