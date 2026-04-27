@@ -2,6 +2,7 @@ import pgeocode
 from django.db import models
 
 from management.models.profile import Profile
+from management.models.state import State
 
 
 class CustomFilterChoices(models.TextChoices):
@@ -11,6 +12,8 @@ class CustomFilterChoices(models.TextChoices):
     VOLUNTEERS = "volunteers", "volunteers"
     LEARNERS = "learners", "learners"
     LEARNERS_OUTSIDE_GERMANY = "learners_outside_germany", "learners_outside_germany"
+    RANDOM_CALL_USERS = "random_call_users", "random_call_users"
+    MATCH_ELIGIBLE_USERS = "match_eligible_users", "match_eligible_users"
     NRW_RESIDENTS = "nrw_residents", "nrw_residents"
     NONE = "none", "None"
 
@@ -54,6 +57,24 @@ def filter__nrw_residents(user):
     return user.profile.country_of_residence == "DE" and distance < nrw_radius
 
 
+def filter__random_call_users(user):
+    """Same criteria as USER endpoint hasRandomCallAccess (beta flag or dev email)."""
+    if "herrduenschnlate+" in str(user.email):
+        return True
+    return user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.USE_BETA_RANDOM_CALL)
+
+
+def filter__match_eligible_users(user):
+    """Onboarded users, excluding learners blocked by A1/A2 rules or outside-Germany learner rules."""
+    if not user.state.is_onboarded:
+        return False
+    if filter__learners_with_a1a2(user):
+        return False
+    if filter__learners_outside_germany(user):
+        return False
+    return True
+
+
 FILTER_FUNC_MAP = {
     CustomFilterChoices.CAPEGEMINI: filter__learners_above_a1a2,
     CustomFilterChoices.LEARNERS_WITH_A1A2: filter__learners_with_a1a2,
@@ -61,5 +82,7 @@ FILTER_FUNC_MAP = {
     CustomFilterChoices.VOLUNTEERS: filter__volunteers,
     CustomFilterChoices.LEARNERS: filter__learners,
     CustomFilterChoices.LEARNERS_OUTSIDE_GERMANY: filter__learners_outside_germany,
+    CustomFilterChoices.RANDOM_CALL_USERS: filter__random_call_users,
+    CustomFilterChoices.MATCH_ELIGIBLE_USERS: filter__match_eligible_users,
     CustomFilterChoices.NRW_RESIDENTS: filter__nrw_residents,
 }

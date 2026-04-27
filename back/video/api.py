@@ -60,7 +60,7 @@ def authenticate_live_kit_room(request):
     chat = ChatSerializer(Chat.get_chat([user, partner]), context={"user": user}).data
 
     # 2 - the room MUST exist for the user and the partner ( will error if not )
-    livekit_room = LiveKitRoom.get_room(user, partner)
+    livekit_room = LiveKitRoom.get_room(user, partner, random_call_room=False)
 
     # 3 make sure the livekit room is active
     loop = asyncio.new_event_loop()
@@ -151,7 +151,8 @@ def active_call_rooms(request):
         # find all active calls
         all_active_rooms = LivekitSession.objects.filter(
             Q(room__u1=user, is_active=True, u2_active=True, u1_active=False)
-            | Q(room__u2=user, is_active=True, u1_active=True, u2_active=False)
+            | Q(room__u2=user, is_active=True, u1_active=True, u2_active=False),
+            random_call_session=False,
         )
 
         return Response(SerializeLivekitSession(all_active_rooms, context={"user": user}, many=True).data)
