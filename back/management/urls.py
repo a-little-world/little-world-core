@@ -6,6 +6,7 @@ from rest_framework.routers import DefaultRouter
 from management.api import (
     ai,
     app_integrity,
+    banner,
     calcom,
     community_events,
     confirm_match,
@@ -103,6 +104,16 @@ user_data_apis = [
         "api/admin/community_events/<int:pk>/",
         community_events.admin_community_event_detail,
         name="admin_community_event_detail_api",
+    ),
+    path(
+        "api/admin/banners/",
+        banner.admin_banners,
+        name="admin_banners_api",
+    ),
+    path(
+        "api/admin/banners/<int:pk>/",
+        banner.admin_banner_detail,
+        name="admin_banner_detail_api",
     ),
     path("api/translations", trans.api_translations, name="api_translations_api"),
     path("api/firebase", firebase.firebase_config, name="firebase_config_api"),
