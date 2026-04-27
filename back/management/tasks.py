@@ -1293,6 +1293,9 @@ def daily_auto_email_report():
     message_parts.append("")
     message_parts.append("*Emails Compact Summary:*")
 
+    def slack_link(url, label):
+        return f"<{url}|{label}>"
+
     for template in check_emails:
         if email_counts.get(template, 0) == 0:
             continue
@@ -1300,10 +1303,10 @@ def daily_auto_email_report():
         template_url = f"{settings.BASE_URL}/matching/emails/{template}"
         users_for_template = template_users.get(template, {})
         user_links = " ".join(
-            f"[{user.id}]({settings.BASE_URL}/matching/user/{user.id}?tab=emails)"
+            slack_link(f"{settings.BASE_URL}/matching/user/{user.id}?tab=emails", user.id)
             for user in sorted(users_for_template.values(), key=lambda u: u.id)
         )
-        message_parts.append(f"- [{template}]({template_url}) - {user_links or 'no users'}")
+        message_parts.append(f"- {slack_link(template_url, template)} - {user_links or 'no users'}")
 
     message = "\n".join(message_parts)
     notify_security_channel(message)

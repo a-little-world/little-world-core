@@ -162,7 +162,6 @@ def exit_random_call_lobby(request, lobby_uuid):
         # - auto reject all existing sessions
         sessions.update(is_active=False)
     cleanup_inactive_lobby_users.apply_async(args=[str(lobby.uuid)], countdown=lobby.user_online_state_timeout)
-    # TODO: also make sure other users cannot still dangle in random call sessions
     return Response("You have been removed from the lobby")
 
 
@@ -246,9 +245,9 @@ def get_random_call_lobby_status(request, lobby_uuid):
             matching.u2_confirmed_rejection = True
             matching.save()
 
-        # TODO: make sure dangeling 'rejections' are cleared
-        # TODO: make sure dangeling 'suggestions' are also cleared
-        # TODO: double check if match time-outs are correctly handeled
+        # rejections must be viewed before re-match handled via 'both_confirmed_rejection' flag
+        # dangeling suggestion time-out through 'expired' flag
+        # dangeling accepted matches time-out through 'video_call_join_expired' flag
 
         if self_rejected:
             # User rejected the proposal themselves — no `matching` payload (idle / limited client state).

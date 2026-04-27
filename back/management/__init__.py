@@ -18,6 +18,5 @@ __all__ = [
     "tasks",
     "urls",
     "validators",
-    "twilio_handler",
     "user_journey",
 ]
