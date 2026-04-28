@@ -84,6 +84,68 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
         return representation
 
 
+class ExportMatchSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Match
+        fields = [
+            "uuid",
+            "created_at",
+            "updated_at",
+            "match_type",
+            "active",
+            "confirmed",
+            "latest_interaction_at",
+            "notes",
+            "total_messages_counter",
+            "total_mutal_video_calls_counter",
+            "completed_off_plattform",
+        ]
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+
+        representation["user1"] = {
+            "id": instance.user1.id,
+            "hash": instance.user1.hash,
+            "email": instance.user1.email,
+            "has_match_priority": instance.user1.state.has_match_priority,
+            "profile": {
+                "first_name": instance.user1.profile.first_name,
+                "second_name": instance.user1.profile.second_name,
+                "user_type": instance.user1.profile.user_type,
+            },
+        }
+        representation["user2"] = {
+            "id": instance.user2.id,
+            "hash": instance.user2.hash,
+            "email": instance.user2.email,
+            "has_match_priority": instance.user2.state.has_match_priority,
+            "profile": {
+                "first_name": instance.user2.profile.first_name,
+                "second_name": instance.user2.profile.second_name,
+                "user_type": instance.user2.profile.user_type,
+            },
+        }
+
+        if instance.confirmed:
+            representation["status"] = "confirmed"
+        elif instance.support_matching:
+            representation["status"] = "support"
+        else:
+            representation["status"] = "unconfirmed"
+
+        if not instance.active:
+            representation["status"] = "reported_or_removed"
+
+        bucket = determine_match_bucket(instance.pk)
+        if bucket is not None:
+            representation["bucket"] = bucket
+        else:
+            representation["bucket"] = "unknown"
+
+        return representation
+
+
 class MatchFilter(filters.FilterSet):
     user1 = filters.ModelChoiceFilter(field_name="user1", queryset=User.objects.all(), help_text="Filter for user1")
 
@@ -100,6 +162,10 @@ class MatchFilter(filters.FilterSet):
     active = filters.BooleanFilter(field_name="active", help_text="Filter for active matches")
 
     confirmed = filters.BooleanFilter(field_name="confirmed", help_text="Filter for confirmed matches")
+    completed_off_plattform = filters.BooleanFilter(
+        field_name="completed_off_plattform",
+        help_text="Filter for matches completed off platform",
+    )
 
     match_type = filters.ChoiceFilter(
         field_name="match_type",
@@ -126,15 +192,24 @@ class MatchFilter(filters.FilterSet):
     )
 
     def filter_list(self, queryset, name, value):
-        selected_filter = next(filter(lambda entry: entry.name == value, MATCH_JOURNEY_FILTERS))
-        if selected_filter.queryset:
+        selected_filter = next(filter(lambda entry: entry.name == value, MATCH_JOURNEY_FILTERS), None)
+        if selected_filter and selected_filter.queryset:
             return selected_filter.queryset(queryset)
-        else:
-            return queryset
+        return queryset
 
     class Meta:
         model = Match
-        fields = ["uuid", "created_at", "updated_at", "active", "confirmed", "match_type", "user1", "user2"]
+        fields = [
+            "uuid",
+            "created_at",
+            "updated_at",
+            "active",
+            "confirmed",
+            "completed_off_plattform",
+            "match_type",
+            "user1",
+            "user2",
+        ]
 
 
 @extend_schema_view(
@@ -231,6 +306,13 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
             self.check_object_permissions(self.request, obj)
             return obj
 
+    @action(detail=False, methods=["get"])
+    def export(self, request):
+        queryset = self.filter_queryset(self.get_queryset())
+        serializer = ExportMatchSerializer(queryset, many=True)
+
+        return Response(serializer.data)
+
     @action(detail=True, methods=["post"])
     def set_completed_off_plattform(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -257,6 +339,7 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
 
 api_urls = [
     path("api/matching/matches/", AdvancedMatchViewset.as_view({"get": "list"})),
+    path("api/matching/matches_export/", AdvancedMatchViewset.as_view({"get": "export"})),
     path("api/matching/matches/filters/", AdvancedMatchViewset.as_view({"get": "get_filter_schema"})),
     path("api/matching/matches/<pk>/", AdvancedMatchViewset.as_view({"get": "retrieve"})),
     path("api/matching/matches/<pk>/resolve/", AdvancedMatchViewset.as_view({"post": "resolve_match"})),
