@@ -24,7 +24,7 @@ from tracking import utils
 from tracking.models import Event
 from translations import get_translation
 
-from management.authentication import NativeOnlyJWTAuthentication
+from management.authentication import NativeOnlyJWTAuthentication, silent
 from management.controller import UserNotFoundErr, delete_user, get_user, get_user_by_email, get_user_by_hash
 from management.models.banner import Banner, BannerSerializer
 from management.models.matches import Match
@@ -662,7 +662,7 @@ def user_profile(request):
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
-@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@authentication_classes([silent(SessionAuthentication), silent(NativeOnlyJWTAuthentication)])
 def is_authenticated(request):
     """
     Returns whether the user is authenticated.

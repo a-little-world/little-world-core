@@ -28,3 +28,18 @@ class NativeOnlyJWTAuthentication(SimpleJWTAuthentication):
             return None
 
         return user, validated_token
+
+
+def silent(auth_class):
+    """Wraps an authentication class so it never raises — returns None on any failure instead."""
+
+    class SilentAuth(auth_class):
+        def authenticate(self, request):
+            try:
+                return super().authenticate(request)
+            except Exception:
+                return None
+
+    SilentAuth.__name__ = f"Silent{auth_class.__name__}"
+    SilentAuth.__qualname__ = f"Silent{auth_class.__qualname__}"
+    return SilentAuth
