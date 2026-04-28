@@ -202,7 +202,7 @@ class State(models.Model):
             "uncensored-admin-matcher",
             _("Is allowed to match users without censorship"),
         )
-        USE_BETA_RANDOM_CALL = "use-beta-random-call", _("Is allowed to use the beta random call")
+        USE_RANDOM_CALLS = "use-random-calls", _("Is allowed to use the random calls feature")
 
     extra_user_permissions = MultiSelectField(
         max_length=8000,
@@ -291,6 +291,19 @@ class State(models.Model):
             return False
 
         return permission in self.extra_user_permissions
+
+    def set_extra_user_permission(self, permission, enabled: bool):
+        existing_permissions = list(self.extra_user_permissions or [])
+
+        if enabled and permission not in existing_permissions:
+            existing_permissions.append(permission)
+        if (not enabled) and permission in existing_permissions:
+            existing_permissions.remove(permission)
+
+        self.extra_user_permissions = existing_permissions
+
+    def set_random_calls_access(self, enabled: bool):
+        self.set_extra_user_permission(self.ExtraUserPermissionChoices.USE_RANDOM_CALLS, enabled)
 
     def regnerate_email_auth_code(self, set_to_unauthenticated=True):
         # We do not log old auth codes, donsnt realy matter
