@@ -741,20 +741,25 @@ def community_calls(qs=User.objects.all(), last_x_days=28 * 3):
     """
     selected_fields = ["id"]  # Adjust these fields as needed for your User model
 
-    users_in_signup = (
-        user_created(qs)
-        .values(*selected_fields)
-        .union(
-            user_form_completed(qs).values(*selected_fields),
-            email_verified(qs).values(*selected_fields),
-            booked_onboarding_call(qs).values(*selected_fields),
-            self_onboarding_started_no_booked_call(qs).values(*selected_fields),
-            first_search_v2(qs).values(*selected_fields),
-        )
+    onboarded_unmatched_users = qs.filter(state__is_onboarded=True, state__has_received_first_match=False).values(
+        *selected_fields
     )
-    users_in_signup = User.objects.filter(id__in=users_in_signup).distinct()
+    learners_with_completed_form_outside_germany = (
+        user_form_completed(qs)
+        .filter(
+            profile__user_type=Profile.TypeChoices.LEARNER,
+            profile__country_of_residence__isnull=False,
+            state__force_match_eligible=False,
+        )
+        .exclude(profile__country_of_residence="DE")
+        .values(*selected_fields)
+    )
 
-    users_in_signup = users_in_signup.filter(date_joined__gte=days_ago(last_x_days))
+    users_without_match = User.objects.filter(
+        id__in=onboarded_unmatched_users.union(learners_with_completed_form_outside_germany)
+    ).values(*selected_fields)
+    users_without_match = User.objects.filter(id__in=users_without_match).distinct()
+    users_without_match = users_without_match.filter(date_joined__gte=days_ago(last_x_days))
 
     prematching_users = (
         pre_matching(qs)
@@ -767,7 +772,7 @@ def community_calls(qs=User.objects.all(), last_x_days=28 * 3):
 
     prematching_users = User.objects.filter(id__in=prematching_users).distinct()
 
-    all_users = users_in_signup.values(*selected_fields).union(prematching_users.values(*selected_fields))
+    all_users = users_without_match.values(*selected_fields).union(prematching_users.values(*selected_fields))
     all_distinct_users = User.objects.filter(id__in=all_users).distinct()
 
     return all_distinct_users

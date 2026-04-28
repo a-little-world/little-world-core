@@ -366,16 +366,6 @@ msgstr "Nutzer existiert nicht"
 msgid "You can not report a support match!"
 msgstr ""
 
-#: management/api/twilio.py:57
-msgctxt "api.twilio-room-inactive-err"
-msgid "Room is marked as inactive, cant authenticate!"
-msgstr "Video raum ist nicht aktiv, kann nicht authentifiziert werden!"
-
-#: management/api/twilio.py:76
-msgctxt "api.twilio-room-auth-failure"
-msgid "Room authentication failed!"
-msgstr "Videoraum Authentifizierung fehlgeschlagen!"
-
 #: management/api/user.py:62
 msgctxt "email.verify-auth-data-missing-get"
 msgid "Email authentication data missing"
