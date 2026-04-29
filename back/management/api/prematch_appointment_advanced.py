@@ -314,6 +314,8 @@ def mark_prematching_calls_completed(request):
         previously_onboarded = bool(user.state.is_onboarded)
         user.state.had_prematching_call = True
         user.state.is_onboarded = True
+        user.state.set_random_calls_access(True)
+        user.state.searching_state = State.SearchingStateChoices.SEARCHING
         user.state.last_prematching_checkoff_at = now
         if not previously_onboarded:
             user.state.onboarding_call_completed_at = appointment_date

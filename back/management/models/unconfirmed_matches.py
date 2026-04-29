@@ -162,7 +162,9 @@ class ProposedMatch(models.Model):
         return self.get_confirming_user()
 
     def send_initial_mail(self):
-        """Send the new-match proposal email. No-op if already sent or if confirming_user is not set."""
+        """Send the new-match proposal email for STANDARD proposals only."""
+        if self.match_type != MatchType.STANDARD:
+            return
         if self.send_inital_mail:
             return
         confirming_user = self.get_confirming_user()

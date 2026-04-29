@@ -20,6 +20,8 @@ class AdvancedMatchViewsetTests(TestCase):
     def setUp(self):
         self.factory = APIRequestFactory(enforce_csrf_checks=True)
         self.view = AdvancedMatchViewset.as_view({"get": "retrieve"})
+        self.list_view = AdvancedMatchViewset.as_view({"get": "list"})
+        self.export_view = AdvancedMatchViewset.as_view({"get": "export"})
 
         self.staff_user = self._create_user("staff")
         self.staff_user.is_staff = True
@@ -27,6 +29,11 @@ class AdvancedMatchViewsetTests(TestCase):
 
         self.other_user = self._create_user("other")
         self.match = Match.objects.create(user1=self.staff_user, user2=self.other_user)
+        self.off_platform_match = Match.objects.create(
+            user1=self.staff_user,
+            user2=self._create_user("other-off-platform"),
+            completed_off_plattform=True,
+        )
 
     def test_retrieve_existing_match_by_uuid(self):
         request = self.factory.get(f"/api/matching/matches/{self.match.uuid}/")
@@ -45,3 +52,27 @@ class AdvancedMatchViewsetTests(TestCase):
         response = self.view(request, pk=str(missing_uuid))
 
         assert response.status_code == 404
+
+    def test_list_filter_match_completed_off_plattform_returns_only_marked_matches(self):
+        request = self.factory.get("/api/matching/matches/?list=match_completed_off_plattform")
+        force_authenticate(request, user=self.staff_user)
+
+        response = self.list_view(request)
+
+        assert response.status_code == 200
+        results = response.data["results"]
+        returned_uuids = {item["uuid"] for item in results}
+        assert str(self.off_platform_match.uuid) in returned_uuids
+        assert str(self.match.uuid) not in returned_uuids
+
+    def test_export_includes_completed_off_plattform_field(self):
+        request = self.factory.get("/api/matching/matches_export/?list=match_completed_off_plattform")
+        force_authenticate(request, user=self.staff_user)
+
+        response = self.export_view(request)
+
+        assert response.status_code == 200
+        assert len(response.data) == 1
+        exported_match = response.data[0]
+        assert "completed_off_plattform" in exported_match
+        assert exported_match["completed_off_plattform"] is True

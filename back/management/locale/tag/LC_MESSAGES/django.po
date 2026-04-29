@@ -361,16 +361,6 @@ msgstr ""
 msgid "You can not report a support match!"
 msgstr ""
 
-#: management/api/twilio.py:57
-msgctxt "api.twilio-room-inactive-err"
-msgid "Room is marked as inactive, cant authenticate!"
-msgstr "api.twilio-room-inactive-err"
-
-#: management/api/twilio.py:76
-msgctxt "api.twilio-room-auth-failure"
-msgid "Room authentication failed!"
-msgstr "api.twilio-room-auth-failure"
-
 #: management/api/user.py:62
 msgctxt "email.verify-auth-data-missing-get"
 msgid "Email authentication data missing"

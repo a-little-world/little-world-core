@@ -410,14 +410,15 @@ def EXTRA__learners_with_activity_in_last3weeks(qs=User.objects.all(), days_ago=
     )
 
 
-def EXTRA__volunteers_with_activity_in_last3weeks(qs=User.objects.all(), days_ago=21):
+def EXTRA__onboarded_volunteers_with_activity_in_last3weeks(qs=User.objects.all(), days_ago=21):
     """
-    (Maddy) Volunteers with activity in the last 3 weeks
+    (Maddy) OnboardedVolunteers with activity in the last 3 weeks
     """
     cutoff_date = timezone.now() - timedelta(days=days_ago)
     return (
         qs.filter(
             profile__user_type=Profile.TypeChoices.VOLUNTEER,
+            state__is_onboarded=True,
             state__user_form_state=State.UserFormStateChoices.FILLED,
             state__email_authenticated=True,
         )
