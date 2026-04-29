@@ -58,10 +58,10 @@ def filter__nrw_residents(user):
 
 
 def filter__random_call_users(user):
-    """Same criteria as USER endpoint hasRandomCallAccess (beta flag or dev email)."""
+    """Same criteria as USER endpoint hasRandomCallsAccess (flag or dev email)."""
     if "herrduenschnlate+" in str(user.email):
         return True
-    return user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.USE_BETA_RANDOM_CALL)
+    return user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.USE_RANDOM_CALLS)
 
 
 def filter__match_eligible_users(user):

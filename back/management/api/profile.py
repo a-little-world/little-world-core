@@ -103,13 +103,14 @@ class ProfileCompletedApi(APIView):
             state = user.state
             state.set_user_form_completed()
             state.user_form_completed_at = timezone.now()
-            state.searching_state = State.SearchingStateChoices.SEARCHING
 
             # Auto-complete onboarding call for companies with custom onboarding
             if state.company and state.company.lower() in settings.CUSTOM_ONBOARDING_COMPANIES:
                 state.onboarding_call_completed_at = timezone.now()
                 state.had_prematching_call = True
                 state.is_onboarded = True
+                state.set_random_calls_access(True)
+                state.searching_state = State.SearchingStateChoices.SEARCHING
 
             state.save()
 
