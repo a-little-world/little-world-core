@@ -215,8 +215,8 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
         representation["waiting_time"] = get_match_waiting_time(instance)
 
         representation["state"] = StateSerializer(instance.state).data
-        representation["state"]["random_call_beta_access"] = instance.state.has_extra_user_permission(
-            State.ExtraUserPermissionChoices.USE_BETA_RANDOM_CALL
+        representation["state"]["random_call_access"] = instance.state.has_extra_user_permission(
+            State.ExtraUserPermissionChoices.USE_RANDOM_CALLS
         )
 
         # NOTE:
@@ -814,12 +814,12 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
     @extend_schema(
         request=inline_serializer(
-            name="SetRandomCallBetaAccessRequest",
-            fields={"random_call_beta_access": serializers.BooleanField()},
+            name="SetRandomCallAccessRequest",
+            fields={"random_call_access": serializers.BooleanField()},
         )
     )
     @action(detail=True, methods=["post"])
-    def set_random_call_beta_access(self, request, pk=None):
+    def set_random_call_access(self, request, pk=None):
         self.kwargs["pk"] = pk
         obj = self.get_object()
 
@@ -827,22 +827,15 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if not has_access:
             return res
 
-        allow_access = request.data.get("random_call_beta_access", False)
-        permission_slug = State.ExtraUserPermissionChoices.USE_BETA_RANDOM_CALL
-        existing_permissions = list(obj.state.extra_user_permissions or [])
-
-        if allow_access and permission_slug not in existing_permissions:
-            existing_permissions.append(permission_slug)
-        if not allow_access and permission_slug in existing_permissions:
-            existing_permissions.remove(permission_slug)
-
-        obj.state.extra_user_permissions = existing_permissions
+        allow_access = request.data.get("random_call_access", False)
+        permission_slug = State.ExtraUserPermissionChoices.USE_RANDOM_CALLS
+        obj.state.set_random_calls_access(allow_access)
         obj.state.save()
 
         return Response(
             {
                 "success": True,
-                "random_call_beta_access": obj.state.has_extra_user_permission(permission_slug),
+                "random_call_access": obj.state.has_extra_user_permission(permission_slug),
             }
         )
 
@@ -914,6 +907,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         obj.state.had_prematching_call = request.data.get("had_prematching_call", True)
         if obj.state.had_prematching_call:
             obj.state.is_onboarded = True
+            obj.state.set_random_calls_access(True)
             latest_end = PreMatchingAppointment.objects.filter(user=obj).aggregate(m=Max("end_time"))["m"]
             obj.state.onboarding_call_completed_at = latest_end if latest_end is not None else timezone.now()
         obj.state.save()
@@ -1134,8 +1128,8 @@ viewset_actions = [
         AdvancedUserViewset.as_view({"post": "set_has_match_priority"}),
     ),
     path(
-        "api/matching/users/<pk>/set_random_call_beta_access/",
-        AdvancedUserViewset.as_view({"post": "set_random_call_beta_access"}),
+        "api/matching/users/<pk>/set_random_call_access/",
+        AdvancedUserViewset.as_view({"post": "set_random_call_access"}),
     ),
     path(
         "api/matching/users/<pk>/invite_native_app_tester/",

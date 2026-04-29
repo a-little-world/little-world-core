@@ -592,8 +592,8 @@ def get_user_data(user):
 
     banner = BannerSerializer(banner_query).data if banner_query else {}
 
-    has_random_call_access = ("herrduenschnlate+" in str(user.email)) or user.state.has_extra_user_permission(
-        State.ExtraUserPermissionChoices.USE_BETA_RANDOM_CALL
+    has_random_calls_access = ("herrduenschnlate+" in str(user.email)) or user.state.has_extra_user_permission(
+        State.ExtraUserPermissionChoices.USE_RANDOM_CALLS
     )
 
     # Self-onboarding progress as a fraction in [0, 1] based on the ordered step list.
@@ -610,7 +610,7 @@ def get_user_data(user):
         or user.is_staff,
         "isSearching": user_state.searching_state == State.SearchingStateChoices.SEARCHING,
         "email": user.email,
-        "hasRandomCallAccess": has_random_call_access,
+        "hasRandomCallsAccess": has_random_calls_access,
         "preMatchingAppointment": pre_match_appointent,
         "preMatchingCallJoinLink": pre_call_join_link,
         "calComAppointmentLink": cal_data_link,
@@ -725,6 +725,8 @@ def self_onboarding_update(request):
         user.state.self_onboarding_completed_at = timezone.now()
         user.state.self_onboarding_completed = True
         user.state.is_onboarded = True
+        user.state.set_random_calls_access(True)
+        user.state.searching_state = State.SearchingStateChoices.SEARCHING
         send_email_background.delay("automatic-emails-u071", user_id=user.id)
         completed = True
 
