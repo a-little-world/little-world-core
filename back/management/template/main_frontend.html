@@ -8,7 +8,9 @@
 {% load render_bundle from webpack_loader %}
 {% load get_base_page_url from temp_utils %}
 <!DOCTYPE html>
+<html translate="no">
 <head>
+  <meta name="google" content="notranslate" />
   {{ SENTRY_INIT_SCRIPT | safe }}
   <script>
     {{ MATOMO_TAG_SCRIPT | safe }}
@@ -33,7 +35,7 @@
 </head>
 {% render_bundle 'staticfiles' 'css' 'main_frontend' %}
 <body>
-    <div id="root"></div>
+    <div id="root" translate="no" class="notranslate"></div>
 </body>
 {% render_bundle 'staticfiles' 'js' 'main_frontend' %}
 <script>

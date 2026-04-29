@@ -215,8 +215,8 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
         representation["waiting_time"] = get_match_waiting_time(instance)
 
         representation["state"] = StateSerializer(instance.state).data
-        representation["state"]["random_call_beta_access"] = instance.state.has_extra_user_permission(
-            State.ExtraUserPermissionChoices.USE_BETA_RANDOM_CALL
+        representation["state"]["random_call_access"] = instance.state.has_extra_user_permission(
+            State.ExtraUserPermissionChoices.USE_RANDOM_CALLS
         )
 
         # NOTE:
@@ -300,6 +300,25 @@ def get_company_choices():
     return choices
 
 
+def get_country_choices():
+    """
+    Return country choices with Germany first and an extra
+    "Outside of Germany" option.
+    """
+    german_code = Profile.CountryChoices.GERMANY
+    outside_germany_code = "outside_de"
+
+    country_choices = list(Profile.CountryChoices.choices)
+    germany_choice = next((choice for choice in country_choices if choice[0] == german_code), None)
+    other_choices = [choice for choice in country_choices if choice[0] != german_code]
+
+    ordered_choices = [germany_choice] if germany_choice else []
+    ordered_choices.append((outside_germany_code, "Outside of Germany"))
+    ordered_choices.extend(other_choices)
+
+    return ordered_choices
+
+
 class UserFilter(filters.FilterSet):
     profile__user_type = filters.ChoiceFilter(
         field_name="profile__user_type",
@@ -330,6 +349,13 @@ class UserFilter(filters.FilterSet):
         help_text="Filter for users that are searching for a job",
     )
 
+    profile__country_of_residence = filters.ChoiceFilter(
+        field_name="profile__country_of_residence",
+        choices=get_country_choices,
+        method="filter_country_of_residence",
+        help_text="Filter for users by their country of residence",
+    )
+
     state__email_authenticated = filters.BooleanFilter(
         field_name="state__email_authenticated",
         help_text="Filter for users that have authenticated their email",
@@ -338,6 +364,11 @@ class UserFilter(filters.FilterSet):
     state__is_onboarded = filters.BooleanFilter(
         field_name="state__is_onboarded",
         help_text="Filter for users that had a prematching call",
+    )
+
+    state__user_form_completed = filters.BooleanFilter(
+        method="filter_user_form_completed",
+        help_text="Filter for users who have completed the registration user form",
     )
 
     state__has_match_priority = filters.BooleanFilter(
@@ -420,6 +451,18 @@ class UserFilter(filters.FilterSet):
         if value == "null":
             return queryset.filter(Q(state__company__isnull=True) | Q(state__company=""))
         return queryset.filter(state__company=value)
+
+    def filter_user_form_completed(self, queryset, name, value):
+        if value is True:
+            return queryset.filter(state__user_form_state=State.UserFormStateChoices.FILLED)
+        if value is False:
+            return queryset.filter(state__user_form_state=State.UserFormStateChoices.UNFILLED)
+        return queryset
+
+    def filter_country_of_residence(self, queryset, name, value):
+        if value == "outside_de":
+            return queryset.exclude(profile__country_of_residence=Profile.CountryChoices.GERMANY)
+        return queryset.filter(**{name: value})
 
     class Meta:
         model = User
@@ -771,12 +814,12 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
     @extend_schema(
         request=inline_serializer(
-            name="SetRandomCallBetaAccessRequest",
-            fields={"random_call_beta_access": serializers.BooleanField()},
+            name="SetRandomCallAccessRequest",
+            fields={"random_call_access": serializers.BooleanField()},
         )
     )
     @action(detail=True, methods=["post"])
-    def set_random_call_beta_access(self, request, pk=None):
+    def set_random_call_access(self, request, pk=None):
         self.kwargs["pk"] = pk
         obj = self.get_object()
 
@@ -784,22 +827,15 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if not has_access:
             return res
 
-        allow_access = request.data.get("random_call_beta_access", False)
-        permission_slug = State.ExtraUserPermissionChoices.USE_BETA_RANDOM_CALL
-        existing_permissions = list(obj.state.extra_user_permissions or [])
-
-        if allow_access and permission_slug not in existing_permissions:
-            existing_permissions.append(permission_slug)
-        if not allow_access and permission_slug in existing_permissions:
-            existing_permissions.remove(permission_slug)
-
-        obj.state.extra_user_permissions = existing_permissions
+        allow_access = request.data.get("random_call_access", False)
+        permission_slug = State.ExtraUserPermissionChoices.USE_RANDOM_CALLS
+        obj.state.set_random_calls_access(allow_access)
         obj.state.save()
 
         return Response(
             {
                 "success": True,
-                "random_call_beta_access": obj.state.has_extra_user_permission(permission_slug),
+                "random_call_access": obj.state.has_extra_user_permission(permission_slug),
             }
         )
 
@@ -871,6 +907,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         obj.state.had_prematching_call = request.data.get("had_prematching_call", True)
         if obj.state.had_prematching_call:
             obj.state.is_onboarded = True
+            obj.state.set_random_calls_access(True)
             latest_end = PreMatchingAppointment.objects.filter(user=obj).aggregate(m=Max("end_time"))["m"]
             obj.state.onboarding_call_completed_at = latest_end if latest_end is not None else timezone.now()
         obj.state.save()
@@ -1091,8 +1128,8 @@ viewset_actions = [
         AdvancedUserViewset.as_view({"post": "set_has_match_priority"}),
     ),
     path(
-        "api/matching/users/<pk>/set_random_call_beta_access/",
-        AdvancedUserViewset.as_view({"post": "set_random_call_beta_access"}),
+        "api/matching/users/<pk>/set_random_call_access/",
+        AdvancedUserViewset.as_view({"post": "set_random_call_access"}),
     ),
     path(
         "api/matching/users/<pk>/invite_native_app_tester/",

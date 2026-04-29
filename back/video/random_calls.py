@@ -82,6 +82,17 @@ def get_pending_random_call_matching_qs_for_user(user, lobby):
         both_confirmed_rejection=False,
         in_session=False,
         expired=False,
+        video_call_join_expired=False,
+    ).order_by("-pk")
+
+
+def get_accepted_matchings_expired_join_qs_for_user(user, lobby):
+    return RandomCallMatching.objects.filter(
+        Q(u1=user) | Q(u2=user),
+        lobby=lobby,
+        accepted=True,
+        accepted_at__lt=timezone.now() - timedelta(seconds=lobby.match_accept_timeout),
+        video_call_join_expired=False,
     ).order_by("-pk")
 
 
@@ -151,7 +162,6 @@ def exit_random_call_lobby(request, lobby_uuid):
         # - auto reject all existing sessions
         sessions.update(is_active=False)
     cleanup_inactive_lobby_users.apply_async(args=[str(lobby.uuid)], countdown=lobby.user_online_state_timeout)
-    # TODO: also make sure other users cannot still dangle in random call sessions
     return Response("You have been removed from the lobby")
 
 
@@ -178,7 +188,14 @@ def get_random_call_lobby_status(request, lobby_uuid):
 
     # 4 - check the users lobby status
     # pending proposals (rejected=False) win over rejection-notification (rejected=True) so stale
+    accepted_matchings_expired_join = get_accepted_matchings_expired_join_qs_for_user(request.user, lobby)
+    if accepted_matchings_expired_join.exists():
+        # - auto reject all existing matchings
+        accepted_matchings_expired_join.update(accepted=False, rejected=True, video_call_join_expired=True)
     pending_matching_qs = get_pending_random_call_matching_qs_for_user(request.user, lobby)
+    pending_matching_qs = pending_matching_qs.exclude(
+        uuid__in=accepted_matchings_expired_join.values_list("uuid", flat=True)
+    )
     rejection_notification_qs = RandomCallMatching.objects.filter(
         Q(u1=request.user) | Q(u2=request.user),
         rejected=True,
@@ -228,9 +245,9 @@ def get_random_call_lobby_status(request, lobby_uuid):
             matching.u2_confirmed_rejection = True
             matching.save()
 
-        # TODO: make sure dangeling 'rejections' are cleared
-        # TODO: make sure dangeling 'suggestions' are also cleared
-        # TODO: double check if match time-outs are correctly handeled
+        # rejections must be viewed before re-match handled via 'both_confirmed_rejection' flag
+        # dangeling suggestion time-out through 'expired' flag
+        # dangeling accepted matches time-out through 'video_call_join_expired' flag
 
         if self_rejected:
             # User rejected the proposal themselves — no `matching` payload (idle / limited client state).
@@ -291,6 +308,7 @@ def accept_random_call_match(request, lobby_uuid, match_uuid):
     # 6 - check if both users accepted
     if match.u1_accepted and match.u2_accepted:
         match.accepted = True
+        match.accepted_at = timezone.now()
         # Create LiveKitRoom for the match
         LiveKitRoom.objects.get_or_create(u1=match.u1, u2=match.u2, random_call_room=True)
 
@@ -829,6 +847,94 @@ def request_random_call_matching(request, match_uuid):
     return Response(response_data)
 
 
+class RandomCallMatchStatusSerializer(serializers.Serializer):
+    partner_timedout_joining = serializers.BooleanField(default=False)
+    partner_active_in_session = serializers.BooleanField(default=False)
+    partner_requested_room_token = serializers.BooleanField(default=False)
+    partner_left_session = serializers.BooleanField(default=False)
+    self_requested_room_token = serializers.BooleanField(default=False)
+    remaining_video_call_join_time = serializers.IntegerField(default=0)
+
+    def to_representation(self, instance):
+        request_user = self.context.get("request_user")
+        if not request_user:
+            raise serializers.ValidationError("Request user is required")
+
+        user_idx = 1 if instance.u1 == request_user else 2
+        partner_requested_room_token = (
+            instance.u2_requested_room_token if user_idx == 1 else instance.u1_requested_room_token
+        )
+        self_requested_room_token = (
+            instance.u1_requested_room_token if user_idx == 1 else instance.u2_requested_room_token
+        )
+
+        session = (
+            LivekitSession.objects.filter(
+                Q(u1=instance.u1, u2=instance.u2) | Q(u1=instance.u2, u2=instance.u1),
+                random_call_session=True,
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        partner_active_in_session = False
+        partner_left_session = False
+        partner_was_active_in_session = False
+        if session:
+            if instance.u1 == request_user:
+                partner_active_in_session = session.u2_active
+                partner_was_active_in_session = session.u2_was_active or session.u2_active
+            else:
+                partner_active_in_session = session.u1_active
+                partner_was_active_in_session = session.u1_was_active or session.u1_active
+            partner_left_session = (not partner_active_in_session) and partner_was_active_in_session
+
+        if instance.created_at:
+            count_down_seconds = (
+                instance.lobby.video_call_timeout - (timezone.now() - instance.created_at).total_seconds()
+            )
+        else:
+            count_down_seconds = instance.lobby.video_call_timeout
+
+        remaining_video_call_join_time = (
+            instance.lobby.match_accept_timeout - (timezone.now() - instance.accepted_at).total_seconds()
+        )
+
+        # possible states:
+        # - waiting for partner to join
+        # - partner missed joining
+        # - partner disconnected
+
+        return {
+            "partner_timedout_joining": (remaining_video_call_join_time <= 0) and (not partner_was_active_in_session),
+            "partner_active_in_session": partner_active_in_session,
+            "partner_requested_room_token": partner_requested_room_token,
+            "partner_left_session": partner_left_session,
+            "self_requested_room_token": self_requested_room_token,
+            "count_down_seconds": count_down_seconds,
+            "remaining_video_call_join_time": remaining_video_call_join_time,
+        }
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def get_random_call_match_status(request, lobby_uuid, match_uuid):
+    lobby = RandomCallLobby.objects.filter(uuid=lobby_uuid).first()
+    if not lobby:
+        return Response({"error": "Lobby not found"}, status=404)
+
+    match = RandomCallMatching.objects.filter(uuid=match_uuid, lobby=lobby)
+    if not match.exists():
+        return Response({"error": "Match not found"}, status=404)
+
+    match = match.first()
+
+    if not (match.u1 == request.user or match.u2 == request.user):
+        return Response({"error": "You are not part of this match"}, status=403)
+
+    return Response(RandomCallMatchStatusSerializer(match, many=False, context={"request_user": request.user}).data)
+
+
 api_urls = [
     path("api/random_calls/", get_random_call_lobbies),
     path("api/random_calls/upcoming", get_upcoming_lobbies),
@@ -839,6 +945,7 @@ api_urls = [
     path("api/random_calls/lobby/<uuid:lobby_uuid>/status", get_random_call_lobby_status),
     path("api/random_calls/lobby/<uuid:lobby_uuid>/match/<uuid:match_uuid>/accept", accept_random_call_match),
     path("api/random_calls/lobby/<uuid:lobby_uuid>/match/<uuid:match_uuid>/reject", reject_random_call_match),
+    path("api/random_calls/lobby/<uuid:lobby_uuid>/match/<uuid:match_uuid>/status", get_random_call_match_status),
     path("api/random_calls/match/<uuid:match_uuid>/end_call", end_random_call),
     path(
         "api/random_calls/lobby/<uuid:lobby_uuid>/match/<uuid:match_uuid>/room_authenticate",

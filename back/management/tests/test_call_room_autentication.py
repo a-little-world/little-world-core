@@ -1,10 +1,11 @@
 import os
 
+from django.db.models import Q
 from django.test import TestCase
+from video.models import LiveKitRoom
 
 from management import api
 from management.controller import get_user_by_email, match_users
-from management.models.rooms import get_rooms_match
 from management.tests.helpers import register_user_api
 
 valid_request_data = dict(
@@ -48,7 +49,9 @@ class CallRoomTests(TestCase):
 
     def test_video_room_creation(self):
         usrs = self.create_two_users_match()
-        rooms = get_rooms_match(usrs[0], usrs[1])
+        rooms = LiveKitRoom.objects.filter(
+            Q(u1=usrs[0], u2=usrs[1], random_call_room=False) | Q(u1=usrs[1], u2=usrs[0], random_call_room=False)
+        )
         assert rooms.count() == 1
 
     # def test_authenticate_call(self): TODO

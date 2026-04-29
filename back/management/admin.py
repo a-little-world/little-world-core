@@ -191,11 +191,6 @@ class StateAdmin(HijackUserAdminMixin, admin.ModelAdmin):
         return obj.user
 
 
-@admin.register(models.rooms.Room)
-class VideoRoomAdmin(admin.ModelAdmin):
-    list_display = ("name", "usr1", "usr2", "active", "updated_at", "created_at")
-
-
 class StateAdminInline(admin.StackedInline):
     model = models.state.State
 
