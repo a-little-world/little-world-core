@@ -127,6 +127,10 @@ class MainFrontendRouter(View):
         ):
             return redirect("/app/")
 
+        if path == "":
+            # Keep authenticated users off the public root and hand off to app routing.
+            return redirect("/app/")
+
         extra_template_data = {}
         with translation.override("tag"):
             user_data = get_user_data(request.user)

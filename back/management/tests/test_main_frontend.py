@@ -67,3 +67,15 @@ class MainFrontendTemplateTests(TestCase):
         self.assertNotIn("JSON.parse(cookieData.cookieSets)", script_content)
         self.assertNotIn("?.hiddenCookieBanner", script_content)
         self.assertTrue(self._extract_hidden_cookie_banner_value(script_content))
+
+    def test_authenticated_root_redirects_to_app(self):
+        user = register_user()
+        user.state.email_authenticated = True
+        user.state.set_user_form_completed()
+        user.state.save()
+
+        self.client.force_login(user)
+        response = self.client.get("/")
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.url, "/app/")
