@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from chat.consumers.messages import InMatchProposalAdded, InUnconfirmedMatchAdded
 from chat.models import Chat, ChatConnections, ChatSerializer
 from django.db.models import Q
-from drf_spectacular.utils import extend_schema, inline_serializer
+from drf_spectacular.utils import extend_schema
 from rest_framework import serializers, status
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -42,6 +42,8 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
 
         is_online = ChatConnections.is_user_online(partner)
         chat = Chat.get_or_create_chat(user, partner)
+        if chat is None:
+            raise ValueError("Could not create or fetch chat for match partners")
         chat_serialized = ChatSerializer(chat, context={"user": user}).data
         # fetch incoming calls that are currently active
         active_call_room = None
@@ -55,7 +57,8 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
         )
         if active_sessions.exists():
             active_session = active_sessions.first()
-            active_call_room = SerializeLivekitSession(active_session).data
+            if active_session is not None:
+                active_call_room = SerializeLivekitSession(active_session).data
 
         partner_data = {
             "id": str(partner.hash),
@@ -105,6 +108,11 @@ class MakeMatchSerializer(DataclassSerializer):
         dataclass = _MakeMatchSerializer
 
 
+class GetMatchResponseSerializer(serializers.Serializer):
+    category = serializers.CharField()
+    match = AdvancedUserMatchSerializer()
+
+
 @extend_schema(
     summary="Make a match",
     description="Make a match between two users",
@@ -139,7 +147,7 @@ def make_match(request):
 
     # 1 - if user is not matchable we may online contine by 'force'
     if (not matchable) and (not params.force):
-        return Response({"message": "Users not matchable", "score_id": score.pk}, status=400)
+        return Response({"message": "Users not matchable", "score_id": score.pk if score else None}, status=400)
 
     # 2 - check if users are already matched
     if Match.get_match(user1, user2).exists():
@@ -159,6 +167,8 @@ def make_match(request):
             send_confirm_match_email=params.send_email,
         )
         learner = proposal.get_learner()
+        if learner is None:
+            return Response("Learner not found", status=status.HTTP_400_BAD_REQUEST)
         matches = serialize_proposed_matches([proposal], learner)
 
         TwoUserMatchingScore.objects.filter(user1=user1, user2=user2).delete()
@@ -197,7 +207,7 @@ def make_match(request):
     summary="Get a match",
     description="Get a match by the partner's hash",
     responses={
-        200: inline_serializer("ProfileGetMatch", {"category": "string", "match": AdvancedUserMatchSerializer}),
+        200: GetMatchResponseSerializer,
         400: "Bad request",
     },
 )
@@ -213,6 +223,8 @@ def get_match(request, partner_hash):
         return Response("Match not found", status=status.HTTP_400_BAD_REQUEST)
     else:
         match = match.first()
+        if match is None:
+            return Response("Match not found", status=status.HTTP_400_BAD_REQUEST)
 
     # 2 - categorize the match, the frontend needs to know if it's a 'confirmed', 'unconfirmed' or 'support' match
     category = "confirmed" if match.confirmed else "unconfirmed"

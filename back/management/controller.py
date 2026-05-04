@@ -154,7 +154,7 @@ def make_tim_support_user(
     us = user.state
     us.still_active_reminder_send = True
     us.searching_state = State.SearchingStateChoices.IDLE
-    us.previous_management_users.append(f"{admin_user.email} ({admin_user.id})")
+    us.previous_management_users.append(f"{admin_user.email} ({admin_user.pk})")
     us.save()
 
     # 4. send the 'still active' question message
@@ -364,8 +364,8 @@ def match_users(
         usr2.message(match_message.format(other_name=usr1.profile.first_name), auto_mark_read=True)
 
     if send_email and match_type == MatchType.STANDARD:
-        usr1.send_email_v2("new-match", match_id=matching_obj.id)
-        usr2.send_email_v2("new-match", match_id=matching_obj.id)
+        usr1.send_email_v2("new-match", match_id=matching_obj.pk)
+        usr2.send_email_v2("new-match", match_id=matching_obj.pk)
 
     if set_to_idle:
         usr1.state.set_idle()
@@ -441,7 +441,7 @@ def unmatch_users(users: set, delete_video_room=True, delete_dialog=True, unmatc
         {
             "kind": "user_deleted",
             "reason": reason or "User deleted by support user",
-            "match_id": match.id,
+            "match_id": match.pk,
             "time": str(timezone.now()),
             "user_id": unmatcher.pk if unmatcher else "no unmatcher specified",
             "user_uuid": unmatcher.hash if unmatcher else "no unmatcher specified",
@@ -519,7 +519,7 @@ def create_base_admin_and_add_standart_db_values():
 
     from video.tasks import create_default_random_call_lobby
 
-    create_default_random_call_lobby.delay()
+    create_default_random_call_lobby()
 
     return usr_tim
 

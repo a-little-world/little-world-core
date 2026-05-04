@@ -563,6 +563,8 @@ def score_between_db_update(user1, user2):
     total_score, matchable, results = base.calculate_score()
 
     score = TwoUserMatchingScore.get_or_create(user1, user2)
+    if score is None:
+        raise ValueError("Could not initialize matching score object")
     score.score = total_score
     score.matchable = matchable
     score.scoring_results = json.loads(json.dumps(results, cls=CoolerJson))
@@ -586,8 +588,8 @@ class DispatchScoreCalculationSerializer(DataclassSerializer):
 def dispatch_score_calculation(request):
     assert request.user.is_staff or request.user.has_perm(ManagementPermission.MATCHING_USER)
 
-    serializer = DispatchScoreCalculationSerializer(request.data)
-    serializers.is_valid(raise_exception=True)
+    serializer = DispatchScoreCalculationSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
     data = serializer.save()
 
     task = matching_algo_v2.delay(data["user"], 50)
@@ -604,14 +606,14 @@ def dispatch_score_calculation(request):
 @api_view(["POST"])
 @permission_classes([IsAdminOrMatchingUser])
 def calculate_score_between(request):
-    serializer = ScoreBetweenDataclass(request.data)
+    serializer = ScoreBetweenSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     data = serializer.data
 
     user1 = User.objects.get(id=data["user1"])
     user2 = User.objects.get(id=data["user2"])
 
-    total_score, matchable, results = score_between_db_update(user1, user2)
+    total_score, matchable, results, _score = score_between_db_update(user1, user2)
     return Response({"total_score": total_score, "matchable": matchable, "results": results})
 
 

@@ -21,8 +21,8 @@ class ScoringFunctionsEnum(Enum):
 
 
 class ScoreTypesEnum(Enum):
-    value = "value"
-    percentage = "percentage"
+    VALUE = "value"
+    PERCENTAGE = "percentage"
 
 
 @dataclass
@@ -47,7 +47,7 @@ def get_matching_statictic_score_function(request, scoring_function):
         )
         return MatchingStatisticScore(
             scoring_function=ScoringFunctionsEnum.users_waiting_for_match.value,
-            score_type=ScoreTypesEnum.value.value,
+            score_type=ScoreTypesEnum.VALUE.value,
             data={"value": requires_matching.count()},
         )
     if scoring_function == ScoringFunctionsEnum.learners_waiting_for_match.name:
@@ -57,7 +57,7 @@ def get_matching_statictic_score_function(request, scoring_function):
         learners_needs_matching = requires_matching.filter(profile__user_type=Profile.TypeChoices.LEARNER)
         return MatchingStatisticScore(
             scoring_function=ScoringFunctionsEnum.learners_waiting_for_match.value,
-            score_type=ScoreTypesEnum.value.value,
+            score_type=ScoreTypesEnum.VALUE.value,
             data={"value": learners_needs_matching.count()},
         )
 
@@ -69,7 +69,7 @@ def get_matching_statictic_score_function(request, scoring_function):
         learners_needs_matching = requires_matching.filter(profile__user_type=Profile.TypeChoices.LEARNER)
         return MatchingStatisticScore(
             scoring_function=ScoringFunctionsEnum.percentage_of_learners_waiting_for_match.value,
-            score_type=ScoreTypesEnum.percentage.value,
+            score_type=ScoreTypesEnum.PERCENTAGE.value,
             data={"value": (learners_needs_matching.count() / all_count) * 100},
         )
     if scoring_function == ScoringFunctionsEnum.matchable_scores.name:
@@ -78,7 +78,7 @@ def get_matching_statictic_score_function(request, scoring_function):
         count_matchable = TwoUserMatchingScore.objects.filter(matchable=True).count()
         return MatchingStatisticScore(
             scoring_function=ScoringFunctionsEnum.matchable_scores.value,
-            score_type=ScoreTypesEnum.value.value,
+            score_type=ScoreTypesEnum.VALUE.value,
             data={"value": count_matchable},
         )
     if scoring_function == ScoringFunctionsEnum.unmatchable_scores.name:
@@ -87,7 +87,7 @@ def get_matching_statictic_score_function(request, scoring_function):
         count_unmatchable = TwoUserMatchingScore.objects.filter(matchable=False).count()
         return MatchingStatisticScore(
             scoring_function=ScoringFunctionsEnum.unmatchable_scores.value,
-            score_type=ScoreTypesEnum.value.value,
+            score_type=ScoreTypesEnum.VALUE.value,
             data={"value": count_unmatchable},
         )
 
@@ -102,7 +102,7 @@ def get_matching_statictic_score_function(request, scoring_function):
         combinations = len(user_id_set) * (len(user_id_set) - 1) / 2
         return MatchingStatisticScore(
             scoring_function=ScoringFunctionsEnum.considerable_match_permutations.value,
-            score_type=ScoreTypesEnum.value.value,
+            score_type=ScoreTypesEnum.VALUE.value,
             data={"value": combinations},
         )
 
@@ -112,7 +112,7 @@ def get_matching_statictic_score_function(request, scoring_function):
         count = TwoUserMatchingScore.objects.count()
         return MatchingStatisticScore(
             scoring_function=ScoringFunctionsEnum.total_matching_score_count.value,
-            score_type=ScoreTypesEnum.value.value,
+            score_type=ScoreTypesEnum.VALUE.value,
             data={"value": count},
         )
     else:

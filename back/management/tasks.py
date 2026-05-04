@@ -391,6 +391,8 @@ def mark_burst_task_completed_check_for_finish(task_id=None):
     if not current_caluclation.exists():
         return {"status": "done"}
     current_caluclation = current_caluclation.first()
+    if current_caluclation is None:
+        return {"status": "done"}
 
     current_calculation_task_ids = current_caluclation.meta.get("tasks", [])
     completed_task_ids = current_caluclation.meta.get("completed_tasks", [])
@@ -456,7 +458,7 @@ def send_dynamic_email_backgruound(
 
     user = User.objects.get(id=user_id)
 
-    dynamic_template_info, _context = prepare_dynamic_template_context(template_name=template_name, user_id=user.id)
+    dynamic_template_info, _context = prepare_dynamic_template_context(template_name=template_name, user_id=user.pk)
     html_template = Template(dynamic_template_info["template"])
     html = html_template.render(Context(_context))
     subject = Template(dynamic_template_info["subject"])
@@ -468,7 +470,7 @@ def send_dynamic_email_backgruound(
         receiver=user,
         template=template_name,
         is_dyanmic_email=True,
-        data={"html": html, "params": _context, "user_id": user.id, "match_id": None, "subject": subject},
+        data={"html": html, "params": _context, "user_id": user.pk, "match_id": None, "subject": subject},
     )
 
     try:
@@ -477,7 +479,7 @@ def send_dynamic_email_backgruound(
             subject=subject,
             body=html,
             from_email=from_email,
-            to=[user],
+            to=[user.email],
         )
         mail.content_subtype = "html"
         mail.send(fail_silently=False)
@@ -557,19 +559,19 @@ def hourly_check_banner_activation():
 
     # activate banners that need activation
     for banner in p_activation_banners:
-        if banner.activation_time <= current_time:
+        if banner.activation_time is not None and banner.activation_time <= current_time:
             banner.active = True
             banner.save()
-            bc["activated"].append(banner.id)
+            bc["activated"].append(banner.pk)
 
     # 2 - deactivate banners that need deactivation
     p_deactivation_banners = Banner.objects.filter(expiration_time__isnull=False, active=True)
 
     for banner in p_deactivation_banners:
-        if banner.expiration_time <= current_time:
+        if banner.expiration_time is not None and banner.expiration_time <= current_time:
             banner.active = False
             banner.save()
-            bc["deactivated"].append(banner.id)
+            bc["deactivated"].append(banner.pk)
     return bc
 
 
@@ -607,8 +609,8 @@ def send_sms_background(self, user_hash, message):
         # we only send international 'sms' to prio users
         # This is mianly cause prices are very high, they are per-segment and differnet for every country
         # our sms have 3-10 segemtns, so this get quite expensive quickly
-        country_code = str(receipient.profile.phone_mobile.country_code)
-        if (receipient.state.company not in settings.MATCH_PRIORITY_COMPANIES) and (country_code != "49"):
+        is_german_number = str(receipient.profile.phone_mobile).startswith("+49")
+        if (receipient.state.company not in settings.MATCH_PRIORITY_COMPANIES) and (not is_german_number):
             receipient.sms(
                 send_initator=get_base_management_user(),
                 message=message,
@@ -675,7 +677,7 @@ def automatic_emails_u023_u024_u025():
                 # we still mark the boolean send flag just to ensure that arrent send accidently if this changes
                 pass
             else:
-                send_email_background.delay(template, user_id=user.id, emulated_send=emulated_send)
+                send_email_background.delay(template, user_id=user.pk, emulated_send=emulated_send)
             user.state.set_user_form_completed_reminder_sent(days)
 
     return {
@@ -723,14 +725,14 @@ def automatic_emails_m012_m013_m014():
             send_email_background.delay(
                 template,
                 user_id=match.user1.id,
-                match_id=match.id,
+                match_id=match.pk,
                 emulated_send=emulated_send,
                 context={"link_url": "https://drive.google.com/file/d/1XcY6_OMZES5QJoMkc6jbEzwYNdCWrnaU/view"},
             )
             send_email_background.delay(
                 template,
                 user_id=match.user2.id,
-                match_id=match.id,
+                match_id=match.pk,
                 emulated_send=emulated_send,
                 context={"link_url": "https://drive.google.com/file/d/1XcY6_OMZES5QJoMkc6jbEzwYNdCWrnaU/view"},
             )
@@ -804,7 +806,7 @@ def automatic_emails_m023():
         send_email_background.delay(
             "automatic-emails-m023",
             user_id=last_message.recipient.id,
-            match_id=active_match.id,
+            match_id=active_match.pk,
             emulated_send=emulated_send,
         )
 
@@ -865,7 +867,7 @@ def automatic_emails_m024_m025():
         send_email_background.delay(
             "automatic-emails-m024",
             user_id=last_message.recipient.id,
-            match_id=active_match.id,
+            match_id=active_match.pk,
             emulated_send=emulated_send,
         )
 
@@ -873,7 +875,7 @@ def automatic_emails_m024_m025():
         send_email_background.delay(
             "automatic-emails-m025",
             user_id=last_message.sender.id,
-            match_id=active_match.id,
+            match_id=active_match.pk,
             emulated_send=emulated_send,
         )
 
@@ -903,10 +905,10 @@ def automatic_emails_m031_m032_m033_m042():
     matches_m031_uuids = [str(uuid) for uuid in matches_m031.values_list("uuid", flat=True)]
     for match in matches_m031:
         send_email_background.delay(
-            "automatic-emails-m031", user_id=match.user1.id, match_id=match.id, emulated_send=emulated_send
+            "automatic-emails-m031", user_id=match.user1.id, match_id=match.pk, emulated_send=emulated_send
         )
         send_email_background.delay(
-            "automatic-emails-m031", user_id=match.user2.id, match_id=match.id, emulated_send=emulated_send
+            "automatic-emails-m031", user_id=match.user2.id, match_id=match.pk, emulated_send=emulated_send
         )
 
         match.auto_email_m031_send = True
@@ -931,14 +933,14 @@ def automatic_emails_m031_m032_m033_m042():
         send_email_background.delay(
             "automatic-emails-m032",
             user_id=match.user1.id,
-            match_id=match.id,
+            match_id=match.pk,
             emulated_send=emulated_send,
             context=redirect_slugs,
         )
         send_email_background.delay(
             "automatic-emails-m032",
             user_id=match.user2.id,
-            match_id=match.id,
+            match_id=match.pk,
             emulated_send=emulated_send,
             context=redirect_slugs,
         )
@@ -960,14 +962,14 @@ def automatic_emails_m031_m032_m033_m042():
         send_email_background.delay(
             "automatic-emails-m033",
             user_id=match.user1.id,
-            match_id=match.id,
+            match_id=match.pk,
             emulated_send=emulated_send,
             context=redirect_slugs,
         )
         send_email_background.delay(
             "automatic-emails-m033",
             user_id=match.user2.id,
-            match_id=match.id,
+            match_id=match.pk,
             emulated_send=emulated_send,
             context=redirect_slugs,
         )
@@ -988,14 +990,14 @@ def automatic_emails_m031_m032_m033_m042():
         send_email_background.delay(
             "automatic-emails-m042",
             user_id=match.user1.id,
-            match_id=match.id,
+            match_id=match.pk,
             emulated_send=emulated_send,
             context=redirect_slugs,
         )
         send_email_background.delay(
             "automatic-emails-m042",
             user_id=match.user2.id,
-            match_id=match.id,
+            match_id=match.pk,
             emulated_send=emulated_send,
             context=redirect_slugs,
         )
@@ -1042,7 +1044,7 @@ def automatic_emails_u072_u073_u074():
     )
     users_u072_hashes = list(users_u072.values_list("hash", flat=True))
     for user in users_u072:
-        send_email_background.delay("automatic-emails-u072", user_id=user.id, emulated_send=emulated_send)
+        send_email_background.delay("automatic-emails-u072", user_id=user.pk, emulated_send=emulated_send)
         user.state.auto_email_u072_send = True
         user.state.save()
 
@@ -1058,7 +1060,7 @@ def automatic_emails_u072_u073_u074():
     )
     users_u073_hashes = list(users_u073.values_list("hash", flat=True))
     for user in users_u073:
-        send_email_background.delay("automatic-emails-u073", user_id=user.id, emulated_send=emulated_send)
+        send_email_background.delay("automatic-emails-u073", user_id=user.pk, emulated_send=emulated_send)
         user.state.auto_email_u073_send = True
         user.state.save()
 
@@ -1073,7 +1075,7 @@ def automatic_emails_u072_u073_u074():
     )
     users_u074_hashes = list(users_u074.values_list("hash", flat=True))
     for user in users_u074:
-        send_email_background.delay("automatic-emails-u074", user_id=user.id, emulated_send=emulated_send)
+        send_email_background.delay("automatic-emails-u074", user_id=user.pk, emulated_send=emulated_send)
         user.state.auto_email_u074_send = True
         user.state.save()
 
@@ -1110,7 +1112,7 @@ def automatic_emails_u082_u083_u084():
     )
     users_u082_hashes = list(users_u082.values_list("hash", flat=True))
     for user in users_u082:
-        send_email_background.delay("automatic-emails-u082", user_id=user.id, emulated_send=emulated_send)
+        send_email_background.delay("automatic-emails-u082", user_id=user.pk, emulated_send=emulated_send)
         user.state.auto_emails_u082_send = True
         user.state.save()
 
@@ -1126,7 +1128,7 @@ def automatic_emails_u082_u083_u084():
     )
     users_u083_hashes = list(users_u083.values_list("hash", flat=True))
     for user in users_u083:
-        send_email_background.delay("automatic-emails-u083", user_id=user.id, emulated_send=emulated_send)
+        send_email_background.delay("automatic-emails-u083", user_id=user.pk, emulated_send=emulated_send)
         user.state.auto_emails_u083_send = True
         user.state.save()
 
@@ -1141,7 +1143,7 @@ def automatic_emails_u082_u083_u084():
     )
     users_u084_hashes = list(users_u084.values_list("hash", flat=True))
     for user in users_u084:
-        send_email_background.delay("automatic-emails-u084", user_id=user.id, emulated_send=emulated_send)
+        send_email_background.delay("automatic-emails-u084", user_id=user.pk, emulated_send=emulated_send)
         user.state.auto_emails_u084_send = True
         user.state.save()
 
@@ -1606,7 +1608,7 @@ def automatic_emails_u051_u052():
     )
     users_u051_hashes = list(users_u051.values_list("hash", flat=True))
     for user in users_u051:
-        send_email_background.delay("automatic-emails-u071", user_id=user.id, emulated_send=emulated_send)
+        send_email_background.delay("automatic-emails-u071", user_id=user.pk, emulated_send=emulated_send)
         user.state.attended_auto_email_u051_send = True
         user.state.attended_auto_email_u051_send_at = dj_timezone.now()
         user.state.save()
@@ -1620,7 +1622,7 @@ def automatic_emails_u051_u052():
     )
     users_u052_hashes = list(users_u052.values_list("hash", flat=True))
     for user in users_u052:
-        send_email_background.delay("prematching-call-no-show", user_id=user.id, emulated_send=emulated_send)
+        send_email_background.delay("prematching-call-no-show", user_id=user.pk, emulated_send=emulated_send)
         user.state.not_attended_auto_email_u052_send = True
         user.state.not_attended_auto_email_u052_send_at = dj_timezone.now()
         user.state.save()
@@ -1672,7 +1674,7 @@ def automatic_emails_u053_u054():
             start_time__gte=user.state.last_not_attended_prematching_call_at,
         ).exists()
         if has_new_appointment:
-            users_with_new_appointment.add(user.id)
+            users_with_new_appointment.add(user.pk)
 
     user_missed_last_onboarding_u053 = users_missed_onboarding.exclude(id__in=users_with_new_appointment)
 
@@ -1692,7 +1694,7 @@ def automatic_emails_u053_u054():
             start_time__gte=user.state.last_not_attended_prematching_call_at,
         ).exists()
         if has_new_appointment:
-            users_with_new_appointment_u054.add(user.id)
+            users_with_new_appointment_u054.add(user.pk)
 
     user_missed_last_onboarding_u054 = users_missed_onboarding_u054.exclude(id__in=users_with_new_appointment_u054)
 
@@ -1700,7 +1702,7 @@ def automatic_emails_u053_u054():
     for user in user_missed_last_onboarding_u053:
         send_email_background.delay(
             template_for_u053(user),
-            user_id=user.id,
+            user_id=user.pk,
             emulated_send=emulated_send,
         )
         user.state.not_attended_auto_email_u053_send = True
@@ -1710,7 +1712,7 @@ def automatic_emails_u053_u054():
 
     u054_hashes = []
     for user in user_missed_last_onboarding_u054:
-        send_email_background.delay("automatic-emails-u054", user_id=user.id, emulated_send=emulated_send)
+        send_email_background.delay("automatic-emails-u054", user_id=user.pk, emulated_send=emulated_send)
         user.state.not_attended_auto_email_u054_send = True
         user.state.not_attended_auto_email_u054_send_at = timezone.now()
         user.state.save()
