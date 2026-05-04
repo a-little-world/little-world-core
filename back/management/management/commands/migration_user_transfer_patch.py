@@ -8,7 +8,6 @@ from management.permissions import ManagementPermission
 class Command(BaseCommand):
     def handle(self, **options):
         bs = get_base_management_user()
-        # TODO: deprecated - replace legacy state.managed_users filtering with managed_users_queryset().
         all_new_matching_user_managed = bs.managed_users_queryset(active_only=False)
         all_users_to_transfer = (
             User.objects.all()

@@ -97,7 +97,6 @@ class TwoUserMatchingScoreViewset(viewsets.ModelViewSet):
         if user.is_staff:
             return TwoUserMatchingScore.objects.all()
         elif user.has_perm(ManagementPermission.MATCHING_USER):
-            # TODO: deprecated - replace legacy state.managed_users filtering with managed_users_queryset()/ACL joins.
             management_user = cast(User, user)
             managed_users = management_user.managed_users_queryset(active_only=False)
             return TwoUserMatchingScore.objects.filter(Q(user1__in=managed_users) | Q(user2__in=managed_users))

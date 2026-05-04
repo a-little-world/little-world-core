@@ -499,7 +499,6 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if is_staff:
             return User.objects.all()
         else:
-            # TODO: deprecated - replace legacy state.managed_users filtering with managed_users_queryset().
             management_user = cast(User, self.request.user)
             return management_user.managed_users_queryset(active_only=True)
 
@@ -594,7 +593,6 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if not request.user.is_staff and not request.user.has_perm(ManagementPermission.MATCHING_USER):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
 
-        # TODO: deprecated - replace legacy state.managed_users access checks with has_management_access().
         if not request.user.is_staff and not request.user.has_management_access(user):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
         return True, None

@@ -116,7 +116,6 @@ class AdvancedVideoCallsViewset(viewsets.ModelViewSet):
         if user.is_staff:
             return LivekitSession.objects.all()
         elif user.has_perm(ManagementPermission.MATCHING_USER):
-            # TODO: deprecated - replace legacy state.managed_users filtering with managed_users_queryset()/ACL joins.
             managed_users = user.managed_users_queryset(active_only=False)
             return LivekitSession.objects.filter(Q(u1__in=managed_users) | Q(u2__in=managed_users))
 
@@ -126,7 +125,6 @@ class AdvancedVideoCallsViewset(viewsets.ModelViewSet):
         if not request.user.is_staff and not request.user.has_perm(ManagementPermission.MATCHING_USER):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
 
-        # TODO: deprecated - replace legacy state.managed_users access checks with has_management_access().
         if not request.user.is_staff and not request.user.has_management_access(user):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
         return True, None

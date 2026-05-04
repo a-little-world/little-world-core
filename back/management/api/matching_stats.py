@@ -40,7 +40,6 @@ def get_matching_statictic_score_function(request, scoring_function):
     """
     from management.api.user_advanced_filter_lists import needs_matching
 
-    # TODO: deprecated - replace legacy state.managed_users filtering with managed_users_queryset().
     if scoring_function == ScoringFunctionsEnum.users_waiting_for_match.name:
         requires_matching = needs_matching(qs=request.user.managed_users_queryset(active_only=True))
         return MatchingStatisticScore(

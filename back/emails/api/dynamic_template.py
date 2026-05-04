@@ -55,7 +55,6 @@ class DynamicEmailTemplateViewset(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def send(self, request, pk=None, template_name=None):
         # Filter down to current matching user
-        # TODO: deprecated - replace legacy state.managed_users filtering with managed_users_queryset().
         qs = self.request.user.managed_users_queryset(active_only=True)
 
         user_list = request.data["user_list"]

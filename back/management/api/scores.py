@@ -838,7 +838,6 @@ def burst_calculate_matching_scores_v2(request):
         TwoUserMatchingScore.objects.all().delete()
 
     bmu = controller.get_base_management_user()
-    # TODO: deprecated - replace legacy state.managed_users filtering with managed_users_queryset().
     managed_users = bmu.managed_users_queryset(active_only=False)
     if scoring_list == "default":
         user_list = needs_matching(
@@ -852,7 +851,6 @@ def burst_calculate_matching_scores_v2(request):
         user_list = get_list_by_name(scoring_list)
         if user_list is None:
             return Response({"msg": f"Invalid scoring list: {scoring_list}"}, status=400)
-        # TODO: deprecated - replace legacy state.managed_users filtering with managed_users_queryset().
         user_list = user_list.queryset(managed_users)
 
     user_id_set = set(user_list.values_list("id", flat=True))

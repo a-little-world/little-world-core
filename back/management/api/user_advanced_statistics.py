@@ -61,7 +61,6 @@ def user_signups(request):
 
     pre_filtered_users = User.objects.all()
     if not request.user.is_staff:
-        # TODO: deprecated - replace legacy state.managed_users filtering with managed_users_queryset().
         pre_filtered_users = pre_filtered_users.filter(
             id__in=request.user.managed_users_queryset(active_only=False).values("id")
         )
@@ -2215,7 +2214,6 @@ def update_user_journey_path_from_stats(request, user_hash: str):
     # check if management user has access to this user
     print(f"User: {user.id}, Request User: {request.user.id}")
 
-    # TODO: deprecated - replace legacy state.managed_users access checks with has_management_access().
     if not request.user.is_staff and not request.user.has_management_access(user):
         return Response({"error": "You do not have access to this user"}, status=403)
 
@@ -2337,7 +2335,6 @@ def _group_user_journey_by_date(user_path: list) -> list:
 def get_user_bucket_path(request, user_hash: str):
     user = User.objects.get(hash=user_hash)
     # check if management user has access to this user
-    # TODO: deprecated - replace legacy state.managed_users access checks with has_management_access().
     if not request.user.is_staff and not request.user.has_management_access(user):
         return Response({"error": "You do not have access to this user"}, status=403)
 
@@ -2374,7 +2371,6 @@ def user_video_call_summary(request, user_id: int):
     except User.DoesNotExist:
         return Response({"error": "User not found"}, status=404)
 
-    # TODO: deprecated - replace legacy state.managed_users access checks with has_management_access().
     if not request.user.is_staff and not request.user.has_management_access(user):
         return Response({"error": "You do not have access to this user"}, status=403)
 
