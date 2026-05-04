@@ -188,18 +188,7 @@ class State(models.Model):
             "view-database-schema",
             _("Is allowed to view database schemas"),
         )
-        DOCS_VIEW = "view-docs", _("Is allowed to view the docs")
-        EMAIL_TEMPLATES_VIEW = (
-            "view-email-templates",
-            _("Is allowed to view the email templates"),
-        )
-        STATS_VIEW = "view-stats", _("Is allowed to view the stats")
-
         MATCHING_USER = "matching-user", _("Is allowed to match users")
-        UNCENSORED_ADMIN_MATCHER = (
-            "uncensored-admin-matcher",
-            _("Is allowed to match users without censorship"),
-        )
         USE_RANDOM_CALLS = "use-random-calls", _("Is allowed to use the random calls feature")
 
     extra_user_permissions = MultiSelectField(

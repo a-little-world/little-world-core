@@ -7,7 +7,6 @@ import os
 
 from chat.models import Chat
 from django.conf import settings
-from django.contrib.auth.models import Permission
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -340,10 +339,10 @@ def match_users(
         if not chat.exists():
             chat = Chat.objects.create(u1=usr1, u2=usr2)
         else:
-            chat = chat.first()
-            if chat.is_temporary:
-                chat.is_temporary = False
-                chat.save(update_fields=["is_temporary"])
+            existing_chat = chat.first()
+            if existing_chat is not None and existing_chat.is_temporary:
+                existing_chat.is_temporary = False
+                existing_chat.save(update_fields=["is_temporary"])
 
     if send_notification:
         # send sms message ( only if the user enabled sms notifications )
@@ -433,9 +432,10 @@ def unmatch_users(users: set, delete_video_room=True, delete_dialog=True, unmatc
     usr1, usr2 = list(users)
 
     # The new match management strategy
-    match = Match.get_match(usr1, usr2)
-    assert match.exists(), "Match does not exist!"
-    match = match.first()
+    match_qs = Match.get_match(usr1, usr2)
+    assert match_qs.exists(), "Match does not exist!"
+    match = match_qs.first()
+    assert match is not None, "Match does not exist!"
     match.active = False
     match.report_unmatch.append(
         {
@@ -468,49 +468,6 @@ def get_base_management_user():
         return create_base_admin_and_add_standart_db_values()
 
 
-def get_or_create_default_docs_user():
-    if not settings.CREATE_DOCS_USER:
-        return None
-    if not settings.DOCS_USER:
-        raise Exception("DOCS_USER not set!")
-    if not settings.DOCS_PASSWORD:
-        raise Exception("DOCS_USER_PW not set!")
-
-    try:
-        return get_user_by_email(settings.DOCS_USER)
-    except UserNotFoundErr:
-        create_user(
-            email=settings.DOCS_USER,
-            password=settings.DOCS_PASSWORD,
-            first_name="Docs",
-            second_name="User",
-            birth_year=2000,
-            newsletter_subscribed=False,
-            send_verification_mail=False,
-            send_welcome_notification=False,
-        )
-
-    def finish_up_user_creation():
-        user = get_user_by_email(settings.DOCS_USER)
-        user.state.email_authenticated = True
-        permissions = Permission.objects.filter(
-            content_type__app_label="management",
-            content_type__model="state",
-            codename__in=[
-                ManagementPermission.VIEW_DOCS,
-                ManagementPermission.VIEW_API_SCHEMA,
-            ],
-        )
-        if permissions.exists():
-            user.user_permissions.add(*permissions)
-        user.state.save()
-        user.state.set_user_form_completed()
-
-    transaction.on_commit(finish_up_user_creation)
-
-    return get_user_by_email(settings.DOCS_USER)
-
-
 def create_base_admin_and_add_standart_db_values():
     try:
         get_user_by_email(settings.MANAGEMENT_USER_MAIL)
@@ -530,13 +487,7 @@ def create_base_admin_and_add_standart_db_values():
     def update_profile():
         usr_tim = get_user_by_email(settings.MATCHING_USER_MAIL)
         if not usr_tim.has_perm(ManagementPermission.MATCHING_USER):
-            permission = Permission.objects.filter(
-                content_type__app_label="management",
-                content_type__model="state",
-                codename=ManagementPermission.MATCHING_USER.codename,
-            ).first()
-            if permission is not None:
-                usr_tim.user_permissions.add(permission)
+            usr_tim.grant_permission(ManagementPermission.MATCHING_USER)
         usr_tim.state.email_authenticated = True
         usr_tim.state.save()
         usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
@@ -565,8 +516,6 @@ def create_base_admin_and_add_standart_db_values():
     create_default_community_events.delay()
     create_default_banners.delay()
     fill_base_management_user_tim_profile.delay()
-
-    get_or_create_default_docs_user()
 
     from video.tasks import create_default_random_call_lobby
 

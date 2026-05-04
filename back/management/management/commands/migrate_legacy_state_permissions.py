@@ -7,26 +7,24 @@ from management.models.state import State
 PERMISSION_DEFINITIONS = [
     ("view_api_schema", "Can view API schema"),
     ("view_database_schema", "Can view database schema"),
-    ("view_docs", "Can view docs"),
-    ("view_email_templates", "Can view email templates"),
-    ("view_stats", "Can view stats"),
     ("matching_user", "Can perform matching operations"),
-    ("uncensored_admin_matcher", "Can perform uncensored matching"),
     ("use_random_calls", "Can use random calls feature"),
 ]
 
 LEGACY_TO_CODENAME = {
     "view-api-schema": "view_api_schema",
     "view-database-schema": "view_database_schema",
-    "view-docs": "view_docs",
-    "view-email-templates": "view_email_templates",
-    "view-stats": "view_stats",
     "matching-user": "matching_user",
-    "uncensored-admin-matcher": "uncensored_admin_matcher",
     "use-random-calls": "use_random_calls",
 }
 
-DEPRECATED_PERMISSION_CODENAMES = ["use_autologin_api"]
+DEPRECATED_PERMISSION_CODENAMES = [
+    "use_autologin_api",
+    "view_docs",
+    "view_email_templates",
+    "view_stats",
+    "uncensored_admin_matcher",
+]
 
 
 def _to_permission_list(raw_value):

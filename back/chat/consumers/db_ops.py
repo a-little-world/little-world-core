@@ -13,10 +13,14 @@ def is_staff_or_matching(user):
 def connect_user(user):
     connection = ChatConnections.objects.filter(user=user)
     if connection.exists():
-        connection = connection.first()
-        connection.is_online = True
-        connection.last_seen = timezone.now()
-        connection.save()
+        existing_connection = connection.first()
+        if existing_connection is None:
+            connection = ChatConnections.objects.create(user=user, is_online=True)
+        else:
+            existing_connection.is_online = True
+            existing_connection.last_seen = timezone.now()
+            existing_connection.save()
+            connection = existing_connection
     else:
         connection = ChatConnections.objects.create(user=user, is_online=True)
     return connection
@@ -27,10 +31,12 @@ def disconnect_user(user):
     connection = ChatConnections.objects.filter(user=user)
     last_seen = None
     if connection.exists():
-        connection = connection.first()
-        last_seen = connection.last_seen
-        connection.is_online = False
-        connection.save()
+        existing_connection = connection.first()
+        if existing_connection is None:
+            raise Exception("User was not connected, but still disconnected")
+        last_seen = existing_connection.last_seen
+        existing_connection.is_online = False
+        existing_connection.save()
     else:
         raise Exception("User was not connected, but still disconnected")
 
