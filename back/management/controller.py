@@ -146,8 +146,10 @@ def make_tim_support_user(
     # Wait for DB transactions to complete
     transaction.on_commit(copy_chat)
 
+    # TODO: deprecated - migrate legacy state.managed_users writes to ManagementAccessGrant-only flow.
     # 2.5 add that user to the managed users by Tim
     base_management_user.state.managed_users.add(user)
+    base_management_user.grant_management_access(user, granted_by=admin_user)
     base_management_user.state.save()
 
     # 3. set that user to 'not searching'
@@ -266,7 +268,9 @@ def create_user(
     if not base_management_user.is_staff:
         # At the moment all our users get the same management user
         # in the future there might be a process to assign different management users to different users
+        # TODO: deprecated - migrate legacy state.managed_users writes to ManagementAccessGrant-only flow.
         base_management_user.state.managed_users.add(usr)
+        base_management_user.grant_management_access(usr, granted_by=base_management_user)
         base_management_user.state.save()
 
     return usr

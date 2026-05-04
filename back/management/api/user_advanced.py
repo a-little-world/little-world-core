@@ -1,4 +1,5 @@
 from datetime import datetime, time
+from typing import cast
 
 from chat.models import Chat, ChatSerializer, Message, MessageSerializer
 from django.db.models import CharField, Max, Q, Value
@@ -498,7 +499,9 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if is_staff:
             return User.objects.all()
         else:
-            return User.objects.filter(id__in=self.request.user.state.managed_users.all(), is_active=True)
+            # TODO: deprecated - replace legacy state.managed_users filtering with managed_users_queryset().
+            management_user = cast(User, self.request.user)
+            return management_user.managed_users_queryset(active_only=True)
 
     @action(detail=False, methods=["get"])
     def get_filter_schema(self, request, include_lookup_expr=False):
@@ -591,7 +594,8 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if not request.user.is_staff and not request.user.has_perm(ManagementPermission.MATCHING_USER):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
 
-        if not request.user.is_staff and not request.user.state.managed_users.filter(pk=user.pk).exists():
+        # TODO: deprecated - replace legacy state.managed_users access checks with has_management_access().
+        if not request.user.is_staff and not request.user.has_management_access(user):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
         return True, None
 
@@ -1008,21 +1012,25 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         return Response({"msg": "User is now a TIM support user"})
 
     @action(detail=True, methods=["get"])
-    def emails(self, request, pk=None):
+    def emails(self, request, pk=None) -> Response:
         self.kwargs["pk"] = pk
-        obj = self.get_object()
+        target_user = self.get_object()
 
-        has_access, res = self.check_management_user_access(obj, request)
+        has_access, res = self.check_management_user_access(target_user, request)
         if not has_access:
+            if res is None:
+                return Response({"msg": "You are not allowed to access this user!"}, status=401)
             return res
 
         page = int(request.query_params.get("page", 1))
         page_size = int(request.query_params.get("page_size", 10))
 
-        email_logs = get_paginated_format_v2(EmailLog.objects.filter(receiver=obj), page_size, page)
-        email_logs["results"] = AdvancedEmailLogSerializer(email_logs["results"], many=True).data
+        paginated_email_logs = get_paginated_format_v2(
+            EmailLog.objects.filter(receiver=target_user).order_by("-time"), page_size, page
+        )
+        paginated_email_logs["results"] = AdvancedEmailLogSerializer(paginated_email_logs["results"], many=True).data
 
-        return Response(email_logs)
+        return Response(paginated_email_logs)
 
     @action(detail=False, methods=["get"])
     def export(self, request):

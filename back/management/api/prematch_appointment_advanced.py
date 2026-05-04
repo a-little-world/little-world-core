@@ -71,7 +71,8 @@ class PreMatchingAppointmentViewSet(viewsets.ModelViewSet):
         if user.is_staff:
             return PreMatchingAppointment.objects.all()
         elif user.has_perm(ManagementPermission.MATCHING_USER):
-            return PreMatchingAppointment.objects.filter(user__in=user.state.managed_users.all())
+            # TODO: deprecated - replace legacy state.managed_users filtering with managed_users_queryset()/ACL joins.
+            return PreMatchingAppointment.objects.filter(user__in=user.managed_users_queryset(active_only=False))
 
     def check_management_user_access(self, appointment, request):
         user = appointment.user
@@ -81,7 +82,8 @@ class PreMatchingAppointmentViewSet(viewsets.ModelViewSet):
                 {"msg": "You are not allowed to access this user!"}, status=status.HTTP_401_UNAUTHORIZED
             )
 
-        if not request.user.is_staff and not request.user.state.managed_users.filter(pk=user.pk).exists():
+        # TODO: deprecated - replace legacy state.managed_users access checks with has_management_access().
+        if not request.user.is_staff and not request.user.has_management_access(user):
             return False, Response(
                 {"msg": "You are not allowed to access this user!"}, status=status.HTTP_401_UNAUTHORIZED
             )
@@ -93,7 +95,8 @@ class PreMatchingAppointmentViewSet(viewsets.ModelViewSet):
                 {"msg": "You are not allowed to access this user!"}, status=status.HTTP_401_UNAUTHORIZED
             )
 
-        if not request.user.is_staff and not request.user.state.managed_users.filter(pk=user.pk).exists():
+        # TODO: deprecated - replace legacy state.managed_users access checks with has_management_access().
+        if not request.user.is_staff and not request.user.has_management_access(user):
             return False, Response(
                 {"msg": "You are not allowed to access this user!"}, status=status.HTTP_401_UNAUTHORIZED
             )
@@ -289,7 +292,8 @@ def mark_prematching_calls_completed(request):
         if (
             not request.user.is_staff
             and request.user.has_perm(ManagementPermission.MATCHING_USER)
-            and not request.user.state.managed_users.filter(pk=user.pk).exists()
+            # TODO: deprecated - replace legacy state.managed_users access checks with has_management_access().
+            and not request.user.has_management_access(user)
         ):
             return Response(
                 {"error": "You are not allowed to access one or many users for this appointment!"},

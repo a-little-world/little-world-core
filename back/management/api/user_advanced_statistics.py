@@ -41,7 +41,7 @@ from management.models.user import User
                 choices=[entry.name for entry in FILTER_LISTS],
                 default="all",
             ),
-            "start_date": serializers.DateField(default="2022-01-01"),
+            "start_date": serializers.DateField(default=date(2022, 1, 1)),
             "end_date": serializers.DateField(default=date.today()),
         },
     ),
@@ -61,7 +61,10 @@ def user_signups(request):
 
     pre_filtered_users = User.objects.all()
     if not request.user.is_staff:
-        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+        # TODO: deprecated - replace legacy state.managed_users filtering with managed_users_queryset().
+        pre_filtered_users = pre_filtered_users.filter(
+            id__in=request.user.managed_users_queryset(active_only=False).values("id")
+        )
 
     queryset = selected_filter.queryset(qs=pre_filtered_users)
 
@@ -137,7 +140,7 @@ def user_signups(request):
         name="EmailStatisticsCountOverTimeRequest",
         fields={
             "bucket_size": serializers.IntegerField(default=1),
-            "start_date": serializers.DateField(default="2022-01-01"),
+            "start_date": serializers.DateField(default=date(2022, 1, 1)),
             "end_date": serializers.DateField(default=date.today()),
         },
     ),
@@ -187,7 +190,7 @@ def email_statistics(request):
         name="SessionStatisticsCountOverTimeRequest",
         fields={
             "bucket_size": serializers.IntegerField(default=1),
-            "start_date": serializers.DateField(default="2022-01-01"),
+            "start_date": serializers.DateField(default=date(2022, 1, 1)),
             "end_date": serializers.DateField(default=date.today()),
         },
     ),
@@ -268,7 +271,7 @@ def user_sessions(request):
                 choices=[entry.name for entry in FILTER_LISTS],
                 default="all",
             ),
-            "start_date": serializers.DateField(default="2022-01-01"),
+            "start_date": serializers.DateField(default=date(2022, 1, 1)),
             "end_date": serializers.DateField(default=date.today()),
         },
     ),
@@ -288,7 +291,9 @@ def message_statistics(request):
 
     pre_filtered_users = User.objects.all()
     if not request.user.is_staff:
-        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+        pre_filtered_users = pre_filtered_users.filter(
+            id__in=request.user.managed_users_queryset(active_only=False).values("id")
+        )
 
     queryset = selected_filter.queryset(qs=pre_filtered_users)
 
@@ -323,7 +328,7 @@ def message_statistics(request):
                 choices=[entry.name for entry in FILTER_LISTS],
                 default="all",
             ),
-            "start_date": serializers.DateField(default="2022-01-01"),
+            "start_date": serializers.DateField(default=date(2022, 1, 1)),
             "end_date": serializers.DateField(default=date.today()),
         },
     ),
@@ -348,7 +353,9 @@ def livekit_session_statistics(request):
 
     pre_filtered_users = User.objects.all()
     if not request.user.is_staff:
-        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+        pre_filtered_users = pre_filtered_users.filter(
+            id__in=request.user.managed_users_queryset(active_only=False).values("id")
+        )
 
     queryset = selected_filter.queryset(qs=pre_filtered_users)
 
@@ -491,7 +498,7 @@ def get_bucket_statistics(pre_filtered_users, selected_filters=None, filter_list
                 ),
                 required=True,
             ),
-            "start_date": serializers.DateField(default="2021-01-01", required=False),
+            "start_date": serializers.DateField(default=date(2021, 1, 1), required=False),
             "end_date": serializers.DateField(default=date.today(), required=False),
             "volunteers_only": serializers.BooleanField(default=False, required=False),
         },
@@ -514,7 +521,9 @@ def bucket_statistics(request):
     # Get pre-filtered users based on permissions and date range
     pre_filtered_users = User.objects.all()
     if not request.user.is_staff:
-        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+        pre_filtered_users = pre_filtered_users.filter(
+            id__in=request.user.managed_users_queryset(active_only=False).values("id")
+        )
     pre_filtered_users = pre_filtered_users.filter(date_joined__range=[start_date, end_date])
 
     volunteers_only = request.data.get("volunteers_only", False)
@@ -627,7 +636,7 @@ def get_match_bucket_statistics(pre_filtered_matches, selected_filters=None, fil
                 ),
                 required=True,
             ),
-            "start_date": serializers.DateField(default="2021-01-01", required=False),
+            "start_date": serializers.DateField(default=date(2021, 1, 1), required=False),
             "end_date": serializers.DateField(default=date.today(), required=False),
         },
     ),
@@ -642,7 +651,9 @@ def match_bucket_statistics(request):
     # Get pre-filtered users based on permissions
     pre_filtered_users = User.objects.all()
     if not request.user.is_staff:
-        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+        pre_filtered_users = pre_filtered_users.filter(
+            id__in=request.user.managed_users_queryset(active_only=False).values("id")
+        )
 
     # Get pre-filtered matches based on users and date range
     pre_filtered_matches = Match.objects.filter(
@@ -664,7 +675,7 @@ def match_bucket_statistics(request):
     request=inline_serializer(
         name="CompanyUsersReportRequest",
         fields={
-            "start_date": serializers.DateField(default="2024-01-01"),
+            "start_date": serializers.DateField(default=date(2024, 1, 1)),
             "end_date": serializers.DateField(default=date.today()),
             "format": serializers.ChoiceField(
                 choices=[("json", "JSON"), ("csv", "CSV")],
@@ -890,6 +901,9 @@ def company_users_report(request, company):
 
 
 def user_signup_loss_statistic(start_date="2022-01-01", end_date=date.today(), caller=None):
+    if caller is None:
+        raise ValueError("caller is required")
+
     user_lists_required = [
         "all",
         "journey_v2__never_active",
@@ -912,7 +926,9 @@ def user_signup_loss_statistic(start_date="2022-01-01", end_date=date.today(), c
 
     pre_filtered_users = User.objects.all()
     if not caller.is_staff:
-        pre_filtered_users = pre_filtered_users.filter(id__in=caller.state.managed_users.all())
+        pre_filtered_users = pre_filtered_users.filter(
+            id__in=caller.managed_users_queryset(active_only=False).values("id")
+        )
 
     pre_filtered_users = pre_filtered_users.filter(date_joined__range=[start_date, end_date])
 
@@ -921,6 +937,8 @@ def user_signup_loss_statistic(start_date="2022-01-01", end_date=date.today(), c
     # retrieve all the id's we need
     for list_name in user_lists_required:
         user_list = get_list_by_name(list_name)
+        if user_list is None:
+            continue
         filtered_list_users = user_list.queryset(qs=pre_filtered_users)
 
         user_list_ids[list_name] = {
@@ -953,6 +971,9 @@ def user_signup_loss_statistic(start_date="2022-01-01", end_date=date.today(), c
 
 
 def user_signup_loss_statistic_v2(start_date="2022-01-01", end_date=date.today(), caller=None):
+    if caller is None:
+        raise ValueError("caller is required")
+
     user_lists_required = [
         "all",
         "journey_v2__user_created",
@@ -984,7 +1005,9 @@ def user_signup_loss_statistic_v2(start_date="2022-01-01", end_date=date.today()
 
     pre_filtered_users = User.objects.all()
     if not caller.is_staff:
-        pre_filtered_users = pre_filtered_users.filter(id__in=caller.state.managed_users.all())
+        pre_filtered_users = pre_filtered_users.filter(
+            id__in=caller.managed_users_queryset(active_only=False).values("id")
+        )
 
     pre_filtered_users = pre_filtered_users.filter(date_joined__range=[start_date, end_date])
 
@@ -993,6 +1016,8 @@ def user_signup_loss_statistic_v2(start_date="2022-01-01", end_date=date.today()
     # retrieve all the id's we need
     for list_name in user_lists_required:
         user_list = get_list_by_name(list_name)
+        if user_list is None:
+            continue
         filtered_list_users = user_list.queryset(qs=pre_filtered_users)
 
         user_list_ids[list_name] = {
@@ -1047,6 +1072,9 @@ def user_signup_loss_statistic_v2(start_date="2022-01-01", end_date=date.today()
 
 
 def match_quality_statistic(start_date="2022-01-01", end_date=date.today(), caller=None):
+    if caller is None:
+        raise ValueError("caller is required")
+
     match_lists_required = [
         "match_journey_v2__proposed_matches",
         "match_journey_v2__unviewed",
@@ -1070,7 +1098,9 @@ def match_quality_statistic(start_date="2022-01-01", end_date=date.today(), call
 
     pre_filtered_users = User.objects.all()
     if not caller.is_staff:
-        pre_filtered_users = pre_filtered_users.filter(id__in=caller.state.managed_users.all())
+        pre_filtered_users = pre_filtered_users.filter(
+            id__in=caller.managed_users_queryset(active_only=False).values("id")
+        )
 
     pre_filtered_matches = Match.objects.filter(
         Q(user1__in=pre_filtered_users) | Q(user2__in=pre_filtered_users), created_at__range=[start_date, end_date]
@@ -1081,6 +1111,8 @@ def match_quality_statistic(start_date="2022-01-01", end_date=date.today(), call
     # retrieve all the id's we need
     for list_name in match_lists_required:
         match_list = get_match_list_by_name(list_name)
+        if match_list is None:
+            continue
         filtered_list_matches = match_list.queryset(qs=pre_filtered_matches)
 
         match_list_ids[list_name] = {
@@ -1110,7 +1142,7 @@ def match_quality_statistic(start_date="2022-01-01", end_date=date.today(), call
     request=inline_serializer(
         name="MatchQualityStatisticsRequest",
         fields={
-            "start_date": serializers.DateField(default="2022-01-01"),
+            "start_date": serializers.DateField(default=date(2022, 1, 1)),
             "end_date": serializers.DateField(default=date.today()),
         },
     ),
@@ -1129,7 +1161,7 @@ def match_quality_statistics(request):
     request=inline_serializer(
         name="UserSignupLossStatisticsRequest",
         fields={
-            "start_date": serializers.DateField(default="2022-01-01"),
+            "start_date": serializers.DateField(default=date(2022, 1, 1)),
             "end_date": serializers.DateField(default=date.today()),
         },
     ),
@@ -1224,7 +1256,9 @@ def kpi_dashboard_statistics_signups(request):
 
     pre_filtered_users = User.objects.all()
     if not request.user.is_staff:
-        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+        pre_filtered_users = pre_filtered_users.filter(
+            id__in=request.user.managed_users_queryset(active_only=False).values("id")
+        )
 
     total_registered_users = pre_filtered_users.count()
     last_7_days = pre_filtered_users.filter(
@@ -1383,7 +1417,9 @@ def kpi_dashboard_statistics_searching_users(request):
 
     pre_filtered_users = User.objects.all()
     if not request.user.is_staff:
-        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+        pre_filtered_users = pre_filtered_users.filter(
+            id__in=request.user.managed_users_queryset(active_only=False).values("id")
+        )
 
     users_with_proposals = get_user_involved(matching_proposals(), pre_filtered_users)
 
@@ -1438,7 +1474,9 @@ def kpi_dashboard_statistics_matching(request):
 
     pre_filtered_users = User.objects.all()
     if not request.user.is_staff:
-        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+        pre_filtered_users = pre_filtered_users.filter(
+            id__in=request.user.managed_users_queryset(active_only=False).values("id")
+        )
 
     # Get pre-filtered matches based on users and date range
     pre_filtered_matches = Match.objects.filter(
@@ -1503,7 +1541,9 @@ def time_slot_counts(request):
     # Get pre-filtered users based on permissions
     pre_filtered_users = User.objects.all()
     if not request.user.is_staff:
-        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+        pre_filtered_users = pre_filtered_users.filter(
+            id__in=request.user.managed_users_queryset(active_only=False).values("id")
+        )
 
     # Optional date range: only users who signed up or were active in [start_date, end_date]
     start_date_str = request.GET.get("start_date")
@@ -1801,7 +1841,9 @@ def time_slot_combination_optimization(request, n=1):
 
     pre_filtered_users = User.objects.all()
     if not request.user.is_staff:
-        pre_filtered_users = pre_filtered_users.filter(id__in=request.user.state.managed_users.all())
+        pre_filtered_users = pre_filtered_users.filter(
+            id__in=request.user.managed_users_queryset(active_only=False).values("id")
+        )
 
     pre_filtered_users = selected_filter.queryset(qs=pre_filtered_users)
 
@@ -1943,7 +1985,7 @@ def time_slot_combination_optimization(request, n=1):
     request=inline_serializer(
         name="MarketingCampaignReportRequest",
         fields={
-            "start_date": serializers.DateField(default="2022-01-01"),
+            "start_date": serializers.DateField(default=date(2022, 1, 1)),
             "end_date": serializers.DateField(default=date.today()),
         },
     ),
@@ -2157,7 +2199,7 @@ def marketing_campaign_report(request):
     request=inline_serializer(
         name="UpdateUserJourneyPathFromStatsRequest",
         fields={
-            "start_date": serializers.DateField(default="2022-01-01"),
+            "start_date": serializers.DateField(default=date(2022, 1, 1)),
             "end_date": serializers.DateField(default=date.today()),
         },
     ),
@@ -2173,7 +2215,8 @@ def update_user_journey_path_from_stats(request, user_hash: str):
     # check if management user has access to this user
     print(f"User: {user.id}, Request User: {request.user.id}")
 
-    if not request.user.is_staff and not user_state.managed_users.contains(request.user):
+    # TODO: deprecated - replace legacy state.managed_users access checks with has_management_access().
+    if not request.user.is_staff and not request.user.has_management_access(user):
         return Response({"error": "You do not have access to this user"}, status=403)
 
     # TODO: Remove - Reset to 999 days ago for testing
@@ -2294,7 +2337,8 @@ def _group_user_journey_by_date(user_path: list) -> list:
 def get_user_bucket_path(request, user_hash: str):
     user = User.objects.get(hash=user_hash)
     # check if management user has access to this user
-    if not request.user.is_staff and not user.state.managed_users.contains(request.user):
+    # TODO: deprecated - replace legacy state.managed_users access checks with has_management_access().
+    if not request.user.is_staff and not request.user.has_management_access(user):
         return Response({"error": "You do not have access to this user"}, status=403)
 
     raw_path = user.state.user_journey_path or []
@@ -2330,7 +2374,8 @@ def user_video_call_summary(request, user_id: int):
     except User.DoesNotExist:
         return Response({"error": "User not found"}, status=404)
 
-    if not request.user.is_staff and not request.user.state.managed_users.filter(pk=user.pk).exists():
+    # TODO: deprecated - replace legacy state.managed_users access checks with has_management_access().
+    if not request.user.is_staff and not request.user.has_management_access(user):
         return Response({"error": "You do not have access to this user"}, status=403)
 
     video_calls_as_u1 = LivekitSession.objects.filter(u1=user, both_have_been_active=True)

@@ -6,7 +6,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from management.models.profile import Profile
-from management.models.user import User
 from management.permissions import ManagementPermission
 
 
@@ -41,19 +40,16 @@ def get_matching_statictic_score_function(request, scoring_function):
     """
     from management.api.user_advanced_filter_lists import needs_matching
 
+    # TODO: deprecated - replace legacy state.managed_users filtering with managed_users_queryset().
     if scoring_function == ScoringFunctionsEnum.users_waiting_for_match.name:
-        requires_matching = needs_matching(
-            qs=User.objects.filter(id__in=request.user.state.managed_users.all(), is_active=True)
-        )
+        requires_matching = needs_matching(qs=request.user.managed_users_queryset(active_only=True))
         return MatchingStatisticScore(
             scoring_function=ScoringFunctionsEnum.users_waiting_for_match.value,
             score_type=ScoreTypesEnum.VALUE.value,
             data={"value": requires_matching.count()},
         )
     if scoring_function == ScoringFunctionsEnum.learners_waiting_for_match.name:
-        requires_matching = needs_matching(
-            qs=User.objects.filter(id__in=request.user.state.managed_users.all(), is_active=True)
-        )
+        requires_matching = needs_matching(qs=request.user.managed_users_queryset(active_only=True))
         learners_needs_matching = requires_matching.filter(profile__user_type=Profile.TypeChoices.LEARNER)
         return MatchingStatisticScore(
             scoring_function=ScoringFunctionsEnum.learners_waiting_for_match.value,
@@ -62,9 +58,7 @@ def get_matching_statictic_score_function(request, scoring_function):
         )
 
     if scoring_function == ScoringFunctionsEnum.percentage_of_learners_waiting_for_match.name:
-        requires_matching = needs_matching(
-            qs=User.objects.filter(id__in=request.user.state.managed_users.all(), is_active=True)
-        )
+        requires_matching = needs_matching(qs=request.user.managed_users_queryset(active_only=True))
         all_count = requires_matching.count()
         learners_needs_matching = requires_matching.filter(profile__user_type=Profile.TypeChoices.LEARNER)
         return MatchingStatisticScore(
@@ -94,9 +88,7 @@ def get_matching_statictic_score_function(request, scoring_function):
     if scoring_function == ScoringFunctionsEnum.considerable_match_permutations.name:
         from management.models.scores import TwoUserMatchingScore
 
-        requires_matching = needs_matching(
-            qs=User.objects.filter(id__in=request.user.state.managed_users.all(), is_active=True)
-        )
+        requires_matching = needs_matching(qs=request.user.managed_users_queryset(active_only=True))
         # we we need to annotate user1.id and user2.id, get a set of that and count possible matches of two
         user_id_set = set(requires_matching.values_list("id", flat=True))
         combinations = len(user_id_set) * (len(user_id_set) - 1) / 2

@@ -135,8 +135,9 @@ def make_match(request):
     user1 = User.objects.get(pk=params.user1)
     user2 = User.objects.get(pk=params.user2)
 
+    # TODO: deprecated - replace legacy state.managed_users access checks with has_management_access().
     for user in [user1, user2]:
-        if user not in request.user.state.managed_users.all():
+        if not request.user.has_management_access(user):
             return Response(
                 "User is not allowed to match these users, you don't have matching authority for them",
                 status=status.HTTP_403_FORBIDDEN,

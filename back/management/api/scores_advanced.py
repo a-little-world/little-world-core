@@ -1,3 +1,5 @@
+from typing import cast
+
 from django.db.models import Q
 from django.urls import path
 from django_filters import rest_framework as filters
@@ -95,9 +97,10 @@ class TwoUserMatchingScoreViewset(viewsets.ModelViewSet):
         if user.is_staff:
             return TwoUserMatchingScore.objects.all()
         elif user.has_perm(ManagementPermission.MATCHING_USER):
-            return TwoUserMatchingScore.objects.filter(
-                Q(user1__in=user.state.managed_users.all()) | Q(user2__in=user.state.managed_users.all())
-            )
+            # TODO: deprecated - replace legacy state.managed_users filtering with managed_users_queryset()/ACL joins.
+            management_user = cast(User, user)
+            managed_users = management_user.managed_users_queryset(active_only=False)
+            return TwoUserMatchingScore.objects.filter(Q(user1__in=managed_users) | Q(user2__in=managed_users))
 
     @action(detail=False, methods=["get"])
     def get_filter_schema(self, request, include_lookup_expr=False):

@@ -25,13 +25,13 @@ class AdvancedLivekitSessionSerializer(serializers.ModelSerializer):
         u2 = User.objects.get(id=instance.u2.id)
 
         representation["u1"] = {
-            "id": u1.id,
+            "id": u1.pk,
             "hash": u1.hash,
             "email": u1.email,
             "profile": MinimalProfileSerializer(u1.profile).data,
         }
         representation["u2"] = {
-            "id": u2.id,
+            "id": u2.pk,
             "hash": u2.hash,
             "email": u2.email,
             "profile": MinimalProfileSerializer(u2.profile).data,
@@ -111,12 +111,14 @@ class AdvancedVideoCallsViewset(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        if not isinstance(user, User):
+            return LivekitSession.objects.none()
         if user.is_staff:
             return LivekitSession.objects.all()
         elif user.has_perm(ManagementPermission.MATCHING_USER):
-            return LivekitSession.objects.filter(
-                Q(u1__in=user.state.managed_users.all()) | Q(u2__in=user.state.managed_users.all())
-            )
+            # TODO: deprecated - replace legacy state.managed_users filtering with managed_users_queryset()/ACL joins.
+            managed_users = user.managed_users_queryset(active_only=False)
+            return LivekitSession.objects.filter(Q(u1__in=managed_users) | Q(u2__in=managed_users))
 
     def check_management_user_access(self, session, request):
         user = session.get_partner(request.user)
@@ -124,7 +126,8 @@ class AdvancedVideoCallsViewset(viewsets.ModelViewSet):
         if not request.user.is_staff and not request.user.has_perm(ManagementPermission.MATCHING_USER):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
 
-        if not request.user.is_staff and not request.user.state.managed_users.filter(pk=user.pk).exists():
+        # TODO: deprecated - replace legacy state.managed_users access checks with has_management_access().
+        if not request.user.is_staff and not request.user.has_management_access(user):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
         return True, None
 
