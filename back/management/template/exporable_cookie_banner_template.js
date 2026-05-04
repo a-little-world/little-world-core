@@ -8,8 +8,12 @@ const baseUrl = "{{ BASE_URL }}";
 const script = '{{ JS_BASE_CODE }}';
 const scripUrl = script.split('"')[1];
 let cookieBannerIsHidden = false;
+let cookieConsentName = "backend_cookie_consent";
 try {
     cookieBannerIsHidden = cookieData.hiddenCookieBanner === true;
+    if (cookieData.cookieConsentName) {
+        cookieConsentName = cookieData.cookieConsentName;
+    }
 } catch (e) {
     console.error("Error getting cookie banner hidden state, using default value", e);
 }
@@ -44,7 +48,16 @@ const initCode = () => {
         window.location.replace("https://home.little-world.com/datenschutz");
     }
     scriptPromise.then(() => {
-        cookieBanner(cookieData.cookieGroups, cookieData.cookieSets, cookieData.cookieStateDict, toImpressum, toPrivacy, cookieBannerIsHidden);
+        cookieBanner(
+            cookieData.cookieGroups,
+            cookieData.cookieSets,
+            cookieData.cookieStateDict,
+            toImpressum,
+            toPrivacy,
+            cookieBannerIsHidden,
+            {},
+            cookieConsentName,
+        );
     });
 }
 
