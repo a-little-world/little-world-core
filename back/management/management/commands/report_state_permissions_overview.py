@@ -92,6 +92,7 @@ class Command(BaseCommand):
             self.stdout.write(f"- {permission_value}: {len(users)} user(s)")
             if permission_value == LEGACY_PERMISSION_WITH_USER_DETAILS:
                 self._print_user_lines(users)
+                self._print_management_scope_lines(users)
 
         if unknown_legacy_values:
             self.stdout.write("")
@@ -119,6 +120,7 @@ class Command(BaseCommand):
             self.stdout.write(f"- management.{codename}: {len(users)} user(s)")
             if codename == DJANGO_PERMISSION_WITH_USER_DETAILS:
                 self._print_user_lines(users)
+                self._print_management_scope_lines(users)
 
         self.stdout.write("")
         self.stdout.write(f"Users with any tracked Django state permission: {len(users_with_any_state_permission)}")
@@ -129,6 +131,18 @@ class Command(BaseCommand):
             return
         for user in users:
             self.stdout.write(f"  - id={user.pk} email={user.email}")
+
+    def _print_management_scope_lines(self, users):
+        if not users:
+            return
+        self.stdout.write("  managed users per matching-user:")
+        for user in users:
+            legacy_managed_count = user.state.managed_users.count()
+            acl_managed_count = user.management_accesses_granted.filter(is_active=True).count()
+            self.stdout.write(
+                f"  - id={user.pk} email={user.email} "
+                f"legacy_managed_users={legacy_managed_count} acl_managed_users={acl_managed_count}"
+            )
 
     def _dedupe_and_sort_users(self, users):
         by_pk = {user.pk: user for user in users}
