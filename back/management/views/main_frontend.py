@@ -119,9 +119,7 @@ class MainFrontendRouter(View):
         ):
             return redirect("/app/onboarding/")
 
-        if (
-            not any([path.startswith(p) for p in self.LOGGED_IN_NO_REDIRECT_PATHS])
-        ):
+        if not any([path.startswith(p) for p in self.LOGGED_IN_NO_REDIRECT_PATHS]):
             return redirect("/app/")
 
         extra_template_data = {}

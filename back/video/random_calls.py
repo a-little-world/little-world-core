@@ -458,11 +458,11 @@ def authenticate_random_call_match_livekit_room(request, lobby_uuid, match_uuid)
     # 7 - Start actual room authentication
 
     # 7.1 - create a temporary chat (excluded from main chat list)
-    temporary_chat = Chat.objects.filter(u1=match.u1, u2=match.u2, is_temporary=True)
-    if not temporary_chat.exists():
-        temporary_chat = Chat.objects.create(u1=match.u1, u2=match.u2, is_temporary=True)
+    existing_chat = Chat.objects.filter(u1=match.u1, u2=match.u2)
+    if existing_chat.exists():
+        temporary_chat = existing_chat.first()
     else:
-        temporary_chat = temporary_chat.first()
+        temporary_chat = Chat.objects.create(u1=match.u1, u2=match.u2, is_temporary=True)
 
     # 7.2 - create a temporary room
     temporary_room = LiveKitRoom.objects.filter(u1=match.u1, u2=match.u2, random_call_room=True)
