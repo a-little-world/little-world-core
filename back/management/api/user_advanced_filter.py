@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from chat.models import Chat, Message
+from django.db import connection
 from django.db.models import Case, Count, F, OuterRef, Q, Subquery, When
 from django.db.models.functions import Extract
 from django.utils import timezone
@@ -121,6 +122,44 @@ def searching_users(qs=User.objects.all()):
         state__is_onboarded=False,
         state__searching_state=State.SearchingStateChoices.SEARCHING,
     ).order_by("-date_joined")
+
+
+def eligible_for_random_calls(qs=User.objects.all()):
+    """
+    Onboarded users with completed user form and German level above A1/A2 (not LEVEL_0).
+    Includes pre-matching onboarding, self-onboarding, and custom onboarders.
+    """
+    base_qs = qs.filter(
+        is_active=True,
+        state__is_onboarded=True,
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+    )
+
+    if connection.vendor == "postgresql":
+        return (
+            base_qs.filter(
+                profile__lang_skill__contains=[{"lang": Profile.LanguageChoices.GERMAN}],
+            )
+            .exclude(
+                profile__lang_skill__contains=[
+                    {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
+                ]
+            )
+            .order_by("-date_joined")
+        )
+
+    # SQLite fallback: JSONField contains lookup is unsupported
+    eligible_ids = []
+    for user in base_qs.select_related("profile").iterator(chunk_size=500):
+        lang_skill = user.profile.lang_skill or []
+        german_entries = [entry for entry in lang_skill if entry.get("lang") == Profile.LanguageChoices.GERMAN]
+        if not german_entries:
+            continue
+        has_level_above_0 = any(entry.get("level") != Profile.LanguageSkillChoices.LEVEL_0 for entry in german_entries)
+        if has_level_above_0:
+            eligible_ids.append(user.pk)
+
+    return qs.filter(id__in=eligible_ids).order_by("-date_joined")
 
 
 def users_in_registration(qs=User.objects.all()):
