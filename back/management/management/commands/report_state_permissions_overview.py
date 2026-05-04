@@ -35,6 +35,9 @@ STATE_PERMISSION_CODENAMES = [
     "use_random_calls",
 ]
 
+LEGACY_PERMISSION_WITH_USER_DETAILS = "matching-user"
+DJANGO_PERMISSION_WITH_USER_DETAILS = "matching_user"
+
 
 def _to_permission_list(raw_value):
     if not raw_value:
@@ -51,8 +54,8 @@ def _to_permission_list(raw_value):
 
 class Command(BaseCommand):
     help = (
-        "Print detailed overview of legacy state.extra_user_permissions and "
-        "Django state permissions, including user id/email per permission."
+        "Print overview of legacy state.extra_user_permissions and Django state permissions; "
+        "show user id/email details for matching-user only."
     )
 
     def handle(self, *args, **options):
@@ -87,7 +90,8 @@ class Command(BaseCommand):
         for permission_value in LEGACY_PERMISSION_VALUES:
             users = self._dedupe_and_sort_users(users_by_permission.get(permission_value, []))
             self.stdout.write(f"- {permission_value}: {len(users)} user(s)")
-            self._print_user_lines(users)
+            if permission_value == LEGACY_PERMISSION_WITH_USER_DETAILS:
+                self._print_user_lines(users)
 
         if unknown_legacy_values:
             self.stdout.write("")
@@ -95,7 +99,6 @@ class Command(BaseCommand):
             for permission_value in sorted(unknown_legacy_values):
                 users = self._dedupe_and_sort_users(unknown_legacy_values[permission_value])
                 self.stdout.write(f"- {permission_value}: {len(users)} user(s)")
-                self._print_user_lines(users)
 
     def _print_django_overview(self):
         self.stdout.write(self.style.MIGRATE_HEADING("=== Django permissions (management.state) ==="))
@@ -114,7 +117,8 @@ class Command(BaseCommand):
                 users_with_any_state_permission.add(user.pk)
 
             self.stdout.write(f"- management.{codename}: {len(users)} user(s)")
-            self._print_user_lines(users)
+            if codename == DJANGO_PERMISSION_WITH_USER_DETAILS:
+                self._print_user_lines(users)
 
         self.stdout.write("")
         self.stdout.write(f"Users with any tracked Django state permission: {len(users_with_any_state_permission)}")
