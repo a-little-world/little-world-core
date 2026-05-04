@@ -10,6 +10,7 @@ from management.api.user_advanced_filter import (
     EXTRA__onboarded_volunteers_with_activity_in_last3weeks,
     EXTRA__refugee_learners_scoring,
     all_users,
+    eligible_for_random_calls,
     get_active_match_query_set,
     get_quality_match_query_set,
     get_user_with_message_to_admin,
@@ -269,6 +270,11 @@ USER_JOURNEY_FILTER_LISTS = [
         "EXTRA__onboarded_volunteers_with_activity_in_last3weeks",
         "Onboarded Volunteers with activity in the last 3 weeks",
         EXTRA__onboarded_volunteers_with_activity_in_last3weeks,
+    ),
+    FilterListEntry(
+        "EXTRA__eligible_for_random_calls",
+        "Users eligible for random calls onboarding+German criteria",
+        eligible_for_random_calls,
     ),
 ]
 
