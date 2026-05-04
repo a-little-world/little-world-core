@@ -7,6 +7,7 @@ import os
 
 from chat.models import Chat
 from django.conf import settings
+from django.contrib.auth.models import Permission
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -21,6 +22,7 @@ from management.models.settings import Settings
 from management.models.state import State
 from management.models.unconfirmed_matches import MatchType, ProposedMatch
 from management.models.user import User, UserSerializer
+from management.permissions import ManagementPermission
 from management.tasks import (
     create_default_banners,
     create_default_community_events,
@@ -303,8 +305,7 @@ def match_users(
 
     # It can also be a support matching with a 'management' user
     is_support_matching = (usr1.is_staff or usr2.is_staff) or (
-        usr1.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-        or usr2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+        usr1.has_perm(ManagementPermission.MATCHING_USER) or usr2.has_perm(ManagementPermission.MATCHING_USER)
     )
 
     # This is the new way:
@@ -492,10 +493,16 @@ def get_or_create_default_docs_user():
     def finish_up_user_creation():
         user = get_user_by_email(settings.DOCS_USER)
         user.state.email_authenticated = True
-        user.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.DOCS_VIEW)
-        user.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.API_SCHEMAS)
-        user.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.AUTO_LOGIN)
-        user.state.auto_login_api_token = settings.DOCS_USER_LOGIN_TOKEN
+        permissions = Permission.objects.filter(
+            content_type__app_label="management",
+            content_type__model="state",
+            codename__in=[
+                ManagementPermission.VIEW_DOCS,
+                ManagementPermission.VIEW_API_SCHEMA,
+            ],
+        )
+        if permissions.exists():
+            user.user_permissions.add(*permissions)
         user.state.save()
         user.state.set_user_form_completed()
 
@@ -522,8 +529,14 @@ def create_base_admin_and_add_standart_db_values():
 
     def update_profile():
         usr_tim = get_user_by_email(settings.MATCHING_USER_MAIL)
-        if not usr_tim.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
-            usr_tim.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.MATCHING_USER)
+        if not usr_tim.has_perm(ManagementPermission.MATCHING_USER):
+            permission = Permission.objects.filter(
+                content_type__app_label="management",
+                content_type__model="state",
+                codename=ManagementPermission.MATCHING_USER.codename,
+            ).first()
+            if permission is not None:
+                usr_tim.user_permissions.add(permission)
         usr_tim.state.email_authenticated = True
         usr_tim.state.save()
         usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform

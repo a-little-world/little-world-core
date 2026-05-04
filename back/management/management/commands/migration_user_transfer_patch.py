@@ -2,6 +2,7 @@ from django.core.management.base import BaseCommand
 
 from management.controller import get_base_management_user, make_tim_support_user
 from management.models.user import User
+from management.permissions import ManagementPermission
 
 
 class Command(BaseCommand):
@@ -11,7 +12,11 @@ class Command(BaseCommand):
         all_users_to_transfer = (
             User.objects.all()
             .exclude(id__in=all_new_matching_user_managed)
-            .exclude(state__extra_user_permissions__contains="matching-user")
+            .exclude(
+                user_permissions__content_type__app_label="management",
+                user_permissions__content_type__model="state",
+                user_permissions__codename=ManagementPermission.MATCHING_USER.codename,
+            )
             .exclude(is_staff=True)
         )
 

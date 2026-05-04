@@ -26,6 +26,7 @@ from management.models.scores import TwoUserMatchingScore
 from management.models.state import State
 from management.models.unconfirmed_matches import ProposedMatch, serialize_proposed_matches
 from management.models.user import User
+from management.permissions import ManagementPermission
 
 
 class AdvancedUserMatchSerializer(serializers.ModelSerializer):
@@ -60,8 +61,7 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
             "id": str(partner.hash),
             "isOnline": is_online,
             "isDeleted": False,
-            "isSupport": partner.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-            or partner.is_staff,
+            "isSupport": partner.has_perm(ManagementPermission.MATCHING_USER) or partner.is_staff,
             "has_match_priority": partner.state.has_match_priority,
             **CensoredProfileSerializer(partner.profile).data,
         }
@@ -113,13 +113,11 @@ class MakeMatchSerializer(DataclassSerializer):
 @permission_classes([IsAdminOrMatchingUser])
 @api_view(["POST"])
 def make_match(request):
-    assert request.user.is_staff or request.user.state.has_extra_user_permission(
-        State.ExtraUserPermissionChoices.MATCHING_USER
-    ), "User is not allowed to match users"
+    assert request.user.is_staff or request.user.has_perm(ManagementPermission.MATCHING_USER), (
+        "User is not allowed to match users"
+    )
 
-    if (not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)) and (
-        not request.user.is_staff
-    ):
+    if (not request.user.has_perm(ManagementPermission.MATCHING_USER)) and (not request.user.is_staff):
         return Response("User is not allowed to match users", status=status.HTTP_403_FORBIDDEN)
 
     serializer = MakeMatchSerializer(data=request.data)
@@ -218,9 +216,7 @@ def get_match(request, partner_hash):
 
     # 2 - categorize the match, the frontend needs to know if it's a 'confirmed', 'unconfirmed' or 'support' match
     category = "confirmed" if match.confirmed else "unconfirmed"
-    if match.support_matching and (
-        not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-    ):
+    if match.support_matching and (not request.user.has_perm(ManagementPermission.MATCHING_USER)):
         # A match isn't shown as 'support' if the requesting user him self is a support user
         category = "support"
 
@@ -241,7 +237,7 @@ def matches(request):
     user = request.user
 
     try:
-        is_matching_user = user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+        is_matching_user = user.has_perm(ManagementPermission.MATCHING_USER)
 
         empty_list = get_paginated_format_v2(Match.objects.none(), items_per_page, 1)
 

@@ -20,6 +20,7 @@ from management.models.management_tasks import MangementTask
 from management.models.matches import Match
 from management.models.notifications import Notification
 from management.models.question_deck import QuestionCardsDeck
+from management.permissions import MANAGEMENT_PERMISSION_DEFINITIONS
 
 
 class State(models.Model):
@@ -181,14 +182,11 @@ class State(models.Model):
     notes = models.TextField(blank=True, null=True)
 
     class ExtraUserPermissionChoices(models.TextChoices):
+        # Deprecated legacy values kept only for one-time migration scripts.
         API_SCHEMAS = "view-api-schema", _("Is allowed to view API schemas")
         DATABASE_SCHEMA = (
             "view-database-schema",
             _("Is allowed to view database schemas"),
-        )
-        AUTO_LOGIN = (
-            "use-autologin-api",
-            _("Is allowed to use the auto login api (with a specific token)"),
         )
         DOCS_VIEW = "view-docs", _("Is allowed to view the docs")
         EMAIL_TEMPLATES_VIEW = (
@@ -214,6 +212,7 @@ class State(models.Model):
     # This is basicly a list of all users that user manages
     managed_users = models.ManyToManyField("management.User", related_name="managed_users_by", blank=True)
 
+    # Deprecated: auto-login API is disabled and this token is scheduled for removal.
     auto_login_api_token = models.CharField(default=utils._double_uuid, max_length=255)
 
     class TagChoices(models.TextChoices):
@@ -277,6 +276,9 @@ class State(models.Model):
     user_journey_path = models.JSONField(default=list, blank=True)
     user_journey_path_last_updated = models.DateTimeField(null=True, blank=True, default=None)
 
+    class Meta:
+        permissions = MANAGEMENT_PERMISSION_DEFINITIONS
+
     def save(self, *args, **kwargs):
         # Check if searching_state has changed
         if self.pk:  # Only for existing instances
@@ -285,25 +287,6 @@ class State(models.Model):
                 self.searching_state_last_updated = timezone.now()
 
         super().save(*args, **kwargs)
-
-    def has_extra_user_permission(self, permission):
-        if self.extra_user_permissions is None:
-            return False
-
-        return permission in self.extra_user_permissions
-
-    def set_extra_user_permission(self, permission, enabled: bool):
-        existing_permissions = list(self.extra_user_permissions or [])
-
-        if enabled and permission not in existing_permissions:
-            existing_permissions.append(permission)
-        if (not enabled) and permission in existing_permissions:
-            existing_permissions.remove(permission)
-
-        self.extra_user_permissions = existing_permissions
-
-    def set_random_calls_access(self, enabled: bool):
-        self.set_extra_user_permission(self.ExtraUserPermissionChoices.USE_RANDOM_CALLS, enabled)
 
     def regnerate_email_auth_code(self, set_to_unauthenticated=True):
         # We do not log old auth codes, donsnt realy matter

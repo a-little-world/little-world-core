@@ -6,7 +6,7 @@ from management.authentication import NativeOnlyJWTAuthentication
 from management.helpers import DetailedPaginationMixin
 from management.models.matches import Match
 from management.models.profile import ProfileSerializer
-from management.models.state import State
+from management.permissions import ManagementPermission
 from rest_framework import serializers, viewsets
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import action
@@ -50,9 +50,7 @@ class ChatsModelViewSet(viewsets.ModelViewSet):
         return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
-        is_matching_user = self.request.user.state.has_extra_user_permission(
-            State.ExtraUserPermissionChoices.MATCHING_USER
-        )
+        is_matching_user = self.request.user.has_perm(ManagementPermission.MATCHING_USER)
 
         queryset = (
             Chat.objects.filter(Q(u1=self.request.user) | Q(u2=self.request.user), is_temporary=False)

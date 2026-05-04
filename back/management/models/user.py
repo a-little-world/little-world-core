@@ -9,6 +9,7 @@ from rest_framework import serializers
 from back import utils
 from management.models.mobile_device import MobileDevice
 from management.models.notifications import Notification
+from management.permissions import ManagementPermission
 
 
 class UserManager(BaseUserManager):
@@ -131,6 +132,20 @@ class User(AbstractUser):
                 state__in=[Notification.NotificationState.UNREAD, Notification.NotificationState.READ]
             )
         return notifications.order_by("-created_at")
+
+    def grant_permission(self, permission: ManagementPermission) -> bool:
+        permission_obj = permission.get_permission_object()
+        if permission_obj is None:
+            return False
+        self.user_permissions.add(permission_obj)
+        return True
+
+    def revoke_permission(self, permission: ManagementPermission) -> bool:
+        permission_obj = permission.get_permission_object()
+        if permission_obj is None:
+            return False
+        self.user_permissions.remove(permission_obj)
+        return True
 
     # DEPRECATED, use send_notification instead
     def notification(self, title, description, show_toast=True):

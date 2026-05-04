@@ -4,6 +4,7 @@ from django.contrib import admin
 from django.http import HttpResponse
 from django.urls import include, path, re_path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+from management.permissions import ManagementPermission
 from management.urls import public_routes_wildcard
 from rest_framework import status
 
@@ -67,11 +68,7 @@ if settings.DOCS_PROXY:
     view = ProxyView.as_view(upstream=settings.DOCS_URL)
 
     def auth_docs(request, **kwargs):
-        from management.models.state import State
-
-        if request.user.is_authenticated and request.user.state.has_extra_user_permission(
-            State.ExtraUserPermissionChoices.DOCS_VIEW
-        ):
+        if request.user.is_authenticated and request.user.has_perm(ManagementPermission.VIEW_DOCS):
             return view(request, **kwargs)
         return HttpResponse(
             "Not authenticated or insufficient permissions to view docs", status=status.HTTP_403_FORBIDDEN

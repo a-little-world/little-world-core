@@ -15,6 +15,7 @@ from management.models.community_events import CommunityEvent
 from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.models.state import State
 from management.models.user import User
+from management.permissions import ManagementPermission
 
 """
 also contains general startup celery tasks, most of them are automaticly run when the controller.get_base_management user is created
@@ -150,7 +151,7 @@ Selbst habe ich vier Jahre im Ausland gelebt, von Frankreich bis nach China. Den
     usr = get_base_management_user()
     usr.profile.birth_year = 1984
     usr.profile.country_of_residence = "DE"
-    usr.profile.postal_code = 20480
+    usr.profile.postal_code = "20480"
     usr.profile.description = base_management_user_description
     usr.profile.add_profile_picture_from_local_path("/back/dev_test_data/oliver_berlin_management_user_profile_pic.jpg")
     usr.profile.save()
@@ -163,7 +164,6 @@ def fill_base_management_user_tim_profile():
         return  # Allready filled base management user profile
 
     from management.controller import get_base_management_user
-    from management.models.state import State
 
     base_management_user_description = """
 Hello there 👋🏼
@@ -177,11 +177,11 @@ I'll take the time to answer all your messages but I might take a little time to
     usr = get_base_management_user()
     usr.profile.birth_year = 1999
     usr.profile.country_of_residence = "DE"
-    usr.profile.postal_code = 52064
+    usr.profile.postal_code = "52064"
     usr.profile.description = base_management_user_description
     usr.profile.add_profile_picture_from_local_path("/back/dev_test_data/tim_schupp_base_management_profile_new.jpeg")
 
-    usr.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.MATCHING_USER)
+    usr.grant_permission(ManagementPermission.MATCHING_USER)
     usr.state.save()
     usr.profile.save()
 
@@ -200,7 +200,11 @@ def check_prematch_email_reminders_and_expirations():
     for unclosed in all_unclosed_unconfirmed:
         if unclosed.is_expired(close_if_expired=True, send_mail_if_expired=True):
             # Now we have to set the learner to unresponsive = True and to searching = IDLE unless user has match priority
-            learner_state = unclosed.confirming_user.state
+            confirming_user = unclosed.confirming_user
+            if confirming_user is None:
+                continue
+
+            learner_state = confirming_user.state
             if not learner_state.has_match_priority:
                 learner_state.searching_state = State.SearchingStateChoices.IDLE
                 learner_state.unresponsive = True
@@ -769,8 +773,16 @@ def automatic_emails_m023():
         .exclude(
             Q(u1__is_staff=True)
             | Q(u2__is_staff=True)
-            | Q(u1__state__extra_user_permissions__contains="matching-user")
-            | Q(u2__state__extra_user_permissions__contains="matching-user")
+            | Q(
+                u1__user_permissions__content_type__app_label="management",
+                u1__user_permissions__content_type__model="state",
+                u1__user_permissions__codename=ManagementPermission.MATCHING_USER.codename,
+            )
+            | Q(
+                u2__user_permissions__content_type__app_label="management",
+                u2__user_permissions__content_type__model="state",
+                u2__user_permissions__codename=ManagementPermission.MATCHING_USER.codename,
+            )
         )
     )
     inactive_chats = []
@@ -817,8 +829,16 @@ def automatic_emails_m024_m025():
         .exclude(
             Q(u1__is_staff=True)
             | Q(u2__is_staff=True)
-            | Q(u1__state__extra_user_permissions__contains="matching-user")
-            | Q(u2__state__extra_user_permissions__contains="matching-user")
+            | Q(
+                u1__user_permissions__content_type__app_label="management",
+                u1__user_permissions__content_type__model="state",
+                u1__user_permissions__codename=ManagementPermission.MATCHING_USER.codename,
+            )
+            | Q(
+                u2__user_permissions__content_type__app_label="management",
+                u2__user_permissions__content_type__model="state",
+                u2__user_permissions__codename=ManagementPermission.MATCHING_USER.codename,
+            )
         )
     )
 

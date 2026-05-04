@@ -10,8 +10,8 @@ from video.models import LivekitSession
 from management.api.utils_advanced import filterset_schema_dict
 from management.helpers import DetailedPaginationMixin, IsAdminOrMatchingUser
 from management.models.profile import MinimalProfileSerializer
-from management.models.state import State
 from management.models.user import User
+from management.permissions import ManagementPermission
 
 
 class AdvancedLivekitSessionSerializer(serializers.ModelSerializer):
@@ -113,7 +113,7 @@ class AdvancedVideoCallsViewset(viewsets.ModelViewSet):
         user = self.request.user
         if user.is_staff:
             return LivekitSession.objects.all()
-        elif user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+        elif user.has_perm(ManagementPermission.MATCHING_USER):
             return LivekitSession.objects.filter(
                 Q(u1__in=user.state.managed_users.all()) | Q(u2__in=user.state.managed_users.all())
             )
@@ -121,9 +121,7 @@ class AdvancedVideoCallsViewset(viewsets.ModelViewSet):
     def check_management_user_access(self, session, request):
         user = session.get_partner(request.user)
 
-        if not request.user.is_staff and not request.user.state.has_extra_user_permission(
-            State.ExtraUserPermissionChoices.MATCHING_USER
-        ):
+        if not request.user.is_staff and not request.user.has_perm(ManagementPermission.MATCHING_USER):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
 
         if not request.user.is_staff and not request.user.state.managed_users.filter(pk=user.pk).exists():

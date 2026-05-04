@@ -6,8 +6,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from management.models.profile import Profile
-from management.models.state import State
 from management.models.user import User
+from management.permissions import ManagementPermission
 
 
 class ScoringFunctionsEnum(Enum):
@@ -122,9 +122,7 @@ def get_matching_statictic_score_function(request, scoring_function):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_quick_statistics(request):
-    assert request.user.is_staff or request.user.state.has_extra_user_permission(
-        State.ExtraUserPermissionChoices.MATCHING_USER
-    )
+    assert request.user.is_staff or request.user.has_perm(ManagementPermission.MATCHING_USER)
 
     scoring_function = request.query_params.get("scoring_function", None)
     if scoring_function is not None:

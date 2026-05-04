@@ -4,6 +4,7 @@ from django.core.paginator import Paginator
 from django.db import models
 from django.db.models import Case, IntegerField, Max, Q, Value, When
 from management import models as management_models
+from management.permissions import ManagementPermission
 from rest_framework import serializers
 
 
@@ -36,9 +37,7 @@ class Chat(models.Model):
 
     @classmethod
     def get_chats(cls, user):
-        is_matching_user = user.state.has_extra_user_permission(
-            management_models.state.State.ExtraUserPermissionChoices.MATCHING_USER
-        )
+        is_matching_user = user.has_perm(ManagementPermission.MATCHING_USER)
         queryset = Chat.objects.filter(Q(u1=user) | Q(u2=user))
 
         if is_matching_user:
@@ -194,11 +193,7 @@ class MessageSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         representation["sender"] = instance.sender.hash
 
-        from management.models.state import State
-
-        sender_staff = instance.sender.is_staff or instance.sender.state.has_extra_user_permission(
-            State.ExtraUserPermissionChoices.MATCHING_USER
-        )
+        sender_staff = instance.sender.is_staff or instance.sender.has_perm(ManagementPermission.MATCHING_USER)
 
         if sender_staff or instance.parsable_message:
             representation["parsable"] = True

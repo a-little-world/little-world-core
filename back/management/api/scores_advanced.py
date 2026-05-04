@@ -12,8 +12,8 @@ from management.api.user_advanced import AdvancedUserSerializer
 from management.api.utils_advanced import filterset_schema_dict
 from management.helpers import DetailedPaginationMixin, IsAdminOrMatchingUser
 from management.models.scores import TwoUserMatchingScore
-from management.models.state import State
 from management.models.user import User
+from management.permissions import ManagementPermission
 
 
 class TwoUserMatchingScoreSerializer(serializers.ModelSerializer):
@@ -94,7 +94,7 @@ class TwoUserMatchingScoreViewset(viewsets.ModelViewSet):
         user = self.request.user
         if user.is_staff:
             return TwoUserMatchingScore.objects.all()
-        elif user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+        elif user.has_perm(ManagementPermission.MATCHING_USER):
             return TwoUserMatchingScore.objects.filter(
                 Q(user1__in=user.state.managed_users.all()) | Q(user2__in=user.state.managed_users.all())
             )

@@ -81,6 +81,7 @@ from management.models.scores import TwoUserMatchingScore
 from management.models.state import State
 from management.models.unconfirmed_matches import ProposedMatch
 from management.models.user import User
+from management.permissions import ManagementPermission
 from management.tasks import burst_calculate_matching_scores, matching_algo_v2, slack_notify_security_channel_async
 from management.utils import check_task_status
 from management.validators import DAYS, SLOTS
@@ -583,9 +584,7 @@ class DispatchScoreCalculationSerializer(DataclassSerializer):
 @api_view(["POST"])
 @permission_classes([IsAdminOrMatchingUser])
 def dispatch_score_calculation(request):
-    assert request.user.is_staff or request.user.state.has_extra_user_permission(
-        State.ExtraUserPermissionChoices.MATCHING_USER
-    )
+    assert request.user.is_staff or request.user.has_perm(ManagementPermission.MATCHING_USER)
 
     serializer = DispatchScoreCalculationSerializer(request.data)
     serializers.is_valid(raise_exception=True)
@@ -970,9 +969,7 @@ def score_maximization_matching(request):
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
 def delete_all_matching_scores(request):
-    assert request.user.is_staff or request.user.state.has_extra_user_permission(
-        State.ExtraUserPermissionChoices.MATCHING_USER
-    )
+    assert request.user.is_staff or request.user.has_perm(ManagementPermission.MATCHING_USER)
     from management.models.scores import TwoUserMatchingScore
 
     total_count = TwoUserMatchingScore.objects.count()
@@ -983,9 +980,7 @@ def delete_all_matching_scores(request):
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
 def list_top_scores(request):
-    assert request.user.is_staff or request.user.state.has_extra_user_permission(
-        State.ExtraUserPermissionChoices.MATCHING_USER
-    )
+    assert request.user.is_staff or request.user.has_perm(ManagementPermission.MATCHING_USER)
     from management.api.user_advanced import AdvancedMatchingScoreSerializer
     from management.models.scores import TwoUserMatchingScore
 

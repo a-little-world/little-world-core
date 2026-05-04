@@ -1,12 +1,12 @@
 from channels.db import database_sync_to_async
 from chat.models import Chat, ChatConnections, ChatSessions
 from django.utils import timezone
-from management.models.state import State
+from management.permissions import ManagementPermission
 
 
 @database_sync_to_async
 def is_staff_or_matching(user):
-    return user.is_staff or user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+    return user.is_staff or user.has_perm(ManagementPermission.MATCHING_USER)
 
 
 @database_sync_to_async
