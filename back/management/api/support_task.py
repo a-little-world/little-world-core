@@ -2,11 +2,11 @@ from actions.registry import execute
 from django.urls import path
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
-from models import SupportTask, SupportTaskAction, SupportTaskReminder
+from models import SupportTask, SupportTaskAction
 from rest_framework import authentication, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from serializers import SupportTaskActionSerializer, SupportTaskReminderSerializer, SupportTaskSerializer
+from serializers import SupportTaskActionSerializer, SupportTaskSerializer
 
 from management.models.user import User
 
@@ -184,63 +184,6 @@ class StaffUsersView(APIView):
         return Response(list(users))
 
 
-class SupportTaskReminderListView(APIView):
-    """List and create reminders for a specific task."""
-
-    authentication_classes = _AUTH
-    permission_classes = _PERMS
-
-    def _get_task(self, pk):
-        try:
-            return SupportTask.objects.get(pk=pk)
-        except SupportTask.DoesNotExist:
-            return None
-
-    @extend_schema(responses=SupportTaskReminderSerializer(many=True))
-    def get(self, request, task_pk):
-        task = self._get_task(task_pk)
-        if task is None:
-            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-        qs = SupportTaskReminder.objects.filter(task=task).prefetch_related("additional_recipients")
-        return Response(SupportTaskReminderSerializer(qs, many=True).data)
-
-    @extend_schema(request=SupportTaskReminderSerializer, responses=SupportTaskReminderSerializer)
-    def post(self, request, task_pk):
-        task = self._get_task(task_pk)
-        if task is None:
-            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-        serializer = SupportTaskReminderSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        reminder = serializer.save(task=task, created_by=request.user)
-        return Response(
-            SupportTaskReminderSerializer(reminder).data,
-            status=status.HTTP_201_CREATED,
-        )
-
-
-class SupportTaskReminderDetailView(APIView):
-    """Cancel a specific reminder."""
-
-    authentication_classes = _AUTH
-    permission_classes = _PERMS
-
-    def delete(self, request, task_pk, pk):
-        try:
-            reminder = SupportTaskReminder.objects.get(pk=pk, task_id=task_pk)
-        except SupportTaskReminder.DoesNotExist:
-            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        if reminder.status != SupportTaskReminder.Status.PENDING:
-            return Response(
-                {"error": "Only pending reminders can be cancelled"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        reminder.status = SupportTaskReminder.Status.CANCELLED
-        reminder.save(update_fields=["status"])
-        return Response(SupportTaskReminderSerializer(reminder).data)
-
-
 api_urls = [
     path("api/admin_tasks/", SupportTaskListView.as_view()),
     path("api/admin_tasks/staff_users/", StaffUsersView.as_view()),
@@ -256,13 +199,5 @@ api_urls = [
     path(
         "api/admin_tasks/<int:task_pk>/actions/<int:action_pk>/skip/",
         SupportTaskActionSkipView.as_view(),
-    ),
-    path(
-        "api/admin_tasks/<int:task_pk>/reminders/",
-        SupportTaskReminderListView.as_view(),
-    ),
-    path(
-        "api/admin_tasks/<int:task_pk>/reminders/<int:pk>/",
-        SupportTaskReminderDetailView.as_view(),
     ),
 ]

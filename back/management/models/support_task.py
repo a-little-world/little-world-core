@@ -90,55 +90,6 @@ class SupportTaskAction(models.Model):
         return f"SupportTaskAction({self.id}): {self.action_type} [{self.status}]"
 
 
-class SupportTaskReminder(models.Model):
-    class Status(models.TextChoices):
-        PENDING = "PENDING", _("Pending")
-        TRIGGERED = "TRIGGERED", _("Triggered")
-        CANCELLED = "CANCELLED", _("Cancelled")
-
-    task = models.ForeignKey(
-        SupportTask,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="reminders",
-    )
-    remind_at = models.DateTimeField()
-    note = models.TextField(blank=True)
-    created_by = models.ForeignKey(
-        "management.User",
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="created_reminders",
-    )
-    status = models.CharField(
-        max_length=20,
-        choices=Status.choices,
-        default=Status.PENDING,
-        db_index=True,
-    )
-
-    notify_push = models.BooleanField(default=False)
-    notify_email = models.BooleanField(default=False)
-    notify_slack = models.BooleanField(default=False)
-
-    notify_assigned_to = models.BooleanField(default=True)
-    additional_recipients = models.ManyToManyField(
-        "management.User",
-        blank=True,
-        related_name="additional_reminder_recipients",
-    )
-
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        ordering = ["remind_at"]
-
-    def __str__(self):
-        return f"SupportTaskReminder({self.id}) for task {self.task_id} at {self.remind_at}"
-
-
 class SupportTaskActionSerializer(serializers.ModelSerializer):
     was_edited = serializers.BooleanField(read_only=True)
 
@@ -192,42 +143,3 @@ class SupportTaskSerializer(serializers.ModelSerializer):
             "content_type_id",
             "object_id",
         ]
-
-
-class SupportTaskReminderSerializer(serializers.ModelSerializer):
-    additional_recipients = serializers.SerializerMethodField()
-    additional_recipient_ids = serializers.PrimaryKeyRelatedField(
-        many=True,
-        write_only=True,
-        queryset=User.objects.filter(is_staff=True),
-        source="additional_recipients",
-        required=False,
-    )
-
-    def get_additional_recipients(self, obj):
-        return list(obj.additional_recipients.values("id", "email", "first_name", "last_name"))
-
-    def create(self, validated_data):
-        recipients = validated_data.pop("additional_recipients", [])
-        reminder = SupportTaskReminder.objects.create(**validated_data)
-        if recipients:
-            reminder.additional_recipients.set(recipients)
-        return reminder
-
-    class Meta:
-        model = SupportTaskReminder
-        fields = [
-            "id",
-            "remind_at",
-            "note",
-            "status",
-            "created_by_id",
-            "notify_push",
-            "notify_email",
-            "notify_slack",
-            "notify_assigned_to",
-            "additional_recipients",
-            "additional_recipient_ids",
-            "created_at",
-        ]
-        read_only_fields = ["id", "status", "created_by_id", "created_at"]
