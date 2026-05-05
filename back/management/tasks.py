@@ -5,10 +5,12 @@ from datetime import datetime, timedelta, timezone
 from celery import shared_task
 from cookie_consent.models import Cookie, CookieGroup
 from django.conf import settings
+from django.core.mail import send_mail
 from django.db.models import Q
 from django.utils import timezone as dj_timezone
 from translations import get_translation
 
+from management.api.slack import notify_communication_channel
 from management.models.backend_state import BackendState
 from management.models.banner import Banner
 from management.models.community_events import CommunityEvent
@@ -1887,3 +1889,61 @@ def cleanup_deleted_users_full_user_data(days_since_deletion: int = 30):
         "processed_user_ids": processed_user_ids,
         "cutoff_date": cutoff_date.isoformat(),
     }
+
+
+@shared_task
+def trigger_due_reminders():
+    """
+    Runs every 15 minutes. Finds all PENDING reminders whose remind_at has
+    passed and dispatches the configured notifications.
+    """
+    from models.support_task import AdminTaskReminder
+
+    now = dj_timezone.now()
+    due = (
+        AdminTaskReminder.objects.filter(status=AdminTaskReminder.Status.PENDING, remind_at__lte=now)
+        .select_related("task", "task__assigned_to")
+        .prefetch_related("additional_recipients")
+    )
+
+    for reminder in due:
+        recipients = list(reminder.additional_recipients.all())
+        if reminder.notify_assigned_to and reminder.task and reminder.task.assigned_to:
+            if reminder.task.assigned_to not in recipients:
+                recipients.append(reminder.task.assigned_to)
+
+        task_title = reminder.task.title if reminder.task else "Task"
+        title = f"Reminder: {task_title}"
+        body = f"Reminder for: {task_title}"
+        if reminder.note:
+            body += f"\n{reminder.note}"
+
+        if reminder.notify_push:
+            for user in recipients:
+                try:
+                    user.push_notification(title=title, description=body)
+                except Exception:
+                    pass
+
+        if reminder.notify_email:
+            emails = [u.email for u in recipients if u.email]
+            if emails:
+                try:
+                    send_mail(
+                        title,
+                        body,
+                        settings.DEFAULT_FROM_EMAIL,
+                        emails,
+                        fail_silently=True,
+                    )
+                except Exception:
+                    pass
+
+        if reminder.notify_slack:
+            try:
+                notify_communication_channel(f"*{title}*\n{body}")
+            except Exception:
+                pass
+
+        reminder.status = AdminTaskReminder.Status.TRIGGERED
+        reminder.save(update_fields=["status"])
