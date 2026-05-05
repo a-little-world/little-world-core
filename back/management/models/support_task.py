@@ -24,11 +24,8 @@ class SupportTask(models.Model):
         on_delete=models.SET_NULL,
         related_name="assigned_admin_tasks",
     )
-    # null = system-created
     created_by = models.ForeignKey(
         "management.User",
-        null=True,
-        blank=True,
         on_delete=models.SET_NULL,
         related_name="created_admin_tasks",
     )
