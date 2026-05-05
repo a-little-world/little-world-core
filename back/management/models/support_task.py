@@ -35,6 +35,7 @@ class SupportTask(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     # Link to any related Django object (HelpMessage, User, Match, etc.)
+    # TODO: Also set object_id to null when content_type foreign key is deleted
     content_type = models.ForeignKey(ContentType, null=True, blank=True, on_delete=models.SET_NULL)
     object_id = models.PositiveIntegerField(null=True, blank=True)
     related_object = GenericForeignKey("content_type", "object_id")
