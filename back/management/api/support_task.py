@@ -2,11 +2,11 @@ from actions.registry import execute
 from django.urls import path
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
-from models import AdminTask, AdminTaskAction, AdminTaskReminder
+from models import SupportTask, SupportTaskAction, SupportTaskReminder
 from rest_framework import authentication, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from serializers import AdminTaskActionSerializer, AdminTaskReminderSerializer, AdminTaskSerializer
+from serializers import SupportTaskActionSerializer, SupportTaskReminderSerializer, SupportTaskSerializer
 
 from management.models.user import User
 
@@ -14,13 +14,13 @@ _AUTH = [authentication.SessionAuthentication, authentication.BasicAuthenticatio
 _PERMS = [permissions.IsAuthenticated]
 
 
-class AdminTaskListView(APIView):
+class SupportTaskListView(APIView):
     authentication_classes = _AUTH
     permission_classes = _PERMS
 
-    @extend_schema(responses=AdminTaskSerializer(many=True))
+    @extend_schema(responses=SupportTaskSerializer(many=True))
     def get(self, request):
-        qs = AdminTask.objects.prefetch_related("actions").all()
+        qs = SupportTask.objects.prefetch_related("actions").all()
 
         status_filter = request.query_params.get("status")
         if status_filter:
@@ -39,58 +39,58 @@ class AdminTaskListView(APIView):
             order_prefix = "-" if sort_order == "desc" else ""
             qs = qs.order_by(f"{order_prefix}{sort_by}")
 
-        return Response(AdminTaskSerializer(qs, many=True).data)
+        return Response(SupportTaskSerializer(qs, many=True).data)
 
-    @extend_schema(request=AdminTaskSerializer, responses=AdminTaskSerializer)
+    @extend_schema(request=SupportTaskSerializer, responses=SupportTaskSerializer)
     def post(self, request):
-        serializer = AdminTaskSerializer(data=request.data)
+        serializer = SupportTaskSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         task = serializer.save(created_by=request.user)
-        return Response(AdminTaskSerializer(task).data, status=status.HTTP_201_CREATED)
+        return Response(SupportTaskSerializer(task).data, status=status.HTTP_201_CREATED)
 
 
-class AdminTaskDetailView(APIView):
+class SupportTaskDetailView(APIView):
     authentication_classes = _AUTH
     permission_classes = _PERMS
 
     def _get_task(self, pk):
         try:
-            return AdminTask.objects.prefetch_related("actions").get(pk=pk)
-        except AdminTask.DoesNotExist:
+            return SupportTask.objects.prefetch_related("actions").get(pk=pk)
+        except SupportTask.DoesNotExist:
             return None
 
-    @extend_schema(responses=AdminTaskSerializer)
+    @extend_schema(responses=SupportTaskSerializer)
     def get(self, request, pk):
         task = self._get_task(pk)
         if task is None:
             return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-        return Response(AdminTaskSerializer(task).data)
+        return Response(SupportTaskSerializer(task).data)
 
-    @extend_schema(request=AdminTaskSerializer, responses=AdminTaskSerializer)
+    @extend_schema(request=SupportTaskSerializer, responses=SupportTaskSerializer)
     def patch(self, request, pk):
         task = self._get_task(pk)
         if task is None:
             return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-        serializer = AdminTaskSerializer(task, data=request.data, partial=True)
+        serializer = SupportTaskSerializer(task, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(AdminTaskSerializer(task).data)
+        return Response(SupportTaskSerializer(task).data)
 
 
-class AdminTaskActionUpdateView(APIView):
+class SupportTaskActionUpdateView(APIView):
     """Update dynamic parameters of a pending action (e.g. edit AI-generated draft)."""
 
     authentication_classes = _AUTH
     permission_classes = _PERMS
 
-    @extend_schema(request=AdminTaskActionSerializer, responses=AdminTaskActionSerializer)
+    @extend_schema(request=SupportTaskActionSerializer, responses=SupportTaskActionSerializer)
     def patch(self, request, task_pk, action_pk):
         try:
-            action = AdminTaskAction.objects.get(pk=action_pk, task_id=task_pk)
-        except AdminTaskAction.DoesNotExist:
+            action = SupportTaskAction.objects.get(pk=action_pk, task_id=task_pk)
+        except SupportTaskAction.DoesNotExist:
             return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        if action.status != AdminTaskAction.Status.PENDING:
+        if action.status != SupportTaskAction.Status.PENDING:
             return Response(
                 {"error": "Cannot edit a non-pending action"},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -103,10 +103,10 @@ class AdminTaskActionUpdateView(APIView):
             action.parameters = new_params
             action.save()
 
-        return Response(AdminTaskActionSerializer(action).data)
+        return Response(SupportTaskActionSerializer(action).data)
 
 
-class AdminTaskActionApproveView(APIView):
+class SupportTaskActionApproveView(APIView):
     """Approve an action — executes the underlying function after human confirmation."""
 
     authentication_classes = _AUTH
@@ -114,11 +114,11 @@ class AdminTaskActionApproveView(APIView):
 
     def post(self, request, task_pk, action_pk):
         try:
-            action = AdminTaskAction.objects.get(pk=action_pk, task_id=task_pk)
-        except AdminTaskAction.DoesNotExist:
+            action = SupportTaskAction.objects.get(pk=action_pk, task_id=task_pk)
+        except SupportTaskAction.DoesNotExist:
             return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        if action.status != AdminTaskAction.Status.PENDING:
+        if action.status != SupportTaskAction.Status.PENDING:
             return Response(
                 {"error": "Action already processed"},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -129,7 +129,7 @@ class AdminTaskActionApproveView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        action.status = AdminTaskAction.Status.APPROVED
+        action.status = SupportTaskAction.Status.APPROVED
         action.approved_by = request.user
         action.approved_at = timezone.now()
         action.save()
@@ -141,13 +141,13 @@ class AdminTaskActionApproveView(APIView):
             "profile_action_too_empty_profile",
         ):
             task = action.task
-            task.status = AdminTask.Status.FINISHED
+            task.status = SupportTask.Status.FINISHED
             task.save(update_fields=["status"])
 
-        return Response(AdminTaskActionSerializer(action).data)
+        return Response(SupportTaskActionSerializer(action).data)
 
 
-class AdminTaskActionSkipView(APIView):
+class SupportTaskActionSkipView(APIView):
     """Skip an action without executing it."""
 
     authentication_classes = _AUTH
@@ -155,22 +155,22 @@ class AdminTaskActionSkipView(APIView):
 
     def post(self, request, task_pk, action_pk):
         try:
-            action = AdminTaskAction.objects.get(pk=action_pk, task_id=task_pk)
-        except AdminTaskAction.DoesNotExist:
+            action = SupportTaskAction.objects.get(pk=action_pk, task_id=task_pk)
+        except SupportTaskAction.DoesNotExist:
             return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        if action.status != AdminTaskAction.Status.PENDING:
+        if action.status != SupportTaskAction.Status.PENDING:
             return Response(
                 {"error": "Action already processed"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        action.status = AdminTaskAction.Status.SKIPPED
+        action.status = SupportTaskAction.Status.SKIPPED
         action.approved_by = request.user
         action.approved_at = timezone.now()
         action.save()
 
-        return Response(AdminTaskActionSerializer(action).data)
+        return Response(SupportTaskActionSerializer(action).data)
 
 
 class StaffUsersView(APIView):
@@ -184,7 +184,7 @@ class StaffUsersView(APIView):
         return Response(list(users))
 
 
-class AdminTaskReminderListView(APIView):
+class SupportTaskReminderListView(APIView):
     """List and create reminders for a specific task."""
 
     authentication_classes = _AUTH
@@ -192,33 +192,33 @@ class AdminTaskReminderListView(APIView):
 
     def _get_task(self, pk):
         try:
-            return AdminTask.objects.get(pk=pk)
-        except AdminTask.DoesNotExist:
+            return SupportTask.objects.get(pk=pk)
+        except SupportTask.DoesNotExist:
             return None
 
-    @extend_schema(responses=AdminTaskReminderSerializer(many=True))
+    @extend_schema(responses=SupportTaskReminderSerializer(many=True))
     def get(self, request, task_pk):
         task = self._get_task(task_pk)
         if task is None:
             return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-        qs = AdminTaskReminder.objects.filter(task=task).prefetch_related("additional_recipients")
-        return Response(AdminTaskReminderSerializer(qs, many=True).data)
+        qs = SupportTaskReminder.objects.filter(task=task).prefetch_related("additional_recipients")
+        return Response(SupportTaskReminderSerializer(qs, many=True).data)
 
-    @extend_schema(request=AdminTaskReminderSerializer, responses=AdminTaskReminderSerializer)
+    @extend_schema(request=SupportTaskReminderSerializer, responses=SupportTaskReminderSerializer)
     def post(self, request, task_pk):
         task = self._get_task(task_pk)
         if task is None:
             return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-        serializer = AdminTaskReminderSerializer(data=request.data)
+        serializer = SupportTaskReminderSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         reminder = serializer.save(task=task, created_by=request.user)
         return Response(
-            AdminTaskReminderSerializer(reminder).data,
+            SupportTaskReminderSerializer(reminder).data,
             status=status.HTTP_201_CREATED,
         )
 
 
-class AdminTaskReminderDetailView(APIView):
+class SupportTaskReminderDetailView(APIView):
     """Cancel a specific reminder."""
 
     authentication_classes = _AUTH
@@ -226,43 +226,43 @@ class AdminTaskReminderDetailView(APIView):
 
     def delete(self, request, task_pk, pk):
         try:
-            reminder = AdminTaskReminder.objects.get(pk=pk, task_id=task_pk)
-        except AdminTaskReminder.DoesNotExist:
+            reminder = SupportTaskReminder.objects.get(pk=pk, task_id=task_pk)
+        except SupportTaskReminder.DoesNotExist:
             return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        if reminder.status != AdminTaskReminder.Status.PENDING:
+        if reminder.status != SupportTaskReminder.Status.PENDING:
             return Response(
                 {"error": "Only pending reminders can be cancelled"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        reminder.status = AdminTaskReminder.Status.CANCELLED
+        reminder.status = SupportTaskReminder.Status.CANCELLED
         reminder.save(update_fields=["status"])
-        return Response(AdminTaskReminderSerializer(reminder).data)
+        return Response(SupportTaskReminderSerializer(reminder).data)
 
 
 api_urls = [
-    path("api/admin_tasks/", AdminTaskListView.as_view()),
+    path("api/admin_tasks/", SupportTaskListView.as_view()),
     path("api/admin_tasks/staff_users/", StaffUsersView.as_view()),
-    path("api/admin_tasks/<int:pk>/", AdminTaskDetailView.as_view()),
+    path("api/admin_tasks/<int:pk>/", SupportTaskDetailView.as_view()),
     path(
         "api/admin_tasks/<int:task_pk>/actions/<int:action_pk>/",
-        AdminTaskActionUpdateView.as_view(),
+        SupportTaskActionUpdateView.as_view(),
     ),
     path(
         "api/admin_tasks/<int:task_pk>/actions/<int:action_pk>/approve/",
-        AdminTaskActionApproveView.as_view(),
+        SupportTaskActionApproveView.as_view(),
     ),
     path(
         "api/admin_tasks/<int:task_pk>/actions/<int:action_pk>/skip/",
-        AdminTaskActionSkipView.as_view(),
+        SupportTaskActionSkipView.as_view(),
     ),
     path(
         "api/admin_tasks/<int:task_pk>/reminders/",
-        AdminTaskReminderListView.as_view(),
+        SupportTaskReminderListView.as_view(),
     ),
     path(
         "api/admin_tasks/<int:task_pk>/reminders/<int:pk>/",
-        AdminTaskReminderDetailView.as_view(),
+        SupportTaskReminderDetailView.as_view(),
     ),
 ]

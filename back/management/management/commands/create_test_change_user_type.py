@@ -9,12 +9,12 @@ Usage:
 
 from django.core.management.base import BaseCommand, CommandError
 
-from management.models.user import User
 from management.models.profile import Profile
+from management.models.user import User
 
 
 class Command(BaseCommand):
-    help = "Create a test AdminTask to change a user's type"
+    help = "Create a test SupportTask to change a user's type"
 
     def add_arguments(self, parser):
         parser.add_argument("user_email", type=str, help="Email of the user")
@@ -54,7 +54,7 @@ class Command(BaseCommand):
 
         current_type = profile.user_type
 
-        from admin_tasks.models import AdminTask, AdminTaskAction
+        from admin_tasks.models import SupportTask, SupportTaskAction
 
         if from_message:
             # message_action_change_user_type
@@ -65,13 +65,13 @@ class Command(BaseCommand):
             action_type = "profile_action_wrong_user_type"
             title = f"Correct user type for {email}"
 
-        task = AdminTask.objects.create(
+        task = SupportTask.objects.create(
             title=title,
             description=reason or f"Change user type from '{current_type}' to '{new_type}'",
             metadata={"user_id": user.id, "current_user_type": current_type},
         )
 
-        action = AdminTaskAction.objects.create(
+        action = SupportTaskAction.objects.create(
             task=task,
             action_type=action_type,
             static_parameters={
@@ -81,7 +81,7 @@ class Command(BaseCommand):
             parameters={"new_user_type": new_type},
         )
 
-        self.stdout.write(f"AdminTask #{task.id} created: '{task.title}'")
+        self.stdout.write(f"SupportTask #{task.id} created: '{task.title}'")
         self.stdout.write(f"  Action: {action_type}")
         self.stdout.write(f"  Current type: {current_type}")
         self.stdout.write(f"  Proposed type: {new_type}")

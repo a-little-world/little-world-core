@@ -1,9 +1,8 @@
 from django.db.models.signals import post_save
-from django.dispatch import receiver
 
 
 def connect_signals() -> None:
-    """Connect all admin_tasks signals. Called from AdminTasksConfig.ready()."""
+    """Connect all admin_tasks signals. Called from SupportTasksConfig.ready()."""
     from management.models.help_message import HelpMessage
     from management.models.profile import Profile
 
@@ -19,9 +18,9 @@ def _create_task_for_help_message(sender, instance, created, **kwargs) -> None:
     if not created:
         return
 
-    from .models import AdminTask, AdminTaskAction
+    from .models import SupportTask, SupportTaskAction
 
-    task = AdminTask.objects.create(
+    task = SupportTask.objects.create(
         title=f"Support request ({instance.get_kind_display()})",
         description=instance.message[:500],
         related_object=instance,
@@ -33,7 +32,7 @@ def _create_task_for_help_message(sender, instance, created, **kwargs) -> None:
     )
 
     # Always create a reply action
-    AdminTaskAction.objects.create(
+    SupportTaskAction.objects.create(
         task=task,
         action_type="send_support_reply",
         static_parameters={"help_message_id": instance.id},
@@ -46,9 +45,9 @@ def _create_task_for_help_message(sender, instance, created, **kwargs) -> None:
 
 def _open_task_exists(user_id: int, action_type: str) -> bool:
     """Guard: skip if a non-finished task with this action_type already exists for the user."""
-    from .models import AdminTask, AdminTaskAction
+    from .models import SupportTaskAction
 
-    return AdminTaskAction.objects.filter(
+    return SupportTaskAction.objects.filter(
         action_type=action_type,
         task__metadata__user_id=user_id,
         task__status__in=["NEW", "IN_PROGRESS"],
@@ -67,7 +66,7 @@ def _check_profile_on_save(sender, instance, created, **kwargs) -> None:
 
 
 def _maybe_create_too_empty_task(profile) -> None:
-    from .models import AdminTask, AdminTaskAction
+    from .models import SupportTask, SupportTaskAction
 
     missing = []
     if not profile.description:
@@ -81,13 +80,13 @@ def _maybe_create_too_empty_task(profile) -> None:
     if _open_task_exists(profile.user_id, "profile_action_too_empty_profile"):
         return
 
-    task = AdminTask.objects.create(
+    task = SupportTask.objects.create(
         title=f"Incomplete profile — user #{profile.user_id}",
         description=f"Profile is missing: {', '.join(missing)}",
         related_object=profile,
         metadata={"user_id": profile.user_id},
     )
-    AdminTaskAction.objects.create(
+    SupportTaskAction.objects.create(
         task=task,
         action_type="profile_action_too_empty_profile",
         static_parameters={
@@ -130,15 +129,15 @@ def check_user_profile(profile) -> dict:
         missing.append("birth_year")
 
     if missing and not _open_task_exists(profile.user_id, "profile_action_too_empty_profile"):
-        from .models import AdminTask, AdminTaskAction
+        from .models import SupportTask, SupportTaskAction
 
-        task = AdminTask.objects.create(
+        task = SupportTask.objects.create(
             title=f"Incomplete profile — user #{profile.user_id}",
             description=f"Profile is missing: {', '.join(missing)}",
             related_object=profile,
             metadata={"user_id": profile.user_id},
         )
-        AdminTaskAction.objects.create(
+        SupportTaskAction.objects.create(
             task=task,
             action_type="profile_action_too_empty_profile",
             static_parameters={
@@ -154,15 +153,15 @@ def check_user_profile(profile) -> dict:
     # For now, this is a placeholder that can be extended
     suspicious_reasons = _detect_suspicious_profile(profile)
     if suspicious_reasons and not _open_task_exists(profile.user_id, "profile_action_suspicious_profile"):
-        from .models import AdminTask, AdminTaskAction
+        from .models import SupportTask, SupportTaskAction
 
-        task = AdminTask.objects.create(
+        task = SupportTask.objects.create(
             title=f"Suspicious profile — user #{profile.user_id}",
             description=f"Profile flagged: {', '.join(suspicious_reasons)}",
             related_object=profile,
             metadata={"user_id": profile.user_id},
         )
-        AdminTaskAction.objects.create(
+        SupportTaskAction.objects.create(
             task=task,
             action_type="profile_action_suspicious_profile",
             static_parameters={
@@ -217,19 +216,19 @@ def create_scoring_assessment_tasks_for_user(user_id: int) -> None:
 
     from management.models.profile import Profile
 
-    from .models import AdminTask, AdminTaskAction
+    from .models import SupportTask, SupportTaskAction
 
     try:
         profile = Profile.objects.get(user_id=user_id)
     except Profile.DoesNotExist:
         profile = None
 
-    task = AdminTask.objects.create(
+    task = SupportTask.objects.create(
         title=f"Profile scoring review — user #{user_id}",
         related_object=profile,
         metadata={"user_id": user_id},
     )
-    AdminTaskAction.objects.create(
+    SupportTaskAction.objects.create(
         task=task,
         action_type="scoring_profile_assessment",
         static_parameters={"user_id": user_id},

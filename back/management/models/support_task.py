@@ -7,7 +7,7 @@ from rest_framework import serializers
 from management.models.user import User
 
 
-class AdminTask(models.Model):
+class SupportTask(models.Model):
     class Status(models.TextChoices):
         NEW = "NEW", _("New")
         IN_PROGRESS = "IN_PROGRESS", _("In Progress")
@@ -56,16 +56,16 @@ class AdminTask(models.Model):
         ordering = ["-created_at"]
 
     def __str__(self):
-        return f"AdminTask({self.id}): {self.title}"
+        return f"SupportTask({self.id}): {self.title}"
 
 
-class AdminTaskAction(models.Model):
+class SupportTaskAction(models.Model):
     class Status(models.TextChoices):
         PENDING = "PENDING", _("Pending")
         APPROVED = "APPROVED", _("Approved")
         SKIPPED = "SKIPPED", _("Skipped")
 
-    task = models.ForeignKey(AdminTask, on_delete=models.CASCADE, related_name="actions")
+    task = models.ForeignKey(SupportTask, on_delete=models.CASCADE, related_name="actions")
 
     # Identifies the handler in the registry — fixed at creation, never editable
     action_type = models.CharField(max_length=100)
@@ -99,17 +99,17 @@ class AdminTaskAction(models.Model):
         ordering = ["id"]
 
     def __str__(self):
-        return f"AdminTaskAction({self.id}): {self.action_type} [{self.status}]"
+        return f"SupportTaskAction({self.id}): {self.action_type} [{self.status}]"
 
 
-class AdminTaskReminder(models.Model):
+class SupportTaskReminder(models.Model):
     class Status(models.TextChoices):
         PENDING = "PENDING", _("Pending")
         TRIGGERED = "TRIGGERED", _("Triggered")
         CANCELLED = "CANCELLED", _("Cancelled")
 
     task = models.ForeignKey(
-        AdminTask,
+        SupportTask,
         null=True,
         blank=True,
         on_delete=models.SET_NULL,
@@ -148,15 +148,14 @@ class AdminTaskReminder(models.Model):
         ordering = ["remind_at"]
 
     def __str__(self):
-        return f"AdminTaskReminder({self.id}) for task {self.task_id} at {self.remind_at}"
+        return f"SupportTaskReminder({self.id}) for task {self.task_id} at {self.remind_at}"
 
 
-
-class AdminTaskActionSerializer(serializers.ModelSerializer):
+class SupportTaskActionSerializer(serializers.ModelSerializer):
     was_edited = serializers.BooleanField(read_only=True)
 
     class Meta:
-        model = AdminTaskAction
+        model = SupportTaskAction
         fields = [
             "id",
             "action_type",
@@ -179,12 +178,12 @@ class AdminTaskActionSerializer(serializers.ModelSerializer):
         ]
 
 
-class AdminTaskSerializer(serializers.ModelSerializer):
-    actions = AdminTaskActionSerializer(many=True, read_only=True)
+class SupportTaskSerializer(serializers.ModelSerializer):
+    actions = SupportTaskActionSerializer(many=True, read_only=True)
     subtask_ids = serializers.SerializerMethodField()
 
     class Meta:
-        model = AdminTask
+        model = SupportTask
         fields = [
             "id",
             "title",
@@ -213,7 +212,7 @@ class AdminTaskSerializer(serializers.ModelSerializer):
         return list(obj.subtasks.values_list("id", flat=True))
 
 
-class AdminTaskReminderSerializer(serializers.ModelSerializer):
+class SupportTaskReminderSerializer(serializers.ModelSerializer):
     additional_recipients = serializers.SerializerMethodField()
     additional_recipient_ids = serializers.PrimaryKeyRelatedField(
         many=True,
@@ -224,19 +223,17 @@ class AdminTaskReminderSerializer(serializers.ModelSerializer):
     )
 
     def get_additional_recipients(self, obj):
-        return list(
-            obj.additional_recipients.values("id", "email", "first_name", "last_name")
-        )
+        return list(obj.additional_recipients.values("id", "email", "first_name", "last_name"))
 
     def create(self, validated_data):
         recipients = validated_data.pop("additional_recipients", [])
-        reminder = AdminTaskReminder.objects.create(**validated_data)
+        reminder = SupportTaskReminder.objects.create(**validated_data)
         if recipients:
             reminder.additional_recipients.set(recipients)
         return reminder
 
     class Meta:
-        model = AdminTaskReminder
+        model = SupportTaskReminder
         fields = [
             "id",
             "remind_at",

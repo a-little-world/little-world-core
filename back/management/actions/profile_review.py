@@ -47,10 +47,10 @@ def scoring_profile_assessment(static_params: dict, params: dict) -> None:
 
 def _finish_task(action) -> None:
     """Mark the parent task as FINISHED when dismiss is chosen."""
-    from admin_tasks.models import AdminTask
+    from admin_tasks.models import SupportTask
 
     task = action.task
-    task.status = AdminTask.Status.FINISHED
+    task.status = SupportTask.Status.FINISHED
     task.save(update_fields=["status"])
 
 
@@ -66,7 +66,6 @@ def profile_action_suspicious_profile(static_params: dict, params: dict) -> None
         decision (str): 'tag_suspicious' | 'contact_user' | 'dismiss'
         contact_message (str, optional)
     """
-    from admin_tasks.models import AdminTaskAction
 
     decision = params.get("decision", "dismiss")
     if decision == "tag_suspicious":

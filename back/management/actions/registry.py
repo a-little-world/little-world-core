@@ -11,14 +11,16 @@ def register(action_type: str):
         def send_support_reply(static_params: dict, params: dict) -> None:
             ...
     """
+
     def decorator(fn: Callable) -> Callable:
         _registry[action_type] = fn
         return fn
+
     return decorator
 
 
 def execute(action) -> None:
-    """Execute an AdminTaskAction by calling its registered handler.
+    """Execute an SupportTaskAction by calling its registered handler.
 
     Raises ValueError if no handler is registered for action.action_type.
     """

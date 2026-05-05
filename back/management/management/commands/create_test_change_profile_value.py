@@ -8,9 +8,8 @@ Usage:
 
 from django.core.management.base import BaseCommand, CommandError
 
-from management.models.user import User
 from management.models.profile import Profile
-
+from management.models.user import User
 
 ALLOWED_FIELDS = [
     "country_of_residence",
@@ -23,7 +22,7 @@ ALLOWED_FIELDS = [
 
 
 class Command(BaseCommand):
-    help = "Create a test AdminTask to change a profile value"
+    help = "Create a test SupportTask to change a profile value"
 
     def add_arguments(self, parser):
         parser.add_argument("user_email", type=str, help="Email of the user")
@@ -63,7 +62,7 @@ class Command(BaseCommand):
 
         current_value = getattr(profile, field, None)
 
-        from admin_tasks.models import AdminTask, AdminTaskAction
+        from admin_tasks.models import SupportTask, SupportTaskAction
 
         if from_message or field == "country_of_residence":
             if from_message:
@@ -73,13 +72,13 @@ class Command(BaseCommand):
         else:
             action_type = "message_action_change_profile_value"
 
-        task = AdminTask.objects.create(
+        task = SupportTask.objects.create(
             title=f"Update {field} for {email}",
             description=f"Change {field} from '{current_value}' to '{value or '[new value]'}'",
             metadata={"user_id": user.id, "field": field},
         )
 
-        action = AdminTaskAction.objects.create(
+        action = SupportTaskAction.objects.create(
             task=task,
             action_type=action_type,
             static_parameters={
@@ -90,7 +89,7 @@ class Command(BaseCommand):
             parameters={"new_value": value},
         )
 
-        self.stdout.write(f"AdminTask #{task.id} created: '{task.title}'")
+        self.stdout.write(f"SupportTask #{task.id} created: '{task.title}'")
         self.stdout.write(f"  Action: {action_type}")
         self.stdout.write(f"  Field: {field}")
         self.stdout.write(f"  Current value: {current_value or '(empty)'}")

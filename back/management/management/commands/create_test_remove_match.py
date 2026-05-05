@@ -8,12 +8,12 @@ Usage:
 
 from django.core.management.base import BaseCommand, CommandError
 
-from management.models.user import User
 from management.models.matches import Match
+from management.models.user import User
 
 
 class Command(BaseCommand):
-    help = "Create a test AdminTask to remove a match"
+    help = "Create a test SupportTask to remove a match"
 
     def add_arguments(self, parser):
         parser.add_argument("user_email", type=str, help="Email of the user requesting removal")
@@ -40,9 +40,9 @@ class Command(BaseCommand):
         except Match.DoesNotExist:
             raise CommandError(f"No match found with ID {match_id}")
 
-        from admin_tasks.models import AdminTask, AdminTaskAction
+        from admin_tasks.models import SupportTask, SupportTaskAction
 
-        task = AdminTask.objects.create(
+        task = SupportTask.objects.create(
             title=f"Remove match #{match_id}",
             description=f"User {email} requested removal of match #{match_id}",
             metadata={
@@ -52,7 +52,7 @@ class Command(BaseCommand):
             },
         )
 
-        action = AdminTaskAction.objects.create(
+        action = SupportTaskAction.objects.create(
             task=task,
             action_type="message_action_remove_match",
             static_parameters={
@@ -62,7 +62,7 @@ class Command(BaseCommand):
             parameters={"reason": reason},
         )
 
-        self.stdout.write(f"AdminTask #{task.id} created: '{task.title}'")
+        self.stdout.write(f"SupportTask #{task.id} created: '{task.title}'")
         self.stdout.write(f"  Match ID: {match_id}")
         self.stdout.write(f"  Requested by: {email}")
         self.stdout.write(f"  Proposed reason: {reason}")

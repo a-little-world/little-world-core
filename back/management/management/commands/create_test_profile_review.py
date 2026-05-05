@@ -9,8 +9,8 @@ Usage:
 
 from django.core.management.base import BaseCommand, CommandError
 
-from management.models.user import User
 from management.models.profile import Profile
+from management.models.user import User
 
 REVIEW_TYPES = {
     "scoring": {
@@ -32,7 +32,7 @@ REVIEW_TYPES = {
 
 
 class Command(BaseCommand):
-    help = "Create a test AdminTask for profile review"
+    help = "Create a test SupportTask for profile review"
 
     def add_arguments(self, parser):
         parser.add_argument("user_email", type=str, help="Email of the user")
@@ -71,7 +71,7 @@ class Command(BaseCommand):
         if profile is None:
             raise CommandError(f"No profile found for user '{email}'")
 
-        from admin_tasks.models import AdminTask, AdminTaskAction
+        from admin_tasks.models import SupportTask, SupportTaskAction
 
         config = REVIEW_TYPES[review_type]
 
@@ -92,20 +92,20 @@ class Command(BaseCommand):
         else:  # too_empty
             default_params = {"decision": "contact_user", "contact_message": ""}
 
-        task = AdminTask.objects.create(
+        task = SupportTask.objects.create(
             title=f"{config['title_prefix']} — {email}",
             description=config["description"],
             metadata={"user_id": user.id, "review_type": review_type},
         )
 
-        action = AdminTaskAction.objects.create(
+        action = SupportTaskAction.objects.create(
             task=task,
             action_type=config["action_type"],
             static_parameters=static_params,
             parameters=default_params,
         )
 
-        self.stdout.write(f"AdminTask #{task.id} created: '{task.title}'")
+        self.stdout.write(f"SupportTask #{task.id} created: '{task.title}'")
         self.stdout.write(f"  Review type: {review_type}")
         self.stdout.write(f"  Action: {config['action_type']}")
 

@@ -1897,11 +1897,11 @@ def trigger_due_reminders():
     Runs every 15 minutes. Finds all PENDING reminders whose remind_at has
     passed and dispatches the configured notifications.
     """
-    from models.support_task import AdminTaskReminder
+    from models.support_task import SupportTaskReminder
 
     now = dj_timezone.now()
     due = (
-        AdminTaskReminder.objects.filter(status=AdminTaskReminder.Status.PENDING, remind_at__lte=now)
+        SupportTaskReminder.objects.filter(status=SupportTaskReminder.Status.PENDING, remind_at__lte=now)
         .select_related("task", "task__assigned_to")
         .prefetch_related("additional_recipients")
     )
@@ -1945,5 +1945,5 @@ def trigger_due_reminders():
             except Exception:
                 pass
 
-        reminder.status = AdminTaskReminder.Status.TRIGGERED
+        reminder.status = SupportTaskReminder.Status.TRIGGERED
         reminder.save(update_fields=["status"])
