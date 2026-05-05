@@ -37,13 +37,6 @@ class SupportTask(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    subtasks = models.ManyToManyField(
-        "self",
-        symmetrical=False,
-        blank=True,
-        related_name="parent_tasks",
-    )
-
     # Link to any related Django object (HelpMessage, User, Match, etc.)
     content_type = models.ForeignKey(ContentType, null=True, blank=True, on_delete=models.SET_NULL)
     object_id = models.PositiveIntegerField(null=True, blank=True)
@@ -180,7 +173,6 @@ class SupportTaskActionSerializer(serializers.ModelSerializer):
 
 class SupportTaskSerializer(serializers.ModelSerializer):
     actions = SupportTaskActionSerializer(many=True, read_only=True)
-    subtask_ids = serializers.SerializerMethodField()
 
     class Meta:
         model = SupportTask
@@ -197,7 +189,6 @@ class SupportTaskSerializer(serializers.ModelSerializer):
             "metadata",
             "content_type_id",
             "object_id",
-            "subtask_ids",
             "actions",
         ]
         read_only_fields = [
@@ -207,9 +198,6 @@ class SupportTaskSerializer(serializers.ModelSerializer):
             "content_type_id",
             "object_id",
         ]
-
-    def get_subtask_ids(self, obj):
-        return list(obj.subtasks.values_list("id", flat=True))
 
 
 class SupportTaskReminderSerializer(serializers.ModelSerializer):
