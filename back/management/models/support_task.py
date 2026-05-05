@@ -40,9 +40,6 @@ class SupportTask(models.Model):
     object_id = models.PositiveIntegerField(null=True, blank=True)
     related_object = GenericForeignKey("content_type", "object_id")
 
-    # Flexible extra data specific to the task type
-    metadata = models.JSONField(default=dict, blank=True)
-
     class Meta:
         ordering = ["-created_at"]
 
@@ -184,7 +181,6 @@ class SupportTaskSerializer(serializers.ModelSerializer):
             "deadline",
             "created_at",
             "updated_at",
-            "metadata",
             "content_type_id",
             "object_id",
             "actions",
