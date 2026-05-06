@@ -2,6 +2,7 @@ from chat.models import Chat, ChatSerializer, Message, MessageSerializer
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
+from django.db.models import Q
 from emails.api.send_email import send_template_email
 from firebase_admin import messaging
 from rest_framework import serializers
@@ -9,9 +10,10 @@ from rest_framework import serializers
 from back import utils
 from management.models.mobile_device import MobileDevice
 from management.models.notifications import Notification
+from management.permissions import ManagementPermission
 
 
-class UserManager(BaseUserManager):
+class UserManager(BaseUserManager["User"]):
     """
     We overwrite the BaseUserManager so we can:
     - automaticly create State, Profile, Settings everytime create_user is called
@@ -73,7 +75,7 @@ class User(AbstractUser):
 
     hash = models.CharField(max_length=100, blank=True, unique=True, default=utils._double_uuid)  # type: ignore
 
-    objects = UserManager()  # Register the new user manager
+    objects: UserManager = UserManager()  # Register the custom user manager
 
     old_backend_user_h256_pk = models.CharField(max_length=255, blank=True, null=True)
 
@@ -132,6 +134,71 @@ class User(AbstractUser):
             )
         return notifications.order_by("-created_at")
 
+    def grant_permission(self, permission: ManagementPermission) -> bool:
+        permission_obj = permission.get_permission_object()
+        if permission_obj is None:
+            return False
+        self.user_permissions.add(permission_obj)
+        return True
+
+    def revoke_permission(self, permission: ManagementPermission) -> bool:
+        permission_obj = permission.get_permission_object()
+        if permission_obj is None:
+            return False
+        self.user_permissions.remove(permission_obj)
+        return True
+
+    def grant_management_access(self, managed_user: "User", granted_by: "User | None" = None) -> bool:
+        from management.models.management_access_grant import ManagementAccessGrant
+
+        _, created = ManagementAccessGrant.objects.update_or_create(
+            manager=self,
+            managed_user=managed_user,
+            defaults={
+                "is_active": True,
+                "granted_by": granted_by,
+            },
+        )
+        return created
+
+    def revoke_management_access(self, managed_user: "User") -> bool:
+        from management.models.management_access_grant import ManagementAccessGrant
+
+        updated = ManagementAccessGrant.objects.filter(
+            manager=self,
+            managed_user=managed_user,
+            is_active=True,
+        ).update(is_active=False)
+        return updated > 0
+
+    def has_management_access(self, managed_user: "User") -> bool:
+        if self.is_staff:
+            return True
+        from management.models.management_access_grant import ManagementAccessGrant
+
+        has_acl_access = ManagementAccessGrant.objects.filter(
+            manager=self,
+            managed_user=managed_user,
+            is_active=True,
+        ).exists()
+        if has_acl_access:
+            return True
+
+        # TODO: deprecated fallback - remove legacy relation check after full ACL cutover.
+        return self.state.managed_users.filter(pk=managed_user.pk).exists()
+
+    def managed_users_queryset(self, active_only: bool = True):
+
+        qs = User.objects.filter(
+            Q(
+                management_accesses_received__manager=self,
+                management_accesses_received__is_active=True,
+            )
+        ).distinct()
+        if active_only:
+            qs = qs.filter(is_active=True)
+        return qs
+
     # DEPRECATED, use send_notification instead
     def notification(self, title, description, show_toast=True):
         """Notifies the user about a notification via websockets"""
@@ -158,7 +225,9 @@ class User(AbstractUser):
             notification=messaging.Notification(title=title, body=description),
         )
 
-        devices.send_message(message)
+        # TODO: THere are multiple devices @JannisToelle how shall we handle this?        for device in devices:
+        for device in devices:
+            device.send_message(message)
 
     def sms(self, send_initator, message, dont_send=False, skip_reason="skipped"):
         """ "Sends SMS to User if user has SMS Notification allowed and valid Phone number"""

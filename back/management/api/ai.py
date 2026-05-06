@@ -4,7 +4,7 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
 
-from management.models.state import State
+from management.permissions import ManagementPermission
 from management.tasks import request_streamed_ai_response
 
 availabol_model_configs = {
@@ -22,9 +22,7 @@ def model_config_options(request):
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication])
 def request_streamed_api_response(request):
-    assert request.user.is_staff or request.user.state.has_extra_user_permission(
-        State.ExtraUserPermissionChoices.MATCHING_USER
-    )
+    assert request.user.is_staff or request.user.has_perm(ManagementPermission.MATCHING_USER)
 
     mconf = request.data["model_config"]
     if mconf not in availabol_model_configs:

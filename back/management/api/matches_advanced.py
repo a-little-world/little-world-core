@@ -13,9 +13,9 @@ from management.controller import unmatch_users
 from management.helpers import DetailedPaginationMixin, IsAdminOrMatchingUser
 from management.models.matches import Match
 from management.models.profile import MinimalProfileSerializer
-from management.models.state import State
 from management.models.unconfirmed_matches import MatchType
 from management.models.user import User
+from management.permissions import ManagementPermission
 
 
 class AdvancedMatchSerializer(serializers.ModelSerializer):
@@ -231,21 +231,18 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
         base = Match.objects.all().exclude(match_type=MatchType.TEMPORARY).order_by("-created_at")
         if user.is_staff:
             return base
-        if user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
-            return base.filter(
-                Q(user1__in=user.state.managed_users.all()) | Q(user2__in=user.state.managed_users.all())
-            )
+        if user.has_perm(ManagementPermission.MATCHING_USER):
+            managed_users = user.managed_users_queryset(active_only=False)
+            return base.filter(Q(user1__in=managed_users) | Q(user2__in=managed_users))
         return base
 
     def check_management_user_access(self, match, request):
         user = match.get_partner(request.user)
 
-        if not request.user.is_staff and not request.user.state.has_extra_user_permission(
-            State.ExtraUserPermissionChoices.MATCHING_USER
-        ):
+        if not request.user.is_staff and not request.user.has_perm(ManagementPermission.MATCHING_USER):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
 
-        if not request.user.is_staff and not request.user.state.managed_users.filter(pk=user.pk).exists():
+        if not request.user.is_staff and not request.user.has_management_access(user):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
         return True, None
 
@@ -278,11 +275,8 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
         if obj.user1.is_staff or obj.user2.is_staff:
             return Response({"msg": "One of the users is a staff member and cannot be unmatch"}, status=400)
 
-        if (
-            obj.user1.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-            or obj.user2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-            or obj.user2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-            or obj.user2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+        if obj.user1.has_perm(ManagementPermission.MATCHING_USER) or obj.user2.has_perm(
+            ManagementPermission.MATCHING_USER
         ):
             return Response({"msg": "One of the users is a matching user and cannot be unmatch"}, status=400)
 

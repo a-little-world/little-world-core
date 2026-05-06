@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from chat.consumers.messages import InMatchProposalAdded, InUnconfirmedMatchAdded
 from chat.models import Chat, ChatConnections, ChatSerializer
 from django.db.models import Q
-from drf_spectacular.utils import extend_schema, inline_serializer
+from drf_spectacular.utils import extend_schema
 from rest_framework import serializers, status
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -26,6 +26,7 @@ from management.models.scores import TwoUserMatchingScore
 from management.models.state import State
 from management.models.unconfirmed_matches import ProposedMatch, serialize_proposed_matches
 from management.models.user import User
+from management.permissions import ManagementPermission
 
 
 class AdvancedUserMatchSerializer(serializers.ModelSerializer):
@@ -41,6 +42,8 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
 
         is_online = ChatConnections.is_user_online(partner)
         chat = Chat.get_or_create_chat(user, partner)
+        if chat is None:
+            raise ValueError("Could not create or fetch chat for match partners")
         chat_serialized = ChatSerializer(chat, context={"user": user}).data
         # fetch incoming calls that are currently active
         active_call_room = None
@@ -54,14 +57,14 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
         )
         if active_sessions.exists():
             active_session = active_sessions.first()
-            active_call_room = SerializeLivekitSession(active_session).data
+            if active_session is not None:
+                active_call_room = SerializeLivekitSession(active_session).data
 
         partner_data = {
             "id": str(partner.hash),
             "isOnline": is_online,
             "isDeleted": False,
-            "isSupport": partner.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-            or partner.is_staff,
+            "isSupport": partner.has_perm(ManagementPermission.MATCHING_USER) or partner.is_staff,
             "has_match_priority": partner.state.has_match_priority,
             **CensoredProfileSerializer(partner.profile).data,
         }
@@ -105,6 +108,11 @@ class MakeMatchSerializer(DataclassSerializer):
         dataclass = _MakeMatchSerializer
 
 
+class GetMatchResponseSerializer(serializers.Serializer):
+    category = serializers.CharField()
+    match = AdvancedUserMatchSerializer()
+
+
 @extend_schema(
     summary="Make a match",
     description="Make a match between two users",
@@ -113,13 +121,11 @@ class MakeMatchSerializer(DataclassSerializer):
 @permission_classes([IsAdminOrMatchingUser])
 @api_view(["POST"])
 def make_match(request):
-    assert request.user.is_staff or request.user.state.has_extra_user_permission(
-        State.ExtraUserPermissionChoices.MATCHING_USER
-    ), "User is not allowed to match users"
+    assert request.user.is_staff or request.user.has_perm(ManagementPermission.MATCHING_USER), (
+        "User is not allowed to match users"
+    )
 
-    if (not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)) and (
-        not request.user.is_staff
-    ):
+    if (not request.user.has_perm(ManagementPermission.MATCHING_USER)) and (not request.user.is_staff):
         return Response("User is not allowed to match users", status=status.HTTP_403_FORBIDDEN)
 
     serializer = MakeMatchSerializer(data=request.data)
@@ -129,19 +135,18 @@ def make_match(request):
     user1 = User.objects.get(pk=params.user1)
     user2 = User.objects.get(pk=params.user2)
 
-    for user in [user1, user2]:
-        if user not in request.user.state.managed_users.all():
-            return Response(
-                "User is not allowed to match these users, you don't have matching authority for them",
-                status=status.HTTP_403_FORBIDDEN,
-            )
+    if any(not request.user.has_management_access(user) for user in (user1, user2)):
+        return Response(
+            "User is not allowed to match these users, you don't have matching authority for them",
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
     # check if matching score exists, else calculate it
     total_score, matchable, results, score = score_between_db_update(user1, user2)
 
     # 1 - if user is not matchable we may online contine by 'force'
     if (not matchable) and (not params.force):
-        return Response({"message": "Users not matchable", "score_id": score.pk}, status=400)
+        return Response({"message": "Users not matchable", "score_id": score.pk if score else None}, status=400)
 
     # 2 - check if users are already matched
     if Match.get_match(user1, user2).exists():
@@ -161,6 +166,8 @@ def make_match(request):
             send_confirm_match_email=params.send_email,
         )
         learner = proposal.get_learner()
+        if learner is None:
+            return Response("Learner not found", status=status.HTTP_400_BAD_REQUEST)
         matches = serialize_proposed_matches([proposal], learner)
 
         TwoUserMatchingScore.objects.filter(user1=user1, user2=user2).delete()
@@ -199,7 +206,7 @@ def make_match(request):
     summary="Get a match",
     description="Get a match by the partner's hash",
     responses={
-        200: inline_serializer("ProfileGetMatch", {"category": "string", "match": AdvancedUserMatchSerializer}),
+        200: GetMatchResponseSerializer,
         400: "Bad request",
     },
 )
@@ -215,12 +222,12 @@ def get_match(request, partner_hash):
         return Response("Match not found", status=status.HTTP_400_BAD_REQUEST)
     else:
         match = match.first()
+        if match is None:
+            return Response("Match not found", status=status.HTTP_400_BAD_REQUEST)
 
     # 2 - categorize the match, the frontend needs to know if it's a 'confirmed', 'unconfirmed' or 'support' match
     category = "confirmed" if match.confirmed else "unconfirmed"
-    if match.support_matching and (
-        not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-    ):
+    if match.support_matching and (not request.user.has_perm(ManagementPermission.MATCHING_USER)):
         # A match isn't shown as 'support' if the requesting user him self is a support user
         category = "support"
 
@@ -241,7 +248,7 @@ def matches(request):
     user = request.user
 
     try:
-        is_matching_user = user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+        is_matching_user = user.has_perm(ManagementPermission.MATCHING_USER)
 
         empty_list = get_paginated_format_v2(Match.objects.none(), items_per_page, 1)
 
