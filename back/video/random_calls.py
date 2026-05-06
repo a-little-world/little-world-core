@@ -720,7 +720,12 @@ def get_active_or_upcoming_lobby_by_name(request, lobby_name):
     )
     if upcoming_lobby:
         return Response(RandomCallLobbySerializer(upcoming_lobby).data)
-    return Response({"error": "No active or upcoming lobby found with this name"}, status=404)
+    return Response(
+        {
+            "data": None,
+            "message": f"No active or upcoming lobby found with this name: {lobby_name}",
+        }
+    )
 
 
 @api_view(["GET"])
