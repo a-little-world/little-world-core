@@ -318,6 +318,7 @@ if DEBUG:
         }
 
 COOKIE_CONSENT_ENABLED = True
+COOKIE_CONSENT_DOMAIN = ".little-world.com" if IS_PROD else None
 
 ROOT_URLCONF = "back.urls"
 """

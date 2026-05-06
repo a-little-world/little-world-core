@@ -2,6 +2,7 @@ import json
 
 from cookie_consent.models import Cookie, CookieGroup
 from cookie_consent.util import get_cookie_dict_from_request
+from django.conf import settings
 from django.core import serializers
 
 
@@ -12,6 +13,7 @@ def get_cookie_banner_template_data(request, hidden_cookie_banner=False) -> dict
         "cookieGroups": serializers.serialize("json", CookieGroup.objects.all()),
         "cookieSets": serializers.serialize("json", Cookie.objects.all()),
         "cookieStateDict": cookie_state,
+        "cookieConsentName": settings.COOKIE_CONSENT_NAME,
         "hiddenCookieBanner": hidden_cookie_banner,
     }
 
