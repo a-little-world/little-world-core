@@ -2196,6 +2196,134 @@ def marketing_campaign_report(request):
 
 @extend_schema(
     request=inline_serializer(
+        name="ShortLinkCampaignSummaryReportRequest",
+        fields={
+            "start_date": serializers.DateField(default=date(2022, 1, 1)),
+            "end_date": serializers.DateField(default=date.today()),
+        },
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
+def short_link_campaign_summary_report(request):
+    """
+    Report with short-link clicks (independent of users) and campaign signup overview.
+    """
+    start_date = request.data.get("start_date", "2022-01-01")
+    end_date = request.data.get("end_date", date.today())
+
+    if isinstance(start_date, str):
+        start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
+    else:
+        start_date_obj = start_date
+
+    if isinstance(end_date, str):
+        end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
+    else:
+        end_date_obj = end_date
+
+    start_date_inclusive = datetime.combine(start_date_obj, time.min)
+    end_date_inclusive = datetime.combine(end_date_obj, datetime.max.time())
+
+    tags = ["mini", "sinnvoll", "nebenan"]
+    campaign_by_tag = {tag: f"campaign-{tag}" for tag in tags}
+
+    day_list = []
+    cursor = start_date_obj
+    while cursor <= end_date_obj:
+        day_list.append(cursor)
+        cursor += timedelta(days=1)
+
+    full_report = ""
+
+    def report(text):
+        nonlocal full_report
+        full_report += text + "\n"
+
+    report("Short Link Campaign Summary")
+    report("=" * 70)
+    report(f"Date Range: {start_date_obj} to {end_date_obj}")
+    report("Tags: mini, sinnvoll, nebenan")
+    report("=" * 70)
+    report("")
+
+    report("Click statistics per tag/day (independent of users)")
+    report("-" * 70)
+
+    click_rows = (
+        ShortLinkClick.objects.filter(
+            short_link__tag__in=tags,
+            created_at__range=[start_date_inclusive, end_date_inclusive],
+        )
+        .values("short_link__tag", "created_at__date")
+        .annotate(total_clicks=Count("id"))
+        .order_by("short_link__tag", "created_at__date")
+    )
+
+    click_map = {(tag, day): 0 for tag in tags for day in day_list}
+    for row in click_rows:
+        click_map[(row["short_link__tag"], row["created_at__date"])] = row["total_clicks"]
+
+    for tag in tags:
+        report(f"Tag: {tag}")
+        for day in day_list:
+            report(f"  {day}: {click_map[(tag, day)]} clicks")
+        report("")
+
+    report("Click attribution quality (anonymous vs logged-in)")
+    report("-" * 70)
+    for tag in tags:
+        total_clicks = ShortLinkClick.objects.filter(
+            short_link__tag=tag,
+            created_at__range=[start_date_inclusive, end_date_inclusive],
+        ).count()
+        logged_in_clicks = ShortLinkClick.objects.filter(
+            short_link__tag=tag,
+            user__isnull=False,
+            created_at__range=[start_date_inclusive, end_date_inclusive],
+        ).count()
+        anonymous_clicks = total_clicks - logged_in_clicks
+        report(f"Tag={tag}: total={total_clicks}, logged_in_user={logged_in_clicks}, anonymous={anonymous_clicks}")
+    report("")
+
+    report("User overview per campaign")
+    report("-" * 70)
+    for tag in tags:
+        campaign = campaign_by_tag[tag]
+        users_for_campaign = User.objects.filter(state__company=campaign)
+        joined_in_range = (
+            users_for_campaign.filter(date_joined__range=[start_date_inclusive, end_date_inclusive])
+            .select_related("profile", "state")
+            .order_by("date_joined", "id")
+        )
+
+        total_users = users_for_campaign.count()
+        joined_count = joined_in_range.count()
+        joined_learners = joined_in_range.filter(profile__user_type=Profile.TypeChoices.LEARNER).count()
+        joined_volunteers = joined_in_range.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER).count()
+
+        report(f"Campaign: {campaign} (tag={tag})")
+        report(f"  Total users in campaign: {total_users}")
+        report(f"  Joined in selected range: {joined_count}")
+        report(f"  Joined breakdown: learners={joined_learners}, volunteers={joined_volunteers}")
+        report("  Joined users:")
+
+        if joined_count == 0:
+            report("    - none")
+        else:
+            for user in joined_in_range.values("id", "email", "date_joined", "profile__user_type"):
+                report(
+                    "    - "
+                    f"id={user['id']} | email={user['email']} | joined={user['date_joined']} "
+                    f"| user_type={user['profile__user_type']}"
+                )
+        report("")
+
+    return Response({"report": full_report})
+
+
+@extend_schema(
+    request=inline_serializer(
         name="UpdateUserJourneyPathFromStatsRequest",
         fields={
             "start_date": serializers.DateField(default=date(2022, 1, 1)),
@@ -2429,4 +2557,8 @@ api_urls = [
         company_users_report,
     ),
     path("api/matching/users/statistics/marketing_campaign/", marketing_campaign_report),
+    path(
+        "api/matching/users/statistics/short_link_campaign_summary/",
+        short_link_campaign_summary_report,
+    ),
 ]
