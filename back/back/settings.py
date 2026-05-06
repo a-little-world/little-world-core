@@ -101,14 +101,6 @@ USE_MQ_AS_BROKER = os.environ.get("DJ_USE_MQ_AS_BROKER", "false").lower() in ("t
 
 DOCS_PROXY = os.environ.get("DJ_DOCS_PROXY", "false").lower() in ("true", "1", "t")
 DOCS_URL = os.environ.get("DJ_DOCS_URL", "")
-# default use for acceing docs:
-CREATE_DOCS_USER = os.environ.get("DJ_CREATE_DOCS_USER", "false").lower() in ("true", "1", "t")
-DOCS_USER = os.environ.get("DJ_DOCS_USER", "tim+docs@little-world.com")
-DOCS_PASSWORD = os.environ.get("DJ_DOCS_PASSWORD", None if IS_PROD else "Test123!")  # No default on prod, just error!
-DOCS_USER_LOGIN_TOKEN = os.environ.get(
-    "DJ_DOCS_USER_LOGIN_TOKEN",
-    None if IS_PROD else "Test123!",  # No default on prod, just error!
-)
 
 
 def get_redis_connect_url_port():

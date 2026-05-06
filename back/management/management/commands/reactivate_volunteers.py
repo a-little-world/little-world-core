@@ -38,7 +38,7 @@ class Command(BaseCommand):
             return
 
         # Pre-filter users to only include those managed by the base management user
-        pre_filtered_users = management_user.state.managed_users.all()
+        pre_filtered_users = management_user.managed_users_queryset(active_only=False)
 
         # Apply the selected filter to the pre-filtered users
         all_users_to_consider = filter_list_entry.queryset(qs=pre_filtered_users)

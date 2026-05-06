@@ -2,7 +2,7 @@ import pgeocode
 from django.db import models
 
 from management.models.profile import Profile
-from management.models.state import State
+from management.permissions import ManagementPermission
 
 
 class CustomFilterChoices(models.TextChoices):
@@ -61,7 +61,7 @@ def filter__random_call_users(user):
     """Same criteria as USER endpoint hasRandomCallsAccess (flag or dev email)."""
     if "herrduenschnlate+" in str(user.email):
         return True
-    return user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.USE_RANDOM_CALLS)
+    return user.has_perm(ManagementPermission.USE_RANDOM_CALLS)
 
 
 def filter__match_eligible_users(user):

@@ -21,6 +21,7 @@ from management.models.settings import Settings
 from management.models.state import State
 from management.models.unconfirmed_matches import MatchType, ProposedMatch
 from management.models.user import User, UserSerializer
+from management.permissions import ManagementPermission
 from management.tasks import (
     create_default_banners,
     create_default_community_events,
@@ -145,15 +146,17 @@ def make_tim_support_user(
     # Wait for DB transactions to complete
     transaction.on_commit(copy_chat)
 
+    # TODO: deprecated - migrate legacy state.managed_users writes to ManagementAccessGrant-only flow.
     # 2.5 add that user to the managed users by Tim
     base_management_user.state.managed_users.add(user)
+    base_management_user.grant_management_access(user, granted_by=admin_user)
     base_management_user.state.save()
 
     # 3. set that user to 'not searching'
     us = user.state
     us.still_active_reminder_send = True
     us.searching_state = State.SearchingStateChoices.IDLE
-    us.previous_management_users.append(f"{admin_user.email} ({admin_user.id})")
+    us.previous_management_users.append(f"{admin_user.email} ({admin_user.pk})")
     us.save()
 
     # 4. send the 'still active' question message
@@ -265,7 +268,9 @@ def create_user(
     if not base_management_user.is_staff:
         # At the moment all our users get the same management user
         # in the future there might be a process to assign different management users to different users
+        # TODO: deprecated - migrate legacy state.managed_users writes to ManagementAccessGrant-only flow.
         base_management_user.state.managed_users.add(usr)
+        base_management_user.grant_management_access(usr, granted_by=base_management_user)
         base_management_user.state.save()
 
     return usr
@@ -303,8 +308,7 @@ def match_users(
 
     # It can also be a support matching with a 'management' user
     is_support_matching = (usr1.is_staff or usr2.is_staff) or (
-        usr1.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-        or usr2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+        usr1.has_perm(ManagementPermission.MATCHING_USER) or usr2.has_perm(ManagementPermission.MATCHING_USER)
     )
 
     # This is the new way:
@@ -339,10 +343,10 @@ def match_users(
         if not chat.exists():
             chat = Chat.objects.create(u1=usr1, u2=usr2)
         else:
-            chat = chat.first()
-            if chat.is_temporary:
-                chat.is_temporary = False
-                chat.save(update_fields=["is_temporary"])
+            existing_chat = chat.first()
+            if existing_chat is not None and existing_chat.is_temporary:
+                existing_chat.is_temporary = False
+                existing_chat.save(update_fields=["is_temporary"])
 
     if send_notification:
         # send sms message ( only if the user enabled sms notifications )
@@ -364,8 +368,8 @@ def match_users(
         usr2.message(match_message.format(other_name=usr1.profile.first_name), auto_mark_read=True)
 
     if send_email and match_type == MatchType.STANDARD:
-        usr1.send_email_v2("new-match", match_id=matching_obj.id)
-        usr2.send_email_v2("new-match", match_id=matching_obj.id)
+        usr1.send_email_v2("new-match", match_id=matching_obj.pk)
+        usr2.send_email_v2("new-match", match_id=matching_obj.pk)
 
     if set_to_idle:
         usr1.state.set_idle()
@@ -432,15 +436,16 @@ def unmatch_users(users: set, delete_video_room=True, delete_dialog=True, unmatc
     usr1, usr2 = list(users)
 
     # The new match management strategy
-    match = Match.get_match(usr1, usr2)
-    assert match.exists(), "Match does not exist!"
-    match = match.first()
+    match_qs = Match.get_match(usr1, usr2)
+    assert match_qs.exists(), "Match does not exist!"
+    match = match_qs.first()
+    assert match is not None, "Match does not exist!"
     match.active = False
     match.report_unmatch.append(
         {
             "kind": "user_deleted",
             "reason": reason or "User deleted by support user",
-            "match_id": match.id,
+            "match_id": match.pk,
             "time": str(timezone.now()),
             "user_id": unmatcher.pk if unmatcher else "no unmatcher specified",
             "user_uuid": unmatcher.hash if unmatcher else "no unmatcher specified",
@@ -467,43 +472,6 @@ def get_base_management_user():
         return create_base_admin_and_add_standart_db_values()
 
 
-def get_or_create_default_docs_user():
-    if not settings.CREATE_DOCS_USER:
-        return None
-    if not settings.DOCS_USER:
-        raise Exception("DOCS_USER not set!")
-    if not settings.DOCS_PASSWORD:
-        raise Exception("DOCS_USER_PW not set!")
-
-    try:
-        return get_user_by_email(settings.DOCS_USER)
-    except UserNotFoundErr:
-        create_user(
-            email=settings.DOCS_USER,
-            password=settings.DOCS_PASSWORD,
-            first_name="Docs",
-            second_name="User",
-            birth_year=2000,
-            newsletter_subscribed=False,
-            send_verification_mail=False,
-            send_welcome_notification=False,
-        )
-
-    def finish_up_user_creation():
-        user = get_user_by_email(settings.DOCS_USER)
-        user.state.email_authenticated = True
-        user.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.DOCS_VIEW)
-        user.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.API_SCHEMAS)
-        user.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.AUTO_LOGIN)
-        user.state.auto_login_api_token = settings.DOCS_USER_LOGIN_TOKEN
-        user.state.save()
-        user.state.set_user_form_completed()
-
-    transaction.on_commit(finish_up_user_creation)
-
-    return get_user_by_email(settings.DOCS_USER)
-
-
 def create_base_admin_and_add_standart_db_values():
     try:
         get_user_by_email(settings.MANAGEMENT_USER_MAIL)
@@ -522,8 +490,8 @@ def create_base_admin_and_add_standart_db_values():
 
     def update_profile():
         usr_tim = get_user_by_email(settings.MATCHING_USER_MAIL)
-        if not usr_tim.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
-            usr_tim.state.extra_user_permissions.append(State.ExtraUserPermissionChoices.MATCHING_USER)
+        if not usr_tim.has_perm(ManagementPermission.MATCHING_USER):
+            usr_tim.grant_permission(ManagementPermission.MATCHING_USER)
         usr_tim.state.email_authenticated = True
         usr_tim.state.save()
         usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
@@ -553,11 +521,9 @@ def create_base_admin_and_add_standart_db_values():
     create_default_banners.delay()
     fill_base_management_user_tim_profile.delay()
 
-    get_or_create_default_docs_user()
-
     from video.tasks import create_default_random_call_lobby
 
-    create_default_random_call_lobby.delay()
+    create_default_random_call_lobby()
 
     return usr_tim
 

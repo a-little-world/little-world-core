@@ -13,6 +13,7 @@ from management.helpers import DetailedPaginationMixin, IsAdminOrMatchingUser
 from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.models.state import State
 from management.models.user import User
+from management.permissions import ManagementPermission
 
 
 class PreMatchingAppointmentAdvancedSerializer(serializers.ModelSerializer):
@@ -67,42 +68,32 @@ class PreMatchingAppointmentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
 
-        from management.models.state import State
-
         if user.is_staff:
             return PreMatchingAppointment.objects.all()
-        elif user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
-            return PreMatchingAppointment.objects.filter(user__in=user.state.managed_users.all())
+        elif user.has_perm(ManagementPermission.MATCHING_USER):
+            return PreMatchingAppointment.objects.filter(user__in=user.managed_users_queryset(active_only=False))
 
     def check_management_user_access(self, appointment, request):
-        from management.models.state import State
-
         user = appointment.user
 
-        if not request.user.is_staff and not request.user.state.has_extra_user_permission(
-            State.ExtraUserPermissionChoices.MATCHING_USER
-        ):
+        if not request.user.is_staff and not request.user.has_perm(ManagementPermission.MATCHING_USER):
             return False, Response(
                 {"msg": "You are not allowed to access this user!"}, status=status.HTTP_401_UNAUTHORIZED
             )
 
-        if not request.user.is_staff and not request.user.state.managed_users.filter(pk=user.pk).exists():
+        if not request.user.is_staff and not request.user.has_management_access(user):
             return False, Response(
                 {"msg": "You are not allowed to access this user!"}, status=status.HTTP_401_UNAUTHORIZED
             )
         return True, None
 
     def check_management_user_access_for_user(self, user, request):
-        from management.models.state import State
-
-        if not request.user.is_staff and not request.user.state.has_extra_user_permission(
-            State.ExtraUserPermissionChoices.MATCHING_USER
-        ):
+        if not request.user.is_staff and not request.user.has_perm(ManagementPermission.MATCHING_USER):
             return False, Response(
                 {"msg": "You are not allowed to access this user!"}, status=status.HTTP_401_UNAUTHORIZED
             )
 
-        if not request.user.is_staff and not request.user.state.managed_users.filter(pk=user.pk).exists():
+        if not request.user.is_staff and not request.user.has_management_access(user):
             return False, Response(
                 {"msg": "You are not allowed to access this user!"}, status=status.HTTP_401_UNAUTHORIZED
             )
@@ -297,8 +288,8 @@ def mark_prematching_calls_completed(request):
             continue
         if (
             not request.user.is_staff
-            and request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-            and not request.user.state.managed_users.filter(pk=user.pk).exists()
+            and request.user.has_perm(ManagementPermission.MATCHING_USER)
+            and not request.user.has_management_access(user)
         ):
             return Response(
                 {"error": "You are not allowed to access one or many users for this appointment!"},
@@ -314,7 +305,7 @@ def mark_prematching_calls_completed(request):
         previously_onboarded = bool(user.state.is_onboarded)
         user.state.had_prematching_call = True
         user.state.is_onboarded = True
-        user.state.set_random_calls_access(True)
+        user.grant_permission(ManagementPermission.USE_RANDOM_CALLS)
         user.state.searching_state = State.SearchingStateChoices.SEARCHING
         user.state.last_prematching_checkoff_at = now
         if not previously_onboarded:

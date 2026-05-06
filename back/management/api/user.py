@@ -8,8 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.dispatch import receiver
 from django.http import HttpResponseRedirect
-from django.shortcuts import redirect
-from django.urls import path, reverse
+from django.urls import path
 from django.utils import timezone
 from django_rest_passwordreset.signals import reset_password_token_created
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
@@ -25,12 +24,13 @@ from tracking.models import Event
 from translations import get_translation
 
 from management.authentication import NativeOnlyJWTAuthentication, silent
-from management.controller import UserNotFoundErr, delete_user, get_user, get_user_by_email, get_user_by_hash
+from management.controller import UserNotFoundErr, delete_user, get_user_by_email, get_user_by_hash
 from management.models.banner import Banner, BannerSerializer
 from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from management.models.profile import SelfProfileSerializer
 from management.models.state import FrontendStatusSerializer, State
+from management.permissions import ManagementPermission
 from management.tasks import send_email_background
 
 """
@@ -191,7 +191,7 @@ class LoginApi(APIView):
                 # pylint thinks this is a AbsUsr but we have overwritten it models.user.User
                 return Response(get_translation("api.login_failed_staff"), status=status.HTTP_400_BAD_REQUEST)
 
-            if usr.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+            if usr.has_perm(ManagementPermission.MATCHING_USER):
                 # send security notification: Matching user new login
                 ip, routable = get_ip(request)
                 security_notification = f"Matching user {usr.email} logged in from {ip}"
@@ -224,25 +224,9 @@ class LoginApi(APIView):
     def get(self, request):
         """
         Allowes to authenticate users using the extra auth token
+        TODO: @tbscode depricate
         """
-        # if (not settings.IS_DEV) and (not settings.IS_STAGE):
-        #    assert False, "For now this api is only available on stage"
-
-        serializer = AutoLoginSerializer(data=request.query_params)
-        serializer.is_valid(raise_exception=True)
-        params = serializer.save()
-
-        u = get_user(params.u, params.lookup)
-        if not u.state.has_extra_user_permission(State.ExtraUserPermissionChoices.AUTO_LOGIN):
-            return Response("Unauthorized", status=status.HTTP_403_FORBIDDEN)
-        else:
-            if params.token == u.state.auto_login_api_token:
-                login(request, u)
-                if params.n is None:
-                    return redirect(reverse("management:main_frontend"))
-                else:
-                    return HttpResponseRedirect(redirect_to=params.n)
-        return Response(get_translation("api.auto_login_failed"))
+        return Response("Auto-login API is deprecated and disabled", status=status.HTTP_410_GONE)
 
 
 class LogoutApi(APIView):
@@ -551,7 +535,7 @@ def still_active_callback(request):
 def delete_account(request):
     # Cannot delete staff or matching users with this api!
     assert not request.user.is_staff
-    assert not request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+    assert not request.user.has_perm(ManagementPermission.MATCHING_USER)
 
     delete_user(request.user, management_user=None, send_deletion_email=True)
     logout(request)
@@ -592,8 +576,8 @@ def get_user_data(user):
 
     banner = BannerSerializer(banner_query).data if banner_query else {}
 
-    has_random_calls_access = ("herrduenschnlate+" in str(user.email)) or user.state.has_extra_user_permission(
-        State.ExtraUserPermissionChoices.USE_RANDOM_CALLS
+    has_random_calls_access = ("herrduenschnlate+" in str(user.email)) or user.has_perm(
+        ManagementPermission.USE_RANDOM_CALLS
     )
 
     # Self-onboarding progress as a fraction in [0, 1] based on the ordered step list.
@@ -606,8 +590,7 @@ def get_user_data(user):
         "id": str(user.hash),
         "banner": banner,
         "status": FrontendStatusSerializer(user_state).data,
-        "isSupport": user_state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-        or user.is_staff,
+        "isSupport": user.has_perm(ManagementPermission.MATCHING_USER) or user.is_staff,
         "isSearching": user_state.searching_state == State.SearchingStateChoices.SEARCHING,
         "email": user.email,
         "hasRandomCallsAccess": has_random_calls_access,
@@ -725,7 +708,7 @@ def self_onboarding_update(request):
         user.state.self_onboarding_completed_at = timezone.now()
         user.state.self_onboarding_completed = True
         user.state.is_onboarded = True
-        user.state.set_random_calls_access(True)
+        user.grant_permission(ManagementPermission.USE_RANDOM_CALLS)
         user.state.searching_state = State.SearchingStateChoices.SEARCHING
         send_email_background.delay("automatic-emails-u071", user_id=user.id)
         completed = True
