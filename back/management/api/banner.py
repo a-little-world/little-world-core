@@ -1,5 +1,3 @@
-from urllib.parse import urlparse
-
 from back.utils import get_options_serializer
 from django.core.files.storage import default_storage
 from django.shortcuts import get_object_or_404
@@ -23,8 +21,6 @@ def _apply_background_image_upload(request, banner: Banner) -> None:
     relative_path = renamer(banner, uploaded.name)
     saved_path = default_storage.save(relative_path, uploaded)
     media_url = default_storage.url(saved_path)
-    if media_url.startswith("http"):
-        media_url = urlparse(media_url).path or media_url
     css_value = f"url({media_url})"
     banner.background = css_value[:255]
     banner.save(update_fields=["background"])

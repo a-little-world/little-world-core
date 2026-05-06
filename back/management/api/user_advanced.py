@@ -15,6 +15,7 @@ from rest_framework.response import Response
 from management.api.matches import AdvancedUserMatchSerializer
 from management.api.scores import score_between_db_update
 from management.api.user_advanced_filter_lists import FILTER_LISTS, get_choices, get_dynamic_userlists
+from management.api.user_report_utils import build_user_report_entry
 from management.api.utils_advanced import filterset_schema_dict
 from management.controller import delete_user, make_tim_support_user
 from management.helpers import (
@@ -118,16 +119,7 @@ class ExportUserSerializer(serializers.ModelSerializer):
         fields = ["id", "email", "hash"]
 
     def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        representation["profile"] = {
-            "first_name": instance.profile.first_name,
-            "second_name": instance.profile.second_name,
-            "user_type": instance.profile.user_type,
-            "postal_code": instance.profile.postal_code,
-            "gender": instance.profile.gender,
-            "birth_year": instance.profile.birth_year,
-        }
-
+        representation = build_user_report_entry(instance)
         return representation
 
 
@@ -1021,14 +1013,18 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         page = int(request.query_params.get("page", 1))
         page_size = int(request.query_params.get("page_size", 10))
 
-        email_logs = get_paginated_format_v2(EmailLog.objects.filter(receiver=obj), page_size, page)
+        email_logs = get_paginated_format_v2(
+            EmailLog.objects.filter(receiver=obj).order_by("-time", "-id"),
+            page_size,
+            page,
+        )
         email_logs["results"] = AdvancedEmailLogSerializer(email_logs["results"], many=True).data
 
         return Response(email_logs)
 
     @action(detail=False, methods=["get"])
     def export(self, request):
-        queryset = self.filter_queryset(self.get_queryset())
+        queryset = self.filter_queryset(self.get_queryset()).select_related("profile", "state")
         serializer = ExportUserSerializer(queryset, many=True)
 
         return Response(serializer.data)

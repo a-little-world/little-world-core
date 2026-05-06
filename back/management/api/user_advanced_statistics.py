@@ -22,6 +22,11 @@ from video.models import LivekitSession
 from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS, get_match_list_by_name
 from management.api.user_advanced import get_match_waiting_time
 from management.api.user_advanced_filter_lists import FILTER_LISTS, USER_JOURNEY_FILTER_LISTS, get_list_by_name
+from management.api.user_report_utils import (
+    build_user_report_entry,
+    group_user_journey_by_date,
+    seconds_to_hhmm,
+)
 from management.helpers import IsAdminOrMatchingUser
 from management.helpers.query_logger import QueryLogger
 from management.models.matches import Match
@@ -698,125 +703,12 @@ def company_users_report(request, company):
         state__company=company,
     ).select_related("profile", "state")
 
-    total_video_time_seconds_all_users = 0
+    total_video_time_minutes_all_users = 0.0
     user_data = []
 
     for user in users:
-        # Matches
-        all_matches = Match.objects.filter(
-            Q(user1=user) | Q(user2=user),
-            support_matching=False,
-        ).order_by("-created_at")
-
-        total_matches = all_matches.count()
-        active_matches = all_matches.filter(active=True).count()
-
-        match_status = []
-        if active_matches > 0:
-            match_status.append("Active")
-        if all_matches.filter(confirmed=True).exists():
-            match_status.append("Confirmed")
-        if all_matches.filter(completed=True).exists():
-            match_status.append("Completed")
-        if not match_status:
-            match_status = ["No matches"]
-
-        match_details = []
-        for match in all_matches:
-            status = "Confirmed" if match.confirmed else "Pending Confirmation"
-            other_username = match.user2.username if match.user1 == user else match.user1.username
-            confirmation_parts = []
-            if match.confirmed_by == match.user1:
-                confirmation_parts.append(f"{match.user1.username} confirmed")
-            elif match.confirmed_by == match.user2:
-                confirmation_parts.append(f"{match.user2.username} confirmed")
-            else:
-                confirmation_parts.append("Both confirmed" if match.confirmed else "No one confirmed")
-            match_details.append(
-                {
-                    "other_username": other_username,
-                    "status": status,
-                    "confirmation": ", ".join(confirmation_parts),
-                }
-            )
-
-        # Video calls
-        video_calls_as_u1 = LivekitSession.objects.filter(u1=user, both_have_been_active=True)
-        video_calls_as_u2 = LivekitSession.objects.filter(u2=user, both_have_been_active=True)
-        video_calls = video_calls_as_u1.union(video_calls_as_u2)
-
-        total_video_calls = video_calls.count()
-        total_video_time_seconds_user = 0
-        video_call_details = []
-
-        for call in video_calls:
-            other_user = call.u1 if call.u1 != user else call.u2
-            active_status = "Active" if call.is_active else "Inactive"
-
-            if call.end_time:
-                duration = call.end_time - call.created_at
-
-                total_video_time_seconds_user += duration.total_seconds()
-                video_call_details.append(
-                    {
-                        "other_username": other_user.username,
-                        "duration_seconds": duration.total_seconds(),
-                        "status": active_status,
-                    }
-                )
-            else:
-                video_call_details.append({"other_username": other_user.username, "status": active_status})
-
-        total_video_time_seconds_all_users += total_video_time_seconds_user
-
-        # Most recent match metrics
-        most_recent_match = all_matches.first()
-        video_calls_with_recent_match = 0
-        messages_with_recent_match = 0
-
-        if most_recent_match:
-            other_user = most_recent_match.user2 if most_recent_match.user1 == user else most_recent_match.user1
-            video_calls_with_recent_match = LivekitSession.objects.filter(
-                Q(u1=user, u2=other_user) | Q(u1=other_user, u2=user),
-                both_have_been_active=True,
-            ).count()
-            messages_with_recent_match = Message.objects.filter(
-                Q(sender=user, recipient=other_user) | Q(sender=other_user, recipient=user)
-            ).count()
-
-        last_message = Message.objects.filter(recipient=user).order_by("-created").first()
-
-        # Count messages sent and received
-        messages_sent = Message.objects.filter(sender=user).count()
-        messages_received = Message.objects.filter(recipient=user).count()
-
-        raw_path = user.state.user_journey_path or []
-        grouped_journey = _group_user_journey_by_date(raw_path)
-
-        total_video_time_minutes = round(total_video_time_seconds_user / 60, 2)
-        total_video_time_hours = round(total_video_time_minutes / 60.0, 2)
-
-        user_entry = {
-            "user_id": user.id,
-            "vorname": user.profile.first_name if user.profile else "",
-            "nachname": user.profile.second_name if user.profile else "",
-            "email": user.email,
-            "date_joined": (user.date_joined.isoformat() if user.date_joined else None),
-            "user_journey_path": grouped_journey,
-            "match_status": ", ".join(match_status),
-            "total_matches": total_matches,
-            "active_matches": active_matches,
-            "match_details": match_details,
-            "video_call_details": video_call_details,
-            "total_video_calls": total_video_calls,
-            "total_video_time_minutes": total_video_time_minutes,
-            "total_video_time_hours": total_video_time_hours,
-            "messages_sent": messages_sent,
-            "messages_received": messages_received,
-            "video_calls_with_most_recent_match": video_calls_with_recent_match,
-            "messages_with_most_recent_match": messages_with_recent_match,
-            "last_message_received": (last_message.created.isoformat() if last_message else None),
-        }
+        user_entry = build_user_report_entry(user)
+        total_video_time_minutes_all_users += float(user_entry.get("total_video_time_minutes", 0))
         user_data.append(user_entry)
 
     if output_format == "csv":
@@ -830,9 +722,13 @@ def company_users_report(request, company):
             "Nachname",
             "E-Mail",
             "Date Joined",
+            "Last Login",
+            "German Language Level",
+            "User Type",
+            "Number of Expired Proposals",
             "Total Video Calls",
             "Total Video Time (Minutes)",
-            "Total Video Time (Hours)",
+            "Total Video Time (HH:MM)",
             "Messages Sent",
             "Messages Received",
             "User ID",
@@ -853,9 +749,13 @@ def company_users_report(request, company):
                 entry.get("nachname", ""),
                 entry.get("email", ""),
                 entry.get("date_joined", ""),
+                entry.get("last_login", ""),
+                entry.get("german_language_level", ""),
+                entry.get("user_type", ""),
+                entry.get("expired_proposals_count", 0),
                 entry.get("total_video_calls", 0),
                 entry.get("total_video_time_minutes", 0),
-                entry.get("total_video_time_hours", 0),
+                entry.get("total_video_time_hhmm", "00:00"),
                 entry.get("messages_sent", 0),
                 entry.get("messages_received", 0),
                 entry.get("user_id", ""),
@@ -875,15 +775,15 @@ def company_users_report(request, company):
         # Return CSV wrapped in JSON response (consistent with other text reports)
         return Response({"csv": csv_content})
 
-    total_video_minutes_all = total_video_time_seconds_all_users / 60
+    total_video_minutes_all = round(total_video_time_minutes_all_users, 2)
     return Response(
         {
             "company": company,
             "start_date": start_date,
             "end_date": end_date,
             "total_users": len(user_data),
-            "total_video_time_minutes_all_users": round(total_video_minutes_all, 2),
-            "total_video_time_hours_all_users": round(total_video_minutes_all / 60.0, 2),
+            "total_video_time_minutes_all_users": total_video_minutes_all,
+            "total_video_time_hhmm_all_users": seconds_to_hhmm(total_video_minutes_all * 60),
             "users": user_data,
         }
     )
@@ -2223,72 +2123,6 @@ def update_user_journey_path_from_stats(request, user_hash: str):
     return Response({"user_path": user_path})
 
 
-def _group_user_journey_by_date(user_path: list) -> list:
-    """
-    Groups user journey data by date and collapses consecutive days with identical bucket sets.
-
-    Input: [["bucket1", "2024-07-31 19:07:22+00:00"], ["bucket2", "2024-07-31 19:07:22+00:00"], ...]
-    Output: [{"start_date": "2024-07-31", "end_date": "2024-08-05", "buckets": ["bucket1", "bucket2"]}, ...]
-    """
-    from collections import defaultdict
-
-    if not user_path:
-        return []
-
-    # Step 1: Group buckets by date
-    buckets_by_date = defaultdict(set)
-    for bucket_id, timestamp in user_path:
-        # Parse the date from timestamp string
-        if isinstance(timestamp, str):
-            # Handle various timestamp formats
-            date_str = timestamp.split(" ")[0]  # Get just the date part "2024-07-31"
-        else:
-            date_str = str(timestamp.date())
-        buckets_by_date[date_str].add(bucket_id)
-
-    # Step 2: Sort dates and convert sets to sorted lists for comparison
-    sorted_dates = sorted(buckets_by_date.keys())
-
-    if not sorted_dates:
-        return []
-
-    # Step 3: Collapse consecutive days with identical bucket sets
-    result = []
-    current_start = sorted_dates[0]
-    current_end = sorted_dates[0]
-    current_buckets = frozenset(buckets_by_date[sorted_dates[0]])
-
-    for date_str in sorted_dates[1:]:
-        date_buckets = frozenset(buckets_by_date[date_str])
-
-        if date_buckets == current_buckets:
-            # Same buckets, extend the range
-            current_end = date_str
-        else:
-            # Different buckets, save current range and start new one
-            result.append(
-                {
-                    "start_date": current_start,
-                    "end_date": current_end if current_end != current_start else None,
-                    "buckets": sorted(list(current_buckets)),
-                }
-            )
-            current_start = date_str
-            current_end = date_str
-            current_buckets = date_buckets
-
-    # Don't forget to add the last range
-    result.append(
-        {
-            "start_date": current_start,
-            "end_date": current_end if current_end != current_start else None,
-            "buckets": sorted(list(current_buckets)),
-        }
-    )
-
-    return result
-
-
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
 def get_user_bucket_path(request, user_hash: str):
@@ -2298,7 +2132,7 @@ def get_user_bucket_path(request, user_hash: str):
         return Response({"error": "You do not have access to this user"}, status=403)
 
     raw_path = user.state.user_journey_path or []
-    grouped_journey = _group_user_journey_by_date(raw_path)
+    grouped_journey = group_user_journey_by_date(raw_path)
 
     return Response(
         {
