@@ -188,16 +188,12 @@ class User(AbstractUser):
         return self.state.managed_users.filter(pk=managed_user.pk).exists()
 
     def managed_users_queryset(self, active_only: bool = True):
-        from management.models.state import State
 
-        # TODO: deprecated fallback - remove legacy relation check after full ACL cutover.
-        legacy_managed_user_ids = State.managed_users.through.objects.filter(state__user=self).values("user_id")
         qs = User.objects.filter(
             Q(
                 management_accesses_received__manager=self,
                 management_accesses_received__is_active=True,
             )
-            | Q(id__in=legacy_managed_user_ids)
         ).distinct()
         if active_only:
             qs = qs.filter(is_active=True)
