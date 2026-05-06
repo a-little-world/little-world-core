@@ -81,6 +81,7 @@ from management.models.scores import TwoUserMatchingScore
 from management.models.state import State
 from management.models.unconfirmed_matches import ProposedMatch
 from management.models.user import User
+from management.permissions import ManagementPermission
 from management.tasks import burst_calculate_matching_scores, matching_algo_v2, slack_notify_security_channel_async
 from management.utils import check_task_status
 from management.validators import DAYS, SLOTS
@@ -562,6 +563,8 @@ def score_between_db_update(user1, user2):
     total_score, matchable, results = base.calculate_score()
 
     score = TwoUserMatchingScore.get_or_create(user1, user2)
+    if score is None:
+        raise ValueError("Could not initialize matching score object")
     score.score = total_score
     score.matchable = matchable
     score.scoring_results = json.loads(json.dumps(results, cls=CoolerJson))
@@ -583,12 +586,10 @@ class DispatchScoreCalculationSerializer(DataclassSerializer):
 @api_view(["POST"])
 @permission_classes([IsAdminOrMatchingUser])
 def dispatch_score_calculation(request):
-    assert request.user.is_staff or request.user.state.has_extra_user_permission(
-        State.ExtraUserPermissionChoices.MATCHING_USER
-    )
+    assert request.user.is_staff or request.user.has_perm(ManagementPermission.MATCHING_USER)
 
-    serializer = DispatchScoreCalculationSerializer(request.data)
-    serializers.is_valid(raise_exception=True)
+    serializer = DispatchScoreCalculationSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
     data = serializer.save()
 
     task = matching_algo_v2.delay(data["user"], 50)
@@ -605,14 +606,14 @@ def dispatch_score_calculation(request):
 @api_view(["POST"])
 @permission_classes([IsAdminOrMatchingUser])
 def calculate_score_between(request):
-    serializer = ScoreBetweenDataclass(request.data)
+    serializer = ScoreBetweenSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
     data = serializer.data
 
     user1 = User.objects.get(id=data["user1"])
     user2 = User.objects.get(id=data["user2"])
 
-    total_score, matchable, results = score_between_db_update(user1, user2)
+    total_score, matchable, results, _score = score_between_db_update(user1, user2)
     return Response({"total_score": total_score, "matchable": matchable, "results": results})
 
 
@@ -837,9 +838,10 @@ def burst_calculate_matching_scores_v2(request):
         TwoUserMatchingScore.objects.all().delete()
 
     bmu = controller.get_base_management_user()
+    managed_users = bmu.managed_users_queryset(active_only=False)
     if scoring_list == "default":
         user_list = needs_matching(
-            qs=User.objects.filter(id__in=bmu.state.managed_users.all()),
+            qs=managed_users,
             learner_atleast_searching_for_x_days=5,
             exclude_non_german_residents=True,
         )
@@ -849,7 +851,7 @@ def burst_calculate_matching_scores_v2(request):
         user_list = get_list_by_name(scoring_list)
         if user_list is None:
             return Response({"msg": f"Invalid scoring list: {scoring_list}"}, status=400)
-        user_list = user_list.queryset(User.objects.filter(id__in=bmu.state.managed_users.all()))
+        user_list = user_list.queryset(managed_users)
 
     user_id_set = set(user_list.values_list("id", flat=True))
     list_combinations = list(itertools.combinations(user_id_set, 2))
@@ -970,9 +972,7 @@ def score_maximization_matching(request):
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
 def delete_all_matching_scores(request):
-    assert request.user.is_staff or request.user.state.has_extra_user_permission(
-        State.ExtraUserPermissionChoices.MATCHING_USER
-    )
+    assert request.user.is_staff or request.user.has_perm(ManagementPermission.MATCHING_USER)
     from management.models.scores import TwoUserMatchingScore
 
     total_count = TwoUserMatchingScore.objects.count()
@@ -983,9 +983,7 @@ def delete_all_matching_scores(request):
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
 def list_top_scores(request):
-    assert request.user.is_staff or request.user.state.has_extra_user_permission(
-        State.ExtraUserPermissionChoices.MATCHING_USER
-    )
+    assert request.user.is_staff or request.user.has_perm(ManagementPermission.MATCHING_USER)
     from management.api.user_advanced import AdvancedMatchingScoreSerializer
     from management.models.scores import TwoUserMatchingScore
 

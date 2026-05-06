@@ -79,7 +79,7 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
 
         obj.read = True
         obj.save()
-        return Response(self.serializer_class(obj).data, status=200)
+        return Response(self.get_serializer(obj).data, status=200)
 
     @extend_schema(request=SendMessageSerializer)
     @action(detail=False, methods=["post"])
@@ -91,6 +91,8 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         if not chat.exists():
             return self.resp_chat_403
         chat = chat.first()
+        if chat is None:
+            return self.resp_chat_403
         if not chat.is_participant(request.user):
             return self.resp_chat_403
 
@@ -103,7 +105,7 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
 
         MessagesReadChat(
             user_id=request.user.hash,  # all messages with receiver=user.hash will be marked 'read'
-            chat_id=chat.uuid,
+            chat_id=str(chat.uuid),
         ).send(partner.hash)
 
         return Response({"status": "ok"}, status=200)
@@ -119,6 +121,8 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         if not chat.exists():
             return self.resp_chat_403
         chat = chat.first()
+        if chat is None:
+            return self.resp_chat_403
 
         if not chat.is_participant(request.user):
             return self.resp_chat_403
@@ -137,6 +141,8 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
                 # TODO: @tbscode make duble sure this cannot bypass access restrictions
                 return self.resp_chat_403
             match = match.first()
+            if match is None:
+                return self.resp_chat_403
             # Update match data
             match.total_messages_counter += 1
             match.latest_interaction_at = timezone.now()
@@ -159,7 +165,7 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         )
 
         def notify_recipient_email():
-            send_email_background.delay("new-messages", user_id=partner.id)
+            send_email_background.delay("new-messages", user_id=partner.pk)
 
         def recipient_in_active_video_call():
             return (
@@ -233,14 +239,14 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         )
 
         # Optimize: Use existing serialized data instead of re-serializing
-        serialized_message = self.serializer_class(message).data
+        serialized_message = self.get_serializer(message).data
 
         # Send websocket message
         from chat.consumers.messages import NewMessage
 
         NewMessage(
             message=serialized_message,
-            chat_id=chat.uuid,
+            chat_id=str(chat.uuid),
             meta_chat_obj=ChatSerializer(chat, context={"user": partner}).data,
         ).send(partner.hash)
 

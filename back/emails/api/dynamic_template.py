@@ -10,7 +10,6 @@ from ipware import get_client_ip as get_ip
 from management.api.user_advanced_filter_lists import get_list_by_name
 from management.helpers import DetailedPaginationMixin
 from management.models.dynamic_user_list import DynamicUserList
-from management.models.user import User
 from management.tasks import send_dynamic_email_backgruound
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -56,7 +55,7 @@ class DynamicEmailTemplateViewset(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def send(self, request, pk=None, template_name=None):
         # Filter down to current matching user
-        qs = User.objects.filter(id__in=self.request.user.state.managed_users.all(), is_active=True)
+        qs = self.request.user.managed_users_queryset(active_only=True)
 
         user_list = request.data["user_list"]
         if ":dyn:" in user_list:

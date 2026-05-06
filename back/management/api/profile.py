@@ -15,6 +15,7 @@ from management.authentication import NativeOnlyJWTAuthentication
 from management.models import custom_banner_event_filters
 from management.models.profile import Profile, SelfProfileSerializer
 from management.models.state import State
+from management.permissions import ManagementPermission
 
 
 @dataclass
@@ -109,7 +110,7 @@ class ProfileCompletedApi(APIView):
                 state.onboarding_call_completed_at = timezone.now()
                 state.had_prematching_call = True
                 state.is_onboarded = True
-                state.set_random_calls_access(True)
+                user.grant_permission(ManagementPermission.USE_RANDOM_CALLS)
                 state.searching_state = State.SearchingStateChoices.SEARCHING
 
             state.save()
