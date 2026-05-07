@@ -6,6 +6,7 @@ import django.contrib.auth.password_validation as pw_validation
 from django.conf import settings
 from django.contrib.auth import login
 from django.core import exceptions
+from django.db import transaction
 from django.utils import translation
 from drf_spectacular.utils import extend_schema
 from rest_framework import serializers, status
@@ -17,6 +18,8 @@ from management.api.app_integrity import verify_play_integrity_token
 from management.api.native_auth import get_and_delete_challenge
 from management.api.user import get_user_data
 from management.integrity.apple import verify_apple_attestation
+from management.meta_capi import build_event, build_user_data, has_marketing_consent
+from management.meta_capi_queue import queue_meta_event_once
 from management.models.profile import Profile
 from management.models.user import User
 
@@ -172,6 +175,36 @@ class Register(APIView):
         registration_data = serializer.save()
 
         data = common_register(request, registration_data)
+
+        if registration_data.user_type == Profile.TypeChoices.VOLUNTEER and has_marketing_consent(
+            request, request.user
+        ):
+
+            def track_submit_application():
+                user_data = build_user_data(
+                    request=request,
+                    user=request.user,
+                    external_id=request.user.id,
+                )
+                event = build_event(
+                    event_name="SubmitApplication",
+                    event_id=f"submit_application:{request.user.id}",
+                    request=request,
+                    user_data=user_data,
+                    custom_data={
+                        "user_type": registration_data.user_type,
+                        "status": "registered",
+                    },
+                )
+                queue_meta_event_once(
+                    event,
+                    metadata={
+                        "source": "registration_web",
+                        "user_id": request.user.id,
+                    },
+                )
+
+            transaction.on_commit(track_submit_application)
 
         return Response(data)
 

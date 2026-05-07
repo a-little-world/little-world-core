@@ -1,9 +1,9 @@
 import logging
 
 from django.db import IntegrityError
+from tracking.models import ConversionEventLog
 
 from management.tasks import send_meta_capi_events
-from tracking.models import ConversionEventLog
 
 logger = logging.getLogger(__name__)
 

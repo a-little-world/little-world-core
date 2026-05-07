@@ -4,7 +4,7 @@ import logging
 import re
 import time
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 import requests
 from django.conf import settings
@@ -254,7 +254,7 @@ def build_user_data(
         "fbc": fbc or get_fbc(request),
     }
 
-    return clean_none(user_data)
+    return cast(dict[str, Any], clean_none(user_data))
 
 
 def build_event(
@@ -277,7 +277,7 @@ def build_event(
         "user_data": user_data,
         "custom_data": custom_data or {},
     }
-    return clean_none(event)
+    return cast(dict[str, Any], clean_none(event))
 
 
 class MetaCAPIError(Exception):
@@ -311,10 +311,10 @@ class MetaCAPIClient:
         if not events:
             return {"skipped": True, "reason": "no_events"}
 
-        payload = {"data": events}
+        payload: dict[str, Any] = {"data": events}
         if self.test_event_code:
             payload["test_event_code"] = self.test_event_code
-        payload = clean_none(payload)
+        payload = cast(dict[str, Any], clean_none(payload))
 
         try:
             response = requests.post(

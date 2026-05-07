@@ -188,7 +188,6 @@ class User(AbstractUser):
         return self.state.managed_users.filter(pk=managed_user.pk).exists()
 
     def managed_users_queryset(self, active_only: bool = True):
-
         qs = User.objects.filter(
             Q(
                 management_accesses_received__manager=self,

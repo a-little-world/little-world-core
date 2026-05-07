@@ -1,5 +1,4 @@
 from django.core.management.base import BaseCommand
-
 from management.meta_capi import MetaCAPIClient, build_event, build_user_data
 
 
