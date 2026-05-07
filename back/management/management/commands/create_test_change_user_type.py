@@ -54,7 +54,7 @@ class Command(BaseCommand):
 
         current_type = profile.user_type
 
-        from admin_tasks.models import SupportTask, SupportTaskAction
+        from models.support_task import SupportTask, SupportTaskAction
 
         if from_message:
             # message_action_change_user_type
@@ -68,21 +68,21 @@ class Command(BaseCommand):
         task = SupportTask.objects.create(
             title=title,
             description=reason or f"Change user type from '{current_type}' to '{new_type}'",
-            metadata={"user_id": user.id, "current_user_type": current_type},
+            metadata={"user_id": user.pk, "current_user_type": current_type},
         )
 
         action = SupportTaskAction.objects.create(
             task=task,
             action_type=action_type,
             static_parameters={
-                "user_id": user.id,
+                "user_id": user.pk,
                 "current_user_type": current_type,
             },
             parameters={"new_user_type": new_type},
         )
 
-        self.stdout.write(f"SupportTask #{task.id} created: '{task.title}'")
+        self.stdout.write(f"SupportTask #{task.pk} created: '{task.title}'")
         self.stdout.write(f"  Action: {action_type}")
         self.stdout.write(f"  Current type: {current_type}")
         self.stdout.write(f"  Proposed type: {new_type}")
-        self.stdout.write(self.style.SUCCESS(f"\nDone. View in admin panel: /tasks/{task.id}"))
+        self.stdout.write(self.style.SUCCESS(f"\nDone. View in admin panel: /tasks/{task.pk}"))

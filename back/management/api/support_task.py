@@ -1,203 +1,178 @@
 from actions.registry import execute
 from django.urls import path
-from django.utils import timezone
-from drf_spectacular.utils import extend_schema
-from models import SupportTask, SupportTaskAction
-from rest_framework import authentication, permissions, status
+from models.support_task import SupportTask, SupportTaskAction, SupportTaskActionSerializer, SupportTaskSerializer
+from rest_framework import serializers, status
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework.views import APIView
-from serializers import SupportTaskActionSerializer, SupportTaskSerializer
 
+from management.authentication import NativeOnlyJWTAuthentication
 from management.models.user import User
 
-_AUTH = [authentication.SessionAuthentication, authentication.BasicAuthentication]
-_PERMS = [permissions.IsAuthenticated]
+
+class CreateSupportTaskSerializer(serializers.Serializer):
+    task_type = serializers.CharField()
+    related_user_id = serializers.IntegerField()
+    assigned_to_id = serializers.IntegerField(required=False, allow_null=True)
+    static_parameters = serializers.DictField(default=dict)
+    parameters = serializers.DictField(default=dict)
 
 
-class SupportTaskListView(APIView):
-    authentication_classes = _AUTH
-    permission_classes = _PERMS
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def support_task_list(request):
+    tasks = SupportTask.objects.select_related("action").all()
 
-    @extend_schema(responses=SupportTaskSerializer(many=True))
-    def get(self, request):
-        qs = SupportTask.objects.prefetch_related("actions").all()
+    status_filter = request.query_params.get("status")
+    if status_filter:
+        tasks = tasks.filter(status=status_filter)
 
-        status_filter = request.query_params.get("status")
-        if status_filter:
-            qs = qs.filter(status=status_filter)
+    assigned_to = request.query_params.get("assigned_to")
+    if assigned_to:
+        tasks = tasks.filter(assigned_to_id=assigned_to)
 
-        assigned_to = request.query_params.get("assigned_to")
-        if assigned_to:
-            qs = qs.filter(assigned_to_id=assigned_to)
+    sort_by = request.query_params.get("sort_by", "created_at")
+    sort_order = request.query_params.get("sort_order", "desc")
 
-        # Sorting support
-        sort_by = request.query_params.get("sort_by", "created_at")
-        sort_order = request.query_params.get("sort_order", "desc")
+    valid_sort_fields = {"status", "title", "created_at"}
+    if sort_by in valid_sort_fields:
+        order_prefix = "-" if sort_order == "desc" else ""
+        tasks = tasks.order_by(f"{order_prefix}{sort_by}")
 
-        valid_sort_fields = {"status", "title", "deadline", "created_at"}
-        if sort_by in valid_sort_fields:
-            order_prefix = "-" if sort_order == "desc" else ""
-            qs = qs.order_by(f"{order_prefix}{sort_by}")
-
-        return Response(SupportTaskSerializer(qs, many=True).data)
-
-    @extend_schema(request=SupportTaskSerializer, responses=SupportTaskSerializer)
-    def post(self, request):
-        serializer = SupportTaskSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        task = serializer.save(created_by=request.user)
-        return Response(SupportTaskSerializer(task).data, status=status.HTTP_201_CREATED)
+    return Response(SupportTaskSerializer(tasks, many=True).data)
 
 
-class SupportTaskDetailView(APIView):
-    authentication_classes = _AUTH
-    permission_classes = _PERMS
-
-    def _get_task(self, pk):
-        try:
-            return SupportTask.objects.prefetch_related("actions").get(pk=pk)
-        except SupportTask.DoesNotExist:
-            return None
-
-    @extend_schema(responses=SupportTaskSerializer)
-    def get(self, request, pk):
-        task = self._get_task(pk)
-        if task is None:
-            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-        return Response(SupportTaskSerializer(task).data)
-
-    @extend_schema(request=SupportTaskSerializer, responses=SupportTaskSerializer)
-    def patch(self, request, pk):
-        task = self._get_task(pk)
-        if task is None:
-            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
-        serializer = SupportTaskSerializer(task, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(SupportTaskSerializer(task).data)
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def support_task_create(request):
+    serializer = CreateSupportTaskSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    d = serializer.validated_data
+    try:
+        task = SupportTask.create_of_type(
+            d["task_type"],
+            static_parameters=d["static_parameters"],
+            parameters=d["parameters"],
+            related_user_id=d["related_user_id"],
+            assigned_to_id=d.get("assigned_to_id"),
+            created_by=request.user,
+        )
+    except ValueError as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(SupportTaskSerializer(task).data, status=status.HTTP_201_CREATED)
 
 
-class SupportTaskActionUpdateView(APIView):
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def support_task_detail(request, pk):
+    try:
+        task = SupportTask.objects.select_related("action").get(pk=pk)
+    except SupportTask.DoesNotExist:
+        return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+    return Response(SupportTaskSerializer(task).data)
+
+
+@api_view(["PATCH"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def support_task_update(request, pk):
+    try:
+        task = SupportTask.objects.select_related("action").get(pk=pk)
+    except SupportTask.DoesNotExist:
+        return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+    serializer = SupportTaskSerializer(task, data=request.data, partial=True)
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(SupportTaskSerializer(task).data)
+
+
+@api_view(["PATCH"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def support_task_action_update(request, task_pk):
     """Update dynamic parameters of a pending action (e.g. edit AI-generated draft)."""
+    try:
+        task = SupportTask.objects.select_related("action").get(pk=task_pk)
+    except SupportTask.DoesNotExist:
+        return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    authentication_classes = _AUTH
-    permission_classes = _PERMS
+    action = task.action
 
-    @extend_schema(request=SupportTaskActionSerializer, responses=SupportTaskActionSerializer)
-    def patch(self, request, task_pk, action_pk):
-        try:
-            action = SupportTaskAction.objects.get(pk=action_pk, task_id=task_pk)
-        except SupportTaskAction.DoesNotExist:
-            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+    if action.status != SupportTaskAction.Status.OPEN:
+        return Response({"error": "Cannot edit a non-open action"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if action.status != SupportTaskAction.Status.PENDING:
-            return Response(
-                {"error": "Cannot edit a non-pending action"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+    new_params = request.data.get("parameters")
+    if new_params is not None:
+        if not action.was_edited:
+            action.original_parameters = action.parameters
+        action.parameters = new_params
+        action.save()
 
-        new_params = request.data.get("parameters")
-        if new_params is not None:
-            if not action.was_edited:
-                action.original_parameters = action.parameters
-            action.parameters = new_params
-            action.save()
-
-        return Response(SupportTaskActionSerializer(action).data)
+    return Response(SupportTaskActionSerializer(action).data)
 
 
-class SupportTaskActionApproveView(APIView):
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def support_task_action_execute(request, task_pk):
     """Approve an action — executes the underlying function after human confirmation."""
+    try:
+        task = SupportTask.objects.select_related("action").get(pk=task_pk)
+    except SupportTask.DoesNotExist:
+        return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    authentication_classes = _AUTH
-    permission_classes = _PERMS
+    action = task.action
 
-    def post(self, request, task_pk, action_pk):
-        try:
-            action = SupportTaskAction.objects.get(pk=action_pk, task_id=task_pk)
-        except SupportTaskAction.DoesNotExist:
-            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+    if action.status != SupportTaskAction.Status.OPEN:
+        return Response({"error": "Action already processed"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if action.status != SupportTaskAction.Status.PENDING:
-            return Response(
-                {"error": "Action already processed"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+    try:
+        execute(action)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            execute(action)
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-        action.status = SupportTaskAction.Status.APPROVED
-        action.approved_by = request.user
-        action.approved_at = timezone.now()
-        action.save()
-
-        # For profile review actions with "dismiss" decision, close the parent task
-        decision = action.parameters.get("decision")
-        if decision == "dismiss" and action.action_type in (
-            "profile_action_suspicious_profile",
-            "profile_action_too_empty_profile",
-        ):
-            task = action.task
-            task.status = SupportTask.Status.FINISHED
-            task.save(update_fields=["status"])
-
-        return Response(SupportTaskActionSerializer(action).data)
+    action.resolve(SupportTaskAction.Status.EXECUTED, request.user)
+    return Response(SupportTaskActionSerializer(action).data)
 
 
-class SupportTaskActionSkipView(APIView):
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def support_task_action_cancel(request, task_pk):
     """Skip an action without executing it."""
+    try:
+        task = SupportTask.objects.select_related("action").get(pk=task_pk)
+    except SupportTask.DoesNotExist:
+        return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
 
-    authentication_classes = _AUTH
-    permission_classes = _PERMS
+    action = task.action
 
-    def post(self, request, task_pk, action_pk):
-        try:
-            action = SupportTaskAction.objects.get(pk=action_pk, task_id=task_pk)
-        except SupportTaskAction.DoesNotExist:
-            return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+    if action.status != SupportTaskAction.Status.OPEN:
+        return Response({"error": "Action already processed"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if action.status != SupportTaskAction.Status.PENDING:
-            return Response(
-                {"error": "Action already processed"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        action.status = SupportTaskAction.Status.SKIPPED
-        action.approved_by = request.user
-        action.approved_at = timezone.now()
-        action.save()
-
-        return Response(SupportTaskActionSerializer(action).data)
+    action.resolve(SupportTaskAction.Status.CANCELLED, request.user)
+    return Response(SupportTaskActionSerializer(action).data)
 
 
-class StaffUsersView(APIView):
-    """Returns all staff users for task assignment."""
-
-    authentication_classes = _AUTH
-    permission_classes = _PERMS
-
-    def get(self, request):
-        users = User.objects.filter(is_staff=True).values("id", "email", "first_name", "last_name")
-        return Response(list(users))
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def staff_users(request):
+    users = User.objects.filter(is_staff=True).values("id", "email", "first_name", "last_name")
+    return Response(list(users))
 
 
 api_urls = [
-    path("api/admin_tasks/", SupportTaskListView.as_view()),
-    path("api/admin_tasks/staff_users/", StaffUsersView.as_view()),
-    path("api/admin_tasks/<int:pk>/", SupportTaskDetailView.as_view()),
-    path(
-        "api/admin_tasks/<int:task_pk>/actions/<int:action_pk>/",
-        SupportTaskActionUpdateView.as_view(),
-    ),
-    path(
-        "api/admin_tasks/<int:task_pk>/actions/<int:action_pk>/approve/",
-        SupportTaskActionApproveView.as_view(),
-    ),
-    path(
-        "api/admin_tasks/<int:task_pk>/actions/<int:action_pk>/skip/",
-        SupportTaskActionSkipView.as_view(),
-    ),
+    path("api/support_task/", support_task_list),
+    path("api/support_task/create/", support_task_create),
+    path("api/support_task/staff_users/", staff_users),
+    path("api/support_task/<int:pk>/", support_task_detail),
+    path("api/support_task/<int:pk>/update/", support_task_update),
+    path("api/support_task/<int:task_pk>/action/", support_task_action_update),
+    path("api/support_task/<int:task_pk>/action/execute/", support_task_action_execute),
+    path("api/support_task/<int:task_pk>/action/cancel/", support_task_action_cancel),
 ]

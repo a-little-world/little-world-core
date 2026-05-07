@@ -1,7 +1,21 @@
-from .registry import register
+from dataclasses import dataclass, field
+
+from .registry import register, register_task_type
 
 
-@register("message_action_remove_match")
+@dataclass
+class StaticParams:
+    help_message_id: int
+    user_id: int
+    match_id: int
+
+
+@dataclass
+class Params:
+    reason: str = field(default="")
+
+
+@register("message_action_remove_match", static_schema=StaticParams, param_schema=Params)
 def message_action_remove_match(static_params: dict, params: dict) -> None:
     """Remove (unmatch) a match following a support message request.
 
@@ -21,8 +35,15 @@ def message_action_remove_match(static_params: dict, params: dict) -> None:
         {
             "kind": "unmatch",
             "reason": params.get("reason", ""),
-            "by": "admin_task",
+            "by": "support_task",
             "requesting_user_id": static_params["user_id"],
         }
     ]
     match.save(update_fields=["active", "report_unmatch"])
+
+
+register_task_type(
+    "remove_match",
+    action_type="message_action_remove_match",
+    task_title=lambda s: f"Remove match #{s['match_id']} — user #{s['user_id']}",
+)

@@ -62,7 +62,7 @@ class Command(BaseCommand):
 
         current_value = getattr(profile, field, None)
 
-        from admin_tasks.models import SupportTask, SupportTaskAction
+        from models.support_task import SupportTask, SupportTaskAction
 
         if from_message or field == "country_of_residence":
             if from_message:
@@ -75,23 +75,23 @@ class Command(BaseCommand):
         task = SupportTask.objects.create(
             title=f"Update {field} for {email}",
             description=f"Change {field} from '{current_value}' to '{value or '[new value]'}'",
-            metadata={"user_id": user.id, "field": field},
+            metadata={"user_id": user.pk, "field": field},
         )
 
         action = SupportTaskAction.objects.create(
             task=task,
             action_type=action_type,
             static_parameters={
-                "user_id": user.id,
+                "user_id": user.pk,
                 "field": field,
                 "current_value": current_value or "",
             },
             parameters={"new_value": value},
         )
 
-        self.stdout.write(f"SupportTask #{task.id} created: '{task.title}'")
+        self.stdout.write(f"SupportTask #{task.pk} created: '{task.title}'")
         self.stdout.write(f"  Action: {action_type}")
         self.stdout.write(f"  Field: {field}")
         self.stdout.write(f"  Current value: {current_value or '(empty)'}")
         self.stdout.write(f"  Proposed value: {value or '(empty)'}")
-        self.stdout.write(self.style.SUCCESS(f"\nDone. View in admin panel: /tasks/{task.id}"))
+        self.stdout.write(self.style.SUCCESS(f"\nDone. View in admin panel: /tasks/{task.pk}"))

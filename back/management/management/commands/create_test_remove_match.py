@@ -40,13 +40,13 @@ class Command(BaseCommand):
         except Match.DoesNotExist:
             raise CommandError(f"No match found with ID {match_id}")
 
-        from admin_tasks.models import SupportTask, SupportTaskAction
+        from models.support_task import SupportTask, SupportTaskAction
 
         task = SupportTask.objects.create(
             title=f"Remove match #{match_id}",
             description=f"User {email} requested removal of match #{match_id}",
             metadata={
-                "user_id": user.id,
+                "user_id": user.pk,
                 "match_id": match_id,
                 "match_users": [match.learner_id, match.volunteer_id],
             },

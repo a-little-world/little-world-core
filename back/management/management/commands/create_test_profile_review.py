@@ -71,12 +71,12 @@ class Command(BaseCommand):
         if profile is None:
             raise CommandError(f"No profile found for user '{email}'")
 
-        from admin_tasks.models import SupportTask, SupportTaskAction
+        from models.support_task import SupportTask, SupportTaskAction
 
         config = REVIEW_TYPES[review_type]
 
         # Build static parameters based on type
-        static_params = {"user_id": user.id}
+        static_params = {"user_id": user.pk}
 
         if review_type == "suspicious":
             static_params["reason"] = reason or "Flagged for review"
@@ -95,7 +95,7 @@ class Command(BaseCommand):
         task = SupportTask.objects.create(
             title=f"{config['title_prefix']} — {email}",
             description=config["description"],
-            metadata={"user_id": user.id, "review_type": review_type},
+            metadata={"user_id": user.pk, "review_type": review_type},
         )
 
         action = SupportTaskAction.objects.create(
@@ -105,7 +105,7 @@ class Command(BaseCommand):
             parameters=default_params,
         )
 
-        self.stdout.write(f"SupportTask #{task.id} created: '{task.title}'")
+        self.stdout.write(f"SupportTask #{task.pk} created: '{task.title}'")
         self.stdout.write(f"  Review type: {review_type}")
         self.stdout.write(f"  Action: {config['action_type']}")
 
@@ -114,4 +114,4 @@ class Command(BaseCommand):
         elif review_type == "too_empty":
             self.stdout.write(f"  Missing fields: {', '.join(static_params.get('missing_fields', []))}")
 
-        self.stdout.write(self.style.SUCCESS(f"\nDone. View in admin panel: /tasks/{task.id}"))
+        self.stdout.write(self.style.SUCCESS(f"\nDone. View in admin panel: /tasks/{task.pk}"))

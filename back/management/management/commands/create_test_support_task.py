@@ -7,9 +7,8 @@ Usage:
     python manage.py create_test_support_task <user_email> --type all
 
 Available types:
-    support_reply               HelpMessage → send_support_reply action
+    support_reply               HelpMessage → support_reply action
     change_user_type            Profile → message_action_change_user_type
-    wrong_user_type             Profile → profile_action_wrong_user_type
     change_profile_value        Profile → message_action_change_profile_value
     country_of_residence        Profile → profile_change_action_country_of_residence
     remove_match                Match   → message_action_remove_match
@@ -24,7 +23,6 @@ from django.core.management.base import BaseCommand, CommandError
 TASK_TYPES = [
     "support_reply",
     "change_user_type",
-    "wrong_user_type",
     "change_profile_value",
     "country_of_residence",
     "remove_match",
@@ -72,200 +70,122 @@ class Command(BaseCommand):
 
 
 def _create_support_reply(cmd, user):
-    from admin_tasks.models import SupportTask
-
     from management.models.help_message import HelpMessage
+    from management.models.support_task import SupportTask
 
     help_message = HelpMessage.objects.create(
         user=user,
         message="This is a test support message. Please help me!",
         kind=HelpMessage.KindChoices.GENERAL,
     )
-    task = SupportTask.objects.filter(metadata__help_message_id=help_message.id).first()
+    task = SupportTask.objects.filter(related_user=user, actions__action_type="support_reply").first()
     if task is None:
-        raise RuntimeError("Signal did not create a task — check admin_tasks signals are connected.")
+        raise RuntimeError("Signal did not create a task — check signals are connected.")
     return task
 
 
 def _create_change_user_type(cmd, user):
-    from admin_tasks.models import SupportTask, SupportTaskAction
-
     from management.models.profile import Profile
+    from management.models.support_task import SupportTask
 
     profile = Profile.objects.get(user=user)
-    task = SupportTask.objects.create(
-        title=f"Change user type — {user.email}",
-        description="User requested a user type change via support.",
-        related_object=profile,
-        metadata={"user_id": user.id},
+    return SupportTask.create_of_type(
+        "change_user_type",
+        static_parameters={
+            "help_message_id": 0,
+            "user_id": user.id,
+            "current_value": profile.user_type or "mentee",
+        },
+        parameters={"new_value": profile.user_type or "mentee"},
+        related_user=user,
     )
-    SupportTaskAction.objects.create(
-        task=task,
-        action_type="message_action_change_user_type",
-        static_parameters={"user_id": user.id},
-        parameters={"user_type": profile.user_type or "mentee"},
-    )
-    return task
-
-
-def _create_wrong_user_type(cmd, user):
-    from admin_tasks.models import SupportTask, SupportTaskAction
-
-    from management.models.profile import Profile
-
-    profile = Profile.objects.get(user=user)
-    task = SupportTask.objects.create(
-        title=f"Wrong user type detected — {user.email}",
-        description="Profile user type does not match stated background.",
-        related_object=profile,
-        metadata={"user_id": user.id},
-    )
-    SupportTaskAction.objects.create(
-        task=task,
-        action_type="profile_action_wrong_user_type",
-        static_parameters={"user_id": user.id},
-        parameters={"user_type": "mentee"},
-    )
-    return task
 
 
 def _create_change_profile_value(cmd, user):
-    from admin_tasks.models import SupportTask, SupportTaskAction
+    from management.models.support_task import SupportTask
 
-    from management.models.profile import Profile
-
-    profile = Profile.objects.get(user=user)
-    task = SupportTask.objects.create(
-        title=f"Change profile value — {user.email}",
-        description="User requested correction of a profile field via support.",
-        related_object=profile,
-        metadata={"user_id": user.id},
+    return SupportTask.create_of_type(
+        "change_profile_value",
+        static_parameters={"help_message_id": 0, "user_id": user.id, "field": "description"},
+        parameters={"new_value": "Updated description from support request."},
+        related_user=user,
     )
-    SupportTaskAction.objects.create(
-        task=task,
-        action_type="message_action_change_profile_value",
-        static_parameters={"user_id": user.id, "field": "description"},
-        parameters={"value": "Updated description from support request."},
-    )
-    return task
 
 
 def _create_country_of_residence(cmd, user):
-    from admin_tasks.models import SupportTask, SupportTaskAction
-
     from management.models.profile import Profile
+    from management.models.support_task import SupportTask
 
     profile = Profile.objects.get(user=user)
-    task = SupportTask.objects.create(
-        title=f"Update country of residence — {user.email}",
-        description="Profile country of residence needs correction.",
-        related_object=profile,
-        metadata={"user_id": user.id},
+    return SupportTask.create_of_type(
+        "change_country_of_residence",
+        static_parameters={
+            "help_message_id": 0,
+            "user_id": user.id,
+            "current_value": profile.country_of_residence or "",
+        },
+        parameters={"new_value": "DE"},
+        related_user=user,
     )
-    SupportTaskAction.objects.create(
-        task=task,
-        action_type="profile_change_action_country_of_residence",
-        static_parameters={"user_id": user.id},
-        parameters={"country_of_residence": "DE"},
-    )
-    return task
 
 
 def _create_remove_match(cmd, user):
-    from admin_tasks.models import SupportTask, SupportTaskAction
     from django.db.models import Q
 
     from management.models.matches import Match
+    from management.models.support_task import SupportTask
 
     match = Match.objects.filter(active=True).filter(Q(user1=user) | Q(user2=user)).first()
     if match is None:
         raise RuntimeError(f"No active match found for {user.email}")
 
-    task = SupportTask.objects.create(
-        title=f"Remove match — {match.uuid}",
-        description="Match flagged for removal via support request.",
-        related_object=match,
-        metadata={"match_uuid": str(match.uuid), "user_id": user.id},
-    )
-    SupportTaskAction.objects.create(
-        task=task,
-        action_type="message_action_remove_match",
-        static_parameters={"match_uuid": str(match.uuid)},
+    return SupportTask.create_of_type(
+        "remove_match",
+        static_parameters={"help_message_id": 0, "user_id": user.id, "match_id": match.id},
         parameters={"reason": "Test: user requested match removal."},
+        related_user=user,
     )
-    return task
 
 
 def _create_scoring_assessment(cmd, user):
-    from admin_tasks.models import SupportTask, SupportTaskAction
+    from management.models.support_task import SupportTask
 
-    from management.models.profile import Profile
-
-    profile = Profile.objects.get(user=user)
-    task = SupportTask.objects.create(
-        title=f"Profile scoring review — {user.email}",
-        description="Profile scheduled for quality scoring review.",
-        related_object=profile,
-        metadata={"user_id": user.id},
-    )
-    SupportTaskAction.objects.create(
-        task=task,
-        action_type="scoring_profile_assessment",
+    return SupportTask.create_of_type(
+        "scoring_assessment",
         static_parameters={"user_id": user.id},
         parameters={"decision": "approve"},
+        related_user=user,
     )
-    return task
 
 
 def _create_suspicious_profile(cmd, user):
-    from admin_tasks.models import SupportTask, SupportTaskAction
+    from management.models.support_task import SupportTask
 
-    from management.models.profile import Profile
-
-    profile = Profile.objects.get(user=user)
-    task = SupportTask.objects.create(
-        title=f"Suspicious profile — {user.email}",
-        description="Profile flagged: spam keywords detected in description.",
-        related_object=profile,
-        metadata={"user_id": user.id},
-    )
-    SupportTaskAction.objects.create(
-        task=task,
-        action_type="profile_action_suspicious_profile",
+    return SupportTask.create_of_type(
+        "suspicious_profile",
         static_parameters={"user_id": user.id, "reason": "Spam keywords detected"},
         parameters={"decision": "dismiss"},
+        related_user=user,
     )
-    return task
 
 
 def _create_too_empty_profile(cmd, user):
-    from admin_tasks.models import SupportTask, SupportTaskAction
+    from management.models.support_task import SupportTask
 
-    from management.models.profile import Profile
-
-    profile = Profile.objects.get(user=user)
-    task = SupportTask.objects.create(
-        title=f"Incomplete profile — {user.email}",
-        description="Profile is missing: description, birth_year.",
-        related_object=profile,
-        metadata={"user_id": user.id},
-    )
-    SupportTaskAction.objects.create(
-        task=task,
-        action_type="profile_action_too_empty_profile",
+    return SupportTask.create_of_type(
+        "too_empty_profile",
         static_parameters={
             "user_id": user.id,
             "missing_fields": ["description", "birth_year"],
         },
         parameters={"decision": "contact_user", "contact_message": ""},
+        related_user=user,
     )
-    return task
 
 
 _CREATORS = {
     "support_reply": _create_support_reply,
     "change_user_type": _create_change_user_type,
-    "wrong_user_type": _create_wrong_user_type,
     "change_profile_value": _create_change_profile_value,
     "country_of_residence": _create_country_of_residence,
     "remove_match": _create_remove_match,

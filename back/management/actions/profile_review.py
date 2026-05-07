@@ -1,4 +1,7 @@
-from .registry import register
+from dataclasses import dataclass, field
+from typing import Literal
+
+from .registry import register, register_task_type
 
 
 def _get_user(user_id: int):
@@ -23,7 +26,21 @@ def _contact_user(user, message: str) -> None:
     management_user.message(user, message)
 
 
-@register("scoring_profile_assessment")
+# ─── scoring_profile_assessment ───────────────────────────────────────────────
+
+
+@dataclass
+class ScoringAssessmentStaticParams:
+    user_id: int
+
+
+@dataclass
+class ScoringAssessmentParams:
+    decision: Literal["approve", "flag", "contact_user"] = "approve"
+    contact_message: str = ""
+
+
+@register("scoring_profile_assessment", static_schema=ScoringAssessmentStaticParams, param_schema=ScoringAssessmentParams)
 def scoring_profile_assessment(static_params: dict, params: dict) -> None:
     """Admin reviews a profile flagged by the scoring system.
 
@@ -45,16 +62,22 @@ def scoring_profile_assessment(static_params: dict, params: dict) -> None:
             _contact_user(user, msg)
 
 
-def _finish_task(action) -> None:
-    """Mark the parent task as FINISHED when dismiss is chosen."""
-    from admin_tasks.models import SupportTask
-
-    task = action.task
-    task.status = SupportTask.Status.FINISHED
-    task.save(update_fields=["status"])
+# ─── profile_action_suspicious_profile ────────────────────────────────────────
 
 
-@register("profile_action_suspicious_profile")
+@dataclass
+class SuspiciousProfileStaticParams:
+    user_id: int
+    reason: str
+
+
+@dataclass
+class SuspiciousProfileParams:
+    decision: Literal["tag_suspicious", "contact_user", "dismiss"] = "dismiss"
+    contact_message: str = ""
+
+
+@register("profile_action_suspicious_profile", static_schema=SuspiciousProfileStaticParams, param_schema=SuspiciousProfileParams)
 def profile_action_suspicious_profile(static_params: dict, params: dict) -> None:
     """Admin reviews a profile flagged as suspicious.
 
@@ -66,23 +89,33 @@ def profile_action_suspicious_profile(static_params: dict, params: dict) -> None
         decision (str): 'tag_suspicious' | 'contact_user' | 'dismiss'
         contact_message (str, optional)
     """
-
     decision = params.get("decision", "dismiss")
     if decision == "tag_suspicious":
         user = _get_user(static_params["user_id"])
-        _tag_user(user, "state.tags-spam")
+        _tag_user(user, "suspicious")
     elif decision == "contact_user":
         user = _get_user(static_params["user_id"])
         msg = params.get("contact_message", "")
         if msg:
             _contact_user(user, msg)
-    elif decision == "dismiss":
-        # Dismiss closes the task - nothing to do, just mark as finished
-        # The action is already approved, now close the parent task
-        pass
 
 
-@register("profile_action_too_empty_profile")
+# ─── profile_action_too_empty_profile ─────────────────────────────────────────
+
+
+@dataclass
+class TooEmptyProfileStaticParams:
+    user_id: int
+    missing_fields: list
+
+
+@dataclass
+class TooEmptyProfileParams:
+    decision: Literal["contact_user", "dismiss"] = "dismiss"
+    contact_message: str = field(default="")
+
+
+@register("profile_action_too_empty_profile", static_schema=TooEmptyProfileStaticParams, param_schema=TooEmptyProfileParams)
 def profile_action_too_empty_profile(static_params: dict, params: dict) -> None:
     """Admin reviews a profile flagged as too empty.
 
@@ -100,3 +133,26 @@ def profile_action_too_empty_profile(static_params: dict, params: dict) -> None:
         msg = params.get("contact_message", "")
         if msg:
             _contact_user(user, msg)
+
+
+# ─── Task type registrations ───────────────────────────────────────────────────
+
+register_task_type(
+    "scoring_assessment",
+    action_type="scoring_profile_assessment",
+    task_title=lambda s: f"Profile scoring review — user #{s['user_id']}",
+)
+
+register_task_type(
+    "suspicious_profile",
+    action_type="profile_action_suspicious_profile",
+    task_title=lambda s: f"Suspicious profile — user #{s['user_id']}",
+    task_description=lambda s: f"Profile flagged: {s['reason']}",
+)
+
+register_task_type(
+    "too_empty_profile",
+    action_type="profile_action_too_empty_profile",
+    task_title=lambda s: f"Incomplete profile — user #{s['user_id']}",
+    task_description=lambda s: f"Profile is missing: {', '.join(s['missing_fields'])}",
+)

@@ -2,7 +2,7 @@ from django.db.models.signals import post_save
 
 
 def connect_signals() -> None:
-    """Connect all admin_tasks signals. Called from SupportTasksConfig.ready()."""
+    """Connect all support task signals. Called from ManagementConfig.ready()."""
     from management.models.help_message import HelpMessage
     from management.models.profile import Profile
 
@@ -18,25 +18,17 @@ def _create_task_for_help_message(sender, instance, created, **kwargs) -> None:
     if not created:
         return
 
-    from .models import SupportTask, SupportTaskAction
+    from management.models.support_task import SupportTask
 
-    task = SupportTask.objects.create(
-        title=f"Support request ({instance.get_kind_display()})",
-        description=instance.message[:500],
-        related_object=instance,
-        metadata={
+    SupportTask.create_of_type(
+        "support_reply",
+        static_parameters={
             "help_message_id": instance.id,
-            "user_id": instance.user_id,
-            "kind": instance.kind,
+            "kind_display": instance.get_kind_display(),
+            "message_preview": instance.message[:500],
         },
-    )
-
-    # Always create a reply action
-    SupportTaskAction.objects.create(
-        task=task,
-        action_type="send_support_reply",
-        static_parameters={"help_message_id": instance.id},
         parameters={"message": ""},
+        related_user=instance.user,
     )
 
 
@@ -45,13 +37,13 @@ def _create_task_for_help_message(sender, instance, created, **kwargs) -> None:
 
 def _open_task_exists(user_id: int, action_type: str) -> bool:
     """Guard: skip if a non-finished task with this action_type already exists for the user."""
-    from .models import SupportTaskAction
+    from management.models.support_task import SupportTaskAction
 
     return SupportTaskAction.objects.filter(
         action_type=action_type,
-        task__metadata__user_id=user_id,
+        task__related_user_id=user_id,
         task__status__in=["NEW", "IN_PROGRESS"],
-        status="PENDING",
+        status="OPEN",
     ).exists()
 
 
@@ -61,67 +53,18 @@ def _check_profile_on_save(sender, instance, created, **kwargs) -> None:
     if created:
         return
 
-    _maybe_create_too_empty_task(instance)
-    _maybe_create_suspicious_task(instance)
-
-
-def _maybe_create_too_empty_task(profile) -> None:
-    from .models import SupportTask, SupportTaskAction
-
-    missing = []
-    if not profile.description:
-        missing.append("description")
-    if not profile.birth_year:
-        missing.append("birth_year")
-
-    if not missing:
-        return
-
-    if _open_task_exists(profile.user_id, "profile_action_too_empty_profile"):
-        return
-
-    task = SupportTask.objects.create(
-        title=f"Incomplete profile — user #{profile.user_id}",
-        description=f"Profile is missing: {', '.join(missing)}",
-        related_object=profile,
-        metadata={"user_id": profile.user_id},
-    )
-    SupportTaskAction.objects.create(
-        task=task,
-        action_type="profile_action_too_empty_profile",
-        static_parameters={
-            "user_id": profile.user_id,
-            "missing_fields": missing,
-        },
-        parameters={"decision": "contact_user", "contact_message": ""},
-    )
-
-
-def _maybe_create_suspicious_task(profile) -> None:
-    """
-    Placeholder: add real detection logic here (e.g. spam keywords, implausible data).
-    Currently a no-op — extend as needed.
-    """
-    # TODO: Implement suspicious profile detection
-    # Examples:
-    # - Spam keywords in description
-    # - Implausible birth year
-    # - Suspicious patterns in name/location
-    pass
+    check_user_profile(instance)
 
 
 def check_user_profile(profile) -> dict:
-    """
-    Check the user profile for completeness and suspiciousness.
-    Creates corresponding admin tasks if issues are found.
+    """Check profile for completeness and suspicious patterns; create tasks as needed.
 
-    This function is called after form completion to ensure profile quality.
-
-    Returns a dict with the created tasks info for debugging/monitoring.
+    Called both from the post_save signal and externally (e.g. after form completion).
+    Returns a dict with created task info for debugging/monitoring.
     """
     created_tasks = []
 
-    # Check for incomplete profile (missing required fields)
+    # ── Incomplete profile ────────────────────────────────────────────────────
     missing = []
     if not profile.description:
         missing.append("description")
@@ -129,84 +72,45 @@ def check_user_profile(profile) -> dict:
         missing.append("birth_year")
 
     if missing and not _open_task_exists(profile.user_id, "profile_action_too_empty_profile"):
-        from .models import SupportTask, SupportTaskAction
+        from management.models.support_task import SupportTask
 
-        task = SupportTask.objects.create(
-            title=f"Incomplete profile — user #{profile.user_id}",
-            description=f"Profile is missing: {', '.join(missing)}",
-            related_object=profile,
-            metadata={"user_id": profile.user_id},
-        )
-        SupportTaskAction.objects.create(
-            task=task,
-            action_type="profile_action_too_empty_profile",
-            static_parameters={
-                "user_id": profile.user_id,
-                "missing_fields": missing,
-            },
+        task = SupportTask.create_of_type(
+            "too_empty_profile",
+            static_parameters={"user_id": profile.user_id, "missing_fields": missing},
             parameters={"decision": "contact_user", "contact_message": ""},
+            related_user_id=profile.user_id,
         )
-        created_tasks.append({"type": "too_empty", "task_id": task.id})
+        created_tasks.append({"type": "too_empty", "task_id": task.pk})
 
-    # Check for suspicious profile
-    # TODO: Implement actual suspicious profile detection logic
-    # For now, this is a placeholder that can be extended
+    # ── Suspicious profile ────────────────────────────────────────────────────
     suspicious_reasons = _detect_suspicious_profile(profile)
-    if suspicious_reasons and not _open_task_exists(profile.user_id, "profile_action_suspicious_profile"):
-        from .models import SupportTask, SupportTaskAction
 
-        task = SupportTask.objects.create(
-            title=f"Suspicious profile — user #{profile.user_id}",
-            description=f"Profile flagged: {', '.join(suspicious_reasons)}",
-            related_object=profile,
-            metadata={"user_id": profile.user_id},
-        )
-        SupportTaskAction.objects.create(
-            task=task,
-            action_type="profile_action_suspicious_profile",
-            static_parameters={
-                "user_id": profile.user_id,
-                "reason": suspicious_reasons[0] if suspicious_reasons else "Flagged for review",
-            },
+    if suspicious_reasons and not _open_task_exists(profile.user_id, "profile_action_suspicious_profile"):
+        from management.models.support_task import SupportTask
+
+        task = SupportTask.create_of_type(
+            "suspicious_profile",
+            static_parameters={"user_id": profile.user_id, "reason": suspicious_reasons[0]},
             parameters={"decision": "dismiss"},
+            related_user_id=profile.user_id,
         )
-        created_tasks.append({"type": "suspicious", "task_id": task.id})
+        created_tasks.append({"type": "suspicious", "task_id": task.pk})
 
     return {"created_tasks": created_tasks}
 
 
-def _detect_suspicious_profile(profile) -> list:
-    """
-    Detect suspicious patterns in a profile.
+def _detect_suspicious_profile(profile) -> list[str]:
+    """Detect suspicious patterns in a profile. Returns reasons, or empty list if fine.
 
-    Returns a list of reasons why the profile is suspicious, or empty list if fine.
-
-    TODO: Implement actual detection logic such as:
+    TODO: Implement actual detection logic:
     - Spam keywords in description
-    - Implausible birth year (too old/young)
+    - Implausible birth year
     - Suspicious patterns in name
-    - Known spam domains in contact info
-    - Inconsistent location data
     """
-    reasons = []
-
-    # Placeholder: Add real detection logic here
-    # Example checks:
-    # if profile.description and _contains_spam(profile.description):
-    #     reasons.append("Spam keywords detected")
-    #
-    # if profile.birth_year and (profile.birth_year < 1900 or profile.birth_year > timezone.now().year - 10):
-    #     reasons.append("Implausible birth year")
-
-    return reasons
+    return []
 
 
-# ─── Periodic task (Celery) for scoring assessment ────────────────────────────
-# Register this in your Celery beat schedule:
-#   "scoring-profile-assessment": {
-#       "task": "admin_tasks.tasks.create_scoring_assessment_tasks",
-#       "schedule": crontab(hour=3, minute=0),  # daily at 3am
-#   }
+# ─── Scoring assessment ────────────────────────────────────────────────────────
 
 
 def create_scoring_assessment_tasks_for_user(user_id: int) -> None:
@@ -215,22 +119,16 @@ def create_scoring_assessment_tasks_for_user(user_id: int) -> None:
         return
 
     from management.models.profile import Profile
-
-    from .models import SupportTask, SupportTaskAction
+    from management.models.support_task import SupportTask
 
     try:
-        profile = Profile.objects.get(user_id=user_id)
+        related_user_id = Profile.objects.values_list("user_id", flat=True).get(user_id=user_id)
     except Profile.DoesNotExist:
-        profile = None
+        related_user_id = user_id
 
-    task = SupportTask.objects.create(
-        title=f"Profile scoring review — user #{user_id}",
-        related_object=profile,
-        metadata={"user_id": user_id},
-    )
-    SupportTaskAction.objects.create(
-        task=task,
-        action_type="scoring_profile_assessment",
+    SupportTask.create_of_type(
+        "scoring_assessment",
         static_parameters={"user_id": user_id},
         parameters={"decision": "approve"},
+        related_user_id=related_user_id,
     )
