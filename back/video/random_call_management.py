@@ -192,7 +192,7 @@ def get_lobby_management_overview(request, lobby_name="default"):
             and (match.created_at is None or match.created_at <= proposal_stale_threshold)
         )
 
-        if match.accepted:
+        if match.completed or match.accepted:
             accepted_matches.append(match_data)
         elif is_expired:
             # Match is expired (either timeout or users left lobby)
