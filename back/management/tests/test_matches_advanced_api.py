@@ -1,7 +1,9 @@
 from uuid import uuid4
 
+from chat.models import Chat, Message
 from django.test import TestCase
 from rest_framework.test import APIRequestFactory, force_authenticate
+from video.models import LivekitSession
 
 from management.api.matches_advanced import AdvancedMatchViewset
 from management.models.matches import Match
@@ -43,6 +45,53 @@ class AdvancedMatchViewsetTests(TestCase):
 
         assert response.status_code == 200
         assert response.data["uuid"] == str(self.match.uuid)
+        assert "last_video_call_at" in response.data
+        assert response.data["last_video_call_at"] is None
+        assert response.data["user1_last_message_at"] is None
+        assert response.data["user2_last_message_at"] is None
+
+    def test_list_does_not_include_match_stats_only_fields(self):
+        request = self.factory.get("/api/matching/matches/")
+        force_authenticate(request, user=self.staff_user)
+
+        response = self.list_view(request)
+
+        assert response.status_code == 200
+        results = response.data["results"]
+        assert results
+        sample = next(r for r in results if r["uuid"] == str(self.match.uuid))
+        assert "user1_last_message_at" not in sample
+
+    def test_retrieve_includes_match_stats_timestamps_when_present(self):
+        chat = Chat.get_or_create_chat(self.staff_user, self.other_user)
+        Message.objects.create(
+            chat=chat,
+            sender=self.staff_user,
+            recipient=self.other_user,
+            text="hi",
+        )
+        Message.objects.create(
+            chat=chat,
+            sender=self.other_user,
+            recipient=self.staff_user,
+            text="yo",
+        )
+        LivekitSession.objects.create(
+            u1=self.staff_user,
+            u2=self.other_user,
+            both_have_been_active=True,
+            is_active=False,
+        )
+
+        request = self.factory.get(f"/api/matching/matches/{self.match.uuid}/")
+        force_authenticate(request, user=self.staff_user)
+
+        response = self.view(request, pk=str(self.match.uuid))
+
+        assert response.status_code == 200
+        assert response.data["user1_last_message_at"] is not None
+        assert response.data["user2_last_message_at"] is not None
+        assert response.data["last_video_call_at"] is not None
 
     def test_retrieve_unknown_match_by_uuid_returns_404(self):
         missing_uuid = uuid4()
