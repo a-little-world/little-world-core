@@ -17,11 +17,28 @@ from management.models.state import State
 from management.models.user import User
 from management.permissions import ManagementPermission
 
+from .meta_capi import MetaCAPIClient
+
 """
 also contains general startup celery tasks, most of them are automaticly run when the controller.get_base_management user is created
 some of them are managed via models.backend_state.BackendState to ensure they don't run twice!
 If you wan't to rerun one of these events make sure to delete the old data *and* the backend state slug!
 """
+
+
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": settings.META_CAPI_MAX_RETRIES},
+)
+def send_meta_capi_events(self, events, event_id=None):
+    response = MetaCAPIClient().send_events(events)
+    if event_id:
+        from tracking.models import ConversionEventLog
+
+        ConversionEventLog.objects.filter(event_id=event_id).update(response=response)
+    return response
 
 
 @shared_task

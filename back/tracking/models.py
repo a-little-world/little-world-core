@@ -63,6 +63,24 @@ class Event(models.Model):
     metadata = models.JSONField()
 
 
+class ConversionEventLog(models.Model):
+    event_name = models.CharField(max_length=100)
+    event_id = models.CharField(max_length=255, unique=True)
+    sent_at = models.DateTimeField(auto_now_add=True)
+    response = models.JSONField(null=True, blank=True)
+    metadata = models.JSONField(null=True, blank=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["event_name"]),
+            models.Index(fields=["event_id"]),
+            models.Index(fields=["sent_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.event_name}:{self.event_id}"
+
+
 class Summaries(models.Model):
     """
     Saves daily / hourly / weekly summaries of events
