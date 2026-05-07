@@ -4,6 +4,7 @@ from unittest.mock import patch
 from chat.models import Chat, Message
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Permission
 from django.db import connection
 from django.db.models import Q
 from django.test import TestCase, override_settings
@@ -16,6 +17,7 @@ from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.models.state import State
 from management.models.user import User
+from management.permissions import ManagementPermission
 from management.random_test_users import create_test_user
 from management.tasks import (
     automatic_emails_m012_m013_m014,
@@ -221,8 +223,13 @@ class TestAutomaticEmails_m023(TestCase):
                 user.is_staff = True
                 user.save()
             if is_matching_user:
-                user.state.extra_user_permissions = [State.ExtraUserPermissionChoices.MATCHING_USER]
-                user.state.save()
+                permission = Permission.objects.filter(
+                    content_type__app_label="management",
+                    content_type__model="state",
+                    codename=ManagementPermission.MATCHING_USER.codename,
+                ).first()
+                if permission is not None:
+                    user.user_permissions.add(permission)
             return user
 
         # Create regular users for valid chat (3+ days inactive)
@@ -389,8 +396,13 @@ class TestAutomaticEmails_m024_m025(TestCase):
         # Create chat with matching user (should be excluded)
         with freeze_time(dj_timezone.now() - timedelta(days=14)):
             self.matching_user = create_test_user(31006, None, "Test123!", "m024-matching@test.de")
-            self.matching_user.state.extra_user_permissions = [State.ExtraUserPermissionChoices.MATCHING_USER]
-            self.matching_user.state.save()
+            permission = Permission.objects.filter(
+                content_type__app_label="management",
+                content_type__model="state",
+                codename=ManagementPermission.MATCHING_USER.codename,
+            ).first()
+            if permission is not None:
+                self.matching_user.user_permissions.add(permission)
             self.normal_user_with_matching = create_test_user(
                 31007, None, "Test123!", "m024-normal-with-matching@test.de"
             )

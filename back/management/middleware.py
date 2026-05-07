@@ -4,7 +4,7 @@ from django.utils import translation
 from rest_framework_simplejwt.exceptions import InvalidToken
 from rest_framework_simplejwt.tokens import UntypedToken
 
-from management.models.state import State
+from management.permissions import ManagementPermission
 
 
 def responde_404(request):
@@ -16,11 +16,11 @@ def responde_404(request):
 EXTRA_USER_AUTHORIZATION_ROUTES = (
     {
         "/db": {
-            "check": lambda u: u.state.has_extra_user_permission(State.ExtraUserPermissionChoices.DATABASE_SCHEMA),
+            "check": lambda u: u.has_perm(ManagementPermission.VIEW_DATABASE_SCHEMA),
             "else": lambda r: responde_404(request=r),
         },
         "/api/schema": {
-            "check": lambda u: u.state.has_extra_user_permission(State.ExtraUserPermissionChoices.API_SCHEMAS),
+            "check": lambda u: u.has_perm(ManagementPermission.VIEW_API_SCHEMA),
             "else": lambda r: responde_404(request=r),
         },
     }
@@ -62,7 +62,7 @@ def _404_if_not_staff(request, get_response, allow_management_user=False):
         if (
             allow_management_user
             and request.user.is_authenticated
-            and (request.user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER))
+            and request.user.has_perm(ManagementPermission.MATCHING_USER)
         ):
             return get_response(request)
         return responde_404(request)

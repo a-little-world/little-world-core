@@ -11,6 +11,7 @@ and are covered via attribute-level checks instead.
 
 from unittest.mock import patch
 
+from django.contrib.auth.models import Permission
 from django.test import TestCase, override_settings
 from emails.api.emails_config import EMAILS_CONFIG
 from emails.app_settings import emails_settings
@@ -20,8 +21,8 @@ from rest_framework.test import APIClient
 
 from management.helpers import IsAdminOrMatchingUser
 from management.models.settings import EmailSettings
-from management.models.state import State
 from management.models.user import User
+from management.permissions import ManagementPermission
 
 
 def _first_template_name() -> str:
@@ -50,8 +51,13 @@ class EmailApiAdminPermissionTests(TestCase):
             first_name="Matching",
             last_name="User",
         )
-        cls.matching_user.state.extra_user_permissions = [State.ExtraUserPermissionChoices.MATCHING_USER]
-        cls.matching_user.state.save()
+        permission = Permission.objects.filter(
+            content_type__app_label="management",
+            content_type__model="state",
+            codename=ManagementPermission.MATCHING_USER.codename,
+        ).first()
+        if permission is not None:
+            cls.matching_user.user_permissions.add(permission)
 
         cls.admin_user = User.objects.create_user(
             email="admin@example.com",

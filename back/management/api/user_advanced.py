@@ -1,4 +1,5 @@
 from datetime import datetime, time
+from typing import cast
 
 from chat.models import Chat, ChatSerializer, Message, MessageSerializer
 from django.db.models import CharField, Max, Q, Value
@@ -15,6 +16,7 @@ from rest_framework.response import Response
 from management.api.matches import AdvancedUserMatchSerializer
 from management.api.scores import score_between_db_update
 from management.api.user_advanced_filter_lists import FILTER_LISTS, get_choices, get_dynamic_userlists
+from management.api.user_report_utils import build_user_report_entry
 from management.api.utils_advanced import filterset_schema_dict
 from management.controller import delete_user, make_tim_support_user
 from management.helpers import (
@@ -36,6 +38,7 @@ from management.models.sms import SmsModel, SmsSerializer
 from management.models.state import State, StateSerializer
 from management.models.unconfirmed_matches import ProposedMatch, serialize_proposed_matches
 from management.models.user import User
+from management.permissions import ManagementPermission
 from management.tasks import matching_algo_v2
 
 user_category_buckets = [
@@ -118,16 +121,7 @@ class ExportUserSerializer(serializers.ModelSerializer):
         fields = ["id", "email", "hash"]
 
     def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        representation["profile"] = {
-            "first_name": instance.profile.first_name,
-            "second_name": instance.profile.second_name,
-            "user_type": instance.profile.user_type,
-            "postal_code": instance.profile.postal_code,
-            "gender": instance.profile.gender,
-            "birth_year": instance.profile.birth_year,
-        }
-
+        representation = build_user_report_entry(instance)
         return representation
 
 
@@ -215,9 +209,7 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
         representation["waiting_time"] = get_match_waiting_time(instance)
 
         representation["state"] = StateSerializer(instance.state).data
-        representation["state"]["random_call_access"] = instance.state.has_extra_user_permission(
-            State.ExtraUserPermissionChoices.USE_RANDOM_CALLS
-        )
+        representation["state"]["random_call_access"] = instance.has_perm(ManagementPermission.USE_RANDOM_CALLS)
 
         # NOTE:
         # Some of the filter lists in FILTER_LISTS use JSONField `__contains`
@@ -499,7 +491,8 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if is_staff:
             return User.objects.all()
         else:
-            return User.objects.filter(id__in=self.request.user.state.managed_users.all(), is_active=True)
+            management_user = cast(User, self.request.user)
+            return management_user.managed_users_queryset(active_only=True)
 
     @action(detail=False, methods=["get"])
     def get_filter_schema(self, request, include_lookup_expr=False):
@@ -589,12 +582,10 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         return Response(score)
 
     def check_management_user_access(self, user, request):
-        if not request.user.is_staff and not request.user.state.has_extra_user_permission(
-            State.ExtraUserPermissionChoices.MATCHING_USER
-        ):
+        if not request.user.is_staff and not request.user.has_perm(ManagementPermission.MATCHING_USER):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
 
-        if not request.user.is_staff and not request.user.state.managed_users.filter(pk=user.pk).exists():
+        if not request.user.is_staff and not request.user.has_management_access(user):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
         return True, None
 
@@ -828,14 +819,15 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             return res
 
         allow_access = request.data.get("random_call_access", False)
-        permission_slug = State.ExtraUserPermissionChoices.USE_RANDOM_CALLS
-        obj.state.set_random_calls_access(allow_access)
-        obj.state.save()
+        if allow_access:
+            obj.grant_permission(ManagementPermission.USE_RANDOM_CALLS)
+        else:
+            obj.revoke_permission(ManagementPermission.USE_RANDOM_CALLS)
 
         return Response(
             {
                 "success": True,
-                "random_call_access": obj.state.has_extra_user_permission(permission_slug),
+                "random_call_access": obj.has_perm(ManagementPermission.USE_RANDOM_CALLS),
             }
         )
 
@@ -907,7 +899,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         obj.state.had_prematching_call = request.data.get("had_prematching_call", True)
         if obj.state.had_prematching_call:
             obj.state.is_onboarded = True
-            obj.state.set_random_calls_access(True)
+            obj.grant_permission(ManagementPermission.USE_RANDOM_CALLS)
             latest_end = PreMatchingAppointment.objects.filter(user=obj).aggregate(m=Max("end_time"))["m"]
             obj.state.onboarding_call_completed_at = latest_end if latest_end is not None else timezone.now()
         obj.state.save()
@@ -953,7 +945,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if obj.is_staff or obj.is_superuser:
             return Response({"msg": "You can't delete a staff or superuser!"}, status=401)
 
-        if obj.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
+        if obj.has_perm(ManagementPermission.MATCHING_USER):
             return Response({"msg": "You can't delete a matching user!"}, status=401)
 
         delete_user(obj, request.user, self.request.data.get("send_deletion_email", False))
@@ -1010,25 +1002,29 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         return Response({"msg": "User is now a TIM support user"})
 
     @action(detail=True, methods=["get"])
-    def emails(self, request, pk=None):
+    def emails(self, request, pk=None) -> Response:
         self.kwargs["pk"] = pk
-        obj = self.get_object()
+        target_user = self.get_object()
 
-        has_access, res = self.check_management_user_access(obj, request)
+        has_access, res = self.check_management_user_access(target_user, request)
         if not has_access:
+            if res is None:
+                return Response({"msg": "You are not allowed to access this user!"}, status=401)
             return res
 
         page = int(request.query_params.get("page", 1))
         page_size = int(request.query_params.get("page_size", 10))
 
-        email_logs = get_paginated_format_v2(EmailLog.objects.filter(receiver=obj), page_size, page)
-        email_logs["results"] = AdvancedEmailLogSerializer(email_logs["results"], many=True).data
+        paginated_email_logs = get_paginated_format_v2(
+            EmailLog.objects.filter(receiver=target_user).order_by("-time"), page_size, page
+        )
+        paginated_email_logs["results"] = AdvancedEmailLogSerializer(paginated_email_logs["results"], many=True).data
 
-        return Response(email_logs)
+        return Response(paginated_email_logs)
 
     @action(detail=False, methods=["get"])
     def export(self, request):
-        queryset = self.filter_queryset(self.get_queryset())
+        queryset = self.filter_queryset(self.get_queryset()).select_related("profile", "state")
         serializer = ExportUserSerializer(queryset, many=True)
 
         return Response(serializer.data)

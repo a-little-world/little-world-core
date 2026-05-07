@@ -1,5 +1,7 @@
+from django.contrib.auth.models import Permission
 from django.test import TestCase
 from management.models.user import User
+from management.permissions import ManagementPermission
 from rest_framework.test import APIClient
 
 from emails.models import DynamicTemplate
@@ -14,10 +16,13 @@ class DynamicTemplateApiTests(TestCase):
             first_name="Matching",
             last_name="User",
         )
-        self.matching_user.state.extra_user_permissions = [
-            self.matching_user.state.ExtraUserPermissionChoices.MATCHING_USER
-        ]
-        self.matching_user.state.save()
+        permission = Permission.objects.filter(
+            content_type__app_label="management",
+            content_type__model="state",
+            codename=ManagementPermission.MATCHING_USER.codename,
+        ).first()
+        if permission is not None:
+            self.matching_user.user_permissions.add(permission)
         self.client.force_authenticate(user=self.matching_user)
 
     def test_retrieve_returns_404_for_unknown_template(self):

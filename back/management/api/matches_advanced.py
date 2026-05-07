@@ -1,4 +1,5 @@
-from django.db.models import Q
+from chat.models import Message
+from django.db.models import Max, Q
 from django.shortcuts import get_object_or_404
 from django.urls import path
 from django_filters import rest_framework as filters
@@ -6,6 +7,7 @@ from drf_spectacular.utils import extend_schema, extend_schema_view, inline_seri
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from video.models import LivekitSession
 
 from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS, determine_match_bucket
 from management.api.utils_advanced import enrich_report_unmatch_with_user_info, filterset_schema_dict
@@ -13,9 +15,9 @@ from management.controller import unmatch_users
 from management.helpers import DetailedPaginationMixin, IsAdminOrMatchingUser
 from management.models.matches import Match
 from management.models.profile import MinimalProfileSerializer
-from management.models.state import State
 from management.models.unconfirmed_matches import MatchType
 from management.models.user import User
+from management.permissions import ManagementPermission
 
 
 class AdvancedMatchSerializer(serializers.ModelSerializer):
@@ -82,6 +84,39 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
             representation["bucket"] = "unknown"
 
         return representation
+
+
+def _match_stats_retrieve_extra(match: Match) -> dict:
+    """
+    Read-only match stats for single-match GET (retrieve) only.
+    Not stored on Match; omitted from list/export serializers.
+    """
+    u1 = match.user1
+    u2 = match.user2
+    dt_field = serializers.DateTimeField()
+
+    def _format_datetime_for_json(dt):
+        """Serialize a datetime for the JSON body (DRF/ISO-8601); None if there is no timestamp."""
+        return None if dt is None else dt_field.to_representation(dt)
+
+    # Same directed pair logic as sync_match_counters — do not use Chat.get_chat() alone:
+    # it returns only the newest chat row, which can be an empty temporary chat while real messages sit on an older chat.
+    last_msg_u1_at = Message.objects.filter(sender=u1, recipient=u2).aggregate(ts=Max("created"))["ts"]
+    last_msg_u2_at = Message.objects.filter(sender=u2, recipient=u1).aggregate(ts=Max("created"))["ts"]
+
+    pair_q = Q(u1=u1, u2=u2) | Q(u1=u2, u2=u1)
+    last_video_at = (
+        LivekitSession.objects.filter(pair_q, both_have_been_active=True)
+        .order_by("-created_at")
+        .values_list("created_at", flat=True)
+        .first()
+    )
+
+    return {
+        "last_video_call_at": _format_datetime_for_json(last_video_at),
+        "user1_last_message_at": _format_datetime_for_json(last_msg_u1_at),
+        "user2_last_message_at": _format_datetime_for_json(last_msg_u2_at),
+    }
 
 
 class ExportMatchSerializer(serializers.ModelSerializer):
@@ -231,21 +266,18 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
         base = Match.objects.all().exclude(match_type=MatchType.TEMPORARY).order_by("-created_at")
         if user.is_staff:
             return base
-        if user.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER):
-            return base.filter(
-                Q(user1__in=user.state.managed_users.all()) | Q(user2__in=user.state.managed_users.all())
-            )
+        if user.has_perm(ManagementPermission.MATCHING_USER):
+            managed_users = user.managed_users_queryset(active_only=False)
+            return base.filter(Q(user1__in=managed_users) | Q(user2__in=managed_users))
         return base
 
     def check_management_user_access(self, match, request):
         user = match.get_partner(request.user)
 
-        if not request.user.is_staff and not request.user.state.has_extra_user_permission(
-            State.ExtraUserPermissionChoices.MATCHING_USER
-        ):
+        if not request.user.is_staff and not request.user.has_perm(ManagementPermission.MATCHING_USER):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
 
-        if not request.user.is_staff and not request.user.state.managed_users.filter(pk=user.pk).exists():
+        if not request.user.is_staff and not request.user.has_management_access(user):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
         return True, None
 
@@ -278,11 +310,8 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
         if obj.user1.is_staff or obj.user2.is_staff:
             return Response({"msg": "One of the users is a staff member and cannot be unmatch"}, status=400)
 
-        if (
-            obj.user1.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-            or obj.user2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-            or obj.user2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
-            or obj.user2.state.has_extra_user_permission(State.ExtraUserPermissionChoices.MATCHING_USER)
+        if obj.user1.has_perm(ManagementPermission.MATCHING_USER) or obj.user2.has_perm(
+            ManagementPermission.MATCHING_USER
         ):
             return Response({"msg": "One of the users is a matching user and cannot be unmatch"}, status=400)
 
@@ -305,6 +334,13 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
             obj = get_object_or_404(super().get_queryset(), uuid=self.kwargs["pk"])
             self.check_object_permissions(self.request, obj)
             return obj
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        data = dict(serializer.data)
+        data.update(_match_stats_retrieve_extra(instance))
+        return Response(data)
 
     @action(detail=False, methods=["get"])
     def export(self, request):
