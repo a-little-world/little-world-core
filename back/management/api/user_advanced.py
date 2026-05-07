@@ -9,7 +9,7 @@ from django.utils import timezone
 from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
 from emails.models import AdvancedEmailLogSerializer, EmailLog
-from rest_framework import serializers, viewsets
+from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
@@ -38,7 +38,7 @@ from management.models.sms import SmsModel, SmsSerializer
 from management.models.state import State, StateSerializer
 from management.models.unconfirmed_matches import ProposedMatch, serialize_proposed_matches
 from management.models.user import User
-from management.permissions import ManagementPermission
+from management.permissions import MANAGEMENT_PERMISSION_LABELS, ManagementPermission
 from management.tasks import matching_algo_v2
 
 user_category_buckets = [
@@ -589,6 +589,17 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
         return True, None
 
+    def _resolve_management_permission(self, raw_permission: str) -> ManagementPermission | None:
+        try:
+            return ManagementPermission(raw_permission)
+        except ValueError:
+            pass
+
+        try:
+            return ManagementPermission[raw_permission]
+        except KeyError:
+            return None
+
     @extend_schema(
         request=inline_serializer(
             name="MarkReadMessageRequest",
@@ -830,6 +841,117 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
                 "random_call_access": obj.has_perm(ManagementPermission.USE_RANDOM_CALLS),
             }
         )
+
+    @extend_schema(
+        request=inline_serializer(
+            name="ApplyManagementPermissionRequest",
+            fields={
+                "permission": serializers.CharField(),
+            },
+        )
+    )
+    @action(detail=True, methods=["post"])
+    def permissions(self, request, pk=None, action=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+
+        if not request.user.has_perm(ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS):
+            return Response(
+                {"msg": "You are not allowed to apply management permissions!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if not request.user.is_staff and not request.user.has_management_access(obj):
+            return Response(
+                {"msg": "You are not allowed to access this user!"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        raw_permission = request.data.get("permission", "")
+        raw_action = action or ""
+        permission = self._resolve_management_permission(raw_permission)
+        if permission is None:
+            return Response(
+                {"msg": "Unknown management permission."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if permission == ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS and raw_action == "add":
+            return Response(
+                {"msg": "APPLY_MANAGEMENT_PERMISSIONS can never be added."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if permission == ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS and raw_action == "remove":
+            return Response(
+                {"msg": "APPLY_MANAGEMENT_PERMISSIONS can never be removed."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if (
+            permission == ManagementPermission.MATCHING_USER
+            and raw_action == "remove"
+            and obj.has_perm(ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS)
+        ):
+            return Response(
+                {"msg": "MATCHING_USER cannot be removed from users with APPLY_MANAGEMENT_PERMISSIONS."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if raw_action == "add":
+            success = obj.grant_permission(permission)
+        elif raw_action == "remove":
+            success = obj.revoke_permission(permission)
+        else:
+            return Response(
+                {"msg": "Action must be either 'add' or 'remove'."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not success:
+            return Response(
+                {"msg": "Permission could not be applied. Ensure the permission exists in the database."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(
+            {
+                "success": True,
+                "permission": permission,
+                "action": raw_action,
+                "enabled": obj.has_perm(permission),
+            }
+        )
+
+    @action(detail=True, methods=["get"])
+    def permissions_list(self, request, pk=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+
+        if not request.user.has_perm(ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS):
+            return Response(
+                {"msg": "You are not allowed to view management permissions!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        if not request.user.is_staff and not request.user.has_management_access(obj):
+            return Response(
+                {"msg": "You are not allowed to access this user!"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        permissions = []
+        for permission in ManagementPermission:
+            permissions.append(
+                {
+                    "permission": permission,
+                    "codename": permission.codename,
+                    "label": MANAGEMENT_PERMISSION_LABELS.get(permission),
+                    "enabled": obj.has_perm(permission),
+                }
+            )
+
+        return Response({"permissions": permissions})
 
     @extend_schema(request=InviteNativeAppTesterRequestSerializer)
     @action(detail=True, methods=["post"])
@@ -1126,6 +1248,14 @@ viewset_actions = [
     path(
         "api/matching/users/<pk>/set_random_call_access/",
         AdvancedUserViewset.as_view({"post": "set_random_call_access"}),
+    ),
+    path(
+        "api/matching/users/<pk>/permissions/",
+        AdvancedUserViewset.as_view({"get": "permissions_list"}),
+    ),
+    path(
+        "api/matching/users/<pk>/permissions/<action>/",
+        AdvancedUserViewset.as_view({"post": "permissions"}),
     ),
     path(
         "api/matching/users/<pk>/invite_native_app_tester/",
