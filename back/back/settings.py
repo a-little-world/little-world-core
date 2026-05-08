@@ -755,8 +755,6 @@ DATABASES = (
     }
 )
 
-DISABLE_LEGACY_EMAIL_SENDING = os.environ.get("DJ_DISABLE_LEGACY_EMAIL_SENDING", "false").lower() in ("true", "1", "t")
-
 if IS_PROD or IS_STAGE or (os.environ.get("DJ_DEVELOPMENT_ALLOW_EMAILS", "false").lower() in ("true", "1", "t")):
     EMAIL_HOST = "smtp.sendgrid.net"
     EMAIL_HOST_USER = "apikey"

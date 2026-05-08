@@ -26,8 +26,6 @@ class UserManager(BaseUserManager["User"]):
 
         assert email and password
         email = email.lower()
-        # This will redundantly store 'first_name' and 'second_name'
-        # This is nice though cause we will never change these so we always know with which name they sighned up!
         user = self.model(email=email, **kwargs)
         user.save(using=self._db)
         user.set_password(password)
@@ -228,7 +226,6 @@ class User(AbstractUser):
         import json
 
         from back.utils import CoolerJson
-        from django.conf import settings
         from twilio.rest import Client
 
         from management.models.sms import SmsModel, SmsSerializer
@@ -354,41 +351,8 @@ class User(AbstractUser):
         return message
 
     def send_email_v2(self, template_name, match_id=None, proposed_match_id=None, context={}):
-        user_id = self.id
-
         send_template_email(
-            template_name, user_id=user_id, match_id=match_id, proposed_match_id=proposed_match_id, context=context
-        )
-
-    def send_email(
-        self,
-        subject: str,
-        mail_data,  # Can't really typecheck MailMeta when
-        # I'm importing below TODO this can be fixed
-        mail_params: object,
-        attachments=[],
-        overwrite_mail=None,
-        **kwargs,
-    ):
-        """
-        Just a wrapper for emails.mails.send_email
-        Send to a user by usr.send_email(...)
-        """
-
-        from emails.mails import send_email
-
-        # TODO: depricate / replace with 'send_email_v2'
-
-        if settings.DISABLE_LEGACY_EMAIL_SENDING:
-            raise Exception("Legacy email sending is disabled, use 'send_email_v2' instead!")
-        recivers = [overwrite_mail] if overwrite_mail else [self.email]
-        send_email(
-            subject=subject,
-            recivers=recivers,
-            mail_data=mail_data,
-            mail_params=mail_params,
-            attachments=attachments,
-            **kwargs,
+            template_name, user_id=self.pk, match_id=match_id, proposed_match_id=proposed_match_id, context=context
         )
 
 
