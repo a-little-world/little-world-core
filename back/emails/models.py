@@ -38,7 +38,6 @@ class AdvancedEmailLogSerializer(serializers.ModelSerializer):
 
         representation = super().to_representation(instance)
 
-        # TODO: using the whole profile serializer here is a bit expensive!
         representation["sender"] = {
             "id": instance.sender.pk,
             "hash": instance.sender.hash,
@@ -55,7 +54,7 @@ class AdvancedEmailLogSerializer(serializers.ModelSerializer):
 
         try:
             if instance.log_version == 0:
-                representation["retrieve"] = "V1 emails are fully deprecated and cannot be viewed anymore!"
+                representation["retrieve"] = "Email log content is unavailable for this legacy log version."
             else:
                 representation["retrieve"] = f"/api/matching/emails/logs/{instance.id}/"
         except Exception as e:

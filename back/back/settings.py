@@ -377,6 +377,8 @@ APP_BUNDLE_IDENTIFIER = os.environ.get("DJ_APP_BUNDLE_IDENTIFIER", "")
 CORS_ALLOWED_ORIGIN_REGEXES = ["file://.*"]  # Native apps are serverd from a file:// origin!
 
 CORS_ALLOWED_ORIGINS = []
+CORS_ORIGIN_WHITELIST = []
+CSRF_TRUSTED_ORIGINS = []
 if IS_STAGE or IS_PROD:
     CORS_ALLOWED_ORIGINS = [BASE_URL]
     CORS_ORIGIN_WHITELIST = [BASE_URL]
@@ -440,8 +442,6 @@ TEMPLATES = [
         },
     },
 ]
-
-USE_V2_EMAIL_APIS = os.environ.get("DJ_USE_V2_EMAIL_APIS", "false").lower() in ("true", "1", "t")
 
 USE_MINIO = os.environ.get("DJ_USE_MINIO", "0").lower() in ("true", "1", "t")
 

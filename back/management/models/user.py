@@ -290,7 +290,7 @@ class User(AbstractUser):
         # self.username = prms.email  # <- so the user can login with that email now
         self.email = prms.email.lower()
         self.save()
-        self.send_email_v2("automatic-emails-u001")
+        self.send_email("automatic-emails-u001")
 
     def message(
         self,
@@ -350,7 +350,7 @@ class User(AbstractUser):
                 ).send(sender.hash)
         return message
 
-    def send_email_v2(self, template_name, match_id=None, proposed_match_id=None, context={}):
+    def send_email(self, template_name, match_id=None, proposed_match_id=None, context={}):
         send_template_email(
             template_name, user_id=self.pk, match_id=match_id, proposed_match_id=proposed_match_id, context=context
         )
