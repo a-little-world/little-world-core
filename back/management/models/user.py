@@ -176,19 +176,13 @@ class User(AbstractUser):
             return True
         from management.models.management_access_grant import ManagementAccessGrant
 
-        has_acl_access = ManagementAccessGrant.objects.filter(
+        return ManagementAccessGrant.objects.filter(
             manager=self,
             managed_user=managed_user,
             is_active=True,
         ).exists()
-        if has_acl_access:
-            return True
-
-        # TODO: deprecated fallback - remove legacy relation check after full ACL cutover.
-        return self.state.managed_users.filter(pk=managed_user.pk).exists()
 
     def managed_users_queryset(self, active_only: bool = True):
-
         qs = User.objects.filter(
             Q(
                 management_accesses_received__manager=self,
@@ -338,7 +332,7 @@ class User(AbstractUser):
 
             NewMessage(
                 message=serialized_message,
-                chat_id=chat.uuid,
+                chat_id=str(chat.uuid),
                 meta_chat_obj=ChatSerializer(
                     chat,
                     context={
@@ -349,7 +343,7 @@ class User(AbstractUser):
             if send_message_incoming_to_sender:
                 NewMessage(
                     message=serialized_message,
-                    chat_id=chat.uuid,
+                    chat_id=str(chat.uuid),
                     meta_chat_obj=ChatSerializer(
                         chat,
                         context={
