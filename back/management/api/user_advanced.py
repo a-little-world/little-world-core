@@ -1,5 +1,5 @@
 from datetime import datetime, time
-from typing import cast
+from typing import Literal, cast
 
 from chat.models import Chat, ChatSerializer, Message, MessageSerializer
 from django.db.models import CharField, Max, Q, Value
@@ -292,7 +292,7 @@ def get_company_choices():
     return choices
 
 
-def get_country_choices():
+def get_country_choices() -> list[tuple[str, str]]:
     """
     Return country choices with Germany first and an extra
     "Outside of Germany" option.
@@ -300,7 +300,7 @@ def get_country_choices():
     german_code = Profile.CountryChoices.GERMANY
     outside_germany_code = "outside_de"
 
-    country_choices = list(Profile.CountryChoices.choices)
+    country_choices: list[tuple[str, str]] = [(str(code), label) for code, label in Profile.CountryChoices.choices]
     germany_choice = next((choice for choice in country_choices if choice[0] == german_code), None)
     other_choices = [choice for choice in country_choices if choice[0] != german_code]
 
@@ -581,13 +581,15 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         score = AdvancedMatchingScoreSerializer(matching_score, context={"user": from_usr}).data
         return Response(score)
 
-    def check_management_user_access(self, user, request):
+    def check_management_user_access(
+        self, user, request
+    ) -> tuple[Literal[True], Response] | tuple[Literal[False], Response]:
         if not request.user.is_staff and not request.user.has_perm(ManagementPermission.MATCHING_USER):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
 
         if not request.user.is_staff and not request.user.has_management_access(user):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
-        return True, None
+        return True, Response({})
 
     def _resolve_management_permission(self, raw_permission: str) -> ManagementPermission | None:
         try:
@@ -675,8 +677,13 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             ).first()
             matching = support_matching
 
+        if matching is None:
+            return Response({"msg": "No matching found for this user."}, status=status.HTTP_404_NOT_FOUND)
+
         partner = matching.get_partner(obj)
         chat = Chat.objects.filter(Q(u1=obj, u2=partner) | Q(u1=partner, u2=obj)).first()
+        if chat is None:
+            return Response({"msg": "No chat found for this matching."}, status=status.HTTP_404_NOT_FOUND)
 
         page = request.query_params.get("page", 1)
         page_size = request.query_params.get("page_size", 10)
