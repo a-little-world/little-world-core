@@ -98,6 +98,7 @@ class RandomCallMatchSerializer(serializers.Serializer):
     accepted = serializers.BooleanField()
     rejected = serializers.BooleanField()
     expired = serializers.BooleanField()
+    completed = serializers.BooleanField()
     in_session = serializers.BooleanField()
     created_at = serializers.DateTimeField(allow_null=True, required=False)
 
