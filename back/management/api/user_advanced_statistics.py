@@ -1779,10 +1779,10 @@ def time_slot_combination_optimization(request, n=1):
                     empty_availability = False
                 for slot in availability[day]:
                     if slot in SLOTS:
-                        slots_id_maps[f"{day}__{slot}"].add(user.id)
+                        slots_id_maps[f"{day}__{slot}"].add(user.pk)
                         slots_id_counts[f"{day}__{slot}"] += 1
         if empty_availability:
-            empty_availability_profiles.append(user.id)
+            empty_availability_profiles.append(user.pk)
 
     users = users.exclude(id__in=empty_availability_profiles)
     pre_filtered_users = pre_filtered_users.exclude(id__in=empty_availability_profiles)
@@ -2270,7 +2270,7 @@ def update_user_journey_path_from_stats(request, user_hash: str):
     total_stats = stats.count()
     print(f"Found {total_stats} stats")
     i = 0
-    user_id = user.id
+    user_id = user.pk
     user_path = []
 
     from management.api.user_advanced_filter_lists import MAIN_USER_JOURNEY
