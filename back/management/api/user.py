@@ -232,7 +232,6 @@ class LoginApi(APIView):
 class LogoutApi(APIView):
     authentication_classes = [
         authentication.SessionAuthentication,
-        authentication.BasicAuthentication,
         NativeOnlyJWTAuthentication,
     ]
     permission_classes = [permissions.IsAuthenticated]
@@ -258,7 +257,7 @@ class CheckPwSerializer(serializers.Serializer):
 
 
 class CheckPasswordApi(APIView):
-    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
+    authentication_classes = [authentication.SessionAuthentication, NativeOnlyJWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(request=CheckPwSerializer(many=False))
@@ -290,7 +289,6 @@ class ChangePasswordSerializer(serializers.Serializer):
 class ChangePasswordApi(APIView):
     authentication_classes = [
         authentication.SessionAuthentication,
-        authentication.BasicAuthentication,
         NativeOnlyJWTAuthentication,
     ]
     permission_classes = [permissions.IsAuthenticated]
@@ -338,7 +336,6 @@ class ChangeEmailSerializer(serializers.Serializer):
 class ChangeEmailApi(APIView):
     authentication_classes = [
         authentication.SessionAuthentication,
-        authentication.BasicAuthentication,
         NativeOnlyJWTAuthentication,
     ]
     permission_classes = [permissions.IsAuthenticated]
@@ -394,7 +391,10 @@ class ConfirmMatchesSerializer(serializers.Serializer):
 
 
 class ConfirmMatchesApi(APIView):
-    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
+    authentication_classes = [
+        authentication.SessionAuthentication,
+        NativeOnlyJWTAuthentication,
+    ]
     permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(request=ConfirmMatchesSerializer(many=False))
@@ -442,7 +442,7 @@ class SearchingStateApiSerializer(serializers.Serializer):
 
 
 class UpdateSearchingStateApi(APIView):
-    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
+    authentication_classes = [authentication.SessionAuthentication, NativeOnlyJWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(request=SearchingStateApiSerializer(many=False))

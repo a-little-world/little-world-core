@@ -645,7 +645,7 @@ CELERY_TASK_REJECT_ON_WORKER_LOST = True
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         # we cannot add basic authentication default cause this add a header with causes a login-popup in browsers
-        # "rest_framework.authentication.BasicAuthentication",
+        # Don't add: "rest_framework.authentication.BasicAuthentication", we don't want to support that!
         "rest_framework.authentication.SessionAuthentication",
         "management.authentication.NativeOnlyJWTAuthentication",
     ],
