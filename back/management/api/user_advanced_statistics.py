@@ -2240,7 +2240,7 @@ def update_user_journey_path_from_stats(request, user_hash: str):
     user = User.objects.get(hash=user_hash)
     user_state = user.state  # Store reference to avoid re-fetching
     # check if management user has access to this user
-    print(f"User: {user.id}, Request User: {request.user.id}")
+    print(f"User: {user.pk}, Request User: {request.user.pk}")
 
     if not request.user.is_staff and not request.user.has_management_access(user):
         return Response({"error": "You do not have access to this user"}, status=403)
