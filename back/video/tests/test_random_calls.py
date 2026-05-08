@@ -743,3 +743,44 @@ class RandomCallsTests(TestCase):
         all_matchings = RandomCallMatching.objects.filter(lobby=self.lobby)
         # We should have at least 3 original matches, possibly more from re-matching
         self.assertGreaterEqual(all_matchings.count(), 3)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_status_does_not_reject_completed_accepted_match(self):
+        """
+        Regression test:
+        Completed random-call matches must not be auto-marked as rejected by /status
+        even when accepted_at is older than match_accept_timeout.
+        """
+        RandomCallLobbyUser.objects.create(
+            user=self.user1, lobby=self.lobby, is_active=True, last_status_checked_at=timezone.now()
+        )
+        RandomCallLobbyUser.objects.create(
+            user=self.user2, lobby=self.lobby, is_active=True, last_status_checked_at=timezone.now()
+        )
+
+        stale_accepted_at = timezone.now() - timezone.timedelta(seconds=self.lobby.match_accept_timeout + 30)
+        match = RandomCallMatching.objects.create(
+            u1=self.user1,
+            u2=self.user2,
+            lobby=self.lobby,
+            u1_accepted=True,
+            u2_accepted=True,
+            accepted=True,
+            accepted_at=stale_accepted_at,
+            in_session=False,
+            completed=True,
+            completed_at=timezone.now() - timezone.timedelta(minutes=1),
+            rejected=False,
+            video_call_join_expired=False,
+            created_at=timezone.now() - timezone.timedelta(minutes=5),
+        )
+
+        self.client.force_authenticate(user=self.user1)
+        response = self.client.get(f"{self.lobby_api_url}/status")
+        self.assertEqual(response.status_code, 200)
+
+        match.refresh_from_db()
+        self.assertTrue(match.completed)
+        self.assertTrue(match.accepted)
+        self.assertFalse(match.rejected)
+        self.assertFalse(match.video_call_join_expired)

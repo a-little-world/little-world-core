@@ -54,6 +54,17 @@ def _resolve_management_lobby(lobby_name: str):
     return lobby
 
 
+def _get_lobby_for_overview(lobby_name: str, lobby_uuid=None):
+    """
+    Resolve the lobby for management overview.
+    - If lobby_uuid is provided, return that exact lobby instance.
+    - Else, keep existing behavior (active lobby by name, else most recent finished).
+    """
+    if lobby_uuid:
+        return RandomCallLobby.objects.get(uuid=lobby_uuid)
+    return _resolve_management_lobby(lobby_name)
+
+
 class RandomCallLobbyManagementSerializer(serializers.Serializer):
     name = serializers.CharField()
     uuid = serializers.CharField()
@@ -87,6 +98,7 @@ class RandomCallMatchSerializer(serializers.Serializer):
     accepted = serializers.BooleanField()
     rejected = serializers.BooleanField()
     expired = serializers.BooleanField()
+    completed = serializers.BooleanField()
     in_session = serializers.BooleanField()
     created_at = serializers.DateTimeField(allow_null=True, required=False)
 
@@ -115,7 +127,11 @@ def get_lobby_management_overview(request, lobby_name="default"):
     - Statistics summary
     """
     now = timezone.now()
-    lobby = _resolve_management_lobby(lobby_name)
+    lobby_uuid_param = request.query_params.get("lobby_uuid", None)
+    try:
+        lobby = _get_lobby_for_overview(lobby_name, lobby_uuid=lobby_uuid_param)
+    except RandomCallLobby.DoesNotExist:
+        return Response({"error": "Lobby not found"}, status=404)
     if lobby is None:
         return Response({"error": "Lobby not found"}, status=404)
 
@@ -173,6 +189,7 @@ def get_lobby_management_overview(request, lobby_name="default"):
             "accepted": match.accepted,
             "rejected": match.rejected,
             "expired": match.expired,
+            "completed": match.completed,
             "in_session": match.in_session,
             "created_at": match.created_at,
         }

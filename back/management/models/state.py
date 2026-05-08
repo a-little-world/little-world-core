@@ -191,14 +191,6 @@ class State(models.Model):
         MATCHING_USER = "matching-user", _("Is allowed to match users")
         USE_RANDOM_CALLS = "use-random-calls", _("Is allowed to use the random calls feature")
 
-    # TODO: @tbcode deprecate!
-    extra_user_permissions = MultiSelectField(
-        max_length=8000,
-        choices=ExtraUserPermissionChoices.choices,
-        null=True,
-        blank=True,
-    )
-
     # TODO: deprecated - replace this legacy ACL relation with ManagementAccessGrant.
     # This is basicly a list of all users that user manages
     managed_users = models.ManyToManyField("management.User", related_name="managed_users_by", blank=True)

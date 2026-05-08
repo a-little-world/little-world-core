@@ -91,6 +91,9 @@ def get_accepted_matchings_expired_join_qs_for_user(user, lobby):
         Q(u1=user) | Q(u2=user),
         lobby=lobby,
         accepted=True,
+        rejected=False,
+        completed=False,
+        in_session=False,
         accepted_at__lt=timezone.now() - timedelta(seconds=lobby.match_accept_timeout),
         video_call_join_expired=False,
     ).order_by("-pk")
@@ -720,7 +723,12 @@ def get_active_or_upcoming_lobby_by_name(request, lobby_name):
     )
     if upcoming_lobby:
         return Response(RandomCallLobbySerializer(upcoming_lobby).data)
-    return Response({"error": "No active or upcoming lobby found with this name"}, status=404)
+    return Response(
+        {
+            "data": None,
+            "message": f"No active or upcoming lobby found with this name: {lobby_name}",
+        }
+    )
 
 
 @api_view(["GET"])
