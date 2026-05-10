@@ -172,33 +172,50 @@ def clean_none(obj):
 
 def has_marketing_consent(request, user=None) -> bool:
     """
-    Conservative default consent gate for Meta marketing events.
+    Consent gate for Meta marketing events.
 
-    Accepts either:
-    - explicit "marketing_consent=true" cookie, or
-    - analytics=true in the cookie-consent payload if present.
+    Uses the configured consent cookie (``settings.COOKIE_CONSENT_NAME``)
+    and only allows events when the ``analytics`` group is accepted.
     """
-    if request:
-        if request.COOKIES.get("marketing_consent") == "true":
-            return True
+    if not request:
+        return False
 
-        consent_cookie_name = getattr(settings, "COOKIE_CONSENT_NAME", "")
-        if consent_cookie_name:
-            raw_cookie = request.COOKIES.get(consent_cookie_name)
-            if raw_cookie:
-                try:
-                    consent_payload = json.loads(raw_cookie)
-                    if consent_payload.get("analytics") is True:
-                        return True
-                except (TypeError, ValueError):
-                    logger.debug("Could not parse consent cookie payload.")
+    consent_cookie_name = getattr(settings, "COOKIE_CONSENT_NAME", "backend_cookie_consent")
+    raw_cookie = request.COOKIES.get(consent_cookie_name)
+    if not raw_cookie:
+        return False
 
-    if user and getattr(user, "is_authenticated", False):
-        profile = getattr(user, "profile", None)
-        if profile and getattr(profile, "newsletter_subscribed", False):
-            return True
+    normalized_cookie = raw_cookie.strip().strip('"')
+    if not normalized_cookie:
+        return False
 
-    return False
+    analytics_value: Any = None
+    try:
+        consent_payload = json.loads(normalized_cookie)
+        if isinstance(consent_payload, dict):
+            analytics_value = consent_payload.get("analytics")
+    except (TypeError, ValueError):
+        cookie_entries = {}
+        for entry in normalized_cookie.split("|"):
+            if "=" not in entry:
+                continue
+            key, value = entry.split("=", 1)
+            key = key.strip()
+            if not key:
+                continue
+            cookie_entries[key] = value.strip()
+        analytics_value = cookie_entries.get("analytics")
+
+    if isinstance(analytics_value, bool):
+        return analytics_value
+
+    if analytics_value is None:
+        return False
+
+    normalized_analytics = str(analytics_value).strip().lower()
+    if normalized_analytics in {"", "-1", "false", "0", "none", "null"}:
+        return False
+    return True
 
 
 def build_user_data(
