@@ -98,7 +98,7 @@ class ProposedMatch(models.Model):
     )
 
     expired = models.BooleanField(default=False)
-    expires_at = models.DateTimeField(default=three_days_from_now)
+    expires_at = models.DateTimeField(default=three_days_from_now, null=True, blank=True)
 
     expired_mail_send = models.BooleanField(default=False)
 
@@ -142,6 +142,8 @@ class ProposedMatch(models.Model):
         return cls.objects.filter(Q(user1=user1, user2=user2) | Q(user1=user2, user2=user1))
 
     def is_expired(self, close_if_expired=True, send_mail_if_expired=False):
+        if self.match_type == MatchType.RANDOM_CALL or self.expires_at is None:
+            return False
         expired = self.expires_at < timezone.now()
         if close_if_expired and expired:
             self.closed = True
@@ -204,9 +206,11 @@ class ProposedMatch(models.Model):
         Retrives all data from the other user that is allowed to be shared with the current user
         """
         other_user = self.user1 if self.user1 != user else self.user2
-        current_time = timezone.now()
-
-        time_difference = self.expires_at - current_time
+        days_until_expiration = None
+        if self.expires_at is not None:
+            current_time = timezone.now()
+            time_difference = self.expires_at - current_time
+            days_until_expiration = str(time_difference.days)
 
         return {
             "hash": str(self.hash),
@@ -216,7 +220,7 @@ class ProposedMatch(models.Model):
             "avatar_image": other_user.profile.avatar_config
             if other_user.profile.image_type == Profile.ImageTypeChoice.AVATAR
             else other_user.profile.image.url,
-            "days_until_expiration": str(time_difference.days),
+            "days_until_expiration": days_until_expiration,
         }
 
     def save(self, *args, **kwargs):
@@ -232,6 +236,8 @@ class ProposedMatch(models.Model):
                     self.user1 if self.user1.profile.user_type == Profile.TypeChoices.LEARNER else self.user2
                 )
             # RANDOM_CALL: confirming_user is set by the caller (e.g. create_user_matching_proposal(..., confirming_user=...))
+        if self._state.adding and self.match_type == MatchType.RANDOM_CALL:
+            self.expires_at = None
         super(ProposedMatch, self).save(*args, **kwargs)
 
 
