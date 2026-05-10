@@ -8,6 +8,7 @@ class ManagementPermission(StrEnum):
     VIEW_DATABASE_SCHEMA = "management.view_database_schema"
     MATCHING_USER = "management.matching_user"
     USE_RANDOM_CALLS = "management.use_random_calls"
+    APPLY_MANAGEMENT_PERMISSIONS = "management.apply_management_permissions"
 
     @property
     def codename(self) -> str:
@@ -25,6 +26,7 @@ MANAGEMENT_PERMISSION_LABELS: dict[ManagementPermission, str] = {
     ManagementPermission.VIEW_DATABASE_SCHEMA: "Can view database schema",
     ManagementPermission.MATCHING_USER: "Can perform matching operations",
     ManagementPermission.USE_RANDOM_CALLS: "Can use random calls feature",
+    ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS: "Can apply management permissions",
 }
 
 MANAGEMENT_PERMISSION_DEFINITIONS = [(perm.codename, label) for perm, label in MANAGEMENT_PERMISSION_LABELS.items()]
