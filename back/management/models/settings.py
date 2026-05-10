@@ -38,7 +38,7 @@ class EmailSettings(models.Model):  # TODO: migrate to 'UserEmailSettings' from 
             return  # already sent
 
         self.user_form_unfinished_reminder1 = True
-        user.send_email_v2("automatic-emails-u012")
+        user.send_email("automatic-emails-u012")
 
         self.save()
 
@@ -47,7 +47,7 @@ class EmailSettings(models.Model):  # TODO: migrate to 'UserEmailSettings' from 
             return  # already sent
 
         self.user_form_unfinished_reminder2 = True
-        user.send_email_v2("unfinished_user_form_2")
+        user.send_email("unfinished_user_form_2")
         self.save()
 
     def send_email_verification_reminder1(self, user):
@@ -55,7 +55,7 @@ class EmailSettings(models.Model):  # TODO: migrate to 'UserEmailSettings' from 
             return  # already sent
 
         self.email_verification_reminder1 = True
-        user.send_email_v2("verify-email")
+        user.send_email("verify-email")
         self.save()
 
 

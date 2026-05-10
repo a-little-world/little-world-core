@@ -174,7 +174,7 @@ class ProposedMatch(models.Model):
             return
         self.send_inital_mail = True
         self.save(update_fields=["send_inital_mail"])
-        confirming_user.send_email_v2("confirm-match-1", proposed_match_id=self.id)
+        confirming_user.send_email("confirm-match-1", proposed_match_id=self.id)
 
     def send_expiration_mail(self):
         if self.expired_mail_send:
@@ -198,7 +198,7 @@ class ProposedMatch(models.Model):
             if confirming_user is not None:
                 self.reminder_send = True
                 self.save(update_fields=["reminder_send"])
-                confirming_user.send_email_v2("confirm-match-2", proposed_match_id=self.id)
+                confirming_user.send_email("confirm-match-2", proposed_match_id=self.id)
         return reminder_due
 
     def get_shared_data(self, user):

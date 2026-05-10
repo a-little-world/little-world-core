@@ -232,7 +232,6 @@ class LoginApi(APIView):
 class LogoutApi(APIView):
     authentication_classes = [
         authentication.SessionAuthentication,
-        authentication.BasicAuthentication,
         NativeOnlyJWTAuthentication,
     ]
     permission_classes = [permissions.IsAuthenticated]
@@ -258,7 +257,7 @@ class CheckPwSerializer(serializers.Serializer):
 
 
 class CheckPasswordApi(APIView):
-    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
+    authentication_classes = [authentication.SessionAuthentication, NativeOnlyJWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(request=CheckPwSerializer(many=False))
@@ -290,7 +289,6 @@ class ChangePasswordSerializer(serializers.Serializer):
 class ChangePasswordApi(APIView):
     authentication_classes = [
         authentication.SessionAuthentication,
-        authentication.BasicAuthentication,
         NativeOnlyJWTAuthentication,
     ]
     permission_classes = [permissions.IsAuthenticated]
@@ -338,7 +336,6 @@ class ChangeEmailSerializer(serializers.Serializer):
 class ChangeEmailApi(APIView):
     authentication_classes = [
         authentication.SessionAuthentication,
-        authentication.BasicAuthentication,
         NativeOnlyJWTAuthentication,
     ]
     permission_classes = [permissions.IsAuthenticated]
@@ -394,7 +391,10 @@ class ConfirmMatchesSerializer(serializers.Serializer):
 
 
 class ConfirmMatchesApi(APIView):
-    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
+    authentication_classes = [
+        authentication.SessionAuthentication,
+        NativeOnlyJWTAuthentication,
+    ]
     permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(request=ConfirmMatchesSerializer(many=False))
@@ -420,6 +420,7 @@ class ConfirmMatchesApi(APIView):
                 match = Match.get_match(request.user, partner)
                 assert match.exists()
                 match = match.first()
+                assert match is not None
                 match.confirm(request.user)
 
         except Exception as e:
@@ -441,7 +442,7 @@ class SearchingStateApiSerializer(serializers.Serializer):
 
 
 class UpdateSearchingStateApi(APIView):
-    authentication_classes = [authentication.SessionAuthentication, authentication.BasicAuthentication]
+    authentication_classes = [authentication.SessionAuthentication, NativeOnlyJWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(request=SearchingStateApiSerializer(many=False))
@@ -499,7 +500,7 @@ class UnmatchSelfSerializer(serializers.Serializer):
 @login_required
 @api_view(["POST"])
 def resend_verification_mail(request):
-    request.user.send_email_v2("verify-email")
+    request.user.send_email("verify-email")
     return Response("Resend verification mail")
 
 
@@ -514,7 +515,7 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
     usr_hash = reset_password_token.user.hash
     reset_password_url = f"{settings.BASE_URL}/set_password/{usr_hash}/{reset_password_token.key}"
 
-    reset_password_token.user.send_email_v2("reset-password", context={"reset_password_url": reset_password_url})
+    reset_password_token.user.send_email("reset-password", context={"reset_password_url": reset_password_url})
 
 
 @login_required
