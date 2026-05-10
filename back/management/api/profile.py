@@ -37,7 +37,6 @@ class ProfileViewSet(viewsets.GenericViewSet, viewsets.mixins.UpdateModelMixin):
 
     authentication_classes = [
         authentication.SessionAuthentication,
-        authentication.BasicAuthentication,
         NativeOnlyJWTAuthentication,
     ]
 
@@ -86,7 +85,6 @@ class ProfileViewSet(viewsets.GenericViewSet, viewsets.mixins.UpdateModelMixin):
 class ProfileCompletedApi(APIView):
     authentication_classes = [
         authentication.SessionAuthentication,
-        authentication.BasicAuthentication,
         NativeOnlyJWTAuthentication,
     ]
 

@@ -146,11 +146,8 @@ def make_tim_support_user(
     # Wait for DB transactions to complete
     transaction.on_commit(copy_chat)
 
-    # TODO: deprecated - migrate legacy state.managed_users writes to ManagementAccessGrant-only flow.
-    # 2.5 add that user to the managed users by Tim
-    base_management_user.state.managed_users.add(user)
+    # 2.5 add that user to the ACL managed users by Tim
     base_management_user.grant_management_access(user, granted_by=admin_user)
-    base_management_user.state.save()
 
     # 3. set that user to 'not searching'
     us = user.state
@@ -239,7 +236,7 @@ def create_user(
     if send_verification_mail and not block_verifiction_mail_send:
 
         def send_verify_link():
-            usr.send_email_v2("automatic-emails-u001")
+            usr.send_email("automatic-emails-u001")
 
         send_verify_link()
 
@@ -268,10 +265,7 @@ def create_user(
     if not base_management_user.is_staff:
         # At the moment all our users get the same management user
         # in the future there might be a process to assign different management users to different users
-        # TODO: deprecated - migrate legacy state.managed_users writes to ManagementAccessGrant-only flow.
-        base_management_user.state.managed_users.add(usr)
         base_management_user.grant_management_access(usr, granted_by=base_management_user)
-        base_management_user.state.save()
 
     return usr
 
@@ -368,8 +362,8 @@ def match_users(
         usr2.message(match_message.format(other_name=usr1.profile.first_name), auto_mark_read=True)
 
     if send_email and match_type == MatchType.STANDARD:
-        usr1.send_email_v2("new-match", match_id=matching_obj.pk)
-        usr2.send_email_v2("new-match", match_id=matching_obj.pk)
+        usr1.send_email("new-match", match_id=matching_obj.pk)
+        usr2.send_email("new-match", match_id=matching_obj.pk)
 
     if set_to_idle:
         usr1.state.set_idle()
@@ -530,7 +524,7 @@ def create_base_admin_and_add_standart_db_values():
 
 def delete_user(user, management_user=None, send_deletion_email=False):
     if send_deletion_email:
-        user.send_email_v2("account-deleted")
+        user.send_email("account-deleted")
 
     Match.update_deleted_user_matches(user)
 

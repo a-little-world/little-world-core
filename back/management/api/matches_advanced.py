@@ -6,6 +6,7 @@ from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
+from rest_framework.request import Request
 from rest_framework.response import Response
 from video.models import LivekitSession
 
@@ -45,14 +46,14 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
         user2 = User.objects.get(id=instance.user2.id)
 
         representation["user1"] = {
-            "id": user1.id,
+            "id": user1.pk,
             "hash": user1.hash,
             "email": user1.email,
             "has_match_priority": user1.state.has_match_priority,
             "profile": MinimalProfileSerializer(user1.profile).data,
         }
         representation["user2"] = {
-            "id": user2.id,
+            "id": user2.pk,
             "hash": user2.hash,
             "email": user2.email,
             "has_match_priority": user2.state.has_match_priority,
@@ -266,20 +267,24 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
         base = Match.objects.all().exclude(match_type=MatchType.TEMPORARY).order_by("-created_at")
         if user.is_staff:
             return base
-        if user.has_perm(ManagementPermission.MATCHING_USER):
+        if isinstance(user, User) and user.has_perm(ManagementPermission.MATCHING_USER):
             managed_users = user.managed_users_queryset(active_only=False)
             return base.filter(Q(user1__in=managed_users) | Q(user2__in=managed_users))
         return base
 
-    def check_management_user_access(self, match, request):
-        user = match.get_partner(request.user)
-
-        if not request.user.is_staff and not request.user.has_perm(ManagementPermission.MATCHING_USER):
+    def check_management_user_access(self, match: Match, request: Request) -> tuple[bool, Response]:
+        current_user = request.user
+        if not isinstance(current_user, User):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
 
-        if not request.user.is_staff and not request.user.has_management_access(user):
+        user = match.get_partner(current_user)
+
+        if not current_user.is_staff and not current_user.has_perm(ManagementPermission.MATCHING_USER):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
-        return True, None
+
+        if not current_user.is_staff and not current_user.has_management_access(user):
+            return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
+        return True, Response(status=200)
 
     @action(detail=False, methods=["get"])
     def get_filter_schema(self, request, include_lookup_expr=False):
@@ -299,13 +304,13 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
         ),
     )
     @action(detail=True, methods=["post"])
-    def resolve_match(self, request, pk=None):
+    def resolve_match(self, request: Request, pk: str | None = None) -> Response:
         self.kwargs["pk"] = pk
         obj = self.get_object()
 
-        has_access, res = self.check_management_user_access(obj, request)
+        has_access, access_response = self.check_management_user_access(obj, request)
         if not has_access:
-            return res
+            return access_response
 
         if obj.user1.is_staff or obj.user2.is_staff:
             return Response({"msg": "One of the users is a staff member and cannot be unmatch"}, status=400)

@@ -71,12 +71,11 @@ class Chat(models.Model):
         return self.get_messages().order_by("-created").first()
 
     @classmethod
-    def get_or_create_chat(cls, user1, user2):
-        chat = cls.objects.filter(Q(u1=user1, u2=user2) | Q(u1=user2, u2=user1))
-        if chat.exists():
-            return chat.first()
-        else:
-            return cls.objects.create(u1=user1, u2=user2)
+    def get_or_create_chat(cls, user1, user2) -> "Chat":
+        chat = cls.objects.filter(Q(u1=user1, u2=user2) | Q(u1=user2, u2=user1)).order_by("-created").first()
+        if chat is not None:
+            return chat
+        return cls.objects.create(u1=user1, u2=user2)
 
     def get_past_messages_openai(self, message_depth):
         return OpenAiChatSerializer(self, message_depth=message_depth).data
