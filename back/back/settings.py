@@ -387,6 +387,8 @@ APP_BUNDLE_IDENTIFIER = os.environ.get("DJ_APP_BUNDLE_IDENTIFIER", "")
 CORS_ALLOWED_ORIGIN_REGEXES = ["file://.*"]  # Native apps are serverd from a file:// origin!
 
 CORS_ALLOWED_ORIGINS = []
+CORS_ORIGIN_WHITELIST = []
+CSRF_TRUSTED_ORIGINS = []
 if IS_STAGE or IS_PROD:
     CORS_ALLOWED_ORIGINS = [BASE_URL]
     CORS_ORIGIN_WHITELIST = [BASE_URL]
@@ -450,8 +452,6 @@ TEMPLATES = [
         },
     },
 ]
-
-USE_V2_EMAIL_APIS = os.environ.get("DJ_USE_V2_EMAIL_APIS", "false").lower() in ("true", "1", "t")
 
 USE_MINIO = os.environ.get("DJ_USE_MINIO", "0").lower() in ("true", "1", "t")
 
@@ -655,7 +655,7 @@ CELERY_TASK_REJECT_ON_WORKER_LOST = True
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         # we cannot add basic authentication default cause this add a header with causes a login-popup in browsers
-        # "rest_framework.authentication.BasicAuthentication",
+        # Don't add: "rest_framework.authentication.BasicAuthentication", we don't want to support that!
         "rest_framework.authentication.SessionAuthentication",
         "management.authentication.NativeOnlyJWTAuthentication",
     ],
@@ -764,8 +764,6 @@ DATABASES = (
         },
     }
 )
-
-DISABLE_LEGACY_EMAIL_SENDING = os.environ.get("DJ_DISABLE_LEGACY_EMAIL_SENDING", "false").lower() in ("true", "1", "t")
 
 if IS_PROD or IS_STAGE or (os.environ.get("DJ_DEVELOPMENT_ALLOW_EMAILS", "false").lower() in ("true", "1", "t")):
     EMAIL_HOST = "smtp.sendgrid.net"

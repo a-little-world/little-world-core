@@ -5,6 +5,7 @@ from rest_framework import authentication, permissions, serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from management.authentication import NativeOnlyJWTAuthentication
 from management.models.help_message import HelpMessage
 from management.models.user import User
 from management.tasks import slack_notify_communication_channel_async
@@ -31,7 +32,7 @@ class SendHelpMessageSerializer(serializers.Serializer):
 class SendHelpMessage(APIView):
     authentication_classes = [
         authentication.SessionAuthentication,
-        authentication.BasicAuthentication,
+        NativeOnlyJWTAuthentication,
     ]
 
     permission_classes = [permissions.IsAuthenticated]
