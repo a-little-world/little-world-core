@@ -36,10 +36,10 @@ class PathRename(object):
 
     def __call__(self, instance, filename):
         ext = filename.split(".")[-1]
-        # Every profile image is stored as <usr-hash>.<random-hash>.ext
+        # Every profile image is stored as <usr-uuid>.<random-hash>.ext
         # That way noone can brutefore user image paths, but we still know which user a path belongs to
-        usr_hash = "-".join(instance.user.hash.split("-")[:3])
-        filename = usr_hash + "." + str(_double_uuid()) + ".pimage." + ext
+        usr_uuid = str(instance.user.uuid).split("-")[0]
+        filename = usr_uuid + "." + str(_double_uuid()) + ".pimage." + ext
         path_new = os.path.join(self.path, filename)
         return path_new
 

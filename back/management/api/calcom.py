@@ -64,7 +64,7 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.response import Response
 from translations import get_translation
 
-from management.controller import get_user_by_hash
+from management.controller import get_user_by_uuid
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
 from management.tasks import send_sms_background
 
@@ -107,16 +107,19 @@ def callcom_websocket_callback(request):
     user_fields_responses = payload.get("userFieldsResponses", {})
     start_time = payload.get("startTime")
     end_time = payload.get("endTime")
-    user_hash = user_fields_responses.get("hash", {}).get("value")
+    user_uuid = user_fields_responses.get("uuid", {}).get("value")
+    if not user_uuid:
+        # Legacy fallback for old booking forms.
+        user_uuid = user_fields_responses.get("hash", {}).get("value")
     booking_code = user_fields_responses.get("bookingcode", {}).get("value")
-    if not start_time or not end_time or not user_hash or not booking_code:
+    if not start_time or not end_time or not user_uuid or not booking_code:
         return Response("ok")
 
     start_time_normalized = translate_to_german_date(start_time)
     # end_time = translate_to_german_date(payload["endTime"])
     # organizer_email = payload["organizer"]["email"]
 
-    user = get_user_by_hash(user_hash)
+    user = get_user_by_uuid(user_uuid)
 
     print("EVENT TYPE", event_type, user, booking_code, start_time_normalized, start_time)
     print(request.data)
@@ -146,7 +149,7 @@ def callcom_websocket_callback(request):
             # First check if that user should even receive SMS! Otherwise this flods the queue with shduled tasks that in the end don't do anything!
             if user.profile.notify_channel == "sms" and user.profile.phone_mobile != "":
                 new_async_result = send_sms_background.apply_async(
-                    (user_hash, get_translation("sms.onboarding_in_1h", lang="de").format(first_name=user.first_name)),
+                    (user_uuid, get_translation("sms.onboarding_in_1h", lang="de").format(first_name=user.first_name)),
                     eta=start_time_parsed - timedelta(hours=1),
                 )
                 appointment.sms_task = new_async_result.id
@@ -155,7 +158,7 @@ def callcom_websocket_callback(request):
             appointment = PreMatchingAppointment(user=user, start_time=start_time_parsed, end_time=end_time_parsed)
             if user.profile.notify_channel == "sms" and user.profile.phone_mobile != "":
                 async_result = send_sms_background.apply_async(
-                    (user_hash, get_translation("sms.onboarding_in_1h", lang="de").format(first_name=user.first_name)),
+                    (user_uuid, get_translation("sms.onboarding_in_1h", lang="de").format(first_name=user.first_name)),
                     eta=start_time_parsed - timedelta(hours=1),
                 )
                 appointment.sms_task = async_result.id
@@ -163,7 +166,9 @@ def callcom_websocket_callback(request):
 
         from chat.consumers.messages import PreMatchingAppointmentBooked
 
-        PreMatchingAppointmentBooked(appointment=PreMatchingAppointmentSerializer(appointment).data).send(user.hash)
+        PreMatchingAppointmentBooked(appointment=PreMatchingAppointmentSerializer(appointment).data).send(
+            str(user.uuid)
+        )
 
         # Comment Oliver: we don't need to send this you already see it in the app & you get an email.
         # user.sms(get_base_management_user(), get_translation("sms.appointment_booked", lang="de").format(appointment_time=start_time_normalized))

@@ -26,13 +26,13 @@ class AdvancedLivekitSessionSerializer(serializers.ModelSerializer):
 
         representation["u1"] = {
             "id": u1.pk,
-            "hash": u1.hash,
+            "uuid": str(u1.uuid),
             "email": u1.email,
             "profile": MinimalProfileSerializer(u1.profile).data,
         }
         representation["u2"] = {
             "id": u2.pk,
-            "hash": u2.hash,
+            "uuid": str(u2.uuid),
             "email": u2.email,
             "profile": MinimalProfileSerializer(u2.profile).data,
         }

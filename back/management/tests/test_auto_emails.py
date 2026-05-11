@@ -754,26 +754,28 @@ class TestAutomaticEmails_u072_u073_u074(TestCase):
         users_u074 = list(result["users_u074"])
 
         # Valid users should be included in their respective lists
-        assert self.valid_user_u072.hash in users_u072, (
-            f"Valid user u072: {self.valid_user_u072.hash}, users_u072: {users_u072}"
+        assert str(self.valid_user_u072.uuid) in users_u072, (
+            f"Valid user u072: {self.valid_user_u072.uuid}, users_u072: {users_u072}"
         )
-        assert self.valid_user_u073.hash in users_u073, (
-            f"Valid user u073: {self.valid_user_u073.hash}, users_u073: {users_u073}"
+        assert str(self.valid_user_u073.uuid) in users_u073, (
+            f"Valid user u073: {self.valid_user_u073.uuid}, users_u073: {users_u073}"
         )
-        assert self.valid_user_u074.hash in users_u074, (
-            f"Valid user u074: {self.valid_user_u074.hash}, users_u074: {users_u074}"
+        assert str(self.valid_user_u074.uuid) in users_u074, (
+            f"Valid user u074: {self.valid_user_u074.uuid}, users_u074: {users_u074}"
         )
 
         # Invalid users should not be in any list
-        assert self.invalid_user_recent.hash not in users_u072, f"Invalid user recent: {self.invalid_user_recent.hash}"
-        assert self.invalid_user_has_match.hash not in users_u072, (
-            f"Invalid user has match: {self.invalid_user_has_match.hash}"
+        assert str(self.invalid_user_recent.uuid) not in users_u072, (
+            f"Invalid user recent: {self.invalid_user_recent.uuid}"
         )
-        assert self.invalid_user_not_searching.hash not in users_u072, (
-            f"Invalid user not searching: {self.invalid_user_not_searching.hash}"
+        assert str(self.invalid_user_has_match.uuid) not in users_u072, (
+            f"Invalid user has match: {self.invalid_user_has_match.uuid}"
         )
-        assert self.invalid_user_no_email.hash not in users_u072, (
-            f"Invalid user no email: {self.invalid_user_no_email.hash}"
+        assert str(self.invalid_user_not_searching.uuid) not in users_u072, (
+            f"Invalid user not searching: {self.invalid_user_not_searching.uuid}"
+        )
+        assert str(self.invalid_user_no_email.uuid) not in users_u072, (
+            f"Invalid user no email: {self.invalid_user_no_email.uuid}"
         )
 
     def test_sets_flags_after_sending(self):
@@ -809,8 +811,8 @@ class TestAutomaticEmails_u072_u073_u074(TestCase):
         users_u072 = list(result["users_u072"])
 
         # User with match should be excluded
-        assert self.invalid_user_has_match.hash not in users_u072, (
-            f"Invalid user has match: {self.invalid_user_has_match.hash}"
+        assert str(self.invalid_user_has_match.uuid) not in users_u072, (
+            f"Invalid user has match: {self.invalid_user_has_match.uuid}"
         )
 
 
@@ -915,24 +917,26 @@ class TestAutomaticEmails_u082_u083_u084(TestCase):
         users_u084 = list(result["users_u084"])
 
         # Valid users should be included in their respective lists
-        assert self.valid_user_u082.hash in users_u082, (
-            f"Valid user u082: {self.valid_user_u082.hash}, users_u082: {users_u082}"
+        assert str(self.valid_user_u082.uuid) in users_u082, (
+            f"Valid user u082: {self.valid_user_u082.uuid}, users_u082: {users_u082}"
         )
-        assert self.valid_user_u083.hash in users_u083, (
-            f"Valid user u083: {self.valid_user_u083.hash}, users_u083: {users_u083}"
+        assert str(self.valid_user_u083.uuid) in users_u083, (
+            f"Valid user u083: {self.valid_user_u083.uuid}, users_u083: {users_u083}"
         )
-        assert self.valid_user_u084.hash in users_u084, (
-            f"Valid user u084: {self.valid_user_u084.hash}, users_u084: {users_u084}"
+        assert str(self.valid_user_u084.uuid) in users_u084, (
+            f"Valid user u084: {self.valid_user_u084.uuid}, users_u084: {users_u084}"
         )
 
         # Invalid users should not be in any list
-        assert self.invalid_user_no_u081.hash not in users_u082, (
-            f"Invalid user no u081: {self.invalid_user_no_u081.hash}"
+        assert str(self.invalid_user_no_u081.uuid) not in users_u082, (
+            f"Invalid user no u081: {self.invalid_user_no_u081.uuid}"
         )
-        assert self.invalid_user_no_match.hash not in users_u082, (
-            f"Invalid user no match: {self.invalid_user_no_match.hash}"
+        assert str(self.invalid_user_no_match.uuid) not in users_u082, (
+            f"Invalid user no match: {self.invalid_user_no_match.uuid}"
         )
-        assert self.invalid_user_recent.hash not in users_u082, f"Invalid user recent: {self.invalid_user_recent.hash}"
+        assert str(self.invalid_user_recent.uuid) not in users_u082, (
+            f"Invalid user recent: {self.invalid_user_recent.uuid}"
+        )
 
     def test_sets_flags_after_sending(self):
         """Test that the task sets the appropriate flags after sending."""
@@ -967,8 +971,8 @@ class TestAutomaticEmails_u082_u083_u084(TestCase):
         users_u082 = list(result["users_u082"])
 
         # User without u081 sent should be excluded
-        assert self.invalid_user_no_u081.hash not in users_u082, (
-            f"Invalid user no u081: {self.invalid_user_no_u081.hash}"
+        assert str(self.invalid_user_no_u081.uuid) not in users_u082, (
+            f"Invalid user no u081: {self.invalid_user_no_u081.uuid}"
         )
 
 
@@ -1156,7 +1160,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
         )
 
         # Check that the URL contains the user hash
-        assert f"user_hash={self.user1.hash}" in email_html, "Email should contain still_in_contact URL with user hash"
+        assert f"user_uuid={self.user1.uuid}" in email_html, "Email should contain still_in_contact URL with user UUID"
 
         # Check that the URL contains the user token
         assert f"user_token={self.user1.state.still_in_contact_form_access_token_user}" in email_html, (
@@ -1198,7 +1202,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
         assert expected_url_part in email_html, "Email should contain still_in_contact URL with match UUID"
 
         # Check that the URL contains the user hash and token
-        assert f"user_hash={self.user1.hash}" in email_html
+        assert f"user_uuid={self.user1.uuid}" in email_html
         assert f"user_token={self.user1.state.still_in_contact_form_access_token_user}" in email_html
 
         # Check that the redirect_slug is correct
@@ -1233,7 +1237,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
         assert expected_url_part in email_html, "Email should contain still_in_contact URL with match UUID"
 
         # Check that the URL contains the user hash and token
-        assert f"user_hash={self.user1.hash}" in email_html
+        assert f"user_uuid={self.user1.uuid}" in email_html
         assert f"user_token={self.user1.state.still_in_contact_form_access_token_user}" in email_html
 
     def test_still_in_contact_yes_redirects_to_google_form(self):
@@ -1245,7 +1249,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
         # Build the URL with proper parameters
         url = (
             f"/api/still_in_contact/{str(self.match.uuid)}/yes/"
-            f"?user_hash={self.user1.hash}"
+            f"?user_uuid={self.user1.uuid}"
             f"&user_token={self.user1.state.still_in_contact_form_access_token_user}"
             f"&redirect_slug=match-form1"
         )
@@ -1265,7 +1269,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
         )
 
         # Check that the redirect URL contains the user hash and match UUID as form pre-fill parameters
-        assert f"entry.1868418501={self.user1.hash}" in redirect_url, (
+        assert f"entry.1868418501={self.user1.uuid}" in redirect_url, (
             "Redirect URL should contain user hash as form parameter"
         )
         assert f"entry.1064841735={str(self.match.uuid)}" in redirect_url, (
@@ -1285,7 +1289,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
         # Build the URL with info-screen redirect
         url = (
             f"/api/still_in_contact/{str(self.match.uuid)}/no/"
-            f"?user_hash={self.user1.hash}"
+            f"?user_uuid={self.user1.uuid}"
             f"&user_token={self.user1.state.still_in_contact_form_access_token_user}"
             f"&redirect_slug=info-screen"
         )
@@ -1309,7 +1313,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
         # Build the URL with an invalid token
         url = (
             f"/api/still_in_contact/{str(self.match.uuid)}/yes/"
-            f"?user_hash={self.user1.hash}"
+            f"?user_uuid={self.user1.uuid}"
             f"&user_token=invalid-token-12345"
             f"&redirect_slug=match-form1"
         )
@@ -1346,11 +1350,11 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
 
         # Verify user1's email contains user1's hash
         email_html_user1 = email_log_user1.data.get("html", "")
-        assert f"user_hash={self.user1.hash}" in email_html_user1
+        assert f"user_uuid={self.user1.uuid}" in email_html_user1
 
         # Verify user2's email contains user2's hash
         email_html_user2 = email_log_user2.data.get("html", "")
-        assert f"user_hash={self.user2.hash}" in email_html_user2
+        assert f"user_uuid={self.user2.uuid}" in email_html_user2
 
         # Both emails should reference the same match UUID
         assert f"/api/still_in_contact/{str(self.match.uuid)}/yes/" in email_html_user1

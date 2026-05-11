@@ -89,9 +89,9 @@ class SerializeLivekitSession(ModelSerializer):
         rep["activeUsers"] = []
 
         if instance.u1_active:
-            rep["activeUsers"].append(instance.u1.hash)
+            rep["activeUsers"].append(str(instance.u1.uuid))
         if instance.u2_active:
-            rep["activeUsers"].append(instance.u2.hash)
+            rep["activeUsers"].append(str(instance.u2.uuid))
 
         user = None
         if "user" in self.context:
@@ -102,10 +102,10 @@ class SerializeLivekitSession(ModelSerializer):
         if user:
             if user == instance.u1:
                 rep["partner"] = CensoredProfileSerializer(instance.u2.profile).data
-                rep["partner"]["id"] = instance.u2.hash
+                rep["partner"]["id"] = str(instance.u2.uuid)
             else:
                 rep["partner"] = CensoredProfileSerializer(instance.u1.profile).data
-                rep["partner"]["id"] = instance.u1.hash
+                rep["partner"]["id"] = str(instance.u1.uuid)
 
         return rep
 
