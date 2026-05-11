@@ -4,6 +4,7 @@ import random
 from django.utils import timezone
 
 from management.models.profile import Profile
+from management.models.user import User
 
 from . import controller  # this will be used on script execution
 
@@ -128,7 +129,9 @@ user_form_choices = {
 }
 
 
-def create_test_user(i, user_seeds=None, password=None, email=None, pass_if_exists=False, send_verification_mail=False):
+def create_test_user(
+    i, user_seeds=None, password=None, email=None, pass_if_exists=False, send_verification_mail=False
+) -> User:
     # use user_seeds to generate redictable users
     if user_seeds:
         random.seed(user_seeds[i])  # Same user all?
@@ -144,7 +147,7 @@ def create_test_user(i, user_seeds=None, password=None, email=None, pass_if_exis
         try:
             usr = controller.get_user_by_email(_mail)
             if usr:
-                return
+                return usr
         except Exception:
             pass
 
