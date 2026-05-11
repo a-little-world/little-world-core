@@ -1,13 +1,13 @@
-from actions.registry import execute
 from django.urls import path
-from models.support_task import SupportTask, SupportTaskAction, SupportTaskActionSerializer, SupportTaskSerializer
 from rest_framework import serializers, status
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from management.actions.registry import execute
 from management.authentication import NativeOnlyJWTAuthentication
+from management.models.support_task import SupportTask, SupportTaskAction, SupportTaskActionSerializer, SupportTaskSerializer
 from management.models.user import User
 
 

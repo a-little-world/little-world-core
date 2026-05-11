@@ -26,6 +26,7 @@ from . import (
     sms,
     state,
     stats,
+    support_task,
     translation_logs,
     unconfirmed_matches,
     user,
@@ -54,4 +55,5 @@ __all__ = [
     "newsletter",
     "stats",
     "short_links",
+    "support_task",
 ]
