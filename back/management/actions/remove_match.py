@@ -7,6 +7,7 @@ from .registry import register, register_task_type
 class StaticParams:
     help_message_id: int
     user_id: int
+    user_name: str
     match_id: int
 
 
@@ -45,5 +46,5 @@ def message_action_remove_match(static_params: dict, params: dict) -> None:
 register_task_type(
     "remove_match",
     action_type="message_action_remove_match",
-    task_title=lambda s: f"Remove match #{s['match_id']} — user #{s['user_id']}",
+    task_title=lambda s: f"Remove match #{s['match_id']} — {s['user_name']}",
 )

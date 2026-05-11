@@ -26,48 +26,13 @@ def _contact_user(user, message: str) -> None:
     management_user.message(user, message)
 
 
-# ─── scoring_profile_assessment ───────────────────────────────────────────────
-
-
-@dataclass
-class ScoringAssessmentStaticParams:
-    user_id: int
-
-
-@dataclass
-class ScoringAssessmentParams:
-    decision: Literal["approve", "flag", "contact_user"] = "approve"
-    contact_message: str = ""
-
-
-@register("scoring_profile_assessment", static_schema=ScoringAssessmentStaticParams, param_schema=ScoringAssessmentParams)
-def scoring_profile_assessment(static_params: dict, params: dict) -> None:
-    """Admin reviews a profile flagged by the scoring system.
-
-    static_params:
-        user_id (int)
-
-    params:
-        decision (str): 'approve' | 'flag' | 'contact_user'
-        contact_message (str, optional): message to send if decision == 'contact_user'
-    """
-    decision = params.get("decision", "approve")
-    if decision == "flag":
-        user = _get_user(static_params["user_id"])
-        _tag_user(user, "scoring_flagged")
-    elif decision == "contact_user":
-        user = _get_user(static_params["user_id"])
-        msg = params.get("contact_message", "")
-        if msg:
-            _contact_user(user, msg)
-
-
 # ─── profile_action_suspicious_profile ────────────────────────────────────────
 
 
 @dataclass
 class SuspiciousProfileStaticParams:
     user_id: int
+    user_name: str
     reason: str
 
 
@@ -106,6 +71,7 @@ def profile_action_suspicious_profile(static_params: dict, params: dict) -> None
 @dataclass
 class TooEmptyProfileStaticParams:
     user_id: int
+    user_name: str
     missing_fields: list
 
 
@@ -138,21 +104,15 @@ def profile_action_too_empty_profile(static_params: dict, params: dict) -> None:
 # ─── Task type registrations ───────────────────────────────────────────────────
 
 register_task_type(
-    "scoring_assessment",
-    action_type="scoring_profile_assessment",
-    task_title=lambda s: f"Profile scoring review — user #{s['user_id']}",
-)
-
-register_task_type(
     "suspicious_profile",
     action_type="profile_action_suspicious_profile",
-    task_title=lambda s: f"Suspicious profile — user #{s['user_id']}",
+    task_title=lambda s: f"Suspicious profile — {s['user_name']}",
     task_description=lambda s: f"Profile flagged: {s['reason']}",
 )
 
 register_task_type(
     "too_empty_profile",
     action_type="profile_action_too_empty_profile",
-    task_title=lambda s: f"Incomplete profile — user #{s['user_id']}",
+    task_title=lambda s: f"Incomplete profile — {s['user_name']}",
     task_description=lambda s: f"Profile is missing: {', '.join(s['missing_fields'])}",
 )

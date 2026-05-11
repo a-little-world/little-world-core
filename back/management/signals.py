@@ -35,16 +35,17 @@ def _create_task_for_help_message(sender, instance, created, **kwargs) -> None:
 # ─── Profile save → system task creation ──────────────────────────────────────
 
 
-def _open_task_exists(user_id: int, action_type: str) -> bool:
-    """Guard: skip if a non-finished task with this action_type already exists for the user."""
+def _cancel_open_task(user_id: int, action_type: str) -> None:
+    """Cancel any open task of the given action_type for the user so a fresh one can be created."""
     from management.models.support_task import SupportTaskAction
 
-    return SupportTaskAction.objects.filter(
+    for action in SupportTaskAction.objects.select_related("task").filter(
         action_type=action_type,
         task__related_user_id=user_id,
         task__status__in=["NEW", "IN_PROGRESS"],
         status="OPEN",
-    ).exists()
+    ):
+        action.resolve(SupportTaskAction.Status.CANCELLED, reviewed_by=None)
 
 
 def _check_profile_on_save(sender, instance, created, **kwargs) -> None:
@@ -71,12 +72,17 @@ def check_user_profile(profile) -> dict:
     if not profile.birth_year:
         missing.append("birth_year")
 
-    if missing and not _open_task_exists(profile.user_id, "profile_action_too_empty_profile"):
+    _cancel_open_task(profile.user_id, "profile_action_too_empty_profile")
+    if missing:
         from management.models.support_task import SupportTask
 
         task = SupportTask.create_of_type(
             "too_empty_profile",
-            static_parameters={"user_id": profile.user_id, "missing_fields": missing},
+            static_parameters={
+                "user_id": profile.user_id,
+                "user_name": f"{profile.first_name} {profile.second_name}",
+                "missing_fields": missing,
+            },
             parameters={"decision": "contact_user", "contact_message": ""},
             related_user_id=profile.user_id,
         )
@@ -85,12 +91,17 @@ def check_user_profile(profile) -> dict:
     # ── Suspicious profile ────────────────────────────────────────────────────
     suspicious_reasons = _detect_suspicious_profile(profile)
 
-    if suspicious_reasons and not _open_task_exists(profile.user_id, "profile_action_suspicious_profile"):
+    _cancel_open_task(profile.user_id, "profile_action_suspicious_profile")
+    if suspicious_reasons:
         from management.models.support_task import SupportTask
 
         task = SupportTask.create_of_type(
             "suspicious_profile",
-            static_parameters={"user_id": profile.user_id, "reason": suspicious_reasons[0]},
+            static_parameters={
+                "user_id": profile.user_id,
+                "user_name": f"{profile.first_name} {profile.second_name}",
+                "reason": suspicious_reasons[0],
+            },
             parameters={"decision": "dismiss"},
             related_user_id=profile.user_id,
         )
@@ -108,27 +119,3 @@ def _detect_suspicious_profile(profile) -> list[str]:
     - Suspicious patterns in name
     """
     return []
-
-
-# ─── Scoring assessment ────────────────────────────────────────────────────────
-
-
-def create_scoring_assessment_tasks_for_user(user_id: int) -> None:
-    """Create a scoring_profile_assessment task for a given user if not already open."""
-    if _open_task_exists(user_id, "scoring_profile_assessment"):
-        return
-
-    from management.models.profile import Profile
-    from management.models.support_task import SupportTask
-
-    try:
-        related_user_id = Profile.objects.values_list("user_id", flat=True).get(user_id=user_id)
-    except Profile.DoesNotExist:
-        related_user_id = user_id
-
-    SupportTask.create_of_type(
-        "scoring_assessment",
-        static_parameters={"user_id": user_id},
-        parameters={"decision": "approve"},
-        related_user_id=related_user_id,
-    )
