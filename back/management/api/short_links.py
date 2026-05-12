@@ -2,7 +2,7 @@ from urllib.parse import urlparse, urlunparse
 
 from django.conf import settings
 from django.http import QueryDict
-from django.shortcuts import redirect
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import path
 from rest_framework.decorators import api_view
 
@@ -12,7 +12,7 @@ from management.models.user import User
 
 @api_view(["GET"])
 def short_link_click(request, tag):
-    short_link = ShortLink.objects.get(tag=tag)
+    short_link = get_object_or_404(ShortLink, tag=tag, archived_at__isnull=True)
     # Only associate the user if they're authenticated
     source = request.query_params.get("source", "none")
     user_hash = request.query_params.get("user_hash", "none")
@@ -49,7 +49,7 @@ def short_link_click(request, tag):
     response = redirect(merged_url)
 
     if short_link.tracking_cookies_enabled:
-        for cookie in short_link.tracking_cookies:
+        for cookie in short_link.tracking_cookies or []:
             response.set_cookie(
                 cookie["name"],
                 cookie["value"],
