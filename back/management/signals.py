@@ -1,13 +1,13 @@
-from django.db.models.signals import post_save
+# from django.db.models.signals import post_save
 
 
 def connect_signals() -> None:
     """Connect all support task signals. Called from ManagementConfig.ready()."""
-    from management.models.help_message import HelpMessage
-    from management.models.profile import Profile
+    # from management.models.help_message import HelpMessage
+    # from management.models.profile import Profile
 
-    post_save.connect(_create_task_for_help_message, sender=HelpMessage)
-    post_save.connect(_check_profile_on_save, sender=Profile)
+    # post_save.connect(_create_task_for_help_message, sender=HelpMessage)
+    # post_save.connect(_check_profile_on_save, sender=Profile)
 
 
 # ─── HelpMessage → task creation ──────────────────────────────────────────────
