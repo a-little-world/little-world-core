@@ -5,12 +5,10 @@ from datetime import datetime, timedelta, timezone
 from celery import shared_task
 from cookie_consent.models import Cookie, CookieGroup
 from django.conf import settings
-from django.core.mail import send_mail
 from django.db.models import Q
 from django.utils import timezone as dj_timezone
 from translations import get_translation
 
-from management.api.slack import notify_communication_channel
 from management.models.backend_state import BackendState
 from management.models.banner import Banner
 from management.models.community_events import CommunityEvent
