@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("management", "0152_remove_state_extra_user_permissions_and_more"),
+        ("management", "0153_alter_state_options"),
     ]
 
     operations = [
