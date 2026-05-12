@@ -7,7 +7,7 @@ from rest_framework import serializers
 
 from management.models.object_history import ObjectHistory, ObjectHistorySerializer
 
-_TRACKED_TASK_FIELDS = ("title", "description", "status", "assigned_to_id")
+_TRACKED_TASK_FIELDS = ("title", "description", "status", "priority", "assigned_to_id")
 _TRACKED_ACTION_FIELDS = ("status", "parameters")
 
 
@@ -24,9 +24,16 @@ class SupportTask(models.Model):
         IN_PROGRESS = "IN_PROGRESS", _("In Progress")
         COMPLETED = "COMPLETED", _("Completed")
 
+    class Priority(models.TextChoices):
+        LOW = "LOW", _("Low")
+        MEDIUM = "MEDIUM", _("Medium")
+        HIGH = "HIGH", _("High")
+        URGENT = "URGENT", _("Urgent")
+
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW)
+    priority = models.CharField(max_length=10, choices=Priority.choices, default=Priority.MEDIUM)
 
     assigned_to = models.ForeignKey(
         "management.User",
@@ -247,6 +254,7 @@ class SupportTaskSerializer(serializers.ModelSerializer):
             "title",
             "description",
             "status",
+            "priority",
             "assigned_to_id",
             "created_by_id",
             "related_user_id",
