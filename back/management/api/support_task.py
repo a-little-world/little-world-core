@@ -86,7 +86,7 @@ def support_task_update(request, pk):
         return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
     serializer = SupportTaskSerializer(task, data=request.data, partial=True)
     serializer.is_valid(raise_exception=True)
-    serializer.save()
+    serializer.save(changed_by=request.user)
     return Response(SupportTaskSerializer(task).data)
 
 
@@ -107,10 +107,8 @@ def support_task_action_update(request, task_pk):
 
     new_params = request.data.get("parameters")
     if new_params is not None:
-        if not action.was_edited:
-            action.original_parameters = action.parameters
         action.parameters = new_params
-        action.save()
+        action.save(update_fields=["parameters"], changed_by=request.user)
 
     return Response(SupportTaskActionSerializer(action).data)
 

@@ -8,6 +8,7 @@ Main management models:
 
 from . import (
     backend_state,
+    object_history,
     banner,
     community_events,
     help_message,
@@ -41,6 +42,7 @@ __all__ = [
     "banner",
     "community_events",
     "backend_state",
+    "object_history",
     "news_and_updates",
     "help_message",
     "past_matches",
