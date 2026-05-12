@@ -66,11 +66,6 @@ class SupportTask(models.Model):
                 for f, old, new in diffs
             ])
 
-    def delete(self, *args, deleted_by=None, **kwargs):
-        ct = ContentType.objects.get_for_model(self)
-        ObjectHistory.objects.create(content_type=ct, object_id=self.pk, changed_by=deleted_by, type=ObjectHistory.Type.DELETE)
-        super().delete(*args, **kwargs)
-
     @classmethod
     def create_of_type(cls, task_type: str, *, static_parameters: dict, parameters: dict, **kwargs) -> "SupportTask":
         """Atomically create a task of a registered type with the corresponding action."""
@@ -169,11 +164,6 @@ class SupportTaskAction(models.Model):
                 ObjectHistory(content_type=ct, object_id=self.pk, changed_by=changed_by, type=ObjectHistory.Type.UPDATE, field=f, old_value=old, new_value=new)
                 for f, old, new in diffs
             ])
-
-    def delete(self, *args, deleted_by=None, **kwargs):
-        ct = ContentType.objects.get_for_model(self)
-        ObjectHistory.objects.create(content_type=ct, object_id=self.pk, changed_by=deleted_by, type=ObjectHistory.Type.DELETE)
-        super().delete(*args, **kwargs)
 
     def resolve(self, new_status: "SupportTaskAction.Status", reviewed_by) -> None:
         if self.status != self.Status.OPEN:

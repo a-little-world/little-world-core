@@ -9,7 +9,6 @@ class ObjectHistory(models.Model):
     class Type(models.TextChoices):
         CREATE = "CREATE", _("Create")
         UPDATE = "UPDATE", _("Update")
-        DELETE = "DELETE", _("Delete")
 
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
