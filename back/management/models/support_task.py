@@ -33,17 +33,17 @@ class SupportTask(models.Model):
         null=True,
         blank=True,
         on_delete=models.DO_NOTHING,
-        related_name="assigned_support_task",
+        related_name="assigned_support_tasks",
     )
     created_by = models.ForeignKey(
         "management.User",
         on_delete=models.DO_NOTHING,
-        related_name="created_support_task",
+        related_name="created_support_tasks",
     )
     related_user = models.ForeignKey(
         "management.User",
         on_delete=models.DO_NOTHING,
-        related_name="related_support_task",
+        related_name="related_support_tasks",
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -59,12 +59,24 @@ class SupportTask(models.Model):
         super().save(*args, **kwargs)
         ct = ContentType.objects.get_for_model(self)
         if is_new:
-            ObjectHistory.objects.create(content_type=ct, object_id=self.pk, changed_by=changed_by, type=ObjectHistory.Type.CREATE)
+            ObjectHistory.objects.create(
+                content_type=ct, object_id=self.pk, changed_by=changed_by, type=ObjectHistory.Type.CREATE
+            )
         elif diffs:
-            ObjectHistory.objects.bulk_create([
-                ObjectHistory(content_type=ct, object_id=self.pk, changed_by=changed_by, type=ObjectHistory.Type.UPDATE, field=f, old_value=old, new_value=new)
-                for f, old, new in diffs
-            ])
+            ObjectHistory.objects.bulk_create(
+                [
+                    ObjectHistory(
+                        content_type=ct,
+                        object_id=self.pk,
+                        changed_by=changed_by,
+                        type=ObjectHistory.Type.UPDATE,
+                        field=f,
+                        old_value=old,
+                        new_value=new,
+                    )
+                    for f, old, new in diffs
+                ]
+            )
 
     @classmethod
     def create_of_type(cls, task_type: str, *, static_parameters: dict, parameters: dict, **kwargs) -> "SupportTask":
@@ -158,12 +170,24 @@ class SupportTaskAction(models.Model):
         super().save(*args, **kwargs)
         ct = ContentType.objects.get_for_model(self)
         if is_new:
-            ObjectHistory.objects.create(content_type=ct, object_id=self.pk, changed_by=changed_by, type=ObjectHistory.Type.CREATE)
+            ObjectHistory.objects.create(
+                content_type=ct, object_id=self.pk, changed_by=changed_by, type=ObjectHistory.Type.CREATE
+            )
         elif diffs:
-            ObjectHistory.objects.bulk_create([
-                ObjectHistory(content_type=ct, object_id=self.pk, changed_by=changed_by, type=ObjectHistory.Type.UPDATE, field=f, old_value=old, new_value=new)
-                for f, old, new in diffs
-            ])
+            ObjectHistory.objects.bulk_create(
+                [
+                    ObjectHistory(
+                        content_type=ct,
+                        object_id=self.pk,
+                        changed_by=changed_by,
+                        type=ObjectHistory.Type.UPDATE,
+                        field=f,
+                        old_value=old,
+                        new_value=new,
+                    )
+                    for f, old, new in diffs
+                ]
+            )
 
     def resolve(self, new_status: "SupportTaskAction.Status", reviewed_by) -> None:
         if self.status != self.Status.OPEN:
