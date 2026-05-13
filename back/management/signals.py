@@ -13,7 +13,7 @@ def connect_signals() -> None:
 # ─── HelpMessage → task creation ──────────────────────────────────────────────
 
 
-def _create_task_for_help_message(sender, instance, created, **kwargs) -> None:
+def _create_support_reply(sender, instance, created, **kwargs) -> None:
     """Auto-create a support reply task whenever a new HelpMessage is submitted."""
     if not created:
         return

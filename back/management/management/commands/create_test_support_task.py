@@ -9,10 +9,8 @@ Usage:
 Available types:
     support_reply               HelpMessage → support_reply action
     change_user_type            Profile → message_action_change_user_type
-    change_profile_value        Profile → message_action_change_profile_value
     country_of_residence        Profile → profile_change_action_country_of_residence
     remove_match                Match   → message_action_remove_match
-    scoring_assessment          Profile → scoring_profile_assessment
     suspicious_profile          Profile → profile_action_suspicious_profile
     too_empty_profile           Profile → profile_action_too_empty_profile
     all                         Create one task of each type above
@@ -23,10 +21,8 @@ from django.core.management.base import BaseCommand, CommandError
 TASK_TYPES = [
     "support_reply",
     "change_user_type",
-    "change_profile_value",
     "country_of_residence",
     "remove_match",
-    "scoring_assessment",
     "suspicious_profile",
     "too_empty_profile",
 ]
@@ -66,6 +62,28 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.ERROR(f"[{t}] Failed: {e}"))
 
 
+# ─── Helpers ──────────────────────────────────────────────────────────────────
+
+
+def _get_staff_user():
+    from management.models.user import User
+
+    staff = User.objects.filter(is_staff=True).first()
+    if staff is None:
+        raise RuntimeError("No staff user found — cannot set created_by.")
+    return staff
+
+
+def _user_name(user) -> str:
+    from management.models.profile import Profile
+
+    try:
+        profile = Profile.objects.get(user=user)
+        return f"{profile.first_name} {profile.second_name}".strip() or f"#{user.id}"
+    except Profile.DoesNotExist:
+        return f"#{user.id}"
+
+
 # ─── Creators ─────────────────────────────────────────────────────────────────
 
 
@@ -78,10 +96,17 @@ def _create_support_reply(cmd, user):
         message="This is a test support message. Please help me!",
         kind=HelpMessage.KindChoices.GENERAL,
     )
-    task = SupportTask.objects.filter(related_user=user, actions__action_type="support_reply").first()
-    if task is None:
-        raise RuntimeError("Signal did not create a task — check signals are connected.")
-    return task
+    return SupportTask.create_of_type(
+        "support_reply",
+        static_parameters={
+            "help_message_id": help_message.id,
+            "kind_display": help_message.get_kind_display(),
+            "message_preview": help_message.message[:500],
+        },
+        parameters={"message": ""},
+        related_user=user,
+        created_by=_get_staff_user(),
+    )
 
 
 def _create_change_user_type(cmd, user):
@@ -94,21 +119,12 @@ def _create_change_user_type(cmd, user):
         static_parameters={
             "help_message_id": 0,
             "user_id": user.id,
+            "user_name": _user_name(user),
             "current_value": profile.user_type or "mentee",
         },
         parameters={"new_value": profile.user_type or "mentee"},
         related_user=user,
-    )
-
-
-def _create_change_profile_value(cmd, user):
-    from management.models.support_task import SupportTask
-
-    return SupportTask.create_of_type(
-        "change_profile_value",
-        static_parameters={"help_message_id": 0, "user_id": user.id, "field": "description"},
-        parameters={"new_value": "Updated description from support request."},
-        related_user=user,
+        created_by=_get_staff_user(),
     )
 
 
@@ -122,10 +138,12 @@ def _create_country_of_residence(cmd, user):
         static_parameters={
             "help_message_id": 0,
             "user_id": user.id,
+            "user_name": _user_name(user),
             "current_value": profile.country_of_residence or "",
         },
         parameters={"new_value": "DE"},
         related_user=user,
+        created_by=_get_staff_user(),
     )
 
 
@@ -141,20 +159,15 @@ def _create_remove_match(cmd, user):
 
     return SupportTask.create_of_type(
         "remove_match",
-        static_parameters={"help_message_id": 0, "user_id": user.id, "match_id": match.id},
+        static_parameters={
+            "help_message_id": 0,
+            "user_id": user.id,
+            "user_name": _user_name(user),
+            "match_id": match.id,
+        },
         parameters={"reason": "Test: user requested match removal."},
         related_user=user,
-    )
-
-
-def _create_scoring_assessment(cmd, user):
-    from management.models.support_task import SupportTask
-
-    return SupportTask.create_of_type(
-        "scoring_assessment",
-        static_parameters={"user_id": user.id},
-        parameters={"decision": "approve"},
-        related_user=user,
+        created_by=_get_staff_user(),
     )
 
 
@@ -163,9 +176,14 @@ def _create_suspicious_profile(cmd, user):
 
     return SupportTask.create_of_type(
         "suspicious_profile",
-        static_parameters={"user_id": user.id, "reason": "Spam keywords detected"},
+        static_parameters={
+            "user_id": user.id,
+            "user_name": _user_name(user),
+            "reason": "Spam keywords detected in profile description.",
+        },
         parameters={"decision": "dismiss"},
         related_user=user,
+        created_by=_get_staff_user(),
     )
 
 
@@ -176,20 +194,20 @@ def _create_too_empty_profile(cmd, user):
         "too_empty_profile",
         static_parameters={
             "user_id": user.id,
+            "user_name": _user_name(user),
             "missing_fields": ["description", "birth_year"],
         },
         parameters={"decision": "contact_user", "contact_message": ""},
         related_user=user,
+        created_by=_get_staff_user(),
     )
 
 
 _CREATORS = {
-    "support_reply": _create_support_reply,
-    "change_user_type": _create_change_user_type,
-    "change_profile_value": _create_change_profile_value,
+    "support_reply":       _create_support_reply,
+    "change_user_type":    _create_change_user_type,
     "country_of_residence": _create_country_of_residence,
-    "remove_match": _create_remove_match,
-    "scoring_assessment": _create_scoring_assessment,
-    "suspicious_profile": _create_suspicious_profile,
-    "too_empty_profile": _create_too_empty_profile,
+    "remove_match":        _create_remove_match,
+    "suspicious_profile":  _create_suspicious_profile,
+    "too_empty_profile":   _create_too_empty_profile,
 }
