@@ -12,7 +12,6 @@ from django.db.models import Q
 from django.utils import timezone
 from translations import get_translation
 
-from management import controller
 from management.models.matches import Match
 from management.models.past_matches import PastMatch
 from management.models.profile import Profile
@@ -106,7 +105,7 @@ def make_tim_support_user(
 ):
     # 1. We need to remove oliver as matching user
 
-    admin_user = controller.get_user_by_email(old_management_mail)
+    admin_user = get_user_by_email(old_management_mail)
     old_support_matching = Match.get_match(user1=admin_user, user2=user)
     if old_support_matching.exists():
         unmatch_users({admin_user, user}, unmatcher=admin_user)
