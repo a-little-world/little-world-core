@@ -7,7 +7,12 @@ from rest_framework.response import Response
 
 from management.actions.registry import execute
 from management.authentication import NativeOnlyJWTAuthentication
-from management.models.support_task import SupportTask, SupportTaskAction, SupportTaskActionSerializer, SupportTaskSerializer
+from management.models.support_task import (
+    SupportTask,
+    SupportTaskAction,
+    SupportTaskActionSerializer,
+    SupportTaskSerializer,
+)
 from management.models.user import User
 
 
@@ -23,7 +28,9 @@ class CreateSupportTaskSerializer(serializers.Serializer):
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
 def support_task_list(request):
-    tasks = SupportTask.objects.select_related("action").all()
+    tasks = SupportTask.objects.select_related(
+        "action", "related_user__profile", "assigned_to__profile", "created_by__profile"
+    ).all()
 
     status_filter = request.query_params.get("status")
     if status_filter:
@@ -70,7 +77,9 @@ def support_task_create(request):
 @permission_classes([IsAuthenticated])
 def support_task_detail(request, pk):
     try:
-        task = SupportTask.objects.select_related("action").get(pk=pk)
+        task = SupportTask.objects.select_related(
+            "action", "related_user__profile", "assigned_to__profile", "created_by__profile"
+        ).get(pk=pk)
     except SupportTask.DoesNotExist:
         return Response({"error": "Not found"}, status=status.HTTP_404_NOT_FOUND)
     return Response(SupportTaskSerializer(task).data)

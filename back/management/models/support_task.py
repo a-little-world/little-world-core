@@ -236,9 +236,38 @@ class SupportTaskActionSerializer(serializers.ModelSerializer):
         ]
 
 
+def _serialize_user_profile(user) -> dict | None:
+    if user is None:
+        return None
+    try:
+        p = user.profile
+        return {
+            "id": user.id,
+            "first_name": p.first_name,
+            "second_name": p.second_name,
+            "image": p.image.url if p.image else None,
+            "avatar_config": p.avatar_config,
+            "image_type": p.image_type,
+        }
+    except Exception:
+        return None
+
+
 class SupportTaskSerializer(serializers.ModelSerializer):
     action = SupportTaskActionSerializer(read_only=True)
     history = ObjectHistorySerializer(many=True, read_only=True)
+    related_user_profile = serializers.SerializerMethodField()
+    assigned_to_profile = serializers.SerializerMethodField()
+    created_by_profile = serializers.SerializerMethodField()
+
+    def get_related_user_profile(self, obj):
+        return _serialize_user_profile(obj.related_user)
+
+    def get_assigned_to_profile(self, obj):
+        return _serialize_user_profile(obj.assigned_to)
+
+    def get_created_by_profile(self, obj):
+        return _serialize_user_profile(obj.created_by)
 
     def update(self, instance, validated_data):
         changed_by = validated_data.pop("changed_by", None)
@@ -255,9 +284,9 @@ class SupportTaskSerializer(serializers.ModelSerializer):
             "description",
             "status",
             "priority",
-            "assigned_to_id",
-            "created_by_id",
-            "related_user_id",
+            "related_user_profile",
+            "assigned_to_profile",
+            "created_by_profile",
             "created_at",
             "updated_at",
             "action",
