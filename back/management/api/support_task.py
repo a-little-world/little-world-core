@@ -1,3 +1,4 @@
+from django.db.models import Case, IntegerField, Value, When
 from django.urls import path
 from rest_framework import serializers, status
 from rest_framework.authentication import SessionAuthentication
@@ -42,10 +43,20 @@ def support_task_list(request):
 
     sort_by = request.query_params.get("sort_by", "created_at")
     sort_order = request.query_params.get("sort_order", "desc")
+    order_prefix = "-" if sort_order == "desc" else ""
 
-    valid_sort_fields = {"status", "title", "created_at"}
-    if sort_by in valid_sort_fields:
-        order_prefix = "-" if sort_order == "desc" else ""
+    valid_sort_fields = {"id", "status", "title", "created_at", "updated_at"}
+    if sort_by == "priority":
+        priority_rank = Case(
+            When(priority="LOW", then=Value(1)),
+            When(priority="MEDIUM", then=Value(2)),
+            When(priority="HIGH", then=Value(3)),
+            When(priority="URGENT", then=Value(4)),
+            default=Value(0),
+            output_field=IntegerField(),
+        )
+        tasks = tasks.annotate(priority_rank=priority_rank).order_by(f"{order_prefix}priority_rank")
+    elif sort_by in valid_sort_fields:
         tasks = tasks.order_by(f"{order_prefix}{sort_by}")
 
     return Response(SupportTaskSerializer(tasks, many=True).data)
