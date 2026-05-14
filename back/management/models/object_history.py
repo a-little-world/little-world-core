@@ -46,10 +46,15 @@ def log_history(obj, *, type: ObjectHistory.Type, changed_by=None, field=None, o
 
 class ObjectHistorySerializer(serializers.ModelSerializer):
     model_type = serializers.SerializerMethodField()
+    changed_by_profile = serializers.SerializerMethodField()
 
     def get_model_type(self, obj) -> str:
         return obj.content_type.model
 
+    def get_changed_by_profile(self, obj) -> dict | None:
+        from management.models.support_task import _serialize_user_profile
+        return _serialize_user_profile(obj.changed_by)
+
     class Meta:
         model = ObjectHistory
-        fields = ["id", "model_type", "changed_by_id", "changed_at", "type", "field", "old_value", "new_value"]
+        fields = ["id", "model_type", "changed_by_profile", "changed_at", "type", "field", "old_value", "new_value"]
