@@ -16,7 +16,7 @@
 {% render_bundle 'staticfiles' 'js' 'admin_panel_frontend' %}
 <script>
   const apiTranslations = JSON.parse('{{ api_translations | escapejs }}');
-  const apiOptions = JSON.parse('{{ api_options | escapejs }}');
+  const apiOptions = { ...JSON.parse('{{ api_options | escapejs }}'), current_user_id: {{ current_user_id }} };
   renderApp({ apiTranslations, apiOptions })
 </script>
 <div style="display: none;">{{csrf_token}}</div>

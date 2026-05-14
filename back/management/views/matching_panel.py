@@ -12,7 +12,7 @@ from management.utils import check_task_status
 @permission_classes([IsAdminOrMatchingUser])
 @authentication_classes([SessionAuthentication])
 def matching_panel(request, menu=None):
-    return render(request, "admin_pannel_v3_frontend.html")
+    return render(request, "admin_pannel_v3_frontend.html", {"current_user_id": request.user.id})
 
 
 @api_view(["GET"])
