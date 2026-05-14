@@ -1,4 +1,4 @@
-from django.db.models import Case, IntegerField, Value, When
+from django.db.models import Case, Count, IntegerField, Value, When
 from django.urls import path
 from rest_framework import serializers, status
 from rest_framework.authentication import SessionAuthentication
@@ -179,6 +179,21 @@ def support_task_action_cancel(request, task_pk):
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
+def support_task_stats(request):
+    rows = SupportTask.objects.values("status").annotate(count=Count("id"))
+    counts = {row["status"]: row["count"] for row in rows}
+    return Response(
+        {
+            "NEW": counts.get("NEW", 0),
+            "IN_PROGRESS": counts.get("IN_PROGRESS", 0),
+            "COMPLETED": counts.get("COMPLETED", 0),
+        }
+    )
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
 def staff_users(request):
     users = User.objects.filter(is_staff=True).values("id", "email", "first_name", "last_name")
     return Response(list(users))
@@ -187,6 +202,7 @@ def staff_users(request):
 api_urls = [
     path("api/support_task/", support_task_list),
     path("api/support_task/create/", support_task_create),
+    path("api/support_task/stats/", support_task_stats),
     path("api/support_task/staff_users/", staff_users),
     path("api/support_task/<int:pk>/", support_task_detail),
     path("api/support_task/<int:pk>/update/", support_task_update),
