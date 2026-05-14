@@ -11,11 +11,32 @@ _TRACKED_TASK_FIELDS = ("title", "description", "status", "priority", "assigned_
 _TRACKED_ACTION_FIELDS = ("status", "parameters")
 
 
+def _resolve_field(field, value):
+    """Return (display_field_name, display_value) — resolves FK ids to profile dicts."""
+    if field == "assigned_to_id":
+        if value is None:
+            return "assigned_to", None
+        try:
+            from management.models.user import User
+            user = User.objects.select_related("profile").get(pk=value)
+            return "assigned_to", _serialize_user_profile(user)
+        except Exception:
+            return "assigned_to", str(value)
+    return field, value
+
+
 def _history_diffs(obj, tracked_fields, update_fields=None):
-    """Return list of (field, old_val, new_val) for fields that changed vs DB state."""
+    """Return list of (display_field, old_val, new_val) for fields that changed vs DB state."""
     old = type(obj).objects.get(pk=obj.pk)
     check = tracked_fields if update_fields is None else tuple(f for f in tracked_fields if f in update_fields)
-    return [(f, getattr(old, f), getattr(obj, f)) for f in check if getattr(old, f) != getattr(obj, f)]
+    diffs = []
+    for f in check:
+        old_raw, new_raw = getattr(old, f), getattr(obj, f)
+        if old_raw != new_raw:
+            display_field, old_val = _resolve_field(f, old_raw)
+            _, new_val = _resolve_field(f, new_raw)
+            diffs.append((display_field, old_val, new_val))
+    return diffs
 
 
 class SupportTask(models.Model):
@@ -259,6 +280,7 @@ class SupportTaskSerializer(serializers.ModelSerializer):
     related_user_profile = serializers.SerializerMethodField()
     assigned_to_profile = serializers.SerializerMethodField()
     created_by_profile = serializers.SerializerMethodField()
+    assigned_to_id = serializers.IntegerField(required=False, allow_null=True, write_only=True)
 
     def get_related_user_profile(self, obj):
         return _serialize_user_profile(obj.related_user)
@@ -284,6 +306,7 @@ class SupportTaskSerializer(serializers.ModelSerializer):
             "description",
             "status",
             "priority",
+            "assigned_to_id",
             "related_user_profile",
             "assigned_to_profile",
             "created_by_profile",
