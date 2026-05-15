@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from chat.models import Chat, ChatSerializer, Message, MessageSerializer
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser, BaseUserManager
@@ -71,10 +73,17 @@ class User(AbstractUser):
     in the settings we set this via 'AUTH_USER_MODEL'
     """
 
+    # Legacy identifier kept for backward compatibility.
     hash = models.CharField(max_length=100, blank=True, unique=True, default=utils._double_uuid)  # type: ignore
+
+    uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
 
     objects: UserManager = UserManager()  # Register the custom user manager
 
+    # Stores the legacy backend hash before UUID becomes the canonical identifier.
+    old_backend_user_hash = models.CharField(max_length=100, blank=True, null=True, db_index=True)
+
+    # Deprecated legacy field from early migrations. Kept to avoid breaking historical data.
     old_backend_user_h256_pk = models.CharField(max_length=255, blank=True, null=True)
 
     def __init__(self, *args, **kwargs):
@@ -99,9 +108,9 @@ class User(AbstractUser):
 
         return settings.Settings.objects.get(user=self)
 
-    # Not only having but also displaying the full hashes is not necessary
+    # Not only having but also displaying the full identifier is not necessary
     def _abr_hash(self):
-        return self.hash[:8]
+        return str(self.uuid)[:8]
 
     # This is realy only a nicer wrapper for the user form filled state
     # will display the nice check mark in admin pannel
@@ -201,7 +210,7 @@ class User(AbstractUser):
         notification = Notification.objects.create(user=self, title=title, description=description)
 
         NotificationMessage(notification=NotificationSerializer(notification).data, show_toast=show_toast).send(
-            str(self.hash)
+            str(self.uuid)
         )
 
     def send_notification(self, title, description, persist=False):
@@ -336,7 +345,7 @@ class User(AbstractUser):
                         "user": self,
                     },
                 ).data,
-            ).send(self.hash)
+            ).send(str(self.uuid))
             if send_message_incoming_to_sender:
                 NewMessage(
                     message=serialized_message,
@@ -347,7 +356,7 @@ class User(AbstractUser):
                             "user": sender,
                         },
                     ).data,
-                ).send(sender.hash)
+                ).send(str(sender.uuid))
         return message
 
     def send_email(self, template_name, match_id=None, proposed_match_id=None, context={}):
@@ -370,11 +379,11 @@ class UserSerializer(serializers.ModelSerializer):
 class SelfUserSerializer(UserSerializer):
     class Meta:
         model = User
-        fields = ["email", "hash", "is_admin"]
+        fields = ["email", "uuid", "is_admin"]
 
 
 class CensoredUserSerializer(UserSerializer):
     class Meta:
         model = User
-        fields = ["hash", "is_admin"]
-        fields = ["hash", "is_admin"]
+        fields = ["uuid", "is_admin"]
+        fields = ["uuid", "is_admin"]

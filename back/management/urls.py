@@ -174,7 +174,7 @@ api_routes = [
     ),
     path("api/profile/completed/", profile.ProfileCompletedApi.as_view()),
     path(
-        "api/profile/<str:partner_hash>/match",
+        "api/profile/<str:partner_uuid>/match",
         matches.get_match,
     ),
     # e.g.: /user/verify/email/Base64{d=email&u=hash&k=pin:hash}
@@ -192,7 +192,7 @@ api_routes = [
 view_routes = [
     path("", main_frontend.MainFrontendRouter.as_view(), name="base_route"),
     path(
-        "set_password/<str:usr_hash>/<str:token>",
+        "set_password/<str:usr_uuid>/<str:token>",
         main_frontend.set_password_reset,
         name="set_password_reset",
     ),

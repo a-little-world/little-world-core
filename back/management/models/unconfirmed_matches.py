@@ -33,12 +33,12 @@ def serialize_proposed_matches(matching_proposals, user):
         partner = proposal.get_partner(user)
         rejected_by = None
         if proposal.rejected_by is not None:
-            rejected_by = proposal.rejected_by.hash
+            rejected_by = str(proposal.rejected_by.uuid)
         serialized.append(
             {
                 "id": str(proposal.hash),
                 "partner": {
-                    "id": str(partner.hash),
+                    "id": str(partner.uuid),
                     "has_match_priority": partner.state.has_match_priority,
                     **ProposalProfileSerializer(partner.profile).data,
                 },
@@ -214,7 +214,7 @@ class ProposedMatch(models.Model):
 
         return {
             "hash": str(self.hash),
-            "user_hash": other_user.hash,
+            "user_uuid": str(other_user.uuid),
             "first_name": other_user.first_name,
             "image_type": other_user.profile.image_type,
             "avatar_image": other_user.profile.avatar_config

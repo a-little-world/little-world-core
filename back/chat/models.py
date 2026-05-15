@@ -116,7 +116,7 @@ class ChatSerializer(serializers.ModelSerializer):
             if show_partner:
                 profile = management_models.profile.CensoredProfileSerializer(partner.profile).data
                 representation["partner"] = profile
-                representation["partner"]["id"] = partner.hash
+                representation["partner"]["id"] = str(partner.uuid)
             else:
                 representation["partner"] = {"censored": True, "id": "censored"}
                 representation["is_unmatched"] = True
@@ -127,8 +127,8 @@ class ChatSerializer(serializers.ModelSerializer):
             representation["unread_count"] = instance.get_unread_count(user)
             representation["newest_message"] = MessageSerializer(instance.get_newest_message()).data
         else:
-            representation["u1"] = instance.u1.hash
-            representation["u2"] = instance.u2.hash
+            representation["u1"] = str(instance.u1.uuid)
+            representation["u2"] = str(instance.u2.uuid)
 
         return representation
 
@@ -190,7 +190,7 @@ class MessageSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation["sender"] = instance.sender.hash
+        representation["sender"] = str(instance.sender.uuid)
 
         sender_staff = instance.sender.is_staff or instance.sender.has_perm(ManagementPermission.MATCHING_USER)
 

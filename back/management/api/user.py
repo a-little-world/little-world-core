@@ -24,7 +24,7 @@ from tracking.models import Event
 from translations import get_translation
 
 from management.authentication import NativeOnlyJWTAuthentication, silent
-from management.controller import UserNotFoundErr, delete_user, get_user_by_email, get_user_by_hash
+from management.controller import UserNotFoundErr, delete_user, get_user_by_email, get_user_by_uuid
 from management.models.banner import Banner, BannerSerializer
 from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
@@ -43,7 +43,7 @@ The public /user api's
 def verify_email_link(auth_data):
     try:
         _data = State.decode_email_auth_code_b64(auth_data)
-        usr = get_user_by_hash(_data["u"])
+        usr = get_user_by_uuid(_data["u"])
         if usr.state.check_email_auth_code_b64(auth_data):
             return True
     except Exception as e:
@@ -141,7 +141,7 @@ class NativeLoginSerializer(serializers.Serializer):
 @dataclass
 class AutoLoginData:
     u: str  # user
-    lookup: str  # lookup: hash | email | id
+    lookup: str  # lookup: uuid | email | id
     token: str  # auto login token
     n: Optional[str] = None  # next page
 
@@ -412,8 +412,8 @@ class ConfirmMatchesApi(APIView):
         try:
             # In order to keep things working while we deploy the new strategy this api will also populate all db-fileds required for the new strategy
             # This is a little more involved than it has to be, this will once finished be replaced by 'ConfirmMatchesApi2'
-            for match_hash in params.matches:
-                partner = get_user_by_hash(match_hash)
+            for match_uuid in params.matches:
+                partner = get_user_by_uuid(match_uuid)
 
                 from management.models.matches import Match
 
@@ -490,7 +490,7 @@ class UpdateSearchingStateApi(APIView):
 
 
 class UnmatchSelfSerializer(serializers.Serializer):
-    other_user_hash = serializers.CharField(required=True)
+    other_user_uuid = serializers.CharField(required=True)
     reason = serializers.CharField(required=True)
 
     def create(self, validated_data):
@@ -512,8 +512,8 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
     """
     # This is the url of our password reset view
     # We also pass the reset token to the view so it can be used to change the password
-    usr_hash = reset_password_token.user.hash
-    reset_password_url = f"{settings.BASE_URL}/set_password/{usr_hash}/{reset_password_token.key}"
+    usr_uuid = reset_password_token.user.uuid
+    reset_password_url = f"{settings.BASE_URL}/set_password/{usr_uuid}/{reset_password_token.key}"
 
     reset_password_token.user.send_email("reset-password", context={"reset_password_url": reset_password_url})
 
@@ -558,7 +558,7 @@ def get_user_data(user):
 
     cal_data_link = "{calcom_meeting_id}?{encoded_params}".format(
         encoded_params=urllib.parse.urlencode(
-            {"email": str(user.email), "hash": str(user.hash), "bookingcode": str(user.state.prematch_booking_code)}
+            {"email": str(user.email), "uuid": str(user.uuid), "bookingcode": str(user.state.prematch_booking_code)}
         ),
         calcom_meeting_id=settings.DJ_CALCOM_MEETING_ID,
     )
@@ -588,7 +588,7 @@ def get_user_data(user):
         self_onboarding_progress = max(0.0, min(1.0, onboarding_rank / float(SELF_ONBOARDING_COMPLETED_RANK)))
 
     return {
-        "id": str(user.hash),
+        "id": str(user.uuid),
         "banner": banner,
         "status": FrontendStatusSerializer(user_state).data,
         "isSupport": user.has_perm(ManagementPermission.MATCHING_USER) or user.is_staff,

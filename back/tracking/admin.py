@@ -21,7 +21,7 @@ class GraphModels(admin.ModelAdmin):
 @admin.register(Event)
 class EventAdmin(admin.ModelAdmin):
     list_display = ("_abr_hash", "name", "type", "user_ref", "time", "tags", "func", "metadata")
-    search_fields = ("hash", "name", "type", "tags", "caller__hash", "caller__email")
+    search_fields = ("hash", "name", "type", "tags", "caller__uuid", "caller__email")
     list_filter = ("caller",)
 
     # readonly_fields = ('user_ref',)

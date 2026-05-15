@@ -76,9 +76,9 @@ class HelpMessageStateAdmin(admin.ModelAdmin):
     search_fields = (
         "message",
         "user__email",
-        "user__hash",
+        "user__uuid",
         "reported_user__email",
-        "reported_user__hash",
+        "reported_user__uuid",
     )
     readonly_fields = ("created_at",)
 
@@ -279,22 +279,22 @@ class UserAdmin(HijackUserAdminMixin, DjangoUserAdmin):
         # return HTML link that will not be escaped
         print(obj)
         return mark_safe(
-            f'<a href="/admin_chat/?usr_hash={obj.hash}" target="_blank" rel="noopener noreferrer" >open</a>'
+            f'<a href="/admin_chat/?usr_uuid={obj.uuid}" target="_blank" rel="noopener noreferrer" >open</a>'
         )
 
     @admin.display(description="matching")
     def show_matching_suggestions(self, obj):
-        route = f"/admin/management/matchinscore/?matchable__exact=1&current_score__exact=1&q={obj.hash}&o=-4"
+        route = f"/admin/management/matchinscore/?matchable__exact=1&current_score__exact=1&q={obj.uuid}&o=-4"
         return mark_safe(f'<a href="{route}" target="_blank" rel="noopener noreferrer" >view suggestions</a>')
 
     @admin.display(description="activity")
     def view_tracked_activity(self, obj):
-        url = f"/admin/tracking/event/?q={obj.hash}&o=-5"
+        url = f"/admin/tracking/event/?q={obj.uuid}&o=-5"
         return mark_safe(f'<a href="{url}" target="_blank" rel="noopener noreferrer" >view tracked activity</a>')
 
     @admin.display(description="existing_matches")
     def show_matches_in_panel(self, obj):
-        route = f"/admin_panel/?matches={obj.hash}"
+        route = f"/admin_panel/?matches={obj.uuid}"
         return mark_safe(
             f'<a href="{route}" target="_blank" rel="noopener noreferrer" >show user and matches in admin panel</a>'
         )
@@ -312,7 +312,7 @@ class UserAdmin(HijackUserAdminMixin, DjangoUserAdmin):
     ]
 
     fieldsets = (
-        (None, {"fields": ("email", "password", "hash", "is_active", "last_login", "first_name", "last_name")}),
+        (None, {"fields": ("email", "password", "uuid", "is_active", "last_login", "first_name", "last_name")}),
     )
     add_fieldsets = (
         (
@@ -338,10 +338,10 @@ class UserAdmin(HijackUserAdminMixin, DjangoUserAdmin):
         "is_staff",
         "username",
     )
-    search_fields = ("email", "first_name", "last_name", "hash")
+    search_fields = ("email", "first_name", "last_name", "uuid")
     # fist & last names are read-only here,
     # the user can change the first / lastnames stored in profile, but not this one!
-    readonly_fields = ("hash", "first_name", "last_name")
+    readonly_fields = ("uuid", "first_name", "last_name")
     ordering = ("email", "is_staff")
     list_filter = (
         UserFormFilledFilter,
