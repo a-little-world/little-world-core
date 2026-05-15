@@ -28,7 +28,7 @@ class MessageTypes(Enum):
 
 def send_message(user_id, type: MessageTypes, data):
     channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(user_id, data)
+    async_to_sync(channel_layer.group_send)(str(user_id), data)
 
 
 @dataclass
