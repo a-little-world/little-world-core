@@ -3,6 +3,22 @@ from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 
+from management.api.calcom import _extract_user_field_value
+
+
+class TestCalcomFieldExtraction(TestCase):
+    def test_extracts_uuid_from_user_fields_responses(self):
+        payload = {"userFieldsResponses": {"uuid": {"value": "user-uuid"}}}
+        self.assertEqual(_extract_user_field_value(payload, "uuid"), "user-uuid")
+
+    def test_extracts_uuid_from_responses(self):
+        payload = {"responses": {"uuid": {"value": "user-uuid"}}}
+        self.assertEqual(_extract_user_field_value(payload, "uuid"), "user-uuid")
+
+    def test_extracts_uuid_from_custom_inputs(self):
+        payload = {"customInputs": {"uuid": "user-uuid"}}
+        self.assertEqual(_extract_user_field_value(payload, "uuid"), "user-uuid")
+
 
 class TestCalcomWebhookCallback(TestCase):
     @override_settings(DJ_CALCOM_QUERY_ACCESS_PARAM="test-secret")

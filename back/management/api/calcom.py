@@ -86,6 +86,28 @@ def translate_to_german_date(date_str, target_timezone="Europe/Berlin"):
     return german_date_string
 
 
+def _extract_user_field_value(payload, field_name):
+    user_fields_responses = payload.get("userFieldsResponses", {}) or {}
+    if isinstance(user_fields_responses, dict):
+        value = user_fields_responses.get(field_name, {}).get("value")
+        if value:
+            return value
+
+    responses = payload.get("responses", {}) or {}
+    if isinstance(responses, dict):
+        value = responses.get(field_name, {}).get("value")
+        if value:
+            return value
+
+    custom_inputs = payload.get("customInputs", {}) or {}
+    if isinstance(custom_inputs, dict):
+        value = custom_inputs.get(field_name)
+        if value:
+            return value
+
+    return None
+
+
 @api_view(["POST"])
 @authentication_classes([])
 @permission_classes([])
@@ -104,14 +126,13 @@ def callcom_websocket_callback(request):
     if not isinstance(payload, dict):
         return Response("ok")
 
-    user_fields_responses = payload.get("userFieldsResponses", {})
     start_time = payload.get("startTime")
     end_time = payload.get("endTime")
-    user_uuid = user_fields_responses.get("uuid", {}).get("value")
+    user_uuid = _extract_user_field_value(payload, "uuid")
     if not user_uuid:
         # Legacy fallback for old booking forms.
-        user_uuid = user_fields_responses.get("hash", {}).get("value")
-    booking_code = user_fields_responses.get("bookingcode", {}).get("value")
+        user_uuid = _extract_user_field_value(payload, "hash")
+    booking_code = _extract_user_field_value(payload, "bookingcode")
     if not start_time or not end_time or not user_uuid or not booking_code:
         return Response("ok")
 
