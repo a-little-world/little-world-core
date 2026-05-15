@@ -51,6 +51,7 @@
 bd34b6821b', 'HTTP_X_FORWARDED_FOR': 'X_FORWARDED_FOR', 'HTTP_X_FORWARDED_PROTO': 'https', 'HTTP_X_VERCEL_ID': 'VERCEL_ID'}
 """
 
+import urllib.parse
 from datetime import timedelta
 
 import pytz
@@ -64,8 +65,9 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.response import Response
 from translations import get_translation
 
-from management.controller import get_user_by_uuid
+from management.controller import UserNotFoundErr, get_user_by_email, get_user_by_uuid
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
+from management.models.state import State
 from management.tasks import send_sms_background
 
 
@@ -105,6 +107,46 @@ def _extract_user_field_value(payload, field_name):
         if value:
             return value
 
+    metadata = payload.get("metadata", {}) or {}
+    if isinstance(metadata, dict):
+        value = metadata.get(field_name)
+        if value:
+            return value
+
+    value = payload.get(field_name)
+    if value:
+        return value
+
+    return None
+
+
+def _extract_query_param_from_url(url, field_name):
+    if not url or not isinstance(url, str):
+        return None
+    parsed = urllib.parse.urlparse(url)
+    values = urllib.parse.parse_qs(parsed.query).get(field_name, [])
+    return values[0] if values else None
+
+
+def _extract_attendee_nested_response(payload, field_name):
+    attendees = payload.get("attendees", []) or []
+    if not isinstance(attendees, list):
+        return None
+    for attendee in attendees:
+        if not isinstance(attendee, dict):
+            continue
+        booking_seat = attendee.get("bookingSeat", {}) or {}
+        if not isinstance(booking_seat, dict):
+            continue
+        data = booking_seat.get("data", {}) or {}
+        if not isinstance(data, dict):
+            continue
+        responses = data.get("responses", {}) or {}
+        if not isinstance(responses, dict):
+            continue
+        value = responses.get(field_name)
+        if value:
+            return value
     return None
 
 
@@ -133,20 +175,80 @@ def callcom_websocket_callback(request):
         # Legacy fallback for old booking forms.
         user_uuid = _extract_user_field_value(payload, "hash")
     booking_code = _extract_user_field_value(payload, "bookingcode")
-    if not start_time or not end_time or not user_uuid or not booking_code:
+    if not user_uuid:
+        for url_field_name in ("bookerUrl", "bookingUrl", "rescheduleUrl", "cancelUrl"):
+            url_value = payload.get(url_field_name)
+            user_uuid = _extract_query_param_from_url(url_value, "uuid") or _extract_query_param_from_url(
+                url_value, "hash"
+            )
+            if user_uuid:
+                break
+
+    if not booking_code:
+        for url_field_name in ("bookerUrl", "bookingUrl", "rescheduleUrl", "cancelUrl"):
+            url_value = payload.get(url_field_name)
+            booking_code = _extract_query_param_from_url(url_value, "bookingcode")
+            if booking_code:
+                break
+    if not booking_code:
+        booking_code = _extract_attendee_nested_response(payload, "bookingcode")
+
+    user_email = _extract_user_field_value(payload, "email")
+    if not user_email:
+        attendees = payload.get("attendees", []) or []
+        if isinstance(attendees, list) and len(attendees) > 0 and isinstance(attendees[0], dict):
+            user_email = attendees[0].get("email")
+
+    if not start_time or not end_time or (not user_uuid and not user_email):
+        print(
+            "CALCOM: missing required fields",
+            {
+                "start_time": bool(start_time),
+                "end_time": bool(end_time),
+                "user_uuid": bool(user_uuid),
+                "user_email": bool(user_email),
+            },
+        )
         return Response("ok")
 
     start_time_normalized = translate_to_german_date(start_time)
     # end_time = translate_to_german_date(payload["endTime"])
     # organizer_email = payload["organizer"]["email"]
 
-    user = get_user_by_uuid(user_uuid)
+    user = None
+    if user_uuid:
+        try:
+            user = get_user_by_uuid(user_uuid)
+        except (ValueError, LookupError, UserNotFoundErr):
+            user = None
+    if user is None and user_email:
+        try:
+            user = get_user_by_email(user_email)
+        except UserNotFoundErr:
+            user = None
+    if user is None and booking_code:
+        user_state = State.objects.select_related("user").filter(prematch_booking_code=str(booking_code)).first()
+        if user_state is not None:
+            user = user_state.user
+    if user is None:
+        print(
+            "CALCOM: unable to resolve user",
+            {"user_uuid": user_uuid, "user_email": user_email, "booking_code": booking_code},
+        )
+        return Response("ok")
 
-    print("EVENT TYPE", event_type, user, booking_code, start_time_normalized, start_time)
-    print(request.data)
+    print("CALCOM: booking created", {"user": str(user.uuid), "booking_code": booking_code, "start_time": start_time})
 
     if event_type == "BOOKING_CREATED":
-        assert str(user.state.prematch_booking_code) == str(booking_code)
+        expected_booking_code = str(user.state.prematch_booking_code)
+        if booking_code and str(booking_code) != expected_booking_code:
+            print(
+                "CALCOM: booking code mismatch",
+                {"user_uuid": str(user.uuid), "expected": expected_booking_code, "received": str(booking_code)},
+            )
+            return Response("ok")
+        if not booking_code:
+            print("CALCOM: booking code missing, proceeding with uuid", {"user_uuid": str(user.uuid)})
 
         user.message(
             get_translation("auto_messages.appointment_booked", lang="de").format(
