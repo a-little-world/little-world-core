@@ -15,20 +15,23 @@ def short_link_click(request, tag):
     short_link = ShortLink.objects.get(tag=tag)
     # Only associate the user if they're authenticated
     source = request.query_params.get("source", "none")
-    user_hash = request.query_params.get("user_hash", "none")
+    user_uuid = request.query_params.get("user_uuid", "none")
 
     # also allow 'abreviations' for the query params
     if source == "none":
         source = request.query_params.get("s", "none")
-    if user_hash == "none":
-        user_hash = request.query_params.get("u", "none")
-        if user_hash == "none":
-            user_hash = request.query_params.get("h", "none")
+    if user_uuid == "none":
+        user_uuid = request.query_params.get("u", "none")
+        if user_uuid == "none":
+            user_uuid = request.query_params.get("h", "none")
+    if user_uuid == "none":
+        # Legacy query parameter kept during transition.
+        user_uuid = request.query_params.get("user_hash", "none")
 
     user = None
     if not request.user.is_authenticated:
-        if user_hash:
-            qs_user = User.objects.filter(hash=user_hash)
+        if user_uuid:
+            qs_user = User.objects.filter(uuid=user_uuid)
             if qs_user.exists():
                 user = qs_user.first()
     else:

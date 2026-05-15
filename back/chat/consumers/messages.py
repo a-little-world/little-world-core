@@ -197,10 +197,10 @@ def send_test_callback(request, callback_name, user_id):
     params = request.data
     callback = CALLBACKS[callback_name]
     callback(**params).send(user_id)
-    from management.controller import get_user_by_hash
+    from management.controller import get_user_by_uuid
 
     try:
-        get_user_by_hash(user_id)
+        get_user_by_uuid(user_id)
     except (ValueError, LookupError):
         return Response({"status": "error", "message": "User not found"}, status=404)
     return Response({"status": "ok"})

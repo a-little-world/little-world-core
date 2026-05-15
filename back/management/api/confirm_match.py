@@ -2,8 +2,6 @@
 This contains all api's related to confirming or denying a match
 """
 
-from dataclasses import dataclass
-
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
@@ -11,7 +9,6 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework_dataclasses.serializers import DataclassSerializer
 from translations import get_translation
 
 from management.api.matches import AdvancedUserMatchSerializer
@@ -21,16 +18,19 @@ from management.models.state import State
 from management.models.unconfirmed_matches import ProposedMatch
 
 
-@dataclass
-class ConfirmMatchData:
-    unconfirmed_match_hash: str
-    confirm: bool
-    deny_reason: str = None
+class ConfirmMatchSerializer(serializers.Serializer):
+    unconfirmed_match_uuid = serializers.CharField(required=False, allow_blank=False)
+    # Backward-compatible fallback during the hash -> uuid transition.
+    unconfirmed_match_hash = serializers.CharField(required=False, allow_blank=False)
+    confirm = serializers.BooleanField()
+    deny_reason = serializers.CharField(required=False, allow_null=True, allow_blank=True)
 
-
-class ConfirmMatchSerializer(DataclassSerializer):
-    class Meta:
-        dataclass = ConfirmMatchData
+    def validate(self, attrs):
+        if not attrs.get("unconfirmed_match_uuid") and not attrs.get("unconfirmed_match_hash"):
+            raise serializers.ValidationError(
+                {"unconfirmed_match_uuid": get_translation("confirm_match.unconfimed_match_not_found")}
+            )
+        return attrs
 
 
 @extend_schema(
@@ -44,9 +44,10 @@ def confirm_match(request):
     serializer = ConfirmMatchSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
 
-    data = serializer.save()
+    data = serializer.validated_data
 
-    unconfirmed_match = ProposedMatch.objects.filter(hash=data.unconfirmed_match_hash, closed=False)
+    match_identifier = data.get("unconfirmed_match_uuid") or data.get("unconfirmed_match_hash")
+    unconfirmed_match = ProposedMatch.objects.filter(hash=match_identifier, closed=False)
 
     # First check if that unconfirmed match exists
     if not unconfirmed_match.exists():
@@ -62,7 +63,7 @@ def confirm_match(request):
         raise serializers.ValidationError(get_translation("confirm_match.unconfimed_match_expired"))
 
     # now check the user choice
-    if data.confirm:
+    if data["confirm"]:
         matching = match_users(
             {unconfirmed_match.user1, unconfirmed_match.user2},
             match_type=unconfirmed_match.match_type,
@@ -79,7 +80,7 @@ def confirm_match(request):
 
         from chat.consumers.messages import InUnconfirmedMatchAdded
 
-        InUnconfirmedMatchAdded(matches[0]).send(partner.hash)
+        InUnconfirmedMatchAdded(matches[0]).send(str(partner.uuid))
 
         return Response(
             {
@@ -93,7 +94,7 @@ def confirm_match(request):
         unconfirmed_match.rejected = True
         unconfirmed_match.rejected_at = timezone.now()
         unconfirmed_match.rejected_by = request.user
-        unconfirmed_match.rejected_reason = data.deny_reason
+        unconfirmed_match.rejected_reason = data.get("deny_reason")
         unconfirmed_match.save()
 
         if not request.user.state.has_match_priority:

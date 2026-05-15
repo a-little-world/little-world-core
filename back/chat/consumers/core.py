@@ -39,7 +39,7 @@ class CoreConsumer(AsyncWebsocketConsumer):
             await self.close(code=UNAUTH_REJECT_CODE)
         else:
             self.user = self.scope["user"]
-            self.group_name = self.user.hash
+            self.group_name = str(self.user.uuid)
 
             # Join 'user self' group
             await self.channel_layer.group_add(self.group_name, self.channel_name)

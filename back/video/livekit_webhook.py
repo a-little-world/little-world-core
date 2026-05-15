@@ -89,7 +89,9 @@ def process_webhook_classic_call__participant_joined(data, event, participant_id
         session.save()
         # 5 - send 'NewActiveCall' event to the partner of the user that joined
         partner = room.u1 if user == room.u2 else room.u2
-        NewActiveCallRoom(call_room=SerializeLivekitSession(session, context={"user": partner}).data).send(partner.hash)
+        NewActiveCallRoom(call_room=SerializeLivekitSession(session, context={"user": partner}).data).send(
+            str(partner.uuid)
+        )
     else:
         raise Exception(
             "Edge-Case Detected (@tbscode) classic call participant joined: session not found for room:", room.uuid
@@ -182,7 +184,7 @@ def process_webhook_classic_call__participant_left(data, event, participant_id, 
                 # Now we can trigger the call review pop-up for the user that left
                 from chat.consumers.messages import PostCallSurvey
 
-                PostCallSurvey(post_call_survey={"live_session_id": str(session.uuid)}).send(user.hash)
+                PostCallSurvey(post_call_survey={"live_session_id": str(session.uuid)}).send(str(user.uuid))
             except Exception:
                 print("Cound't tigger the post call survey")
                 pass
@@ -197,7 +199,7 @@ def process_webhook_classic_call__participant_left(data, event, participant_id, 
 
     # 4 - send 'BlockIncomingCall' event to the partner of the user that left
     partner = room.u1 if user == room.u2 else room.u2
-    InBlockIncomingCall(sender_id=participant_id).send(partner.hash)
+    InBlockIncomingCall(sender_id=participant_id).send(str(partner.uuid))
 
 
 def process_webhook_random_call__participant_left(data, event, participant_id, user, room_id, room):
@@ -246,7 +248,7 @@ def process_webhook_random_call__participant_left(data, event, participant_id, u
 
     # 4 - send 'BlockIncomingCall' event to the partner of the user that left
     partner = room.u1 if user == room.u2 else room.u2
-    InBlockIncomingCall(sender_id=participant_id).send(partner.hash)
+    InBlockIncomingCall(sender_id=participant_id).send(str(partner.uuid))
 
 
 @csrf_exempt
@@ -273,7 +275,7 @@ def livekit_webhook(request):
 
         # 2 - we determine the user that just joined
         participant_id = data["participant"]["identity"]
-        user = User.objects.get(hash=participant_id)
+        user = User.objects.get(uuid=participant_id)
 
         if room.random_call_room:
             process_webhook_random_call__participant_joined(data, event, participant_id, user, room_id, room)
@@ -290,7 +292,7 @@ def livekit_webhook(request):
 
         # 2 - we determine the user that just joined
         participant_id = data["participant"]["identity"]
-        user = User.objects.get(hash=participant_id)
+        user = User.objects.get(uuid=participant_id)
 
         if random_call_session:
             process_webhook_random_call__participant_left(data, event, participant_id, user, room_id, room)

@@ -40,14 +40,14 @@ class AdvancedEmailLogSerializer(serializers.ModelSerializer):
 
         representation["sender"] = {
             "id": instance.sender.pk,
-            "hash": instance.sender.hash,
+            "uuid": str(instance.sender.uuid),
             "email": instance.sender.email,
             "profile": MinimalProfileSerializer(instance.sender.profile).data,
         }
 
         representation["receiver"] = {
             "id": instance.receiver.pk,
-            "hash": instance.receiver.hash,
+            "uuid": str(instance.receiver.uuid),
             "email": instance.receiver.email,
             "profile": MinimalProfileSerializer(instance.receiver.profile).data,
         }
