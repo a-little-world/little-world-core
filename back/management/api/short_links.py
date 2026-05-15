@@ -30,7 +30,7 @@ def short_link_click(request, tag):
 
     user = None
     if not request.user.is_authenticated:
-        if user_uuid:
+        if user_uuid and user_uuid != "none":
             qs_user = User.objects.filter(uuid=user_uuid)
             if qs_user.exists():
                 user = qs_user.first()
