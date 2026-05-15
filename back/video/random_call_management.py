@@ -77,7 +77,7 @@ class RandomCallLobbyManagementSerializer(serializers.Serializer):
 
 class RandomCallUserSerializer(serializers.Serializer):
     uuid = serializers.CharField()
-    user_hash = serializers.CharField()
+    user_uuid = serializers.CharField()
     user_name = serializers.CharField()
     user_type = serializers.ChoiceField(choices=Profile.TypeChoices.choices, required=True)
     is_active = serializers.BooleanField()
@@ -87,10 +87,10 @@ class RandomCallUserSerializer(serializers.Serializer):
 
 class RandomCallMatchSerializer(serializers.Serializer):
     uuid = serializers.CharField()
-    u1_hash = serializers.CharField()
+    u1_uuid = serializers.CharField()
     u1_name = serializers.CharField()
     u1_user_type = serializers.ChoiceField(choices=Profile.TypeChoices.choices, required=True)
-    u2_hash = serializers.CharField()
+    u2_uuid = serializers.CharField()
     u2_name = serializers.CharField()
     u2_user_type = serializers.ChoiceField(choices=Profile.TypeChoices.choices, required=True)
     u1_accepted = serializers.BooleanField()
@@ -152,7 +152,7 @@ def get_lobby_management_overview(request, lobby_name="default"):
         active_users_data.append(
             {
                 "uuid": str(lobby_user.uuid),
-                "user_hash": user.hash,
+                "user_uuid": str(user.uuid),
                 "user_name": f"{user.profile.first_name}",
                 "user_type": user.profile.user_type,
                 "is_active": lobby_user.is_active,
@@ -178,10 +178,10 @@ def get_lobby_management_overview(request, lobby_name="default"):
     for match in all_matches:
         match_data = {
             "uuid": str(match.uuid),
-            "u1_hash": match.u1.hash,
+            "u1_uuid": str(match.u1.uuid),
             "u1_name": f"{match.u1.profile.first_name}",
             "u1_user_type": match.u1.profile.user_type,
-            "u2_hash": match.u2.hash,
+            "u2_uuid": str(match.u2.uuid),
             "u2_name": f"{match.u2.profile.first_name}",
             "u2_user_type": match.u2.profile.user_type,
             "u1_accepted": match.u1_accepted,
@@ -261,7 +261,7 @@ def get_lobby_management_overview(request, lobby_name="default"):
 
 
 class ClearUserProposalsSerializer(serializers.Serializer):
-    user_hash = serializers.CharField()
+    user_uuid = serializers.CharField()
 
 
 @api_view(["POST"])
@@ -276,10 +276,10 @@ def clear_user_random_call_proposals(request, lobby_name="default"):
     if not serializer.is_valid():
         return Response({"error": serializer.errors}, status=400)
 
-    user_hash = serializer.validated_data["user_hash"]
+    user_uuid = serializer.validated_data["user_uuid"]
 
     updated_count = RandomCallMatching.objects.filter(
-        Q(u1__hash=user_hash) | Q(u2__hash=user_hash),
+        Q(u1__uuid=user_uuid) | Q(u2__uuid=user_uuid),
         accepted=False,
         rejected=False,
         expired=False,
@@ -291,7 +291,7 @@ def clear_user_random_call_proposals(request, lobby_name="default"):
             "success": True,
             "message": "Random call proposals cleared successfully",
             "updated_count": updated_count,
-            "user_hash": user_hash,
+            "user_uuid": user_uuid,
         },
         status=200,
     )

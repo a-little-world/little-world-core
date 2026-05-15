@@ -118,7 +118,7 @@ def get_match_waiting_time(user):
 class ExportUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "email", "hash"]
+        fields = ["id", "email", "uuid"]
 
     def to_representation(self, instance):
         representation = build_user_report_entry(instance)
@@ -134,7 +134,7 @@ class ListUserSerializer(serializers.ModelSerializer):
 class AdvancedUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["hash", "id", "email", "date_joined", "last_login"]
+        fields = ["uuid", "id", "email", "date_joined", "last_login"]
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -263,12 +263,12 @@ class AdvancedMatchingScoreSerializer(serializers.ModelSerializer):
         representation["markdown_info"] = markdown_info
 
         representation["from_usr"] = {
-            "uuid": user.hash,
+            "uuid": str(user.uuid),
             "id": user.id,
             **AdvancedUserSerializer(user).data,
         }
         representation["to_usr"] = {
-            "uuid": partner.hash,
+            "uuid": str(partner.uuid),
             "id": partner.id,
             **AdvancedUserSerializer(partner).data,
         }
@@ -458,7 +458,7 @@ class UserFilter(filters.FilterSet):
 
     class Meta:
         model = User
-        fields = ["hash", "id", "email"]
+        fields = ["uuid", "id", "email"]
 
 
 class InviteNativeAppTesterRequestSerializer(serializers.Serializer):
@@ -527,13 +527,13 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             self.kwargs["pk"] = int(self.kwargs["pk"])
             return super().get_object()
         else:
-            # The two alternate lookup options are email & hash
+            # The two alternate lookup options are email & uuid
             # So lets check if there is an '@' in the string
             is_email = "@" in self.kwargs["pk"]
             if is_email:
                 return super().get_queryset().get(email=self.kwargs["pk"])
             else:
-                return super().get_queryset().get(hash=self.kwargs["pk"])
+                return super().get_queryset().get(uuid=self.kwargs["pk"])
 
     @action(detail=True, methods=["get"])
     def scores(self, request, pk=None):

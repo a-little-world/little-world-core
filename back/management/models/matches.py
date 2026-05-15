@@ -186,7 +186,7 @@ class Match(models.Model):
                     "match_id": match.id,
                     "time": str(timezone.now()),
                     "user_id": user.pk,
-                    "user_uuid": user.hash,
+                    "user_uuid": str(user.uuid),
                 }
             )
             match.save()

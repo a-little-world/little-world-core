@@ -104,9 +104,9 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         from chat.consumers.messages import MessagesReadChat
 
         MessagesReadChat(
-            user_id=request.user.hash,  # all messages with receiver=user.hash will be marked 'read'
+            user_id=str(request.user.uuid),  # all messages with receiver=user.uuid will be marked 'read'
             chat_id=str(chat.uuid),
-        ).send(partner.hash)
+        ).send(str(partner.uuid))
 
         return Response({"status": "ok"}, status=200)
 
@@ -248,7 +248,7 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
             message=serialized_message,
             chat_id=str(chat.uuid),
             meta_chat_obj=ChatSerializer(chat, context={"user": partner}).data,
-        ).send(partner.hash)
+        ).send(str(partner.uuid))
 
         return Response(serialized_message, status=200)
 

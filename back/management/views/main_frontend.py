@@ -125,7 +125,7 @@ class MainFrontendRouter(View):
         extra_template_data = {}
         with translation.override("tag"):
             user_data = get_user_data(request.user)
-        extra_template_data["sentry_user_id"] = request.user.hash
+        extra_template_data["sentry_user_id"] = str(request.user.uuid)
 
         # The cookie banner must also be include inside the main app, cause this enabled conversion on the user form
         # The cookie banner OPTIONALLY loads the tracking scripts ONLY IF the cookies where accepted before!
@@ -228,12 +228,12 @@ def handler500(request, exception=None):
 
 @dataclass
 class SetPasswordResetParams:
-    usr_hash: str
+    usr_uuid: str
     token: str
 
 
 class SetPasswordResetSerializer(serializers.Serializer):
-    usr_hash = serializers.CharField(required=True)
+    usr_uuid = serializers.CharField(required=True)
     token = serializers.CharField(required=True)
 
     def create(self, validated_data):
@@ -243,7 +243,7 @@ class SetPasswordResetSerializer(serializers.Serializer):
 def set_password_reset(request, **kwargs):
     # can only be opened with a valid token, ensured by reset token serializer
     serializer = SetPasswordResetSerializer(
-        data={"usr_hash": kwargs.get("usr_hash", None), "token": kwargs.get("token", None)}
+        data={"usr_uuid": kwargs.get("usr_uuid", None), "token": kwargs.get("token", None)}
     )  # type: ignore
 
     serializer.is_valid(raise_exception=True)
@@ -267,4 +267,4 @@ def set_password_reset(request, **kwargs):
         )
 
     # otherwise redirect to the change password frontend page
-    return redirect(f"/reset-password/{params.usr_hash}/{params.token}/")
+    return redirect(f"/reset-password/{params.usr_uuid}/{params.token}/")

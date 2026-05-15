@@ -55,7 +55,7 @@ async def create_livekit_room(room_name):
 def authenticate_live_kit_room(request):
     # 1 - gather the user
     user = request.user
-    partner = User.objects.get(hash=request.data["partner_id"])
+    partner = User.objects.get(uuid=request.data["partner_id"])
 
     chat = ChatSerializer(Chat.get_chat([user, partner]), context={"user": user}).data
 
@@ -70,7 +70,7 @@ def authenticate_live_kit_room(request):
     # 4 - generate autenticaton token
     token = (
         livekit_api.AccessToken(api_key=settings.LIVEKIT_API_KEY, api_secret=settings.LIVEKIT_API_SECRET)
-        .with_identity(user.hash)
+        .with_identity(str(user.uuid))
         .with_name(user.profile.first_name)
         .with_grants(
             livekit_api.VideoGrants(
@@ -133,7 +133,7 @@ def post_call_review(request):
 
     # Can be triggered anytime via ( you may obmit the live_session_id if you want to )
     # from chat.consumers.messages import PostCallSurvey
-    # PostCallSurvey(post_call_survey={"live_session_id": str(live_session.uuid)}).send(request.user.hash)
+    # PostCallSurvey(post_call_survey={"live_session_id": str(live_session.uuid)}).send(str(request.user.uuid))
 
     return Response({"status": "ok", "review_id": review.id})
 
@@ -165,14 +165,14 @@ def active_call_rooms(request):
 @permission_classes([IsAuthenticated])
 def call_retrigger(request):
     try:
-        partner = User.objects.get(hash=request.data["partner_id"])
+        partner = User.objects.get(uuid=request.data["partner_id"])
         room = LiveKitRoom.objects.get(uuid=request.data["session_id"])
         active_session = LivekitSession.objects.filter(room=room, is_active=True)
 
         if active_session.exists():
             session = active_session.first()
             NewActiveCallRoom(call_room=SerializeLivekitSession(session, context={"user": partner}).data).send(
-                partner.hash
+                str(partner.uuid)
             )
             return Response({"status": "ok"})
         return Response({"error": "Session not found"}, status=400)
@@ -201,7 +201,7 @@ def call_rejected(request):
 
     try:
         # Get the partner who initiated the call
-        partner = User.objects.get(hash=validated_data["partner_id"])
+        partner = User.objects.get(uuid=validated_data["partner_id"])
 
         # Get the room/session
         room = LiveKitRoom.objects.get(uuid=validated_data["session_id"])
@@ -215,7 +215,7 @@ def call_rejected(request):
             return Response({"status": "error", "message": "Invalid partner for this call"}, status=400)
 
         # Send OutgoingCallRejected message to the partner (call initiator)
-        OutgoingCallRejected().send(partner.hash)
+        OutgoingCallRejected().send(str(partner.uuid))
         return Response({"status": "ok"})
 
     except User.DoesNotExist:

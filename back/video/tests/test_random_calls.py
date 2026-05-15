@@ -450,7 +450,7 @@ class RandomCallsTests(TestCase):
             user_match_count[matching.u2] = user_match_count.get(matching.u2, 0) + 1
 
         for user, count in user_match_count.items():
-            self.assertEqual(count, 1, f"User {user.hash} should be matched exactly once")
+            self.assertEqual(count, 1, f"User {user.uuid} should be matched exactly once")
 
         # Find unmatched user
         unmatched_users = [u for u in users if u not in matched_users]
@@ -511,15 +511,15 @@ class RandomCallsTests(TestCase):
             self.assertEqual(user_status.status_code, 200)
 
             # Find this user in management API data
-            user_in_mgmt = next((u for u in active_users if u["user_hash"] == user.hash), None)
-            self.assertIsNotNone(user_in_mgmt, f"User {user.hash} should appear in management overview")
+            user_in_mgmt = next((u for u in active_users if u["user_uuid"] == str(user.uuid)), None)
+            self.assertIsNotNone(user_in_mgmt, f"User {user.uuid} should appear in management overview")
 
             # Verify has_pending_match flag consistency
             user_has_match = user_status.data["matching"] is not None
             self.assertEqual(
                 user_in_mgmt["has_pending_match"],
                 user_has_match,
-                f"Management API has_pending_match should match user status for {user.hash}",
+                f"Management API has_pending_match should match user status for {user.uuid}",
             )
 
             # If user has a match, verify match details consistency
@@ -686,7 +686,7 @@ class RandomCallsTests(TestCase):
             self.client.force_authenticate(user=user)
             response = self.client.get(f"{self.lobby_api_url}/status")
             self.assertEqual(response.status_code, 200)
-            self.assertIsNotNone(response.data["matching"], f"User {user.hash} should have a matching")
+            self.assertIsNotNone(response.data["matching"], f"User {user.uuid} should have a matching")
 
         # Phase 4: First pair accepts
         match1 = matchings[0]

@@ -59,7 +59,7 @@ class SendHelpMessage(APIView):
         reported_user = None
         if data.get("reported_user_id"):
             try:
-                reported_user = User.objects.get(hash=data["reported_user_id"])
+                reported_user = User.objects.get(uuid=data["reported_user_id"])
             except User.DoesNotExist as exc:
                 raise serializers.ValidationError({"reported_user_id": "Reported user does not exist"}) from exc
 

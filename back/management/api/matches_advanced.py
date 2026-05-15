@@ -47,14 +47,14 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
 
         representation["user1"] = {
             "id": user1.pk,
-            "hash": user1.hash,
+            "uuid": str(user1.uuid),
             "email": user1.email,
             "has_match_priority": user1.state.has_match_priority,
             "profile": MinimalProfileSerializer(user1.profile).data,
         }
         representation["user2"] = {
             "id": user2.pk,
-            "hash": user2.hash,
+            "uuid": str(user2.uuid),
             "email": user2.email,
             "has_match_priority": user2.state.has_match_priority,
             "profile": MinimalProfileSerializer(user2.profile).data,
@@ -142,7 +142,7 @@ class ExportMatchSerializer(serializers.ModelSerializer):
 
         representation["user1"] = {
             "id": instance.user1.id,
-            "hash": instance.user1.hash,
+            "uuid": str(instance.user1.uuid),
             "email": instance.user1.email,
             "has_match_priority": instance.user1.state.has_match_priority,
             "profile": {
@@ -153,7 +153,7 @@ class ExportMatchSerializer(serializers.ModelSerializer):
         }
         representation["user2"] = {
             "id": instance.user2.id,
-            "hash": instance.user2.hash,
+            "uuid": str(instance.user2.uuid),
             "email": instance.user2.email,
             "has_match_priority": instance.user2.state.has_match_priority,
             "profile": {

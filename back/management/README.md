@@ -34,7 +34,7 @@ Trigger the post call survey:
 from management.models.user import User
 from chat.consumers.messages import PostCallSurvey
 user = User.objects.get(email=...)
-PostCallSurvey(post_call_survey={"live_session_id": "Random-UUID"}).send(user.hash)
+PostCallSurvey(post_call_survey={"live_session_id": "Random-UUID"}).send(str(user.uuid))
 ```
 
 or trigger an incoming call:
@@ -75,5 +75,5 @@ NewActiveCallRoom(
             "id": "0f12ec83-fbd5-4e69-8452-f7af3116e570-374bdfe6-515b-48d9-bf0a-89a179e1b7a7",
         },
     }
-).send(user.hash)
+).send(str(user.uuid))
 ```

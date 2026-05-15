@@ -12,7 +12,6 @@ from django.db.models import Q
 from django.utils import timezone
 from translations import get_translation
 
-from management import controller
 from management.models.matches import Match
 from management.models.past_matches import PastMatch
 from management.models.profile import Profile
@@ -45,12 +44,14 @@ user_models = {  # Model, primary key name
 
 def get_user(user, lookup="email"):
     """
-    Three ways to look up a user: email, hash or pk
+    Three ways to look up a user: email, uuid or pk
     pk is obviously the fastest, but generaly we shouldn't have to care
     we could also add some neat indexing here to speed up further
     """
     if lookup == "email":
         return get_user_by_email(user)
+    elif lookup == "uuid":
+        return get_user_by_uuid(user)
     elif lookup == "hash":
         return get_user_by_hash(user)
     elif lookup == "pk":
@@ -73,8 +74,16 @@ def get_user_by_email(email):
     return __user_get_catch(email=email)
 
 
+def get_user_by_uuid(user_uuid) -> User:
+    return __user_get_catch(uuid=user_uuid)
+
+
 def get_user_by_hash(hash) -> User:
-    return __user_get_catch(hash=hash)
+    # First try legacy hash lookup. Fallback to UUID for transition safety.
+    try:
+        return __user_get_catch(hash=hash)
+    except UserNotFoundErr:
+        return get_user_by_uuid(hash)
 
 
 # We accept string input, but this will error if its not convertable to int
@@ -106,7 +115,7 @@ def make_tim_support_user(
 ):
     # 1. We need to remove oliver as matching user
 
-    admin_user = controller.get_user_by_email(old_management_mail)
+    admin_user = get_user_by_email(old_management_mail)
     old_support_matching = Match.get_match(user1=admin_user, user2=user)
     if old_support_matching.exists():
         unmatch_users({admin_user, user}, unmatcher=admin_user)
@@ -442,7 +451,7 @@ def unmatch_users(users: set, delete_video_room=True, delete_dialog=True, unmatc
             "match_id": match.pk,
             "time": str(timezone.now()),
             "user_id": unmatcher.pk if unmatcher else "no unmatcher specified",
-            "user_uuid": unmatcher.hash if unmatcher else "no unmatcher specified",
+            "user_uuid": str(unmatcher.uuid) if unmatcher else "no unmatcher specified",
         }
     )
     match.save()

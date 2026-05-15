@@ -21,7 +21,7 @@ def partner_first_name(user, match):
 def partner_profile_url(user, match):
     assert (user == match.user1) or (user == match.user2)
     partner = match.get_partner(user)
-    return f"{settings.BASE_URL}/app/profile/{partner.hash}"
+    return f"{settings.BASE_URL}/app/profile/{partner.uuid}"
 
 
 def verification_code(user):
@@ -193,7 +193,7 @@ def prematching_booking_link(user):
         encoded_params=urllib.parse.urlencode(
             {
                 "email": str(user.email),
-                "hash": str(user.hash),
+                "uuid": str(user.uuid),
                 "bookingcode": str(user.state.prematch_booking_code),
             }
         ),
@@ -207,7 +207,7 @@ def still_in_contact_yes_url(user, match, context={"redirect_slug_yes": "info-sc
     Also used by 'automatic-emails-m032' and 'automatic-emails-m033' and 'automatic-emails-m042'
     """
     redirect_slug = context.get("redirect_slug_yes", "info-screen")
-    return f"{settings.BASE_URL}/api/still_in_contact/{str(match.uuid)}/yes/?user_hash={str(user.hash)}&user_token={str(user.state.still_in_contact_form_access_token_user)}&redirect_slug={redirect_slug}"
+    return f"{settings.BASE_URL}/api/still_in_contact/{str(match.uuid)}/yes/?user_uuid={str(user.uuid)}&user_token={str(user.state.still_in_contact_form_access_token_user)}&redirect_slug={redirect_slug}"
 
 
 def still_in_contact_no_url(user, match, context={"redirect_slug_no": "info-screen"}):
@@ -216,7 +216,7 @@ def still_in_contact_no_url(user, match, context={"redirect_slug_no": "info-scre
     Also used by 'automatic-emails-m032' and 'automatic-emails-m033' and 'automatic-emails-m042'
     """
     redirect_slug = context.get("redirect_slug_no", "info-screen")
-    return f"{settings.BASE_URL}/api/still_in_contact/{str(match.uuid)}/no/?user_hash={str(user.hash)}&user_token={str(user.state.still_in_contact_form_access_token_user)}&redirect_slug={redirect_slug}"
+    return f"{settings.BASE_URL}/api/still_in_contact/{str(match.uuid)}/no/?user_uuid={str(user.uuid)}&user_token={str(user.state.still_in_contact_form_access_token_user)}&redirect_slug={redirect_slug}"
 
 
 def match_removed_fm011_no_contact_url(user, match, **kwargs):

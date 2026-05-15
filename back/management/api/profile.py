@@ -118,7 +118,7 @@ class ProfileCompletedApi(APIView):
                 encoded_params=urllib.parse.urlencode(
                     {
                         "email": str(user.email),
-                        "hash": str(user.hash),
+                        "uuid": str(user.uuid),
                         "bookingcode": str(user.state.prematch_booking_code),
                     }
                 ),
