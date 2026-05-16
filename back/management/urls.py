@@ -153,7 +153,7 @@ api_routes = [
     ),
     path("api/profile/completed/", profile.ProfileCompletedApi.as_view()),
     path(
-        "api/profile/<str:partner_uuid>/match",
+        "api/profile/<uuid:partner_uuid>/match",
         matches.get_match,
     ),
     # e.g.: /user/verify/email/Base64{d=email&u=hash&k=pin:hash}
