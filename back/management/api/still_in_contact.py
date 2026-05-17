@@ -29,13 +29,19 @@ def get_redirect_url(redirect_slug: str, user_uuid: str, match_uuid: str) -> (bo
 def still_in_contact(request, match_uuid: str, answer: str):
     # ? user_uuid ? user_token ?
     user_uuid = request.query_params.get("user_uuid", None)
+    legacy_user_hash = None
     if user_uuid is None:
         # Legacy fallback for links sent before uuid migration.
-        user_uuid = request.query_params.get("user_hash", None)
+        # The old 'user_hash' field is a double-UUID CharField, not a UUIDField,
+        # so it must be looked up via User.hash rather than User.uuid.
+        legacy_user_hash = request.query_params.get("user_hash", None)
     user_token = request.query_params.get("user_token", None)
     redirect_slug = request.query_params.get("redirect_slug", "info-screen")
 
-    user = User.objects.get(uuid=user_uuid)
+    if legacy_user_hash is not None:
+        user = User.objects.get(hash=legacy_user_hash)
+    else:
+        user = User.objects.get(uuid=user_uuid)
     if not user_token == str(user.state.still_in_contact_form_access_token_user):
         return Response({"error": "Invalid user token"}, status=403)
 

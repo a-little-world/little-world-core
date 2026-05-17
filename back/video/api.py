@@ -29,7 +29,7 @@ from video.models import (
 
 
 class AuthenticateRoomParams(serializers.Serializer):
-    partner_id = serializers.CharField()
+    partner_id = serializers.UUIDField()
 
 
 async def create_livekit_room(room_name):
@@ -55,7 +55,9 @@ async def create_livekit_room(room_name):
 def authenticate_live_kit_room(request):
     # 1 - gather the user
     user = request.user
-    partner = User.objects.get(uuid=request.data["partner_id"])
+    params = AuthenticateRoomParams(data=request.data)
+    params.is_valid(raise_exception=True)
+    partner = User.objects.get(uuid=params.validated_data["partner_id"])
 
     chat = ChatSerializer(Chat.get_chat([user, partner]), context={"user": user}).data
 

@@ -11,7 +11,7 @@ def backfill_user_uuid(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("management", "0153_alter_state_options"),
+        ("management", "0153_alter_state_options_shortlink_archived_at_and_more"),
     ]
 
     operations = [
