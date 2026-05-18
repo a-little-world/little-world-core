@@ -2,6 +2,7 @@ from datetime import datetime, time
 from typing import Literal, cast
 
 from chat.models import Chat, ChatSerializer, Message, MessageSerializer
+from django.core.paginator import InvalidPage
 from django.db.models import CharField, Max, Q, Value
 from django.db.models.functions import Concat
 from django.urls import path
@@ -16,7 +17,7 @@ from rest_framework.response import Response
 from management.api.matches import AdvancedUserMatchSerializer
 from management.api.scores import score_between_db_update
 from management.api.user_advanced_filter_lists import FILTER_LISTS, get_choices, get_dynamic_userlists
-from management.api.user_report_utils import build_user_report_entry
+from management.api.user_report_utils import USER_EXPORT_COLUMN_NAMES, build_user_report_entry
 from management.api.utils_advanced import filterset_schema_dict
 from management.controller import delete_user, make_tim_support_user
 from management.helpers import (
@@ -1153,9 +1154,27 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"])
     def export(self, request):
-        queryset = self.filter_queryset(self.get_queryset()).select_related("profile", "state")
-        serializer = ExportUserSerializer(queryset, many=True)
+        if request.query_params.get("export_columns_only", "").lower() in ("1", "true", "yes"):
+            return Response([{name: None for name in USER_EXPORT_COLUMN_NAMES}])
 
+        queryset = self.filter_queryset(self.get_queryset()).select_related("profile", "state")
+
+        try:
+            page = int(request.query_params.get("page", 1))
+        except (TypeError, ValueError):
+            page = 1
+        try:
+            page_size = int(request.query_params.get("page_size", DetailedPagination.page_size))
+        except (TypeError, ValueError):
+            page_size = DetailedPagination.page_size
+        page_size = min(max(page_size, 1), DetailedPagination.max_page_size)
+
+        try:
+            paginated = get_paginated_format_v2(queryset, page_size, page)
+        except InvalidPage:
+            return Response([])
+
+        serializer = ExportUserSerializer(paginated["results"], many=True)
         return Response(serializer.data)
 
     @action(detail=True, methods=["get"])
