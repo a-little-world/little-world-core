@@ -3,6 +3,7 @@ from django.db import migrations
 
 class Migration(migrations.Migration):
     dependencies = [
+        ("management", "0153_alter_state_options_shortlink_archived_at_and_more"),
         ("management", "0154_user_uuid_backfill_and_sync_hash"),
     ]
 

@@ -210,3 +210,31 @@ def build_user_report_entry(user):
         "messages_with_most_recent_match": messages_with_recent_match,
         "last_message_received": datetime_to_readable_utc(last_message.created if last_message else None),
     }
+
+
+# Must match keys returned by build_user_report_entry (used for lightweight export header discovery).
+USER_EXPORT_COLUMN_NAMES = (
+    "user_id",
+    "vorname",
+    "nachname",
+    "email",
+    "date_joined",
+    "last_login",
+    "german_language_level",
+    "user_type",
+    "expired_proposals_count",
+    "user_journey_path",
+    "match_status",
+    "total_matches",
+    "active_matches",
+    "match_details",
+    "video_call_details",
+    "total_video_calls",
+    "total_video_time_minutes",
+    "total_video_time_hhmm",
+    "messages_sent",
+    "messages_received",
+    "video_calls_with_most_recent_match",
+    "messages_with_most_recent_match",
+    "last_message_received",
+)
