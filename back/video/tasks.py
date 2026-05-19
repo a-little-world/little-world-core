@@ -47,7 +47,7 @@ def random_call_lobby_perform_matching(lobby_uuid):
         .exclude(user_id__in=matched_u1)
         .exclude(user_id__in=matched_u2)
     )
-    # 4 - gather all user ids by type and select a valid pair.
+    # 4 - gather all user ids by type
     # Valid pairs: learner-learner or learner-volunteer. Prefer learner-volunteer when possible.
     from management.models.profile import Profile
 
@@ -58,6 +58,8 @@ def random_call_lobby_perform_matching(lobby_uuid):
         users_in_lobby.filter(user__profile__user_type=Profile.TypeChoices.VOLUNTEER).values_list("user_id", flat=True)
     )
 
+    # 5 - select a valid pair.
+    #     Learner-volunteer is preferred; learner-learner is the fallback.
     if len(learner_ids) >= 1 and len(volunteer_ids) >= 1:
         pair = [random.choice(learner_ids), random.choice(volunteer_ids)]
     elif len(learner_ids) >= 2:
@@ -65,7 +67,7 @@ def random_call_lobby_perform_matching(lobby_uuid):
     else:
         return {"matchings": []}
 
-    # 5 - create a new random call match; set confirmed_match if these users are already matched
+    # 6 - create a new random call match; set confirmed_match if these users are already matched
     from management.models.matches import Match
     from management.models.user import User
 
@@ -75,7 +77,7 @@ def random_call_lobby_perform_matching(lobby_uuid):
     random_match = RandomCallMatching.objects.create(
         u1_id=pair[0], u2_id=pair[1], lobby=lobby, confirmed_match=confirmed_match, created_at=timezone.now()
     )
-    # 6 - For every match start a 'cleanup_if_not_accepted' task that runs 30s after the match is created
+    # 7 - For every match start a 'cleanup_if_not_accepted' task that runs 30s after the match is created
     cleanup_if_not_accepted.apply_async(args=[random_match.uuid], countdown=lobby.match_proposal_timeout)
     return {"matchings": [pair]}
 
