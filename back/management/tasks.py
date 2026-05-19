@@ -1765,6 +1765,7 @@ def automatic_emails_fm021_fm022__ghosted_matches():
     from management.models.matches import Match
 
     time_15days_ago = timezone.now() - timedelta(days=15)
+    time_3weeks_ago = timezone.now() - timedelta(weeks=3)
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.ENABLE_AUTO_EMAILS__FM021_FM022)
 
     report = {
@@ -1773,8 +1774,8 @@ def automatic_emails_fm021_fm022__ghosted_matches():
         "fm021_send_to": [],
         "fm022_send_to": [],
     }
-
-    matches_single_party_contact = Match.objects.filter(
+    # Matches that started interacting in the last 3 weeks & haven't had a mutual video call
+    matches_in_ko_with_single_party_contact = Match.objects.filter(
         confirmed=True,
         completed=False,  # dont even consider removing completed matches!
         completed_off_plattform=False,
@@ -1783,12 +1784,13 @@ def automatic_emails_fm021_fm022__ghosted_matches():
         auto_email_fm021_send=False,
         auto_email_fm022_send=False,
         is_ghosted_match=False,
-    )
+        total_mutal_video_calls_counter=0,
+    ).exclude(first_interaction_at__lt=time_3weeks_ago)
 
     # Check if matches should be marked 'ghosted'
     # TODO: confirm if there should be a way to get out of 'ghosted' state
-    report["matches_single_party_contact"] = matches_single_party_contact.count()
-    for match in matches_single_party_contact:
+    report["matches_single_party_contact"] = matches_in_ko_with_single_party_contact.count()
+    for match in matches_in_ko_with_single_party_contact:
         newest_message = (
             Message.objects.filter(
                 Q(sender=match.user1, recipient=match.user2) | Q(sender=match.user2, recipient=match.user1)
@@ -1809,8 +1811,6 @@ def automatic_emails_fm021_fm022__ghosted_matches():
             and newest_message.created < time_15days_ago
             and (newest_video_call and newest_video_call.created_at < time_15days_ago)
         ):
-            # TODO: Also exlude completed and 'off-plattform' matches!
-            # TODO: Also prob exlucde matches that had a two user video call instead
             match.is_ghosted_match = True
             ghosted_user = newest_message.sender
             ghosted_by_user = newest_message.recipient
@@ -1832,7 +1832,7 @@ def automatic_emails_fm021_fm022__ghosted_matches():
                 match.user1, match, "ghosted", "Single party contact for 15 days", send_message=False
             )
 
-    return {"status": "sent", "matches": matches_single_party_contact}
+    return {"status": "sent", "matches": matches_in_ko_with_single_party_contact}
 
 
 @shared_task(name="management.tasks.cleanup_deleted_users_full_user_data")

@@ -47,7 +47,7 @@ def random_call_lobby_perform_matching(lobby_uuid):
         .exclude(user_id__in=matched_u1)
         .exclude(user_id__in=matched_u2)
     )
-    # 4 - gather all user ids by type and select a valid pair.
+    # 4 - gather all user ids by type
     # Valid pairs: learner-learner or learner-volunteer. Prefer learner-volunteer when possible.
     from management.models.profile import Profile
 
@@ -58,14 +58,42 @@ def random_call_lobby_perform_matching(lobby_uuid):
         users_in_lobby.filter(user__profile__user_type=Profile.TypeChoices.VOLUNTEER).values_list("user_id", flat=True)
     )
 
-    if len(learner_ids) >= 1 and len(volunteer_ids) >= 1:
-        pair = [random.choice(learner_ids), random.choice(volunteer_ids)]
-    elif len(learner_ids) >= 2:
-        pair = random.sample(learner_ids, 2)
-    else:
+    # 5 - build the set of already-rejected pairings in this lobby so they are skipped during selection
+    rejected_pairs = {
+        frozenset(p)
+        for p in RandomCallMatching.objects.filter(lobby=lobby, rejected=True).values_list("u1_id", "u2_id")
+    }
+
+    # 6 - select a valid pair, shuffling first so the choice is random across all candidates.
+    #     Learner-volunteer is preferred; learner-learner is the fallback.
+    #     Only give up if no valid combination exists at all.
+    pair = None
+
+    if learner_ids and volunteer_ids:
+        random.shuffle(learner_ids)
+        random.shuffle(volunteer_ids)
+        for learner_id in learner_ids:
+            for volunteer_id in volunteer_ids:
+                if frozenset([learner_id, volunteer_id]) not in rejected_pairs:
+                    pair = [learner_id, volunteer_id]
+                    break
+            if pair:
+                break
+
+    if pair is None and len(learner_ids) >= 2:
+        random.shuffle(learner_ids)
+        for i, l1 in enumerate(learner_ids):
+            for l2 in learner_ids[i + 1 :]:
+                if frozenset([l1, l2]) not in rejected_pairs:
+                    pair = [l1, l2]
+                    break
+            if pair:
+                break
+
+    if pair is None:
         return {"matchings": []}
 
-    # 5 - create a new random call match; set confirmed_match if these users are already matched
+    # 7 - create a new random call match; set confirmed_match if these users are already matched
     from management.models.matches import Match
     from management.models.user import User
 
@@ -75,7 +103,7 @@ def random_call_lobby_perform_matching(lobby_uuid):
     random_match = RandomCallMatching.objects.create(
         u1_id=pair[0], u2_id=pair[1], lobby=lobby, confirmed_match=confirmed_match, created_at=timezone.now()
     )
-    # 6 - For every match start a 'cleanup_if_not_accepted' task that runs 30s after the match is created
+    # 8 - For every match start a 'cleanup_if_not_accepted' task that runs 30s after the match is created
     cleanup_if_not_accepted.apply_async(args=[random_match.uuid], countdown=lobby.match_proposal_timeout)
     return {"matchings": [pair]}
 

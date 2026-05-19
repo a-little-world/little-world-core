@@ -526,6 +526,7 @@ def delete_user(user, management_user=None, send_deletion_email=False):
         user.send_email("account-deleted")
 
     Match.update_deleted_user_matches(user)
+    ProposedMatch.close_open_proposals_for_deleted_user(user)
 
     user.is_active = False
     user.email = f"deleted_{user.email}"
