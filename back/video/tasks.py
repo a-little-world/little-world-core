@@ -67,7 +67,7 @@ def random_call_lobby_perform_matching(lobby_uuid):
     else:
         return {"matchings": []}
 
-    # 7 - create a new random call match; set confirmed_match if these users are already matched
+    # 6 - create a new random call match; set confirmed_match if these users are already matched
     from management.models.matches import Match
     from management.models.user import User
 
@@ -77,7 +77,7 @@ def random_call_lobby_perform_matching(lobby_uuid):
     random_match = RandomCallMatching.objects.create(
         u1_id=pair[0], u2_id=pair[1], lobby=lobby, confirmed_match=confirmed_match, created_at=timezone.now()
     )
-    # 8 - For every match start a 'cleanup_if_not_accepted' task that runs 30s after the match is created
+    # 7 - For every match start a 'cleanup_if_not_accepted' task that runs 30s after the match is created
     cleanup_if_not_accepted.apply_async(args=[random_match.uuid], countdown=lobby.match_proposal_timeout)
     return {"matchings": [pair]}
 
