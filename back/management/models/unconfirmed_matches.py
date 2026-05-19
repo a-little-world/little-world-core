@@ -138,6 +138,18 @@ class ProposedMatch(models.Model):
         ).order_by(order_by)
 
     @classmethod
+    def close_open_proposals_for_deleted_user(cls, user):
+        """Close all open proposed matches for a user being deleted."""
+        cls.objects.filter(
+            Q(user1=user) | Q(user2=user),
+            closed=False,
+        ).update(
+            closed=True,
+            expired=True,
+            expired_mail_send=True,
+        )
+
+    @classmethod
     def get_proposal_between(cls, user1, user2):
         return cls.objects.filter(Q(user1=user1, user2=user2) | Q(user1=user2, user2=user1))
 
