@@ -58,37 +58,40 @@ def random_call_lobby_perform_matching(lobby_uuid):
         users_in_lobby.filter(user__profile__user_type=Profile.TypeChoices.VOLUNTEER).values_list("user_id", flat=True)
     )
 
-    # 5 - build the set of already-rejected pairings in this lobby so they are skipped during selection
+    # 5 - build the set of explicitly-rejected pairings in this lobby so they are skipped during selection.
+    #     rejected=True can be set by the system (timeout, user leaving lobby, join expiry) as well as by
+    #     a deliberate user action. Only explicit user rejections set rejected_at; system rejections leave
+    #     it NULL. Using rejected_at__isnull=False ensures we only block re-matching for deliberate rejections.
     rejected_pairs = {
         frozenset(p)
-        for p in RandomCallMatching.objects.filter(lobby=lobby, rejected=True).values_list("u1_id", "u2_id")
+        for p in RandomCallMatching.objects.filter(lobby=lobby, rejected=True, rejected_at__isnull=False).values_list(
+            "u1_id", "u2_id"
+        )
     }
 
-    # 6 - select a valid pair, shuffling first so the choice is random across all candidates.
+    # 6 - select a valid pair from all non-rejected combinations.
     #     Learner-volunteer is preferred; learner-learner is the fallback.
-    #     Only give up if no valid combination exists at all.
     pair = None
 
     if learner_ids and volunteer_ids:
-        random.shuffle(learner_ids)
-        random.shuffle(volunteer_ids)
-        for learner_id in learner_ids:
-            for volunteer_id in volunteer_ids:
-                if frozenset([learner_id, volunteer_id]) not in rejected_pairs:
-                    pair = [learner_id, volunteer_id]
-                    break
-            if pair:
-                break
+        valid_pairs = [
+            [learner, volunteer]
+            for learner in learner_ids
+            for volunteer in volunteer_ids
+            if frozenset([learner, volunteer]) not in rejected_pairs
+        ]
+        if valid_pairs:
+            pair = random.choice(valid_pairs)
 
     if pair is None and len(learner_ids) >= 2:
-        random.shuffle(learner_ids)
-        for i, l1 in enumerate(learner_ids):
-            for l2 in learner_ids[i + 1 :]:
-                if frozenset([l1, l2]) not in rejected_pairs:
-                    pair = [l1, l2]
-                    break
-            if pair:
-                break
+        valid_pairs = [
+            [learner_ids[i], learner_ids[j]]
+            for i in range(len(learner_ids))
+            for j in range(i + 1, len(learner_ids))
+            if frozenset([learner_ids[i], learner_ids[j]]) not in rejected_pairs
+        ]
+        if valid_pairs:
+            pair = random.choice(valid_pairs)
 
     if pair is None:
         return {"matchings": []}
