@@ -1,4 +1,4 @@
-from django.db.models import Case, Count, IntegerField, Value, When
+from django.db.models import Case, Count, IntegerField, Q, Value, When
 from django.urls import path
 from rest_framework import serializers, status
 from rest_framework.authentication import SessionAuthentication
@@ -39,7 +39,7 @@ def support_task_list(request):
 
     assigned_to = request.query_params.get("assigned_to")
     if assigned_to:
-        tasks = tasks.filter(assigned_to_id=assigned_to)
+        tasks = tasks.filter(assigned_to=assigned_to)
 
     sort_by = request.query_params.get("sort_by", "created_at")
     sort_order = request.query_params.get("sort_order", "desc")
@@ -199,11 +199,79 @@ def staff_users(request):
     return Response(list(users))
 
 
+class CreateManualSupportTaskSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=255)
+    description = serializers.CharField(default="", allow_blank=True)
+    priority = serializers.ChoiceField(choices=SupportTask.Priority.choices, default=SupportTask.Priority.MEDIUM)
+    related_user_id = serializers.IntegerField(required=False, allow_null=True)
+    assigned_to_id = serializers.IntegerField(required=False, allow_null=True)
+
+
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def support_task_create_manual(request):
+    serializer = CreateManualSupportTaskSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    d = serializer.validated_data
+
+    related_user_id = d.get("related_user_id")
+    assigned_to_id = d.get("assigned_to_id")
+
+    from django.db import transaction
+
+    with transaction.atomic():
+        task = SupportTask(
+            title=d["title"],
+            description=d.get("description", ""),
+            priority=d["priority"],
+            created_by=request.user,
+            related_user_id=related_user_id,
+            assigned_to_id=assigned_to_id,
+        )
+        task.save(changed_by=request.user)
+        action = SupportTaskAction(task=task, action_type="manual")
+        action.save()
+
+    task.refresh_from_db()
+    return Response(SupportTaskSerializer(task).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(["GET"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAuthenticated])
+def user_search(request):
+    q = request.query_params.get("q", "").strip()
+    if not q:
+        return Response([])
+    qs = (
+        User.objects.select_related("profile")
+        .filter(
+            Q(email__icontains=q)
+            | Q(profile__first_name__icontains=q)
+            | Q(profile__second_name__icontains=q)
+        )
+        .distinct()[:20]
+    )
+    results = [
+        {
+            "id": u.id,
+            "email": u.email,
+            "first_name": u.profile.first_name if hasattr(u, "profile") else "",
+            "second_name": u.profile.second_name if hasattr(u, "profile") else "",
+        }
+        for u in qs
+    ]
+    return Response(results)
+
+
 api_urls = [
     path("api/support_task/", support_task_list),
     path("api/support_task/create/", support_task_create),
+    path("api/support_task/create_manual/", support_task_create_manual),
     path("api/support_task/stats/", support_task_stats),
     path("api/support_task/staff_users/", staff_users),
+    path("api/support_task/user_search/", user_search),
     path("api/support_task/<int:pk>/", support_task_detail),
     path("api/support_task/<int:pk>/update/", support_task_update),
     path("api/support_task/<int:task_pk>/action/", support_task_action_update),

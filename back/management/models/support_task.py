@@ -7,21 +7,16 @@ from rest_framework import serializers
 
 from management.models.object_history import ObjectHistory, ObjectHistorySerializer
 
-_TRACKED_TASK_FIELDS = ("title", "description", "status", "priority", "assigned_to_id")
+_TRACKED_TASK_FIELDS = ("title", "description", "status", "priority", "assigned_to")
 _TRACKED_ACTION_FIELDS = ("status", "parameters")
+_FIELD_VALUE_MODELS: dict[str, str] = {
+    "assigned_to": "management.User",
+}
 
 
 def _resolve_field(field, value):
-    """Return (display_field_name, display_value) — resolves FK ids to profile dicts."""
-    if field == "assigned_to_id":
-        if value is None:
-            return "assigned_to", None
-        try:
-            from management.models.user import User
-            user = User.objects.select_related("profile").get(pk=value)
-            return "assigned_to", _serialize_user_profile(user)
-        except Exception:
-            return "assigned_to", str(value)
+    if field == "assigned_to":
+        return field, value.pk if value is not None else None
     return field, value
 
 
@@ -70,6 +65,8 @@ class SupportTask(models.Model):
     )
     related_user = models.ForeignKey(
         "management.User",
+        null=True,
+        blank=True,
         on_delete=models.DO_NOTHING,
         related_name="related_support_tasks",
     )
@@ -101,6 +98,7 @@ class SupportTask(models.Model):
                         field=f,
                         old_value=old,
                         new_value=new,
+                        value_model=_FIELD_VALUE_MODELS.get(f),
                     )
                     for f, old, new in diffs
                 ]
@@ -196,6 +194,8 @@ class SupportTaskAction(models.Model):
         is_new = not self.pk
         diffs = [] if is_new else _history_diffs(self, _TRACKED_ACTION_FIELDS, kwargs.get("update_fields"))
         super().save(*args, **kwargs)
+        if self.task_id:
+            SupportTask.objects.filter(pk=self.task_id).update(updated_at=timezone.now())
         ct = ContentType.objects.get_for_model(self)
         if is_new:
             ObjectHistory.objects.create(
@@ -212,6 +212,7 @@ class SupportTaskAction(models.Model):
                         field=f,
                         old_value=old,
                         new_value=new,
+                        value_model=_FIELD_VALUE_MODELS.get(f),
                     )
                     for f, old, new in diffs
                 ]
@@ -239,6 +240,7 @@ class SupportTaskActionSerializer(serializers.ModelSerializer):
         model = SupportTaskAction
         fields = [
             "id",
+            "task_id",
             "action_type",
             "static_parameters",
             "parameters",
@@ -250,7 +252,6 @@ class SupportTaskActionSerializer(serializers.ModelSerializer):
         read_only_fields = [
             "action_type",
             "static_parameters",
-            "parameters",
             "status",
             "reviewed_by_id",
             "reviewed_at",
@@ -274,6 +275,24 @@ def _serialize_user_profile(user) -> dict | None:
         return None
 
 
+def _serialize_related_user_profile(user) -> dict | None:
+    base = _serialize_user_profile(user)
+    if base is None:
+        return None
+    try:
+        past_tickets = SupportTask.objects.filter(related_user=user, status=SupportTask.Status.COMPLETED).count()
+        return {
+            **base,
+            "email": user.email,
+            "date_joined": user.date_joined.isoformat(),
+            "last_active": user.last_login.isoformat() if user.last_login else None,
+            "past_tickets": past_tickets,
+            "user_type": user.profile.user_type if user.profile else None,
+        }
+    except Exception:
+        return base
+
+
 class SupportTaskSerializer(serializers.ModelSerializer):
     action = SupportTaskActionSerializer(read_only=True)
     history = ObjectHistorySerializer(many=True, read_only=True)
@@ -283,7 +302,7 @@ class SupportTaskSerializer(serializers.ModelSerializer):
     assigned_to_id = serializers.IntegerField(required=False, allow_null=True, write_only=True)
 
     def get_related_user_profile(self, obj):
-        return _serialize_user_profile(obj.related_user)
+        return _serialize_related_user_profile(obj.related_user)
 
     def get_assigned_to_profile(self, obj):
         return _serialize_user_profile(obj.assigned_to)
