@@ -2,6 +2,7 @@ from datetime import datetime, time
 from typing import Literal, cast
 
 from chat.models import Chat, ChatSerializer, Message, MessageSerializer
+from django.core.paginator import InvalidPage
 from django.db.models import CharField, Max, Q, Value
 from django.db.models.functions import Concat
 from django.urls import path
@@ -16,7 +17,7 @@ from rest_framework.response import Response
 from management.api.matches import AdvancedUserMatchSerializer
 from management.api.scores import score_between_db_update
 from management.api.user_advanced_filter_lists import FILTER_LISTS, get_choices, get_dynamic_userlists
-from management.api.user_report_utils import build_user_report_entry
+from management.api.user_report_utils import USER_EXPORT_COLUMN_NAMES, build_user_report_entry
 from management.api.utils_advanced import filterset_schema_dict
 from management.controller import delete_user, make_tim_support_user
 from management.helpers import (
@@ -118,7 +119,7 @@ def get_match_waiting_time(user):
 class ExportUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "email", "hash"]
+        fields = ["id", "email", "uuid"]
 
     def to_representation(self, instance):
         representation = build_user_report_entry(instance)
@@ -134,7 +135,7 @@ class ListUserSerializer(serializers.ModelSerializer):
 class AdvancedUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["hash", "id", "email", "date_joined", "last_login"]
+        fields = ["uuid", "id", "email", "date_joined", "last_login"]
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -263,12 +264,12 @@ class AdvancedMatchingScoreSerializer(serializers.ModelSerializer):
         representation["markdown_info"] = markdown_info
 
         representation["from_usr"] = {
-            "uuid": user.hash,
+            "uuid": str(user.uuid),
             "id": user.id,
             **AdvancedUserSerializer(user).data,
         }
         representation["to_usr"] = {
-            "uuid": partner.hash,
+            "uuid": str(partner.uuid),
             "id": partner.id,
             **AdvancedUserSerializer(partner).data,
         }
@@ -458,7 +459,7 @@ class UserFilter(filters.FilterSet):
 
     class Meta:
         model = User
-        fields = ["hash", "id", "email"]
+        fields = ["uuid", "id", "email"]
 
 
 class InviteNativeAppTesterRequestSerializer(serializers.Serializer):
@@ -527,13 +528,13 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             self.kwargs["pk"] = int(self.kwargs["pk"])
             return super().get_object()
         else:
-            # The two alternate lookup options are email & hash
+            # The two alternate lookup options are email & uuid
             # So lets check if there is an '@' in the string
             is_email = "@" in self.kwargs["pk"]
             if is_email:
                 return super().get_queryset().get(email=self.kwargs["pk"])
             else:
-                return super().get_queryset().get(hash=self.kwargs["pk"])
+                return super().get_queryset().get(uuid=self.kwargs["pk"])
 
     @action(detail=True, methods=["get"])
     def scores(self, request, pk=None):
@@ -1153,9 +1154,27 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"])
     def export(self, request):
-        queryset = self.filter_queryset(self.get_queryset()).select_related("profile", "state")
-        serializer = ExportUserSerializer(queryset, many=True)
+        if request.query_params.get("export_columns_only", "").lower() in ("1", "true", "yes"):
+            return Response([{name: None for name in USER_EXPORT_COLUMN_NAMES}])
 
+        queryset = self.filter_queryset(self.get_queryset()).select_related("profile", "state")
+
+        try:
+            page = int(request.query_params.get("page", 1))
+        except (TypeError, ValueError):
+            page = 1
+        try:
+            page_size = int(request.query_params.get("page_size", DetailedPagination.page_size))
+        except (TypeError, ValueError):
+            page_size = DetailedPagination.page_size
+        page_size = min(max(page_size, 1), DetailedPagination.max_page_size)
+
+        try:
+            paginated = get_paginated_format_v2(queryset, page_size, page)
+        except InvalidPage:
+            return Response([])
+
+        serializer = ExportUserSerializer(paginated["results"], many=True)
         return Response(serializer.data)
 
     @action(detail=True, methods=["get"])

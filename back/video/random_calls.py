@@ -264,7 +264,7 @@ def get_random_call_lobby_status(request, lobby_uuid):
             "self_rejected": self_rejected,
             "partner_rejected": partner_rejected,
             "partner": {
-                "id": partner.hash,
+                "id": str(partner.uuid),
                 "name": f"{partner.profile.first_name}",
                 "image": partner.profile.image.url if partner.profile.image else partner.profile.avatar_config,
                 "image_type": partner.profile.image_type,
@@ -410,7 +410,7 @@ def end_random_call(request, match_uuid):
                 "completed": True,
                 "already_completed": True,
                 "completed_at": match.completed_at.isoformat() if match.completed_at else None,
-                "ended_by": match.ended_by.hash if match.ended_by else None,
+                "ended_by": str(match.ended_by.uuid) if match.ended_by else None,
             }
         )
 
@@ -426,7 +426,7 @@ def end_random_call(request, match_uuid):
             "completed": True,
             "already_completed": False,
             "completed_at": match.completed_at.isoformat() if match.completed_at else None,
-            "ended_by": request.user.hash,
+            "ended_by": str(request.user.uuid),
         }
     )
 
@@ -494,7 +494,7 @@ def authenticate_random_call_match_livekit_room(request, lobby_uuid, match_uuid)
 
     token = (
         livekit_api.AccessToken(api_key=settings.LIVEKIT_API_KEY, api_secret=settings.LIVEKIT_API_SECRET)
-        .with_identity(request.user.hash)
+        .with_identity(str(request.user.uuid))
         .with_name(f"{request.user.profile.first_name}")
         .with_grants(
             livekit_api.VideoGrants(

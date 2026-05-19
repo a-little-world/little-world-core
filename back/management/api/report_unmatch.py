@@ -57,7 +57,7 @@ def process_report_unmatch(
             "reason": reason,
             "match_id": match_id,
             "user_id": user.pk,
-            "user_uuid": user.hash,
+            "user_uuid": str(user.uuid),
             "time": str(timezone.now()),
         }
     )
@@ -81,7 +81,7 @@ def process_report_unmatch(
     if send_message:
         user.message(default_message)
 
-    slack_message = f"Match {match_id} has been {kind}-ed by {user.hash} with reason: {reason}"
+    slack_message = f"Match {match_id} has been {kind}-ed by {user.uuid} with reason: {reason}"
     if kind == "ghosted":
         slack_message = f"*Automatic Match Removal* - {slack_message}"
         slack_notify_security_channel_async.delay(slack_message)

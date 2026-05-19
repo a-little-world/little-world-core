@@ -61,7 +61,7 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
                 active_call_room = SerializeLivekitSession(active_session).data
 
         partner_data = {
-            "id": str(partner.hash),
+            "id": str(partner.uuid),
             "isOnline": is_online,
             "isDeleted": False,
             "isSupport": partner.has_perm(ManagementPermission.MATCHING_USER) or partner.is_staff,
@@ -176,7 +176,7 @@ def make_match(request):
             (Q(user1=user1) | Q(user2=user1) | Q(user1=user2) | Q(user2=user2)) & Q(matchable=True)
         ).update(matchable=False)
 
-        InMatchProposalAdded(matches[0]).send(learner.hash)
+        InMatchProposalAdded(matches[0]).send(str(learner.uuid))
 
         learner.sms(
             request.user, get_translation("sms.proposal_message", lang="de").format(first_name=learner.first_name)
@@ -197,14 +197,14 @@ def make_match(request):
 
         for user in [user1, user2]:
             matches = AdvancedUserMatchSerializer([match_obj], many=True, context={"user": user}).data
-            InUnconfirmedMatchAdded(matches[0]).send(user.hash)
+            InUnconfirmedMatchAdded(matches[0]).send(str(user.uuid))
 
         return Response("Users sucessfully matched")
 
 
 @extend_schema(
     summary="Get a match",
-    description="Get a match by the partner's hash",
+    description="Get a match by the partner's uuid",
     responses={
         200: GetMatchResponseSerializer,
         400: "Bad request",
@@ -212,10 +212,10 @@ def make_match(request):
 )
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
-def get_match(request, partner_hash):
+def get_match(request, partner_uuid):
     # 1 - get the match
     match = Match.objects.filter(
-        Q(user1=request.user, user2__hash=partner_hash) | Q(user2=request.user, user1__hash=partner_hash), active=True
+        Q(user1=request.user, user2__uuid=partner_uuid) | Q(user2=request.user, user1__uuid=partner_uuid), active=True
     )
 
     if not match.exists():

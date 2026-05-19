@@ -23,6 +23,7 @@ from management.api import (
     register,
     report_unmatch,
     scores_advanced,
+    short_links,
     slack,
     trans,
     translator,
@@ -115,6 +116,26 @@ user_data_apis = [
         banner.admin_banner_detail,
         name="admin_banner_detail_api",
     ),
+    path(
+        "api/admin/short_links/",
+        short_links.admin_short_links,
+        name="admin_short_links_api",
+    ),
+    path(
+        "api/admin/short_links/<int:pk>/",
+        short_links.admin_short_link_detail,
+        name="admin_short_link_detail_api",
+    ),
+    path(
+        "api/admin/short_links/<int:pk>/archive/",
+        short_links.admin_short_link_archive,
+        name="admin_short_link_archive_api",
+    ),
+    path(
+        "api/admin/short_link_clicks/",
+        short_links.admin_short_link_clicks,
+        name="admin_short_link_clicks_api",
+    ),
     path("api/translations", trans.api_translations, name="api_translations_api"),
     path("api/firebase", firebase.firebase_config, name="firebase_config_api"),
 ]
@@ -153,7 +174,7 @@ api_routes = [
     ),
     path("api/profile/completed/", profile.ProfileCompletedApi.as_view()),
     path(
-        "api/profile/<str:partner_hash>/match",
+        "api/profile/<uuid:partner_uuid>/match",
         matches.get_match,
     ),
     # e.g.: /user/verify/email/Base64{d=email&u=hash&k=pin:hash}
@@ -171,7 +192,7 @@ api_routes = [
 view_routes = [
     path("", main_frontend.MainFrontendRouter.as_view(), name="base_route"),
     path(
-        "set_password/<str:usr_hash>/<str:token>",
+        "set_password/<str:usr_uuid>/<str:token>",
         main_frontend.set_password_reset,
         name="set_password_reset",
     ),
