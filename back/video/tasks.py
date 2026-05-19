@@ -58,42 +58,13 @@ def random_call_lobby_perform_matching(lobby_uuid):
         users_in_lobby.filter(user__profile__user_type=Profile.TypeChoices.VOLUNTEER).values_list("user_id", flat=True)
     )
 
-    # 5 - build the set of explicitly-rejected pairings in this lobby so they are skipped during selection.
-    #     rejected=True can be set by the system (timeout, user leaving lobby, join expiry) as well as by
-    #     a deliberate user action. Only explicit user rejections set rejected_at; system rejections leave
-    #     it NULL. Using rejected_at__isnull=False ensures we only block re-matching for deliberate rejections.
-    rejected_pairs = {
-        frozenset(p)
-        for p in RandomCallMatching.objects.filter(lobby=lobby, rejected=True, rejected_at__isnull=False).values_list(
-            "u1_id", "u2_id"
-        )
-    }
-
-    # 6 - select a valid pair from all non-rejected combinations.
+    # 5 - select a valid pair.
     #     Learner-volunteer is preferred; learner-learner is the fallback.
-    pair = None
-
-    if learner_ids and volunteer_ids:
-        valid_pairs = [
-            [learner, volunteer]
-            for learner in learner_ids
-            for volunteer in volunteer_ids
-            if frozenset([learner, volunteer]) not in rejected_pairs
-        ]
-        if valid_pairs:
-            pair = random.choice(valid_pairs)
-
-    if pair is None and len(learner_ids) >= 2:
-        valid_pairs = [
-            [learner_ids[i], learner_ids[j]]
-            for i in range(len(learner_ids))
-            for j in range(i + 1, len(learner_ids))
-            if frozenset([learner_ids[i], learner_ids[j]]) not in rejected_pairs
-        ]
-        if valid_pairs:
-            pair = random.choice(valid_pairs)
-
-    if pair is None:
+    if len(learner_ids) >= 1 and len(volunteer_ids) >= 1:
+        pair = [random.choice(learner_ids), random.choice(volunteer_ids)]
+    elif len(learner_ids) >= 2:
+        pair = random.sample(learner_ids, 2)
+    else:
         return {"matchings": []}
 
     # 7 - create a new random call match; set confirmed_match if these users are already matched
