@@ -355,9 +355,9 @@ class State(models.Model):
         note this is will be used it authentication through a link ( with out being logged in )
         """
         _data = self.decode_email_auth_code_b64(code)
-        # u: user hash, h: email verification hash, p: email verification pin
+        # u: user uuid, h: email verification hash, p: email verification pin
         _check = (
-            _data["u"] == self.user.hash
+            _data["u"] == str(self.user.uuid)
             and _data["h"] == self.email_auth_hash
             and int(_data["p"]) == self.email_auth_pin
         )
@@ -372,7 +372,7 @@ class State(models.Model):
                 bytes(
                     json.dumps(
                         {
-                            "u": self.user.hash,
+                            "u": str(self.user.uuid),
                             "h": self.email_auth_hash,
                             "p": self.email_auth_pin,
                         }

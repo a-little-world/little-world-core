@@ -86,12 +86,12 @@ class MatchConfirmationTests(TestCase):
         u2_unconf = get_unconfirmed_matches(u2)
 
         unconf_hash = u2_unconf[0]["hash"]
-        prematch_hash = u2_unconf[0]["user_hash"]
+        prematch_uuid = u2_unconf[0]["user_uuid"]
 
-        assert u1.hash == prematch_hash, "The prematch hash must be the hash of the volunteer"
+        assert str(u1.uuid) == prematch_uuid, "The prematch UUID must be the UUID of the volunteer"
 
         # now we emulate the two cases of the learner accepting or denying the pre-match
-        res = self._some_confirm_deny_match_call(dict(unconfirmed_match_hash=unconf_hash, confirm=False), user=u2)
+        res = self._some_confirm_deny_match_call(dict(unconfirmed_match_uuid=unconf_hash, confirm=False), user=u2)
 
         res.render()
         assert res.status_code == 200, f"Request error {res.status_code}, {res.content}"
@@ -109,11 +109,11 @@ class MatchConfirmationTests(TestCase):
         u2_unconf = get_unconfirmed_matches(u2)
 
         unconf_hash = u2_unconf[0]["hash"]
-        prematch_hash = u2_unconf[0]["user_hash"]
+        prematch_uuid = u2_unconf[0]["user_uuid"]
 
-        assert u1.hash == prematch_hash, "The prematch hash must be the hash of the volunteer"
+        assert str(u1.uuid) == prematch_uuid, "The prematch UUID must be the UUID of the volunteer"
         # now we emulate the two cases of the learner accepting or denying the pre-match
-        res = self._some_confirm_deny_match_call(dict(unconfirmed_match_hash=unconf_hash, confirm=True), user=u2)
+        res = self._some_confirm_deny_match_call(dict(unconfirmed_match_uuid=unconf_hash, confirm=True), user=u2)
 
         res.render()
         assert res.status_code == 200, f"Request error {res.status_code}, {res.content}"

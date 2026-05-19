@@ -2233,11 +2233,11 @@ def short_link_campaign_summary_report(request):
 )
 @api_view(["POST"])
 @permission_classes([IsAdminOrMatchingUser])
-def update_user_journey_path_from_stats(request, user_hash: str):
+def update_user_journey_path_from_stats(request, user_uuid: str):
     """
     It generates and overview of all the buckets uesrs have been in over the period of some time
     """
-    user = User.objects.get(hash=user_hash)
+    user = User.objects.get(uuid=user_uuid)
     user_state = user.state  # Store reference to avoid re-fetching
     # check if management user has access to this user
     print(f"User: {user.pk}, Request User: {request.user.pk}")
@@ -2294,8 +2294,8 @@ def update_user_journey_path_from_stats(request, user_hash: str):
 
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
-def get_user_bucket_path(request, user_hash: str):
-    user = User.objects.get(hash=user_hash)
+def get_user_bucket_path(request, user_uuid: str):
+    user = User.objects.get(uuid=user_uuid)
     # check if management user has access to this user
     if not request.user.is_staff and not request.user.has_management_access(user):
         return Response({"error": "You do not have access to this user"}, status=403)
@@ -2365,8 +2365,8 @@ def is_advanced_user_journey_enabled(request):
 
 
 api_urls = [
-    path("api/user_journey/<str:user_hash>/user_journey_path/", get_user_bucket_path),
-    path("api/user_journey/<str:user_hash>/update_user_journey_path/", update_user_journey_path_from_stats),
+    path("api/user_journey/<str:user_uuid>/user_journey_path/", get_user_bucket_path),
+    path("api/user_journey/<str:user_uuid>/update_user_journey_path/", update_user_journey_path_from_stats),
     path("api/user_journey/is_advanced_user_journey_enabled/", is_advanced_user_journey_enabled),
     path("api/matching/users/statistics/signups/", user_signups),
     path("api/matching/email_send_statistics/", email_statistics),

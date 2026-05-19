@@ -601,7 +601,7 @@ def hourly_check_banner_activation():
     expires=300,
     time_limit=300,
 )
-def send_sms_background(self, user_hash, message):
+def send_sms_background(self, user_uuid, message):
     """
     Send SMS background task that never retries on failure.
     If the task fails, it should fail permanently to prevent duplicate SMS sending.
@@ -613,15 +613,15 @@ def send_sms_background(self, user_hash, message):
     from management.models.user import User
 
     recent_sms = SmsModel.objects.filter(
-        recipient__hash=user_hash, message=message, created_at__gte=timezone.now() - timezone.timedelta(hours=2)
+        recipient__uuid=user_uuid, message=message, created_at__gte=timezone.now() - timezone.timedelta(hours=2)
     ).exists()
 
     if recent_sms:
-        print(f"Skipping duplicate SMS for user {user_hash} - already sent within last 2 hours")
+        print(f"Skipping duplicate SMS for user {user_uuid} - already sent within last 2 hours")
         return {"status": "skipped", "reason": "duplicate_message"}
 
     try:
-        receipient = User.objects.get(hash=user_hash)
+        receipient = User.objects.get(uuid=user_uuid)
 
         # we only send international 'sms' to prio users
         # This is mianly cause prices are very high, they are per-segment and differnet for every country
@@ -639,7 +639,7 @@ def send_sms_background(self, user_hash, message):
         result = receipient.sms(send_initator=get_base_management_user(), message=message)
         return {"status": "sent", "result": result}
     except Exception as e:
-        print(f"SMS task failed for user {user_hash}: {str(e)}")
+        print(f"SMS task failed for user {user_uuid}: {str(e)}")
         raise  # Re-raise to mark task as failed
 
 
@@ -1059,7 +1059,7 @@ def automatic_emails_u072_u073_u074():
         state__auto_email_u072_send=False,
         state__has_received_first_match=False,
     )
-    users_u072_hashes = list(users_u072.values_list("hash", flat=True))
+    users_u072_hashes = list(users_u072.values_list("uuid", flat=True))
     for user in users_u072:
         send_email_background.delay("automatic-emails-u072", user_id=user.pk, emulated_send=emulated_send)
         user.state.auto_email_u072_send = True
@@ -1075,7 +1075,7 @@ def automatic_emails_u072_u073_u074():
         state__auto_email_u073_send=False,
         state__has_received_first_match=False,
     )
-    users_u073_hashes = list(users_u073.values_list("hash", flat=True))
+    users_u073_hashes = list(users_u073.values_list("uuid", flat=True))
     for user in users_u073:
         send_email_background.delay("automatic-emails-u073", user_id=user.pk, emulated_send=emulated_send)
         user.state.auto_email_u073_send = True
@@ -1090,7 +1090,7 @@ def automatic_emails_u072_u073_u074():
         state__auto_email_u074_send=False,
         state__has_received_first_match=False,
     )
-    users_u074_hashes = list(users_u074.values_list("hash", flat=True))
+    users_u074_hashes = list(users_u074.values_list("uuid", flat=True))
     for user in users_u074:
         send_email_background.delay("automatic-emails-u074", user_id=user.pk, emulated_send=emulated_send)
         user.state.auto_email_u074_send = True
@@ -1127,7 +1127,7 @@ def automatic_emails_u082_u083_u084():
         state__auto_emails_u082_send=False,
         state__has_received_first_match=True,
     )
-    users_u082_hashes = list(users_u082.values_list("hash", flat=True))
+    users_u082_hashes = list(users_u082.values_list("uuid", flat=True))
     for user in users_u082:
         send_email_background.delay("automatic-emails-u082", user_id=user.pk, emulated_send=emulated_send)
         user.state.auto_emails_u082_send = True
@@ -1143,7 +1143,7 @@ def automatic_emails_u082_u083_u084():
         state__auto_emails_u083_send=False,
         state__has_received_first_match=True,
     )
-    users_u083_hashes = list(users_u083.values_list("hash", flat=True))
+    users_u083_hashes = list(users_u083.values_list("uuid", flat=True))
     for user in users_u083:
         send_email_background.delay("automatic-emails-u083", user_id=user.pk, emulated_send=emulated_send)
         user.state.auto_emails_u083_send = True
@@ -1158,7 +1158,7 @@ def automatic_emails_u082_u083_u084():
         state__auto_emails_u084_send=False,
         state__has_received_first_match=True,
     )
-    users_u084_hashes = list(users_u084.values_list("hash", flat=True))
+    users_u084_hashes = list(users_u084.values_list("uuid", flat=True))
     for user in users_u084:
         send_email_background.delay("automatic-emails-u084", user_id=user.pk, emulated_send=emulated_send)
         user.state.auto_emails_u084_send = True
@@ -1623,7 +1623,7 @@ def automatic_emails_u051_u052():
         state__onboarding_call_completed_at__isnull=False,
         state__attended_auto_email_u051_send=False,
     )
-    users_u051_hashes = list(users_u051.values_list("hash", flat=True))
+    users_u051_hashes = list(users_u051.values_list("uuid", flat=True))
     for user in users_u051:
         send_email_background.delay("automatic-emails-u071", user_id=user.pk, emulated_send=emulated_send)
         user.state.attended_auto_email_u051_send = True
@@ -1637,7 +1637,7 @@ def automatic_emails_u051_u052():
         state__last_not_attended_prematching_call_at__isnull=False,
         state__not_attended_auto_email_u052_send=False,
     )
-    users_u052_hashes = list(users_u052.values_list("hash", flat=True))
+    users_u052_hashes = list(users_u052.values_list("uuid", flat=True))
     for user in users_u052:
         send_email_background.delay("prematching-call-no-show", user_id=user.pk, emulated_send=emulated_send)
         user.state.not_attended_auto_email_u052_send = True
@@ -1725,7 +1725,7 @@ def automatic_emails_u053_u054():
         user.state.not_attended_auto_email_u053_send = True
         user.state.not_attended_auto_email_u053_send_at = timezone.now()
         user.state.save()
-        u053_hashes.append(user.hash)
+        u053_hashes.append(str(user.uuid))
 
     u054_hashes = []
     for user in user_missed_last_onboarding_u054:
@@ -1733,7 +1733,7 @@ def automatic_emails_u053_u054():
         user.state.not_attended_auto_email_u054_send = True
         user.state.not_attended_auto_email_u054_send_at = timezone.now()
         user.state.save()
-        u054_hashes.append(user.hash)
+        u054_hashes.append(str(user.uuid))
 
     report = {
         "status": "sent",
@@ -1765,6 +1765,7 @@ def automatic_emails_fm021_fm022__ghosted_matches():
     from management.models.matches import Match
 
     time_15days_ago = timezone.now() - timedelta(days=15)
+    time_3weeks_ago = timezone.now() - timedelta(weeks=3)
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.ENABLE_AUTO_EMAILS__FM021_FM022)
 
     report = {
@@ -1773,8 +1774,8 @@ def automatic_emails_fm021_fm022__ghosted_matches():
         "fm021_send_to": [],
         "fm022_send_to": [],
     }
-
-    matches_single_party_contact = Match.objects.filter(
+    # Matches that started interacting in the last 3 weeks & haven't had a mutual video call
+    matches_in_ko_with_single_party_contact = Match.objects.filter(
         confirmed=True,
         completed=False,  # dont even consider removing completed matches!
         completed_off_plattform=False,
@@ -1783,12 +1784,13 @@ def automatic_emails_fm021_fm022__ghosted_matches():
         auto_email_fm021_send=False,
         auto_email_fm022_send=False,
         is_ghosted_match=False,
-    )
+        total_mutal_video_calls_counter=0,
+    ).exclude(first_interaction_at__lt=time_3weeks_ago)
 
     # Check if matches should be marked 'ghosted'
     # TODO: confirm if there should be a way to get out of 'ghosted' state
-    report["matches_single_party_contact"] = matches_single_party_contact.count()
-    for match in matches_single_party_contact:
+    report["matches_single_party_contact"] = matches_in_ko_with_single_party_contact.count()
+    for match in matches_in_ko_with_single_party_contact:
         newest_message = (
             Message.objects.filter(
                 Q(sender=match.user1, recipient=match.user2) | Q(sender=match.user2, recipient=match.user1)
@@ -1809,8 +1811,6 @@ def automatic_emails_fm021_fm022__ghosted_matches():
             and newest_message.created < time_15days_ago
             and (newest_video_call and newest_video_call.created_at < time_15days_ago)
         ):
-            # TODO: Also exlude completed and 'off-plattform' matches!
-            # TODO: Also prob exlucde matches that had a two user video call instead
             match.is_ghosted_match = True
             ghosted_user = newest_message.sender
             ghosted_by_user = newest_message.recipient
@@ -1832,7 +1832,7 @@ def automatic_emails_fm021_fm022__ghosted_matches():
                 match.user1, match, "ghosted", "Single party contact for 15 days", send_message=False
             )
 
-    return {"status": "sent", "matches": matches_single_party_contact}
+    return {"status": "sent", "matches": matches_in_ko_with_single_party_contact}
 
 
 @shared_task(name="management.tasks.cleanup_deleted_users_full_user_data")
