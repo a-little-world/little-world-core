@@ -162,14 +162,6 @@
       "template": "react_emails/patenmatch-orga-forward-user.html",
       "theme": "patenmatch"
     },
-    "prematching-call-no-show": {
-      "id": "prematching-call-no-show",
-      "sender_id": "noreply",
-      "category_id": "automated",
-      "subject": "{{ first_name }} & Little World: Bitte neues Einf\u00fchrungsgespr\u00e4ch buchen",
-      "template": "react_emails/prematching-call-no-show.html",
-      "theme": "little-world"
-    },
     "automatic-emails-u071": {
       "id": "automatic-emails-u071",
       "sender_id": "noreply",
@@ -256,6 +248,22 @@
       "category_id": "automated",
       "subject": "In einer Stunde startet dein Onboarding",
       "template": "react_emails/automatic-emails-u044.html",
+      "theme": "little-world"
+    },
+    "automatic-emails-u051l": {
+      "id": "automatic-emails-u053l",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Dein Platz bei Little World wartet noch auf dich \ud83c\udf0d",
+      "template": "react_emails/automatic-emails-u053l.html",
+      "theme": "little-world"
+    },
+    "automatic-emails-u051v": {
+      "id": "automatic-emails-u053v",
+      "sender_id": "noreply",
+      "category_id": "automated",
+      "subject": "Dein Ehrenamt wartet noch auf dich \u2013 neuen Termin sichern",
+      "template": "react_emails/automatic-emails-u053v.html",
       "theme": "little-world"
     },
     "automatic-emails-u053l": {
