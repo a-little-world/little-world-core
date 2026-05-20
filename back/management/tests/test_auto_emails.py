@@ -15,6 +15,7 @@ from video.models import LivekitSession
 
 from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment
+from management.models.profile import Profile
 from management.models.state import State
 from management.models.user import User
 from management.permissions import ManagementPermission
@@ -26,7 +27,7 @@ from management.tasks import (
     automatic_emails_m031_m032_m033_m042,
     automatic_emails_m043_m044_m045,
     automatic_emails_u023_u024_u025,
-    automatic_emails_u051_u052,
+    automatic_emails_u051_u071,
     automatic_emails_u072_u073_u074,
     automatic_emails_u082_u083_u084,
 )
@@ -1371,6 +1372,11 @@ class TestPrematchingCheckoffEmailQueue(TestCase):
         self.no_show_user_1 = create_test_user(41003, None, "Test123!", "prematch-no-show-1@test.de")
         self.no_show_user_2 = create_test_user(41004, None, "Test123!", "prematch-no-show-2@test.de")
 
+        self.no_show_user_1.profile.user_type = Profile.TypeChoices.VOLUNTEER
+        self.no_show_user_1.profile.save(update_fields=["user_type"])
+        self.no_show_user_2.profile.user_type = Profile.TypeChoices.LEARNER
+        self.no_show_user_2.profile.save(update_fields=["user_type"])
+
         for user in [self.attended_user_1, self.attended_user_2, self.no_show_user_1, self.no_show_user_2]:
             user.state.is_onboarded = False
             user.state.save()
@@ -1411,15 +1417,15 @@ class TestPrematchingCheckoffEmailQueue(TestCase):
         for user in [self.attended_user_1, self.attended_user_2]:
             user.state.refresh_from_db()
             assert user.state.is_onboarded is True
-            assert user.state.attended_auto_email_u051_send is False
-            assert user.state.attended_auto_email_u051_send_at is None
+            assert user.state.attended_auto_email_u071_send is False
+            assert user.state.attended_auto_email_u071_send_at is None
             assert user.state.last_prematching_checkoff_at is not None
 
         for user in [self.no_show_user_1, self.no_show_user_2]:
             user.state.refresh_from_db()
             assert user.state.is_onboarded is False
-            assert user.state.not_attended_auto_email_u052_send is False
-            assert user.state.not_attended_auto_email_u052_send_at is None
+            assert user.state.not_attended_auto_email_u051_send is False
+            assert user.state.not_attended_auto_email_u051_send_at is None
             assert user.state.last_prematching_checkoff_at is not None
 
         assert self.no_show_user_1.state.not_attended_auto_email_u053_send is True
@@ -1427,24 +1433,25 @@ class TestPrematchingCheckoffEmailQueue(TestCase):
         assert self.no_show_user_2.state.not_attended_auto_email_u053_send is True
         assert self.no_show_user_2.state.not_attended_auto_email_u054_send is True
 
-        report = automatic_emails_u051_u052()
+        report = automatic_emails_u051_u071()
+        assert report["u071_count"] == 2
         assert report["u051_count"] == 2
-        assert report["u052_count"] == 2
         assert mock_task_send_email.delay.call_count == 4
 
         sent_templates = [call[0][0] for call in mock_task_send_email.delay.call_args_list]
         assert sent_templates.count("automatic-emails-u071") == 2
-        assert sent_templates.count("prematching-call-no-show") == 2
+        assert sent_templates.count("automatic-emails-u051v") == 1
+        assert sent_templates.count("automatic-emails-u051l") == 1
 
         for user in [self.attended_user_1, self.attended_user_2]:
             user.state.refresh_from_db()
-            assert user.state.attended_auto_email_u051_send is True
-            assert user.state.attended_auto_email_u051_send_at is not None
+            assert user.state.attended_auto_email_u071_send is True
+            assert user.state.attended_auto_email_u071_send_at is not None
 
         for user in [self.no_show_user_1, self.no_show_user_2]:
             user.state.refresh_from_db()
-            assert user.state.not_attended_auto_email_u052_send is True
-            assert user.state.not_attended_auto_email_u052_send_at is not None
+            assert user.state.not_attended_auto_email_u051_send is True
+            assert user.state.not_attended_auto_email_u051_send_at is not None
 
         mock_task_send_email.reset_mock()
 
@@ -1457,29 +1464,30 @@ class TestPrematchingCheckoffEmailQueue(TestCase):
         for user in [self.attended_user_1, self.attended_user_2]:
             user.state.refresh_from_db()
             assert user.state.is_onboarded is True
-            assert user.state.attended_auto_email_u051_send is True
+            assert user.state.attended_auto_email_u071_send is True
 
         for user in [self.no_show_user_1, self.no_show_user_2]:
             user.state.refresh_from_db()
-            assert user.state.not_attended_auto_email_u052_send is False
-            assert user.state.not_attended_auto_email_u052_send_at is None
+            assert user.state.not_attended_auto_email_u051_send is False
+            assert user.state.not_attended_auto_email_u051_send_at is None
 
         assert self.no_show_user_1.state.not_attended_auto_email_u053_send is True
         assert self.no_show_user_1.state.not_attended_auto_email_u054_send is False
         assert self.no_show_user_2.state.not_attended_auto_email_u053_send is True
         assert self.no_show_user_2.state.not_attended_auto_email_u054_send is True
 
-        report_repeat = automatic_emails_u051_u052()
-        assert report_repeat["u051_count"] == 0
-        assert report_repeat["u052_count"] == 2
+        report_repeat = automatic_emails_u051_u071()
+        assert report_repeat["u071_count"] == 0
+        assert report_repeat["u051_count"] == 2
         assert mock_task_send_email.delay.call_count == 2
         sent_templates_repeat = [call[0][0] for call in mock_task_send_email.delay.call_args_list]
-        assert sent_templates_repeat == ["prematching-call-no-show", "prematching-call-no-show"]
+        assert sent_templates_repeat.count("automatic-emails-u051v") == 1
+        assert sent_templates_repeat.count("automatic-emails-u051l") == 1
 
         mock_task_send_email.reset_mock()
-        report_third_run = automatic_emails_u051_u052()
+        report_third_run = automatic_emails_u051_u071()
+        assert report_third_run["u071_count"] == 0
         assert report_third_run["u051_count"] == 0
-        assert report_third_run["u052_count"] == 0
         mock_task_send_email.delay.assert_not_called()
 
     def test_prematching_checkoff_collects_unretrievable_selected_users(self):
@@ -1505,13 +1513,13 @@ class TestPrematchingCheckoffEmailQueue(TestCase):
         assert self.attended_user_1.state.is_onboarded is True
         assert self.attended_user_1.state.last_prematching_checkoff_at is not None
 
-    @patch("management.tasks.automatic_emails_u051_u052")
-    def test_prematching_checkoff_can_trigger_send_now(self, mock_u051_u052_task):
+    @patch("management.tasks.automatic_emails_u051_u071")
+    def test_prematching_checkoff_can_trigger_send_now(self, mock_u051_u071_task):
         from types import SimpleNamespace
 
         from rest_framework.test import APIClient
 
-        mock_u051_u052_task.delay.return_value = SimpleNamespace(id="task-u051-u052-1")
+        mock_u051_u071_task.delay.return_value = SimpleNamespace(id="task-u051-u071-1")
 
         client = APIClient()
         client.force_authenticate(user=self.staff_user)
@@ -1527,8 +1535,8 @@ class TestPrematchingCheckoffEmailQueue(TestCase):
         )
         assert response.status_code == 200
         assert response.data["send_emails_now"] is True
-        assert response.data["send_task_id"] == "task-u051-u052-1"
-        mock_u051_u052_task.delay.assert_called_once()
+        assert response.data["send_task_id"] == "task-u051-u071-1"
+        mock_u051_u071_task.delay.assert_called_once()
 
 
 class TestAutomaticEmailsM043M044M045Performance(TestCase):

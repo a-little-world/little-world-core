@@ -69,11 +69,11 @@ auto_emails = {
 }
 
 
-if settings.ENABLE_AUTO_EMAILS__U051_U052:
+if settings.ENABLE_AUTO_EMAILS__U051_U071:
     auto_emails.update(
         {
-            "automatic-emails-u051-u052": {
-                "task": "management.tasks.automatic_emails_u051_u052",
+            "automatic-emails-u051-u071": {
+                "task": "management.tasks.automatic_emails_u051_u071",
                 "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
             }
         }
