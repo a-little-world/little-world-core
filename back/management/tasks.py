@@ -1818,9 +1818,11 @@ def automatic_emails_fm021_fm022__ghosted_matches():
             match.marked_as_ghosted_at = timezone.now()
             match.save()
             report["matches_ghosted"].append(match.uuid)
-            send_email_background.delay("automatic-emails-fm021", user_id=ghosted_user.id, emulated_send=emulated_send)
             send_email_background.delay(
-                "automatic-emails-fm022", user_id=ghosted_by_user.id, emulated_send=emulated_send
+                "automatic-emails-fm021", user_id=ghosted_user.id, match_id=match.pk, emulated_send=emulated_send
+            )
+            send_email_background.delay(
+                "automatic-emails-fm022", user_id=ghosted_by_user.id, match_id=match.pk, emulated_send=emulated_send
             )
             report["fm021_send_to"].append([str(match.uuid), ghosted_user.id])
             report["fm022_send_to"].append([str(match.uuid), ghosted_by_user.id])
