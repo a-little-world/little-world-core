@@ -719,9 +719,10 @@ def self_onboarding_update(request):
         user.grant_permission(ManagementPermission.USE_RANDOM_CALLS)
         user.state.searching_state = State.SearchingStateChoices.SEARCHING
         send_email_background.delay("automatic-emails-u071", user_id=user.id)
+        user.state.attended_auto_email_u071_send = True
+        user.state.attended_auto_email_u071_send_at = timezone.now()
         completed = True
 
-    # TODO: add automatic email
     user.state.save()
     return Response(
         {

@@ -314,8 +314,8 @@ def mark_prematching_calls_completed(request):
         attended_users.append(user)
 
         if not previously_onboarded:
-            user.state.attended_auto_email_u051_send = False
-            user.state.attended_auto_email_u051_send_at = None
+            user.state.attended_auto_email_u071_send = False
+            user.state.attended_auto_email_u071_send_at = None
             user.state.save()
 
     not_attended_appointment_users = list(set(appointment_users) - set(userlist))
@@ -332,8 +332,8 @@ def mark_prematching_calls_completed(request):
         user.state.last_prematching_call_not_attended = True
         user.state.last_not_attended_prematching_call_at = appointment_date
 
-        user.state.not_attended_auto_email_u052_send = False
-        user.state.not_attended_auto_email_u052_send_at = None
+        user.state.not_attended_auto_email_u051_send = False
+        user.state.not_attended_auto_email_u051_send_at = None
         user.state.save()
         not_attended_users.append(user)
 
@@ -352,9 +352,9 @@ def mark_prematching_calls_completed(request):
     slack_notify_security_channel_async.delay(message=message_report)
     send_task_id = None
     if send_emails_now:
-        from management.tasks import automatic_emails_u051_u052
+        from management.tasks import automatic_emails_u051_u071
 
-        send_task = automatic_emails_u051_u052.delay()
+        send_task = automatic_emails_u051_u071.delay()
         send_task_id = send_task.id
 
     return Response(
