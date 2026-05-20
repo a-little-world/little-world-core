@@ -1785,6 +1785,8 @@ def automatic_emails_fm021_fm022__ghosted_matches():
         auto_email_fm022_send=False,
         is_ghosted_match=False,
         total_mutal_video_calls_counter=0,
+        user1__is_active=True,
+        user2__is_active=True,
     ).exclude(first_interaction_at__lt=time_3weeks_ago)
 
     # Check if matches should be marked 'ghosted'
