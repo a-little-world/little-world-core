@@ -903,7 +903,8 @@
     },
     "context": {
       "id": "context",
-      "query_id_field": "key"
+      "query_id_field": "key",
+      "model_source": null
     }
   }
 }
