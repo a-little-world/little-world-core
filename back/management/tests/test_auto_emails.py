@@ -15,6 +15,7 @@ from video.models import LivekitSession
 
 from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment
+from management.models.profile import Profile
 from management.models.state import State
 from management.models.user import User
 from management.permissions import ManagementPermission
@@ -1371,6 +1372,11 @@ class TestPrematchingCheckoffEmailQueue(TestCase):
         self.no_show_user_1 = create_test_user(41003, None, "Test123!", "prematch-no-show-1@test.de")
         self.no_show_user_2 = create_test_user(41004, None, "Test123!", "prematch-no-show-2@test.de")
 
+        self.no_show_user_1.profile.user_type = Profile.TypeChoices.VOLUNTEER
+        self.no_show_user_1.profile.save(update_fields=["user_type"])
+        self.no_show_user_2.profile.user_type = Profile.TypeChoices.LEARNER
+        self.no_show_user_2.profile.save(update_fields=["user_type"])
+
         for user in [self.attended_user_1, self.attended_user_2, self.no_show_user_1, self.no_show_user_2]:
             user.state.is_onboarded = False
             user.state.save()
@@ -1475,7 +1481,8 @@ class TestPrematchingCheckoffEmailQueue(TestCase):
         assert report_repeat["u051_count"] == 2
         assert mock_task_send_email.delay.call_count == 2
         sent_templates_repeat = [call[0][0] for call in mock_task_send_email.delay.call_args_list]
-        assert sent_templates_repeat == ["automated-emails-u051l", "automated-emails-u051v"]
+        assert sent_templates_repeat.count("automatic-emails-u051v") == 1
+        assert sent_templates_repeat.count("automatic-emails-u051l") == 1
 
         mock_task_send_email.reset_mock()
         report_third_run = automatic_emails_u051_u071()
