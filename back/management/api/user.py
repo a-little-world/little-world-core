@@ -24,7 +24,13 @@ from tracking.models import Event
 from translations import get_translation
 
 from management.authentication import NativeOnlyJWTAuthentication, silent
-from management.controller import UserNotFoundErr, delete_user, get_user_by_email, get_user_by_uuid
+from management.controller import (
+    UserNotFoundErr,
+    delete_user,
+    get_user_by_email,
+    get_user_by_uuid,
+    is_base_management_user,
+)
 from management.models.banner import Banner, BannerSerializer
 from management.models.matches import Match
 from management.models.pre_matching_appointment import PreMatchingAppointment, PreMatchingAppointmentSerializer
@@ -591,7 +597,7 @@ def get_user_data(user):
         "id": str(user.uuid),
         "banner": banner,
         "status": FrontendStatusSerializer(user_state).data,
-        "isSupport": user.has_perm(ManagementPermission.MATCHING_USER) or user.is_staff,
+        "isSupport": is_base_management_user(user),
         "isSearching": user_state.searching_state == State.SearchingStateChoices.SEARCHING,
         "email": user.email,
         "hasRandomCallsAccess": has_random_calls_access,
@@ -599,6 +605,7 @@ def get_user_data(user):
         "preMatchingCallJoinLink": pre_call_join_link,
         "calComAppointmentLink": cal_data_link,
         "hadPreMatchingCall": user_state.had_prematching_call,
+        "hasMatchingPermissions": user.has_perm(ManagementPermission.MATCHING_USER),
         "selfOnboardingCompleted": user_state.self_onboarding_completed,
         "selfOnboardingStepId": user_state.self_onboarding_step_id or "",
         "selfOnboardingProgress": self_onboarding_progress,
