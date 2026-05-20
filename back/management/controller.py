@@ -465,6 +465,11 @@ def unmatch_users(users: set, delete_video_room=True, delete_dialog=True, unmatc
     return PastMatch.objects.create(user1=usr1, user2=usr2, who_unmatched=unmatcher)
 
 
+def is_base_management_user(user: User) -> bool:
+    """True only for the platform support account (MATCHING_USER_MAIL), not other matching users."""
+    return user.email == settings.MATCHING_USER_MAIL
+
+
 def get_base_management_user():
     """
     Always returns the BASE_MANAGEMENT_USER user

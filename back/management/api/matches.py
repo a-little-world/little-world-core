@@ -64,7 +64,7 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
             "id": str(partner.uuid),
             "isOnline": is_online,
             "isDeleted": False,
-            "isSupport": partner.has_perm(ManagementPermission.MATCHING_USER) or partner.is_staff,
+            "isSupport": controller.is_base_management_user(partner),
             "has_match_priority": partner.state.has_match_priority,
             **CensoredProfileSerializer(partner.profile).data,
         }

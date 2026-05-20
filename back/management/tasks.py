@@ -1220,9 +1220,9 @@ def daily_auto_email_report():
             "enabled": settings.ENABLE_AUTO_EMAILS__U053_U054,
             "emulated": settings.EMULATE_AUTO_EMAILS__U053_U054,
         },
-        "AUTOMATIC_EMAILS__U051_U052": {
-            "enabled": settings.ENABLE_AUTO_EMAILS__U051_U052,
-            "emulated": settings.EMULATE_AUTO_EMAILS__U051_U052,
+        "AUTOMATIC_EMAILS__U051_U071": {
+            "enabled": settings.ENABLE_AUTO_EMAILS__U051_U071,
+            "emulated": settings.EMULATE_AUTO_EMAILS__U051_U071,
         },
         "AUTOMATIC_EMAILS__FM021_FM022": {
             "enabled": settings.ENABLE_AUTO_EMAILS__FM021_FM022,
@@ -1240,6 +1240,19 @@ def daily_auto_email_report():
         "automatic-emails-u024l",
         "automatic-emails-u024v",
         "automatic-emails-u025",
+        "automatic-emails-u051l",
+        "automatic-emails-u051v",
+        "automatic-emails-u053l",
+        "automatic-emails-u053v",
+        "automatic-emails-u054",
+        "automatic-emails-u071",
+        "automatic-emails-u072",
+        "automatic-emails-u073",
+        "automatic-emails-u074",
+        "automatic-emails-u081",
+        "automatic-emails-u082",
+        "automatic-emails-u083",
+        "automatic-emails-u084",
         "automatic-emails-m012",
         "automatic-emails-m013",
         "automatic-emails-m014",
@@ -1250,25 +1263,12 @@ def daily_auto_email_report():
         "automatic-emails-m032",
         "automatic-emails-m033",
         "automatic-emails-m042",
-        "automatic-emails-u072",
-        "automatic-emails-u073",
-        "automatic-emails-u074",
-        "automatic-emails-u081",
-        "automatic-emails-u082",
-        "automatic-emails-u083",
-        "automatic-emails-u084",
         "automatic-emails-m043",
         "automatic-emails-m044",
         "automatic-emails-m045",
-        "automatic-emails-u053l",
-        "automatic-emails-u053v",
-        "automatic-emails-u054",
-        "automatic-emails-u051",
-        "automatic-emails-u052",
+        "automatic-emails-m051",
         "automatic-emails-fm021",
         "automatic-emails-fm022",
-        "automatic-emails-m051",
-        "automatic-emails-u071",
     ]
 
     # Get yesterday's date range
@@ -1610,46 +1610,53 @@ def automatic_emails_m043_m044_m045():
 
 
 @shared_task
-def automatic_emails_u051_u052():
+def automatic_emails_u051_u071():
     """
-    TODO: Correct email descriptions,
-    check if correct!
+    u051: send if user did not attend onboarding call
+    u071: send if user did attend onboarding call
     """
-    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__U051_U052)
+    from management.models.profile import Profile
 
-    users_u051 = User.objects.filter(
+    def template_for_u051(user: User) -> str:
+        if user.profile.user_type == Profile.TypeChoices.VOLUNTEER:
+            return "automatic-emails-u051v"
+        return "automatic-emails-u051l"
+
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__U051_U071)
+
+    users_u071 = User.objects.filter(
         is_active=True,
         state__is_onboarded=True,
         state__onboarding_call_completed_at__isnull=False,
-        state__attended_auto_email_u051_send=False,
+        state__attended_auto_email_u071_send=False,
     )
-    users_u051_hashes = list(users_u051.values_list("uuid", flat=True))
-    for user in users_u051:
+    users_u071_hashes = list(users_u071.values_list("uuid", flat=True))
+    for user in users_u071:
         send_email_background.delay("automatic-emails-u071", user_id=user.pk, emulated_send=emulated_send)
-        user.state.attended_auto_email_u051_send = True
-        user.state.attended_auto_email_u051_send_at = dj_timezone.now()
+        user.state.attended_auto_email_u071_send = True
+        user.state.attended_auto_email_u071_send_at = dj_timezone.now()
         user.state.save()
 
-    users_u052 = User.objects.filter(
+    users_u051 = User.objects.filter(
         is_active=True,
         state__is_onboarded=False,
         state__last_prematching_call_not_attended=True,
         state__last_not_attended_prematching_call_at__isnull=False,
-        state__not_attended_auto_email_u052_send=False,
+        state__not_attended_auto_email_u051_send=False,
     )
-    users_u052_hashes = list(users_u052.values_list("uuid", flat=True))
-    for user in users_u052:
-        send_email_background.delay("prematching-call-no-show", user_id=user.pk, emulated_send=emulated_send)
-        user.state.not_attended_auto_email_u052_send = True
-        user.state.not_attended_auto_email_u052_send_at = dj_timezone.now()
+    users_u051_hashes = list(users_u051.values_list("uuid", flat=True))
+    for user in users_u051:
+        send_email_background.delay(template_for_u051(user), user_id=user.pk, emulated_send=emulated_send)
+        user.state.not_attended_auto_email_u051_send = True
+        user.state.not_attended_auto_email_u051_send_at = dj_timezone.now()
         user.state.save()
 
     return {
         "status": "sent",
         "u051_count": len(users_u051_hashes),
         "u051_users": users_u051_hashes,
-        "u052_count": len(users_u052_hashes),
-        "u052_users": users_u052_hashes,
+        "u071_count": len(users_u071_hashes),
+        "u071_users": users_u071_hashes,
     }
 
 
@@ -1785,6 +1792,8 @@ def automatic_emails_fm021_fm022__ghosted_matches():
         auto_email_fm022_send=False,
         is_ghosted_match=False,
         total_mutal_video_calls_counter=0,
+        user1__is_active=True,
+        user2__is_active=True,
     ).exclude(first_interaction_at__lt=time_3weeks_ago)
 
     # Check if matches should be marked 'ghosted'
@@ -1818,9 +1827,11 @@ def automatic_emails_fm021_fm022__ghosted_matches():
             match.marked_as_ghosted_at = timezone.now()
             match.save()
             report["matches_ghosted"].append(match.uuid)
-            send_email_background.delay("automatic-emails-fm021", user_id=ghosted_user.id, emulated_send=emulated_send)
             send_email_background.delay(
-                "automatic-emails-fm022", user_id=ghosted_by_user.id, emulated_send=emulated_send
+                "automatic-emails-fm021", user_id=ghosted_user.id, match_id=match.pk, emulated_send=emulated_send
+            )
+            send_email_background.delay(
+                "automatic-emails-fm022", user_id=ghosted_by_user.id, match_id=match.pk, emulated_send=emulated_send
             )
             report["fm021_send_to"].append([str(match.uuid), ghosted_user.id])
             report["fm022_send_to"].append([str(match.uuid), ghosted_by_user.id])
