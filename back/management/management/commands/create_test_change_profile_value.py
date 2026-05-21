@@ -78,7 +78,7 @@ class Command(BaseCommand):
             metadata={"user_id": user.pk, "field": field},
         )
 
-        action = SupportTaskAction.objects.create(
+        SupportTaskAction.objects.create(
             task=task,
             action_type=action_type,
             static_parameters={

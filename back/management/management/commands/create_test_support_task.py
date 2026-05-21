@@ -142,7 +142,7 @@ def _create_country_of_residence(cmd, user):
 
 
 _CREATORS = {
-    "support_reply":       _create_support_reply,
-    "change_user_type":    _create_change_user_type,
+    "support_reply": _create_support_reply,
+    "change_user_type": _create_change_user_type,
     "country_of_residence": _create_country_of_residence,
 }

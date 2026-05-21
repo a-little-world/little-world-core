@@ -261,11 +261,7 @@ def user_search(request):
         return Response([])
     qs = (
         User.objects.select_related("profile")
-        .filter(
-            Q(email__icontains=q)
-            | Q(profile__first_name__icontains=q)
-            | Q(profile__second_name__icontains=q)
-        )
+        .filter(Q(email__icontains=q) | Q(profile__first_name__icontains=q) | Q(profile__second_name__icontains=q))
         .distinct()[:20]
     )
     results = [

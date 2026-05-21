@@ -8,7 +8,6 @@ Main management models:
 
 from . import (
     backend_state,
-    object_history,
     banner,
     community_events,
     help_message,
@@ -18,6 +17,7 @@ from . import (
     news_and_updates,
     newsletter,
     notifications,
+    object_history,
     past_matches,
     pre_matching_appointment,
     profile,

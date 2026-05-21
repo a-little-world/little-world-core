@@ -6,7 +6,7 @@ from .registry import register, register_task_type
 @dataclass
 class StaticParams:
     help_message_id: int
-    kind_display: str   # e.g. "General", "Technical"
+    kind_display: str  # e.g. "General", "Technical"
     message_preview: str  # message[:500]
 
 
