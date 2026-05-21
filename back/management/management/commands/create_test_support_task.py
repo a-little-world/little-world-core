@@ -10,9 +10,6 @@ Available types:
     support_reply               HelpMessage → support_reply action
     change_user_type            Profile → message_action_change_user_type
     country_of_residence        Profile → profile_change_action_country_of_residence
-    remove_match                Match   → message_action_remove_match
-    suspicious_profile          Profile → profile_action_suspicious_profile
-    too_empty_profile           Profile → profile_action_too_empty_profile
     all                         Create one task of each type above
 """
 
@@ -22,9 +19,6 @@ TASK_TYPES = [
     "support_reply",
     "change_user_type",
     "country_of_residence",
-    "remove_match",
-    "suspicious_profile",
-    "too_empty_profile",
 ]
 
 
@@ -147,67 +141,8 @@ def _create_country_of_residence(cmd, user):
     )
 
 
-def _create_remove_match(cmd, user):
-    from django.db.models import Q
-
-    from management.models.matches import Match
-    from management.models.support_task import SupportTask
-
-    match = Match.objects.filter(active=True).filter(Q(user1=user) | Q(user2=user)).first()
-    if match is None:
-        raise RuntimeError(f"No active match found for {user.email}")
-
-    return SupportTask.create_of_type(
-        "remove_match",
-        static_parameters={
-            "help_message_id": 0,
-            "user_id": user.id,
-            "user_name": _user_name(user),
-            "match_id": match.id,
-        },
-        parameters={"reason": "Test: user requested match removal."},
-        related_user=user,
-        created_by=_get_staff_user(),
-    )
-
-
-def _create_suspicious_profile(cmd, user):
-    from management.models.support_task import SupportTask
-
-    return SupportTask.create_of_type(
-        "suspicious_profile",
-        static_parameters={
-            "user_id": user.id,
-            "user_name": _user_name(user),
-            "reason": "Spam keywords detected in profile description.",
-        },
-        parameters={"decision": "dismiss"},
-        related_user=user,
-        created_by=_get_staff_user(),
-    )
-
-
-def _create_too_empty_profile(cmd, user):
-    from management.models.support_task import SupportTask
-
-    return SupportTask.create_of_type(
-        "too_empty_profile",
-        static_parameters={
-            "user_id": user.id,
-            "user_name": _user_name(user),
-            "missing_fields": ["description", "birth_year"],
-        },
-        parameters={"decision": "contact_user", "contact_message": ""},
-        related_user=user,
-        created_by=_get_staff_user(),
-    )
-
-
 _CREATORS = {
     "support_reply":       _create_support_reply,
     "change_user_type":    _create_change_user_type,
     "country_of_residence": _create_country_of_residence,
-    "remove_match":        _create_remove_match,
-    "suspicious_profile":  _create_suspicious_profile,
-    "too_empty_profile":   _create_too_empty_profile,
 }

@@ -3,11 +3,11 @@ from django.urls import path
 from rest_framework import serializers, status
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from management.actions.registry import execute
 from management.authentication import NativeOnlyJWTAuthentication
+from management.helpers import IsAdminOrMatchingUser
 from management.models.support_task import (
     SupportTask,
     SupportTaskAction,
@@ -24,26 +24,49 @@ class CreateSupportTaskSerializer(serializers.Serializer):
     static_parameters = serializers.DictField(default=dict)
     parameters = serializers.DictField(default=dict)
 
+    def create(self, validated_data):
+        task_type = validated_data.pop("task_type")
+        created_by = validated_data.pop("created_by")
+        return SupportTask.create_of_type(task_type, created_by=created_by, **validated_data)
+
+
+class SupportTaskListQuerySerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=SupportTask.Status.choices, required=False)
+    assigned_to = serializers.IntegerField(required=False)
+    sort_by = serializers.ChoiceField(
+        choices=("id", "priority", "status", "title", "created_at", "updated_at"),
+        default="created_at",
+        required=False,
+    )
+    sort_order = serializers.ChoiceField(choices=("asc", "desc"), default="desc", required=False)
+
 
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminOrMatchingUser])
 def support_task_list(request):
     tasks = SupportTask.objects.select_related(
         "action", "related_user__profile", "assigned_to__profile", "created_by__profile"
     ).all()
 
-    status_filter = request.query_params.get("status")
+    serializer = SupportTaskListQuerySerializer(data=request.query_params)
+    serializer.is_valid(raise_exception=True)
+    query = serializer.validated_data
+
+    status_filter = query.get("status")
     if status_filter:
         tasks = tasks.filter(status=status_filter)
 
-    assigned_to = request.query_params.get("assigned_to")
+    assigned_to = query.get("assigned_to")
     if assigned_to:
         tasks = tasks.filter(assigned_to=assigned_to)
 
-    sort_by = request.query_params.get("sort_by", "created_at")
-    sort_order = request.query_params.get("sort_order", "desc")
-    order_prefix = "-" if sort_order == "desc" else ""
+    sort_by = query["sort_by"]
+    sort_order = query["sort_order"]
+
+    order_prefix = ""
+    if sort_order == "desc":
+        order_prefix = "-"
 
     valid_sort_fields = {"id", "status", "title", "created_at", "updated_at"}
     if sort_by == "priority":
@@ -64,20 +87,12 @@ def support_task_list(request):
 
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminOrMatchingUser])
 def support_task_create(request):
     serializer = CreateSupportTaskSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
-    d = serializer.validated_data
     try:
-        task = SupportTask.create_of_type(
-            d["task_type"],
-            static_parameters=d["static_parameters"],
-            parameters=d["parameters"],
-            related_user_id=d["related_user_id"],
-            assigned_to_id=d.get("assigned_to_id"),
-            created_by=request.user,
-        )
+        task = serializer.save(created_by=request.user)
     except ValueError as e:
         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
     return Response(SupportTaskSerializer(task).data, status=status.HTTP_201_CREATED)
@@ -85,7 +100,7 @@ def support_task_create(request):
 
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminOrMatchingUser])
 def support_task_detail(request, pk):
     try:
         task = SupportTask.objects.select_related(
@@ -98,7 +113,7 @@ def support_task_detail(request, pk):
 
 @api_view(["PATCH"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminOrMatchingUser])
 def support_task_update(request, pk):
     try:
         task = SupportTask.objects.select_related("action").get(pk=pk)
@@ -112,7 +127,7 @@ def support_task_update(request, pk):
 
 @api_view(["PATCH"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminOrMatchingUser])
 def support_task_action_update(request, task_pk):
     """Update dynamic parameters of a pending action (e.g. edit AI-generated draft)."""
     try:
@@ -135,7 +150,7 @@ def support_task_action_update(request, task_pk):
 
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminOrMatchingUser])
 def support_task_action_execute(request, task_pk):
     """Approve an action — executes the underlying function after human confirmation."""
     try:
@@ -159,7 +174,7 @@ def support_task_action_execute(request, task_pk):
 
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminOrMatchingUser])
 def support_task_action_cancel(request, task_pk):
     """Skip an action without executing it."""
     try:
@@ -178,7 +193,7 @@ def support_task_action_cancel(request, task_pk):
 
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminOrMatchingUser])
 def support_task_stats(request):
     rows = SupportTask.objects.values("status").annotate(count=Count("id"))
     counts = {row["status"]: row["count"] for row in rows}
@@ -193,7 +208,7 @@ def support_task_stats(request):
 
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminOrMatchingUser])
 def staff_users(request):
     users = User.objects.filter(is_staff=True).values("id", "email", "first_name", "last_name")
     return Response(list(users))
@@ -209,7 +224,7 @@ class CreateManualSupportTaskSerializer(serializers.Serializer):
 
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminOrMatchingUser])
 def support_task_create_manual(request):
     serializer = CreateManualSupportTaskSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -239,7 +254,7 @@ def support_task_create_manual(request):
 
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAdminOrMatchingUser])
 def user_search(request):
     q = request.query_params.get("q", "").strip()
     if not q:

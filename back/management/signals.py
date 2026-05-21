@@ -58,56 +58,8 @@ def _check_profile_on_save(sender, instance, created, **kwargs) -> None:
 
 
 def check_user_profile(profile) -> dict:
-    """Check profile for completeness and suspicious patterns; create tasks as needed.
-
-    Called both from the post_save signal and externally (e.g. after form completion).
-    Returns a dict with created task info for debugging/monitoring.
-    """
-    created_tasks = []
-
-    # ── Incomplete profile ────────────────────────────────────────────────────
-    missing = []
-    if not profile.description:
-        missing.append("description")
-    if not profile.birth_year:
-        missing.append("birth_year")
-
-    _cancel_open_task(profile.user_id, "profile_action_too_empty_profile")
-    if missing:
-        from management.models.support_task import SupportTask
-
-        task = SupportTask.create_of_type(
-            "too_empty_profile",
-            static_parameters={
-                "user_id": profile.user_id,
-                "user_name": f"{profile.first_name} {profile.second_name}",
-                "missing_fields": missing,
-            },
-            parameters={"decision": "contact_user", "contact_message": ""},
-            related_user_id=profile.user_id,
-        )
-        created_tasks.append({"type": "too_empty", "task_id": task.pk})
-
-    # ── Suspicious profile ────────────────────────────────────────────────────
-    suspicious_reasons = _detect_suspicious_profile(profile)
-
-    _cancel_open_task(profile.user_id, "profile_action_suspicious_profile")
-    if suspicious_reasons:
-        from management.models.support_task import SupportTask
-
-        task = SupportTask.create_of_type(
-            "suspicious_profile",
-            static_parameters={
-                "user_id": profile.user_id,
-                "user_name": f"{profile.first_name} {profile.second_name}",
-                "reason": suspicious_reasons[0],
-            },
-            parameters={"decision": "dismiss"},
-            related_user_id=profile.user_id,
-        )
-        created_tasks.append({"type": "suspicious", "task_id": task.pk})
-
-    return {"created_tasks": created_tasks}
+    """Profile review tasks are disabled while support tasks launch with the initial action set."""
+    return {"created_tasks": []}
 
 
 def _detect_suspicious_profile(profile) -> list[str]:

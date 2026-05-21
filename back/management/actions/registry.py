@@ -5,6 +5,7 @@ from typing import Callable, Type
 
 _registry: dict[str, "ActionDefinition"] = {}
 _task_type_registry: dict[str, "TaskTypeDefinition"] = {}
+_ENABLED_ACTION_MODULES = frozenset({"change_profile_value", "support_reply"})
 
 
 @dataclass
@@ -76,5 +77,5 @@ def autodiscover() -> None:
     from management import actions as actions_pkg
 
     for _, module_name, _ in pkgutil.iter_modules(actions_pkg.__path__):
-        if module_name != "registry":
+        if module_name in _ENABLED_ACTION_MODULES:
             importlib.import_module(f"management.actions.{module_name}")
