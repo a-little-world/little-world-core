@@ -25,6 +25,7 @@ from management.api import (
     scores_advanced,
     short_links,
     slack,
+    support_task,
     trans,
     translator,
     user_advanced_statistics,
@@ -158,6 +159,7 @@ api_routes = [
     *user_data_apis,
     *notifications.api_urls,
     *push_notifications.api_urls,
+    *support_task.api_urls,
     # User
     path("api/trans", trans.get_translation_catalogue),
     path("api/trans/<str:lang>/", trans.get_translation_catalogue),
