@@ -6,6 +6,7 @@
 """
 
 __all__ = [
+    "actions",
     "models",
     "api",
     "tests",
