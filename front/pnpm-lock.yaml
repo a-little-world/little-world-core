@@ -41,6 +41,9 @@ importers:
       daisyui:
         specifier: ^5.0.54
         version: 5.5.20
+      file-loader:
+        specifier: ^6.2.0
+        version: 6.2.0(webpack@5.107.2)
       postcss-loader:
         specifier: ^7.0.1
         version: 7.3.4(postcss@8.5.15)(webpack@5.107.2)
