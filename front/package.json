@@ -16,6 +16,7 @@
   },
   "author": "",
   "license": "LGPL-3.0",
+  "packageManager": "pnpm@10.22.0",
   "dependencies": {
     "@babel/core": "^7.23.2",
     "@babel/preset-typescript": "^7.23.2",

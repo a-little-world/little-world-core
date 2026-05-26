@@ -25,9 +25,9 @@ docker compose exec backend python manage.py shell
 **Frontend (admin panel):**
 ```bash
 cd front/apps/admin_panel_frontend
-npm run start          # webpack watch (dev)
-npm run build          # production build
-npx tsc --noEmit       # type-check without emitting
+pnpm run start          # webpack watch (dev)
+pnpm run build          # production build
+pnpm exec tsc --noEmit  # type-check without emitting
 ```
 
 **Linting:**
