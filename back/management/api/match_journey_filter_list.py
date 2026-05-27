@@ -166,6 +166,17 @@ def get_match_list_by_name(name):
     return None
 
 
+def get_match_bucket_label(bucket_name: str | None) -> str:
+    if not bucket_name:
+        return "Unknown"
+
+    if bucket_name == "unknown":
+        return "Unknown"
+
+    slug = bucket_name.split("__")[-1]
+    return slug.replace("_", " ").strip().title()
+
+
 def determine_match_bucket(match_pk):
     try:
         match_categorie_buckets = [
