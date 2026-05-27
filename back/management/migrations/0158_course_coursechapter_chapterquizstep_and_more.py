@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('management', '0156_rename_attended_auto_email_u051_send_state_attended_auto_email_u071_send_and_more'),
+        ('management', '0157_supporttask_supporttaskaction_objecthistory'),
     ]
 
     operations = [
