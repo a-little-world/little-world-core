@@ -9,6 +9,7 @@ from rest_framework.response import Response
 
 from management.authentication import NativeOnlyJWTAuthentication
 from management.helpers import IsAdminOrMatchingUser
+from management.helpers.detailed_pagination import DetailedPagination, get_paginated_format_v2
 from management.models.courses import (
     ChapterQuizStep,
     Course,
@@ -315,34 +316,34 @@ class AdminCourseSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 
 
-@api_view(["PATCH"])
+@api_view(["PATCH", "DELETE"])
 @permission_classes([IsAdminOrMatchingUser])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 def admin_course_image(request, slug: str):
     """
-    PATCH — upload or remove a course image.
-    To upload:  multipart/form-data with an 'image' file field.
-    To remove:  multipart/form-data with 'clear=true'.
+    PATCH  — upload a course image (multipart/form-data with an 'image' file field).
+    DELETE — remove the course image.
     Returns the updated course (AdminCourseSerializer).
     """
     course = get_object_or_404(Course, slug=slug)
 
-    if request.data.get("clear") == "true":
+    if request.method == "DELETE":
         if course.image:
             course.image.delete(save=False)
         course.image = None
         course.save(update_fields=["image"])
-    elif "image" in request.FILES:
-        if course.image:
-            course.image.delete(save=False)
-        course.image = request.FILES["image"]
-        course.save(update_fields=["image"])
-    else:
+        return Response(AdminCourseSerializer(course).data)
+
+    if "image" not in request.FILES:
         return Response(
-            {"detail": "Provide an 'image' file or 'clear=true'."},
+            {"detail": "Provide an 'image' file."},
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    if course.image:
+        course.image.delete(save=False)
+    course.image = request.FILES["image"]
+    course.save(update_fields=["image"])
     return Response(AdminCourseSerializer(course).data)
 
 
@@ -351,12 +352,18 @@ def admin_course_image(request, slug: str):
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 def admin_course_list(request):
     """
-    GET  — list all courses (including inactive).
+    GET  — list all courses (including inactive). Supports page and page_size query params.
     POST — create a new course.
     """
     if request.method == "GET":
-        courses = Course.objects.all().order_by("-created_at")
-        return Response(AdminCourseListSerializer(courses, many=True).data)
+        page = int(request.query_params.get("page", 1))
+        page_size = int(request.query_params.get("page_size", DetailedPagination.page_size))
+        page_size = min(max(page_size, 1), DetailedPagination.max_page_size)
+
+        courses_qs = Course.objects.all().order_by("-created_at")
+        paginated = get_paginated_format_v2(courses_qs, page_size, page)
+        paginated["results"] = AdminCourseListSerializer(paginated["results"], many=True).data
+        return Response(paginated)
 
     serializer = AdminCourseSerializer(data=request.data)
     if serializer.is_valid():
