@@ -14,7 +14,7 @@ from translations import get_translation
 from video.models import LivekitSession, SerializeLivekitSession
 
 from management import controller
-from management.api.match_journey_filter_list import determine_match_bucket
+from management.api.match_journey_filter_list import determine_match_bucket, get_match_bucket_label
 from management.api.scores import score_between_db_update
 from management.api.utils_advanced import enrich_report_unmatch_with_user_info
 from management.authentication import NativeOnlyJWTAuthentication
@@ -76,6 +76,7 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
             "active": instance.active,
             "activeCallRoom": active_call_room,
             "match_type": instance.match_type,
+            "created_at": instance.created_at,
             "report_unmatch": enrich_report_unmatch_with_user_info(instance.report_unmatch, instance),
             "partner": partner_data if partner.is_active else {"censored": True, "id": "censored", "isDeleted": True},
         }
@@ -86,8 +87,10 @@ class AdvancedUserMatchSerializer(serializers.ModelSerializer):
             bucket = determine_match_bucket(instance.pk)
             if bucket is not None:
                 representation["bucket"] = bucket
+                representation["bucket_label"] = get_match_bucket_label(bucket)
             else:
                 representation["bucket"] = "unknown"
+                representation["bucket_label"] = get_match_bucket_label("unknown")
 
         return representation
 

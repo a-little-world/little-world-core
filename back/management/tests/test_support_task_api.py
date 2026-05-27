@@ -38,7 +38,24 @@ class SupportTaskApiTests(TestCase):
         response = self._client_for(self.admin_user).get("/api/support_task/")
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), [])
+        self.assertEqual(
+            response.json(),
+            {
+                "count": 0,
+                "page": 1,
+                "next": None,
+                "previous": None,
+                "results": [],
+                "page_size": 20,
+                "pages_total": 1,
+                "next_page": None,
+                "results_total": 0,
+                "previous_page": None,
+                "last_page": 1,
+                "items_total": 0,
+                "first_page": 1,
+            },
+        )
 
 
 class SupportTaskRegistryTests(TestCase):

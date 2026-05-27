@@ -44,6 +44,7 @@ def serialize_proposed_matches(matching_proposals, user):
                 },
                 "status": "proposed",
                 "match_type": proposal.match_type,
+                "created_at": proposal.potential_matching_created_at,
                 "closed": proposal.closed,
                 "rejected_by": rejected_by,
                 "rejected_at": proposal.rejected_at,
