@@ -12,6 +12,7 @@ from hijack.contrib.admin import HijackUserAdminMixin
 
 from management import models
 from management.models import (
+    courses,
     dynamic_user_list,
     mobile_device,
     newsletter,
@@ -420,3 +421,71 @@ class MobileDeviceAdmin(admin.ModelAdmin):
         "cloud_message_type",
         "date_created",
     )
+
+
+class ChapterQuizStepInline(admin.TabularInline):
+    model = courses.ChapterQuizStep
+    extra = 1
+    fields = ("order", "question", "answers", "correct_answer")
+    ordering = ("order",)
+
+
+class CourseChapterInline(admin.StackedInline):
+    model = courses.CourseChapter
+    extra = 0
+    fields = (
+        "chapter_id",
+        "order",
+        "available_to",
+        "title",
+        "description",
+        "video_url",
+        "video_title",
+        "completed_title",
+        "completed_description",
+        "completed_additional_text",
+        "completed_cta_label",
+    )
+    ordering = ("order",)
+    show_change_link = True
+
+
+@admin.register(courses.Course)
+class CourseAdmin(admin.ModelAdmin):
+    list_display = ("title", "slug", "is_active", "available_to", "created_at", "updated_at")
+    list_filter = ("is_active", "available_to")
+    search_fields = ("title", "slug")
+    prepopulated_fields = {"slug": ("title",)}
+    inlines = [CourseChapterInline]
+
+
+@admin.register(courses.CourseChapter)
+class CourseChapterAdmin(admin.ModelAdmin):
+    list_display = ("title", "course", "chapter_id", "order", "available_to")
+    list_filter = ("course", "available_to")
+    search_fields = ("title", "chapter_id", "course__title")
+    ordering = ("course", "order")
+    inlines = [ChapterQuizStepInline]
+
+
+@admin.register(courses.ChapterQuizStep)
+class ChapterQuizStepAdmin(admin.ModelAdmin):
+    list_display = ("chapter", "order", "question", "correct_answer")
+    list_filter = ("chapter__course",)
+    ordering = ("chapter", "order")
+
+
+@admin.register(courses.UserCourseProgress)
+class UserCourseProgressAdmin(admin.ModelAdmin):
+    list_display = (
+        "user",
+        "course",
+        "started_at",
+        "current_chapter_id",
+        "current_step_index",
+        "completed",
+        "completed_at",
+    )
+    list_filter = ("completed", "course")
+    search_fields = ("user__email", "user__uuid", "course__slug")
+    readonly_fields = ("started_at", "completed_at")

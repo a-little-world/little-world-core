@@ -10,7 +10,11 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from video.models import LivekitSession
 
-from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS, determine_match_bucket
+from management.api.match_journey_filter_list import (
+    MATCH_JOURNEY_FILTERS,
+    determine_match_bucket,
+    get_match_bucket_label,
+)
 from management.api.utils_advanced import enrich_report_unmatch_with_user_info, filterset_schema_dict
 from management.controller import unmatch_users
 from management.helpers import DetailedPaginationMixin, IsAdminOrMatchingUser
@@ -81,8 +85,10 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
         bucket = determine_match_bucket(instance.pk)
         if bucket is not None:
             representation["bucket"] = bucket
+            representation["bucket_label"] = get_match_bucket_label(bucket)
         else:
             representation["bucket"] = "unknown"
+            representation["bucket_label"] = get_match_bucket_label("unknown")
 
         return representation
 
@@ -176,8 +182,10 @@ class ExportMatchSerializer(serializers.ModelSerializer):
         bucket = determine_match_bucket(instance.pk)
         if bucket is not None:
             representation["bucket"] = bucket
+            representation["bucket_label"] = get_match_bucket_label(bucket)
         else:
             representation["bucket"] = "unknown"
+            representation["bucket_label"] = get_match_bucket_label("unknown")
 
         return representation
 

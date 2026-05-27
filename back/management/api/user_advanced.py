@@ -143,7 +143,7 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
 
         determine_bucket = ("determine_bucket" in self.context) and self.context["determine_bucket"]
 
-        items_per_page = 5
+        items_per_page = 50
         user = instance
         confirmed_matches = get_paginated_format_v2(Match.get_confirmed_matches(user), items_per_page, 1)
         confirmed_matches["results"] = AdvancedUserMatchSerializer(
