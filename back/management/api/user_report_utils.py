@@ -88,6 +88,27 @@ def group_user_journey_by_date(user_path):
     return result
 
 
+def get_latest_support_chat_messages(user):
+    support_matches = Match.objects.filter(
+        Q(user1=user) | Q(user2=user),
+        active=True,
+        support_matching=True,
+    ).values_list("user1_id", "user2_id")
+    support_partner_ids = [user2_id if user1_id == user.id else user1_id for user1_id, user2_id in support_matches]
+
+    if not support_partner_ids:
+        return None, None
+
+    last_user_to_support_message = (
+        Message.objects.filter(sender=user, recipient_id__in=support_partner_ids).order_by("-created").first()
+    )
+    last_support_to_user_reply = (
+        Message.objects.filter(sender_id__in=support_partner_ids, recipient=user).order_by("-created").first()
+    )
+
+    return last_user_to_support_message, last_support_to_user_reply
+
+
 def build_user_report_entry(user):
     all_matches = Match.objects.filter(
         (Q(user1=user) | Q(user2=user)),
@@ -168,6 +189,7 @@ def build_user_report_entry(user):
     last_message = Message.objects.filter(recipient=user).order_by("-created").first()
     messages_sent = Message.objects.filter(sender=user).count()
     messages_received = Message.objects.filter(recipient=user).count()
+    last_user_to_support_message, last_support_to_user_reply = get_latest_support_chat_messages(user)
 
     raw_path = user.state.user_journey_path or []
     grouped_journey = group_user_journey_by_date(raw_path)
@@ -209,6 +231,14 @@ def build_user_report_entry(user):
         "video_calls_with_most_recent_match": video_calls_with_recent_match,
         "messages_with_most_recent_match": messages_with_recent_match,
         "last_message_received": datetime_to_readable_utc(last_message.created if last_message else None),
+        "last_user_to_support_message": last_user_to_support_message.text if last_user_to_support_message else None,
+        "last_user_to_support_message_time": datetime_to_readable_utc(
+            last_user_to_support_message.created if last_user_to_support_message else None
+        ),
+        "last_support_to_user_reply": last_support_to_user_reply.text if last_support_to_user_reply else None,
+        "last_support_to_user_reply_time": datetime_to_readable_utc(
+            last_support_to_user_reply.created if last_support_to_user_reply else None
+        ),
     }
 
 
@@ -237,4 +267,8 @@ USER_EXPORT_COLUMN_NAMES = (
     "video_calls_with_most_recent_match",
     "messages_with_most_recent_match",
     "last_message_received",
+    "last_user_to_support_message",
+    "last_user_to_support_message_time",
+    "last_support_to_user_reply",
+    "last_support_to_user_reply_time",
 )
