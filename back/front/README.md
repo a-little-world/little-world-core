@@ -12,7 +12,7 @@ The backend passes render data to a function in `src/index.js`. The file `src/EN
 # Start routing to staging API server (localhost:3333/api/* -> s1.littleworld-test.com/api/*)
 ./schrodingers-nginx.sh
 # Start Webpack server (localhost:3000)
-npx webpack serve --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mode development
+pnpm exec webpack serve --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mode development
 # Start developing view frontend at `localhost:3333/`
 ```
 
@@ -21,7 +21,7 @@ npx webpack serve --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mo
 This is configured in `./webpack.config.js:devServer`.
 
 ```bash
-npx webpack serve --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mode development
+pnpm exec webpack serve --env DEV_TOOL=eval-cheap-module-source-map --env DEBUG=1 --mode development
 ```
 
 ### Local Backend Development Using Staging Server API
