@@ -9,6 +9,8 @@ from management.api.user_advanced_filter import (
     EXTRA__lingoda_users,
     EXTRA__onboarded_volunteers_with_activity_in_last3weeks,
     EXTRA__refugee_learners_scoring,
+    EXTRA__suggestion_match_completed_off_plattform,
+    EXTRA__suggestion_match_completed_on_plattform,
     all_users,
     eligible_for_random_calls,
     get_active_match_query_set,
@@ -275,6 +277,16 @@ USER_JOURNEY_FILTER_LISTS = [
         "EXTRA__eligible_for_random_calls",
         "Users eligible for random calls onboarding+German criteria",
         eligible_for_random_calls,
+    ),
+    FilterListEntry(
+        "EXTRA__suggestion_match_completed_on_plattform",
+        "Users with a match that reached 8 on-platform video-call units",
+        EXTRA__suggestion_match_completed_on_plattform,
+    ),
+    FilterListEntry(
+        "EXTRA__suggestion_match_completed_off_plattform",
+        "Users with a match marked as completed off platform",
+        EXTRA__suggestion_match_completed_off_plattform,
     ),
 ]
 
