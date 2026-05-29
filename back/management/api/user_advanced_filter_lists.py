@@ -82,8 +82,7 @@ from management.api.user_journey_filters import (
 )
 from management.models.dynamic_user_list import DynamicUserList
 
-
-GITHUB_API_SOURCE_ROOT = "https://github.com/a-little-world/little-world-backend/blob/main/back/management/api"
+GITHUB_API_SOURCE_ROOT = "https://github.com/a-little-world/little-world-core/blob/main/back/management/api"
 
 
 def get_queryset_source_reference(queryset: callable) -> dict:

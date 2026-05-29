@@ -28,8 +28,7 @@ from management.api.match_journey_filters import (
 from management.models.matches import Match
 from management.models.unconfirmed_matches import MatchType
 
-
-GITHUB_API_SOURCE_ROOT = "https://github.com/a-little-world/little-world-backend/blob/main/back/management/api"
+GITHUB_API_SOURCE_ROOT = "https://github.com/a-little-world/little-world-core/blob/main/back/management/api"
 
 
 def get_queryset_source_reference(queryset: callable) -> dict:
