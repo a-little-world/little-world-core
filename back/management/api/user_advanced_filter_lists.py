@@ -1,3 +1,4 @@
+import inspect
 from dataclasses import dataclass
 from typing import List
 
@@ -9,6 +10,8 @@ from management.api.user_advanced_filter import (
     EXTRA__lingoda_users,
     EXTRA__onboarded_volunteers_with_activity_in_last3weeks,
     EXTRA__refugee_learners_scoring,
+    EXTRA__suggestion_match_completed_off_plattform,
+    EXTRA__suggestion_match_completed_on_plattform,
     all_users,
     eligible_for_random_calls,
     get_active_match_query_set,
@@ -79,6 +82,26 @@ from management.api.user_journey_filters import (
 )
 from management.models.dynamic_user_list import DynamicUserList
 
+GITHUB_API_SOURCE_ROOT = "https://github.com/a-little-world/little-world-core/blob/main/back/management/api"
+
+
+def get_queryset_source_reference(queryset: callable) -> dict:
+    if queryset is None:
+        return {"source_file": None, "source_line": None, "source_url": None}
+
+    try:
+        source_line = inspect.getsourcelines(queryset)[1]
+    except (OSError, TypeError):
+        source_line = None
+
+    module_name = getattr(queryset, "__module__", "")
+    source_file = f"back/{module_name.replace('.', '/')}.py" if module_name else None
+    source_url = None
+    if source_file and source_line and source_file.startswith("back/management/api/"):
+        source_url = f"{GITHUB_API_SOURCE_ROOT}/{source_file.removeprefix('back/management/api/')}#L{source_line}"
+
+    return {"source_file": source_file, "source_line": source_line, "source_url": source_url}
+
 
 @dataclass
 class FilterListEntry:
@@ -90,9 +113,11 @@ class FilterListEntry:
         description = self.description
         if description is None and self.queryset and self.queryset.__doc__:
             description = self.queryset.__doc__.strip()
+        source_reference = get_queryset_source_reference(self.queryset)
         return {
             "name": self.name,
             "description": description,
+            **source_reference,
         }
 
 
@@ -275,6 +300,16 @@ USER_JOURNEY_FILTER_LISTS = [
         "EXTRA__eligible_for_random_calls",
         "Users eligible for random calls onboarding+German criteria",
         eligible_for_random_calls,
+    ),
+    FilterListEntry(
+        "EXTRA__suggestion_match_completed_on_plattform",
+        "Users with a match that reached 8 on-platform video-call units",
+        EXTRA__suggestion_match_completed_on_plattform,
+    ),
+    FilterListEntry(
+        "EXTRA__suggestion_match_completed_off_plattform",
+        "Users with a match marked as completed off platform",
+        EXTRA__suggestion_match_completed_off_plattform,
     ),
 ]
 
