@@ -7,7 +7,7 @@ from rest_framework.response import Response
 
 from management.actions.registry import execute
 from management.authentication import NativeOnlyJWTAuthentication
-from management.helpers import IsAdminOrMatchingUser
+from management.helpers import DetailedPagination, IsAdminOrMatchingUser
 from management.models.support_task import (
     SupportTask,
     SupportTaskAction,
@@ -31,14 +31,13 @@ class CreateSupportTaskSerializer(serializers.Serializer):
 
 
 class SupportTaskListQuerySerializer(serializers.Serializer):
-    status = serializers.ChoiceField(choices=SupportTask.Status.choices, required=False)
-    assigned_to = serializers.IntegerField(required=False)
     sort_by = serializers.ChoiceField(
         choices=("id", "priority", "status", "title", "created_at", "updated_at"),
         default="created_at",
         required=False,
     )
     sort_order = serializers.ChoiceField(choices=("asc", "desc"), default="desc", required=False)
+    search = serializers.CharField(required=False, allow_blank=True)
 
 
 @api_view(["GET"])
@@ -53,20 +52,37 @@ def support_task_list(request):
     serializer.is_valid(raise_exception=True)
     query = serializer.validated_data
 
-    status_filter = query.get("status")
-    if status_filter:
-        tasks = tasks.filter(status=status_filter)
+    status_filters = request.query_params.getlist("status")
+    if status_filters:
+        tasks = tasks.filter(status__in=status_filters)
 
-    assigned_to = query.get("assigned_to")
-    if assigned_to:
-        tasks = tasks.filter(assigned_to=assigned_to)
+    priority_filters = request.query_params.getlist("priority")
+    if priority_filters:
+        tasks = tasks.filter(priority__in=priority_filters)
+
+    action_type_filters = request.query_params.getlist("action_type")
+    if action_type_filters:
+        tasks = tasks.filter(action__action_type__in=action_type_filters)
+
+    assigned_to_raw = request.query_params.get("assigned_to")
+    if assigned_to_raw == "unassigned":
+        tasks = tasks.filter(assigned_to__isnull=True)
+    elif assigned_to_raw:
+        try:
+            tasks = tasks.filter(assigned_to_id=int(assigned_to_raw))
+        except ValueError:
+            pass
+
+    search = query.get("search", "").strip()
+    if search:
+        q = Q(title__icontains=search)
+        if search.isdigit():
+            q |= Q(id=int(search))
+        tasks = tasks.filter(q)
 
     sort_by = query["sort_by"]
     sort_order = query["sort_order"]
-
-    order_prefix = ""
-    if sort_order == "desc":
-        order_prefix = "-"
+    order_prefix = "-" if sort_order == "desc" else ""
 
     valid_sort_fields = {"id", "status", "title", "created_at", "updated_at"}
     if sort_by == "priority":
@@ -82,7 +98,9 @@ def support_task_list(request):
     elif sort_by in valid_sort_fields:
         tasks = tasks.order_by(f"{order_prefix}{sort_by}")
 
-    return Response(SupportTaskSerializer(tasks, many=True).data)
+    paginator = DetailedPagination()
+    page_data = paginator.paginate_queryset(tasks, request)
+    return paginator.get_paginated_response(SupportTaskSerializer(page_data, many=True).data)
 
 
 @api_view(["POST"])
