@@ -1,3 +1,4 @@
+import inspect
 from dataclasses import dataclass
 
 from management.api.match_journey_filters import (
@@ -28,6 +29,27 @@ from management.models.matches import Match
 from management.models.unconfirmed_matches import MatchType
 
 
+GITHUB_API_SOURCE_ROOT = "https://github.com/a-little-world/little-world-backend/blob/main/back/management/api"
+
+
+def get_queryset_source_reference(queryset: callable) -> dict:
+    if queryset is None:
+        return {"source_file": None, "source_line": None, "source_url": None}
+
+    try:
+        source_line = inspect.getsourcelines(queryset)[1]
+    except (OSError, TypeError):
+        source_line = None
+
+    module_name = getattr(queryset, "__module__", "")
+    source_file = f"back/{module_name.replace('.', '/')}.py" if module_name else None
+    source_url = None
+    if source_file and source_line and source_file.startswith("back/management/api/"):
+        source_url = f"{GITHUB_API_SOURCE_ROOT}/{source_file.removeprefix('back/management/api/')}#L{source_line}"
+
+    return {"source_file": source_file, "source_line": source_line, "source_url": source_url}
+
+
 @dataclass
 class FilterListEntry:
     name: str
@@ -38,9 +60,11 @@ class FilterListEntry:
         description = self.description
         if description is None and self.queryset and self.queryset.__doc__:
             description = self.queryset.__doc__.strip()
+        source_reference = get_queryset_source_reference(self.queryset)
         return {
             "name": self.name,
             "description": description,
+            **source_reference,
         }
 
 
