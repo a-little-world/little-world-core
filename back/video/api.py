@@ -4,12 +4,14 @@ import uuid
 from chat.consumers.messages import NewActiveCallRoom, OutgoingCallRejected
 from chat.models import Chat, ChatSerializer
 from django.conf import settings
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
 from django.urls import path
 from drf_spectacular.utils import extend_schema
 from livekit import api as livekit_api
 from management.authentication import NativeOnlyJWTAuthentication
+from management.models.matches import Match
 from management.models.post_call_review import PostCallReview
+from management.models.unconfirmed_matches import MatchType
 from management.models.user import User
 from rest_framework import serializers
 from rest_framework.authentication import SessionAuthentication
@@ -150,12 +152,19 @@ def active_call_rooms(request):
     user = request.user
 
     try:
-        # find all active calls
+        # find all active calls where the partner is in the room but the user has not joined yet
+        active_match = Match.objects.filter(
+            Q(user1=OuterRef("room__u1"), user2=OuterRef("room__u2"), active=True)
+            | Q(user1=OuterRef("room__u2"), user2=OuterRef("room__u1"), active=True)
+        ).exclude(match_type=MatchType.TEMPORARY)
+
         all_active_rooms = LivekitSession.objects.filter(
             Q(room__u1=user, is_active=True, u2_active=True, u1_active=False)
             | Q(room__u2=user, is_active=True, u1_active=True, u2_active=False),
             random_call_session=False,
-        )
+            room__u1__is_active=True,
+            room__u2__is_active=True,
+        ).filter(Exists(active_match))
 
         return Response(SerializeLivekitSession(all_active_rooms, context={"user": user}, many=True).data)
     except Exception as e:
