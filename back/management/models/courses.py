@@ -41,6 +41,18 @@ class Course(models.Model):
             Q(available_to=UserTypeAvailabilityChoices.ALL) | Q(available_to=user_type)
         ).order_by("order")
 
+    def get_chapters_for_course_audience(self):
+        """
+        Chapters as seen by the course's target audience (not the requesting user).
+        Used for staff preview so matching users with a different profile type still
+        see volunteer-only onboarding content, etc.
+        """
+        if self.available_to == UserTypeAvailabilityChoices.ALL:
+            return self.chapters.order_by("order")
+        return self.chapters.filter(
+            Q(available_to=UserTypeAvailabilityChoices.ALL) | Q(available_to=self.available_to)
+        ).order_by("order")
+
     @classmethod
     def get_available_for_user(cls, user):
         user_type = user.profile.user_type
@@ -155,8 +167,9 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     chapters = serializers.SerializerMethodField()
 
     def get_chapters(self, obj):
-        request = self.context.get("request")
-        if request:
+        if self.context.get("staff_preview"):
+            chapters = obj.get_chapters_for_course_audience()
+        elif request := self.context.get("request"):
             chapters = obj.get_chapters_for_user(request.user)
         else:
             chapters = obj.chapters.order_by("order")
