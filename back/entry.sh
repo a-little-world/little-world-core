@@ -27,6 +27,7 @@ if [ "$EMPHIRIAL" = "1" ]; then
     python3 manage.py collectstatic --noinput
     python3 manage.py add_questions
     python3 manage.py shell --command 'from management.controller import create_base_admin_and_add_standart_db_values; create_base_admin_and_add_standart_db_values()'
+    python3 manage.py shell --command 'from management.self_onboarding_seed import create_self_onboarding_course; create_self_onboarding_course()'
     python3 manage.py shell --command 'from management.random_test_users import create_abunch_of_users; create_abunch_of_users()'
 fi
 
