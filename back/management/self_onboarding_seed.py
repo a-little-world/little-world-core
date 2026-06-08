@@ -3,7 +3,6 @@ Idempotent dev seed for the volunteer self-onboarding walkthrough course.
 Used when EMPHIRIAL=1 (see back/entry.sh).
 """
 
-from management.api.courses import SELF_ONBOARDING_COURSE_SLUG
 from management.models.courses import (
     ChapterQuizStep,
     Course,
@@ -119,7 +118,7 @@ def create_self_onboarding_course() -> Course:
     Safe to run on every local startup (EMPHIRIAL=1).
     """
     course, created = Course.objects.update_or_create(
-        slug=SELF_ONBOARDING_COURSE_SLUG,
+        slug=Course.SELF_ONBOARDING_SLUG,
         defaults={
             "title": "Einführungs-Rundgang",
             "description": "",
@@ -131,5 +130,5 @@ def create_self_onboarding_course() -> Course:
     chapters_data = [dict(ch) for ch in _CHAPTERS]
     _sync_chapters(course, chapters_data)
     action = "created" if created else "updated"
-    print(f"Self-onboarding course ({SELF_ONBOARDING_COURSE_SLUG}): {action}.")
+    print(f"Self-onboarding course ({Course.SELF_ONBOARDING_SLUG}): {action}.")
     return course

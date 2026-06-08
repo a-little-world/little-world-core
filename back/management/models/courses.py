@@ -11,6 +11,8 @@ class UserTypeAvailabilityChoices(models.TextChoices):
 
 
 class Course(models.Model):
+    SELF_ONBOARDING_SLUG = "self-onboarding"
+
     slug = models.SlugField(max_length=128, unique=True)
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, default="")
@@ -35,6 +37,15 @@ class Course(models.Model):
     def __str__(self):
         return self.title
 
+    @property
+    def is_public(self) -> bool:
+        """True for courses served via /api/courses/; self-onboarding uses its own endpoint."""
+        return self.slug != self.SELF_ONBOARDING_SLUG
+
+    def is_available_to_user(self, user) -> bool:
+        user_type = user.profile.user_type
+        return self.available_to in (UserTypeAvailabilityChoices.ALL, user_type)
+
     def get_chapters_for_user(self, user):
         user_type = user.profile.user_type
         return self.chapters.filter(
@@ -47,6 +58,9 @@ class Course(models.Model):
         Used for staff preview so matching users with a different profile type still
         see volunteer-only onboarding content, etc.
         """
+        # When the course is for all types, include every chapter (including
+        # learner- or volunteer-only chapters). The filter below would only match
+        # chapters with available_to=ALL, omitting type-restricted chapters.
         if self.available_to == UserTypeAvailabilityChoices.ALL:
             return self.chapters.order_by("order")
         return self.chapters.filter(
@@ -169,10 +183,12 @@ class CourseDetailSerializer(serializers.ModelSerializer):
     def get_chapters(self, obj):
         if self.context.get("staff_preview"):
             chapters = obj.get_chapters_for_course_audience()
-        elif request := self.context.get("request"):
-            chapters = obj.get_chapters_for_user(request.user)
         else:
-            chapters = obj.chapters.order_by("order")
+            request = self.context.get("request")
+            if request is not None:
+                chapters = obj.get_chapters_for_user(request.user)
+            else:
+                chapters = obj.chapters.order_by("order")
         return CourseChapterSerializer(chapters, many=True).data
 
     class Meta:
