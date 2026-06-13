@@ -500,6 +500,8 @@ def create_base_admin_and_add_standart_db_values():
         usr_tim = get_user_by_email(settings.MATCHING_USER_MAIL)
         if not usr_tim.has_perm(ManagementPermission.MATCHING_USER):
             usr_tim.grant_permission(ManagementPermission.MATCHING_USER)
+            usr_tim.grant_permission(ManagementPermission.OPEN_CHAT_ACCESS)
+            usr_tim.grant_permission(ManagementPermission.USE_RANDOM_CALLS)
         usr_tim.state.email_authenticated = True
         usr_tim.state.save()
         usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
