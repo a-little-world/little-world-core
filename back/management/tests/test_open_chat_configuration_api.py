@@ -25,9 +25,7 @@ class OpenChatConfigurationApiTests(TestCase):
             return permission
 
         cls.open_chat_perm = ensure_permission(ManagementPermission.OPEN_CHAT_ACCESS.codename)
-        cls.edit_open_chat_perm = ensure_permission(
-            ManagementPermission.EDIT_OPEN_CHAT_CONFIGURATION.codename
-        )
+        cls.edit_open_chat_perm = ensure_permission(ManagementPermission.EDIT_OPEN_CHAT_CONFIGURATION.codename)
         cls.matching_perm = ensure_permission(ManagementPermission.MATCHING_USER.codename)
 
         cls.authorized_user = User.objects.create_user(
