@@ -12,10 +12,11 @@ from management.models.open_chat_configuration import OpenChatConfiguration
 class OpenChatConfigurationSerializer(serializers.ModelSerializer):
     class Meta:
         model = OpenChatConfiguration
-        fields = ["open_chat_api_key", "open_chat_user"]
+        fields = ["open_chat_api_key", "open_chat_user", "open_chat_host"]
         extra_kwargs = {
             "open_chat_api_key": {"required": True},
             "open_chat_user": {"required": True},
+            "open_chat_host": {"required": True},
         }
 
 
