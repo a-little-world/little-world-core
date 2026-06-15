@@ -18,7 +18,6 @@ ipython # With this we can use the IPython shell on manage.py shell
 django-model-utils # this package is required for our chat backend!
 django-appconf # Required for django-cookie-consent
 django-multiselectfield @ git+https://github.com/goinnn/django-multiselectfield@master
-oc_client_mvp @ git+https://github.com/msgmate-io/open-chat-go-python-client.git@open-chat-pr-alpha-release-0.0.264-feat-permissions-access-tokens-latest
 # I maintain a fork, this is a much used django package but the maintainer doesn't seem to be active & does't merge pr's so I forked...
 django-phonenumber-field[phonenumbers]
 Babel # Required for the widged of the phone number field
@@ -64,3 +63,4 @@ google-api-python-client==2.108.0
 google-auth==2.23.4
 cbor2===5.9.0
 django-simple-reload @ git+https://github.com/tbscode/django-simple-reload.git
+open_chat_client_python @ git+https://github.com/msgmate-io/open-chat-go-python-client.git
