@@ -1082,7 +1082,13 @@ PUSH_NOTIFICATIONS_SETTINGS = {
 
 CREATE_OPEN_CHAT_AUTOMATION_USER = bool_env(
     "DJ_CREATE_OPEN_CHAT_AUTOMATION_USER",
-    "true" if DEBUG else "false",
+    "true" if EMPHIRIAL else "false",
 )
-OPEN_CHAT_AUTOMATION_USER_EMAIL = os.environ.get("DJ_OPEN_CHAT_AUTOMATION_USER_EMAIL", "tim+open-chat@little-world.com")
-OPEN_CHAT_AUTOMATION_USER_PASSWORD = os.environ.get("DJ_OPEN_CHAT_AUTOMATION_USER_PASSWORD", "Test123!")
+OPEN_CHAT_AUTOMATION_USER_EMAIL = os.environ.get(
+    "DJ_OPEN_CHAT_AUTOMATION_USER_EMAIL",
+    "tim+open-chat@little-world.com",
+)
+OPEN_CHAT_AUTOMATION_USER_PASSWORD = os.environ.get(
+    "DJ_OPEN_CHAT_AUTOMATION_USER_PASSWORD",
+    "Test123!",
+)
