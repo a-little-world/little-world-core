@@ -10,6 +10,7 @@ class ManagementPermission(StrEnum):
     USE_RANDOM_CALLS = "management.use_random_calls"
     OPEN_CHAT_ACCESS = "management.open_chat_access"
     EDIT_OPEN_CHAT_CONFIGURATION = "management.edit_open_chat_configuration"
+    MANAGE_OPEN_CHAT_ACCESS = "management.manage_open_chat_access"
     APPLY_MANAGEMENT_PERMISSIONS = "management.apply_management_permissions"
 
     @property
@@ -30,6 +31,7 @@ MANAGEMENT_PERMISSION_LABELS: dict[ManagementPermission, str] = {
     ManagementPermission.USE_RANDOM_CALLS: "Can use random calls feature",
     ManagementPermission.OPEN_CHAT_ACCESS: "Can access open chat",
     ManagementPermission.EDIT_OPEN_CHAT_CONFIGURATION: "Can edit open chat configuration",
+    ManagementPermission.MANAGE_OPEN_CHAT_ACCESS: "Manage Open Chat Access",
     ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS: "Can apply management permissions",
 }
 

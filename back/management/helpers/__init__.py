@@ -1,6 +1,7 @@
 from .detailed_pagination import DetailedPagination, DetailedPaginationMixin
 from .has_open_chat_access import (
     HasEditOpenChatConfiguration,
+    HasManageOpenChatAccess,
     HasOpenChatAccess,
     OpenChatConfigurationPermission,
 )
@@ -12,6 +13,7 @@ from .user_staff_restricted_viewset import UserStaffRestricedModelViewsetMixin
 __all__ = [
     "HasOpenChatAccess",
     "HasEditOpenChatConfiguration",
+    "HasManageOpenChatAccess",
     "OpenChatConfigurationPermission",
     "IsAdminOrMatchingUser",
     "DetailedPaginationMixin",

@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock, patch
+
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
@@ -8,6 +10,8 @@ from management.models.user import User
 from management.permissions import ManagementPermission
 
 API_URL = "/api/matching/open-chat-configuration/"
+TEST_CONNECTION_URL = "/api/matching/open-chat/test-connection/"
+ACCESS_USERS_URL = "/api/matching/open-chat-access-users/"
 DEFAULT_HOST = DEFAULT_OPEN_CHAT_HOST
 
 
@@ -27,6 +31,7 @@ class OpenChatConfigurationApiTests(TestCase):
 
         cls.open_chat_perm = ensure_permission(ManagementPermission.OPEN_CHAT_ACCESS.codename)
         cls.edit_open_chat_perm = ensure_permission(ManagementPermission.EDIT_OPEN_CHAT_CONFIGURATION.codename)
+        cls.manage_open_chat_perm = ensure_permission(ManagementPermission.MANAGE_OPEN_CHAT_ACCESS.codename)
         cls.matching_perm = ensure_permission(ManagementPermission.MATCHING_USER.codename)
 
         cls.authorized_user = User.objects.create_user(
@@ -37,6 +42,18 @@ class OpenChatConfigurationApiTests(TestCase):
             last_name="Chat",
         )
         cls.authorized_user.user_permissions.add(cls.open_chat_perm, cls.edit_open_chat_perm)
+
+        cls.manager_user = User.objects.create_user(
+            email="open-chat-manager@test.de",
+            username="open-chat-manager@test.de",
+            password="Test123!",
+            first_name="Open",
+            last_name="Manager",
+        )
+        cls.manager_user.user_permissions.add(
+            cls.open_chat_perm,
+            cls.manage_open_chat_perm,
+        )
 
         cls.view_only_user = User.objects.create_user(
             email="open-chat-view-only@test.de",
@@ -220,3 +237,69 @@ class OpenChatConfigurationApiTests(TestCase):
         self.api_client.force_authenticate(user=other_authorized_user)
         response = self.api_client.get(API_URL)
         self.assertEqual(response.status_code, 404)
+
+    def test_test_connection_requires_open_chat_permission(self):
+        self.api_client.force_authenticate(user=self.unauthorized_user)
+        response = self.api_client.post(TEST_CONNECTION_URL, {}, format="json")
+        self.assertEqual(response.status_code, 403)
+
+    def test_test_connection_returns_404_without_configuration(self):
+        self.api_client.force_authenticate(user=self.authorized_user)
+        response = self.api_client.post(TEST_CONNECTION_URL, {}, format="json")
+        self.assertEqual(response.status_code, 404)
+
+    @patch("management.api.open_chat._build_open_chat_client")
+    def test_test_connection_success(self, mock_build_client):
+        OpenChatConfiguration.objects.create(
+            user=self.authorized_user,
+            open_chat_api_key="test-api-key",
+            open_chat_user="test-open-chat-user",
+            open_chat_host=DEFAULT_HOST,
+        )
+        mock_client = MagicMock()
+        mock_client.login.return_value = {"name": "Test User"}
+        mock_build_client.return_value = mock_client
+
+        self.api_client.force_authenticate(user=self.authorized_user)
+        response = self.api_client.post(TEST_CONNECTION_URL, {}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["success"])
+        self.assertEqual(response.data["user_name"], "Test User")
+        mock_build_client.assert_called_once_with(
+            host=DEFAULT_HOST,
+            username="test-open-chat-user",
+            password="test-api-key",
+        )
+        mock_client.login.assert_called_once()
+
+    def test_access_users_requires_manage_permission(self):
+        self.api_client.force_authenticate(user=self.authorized_user)
+        response = self.api_client.get(ACCESS_USERS_URL)
+        self.assertEqual(response.status_code, 403)
+
+    def test_access_users_lists_open_chat_permission_holders(self):
+        OpenChatConfiguration.objects.create(
+            user=self.view_only_user,
+            open_chat_api_key="view-only-key",
+            open_chat_user="view-only-user",
+            open_chat_host=DEFAULT_HOST,
+        )
+        self.api_client.force_authenticate(user=self.manager_user)
+        response = self.api_client.get(ACCESS_USERS_URL)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 3)
+
+        by_email = {entry["email"]: entry for entry in response.data}
+        self.assertIn(self.view_only_user.email, by_email)
+        self.assertIn(self.authorized_user.email, by_email)
+        self.assertIn(self.manager_user.email, by_email)
+        self.assertEqual(
+            by_email[self.view_only_user.email]["configuration"],
+            {
+                "open_chat_api_key": "view-only-key",
+                "open_chat_user": "view-only-user",
+                "open_chat_host": DEFAULT_HOST,
+            },
+        )
+        self.assertIsNone(by_email[self.authorized_user.email]["configuration"])
+        self.assertNotIn(self.unauthorized_user.email, by_email)

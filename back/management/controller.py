@@ -561,6 +561,7 @@ def create_open_chat_automation_user():
     user.grant_permission(ManagementPermission.MATCHING_USER)
     user.grant_permission(ManagementPermission.OPEN_CHAT_ACCESS)
     user.grant_permission(ManagementPermission.EDIT_OPEN_CHAT_CONFIGURATION)
+    user.grant_permission(ManagementPermission.MANAGE_OPEN_CHAT_ACCESS)
     user.state.email_authenticated = True
     user.state.save()
     user.state.set_user_form_completed()
