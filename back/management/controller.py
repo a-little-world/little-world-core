@@ -533,7 +533,36 @@ def create_base_admin_and_add_standart_db_values():
 
     create_default_random_call_lobby()
 
+    create_open_chat_automation_user()
+
     return usr_tim
+
+
+def create_open_chat_automation_user():
+    if not settings.CREATE_OPEN_CHAT_AUTOMATION_USER:
+        return None
+
+    email = settings.OPEN_CHAT_AUTOMATION_USER_EMAIL
+    try:
+        user = get_user_by_email(email)
+        print(f"Open chat automation user {user.email} already exists!")
+    except UserNotFoundErr:
+        user = User.objects.create_user(
+            email=email,
+            username=email,
+            password=settings.OPEN_CHAT_AUTOMATION_USER_PASSWORD,
+            first_name="Open Chat",
+            last_name="Automation",
+        )
+        print(f"Open chat automation user {user.email} newly created!")
+
+    user.grant_permission(ManagementPermission.OPEN_CHAT_ACCESS)
+    user.grant_permission(ManagementPermission.EDIT_OPEN_CHAT_CONFIGURATION)
+    user.state.email_authenticated = True
+    user.state.save()
+    user.state.set_user_form_completed()
+
+    return user
 
 
 def delete_user(user, management_user=None, send_deletion_email=False):
