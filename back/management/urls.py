@@ -45,7 +45,13 @@ from management.api.matching_users_advanced import api_urls as matching_users_ad
 from management.api.native_auth import api_urls as api_urls_native_auth
 from management.api.newsletter_subscribe import public_newsletter_subscribe
 from management.api.open_chat import api_urls as open_chat_api_urls
-from management.api.questions import archive_card, get_question_cards
+from management.api.questions import (
+    admin_question_card_category_detail,
+    admin_question_card_detail,
+    admin_question_cards,
+    archive_card,
+    get_question_cards,
+)
 from management.api.scores import api_urls as scores_api_urls
 from management.api.short_links import api_urls as short_links_api_urls
 from management.api.still_in_contact import api_urls as still_in_contact_api_urls
@@ -213,6 +219,21 @@ view_routes = [
     ),
     path("api/user/question_cards/", get_question_cards, name="question_cards"),
     path("api/user/archive_card/", archive_card, name="question_cards_archive"),
+    path(
+        "api/admin/question_cards/",
+        admin_question_cards,
+        name="admin_question_cards_api",
+    ),
+    path(
+        "api/admin/question_cards/categories/<uuid:category_uuid>/",
+        admin_question_card_category_detail,
+        name="admin_question_card_category_detail_api",
+    ),
+    path(
+        "api/admin/question_cards/cards/<uuid:card_uuid>/",
+        admin_question_card_detail,
+        name="admin_question_card_detail_api",
+    ),
     path(
         "api/newsletter_subscribe",
         public_newsletter_subscribe,
