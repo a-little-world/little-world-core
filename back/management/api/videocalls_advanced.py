@@ -14,10 +14,39 @@ from management.models.user import User
 from management.permissions import ManagementPermission
 
 
+def _format_session_duration(created_at, end_time):
+    """Return a human-readable duration, or None when it cannot be calculated."""
+    if not created_at or not end_time:
+        return None
+
+    total_seconds = int((end_time - created_at).total_seconds())
+    if total_seconds < 0:
+        return None
+
+    hours, remainder = divmod(total_seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+
+    if hours > 0:
+        return f"{hours} hour{'s' if hours != 1 else ''}, {minutes} minutes ({seconds}s)"
+
+    return f"{minutes} minutes ({seconds}s)"
+
+
 class AdvancedLivekitSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = LivekitSession
-        fields = ["uuid", "created_at", "end_time", "is_active", "u1", "u2", "both_have_been_active"]
+        fields = [
+            "uuid",
+            "created_at",
+            "end_time",
+            "is_active",
+            "u1",
+            "u2",
+            "both_have_been_active",
+            "random_call_session",
+            "u1_was_active",
+            "u2_was_active",
+        ]
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -43,15 +72,11 @@ class AdvancedLivekitSessionSerializer(serializers.ModelSerializer):
             representation["status"] = "inactive"
 
         representation["both_have_been_active"] = instance.both_have_been_active
-
-        # calculate the duration of the session
-
-        if instance.end_time:
-            duration = instance.end_time - instance.created_at
-            minutes, seconds = divmod(duration.seconds, 60)
-            representation["duration"] = f"{minutes} minutes, ({seconds} s)"
-        else:
-            representation["duration"] = None
+        representation["random_call_session"] = instance.random_call_session
+        representation["call_type"] = "random" if instance.random_call_session else "standard"
+        representation["u1_was_active"] = instance.u1_was_active
+        representation["u2_was_active"] = instance.u2_was_active
+        representation["duration"] = _format_session_duration(instance.created_at, instance.end_time)
         return representation
 
 
@@ -64,10 +89,24 @@ class LivekitSessionFilter(filters.FilterSet):
         method="filter_by_user", help_text="Filter sessions by user id (returns calls where user is u1 or u2)"
     )
 
+    match_participants = filters.CharFilter(
+        method="filter_by_match_participants",
+        help_text="Comma-separated user ids for both match participants (order-independent)",
+    )
+
     def filter_by_user(self, queryset, name, value):
         if value is not None:
             queryset = queryset.filter(Q(u1_id=value) | Q(u2_id=value))
         return queryset
+
+    def filter_by_match_participants(self, queryset, name, value):
+        if not value:
+            return queryset
+        try:
+            user1_id, user2_id = (int(part.strip()) for part in value.split(",", 1))
+        except (ValueError, AttributeError):
+            return queryset.none()
+        return queryset.filter(Q(u1_id=user1_id, u2_id=user2_id) | Q(u1_id=user2_id, u2_id=user1_id))
 
     created_between = filters.DateFromToRangeFilter(
         field_name="created_at", help_text="Range filter for when the session was created, accepts string datetimes"
