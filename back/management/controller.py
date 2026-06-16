@@ -558,6 +558,7 @@ def create_open_chat_automation_user():
         )
         print(f"Open chat automation user {user.email} newly created!")
 
+    user.grant_permission(ManagementPermission.MATCHING_USER)
     user.grant_permission(ManagementPermission.OPEN_CHAT_ACCESS)
     user.grant_permission(ManagementPermission.EDIT_OPEN_CHAT_CONFIGURATION)
     user.state.email_authenticated = True
