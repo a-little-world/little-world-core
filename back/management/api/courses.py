@@ -29,7 +29,9 @@ def course_list(request):
     """
     Returns all active courses available to the current user, filtered by their user type.
     """
-    courses = Course.get_available_for_user(request.user).filter(is_listed=True)
+    courses = (
+        Course.get_available_for_user(request.user).filter(is_listed=True).exclude(slug=Course.SELF_ONBOARDING_SLUG)
+    )
     return Response(CourseListSerializer(courses, many=True).data)
 
 
@@ -38,24 +40,46 @@ def course_list(request):
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 def course_detail(request, slug: str):
     """
-    Returns full course detail. Chapters are filtered and ordered for the requesting user's type.
-    Staff users may pass ?preview=1 to view inactive/restricted courses without publishing them.
+    Returns full course detail for published courses. Chapters are filtered for the user's type.
+    Staff draft preview uses GET /api/courses/preview/<slug>/ instead.
     """
-    from management.permissions import ManagementPermission
+    course = get_object_or_404(Course, slug=slug, is_active=True)
+    if not course.is_public:
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+    if not course.is_available_to_user(request.user):
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-    is_preview = (
-        request.query_params.get("preview") == "1"
-        and request.user.is_authenticated
-        and request.user.has_perm(ManagementPermission.MATCHING_USER)
+    return Response(CourseDetailSerializer(course, context={"request": request}).data)
+
+
+@api_view(["GET"])
+@permission_classes([IsAdminOrMatchingUser])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+def course_preview(request, slug: str):
+    """
+    Returns full course detail for matching staff preview (any is_active / is_listed state).
+    """
+    course = get_object_or_404(Course, slug=slug)
+    return Response(
+        CourseDetailSerializer(
+            course,
+            context={"staff_preview": True},
+        ).data
     )
 
-    if is_preview:
-        course = get_object_or_404(Course, slug=slug)
-    else:
-        course = get_object_or_404(Course, slug=slug, is_active=True)
-        user_type = request.user.profile.user_type
-        if course.available_to not in ("all", user_type):
-            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+def self_onboarding_course(request):
+    """
+    Returns the volunteer self-onboarding walkthrough course.
+    Unlike course_detail, does not require is_active=True so the walkthrough
+    stays available even when the course is not published for Trainings.
+    """
+    course = get_object_or_404(Course, slug=Course.SELF_ONBOARDING_SLUG)
+    if not course.is_available_to_user(request.user):
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
     return Response(CourseDetailSerializer(course, context={"request": request}).data)
 
@@ -68,9 +92,9 @@ def course_start(request, slug: str):
     Starts a course for the current user. Idempotent — returns existing progress if already started.
     """
     course = get_object_or_404(Course, slug=slug, is_active=True)
-
-    user_type = request.user.profile.user_type
-    if course.available_to not in ("all", user_type):
+    if not course.is_public:
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+    if not course.is_available_to_user(request.user):
         return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
     progress, _ = UserCourseProgress.objects.get_or_create(
@@ -90,6 +114,9 @@ def course_progress_update(request, slug: str):
     When advancing to a new chapter, pass current_step_index: 0.
     """
     course = get_object_or_404(Course, slug=slug, is_active=True)
+    if not course.is_public:
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
     progress = get_object_or_404(UserCourseProgress, user=request.user, course=course)
 
     if progress.completed:
@@ -111,6 +138,9 @@ def course_complete(request, slug: str):
     Marks a course as completed for the current user. Idempotent.
     """
     course = get_object_or_404(Course, slug=slug, is_active=True)
+    if not course.is_public:
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
     progress = get_object_or_404(UserCourseProgress, user=request.user, course=course)
 
     progress.mark_completed()
@@ -400,6 +430,8 @@ def admin_course_detail(request, slug: str):
 api_urls = [
     # User-facing
     path("api/courses/", course_list, name="course_list"),
+    path("api/self-onboarding/course/", self_onboarding_course, name="self_onboarding_course"),
+    path("api/courses/preview/<slug:slug>/", course_preview, name="course_preview"),
     path("api/courses/<slug:slug>/", course_detail, name="course_detail"),
     path("api/courses/<slug:slug>/start/", course_start, name="course_start"),
     path("api/courses/<slug:slug>/progress/", course_progress_update, name="course_progress_update"),

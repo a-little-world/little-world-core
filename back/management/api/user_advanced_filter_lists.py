@@ -36,7 +36,6 @@ from management.api.user_journey_filters import (
     all_volunteers_min_one_no_ongoing_match,
     booked_onboarding_call,
     community__active_volunteers,
-    community__active_volunteers__volunteer_meetup,
     community__ehrenamtliche_und_lernende_with_a1a2,
     community__learners_better_than_a1a2,
     community_calls,
@@ -237,11 +236,6 @@ USER_JOURNEY_FILTER_LISTS = [
     FilterListEntry("herrduenschnlate", None, only_hd_test_user),
     FilterListEntry("community", None, community_calls),
     FilterListEntry("community__active_volunteers", None, community__active_volunteers),
-    FilterListEntry(
-        "community__active_volunteers__volunteer_meetup",
-        "Community Active Volunteers (VolMeetup)",
-        community__active_volunteers__volunteer_meetup,
-    ),
     FilterListEntry("learners_with_a1a2", "Learners with A1/A2", learners_with_a1a2),
     FilterListEntry("learners_better_than_a1a2", "Learners with at least B1", learners_better_than_a1a2),
     FilterListEntry(
