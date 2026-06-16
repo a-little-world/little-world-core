@@ -6,12 +6,15 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from management.models.open_chat_configuration import DEFAULT_OPEN_CHAT_HOST, OpenChatConfiguration
+from management.models.matches import Match
 from management.models.user import User
 from management.permissions import ManagementPermission
 
 API_URL = "/api/matching/open-chat-configuration/"
 TEST_CONNECTION_URL = "/api/matching/open-chat/test-connection/"
 ACCESS_USERS_URL = "/api/matching/open-chat-access-users/"
+USER_CONFIGURATION_URL = "/api/matching/open-chat-access-users/{user_id}/configuration/"
+CREATE_MATCHING_URL = "/api/matching/open-chat-access-users/{user_id}/create-matching/"
 DEFAULT_HOST = DEFAULT_OPEN_CHAT_HOST
 
 
@@ -303,3 +306,109 @@ class OpenChatConfigurationApiTests(TestCase):
         )
         self.assertIsNone(by_email[self.authorized_user.email]["configuration"])
         self.assertNotIn(self.unauthorized_user.email, by_email)
+
+    def test_user_configuration_requires_manage_permission(self):
+        url = USER_CONFIGURATION_URL.format(user_id=self.view_only_user.id)
+        self.api_client.force_authenticate(user=self.authorized_user)
+        response = self.api_client.put(
+            url,
+            {
+                "open_chat_api_key": "updated-key",
+                "open_chat_user": "updated-user",
+                "open_chat_host": DEFAULT_HOST,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_user_configuration_create_and_update(self):
+        create_url = USER_CONFIGURATION_URL.format(user_id=self.authorized_user.id)
+        payload = {
+            "open_chat_api_key": "managed-key",
+            "open_chat_user": "managed-user",
+            "open_chat_host": DEFAULT_HOST,
+        }
+        self.api_client.force_authenticate(user=self.manager_user)
+
+        response = self.api_client.post(create_url, payload, format="json")
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data, payload)
+
+        update_payload = {
+            "open_chat_api_key": "managed-key-updated",
+            "open_chat_user": "managed-user-updated",
+            "open_chat_host": "https://updated.example.com",
+        }
+        response = self.api_client.put(create_url, update_payload, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data, update_payload)
+
+        configuration = OpenChatConfiguration.objects.get(user=self.authorized_user)
+        self.assertEqual(configuration.open_chat_api_key, update_payload["open_chat_api_key"])
+        self.assertEqual(configuration.open_chat_user, update_payload["open_chat_user"])
+        self.assertEqual(configuration.open_chat_host, update_payload["open_chat_host"])
+
+    def test_user_configuration_rejects_non_open_chat_users(self):
+        url = USER_CONFIGURATION_URL.format(user_id=self.unauthorized_user.id)
+        self.api_client.force_authenticate(user=self.manager_user)
+        response = self.api_client.post(
+            url,
+            {
+                "open_chat_api_key": "managed-key",
+                "open_chat_user": "managed-user",
+                "open_chat_host": DEFAULT_HOST,
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_access_users_includes_matching_exists_with_manager(self):
+        self.api_client.force_authenticate(user=self.manager_user)
+        response = self.api_client.get(ACCESS_USERS_URL)
+        self.assertEqual(response.status_code, 200)
+
+        by_email = {entry["email"]: entry for entry in response.data}
+        self.assertIsNone(by_email[self.manager_user.email]["matching_exists"])
+        self.assertFalse(by_email[self.view_only_user.email]["matching_exists"])
+
+        Match.objects.create(
+            user1=self.manager_user,
+            user2=self.view_only_user,
+            active=True,
+            confirmed=True,
+            support_matching=True,
+        )
+
+        response = self.api_client.get(ACCESS_USERS_URL)
+        by_email = {entry["email"]: entry for entry in response.data}
+        self.assertTrue(by_email[self.view_only_user.email]["matching_exists"])
+
+    def test_create_matching_requires_manage_permission(self):
+        url = CREATE_MATCHING_URL.format(user_id=self.view_only_user.id)
+        self.api_client.force_authenticate(user=self.authorized_user)
+        response = self.api_client.post(url, {}, format="json")
+        self.assertEqual(response.status_code, 403)
+
+    def test_create_matching_creates_silent_match(self):
+        url = CREATE_MATCHING_URL.format(user_id=self.view_only_user.id)
+        self.api_client.force_authenticate(user=self.manager_user)
+        response = self.api_client.post(url, {}, format="json")
+        self.assertEqual(response.status_code, 201)
+        self.assertTrue(response.data["matching_exists"])
+        self.assertTrue(
+            Match.get_match(self.manager_user, self.view_only_user).exists(),
+        )
+
+    def test_create_matching_rejects_existing_match(self):
+        Match.objects.create(
+            user1=self.manager_user,
+            user2=self.view_only_user,
+            active=True,
+            confirmed=True,
+            support_matching=True,
+        )
+        url = CREATE_MATCHING_URL.format(user_id=self.view_only_user.id)
+        self.api_client.force_authenticate(user=self.manager_user)
+        response = self.api_client.post(url, {}, format="json")
+        self.assertEqual(response.status_code, 409)
+        self.assertTrue(response.data["matching_exists"])
