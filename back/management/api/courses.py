@@ -310,6 +310,12 @@ class AdminCourseSerializer(serializers.ModelSerializer):
             "chapters",
         ]
 
+    def validate(self, attrs):
+        slug = attrs.get("slug")
+        if slug == Course.SELF_ONBOARDING_SLUG and self.instance is None:
+            raise serializers.ValidationError({"slug": "This slug is reserved for the self-onboarding course."})
+        return attrs
+
     def create(self, validated_data):
         chapters_data = validated_data.pop("chapters", [])
         course = Course.objects.create(**validated_data)
@@ -317,6 +323,12 @@ class AdminCourseSerializer(serializers.ModelSerializer):
         return course
 
     def update(self, instance, validated_data):
+        if instance.slug == Course.SELF_ONBOARDING_SLUG:
+            requested_slug = validated_data.get("slug")
+            if requested_slug is not None and requested_slug != instance.slug:
+                raise serializers.ValidationError({"slug": "The self-onboarding course slug cannot be changed."})
+            validated_data.pop("slug", None)
+
         chapters_data = validated_data.pop("chapters", None)
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
