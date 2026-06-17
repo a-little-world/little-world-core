@@ -89,6 +89,7 @@ services:
       - "5678:5678"  # Debug port
     environment:
       REDIS_URL: "redis://redis:6379"
+      DJ_USE_DEBUG_TOOLBAR: ${DJ_USE_DEBUG_TOOLBAR:-0}
     env_file:
       - ./dev/envs/dev.env
       - ./dev/envs/local_dev.env
