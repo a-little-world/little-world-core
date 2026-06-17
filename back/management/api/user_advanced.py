@@ -1159,12 +1159,17 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         queryset = self.filter_queryset(self.get_queryset()).select_related("profile", "state")
 
+        page_size_param = request.query_params.get("page_size")
+        if page_size_param is None:
+            serializer = ExportUserSerializer(queryset, many=True)
+            return Response(serializer.data)
+
         try:
             page = int(request.query_params.get("page", 1))
         except (TypeError, ValueError):
             page = 1
         try:
-            page_size = int(request.query_params.get("page_size", DetailedPagination.page_size))
+            page_size = int(page_size_param)
         except (TypeError, ValueError):
             page_size = DetailedPagination.page_size
         page_size = min(max(page_size, 1), DetailedPagination.max_page_size)
