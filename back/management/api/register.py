@@ -133,7 +133,7 @@ class RegistrationSerializer(serializers.Serializer):
         return super(RegistrationSerializer, self).validate(data)
 
 
-class RegistationSerializerNative(RegistrationSerializer):
+class RegistrationSerializerNative(RegistrationSerializer):
     challenge_id = serializers.CharField(required=True)
     key_id = serializers.CharField(max_length=255, required=False)
     integrity_token = serializers.CharField(required=False)
@@ -159,7 +159,7 @@ class RegistationSerializerNative(RegistrationSerializer):
         )
 
 
-class RegistationSerializerNativeWeb(RegistrationSerializer):
+class RegistrationSerializerNativeWeb(RegistrationSerializer):
     bypass_token = serializers.CharField(required=False)
 
     def create(self, validated_data):
@@ -239,10 +239,10 @@ class RegisterAndroid(APIView):
     @extend_schema(
         description="Little World Registration API called with data from the registration form",
         methods=["POST"],
-        request=RegistationSerializerNative(many=False),
+        request=RegistrationSerializerNative(many=False),
     )
     def post(self, request) -> Optional[Response]:
-        serializer = RegistationSerializerNative(data=request.data)
+        serializer = RegistrationSerializerNative(data=request.data)
         serializer.is_valid(raise_exception=True)
         # The types are secure, we checked that using the 'Registration Serializer'
         registration_data = serializer.save()
@@ -272,10 +272,10 @@ class RegisterIOS(APIView):
     @extend_schema(
         description="Little World Registration API called with data from the registration form",
         methods=["POST"],
-        request=RegistationSerializerNative(many=False),
+        request=RegistrationSerializerNative(many=False),
     )
     def post(self, request) -> Optional[Response]:
-        serializer = RegistationSerializerNative(data=request.data)
+        serializer = RegistrationSerializerNative(data=request.data)
         serializer.is_valid(raise_exception=True)
         # The types are secure, we checked that using the 'Registration Serializer'
         registration_data = serializer.save()
@@ -304,7 +304,7 @@ class RegisterWebNative(APIView):
     @extend_schema(
         description="Little World Registration API called with data from the registration form",
         methods=["POST"],
-        request=RegistationSerializerNativeWeb(many=False),
+        request=RegistrationSerializerNativeWeb(many=False),
     )
     def post(self, request) -> Optional[Response]:
         if settings.IS_PROD:
@@ -313,7 +313,7 @@ class RegisterWebNative(APIView):
                 status=status.HTTP_405_METHOD_NOT_ALLOWED,
             )
 
-        serializer = RegistationSerializerNativeWeb(data=request.data)
+        serializer = RegistrationSerializerNativeWeb(data=request.data)
         serializer.is_valid(raise_exception=True)
         # The types are secure, we checked that using the 'RegistrationSerializerNativeWeb'
         registration_data = serializer.save()
