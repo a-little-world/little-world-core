@@ -309,7 +309,8 @@ class RegisterWebNative(APIView):
     def post(self, request) -> Optional[Response]:
         if settings.IS_PROD:
             return Response(
-                {"detail": "Invalid integrity token or request hash"}, status=status.HTTP_405_METHOD_NOT_ALLOWED
+                {"detail": "This endpoint is disabled in production environments"},
+                status=status.HTTP_405_METHOD_NOT_ALLOWED,
             )
 
         serializer = RegistationSerializerNativeWeb(data=request.data)
