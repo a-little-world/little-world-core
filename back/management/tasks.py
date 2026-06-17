@@ -1755,6 +1755,30 @@ def automatic_emails_u053_u054():
     return report
 
 
+def _get_unreplied_message_streak(messages):
+    """
+    From newest-first messages, find the trailing one-sided streak: consecutive
+    messages from the same sender at the end with no reply from the other party.
+
+    Returns (last_message, unreplied_since) where unreplied_since is when that
+    streak started, or (None, None) if there are no messages.
+    """
+    messages = list(messages)
+    if not messages:
+        return None, None
+
+    last_message = messages[0]
+    unreplied_since = last_message.created
+    last_sender_id = last_message.sender_id
+
+    for message in messages[1:]:
+        if message.sender_id != last_sender_id:
+            break
+        unreplied_since = message.created
+
+    return last_message, unreplied_since
+
+
 @shared_task
 def automatic_emails_fm021_fm022__ghosted_matches():
     """
@@ -1800,13 +1824,10 @@ def automatic_emails_fm021_fm022__ghosted_matches():
     # TODO: confirm if there should be a way to get out of 'ghosted' state
     report["matches_single_party_contact"] = matches_in_ko_with_single_party_contact.count()
     for match in matches_in_ko_with_single_party_contact:
-        newest_message = (
-            Message.objects.filter(
-                Q(sender=match.user1, recipient=match.user2) | Q(sender=match.user2, recipient=match.user1)
-            )
-            .order_by("-created")
-            .first()
-        )
+        messages = Message.objects.filter(
+            Q(sender=match.user1, recipient=match.user2) | Q(sender=match.user2, recipient=match.user1)
+        ).order_by("-created")
+        last_message, unreplied_since = _get_unreplied_message_streak(messages)
         newest_video_call = (
             LivekitSession.objects.filter(
                 Q(u1=match.user1, u2=match.user2) | Q(u1=match.user2, u2=match.user1),
@@ -1816,13 +1837,13 @@ def automatic_emails_fm021_fm022__ghosted_matches():
             .first()
         )
         if (
-            newest_message
-            and newest_message.created < time_15days_ago
+            last_message
+            and unreplied_since < time_15days_ago
             and (newest_video_call and newest_video_call.created_at < time_15days_ago)
         ):
             match.is_ghosted_match = True
-            ghosted_user = newest_message.sender
-            ghosted_by_user = newest_message.recipient
+            ghosted_user = last_message.sender
+            ghosted_by_user = last_message.recipient
             match.ghosted_by = ghosted_by_user
             match.marked_as_ghosted_at = timezone.now()
             match.save()
