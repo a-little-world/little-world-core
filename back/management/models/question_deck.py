@@ -1,63 +1,16 @@
-from uuid import uuid4
+"""
+Backward compatibility for historical migrations.
 
-from django.db import models
-from django.db.models.signals import post_save
-from django.dispatch import receiver
-from rest_framework.serializers import ModelSerializer
+Old migrations import ``management.models.question_deck``; new code should use
+``management.models.question_cards`` instead.
+"""
 
+from management.models.question_cards import *  # noqa: F403
+from management.models.question_cards import default_translation_content
 
-def _base_translations_dict(en="", de=""):
-    return {"de": de, "en": en}
-
-
-class QuestionCardCategories(models.Model):
-    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
-    ref_id = models.IntegerField(unique=True, editable=False, default=0)
-    content = models.JSONField(default=_base_translations_dict)
-
-
-class QuestionCardsCategoriesSerializer(ModelSerializer):
-    class Meta:
-        model = QuestionCardCategories
-        fields = "__all__"
-
-
-class QuestionCard(models.Model):
-    category = models.ForeignKey(QuestionCardCategories, on_delete=models.CASCADE)
-    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
-    ref_id = models.IntegerField(unique=True, editable=False, default=0)
-    content = models.JSONField(default=_base_translations_dict)
-
-
-class QuestionCardSerializer(ModelSerializer):
-    class Meta:
-        model = QuestionCard
-        fields = "__all__"
+# Symbols referenced by migrations 0054 and 0056.
+_base_translations_dict = default_translation_content
 
 
 def _default_cards():
-    return QuestionCard.objects.all()
-
-
-class QuestionCardsDeck(models.Model):
-    uuid = models.UUIDField(primary_key=True, default=uuid4, editable=False)
-    user = models.ForeignKey("management.User", on_delete=models.CASCADE)
-    cards = models.ManyToManyField(QuestionCard, related_name="cards")
-    cards_archived = models.ManyToManyField(QuestionCard, related_name="cards_archived", blank=True)
-
-    def archive_card(self, card):
-        self.cards.remove(card)
-        self.cards_archived.add(card)
-        self.save()
-
-    def unarchive_card(self, card):
-        self.cards.add(card)
-        self.cards_archived.remove(card)
-        self.save()
-
-
-@receiver(post_save, sender=QuestionCardsDeck)
-def populate_question_cards(sender, instance, created, **kwargs):
-    if created:
-        instance.cards.set(QuestionCard.objects.all())
-        instance.save()
+    return []

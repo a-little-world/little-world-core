@@ -460,6 +460,18 @@ def EXTRA__refugee_learners_scoring(qs=User.objects.all()):
     return refugee_learners.order_by().union(needs_matching_users.order_by()).order_by("-date_joined")
 
 
+def EXTRA__learners_no_match_scoring(qs=User.objects.all()):
+    """
+    (Maddy) EXTRA Scoring list for learners that have no match yet
+    """
+    learners = needs_matching(qs).filter(profile__user_type=Profile.TypeChoices.LEARNER)
+    learners_with_active_match = get_active_match_query_set(learners).values("pk")
+    learners = learners.exclude(pk__in=learners_with_active_match)
+    needs_matching_users = needs_matching(qs).filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
+
+    return learners.order_by().union(needs_matching_users.order_by()).order_by("-date_joined")
+
+
 def EXTRA__learners_with_activity_in_last3weeks(qs=User.objects.all(), days_ago=21):
     """
     (Maddy) Learners with activity in the last 3 weeks
