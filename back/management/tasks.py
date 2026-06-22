@@ -1,5 +1,3 @@
-import base64
-import json
 import math
 import random
 from datetime import datetime, timedelta, timezone
@@ -9,19 +7,18 @@ from cookie_consent.models import Cookie, CookieGroup
 from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone as dj_timezone
-from requests import RequestException
 from translations import get_translation
 
 from management.models.backend_state import BackendState
 from management.models.banner import Banner
 from management.models.community_events import CommunityEvent
-from management.models.open_chat_configuration import OpenChatConfiguration
 from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.models.state import State
 from management.models.user import User
 from management.permissions import ManagementPermission
 
 from .meta_capi import MetaCAPIClient
+from .open_chat_interaction_task import open_chat_basic_chat_interaction  # re-export for Celery autodiscovery
 
 """
 also contains general startup celery tasks, most of them are automaticly run when the controller.get_base_management user is created
@@ -205,140 +202,6 @@ I'll take the time to answer all your messages but I might take a little time to
     usr.grant_permission(ManagementPermission.MATCHING_USER)
     usr.state.save()
     usr.profile.save()
-
-
-@shared_task(name="management.tasks.open_chat_basic_chat_interaction")
-def open_chat_basic_chat_interaction(
-    chat_uuid: str,
-    message_uuid: str,
-    sender_uuid: str,
-    recipient_uuid: str,
-    user_message_text: str = "",
-):
-    """
-    Basic Open Chat interaction for messages sent to Open Chat recipients.
-    Flow:
-    1) ensure recipient exists and has OPEN_CHAT_ACCESS permission
-    2) ensure recipient has OpenChatConfiguration
-    3) login with Open Chat client using recipient configuration
-    4) run a basic interaction flow
-    """
-    recipient = User.objects.filter(uuid=recipient_uuid).first()
-    if recipient is None:
-        return {"status": "skipped", "reason": "recipient_missing"}
-
-    sender = User.objects.filter(uuid=sender_uuid).first()
-    if sender is None:
-        return {"status": "skipped", "reason": "sender_missing"}
-
-    if not recipient.has_perm(ManagementPermission.OPEN_CHAT_ACCESS):
-        return {"status": "skipped", "reason": "recipient_has_no_open_chat_access_permission"}
-
-    try:
-        from client.client import OpenChatPythonClient
-    except ImportError as exc:
-        return {"status": "error", "reason": "open_chat_client_import_failed", "detail": str(exc)}
-
-    bot_config = {
-        "temperature": 0.0,
-        "max_tokens": 4096,
-        "tools": ["get_current_time_confirmed"],
-        "model": "qwen3-8b-instruct_vllm",
-        "endpoint": "https://litellm.t1m.me/v1",
-        "backend": "litellm",
-        "context": 10,
-        "system_prompt": "You are a helpful assistant.",
-    }
-
-    configuration = OpenChatConfiguration.objects.filter(user_id=recipient.pk).first()
-    config_owner = "recipient"
-    if configuration is None:
-        sender_has_open_chat_access = sender.has_perm(ManagementPermission.OPEN_CHAT_ACCESS)
-        sender_configuration = OpenChatConfiguration.objects.filter(user_id=sender.pk).first()
-        if sender_has_open_chat_access and sender_configuration is not None:
-            configuration = sender_configuration
-            config_owner = "sender_fallback"
-        else:
-            return {
-                "status": "skipped",
-                "reason": "recipient_open_chat_configuration_missing",
-                "recipient_user_id": recipient.pk,
-                "recipient_email": recipient.email,
-                "sender_user_id": sender.pk,
-                "sender_email": sender.email,
-                "sender_has_open_chat_access": sender_has_open_chat_access,
-                "sender_has_open_chat_configuration": sender_configuration is not None,
-            }
-
-    try:
-        client = OpenChatPythonClient(
-            host=configuration.open_chat_host,
-            username=configuration.open_chat_user,
-            password=configuration.open_chat_api_key,
-        )
-        client.setup_bot_config(bot_config)
-        login_result = client.login()
-
-        interaction = client.create_interaction(message=user_message_text or "Hello")
-        interaction_uuid = interaction.get("uuid") if isinstance(interaction, dict) else None
-        shared_url = None
-        if interaction_uuid:
-            get_shared_url = getattr(client, "get_shared_interaction_url", None)
-            if callable(get_shared_url):
-                shared_url = get_shared_url(interaction_uuid)
-
-        interaction_message_uuid = None
-        interaction_message_payload = None
-        if interaction_uuid:
-            from chat.consumers.messages import NewMessage
-            from chat.models import Chat, ChatSerializer, Message, MessageSerializer
-
-            chat = Chat.objects.filter(uuid=chat_uuid).first()
-            if chat is not None and chat.is_participant(sender) and chat.is_participant(recipient):
-                interaction_message_payload = {
-                    "type": "open_chat_interaction",
-                    "title": base64.b64decode(
-                        "VGltOiBUaGlzIGlzICpoaWdobHkqIGV4cGVyaW1lbnRhbDsgdGhlIG1vZGVsIHJ1bnMgYXQgaG9tZSBvbiBteSBwYyBhbmQgbWlnaCB3YWtlIHdlIHVwIGF0IG5pZ2h0OyBidXQgbWF5YmUgaXQgY2FuIGhlbHAgeW91IHdpdGggc29tZXRoaW5nLg=="
-                    ).decode("utf-8"),
-                    "interaction_id": interaction_uuid,
-                    "shared_interaction_url": shared_url,
-                }
-                interaction_message = Message.objects.create(
-                    chat=chat,
-                    sender=recipient,
-                    recipient=sender,
-                    recipient_notified=False,
-                    text=json.dumps(interaction_message_payload),
-                    parsable_message=True,
-                )
-                interaction_message_uuid = str(interaction_message.uuid)
-                serialized_interaction_message = MessageSerializer(interaction_message).data
-                NewMessage(
-                    message=serialized_interaction_message,
-                    chat_id=str(chat.uuid),
-                    meta_chat_obj=ChatSerializer(chat, context={"user": sender}).data,
-                ).send(str(sender.uuid))
-
-        return {
-            "status": "ok",
-            "chat_uuid": chat_uuid,
-            "message_uuid": message_uuid,
-            "sender_uuid": sender_uuid,
-            "recipient_uuid": recipient_uuid,
-            "recipient_user_id": recipient.pk,
-            "configuration_owner": config_owner,
-            "configuration_user_id": configuration.user.pk,
-            "login_user_name": login_result.get("name") if isinstance(login_result, dict) else None,
-            "interaction_message_input": user_message_text,
-            "interaction_uuid": interaction_uuid,
-            "shared_url": shared_url,
-            "interaction_message_uuid": interaction_message_uuid,
-            "interaction_message_payload": interaction_message_payload,
-        }
-    except RequestException as exc:
-        return {"status": "error", "reason": "open_chat_request_failed", "detail": str(exc)}
-    except Exception as exc:
-        return {"status": "error", "reason": "open_chat_basic_interaction_failed", "detail": str(exc)}
 
 
 @shared_task
