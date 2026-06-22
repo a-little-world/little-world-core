@@ -177,5 +177,6 @@ components-js
 .aider*
 
 dev/envs/local_dev.env
+dev/postgres_data/
 back/celerybeat-schedule-shm
 back/celerybeat-schedule-wal
