@@ -45,7 +45,7 @@ from management.api.matching_users_advanced import api_urls as matching_users_ad
 from management.api.native_auth import api_urls as api_urls_native_auth
 from management.api.newsletter_subscribe import public_newsletter_subscribe
 from management.api.open_chat import api_urls as open_chat_api_urls
-from management.api.questions import (
+from management.api.question_cards import (
     admin_question_card_category_detail,
     admin_question_card_detail,
     admin_question_cards,

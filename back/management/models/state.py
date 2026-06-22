@@ -7,8 +7,6 @@ from enum import Enum
 from back.utils import get_options_serializer
 from django.db import models
 from django.db.models import Q
-from django.db.models.signals import post_save
-from django.dispatch import receiver
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 from multiselectfield import MultiSelectField
@@ -19,7 +17,6 @@ from back import utils
 from management.models.management_tasks import MangementTask
 from management.models.matches import Match
 from management.models.notifications import Notification
-from management.models.question_deck import QuestionCardsDeck
 from management.permissions import MANAGEMENT_PERMISSION_DEFINITIONS
 
 
@@ -32,8 +29,6 @@ class State(models.Model):
 
     # Key...
     user = models.OneToOneField("management.User", on_delete=models.CASCADE)
-
-    question_card_deck = models.ForeignKey(QuestionCardsDeck, on_delete=models.SET_NULL, null=True, blank=True)
 
     # We love additional Information
     created_at = models.DateTimeField(auto_now_add=True)
@@ -385,13 +380,6 @@ class State(models.Model):
     @classmethod
     def decode_email_auth_code_b64(cls, str_b64):
         return json.loads(zlib.decompress(base64.urlsafe_b64decode(str_b64.encode())).decode())
-
-
-@receiver(post_save, sender=State)
-def populate_parents(sender, instance, created, **kwargs):
-    if created:
-        instance.question_card_deck = QuestionCardsDeck.objects.create(user=instance.user)
-        instance.save()
 
 
 class StateSerializer(serializers.ModelSerializer):

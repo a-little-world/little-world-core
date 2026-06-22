@@ -163,6 +163,9 @@ back/static
 env_stage
 back/webpack
 
+# Pnpm
+.pnpm-store
+
 # macOS
 *.DS_Store
 
