@@ -2,7 +2,6 @@ from datetime import datetime, time
 from typing import Literal, cast
 
 from chat.models import Chat, ChatSerializer, Message, MessageSerializer
-from django.core.paginator import InvalidPage
 from django.db.models import CharField, Max, Q, Value
 from django.db.models.functions import Concat
 from django.urls import path
@@ -11,20 +10,17 @@ from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
 from emails.models import AdvancedEmailLogSerializer, EmailLog
 from rest_framework import serializers, status, viewsets
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 
 from management.api.matches import AdvancedUserMatchSerializer
+from management.api.export_utils import build_paginated_export_response
 from management.api.scores import score_between_db_update
 from management.api.user_advanced_filter_lists import FILTER_LISTS, get_choices, get_dynamic_userlists
 from management.api.user_report_utils import USER_EXPORT_COLUMN_NAMES, build_user_report_entry
 from management.api.utils_advanced import filterset_schema_dict
 from management.controller import delete_user, make_tim_support_user
-from management.helpers import (
-    DetailedPagination,
-    DetailedPaginationMixin,
-    IsAdminOrMatchingUser,
-)
+from management.helpers import DetailedPagination, DetailedPaginationMixin, IsAdminOrMatchingUser
 from management.helpers.detailed_pagination import get_paginated_format_v2
 from management.models.dynamic_user_list import DynamicUserList
 from management.models.management_tasks import ManagementTaskSerializer, MangementTask
@@ -1152,36 +1148,6 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         return Response(paginated_email_logs)
 
-    @action(detail=False, methods=["get"])
-    def export(self, request):
-        if request.query_params.get("export_columns_only", "").lower() in ("1", "true", "yes"):
-            return Response([{name: None for name in USER_EXPORT_COLUMN_NAMES}])
-
-        queryset = self.filter_queryset(self.get_queryset()).select_related("profile", "state")
-
-        page_size_param = request.query_params.get("page_size")
-        if page_size_param is None:
-            serializer = ExportUserSerializer(queryset, many=True)
-            return Response(serializer.data)
-
-        try:
-            page = int(request.query_params.get("page", 1))
-        except (TypeError, ValueError):
-            page = 1
-        try:
-            page_size = int(page_size_param)
-        except (TypeError, ValueError):
-            page_size = DetailedPagination.page_size
-        page_size = min(max(page_size, 1), DetailedPagination.max_page_size)
-
-        try:
-            paginated = get_paginated_format_v2(queryset, page_size, page)
-        except InvalidPage:
-            return Response([])
-
-        serializer = ExportUserSerializer(paginated["results"], many=True)
-        return Response(serializer.data)
-
     @action(detail=True, methods=["get"])
     def match_waiting_time(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -1190,8 +1156,26 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         return Response(get_match_waiting_time(obj))
 
 
+@api_view(["GET"])
+@permission_classes([IsAdminOrMatchingUser])
+def users_export(request):
+    if request.user.is_staff:
+        queryset = User.objects.all()
+    else:
+        management_user = cast(User, request.user)
+        queryset = management_user.managed_users_queryset(active_only=True)
+
+    queryset = UserFilter(request.query_params, queryset=queryset).qs.select_related("profile", "state")
+    return build_paginated_export_response(
+        request,
+        queryset,
+        ExportUserSerializer,
+        export_columns_only_fields=USER_EXPORT_COLUMN_NAMES,
+    )
+
+
 viewset_actions = [
-    path("api/matching/users_export/", AdvancedUserViewset.as_view({"get": "export"})),
+    path("api/matching/users_export/", users_export),
     path(
         "api/matching/users/<pk>/scores/",
         AdvancedUserViewset.as_view({"get": "scores"}),
