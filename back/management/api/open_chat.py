@@ -175,7 +175,7 @@ def open_chat_configuration(request):
             **serializer.validated_data,
         )
         return Response(
-            OpenChatConfigurationSerializer(configuration, context={"request": request}).data,
+            OpenChatConfigurationSummarySerializer(configuration).data,
             status=status.HTTP_201_CREATED,
         )
 
@@ -189,7 +189,7 @@ def open_chat_configuration(request):
     serializer = OpenChatConfigurationSerializer(configuration, data=request.data)
     serializer.is_valid(raise_exception=True)
     serializer.save()
-    return Response(OpenChatConfigurationSerializer(configuration, context={"request": request}).data)
+    return Response(OpenChatConfigurationSummarySerializer(configuration).data)
 
 
 @extend_schema(
@@ -316,7 +316,7 @@ def open_chat_user_configuration(request, user_id: int):
             **serializer.validated_data,
         )
         return Response(
-            OpenChatConfigurationSerializer(configuration).data,
+            OpenChatConfigurationSummarySerializer(configuration).data,
             status=status.HTTP_201_CREATED,
         )
 
@@ -330,7 +330,7 @@ def open_chat_user_configuration(request, user_id: int):
     serializer = OpenChatConfigurationSerializer(configuration, data=request.data)
     serializer.is_valid(raise_exception=True)
     serializer.save()
-    return Response(serializer.data)
+    return Response(OpenChatConfigurationSummarySerializer(configuration).data)
 
 
 @extend_schema(
