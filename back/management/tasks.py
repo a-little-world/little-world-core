@@ -1,3 +1,4 @@
+import json
 import math
 import random
 from datetime import datetime, timedelta, timezone
@@ -219,12 +220,12 @@ def open_chat_basic_chat_interaction(chat_uuid: str, message_uuid: str, sender_u
     if recipient is None:
         return {"status": "skipped", "reason": "recipient_missing"}
 
+    sender = User.objects.filter(uuid=sender_uuid).first()
+    if sender is None:
+        return {"status": "skipped", "reason": "sender_missing"}
+
     if not recipient.has_perm(ManagementPermission.OPEN_CHAT_ACCESS):
         return {"status": "skipped", "reason": "recipient_has_no_open_chat_access_permission"}
-
-    configuration = OpenChatConfiguration.objects.filter(user=recipient).first()
-    if configuration is None:
-        return {"status": "skipped", "reason": "recipient_open_chat_configuration_missing"}
 
     try:
         from client.client import OpenChatPythonClient
@@ -245,6 +246,26 @@ def open_chat_basic_chat_interaction(chat_uuid: str, message_uuid: str, sender_u
         "context": 10,
         "system_prompt": "You are a helpful assistant.",
     }
+
+    configuration = OpenChatConfiguration.objects.filter(user_id=recipient.pk).first()
+    config_owner = "recipient"
+    if configuration is None:
+        sender_has_open_chat_access = sender.has_perm(ManagementPermission.OPEN_CHAT_ACCESS)
+        sender_configuration = OpenChatConfiguration.objects.filter(user_id=sender.pk).first()
+        if sender_has_open_chat_access and sender_configuration is not None:
+            configuration = sender_configuration
+            config_owner = "sender_fallback"
+        else:
+            return {
+                "status": "skipped",
+                "reason": "recipient_open_chat_configuration_missing",
+                "recipient_user_id": recipient.pk,
+                "recipient_email": recipient.email,
+                "sender_user_id": sender.pk,
+                "sender_email": sender.email,
+                "sender_has_open_chat_access": sender_has_open_chat_access,
+                "sender_has_open_chat_configuration": sender_configuration is not None,
+            }
 
     try:
         client = OpenChatPythonClient(
@@ -277,6 +298,35 @@ def open_chat_basic_chat_interaction(chat_uuid: str, message_uuid: str, sender_u
             if callable(get_shared_url):
                 shared_url = get_shared_url(interaction_uuid)
 
+        interaction_message_uuid = None
+        interaction_message_payload = None
+        if interaction_uuid:
+            from chat.consumers.messages import NewMessage
+            from chat.models import Chat, ChatSerializer, Message, MessageSerializer
+
+            chat = Chat.objects.filter(uuid=chat_uuid).first()
+            if chat is not None and chat.is_participant(sender) and chat.is_participant(recipient):
+                interaction_message_payload = {
+                    "type": "open_chat_interaction",
+                    "interaction_id": interaction_uuid,
+                    "shared_interaction_url": shared_url,
+                }
+                interaction_message = Message.objects.create(
+                    chat=chat,
+                    sender=recipient,
+                    recipient=sender,
+                    recipient_notified=False,
+                    text=json.dumps(interaction_message_payload),
+                    parsable_message=True,
+                )
+                interaction_message_uuid = str(interaction_message.uuid)
+                serialized_interaction_message = MessageSerializer(interaction_message).data
+                NewMessage(
+                    message=serialized_interaction_message,
+                    chat_id=str(chat.uuid),
+                    meta_chat_obj=ChatSerializer(chat, context={"user": sender}).data,
+                ).send(str(sender.uuid))
+
         return {
             "status": "ok",
             "chat_uuid": chat_uuid,
@@ -284,11 +334,15 @@ def open_chat_basic_chat_interaction(chat_uuid: str, message_uuid: str, sender_u
             "sender_uuid": sender_uuid,
             "recipient_uuid": recipient_uuid,
             "recipient_user_id": recipient.pk,
+            "configuration_owner": config_owner,
+            "configuration_user_id": configuration.user.pk,
             "login_user_name": login_result.get("name") if isinstance(login_result, dict) else None,
             "interaction_uuid": interaction_uuid,
             "stop_signal": stop_signal,
             "confirmations": confirmations,
             "shared_url": shared_url,
+            "interaction_message_uuid": interaction_message_uuid,
+            "interaction_message_payload": interaction_message_payload,
         }
     except RequestException as exc:
         return {"status": "error", "reason": "open_chat_request_failed", "detail": str(exc)}
