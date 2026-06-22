@@ -6,12 +6,12 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
 
+from management import controller
 from management.helpers.has_open_chat_access import (
     HasManageOpenChatAccess,
     HasOpenChatAccess,
     OpenChatConfigurationPermission,
 )
-from management import controller
 from management.models.matches import Match
 from management.models.open_chat_configuration import OpenChatConfiguration
 from management.models.profile import MinimalProfileSerializer

@@ -5,8 +5,8 @@ from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from management.models.open_chat_configuration import DEFAULT_OPEN_CHAT_HOST, OpenChatConfiguration
 from management.models.matches import Match
+from management.models.open_chat_configuration import DEFAULT_OPEN_CHAT_HOST, OpenChatConfiguration
 from management.models.user import User
 from management.permissions import ManagementPermission
 
