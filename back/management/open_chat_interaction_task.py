@@ -3,8 +3,8 @@ import json
 from importlib import import_module
 
 from celery import shared_task
-from django.contrib.auth import BACKEND_SESSION_KEY, HASH_SESSION_KEY, SESSION_KEY
 from django.conf import settings
+from django.contrib.auth import BACKEND_SESSION_KEY, HASH_SESSION_KEY, SESSION_KEY
 from requests import RequestException
 
 from management.models.open_chat_configuration import OpenChatConfiguration
