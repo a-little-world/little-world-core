@@ -44,6 +44,7 @@ from management.api.matching_stats import get_quick_statistics
 from management.api.matching_users_advanced import api_urls as matching_users_advanced_api_urls
 from management.api.native_auth import api_urls as api_urls_native_auth
 from management.api.newsletter_subscribe import public_newsletter_subscribe
+from management.api.open_chat import api_urls as open_chat_api_urls
 from management.api.question_cards import (
     admin_question_card_category_detail,
     admin_question_card_detail,
@@ -157,6 +158,7 @@ api_routes = [
     *user_advanced_api_urls,
     *matches_advanced_api_urls,
     *matching_panel_user_api_urls,
+    *open_chat_api_urls,
     *matching_users_advanced_api_urls,
     *still_in_contact_api_urls,
     *scores_advanced.api_urls,
