@@ -1,3 +1,5 @@
+from chat.models import Chat
+from django.db.models import Q
 from django.urls import path
 from drf_spectacular.utils import extend_schema, inline_serializer
 from requests import RequestException
@@ -49,14 +51,48 @@ class OpenChatAccessUserSerializer(serializers.ModelSerializer):
 
 
 class OpenChatConfigurationSerializer(serializers.ModelSerializer):
+    matching_exists = serializers.SerializerMethodField()
+    matching_user_uuid = serializers.SerializerMethodField()
+
     class Meta:
         model = OpenChatConfiguration
-        fields = ["open_chat_api_key", "open_chat_user", "open_chat_host"]
+        fields = ["open_chat_api_key", "open_chat_user", "open_chat_host", "matching_exists", "matching_user_uuid"]
         extra_kwargs = {
             "open_chat_api_key": {"required": True},
             "open_chat_user": {"required": True},
             "open_chat_host": {"required": True},
         }
+
+    def _get_matching_partner(self, configuration: OpenChatConfiguration) -> User | None:
+        if hasattr(self, "_matching_partner"):
+            return self._matching_partner
+
+        request = self.context.get("request")
+        if request is None:
+            self._matching_partner = None
+            return None
+
+        user = request.user
+        active_match = (
+            Match.objects.filter(Q(user1=user) | Q(user2=user), active=True)
+            .select_related("user1", "user2")
+            .order_by("-latest_interaction_at", "-created_at")
+            .first()
+        )
+        if active_match is None:
+            self._matching_partner = None
+            return None
+
+        partner = active_match.user1 if active_match.user2 == user else active_match.user2
+        self._matching_partner = partner
+        return partner
+
+    def get_matching_exists(self, configuration: OpenChatConfiguration):
+        return self._get_matching_partner(configuration) is not None
+
+    def get_matching_user_uuid(self, configuration: OpenChatConfiguration):
+        partner = self._get_matching_partner(configuration)
+        return str(partner.uuid) if partner else None
 
 
 def _get_user_configuration(user) -> OpenChatConfiguration | None:
@@ -107,7 +143,7 @@ def open_chat_configuration(request):
                 {"detail": "Open chat configuration not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        return Response(OpenChatConfigurationSerializer(configuration).data)
+        return Response(OpenChatConfigurationSerializer(configuration, context={"request": request}).data)
 
     serializer = OpenChatConfigurationSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
@@ -123,7 +159,7 @@ def open_chat_configuration(request):
             **serializer.validated_data,
         )
         return Response(
-            OpenChatConfigurationSerializer(configuration).data,
+            OpenChatConfigurationSerializer(configuration, context={"request": request}).data,
             status=status.HTTP_201_CREATED,
         )
 
@@ -137,7 +173,7 @@ def open_chat_configuration(request):
     serializer = OpenChatConfigurationSerializer(configuration, data=request.data)
     serializer.is_valid(raise_exception=True)
     serializer.save()
-    return Response(serializer.data)
+    return Response(OpenChatConfigurationSerializer(configuration, context={"request": request}).data)
 
 
 @extend_schema(
@@ -342,6 +378,64 @@ def open_chat_create_matching(request, user_id: int):
     )
 
 
+@extend_schema(
+    methods=["POST"],
+    responses=inline_serializer(
+        name="OpenChatCreateChatResponse",
+        fields={
+            "chat_uuid": serializers.UUIDField(),
+            "chat_created": serializers.BooleanField(),
+            "detail": serializers.CharField(),
+        },
+    ),
+)
+@api_view(["POST"])
+@permission_classes([HasManageOpenChatAccess])
+@authentication_classes([SessionAuthentication])
+def open_chat_create_chat(request, user_id: int):
+    target_user = _get_open_chat_access_user(user_id)
+    if target_user is None:
+        return Response(
+            {"detail": "Open chat access user not found."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    if target_user.pk == request.user.pk:
+        return Response(
+            {"detail": "Cannot create a chat with yourself."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if not Match.get_match(request.user, target_user).exists():
+        return Response(
+            {"detail": "No active matching exists between these users."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    chat = (
+        Chat.objects.filter(
+            (Q(u1=request.user, u2=target_user) | Q(u1=target_user, u2=request.user)),
+            is_temporary=False,
+        )
+        .order_by("-created")
+        .first()
+    )
+
+    chat_created = False
+    if chat is None:
+        chat = Chat.objects.create(u1=request.user, u2=target_user, is_temporary=False)
+        chat_created = True
+
+    return Response(
+        {
+            "chat_uuid": chat.uuid,
+            "chat_created": chat_created,
+            "detail": "Chat created." if chat_created else "Chat already exists.",
+        },
+        status=status.HTTP_201_CREATED if chat_created else status.HTTP_200_OK,
+    )
+
+
 api_urls = [
     path(
         "api/matching/open-chat-configuration/",
@@ -367,5 +461,10 @@ api_urls = [
         "api/matching/open-chat-access-users/<int:user_id>/create-matching/",
         open_chat_create_matching,
         name="open_chat_create_matching",
+    ),
+    path(
+        "api/matching/open-chat-access-users/<int:user_id>/create-chat/",
+        open_chat_create_chat,
+        name="open_chat_create_chat",
     ),
 ]
