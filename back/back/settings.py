@@ -1079,3 +1079,16 @@ PUSH_NOTIFICATIONS_SETTINGS = {
     "UNIQUE_REG_ID": True,
     "GCM_DEVICE_MODEL": "management.MobileDevice",
 }
+
+CREATE_OPEN_CHAT_AUTOMATION_USER = bool_env(
+    "DJ_CREATE_OPEN_CHAT_AUTOMATION_USER",
+    "true" if EMPHIRIAL else "false",
+)
+OPEN_CHAT_AUTOMATION_USER_EMAIL = os.environ.get(
+    "DJ_OPEN_CHAT_AUTOMATION_USER_EMAIL",
+    "tim+open-chat@little-world.com",
+)
+OPEN_CHAT_AUTOMATION_USER_PASSWORD = os.environ.get(
+    "DJ_OPEN_CHAT_AUTOMATION_USER_PASSWORD",
+    "Test123!",
+)

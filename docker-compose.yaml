@@ -100,6 +100,8 @@ services:
       - ./front/webpack-stats/cookie_banner_frontend/:/front/webpack-stats/cookie_banner_frontend/
     depends_on:
       - redis
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
   redis:
     profiles:
       [
