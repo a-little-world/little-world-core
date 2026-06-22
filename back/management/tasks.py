@@ -233,12 +233,10 @@ def open_chat_basic_chat_interaction(chat_uuid: str, message_uuid: str, sender_u
         return {"status": "error", "reason": "open_chat_client_import_failed", "detail": str(exc)}
 
     bot_config = {
-        "temperature": 0.7,
+        "temperature": 0.0,
         "max_tokens": 4096,
         "tools": [
-            "get_random_number",
-            "get_current_time",
-            "create_confirmable_action_suggestion",
+            "get_current_time_confirmed"
         ],
         "model": "qwen3-8b-instruct_vllm",
         "endpoint": "https://litellm.t1m.me/v1",
