@@ -13,8 +13,8 @@ from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 
-from management.api.matches import AdvancedUserMatchSerializer
 from management.api.export_utils import build_paginated_export_response
+from management.api.matches import AdvancedUserMatchSerializer
 from management.api.scores import score_between_db_update
 from management.api.user_advanced_filter_lists import FILTER_LISTS, get_choices, get_dynamic_userlists
 from management.api.user_report_utils import USER_EXPORT_COLUMN_NAMES, build_user_report_entry
