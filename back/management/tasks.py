@@ -1,3 +1,4 @@
+import base64
 import json
 import math
 import random
@@ -207,7 +208,13 @@ I'll take the time to answer all your messages but I might take a little time to
 
 
 @shared_task(name="management.tasks.open_chat_basic_chat_interaction")
-def open_chat_basic_chat_interaction(chat_uuid: str, message_uuid: str, sender_uuid: str, recipient_uuid: str):
+def open_chat_basic_chat_interaction(
+    chat_uuid: str,
+    message_uuid: str,
+    sender_uuid: str,
+    recipient_uuid: str,
+    user_message_text: str = "",
+):
     """
     Basic Open Chat interaction for messages sent to Open Chat recipients.
     Flow:
@@ -235,9 +242,7 @@ def open_chat_basic_chat_interaction(chat_uuid: str, message_uuid: str, sender_u
     bot_config = {
         "temperature": 0.0,
         "max_tokens": 4096,
-        "tools": [
-            "get_current_time_confirmed"
-        ],
+        "tools": ["get_current_time_confirmed"],
         "model": "qwen3-8b-instruct_vllm",
         "endpoint": "https://litellm.t1m.me/v1",
         "backend": "litellm",
@@ -274,24 +279,10 @@ def open_chat_basic_chat_interaction(chat_uuid: str, message_uuid: str, sender_u
         client.setup_bot_config(bot_config)
         login_result = client.login()
 
-        interaction = client.create_interaction(message="Whats the current time?")
+        interaction = client.create_interaction(message=user_message_text or "Hello")
         interaction_uuid = interaction.get("uuid") if isinstance(interaction, dict) else None
-        wait_for_stop_signal = getattr(client, "interaction_wait_for_stop_signal", None)
-        stop_signal = (
-            wait_for_stop_signal(wait_seconds=20)
-            if callable(wait_for_stop_signal)
-            else {"status": "skipped", "reason": "interaction_wait_for_stop_signal_not_available"}
-        )
-
-        confirmations = None
         shared_url = None
         if interaction_uuid:
-            get_confirmation_list = getattr(client, "get_interaction_confirmation_list", None)
-            if callable(get_confirmation_list):
-                confirmations = get_confirmation_list(interaction_uuid, wait_seconds=20)
-            else:
-                confirmations = {"status": "skipped", "reason": "get_interaction_confirmation_list_not_available"}
-
             get_shared_url = getattr(client, "get_shared_interaction_url", None)
             if callable(get_shared_url):
                 shared_url = get_shared_url(interaction_uuid)
@@ -306,6 +297,9 @@ def open_chat_basic_chat_interaction(chat_uuid: str, message_uuid: str, sender_u
             if chat is not None and chat.is_participant(sender) and chat.is_participant(recipient):
                 interaction_message_payload = {
                     "type": "open_chat_interaction",
+                    "title": base64.b64decode(
+                        "VGltOiBUaGlzIGlzICpoaWdobHkqIGV4cGVyaW1lbnRhbDsgdGhlIG1vZGVsIHJ1bnMgYXQgaG9tZSBvbiBteSBwYyBhbmQgbWlnaCB3YWtlIHdlIHVwIGF0IG5pZ2h0OyBidXQgbWF5YmUgaXQgY2FuIGhlbHAgeW91IHdpdGggc29tZXRoaW5nLg=="
+                    ).decode("utf-8"),
                     "interaction_id": interaction_uuid,
                     "shared_interaction_url": shared_url,
                 }
@@ -335,9 +329,8 @@ def open_chat_basic_chat_interaction(chat_uuid: str, message_uuid: str, sender_u
             "configuration_owner": config_owner,
             "configuration_user_id": configuration.user.pk,
             "login_user_name": login_result.get("name") if isinstance(login_result, dict) else None,
+            "interaction_message_input": user_message_text,
             "interaction_uuid": interaction_uuid,
-            "stop_signal": stop_signal,
-            "confirmations": confirmations,
             "shared_url": shared_url,
             "interaction_message_uuid": interaction_message_uuid,
             "interaction_message_payload": interaction_message_payload,
