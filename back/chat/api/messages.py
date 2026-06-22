@@ -255,8 +255,7 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
 
         # Trigger lightweight Open Chat automation hook for follow-up processing.
         if (
-            settings.CREATE_OPEN_CHAT_AUTOMATION_USER
-            and partner.email == settings.OPEN_CHAT_AUTOMATION_USER_EMAIL
+            partner.email == settings.OPEN_CHAT_AUTOMATION_USER_EMAIL
             and User.objects.filter(email=settings.OPEN_CHAT_AUTOMATION_USER_EMAIL).exists()
         ):
             current_app.send_task(  # pyright: ignore[reportCallIssue]
@@ -266,6 +265,7 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
                     "message_uuid": str(message.uuid),
                     "sender_uuid": str(request.user.uuid),
                     "recipient_uuid": str(partner.uuid),
+                    "user_message_text": final_message_text,
                 },
             )
 
