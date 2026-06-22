@@ -178,5 +178,6 @@ components-js
 
 dev/envs/local_dev.env
 dev/postgres_data/
+dev/db_backup/
 back/celerybeat-schedule-shm
 back/celerybeat-schedule-wal
