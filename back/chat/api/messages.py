@@ -1,10 +1,13 @@
 import json
 
+from celery import current_app
+from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from management.helpers import DetailedPaginationMixin, UserStaffRestricedModelViewsetMixin
 from management.models.matches import Match
+from management.models.user import User
 from management.tasks import send_email_background
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
@@ -249,6 +252,22 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
             chat_id=str(chat.uuid),
             meta_chat_obj=ChatSerializer(chat, context={"user": partner}).data,
         ).send(str(partner.uuid))
+
+        # Trigger lightweight Open Chat automation hook for follow-up processing.
+        if (
+            settings.CREATE_OPEN_CHAT_AUTOMATION_USER
+            and partner.email == settings.OPEN_CHAT_AUTOMATION_USER_EMAIL
+            and User.objects.filter(email=settings.OPEN_CHAT_AUTOMATION_USER_EMAIL).exists()
+        ):
+            current_app.send_task(  # pyright: ignore[reportCallIssue]
+                "management.tasks.open_chat_basic_chat_interaction",
+                kwargs={
+                    "chat_uuid": str(chat.uuid),
+                    "message_uuid": str(message.uuid),
+                    "sender_uuid": str(request.user.uuid),
+                    "recipient_uuid": str(partner.uuid),
+                },
+            )
 
         return Response(serialized_message, status=200)
 

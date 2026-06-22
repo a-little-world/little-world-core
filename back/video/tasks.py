@@ -78,7 +78,9 @@ def random_call_lobby_perform_matching(lobby_uuid):
         u1_id=pair[0], u2_id=pair[1], lobby=lobby, confirmed_match=confirmed_match, created_at=timezone.now()
     )
     # 7 - For every match start a 'cleanup_if_not_accepted' task that runs 30s after the match is created
-    cleanup_if_not_accepted.apply_async(args=[random_match.uuid], countdown=lobby.match_proposal_timeout)
+    cleanup_if_not_accepted.apply_async(  # pyright: ignore[reportCallIssue]
+        args=[random_match.uuid], countdown=lobby.match_proposal_timeout
+    )
     return {"matchings": [pair]}
 
 

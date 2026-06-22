@@ -7,11 +7,13 @@ from cookie_consent.models import Cookie, CookieGroup
 from django.conf import settings
 from django.db.models import Q
 from django.utils import timezone as dj_timezone
+from requests import RequestException
 from translations import get_translation
 
 from management.models.backend_state import BackendState
 from management.models.banner import Banner
 from management.models.community_events import CommunityEvent
+from management.models.open_chat_configuration import OpenChatConfiguration
 from management.models.pre_matching_appointment import PreMatchingAppointment
 from management.models.state import State
 from management.models.user import User
@@ -201,6 +203,97 @@ I'll take the time to answer all your messages but I might take a little time to
     usr.grant_permission(ManagementPermission.MATCHING_USER)
     usr.state.save()
     usr.profile.save()
+
+
+@shared_task(name="management.tasks.open_chat_basic_chat_interaction")
+def open_chat_basic_chat_interaction(chat_uuid: str, message_uuid: str, sender_uuid: str, recipient_uuid: str):
+    """
+    Basic Open Chat interaction for messages sent to Open Chat recipients.
+    Flow:
+    1) ensure recipient exists and has OPEN_CHAT_ACCESS permission
+    2) ensure recipient has OpenChatConfiguration
+    3) login with Open Chat client using recipient configuration
+    4) run a basic interaction flow
+    """
+    recipient = User.objects.filter(uuid=recipient_uuid).first()
+    if recipient is None:
+        return {"status": "skipped", "reason": "recipient_missing"}
+
+    if not recipient.has_perm(ManagementPermission.OPEN_CHAT_ACCESS):
+        return {"status": "skipped", "reason": "recipient_has_no_open_chat_access_permission"}
+
+    configuration = OpenChatConfiguration.objects.filter(user=recipient).first()
+    if configuration is None:
+        return {"status": "skipped", "reason": "recipient_open_chat_configuration_missing"}
+
+    try:
+        from client.client import OpenChatPythonClient
+    except ImportError as exc:
+        return {"status": "error", "reason": "open_chat_client_import_failed", "detail": str(exc)}
+
+    bot_config = {
+        "temperature": 0.7,
+        "max_tokens": 4096,
+        "tools": [
+            "get_random_number",
+            "get_current_time",
+            "create_confirmable_action_suggestion",
+        ],
+        "model": "qwen3-8b-instruct_vllm",
+        "endpoint": "https://litellm.t1m.me/v1",
+        "backend": "litellm",
+        "context": 10,
+        "system_prompt": "You are a helpful assistant.",
+    }
+
+    try:
+        client = OpenChatPythonClient(
+            host=configuration.open_chat_host,
+            username=configuration.open_chat_user,
+            password=configuration.open_chat_api_key,
+        )
+        client.setup_bot_config(bot_config)
+        login_result = client.login()
+
+        interaction = client.create_interaction(message="Whats the current time?")
+        interaction_uuid = interaction.get("uuid") if isinstance(interaction, dict) else None
+        wait_for_stop_signal = getattr(client, "interaction_wait_for_stop_signal", None)
+        stop_signal = (
+            wait_for_stop_signal(wait_seconds=20)
+            if callable(wait_for_stop_signal)
+            else {"status": "skipped", "reason": "interaction_wait_for_stop_signal_not_available"}
+        )
+
+        confirmations = None
+        shared_url = None
+        if interaction_uuid:
+            get_confirmation_list = getattr(client, "get_interaction_confirmation_list", None)
+            if callable(get_confirmation_list):
+                confirmations = get_confirmation_list(interaction_uuid, wait_seconds=20)
+            else:
+                confirmations = {"status": "skipped", "reason": "get_interaction_confirmation_list_not_available"}
+
+            get_shared_url = getattr(client, "get_shared_interaction_url", None)
+            if callable(get_shared_url):
+                shared_url = get_shared_url(interaction_uuid)
+
+        return {
+            "status": "ok",
+            "chat_uuid": chat_uuid,
+            "message_uuid": message_uuid,
+            "sender_uuid": sender_uuid,
+            "recipient_uuid": recipient_uuid,
+            "recipient_user_id": recipient.pk,
+            "login_user_name": login_result.get("name") if isinstance(login_result, dict) else None,
+            "interaction_uuid": interaction_uuid,
+            "stop_signal": stop_signal,
+            "confirmations": confirmations,
+            "shared_url": shared_url,
+        }
+    except RequestException as exc:
+        return {"status": "error", "reason": "open_chat_request_failed", "detail": str(exc)}
+    except Exception as exc:
+        return {"status": "error", "reason": "open_chat_basic_interaction_failed", "detail": str(exc)}
 
 
 @shared_task
