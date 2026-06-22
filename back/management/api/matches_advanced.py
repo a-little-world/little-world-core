@@ -1,7 +1,10 @@
+from datetime import timedelta
+
 from chat.models import Message
 from django.db.models import Max, Q
 from django.shortcuts import get_object_or_404
 from django.urls import path
+from django.utils import timezone
 from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
 from rest_framework import serializers, viewsets
@@ -123,6 +126,86 @@ def _match_stats_retrieve_extra(match: Match) -> dict:
         "last_video_call_at": _format_datetime_for_json(last_video_at),
         "user1_last_message_at": _format_datetime_for_json(last_msg_u1_at),
         "user2_last_message_at": _format_datetime_for_json(last_msg_u2_at),
+    }
+
+
+def _match_weekly_activity_retrieve_extra(match: Match) -> dict:
+    """
+    Read-only activity breakdown for single-match GET (retrieve) only.
+    Weeks are counted from the match creation timestamp.
+    """
+    dt_field = serializers.DateTimeField()
+    match_start = match.created_at
+    now = timezone.now()
+    desired_duration_weeks = 10
+    current_week = max(((now - match_start).days // 7) + 1, 1)
+    weeks_to_show = max(current_week, desired_duration_weeks)
+
+    activity_by_week = {
+        week: {
+            "week": week,
+            "start_at": dt_field.to_representation(match_start + timedelta(weeks=week - 1)),
+            "end_at": dt_field.to_representation(match_start + timedelta(weeks=week)),
+            "messages": 0,
+            "video_calls": 0,
+        }
+        for week in range(1, weeks_to_show + 1)
+    }
+
+    def _week_for_timestamp(timestamp):
+        return max(((timestamp - match_start).days // 7) + 1, 1)
+
+    message_timestamps = Message.objects.filter(
+        Q(sender=match.user1, recipient=match.user2) | Q(sender=match.user2, recipient=match.user1)
+    ).values_list("created", flat=True)
+    for timestamp in message_timestamps:
+        week = _week_for_timestamp(timestamp)
+        activity_by_week.setdefault(
+            week,
+            {
+                "week": week,
+                "start_at": dt_field.to_representation(match_start + timedelta(weeks=week - 1)),
+                "end_at": dt_field.to_representation(match_start + timedelta(weeks=week)),
+                "messages": 0,
+                "video_calls": 0,
+            },
+        )
+        activity_by_week[week]["messages"] += 1
+
+    video_timestamps = LivekitSession.objects.filter(
+        Q(u1=match.user1, u2=match.user2) | Q(u1=match.user2, u2=match.user1),
+        both_have_been_active=True,
+    ).values_list("created_at", flat=True)
+    for timestamp in video_timestamps:
+        week = _week_for_timestamp(timestamp)
+        activity_by_week.setdefault(
+            week,
+            {
+                "week": week,
+                "start_at": dt_field.to_representation(match_start + timedelta(weeks=week - 1)),
+                "end_at": dt_field.to_representation(match_start + timedelta(weeks=week)),
+                "messages": 0,
+                "video_calls": 0,
+            },
+        )
+        activity_by_week[week]["video_calls"] += 1
+
+    weekly_activity = [
+        {
+            **activity,
+            "is_current_week": activity["week"] == current_week,
+            "is_free_play_week": activity["week"] > desired_duration_weeks,
+        }
+        for activity in sorted(activity_by_week.values(), key=lambda item: item["week"])
+    ]
+
+    return {
+        "journey": {
+            "current_week": current_week,
+            "desired_duration_weeks": desired_duration_weeks,
+            "is_free_play": current_week > desired_duration_weeks,
+            "weekly_activity": weekly_activity,
+        }
     }
 
 
@@ -353,6 +436,7 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance)
         data = dict(serializer.data)
         data.update(_match_stats_retrieve_extra(instance))
+        data.update(_match_weekly_activity_retrieve_extra(instance))
         return Response(data)
 
     @action(detail=False, methods=["get"])
