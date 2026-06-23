@@ -13,6 +13,7 @@ def build_paginated_export_response(
     serializer_class,
     *,
     export_columns_only_fields: Sequence[str] | None = None,
+    allowed_fields: Sequence[str] | None = None,
 ) -> Response:
     """
     Shared helper for list export endpoints.
@@ -21,13 +22,22 @@ def build_paginated_export_response(
     - No `page_size` param returns the full export (legacy behavior).
     - With `page` + `page_size`, returns a single export page as a plain list.
     """
+    selected_fields_raw = request.query_params.get("fields", "")
+    selected_fields = [field.strip() for field in selected_fields_raw.split(",") if field.strip()]
+    if allowed_fields is not None:
+        allowed = set(allowed_fields)
+        selected_fields = [field for field in selected_fields if field in allowed]
+
     export_columns_only = request.query_params.get("export_columns_only", "").lower() in ("1", "true", "yes")
     if export_columns_only_fields and export_columns_only:
-        return Response([{name: None for name in export_columns_only_fields}])
+        headers = selected_fields if selected_fields else list(export_columns_only_fields)
+        return Response([{name: None for name in headers}])
+
+    serializer_context = {"selected_fields": selected_fields} if selected_fields else {}
 
     page_size_param = request.query_params.get("page_size")
     if page_size_param is None:
-        serializer = serializer_class(queryset, many=True)
+        serializer = serializer_class(queryset, many=True, context=serializer_context)
         return Response(serializer.data)
 
     try:
@@ -47,5 +57,5 @@ def build_paginated_export_response(
     except InvalidPage:
         return Response([])
 
-    serializer = serializer_class(paginated["results"], many=True)
+    serializer = serializer_class(paginated["results"], many=True, context=serializer_context)
     return Response(serializer.data)

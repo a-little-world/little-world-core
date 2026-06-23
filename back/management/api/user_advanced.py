@@ -118,7 +118,8 @@ class ExportUserSerializer(serializers.ModelSerializer):
         fields = ["id", "email", "uuid"]
 
     def to_representation(self, instance):
-        representation = build_user_report_entry(instance)
+        selected_fields = self.context.get("selected_fields") if hasattr(self, "context") else None
+        representation = build_user_report_entry(instance, selected_fields=selected_fields)
         return representation
 
 
@@ -126,6 +127,76 @@ class ListUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "email", "date_joined", "last_login"]
+
+
+def _serialize_user_match_preview_row(user):
+    return {
+        "id": str(user.uuid),
+        "partner": {
+            "id": user.id,
+            "has_match_priority": user.state.has_match_priority,
+            **MinimalProfileSerializer(user.profile).data,
+        },
+    }
+
+
+def _serialize_user_match_previews(user: User):
+    preview_limit = 3
+    confirmed_matches = Match.get_confirmed_matches(user).select_related(
+        "user1__profile",
+        "user1__state",
+        "user2__profile",
+        "user2__state",
+    )[:preview_limit]
+    unconfirmed_matches = Match.get_unconfirmed_matches(user).select_related(
+        "user1__profile",
+        "user1__state",
+        "user2__profile",
+        "user2__state",
+    )[:preview_limit]
+    proposed_matches = ProposedMatch.get_open_proposals(user).select_related(
+        "user1__profile",
+        "user1__state",
+        "user2__profile",
+        "user2__state",
+    )[:preview_limit]
+
+    def _partner_from_match(match):
+        return match.user2 if match.user1_id == user.id else match.user1
+
+    def _partner_from_proposal(proposal):
+        return proposal.user2 if proposal.user1_id == user.id else proposal.user1
+
+    return {
+        "confirmed": {
+            "results": [_serialize_user_match_preview_row(_partner_from_match(match)) for match in confirmed_matches]
+        },
+        "unconfirmed": {
+            "results": [_serialize_user_match_preview_row(_partner_from_match(match)) for match in unconfirmed_matches]
+        },
+        "proposed": {
+            "results": [
+                _serialize_user_match_preview_row(_partner_from_proposal(proposal)) for proposal in proposed_matches
+            ]
+        },
+    }
+
+
+class UserTableSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["uuid", "id", "email", "date_joined", "last_login"]
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation["profile"] = MinimalProfileSerializer(instance.profile).data
+        representation["state"] = {
+            "company": instance.state.company,
+            "has_match_priority": instance.state.has_match_priority,
+        }
+        representation["waiting_time"] = get_match_waiting_time(instance)
+        representation["matches"] = _serialize_user_match_previews(instance)
+        return representation
 
 
 class AdvancedUserSerializer(serializers.ModelSerializer):
@@ -486,10 +557,10 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     def get_queryset(self):
         is_staff = self.request.user.is_staff
         if is_staff:
-            return User.objects.all()
+            return User.objects.all().select_related("profile", "state")
         else:
             management_user = cast(User, self.request.user)
-            return management_user.managed_users_queryset(active_only=True)
+            return management_user.managed_users_queryset(active_only=True).select_related("profile", "state")
 
     @action(detail=False, methods=["get"])
     def get_filter_schema(self, request, include_lookup_expr=False):
@@ -512,7 +583,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
     def get_serializer_class(self):
         if self.action == "list":
-            return AdvancedUserSerializer
+            return UserTableSerializer
         if self.action == "retrieve":
             return AdvancedUserSerializer
         return AdvancedUserSerializer
@@ -1171,6 +1242,7 @@ def users_export(request):
         queryset,
         ExportUserSerializer,
         export_columns_only_fields=USER_EXPORT_COLUMN_NAMES,
+        allowed_fields=USER_EXPORT_COLUMN_NAMES,
     )
 
 
