@@ -535,7 +535,8 @@ def create_base_admin_and_add_standart_db_values():
 
     create_default_random_call_lobby()
 
-    create_open_chat_automation_user()
+    open_chat_automation_user = create_open_chat_automation_user()
+    ensure_base_management_open_chat_setup(open_chat_automation_user)
 
     return usr_tim
 
@@ -567,6 +568,45 @@ def create_open_chat_automation_user():
     user.state.set_user_form_completed()
 
     return user
+
+
+def ensure_base_management_open_chat_setup(open_chat_automation_user: User | None = None):
+    """
+    If enabled via env flags, ensure the base management user has:
+    1) a default Open Chat configuration
+    2) a support matching with the Open Chat automation user
+    """
+    if not settings.CREATE_OPEN_CHAT_AUTOMATION_USER:
+        return None
+    if not settings.CREATE_DEFAULT_OPEN_CHAT_CONFIGURATION:
+        return None
+
+    from management.models.open_chat_configuration import OpenChatConfiguration
+
+    base_management_user = get_base_management_user()
+    config_defaults = dict(settings.DEFAULT_OPEN_CHAT_CONFIGURATION)
+
+    OpenChatConfiguration.objects.update_or_create(
+        user=base_management_user,
+        defaults=config_defaults,
+    )
+
+    automation_user = open_chat_automation_user or create_open_chat_automation_user()
+    if automation_user is None or automation_user.pk == base_management_user.pk:
+        return automation_user
+
+    if not Match.get_match(base_management_user, automation_user).exists():
+        match_users(
+            {base_management_user, automation_user},
+            send_notification=False,
+            send_message=False,
+            send_email=False,
+            set_unconfirmed=False,
+            set_to_idle=False,
+            set_received_first_match=False,
+        )
+
+    return automation_user
 
 
 def delete_user(user, management_user=None, send_deletion_email=False):

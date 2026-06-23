@@ -8,11 +8,12 @@ from django.utils import timezone
 from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
 from rest_framework import serializers, viewsets
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.request import Request
 from rest_framework.response import Response
 from video.models import LivekitSession
 
+from management.api.export_utils import build_paginated_export_response
 from management.api.match_journey_filter_list import (
     MATCH_JOURNEY_FILTERS,
     determine_match_bucket,
@@ -439,13 +440,6 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
         data.update(_match_weekly_activity_retrieve_extra(instance))
         return Response(data)
 
-    @action(detail=False, methods=["get"])
-    def export(self, request):
-        queryset = self.filter_queryset(self.get_queryset())
-        serializer = ExportMatchSerializer(queryset, many=True)
-
-        return Response(serializer.data)
-
     @action(detail=True, methods=["post"])
     def set_completed_off_plattform(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -470,9 +464,30 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
             return Response(obj.notes)
 
 
+@api_view(["GET"])
+@permission_classes([IsAdminOrMatchingUser])
+def matches_export(request):
+    user = request.user
+    queryset = Match.objects.all().exclude(match_type=MatchType.TEMPORARY).order_by("-created_at")
+    if not user.is_staff:
+        if isinstance(user, User) and user.has_perm(ManagementPermission.MATCHING_USER):
+            managed_users = user.managed_users_queryset(active_only=False)
+            queryset = queryset.filter(Q(user1__in=managed_users) | Q(user2__in=managed_users))
+
+    queryset = MatchFilter(request.query_params, queryset=queryset).qs.select_related(
+        "user1",
+        "user1__profile",
+        "user1__state",
+        "user2",
+        "user2__profile",
+        "user2__state",
+    )
+    return build_paginated_export_response(request, queryset, ExportMatchSerializer)
+
+
 api_urls = [
     path("api/matching/matches/", AdvancedMatchViewset.as_view({"get": "list"})),
-    path("api/matching/matches_export/", AdvancedMatchViewset.as_view({"get": "export"})),
+    path("api/matching/matches_export/", matches_export),
     path("api/matching/matches/filters/", AdvancedMatchViewset.as_view({"get": "get_filter_schema"})),
     path("api/matching/matches/<pk>/", AdvancedMatchViewset.as_view({"get": "retrieve"})),
     path("api/matching/matches/<pk>/resolve/", AdvancedMatchViewset.as_view({"post": "resolve_match"})),
