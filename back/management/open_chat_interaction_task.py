@@ -64,6 +64,17 @@ def _normalize_base_url_for_open_chat_tool(base_url: str) -> str:
     return urlunparse(parsed._replace(netloc=normalized_netloc))
 
 
+def _apply_bot_config_overwrite(bot_config: dict, overwrite: object) -> dict:
+    if not isinstance(overwrite, dict):
+        return bot_config
+
+    merged = bot_config.copy()
+    for key, value in overwrite.items():
+        if key in merged:
+            merged[key] = value
+    return merged
+
+
 @shared_task(name="management.tasks.open_chat_basic_chat_interaction")
 def open_chat_basic_chat_interaction(
     chat_uuid: str,
@@ -96,21 +107,8 @@ def open_chat_basic_chat_interaction(
     except ImportError as exc:
         return {"status": "error", "reason": "open_chat_client_import_failed", "detail": str(exc)}
 
-    bot_config = {
-        "temperature": 0.0,
-        "max_tokens": 1024,
-        "tools": ["little_world__chat_reply"],
-        "model": "qwen3-8b-instruct_vllm",
-        "endpoint": "https://litellm.t1m.me/v1",
-        "backend": "litellm",
-        "context": 10,
-        "system_prompt": (
-            "You are a Little World support assistant. "
-            "Always send your final response by calling `little_world__chat_reply`."
-        ),
-    }
-
-    configuration = OpenChatConfiguration.objects.filter(user_id=recipient.pk).first()
+    recipient_configuration = OpenChatConfiguration.objects.filter(user_id=recipient.pk).first()
+    configuration = recipient_configuration
     config_owner = "recipient"
     if configuration is None:
         sender_has_open_chat_access = sender.has_perm(ManagementPermission.OPEN_CHAT_ACCESS)
@@ -129,6 +127,23 @@ def open_chat_basic_chat_interaction(
                 "sender_has_open_chat_access": sender_has_open_chat_access,
                 "sender_has_open_chat_configuration": sender_configuration is not None,
             }
+
+    bot_config = _apply_bot_config_overwrite(
+        {
+            "temperature": 0.0,
+            "max_tokens": 1024,
+            "tools": ["little_world__chat_reply"],
+            "model": "qwen3-8b-instruct_vllm",
+            "endpoint": "https://litellm.t1m.me/v1",
+            "backend": "litellm",
+            "context": 10,
+            "system_prompt": (
+                "You are a Little World support assistant. "
+                "Always send your final response by calling `little_world__chat_reply`."
+            ),
+        },
+        recipient_configuration.interaction_overwrite if recipient_configuration is not None else None,
+    )
 
     session_id, csrf_token = _create_session_and_csrf_for_user(recipient)
     tool_init = _build_little_world_tool_init(

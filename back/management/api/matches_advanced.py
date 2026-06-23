@@ -227,51 +227,144 @@ class ExportMatchSerializer(serializers.ModelSerializer):
             "completed_off_plattform",
         ]
 
+    @staticmethod
+    def _set_nested_value(target: dict, path: list[str], value):
+        cursor = target
+        for part in path[:-1]:
+            cursor = cursor.setdefault(part, {})
+        cursor[path[-1]] = value
+
+    @staticmethod
+    def _get_nested_value(source: dict, path: list[str]):
+        value = source
+        for part in path:
+            if not isinstance(value, dict):
+                return None
+            value = value.get(part)
+        return value
+
+    def _serialize_export_user(self, user: User):
+        return {
+            "id": user.id,
+            "uuid": str(user.uuid),
+            "email": user.email,
+            "has_match_priority": user.state.has_match_priority,
+            "profile": {
+                "first_name": user.profile.first_name,
+                "second_name": user.profile.second_name,
+                "user_type": user.profile.user_type,
+            },
+        }
+
     def to_representation(self, instance):
+        requested_fields = self.context.get("selected_fields")
         representation = super().to_representation(instance)
 
-        representation["user1"] = {
-            "id": instance.user1.id,
-            "uuid": str(instance.user1.uuid),
-            "email": instance.user1.email,
-            "has_match_priority": instance.user1.state.has_match_priority,
-            "profile": {
-                "first_name": instance.user1.profile.first_name,
-                "second_name": instance.user1.profile.second_name,
-                "user_type": instance.user1.profile.user_type,
-            },
-        }
-        representation["user2"] = {
-            "id": instance.user2.id,
-            "uuid": str(instance.user2.uuid),
-            "email": instance.user2.email,
-            "has_match_priority": instance.user2.state.has_match_priority,
-            "profile": {
-                "first_name": instance.user2.profile.first_name,
-                "second_name": instance.user2.profile.second_name,
-                "user_type": instance.user2.profile.user_type,
-            },
-        }
+        if not requested_fields:
+            representation["user1"] = self._serialize_export_user(instance.user1)
+            representation["user2"] = self._serialize_export_user(instance.user2)
 
-        if instance.confirmed:
-            representation["status"] = "confirmed"
-        elif instance.support_matching:
-            representation["status"] = "support"
-        else:
-            representation["status"] = "unconfirmed"
+            if instance.confirmed:
+                representation["status"] = "confirmed"
+            elif instance.support_matching:
+                representation["status"] = "support"
+            else:
+                representation["status"] = "unconfirmed"
 
-        if not instance.active:
-            representation["status"] = "reported_or_removed"
+            if not instance.active:
+                representation["status"] = "reported_or_removed"
 
-        bucket = determine_match_bucket(instance.pk)
-        if bucket is not None:
-            representation["bucket"] = bucket
-            representation["bucket_label"] = get_match_bucket_label(bucket)
-        else:
-            representation["bucket"] = "unknown"
-            representation["bucket_label"] = get_match_bucket_label("unknown")
+            bucket = determine_match_bucket(instance.pk)
+            if bucket is not None:
+                representation["bucket"] = bucket
+                representation["bucket_label"] = get_match_bucket_label(bucket)
+            else:
+                representation["bucket"] = "unknown"
+                representation["bucket_label"] = get_match_bucket_label("unknown")
+            return representation
 
-        return representation
+        requested_set = set(requested_fields)
+        filtered = {}
+
+        for field_name in requested_set:
+            if "." in field_name:
+                continue
+            if field_name in representation:
+                filtered[field_name] = representation[field_name]
+
+        if "status" in requested_set:
+            if instance.confirmed:
+                filtered["status"] = "confirmed"
+            elif instance.support_matching:
+                filtered["status"] = "support"
+            else:
+                filtered["status"] = "unconfirmed"
+            if not instance.active:
+                filtered["status"] = "reported_or_removed"
+
+        if "bucket" in requested_set or "bucket_label" in requested_set:
+            bucket = determine_match_bucket(instance.pk)
+            if bucket is not None:
+                if "bucket" in requested_set:
+                    filtered["bucket"] = bucket
+                if "bucket_label" in requested_set:
+                    filtered["bucket_label"] = get_match_bucket_label(bucket)
+            else:
+                if "bucket" in requested_set:
+                    filtered["bucket"] = "unknown"
+                if "bucket_label" in requested_set:
+                    filtered["bucket_label"] = get_match_bucket_label("unknown")
+
+        for user_prefix, user in (("user1", instance.user1), ("user2", instance.user2)):
+            full_user = self._serialize_export_user(user)
+            user_requested = [
+                field for field in requested_set if field == user_prefix or field.startswith(f"{user_prefix}.")
+            ]
+            if not user_requested:
+                continue
+
+            if user_prefix in requested_set:
+                filtered[user_prefix] = full_user
+                continue
+
+            for field_name in user_requested:
+                path = field_name.split(".")
+                nested_value = self._get_nested_value(full_user, path[1:])
+                self._set_nested_value(filtered, path, nested_value)
+
+        return filtered
+
+
+MATCH_EXPORT_COLUMN_NAMES = (
+    "uuid",
+    "created_at",
+    "updated_at",
+    "match_type",
+    "active",
+    "confirmed",
+    "latest_interaction_at",
+    "notes",
+    "total_messages_counter",
+    "total_mutal_video_calls_counter",
+    "completed_off_plattform",
+    "status",
+    "bucket",
+    "bucket_label",
+    "user1.id",
+    "user1.uuid",
+    "user1.email",
+    "user1.has_match_priority",
+    "user1.profile.first_name",
+    "user1.profile.second_name",
+    "user1.profile.user_type",
+    "user2.id",
+    "user2.uuid",
+    "user2.email",
+    "user2.has_match_priority",
+    "user2.profile.first_name",
+    "user2.profile.second_name",
+    "user2.profile.user_type",
+)
 
 
 class MatchFilter(filters.FilterSet):
@@ -467,6 +560,9 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
 def matches_export(request):
+    selected_fields_raw = request.query_params.get("fields", "")
+    selected_fields = {field.strip() for field in selected_fields_raw.split(",") if field.strip()}
+
     user = request.user
     queryset = Match.objects.all().exclude(match_type=MatchType.TEMPORARY).order_by("-created_at")
     if not user.is_staff:
@@ -474,15 +570,23 @@ def matches_export(request):
             managed_users = user.managed_users_queryset(active_only=False)
             queryset = queryset.filter(Q(user1__in=managed_users) | Q(user2__in=managed_users))
 
-    queryset = MatchFilter(request.query_params, queryset=queryset).qs.select_related(
-        "user1",
-        "user1__profile",
-        "user1__state",
-        "user2",
-        "user2__profile",
-        "user2__state",
+    needs_user1 = any(field == "user1" or field.startswith("user1.") for field in selected_fields)
+    needs_user2 = any(field == "user2" or field.startswith("user2.") for field in selected_fields)
+    if not selected_fields or needs_user1 or needs_user2:
+        select_related_fields = []
+        if not selected_fields or needs_user1:
+            select_related_fields.extend(["user1", "user1__profile", "user1__state"])
+        if not selected_fields or needs_user2:
+            select_related_fields.extend(["user2", "user2__profile", "user2__state"])
+        queryset = queryset.select_related(*select_related_fields)
+
+    queryset = MatchFilter(request.query_params, queryset=queryset).qs
+    return build_paginated_export_response(
+        request,
+        queryset,
+        ExportMatchSerializer,
+        allowed_fields=MATCH_EXPORT_COLUMN_NAMES,
     )
-    return build_paginated_export_response(request, queryset, ExportMatchSerializer)
 
 
 api_urls = [
