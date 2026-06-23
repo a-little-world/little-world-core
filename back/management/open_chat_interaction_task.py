@@ -1,6 +1,7 @@
 import base64
 import json
 from importlib import import_module
+from urllib.parse import urlparse, urlunparse
 
 from celery import shared_task
 from django.conf import settings
@@ -44,6 +45,23 @@ def _create_session_and_csrf_for_user(user: User) -> tuple[str, str]:
     session[HASH_SESSION_KEY] = user.get_session_auth_hash()
     session.save()
     return session.session_key, _get_new_csrf_string()
+
+
+def _normalize_base_url_for_open_chat_tool(base_url: str) -> str:
+    parsed = urlparse(base_url)
+    if parsed.hostname != "localhost":
+        return base_url
+
+    port = f":{parsed.port}" if parsed.port else ""
+    userinfo = ""
+    if parsed.username:
+        userinfo = parsed.username
+        if parsed.password:
+            userinfo += f":{parsed.password}"
+        userinfo += "@"
+
+    normalized_netloc = f"{userinfo}host.docker.internal{port}"
+    return urlunparse(parsed._replace(netloc=normalized_netloc))
 
 
 @shared_task(name="management.tasks.open_chat_basic_chat_interaction")
@@ -116,7 +134,7 @@ def open_chat_basic_chat_interaction(
     tool_init = _build_little_world_tool_init(
         session_id=session_id,
         csrf_token=csrf_token,
-        api_host=settings.BASE_URL,
+        api_host=_normalize_base_url_for_open_chat_tool(settings.BASE_URL),
         lw_chat_uuid=chat_uuid,
     )
 
