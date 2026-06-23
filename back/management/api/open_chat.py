@@ -1,5 +1,8 @@
+import uuid as uuid_lib
+
 from chat.models import Chat
 from django.conf import settings
+from django.db.models import Q
 from django.urls import path
 from drf_spectacular.utils import extend_schema, inline_serializer
 from requests import RequestException
@@ -12,6 +15,7 @@ from management import controller
 from management.helpers.has_open_chat_access import (
     HasManageOpenChatAccess,
     HasOpenChatAccess,
+    HasOpenChatOrManageOpenChatAccess,
     OpenChatConfigurationPermission,
 )
 from management.models.matches import Match
@@ -130,10 +134,76 @@ def _get_open_chat_access_user(user_id: int) -> User | None:
     return user
 
 
+def _get_open_chat_access_user_by_uuid(user_uuid: str) -> User | None:
+    try:
+        parsed_uuid = uuid_lib.UUID(user_uuid)
+    except ValueError:
+        return None
+
+    user = User.objects.filter(uuid=parsed_uuid).first()
+    if user is None:
+        return None
+    if not user.has_perm(ManagementPermission.OPEN_CHAT_ACCESS):
+        return None
+    return user
+
+
 def _build_open_chat_client(host: str, username: str, password: str):
     from client.client import OpenChatPythonClient
 
     return OpenChatPythonClient(host=host, username=username, password=password)
+
+
+def _extract_open_chat_interaction_items(payload) -> list:
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict):
+        for key in ("results", "items", "interactions", "data"):
+            candidate = payload.get(key)
+            if isinstance(candidate, list):
+                return candidate
+    return []
+
+
+def _build_open_chat_interaction_summary(item: object, fallback_index: int) -> dict:
+    if not isinstance(item, dict):
+        return {
+            "interaction_id": str(fallback_index),
+            "title": None,
+            "created": None,
+            "updated": None,
+            "status": None,
+            "shared_interaction_url": None,
+            "raw": item,
+        }
+
+    interaction_id = (
+        item.get("interaction_id")
+        or item.get("uuid")
+        or item.get("id")
+        or item.get("interaction_uuid")
+        or fallback_index
+    )
+
+    return {
+        "interaction_id": str(interaction_id),
+        "title": item.get("title") or item.get("name") or item.get("subject"),
+        "created": item.get("created") or item.get("created_at") or item.get("started_at"),
+        "updated": item.get("updated") or item.get("updated_at") or item.get("finished_at"),
+        "status": item.get("status") or item.get("state"),
+        "shared_interaction_url": item.get("shared_interaction_url") or item.get("shared_url") or item.get("share_url"),
+        "raw": item,
+    }
+
+
+def _fetch_open_chat_interactions(client) -> list[dict]:
+    payload = client.get_interactions()
+    items = _extract_open_chat_interaction_items(payload)
+    if items:
+        return [_build_open_chat_interaction_summary(item, fallback_index=index) for index, item in enumerate(items)]
+    if isinstance(payload, dict):
+        return [_build_open_chat_interaction_summary(payload, fallback_index=0)]
+    return []
 
 
 @extend_schema(
@@ -451,6 +521,144 @@ def open_chat_create_chat(request, user_id: int):
     )
 
 
+@extend_schema(
+    methods=["DELETE"],
+    responses=inline_serializer(
+        name="OpenChatDeleteChatResponse",
+        fields={
+            "chat_uuid": serializers.UUIDField(),
+            "detail": serializers.CharField(),
+        },
+    ),
+)
+@api_view(["DELETE"])
+@permission_classes([HasOpenChatAccess])
+@authentication_classes([SessionAuthentication])
+def open_chat_delete_chat(request, chat_uuid: str):
+    try:
+        parsed_chat_uuid = uuid_lib.UUID(chat_uuid)
+    except ValueError:
+        return Response(
+            {"detail": "Invalid chat UUID format."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    chat = (
+        Chat.objects.filter(
+            uuid=parsed_chat_uuid,
+            is_temporary=False,
+        )
+        .filter(
+            Q(u1=request.user) | Q(u2=request.user),
+        )
+        .first()
+    )
+    if chat is None:
+        return Response(
+            {"detail": "Open chat not found."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    partner = chat.get_partner(request.user)
+    if not partner.has_perm(ManagementPermission.OPEN_CHAT_ACCESS):
+        return Response(
+            {"detail": "Chat partner does not have open chat access."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    deleted_chat_uuid = str(chat.uuid)
+    chat.delete()
+    return Response(
+        {"chat_uuid": deleted_chat_uuid, "detail": "Chat deleted."},
+        status=status.HTTP_200_OK,
+    )
+
+
+@extend_schema(
+    methods=["GET"],
+    responses=inline_serializer(
+        name="OpenChatInteractionsResponse",
+        fields={
+            "results": inline_serializer(
+                name="OpenChatInteraction",
+                many=True,
+                fields={
+                    "interaction_id": serializers.CharField(),
+                    "title": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+                    "created": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+                    "updated": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+                    "status": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+                    "shared_interaction_url": serializers.CharField(
+                        required=False,
+                        allow_blank=True,
+                        allow_null=True,
+                    ),
+                    "raw": serializers.JSONField(required=False),
+                },
+            )
+        },
+    ),
+)
+@api_view(["GET"])
+@permission_classes([HasOpenChatOrManageOpenChatAccess])
+@authentication_classes([SessionAuthentication])
+def open_chat_interactions(request):
+    target_user = request.user
+    requested_user_uuid = (request.query_params.get("user_uuid") or "").strip()
+    can_manage_open_chat_access = request.user.has_perm(ManagementPermission.MANAGE_OPEN_CHAT_ACCESS)
+
+    if requested_user_uuid and can_manage_open_chat_access:
+        try:
+            parsed_uuid = uuid_lib.UUID(requested_user_uuid)
+        except ValueError:
+            return Response(
+                {"detail": "Invalid user_uuid format."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        is_self = parsed_uuid == request.user.uuid
+        if not is_self:
+            requested_user = _get_open_chat_access_user_by_uuid(requested_user_uuid)
+            if requested_user is None:
+                return Response(
+                    {"detail": "Open chat access user not found."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            target_user = requested_user
+
+    configuration = _get_user_configuration(target_user)
+    if configuration is None:
+        return Response(
+            {"detail": "Open chat configuration not found for target user."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    try:
+        client = _build_open_chat_client(
+            host=configuration.open_chat_host,
+            username=configuration.open_chat_user,
+            password=configuration.open_chat_api_key,
+        )
+        client.login()
+        interactions = _fetch_open_chat_interactions(client)
+        return Response({"results": interactions})
+    except ImportError as exc:
+        return Response(
+            {"detail": f"Open chat client is not installed: {exc}"},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    except RequestException as exc:
+        return Response(
+            {"detail": f"Open chat interaction request failed: {exc}"},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+    except Exception as exc:
+        return Response(
+            {"detail": f"Could not load open chat interactions: {exc}"},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
+
 api_urls = [
     path(
         "api/matching/open-chat-configuration/",
@@ -481,5 +689,15 @@ api_urls = [
         "api/matching/open-chat-access-users/<int:user_id>/create-chat/",
         open_chat_create_chat,
         name="open_chat_create_chat",
+    ),
+    path(
+        "api/matching/open-chat/chats/<str:chat_uuid>/",
+        open_chat_delete_chat,
+        name="open_chat_delete_chat",
+    ),
+    path(
+        "api/matching/open-chat/interactions/",
+        open_chat_interactions,
+        name="open_chat_interactions",
     ),
 ]

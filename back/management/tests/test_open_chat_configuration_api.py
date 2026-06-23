@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock, patch
 
+from chat.models import Chat
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
@@ -15,6 +16,8 @@ TEST_CONNECTION_URL = "/api/matching/open-chat/test-connection/"
 ACCESS_USERS_URL = "/api/matching/open-chat-access-users/"
 USER_CONFIGURATION_URL = "/api/matching/open-chat-access-users/{user_id}/configuration/"
 CREATE_MATCHING_URL = "/api/matching/open-chat-access-users/{user_id}/create-matching/"
+INTERACTIONS_URL = "/api/matching/open-chat/interactions/"
+DELETE_CHAT_URL = "/api/matching/open-chat/chats/{chat_uuid}/"
 DEFAULT_HOST = DEFAULT_OPEN_CHAT_HOST
 
 
@@ -57,6 +60,15 @@ class OpenChatConfigurationApiTests(TestCase):
             cls.open_chat_perm,
             cls.manage_open_chat_perm,
         )
+
+        cls.manage_only_user = User.objects.create_user(
+            email="open-chat-manage-only@test.de",
+            username="open-chat-manage-only@test.de",
+            password="Test123!",
+            first_name="Manage",
+            last_name="Only",
+        )
+        cls.manage_only_user.user_permissions.add(cls.manage_open_chat_perm)
 
         cls.view_only_user = User.objects.create_user(
             email="open-chat-view-only@test.de",
@@ -412,3 +424,143 @@ class OpenChatConfigurationApiTests(TestCase):
         response = self.api_client.post(url, {}, format="json")
         self.assertEqual(response.status_code, 409)
         self.assertTrue(response.data["matching_exists"])
+
+    @patch("management.api.open_chat._build_open_chat_client")
+    def test_interactions_returns_interactions_for_current_user(self, mock_build_client):
+        OpenChatConfiguration.objects.create(
+            user=self.authorized_user,
+            open_chat_api_key="test-api-key",
+            open_chat_user="test-open-chat-user",
+            open_chat_host=DEFAULT_HOST,
+        )
+        mock_client = MagicMock()
+        mock_client.get_interactions.return_value = [
+            {
+                "uuid": "interaction-1",
+                "title": "First interaction",
+                "status": "completed",
+            }
+        ]
+        mock_build_client.return_value = mock_client
+
+        self.api_client.force_authenticate(user=self.authorized_user)
+        response = self.api_client.get(INTERACTIONS_URL)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["interaction_id"], "interaction-1")
+        self.assertEqual(response.data["results"][0]["title"], "First interaction")
+        mock_client.login.assert_called_once()
+        mock_client.get_interactions.assert_called()
+
+    @patch("management.api.open_chat._build_open_chat_client")
+    def test_interactions_manager_can_query_other_user_by_uuid(self, mock_build_client):
+        OpenChatConfiguration.objects.create(
+            user=self.view_only_user,
+            open_chat_api_key="view-only-key",
+            open_chat_user="view-only-user",
+            open_chat_host=DEFAULT_HOST,
+        )
+        mock_client = MagicMock()
+        mock_client.get_interactions.return_value = {"results": [{"id": 42, "name": "Managed interaction"}]}
+        mock_build_client.return_value = mock_client
+
+        self.api_client.force_authenticate(user=self.manager_user)
+        response = self.api_client.get(
+            INTERACTIONS_URL,
+            {"user_uuid": str(self.view_only_user.uuid)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["results"][0]["interaction_id"], "42")
+        self.assertEqual(response.data["results"][0]["title"], "Managed interaction")
+        mock_build_client.assert_called_once_with(
+            host=DEFAULT_HOST,
+            username="view-only-user",
+            password="view-only-key",
+        )
+
+    @patch("management.api.open_chat._build_open_chat_client")
+    def test_interactions_non_manager_ignores_other_user_uuid(self, mock_build_client):
+        OpenChatConfiguration.objects.create(
+            user=self.authorized_user,
+            open_chat_api_key="authorized-key",
+            open_chat_user="authorized-user",
+            open_chat_host=DEFAULT_HOST,
+        )
+        mock_client = MagicMock()
+        mock_client.get_interactions.return_value = [{"uuid": "interaction-own-config"}]
+        mock_build_client.return_value = mock_client
+
+        self.api_client.force_authenticate(user=self.authorized_user)
+        response = self.api_client.get(
+            INTERACTIONS_URL,
+            {"user_uuid": str(self.view_only_user.uuid)},
+        )
+        self.assertEqual(response.status_code, 200)
+        mock_build_client.assert_called_once_with(
+            host=DEFAULT_HOST,
+            username="authorized-user",
+            password="authorized-key",
+        )
+
+    @patch("management.api.open_chat._build_open_chat_client")
+    def test_interactions_manage_only_user_can_query_other_user(self, mock_build_client):
+        OpenChatConfiguration.objects.create(
+            user=self.view_only_user,
+            open_chat_api_key="view-only-key",
+            open_chat_user="view-only-user",
+            open_chat_host=DEFAULT_HOST,
+        )
+        mock_client = MagicMock()
+        mock_client.get_interactions.return_value = [{"uuid": "interaction-manage-only"}]
+        mock_build_client.return_value = mock_client
+
+        self.api_client.force_authenticate(user=self.manage_only_user)
+        response = self.api_client.get(
+            INTERACTIONS_URL,
+            {"user_uuid": str(self.view_only_user.uuid)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["results"][0]["interaction_id"], "interaction-manage-only")
+
+    def test_delete_chat_deletes_owned_open_chat_chat(self):
+        chat = Chat.objects.create(
+            u1=self.authorized_user,
+            u2=self.view_only_user,
+            is_temporary=False,
+        )
+        self.api_client.force_authenticate(user=self.authorized_user)
+        response = self.api_client.delete(
+            DELETE_CHAT_URL.format(chat_uuid=chat.uuid),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(Chat.objects.filter(pk=chat.pk).exists())
+
+    def test_delete_chat_returns_404_for_non_participant(self):
+        chat = Chat.objects.create(
+            u1=self.view_only_user,
+            u2=self.manager_user,
+            is_temporary=False,
+        )
+        self.api_client.force_authenticate(user=self.authorized_user)
+        response = self.api_client.delete(
+            DELETE_CHAT_URL.format(chat_uuid=chat.uuid),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_delete_chat_rejects_non_open_chat_partner(self):
+        chat = Chat.objects.create(
+            u1=self.authorized_user,
+            u2=self.unauthorized_user,
+            is_temporary=False,
+        )
+        self.api_client.force_authenticate(user=self.authorized_user)
+        response = self.api_client.delete(
+            DELETE_CHAT_URL.format(chat_uuid=chat.uuid),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
