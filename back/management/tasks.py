@@ -18,7 +18,10 @@ from management.models.user import User
 from management.permissions import ManagementPermission
 
 from .meta_capi import MetaCAPIClient
-from .open_chat_interaction_task import open_chat_basic_chat_interaction  # noqa: F401
+from .open_chat_interaction_task import (  # noqa: F401
+    idempotent_actions__generate_message_replies,
+    open_chat_basic_chat_interaction,
+)
 
 """
 also contains general startup celery tasks, most of them are automaticly run when the controller.get_base_management user is created

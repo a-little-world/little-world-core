@@ -19,6 +19,7 @@ CREATE_MATCHING_URL = "/api/matching/open-chat-access-users/{user_id}/create-mat
 INTERACTIONS_URL = "/api/matching/open-chat/interactions/"
 INTERACTION_DETAIL_URL = "/api/matching/open-chat/interactions/{interaction_uuid}/"
 DELETE_CHAT_URL = "/api/matching/open-chat/chats/{chat_uuid}/"
+AUTOMATION_GENERATE_MESSAGE_REPLIES_URL = "/api/matching/open-chat/automation-triggers/generate-message-replies/"
 DEFAULT_HOST = DEFAULT_OPEN_CHAT_HOST
 
 
@@ -528,6 +529,7 @@ class OpenChatConfigurationApiTests(TestCase):
 
     @patch("management.api.open_chat._build_open_chat_client")
     def test_interaction_detail_returns_interaction(self, mock_build_client):
+        interaction_uuid = "6ece98ca-8d5c-4791-a198-0b971c0ac0d6"
         OpenChatConfiguration.objects.create(
             user=self.authorized_user,
             open_chat_api_key="authorized-key",
@@ -536,7 +538,7 @@ class OpenChatConfigurationApiTests(TestCase):
         )
         mock_client = MagicMock()
         mock_client.get_interaction.return_value = {
-            "uuid": "interaction-detail-1",
+            "uuid": interaction_uuid,
             "title": "Detailed interaction",
             "status": "completed",
         }
@@ -544,14 +546,14 @@ class OpenChatConfigurationApiTests(TestCase):
 
         self.api_client.force_authenticate(user=self.authorized_user)
         response = self.api_client.get(
-            INTERACTION_DETAIL_URL.format(interaction_uuid="interaction-detail-1"),
+            INTERACTION_DETAIL_URL.format(interaction_uuid=interaction_uuid),
         )
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["interaction_id"], "interaction-detail-1")
+        self.assertEqual(response.data["interaction_id"], interaction_uuid)
         self.assertEqual(response.data["title"], "Detailed interaction")
         mock_client.get_interaction.assert_called_once_with(
-            "interaction-detail-1",
+            interaction_uuid,
             include_share_info=False,
         )
 
@@ -594,3 +596,40 @@ class OpenChatConfigurationApiTests(TestCase):
             format="json",
         )
         self.assertEqual(response.status_code, 400)
+
+    @patch("management.api.open_chat.idempotent_actions__generate_message_replies.delay")
+    def test_automation_generate_message_replies_enqueues_task(self, mock_delay):
+        OpenChatConfiguration.objects.create(
+            user=self.authorized_user,
+            open_chat_api_key="authorized-key",
+            open_chat_user="authorized-user",
+            open_chat_host=DEFAULT_HOST,
+        )
+        mock_delay.return_value = MagicMock(id="task-123")
+
+        self.api_client.force_authenticate(user=self.authorized_user)
+        response = self.api_client.post(
+            AUTOMATION_GENERATE_MESSAGE_REPLIES_URL,
+            {},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 202)
+        self.assertEqual(
+            response.data["trigger"],
+            "idempotent_actions__generate_message_replies",
+        )
+        self.assertEqual(response.data["task_id"], "task-123")
+        mock_delay.assert_called_once_with(
+            target_user_uuid=str(self.authorized_user.uuid),
+            triggered_by_user_uuid=str(self.authorized_user.uuid),
+        )
+
+    def test_automation_generate_message_replies_requires_configuration(self):
+        self.api_client.force_authenticate(user=self.authorized_user)
+        response = self.api_client.post(
+            AUTOMATION_GENERATE_MESSAGE_REPLIES_URL,
+            {},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 404)

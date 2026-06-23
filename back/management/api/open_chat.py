@@ -22,6 +22,7 @@ from management.models.matches import Match
 from management.models.open_chat_configuration import OpenChatConfiguration
 from management.models.profile import MinimalProfileSerializer
 from management.models.user import User
+from management.open_chat_interaction_task import idempotent_actions__generate_message_replies
 from management.permissions import ManagementPermission
 
 
@@ -158,32 +159,20 @@ def _extract_open_chat_interaction_items(payload) -> list:
     if isinstance(payload, list):
         return payload
     if isinstance(payload, dict):
-        for key in ("results", "items", "interactions", "data"):
+        for key in ("rows", "results", "items", "interactions", "data"):
             candidate = payload.get(key)
             if isinstance(candidate, list):
                 return candidate
     return []
 
 
-def _build_open_chat_interaction_summary(item: object, fallback_index: int) -> dict:
+def _build_open_chat_interaction_summary(item: object) -> dict | None:
     if not isinstance(item, dict):
-        return {
-            "interaction_id": str(fallback_index),
-            "title": None,
-            "created": None,
-            "updated": None,
-            "status": None,
-            "shared_interaction_url": None,
-            "raw": item,
-        }
+        return None
 
-    interaction_id = (
-        item.get("interaction_id")
-        or item.get("uuid")
-        or item.get("id")
-        or item.get("interaction_uuid")
-        or fallback_index
-    )
+    interaction_id = item.get("interaction_id") or item.get("uuid") or item.get("id") or item.get("interaction_uuid")
+    if not interaction_id:
+        return None
 
     return {
         "interaction_id": str(interaction_id),
@@ -200,15 +189,24 @@ def _fetch_open_chat_interactions(client) -> list[dict]:
     payload = client.get_interactions()
     items = _extract_open_chat_interaction_items(payload)
     if items:
-        return [_build_open_chat_interaction_summary(item, fallback_index=index) for index, item in enumerate(items)]
+        summaries: list[dict] = []
+        for item in items:
+            summary = _build_open_chat_interaction_summary(item)
+            if summary is not None:
+                summaries.append(summary)
+        return summaries
     if isinstance(payload, dict):
-        return [_build_open_chat_interaction_summary(payload, fallback_index=0)]
+        summary = _build_open_chat_interaction_summary(payload)
+        return [summary] if summary is not None else []
     return []
 
 
 def _fetch_open_chat_interaction(client, interaction_uuid: str) -> dict:
     payload = client.get_interaction(interaction_uuid, include_share_info=False)
-    return _build_open_chat_interaction_summary(payload, fallback_index=0)
+    summary = _build_open_chat_interaction_summary(payload)
+    if summary is None:
+        raise ValueError("Open chat interaction detail payload is missing an interaction id.")
+    return summary
 
 
 def _resolve_open_chat_target_user(request) -> User | None | Response:
@@ -696,6 +694,14 @@ def open_chat_interactions(request):
 @permission_classes([HasOpenChatOrManageOpenChatAccess])
 @authentication_classes([SessionAuthentication])
 def open_chat_interaction_detail(request, interaction_uuid: str):
+    try:
+        uuid_lib.UUID(interaction_uuid)
+    except ValueError:
+        return Response(
+            {"detail": "Invalid interaction UUID format."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
     target_user_or_response = _resolve_open_chat_target_user(request)
     if isinstance(target_user_or_response, Response):
         return target_user_or_response
@@ -732,6 +738,49 @@ def open_chat_interaction_detail(request, interaction_uuid: str):
             {"detail": f"Could not load open chat interaction detail: {exc}"},
             status=status.HTTP_502_BAD_GATEWAY,
         )
+
+
+@extend_schema(
+    methods=["POST"],
+    responses=inline_serializer(
+        name="OpenChatAutomationGenerateMessageRepliesResponse",
+        fields={
+            "trigger": serializers.CharField(),
+            "task_id": serializers.CharField(),
+            "target_user_uuid": serializers.UUIDField(),
+            "detail": serializers.CharField(),
+        },
+    ),
+)
+@api_view(["POST"])
+@permission_classes([HasOpenChatOrManageOpenChatAccess])
+@authentication_classes([SessionAuthentication])
+def open_chat_automation_generate_message_replies(request):
+    target_user_or_response = _resolve_open_chat_target_user(request)
+    if isinstance(target_user_or_response, Response):
+        return target_user_or_response
+    target_user = target_user_or_response
+
+    configuration = _get_user_configuration(target_user)
+    if configuration is None:
+        return Response(
+            {"detail": "Open chat configuration not found for target user."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    task = idempotent_actions__generate_message_replies.delay(
+        target_user_uuid=str(target_user.uuid),
+        triggered_by_user_uuid=str(request.user.uuid),
+    )
+    return Response(
+        {
+            "trigger": "idempotent_actions__generate_message_replies",
+            "task_id": task.id,
+            "target_user_uuid": target_user.uuid,
+            "detail": "Automation trigger enqueued.",
+        },
+        status=status.HTTP_202_ACCEPTED,
+    )
 
 
 api_urls = [
@@ -779,5 +828,10 @@ api_urls = [
         "api/matching/open-chat/interactions/<str:interaction_uuid>/",
         open_chat_interaction_detail,
         name="open_chat_interaction_detail",
+    ),
+    path(
+        "api/matching/open-chat/automation-triggers/generate-message-replies/",
+        open_chat_automation_generate_message_replies,
+        name="open_chat_automation_generate_message_replies",
     ),
 ]

@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 from importlib import import_module
 from urllib.parse import urlparse, urlunparse
 
@@ -11,6 +12,8 @@ from requests import RequestException
 from management.models.open_chat_configuration import OpenChatConfiguration
 from management.models.user import User
 from management.permissions import ManagementPermission
+
+logger = logging.getLogger(__name__)
 
 
 def _build_little_world_tool_init(*, session_id: str, csrf_token: str, api_host: str, lw_chat_uuid: str) -> dict:
@@ -75,6 +78,17 @@ def _apply_bot_config_overwrite(bot_config: dict, overwrite: object) -> dict:
     return merged
 
 
+def _extract_interaction_rows(payload: object) -> list:
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict):
+        for key in ("rows", "results", "items", "interactions", "data"):
+            candidate = payload.get(key)
+            if isinstance(candidate, list):
+                return candidate
+    return []
+
+
 @shared_task(name="management.tasks.open_chat_basic_chat_interaction")
 def open_chat_basic_chat_interaction(
     chat_uuid: str,
@@ -136,7 +150,7 @@ def open_chat_basic_chat_interaction(
             "model": "qwen3-8b-instruct_vllm",
             "endpoint": "https://litellm.t1m.me/v1",
             "backend": "litellm",
-            "context": 10,
+            "context": 2000,
             "system_prompt": (
                 "You are a Little World support assistant. "
                 "Always send your final response by calling `little_world__chat_reply`."
@@ -167,27 +181,85 @@ def open_chat_basic_chat_interaction(
             message=_build_little_world_instruction(user_message_text),
         )
         interaction_uuid = interaction.get("uuid") if isinstance(interaction, dict) else None
+        logger.info(
+            "open_chat_basic_chat_interaction login_user=%s config_owner=%s interaction_uuid=%s",
+            login_result.get("name") if isinstance(login_result, dict) else None,
+            config_owner,
+            interaction_uuid,
+        )
+
+        interaction_single_page_count = None
+        interaction_total_pages = None
+        interaction_merged_count = None
+        interaction_present_in_merged = None
+
+        get_interactions = getattr(client, "get_interactions", None)
+        if callable(get_interactions):
+            try:
+                single_page_payload = get_interactions(page=1, limit=40, all_pages=False)
+                merged_payload = get_interactions(page=1, limit=40)
+            except TypeError:
+                # Older/newer client signatures may differ; keep diagnostics best-effort.
+                single_page_payload = get_interactions(page=1, limit=40)
+                merged_payload = get_interactions()
+
+            single_rows = _extract_interaction_rows(single_page_payload)
+            merged_rows = _extract_interaction_rows(merged_payload)
+            interaction_single_page_count = len(single_rows)
+            interaction_merged_count = len(merged_rows)
+            if isinstance(single_page_payload, dict):
+                interaction_total_pages = single_page_payload.get("total_pages")
+            if interaction_uuid:
+                interaction_present_in_merged = any(
+                    isinstance(row, dict)
+                    and str(
+                        row.get("interaction_id") or row.get("uuid") or row.get("id") or row.get("interaction_uuid")
+                    )
+                    == str(interaction_uuid)
+                    for row in merged_rows
+                )
+                if interaction_present_in_merged is False:
+                    return {
+                        "status": "error",
+                        "reason": "created_interaction_missing_from_get_interactions",
+                        "interaction_uuid": interaction_uuid,
+                        "single_page_count": interaction_single_page_count,
+                        "total_pages": interaction_total_pages,
+                        "merged_count": interaction_merged_count,
+                    }
+
         shared_url = None
         tool_called = False
         if interaction_uuid:
             get_shared_url = getattr(client, "get_shared_interaction_url", None)
             if callable(get_shared_url):
                 shared_url = get_shared_url(interaction_uuid)
-            get_messages = getattr(client, "get_interaction_messages", None)
-            if callable(get_messages):
-                interaction_messages = get_messages(interaction_uuid, wait_seconds=5)
-                if isinstance(interaction_messages, list):
-                    for item in interaction_messages:
-                        if not isinstance(item, dict):
-                            continue
-                        tool_calls = item.get("tool_calls")
-                        if not isinstance(tool_calls, list):
-                            continue
-                        if any(
-                            isinstance(tc, dict) and tc.get("name") == "little_world__chat_reply" for tc in tool_calls
-                        ):
-                            tool_called = True
-                            break
+            list_messages = getattr(client, "list_interaction_messages", None)
+            interaction_messages_payload = None
+            if callable(list_messages):
+                try:
+                    interaction_messages_payload = list_messages(interaction_uuid, page=1, limit=200)
+                except TypeError:
+                    interaction_messages_payload = list_messages(interaction_uuid)
+            else:
+                # Backward compatibility in case runtime still has old client.
+                get_messages = getattr(client, "get_interaction_messages", None)
+                if callable(get_messages):
+                    try:
+                        interaction_messages_payload = get_messages(interaction_uuid, wait_seconds=5)
+                    except TypeError:
+                        interaction_messages_payload = get_messages(interaction_uuid)
+
+            interaction_messages = _extract_interaction_rows(interaction_messages_payload)
+            for item in interaction_messages:
+                if not isinstance(item, dict):
+                    continue
+                tool_calls = item.get("tool_calls")
+                if not isinstance(tool_calls, list):
+                    continue
+                if any(isinstance(tc, dict) and tc.get("name") == "little_world__chat_reply" for tc in tool_calls):
+                    tool_called = True
+                    break
 
         interaction_message_uuid = None
         interaction_message_payload = None
@@ -235,6 +307,10 @@ def open_chat_basic_chat_interaction(
             "interaction_uuid": interaction_uuid,
             "shared_url": shared_url,
             "tool_called": tool_called,
+            "interaction_single_page_count": interaction_single_page_count,
+            "interaction_total_pages": interaction_total_pages,
+            "interaction_merged_count": interaction_merged_count,
+            "interaction_present_in_merged": interaction_present_in_merged,
             "interaction_message_uuid": interaction_message_uuid,
             "interaction_message_payload": interaction_message_payload,
         }
@@ -242,3 +318,25 @@ def open_chat_basic_chat_interaction(
         return {"status": "error", "reason": "open_chat_request_failed", "detail": str(exc)}
     except Exception as exc:
         return {"status": "error", "reason": "open_chat_basic_interaction_failed", "detail": str(exc)}
+
+
+@shared_task(name="management.tasks.idempotent_actions__generate_message_replies")
+def idempotent_actions__generate_message_replies(
+    target_user_uuid: str,
+    triggered_by_user_uuid: str | None = None,
+):
+    """
+    Placeholder task for future Open Chat automation triggers.
+    """
+    logger.info(
+        "idempotent_actions__generate_message_replies called target_user_uuid=%s triggered_by_user_uuid=%s",
+        target_user_uuid,
+        triggered_by_user_uuid,
+    )
+    return {
+        "status": "unimplemented",
+        "trigger": "idempotent_actions__generate_message_replies",
+        "target_user_uuid": target_user_uuid,
+        "triggered_by_user_uuid": triggered_by_user_uuid,
+        "detail": "Automation trigger is not implemented yet.",
+    }
