@@ -94,19 +94,27 @@ def _extract_interaction_rows(payload: object) -> list:
     return []
 
 
-def _build_default_bot_config() -> dict:
+def _build_default_bot_config(
+    *,
+    tools: list[str] | None = None,
+    system_prompt: str | None = None,
+) -> dict:
+    resolved_tools = ["little_world__chat_reply"] if tools is None else tools
+    resolved_system_prompt = (
+        "You are a Little World support assistant. "
+        "Always send your final response by calling `little_world__chat_reply`."
+        if system_prompt is None
+        else system_prompt
+    )
     return {
         "temperature": 0.0,
         "max_tokens": 1024,
-        "tools": ["little_world__chat_reply"],
+        "tools": resolved_tools,
         "model": "qwen3-8b-instruct_vllm",
         "endpoint": "https://litellm.t1m.me/v1",
         "backend": "litellm",
         "context": 2000,
-        "system_prompt": (
-            "You are a Little World support assistant. "
-            "Always send your final response by calling `little_world__chat_reply`."
-        ),
+        "system_prompt": resolved_system_prompt,
     }
 
 
@@ -119,23 +127,37 @@ def _run_open_chat_interaction_flow(
     message_uuid: str,
     user_message_text: str,
     config_owner: str,
+    use_little_world_reply_tool: bool = True,
+    create_chat_interaction_message: bool = True,
 ) -> dict:
     try:
         from client.client import OpenChatPythonClient
     except ImportError as exc:
         return {"status": "error", "reason": "open_chat_client_import_failed", "detail": str(exc)}
 
+    tools = ["little_world__chat_reply"] if use_little_world_reply_tool else []
+    system_prompt = (
+        "You are a Little World support assistant. "
+        "Always send your final response by calling `little_world__chat_reply`."
+        if use_little_world_reply_tool
+        else ("You are a support assistant. Respond naturally without using any external reply tools.")
+    )
     bot_config = _apply_bot_config_overwrite(
-        _build_default_bot_config(),
+        _build_default_bot_config(
+            tools=tools,
+            system_prompt=system_prompt,
+        ),
         configuration.interaction_overwrite,
     )
-    session_id, csrf_token = _create_session_and_csrf_for_user(recipient)
-    tool_init = _build_little_world_tool_init(
-        session_id=session_id,
-        csrf_token=csrf_token,
-        api_host=_normalize_base_url_for_open_chat_tool(settings.BASE_URL),
-        lw_chat_uuid=chat_uuid,
-    )
+    tool_init = None
+    if use_little_world_reply_tool:
+        session_id, csrf_token = _create_session_and_csrf_for_user(recipient)
+        tool_init = _build_little_world_tool_init(
+            session_id=session_id,
+            csrf_token=csrf_token,
+            api_host=_normalize_base_url_for_open_chat_tool(settings.BASE_URL),
+            lw_chat_uuid=chat_uuid,
+        )
 
     try:
         client = OpenChatPythonClient(
@@ -146,10 +168,18 @@ def _run_open_chat_interaction_flow(
         client.setup_bot_config(bot_config)
         login_result = client.login()
 
-        interaction = client.create_interaction(
-            tool_init=tool_init,
-            message=_build_little_world_instruction(user_message_text),
+        interaction_message = (
+            _build_little_world_instruction(user_message_text)
+            if use_little_world_reply_tool
+            else ((user_message_text or "").strip() or "Hello")
         )
+        if tool_init is not None:
+            interaction = client.create_interaction(
+                tool_init=tool_init,
+                message=interaction_message,
+            )
+        else:
+            interaction = client.create_interaction(message=interaction_message)
         interaction_uuid = interaction.get("uuid") if isinstance(interaction, dict) else None
         logger.info(
             "open_chat_interaction_flow login_user=%s config_owner=%s interaction_uuid=%s",
@@ -203,35 +233,36 @@ def _run_open_chat_interaction_flow(
             get_shared_url = getattr(client, "get_shared_interaction_url", None)
             if callable(get_shared_url):
                 shared_url = get_shared_url(interaction_uuid)
-            list_messages = getattr(client, "list_interaction_messages", None)
-            interaction_messages_payload = None
-            if callable(list_messages):
-                try:
-                    interaction_messages_payload = list_messages(interaction_uuid, page=1, limit=200)
-                except TypeError:
-                    interaction_messages_payload = list_messages(interaction_uuid)
-            else:
-                get_messages = getattr(client, "get_interaction_messages", None)
-                if callable(get_messages):
+            if use_little_world_reply_tool:
+                list_messages = getattr(client, "list_interaction_messages", None)
+                interaction_messages_payload = None
+                if callable(list_messages):
                     try:
-                        interaction_messages_payload = get_messages(interaction_uuid, wait_seconds=5)
+                        interaction_messages_payload = list_messages(interaction_uuid, page=1, limit=200)
                     except TypeError:
-                        interaction_messages_payload = get_messages(interaction_uuid)
+                        interaction_messages_payload = list_messages(interaction_uuid)
+                else:
+                    get_messages = getattr(client, "get_interaction_messages", None)
+                    if callable(get_messages):
+                        try:
+                            interaction_messages_payload = get_messages(interaction_uuid, wait_seconds=5)
+                        except TypeError:
+                            interaction_messages_payload = get_messages(interaction_uuid)
 
-            interaction_messages = _extract_interaction_rows(interaction_messages_payload)
-            for item in interaction_messages:
-                if not isinstance(item, dict):
-                    continue
-                tool_calls = item.get("tool_calls")
-                if not isinstance(tool_calls, list):
-                    continue
-                if any(isinstance(tc, dict) and tc.get("name") == "little_world__chat_reply" for tc in tool_calls):
-                    tool_called = True
-                    break
+                interaction_messages = _extract_interaction_rows(interaction_messages_payload)
+                for item in interaction_messages:
+                    if not isinstance(item, dict):
+                        continue
+                    tool_calls = item.get("tool_calls")
+                    if not isinstance(tool_calls, list):
+                        continue
+                    if any(isinstance(tc, dict) and tc.get("name") == "little_world__chat_reply" for tc in tool_calls):
+                        tool_called = True
+                        break
 
         interaction_message_uuid = None
         interaction_message_payload = None
-        if interaction_uuid:
+        if interaction_uuid and create_chat_interaction_message:
             from chat.consumers.messages import NewMessage
             from chat.models import ChatSerializer, MessageSerializer
 
@@ -369,9 +400,17 @@ def idempotent_actions__generate_message_replies(
             "target_user_uuid": target_user_uuid,
         }
 
-    created_by_user = User.objects.filter(uuid=triggered_by_user_uuid).first() if triggered_by_user_uuid else None
+    automation_user_email = (getattr(settings, "OPEN_CHAT_AUTOMATION_USER_EMAIL", "") or "").strip()
+    created_by_user = User.objects.filter(email=automation_user_email).first() if automation_user_email else None
     if created_by_user is None:
-        created_by_user = controller.get_base_management_user()
+        created_by_user = controller.create_open_chat_automation_user()
+    if created_by_user is None:
+        return {
+            "status": "skipped",
+            "reason": "open_chat_automation_user_missing",
+            "target_user_uuid": target_user_uuid,
+        }
+    assigned_to_user = controller.get_base_management_user()
 
     from management.api.user_advanced_filter import (
         get_user_with_message_to_admin_that_are_read_or_not_read_but_not_replied,
@@ -383,6 +422,15 @@ def idempotent_actions__generate_message_replies(
     enqueued_interactions = 0
 
     for source_user in pending_users:
+        if source_user.has_perm(ManagementPermission.MATCHING_USER):
+            processed_messages.append(
+                {
+                    "source_user_uuid": str(source_user.uuid),
+                    "status": "skipped_matching_user_permission",
+                }
+            )
+            continue
+
         latest_message = (
             ChatMessage.objects.filter(
                 Q(sender_id=source_user.pk, recipient_id=target_user.pk)
@@ -428,6 +476,7 @@ def idempotent_actions__generate_message_replies(
             },
             parameters={"message": ""},
             created_by=created_by_user,
+            assigned_to=assigned_to_user,
             related_user=source_user,
         )
         created_tasks += 1
@@ -440,6 +489,9 @@ def idempotent_actions__generate_message_replies(
                 "sender_uuid": str(source_user.uuid),
                 "recipient_uuid": str(target_user.uuid),
                 "user_message_text": latest_message.text or "",
+                "support_task_id": support_task.pk,
+                "use_little_world_reply_tool": False,
+                "create_chat_interaction_message": False,
             },
         )
         enqueued_interactions += 1
@@ -472,6 +524,9 @@ def open_chat_trigger_interaction(
     sender_uuid: str,
     recipient_uuid: str,
     user_message_text: str = "",
+    support_task_id: int | None = None,
+    use_little_world_reply_tool: bool = True,
+    create_chat_interaction_message: bool = True,
 ):
     configuration_user = User.objects.filter(uuid=configuration_user_uuid).first()
     if configuration_user is None:
@@ -497,7 +552,7 @@ def open_chat_trigger_interaction(
     if not recipient.has_perm(ManagementPermission.OPEN_CHAT_ACCESS):
         return {"status": "skipped", "reason": "recipient_has_no_open_chat_access_permission"}
 
-    return _run_open_chat_interaction_flow(
+    result = _run_open_chat_interaction_flow(
         configuration=configuration,
         recipient=recipient,
         sender=sender,
@@ -505,4 +560,15 @@ def open_chat_trigger_interaction(
         message_uuid=message_uuid,
         user_message_text=user_message_text,
         config_owner="explicit_configuration_user",
+        use_little_world_reply_tool=use_little_world_reply_tool,
+        create_chat_interaction_message=create_chat_interaction_message,
     )
+    if support_task_id and result.get("status") == "ok" and result.get("interaction_uuid"):
+        support_action = SupportTaskAction.objects.filter(task_id=support_task_id).first()
+        if support_action is not None:
+            static_parameters = dict(support_action.static_parameters or {})
+            static_parameters["interaction_id"] = str(result.get("interaction_uuid"))
+            static_parameters["shared_interaction_url"] = result.get("shared_url")
+            support_action.static_parameters = static_parameters
+            support_action.save(update_fields=["static_parameters"])
+    return result

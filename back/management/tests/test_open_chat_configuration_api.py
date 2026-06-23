@@ -8,6 +8,7 @@ from rest_framework.test import APIClient
 
 from management.models.matches import Match
 from management.models.open_chat_configuration import DEFAULT_OPEN_CHAT_HOST, OpenChatConfiguration
+from management.models.support_task import SupportTask
 from management.models.user import User
 from management.permissions import ManagementPermission
 
@@ -20,6 +21,8 @@ INTERACTIONS_URL = "/api/matching/open-chat/interactions/"
 INTERACTION_DETAIL_URL = "/api/matching/open-chat/interactions/{interaction_uuid}/"
 DELETE_CHAT_URL = "/api/matching/open-chat/chats/{chat_uuid}/"
 AUTOMATION_GENERATE_MESSAGE_REPLIES_URL = "/api/matching/open-chat/automation-triggers/generate-message-replies/"
+AUTOMATION_CLEAR_MESSAGE_REPLIES_URL = "/api/matching/open-chat/automation-triggers/generate-message-replies/clear/"
+IDEMPOTENT_ACTIONS_URL = "/api/matching/open-chat/idempotent-actions/"
 DEFAULT_HOST = DEFAULT_OPEN_CHAT_HOST
 
 
@@ -633,3 +636,150 @@ class OpenChatConfigurationApiTests(TestCase):
             format="json",
         )
         self.assertEqual(response.status_code, 404)
+
+    def test_idempotent_actions_lists_open_related_support_tasks(self):
+        SupportTask.create_of_type(
+            "support_reply",
+            static_parameters={
+                "help_message_id": None,
+                "kind_display": "Open Chat",
+                "message_preview": "First pending message",
+                "message_uuid": "message-1",
+                "chat_uuid": "chat-1",
+                "sender_user_id": self.view_only_user.pk,
+                "recipient_user_id": self.authorized_user.pk,
+            },
+            parameters={"message": ""},
+            created_by=self.authorized_user,
+            related_user=self.view_only_user,
+        )
+        closed_task = SupportTask.create_of_type(
+            "support_reply",
+            static_parameters={
+                "help_message_id": None,
+                "kind_display": "Open Chat",
+                "message_preview": "Already completed",
+                "message_uuid": "message-2",
+                "chat_uuid": "chat-2",
+                "sender_user_id": self.view_only_user.pk,
+                "recipient_user_id": self.authorized_user.pk,
+            },
+            parameters={"message": ""},
+            created_by=self.authorized_user,
+            related_user=self.view_only_user,
+        )
+        closed_task.status = SupportTask.Status.COMPLETED
+        closed_task.save(update_fields=["status", "updated_at"])
+        SupportTask.create_of_type(
+            "support_reply",
+            static_parameters={
+                "help_message_id": None,
+                "kind_display": "Open Chat",
+                "message_preview": "For another target user",
+                "message_uuid": "message-3",
+                "chat_uuid": "chat-3",
+                "sender_user_id": self.authorized_user.pk,
+                "recipient_user_id": self.view_only_user.pk,
+            },
+            parameters={"message": ""},
+            created_by=self.authorized_user,
+            related_user=self.authorized_user,
+        )
+
+        self.api_client.force_authenticate(user=self.authorized_user)
+        response = self.api_client.get(IDEMPOTENT_ACTIONS_URL)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["target_user_uuid"], str(self.authorized_user.uuid))
+        self.assertEqual(len(response.data["results"]), 1)
+        item = response.data["results"][0]
+        self.assertEqual(item["idempotent_action"], "idempotent_actions__generate_message_replies")
+        self.assertEqual(item["trigger_method"], "POST")
+        self.assertEqual(item["support_task_relation"]["action_types"], ["support_reply"])
+        self.assertEqual(item["support_task_relation"]["open_count"], 1)
+        self.assertEqual(
+            item["support_task_relation"]["suggested_filters"],
+            {
+                "status": ["NEW", "IN_PROGRESS"],
+                "action_type": ["support_reply"],
+            },
+        )
+
+    def test_idempotent_actions_manager_can_query_other_user(self):
+        SupportTask.create_of_type(
+            "support_reply",
+            static_parameters={
+                "help_message_id": None,
+                "kind_display": "Open Chat",
+                "message_preview": "Manager targeted action",
+                "message_uuid": "message-4",
+                "chat_uuid": "chat-4",
+                "sender_user_id": self.authorized_user.pk,
+                "recipient_user_id": self.view_only_user.pk,
+            },
+            parameters={"message": ""},
+            created_by=self.manager_user,
+            related_user=self.authorized_user,
+        )
+
+        self.api_client.force_authenticate(user=self.manager_user)
+        response = self.api_client.get(
+            IDEMPOTENT_ACTIONS_URL,
+            {"user_uuid": str(self.view_only_user.uuid)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["target_user_uuid"], str(self.view_only_user.uuid))
+        self.assertEqual(response.data["results"][0]["support_task_relation"]["open_count"], 1)
+
+    def test_automation_clear_message_replies_deletes_related_support_tasks(self):
+        kept_task = SupportTask.create_of_type(
+            "support_reply",
+            static_parameters={
+                "help_message_id": None,
+                "kind_display": "Open Chat",
+                "message_preview": "Other target user",
+                "message_uuid": "other-message-uuid",
+                "chat_uuid": "other-chat-uuid",
+                "sender_user_id": self.authorized_user.pk,
+                "recipient_user_id": self.view_only_user.pk,
+            },
+            parameters={"message": ""},
+            created_by=self.authorized_user,
+            related_user=self.authorized_user,
+        )
+        deleted_task = SupportTask.create_of_type(
+            "support_reply",
+            static_parameters={
+                "help_message_id": None,
+                "kind_display": "Open Chat",
+                "message_preview": "Target user",
+                "message_uuid": "target-message-uuid",
+                "chat_uuid": "target-chat-uuid",
+                "sender_user_id": self.view_only_user.pk,
+                "recipient_user_id": self.authorized_user.pk,
+            },
+            parameters={"message": ""},
+            created_by=self.authorized_user,
+            related_user=self.view_only_user,
+        )
+
+        self.api_client.force_authenticate(user=self.authorized_user)
+        response = self.api_client.delete(
+            AUTOMATION_CLEAR_MESSAGE_REPLIES_URL,
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data["trigger"],
+            "idempotent_actions__generate_message_replies.clear",
+        )
+        self.assertEqual(
+            response.data["target_user_uuid"],
+            str(self.authorized_user.uuid),
+        )
+        self.assertEqual(response.data["deleted_support_tasks_count"], 1)
+        self.assertEqual(response.data["deleted_support_task_actions_count"], 1)
+        self.assertFalse(SupportTask.objects.filter(pk=deleted_task.pk).exists())
+        self.assertTrue(SupportTask.objects.filter(pk=kept_task.pk).exists())

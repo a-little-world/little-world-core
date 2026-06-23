@@ -143,7 +143,7 @@ USE_WHITENOISE = os.environ.get("DJ_USE_WHITENOISE", "false").lower() in ("true"
 EMPHIRIAL = os.environ.get("EMPHIRIAL", "0") == "1"
 IS_TEST_ENV = bool_env("DJANGO_TESTING", "false")
 IS_TEST_COMMAND = len(sys.argv) > 1 and sys.argv[1] == "test"
-OPEN_CHAT_BOOTSTRAP_ENABLED_DEFAULT = (not IS_TEST_ENV) and (not IS_TEST_COMMAND) and EMPHIRIAL
+OPEN_CHAT_BOOTSTRAP_ENABLED_DEFAULT = (not IS_TEST_ENV) and (not IS_TEST_COMMAND)
 ENABLE_OPEN_CHAT_BOOTSTRAP_IN_TESTS = bool_env("DJ_ENABLE_OPEN_CHAT_BOOTSTRAP_IN_TESTS", "false")
 
 USE_LANDINGPAGE_REDIRECT = os.environ.get("DJ_USE_LANDINGPAGE_REDIRECT", "false").lower() in ("true", "1", "t")
