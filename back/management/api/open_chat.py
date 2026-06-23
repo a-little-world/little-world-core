@@ -61,6 +61,7 @@ class OpenChatConfigurationSerializer(serializers.ModelSerializer):
             "open_chat_api_key",
             "open_chat_user",
             "open_chat_host",
+            "interaction_overwrite",
             "matching_exists",
             "matching_user_uuid",
             "matching_user_id",
@@ -69,6 +70,7 @@ class OpenChatConfigurationSerializer(serializers.ModelSerializer):
             "open_chat_api_key": {"required": True},
             "open_chat_user": {"required": True},
             "open_chat_host": {"required": True},
+            "interaction_overwrite": {"required": False},
         }
 
     def _get_matching_partner(self, configuration: OpenChatConfiguration) -> User | None:
