@@ -4,12 +4,17 @@ import logging
 from importlib import import_module
 from urllib.parse import urlparse, urlunparse
 
-from celery import shared_task
+from celery import current_app, shared_task
+from chat.models import Chat
+from chat.models import Message as ChatMessage
 from django.conf import settings
 from django.contrib.auth import BACKEND_SESSION_KEY, HASH_SESSION_KEY, SESSION_KEY
+from django.db.models import Q
 from requests import RequestException
 
+from management import controller
 from management.models.open_chat_configuration import OpenChatConfiguration
+from management.models.support_task import SupportTask, SupportTaskAction
 from management.models.user import User
 from management.permissions import ManagementPermission
 
@@ -89,76 +94,41 @@ def _extract_interaction_rows(payload: object) -> list:
     return []
 
 
-@shared_task(name="management.tasks.open_chat_basic_chat_interaction")
-def open_chat_basic_chat_interaction(
+def _build_default_bot_config() -> dict:
+    return {
+        "temperature": 0.0,
+        "max_tokens": 1024,
+        "tools": ["little_world__chat_reply"],
+        "model": "qwen3-8b-instruct_vllm",
+        "endpoint": "https://litellm.t1m.me/v1",
+        "backend": "litellm",
+        "context": 2000,
+        "system_prompt": (
+            "You are a Little World support assistant. "
+            "Always send your final response by calling `little_world__chat_reply`."
+        ),
+    }
+
+
+def _run_open_chat_interaction_flow(
+    *,
+    configuration: OpenChatConfiguration,
+    recipient: User,
+    sender: User,
     chat_uuid: str,
     message_uuid: str,
-    sender_uuid: str,
-    recipient_uuid: str,
-    user_message_text: str = "",
-):
-    """
-    Basic Open Chat interaction for messages sent to Open Chat recipients.
-    Flow:
-    1) ensure recipient exists and has OPEN_CHAT_ACCESS permission
-    2) ensure recipient has OpenChatConfiguration
-    3) login with Open Chat client using recipient configuration
-    4) run a basic interaction flow
-    """
-    recipient = User.objects.filter(uuid=recipient_uuid).first()
-    if recipient is None:
-        return {"status": "skipped", "reason": "recipient_missing"}
-
-    sender = User.objects.filter(uuid=sender_uuid).first()
-    if sender is None:
-        return {"status": "skipped", "reason": "sender_missing"}
-
-    if not recipient.has_perm(ManagementPermission.OPEN_CHAT_ACCESS):
-        return {"status": "skipped", "reason": "recipient_has_no_open_chat_access_permission"}
-
+    user_message_text: str,
+    config_owner: str,
+) -> dict:
     try:
         from client.client import OpenChatPythonClient
     except ImportError as exc:
         return {"status": "error", "reason": "open_chat_client_import_failed", "detail": str(exc)}
 
-    recipient_configuration = OpenChatConfiguration.objects.filter(user_id=recipient.pk).first()
-    configuration = recipient_configuration
-    config_owner = "recipient"
-    if configuration is None:
-        sender_has_open_chat_access = sender.has_perm(ManagementPermission.OPEN_CHAT_ACCESS)
-        sender_configuration = OpenChatConfiguration.objects.filter(user_id=sender.pk).first()
-        if sender_has_open_chat_access and sender_configuration is not None:
-            configuration = sender_configuration
-            config_owner = "sender_fallback"
-        else:
-            return {
-                "status": "skipped",
-                "reason": "recipient_open_chat_configuration_missing",
-                "recipient_user_id": recipient.pk,
-                "recipient_email": recipient.email,
-                "sender_user_id": sender.pk,
-                "sender_email": sender.email,
-                "sender_has_open_chat_access": sender_has_open_chat_access,
-                "sender_has_open_chat_configuration": sender_configuration is not None,
-            }
-
     bot_config = _apply_bot_config_overwrite(
-        {
-            "temperature": 0.0,
-            "max_tokens": 1024,
-            "tools": ["little_world__chat_reply"],
-            "model": "qwen3-8b-instruct_vllm",
-            "endpoint": "https://litellm.t1m.me/v1",
-            "backend": "litellm",
-            "context": 2000,
-            "system_prompt": (
-                "You are a Little World support assistant. "
-                "Always send your final response by calling `little_world__chat_reply`."
-            ),
-        },
-        recipient_configuration.interaction_overwrite if recipient_configuration is not None else None,
+        _build_default_bot_config(),
+        configuration.interaction_overwrite,
     )
-
     session_id, csrf_token = _create_session_and_csrf_for_user(recipient)
     tool_init = _build_little_world_tool_init(
         session_id=session_id,
@@ -182,7 +152,7 @@ def open_chat_basic_chat_interaction(
         )
         interaction_uuid = interaction.get("uuid") if isinstance(interaction, dict) else None
         logger.info(
-            "open_chat_basic_chat_interaction login_user=%s config_owner=%s interaction_uuid=%s",
+            "open_chat_interaction_flow login_user=%s config_owner=%s interaction_uuid=%s",
             login_result.get("name") if isinstance(login_result, dict) else None,
             config_owner,
             interaction_uuid,
@@ -199,7 +169,6 @@ def open_chat_basic_chat_interaction(
                 single_page_payload = get_interactions(page=1, limit=40, all_pages=False)
                 merged_payload = get_interactions(page=1, limit=40)
             except TypeError:
-                # Older/newer client signatures may differ; keep diagnostics best-effort.
                 single_page_payload = get_interactions(page=1, limit=40)
                 merged_payload = get_interactions()
 
@@ -242,7 +211,6 @@ def open_chat_basic_chat_interaction(
                 except TypeError:
                     interaction_messages_payload = list_messages(interaction_uuid)
             else:
-                # Backward compatibility in case runtime still has old client.
                 get_messages = getattr(client, "get_interaction_messages", None)
                 if callable(get_messages):
                     try:
@@ -265,7 +233,7 @@ def open_chat_basic_chat_interaction(
         interaction_message_payload = None
         if interaction_uuid:
             from chat.consumers.messages import NewMessage
-            from chat.models import Chat, ChatSerializer, Message, MessageSerializer
+            from chat.models import ChatSerializer, MessageSerializer
 
             chat = Chat.objects.filter(uuid=chat_uuid).first()
             if chat is not None and chat.is_participant(sender) and chat.is_participant(recipient):
@@ -277,7 +245,7 @@ def open_chat_basic_chat_interaction(
                     "interaction_id": interaction_uuid,
                     "shared_interaction_url": shared_url,
                 }
-                interaction_message = Message.objects.create(
+                interaction_message = ChatMessage.objects.create(
                     chat=chat,
                     sender=recipient,
                     recipient=sender,
@@ -297,8 +265,8 @@ def open_chat_basic_chat_interaction(
             "status": "ok",
             "chat_uuid": chat_uuid,
             "message_uuid": message_uuid,
-            "sender_uuid": sender_uuid,
-            "recipient_uuid": recipient_uuid,
+            "sender_uuid": str(sender.uuid),
+            "recipient_uuid": str(recipient.uuid),
             "recipient_user_id": recipient.pk,
             "configuration_owner": config_owner,
             "configuration_user_id": configuration.user.pk,
@@ -320,23 +288,221 @@ def open_chat_basic_chat_interaction(
         return {"status": "error", "reason": "open_chat_basic_interaction_failed", "detail": str(exc)}
 
 
+@shared_task(name="management.tasks.open_chat_basic_chat_interaction")
+def open_chat_basic_chat_interaction(
+    chat_uuid: str,
+    message_uuid: str,
+    sender_uuid: str,
+    recipient_uuid: str,
+    user_message_text: str = "",
+):
+    """
+    Basic Open Chat interaction for messages sent to Open Chat recipients.
+    Flow:
+    1) ensure recipient exists and has OPEN_CHAT_ACCESS permission
+    2) ensure recipient has OpenChatConfiguration
+    3) login with Open Chat client using recipient configuration
+    4) run a basic interaction flow
+    """
+    recipient = User.objects.filter(uuid=recipient_uuid).first()
+    if recipient is None:
+        return {"status": "skipped", "reason": "recipient_missing"}
+
+    sender = User.objects.filter(uuid=sender_uuid).first()
+    if sender is None:
+        return {"status": "skipped", "reason": "sender_missing"}
+
+    if not recipient.has_perm(ManagementPermission.OPEN_CHAT_ACCESS):
+        return {"status": "skipped", "reason": "recipient_has_no_open_chat_access_permission"}
+
+    recipient_configuration = OpenChatConfiguration.objects.filter(user_id=recipient.pk).first()
+    configuration = recipient_configuration
+    config_owner = "recipient"
+    if configuration is None:
+        sender_has_open_chat_access = sender.has_perm(ManagementPermission.OPEN_CHAT_ACCESS)
+        sender_configuration = OpenChatConfiguration.objects.filter(user_id=sender.pk).first()
+        if sender_has_open_chat_access and sender_configuration is not None:
+            configuration = sender_configuration
+            config_owner = "sender_fallback"
+        else:
+            return {
+                "status": "skipped",
+                "reason": "recipient_open_chat_configuration_missing",
+                "recipient_user_id": recipient.pk,
+                "recipient_email": recipient.email,
+                "sender_user_id": sender.pk,
+                "sender_email": sender.email,
+                "sender_has_open_chat_access": sender_has_open_chat_access,
+                "sender_has_open_chat_configuration": sender_configuration is not None,
+            }
+    return _run_open_chat_interaction_flow(
+        configuration=configuration,
+        recipient=recipient,
+        sender=sender,
+        chat_uuid=chat_uuid,
+        message_uuid=message_uuid,
+        user_message_text=user_message_text,
+        config_owner=config_owner,
+    )
+
+
 @shared_task(name="management.tasks.idempotent_actions__generate_message_replies")
 def idempotent_actions__generate_message_replies(
     target_user_uuid: str,
     triggered_by_user_uuid: str | None = None,
 ):
-    """
-    Placeholder task for future Open Chat automation triggers.
-    """
-    logger.info(
-        "idempotent_actions__generate_message_replies called target_user_uuid=%s triggered_by_user_uuid=%s",
-        target_user_uuid,
-        triggered_by_user_uuid,
+    target_user = User.objects.filter(uuid=target_user_uuid).first()
+    if target_user is None:
+        return {"status": "skipped", "reason": "target_user_missing", "target_user_uuid": target_user_uuid}
+    if not target_user.has_perm(ManagementPermission.OPEN_CHAT_ACCESS):
+        return {
+            "status": "skipped",
+            "reason": "target_user_has_no_open_chat_access_permission",
+            "target_user_uuid": target_user_uuid,
+        }
+
+    configuration = OpenChatConfiguration.objects.filter(user_id=target_user.pk).first()
+    if configuration is None:
+        return {
+            "status": "skipped",
+            "reason": "target_user_open_chat_configuration_missing",
+            "target_user_uuid": target_user_uuid,
+        }
+
+    created_by_user = User.objects.filter(uuid=triggered_by_user_uuid).first() if triggered_by_user_uuid else None
+    if created_by_user is None:
+        created_by_user = controller.get_base_management_user()
+
+    from management.api.user_advanced_filter import (
+        get_user_with_message_to_admin_that_are_read_or_not_read_but_not_replied,
     )
+
+    pending_users = list(get_user_with_message_to_admin_that_are_read_or_not_read_but_not_replied(User.objects.all()))
+    processed_messages: list[dict] = []
+    created_tasks = 0
+    enqueued_interactions = 0
+
+    for source_user in pending_users:
+        latest_message = (
+            ChatMessage.objects.filter(
+                Q(sender_id=source_user.pk, recipient_id=target_user.pk)
+                | Q(sender_id=target_user.pk, recipient_id=source_user.pk)
+            )
+            .order_by("-created", "-id")
+            .first()
+        )
+        if latest_message is None or latest_message.sender.pk != source_user.pk:
+            continue
+
+        existing_action = (
+            SupportTaskAction.objects.select_related("task")
+            .filter(
+                action_type="support_reply",
+                status=SupportTaskAction.Status.OPEN,
+                task__status__in=[SupportTask.Status.NEW, SupportTask.Status.IN_PROGRESS],
+                static_parameters__message_uuid=str(latest_message.uuid),
+            )
+            .first()
+        )
+        if existing_action is not None:
+            processed_messages.append(
+                {
+                    "message_uuid": str(latest_message.uuid),
+                    "chat_uuid": str(latest_message.chat.uuid),
+                    "support_task_id": existing_action.task.pk,
+                    "status": "skipped_duplicate",
+                }
+            )
+            continue
+
+        support_task = SupportTask.create_of_type(
+            "support_reply",
+            static_parameters={
+                "help_message_id": None,
+                "kind_display": "Open Chat",
+                "message_preview": latest_message.text[:500],
+                "message_uuid": str(latest_message.uuid),
+                "chat_uuid": str(latest_message.chat.uuid),
+                "sender_user_id": source_user.pk,
+                "recipient_user_id": target_user.pk,
+            },
+            parameters={"message": ""},
+            created_by=created_by_user,
+            related_user=source_user,
+        )
+        created_tasks += 1
+        interaction_task = current_app.send_task(  # pyright: ignore[reportCallIssue]
+            "management.tasks.open_chat_trigger_interaction",
+            kwargs={
+                "configuration_user_uuid": str(configuration.user.uuid),
+                "chat_uuid": str(latest_message.chat.uuid),
+                "message_uuid": str(latest_message.uuid),
+                "sender_uuid": str(source_user.uuid),
+                "recipient_uuid": str(target_user.uuid),
+                "user_message_text": latest_message.text or "",
+            },
+        )
+        enqueued_interactions += 1
+        processed_messages.append(
+            {
+                "message_uuid": str(latest_message.uuid),
+                "chat_uuid": str(latest_message.chat.uuid),
+                "support_task_id": support_task.pk,
+                "interaction_task_id": interaction_task.id,
+                "status": "created_and_enqueued",
+            }
+        )
+
     return {
-        "status": "unimplemented",
+        "status": "ok",
         "trigger": "idempotent_actions__generate_message_replies",
         "target_user_uuid": target_user_uuid,
         "triggered_by_user_uuid": triggered_by_user_uuid,
-        "detail": "Automation trigger is not implemented yet.",
+        "created_tasks_count": created_tasks,
+        "enqueued_interactions_count": enqueued_interactions,
+        "processed_messages": processed_messages,
     }
+
+
+@shared_task(name="management.tasks.open_chat_trigger_interaction")
+def open_chat_trigger_interaction(
+    configuration_user_uuid: str,
+    chat_uuid: str,
+    message_uuid: str,
+    sender_uuid: str,
+    recipient_uuid: str,
+    user_message_text: str = "",
+):
+    configuration_user = User.objects.filter(uuid=configuration_user_uuid).first()
+    if configuration_user is None:
+        return {
+            "status": "skipped",
+            "reason": "configuration_user_missing",
+            "configuration_user_uuid": configuration_user_uuid,
+        }
+    configuration = OpenChatConfiguration.objects.filter(user_id=configuration_user.pk).first()
+    if configuration is None:
+        return {
+            "status": "skipped",
+            "reason": "configuration_missing",
+            "configuration_user_uuid": configuration_user_uuid,
+        }
+
+    sender = User.objects.filter(uuid=sender_uuid).first()
+    if sender is None:
+        return {"status": "skipped", "reason": "sender_missing", "sender_uuid": sender_uuid}
+    recipient = User.objects.filter(uuid=recipient_uuid).first()
+    if recipient is None:
+        return {"status": "skipped", "reason": "recipient_missing", "recipient_uuid": recipient_uuid}
+    if not recipient.has_perm(ManagementPermission.OPEN_CHAT_ACCESS):
+        return {"status": "skipped", "reason": "recipient_has_no_open_chat_access_permission"}
+
+    return _run_open_chat_interaction_flow(
+        configuration=configuration,
+        recipient=recipient,
+        sender=sender,
+        chat_uuid=chat_uuid,
+        message_uuid=message_uuid,
+        user_message_text=user_message_text,
+        config_owner="explicit_configuration_user",
+    )
