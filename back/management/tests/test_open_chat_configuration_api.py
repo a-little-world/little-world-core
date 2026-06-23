@@ -17,6 +17,7 @@ ACCESS_USERS_URL = "/api/matching/open-chat-access-users/"
 USER_CONFIGURATION_URL = "/api/matching/open-chat-access-users/{user_id}/configuration/"
 CREATE_MATCHING_URL = "/api/matching/open-chat-access-users/{user_id}/create-matching/"
 INTERACTIONS_URL = "/api/matching/open-chat/interactions/"
+INTERACTION_DETAIL_URL = "/api/matching/open-chat/interactions/{interaction_uuid}/"
 DELETE_CHAT_URL = "/api/matching/open-chat/chats/{chat_uuid}/"
 DEFAULT_HOST = DEFAULT_OPEN_CHAT_HOST
 
@@ -524,6 +525,35 @@ class OpenChatConfigurationApiTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["results"][0]["interaction_id"], "interaction-manage-only")
+
+    @patch("management.api.open_chat._build_open_chat_client")
+    def test_interaction_detail_returns_interaction(self, mock_build_client):
+        OpenChatConfiguration.objects.create(
+            user=self.authorized_user,
+            open_chat_api_key="authorized-key",
+            open_chat_user="authorized-user",
+            open_chat_host=DEFAULT_HOST,
+        )
+        mock_client = MagicMock()
+        mock_client.get_interaction.return_value = {
+            "uuid": "interaction-detail-1",
+            "title": "Detailed interaction",
+            "status": "completed",
+        }
+        mock_build_client.return_value = mock_client
+
+        self.api_client.force_authenticate(user=self.authorized_user)
+        response = self.api_client.get(
+            INTERACTION_DETAIL_URL.format(interaction_uuid="interaction-detail-1"),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["interaction_id"], "interaction-detail-1")
+        self.assertEqual(response.data["title"], "Detailed interaction")
+        mock_client.get_interaction.assert_called_once_with(
+            "interaction-detail-1",
+            include_share_info=False,
+        )
 
     def test_delete_chat_deletes_owned_open_chat_chat(self):
         chat = Chat.objects.create(
