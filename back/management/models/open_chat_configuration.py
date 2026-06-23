@@ -3,6 +3,10 @@ from django.db import models
 DEFAULT_OPEN_CHAT_HOST = "http://host.docker.internal:1984"
 
 
+def default_open_chat_interaction_overwrite() -> dict:
+    return {"model": "qwen3-8b-instruct_vllm"}
+
+
 class OpenChatConfiguration(models.Model):
     user = models.OneToOneField(
         "management.User",
@@ -12,9 +16,10 @@ class OpenChatConfiguration(models.Model):
     open_chat_api_key = models.CharField(max_length=512)
     open_chat_user = models.CharField(max_length=255)
     open_chat_host = models.CharField(max_length=255, default=DEFAULT_OPEN_CHAT_HOST)
+    interaction_overwrite = models.JSONField(default=default_open_chat_interaction_overwrite, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"OpenChatConfiguration(user_id={self.user_id})"
+        return f"OpenChatConfiguration(user_id={self.user.pk})"
