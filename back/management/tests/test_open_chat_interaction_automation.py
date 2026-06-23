@@ -224,8 +224,8 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         _, send_task_kwargs = mock_send_task.call_args
         queued_kwargs = send_task_kwargs["kwargs"]
         self.assertEqual(queued_kwargs["support_task_id"], action.task.pk)
-        self.assertFalse(queued_kwargs["use_little_world_reply_tool"])
-        self.assertFalse(queued_kwargs["create_chat_interaction_message"])
+        self.assertEqual(queued_kwargs["tool_mode"], "message_reply_suggestion")
+        self.assertFalse(queued_kwargs["publish_chat_interaction_message"])
 
     @patch("management.open_chat_interaction_task.current_app.send_task")
     def test_idempotent_generate_message_replies_skips_matching_user_senders(self, mock_send_task):
@@ -324,8 +324,8 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             recipient_uuid=str(self.admin_user.uuid),
             user_message_text=self.source_message.text,
             support_task_id=support_task.pk,
-            use_little_world_reply_tool=False,
-            create_chat_interaction_message=False,
+            tool_mode="no_tools",
+            publish_chat_interaction_message=False,
         )
 
         self.assertEqual(result["status"], "ok")
@@ -336,3 +336,63 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
 
         support_action = SupportTaskAction.objects.get(task=support_task)
         self.assertEqual(support_action.static_parameters.get("interaction_id"), "plain-interaction-uuid")
+
+    @patch("chat.consumers.messages.NewMessage.send")
+    @patch("client.client.OpenChatPythonClient")
+    def test_open_chat_trigger_interaction_uses_message_reply_suggestion_tool(
+        self, mock_client_cls, _mock_new_message_send
+    ):
+        support_task = SupportTask.create_of_type(
+            "support_reply",
+            static_parameters={
+                "help_message_id": None,
+                "kind_display": "Open Chat",
+                "message_preview": self.source_message.text[:500],
+                "message_uuid": str(self.source_message.uuid),
+                "chat_uuid": str(self.chat.uuid),
+                "sender_user_id": self.source_user.pk,
+                "recipient_user_id": self.admin_user.pk,
+            },
+            parameters={"message": ""},
+            created_by=self.automation_user,
+            assigned_to=self.admin_user,
+            related_user=self.source_user,
+        )
+
+        mock_client = MagicMock()
+        mock_client.login.return_value = {"name": "Admin Open Chat"}
+        mock_client.create_interaction.return_value = {"uuid": "suggestion-interaction-uuid"}
+        mock_client.get_interactions.return_value = {
+            "rows": [{"uuid": "suggestion-interaction-uuid"}],
+            "total_pages": 1,
+        }
+        mock_client.get_shared_interaction_url.return_value = (
+            "http://localhost:1984/interaction/suggestion-interaction-uuid"
+        )
+        mock_client.list_interaction_messages.return_value = {
+            "rows": [{"tool_calls": [{"name": "little_world__generate_message_reply_suggestion"}]}]
+        }
+        mock_client_cls.return_value = mock_client
+
+        result = open_chat_trigger_interaction(
+            configuration_user_uuid=str(self.admin_user.uuid),
+            chat_uuid=str(self.chat.uuid),
+            message_uuid=str(self.source_message.uuid),
+            sender_uuid=str(self.source_user.uuid),
+            recipient_uuid=str(self.admin_user.uuid),
+            user_message_text=self.source_message.text,
+            support_task_id=support_task.pk,
+            tool_mode="message_reply_suggestion",
+            publish_chat_interaction_message=False,
+        )
+
+        self.assertEqual(result["status"], "ok")
+        self.assertTrue(result["tool_called"])
+        _, create_kwargs = mock_client.create_interaction.call_args
+        self.assertIn("tool_init", create_kwargs)
+        self.assertIn("message", create_kwargs)
+        tool_init = create_kwargs["tool_init"]
+        self.assertIn("little_world__generate_message_reply_suggestion", tool_init)
+        suggestion_tool_init = tool_init["little_world__generate_message_reply_suggestion"]
+        self.assertEqual(suggestion_tool_init["task_pk"], support_task.pk)
+        self.assertIn(f"action_id={support_task.action.pk}", create_kwargs["message"])
