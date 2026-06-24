@@ -130,6 +130,104 @@ def _extract_interaction_rows(payload: object) -> list:
     return []
 
 
+def resolve_open_chat_automation_task_creator_user() -> User | None:
+    automation_user_email = (getattr(settings, "OPEN_CHAT_AUTOMATION_USER_EMAIL", "") or "").strip()
+    created_by_user = User.objects.filter(email=automation_user_email).first() if automation_user_email else None
+    if created_by_user is None:
+        created_by_user = controller.create_open_chat_automation_user()
+    return created_by_user
+
+
+def create_or_reuse_support_reply_task_for_message(
+    *,
+    latest_message: ChatMessage,
+    source_user: User,
+    target_user: User,
+    created_by_user: User,
+    assigned_to_user: User,
+    configuration_user_uuid: str | None = None,
+    enqueue_interaction: bool = True,
+) -> dict:
+    if source_user.has_perm(ManagementPermission.MATCHING_USER):
+        return {
+            "source_user_uuid": str(source_user.uuid),
+            "status": "skipped_matching_user_permission",
+        }
+
+    if latest_message.sender_id != source_user.pk:
+        return {
+            "message_uuid": str(latest_message.uuid),
+            "chat_uuid": str(latest_message.chat.uuid),
+            "status": "skipped_not_source_user_message",
+        }
+
+    existing_action = (
+        SupportTaskAction.objects.select_related("task")
+        .filter(
+            action_type="support_reply",
+            status=SupportTaskAction.Status.OPEN,
+            task__status__in=[SupportTask.Status.NEW, SupportTask.Status.IN_PROGRESS],
+            static_parameters__message_uuid=str(latest_message.uuid),
+        )
+        .first()
+    )
+    if existing_action is not None:
+        if getattr(existing_action.task, "assigned_to", None) is None:
+            SupportTask.objects.filter(pk=existing_action.task.pk).update(assigned_to_id=assigned_to_user.pk)
+        return {
+            "message_uuid": str(latest_message.uuid),
+            "chat_uuid": str(latest_message.chat.uuid),
+            "support_task_id": existing_action.task.pk,
+            "status": "skipped_duplicate",
+        }
+
+    support_task = SupportTask.create_of_type(
+        "support_reply",
+        static_parameters={
+            "help_message_id": None,
+            "kind_display": "Open Chat",
+            "message_preview": latest_message.text[:500],
+            "message_uuid": str(latest_message.uuid),
+            "chat_uuid": str(latest_message.chat.uuid),
+            "sender_user_id": source_user.pk,
+            "recipient_user_id": target_user.pk,
+        },
+        parameters={"message": ""},
+        created_by=created_by_user,
+        assigned_to=assigned_to_user,
+        related_user=source_user,
+    )
+    if getattr(support_task, "assigned_to", None) is None:
+        SupportTask.objects.filter(pk=support_task.pk).update(assigned_to_id=assigned_to_user.pk)
+
+    result = {
+        "message_uuid": str(latest_message.uuid),
+        "chat_uuid": str(latest_message.chat.uuid),
+        "support_task_id": support_task.pk,
+        "status": "created",
+    }
+    if not enqueue_interaction or not configuration_user_uuid:
+        return result
+
+    interaction_task = current_app.send_task(  # pyright: ignore[reportCallIssue]
+        "management.tasks.open_chat_trigger_interaction",
+        kwargs={
+            "configuration_user_uuid": configuration_user_uuid,
+            "chat_uuid": str(latest_message.chat.uuid),
+            "message_uuid": str(latest_message.uuid),
+            "sender_uuid": str(source_user.uuid),
+            "recipient_uuid": str(target_user.uuid),
+            "user_message_text": latest_message.text or "",
+            "support_task_id": support_task.pk,
+            "tool_mode": OpenChatInteractionToolMode.MESSAGE_REPLY_SUGGESTION.value,
+            "publish_chat_interaction_message": False,
+        },
+    )
+    result["interaction_task_id"] = interaction_task.id
+    result["status"] = "created_and_enqueued"
+    return result
+
+
 def _build_default_bot_config(
     *,
     tools: list[str] | None = None,
@@ -465,10 +563,7 @@ def idempotent_actions__generate_message_replies(
             "target_user_uuid": target_user_uuid,
         }
 
-    automation_user_email = (getattr(settings, "OPEN_CHAT_AUTOMATION_USER_EMAIL", "") or "").strip()
-    created_by_user = User.objects.filter(email=automation_user_email).first() if automation_user_email else None
-    if created_by_user is None:
-        created_by_user = controller.create_open_chat_automation_user()
+    created_by_user = resolve_open_chat_automation_task_creator_user()
     if created_by_user is None:
         return {
             "status": "skipped",
@@ -487,15 +582,6 @@ def idempotent_actions__generate_message_replies(
     enqueued_interactions = 0
 
     for source_user in pending_users:
-        if source_user.has_perm(ManagementPermission.MATCHING_USER):
-            processed_messages.append(
-                {
-                    "source_user_uuid": str(source_user.uuid),
-                    "status": "skipped_matching_user_permission",
-                }
-            )
-            continue
-
         latest_message = (
             ChatMessage.objects.filter(
                 Q(sender_id=source_user.pk, recipient_id=target_user.pk)
@@ -507,72 +593,20 @@ def idempotent_actions__generate_message_replies(
         if latest_message is None or latest_message.sender.pk != source_user.pk:
             continue
 
-        existing_action = (
-            SupportTaskAction.objects.select_related("task")
-            .filter(
-                action_type="support_reply",
-                status=SupportTaskAction.Status.OPEN,
-                task__status__in=[SupportTask.Status.NEW, SupportTask.Status.IN_PROGRESS],
-                static_parameters__message_uuid=str(latest_message.uuid),
-            )
-            .first()
+        step_result = create_or_reuse_support_reply_task_for_message(
+            latest_message=latest_message,
+            source_user=source_user,
+            target_user=target_user,
+            created_by_user=created_by_user,
+            assigned_to_user=assigned_to_user,
+            configuration_user_uuid=str(configuration.user.uuid),
+            enqueue_interaction=True,
         )
-        if existing_action is not None:
-            if getattr(existing_action.task, "assigned_to", None) is None:
-                SupportTask.objects.filter(pk=existing_action.task.pk).update(assigned_to_id=assigned_to_user.pk)
-            processed_messages.append(
-                {
-                    "message_uuid": str(latest_message.uuid),
-                    "chat_uuid": str(latest_message.chat.uuid),
-                    "support_task_id": existing_action.task.pk,
-                    "status": "skipped_duplicate",
-                }
-            )
-            continue
-
-        support_task = SupportTask.create_of_type(
-            "support_reply",
-            static_parameters={
-                "help_message_id": None,
-                "kind_display": "Open Chat",
-                "message_preview": latest_message.text[:500],
-                "message_uuid": str(latest_message.uuid),
-                "chat_uuid": str(latest_message.chat.uuid),
-                "sender_user_id": source_user.pk,
-                "recipient_user_id": target_user.pk,
-            },
-            parameters={"message": ""},
-            created_by=created_by_user,
-            assigned_to=assigned_to_user,
-            related_user=source_user,
-        )
-        if getattr(support_task, "assigned_to", None) is None:
-            SupportTask.objects.filter(pk=support_task.pk).update(assigned_to_id=assigned_to_user.pk)
-        created_tasks += 1
-        interaction_task = current_app.send_task(  # pyright: ignore[reportCallIssue]
-            "management.tasks.open_chat_trigger_interaction",
-            kwargs={
-                "configuration_user_uuid": str(configuration.user.uuid),
-                "chat_uuid": str(latest_message.chat.uuid),
-                "message_uuid": str(latest_message.uuid),
-                "sender_uuid": str(source_user.uuid),
-                "recipient_uuid": str(target_user.uuid),
-                "user_message_text": latest_message.text or "",
-                "support_task_id": support_task.pk,
-                "tool_mode": OpenChatInteractionToolMode.MESSAGE_REPLY_SUGGESTION.value,
-                "publish_chat_interaction_message": False,
-            },
-        )
-        enqueued_interactions += 1
-        processed_messages.append(
-            {
-                "message_uuid": str(latest_message.uuid),
-                "chat_uuid": str(latest_message.chat.uuid),
-                "support_task_id": support_task.pk,
-                "interaction_task_id": interaction_task.id,
-                "status": "created_and_enqueued",
-            }
-        )
+        if step_result.get("status") in {"created", "created_and_enqueued"}:
+            created_tasks += 1
+        if step_result.get("status") == "created_and_enqueued":
+            enqueued_interactions += 1
+        processed_messages.append(step_result)
 
     return {
         "status": "ok",

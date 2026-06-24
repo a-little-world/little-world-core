@@ -269,6 +269,28 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
                 },
             )
 
+        # Create/reuse support-reply tasks for inbound messages to the base management user
+        # using the same idempotent helper as the Open Chat automation loop.
+        from management import controller
+        from management.open_chat_interaction_task import (
+            create_or_reuse_support_reply_task_for_message,
+            resolve_open_chat_automation_task_creator_user,
+        )
+
+        if controller.is_base_management_user(partner):
+            created_by_user = resolve_open_chat_automation_task_creator_user()
+            if created_by_user is not None:
+                base_management_user = controller.get_base_management_user()
+                create_or_reuse_support_reply_task_for_message(
+                    latest_message=message,
+                    source_user=request.user,
+                    target_user=partner,
+                    created_by_user=created_by_user,
+                    assigned_to_user=base_management_user,
+                    configuration_user_uuid=str(base_management_user.uuid),
+                    enqueue_interaction=True,
+                )
+
         return Response(serialized_message, status=200)
 
     # Keep the send_attachment method for backward compatibility

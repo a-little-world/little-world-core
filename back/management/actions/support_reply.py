@@ -40,7 +40,7 @@ def support_reply(static_params: dict, params: dict) -> None:
     if message_uuid:
         source_message = Message.objects.filter(uuid=message_uuid).select_related("sender").first()
         if source_message is not None:
-            management_user.message(source_message.sender, params["message"])
+            source_message.sender.message(params["message"], sender=management_user)
             return
 
     help_message_id = static_params.get("help_message_id")
@@ -48,7 +48,7 @@ def support_reply(static_params: dict, params: dict) -> None:
         raise ValueError("support_reply requires either message_uuid or help_message_id in static_parameters.")
 
     help_message = HelpMessage.objects.get(id=help_message_id)
-    management_user.message(help_message.user, params["message"])
+    help_message.user.message(params["message"], sender=management_user)
 
 
 register_task_type(
