@@ -465,6 +465,12 @@ def statistics_highlights(request):
 
     users_registered_in_range = accessible_users.filter(date_joined__range=[start_datetime, end_datetime])
     registrations = users_registered_in_range.count()
+    registered_volunteers = users_registered_in_range.filter(
+        profile__user_type=Profile.TypeChoices.VOLUNTEER,
+    ).count()
+    registered_learners = users_registered_in_range.filter(
+        profile__user_type=Profile.TypeChoices.LEARNER,
+    ).count()
     onboarded_volunteers = users_registered_in_range.filter(
         state__is_onboarded=True,
         profile__user_type=Profile.TypeChoices.VOLUNTEER,
@@ -516,6 +522,8 @@ def statistics_highlights(request):
             "start_date": start_date,
             "end_date": end_date,
             "registrations": registrations,
+            "registered_volunteers": registered_volunteers,
+            "registered_learners": registered_learners,
             "onboarded_volunteers": onboarded_volunteers,
             "onboarded_learners": onboarded_learners,
             "match_proposals_made": match_proposals_made,
@@ -628,6 +636,7 @@ def get_bucket_statistics(pre_filtered_users, selected_filters=None, filter_list
             "start_date": serializers.DateField(default=date(2021, 1, 1), required=False),
             "end_date": serializers.DateField(default=date.today(), required=False),
             "volunteers_only": serializers.BooleanField(default=False, required=False),
+            "include_too_low_german_level": serializers.BooleanField(default=True, required=False),
         },
     ),
 )
@@ -656,6 +665,15 @@ def bucket_statistics(request):
     volunteers_only = request.data.get("volunteers_only", False)
     if volunteers_only:
         pre_filtered_users = pre_filtered_users.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
+
+    include_too_low_german_level = request.data.get("include_too_low_german_level", True)
+    if not include_too_low_german_level:
+        pre_filtered_users = pre_filtered_users.exclude(
+            profile__user_type=Profile.TypeChoices.LEARNER,
+            profile__lang_skill__contains=[
+                {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
+            ],
+        )
 
     # Get selected filters from request
     selected_filters = request.data.get("selected_filters", None)
