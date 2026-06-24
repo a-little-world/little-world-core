@@ -73,6 +73,13 @@ def support_task_list(request):
         except ValueError:
             pass
 
+    related_user_raw = request.query_params.get("related_user")
+    if related_user_raw:
+        try:
+            tasks = tasks.filter(related_user_id=int(related_user_raw))
+        except ValueError:
+            pass
+
     search = query.get("search", "").strip()
     if search:
         q = Q(title__icontains=search)

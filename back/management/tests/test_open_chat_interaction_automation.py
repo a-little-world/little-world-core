@@ -457,3 +457,56 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
 
         self.assertEqual(result["status"], "skipped")
         self.assertEqual(result["reason"], "support_task_action_missing_for_message_reply_suggestion")
+
+    @patch("management.open_chat_interaction_task._create_session_and_csrf_for_user")
+    @patch("chat.consumers.messages.NewMessage.send")
+    @patch("client.client.OpenChatPythonClient")
+    def test_message_reply_suggestion_tool_init_uses_open_chat_task_creator_session(
+        self, mock_client_cls, _mock_new_message_send, mock_create_session
+    ):
+        mock_create_session.return_value = ("session-from-open-chat-user", "csrf-from-open-chat-user")
+        support_task = SupportTask.create_of_type(
+            "support_reply",
+            static_parameters={
+                "help_message_id": None,
+                "kind_display": "Open Chat",
+                "message_preview": self.source_message.text[:500],
+                "message_uuid": str(self.source_message.uuid),
+                "chat_uuid": str(self.chat.uuid),
+                "sender_user_id": self.source_user.pk,
+                "recipient_user_id": self.admin_user.pk,
+            },
+            parameters={"message": ""},
+            created_by=self.automation_user,
+            assigned_to=self.admin_user,
+            related_user=self.source_user,
+        )
+        mock_client = MagicMock()
+        mock_client.login.return_value = {"name": "Admin Open Chat"}
+        mock_client.create_interaction.return_value = {"uuid": "recipient-session-interaction"}
+        mock_client.get_interactions.return_value = {
+            "rows": [{"uuid": "recipient-session-interaction"}],
+            "total_pages": 1,
+        }
+        mock_client.get_shared_interaction_url.return_value = (
+            "http://localhost:1984/interaction/recipient-session-interaction"
+        )
+        mock_client.list_interaction_messages.return_value = {
+            "rows": [{"tool_calls": [{"name": "little_world__generate_message_reply_suggestion"}]}]
+        }
+        mock_client_cls.return_value = mock_client
+
+        result = open_chat_trigger_interaction(
+            configuration_user_uuid=str(self.admin_user.uuid),
+            chat_uuid=str(self.chat.uuid),
+            message_uuid=str(self.source_message.uuid),
+            sender_uuid=str(self.source_user.uuid),
+            recipient_uuid=str(self.admin_user.uuid),
+            user_message_text=self.source_message.text,
+            support_task_id=support_task.pk,
+            tool_mode="message_reply_suggestion",
+            publish_chat_interaction_message=False,
+        )
+
+        self.assertEqual(result["status"], "ok")
+        mock_create_session.assert_called_once_with(support_task.created_by)

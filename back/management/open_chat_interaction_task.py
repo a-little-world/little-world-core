@@ -629,7 +629,9 @@ def open_chat_trigger_interaction(
     support_task_action_id: str | None = None
     tool_init_user: User | None = None
     if support_task_id is not None and resolved_tool_mode == OpenChatInteractionToolMode.MESSAGE_REPLY_SUGGESTION:
-        support_action = SupportTaskAction.objects.filter(task_id=support_task_id).first()
+        support_action = (
+            SupportTaskAction.objects.select_related("task", "task__created_by").filter(task_id=support_task_id).first()
+        )
         if support_action is None:
             return {
                 "status": "skipped",
@@ -645,9 +647,7 @@ def open_chat_trigger_interaction(
                 "support_task_action_status": support_action.status,
             }
         support_task_action_id = str(support_action.pk)
-        tool_init_user = getattr(support_action.task, "assigned_to", None) or getattr(
-            support_action.task, "created_by", None
-        )
+        tool_init_user = getattr(support_action.task, "created_by", None)
 
     result = _run_open_chat_interaction_flow(
         configuration=configuration,

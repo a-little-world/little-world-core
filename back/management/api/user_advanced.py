@@ -19,7 +19,10 @@ from management.api.scores import score_between_db_update
 from management.api.user_advanced_filter_lists import FILTER_LISTS, get_choices, get_dynamic_userlists
 from management.api.user_report_utils import USER_EXPORT_COLUMN_NAMES, build_user_report_entry
 from management.api.utils_advanced import filterset_schema_dict
-from management.controller import delete_user, make_tim_support_user
+from management.controller import (
+    delete_user,
+    make_tim_support_user,
+)
 from management.helpers import DetailedPagination, DetailedPaginationMixin, IsAdminOrMatchingUser
 from management.helpers.detailed_pagination import get_paginated_format_v2
 from management.models.dynamic_user_list import DynamicUserList
@@ -33,6 +36,7 @@ from management.models.profile import MinimalProfileSerializer, Profile
 from management.models.scores import TwoUserMatchingScore
 from management.models.sms import SmsModel, SmsSerializer
 from management.models.state import State, StateSerializer
+from management.models.support_task import SupportTask, SupportTaskAction
 from management.models.unconfirmed_matches import ProposedMatch, serialize_proposed_matches
 from management.models.user import User
 from management.permissions import MANAGEMENT_PERMISSION_LABELS, ManagementPermission
@@ -797,7 +801,32 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if not has_access:
             return res
 
-        message = obj.message(request.data["message"], sender=request.user)
+        if not request.user.has_perm(ManagementPermission.CAN_SEND_SUPPORT_MESSAGE_REPLIES):
+            return Response(
+                {"msg": "You are not allowed to send support message replies!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        reply_message = request.data["message"]
+        message = obj.message(reply_message, sender=request.user)
+
+        open_support_reply_action = (
+            SupportTaskAction.objects.select_related("task")
+            .filter(
+                action_type="support_reply",
+                status=SupportTaskAction.Status.OPEN,
+                task__status__in=[SupportTask.Status.NEW, SupportTask.Status.IN_PROGRESS],
+            )
+            .filter(Q(static_parameters__recipient_user_id=obj.pk) | Q(task__related_user_id=obj.pk))
+            .order_by("-task_id")
+            .first()
+        )
+        if open_support_reply_action is not None:
+            updated_parameters = dict(open_support_reply_action.parameters or {})
+            updated_parameters["message"] = reply_message
+            open_support_reply_action.parameters = updated_parameters
+            open_support_reply_action.save(update_fields=["parameters"], changed_by=request.user)
+            open_support_reply_action.resolve(SupportTaskAction.Status.EXECUTED, request.user)
 
         serialized = MessageSerializer(message).data
 

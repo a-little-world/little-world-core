@@ -12,6 +12,8 @@ class ManagementPermission(StrEnum):
     EDIT_OPEN_CHAT_CONFIGURATION = "management.edit_open_chat_configuration"
     MANAGE_OPEN_CHAT_ACCESS = "management.manage_open_chat_access"
     APPLY_MANAGEMENT_PERMISSIONS = "management.apply_management_permissions"
+    CAN_SEND_SUPPORT_MESSAGE_REPLIES = "management.can_send_support_message_replies"
+    IS_MAIN_SUPPORT_ACCOUNT = "management.is_main_support_account"
 
     @property
     def codename(self) -> str:
@@ -33,6 +35,8 @@ MANAGEMENT_PERMISSION_LABELS: dict[ManagementPermission, str] = {
     ManagementPermission.EDIT_OPEN_CHAT_CONFIGURATION: "Can edit open chat configuration",
     ManagementPermission.MANAGE_OPEN_CHAT_ACCESS: "Manage Open Chat Access",
     ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS: "Can apply management permissions",
+    ManagementPermission.CAN_SEND_SUPPORT_MESSAGE_REPLIES: "Can send support message replies",
+    ManagementPermission.IS_MAIN_SUPPORT_ACCOUNT: "Is main support account",
 }
 
 MANAGEMENT_PERMISSION_DEFINITIONS = [(perm.codename, label) for perm, label in MANAGEMENT_PERMISSION_LABELS.items()]

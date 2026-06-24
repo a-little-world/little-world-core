@@ -2,6 +2,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from management.actions.registry import registered_action_types, registered_task_types
+from management.models.support_task import SupportTask
 from management.models.user import User
 
 
@@ -56,6 +57,29 @@ class SupportTaskApiTests(TestCase):
                 "first_page": 1,
             },
         )
+
+    def test_list_filters_by_related_user(self):
+        task_for_regular_user = SupportTask.create_of_type(
+            "support_reply",
+            created_by=self.admin_user,
+            related_user=self.regular_user,
+            static_parameters={"kind_display": "General", "message_preview": "A"},
+            parameters={"message": ""},
+        )
+        _task_for_admin_user = SupportTask.create_of_type(
+            "support_reply",
+            created_by=self.admin_user,
+            related_user=self.admin_user,
+            static_parameters={"kind_display": "General", "message_preview": "B"},
+            parameters={"message": ""},
+        )
+
+        response = self._client_for(self.admin_user).get(f"/api/support_task/?related_user={self.regular_user.id}")
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["results"][0]["id"], task_for_regular_user.id)
 
 
 class SupportTaskRegistryTests(TestCase):

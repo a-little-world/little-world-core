@@ -470,12 +470,27 @@ def is_base_management_user(user: User) -> bool:
     return user.email == settings.MATCHING_USER_MAIL
 
 
+def ensure_base_management_user_permissions(user: User) -> None:
+    required_permissions = (
+        ManagementPermission.MATCHING_USER,
+        ManagementPermission.OPEN_CHAT_ACCESS,
+        ManagementPermission.USE_RANDOM_CALLS,
+        ManagementPermission.CAN_SEND_SUPPORT_MESSAGE_REPLIES,
+        ManagementPermission.IS_MAIN_SUPPORT_ACCOUNT,
+    )
+    for permission in required_permissions:
+        if not user.has_perm(permission):
+            user.grant_permission(permission)
+
+
 def get_base_management_user():
     """
     Always returns the BASE_MANAGEMENT_USER user
     """
     try:
-        return get_user_by_email(settings.MATCHING_USER_MAIL)
+        user = get_user_by_email(settings.MATCHING_USER_MAIL)
+        ensure_base_management_user_permissions(user)
+        return user
     except UserNotFoundErr:
         return create_base_admin_and_add_standart_db_values()
 
@@ -498,10 +513,7 @@ def create_base_admin_and_add_standart_db_values():
 
     def update_profile():
         usr_tim = get_user_by_email(settings.MATCHING_USER_MAIL)
-        if not usr_tim.has_perm(ManagementPermission.MATCHING_USER):
-            usr_tim.grant_permission(ManagementPermission.MATCHING_USER)
-            usr_tim.grant_permission(ManagementPermission.OPEN_CHAT_ACCESS)
-            usr_tim.grant_permission(ManagementPermission.USE_RANDOM_CALLS)
+        ensure_base_management_user_permissions(usr_tim)
         usr_tim.state.email_authenticated = True
         usr_tim.state.save()
         usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
