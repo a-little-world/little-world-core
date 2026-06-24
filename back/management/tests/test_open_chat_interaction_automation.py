@@ -342,6 +342,13 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
     def test_open_chat_trigger_interaction_uses_message_reply_suggestion_tool(
         self, mock_client_cls, _mock_new_message_send
     ):
+        configuration = OpenChatConfiguration.objects.get(user=self.admin_user)
+        configuration.interaction_overwrite = {
+            "tools": [],
+            "system_prompt": "You are a support assistant. Respond naturally without using any external reply tools.",
+        }
+        configuration.save(update_fields=["interaction_overwrite"])
+
         support_task = SupportTask.create_of_type(
             "support_reply",
             static_parameters={
@@ -388,11 +395,65 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
 
         self.assertEqual(result["status"], "ok")
         self.assertTrue(result["tool_called"])
+        setup_args = mock_client.setup_bot_config.call_args[0][0]
+        self.assertEqual(setup_args["tools"], ["little_world__generate_message_reply_suggestion"])
+        self.assertIn("little_world__generate_message_reply_suggestion", setup_args["system_prompt"])
         _, create_kwargs = mock_client.create_interaction.call_args
         self.assertIn("tool_init", create_kwargs)
         self.assertIn("message", create_kwargs)
+        self.assertEqual(create_kwargs["message"], self.source_message.text)
         tool_init = create_kwargs["tool_init"]
         self.assertIn("little_world__generate_message_reply_suggestion", tool_init)
         suggestion_tool_init = tool_init["little_world__generate_message_reply_suggestion"]
-        self.assertEqual(suggestion_tool_init["task_pk"], support_task.pk)
-        self.assertIn(f"action_id={support_task.action.pk}", create_kwargs["message"])
+        self.assertEqual(suggestion_tool_init["task_pk"], str(support_task.pk))
+        self.assertEqual(suggestion_tool_init["action_id"], str(support_task.action.pk))
+        self.assertNotIn("action_id", create_kwargs["message"])
+
+    def test_open_chat_trigger_interaction_skips_message_reply_suggestion_when_action_not_open(self):
+        support_task = SupportTask.create_of_type(
+            "support_reply",
+            static_parameters={
+                "help_message_id": None,
+                "kind_display": "Open Chat",
+                "message_preview": self.source_message.text[:500],
+                "message_uuid": str(self.source_message.uuid),
+                "chat_uuid": str(self.chat.uuid),
+                "sender_user_id": self.source_user.pk,
+                "recipient_user_id": self.admin_user.pk,
+            },
+            parameters={"message": ""},
+            created_by=self.automation_user,
+            assigned_to=self.admin_user,
+            related_user=self.source_user,
+        )
+        support_task.action.resolve(SupportTaskAction.Status.CANCELLED, self.admin_user)
+
+        result = open_chat_trigger_interaction(
+            configuration_user_uuid=str(self.admin_user.uuid),
+            chat_uuid=str(self.chat.uuid),
+            message_uuid=str(self.source_message.uuid),
+            sender_uuid=str(self.source_user.uuid),
+            recipient_uuid=str(self.admin_user.uuid),
+            user_message_text=self.source_message.text,
+            support_task_id=support_task.pk,
+            tool_mode="message_reply_suggestion",
+            publish_chat_interaction_message=False,
+        )
+
+        self.assertEqual(result["status"], "skipped")
+        self.assertEqual(result["reason"], "support_task_action_not_open")
+
+    def test_open_chat_trigger_interaction_skips_message_reply_suggestion_without_support_task_id(self):
+        result = open_chat_trigger_interaction(
+            configuration_user_uuid=str(self.admin_user.uuid),
+            chat_uuid=str(self.chat.uuid),
+            message_uuid=str(self.source_message.uuid),
+            sender_uuid=str(self.source_user.uuid),
+            recipient_uuid=str(self.admin_user.uuid),
+            user_message_text=self.source_message.text,
+            tool_mode="message_reply_suggestion",
+            publish_chat_interaction_message=False,
+        )
+
+        self.assertEqual(result["status"], "skipped")
+        self.assertEqual(result["reason"], "support_task_action_missing_for_message_reply_suggestion")

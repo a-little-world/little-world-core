@@ -1,4 +1,3 @@
-import base64
 import json
 import logging
 from enum import StrEnum
@@ -28,6 +27,29 @@ class OpenChatInteractionToolMode(StrEnum):
     NO_TOOLS = "no_tools"
 
 
+FALLBACK_USER_MESSAGE = "Hallo"
+
+SYSTEM_PROMPT_CHAT_REPLY = """
+Du bist ein Little-World-Support-Assistent.
+Gib die finale Antwort immer aus, indem du genau einmal das Tool `little_world__chat_reply` aufrufst.
+""".strip()
+
+SYSTEM_PROMPT_MESSAGE_REPLY_SUGGESTION = """
+Du bearbeitest eine Little-World-Support-Konversation.
+Erstelle eine kurze und hilfreiche finale Antwort auf die letzte Nutzernachricht.
+Rufe genau einmal das Tool `little_world__generate_message_reply_suggestion` auf, um den Entwurf zu speichern.
+Stelle niemals Rueckfragen und bitte niemals um mehr Informationen.
+Wenn die Eingabe unklar oder sehr kurz ist, erstelle trotzdem einen bestmoeglichen, freundlichen Antwortentwurf.
+Frage nicht nach einer Bestaetigung und rufe keine anderen Tools auf.
+Uebergib als Argument nur den Entwurfstext in `message`.
+""".strip()
+
+SYSTEM_PROMPT_NO_TOOLS = """
+Du bist ein Support-Assistent.
+Antworte natuerlich, ohne externe Tools zu verwenden.
+""".strip()
+
+
 def _build_little_world_tool_init(
     *,
     session_id: str,
@@ -35,6 +57,7 @@ def _build_little_world_tool_init(
     api_host: str,
     lw_chat_uuid: str | None = None,
     support_task_pk: int | None = None,
+    support_task_action_id: str | None = None,
 ) -> dict:
     normalized_api_host = api_host.rstrip("/")
     tool_init: dict[str, dict[str, str | int]] = {}
@@ -45,37 +68,15 @@ def _build_little_world_tool_init(
             "api_host": normalized_api_host,
             "chat_uuid": lw_chat_uuid,
         }
-    if support_task_pk is not None:
+    if support_task_pk is not None and support_task_action_id is not None:
         tool_init["little_world__generate_message_reply_suggestion"] = {
             "session_id": session_id,
             "csrf_token": csrf_token,
             "api_host": normalized_api_host,
-            "task_pk": support_task_pk,
+            "task_pk": str(support_task_pk),
+            "action_id": support_task_action_id,
         }
     return tool_init
-
-
-def _build_little_world_instruction(user_message_text: str) -> str:
-    incoming = (user_message_text or "").strip() or "Hello"
-    return (
-        "You are handling a Little World support conversation. "
-        "Generate a helpful support reply and call tool `little_world__chat_reply` exactly once "
-        "with the final outbound message in parameter `message`. "
-        "Do not ask for confirmation. "
-        f"Incoming user message: {incoming}"
-    )
-
-
-def _build_message_reply_suggestion_instruction(*, user_message_text: str, support_task_action_id: int) -> str:
-    incoming = (user_message_text or "").strip() or "Hello"
-    return (
-        "You are handling a Little World support conversation. "
-        "Draft a concise and helpful reply to the latest user message. "
-        "Call tool `little_world__generate_message_reply_suggestion` exactly once and pass: "
-        f"`action_id={support_task_action_id}` and the draft text as `message`. "
-        "Do not ask for confirmation and do not call any other tool. "
-        f"Incoming user message: {incoming}"
-    )
 
 
 def _create_session_and_csrf_for_user(user: User) -> tuple[str, str]:
@@ -135,20 +136,15 @@ def _build_default_bot_config(
     system_prompt: str | None = None,
 ) -> dict:
     resolved_tools = ["little_world__chat_reply"] if tools is None else tools
-    resolved_system_prompt = (
-        "You are a Little World support assistant. "
-        "Always send your final response by calling `little_world__chat_reply`."
-        if system_prompt is None
-        else system_prompt
-    )
+    resolved_system_prompt = SYSTEM_PROMPT_CHAT_REPLY if system_prompt is None else system_prompt
     return {
         "temperature": 0.0,
-        "max_tokens": 1024,
+        "max_tokens": 8000,
         "tools": resolved_tools,
         "model": "qwen3-8b-instruct_vllm",
         "endpoint": "https://litellm.t1m.me/v1",
         "backend": "litellm",
-        "context": 2000,
+        "context": 8000,
         "system_prompt": resolved_system_prompt,
     }
 
@@ -165,7 +161,8 @@ def _run_open_chat_interaction_flow(
     tool_mode: str = OpenChatInteractionToolMode.CHAT_REPLY,
     publish_chat_interaction_message: bool = True,
     support_task_id: int | None = None,
-    support_task_action_id: int | None = None,
+    support_task_action_id: str | None = None,
+    tool_init_user: User | None = None,
 ) -> dict:
     try:
         from client.client import OpenChatPythonClient
@@ -186,21 +183,15 @@ def _run_open_chat_interaction_flow(
 
     if resolved_tool_mode == OpenChatInteractionToolMode.MESSAGE_REPLY_SUGGESTION:
         tools = ["little_world__generate_message_reply_suggestion"]
-        system_prompt = (
-            "You are a Little World support assistant. "
-            "Always persist your final suggestion by calling `little_world__generate_message_reply_suggestion`."
-        )
+        system_prompt = SYSTEM_PROMPT_MESSAGE_REPLY_SUGGESTION
         expected_tool_names = {"little_world__generate_message_reply_suggestion"}
     elif resolved_tool_mode == OpenChatInteractionToolMode.CHAT_REPLY:
         tools = ["little_world__chat_reply"]
-        system_prompt = (
-            "You are a Little World support assistant. "
-            "Always send your final response by calling `little_world__chat_reply`."
-        )
+        system_prompt = SYSTEM_PROMPT_CHAT_REPLY
         expected_tool_names = {"little_world__chat_reply"}
     else:
         tools = []
-        system_prompt = "You are a support assistant. Respond naturally without using any external reply tools."
+        system_prompt = SYSTEM_PROMPT_NO_TOOLS
         expected_tool_names = set()
 
     bot_config = _apply_bot_config_overwrite(
@@ -210,12 +201,20 @@ def _run_open_chat_interaction_flow(
         ),
         configuration.interaction_overwrite,
     )
+    # Never allow per-user interaction_overwrite to disable the selected runtime tool mode.
+    if resolved_tool_mode == OpenChatInteractionToolMode.MESSAGE_REPLY_SUGGESTION:
+        bot_config["tools"] = ["little_world__generate_message_reply_suggestion"]
+        bot_config["system_prompt"] = SYSTEM_PROMPT_MESSAGE_REPLY_SUGGESTION
+    elif resolved_tool_mode == OpenChatInteractionToolMode.CHAT_REPLY:
+        bot_config["tools"] = ["little_world__chat_reply"]
+        bot_config["system_prompt"] = SYSTEM_PROMPT_CHAT_REPLY
     tool_init = None
     if resolved_tool_mode in (
         OpenChatInteractionToolMode.CHAT_REPLY,
         OpenChatInteractionToolMode.MESSAGE_REPLY_SUGGESTION,
     ):
-        session_id, csrf_token = _create_session_and_csrf_for_user(recipient)
+        session_actor = tool_init_user or recipient
+        session_id, csrf_token = _create_session_and_csrf_for_user(session_actor)
         tool_init = _build_little_world_tool_init(
             session_id=session_id,
             csrf_token=csrf_token,
@@ -223,6 +222,11 @@ def _run_open_chat_interaction_flow(
             lw_chat_uuid=chat_uuid if resolved_tool_mode == OpenChatInteractionToolMode.CHAT_REPLY else None,
             support_task_pk=(
                 support_task_id if resolved_tool_mode == OpenChatInteractionToolMode.MESSAGE_REPLY_SUGGESTION else None
+            ),
+            support_task_action_id=(
+                support_task_action_id
+                if resolved_tool_mode == OpenChatInteractionToolMode.MESSAGE_REPLY_SUGGESTION
+                else None
             ),
         )
 
@@ -235,18 +239,7 @@ def _run_open_chat_interaction_flow(
         client.setup_bot_config(bot_config)
         login_result = client.login()
 
-        if resolved_tool_mode == OpenChatInteractionToolMode.MESSAGE_REPLY_SUGGESTION:
-            assert support_task_action_id is not None
-            interaction_message = _build_message_reply_suggestion_instruction(
-                user_message_text=user_message_text,
-                support_task_action_id=support_task_action_id,
-            )
-        else:
-            interaction_message = (
-                _build_little_world_instruction(user_message_text)
-                if resolved_tool_mode == OpenChatInteractionToolMode.CHAT_REPLY
-                else ((user_message_text or "").strip() or "Hello")
-            )
+        interaction_message = (user_message_text or "").strip() or FALLBACK_USER_MESSAGE
         if tool_init is not None:
             interaction = client.create_interaction(
                 tool_init=tool_init,
@@ -344,9 +337,7 @@ def _run_open_chat_interaction_flow(
             if chat is not None and chat.is_participant(sender) and chat.is_participant(recipient):
                 interaction_message_payload = {
                     "type": "open_chat_interaction",
-                    "title": base64.b64decode(
-                        "VGltOiBUaGlzIGlzICpoaWdobHkqIGV4cGVyaW1lbnRhbDsgdGhlIG1vZGVsIHJ1bnMgYXQgaG9tZSBvbiBteSBwYyBhbmQgbWlnaCB3YWtlIHdlIHVwIGF0IG5pZ2h0OyBidXQgbWF5YmUgaXQgY2FuIGhlbHAgeW91IHdpdGggc29tZXRoaW5nLg=="
-                    ).decode("utf-8"),
+                    "title": "Tim: Very early experimental Open-Chat integration, use with caution",
                     "interaction_id": interaction_uuid,
                     "shared_interaction_url": shared_url,
                 }
@@ -635,7 +626,8 @@ def open_chat_trigger_interaction(
     except ValueError:
         return {"status": "skipped", "reason": "invalid_tool_mode", "tool_mode": tool_mode}
 
-    support_task_action_id: int | None = None
+    support_task_action_id: str | None = None
+    tool_init_user: User | None = None
     if support_task_id is not None and resolved_tool_mode == OpenChatInteractionToolMode.MESSAGE_REPLY_SUGGESTION:
         support_action = SupportTaskAction.objects.filter(task_id=support_task_id).first()
         if support_action is None:
@@ -644,7 +636,18 @@ def open_chat_trigger_interaction(
                 "reason": "support_task_action_missing",
                 "support_task_id": support_task_id,
             }
-        support_task_action_id = support_action.pk
+        if support_action.status != SupportTaskAction.Status.OPEN:
+            return {
+                "status": "skipped",
+                "reason": "support_task_action_not_open",
+                "support_task_id": support_task_id,
+                "support_task_action_id": support_action.pk,
+                "support_task_action_status": support_action.status,
+            }
+        support_task_action_id = str(support_action.pk)
+        tool_init_user = getattr(support_action.task, "assigned_to", None) or getattr(
+            support_action.task, "created_by", None
+        )
 
     result = _run_open_chat_interaction_flow(
         configuration=configuration,
@@ -658,6 +661,7 @@ def open_chat_trigger_interaction(
         publish_chat_interaction_message=publish_chat_interaction_message,
         support_task_id=support_task_id,
         support_task_action_id=support_task_action_id,
+        tool_init_user=tool_init_user,
     )
     if support_task_id and result.get("status") == "ok" and result.get("interaction_uuid"):
         support_action = SupportTaskAction.objects.filter(task_id=support_task_id).first()
