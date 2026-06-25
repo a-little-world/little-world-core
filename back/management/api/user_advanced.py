@@ -207,6 +207,9 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation["profile"] = MinimalProfileSerializer(instance.profile).data
+        representation["is_staff"] = instance.is_staff
+        representation["is_superuser"] = instance.is_superuser
+        representation["is_matching_user"] = instance.has_perm(ManagementPermission.MATCHING_USER)
 
         determine_bucket = ("determine_bucket" in self.context) and self.context["determine_bucket"]
 
@@ -1080,6 +1083,67 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
     @extend_schema(
         request=inline_serializer(
+            name="UpdateUserProfileFieldsRequest",
+            fields={
+                "user_type": serializers.ChoiceField(choices=Profile.TypeChoices.choices, required=False),
+                "country_of_residence": serializers.ChoiceField(
+                    choices=Profile.CountryChoices.choices,
+                    required=False,
+                ),
+            },
+        )
+    )
+    @action(detail=True, methods=["post"])
+    def update_profile_fields(self, request, pk=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+
+        if not request.user.has_perm(ManagementPermission.MATCHING_USER):
+            return Response(
+                {"msg": "You are not allowed to update matching profile fields!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+
+        serializer = inline_serializer(
+            name="UpdateUserProfileFieldsSerializer",
+            fields={
+                "user_type": serializers.ChoiceField(choices=Profile.TypeChoices.choices, required=False),
+                "country_of_residence": serializers.ChoiceField(
+                    choices=Profile.CountryChoices.choices,
+                    required=False,
+                ),
+            },
+            data=request.data,
+        )
+        serializer.is_valid(raise_exception=True)
+
+        update_fields = []
+        profile = obj.profile
+        for field in ("user_type", "country_of_residence"):
+            if field in serializer.validated_data:
+                setattr(profile, field, serializer.validated_data[field])
+                update_fields.append(field)
+
+        if not update_fields:
+            return Response(
+                {"msg": "No profile fields provided."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        profile.save(update_fields=update_fields)
+        return Response(
+            {
+                "success": True,
+                "profile": MinimalProfileSerializer(profile).data,
+            }
+        )
+
+    @extend_schema(
+        request=inline_serializer(
             name="MarkPrematchingCallCompletedRequest",
             fields={"had_prematching_call": serializers.BooleanField(default=True)},
         )
@@ -1134,6 +1198,12 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     def delete_user(self, request, pk=None):
         self.kwargs["pk"] = pk
         obj = self.get_object()
+
+        if not request.user.has_perm(ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS):
+            return Response(
+                {"msg": "You are not allowed to delete users!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         has_access, res = self.check_management_user_access(obj, request)
         if not has_access:
@@ -1347,6 +1417,10 @@ viewset_actions = [
     path(
         "api/matching/users/<pk>/invite_native_app_tester/",
         AdvancedUserViewset.as_view({"post": "invite_native_app_tester"}),
+    ),
+    path(
+        "api/matching/users/<pk>/update_profile_fields/",
+        AdvancedUserViewset.as_view({"post": "update_profile_fields"}),
     ),
 ]
 
