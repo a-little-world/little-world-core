@@ -439,13 +439,18 @@ class OpenChatConfigurationApiTests(TestCase):
             open_chat_host=DEFAULT_HOST,
         )
         mock_client = MagicMock()
-        mock_client.get_interactions.return_value = [
-            {
-                "uuid": "interaction-1",
-                "title": "First interaction",
-                "status": "completed",
-            }
-        ]
+        mock_client.get_interactions.return_value = {
+            "rows": [
+                {
+                    "uuid": "interaction-1",
+                    "title": "First interaction",
+                    "status": "completed",
+                    "created": None,
+                    "updated": None,
+                    "shared_interaction_url": None,
+                }
+            ]
+        }
         mock_build_client.return_value = mock_client
 
         self.api_client.force_authenticate(user=self.authorized_user)
@@ -467,7 +472,18 @@ class OpenChatConfigurationApiTests(TestCase):
             open_chat_host=DEFAULT_HOST,
         )
         mock_client = MagicMock()
-        mock_client.get_interactions.return_value = {"results": [{"id": 42, "name": "Managed interaction"}]}
+        mock_client.get_interactions.return_value = {
+            "rows": [
+                {
+                    "uuid": "42",
+                    "title": "Managed interaction",
+                    "status": None,
+                    "created": None,
+                    "updated": None,
+                    "shared_interaction_url": None,
+                }
+            ]
+        }
         mock_build_client.return_value = mock_client
 
         self.api_client.force_authenticate(user=self.manager_user)
@@ -494,7 +510,18 @@ class OpenChatConfigurationApiTests(TestCase):
             open_chat_host=DEFAULT_HOST,
         )
         mock_client = MagicMock()
-        mock_client.get_interactions.return_value = [{"uuid": "interaction-own-config"}]
+        mock_client.get_interactions.return_value = {
+            "rows": [
+                {
+                    "uuid": "interaction-own-config",
+                    "title": None,
+                    "status": None,
+                    "created": None,
+                    "updated": None,
+                    "shared_interaction_url": None,
+                }
+            ]
+        }
         mock_build_client.return_value = mock_client
 
         self.api_client.force_authenticate(user=self.authorized_user)
@@ -518,7 +545,18 @@ class OpenChatConfigurationApiTests(TestCase):
             open_chat_host=DEFAULT_HOST,
         )
         mock_client = MagicMock()
-        mock_client.get_interactions.return_value = [{"uuid": "interaction-manage-only"}]
+        mock_client.get_interactions.return_value = {
+            "rows": [
+                {
+                    "uuid": "interaction-manage-only",
+                    "title": None,
+                    "status": None,
+                    "created": None,
+                    "updated": None,
+                    "shared_interaction_url": None,
+                }
+            ]
+        }
         mock_build_client.return_value = mock_client
 
         self.api_client.force_authenticate(user=self.manage_only_user)
@@ -544,6 +582,9 @@ class OpenChatConfigurationApiTests(TestCase):
             "uuid": interaction_uuid,
             "title": "Detailed interaction",
             "status": "completed",
+            "created": None,
+            "updated": None,
+            "shared_interaction_url": None,
         }
         mock_build_client.return_value = mock_client
 
@@ -555,10 +596,7 @@ class OpenChatConfigurationApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["interaction_id"], interaction_uuid)
         self.assertEqual(response.data["title"], "Detailed interaction")
-        mock_client.get_interaction.assert_called_once_with(
-            interaction_uuid,
-            include_share_info=False,
-        )
+        mock_client.get_interaction.assert_called_once_with(interaction_uuid)
 
     def test_delete_chat_deletes_owned_open_chat_chat(self):
         chat = Chat.objects.create(

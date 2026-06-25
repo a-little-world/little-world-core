@@ -1,6 +1,7 @@
 import uuid as uuid_lib
 
 from chat.models import Chat
+from client.client import OpenChatPythonClient
 from django.conf import settings
 from django.db.models import Q
 from django.urls import path
@@ -151,63 +152,32 @@ def _get_open_chat_access_user_by_uuid(user_uuid: str) -> User | None:
 
 
 def _build_open_chat_client(host: str, username: str, password: str):
-    from client.client import OpenChatPythonClient
-
     return OpenChatPythonClient(host=host, username=username, password=password)
 
 
-def _extract_open_chat_interaction_items(payload) -> list:
-    if isinstance(payload, list):
-        return payload
-    if isinstance(payload, dict):
-        for key in ("rows", "results", "items", "interactions", "data"):
-            candidate = payload.get(key)
-            if isinstance(candidate, list):
-                return candidate
-    return []
-
-
-def _build_open_chat_interaction_summary(item: object) -> dict | None:
-    if not isinstance(item, dict):
-        return None
-
-    interaction_id = item.get("interaction_id") or item.get("uuid") or item.get("id") or item.get("interaction_uuid")
-    if not interaction_id:
-        return None
-
+def _build_open_chat_interaction_summary(interaction: dict) -> dict:
     return {
-        "interaction_id": str(interaction_id),
-        "title": item.get("title") or item.get("name") or item.get("subject"),
-        "created": item.get("created") or item.get("created_at") or item.get("started_at"),
-        "updated": item.get("updated") or item.get("updated_at") or item.get("finished_at"),
-        "status": item.get("status") or item.get("state"),
-        "shared_interaction_url": item.get("shared_interaction_url") or item.get("shared_url") or item.get("share_url"),
-        "raw": item,
+        "interaction_id": str(interaction["uuid"]),
+        "title": interaction["title"] if "title" in interaction else None,
+        "created": interaction["created"] if "created" in interaction else None,
+        "updated": interaction["updated"] if "updated" in interaction else None,
+        "status": interaction["status"] if "status" in interaction else None,
+        "shared_interaction_url": (
+            interaction["shared_interaction_url"] if "shared_interaction_url" in interaction else None
+        ),
+        "raw": interaction,
     }
 
 
 def _fetch_open_chat_interactions(client) -> list[dict]:
     payload = client.get_interactions()
-    items = _extract_open_chat_interaction_items(payload)
-    if items:
-        summaries: list[dict] = []
-        for item in items:
-            summary = _build_open_chat_interaction_summary(item)
-            if summary is not None:
-                summaries.append(summary)
-        return summaries
-    if isinstance(payload, dict):
-        summary = _build_open_chat_interaction_summary(payload)
-        return [summary] if summary is not None else []
-    return []
+    rows = payload["rows"]
+    return [_build_open_chat_interaction_summary(item) for item in rows]
 
 
 def _fetch_open_chat_interaction(client, interaction_uuid: str) -> dict:
-    payload = client.get_interaction(interaction_uuid, include_share_info=False)
-    summary = _build_open_chat_interaction_summary(payload)
-    if summary is None:
-        raise ValueError("Open chat interaction detail payload is missing an interaction id.")
-    return summary
+    payload = client.get_interaction(interaction_uuid)
+    return _build_open_chat_interaction_summary(payload)
 
 
 def _resolve_open_chat_target_user(request) -> User | Response:
@@ -380,7 +350,7 @@ def open_chat_test_connection(request):
             password=configuration.open_chat_api_key,
         )
         user = client.login()
-        user_name = user.get("name") if isinstance(user, dict) else None
+        user_name = user["name"]
         return Response(
             {
                 "success": True,

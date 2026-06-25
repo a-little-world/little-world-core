@@ -254,7 +254,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         )
 
     @patch("chat.consumers.messages.NewMessage.send")
-    @patch("client.client.OpenChatPythonClient")
+    @patch("management.open_chat_interaction_task.OpenChatPythonClient")
     def test_open_chat_trigger_interaction_uses_explicit_configuration(self, mock_client_cls, _mock_new_message_send):
         mock_client = MagicMock()
         mock_client.login.return_value = {"name": "Admin Open Chat"}
@@ -285,7 +285,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         self.assertEqual(result["interaction_uuid"], "7e4b91f9-2bf9-4f10-b650-11a4345acf71")
 
     @patch("chat.consumers.messages.NewMessage.send")
-    @patch("client.client.OpenChatPythonClient")
+    @patch("management.open_chat_interaction_task.OpenChatPythonClient")
     def test_open_chat_trigger_interaction_plain_mode_stores_interaction_on_support_task(
         self, mock_client_cls, _mock_new_message_send
     ):
@@ -338,7 +338,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         self.assertEqual(support_action.static_parameters.get("interaction_id"), "plain-interaction-uuid")
 
     @patch("chat.consumers.messages.NewMessage.send")
-    @patch("client.client.OpenChatPythonClient")
+    @patch("management.open_chat_interaction_task.OpenChatPythonClient")
     def test_open_chat_trigger_interaction_uses_message_reply_suggestion_tool(
         self, mock_client_cls, _mock_new_message_send
     ):
@@ -460,7 +460,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
 
     @patch("management.open_chat_interaction_task._create_session_and_csrf_for_user")
     @patch("chat.consumers.messages.NewMessage.send")
-    @patch("client.client.OpenChatPythonClient")
+    @patch("management.open_chat_interaction_task.OpenChatPythonClient")
     def test_message_reply_suggestion_tool_init_uses_open_chat_task_creator_session(
         self, mock_client_cls, _mock_new_message_send, mock_create_session
     ):

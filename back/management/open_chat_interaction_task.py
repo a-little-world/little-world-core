@@ -7,6 +7,7 @@ from urllib.parse import urlparse, urlunparse
 from celery import current_app, shared_task
 from chat.models import Chat
 from chat.models import Message as ChatMessage
+from client.client import OpenChatPythonClient
 from django.conf import settings
 from django.contrib.auth import BACKEND_SESSION_KEY, HASH_SESSION_KEY, SESSION_KEY
 from django.db.models import Q
@@ -19,6 +20,10 @@ from management.models.user import User
 from management.permissions import ManagementPermission
 
 logger = logging.getLogger(__name__)
+
+
+def _get_tool_call_name(tool_call: dict) -> str:
+    return tool_call["name"]
 
 
 class OpenChatInteractionToolMode(StrEnum):
@@ -119,19 +124,8 @@ def _apply_bot_config_overwrite(bot_config: dict, overwrite: object) -> dict:
     return merged
 
 
-def _extract_interaction_rows(payload: object) -> list:
-    if isinstance(payload, list):
-        return payload
-    if isinstance(payload, dict):
-        for key in ("rows", "results", "items", "interactions", "data"):
-            candidate = payload.get(key)
-            if isinstance(candidate, list):
-                return candidate
-    return []
-
-
 def resolve_open_chat_automation_task_creator_user() -> User | None:
-    automation_user_email = (getattr(settings, "OPEN_CHAT_AUTOMATION_USER_EMAIL", "") or "").strip()
+    automation_user_email = (settings.OPEN_CHAT_AUTOMATION_USER_EMAIL or "").strip()
     created_by_user = User.objects.filter(email=automation_user_email).first() if automation_user_email else None
     if created_by_user is None:
         created_by_user = controller.create_open_chat_automation_user()
@@ -154,7 +148,7 @@ def create_or_reuse_support_reply_task_for_message(
             "status": "skipped_matching_user_permission",
         }
 
-    if latest_message.sender_id != source_user.pk:
+    if latest_message.sender.pk != source_user.pk:
         return {
             "message_uuid": str(latest_message.uuid),
             "chat_uuid": str(latest_message.chat.uuid),
@@ -172,7 +166,7 @@ def create_or_reuse_support_reply_task_for_message(
         .first()
     )
     if existing_action is not None:
-        if getattr(existing_action.task, "assigned_to", None) is None:
+        if existing_action.task.assigned_to is None:
             SupportTask.objects.filter(pk=existing_action.task.pk).update(assigned_to_id=assigned_to_user.pk)
         return {
             "message_uuid": str(latest_message.uuid),
@@ -197,7 +191,7 @@ def create_or_reuse_support_reply_task_for_message(
         assigned_to=assigned_to_user,
         related_user=source_user,
     )
-    if getattr(support_task, "assigned_to", None) is None:
+    if support_task.assigned_to is None:
         SupportTask.objects.filter(pk=support_task.pk).update(assigned_to_id=assigned_to_user.pk)
 
     result = {
@@ -262,11 +256,6 @@ def _run_open_chat_interaction_flow(
     support_task_action_id: str | None = None,
     tool_init_user: User | None = None,
 ) -> dict:
-    try:
-        from client.client import OpenChatPythonClient
-    except ImportError as exc:
-        return {"status": "error", "reason": "open_chat_client_import_failed", "detail": str(exc)}
-
     try:
         resolved_tool_mode = OpenChatInteractionToolMode(tool_mode)
     except ValueError:
@@ -345,10 +334,11 @@ def _run_open_chat_interaction_flow(
             )
         else:
             interaction = client.create_interaction(message=interaction_message)
-        interaction_uuid = interaction.get("uuid") if isinstance(interaction, dict) else None
+        interaction_uuid = interaction["uuid"]
+        login_user_name = login_result["name"]
         logger.info(
             "open_chat_interaction_flow login_user=%s config_owner=%s interaction_uuid=%s",
-            login_result.get("name") if isinstance(login_result, dict) else None,
+            login_user_name,
             config_owner,
             interaction_uuid,
         )
@@ -358,72 +348,36 @@ def _run_open_chat_interaction_flow(
         interaction_merged_count = None
         interaction_present_in_merged = None
 
-        get_interactions = getattr(client, "get_interactions", None)
-        if callable(get_interactions):
-            try:
-                single_page_payload = get_interactions(page=1, limit=40, all_pages=False)
-                merged_payload = get_interactions(page=1, limit=40)
-            except TypeError:
-                single_page_payload = get_interactions(page=1, limit=40)
-                merged_payload = get_interactions()
+        single_page_payload = client.get_interactions(page=1, limit=40, all_pages=False)
+        merged_payload = client.get_interactions(page=1, limit=40, all_pages=True)
 
-            single_rows = _extract_interaction_rows(single_page_payload)
-            merged_rows = _extract_interaction_rows(merged_payload)
-            interaction_single_page_count = len(single_rows)
-            interaction_merged_count = len(merged_rows)
-            if isinstance(single_page_payload, dict):
-                interaction_total_pages = single_page_payload.get("total_pages")
-            if interaction_uuid:
-                interaction_present_in_merged = any(
-                    isinstance(row, dict)
-                    and str(
-                        row.get("interaction_id") or row.get("uuid") or row.get("id") or row.get("interaction_uuid")
-                    )
-                    == str(interaction_uuid)
-                    for row in merged_rows
-                )
-                if interaction_present_in_merged is False:
-                    return {
-                        "status": "error",
-                        "reason": "created_interaction_missing_from_get_interactions",
-                        "interaction_uuid": interaction_uuid,
-                        "single_page_count": interaction_single_page_count,
-                        "total_pages": interaction_total_pages,
-                        "merged_count": interaction_merged_count,
-                    }
+        single_rows = list(single_page_payload["rows"])
+        merged_rows = list(merged_payload["rows"])
+        interaction_single_page_count = len(single_rows)
+        interaction_merged_count = len(merged_rows)
+        interaction_total_pages = single_page_payload["total_pages"]
+        interaction_present_in_merged = any(row["uuid"] == interaction_uuid for row in merged_rows)
+        if interaction_present_in_merged is False:
+            return {
+                "status": "error",
+                "reason": "created_interaction_missing_from_get_interactions",
+                "interaction_uuid": interaction_uuid,
+                "single_page_count": interaction_single_page_count,
+                "total_pages": interaction_total_pages,
+                "merged_count": interaction_merged_count,
+            }
 
         shared_url = None
         tool_called = False
-        if interaction_uuid:
-            get_shared_url = getattr(client, "get_shared_interaction_url", None)
-            if callable(get_shared_url):
-                shared_url = get_shared_url(interaction_uuid)
-            if expected_tool_names:
-                list_messages = getattr(client, "list_interaction_messages", None)
-                interaction_messages_payload = None
-                if callable(list_messages):
-                    try:
-                        interaction_messages_payload = list_messages(interaction_uuid, page=1, limit=200)
-                    except TypeError:
-                        interaction_messages_payload = list_messages(interaction_uuid)
-                else:
-                    get_messages = getattr(client, "get_interaction_messages", None)
-                    if callable(get_messages):
-                        try:
-                            interaction_messages_payload = get_messages(interaction_uuid, wait_seconds=5)
-                        except TypeError:
-                            interaction_messages_payload = get_messages(interaction_uuid)
-
-                interaction_messages = _extract_interaction_rows(interaction_messages_payload)
-                for item in interaction_messages:
-                    if not isinstance(item, dict):
-                        continue
-                    tool_calls = item.get("tool_calls")
-                    if not isinstance(tool_calls, list):
-                        continue
-                    if any(isinstance(tc, dict) and tc.get("name") in expected_tool_names for tc in tool_calls):
-                        tool_called = True
-                        break
+        shared_url = client.get_shared_interaction_url(interaction_uuid)
+        if expected_tool_names:
+            interaction_messages_payload = client.list_interaction_messages(interaction_uuid, page=1, limit=200)
+            interaction_messages = list(interaction_messages_payload["rows"])
+            for item in interaction_messages:
+                tool_calls = item["tool_calls"]
+                if any(_get_tool_call_name(tc) in expected_tool_names for tc in tool_calls):
+                    tool_called = True
+                    break
 
         interaction_message_uuid = None
         interaction_message_payload = None
@@ -464,7 +418,7 @@ def _run_open_chat_interaction_flow(
             "recipient_user_id": recipient.pk,
             "configuration_owner": config_owner,
             "configuration_user_id": configuration.user.pk,
-            "login_user_name": login_result.get("name") if isinstance(login_result, dict) else None,
+            "login_user_name": login_user_name,
             "interaction_message_input": user_message_text,
             "interaction_uuid": interaction_uuid,
             "shared_url": shared_url,
@@ -602,9 +556,9 @@ def idempotent_actions__generate_message_replies(
             configuration_user_uuid=str(configuration.user.uuid),
             enqueue_interaction=True,
         )
-        if step_result.get("status") in {"created", "created_and_enqueued"}:
+        if step_result["status"] in {"created", "created_and_enqueued"}:
             created_tasks += 1
-        if step_result.get("status") == "created_and_enqueued":
+        if step_result["status"] == "created_and_enqueued":
             enqueued_interactions += 1
         processed_messages.append(step_result)
 
@@ -681,7 +635,7 @@ def open_chat_trigger_interaction(
                 "support_task_action_status": support_action.status,
             }
         support_task_action_id = str(support_action.pk)
-        tool_init_user = getattr(support_action.task, "created_by", None)
+        tool_init_user = support_action.task.created_by
 
     result = _run_open_chat_interaction_flow(
         configuration=configuration,
@@ -697,12 +651,12 @@ def open_chat_trigger_interaction(
         support_task_action_id=support_task_action_id,
         tool_init_user=tool_init_user,
     )
-    if support_task_id and result.get("status") == "ok" and result.get("interaction_uuid"):
+    if support_task_id and result["status"] == "ok" and result["interaction_uuid"]:
         support_action = SupportTaskAction.objects.filter(task_id=support_task_id).first()
         if support_action is not None:
             static_parameters = dict(support_action.static_parameters or {})
-            static_parameters["interaction_id"] = str(result.get("interaction_uuid"))
-            static_parameters["shared_interaction_url"] = result.get("shared_url")
+            static_parameters["interaction_id"] = str(result["interaction_uuid"])
+            static_parameters["shared_interaction_url"] = result["shared_url"]
             support_action.static_parameters = static_parameters
             support_action.save(update_fields=["static_parameters"])
     return result
