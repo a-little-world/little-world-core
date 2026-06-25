@@ -356,6 +356,7 @@ class User(AbstractUser):
                             "user": sender,
                         },
                     ).data,
+                    sender_is_self=True,
                 ).send(str(sender.uuid))
         return message
 
