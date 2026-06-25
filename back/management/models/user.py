@@ -1,5 +1,6 @@
 from uuid import uuid4
 
+from celery import current_app
 from chat.models import Chat, ChatSerializer, Message, MessageSerializer
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser, BaseUserManager
@@ -148,9 +149,10 @@ class User(AbstractUser):
         had_permission = self.has_perm(permission)
         self.user_permissions.add(permission_obj)
         if permission == ManagementPermission.RECEIVES_FULL_USER_ACCESS and not had_permission:
-            from management.tasks import sync_full_user_access_for_manager
-
-            sync_full_user_access_for_manager.delay(self.pk)
+            current_app.send_task(  # pyright: ignore[reportCallIssue]
+                "management.tasks.sync_full_user_access_for_manager",
+                kwargs={"manager_user_id": self.pk},
+            )
         return True
 
     def revoke_permission(self, permission: ManagementPermission) -> bool:

@@ -839,7 +839,7 @@ def open_chat_idempotent_actions(request):
 
     return Response(
         {
-            "target_user_uuid": target_user.uuid,
+            "target_user_uuid": str(target_user.uuid),
             "results": _build_open_chat_idempotent_actions_response(target_user),
         }
     )
@@ -881,7 +881,7 @@ def open_chat_automation_generate_message_replies(request):
         {
             "trigger": "idempotent_actions__generate_message_replies",
             "task_id": task.id,
-            "target_user_uuid": target_user.uuid,
+            "target_user_uuid": str(target_user.uuid),
             "detail": "Automation trigger enqueued.",
         },
         status=status.HTTP_202_ACCEPTED,
@@ -924,7 +924,7 @@ def open_chat_automation_clear_message_replies(request):
     return Response(
         {
             "trigger": "idempotent_actions__generate_message_replies.clear",
-            "target_user_uuid": target_user.uuid,
+            "target_user_uuid": str(target_user.uuid),
             "deleted_support_tasks_count": deleted_tasks_count,
             "deleted_support_task_actions_count": deleted_actions_count,
             "detail": "Related support tasks deleted.",

@@ -223,8 +223,8 @@ jobs:
           echo "DJ_CREATE_OPEN_CHAT_AUTOMATION_USER=\"$DJ_CREATE_OPEN_CHAT_AUTOMATION_USER\"" >> .env
           echo "DJ_OPEN_CHAT_AUTOMATION_USER_EMAIL=\"$DJ_OPEN_CHAT_AUTOMATION_USER_EMAIL\"" >> .env
           echo "DJ_OPEN_CHAT_AUTOMATION_USER_PASSWORD=\"$DJ_OPEN_CHAT_AUTOMATION_USER_PASSWORD\"" >> .env
-          # development true so that dev-packages are also included at build time
-          echo "DEVELOPMENT=true" >> .env
+          # Keep CI build images lean: do not include development-only dependencies.
+          echo "DEVELOPMENT=false" >> .env
           echo "REDIS_URL=$REDIS_URL" >> $GITHUB_OUTPUT
           echo "DJ_REDIS_HOST=$DJ_REDIS_HOST" >> $GITHUB_OUTPUT
           echo "DJ_REDIS_PORT=$DJ_REDIS_PORT" >> $GITHUB_OUTPUT

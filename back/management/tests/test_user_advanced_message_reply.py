@@ -19,6 +19,11 @@ class AdvancedUserMessageReplyTests(TestCase):
             content_type=content_type,
             defaults={"name": ManagementPermission.CAN_SEND_SUPPORT_MESSAGE_REPLIES.codename},
         )
+        matching_user_permission, _ = Permission.objects.get_or_create(
+            codename=ManagementPermission.MATCHING_USER.codename,
+            content_type=content_type,
+            defaults={"name": ManagementPermission.MATCHING_USER.codename},
+        )
 
         cls.support_user = User.objects.create_user(
             email="support-user@test.de",
@@ -48,7 +53,10 @@ class AdvancedUserMessageReplyTests(TestCase):
             first_name="Reply",
             last_name="ManagerWithAccess",
         )
-        cls.reply_manager_with_access.user_permissions.add(can_send_support_message_replies_permission)
+        cls.reply_manager_with_access.user_permissions.add(
+            can_send_support_message_replies_permission,
+            matching_user_permission,
+        )
 
         cls.reply_manager_without_access = User.objects.create_user(
             email="reply-manager-without-access@test.de",
@@ -57,7 +65,10 @@ class AdvancedUserMessageReplyTests(TestCase):
             first_name="Reply",
             last_name="ManagerWithoutAccess",
         )
-        cls.reply_manager_without_access.user_permissions.add(can_send_support_message_replies_permission)
+        cls.reply_manager_without_access.user_permissions.add(
+            can_send_support_message_replies_permission,
+            matching_user_permission,
+        )
 
         cls.target_user = User.objects.create_user(
             email="reply-target@test.de",

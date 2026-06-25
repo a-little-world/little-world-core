@@ -21,12 +21,6 @@ from management.models.state import State
 from management.models.unconfirmed_matches import MatchType, ProposedMatch
 from management.models.user import User, UserSerializer
 from management.permissions import ManagementPermission
-from management.tasks import (
-    create_default_banners,
-    create_default_community_events,
-    create_default_cookie_groups,
-    fill_base_management_user_tim_profile,
-)
 
 
 class UserNotFoundErr(Exception):
@@ -541,13 +535,28 @@ def create_base_admin_and_add_standart_db_values():
         )
         print(f"Base Management user {usr_tim.email} newly created!")
 
+    ensure_base_management_user_permissions(usr_tim)
+    usr_tim.state.email_authenticated = True
+    usr_tim.state.save()
+    usr_tim.state.set_user_form_completed()
+
     transaction.on_commit(update_profile)
     # The tim user should always get the matching permission
+
+    if getattr(settings, "IS_TEST_COMMAND", False):
+        return usr_tim
 
     # Now we create some default database elements that should be part of all setups!
 
     # Create default cookie groups and community events
     # This is done as celery task in the background!
+    from management.tasks import (
+        create_default_banners,
+        create_default_community_events,
+        create_default_cookie_groups,
+        fill_base_management_user_tim_profile,
+    )
+
     create_default_cookie_groups.delay()
     create_default_community_events.delay()
     create_default_banners.delay()

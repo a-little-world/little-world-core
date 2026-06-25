@@ -11,7 +11,6 @@ from drf_spectacular.utils import extend_schema, extend_schema_view, inline_seri
 from emails.models import AdvancedEmailLogSerializer, EmailLog
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from management.api.export_utils import build_paginated_export_response
@@ -557,6 +556,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     queryset = User.objects.all().order_by("-date_joined")
 
     filter_backends = (filters.DjangoFilterBackend,)
+
     filterset_class = UserFilter
 
     serializer_class = AdvancedUserSerializer
@@ -797,7 +797,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
             return Response(SmsSerializer(sms, many=True).data)
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
+    @action(detail=True, methods=["post"])
     def message_reply(self, request, pk=None):
         self.kwargs["pk"] = pk
         obj = self.get_object()

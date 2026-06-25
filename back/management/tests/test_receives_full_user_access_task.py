@@ -20,8 +20,8 @@ class ReceivesFullUserAccessTaskTests(TestCase):
             defaults={"name": ManagementPermission.RECEIVES_FULL_USER_ACCESS.codename},
         )
 
-    @patch("management.tasks.sync_full_user_access_for_manager.delay")
-    def test_grant_permission_enqueues_full_access_sync_task(self, mock_delay):
+    @patch("management.models.user.current_app.send_task")
+    def test_grant_permission_enqueues_full_access_sync_task(self, mock_send_task):
         manager = User.objects.create_user(
             email="receives-full-access-manager@test.de",
             username="receives-full-access-manager@test.de",
@@ -33,7 +33,10 @@ class ReceivesFullUserAccessTaskTests(TestCase):
         success = manager.grant_permission(ManagementPermission.RECEIVES_FULL_USER_ACCESS)
 
         self.assertTrue(success)
-        mock_delay.assert_called_once_with(manager.pk)
+        mock_send_task.assert_called_once_with(
+            "management.tasks.sync_full_user_access_for_manager",
+            kwargs={"manager_user_id": manager.pk},
+        )
 
     def test_sync_task_grants_manager_access_to_all_base_management_managed_users(self):
         base_management_user = get_base_management_user()
