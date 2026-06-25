@@ -1,5 +1,6 @@
 import json
 import logging
+from dataclasses import dataclass
 from enum import StrEnum
 from importlib import import_module
 from urllib.parse import urlparse, urlunparse
@@ -22,8 +23,11 @@ from management.permissions import ManagementPermission
 logger = logging.getLogger(__name__)
 
 
-def _get_tool_call_name(tool_call: dict) -> str:
-    return tool_call["name"]
+def _get_tool_call_name(tool_call) -> str:
+    try:
+        return tool_call.name
+    except Exception:
+        return tool_call["name"]
 
 
 class OpenChatInteractionToolMode(StrEnum):
@@ -241,6 +245,109 @@ def _build_default_bot_config(
     }
 
 
+@dataclass(frozen=True)
+class _PreparedInteractionFlow:
+    bot_config: dict
+    tool_init: dict | None
+    expected_tool_names: set[str]
+
+
+def _prepare_chat_reply_flow(
+    *,
+    configuration: OpenChatConfiguration,
+    recipient: User,
+    chat_uuid: str,
+    tool_init_user: User | None,
+) -> _PreparedInteractionFlow:
+    bot_config = _apply_bot_config_overwrite(
+        _build_default_bot_config(
+            tools=["little_world__chat_reply"],
+            system_prompt=SYSTEM_PROMPT_CHAT_REPLY,
+        ),
+        configuration.interaction_overwrite,
+    )
+    # Never allow per-user interaction_overwrite to disable the selected runtime tool mode.
+    bot_config["tools"] = ["little_world__chat_reply"]
+    bot_config["system_prompt"] = SYSTEM_PROMPT_CHAT_REPLY
+
+    session_actor = tool_init_user or recipient
+    session_id, csrf_token = _create_session_and_csrf_for_user(session_actor)
+    tool_init = _build_little_world_tool_init(
+        session_id=session_id,
+        csrf_token=csrf_token,
+        api_host=_normalize_base_url_for_open_chat_tool(settings.BASE_URL),
+        lw_chat_uuid=chat_uuid,
+    )
+    return _PreparedInteractionFlow(
+        bot_config=bot_config,
+        tool_init=tool_init,
+        expected_tool_names={"little_world__chat_reply"},
+    )
+
+
+def _prepare_message_reply_suggestion_flow(
+    *,
+    configuration: OpenChatConfiguration,
+    recipient: User,
+    support_task_id: int | None,
+    support_task_action_id: str,
+    tool_init_user: User | None,
+) -> _PreparedInteractionFlow:
+    bot_config = _apply_bot_config_overwrite(
+        _build_default_bot_config(
+            tools=["little_world__generate_message_reply_suggestion"],
+            system_prompt=SYSTEM_PROMPT_MESSAGE_REPLY_SUGGESTION,
+        ),
+        configuration.interaction_overwrite,
+    )
+    # Never allow per-user interaction_overwrite to disable the selected runtime tool mode.
+    bot_config["tools"] = ["little_world__generate_message_reply_suggestion"]
+    bot_config["system_prompt"] = SYSTEM_PROMPT_MESSAGE_REPLY_SUGGESTION
+
+    session_actor = tool_init_user or recipient
+    session_id, csrf_token = _create_session_and_csrf_for_user(session_actor)
+    tool_init = _build_little_world_tool_init(
+        session_id=session_id,
+        csrf_token=csrf_token,
+        api_host=_normalize_base_url_for_open_chat_tool(settings.BASE_URL),
+        support_task_pk=support_task_id,
+        support_task_action_id=support_task_action_id,
+    )
+    return _PreparedInteractionFlow(
+        bot_config=bot_config,
+        tool_init=tool_init,
+        expected_tool_names={"little_world__generate_message_reply_suggestion"},
+    )
+
+
+def _collect_interaction_presence_stats(client: OpenChatPythonClient, interaction_uuid: str) -> dict:
+    merged_payload = client.get_interactions(page=1, limit=40, all_pages=True)
+    merged_rows = list(merged_payload.rows)
+
+    return {
+        "merged_count": len(merged_rows),
+        "total_pages": merged_payload.total_pages,
+        "present_in_merged": any(row.uuid == interaction_uuid for row in merged_rows),
+    }
+
+
+def _detect_expected_tool_call(
+    client: OpenChatPythonClient,
+    interaction_uuid: str,
+    expected_tool_names: set[str],
+) -> bool:
+    if not expected_tool_names:
+        return False
+
+    interaction_messages_payload = client.list_interaction_messages(interaction_uuid, page=1, limit=200)
+    interaction_messages = list(interaction_messages_payload.rows)
+    for item in interaction_messages:
+        tool_calls = item.tool_calls
+        if any(_get_tool_call_name(tc) in expected_tool_names for tc in tool_calls):
+            return True
+    return False
+
+
 def _run_open_chat_interaction_flow(
     *,
     configuration: OpenChatConfiguration,
@@ -261,60 +368,39 @@ def _run_open_chat_interaction_flow(
     except ValueError:
         return {"status": "skipped", "reason": "invalid_tool_mode", "tool_mode": tool_mode}
 
-    if resolved_tool_mode == OpenChatInteractionToolMode.MESSAGE_REPLY_SUGGESTION and support_task_action_id is None:
-        return {
-            "status": "skipped",
-            "reason": "support_task_action_missing_for_message_reply_suggestion",
-            "support_task_id": support_task_id,
-        }
-
-    if resolved_tool_mode == OpenChatInteractionToolMode.MESSAGE_REPLY_SUGGESTION:
-        tools = ["little_world__generate_message_reply_suggestion"]
-        system_prompt = SYSTEM_PROMPT_MESSAGE_REPLY_SUGGESTION
-        expected_tool_names = {"little_world__generate_message_reply_suggestion"}
-    elif resolved_tool_mode == OpenChatInteractionToolMode.CHAT_REPLY:
-        tools = ["little_world__chat_reply"]
-        system_prompt = SYSTEM_PROMPT_CHAT_REPLY
-        expected_tool_names = {"little_world__chat_reply"}
+    if resolved_tool_mode == OpenChatInteractionToolMode.CHAT_REPLY:
+        prepared_flow = _prepare_chat_reply_flow(
+            configuration=configuration,
+            recipient=recipient,
+            chat_uuid=chat_uuid,
+            tool_init_user=tool_init_user,
+        )
+    elif resolved_tool_mode == OpenChatInteractionToolMode.MESSAGE_REPLY_SUGGESTION:
+        if support_task_action_id is None:
+            return {
+                "status": "skipped",
+                "reason": "support_task_action_missing_for_message_reply_suggestion",
+                "support_task_id": support_task_id,
+            }
+        prepared_flow = _prepare_message_reply_suggestion_flow(
+            configuration=configuration,
+            recipient=recipient,
+            support_task_id=support_task_id,
+            support_task_action_id=support_task_action_id,
+            tool_init_user=tool_init_user,
+        )
     else:
-        tools = []
-        system_prompt = SYSTEM_PROMPT_NO_TOOLS
-        expected_tool_names = set()
-
-    bot_config = _apply_bot_config_overwrite(
-        _build_default_bot_config(
-            tools=tools,
-            system_prompt=system_prompt,
-        ),
-        configuration.interaction_overwrite,
-    )
-    # Never allow per-user interaction_overwrite to disable the selected runtime tool mode.
-    if resolved_tool_mode == OpenChatInteractionToolMode.MESSAGE_REPLY_SUGGESTION:
-        bot_config["tools"] = ["little_world__generate_message_reply_suggestion"]
-        bot_config["system_prompt"] = SYSTEM_PROMPT_MESSAGE_REPLY_SUGGESTION
-    elif resolved_tool_mode == OpenChatInteractionToolMode.CHAT_REPLY:
-        bot_config["tools"] = ["little_world__chat_reply"]
-        bot_config["system_prompt"] = SYSTEM_PROMPT_CHAT_REPLY
-    tool_init = None
-    if resolved_tool_mode in (
-        OpenChatInteractionToolMode.CHAT_REPLY,
-        OpenChatInteractionToolMode.MESSAGE_REPLY_SUGGESTION,
-    ):
-        session_actor = tool_init_user or recipient
-        session_id, csrf_token = _create_session_and_csrf_for_user(session_actor)
-        tool_init = _build_little_world_tool_init(
-            session_id=session_id,
-            csrf_token=csrf_token,
-            api_host=_normalize_base_url_for_open_chat_tool(settings.BASE_URL),
-            lw_chat_uuid=chat_uuid if resolved_tool_mode == OpenChatInteractionToolMode.CHAT_REPLY else None,
-            support_task_pk=(
-                support_task_id if resolved_tool_mode == OpenChatInteractionToolMode.MESSAGE_REPLY_SUGGESTION else None
+        bot_config = _apply_bot_config_overwrite(
+            _build_default_bot_config(
+                tools=[],
+                system_prompt=SYSTEM_PROMPT_NO_TOOLS,
             ),
-            support_task_action_id=(
-                support_task_action_id
-                if resolved_tool_mode == OpenChatInteractionToolMode.MESSAGE_REPLY_SUGGESTION
-                else None
-            ),
+            configuration.interaction_overwrite,
+        )
+        prepared_flow = _PreparedInteractionFlow(
+            bot_config=bot_config,
+            tool_init=None,
+            expected_tool_names=set(),
         )
 
     try:
@@ -323,19 +409,19 @@ def _run_open_chat_interaction_flow(
             username=configuration.open_chat_user,
             password=configuration.open_chat_api_key,
         )
-        client.setup_bot_config(bot_config)
+        client.setup_bot_config(prepared_flow.bot_config)
         login_result = client.login()
 
         interaction_message = (user_message_text or "").strip() or FALLBACK_USER_MESSAGE
-        if tool_init is not None:
+        if prepared_flow.tool_init is None:
+            interaction = client.create_interaction(message=interaction_message)
+        else:
             interaction = client.create_interaction(
-                tool_init=tool_init,
+                tool_init=prepared_flow.tool_init,
                 message=interaction_message,
             )
-        else:
-            interaction = client.create_interaction(message=interaction_message)
-        interaction_uuid = interaction["uuid"]
-        login_user_name = login_result["name"]
+        interaction_uuid = interaction.uuid
+        login_user_name = login_result.name
         logger.info(
             "open_chat_interaction_flow login_user=%s config_owner=%s interaction_uuid=%s",
             login_user_name,
@@ -343,41 +429,18 @@ def _run_open_chat_interaction_flow(
             interaction_uuid,
         )
 
-        interaction_single_page_count = None
-        interaction_total_pages = None
-        interaction_merged_count = None
-        interaction_present_in_merged = None
-
-        single_page_payload = client.get_interactions(page=1, limit=40, all_pages=False)
-        merged_payload = client.get_interactions(page=1, limit=40, all_pages=True)
-
-        single_rows = list(single_page_payload["rows"])
-        merged_rows = list(merged_payload["rows"])
-        interaction_single_page_count = len(single_rows)
-        interaction_merged_count = len(merged_rows)
-        interaction_total_pages = single_page_payload["total_pages"]
-        interaction_present_in_merged = any(row["uuid"] == interaction_uuid for row in merged_rows)
-        if interaction_present_in_merged is False:
+        presence_stats = _collect_interaction_presence_stats(client, interaction_uuid)
+        if presence_stats["present_in_merged"] is False:
             return {
                 "status": "error",
                 "reason": "created_interaction_missing_from_get_interactions",
                 "interaction_uuid": interaction_uuid,
-                "single_page_count": interaction_single_page_count,
-                "total_pages": interaction_total_pages,
-                "merged_count": interaction_merged_count,
+                "total_pages": presence_stats["total_pages"],
+                "merged_count": presence_stats["merged_count"],
             }
 
-        shared_url = None
-        tool_called = False
         shared_url = client.get_shared_interaction_url(interaction_uuid)
-        if expected_tool_names:
-            interaction_messages_payload = client.list_interaction_messages(interaction_uuid, page=1, limit=200)
-            interaction_messages = list(interaction_messages_payload["rows"])
-            for item in interaction_messages:
-                tool_calls = item["tool_calls"]
-                if any(_get_tool_call_name(tc) in expected_tool_names for tc in tool_calls):
-                    tool_called = True
-                    break
+        tool_called = _detect_expected_tool_call(client, interaction_uuid, prepared_flow.expected_tool_names)
 
         interaction_message_uuid = None
         interaction_message_payload = None
@@ -423,10 +486,9 @@ def _run_open_chat_interaction_flow(
             "interaction_uuid": interaction_uuid,
             "shared_url": shared_url,
             "tool_called": tool_called,
-            "interaction_single_page_count": interaction_single_page_count,
-            "interaction_total_pages": interaction_total_pages,
-            "interaction_merged_count": interaction_merged_count,
-            "interaction_present_in_merged": interaction_present_in_merged,
+            "interaction_total_pages": presence_stats["total_pages"],
+            "interaction_merged_count": presence_stats["merged_count"],
+            "interaction_present_in_merged": presence_stats["present_in_merged"],
             "interaction_message_uuid": interaction_message_uuid,
             "interaction_message_payload": interaction_message_payload,
         }

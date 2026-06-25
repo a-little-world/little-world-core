@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from chat.models import Chat
@@ -257,18 +258,18 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
     @patch("management.open_chat_interaction_task.OpenChatPythonClient")
     def test_open_chat_trigger_interaction_uses_explicit_configuration(self, mock_client_cls, _mock_new_message_send):
         mock_client = MagicMock()
-        mock_client.login.return_value = {"name": "Admin Open Chat"}
-        mock_client.create_interaction.return_value = {"uuid": "7e4b91f9-2bf9-4f10-b650-11a4345acf71"}
-        mock_client.get_interactions.return_value = {
-            "rows": [{"uuid": "7e4b91f9-2bf9-4f10-b650-11a4345acf71"}],
-            "total_pages": 1,
-        }
+        mock_client.login.return_value = SimpleNamespace(name="Admin Open Chat")
+        mock_client.create_interaction.return_value = SimpleNamespace(uuid="7e4b91f9-2bf9-4f10-b650-11a4345acf71")
+        mock_client.get_interactions.return_value = SimpleNamespace(
+            rows=[SimpleNamespace(uuid="7e4b91f9-2bf9-4f10-b650-11a4345acf71")],
+            total_pages=1,
+        )
         mock_client.get_shared_interaction_url.return_value = (
             "http://localhost:1984/interaction/7e4b91f9-2bf9-4f10-b650-11a4345acf71"
         )
-        mock_client.list_interaction_messages.return_value = {
-            "rows": [{"tool_calls": [{"name": "little_world__chat_reply"}]}]
-        }
+        mock_client.list_interaction_messages.return_value = SimpleNamespace(
+            rows=[SimpleNamespace(tool_calls=[SimpleNamespace(name="little_world__chat_reply")])]
+        )
         mock_client_cls.return_value = mock_client
 
         result = open_chat_trigger_interaction(
@@ -307,12 +308,12 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         )
 
         mock_client = MagicMock()
-        mock_client.login.return_value = {"name": "Admin Open Chat"}
-        mock_client.create_interaction.return_value = {"uuid": "plain-interaction-uuid"}
-        mock_client.get_interactions.return_value = {
-            "rows": [{"uuid": "plain-interaction-uuid"}],
-            "total_pages": 1,
-        }
+        mock_client.login.return_value = SimpleNamespace(name="Admin Open Chat")
+        mock_client.create_interaction.return_value = SimpleNamespace(uuid="plain-interaction-uuid")
+        mock_client.get_interactions.return_value = SimpleNamespace(
+            rows=[SimpleNamespace(uuid="plain-interaction-uuid")],
+            total_pages=1,
+        )
         mock_client.get_shared_interaction_url.return_value = "http://localhost:1984/interaction/plain-interaction-uuid"
         mock_client_cls.return_value = mock_client
 
@@ -367,18 +368,18 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         )
 
         mock_client = MagicMock()
-        mock_client.login.return_value = {"name": "Admin Open Chat"}
-        mock_client.create_interaction.return_value = {"uuid": "suggestion-interaction-uuid"}
-        mock_client.get_interactions.return_value = {
-            "rows": [{"uuid": "suggestion-interaction-uuid"}],
-            "total_pages": 1,
-        }
+        mock_client.login.return_value = SimpleNamespace(name="Admin Open Chat")
+        mock_client.create_interaction.return_value = SimpleNamespace(uuid="suggestion-interaction-uuid")
+        mock_client.get_interactions.return_value = SimpleNamespace(
+            rows=[SimpleNamespace(uuid="suggestion-interaction-uuid")],
+            total_pages=1,
+        )
         mock_client.get_shared_interaction_url.return_value = (
             "http://localhost:1984/interaction/suggestion-interaction-uuid"
         )
-        mock_client.list_interaction_messages.return_value = {
-            "rows": [{"tool_calls": [{"name": "little_world__generate_message_reply_suggestion"}]}]
-        }
+        mock_client.list_interaction_messages.return_value = SimpleNamespace(
+            rows=[SimpleNamespace(tool_calls=[SimpleNamespace(name="little_world__generate_message_reply_suggestion")])]
+        )
         mock_client_cls.return_value = mock_client
 
         result = open_chat_trigger_interaction(
@@ -482,18 +483,18 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             related_user=self.source_user,
         )
         mock_client = MagicMock()
-        mock_client.login.return_value = {"name": "Admin Open Chat"}
-        mock_client.create_interaction.return_value = {"uuid": "recipient-session-interaction"}
-        mock_client.get_interactions.return_value = {
-            "rows": [{"uuid": "recipient-session-interaction"}],
-            "total_pages": 1,
-        }
+        mock_client.login.return_value = SimpleNamespace(name="Admin Open Chat")
+        mock_client.create_interaction.return_value = SimpleNamespace(uuid="recipient-session-interaction")
+        mock_client.get_interactions.return_value = SimpleNamespace(
+            rows=[SimpleNamespace(uuid="recipient-session-interaction")],
+            total_pages=1,
+        )
         mock_client.get_shared_interaction_url.return_value = (
             "http://localhost:1984/interaction/recipient-session-interaction"
         )
-        mock_client.list_interaction_messages.return_value = {
-            "rows": [{"tool_calls": [{"name": "little_world__generate_message_reply_suggestion"}]}]
-        }
+        mock_client.list_interaction_messages.return_value = SimpleNamespace(
+            rows=[SimpleNamespace(tool_calls=[SimpleNamespace(name="little_world__generate_message_reply_suggestion")])]
+        )
         mock_client_cls.return_value = mock_client
 
         result = open_chat_trigger_interaction(

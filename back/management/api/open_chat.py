@@ -155,23 +155,26 @@ def _build_open_chat_client(host: str, username: str, password: str):
     return OpenChatPythonClient(host=host, username=username, password=password)
 
 
-def _build_open_chat_interaction_summary(interaction: dict) -> dict:
+def _build_open_chat_interaction_summary(interaction) -> dict:
+    try:
+        raw_payload = interaction.to_dict()
+    except Exception:
+        raw_payload = {}
+
     return {
-        "interaction_id": str(interaction["uuid"]),
-        "title": interaction["title"] if "title" in interaction else None,
-        "created": interaction["created"] if "created" in interaction else None,
-        "updated": interaction["updated"] if "updated" in interaction else None,
-        "status": interaction["status"] if "status" in interaction else None,
-        "shared_interaction_url": (
-            interaction["shared_interaction_url"] if "shared_interaction_url" in interaction else None
-        ),
-        "raw": interaction,
+        "interaction_id": str(interaction.uuid),
+        "title": interaction.title,
+        "created": interaction.created,
+        "updated": interaction.updated,
+        "status": interaction.status,
+        "shared_interaction_url": interaction.shared_interaction_url,
+        "raw": raw_payload,
     }
 
 
 def _fetch_open_chat_interactions(client) -> list[dict]:
     payload = client.get_interactions()
-    rows = payload["rows"]
+    rows = payload.rows
     return [_build_open_chat_interaction_summary(item) for item in rows]
 
 
@@ -350,7 +353,7 @@ def open_chat_test_connection(request):
             password=configuration.open_chat_api_key,
         )
         user = client.login()
-        user_name = user["name"]
+        user_name = user.name
         return Response(
             {
                 "success": True,

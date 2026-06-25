@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from chat.models import Chat
@@ -277,7 +278,7 @@ class OpenChatConfigurationApiTests(TestCase):
             open_chat_host=DEFAULT_HOST,
         )
         mock_client = MagicMock()
-        mock_client.login.return_value = {"name": "Test User"}
+        mock_client.login.return_value = SimpleNamespace(name="Test User")
         mock_build_client.return_value = mock_client
 
         self.api_client.force_authenticate(user=self.authorized_user)
@@ -439,18 +440,18 @@ class OpenChatConfigurationApiTests(TestCase):
             open_chat_host=DEFAULT_HOST,
         )
         mock_client = MagicMock()
-        mock_client.get_interactions.return_value = {
-            "rows": [
-                {
-                    "uuid": "interaction-1",
-                    "title": "First interaction",
-                    "status": "completed",
-                    "created": None,
-                    "updated": None,
-                    "shared_interaction_url": None,
-                }
+        mock_client.get_interactions.return_value = SimpleNamespace(
+            rows=[
+                SimpleNamespace(
+                    uuid="interaction-1",
+                    title="First interaction",
+                    status="completed",
+                    created=None,
+                    updated=None,
+                    shared_interaction_url=None,
+                )
             ]
-        }
+        )
         mock_build_client.return_value = mock_client
 
         self.api_client.force_authenticate(user=self.authorized_user)
@@ -472,18 +473,18 @@ class OpenChatConfigurationApiTests(TestCase):
             open_chat_host=DEFAULT_HOST,
         )
         mock_client = MagicMock()
-        mock_client.get_interactions.return_value = {
-            "rows": [
-                {
-                    "uuid": "42",
-                    "title": "Managed interaction",
-                    "status": None,
-                    "created": None,
-                    "updated": None,
-                    "shared_interaction_url": None,
-                }
+        mock_client.get_interactions.return_value = SimpleNamespace(
+            rows=[
+                SimpleNamespace(
+                    uuid="42",
+                    title="Managed interaction",
+                    status=None,
+                    created=None,
+                    updated=None,
+                    shared_interaction_url=None,
+                )
             ]
-        }
+        )
         mock_build_client.return_value = mock_client
 
         self.api_client.force_authenticate(user=self.manager_user)
@@ -510,18 +511,18 @@ class OpenChatConfigurationApiTests(TestCase):
             open_chat_host=DEFAULT_HOST,
         )
         mock_client = MagicMock()
-        mock_client.get_interactions.return_value = {
-            "rows": [
-                {
-                    "uuid": "interaction-own-config",
-                    "title": None,
-                    "status": None,
-                    "created": None,
-                    "updated": None,
-                    "shared_interaction_url": None,
-                }
+        mock_client.get_interactions.return_value = SimpleNamespace(
+            rows=[
+                SimpleNamespace(
+                    uuid="interaction-own-config",
+                    title=None,
+                    status=None,
+                    created=None,
+                    updated=None,
+                    shared_interaction_url=None,
+                )
             ]
-        }
+        )
         mock_build_client.return_value = mock_client
 
         self.api_client.force_authenticate(user=self.authorized_user)
@@ -545,18 +546,18 @@ class OpenChatConfigurationApiTests(TestCase):
             open_chat_host=DEFAULT_HOST,
         )
         mock_client = MagicMock()
-        mock_client.get_interactions.return_value = {
-            "rows": [
-                {
-                    "uuid": "interaction-manage-only",
-                    "title": None,
-                    "status": None,
-                    "created": None,
-                    "updated": None,
-                    "shared_interaction_url": None,
-                }
+        mock_client.get_interactions.return_value = SimpleNamespace(
+            rows=[
+                SimpleNamespace(
+                    uuid="interaction-manage-only",
+                    title=None,
+                    status=None,
+                    created=None,
+                    updated=None,
+                    shared_interaction_url=None,
+                )
             ]
-        }
+        )
         mock_build_client.return_value = mock_client
 
         self.api_client.force_authenticate(user=self.manage_only_user)
@@ -578,14 +579,22 @@ class OpenChatConfigurationApiTests(TestCase):
             open_chat_host=DEFAULT_HOST,
         )
         mock_client = MagicMock()
-        mock_client.get_interaction.return_value = {
-            "uuid": interaction_uuid,
-            "title": "Detailed interaction",
-            "status": "completed",
-            "created": None,
-            "updated": None,
-            "shared_interaction_url": None,
-        }
+        mock_client.get_interaction.return_value = SimpleNamespace(
+            uuid=interaction_uuid,
+            title="Detailed interaction",
+            status="completed",
+            created=None,
+            updated=None,
+            shared_interaction_url=None,
+            to_dict=lambda: {
+                "uuid": interaction_uuid,
+                "title": "Detailed interaction",
+                "status": "completed",
+                "created": None,
+                "updated": None,
+                "shared_interaction_url": None,
+            },
+        )
         mock_build_client.return_value = mock_client
 
         self.api_client.force_authenticate(user=self.authorized_user)
