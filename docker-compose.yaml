@@ -92,6 +92,8 @@ services:
     env_file:
       - ./dev/envs/dev.env
       - ./dev/envs/local_dev.env
+      - path: ./.env
+        required: false
     volumes:
       - ./back/:/back/
       - ./front/env_apps/:/front/env_apps/
