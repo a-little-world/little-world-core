@@ -11,6 +11,7 @@ from drf_spectacular.utils import extend_schema, extend_schema_view, inline_seri
 from emails.models import AdvancedEmailLogSerializer, EmailLog
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from management.api.export_utils import build_paginated_export_response
@@ -21,6 +22,7 @@ from management.api.user_report_utils import USER_EXPORT_COLUMN_NAMES, build_use
 from management.api.utils_advanced import filterset_schema_dict
 from management.controller import (
     delete_user,
+    get_base_management_user,
     make_tim_support_user,
 )
 from management.helpers import DetailedPagination, DetailedPaginationMixin, IsAdminOrMatchingUser
@@ -795,23 +797,22 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
             return Response(SmsSerializer(sms, many=True).data)
 
-    @action(detail=True, methods=["post"])
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
     def message_reply(self, request, pk=None):
         self.kwargs["pk"] = pk
         obj = self.get_object()
-
-        has_access, res = self.check_management_user_access(obj, request)
-        if not has_access:
-            return res
 
         if not request.user.has_perm(ManagementPermission.CAN_SEND_SUPPORT_MESSAGE_REPLIES):
             return Response(
                 {"msg": "You are not allowed to send support message replies!"},
                 status=status.HTTP_403_FORBIDDEN,
             )
+        if not request.user.is_staff and not request.user.has_management_access(obj):
+            return Response({"msg": "You are not allowed to access this user!"}, status=status.HTTP_401_UNAUTHORIZED)
 
         reply_message = request.data["message"]
-        message = obj.message(reply_message, sender=request.user)
+        base_management_user = get_base_management_user()
+        message = obj.message(reply_message, sender=base_management_user)
 
         open_support_reply_action = (
             SupportTaskAction.objects.select_related("task")

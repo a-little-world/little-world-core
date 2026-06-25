@@ -41,6 +41,24 @@ class AdvancedUserMessageReplyTests(TestCase):
         cls.staff_without_permission.is_staff = True
         cls.staff_without_permission.save(update_fields=["is_staff"])
 
+        cls.reply_manager_with_access = User.objects.create_user(
+            email="reply-manager-with-access@test.de",
+            username="reply-manager-with-access@test.de",
+            password="Test123!",
+            first_name="Reply",
+            last_name="ManagerWithAccess",
+        )
+        cls.reply_manager_with_access.user_permissions.add(can_send_support_message_replies_permission)
+
+        cls.reply_manager_without_access = User.objects.create_user(
+            email="reply-manager-without-access@test.de",
+            username="reply-manager-without-access@test.de",
+            password="Test123!",
+            first_name="Reply",
+            last_name="ManagerWithoutAccess",
+        )
+        cls.reply_manager_without_access.user_permissions.add(can_send_support_message_replies_permission)
+
         cls.target_user = User.objects.create_user(
             email="reply-target@test.de",
             username="reply-target@test.de",
@@ -48,6 +66,7 @@ class AdvancedUserMessageReplyTests(TestCase):
             first_name="Reply",
             last_name="Target",
         )
+        cls.reply_manager_with_access.grant_management_access(cls.target_user, granted_by=cls.support_user)
 
     def _build_open_support_reply_task(self) -> SupportTask:
         return SupportTask.create_of_type(
@@ -97,3 +116,23 @@ class AdvancedUserMessageReplyTests(TestCase):
         support_action = SupportTaskAction.objects.get(task=support_task)
         self.assertEqual(support_action.status, SupportTaskAction.Status.OPEN)
         self.assertEqual(support_action.parameters.get("message"), "")
+
+    @patch("chat.consumers.messages.NewMessage.send")
+    def test_message_reply_allows_non_staff_manager_with_permission_and_access(self, _mock_new_message_send):
+        endpoint = f"/api/matching/users/{self.target_user.pk}/message_reply/"
+
+        client = APIClient()
+        client.force_authenticate(user=self.reply_manager_with_access)
+        response = client.post(endpoint, {"message": "Allowed manager reply"}, format="json")
+
+        self.assertEqual(response.status_code, 200)
+
+    @patch("chat.consumers.messages.NewMessage.send")
+    def test_message_reply_blocks_non_staff_manager_without_user_access(self, _mock_new_message_send):
+        endpoint = f"/api/matching/users/{self.target_user.pk}/message_reply/"
+
+        client = APIClient()
+        client.force_authenticate(user=self.reply_manager_without_access)
+        response = client.post(endpoint, {"message": "Blocked manager reply"}, format="json")
+
+        self.assertEqual(response.status_code, 404)

@@ -14,6 +14,7 @@ class ManagementPermission(StrEnum):
     APPLY_MANAGEMENT_PERMISSIONS = "management.apply_management_permissions"
     CAN_SEND_SUPPORT_MESSAGE_REPLIES = "management.can_send_support_message_replies"
     IS_MAIN_SUPPORT_ACCOUNT = "management.is_main_support_account"
+    RECEIVES_FULL_USER_ACCESS = "management.receives_full_user_access"
 
     @property
     def codename(self) -> str:
@@ -37,6 +38,7 @@ MANAGEMENT_PERMISSION_LABELS: dict[ManagementPermission, str] = {
     ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS: "Can apply management permissions",
     ManagementPermission.CAN_SEND_SUPPORT_MESSAGE_REPLIES: "Can send support message replies",
     ManagementPermission.IS_MAIN_SUPPORT_ACCOUNT: "Is main support account",
+    ManagementPermission.RECEIVES_FULL_USER_ACCESS: "Receives full user access for newly created users",
 }
 
 MANAGEMENT_PERMISSION_DEFINITIONS = [(perm.codename, label) for perm, label in MANAGEMENT_PERMISSION_LABELS.items()]

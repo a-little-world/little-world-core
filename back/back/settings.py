@@ -1112,3 +1112,6 @@ DEFAULT_OPEN_CHAT_CONFIGURATION = {
     "open_chat_user": os.environ.get("DJ_DEFAULT_OPEN_CHAT_USER", "admin"),
     "open_chat_host": os.environ.get("DJ_DEFAULT_OPEN_CHAT_HOST", "http://host.docker.internal:1984"),
 }
+
+
+OPEN_CHAT_ENABLE_AUTOMATION_MESSAGE_REPLY_SUGGESTION = bool_env("DJ_OPEN_CHAT_ENABLE_AUTOMATION_MESSAGE_REPLY_SUGGESTION", "false")

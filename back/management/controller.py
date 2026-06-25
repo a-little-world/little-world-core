@@ -184,6 +184,7 @@ def create_user(
     newsletter_subscribed=False,
     send_verification_mail=True,
     send_welcome_notification=True,
+    auto_apply_user_access_permission=True,
 ):
     """
     This should be used when creating a new user, it may throw validations errors!
@@ -275,6 +276,15 @@ def create_user(
         # At the moment all our users get the same management user
         # in the future there might be a process to assign different management users to different users
         base_management_user.grant_management_access(usr, granted_by=base_management_user)
+
+    if auto_apply_user_access_permission:
+        managers_with_full_access = User.objects.filter(
+            user_permissions__codename=ManagementPermission.RECEIVES_FULL_USER_ACCESS.codename,
+            user_permissions__content_type__app_label="management",
+            user_permissions__content_type__model="state",
+        ).distinct()
+        for manager in managers_with_full_access:
+            manager.grant_management_access(usr, granted_by=base_management_user)
 
     return usr
 
