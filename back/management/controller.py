@@ -493,7 +493,8 @@ def get_base_management_user():
     """
     try:
         user = get_user_by_email(settings.MATCHING_USER_MAIL)
-        ensure_base_management_user_permissions(user)
+        if not getattr(settings, "IS_TEST_COMMAND", False):
+            ensure_base_management_user_permissions(user)
         return user
     except UserNotFoundErr:
         return create_base_admin_and_add_standart_db_values()
@@ -534,11 +535,6 @@ def create_base_admin_and_add_standart_db_values():
             last_name=settings.MATCHING_USER_SECOND_NAME,
         )
         print(f"Base Management user {usr_tim.email} newly created!")
-
-    ensure_base_management_user_permissions(usr_tim)
-    usr_tim.state.email_authenticated = True
-    usr_tim.state.save()
-    usr_tim.state.set_user_form_completed()
 
     transaction.on_commit(update_profile)
     # The tim user should always get the matching permission
