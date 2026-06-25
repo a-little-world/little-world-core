@@ -269,7 +269,6 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
                 },
             )
 
-
         if settings.OPEN_CHAT_ENABLE_AUTOMATION_MESSAGE_REPLY_SUGGESTION:
             # Create/reuse support-reply tasks for inbound messages to the partner
             # using the same idempotent helper as the Open Chat automation loop.
@@ -278,6 +277,7 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
                 create_or_reuse_support_reply_task_for_message,
                 resolve_open_chat_automation_task_creator_user,
             )
+
             if controller.is_base_management_user(partner):
                 created_by_user = resolve_open_chat_automation_task_creator_user()
                 if created_by_user is not None:
@@ -290,7 +290,6 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
                         configuration_user_uuid=str(partner.uuid),
                         enqueue_interaction=True,
                     )
-
 
         return Response(serialized_message, status=200)
 
