@@ -145,7 +145,12 @@ class User(AbstractUser):
         permission_obj = permission.get_permission_object()
         if permission_obj is None:
             return False
+        had_permission = self.has_perm(permission)
         self.user_permissions.add(permission_obj)
+        if permission == ManagementPermission.RECEIVES_FULL_USER_ACCESS and not had_permission:
+            from management.tasks import sync_full_user_access_for_manager
+
+            sync_full_user_access_for_manager.delay(self.pk)
         return True
 
     def revoke_permission(self, permission: ManagementPermission) -> bool:

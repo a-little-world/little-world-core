@@ -1,4 +1,5 @@
 import json
+import uuid as uuid_lib
 
 from celery import current_app
 from django.conf import settings
@@ -48,6 +49,16 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
     queryset = Message.objects.all().order_by("created")
     resp_chat_403 = Response({"error": "Chat doesn't exist or you have no permission to interact with it!"}, status=403)
 
+    @staticmethod
+    def _is_valid_uuid(value: str | None) -> bool:
+        if not value:
+            return False
+        try:
+            uuid_lib.UUID(value)
+            return True
+        except ValueError:
+            return False
+
     def filter_queryset(self, queryset):
         if hasattr(self, "chat_uuid"):
             if self.request.user.is_staff:
@@ -64,7 +75,10 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
 
     def list(self, request, *args, **kwargs):
         if "chat_uuid" in kwargs:
-            self.chat_uuid = kwargs["chat_uuid"]
+            chat_uuid = kwargs["chat_uuid"]
+            if not self._is_valid_uuid(chat_uuid):
+                return Response({"error": "chat_uuid is not a valid UUID"}, status=400)
+            self.chat_uuid = chat_uuid
         return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
@@ -89,6 +103,8 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
     def chat_read(self, request, chat_uuid=None):
         if not chat_uuid:
             return Response({"error": "chat_uuid is required"}, status=400)
+        if not self._is_valid_uuid(chat_uuid):
+            return Response({"error": "chat_uuid is not a valid UUID"}, status=400)
 
         chat = Chat.objects.filter(uuid=chat_uuid)
         if not chat.exists():
@@ -118,6 +134,8 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
     def send(self, request, chat_uuid=None):
         if not chat_uuid:
             return Response({"error": "chat_uuid is required"}, status=400)
+        if not self._is_valid_uuid(chat_uuid):
+            return Response({"error": "chat_uuid is not a valid UUID"}, status=400)
 
         # Use select_related to reduce database queries, but keep safe existence check
         chat = Chat.objects.select_related().filter(uuid=chat_uuid)
