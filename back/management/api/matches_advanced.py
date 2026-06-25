@@ -5,6 +5,7 @@ from django.db.models import Max, Q
 from django.shortcuts import get_object_or_404
 from django.urls import path
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
 from rest_framework import serializers, viewsets
@@ -130,6 +131,115 @@ def _match_stats_retrieve_extra(match: Match) -> dict:
     }
 
 
+def _match_journey_stages(match: Match, current_week: int, desired_duration_weeks: int) -> dict:
+    """
+    Ordered lifecycle timeline for a single match (retrieve only).
+
+    The "happy path" is: matched -> first contact -> ongoing -> completed -> free play.
+    A reported/unmatched match terminates in a final "closed" step, and any later
+    happy-path steps that were never reached are dropped so the progress bar shortens.
+    """
+    dt_field = serializers.DateTimeField()
+    created_at = match.created_at
+
+    def _fmt(value):
+        return None if value is None else dt_field.to_representation(value)
+
+    has_interaction = bool(
+        match.first_interaction_at or match.total_messages_counter or match.total_mutal_video_calls_counter
+    )
+    is_completed = bool(match.completed or match.completed_off_plattform)
+    is_free_play = current_week > desired_duration_weeks and match.active
+
+    report_entries = match.report_unmatch if isinstance(match.report_unmatch, list) else []
+    closing_entry = report_entries[-1] if report_entries else None
+    # A naturally completed match is a success, not a "closed" failure, even if inactive.
+    is_closed = (not match.active) and closing_entry is not None and not is_completed
+
+    completed_at = match.completed_off_plattform_auto_marked_at
+    if is_completed and completed_at is None:
+        completed_at = created_at + timedelta(weeks=desired_duration_weeks)
+
+    free_play_at = created_at + timedelta(weeks=desired_duration_weeks) if is_free_play else None
+
+    happy_path = [
+        {
+            "id": "matched",
+            "label": "Matched",
+            "description": "Match created.",
+            "achieved": True,
+            "achieved_at": _fmt(created_at),
+        },
+        {
+            "id": "first_contact",
+            "label": "First contact",
+            "description": "Both people started interacting.",
+            "achieved": has_interaction,
+            "achieved_at": _fmt(match.first_interaction_at),
+        },
+        {
+            "id": "ongoing",
+            "label": "Ongoing",
+            "description": f"Active within the planned {desired_duration_weeks} week journey.",
+            "achieved": has_interaction,
+            "achieved_at": None,
+        },
+        {
+            "id": "completed",
+            "label": "Completed",
+            "description": "Completed on or off platform.",
+            "achieved": is_completed,
+            "achieved_at": _fmt(completed_at),
+        },
+        {
+            "id": "free_play",
+            "label": "Free play",
+            "description": f"Active beyond week {desired_duration_weeks}.",
+            "achieved": is_free_play,
+            "achieved_at": _fmt(free_play_at),
+        },
+    ]
+
+    achieved_indexes = [index for index, stage in enumerate(happy_path) if stage["achieved"]]
+    furthest_index = achieved_indexes[-1] if achieved_indexes else 0
+
+    closed_kind = None
+    closed_at = None
+    if is_closed and closing_entry is not None:
+        closed_kind = closing_entry.get("kind")
+        parsed_closed_time = parse_datetime(closing_entry.get("time") or "")
+        closed_at = _fmt(parsed_closed_time or match.updated_at)
+
+        closed_label = {
+            "report": "Reported",
+            "unmatch": "Unmatched",
+            "user_deleted": "User deleted",
+        }.get(closed_kind, "Closed")
+
+        stages = happy_path[: furthest_index + 1]
+        stages.append(
+            {
+                "id": "closed",
+                "label": closed_label,
+                "description": closing_entry.get("reason") or "Match was reported or unmatched.",
+                "achieved": True,
+                "achieved_at": closed_at,
+            }
+        )
+        active_stage_index = len(stages) - 1
+    else:
+        stages = happy_path
+        active_stage_index = furthest_index
+
+    return {
+        "stages": stages,
+        "active_stage_index": active_stage_index,
+        "is_closed": is_closed,
+        "closed_kind": closed_kind,
+        "closed_at": closed_at,
+    }
+
+
 def _match_weekly_activity_retrieve_extra(match: Match) -> dict:
     """
     Read-only activity breakdown for single-match GET (retrieve) only.
@@ -200,14 +310,15 @@ def _match_weekly_activity_retrieve_extra(match: Match) -> dict:
         for activity in sorted(activity_by_week.values(), key=lambda item: item["week"])
     ]
 
-    return {
-        "journey": {
-            "current_week": current_week,
-            "desired_duration_weeks": desired_duration_weeks,
-            "is_free_play": current_week > desired_duration_weeks,
-            "weekly_activity": weekly_activity,
-        }
+    journey = {
+        "current_week": current_week,
+        "desired_duration_weeks": desired_duration_weeks,
+        "is_free_play": current_week > desired_duration_weeks,
+        "weekly_activity": weekly_activity,
     }
+    journey.update(_match_journey_stages(match, current_week, desired_duration_weeks))
+
+    return {"journey": journey}
 
 
 class ExportMatchSerializer(serializers.ModelSerializer):

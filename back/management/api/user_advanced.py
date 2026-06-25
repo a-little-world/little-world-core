@@ -19,7 +19,11 @@ from management.api.scores import score_between_db_update
 from management.api.user_advanced_filter_lists import FILTER_LISTS, get_choices, get_dynamic_userlists
 from management.api.user_report_utils import USER_EXPORT_COLUMN_NAMES, build_user_report_entry
 from management.api.utils_advanced import filterset_schema_dict
-from management.controller import delete_user, make_tim_support_user
+from management.controller import (
+    delete_user,
+    get_base_management_user,
+    make_tim_support_user,
+)
 from management.helpers import DetailedPagination, DetailedPaginationMixin, IsAdminOrMatchingUser
 from management.helpers.detailed_pagination import get_paginated_format_v2
 from management.models.dynamic_user_list import DynamicUserList
@@ -33,6 +37,7 @@ from management.models.profile import MinimalProfileSerializer, Profile
 from management.models.scores import TwoUserMatchingScore
 from management.models.sms import SmsModel, SmsSerializer
 from management.models.state import State, StateSerializer
+from management.models.support_task import SupportTask, SupportTaskAction
 from management.models.unconfirmed_matches import ProposedMatch, serialize_proposed_matches
 from management.models.user import User
 from management.permissions import MANAGEMENT_PERMISSION_LABELS, ManagementPermission
@@ -207,6 +212,9 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         representation["profile"] = MinimalProfileSerializer(instance.profile).data
+        representation["is_staff"] = instance.is_staff
+        representation["is_superuser"] = instance.is_superuser
+        representation["is_matching_user"] = instance.has_perm(ManagementPermission.MATCHING_USER)
 
         determine_bucket = ("determine_bucket" in self.context) and self.context["determine_bucket"]
 
@@ -548,6 +556,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     queryset = User.objects.all().order_by("-date_joined")
 
     filter_backends = (filters.DjangoFilterBackend,)
+
     filterset_class = UserFilter
 
     serializer_class = AdvancedUserSerializer
@@ -793,11 +802,35 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         self.kwargs["pk"] = pk
         obj = self.get_object()
 
-        has_access, res = self.check_management_user_access(obj, request)
-        if not has_access:
-            return res
+        if not request.user.has_perm(ManagementPermission.CAN_SEND_SUPPORT_MESSAGE_REPLIES):
+            return Response(
+                {"msg": "You are not allowed to send support message replies!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if not request.user.is_staff and not request.user.has_management_access(obj):
+            return Response({"msg": "You are not allowed to access this user!"}, status=status.HTTP_401_UNAUTHORIZED)
 
-        message = obj.message(request.data["message"], sender=request.user)
+        reply_message = request.data["message"]
+        base_management_user = get_base_management_user()
+        message = obj.message(reply_message, sender=base_management_user)
+
+        open_support_reply_action = (
+            SupportTaskAction.objects.select_related("task")
+            .filter(
+                action_type="support_reply",
+                status=SupportTaskAction.Status.OPEN,
+                task__status__in=[SupportTask.Status.NEW, SupportTask.Status.IN_PROGRESS],
+            )
+            .filter(Q(static_parameters__recipient_user_id=obj.pk) | Q(task__related_user_id=obj.pk))
+            .order_by("-task_id")
+            .first()
+        )
+        if open_support_reply_action is not None:
+            updated_parameters = dict(open_support_reply_action.parameters or {})
+            updated_parameters["message"] = reply_message
+            open_support_reply_action.parameters = updated_parameters
+            open_support_reply_action.save(update_fields=["parameters"], changed_by=request.user)
+            open_support_reply_action.resolve(SupportTaskAction.Status.EXECUTED, request.user)
 
         serialized = MessageSerializer(message).data
 
@@ -1080,6 +1113,67 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
     @extend_schema(
         request=inline_serializer(
+            name="UpdateUserProfileFieldsRequest",
+            fields={
+                "user_type": serializers.ChoiceField(choices=Profile.TypeChoices.choices, required=False),
+                "country_of_residence": serializers.ChoiceField(
+                    choices=Profile.CountryChoices.choices,
+                    required=False,
+                ),
+            },
+        )
+    )
+    @action(detail=True, methods=["post"])
+    def update_profile_fields(self, request, pk=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+
+        if not request.user.has_perm(ManagementPermission.MATCHING_USER):
+            return Response(
+                {"msg": "You are not allowed to update matching profile fields!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+
+        serializer = inline_serializer(
+            name="UpdateUserProfileFieldsSerializer",
+            fields={
+                "user_type": serializers.ChoiceField(choices=Profile.TypeChoices.choices, required=False),
+                "country_of_residence": serializers.ChoiceField(
+                    choices=Profile.CountryChoices.choices,
+                    required=False,
+                ),
+            },
+            data=request.data,
+        )
+        serializer.is_valid(raise_exception=True)
+
+        update_fields = []
+        profile = obj.profile
+        for field in ("user_type", "country_of_residence"):
+            if field in serializer.validated_data:
+                setattr(profile, field, serializer.validated_data[field])
+                update_fields.append(field)
+
+        if not update_fields:
+            return Response(
+                {"msg": "No profile fields provided."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        profile.save(update_fields=update_fields)
+        return Response(
+            {
+                "success": True,
+                "profile": MinimalProfileSerializer(profile).data,
+            }
+        )
+
+    @extend_schema(
+        request=inline_serializer(
             name="MarkPrematchingCallCompletedRequest",
             fields={"had_prematching_call": serializers.BooleanField(default=True)},
         )
@@ -1134,6 +1228,12 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     def delete_user(self, request, pk=None):
         self.kwargs["pk"] = pk
         obj = self.get_object()
+
+        if not request.user.has_perm(ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS):
+            return Response(
+                {"msg": "You are not allowed to delete users!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         has_access, res = self.check_management_user_access(obj, request)
         if not has_access:
@@ -1347,6 +1447,10 @@ viewset_actions = [
     path(
         "api/matching/users/<pk>/invite_native_app_tester/",
         AdvancedUserViewset.as_view({"post": "invite_native_app_tester"}),
+    ),
+    path(
+        "api/matching/users/<pk>/update_profile_fields/",
+        AdvancedUserViewset.as_view({"post": "update_profile_fields"}),
     ),
 ]
 

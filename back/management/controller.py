@@ -21,12 +21,6 @@ from management.models.state import State
 from management.models.unconfirmed_matches import MatchType, ProposedMatch
 from management.models.user import User, UserSerializer
 from management.permissions import ManagementPermission
-from management.tasks import (
-    create_default_banners,
-    create_default_community_events,
-    create_default_cookie_groups,
-    fill_base_management_user_tim_profile,
-)
 
 
 class UserNotFoundErr(Exception):
@@ -184,6 +178,7 @@ def create_user(
     newsletter_subscribed=False,
     send_verification_mail=True,
     send_welcome_notification=True,
+    auto_apply_user_access_permission=True,
 ):
     """
     This should be used when creating a new user, it may throw validations errors!
@@ -275,6 +270,15 @@ def create_user(
         # At the moment all our users get the same management user
         # in the future there might be a process to assign different management users to different users
         base_management_user.grant_management_access(usr, granted_by=base_management_user)
+
+    if auto_apply_user_access_permission:
+        managers_with_full_access = User.objects.filter(
+            user_permissions__codename=ManagementPermission.RECEIVES_FULL_USER_ACCESS.codename,
+            user_permissions__content_type__app_label="management",
+            user_permissions__content_type__model="state",
+        ).distinct()
+        for manager in managers_with_full_access:
+            manager.grant_management_access(usr, granted_by=base_management_user)
 
     return usr
 
@@ -470,12 +474,28 @@ def is_base_management_user(user: User) -> bool:
     return user.email == settings.MATCHING_USER_MAIL
 
 
+def ensure_base_management_user_permissions(user: User) -> None:
+    required_permissions = (
+        ManagementPermission.MATCHING_USER,
+        ManagementPermission.OPEN_CHAT_ACCESS,
+        ManagementPermission.USE_RANDOM_CALLS,
+        ManagementPermission.CAN_SEND_SUPPORT_MESSAGE_REPLIES,
+        ManagementPermission.IS_MAIN_SUPPORT_ACCOUNT,
+    )
+    for permission in required_permissions:
+        if not user.has_perm(permission):
+            user.grant_permission(permission)
+
+
 def get_base_management_user():
     """
     Always returns the BASE_MANAGEMENT_USER user
     """
     try:
-        return get_user_by_email(settings.MATCHING_USER_MAIL)
+        user = get_user_by_email(settings.MATCHING_USER_MAIL)
+        if not getattr(settings, "IS_TEST_COMMAND", False):
+            ensure_base_management_user_permissions(user)
+        return user
     except UserNotFoundErr:
         return create_base_admin_and_add_standart_db_values()
 
@@ -498,10 +518,7 @@ def create_base_admin_and_add_standart_db_values():
 
     def update_profile():
         usr_tim = get_user_by_email(settings.MATCHING_USER_MAIL)
-        if not usr_tim.has_perm(ManagementPermission.MATCHING_USER):
-            usr_tim.grant_permission(ManagementPermission.MATCHING_USER)
-            usr_tim.grant_permission(ManagementPermission.OPEN_CHAT_ACCESS)
-            usr_tim.grant_permission(ManagementPermission.USE_RANDOM_CALLS)
+        ensure_base_management_user_permissions(usr_tim)
         usr_tim.state.email_authenticated = True
         usr_tim.state.save()
         usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
@@ -522,10 +539,20 @@ def create_base_admin_and_add_standart_db_values():
     transaction.on_commit(update_profile)
     # The tim user should always get the matching permission
 
+    if getattr(settings, "IS_TEST_COMMAND", False):
+        return usr_tim
+
     # Now we create some default database elements that should be part of all setups!
 
     # Create default cookie groups and community events
     # This is done as celery task in the background!
+    from management.tasks import (
+        create_default_banners,
+        create_default_community_events,
+        create_default_cookie_groups,
+        fill_base_management_user_tim_profile,
+    )
+
     create_default_cookie_groups.delay()
     create_default_community_events.delay()
     create_default_banners.delay()

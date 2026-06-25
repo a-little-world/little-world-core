@@ -25,7 +25,6 @@ Pillow # Required for django image field
 django-rest-passwordreset
 requests # for tests mainly
 twilio # For SMS sending
-pytest # Are used for the tests in cookie_banner
 psycopg2-binary # For aws postgres sql
 django-storages # For manageing s2 bucket in combinaton with boto3
 boto3==1.42.24 # for connection loading and updloading to amazon s3
@@ -63,4 +62,5 @@ google-api-python-client==2.108.0
 google-auth==2.23.4
 cbor2===5.9.0
 django-simple-reload @ git+https://github.com/tbscode/django-simple-reload.git
-open_chat_client_python @ git+https://github.com/msgmate-io/open-chat-go-python-client.git
+open_chat_client_python @ git+https://github.com/msgmate-io/open-chat-go-python-client.git@main
+
