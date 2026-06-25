@@ -25,7 +25,6 @@ Pillow # Required for django image field
 django-rest-passwordreset
 requests # for tests mainly
 twilio # For SMS sending
-pytest # Are used for the tests in cookie_banner
 psycopg2-binary # For aws postgres sql
 django-storages # For manageing s2 bucket in combinaton with boto3
 boto3==1.42.24 # for connection loading and updloading to amazon s3
