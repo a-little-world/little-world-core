@@ -18,7 +18,6 @@ from management.models.user import User
 from management.permissions import ManagementPermission
 
 from .meta_capi import MetaCAPIClient
-from .open_chat_interaction_task import open_chat_basic_chat_interaction  # noqa: F401
 
 """
 also contains general startup celery tasks, most of them are automaticly run when the controller.get_base_management user is created
@@ -559,6 +558,39 @@ def slack_notify_security_channel_async(message):
     from management.api.slack import notify_security_channel
 
     notify_security_channel(message)
+
+
+@shared_task
+def sync_full_user_access_for_manager(manager_user_id: int):
+    """
+    Mirror all current base-management access grants to a manager user.
+    This is intended for users with RECEIVES_FULL_USER_ACCESS.
+    """
+    from management.controller import get_base_management_user
+
+    manager = User.objects.filter(pk=manager_user_id).first()
+    if manager is None:
+        return {"status": "manager_not_found", "manager_user_id": manager_user_id}
+
+    if not manager.has_perm(ManagementPermission.RECEIVES_FULL_USER_ACCESS):
+        return {"status": "permission_missing", "manager_user_id": manager_user_id}
+
+    base_management_user = get_base_management_user()
+    managed_users = base_management_user.managed_users_queryset(active_only=False)
+
+    created_access_grants = 0
+    total_processed = 0
+    for managed_user in managed_users.iterator():
+        total_processed += 1
+        if manager.grant_management_access(managed_user, granted_by=base_management_user):
+            created_access_grants += 1
+
+    return {
+        "status": "ok",
+        "manager_user_id": manager_user_id,
+        "processed_users": total_processed,
+        "created_access_grants": created_access_grants,
+    }
 
 
 @shared_task

@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.urls import path, re_path
 from django_rest_passwordreset.views import ResetPasswordConfirmViewSet, ResetPasswordValidateTokenViewSet
+from open_chat.api import api_urls as open_chat_api_urls
 from rest_framework.routers import DefaultRouter
 
 from management.api import (
@@ -39,12 +40,12 @@ from management.api.dynamic_user_list import (
     DynamicUserListSingleViewSet,
 )
 from management.api.matches_advanced import api_urls as matches_advanced_api_urls
+from management.api.matches_advanced_statistics import api_urls as matches_advanced_statistics_api_urls
 from management.api.matching_panel_user import api_urls as matching_panel_user_api_urls
 from management.api.matching_stats import get_quick_statistics
 from management.api.matching_users_advanced import api_urls as matching_users_advanced_api_urls
 from management.api.native_auth import api_urls as api_urls_native_auth
 from management.api.newsletter_subscribe import public_newsletter_subscribe
-from management.api.open_chat import api_urls as open_chat_api_urls
 from management.api.question_cards import (
     admin_question_card_category_detail,
     admin_question_card_detail,
@@ -157,6 +158,7 @@ api_routes = [
     *ai.api_routes,
     *user_advanced_api_urls,
     *matches_advanced_api_urls,
+    *matches_advanced_statistics_api_urls,
     *matching_panel_user_api_urls,
     *open_chat_api_urls,
     *matching_users_advanced_api_urls,

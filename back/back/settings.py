@@ -143,7 +143,7 @@ USE_WHITENOISE = os.environ.get("DJ_USE_WHITENOISE", "false").lower() in ("true"
 EMPHIRIAL = os.environ.get("EMPHIRIAL", "0") == "1"
 IS_TEST_ENV = bool_env("DJANGO_TESTING", "false")
 IS_TEST_COMMAND = len(sys.argv) > 1 and sys.argv[1] == "test"
-OPEN_CHAT_BOOTSTRAP_ENABLED_DEFAULT = (not IS_TEST_ENV) and (not IS_TEST_COMMAND) and EMPHIRIAL
+OPEN_CHAT_BOOTSTRAP_ENABLED_DEFAULT = (not IS_TEST_ENV) and (not IS_TEST_COMMAND)
 ENABLE_OPEN_CHAT_BOOTSTRAP_IN_TESTS = bool_env("DJ_ENABLE_OPEN_CHAT_BOOTSTRAP_IN_TESTS", "false")
 
 USE_LANDINGPAGE_REDIRECT = os.environ.get("DJ_USE_LANDINGPAGE_REDIRECT", "false").lower() in ("true", "1", "t")
@@ -219,6 +219,7 @@ INSTALLED_APPS = [
     "emails",  # Manageing logging and sending emails
     "cookie_consent",  # Our cookie consent management system
     "management",  # Main backend application
+    "open_chat",  # Open Chat integration (configuration, interactions, automations)
     "chat",  # Our chat
     "patenmatch",  # pathenmatch api
     "corsheaders",
@@ -1112,3 +1113,8 @@ DEFAULT_OPEN_CHAT_CONFIGURATION = {
     "open_chat_user": os.environ.get("DJ_DEFAULT_OPEN_CHAT_USER", "admin"),
     "open_chat_host": os.environ.get("DJ_DEFAULT_OPEN_CHAT_HOST", "http://host.docker.internal:1984"),
 }
+
+
+OPEN_CHAT_ENABLE_AUTOMATION_MESSAGE_REPLY_SUGGESTION = bool_env(
+    "DJ_OPEN_CHAT_ENABLE_AUTOMATION_MESSAGE_REPLY_SUGGESTION", "false"
+)
