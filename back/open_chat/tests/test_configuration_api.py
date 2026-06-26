@@ -444,11 +444,10 @@ class OpenChatConfigurationApiTests(TestCase):
             rows=[
                 SimpleNamespace(
                     uuid="interaction-1",
-                    title="First interaction",
-                    status="completed",
-                    created=None,
-                    updated=None,
+                    chat_type="interaction",
+                    partner=SimpleNamespace(name="First interaction"),
                     shared_interaction_url=None,
+                    to_dict=lambda: {},
                 )
             ]
         )
@@ -477,11 +476,10 @@ class OpenChatConfigurationApiTests(TestCase):
             rows=[
                 SimpleNamespace(
                     uuid="42",
-                    title="Managed interaction",
-                    status=None,
-                    created=None,
-                    updated=None,
+                    chat_type="interaction",
+                    partner=SimpleNamespace(name="Managed interaction"),
                     shared_interaction_url=None,
+                    to_dict=lambda: {},
                 )
             ]
         )
@@ -514,11 +512,10 @@ class OpenChatConfigurationApiTests(TestCase):
             rows=[
                 SimpleNamespace(
                     uuid="interaction-own-config",
-                    title=None,
-                    status=None,
-                    created=None,
-                    updated=None,
+                    chat_type="interaction",
+                    partner=None,
                     shared_interaction_url=None,
+                    to_dict=lambda: {},
                 )
             ]
         )
@@ -548,11 +545,10 @@ class OpenChatConfigurationApiTests(TestCase):
             rows=[
                 SimpleNamespace(
                     uuid="interaction-manage-only",
-                    title=None,
-                    status=None,
-                    created=None,
-                    updated=None,
+                    chat_type="interaction",
+                    partner=None,
                     shared_interaction_url=None,
+                    to_dict=lambda: {},
                 )
             ]
         )
@@ -579,17 +575,12 @@ class OpenChatConfigurationApiTests(TestCase):
         mock_client = MagicMock()
         mock_client.get_interaction.return_value = SimpleNamespace(
             uuid=interaction_uuid,
-            title="Detailed interaction",
-            status="completed",
-            created=None,
-            updated=None,
+            chat_type="interaction",
+            partner=SimpleNamespace(name="Detailed interaction"),
             shared_interaction_url=None,
             to_dict=lambda: {
                 "uuid": interaction_uuid,
-                "title": "Detailed interaction",
-                "status": "completed",
-                "created": None,
-                "updated": None,
+                "chat_type": "interaction",
                 "shared_interaction_url": None,
             },
         )

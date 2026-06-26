@@ -132,13 +132,18 @@ def _build_open_chat_interaction_summary(interaction) -> dict:
     except Exception:
         raw_payload = {}
 
+    interaction_id = str(value_or(interaction.uuid, ""))
+    partner = value_or(interaction.partner, None)
+    partner_name = value_or(partner.name, "") if partner is not None else ""
+    title = partner_name or (f"Interaction {interaction_id}" if interaction_id else "Interaction")
+
     return {
-        "interaction_id": str(interaction.uuid),
-        "title": interaction.title,
-        "created": interaction.created,
-        "updated": interaction.updated,
-        "status": interaction.status,
-        "shared_interaction_url": interaction.shared_interaction_url,
+        "interaction_id": interaction_id,
+        "title": title,
+        "created": None,
+        "updated": None,
+        "status": value_or(interaction.chat_type, None),
+        "shared_interaction_url": value_or(interaction.shared_interaction_url, None),
         "raw": raw_payload,
     }
 
