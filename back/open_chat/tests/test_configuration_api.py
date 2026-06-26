@@ -1,16 +1,18 @@
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from chat.models import Chat
+from client import PasswordAuth
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
-from rest_framework.test import APIClient
-
 from management.models.matches import Match
-from management.models.open_chat_configuration import DEFAULT_OPEN_CHAT_HOST, OpenChatConfiguration
 from management.models.support_task import SupportTask
 from management.models.user import User
 from management.permissions import ManagementPermission
+from rest_framework.test import APIClient
+
+from open_chat.models import DEFAULT_OPEN_CHAT_HOST, OpenChatConfiguration
 
 API_URL = "/api/matching/open-chat-configuration/"
 TEST_CONNECTION_URL = "/api/matching/open-chat/test-connection/"
@@ -268,7 +270,7 @@ class OpenChatConfigurationApiTests(TestCase):
         response = self.api_client.post(TEST_CONNECTION_URL, {}, format="json")
         self.assertEqual(response.status_code, 404)
 
-    @patch("management.api.open_chat._build_open_chat_client")
+    @patch("open_chat.api.OpenChatClient")
     def test_test_connection_success(self, mock_build_client):
         OpenChatConfiguration.objects.create(
             user=self.authorized_user,
@@ -277,7 +279,7 @@ class OpenChatConfigurationApiTests(TestCase):
             open_chat_host=DEFAULT_HOST,
         )
         mock_client = MagicMock()
-        mock_client.login.return_value = {"name": "Test User"}
+        mock_client.login.return_value = SimpleNamespace(name="Test User")
         mock_build_client.return_value = mock_client
 
         self.api_client.force_authenticate(user=self.authorized_user)
@@ -286,9 +288,8 @@ class OpenChatConfigurationApiTests(TestCase):
         self.assertTrue(response.data["success"])
         self.assertEqual(response.data["user_name"], "Test User")
         mock_build_client.assert_called_once_with(
-            host=DEFAULT_HOST,
-            username="test-open-chat-user",
-            password="test-api-key",
+            base_url=DEFAULT_HOST,
+            auth=PasswordAuth(email="test-open-chat-user", password="test-api-key"),
         )
         mock_client.login.assert_called_once()
 
@@ -430,7 +431,7 @@ class OpenChatConfigurationApiTests(TestCase):
         self.assertEqual(response.status_code, 409)
         self.assertTrue(response.data["matching_exists"])
 
-    @patch("management.api.open_chat._build_open_chat_client")
+    @patch("open_chat.api.OpenChatClient")
     def test_interactions_returns_interactions_for_current_user(self, mock_build_client):
         OpenChatConfiguration.objects.create(
             user=self.authorized_user,
@@ -439,13 +440,17 @@ class OpenChatConfigurationApiTests(TestCase):
             open_chat_host=DEFAULT_HOST,
         )
         mock_client = MagicMock()
-        mock_client.get_interactions.return_value = [
-            {
-                "uuid": "interaction-1",
-                "title": "First interaction",
-                "status": "completed",
-            }
-        ]
+        mock_client.get_interactions.return_value = SimpleNamespace(
+            rows=[
+                SimpleNamespace(
+                    uuid="interaction-1",
+                    chat_type="interaction",
+                    partner=SimpleNamespace(name="First interaction"),
+                    shared_interaction_url=None,
+                    to_dict=lambda: {},
+                )
+            ]
+        )
         mock_build_client.return_value = mock_client
 
         self.api_client.force_authenticate(user=self.authorized_user)
@@ -458,7 +463,7 @@ class OpenChatConfigurationApiTests(TestCase):
         mock_client.login.assert_called_once()
         mock_client.get_interactions.assert_called()
 
-    @patch("management.api.open_chat._build_open_chat_client")
+    @patch("open_chat.api.OpenChatClient")
     def test_interactions_manager_can_query_other_user_by_uuid(self, mock_build_client):
         OpenChatConfiguration.objects.create(
             user=self.view_only_user,
@@ -467,7 +472,17 @@ class OpenChatConfigurationApiTests(TestCase):
             open_chat_host=DEFAULT_HOST,
         )
         mock_client = MagicMock()
-        mock_client.get_interactions.return_value = {"results": [{"id": 42, "name": "Managed interaction"}]}
+        mock_client.get_interactions.return_value = SimpleNamespace(
+            rows=[
+                SimpleNamespace(
+                    uuid="42",
+                    chat_type="interaction",
+                    partner=SimpleNamespace(name="Managed interaction"),
+                    shared_interaction_url=None,
+                    to_dict=lambda: {},
+                )
+            ]
+        )
         mock_build_client.return_value = mock_client
 
         self.api_client.force_authenticate(user=self.manager_user)
@@ -480,12 +495,11 @@ class OpenChatConfigurationApiTests(TestCase):
         self.assertEqual(response.data["results"][0]["interaction_id"], "42")
         self.assertEqual(response.data["results"][0]["title"], "Managed interaction")
         mock_build_client.assert_called_once_with(
-            host=DEFAULT_HOST,
-            username="view-only-user",
-            password="view-only-key",
+            base_url=DEFAULT_HOST,
+            auth=PasswordAuth(email="view-only-user", password="view-only-key"),
         )
 
-    @patch("management.api.open_chat._build_open_chat_client")
+    @patch("open_chat.api.OpenChatClient")
     def test_interactions_non_manager_ignores_other_user_uuid(self, mock_build_client):
         OpenChatConfiguration.objects.create(
             user=self.authorized_user,
@@ -494,7 +508,17 @@ class OpenChatConfigurationApiTests(TestCase):
             open_chat_host=DEFAULT_HOST,
         )
         mock_client = MagicMock()
-        mock_client.get_interactions.return_value = [{"uuid": "interaction-own-config"}]
+        mock_client.get_interactions.return_value = SimpleNamespace(
+            rows=[
+                SimpleNamespace(
+                    uuid="interaction-own-config",
+                    chat_type="interaction",
+                    partner=None,
+                    shared_interaction_url=None,
+                    to_dict=lambda: {},
+                )
+            ]
+        )
         mock_build_client.return_value = mock_client
 
         self.api_client.force_authenticate(user=self.authorized_user)
@@ -504,12 +528,11 @@ class OpenChatConfigurationApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         mock_build_client.assert_called_once_with(
-            host=DEFAULT_HOST,
-            username="authorized-user",
-            password="authorized-key",
+            base_url=DEFAULT_HOST,
+            auth=PasswordAuth(email="authorized-user", password="authorized-key"),
         )
 
-    @patch("management.api.open_chat._build_open_chat_client")
+    @patch("open_chat.api.OpenChatClient")
     def test_interactions_manage_only_user_can_query_other_user(self, mock_build_client):
         OpenChatConfiguration.objects.create(
             user=self.view_only_user,
@@ -518,7 +541,17 @@ class OpenChatConfigurationApiTests(TestCase):
             open_chat_host=DEFAULT_HOST,
         )
         mock_client = MagicMock()
-        mock_client.get_interactions.return_value = [{"uuid": "interaction-manage-only"}]
+        mock_client.get_interactions.return_value = SimpleNamespace(
+            rows=[
+                SimpleNamespace(
+                    uuid="interaction-manage-only",
+                    chat_type="interaction",
+                    partner=None,
+                    shared_interaction_url=None,
+                    to_dict=lambda: {},
+                )
+            ]
+        )
         mock_build_client.return_value = mock_client
 
         self.api_client.force_authenticate(user=self.manage_only_user)
@@ -530,7 +563,7 @@ class OpenChatConfigurationApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["results"][0]["interaction_id"], "interaction-manage-only")
 
-    @patch("management.api.open_chat._build_open_chat_client")
+    @patch("open_chat.api.OpenChatClient")
     def test_interaction_detail_returns_interaction(self, mock_build_client):
         interaction_uuid = "6ece98ca-8d5c-4791-a198-0b971c0ac0d6"
         OpenChatConfiguration.objects.create(
@@ -540,11 +573,17 @@ class OpenChatConfigurationApiTests(TestCase):
             open_chat_host=DEFAULT_HOST,
         )
         mock_client = MagicMock()
-        mock_client.get_interaction.return_value = {
-            "uuid": interaction_uuid,
-            "title": "Detailed interaction",
-            "status": "completed",
-        }
+        mock_client.get_interaction.return_value = SimpleNamespace(
+            uuid=interaction_uuid,
+            chat_type="interaction",
+            partner=SimpleNamespace(name="Detailed interaction"),
+            shared_interaction_url=None,
+            to_dict=lambda: {
+                "uuid": interaction_uuid,
+                "chat_type": "interaction",
+                "shared_interaction_url": None,
+            },
+        )
         mock_build_client.return_value = mock_client
 
         self.api_client.force_authenticate(user=self.authorized_user)
@@ -555,10 +594,7 @@ class OpenChatConfigurationApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["interaction_id"], interaction_uuid)
         self.assertEqual(response.data["title"], "Detailed interaction")
-        mock_client.get_interaction.assert_called_once_with(
-            interaction_uuid,
-            include_share_info=False,
-        )
+        mock_client.get_interaction.assert_called_once_with(interaction_uuid)
 
     def test_delete_chat_deletes_owned_open_chat_chat(self):
         chat = Chat.objects.create(
@@ -600,7 +636,7 @@ class OpenChatConfigurationApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
-    @patch("management.api.open_chat.idempotent_actions__generate_message_replies.delay")
+    @patch("open_chat.api.idempotent_actions__generate_message_replies.delay")
     def test_automation_generate_message_replies_enqueues_task(self, mock_delay):
         OpenChatConfiguration.objects.create(
             user=self.authorized_user,

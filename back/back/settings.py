@@ -219,6 +219,7 @@ INSTALLED_APPS = [
     "emails",  # Manageing logging and sending emails
     "cookie_consent",  # Our cookie consent management system
     "management",  # Main backend application
+    "open_chat",  # Open Chat integration (configuration, interactions, automations)
     "chat",  # Our chat
     "patenmatch",  # pathenmatch api
     "corsheaders",

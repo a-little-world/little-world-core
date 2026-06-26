@@ -62,15 +62,14 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
     def filter_queryset(self, queryset):
         if hasattr(self, "chat_uuid"):
             if self.request.user.is_staff:
-                qs = Chat.objects.get(uuid=self.chat_uuid).get_messages().order_by("-created")
-                return qs
+                chat = Chat.objects.filter(uuid=self.chat_uuid).first()
             else:
-                qs = (
-                    Chat.objects.get(Q(u1=self.request.user) | Q(u2=self.request.user), uuid=self.chat_uuid)
-                    .get_messages()
-                    .order_by("-created")
-                )
-                return qs
+                chat = Chat.objects.filter(
+                    Q(u1=self.request.user) | Q(u2=self.request.user), uuid=self.chat_uuid
+                ).first()
+            if chat is None:
+                return Message.objects.none()
+            return chat.get_messages().order_by("-created")
         return super().filter_queryset(queryset)
 
     def list(self, request, *args, **kwargs):
@@ -291,9 +290,9 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
             # Create/reuse support-reply tasks for inbound messages to the partner
             # using the same idempotent helper as the Open Chat automation loop.
             from management import controller
-            from management.open_chat_interaction_task import (
+            from open_chat.helpers import resolve_open_chat_automation_task_creator_user
+            from open_chat.message_reply_suggestion import (
                 create_or_reuse_support_reply_task_for_message,
-                resolve_open_chat_automation_task_creator_user,
             )
 
             if controller.is_base_management_user(partner):

@@ -1,6 +1,5 @@
-from rest_framework.permissions import BasePermission
-
 from management.permissions import ManagementPermission
+from rest_framework.permissions import BasePermission
 
 
 class HasOpenChatAccess(BasePermission):
