@@ -4,14 +4,13 @@ import logging
 from celery import shared_task
 from chat.models import Chat
 from chat.models import Message as ChatMessage
-from client.client import OpenChatPythonClient
+from client import OpenChatClient, PasswordAuth, ToolName
+from client.generated_api.models.little_world_chat_reply_init import LittleWorldChatReplyInit
 
 from management.helpers.open_chat import (
     FALLBACK_USER_MESSAGE,
-    _apply_bot_config_overwrite,
-    build_default_bot_config,
     build_tool_session_context,
-    detect_expected_tool_call,
+    interaction_called_tool,
     value_or,
 )
 from management.models.open_chat_configuration import OpenChatConfiguration
@@ -20,12 +19,8 @@ from management.permissions import ManagementPermission
 
 logger = logging.getLogger(__name__)
 
-CHAT_REPLY_TOOL = "little_world__chat_reply"
-
-SYSTEM_PROMPT_CHAT_REPLY = """
-Du bist ein Little-World-Support-Assistent.
-Gib die finale Antwort immer aus, indem du genau einmal das Tool `little_world__chat_reply` aufrufst.
-""".strip()
+# Pre-provisioned Open Chat bot that owns the live chat-reply interaction config.
+CHAT_REPLY_BOT = "little_world_support_chat"
 
 
 def _publish_interaction_chat_message(
@@ -111,39 +106,33 @@ def open_chat_basic_chat_interaction(
                 "sender_has_open_chat_configuration": sender_configuration is not None,
             }
 
-    bot_config = _apply_bot_config_overwrite(
-        build_default_bot_config(tools=[CHAT_REPLY_TOOL], system_prompt=SYSTEM_PROMPT_CHAT_REPLY),
-        configuration.interaction_overwrite,
-    )
-    # Never allow per-user interaction_overwrite to disable the selected runtime tool mode.
-    bot_config["tools"] = [CHAT_REPLY_TOOL]
-    bot_config["system_prompt"] = SYSTEM_PROMPT_CHAT_REPLY
-
     session_id, csrf_token, api_host = build_tool_session_context(recipient)
-    tool_init = {
-        CHAT_REPLY_TOOL: {
-            "session_id": session_id,
-            "csrf_token": csrf_token,
-            "api_host": api_host,
-            "chat_uuid": chat_uuid,
-        }
-    }
-
     try:
-        client = OpenChatPythonClient(
-            host=configuration.open_chat_host,
-            username=configuration.open_chat_user,
-            password=configuration.open_chat_api_key,
+        client = OpenChatClient(
+            base_url=configuration.open_chat_host,
+            auth=PasswordAuth(email=configuration.open_chat_user, password=configuration.open_chat_api_key),
         )
-        client.setup_bot_config(bot_config)
         login_user = client.login()
 
         message = (user_message_text or "").strip() or FALLBACK_USER_MESSAGE
-        interaction = client.create_interaction(tool_init=tool_init, message=message)
-        interaction_uuid = value_or(interaction.uuid, "")
-        if not interaction_uuid:
-            return {"status": "error", "reason": "created_interaction_missing_uuid"}
+        interaction = client.interact(
+            bot=CHAT_REPLY_BOT,
+            message=message,
+            tool_init={
+                ToolName.LITTLE_WORLD_CHAT_REPLY: LittleWorldChatReplyInit(
+                    api_host=api_host,
+                    chat_uuid=chat_uuid,
+                    csrf_token=csrf_token,
+                    session_id=session_id,
+                )
+            },
+        )
+        try:
+            interaction.wait_until_finished(timeout_seconds=60)
+        except TimeoutError:
+            pass
 
+        interaction_uuid = interaction.uuid
         login_user_name = value_or(login_user.name, "")
         logger.info(
             "open_chat_basic_chat_interaction login_user=%s config_owner=%s interaction_uuid=%s",
@@ -152,8 +141,8 @@ def open_chat_basic_chat_interaction(
             interaction_uuid,
         )
 
-        shared_url = client.get_shared_interaction_url(interaction_uuid)
-        tool_called = detect_expected_tool_call(client, interaction_uuid, {CHAT_REPLY_TOOL})
+        tool_called = interaction_called_tool(interaction, ToolName.LITTLE_WORLD_CHAT_REPLY)
+        shared_url = interaction.shared_url()
         interaction_message_uuid, interaction_message_payload = _publish_interaction_chat_message(
             chat_uuid=chat_uuid,
             sender=sender,

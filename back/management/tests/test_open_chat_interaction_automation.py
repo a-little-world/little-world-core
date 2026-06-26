@@ -255,17 +255,19 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         )
 
     @patch("chat.consumers.messages.NewMessage.send")
-    @patch("management.open_chat_basic_chat_interaction_task.OpenChatPythonClient")
+    @patch("management.open_chat_basic_chat_interaction_task.OpenChatClient")
     def test_basic_chat_interaction_runs_chat_reply_flow(self, mock_client_cls, _mock_new_message_send):
         mock_client = MagicMock()
         mock_client.login.return_value = SimpleNamespace(name="Admin Open Chat")
-        mock_client.create_interaction.return_value = SimpleNamespace(uuid="7e4b91f9-2bf9-4f10-b650-11a4345acf71")
-        mock_client.get_shared_interaction_url.return_value = (
+        mock_interaction = MagicMock()
+        mock_interaction.uuid = "7e4b91f9-2bf9-4f10-b650-11a4345acf71"
+        mock_interaction.shared_url.return_value = (
             "http://localhost:1984/interaction/7e4b91f9-2bf9-4f10-b650-11a4345acf71"
         )
-        mock_client.list_interaction_messages.return_value = SimpleNamespace(
+        mock_interaction.messages.return_value = SimpleNamespace(
             rows=[SimpleNamespace(tool_calls=[{"name": "little_world__chat_reply"}])]
         )
+        mock_client.interact.return_value = mock_interaction
         mock_client_cls.return_value = mock_client
 
         result = open_chat_basic_chat_interaction(
@@ -280,19 +282,14 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         self.assertEqual(result["configuration_owner"], "recipient")
         self.assertEqual(result["interaction_uuid"], "7e4b91f9-2bf9-4f10-b650-11a4345acf71")
         self.assertTrue(result["tool_called"])
-        setup_args = mock_client.setup_bot_config.call_args[0][0]
-        self.assertEqual(setup_args["tools"], ["little_world__chat_reply"])
+        _, interact_kwargs = mock_client.interact.call_args
+        self.assertEqual(interact_kwargs["bot"], "little_world_support_chat")
+        [chat_reply_init] = list(interact_kwargs["tool_init"].values())
+        self.assertEqual(chat_reply_init.chat_uuid, str(self.chat.uuid))
 
     @patch("chat.consumers.messages.NewMessage.send")
-    @patch("management.open_chat_automation_message_reply_suggestion_task.OpenChatPythonClient")
+    @patch("management.open_chat_automation_message_reply_suggestion_task.OpenChatClient")
     def test_run_message_reply_suggestion_uses_suggestion_tool(self, mock_client_cls, _mock_new_message_send):
-        configuration = OpenChatConfiguration.objects.get(user=self.admin_user)
-        configuration.interaction_overwrite = {
-            "tools": [],
-            "system_prompt": "You are a support assistant. Respond naturally without using any external reply tools.",
-        }
-        configuration.save(update_fields=["interaction_overwrite"])
-
         support_task = SupportTask.create_of_type(
             "support_reply",
             static_parameters={
@@ -312,17 +309,13 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
 
         mock_client = MagicMock()
         mock_client.login.return_value = SimpleNamespace(name="Admin Open Chat")
-        mock_client.create_interaction.return_value = SimpleNamespace(uuid="suggestion-interaction-uuid")
-        mock_client.get_interactions.return_value = SimpleNamespace(
-            rows=[SimpleNamespace(uuid="suggestion-interaction-uuid")],
-            total_pages=1,
-        )
-        mock_client.get_shared_interaction_url.return_value = (
-            "http://localhost:1984/interaction/suggestion-interaction-uuid"
-        )
-        mock_client.list_interaction_messages.return_value = SimpleNamespace(
+        mock_interaction = MagicMock()
+        mock_interaction.uuid = "suggestion-interaction-uuid"
+        mock_interaction.shared_url.return_value = "http://localhost:1984/interaction/suggestion-interaction-uuid"
+        mock_interaction.messages.return_value = SimpleNamespace(
             rows=[SimpleNamespace(tool_calls=[{"name": "little_world__generate_message_reply_suggestion"}])]
         )
+        mock_client.interact.return_value = mock_interaction
         mock_client_cls.return_value = mock_client
 
         result = open_chat_run_message_reply_suggestion_interaction(
@@ -337,18 +330,12 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
 
         self.assertEqual(result["status"], "ok")
         self.assertTrue(result["tool_called"])
-        setup_args = mock_client.setup_bot_config.call_args[0][0]
-        self.assertEqual(setup_args["tools"], ["little_world__generate_message_reply_suggestion"])
-        self.assertIn("little_world__generate_message_reply_suggestion", setup_args["system_prompt"])
-        _, create_kwargs = mock_client.create_interaction.call_args
-        self.assertIn("tool_init", create_kwargs)
-        self.assertIn("message", create_kwargs)
-        self.assertEqual(create_kwargs["message"], self.source_message.text)
-        tool_init = create_kwargs["tool_init"]
-        self.assertIn("little_world__generate_message_reply_suggestion", tool_init)
-        suggestion_tool_init = tool_init["little_world__generate_message_reply_suggestion"]
-        self.assertEqual(suggestion_tool_init["task_pk"], str(support_task.pk))
-        self.assertEqual(suggestion_tool_init["action_id"], str(support_task.action.pk))
+        _, interact_kwargs = mock_client.interact.call_args
+        self.assertEqual(interact_kwargs["bot"], "little_world_reply_suggestion")
+        self.assertEqual(interact_kwargs["message"], self.source_message.text)
+        [suggestion_init] = list(interact_kwargs["tool_init"].values())
+        self.assertEqual(suggestion_init.task_pk, str(support_task.pk))
+        self.assertEqual(suggestion_init.action_id, str(support_task.action.pk))
 
         support_action = SupportTaskAction.objects.get(task=support_task)
         self.assertEqual(support_action.static_parameters.get("interaction_id"), "suggestion-interaction-uuid")
@@ -400,7 +387,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
 
     @patch("management.helpers.open_chat._create_session_and_csrf_for_user")
     @patch("chat.consumers.messages.NewMessage.send")
-    @patch("management.open_chat_automation_message_reply_suggestion_task.OpenChatPythonClient")
+    @patch("management.open_chat_automation_message_reply_suggestion_task.OpenChatClient")
     def test_message_reply_suggestion_tool_init_uses_open_chat_task_creator_session(
         self, mock_client_cls, _mock_new_message_send, mock_create_session
     ):
@@ -423,17 +410,13 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         )
         mock_client = MagicMock()
         mock_client.login.return_value = SimpleNamespace(name="Admin Open Chat")
-        mock_client.create_interaction.return_value = SimpleNamespace(uuid="recipient-session-interaction")
-        mock_client.get_interactions.return_value = SimpleNamespace(
-            rows=[SimpleNamespace(uuid="recipient-session-interaction")],
-            total_pages=1,
-        )
-        mock_client.get_shared_interaction_url.return_value = (
-            "http://localhost:1984/interaction/recipient-session-interaction"
-        )
-        mock_client.list_interaction_messages.return_value = SimpleNamespace(
+        mock_interaction = MagicMock()
+        mock_interaction.uuid = "recipient-session-interaction"
+        mock_interaction.shared_url.return_value = "http://localhost:1984/interaction/recipient-session-interaction"
+        mock_interaction.messages.return_value = SimpleNamespace(
             rows=[SimpleNamespace(tool_calls=[{"name": "little_world__generate_message_reply_suggestion"}])]
         )
+        mock_client.interact.return_value = mock_interaction
         mock_client_cls.return_value = mock_client
 
         result = open_chat_run_message_reply_suggestion_interaction(

@@ -2,8 +2,7 @@ from importlib import import_module
 from typing import Any, TypeVar
 from urllib.parse import urlparse, urlunparse
 
-from client.client import OpenChatPythonClient
-from client.generated_api.models import ChatsListedMessagesPage
+from client import InteractionSession
 from client.generated_api.types import Unset
 from django.conf import settings
 from django.contrib.auth import BACKEND_SESSION_KEY, HASH_SESSION_KEY, SESSION_KEY
@@ -54,19 +53,6 @@ def _normalize_base_url_for_open_chat_tool(base_url: str) -> str:
     return urlunparse(parsed._replace(netloc=normalized_netloc))
 
 
-def build_default_bot_config(*, tools: list[str], system_prompt: str) -> dict:
-    return {
-        "temperature": 0.0,
-        "max_tokens": 8000,
-        "tools": tools,
-        "model": "qwen3-8b-instruct_vllm",
-        "endpoint": "https://litellm.t1m.me/v1",
-        "backend": "litellm",
-        "context": 8000,
-        "system_prompt": system_prompt,
-    }
-
-
 def build_tool_session_context(actor: User) -> tuple[str, str, str]:
     """Create a Django session + CSRF token for ``actor`` and resolve the tool callback host."""
     session_id, csrf_token = _create_session_and_csrf_for_user(actor)
@@ -74,28 +60,10 @@ def build_tool_session_context(actor: User) -> tuple[str, str, str]:
     return session_id, csrf_token, api_host
 
 
-def _apply_bot_config_overwrite(bot_config: dict, overwrite: object) -> dict:
-    if not isinstance(overwrite, dict):
-        return bot_config
-
-    merged = bot_config.copy()
-    for key, value in overwrite.items():
-        if key in merged:
-            merged[key] = value
-    return merged
-
-
-def detect_expected_tool_call(
-    client: OpenChatPythonClient,
-    interaction_uuid: str,
-    expected_tool_names: set[str],
-) -> bool:
-    if not expected_tool_names:
-        return False
-
-    page: ChatsListedMessagesPage = client.list_interaction_messages(interaction_uuid, page=1, limit=200)
+def interaction_called_tool(interaction: InteractionSession, tool_name: str) -> bool:
+    page = interaction.messages(page=1, limit=200)
     for message in value_or(page.rows, []):
-        if any(_tool_call_name(tc) in expected_tool_names for tc in value_or(message.tool_calls, [])):
+        if any(_tool_call_name(tc) == tool_name for tc in value_or(message.tool_calls, [])):
             return True
     return False
 

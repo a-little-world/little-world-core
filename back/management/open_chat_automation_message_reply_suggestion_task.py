@@ -2,16 +2,17 @@ import logging
 
 from celery import current_app, shared_task
 from chat.models import Message as ChatMessage
-from client.client import OpenChatPythonClient
+from client import OpenChatClient, PasswordAuth, ToolName
+from client.generated_api.models.little_world_generate_message_reply_suggestion_init import (
+    LittleWorldGenerateMessageReplySuggestionInit,
+)
 from django.db.models import Q
 
 from management import controller
 from management.helpers.open_chat import (
     FALLBACK_USER_MESSAGE,
-    _apply_bot_config_overwrite,
-    build_default_bot_config,
     build_tool_session_context,
-    detect_expected_tool_call,
+    interaction_called_tool,
     resolve_open_chat_automation_task_creator_user,
     value_or,
 )
@@ -24,17 +25,8 @@ logger = logging.getLogger(__name__)
 
 RUN_INTERACTION_TASK_NAME = "management.tasks.open_chat_run_message_reply_suggestion_interaction"
 
-SUGGESTION_TOOL = "little_world__generate_message_reply_suggestion"
-
-SYSTEM_PROMPT_MESSAGE_REPLY_SUGGESTION = """
-Du bearbeitest eine Little-World-Support-Konversation.
-Erstelle eine kurze und hilfreiche finale Antwort auf die letzte Nutzernachricht.
-Rufe genau einmal das Tool `little_world__generate_message_reply_suggestion` auf, um den Entwurf zu speichern.
-Stelle niemals Rueckfragen und bitte niemals um mehr Informationen.
-Wenn die Eingabe unklar oder sehr kurz ist, erstelle trotzdem einen bestmoeglichen, freundlichen Antwortentwurf.
-Frage nicht nach einer Bestaetigung und rufe keine anderen Tools auf.
-Uebergib als Argument nur den Entwurfstext in `message`.
-""".strip()
+# Pre-provisioned Open Chat bot that owns the message-reply-suggestion interaction config.
+SUGGESTION_BOT = "little_world_reply_suggestion"
 
 
 def create_or_reuse_support_reply_task_for_message(
@@ -259,40 +251,34 @@ def open_chat_run_message_reply_suggestion_interaction(
             "support_task_action_status": support_action.status,
         }
 
-    bot_config = _apply_bot_config_overwrite(
-        build_default_bot_config(tools=[SUGGESTION_TOOL], system_prompt=SYSTEM_PROMPT_MESSAGE_REPLY_SUGGESTION),
-        configuration.interaction_overwrite,
-    )
-    # Never allow per-user interaction_overwrite to disable the selected runtime tool mode.
-    bot_config["tools"] = [SUGGESTION_TOOL]
-    bot_config["system_prompt"] = SYSTEM_PROMPT_MESSAGE_REPLY_SUGGESTION
-
     session_id, csrf_token, api_host = build_tool_session_context(support_action.task.created_by or recipient)
-    tool_init = {
-        SUGGESTION_TOOL: {
-            "session_id": session_id,
-            "csrf_token": csrf_token,
-            "api_host": api_host,
-            "task_pk": str(support_action.task.pk),
-            "action_id": str(support_action.pk),
-        }
-    }
-
     try:
-        client = OpenChatPythonClient(
-            host=configuration.open_chat_host,
-            username=configuration.open_chat_user,
-            password=configuration.open_chat_api_key,
+        client = OpenChatClient(
+            base_url=configuration.open_chat_host,
+            auth=PasswordAuth(email=configuration.open_chat_user, password=configuration.open_chat_api_key),
         )
-        client.setup_bot_config(bot_config)
         login_user = client.login()
 
         message = (user_message_text or "").strip() or FALLBACK_USER_MESSAGE
-        interaction = client.create_interaction(tool_init=tool_init, message=message)
-        interaction_uuid = value_or(interaction.uuid, "")
-        if not interaction_uuid:
-            return {"status": "error", "reason": "created_interaction_missing_uuid"}
+        interaction = client.interact(
+            bot=SUGGESTION_BOT,
+            message=message,
+            tool_init={
+                ToolName.LITTLE_WORLD_GENERATE_MESSAGE_REPLY_SUGGESTION: LittleWorldGenerateMessageReplySuggestionInit(
+                    action_id=str(support_action.pk),
+                    api_host=api_host,
+                    csrf_token=csrf_token,
+                    session_id=session_id,
+                    task_pk=str(support_action.task.pk),
+                )
+            },
+        )
+        try:
+            interaction.wait_until_finished(timeout_seconds=60)
+        except TimeoutError:
+            pass
 
+        interaction_uuid = interaction.uuid
         login_user_name = value_or(login_user.name, "")
         logger.info(
             "open_chat_run_message_reply_suggestion login_user=%s support_task_id=%s interaction_uuid=%s",
@@ -301,8 +287,8 @@ def open_chat_run_message_reply_suggestion_interaction(
             interaction_uuid,
         )
 
-        shared_url = client.get_shared_interaction_url(interaction_uuid)
-        tool_called = detect_expected_tool_call(client, interaction_uuid, {SUGGESTION_TOOL})
+        tool_called = interaction_called_tool(interaction, ToolName.LITTLE_WORLD_GENERATE_MESSAGE_REPLY_SUGGESTION)
+        shared_url = interaction.shared_url()
     except Exception as exc:
         return {"status": "error", "reason": "open_chat_interaction_failed", "detail": str(exc)}
 

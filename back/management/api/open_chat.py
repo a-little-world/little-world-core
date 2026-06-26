@@ -1,12 +1,11 @@
 import uuid as uuid_lib
 
 from chat.models import Chat
-from client.client import OpenChatPythonClient
+from client import OpenChatClient, PasswordAuth
 from django.conf import settings
 from django.db.models import Q
 from django.urls import path
 from drf_spectacular.utils import extend_schema, inline_serializer
-from requests import RequestException
 from rest_framework import serializers, status
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -68,7 +67,6 @@ class OpenChatConfigurationSerializer(serializers.ModelSerializer):
             "open_chat_api_key",
             "open_chat_user",
             "open_chat_host",
-            "interaction_overwrite",
             "matching_exists",
             "matching_user_uuid",
             "matching_user_id",
@@ -77,7 +75,6 @@ class OpenChatConfigurationSerializer(serializers.ModelSerializer):
             "open_chat_api_key": {"required": True},
             "open_chat_user": {"required": True},
             "open_chat_host": {"required": True},
-            "interaction_overwrite": {"required": False},
         }
 
     def _get_matching_partner(self, configuration: OpenChatConfiguration) -> User | None:
@@ -144,6 +141,19 @@ def _build_open_chat_interaction_summary(interaction) -> dict:
         "shared_interaction_url": interaction.shared_interaction_url,
         "raw": raw_payload,
     }
+
+
+def _open_chat_client_response(configuration, operation) -> Response:
+    """Authenticate against the user's Open Chat host and map any client failure to a 502 response."""
+    try:
+        client = OpenChatClient(
+            base_url=configuration.open_chat_host,
+            auth=PasswordAuth(email=configuration.open_chat_user, password=configuration.open_chat_api_key),
+        )
+        login_user = client.login()
+        return operation(client, login_user)
+    except Exception as exc:
+        return Response({"detail": f"Open chat request failed: {exc}"}, status=status.HTTP_502_BAD_GATEWAY)
 
 
 def _resolve_open_chat_target_user(request) -> User | Response:
@@ -308,14 +318,8 @@ def open_chat_test_connection(request):
             status=status.HTTP_404_NOT_FOUND,
         )
 
-    try:
-        client = OpenChatPythonClient(
-            host=configuration.open_chat_host,
-            username=configuration.open_chat_user,
-            password=configuration.open_chat_api_key,
-        )
-        user = client.login()
-        user_name = user.name
+    def respond(_client, login_user):
+        user_name = login_user.name
         return Response(
             {
                 "success": True,
@@ -323,30 +327,8 @@ def open_chat_test_connection(request):
                 "detail": f"Successfully logged in as {user_name or configuration.open_chat_user}.",
             }
         )
-    except ImportError as exc:
-        return Response(
-            {
-                "success": False,
-                "detail": f"Open chat client is not installed: {exc}",
-            },
-            status=status.HTTP_503_SERVICE_UNAVAILABLE,
-        )
-    except RequestException as exc:
-        return Response(
-            {
-                "success": False,
-                "detail": f"Open chat login request failed: {exc}",
-            },
-            status=status.HTTP_502_BAD_GATEWAY,
-        )
-    except Exception as exc:
-        return Response(
-            {
-                "success": False,
-                "detail": f"Open chat connection test failed: {exc}",
-            },
-            status=status.HTTP_502_BAD_GATEWAY,
-        )
+
+    return _open_chat_client_response(configuration, respond)
 
 
 @extend_schema(
@@ -636,32 +618,13 @@ def open_chat_interactions(request):
             status=status.HTTP_404_NOT_FOUND,
         )
 
-    try:
-        client = OpenChatPythonClient(
-            host=configuration.open_chat_host,
-            username=configuration.open_chat_user,
-            password=configuration.open_chat_api_key,
-        )
-        client.login()
+    def respond(client, _login_user):
         interactions = [
             _build_open_chat_interaction_summary(item) for item in value_or(client.get_interactions().rows, [])
         ]
         return Response({"results": interactions})
-    except ImportError as exc:
-        return Response(
-            {"detail": f"Open chat client is not installed: {exc}"},
-            status=status.HTTP_503_SERVICE_UNAVAILABLE,
-        )
-    except RequestException as exc:
-        return Response(
-            {"detail": f"Open chat interaction request failed: {exc}"},
-            status=status.HTTP_502_BAD_GATEWAY,
-        )
-    except Exception as exc:
-        return Response(
-            {"detail": f"Could not load open chat interactions: {exc}"},
-            status=status.HTTP_502_BAD_GATEWAY,
-        )
+
+    return _open_chat_client_response(configuration, respond)
 
 
 @extend_schema(
@@ -705,30 +668,10 @@ def open_chat_interaction_detail(request, interaction_uuid: str):
             status=status.HTTP_404_NOT_FOUND,
         )
 
-    try:
-        client = OpenChatPythonClient(
-            host=configuration.open_chat_host,
-            username=configuration.open_chat_user,
-            password=configuration.open_chat_api_key,
-        )
-        client.login()
-        interaction = _build_open_chat_interaction_summary(client.get_interaction(interaction_uuid))
-        return Response(interaction)
-    except ImportError as exc:
-        return Response(
-            {"detail": f"Open chat client is not installed: {exc}"},
-            status=status.HTTP_503_SERVICE_UNAVAILABLE,
-        )
-    except RequestException as exc:
-        return Response(
-            {"detail": f"Open chat interaction detail request failed: {exc}"},
-            status=status.HTTP_502_BAD_GATEWAY,
-        )
-    except Exception as exc:
-        return Response(
-            {"detail": f"Could not load open chat interaction detail: {exc}"},
-            status=status.HTTP_502_BAD_GATEWAY,
-        )
+    def respond(client, _login_user):
+        return Response(_build_open_chat_interaction_summary(client.get_interaction(interaction_uuid)))
+
+    return _open_chat_client_response(configuration, respond)
 
 
 @extend_schema(
