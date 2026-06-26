@@ -269,7 +269,7 @@ class OpenChatConfigurationApiTests(TestCase):
         response = self.api_client.post(TEST_CONNECTION_URL, {}, format="json")
         self.assertEqual(response.status_code, 404)
 
-    @patch("management.api.open_chat._build_open_chat_client")
+    @patch("management.api.open_chat.OpenChatPythonClient")
     def test_test_connection_success(self, mock_build_client):
         OpenChatConfiguration.objects.create(
             user=self.authorized_user,
@@ -431,7 +431,7 @@ class OpenChatConfigurationApiTests(TestCase):
         self.assertEqual(response.status_code, 409)
         self.assertTrue(response.data["matching_exists"])
 
-    @patch("management.api.open_chat._build_open_chat_client")
+    @patch("management.api.open_chat.OpenChatPythonClient")
     def test_interactions_returns_interactions_for_current_user(self, mock_build_client):
         OpenChatConfiguration.objects.create(
             user=self.authorized_user,
@@ -464,7 +464,7 @@ class OpenChatConfigurationApiTests(TestCase):
         mock_client.login.assert_called_once()
         mock_client.get_interactions.assert_called()
 
-    @patch("management.api.open_chat._build_open_chat_client")
+    @patch("management.api.open_chat.OpenChatPythonClient")
     def test_interactions_manager_can_query_other_user_by_uuid(self, mock_build_client):
         OpenChatConfiguration.objects.create(
             user=self.view_only_user,
@@ -502,7 +502,7 @@ class OpenChatConfigurationApiTests(TestCase):
             password="view-only-key",
         )
 
-    @patch("management.api.open_chat._build_open_chat_client")
+    @patch("management.api.open_chat.OpenChatPythonClient")
     def test_interactions_non_manager_ignores_other_user_uuid(self, mock_build_client):
         OpenChatConfiguration.objects.create(
             user=self.authorized_user,
@@ -537,7 +537,7 @@ class OpenChatConfigurationApiTests(TestCase):
             password="authorized-key",
         )
 
-    @patch("management.api.open_chat._build_open_chat_client")
+    @patch("management.api.open_chat.OpenChatPythonClient")
     def test_interactions_manage_only_user_can_query_other_user(self, mock_build_client):
         OpenChatConfiguration.objects.create(
             user=self.view_only_user,
@@ -569,7 +569,7 @@ class OpenChatConfigurationApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["results"][0]["interaction_id"], "interaction-manage-only")
 
-    @patch("management.api.open_chat._build_open_chat_client")
+    @patch("management.api.open_chat.OpenChatPythonClient")
     def test_interaction_detail_returns_interaction(self, mock_build_client):
         interaction_uuid = "6ece98ca-8d5c-4791-a198-0b971c0ac0d6"
         OpenChatConfiguration.objects.create(

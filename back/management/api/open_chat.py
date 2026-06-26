@@ -19,12 +19,13 @@ from management.helpers.has_open_chat_access import (
     HasOpenChatOrManageOpenChatAccess,
     OpenChatConfigurationPermission,
 )
+from management.helpers.open_chat import value_or
 from management.models.matches import Match
 from management.models.open_chat_configuration import OpenChatConfiguration
 from management.models.profile import MinimalProfileSerializer
 from management.models.support_task import SupportTask, SupportTaskAction
 from management.models.user import User
-from management.open_chat_interaction_task import idempotent_actions__generate_message_replies
+from management.open_chat_automation_message_reply_suggestion_task import idempotent_actions__generate_message_replies
 from management.permissions import ManagementPermission
 
 
@@ -44,9 +45,8 @@ class OpenChatAccessUserSerializer(serializers.ModelSerializer):
         fields = ["uuid", "id", "email", "profile", "configuration", "matching_exists"]
 
     def get_configuration(self, user):
-        try:
-            configuration = user.open_chat_configuration
-        except OpenChatConfiguration.DoesNotExist:
+        configuration = OpenChatConfiguration.objects.filter(user=user).first()
+        if configuration is None:
             return None
         return OpenChatConfigurationSummarySerializer(configuration).data
 
@@ -95,13 +95,8 @@ class OpenChatConfigurationSerializer(serializers.ModelSerializer):
             self._matching_partner = None
             return None
 
-        try:
-            partner = User.objects.get(email=open_chat_automation_email)
-        except User.DoesNotExist:
-            self._matching_partner = None
-            return None
-
-        if not Match.get_match(user, partner).exists():
+        partner = User.objects.filter(email=open_chat_automation_email).first()
+        if partner is None or not Match.get_match(user, partner).exists():
             self._matching_partner = None
             return None
 
@@ -120,39 +115,18 @@ class OpenChatConfigurationSerializer(serializers.ModelSerializer):
         return partner.pk if partner else None
 
 
-def _get_user_configuration(user) -> OpenChatConfiguration | None:
+def _parse_uuid(value: str) -> uuid_lib.UUID | None:
     try:
-        return OpenChatConfiguration.objects.get(user=user)
-    except OpenChatConfiguration.DoesNotExist:
+        return uuid_lib.UUID(value)
+    except ValueError:
         return None
 
 
 def _get_open_chat_access_user(user_id: int) -> User | None:
-    try:
-        user = User.objects.get(pk=user_id)
-    except User.DoesNotExist:
-        return None
-    if not user.has_perm(ManagementPermission.OPEN_CHAT_ACCESS):
+    user = User.objects.filter(pk=user_id).first()
+    if user is None or not user.has_perm(ManagementPermission.OPEN_CHAT_ACCESS):
         return None
     return user
-
-
-def _get_open_chat_access_user_by_uuid(user_uuid: str) -> User | None:
-    try:
-        parsed_uuid = uuid_lib.UUID(user_uuid)
-    except ValueError:
-        return None
-
-    user = User.objects.filter(uuid=parsed_uuid).first()
-    if user is None:
-        return None
-    if not user.has_perm(ManagementPermission.OPEN_CHAT_ACCESS):
-        return None
-    return user
-
-
-def _build_open_chat_client(host: str, username: str, password: str):
-    return OpenChatPythonClient(host=host, username=username, password=password)
 
 
 def _build_open_chat_interaction_summary(interaction) -> dict:
@@ -172,26 +146,14 @@ def _build_open_chat_interaction_summary(interaction) -> dict:
     }
 
 
-def _fetch_open_chat_interactions(client) -> list[dict]:
-    payload = client.get_interactions()
-    rows = payload.rows
-    return [_build_open_chat_interaction_summary(item) for item in rows]
-
-
-def _fetch_open_chat_interaction(client, interaction_uuid: str) -> dict:
-    payload = client.get_interaction(interaction_uuid)
-    return _build_open_chat_interaction_summary(payload)
-
-
 def _resolve_open_chat_target_user(request) -> User | Response:
     target_user = request.user
     requested_user_uuid = (request.query_params.get("user_uuid") or "").strip()
     can_manage_open_chat_access = request.user.has_perm(ManagementPermission.MANAGE_OPEN_CHAT_ACCESS)
 
     if requested_user_uuid and can_manage_open_chat_access:
-        try:
-            parsed_uuid = uuid_lib.UUID(requested_user_uuid)
-        except ValueError:
+        parsed_uuid = _parse_uuid(requested_user_uuid)
+        if parsed_uuid is None:
             return Response(
                 {"detail": "Invalid user_uuid format."},
                 status=status.HTTP_400_BAD_REQUEST,
@@ -199,8 +161,8 @@ def _resolve_open_chat_target_user(request) -> User | Response:
 
         is_self = parsed_uuid == request.user.uuid
         if not is_self:
-            requested_user = _get_open_chat_access_user_by_uuid(requested_user_uuid)
-            if requested_user is None:
+            requested_user = User.objects.filter(uuid=parsed_uuid).first()
+            if requested_user is None or not requested_user.has_perm(ManagementPermission.OPEN_CHAT_ACCESS):
                 return Response(
                     {"detail": "Open chat access user not found."},
                     status=status.HTTP_404_NOT_FOUND,
@@ -285,7 +247,7 @@ def _build_open_chat_idempotent_actions_response(target_user: User) -> list[dict
 @authentication_classes([SessionAuthentication])
 def open_chat_configuration(request):
     if request.method == "GET":
-        configuration = _get_user_configuration(request.user)
+        configuration = OpenChatConfiguration.objects.filter(user=request.user).first()
         if configuration is None:
             return Response(
                 {"detail": "Open chat configuration not found."},
@@ -311,7 +273,7 @@ def open_chat_configuration(request):
             status=status.HTTP_201_CREATED,
         )
 
-    configuration = _get_user_configuration(request.user)
+    configuration = OpenChatConfiguration.objects.filter(user=request.user).first()
     if configuration is None:
         return Response(
             {"detail": "Open chat configuration not found. Use POST to create."},
@@ -339,7 +301,7 @@ def open_chat_configuration(request):
 @permission_classes([HasOpenChatAccess])
 @authentication_classes([SessionAuthentication])
 def open_chat_test_connection(request):
-    configuration = _get_user_configuration(request.user)
+    configuration = OpenChatConfiguration.objects.filter(user=request.user).first()
     if configuration is None:
         return Response(
             {"success": False, "detail": "Open chat configuration not found."},
@@ -347,7 +309,7 @@ def open_chat_test_connection(request):
         )
 
     try:
-        client = _build_open_chat_client(
+        client = OpenChatPythonClient(
             host=configuration.open_chat_host,
             username=configuration.open_chat_user,
             password=configuration.open_chat_api_key,
@@ -452,7 +414,7 @@ def open_chat_user_configuration(request, user_id: int):
             status=status.HTTP_201_CREATED,
         )
 
-    configuration = _get_user_configuration(target_user)
+    configuration = OpenChatConfiguration.objects.filter(user=target_user).first()
     if configuration is None:
         return Response(
             {"detail": "Open chat configuration not found. Use POST to create."},
@@ -595,9 +557,8 @@ def open_chat_create_chat(request, user_id: int):
 @permission_classes([HasOpenChatAccess])
 @authentication_classes([SessionAuthentication])
 def open_chat_delete_chat(request, chat_uuid: str):
-    try:
-        parsed_chat_uuid = uuid_lib.UUID(chat_uuid)
-    except ValueError:
+    parsed_chat_uuid = _parse_uuid(chat_uuid)
+    if parsed_chat_uuid is None:
         return Response(
             {"detail": "Invalid chat UUID format."},
             status=status.HTTP_400_BAD_REQUEST,
@@ -668,7 +629,7 @@ def open_chat_interactions(request):
         return target_user_or_response
     target_user = target_user_or_response
 
-    configuration = _get_user_configuration(target_user)
+    configuration = OpenChatConfiguration.objects.filter(user=target_user).first()
     if configuration is None:
         return Response(
             {"detail": "Open chat configuration not found for target user."},
@@ -676,13 +637,15 @@ def open_chat_interactions(request):
         )
 
     try:
-        client = _build_open_chat_client(
+        client = OpenChatPythonClient(
             host=configuration.open_chat_host,
             username=configuration.open_chat_user,
             password=configuration.open_chat_api_key,
         )
         client.login()
-        interactions = _fetch_open_chat_interactions(client)
+        interactions = [
+            _build_open_chat_interaction_summary(item) for item in value_or(client.get_interactions().rows, [])
+        ]
         return Response({"results": interactions})
     except ImportError as exc:
         return Response(
@@ -724,9 +687,7 @@ def open_chat_interactions(request):
 @permission_classes([HasOpenChatOrManageOpenChatAccess])
 @authentication_classes([SessionAuthentication])
 def open_chat_interaction_detail(request, interaction_uuid: str):
-    try:
-        uuid_lib.UUID(interaction_uuid)
-    except ValueError:
+    if _parse_uuid(interaction_uuid) is None:
         return Response(
             {"detail": "Invalid interaction UUID format."},
             status=status.HTTP_400_BAD_REQUEST,
@@ -737,7 +698,7 @@ def open_chat_interaction_detail(request, interaction_uuid: str):
         return target_user_or_response
     target_user = target_user_or_response
 
-    configuration = _get_user_configuration(target_user)
+    configuration = OpenChatConfiguration.objects.filter(user=target_user).first()
     if configuration is None:
         return Response(
             {"detail": "Open chat configuration not found for target user."},
@@ -745,13 +706,13 @@ def open_chat_interaction_detail(request, interaction_uuid: str):
         )
 
     try:
-        client = _build_open_chat_client(
+        client = OpenChatPythonClient(
             host=configuration.open_chat_host,
             username=configuration.open_chat_user,
             password=configuration.open_chat_api_key,
         )
         client.login()
-        interaction = _fetch_open_chat_interaction(client, interaction_uuid)
+        interaction = _build_open_chat_interaction_summary(client.get_interaction(interaction_uuid))
         return Response(interaction)
     except ImportError as exc:
         return Response(
@@ -839,7 +800,7 @@ def open_chat_automation_generate_message_replies(request):
         return target_user_or_response
     target_user = target_user_or_response
 
-    configuration = _get_user_configuration(target_user)
+    configuration = OpenChatConfiguration.objects.filter(user=target_user).first()
     if configuration is None:
         return Response(
             {"detail": "Open chat configuration not found for target user."},
