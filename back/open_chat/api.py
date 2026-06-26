@@ -6,26 +6,26 @@ from django.conf import settings
 from django.db.models import Q
 from django.urls import path
 from drf_spectacular.utils import extend_schema, inline_serializer
+from management import controller
+from management.models.matches import Match
+from management.models.profile import MinimalProfileSerializer
+from management.models.support_task import SupportTask, SupportTaskAction
+from management.models.user import User
+from management.permissions import ManagementPermission
 from rest_framework import serializers, status
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
 
-from management import controller
-from management.helpers.has_open_chat_access import (
+from open_chat.helpers import value_or
+from open_chat.message_reply_suggestion import idempotent_actions__generate_message_replies
+from open_chat.models import OpenChatConfiguration
+from open_chat.permissions import (
     HasManageOpenChatAccess,
     HasOpenChatAccess,
     HasOpenChatOrManageOpenChatAccess,
     OpenChatConfigurationPermission,
 )
-from management.helpers.open_chat import value_or
-from management.models.matches import Match
-from management.models.open_chat_configuration import OpenChatConfiguration
-from management.models.profile import MinimalProfileSerializer
-from management.models.support_task import SupportTask, SupportTaskAction
-from management.models.user import User
-from management.open_chat_automation_message_reply_suggestion_task import idempotent_actions__generate_message_replies
-from management.permissions import ManagementPermission
 
 
 class OpenChatConfigurationSummarySerializer(serializers.ModelSerializer):

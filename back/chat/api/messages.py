@@ -291,8 +291,8 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
             # Create/reuse support-reply tasks for inbound messages to the partner
             # using the same idempotent helper as the Open Chat automation loop.
             from management import controller
-            from management.helpers.open_chat import resolve_open_chat_automation_task_creator_user
-            from management.open_chat_automation_message_reply_suggestion_task import (
+            from open_chat.helpers import resolve_open_chat_automation_task_creator_user
+            from open_chat.message_reply_suggestion import (
                 create_or_reuse_support_reply_task_for_message,
             )
 

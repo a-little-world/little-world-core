@@ -608,7 +608,7 @@ def ensure_base_management_open_chat_setup(open_chat_automation_user: User | Non
     if not settings.CREATE_DEFAULT_OPEN_CHAT_CONFIGURATION:
         return None
 
-    from management.models.open_chat_configuration import OpenChatConfiguration
+    from open_chat.models import OpenChatConfiguration
 
     base_management_user = get_base_management_user()
     config_defaults = dict(settings.DEFAULT_OPEN_CHAT_CONFIGURATION)

@@ -7,21 +7,21 @@ from django.conf import settings
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
-
 from management.api.user_advanced_filter import (
     get_user_with_message_to_admin,
     get_user_with_message_to_admin_that_are_read_but_not_replied,
     get_user_with_message_to_admin_that_are_read_or_not_read_but_not_replied,
 )
-from management.models.open_chat_configuration import DEFAULT_OPEN_CHAT_HOST, OpenChatConfiguration
 from management.models.support_task import SupportTask, SupportTaskAction
 from management.models.user import User
-from management.open_chat_automation_message_reply_suggestion_task import (
+from management.permissions import ManagementPermission
+
+from open_chat.basic_chat_interaction import open_chat_basic_chat_interaction
+from open_chat.message_reply_suggestion import (
     idempotent_actions__generate_message_replies,
     open_chat_run_message_reply_suggestion_interaction,
 )
-from management.open_chat_basic_chat_interaction_task import open_chat_basic_chat_interaction
-from management.permissions import ManagementPermission
+from open_chat.models import DEFAULT_OPEN_CHAT_HOST, OpenChatConfiguration
 
 
 class UserAdvancedFilterMessageReplyTests(TestCase):
@@ -179,7 +179,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             read=False,
         )
 
-    @patch("management.open_chat_automation_message_reply_suggestion_task.current_app.send_task")
+    @patch("open_chat.message_reply_suggestion.current_app.send_task")
     def test_idempotent_generate_message_replies_creates_single_task_per_message(self, mock_send_task):
         mock_send_task.return_value = MagicMock(id="interaction-task-id")
 
@@ -228,7 +228,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         queued_kwargs = send_task_kwargs["kwargs"]
         self.assertEqual(queued_kwargs["support_task_id"], action.task.pk)
 
-    @patch("management.open_chat_automation_message_reply_suggestion_task.current_app.send_task")
+    @patch("open_chat.message_reply_suggestion.current_app.send_task")
     def test_idempotent_generate_message_replies_skips_matching_user_senders(self, mock_send_task):
         mock_send_task.return_value = MagicMock(id="interaction-task-id")
 
@@ -255,7 +255,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         )
 
     @patch("chat.consumers.messages.NewMessage.send")
-    @patch("management.open_chat_basic_chat_interaction_task.OpenChatClient")
+    @patch("open_chat.basic_chat_interaction.OpenChatClient")
     def test_basic_chat_interaction_runs_chat_reply_flow(self, mock_client_cls, _mock_new_message_send):
         mock_client = MagicMock()
         mock_client.login.return_value = SimpleNamespace(name="Admin Open Chat")
@@ -288,7 +288,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         self.assertEqual(chat_reply_init.chat_uuid, str(self.chat.uuid))
 
     @patch("chat.consumers.messages.NewMessage.send")
-    @patch("management.open_chat_automation_message_reply_suggestion_task.OpenChatClient")
+    @patch("open_chat.message_reply_suggestion.OpenChatClient")
     def test_run_message_reply_suggestion_uses_suggestion_tool(self, mock_client_cls, _mock_new_message_send):
         support_task = SupportTask.create_of_type(
             "support_reply",
@@ -385,9 +385,9 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         self.assertEqual(result["status"], "skipped")
         self.assertEqual(result["reason"], "support_task_action_missing")
 
-    @patch("management.helpers.open_chat._create_session_and_csrf_for_user")
+    @patch("open_chat.helpers._create_session_and_csrf_for_user")
     @patch("chat.consumers.messages.NewMessage.send")
-    @patch("management.open_chat_automation_message_reply_suggestion_task.OpenChatClient")
+    @patch("open_chat.message_reply_suggestion.OpenChatClient")
     def test_message_reply_suggestion_tool_init_uses_open_chat_task_creator_session(
         self, mock_client_cls, _mock_new_message_send, mock_create_session
     ):

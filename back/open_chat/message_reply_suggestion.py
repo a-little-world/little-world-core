@@ -7,19 +7,19 @@ from client.generated_api.models.little_world_generate_message_reply_suggestion_
     LittleWorldGenerateMessageReplySuggestionInit,
 )
 from django.db.models import Q
-
 from management import controller
-from management.helpers.open_chat import (
+from management.models.support_task import SupportTask, SupportTaskAction
+from management.models.user import User
+from management.permissions import ManagementPermission
+
+from open_chat.helpers import (
     FALLBACK_USER_MESSAGE,
     build_tool_session_context,
     interaction_called_tool,
     resolve_open_chat_automation_task_creator_user,
     value_or,
 )
-from management.models.open_chat_configuration import OpenChatConfiguration
-from management.models.support_task import SupportTask, SupportTaskAction
-from management.models.user import User
-from management.permissions import ManagementPermission
+from open_chat.models import OpenChatConfiguration
 
 logger = logging.getLogger(__name__)
 

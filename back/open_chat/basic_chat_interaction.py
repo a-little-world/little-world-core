@@ -6,16 +6,16 @@ from chat.models import Chat
 from chat.models import Message as ChatMessage
 from client import OpenChatClient, PasswordAuth, ToolName
 from client.generated_api.models.little_world_chat_reply_init import LittleWorldChatReplyInit
+from management.models.user import User
+from management.permissions import ManagementPermission
 
-from management.helpers.open_chat import (
+from open_chat.helpers import (
     FALLBACK_USER_MESSAGE,
     build_tool_session_context,
     interaction_called_tool,
     value_or,
 )
-from management.models.open_chat_configuration import OpenChatConfiguration
-from management.models.user import User
-from management.permissions import ManagementPermission
+from open_chat.models import OpenChatConfiguration
 
 logger = logging.getLogger(__name__)
 

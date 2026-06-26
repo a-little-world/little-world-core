@@ -6,7 +6,6 @@ from client import InteractionSession
 from client.generated_api.types import Unset
 from django.conf import settings
 from django.contrib.auth import BACKEND_SESSION_KEY, HASH_SESSION_KEY, SESSION_KEY
-
 from management import controller
 from management.models.user import User
 
