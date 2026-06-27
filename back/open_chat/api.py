@@ -796,9 +796,9 @@ def open_chat_automation_clear_message_replies(request):
         action_type="support_reply",
         static_parameters__kind_display="Open Chat",
         static_parameters__recipient_user_id=target_user.pk,
-    )
+    ).exclude(task__status=SupportTask.Status.COMPLETED)
     deleted_actions_count = related_actions_qs.count()
-    related_task_ids = list(related_actions_qs.values_list("task_id", flat=True))
+    related_task_ids = list(related_actions_qs.values_list("task_id", flat=True).distinct())
     deleted_tasks_count = len(related_task_ids)
     if related_task_ids:
         SupportTask.objects.filter(pk__in=related_task_ids).delete()
