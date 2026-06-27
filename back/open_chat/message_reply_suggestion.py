@@ -15,7 +15,6 @@ from management.permissions import ManagementPermission
 from open_chat.helpers import (
     FALLBACK_USER_MESSAGE,
     build_tool_session_context,
-    interaction_called_tool,
     resolve_open_chat_automation_task_creator_user,
     value_or,
 )
@@ -59,18 +58,36 @@ def create_or_reuse_support_reply_task_for_message(
             status=SupportTaskAction.Status.OPEN,
             task__status__in=[SupportTask.Status.NEW, SupportTask.Status.IN_PROGRESS],
             static_parameters__message_uuid=str(latest_message.uuid),
+            static_parameters__sender_user_id=source_user.pk,
         )
         .first()
     )
     if existing_action is not None:
         if existing_action.task.assigned_to is None:
             SupportTask.objects.filter(pk=existing_action.task.pk).update(assigned_to_id=assigned_to_user.pk)
-        return {
+        has_suggestion = bool((existing_action.parameters or {}).get("message", "").strip())
+        result = {
             "message_uuid": str(latest_message.uuid),
             "chat_uuid": str(latest_message.chat.uuid),
             "support_task_id": existing_action.task.pk,
             "status": "skipped_duplicate",
         }
+        if not has_suggestion and enqueue_interaction and configuration_user_uuid:
+            interaction_task = current_app.send_task(  # pyright: ignore[reportCallIssue]
+                RUN_INTERACTION_TASK_NAME,
+                kwargs={
+                    "configuration_user_uuid": configuration_user_uuid,
+                    "chat_uuid": str(latest_message.chat.uuid),
+                    "message_uuid": str(latest_message.uuid),
+                    "sender_uuid": str(source_user.uuid),
+                    "recipient_uuid": str(target_user.uuid),
+                    "user_message_text": latest_message.text or "",
+                    "support_task_id": existing_action.task.pk,
+                },
+            )
+            result["interaction_task_id"] = interaction_task.id
+            result["status"] = "reused_and_enqueued"
+        return result
 
     support_task = SupportTask.create_of_type(
         "support_reply",
@@ -181,7 +198,7 @@ def idempotent_actions__generate_message_replies(
         )
         if step_result["status"] in {"created", "created_and_enqueued"}:
             created_tasks += 1
-        if step_result["status"] == "created_and_enqueued":
+        if step_result["status"] in {"created_and_enqueued", "reused_and_enqueued"}:
             enqueued_interactions += 1
         processed_messages.append(step_result)
 
@@ -206,7 +223,7 @@ def open_chat_run_message_reply_suggestion_interaction(
     user_message_text: str = "",
     support_task_id: int | None = None,
 ):
-    """Run a single message-reply-suggestion interaction and store the draft on the support task."""
+    """Enqueue a message-reply-suggestion interaction; Open Chat updates the task asynchronously."""
     configuration_user = User.objects.filter(uuid=configuration_user_uuid).first()
     if configuration_user is None:
         return {
@@ -273,28 +290,19 @@ def open_chat_run_message_reply_suggestion_interaction(
                 )
             },
         )
-        try:
-            interaction.wait_until_finished(timeout_seconds=60)
-        except TimeoutError:
-            pass
-
         interaction_uuid = interaction.uuid
         login_user_name = value_or(login_user.name, "")
         logger.info(
-            "open_chat_run_message_reply_suggestion login_user=%s support_task_id=%s interaction_uuid=%s",
+            "open_chat_run_message_reply_suggestion enqueued login_user=%s support_task_id=%s interaction_uuid=%s",
             login_user_name,
             support_action.task.pk,
             interaction_uuid,
         )
-
-        tool_called = interaction_called_tool(interaction, ToolName.LITTLE_WORLD_GENERATE_MESSAGE_REPLY_SUGGESTION)
-        shared_url = interaction.shared_url()
     except Exception as exc:
         return {"status": "error", "reason": "open_chat_interaction_failed", "detail": str(exc)}
 
     static_parameters = dict(support_action.static_parameters or {})
     static_parameters["interaction_id"] = interaction_uuid
-    static_parameters["shared_interaction_url"] = shared_url
     support_action.static_parameters = static_parameters
     support_action.save(update_fields=["static_parameters"])
 
@@ -307,8 +315,6 @@ def open_chat_run_message_reply_suggestion_interaction(
         "configuration_user_id": configuration.user.pk,
         "login_user_name": login_user_name,
         "interaction_uuid": interaction_uuid,
-        "shared_url": shared_url,
-        "tool_called": tool_called,
         "support_task_id": support_action.task.pk,
         "support_task_action_id": support_action.pk,
     }
