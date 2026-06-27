@@ -118,6 +118,7 @@ def open_chat_basic_chat_interaction(
         interaction = client.interact(
             bot=CHAT_REPLY_BOT,
             message=message,
+            share=True,
             tool_init={
                 ToolName.LITTLE_WORLD_CHAT_REPLY: LittleWorldChatReplyInit(
                     api_host=api_host,

@@ -323,6 +323,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         self.assertTrue(result["tool_called"])
         _, interact_kwargs = mock_client.interact.call_args
         self.assertEqual(interact_kwargs["bot"], "little_world_support_chat")
+        self.assertTrue(interact_kwargs["share"])
         [chat_reply_init] = list(interact_kwargs["tool_init"].values())
         self.assertEqual(chat_reply_init.chat_uuid, str(self.chat.uuid))
 
@@ -350,6 +351,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         mock_client.login.return_value = SimpleNamespace(name="Admin Open Chat")
         mock_interaction = MagicMock()
         mock_interaction.uuid = "suggestion-interaction-uuid"
+        mock_interaction.shared_url.return_value = "http://localhost:1984/interaction/suggestion-interaction-uuid"
         mock_client.interact.return_value = mock_interaction
         mock_client_cls.return_value = mock_client
 
@@ -364,9 +366,14 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         )
 
         self.assertEqual(result["status"], "ok")
+        self.assertEqual(
+            result["shared_url"],
+            "http://localhost:1984/interaction/suggestion-interaction-uuid",
+        )
         mock_interaction.wait_until_finished.assert_not_called()
         _, interact_kwargs = mock_client.interact.call_args
         self.assertEqual(interact_kwargs["bot"], "little_world_reply_suggestion")
+        self.assertTrue(interact_kwargs["share"])
         self.assertEqual(interact_kwargs["message"], self.source_message.text)
         [suggestion_init] = list(interact_kwargs["tool_init"].values())
         self.assertEqual(suggestion_init.task_pk, str(support_task.pk))
@@ -374,6 +381,10 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
 
         support_action = SupportTaskAction.objects.get(task=support_task)
         self.assertEqual(support_action.static_parameters.get("interaction_id"), "suggestion-interaction-uuid")
+        self.assertEqual(
+            support_action.static_parameters.get("shared_interaction_url"),
+            "http://localhost:1984/interaction/suggestion-interaction-uuid",
+        )
 
     def test_run_message_reply_suggestion_skips_when_action_not_open(self):
         support_task = SupportTask.create_of_type(
@@ -447,6 +458,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         mock_client.login.return_value = SimpleNamespace(name="Admin Open Chat")
         mock_interaction = MagicMock()
         mock_interaction.uuid = "recipient-session-interaction"
+        mock_interaction.shared_url.return_value = "http://localhost:1984/interaction/recipient-session-interaction"
         mock_client.interact.return_value = mock_interaction
         mock_client_cls.return_value = mock_client
 

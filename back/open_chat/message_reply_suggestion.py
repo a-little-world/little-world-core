@@ -280,6 +280,7 @@ def open_chat_run_message_reply_suggestion_interaction(
         interaction = client.interact(
             bot=SUGGESTION_BOT,
             message=message,
+            share=True,
             tool_init={
                 ToolName.LITTLE_WORLD_GENERATE_MESSAGE_REPLY_SUGGESTION: LittleWorldGenerateMessageReplySuggestionInit(
                     action_id=str(support_action.pk),
@@ -291,18 +292,21 @@ def open_chat_run_message_reply_suggestion_interaction(
             },
         )
         interaction_uuid = interaction.uuid
+        shared_url = interaction.shared_url()
         login_user_name = value_or(login_user.name, "")
         logger.info(
-            "open_chat_run_message_reply_suggestion enqueued login_user=%s support_task_id=%s interaction_uuid=%s",
+            "open_chat_run_message_reply_suggestion enqueued login_user=%s support_task_id=%s interaction_uuid=%s shared_url=%s",
             login_user_name,
             support_action.task.pk,
             interaction_uuid,
+            shared_url,
         )
     except Exception as exc:
         return {"status": "error", "reason": "open_chat_interaction_failed", "detail": str(exc)}
 
     static_parameters = dict(support_action.static_parameters or {})
     static_parameters["interaction_id"] = interaction_uuid
+    static_parameters["shared_interaction_url"] = shared_url
     support_action.static_parameters = static_parameters
     support_action.save(update_fields=["static_parameters"])
 
@@ -315,6 +319,7 @@ def open_chat_run_message_reply_suggestion_interaction(
         "configuration_user_id": configuration.user.pk,
         "login_user_name": login_user_name,
         "interaction_uuid": interaction_uuid,
+        "shared_url": shared_url,
         "support_task_id": support_action.task.pk,
         "support_task_action_id": support_action.pk,
     }
