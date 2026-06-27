@@ -311,10 +311,6 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         mock_client.login.return_value = SimpleNamespace(name="Admin Open Chat")
         mock_interaction = MagicMock()
         mock_interaction.uuid = "suggestion-interaction-uuid"
-        mock_interaction.shared_url.return_value = "http://localhost:1984/interaction/suggestion-interaction-uuid"
-        mock_interaction.messages.return_value = SimpleNamespace(
-            rows=[SimpleNamespace(tool_calls=[{"name": "little_world__generate_message_reply_suggestion"}])]
-        )
         mock_client.interact.return_value = mock_interaction
         mock_client_cls.return_value = mock_client
 
@@ -329,7 +325,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         )
 
         self.assertEqual(result["status"], "ok")
-        self.assertTrue(result["tool_called"])
+        mock_interaction.wait_until_finished.assert_not_called()
         _, interact_kwargs = mock_client.interact.call_args
         self.assertEqual(interact_kwargs["bot"], "little_world_reply_suggestion")
         self.assertEqual(interact_kwargs["message"], self.source_message.text)
@@ -412,10 +408,6 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         mock_client.login.return_value = SimpleNamespace(name="Admin Open Chat")
         mock_interaction = MagicMock()
         mock_interaction.uuid = "recipient-session-interaction"
-        mock_interaction.shared_url.return_value = "http://localhost:1984/interaction/recipient-session-interaction"
-        mock_interaction.messages.return_value = SimpleNamespace(
-            rows=[SimpleNamespace(tool_calls=[{"name": "little_world__generate_message_reply_suggestion"}])]
-        )
         mock_client.interact.return_value = mock_interaction
         mock_client_cls.return_value = mock_client
 

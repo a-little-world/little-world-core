@@ -336,31 +336,43 @@ def get_volunteers_booked_onboarding_call_but_never_visited(qs=User.objects.all(
     ).order_by("-date_joined")
 
 
-def _get_users_with_message_to_admin_not_replied(qs=User.objects.all(), require_read: bool | None = None):
+def _get_users_with_message_to_recipient_not_replied(
+    qs=User.objects.all(),
+    *,
+    recipient_user,
+    require_read: bool | None = None,
+):
     """
-    Users whose latest message in their dialog with the management user was sent by them.
-    Optionally filter by read-status of that latest user->admin message:
+    Users whose latest message in their dialog with ``recipient_user`` was sent by them.
+    Optionally filter by read-status of that latest user->recipient message:
     - require_read=False => unread and not replied
     - require_read=True => read and not replied
     - require_read=None => read or unread and not replied
     """
-    admin_user = controller.get_base_management_user()
-    messages_with_admin = Message.objects.filter(
-        Q(sender_id=OuterRef("pk"), recipient=admin_user) | Q(sender=admin_user, recipient_id=OuterRef("pk"))
+    messages_with_recipient = Message.objects.filter(
+        Q(sender_id=OuterRef("pk"), recipient=recipient_user) | Q(sender=recipient_user, recipient_id=OuterRef("pk"))
     ).order_by("-created", "-id")
 
-    users_in_dialog_with_management_user = qs.annotate(
-        _last_message_sender_id=Subquery(messages_with_admin.values("sender_id")[:1]),
-        _last_message_read=Subquery(messages_with_admin.values("read")[:1]),
+    users_in_dialog = qs.annotate(
+        _last_message_sender_id=Subquery(messages_with_recipient.values("sender_id")[:1]),
+        _last_message_read=Subquery(messages_with_recipient.values("read")[:1]),
     ).filter(
         _last_message_sender_id=F("pk"),
     )
     if require_read is True:
-        users_in_dialog_with_management_user = users_in_dialog_with_management_user.filter(_last_message_read=True)
+        users_in_dialog = users_in_dialog.filter(_last_message_read=True)
     elif require_read is False:
-        users_in_dialog_with_management_user = users_in_dialog_with_management_user.filter(_last_message_read=False)
+        users_in_dialog = users_in_dialog.filter(_last_message_read=False)
 
-    return users_in_dialog_with_management_user.order_by("-date_joined")
+    return users_in_dialog.order_by("-date_joined")
+
+
+def _get_users_with_message_to_admin_not_replied(qs=User.objects.all(), require_read: bool | None = None):
+    return _get_users_with_message_to_recipient_not_replied(
+        qs=qs,
+        recipient_user=controller.get_base_management_user(),
+        require_read=require_read,
+    )
 
 
 def get_user_with_message_to_admin_that_are_read_but_not_replied(qs=User.objects.all()):
