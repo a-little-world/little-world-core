@@ -478,6 +478,7 @@ def ensure_base_management_user_permissions(user: User) -> None:
     required_permissions = (
         ManagementPermission.MATCHING_USER,
         ManagementPermission.OPEN_CHAT_ACCESS,
+        ManagementPermission.EDIT_OPEN_CHAT_CONFIGURATION,
         ManagementPermission.USE_RANDOM_CALLS,
         ManagementPermission.CAN_SEND_SUPPORT_MESSAGE_REPLIES,
         ManagementPermission.IS_MAIN_SUPPORT_ACCOUNT,

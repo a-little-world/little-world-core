@@ -304,9 +304,10 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             "http://localhost:1984/interaction/7e4b91f9-2bf9-4f10-b650-11a4345acf71"
         )
         mock_interaction.messages.return_value = SimpleNamespace(
-            rows=[SimpleNamespace(tool_calls=[{"name": "little_world__chat_reply"}])]
+            rows=[SimpleNamespace(tool_calls=[{"name": "little_world_chat_reply"}])]
         )
         mock_client.interact.return_value = mock_interaction
+        mock_client.list_dynamic_rest_tools.return_value = []
         mock_client_cls.return_value = mock_client
 
         result = open_chat_basic_chat_interaction(
@@ -324,8 +325,12 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         _, interact_kwargs = mock_client.interact.call_args
         self.assertEqual(interact_kwargs["bot"], "little_world_support_chat")
         self.assertTrue(interact_kwargs["share"])
-        [chat_reply_init] = list(interact_kwargs["tool_init"].values())
-        self.assertEqual(chat_reply_init.chat_uuid, str(self.chat.uuid))
+        self.assertEqual(interact_kwargs["overrides"], {"tools": ["little_world_chat_reply"]})
+        chat_reply_init = interact_kwargs["tool_init"]["little_world_chat_reply"]
+        self.assertEqual(chat_reply_init["chat_uuid"], str(self.chat.uuid))
+        self.assertIn("sessionid=", chat_reply_init["cookie_header"])
+        self.assertIn("csrftoken=", chat_reply_init["cookie_header"])
+        self.assertTrue(chat_reply_init["api_host"])
 
     @patch("chat.consumers.messages.NewMessage.send")
     @patch("open_chat.message_reply_suggestion.OpenChatClient")

@@ -25,6 +25,7 @@ DELETE_CHAT_URL = "/api/matching/open-chat/chats/{chat_uuid}/"
 AUTOMATION_GENERATE_MESSAGE_REPLIES_URL = "/api/matching/open-chat/automation-triggers/generate-message-replies/"
 AUTOMATION_CLEAR_MESSAGE_REPLIES_URL = "/api/matching/open-chat/automation-triggers/generate-message-replies/clear/"
 IDEMPOTENT_ACTIONS_URL = "/api/matching/open-chat/idempotent-actions/"
+REST_TOOLS_SYNC_URL = "/api/matching/open-chat/rest-tools/sync/"
 DEFAULT_HOST = DEFAULT_OPEN_CHAT_HOST
 
 
@@ -819,3 +820,65 @@ class OpenChatConfigurationApiTests(TestCase):
         self.assertEqual(response.data["deleted_support_task_actions_count"], 1)
         self.assertFalse(SupportTask.objects.filter(pk=deleted_task.pk).exists())
         self.assertTrue(SupportTask.objects.filter(pk=kept_task.pk).exists())
+
+    def test_sync_rest_tools_requires_edit_permission(self):
+        self.api_client.force_authenticate(user=self.view_only_user)
+        response = self.api_client.post(REST_TOOLS_SYNC_URL, {}, format="json")
+        self.assertEqual(response.status_code, 403)
+
+    def test_sync_rest_tools_returns_404_without_configuration(self):
+        self.api_client.force_authenticate(user=self.authorized_user)
+        response = self.api_client.post(REST_TOOLS_SYNC_URL, {}, format="json")
+        self.assertEqual(response.status_code, 404)
+
+    @patch("open_chat.api.sync_rest_tool_definitions")
+    @patch("open_chat.api.OpenChatClient")
+    def test_sync_rest_tools_creates_or_updates(self, mock_build_client, mock_sync_tools):
+        OpenChatConfiguration.objects.create(
+            user=self.authorized_user,
+            open_chat_api_key="test-api-key",
+            open_chat_user="test-open-chat-user",
+            open_chat_host=DEFAULT_HOST,
+        )
+        mock_client = MagicMock()
+        mock_client.login.return_value = SimpleNamespace(name="Test User")
+        mock_build_client.return_value = mock_client
+        mock_sync_tools.return_value = {
+            "created": ["little_world_chat_reply"],
+            "updated": [],
+            "deleted": [],
+        }
+
+        self.api_client.force_authenticate(user=self.authorized_user)
+        response = self.api_client.post(REST_TOOLS_SYNC_URL, {"reload": False}, format="json")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["created"], ["little_world_chat_reply"])
+        self.assertFalse(response.data["reload"])
+        mock_sync_tools.assert_called_once_with(mock_client, reload=False)
+
+    @patch("open_chat.api.sync_rest_tool_definitions")
+    @patch("open_chat.api.OpenChatClient")
+    def test_sync_rest_tools_reload(self, mock_build_client, mock_sync_tools):
+        OpenChatConfiguration.objects.create(
+            user=self.authorized_user,
+            open_chat_api_key="test-api-key",
+            open_chat_user="test-open-chat-user",
+            open_chat_host=DEFAULT_HOST,
+        )
+        mock_client = MagicMock()
+        mock_client.login.return_value = SimpleNamespace(name="Test User")
+        mock_build_client.return_value = mock_client
+        mock_sync_tools.return_value = {
+            "created": ["little_world_chat_reply"],
+            "updated": [],
+            "deleted": ["little_world_chat_reply"],
+        }
+
+        self.api_client.force_authenticate(user=self.authorized_user)
+        response = self.api_client.post(REST_TOOLS_SYNC_URL, {"reload": True}, format="json")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["reload"])
+        self.assertEqual(response.data["deleted"], ["little_world_chat_reply"])
+        mock_sync_tools.assert_called_once_with(mock_client, reload=True)

@@ -21,11 +21,13 @@ from open_chat.helpers import value_or
 from open_chat.message_reply_suggestion import idempotent_actions__generate_message_replies
 from open_chat.models import OpenChatConfiguration
 from open_chat.permissions import (
+    HasEditOpenChatConfiguration,
     HasManageOpenChatAccess,
     HasOpenChatAccess,
     HasOpenChatOrManageOpenChatAccess,
     OpenChatConfigurationPermission,
 )
+from open_chat.tool_definitions import sync_rest_tool_definitions
 
 
 class OpenChatConfigurationSummarySerializer(serializers.ModelSerializer):
@@ -814,6 +816,60 @@ def open_chat_automation_clear_message_replies(request):
     )
 
 
+class OpenChatRestToolsSyncRequestSerializer(serializers.Serializer):
+    reload = serializers.BooleanField(required=False, default=False)
+
+
+@extend_schema(
+    methods=["POST"],
+    request=OpenChatRestToolsSyncRequestSerializer,
+    responses=inline_serializer(
+        name="OpenChatRestToolsSyncResponse",
+        fields={
+            "target_user_uuid": serializers.UUIDField(),
+            "reload": serializers.BooleanField(),
+            "created": serializers.ListField(child=serializers.CharField()),
+            "updated": serializers.ListField(child=serializers.CharField()),
+            "deleted": serializers.ListField(child=serializers.CharField()),
+            "detail": serializers.CharField(),
+        },
+    ),
+)
+@api_view(["POST"])
+@permission_classes([HasEditOpenChatConfiguration])
+@authentication_classes([SessionAuthentication])
+def open_chat_sync_rest_tools(request):
+    target_user_or_response = _resolve_open_chat_target_user(request)
+    if isinstance(target_user_or_response, Response):
+        return target_user_or_response
+    target_user = target_user_or_response
+
+    configuration = OpenChatConfiguration.objects.filter(user=target_user).first()
+    if configuration is None:
+        return Response(
+            {"detail": "Open chat configuration not found for target user."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    serializer = OpenChatRestToolsSyncRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    reload = bool(serializer.validated_data.get("reload", False))
+
+    def respond(client, _login_user):
+        sync_result = sync_rest_tool_definitions(client, reload=reload)
+        action = "reloaded" if reload else "synced"
+        return Response(
+            {
+                "target_user_uuid": str(target_user.uuid),
+                "reload": reload,
+                **sync_result,
+                "detail": f"REST API tools {action} on Open Chat.",
+            }
+        )
+
+    return _open_chat_client_response(configuration, respond)
+
+
 api_urls = [
     path(
         "api/matching/open-chat-configuration/",
@@ -874,5 +930,10 @@ api_urls = [
         "api/matching/open-chat/automation-triggers/generate-message-replies/clear/",
         open_chat_automation_clear_message_replies,
         name="open_chat_automation_clear_message_replies",
+    ),
+    path(
+        "api/matching/open-chat/rest-tools/sync/",
+        open_chat_sync_rest_tools,
+        name="open_chat_sync_rest_tools",
     ),
 ]

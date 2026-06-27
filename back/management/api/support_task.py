@@ -1,5 +1,6 @@
 from django.db.models import Case, Count, IntegerField, Q, Value, When
 from django.urls import path
+from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework import serializers, status
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -150,6 +151,18 @@ def support_task_update(request, pk):
     return Response(SupportTaskSerializer(task).data)
 
 
+@extend_schema(
+    request=inline_serializer(
+        name="SupportTaskActionUpdateRequest",
+        fields={
+            "parameters": serializers.DictField(
+                required=False,
+                help_text="Action-type-specific editable fields (e.g. support_reply uses message).",
+            ),
+        },
+    ),
+    responses={200: SupportTaskActionSerializer},
+)
 @api_view(["PATCH"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAdminOrMatchingUser])

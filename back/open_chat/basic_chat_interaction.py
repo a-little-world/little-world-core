@@ -4,8 +4,7 @@ import logging
 from celery import shared_task
 from chat.models import Chat
 from chat.models import Message as ChatMessage
-from client import OpenChatClient, PasswordAuth, ToolName
-from client.generated_api.models.little_world_chat_reply_init import LittleWorldChatReplyInit
+from client import OpenChatClient, PasswordAuth
 from management.models.user import User
 from management.permissions import ManagementPermission
 
@@ -16,6 +15,7 @@ from open_chat.helpers import (
     value_or,
 )
 from open_chat.models import OpenChatConfiguration
+from open_chat.tool_definitions import API_HOST_INIT_FIELD, CHAT_REPLY_REST_TOOL_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -119,13 +119,14 @@ def open_chat_basic_chat_interaction(
             bot=CHAT_REPLY_BOT,
             message=message,
             share=True,
+            overrides={"tools": [CHAT_REPLY_REST_TOOL_NAME]},
             tool_init={
-                ToolName.LITTLE_WORLD_CHAT_REPLY: LittleWorldChatReplyInit(
-                    api_host=api_host,
-                    chat_uuid=chat_uuid,
-                    csrf_token=csrf_token,
-                    session_id=session_id,
-                )
+                CHAT_REPLY_REST_TOOL_NAME: {
+                    API_HOST_INIT_FIELD: api_host.rstrip("/"),
+                    "chat_uuid": chat_uuid,
+                    "cookie_header": f"sessionid={session_id}; csrftoken={csrf_token}",
+                    "csrf_token": csrf_token,
+                }
             },
         )
         try:
@@ -142,7 +143,7 @@ def open_chat_basic_chat_interaction(
             interaction_uuid,
         )
 
-        tool_called = interaction_called_tool(interaction, ToolName.LITTLE_WORLD_CHAT_REPLY)
+        tool_called = interaction_called_tool(interaction, CHAT_REPLY_REST_TOOL_NAME)
         shared_url = interaction.shared_url()
         interaction_message_uuid, interaction_message_payload = _publish_interaction_chat_message(
             chat_uuid=chat_uuid,
