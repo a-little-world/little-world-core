@@ -196,7 +196,15 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         self.assertEqual(first_result["created_tasks_count"], 1)
         self.assertEqual(first_result["enqueued_interactions_count"], 1)
         self.assertEqual(second_result["created_tasks_count"], 0)
-        self.assertEqual(second_result["enqueued_interactions_count"], 0)
+        # Draft is still empty after the first run, so the duplicate task is reused
+        # and the interaction is enqueued again.
+        self.assertEqual(second_result["enqueued_interactions_count"], 1)
+        source_step = next(
+            step
+            for step in second_result["processed_messages"]
+            if step.get("message_uuid") == str(self.source_message.uuid)
+        )
+        self.assertEqual(source_step["status"], "reused_and_enqueued")
 
         actions = SupportTaskAction.objects.filter(
             action_type="support_reply",
@@ -222,11 +230,42 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         assert created_by is not None
         self.assertEqual(assigned_to.pk, self.admin_user.pk)
         self.assertEqual(created_by.pk, self.automation_user.pk)
-        mock_send_task.assert_called_once()
+        self.assertEqual(mock_send_task.call_count, 2)
         send_task_args, send_task_kwargs = mock_send_task.call_args
         self.assertEqual(send_task_args[0], "management.tasks.open_chat_run_message_reply_suggestion_interaction")
         queued_kwargs = send_task_kwargs["kwargs"]
         self.assertEqual(queued_kwargs["support_task_id"], action.task.pk)
+
+    @patch("open_chat.message_reply_suggestion.current_app.send_task")
+    def test_idempotent_generate_message_replies_skips_reenqueue_when_draft_exists(self, mock_send_task):
+        mock_send_task.return_value = MagicMock(id="interaction-task-id")
+
+        first_result = idempotent_actions__generate_message_replies(
+            target_user_uuid=str(self.admin_user.uuid),
+            triggered_by_user_uuid=str(self.admin_user.uuid),
+        )
+        action = SupportTaskAction.objects.get(
+            action_type="support_reply",
+            static_parameters__message_uuid=str(self.source_message.uuid),
+        )
+        action.parameters = {"message": "Already generated draft"}
+        action.save(update_fields=["parameters"])
+
+        second_result = idempotent_actions__generate_message_replies(
+            target_user_uuid=str(self.admin_user.uuid),
+            triggered_by_user_uuid=str(self.admin_user.uuid),
+        )
+
+        self.assertEqual(first_result["created_tasks_count"], 1)
+        self.assertEqual(second_result["created_tasks_count"], 0)
+        self.assertEqual(second_result["enqueued_interactions_count"], 0)
+        source_step = next(
+            step
+            for step in second_result["processed_messages"]
+            if step.get("message_uuid") == str(self.source_message.uuid)
+        )
+        self.assertEqual(source_step["status"], "skipped_duplicate")
+        mock_send_task.assert_called_once()
 
     @patch("open_chat.message_reply_suggestion.current_app.send_task")
     def test_idempotent_generate_message_replies_skips_matching_user_senders(self, mock_send_task):
@@ -311,10 +350,6 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         mock_client.login.return_value = SimpleNamespace(name="Admin Open Chat")
         mock_interaction = MagicMock()
         mock_interaction.uuid = "suggestion-interaction-uuid"
-        mock_interaction.shared_url.return_value = "http://localhost:1984/interaction/suggestion-interaction-uuid"
-        mock_interaction.messages.return_value = SimpleNamespace(
-            rows=[SimpleNamespace(tool_calls=[{"name": "little_world__generate_message_reply_suggestion"}])]
-        )
         mock_client.interact.return_value = mock_interaction
         mock_client_cls.return_value = mock_client
 
@@ -329,7 +364,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         )
 
         self.assertEqual(result["status"], "ok")
-        self.assertTrue(result["tool_called"])
+        mock_interaction.wait_until_finished.assert_not_called()
         _, interact_kwargs = mock_client.interact.call_args
         self.assertEqual(interact_kwargs["bot"], "little_world_reply_suggestion")
         self.assertEqual(interact_kwargs["message"], self.source_message.text)
@@ -412,10 +447,6 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         mock_client.login.return_value = SimpleNamespace(name="Admin Open Chat")
         mock_interaction = MagicMock()
         mock_interaction.uuid = "recipient-session-interaction"
-        mock_interaction.shared_url.return_value = "http://localhost:1984/interaction/recipient-session-interaction"
-        mock_interaction.messages.return_value = SimpleNamespace(
-            rows=[SimpleNamespace(tool_calls=[{"name": "little_world__generate_message_reply_suggestion"}])]
-        )
         mock_client.interact.return_value = mock_interaction
         mock_client_cls.return_value = mock_client
 
