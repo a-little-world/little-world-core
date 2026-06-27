@@ -613,7 +613,7 @@ def ensure_base_management_open_chat_setup(open_chat_automation_user: User | Non
     base_management_user = get_base_management_user()
     config_defaults = dict(settings.DEFAULT_OPEN_CHAT_CONFIGURATION)
 
-    OpenChatConfiguration.objects.update_or_create(
+    OpenChatConfiguration.objects.get_or_create(
         user=base_management_user,
         defaults=config_defaults,
     )
