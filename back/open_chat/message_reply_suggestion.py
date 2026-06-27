@@ -149,11 +149,11 @@ def idempotent_actions__generate_message_replies(
         }
     assigned_to_user = controller.get_base_management_user()
 
-    from management.api.user_advanced_filter import (
-        get_user_with_message_to_admin_that_are_read_or_not_read_but_not_replied,
-    )
+    from management.api.user_advanced_filter import get_user_with_message_to_admin
 
-    pending_users = list(get_user_with_message_to_admin_that_are_read_or_not_read_but_not_replied(User.objects.all()))
+    # Only suggest replies for users whose latest message to the management user
+    # is still unread (i.e. not yet handled). Read messages are skipped.
+    pending_users = list(get_user_with_message_to_admin(User.objects.filter(is_active=True)))
     processed_messages: list[dict] = []
     created_tasks = 0
     enqueued_interactions = 0
