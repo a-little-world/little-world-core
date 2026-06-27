@@ -11,6 +11,7 @@ from rest_framework.response import Response
 
 from management.api.matching_panel_user import get_matching_panel_user_data
 from management.helpers import IsAdminOrMatchingUser
+from management.middleware import responde_404
 from management.permissions import ManagementPermission
 from management.utils import check_task_status
 
@@ -23,11 +24,10 @@ def _user_can_access_matching_panel(user) -> bool:
 class MatchingPanelView(View):
     def get(self, request, menu=None):
         if not _user_can_access_matching_panel(request.user):
-            return render(
-                request,
-                "admin_pannel_v3_frontend.html",
-                {"user": json.dumps({}, cls=CoolerJson)},
-            )
+            # The MATCHING_USER permission is the base requirement for the whole
+            # matching panel. Users without it must not be able to load the
+            # frontend at all, so we 404 instead of serving the app shell.
+            return responde_404(request)
 
         return render(
             request,
