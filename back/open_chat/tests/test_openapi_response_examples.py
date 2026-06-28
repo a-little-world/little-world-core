@@ -2,10 +2,7 @@ import json
 
 from django.test import SimpleTestCase
 
-from open_chat.management_tool_response_examples import (
-    MANAGEMENT_TOOL_RESPONSE_EXAMPLES,
-    swagger_example_is_trustworthy,
-)
+from open_chat.management_tool_response_examples import swagger_example_is_trustworthy
 from open_chat.openapi_response_examples import (
     append_output_example_to_description,
     describe_openapi_response_example,
@@ -26,12 +23,12 @@ from open_chat.tool_definitions_management import (
 
 
 class OpenApiResponseExampleTests(SimpleTestCase):
-    def test_extract_users_filters_response_example_uses_documented_fallback(self):
+    def test_extract_users_filters_response_example_from_openapi(self):
         rendered = describe_openapi_response_example(
             spectacular_schema(),
             path=USERS_FILTERS_PATH,
             method="get",
-            fallback=MANAGEMENT_TOOL_RESPONSE_EXAMPLES[USERS_FILTERS_PATH],
+            fallback=None,
             trust_example=swagger_example_is_trustworthy,
         )
 
@@ -40,15 +37,15 @@ class OpenApiResponseExampleTests(SimpleTestCase):
         self.assertIn("filters", parsed)
         self.assertIn("lists", parsed)
 
-    def test_swagger_example_is_not_trustworthy_for_filters_path(self):
+    def test_swagger_example_is_trustworthy_for_filters_path(self):
         example = extract_openapi_response_example(
             spectacular_schema(),
             path=USERS_FILTERS_PATH,
             method="get",
         )
-        self.assertFalse(swagger_example_is_trustworthy(USERS_FILTERS_PATH, example))
+        self.assertTrue(swagger_example_is_trustworthy(USERS_FILTERS_PATH, example))
 
-    def test_extract_query_users_response_example_is_paginated(self):
+    def test_extract_query_users_response_example_includes_profile_interests(self):
         example = extract_openapi_response_example(
             spectacular_schema(),
             path=USERS_LIST_PATH,
@@ -59,20 +56,22 @@ class OpenApiResponseExampleTests(SimpleTestCase):
         self.assertIn("results", example)
         self.assertIn("items_total", example)
         self.assertLessEqual(len(example["results"]), 1)
+        if example["results"]:
+            self.assertIn("interests", example["results"][0].get("profile", {}))
 
     def test_extract_support_task_stats_response_example(self):
         rendered = describe_openapi_response_example(
             spectacular_schema(),
             path=SUPPORT_TASK_STATS_PATH,
             method="get",
-            fallback=MANAGEMENT_TOOL_RESPONSE_EXAMPLES[SUPPORT_TASK_STATS_PATH],
+            fallback=None,
             trust_example=swagger_example_is_trustworthy,
         )
 
-        self.assertEqual(
-            json.loads(rendered),
-            {"NEW": 3, "IN_PROGRESS": 1, "COMPLETED": 42},
-        )
+        parsed = json.loads(rendered)
+        self.assertIn("NEW", parsed)
+        self.assertIn("IN_PROGRESS", parsed)
+        self.assertIn("COMPLETED", parsed)
 
     def test_format_openapi_response_example_truncates_long_payload(self):
         rendered = format_openapi_response_example({"items": ["x" * 2000]}, max_length=100)
@@ -92,7 +91,7 @@ class OpenApiResponseExampleTests(SimpleTestCase):
             spectacular_schema(),
             path=SUPPORT_TASK_STATS_PATH,
             method="get",
-            fallback=MANAGEMENT_TOOL_RESPONSE_EXAMPLES[SUPPORT_TASK_STATS_PATH],
+            fallback=None,
             trust_example=swagger_example_is_trustworthy,
         )
         self.assertIsNotNone(rendered)

@@ -21,6 +21,7 @@ from open_chat.tool_definitions import (
     sync_rest_tool_definitions,
 )
 from open_chat.tool_definitions_management import (
+    GET_MATCH_DETAIL_REST_TOOL_NAME,
     GET_USER_DETAIL_REST_TOOL_NAME,
     LIST_USER_FILTERS_REST_TOOL_NAME,
     MANAGEMENT_GET_TOOL_SPECS,
@@ -48,6 +49,8 @@ class RestToolDefinitionTests(SimpleTestCase):
 
         self.assertEqual(definition["name"], CHAT_REPLY_REST_TOOL_NAME)
         self.assertEqual(definition["operation_id"], "api_messages_send_create")
+        self.assertIn("message", definition["description"])
+        self.assertNotIn("<a {", definition["description"])
         self.assertEqual(definition["base_url_source"], "init")
         self.assertEqual(definition["base_url_input_name"], "api_host")
 
@@ -129,6 +132,13 @@ class RestToolDefinitionTests(SimpleTestCase):
         self.assertEqual(definition["safety_policy"]["timeout_seconds"], 30)
         self.assertEqual(definition["safety_policy"]["max_response_body_bytes"], 512_000)
 
+    def test_build_mgmt_query_users_rest_tool_definition_includes_interests_hint(self):
+        spec = next(item for item in MANAGEMENT_GET_TOOL_SPECS if item.name == QUERY_USERS_REST_TOOL_NAME)
+        definition = build_mgmt_get_rest_tool_definition(spec, "https://app.example.com").build()
+
+        self.assertIn("profile.interests", definition["description"])
+        self.assertIn("get_user_detail", definition["description"])
+
     def test_build_mgmt_query_matches_rest_tool_definition_includes_panel_link(self):
         spec = next(item for item in MANAGEMENT_GET_TOOL_SPECS if item.name == QUERY_MATCHES_REST_TOOL_NAME)
         definition = build_mgmt_get_rest_tool_definition(spec, "https://app.example.com").build()
@@ -140,10 +150,20 @@ class RestToolDefinitionTests(SimpleTestCase):
         definition = build_mgmt_get_rest_tool_definition(spec, "https://app.example.com").build()
 
         self.assertEqual(definition["name"], GET_USER_DETAIL_REST_TOOL_NAME)
+        self.assertIn("interests", definition["description"])
+        self.assertIn("`id`", definition["description"])
         openapi = json.loads(definition["openapi_source"])
         self.assertIn(USERS_DETAIL_PATH, openapi["paths"])
         binding_inputs = {binding["input_name"] for binding in definition["param_bindings"]}
         self.assertIn("id", binding_inputs)
+
+    def test_build_mgmt_get_match_detail_rest_tool_definition(self):
+        spec = next(item for item in MANAGEMENT_GET_TOOL_SPECS if item.name == GET_MATCH_DETAIL_REST_TOOL_NAME)
+        definition = build_mgmt_get_rest_tool_definition(spec, "https://app.example.com").build()
+
+        self.assertEqual(definition["name"], GET_MATCH_DETAIL_REST_TOOL_NAME)
+        self.assertIn("`id`", definition["description"])
+        self.assertIn("uuid", definition["description"])
 
     def test_build_all_rest_tool_definitions(self):
         definitions = build_all_rest_tool_definitions()

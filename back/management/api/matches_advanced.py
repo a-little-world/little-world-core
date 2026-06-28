@@ -7,6 +7,7 @@ from django.urls import path
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django_filters import rest_framework as filters
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
@@ -21,6 +22,7 @@ from management.api.match_journey_filter_list import (
     get_match_bucket_label,
 )
 from management.api.utils_advanced import (
+    FilterSchemaResponseSerializer,
     apply_journey_bucket_fields,
     enrich_report_unmatch_with_user_info,
     filterset_schema_dict,
@@ -686,7 +688,7 @@ class MatchFilter(filters.FilterSet):
 
 @extend_schema_view(
     list=extend_schema(summary="List matches"),
-    retrieve=extend_schema(summary="Retrieve match"),
+    retrieve=extend_schema(summary="Retrieve match", responses={200: AdvancedMatchSerializer}),
 )
 class AdvancedMatchViewset(viewsets.ModelViewSet):
     queryset = Match.objects.all().order_by("-created_at")
@@ -730,6 +732,7 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
         return True, Response(status=200)
 
+    @extend_schema(responses={200: FilterSchemaResponseSerializer})
     @action(detail=False, methods=["get"])
     def get_filter_schema(self, request, include_lookup_expr=False):
         # 1 - retrieve all the filters
@@ -800,6 +803,7 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
         obj.save()
         return Response({"msg": "Match completed off plattform set"})
 
+    @extend_schema(responses={(200, "application/json"): OpenApiTypes.STR})
     @action(detail=True, methods=["get", "post"])
     def notes(self, request, pk=None):
         self.kwargs["pk"] = pk

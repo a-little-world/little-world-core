@@ -58,10 +58,13 @@ Workflow:
 Rules:
 - Never treat plain assistant text in this thread as the saved suggestion.
 - Do not skip `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` — if you skip it, nothing is stored on the support task.
+- Put the draft (including any link markup) in the tool's `parameters.message` field, not in assistant text here.
 - If you already used `{RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME}`, still call `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` afterward.
 - When the draft includes admin panel or external links, use the Little World chat markup described below.
 
 {build_chat_text_markup_hint()}
+
+Reminder: your last action must be `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` with the draft in `parameters.message`.
 """.strip()
 
 

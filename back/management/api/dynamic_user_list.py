@@ -1,3 +1,4 @@
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.serializers import ModelSerializer
@@ -20,6 +21,10 @@ class DynamicUserListSerializer(ModelSerializer):
         fields = ["id", "name", "users", "description", "created_at", "updated_at"]
 
 
+@extend_schema_view(
+    list=extend_schema(responses={200: DynamicUserListSerializer(many=True)}),
+    retrieve=extend_schema(responses={200: DynamicUserListSerializer}),
+)
 class DynamicUserListGeneralViewSet(ModelViewSet):
     queryset = DynamicUserList.objects.all()
     serializer_class = DynamicUserListSerializer
@@ -29,6 +34,9 @@ class DynamicUserListGeneralViewSet(ModelViewSet):
         return super().get_permissions()
 
 
+@extend_schema_view(
+    list=extend_schema(responses={200: UserSerializer(many=True)}),
+)
 class DynamicUserListSingleViewSet(ModelViewSet):
     queryset = DynamicUserList.objects.all()
 

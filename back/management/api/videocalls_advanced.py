@@ -7,7 +7,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from video.models import LivekitSession
 
-from management.api.utils_advanced import filterset_schema_dict
+from management.api.utils_advanced import FilterSchemaResponseSerializer, filterset_schema_dict
 from management.helpers import DetailedPaginationMixin, IsAdminOrMatchingUser
 from management.models.profile import MinimalProfileSerializer
 from management.models.user import User
@@ -185,6 +185,7 @@ class AdvancedVideoCallsViewset(viewsets.ModelViewSet):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
         return True, None
 
+    @extend_schema(responses={200: FilterSchemaResponseSerializer})
     @action(detail=False, methods=["get"])
     def get_filter_schema(self, request, include_lookup_expr=False):
         # 1 - retrieve all the filters

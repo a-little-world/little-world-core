@@ -1,6 +1,5 @@
 from client import OpenChatClient, RESTToolBuilder
 
-from open_chat.helpers import build_chat_text_markup_hint
 from open_chat.rest_tool_schema import (
     API_HOST_INIT_FIELD,
     SESSION_AUTH_HEADER_PARAMS,
@@ -39,9 +38,10 @@ def build_chat_reply_rest_tool_definition(api_host: str | None = None) -> RESTTo
             CHAT_REPLY_REST_TOOL_NAME,
             (
                 "Send the final support reply to the Little World user in chat. "
-                "You MUST call this tool exactly once as your last step with the complete message text. "
-                "If you do not call this tool, the user will not receive any response. "
-                f"{build_chat_text_markup_hint()}"
+                "You MUST call this tool exactly once as your last step. "
+                "Pass the complete user-visible reply in the `message` argument "
+                "(may include Little World chat link markup). "
+                "If you do not call this tool, the user will not receive any response."
             ),
         )
         .openapi_endpoint(

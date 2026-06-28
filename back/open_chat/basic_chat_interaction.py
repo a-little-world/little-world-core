@@ -107,20 +107,25 @@ This Open Chat thread is an internal workspace only. Text you write here is NOT 
 
 Workflow:
 1. Use available tools to gather conversation history, permissions, and platform data when needed.
-2. Compose a helpful, complete reply for the Little World user.
-3. You MUST finish by calling `{CHAT_REPLY_REST_TOOL_NAME}` exactly once with the full final message text.
-   This is the ONLY way to deliver a user-visible reply. If you do not call this tool, the user receives nothing.
+2. Compose a helpful, complete reply for the Little World user (use chat markup below for links).
+3. You MUST finish by calling `{CHAT_REPLY_REST_TOOL_NAME}` exactly once. Pass the full reply in the tool's `message` parameter.
 
 Rules:
 - Never answer the user with plain assistant text in this thread — not even for permission lookups or platform summaries.
 - Every user-visible answer MUST be sent through `{CHAT_REPLY_REST_TOOL_NAME}` exactly once as your last step.
-- If you already used retrieval or lookup tools, you still MUST call `{CHAT_REPLY_REST_TOOL_NAME}` afterward with the complete reply.
-- Do not skip `{CHAT_REPLY_REST_TOOL_NAME}` under any circumstances.
+- Put the user-visible reply (including any link markup) in the `message` argument of `{CHAT_REPLY_REST_TOOL_NAME}`, not in assistant text here.
+- If you already used retrieval or lookup tools, you still MUST call `{CHAT_REPLY_REST_TOOL_NAME}` afterward with the complete reply in `message`.
+- Do not skip `{CHAT_REPLY_REST_TOOL_NAME}` under any circumstances. The interaction is incomplete until this tool succeeds.
 - Non-staff matching users only see users in their managed scope; mention this if results seem limited.
 - Keep tool payloads small: use page_size=5 for query_* tools by default, page_size=1 when you only need a count (read items_total), and get_*_detail for a single record instead of broad list queries when possible.
-- When including admin panel links in the user-visible reply, always use absolute URLs built from the Little World admin panel base URL below.
+- Use `{GET_USER_DETAIL_REST_TOOL_NAME}` with path param `id` (numeric id, uuid, or email) to load one user's full profile (including interests).
+- Use `{GET_MATCH_DETAIL_REST_TOOL_NAME}` with path param `id` (match id or uuid) to load one match's full detail.
+- List filters do not cover interests/hobbies. After narrowing with `{QUERY_USERS_REST_TOOL_NAME}`, read `profile.interests` from result rows (paginate if needed) or call `{GET_USER_DETAIL_REST_TOOL_NAME}` per user.
+- When including admin panel links in the user-visible reply, use absolute URLs built from the Little World admin panel base URL below.
 
 {build_chat_text_markup_hint(base_url)}
+
+Reminder: your last action must be `{CHAT_REPLY_REST_TOOL_NAME}` with the formatted reply in `message`.
 """.strip()
 
 

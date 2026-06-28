@@ -36,8 +36,13 @@ def describe_openapi_response_example(
     fallback: Any | None = None,
     trust_example: Any | None = None,
 ) -> str | None:
-    example = extract_openapi_response_example(schema_doc, path=path, method=method)
-    validator = trust_example or (lambda candidate: True)
+    validator = trust_example or (lambda _path, _candidate: True)
+    example = extract_openapi_response_example(
+        schema_doc,
+        path=path,
+        method=method,
+        trust_example=validator,
+    )
     if example is not None and validator(path, example):
         return format_openapi_response_example(example, max_length=max_length)
     if fallback is not None:
@@ -58,6 +63,7 @@ def extract_openapi_response_example(
     *,
     path: str,
     method: str = "get",
+    trust_example: Any | None = None,
 ) -> Any | None:
     operation = _get_operation(schema_doc, path, method)
     if operation is None:
@@ -67,7 +73,7 @@ def extract_openapi_response_example(
     if response is None:
         return None
 
-    explicit = _extract_explicit_example(response)
+    explicit = _extract_explicit_example(response, trust_example=trust_example, path=path)
     if explicit is not None:
         return explicit
 
@@ -104,9 +110,16 @@ def _pick_success_response(responses: Any) -> dict[str, Any] | None:
     return None
 
 
-def _extract_explicit_example(response: dict[str, Any]) -> Any | None:
+def _extract_explicit_example(
+    response: dict[str, Any],
+    *,
+    trust_example: Any | None = None,
+    path: str = "",
+) -> Any | None:
     if "example" in response:
-        return response["example"]
+        candidate = response["example"]
+        if trust_example is None or trust_example(path, candidate):
+            return candidate
 
     content = response.get("content")
     if not isinstance(content, dict):
@@ -117,16 +130,27 @@ def _extract_explicit_example(response: dict[str, Any]) -> Any | None:
         if not isinstance(media, dict):
             continue
         if "example" in media:
-            return media["example"]
+            candidate = media["example"]
+            if trust_example is None or trust_example(path, candidate):
+                return candidate
         examples = media.get("examples")
         if isinstance(examples, dict):
+            fallback: Any | None = None
             for example_entry in examples.values():
-                if isinstance(example_entry, dict) and "value" in example_entry:
-                    return example_entry["value"]
+                if not isinstance(example_entry, dict) or "value" not in example_entry:
+                    continue
+                candidate = example_entry["value"]
+                fallback = candidate
+                if trust_example is None or trust_example(path, candidate):
+                    return candidate
+            if fallback is not None and trust_example is None:
+                return fallback
     for media in content.values():
         if isinstance(media, dict):
             if "example" in media:
-                return media["example"]
+                candidate = media["example"]
+                if trust_example is None or trust_example(path, candidate):
+                    return candidate
     return None
 
 
@@ -183,7 +207,7 @@ def _sample_json_schema(
         return _sample_json_schema(
             resolved,
             components,
-            depth=depth + 1,
+            depth=depth,
             max_depth=max_depth,
             array_items=array_items,
             object_properties=object_properties,

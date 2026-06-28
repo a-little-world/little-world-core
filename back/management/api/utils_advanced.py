@@ -134,6 +134,17 @@ class DynamicFilterSerializer(serializers.Serializer):
     lookup_expr = serializers.ListField(child=serializers.CharField(), required=False)
 
 
+class SavedListEntrySerializer(serializers.Serializer):
+    slug = serializers.CharField(required=False)
+    name = serializers.CharField()
+    description = serializers.CharField(required=False, allow_blank=True)
+
+
+class FilterSchemaResponseSerializer(serializers.Serializer):
+    filters = DynamicFilterSerializer(many=True)
+    lists = SavedListEntrySerializer(many=True)
+
+
 def filterset_schema_dict(filterset, include_lookup_expr=False, view_key="/api/matching/users/", request=None):
     _filters = []
     translation_lang = request.session.get("lang", "en") if request and hasattr(request, "session") else "en"

@@ -121,7 +121,8 @@ class MgmtGetToolSpec:
 MANAGEMENT_GET_TOOL_SPECS: tuple[MgmtGetToolSpec, ...] = (
     MgmtGetToolSpec(
         LIST_USER_FILTERS_REST_TOOL_NAME,
-        "List available user filter fields and saved user list slugs (all, needs_matching, journey_v2__*, :dyn:<id>, etc.).",
+        "List available user filter fields and saved user list slugs (all, needs_matching, journey_v2__*, :dyn:<id>, etc.). "
+        "Interests/hobbies are not filterable here — they appear only in query_users rows and get_user_detail.",
         USERS_FILTERS_PATH,
     ),
     MgmtGetToolSpec(
@@ -147,6 +148,8 @@ MANAGEMENT_GET_TOOL_SPECS: tuple[MgmtGetToolSpec, ...] = (
     MgmtGetToolSpec(
         QUERY_USERS_REST_TOOL_NAME,
         "Search and list Little World users with filters, saved lists, search, and pagination."
+        " Each result includes profile.interests; interests/hobbies cannot be filtered server-side — "
+        "paginate with page_size=5 and inspect rows, or call get_user_detail for one user."
         + _LIST_SLUG_HINT
         + _USERS_PANEL_LINK_HINT,
         USERS_LIST_PATH,
@@ -186,12 +189,15 @@ MANAGEMENT_GET_TOOL_SPECS: tuple[MgmtGetToolSpec, ...] = (
     ),
     MgmtGetToolSpec(
         GET_USER_DETAIL_REST_TOOL_NAME,
-        "Retrieve full user detail by id path param (numeric id, uuid, or email).",
+        "Retrieve one user's full profile and state by path param `id` (numeric user id, uuid, or email). "
+        "Use for a named/known user or fields not exposed as list filters (interests, description, notes). "
+        "After query_users, pass id/uuid/email from a result row.",
         USERS_DETAIL_PATH,
     ),
     MgmtGetToolSpec(
         GET_MATCH_DETAIL_REST_TOOL_NAME,
-        "Retrieve match detail by id or uuid (stats, weekly activity, journey buckets).",
+        "Retrieve one match's full detail by path param `id` (numeric match id or uuid): participants, stats, "
+        "weekly activity, journey buckets. Use after query_matches when staff ask about a specific match.",
         MATCHES_DETAIL_PATH,
     ),
     MgmtGetToolSpec(

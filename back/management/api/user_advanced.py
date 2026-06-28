@@ -7,6 +7,7 @@ from django.db.models.functions import Concat
 from django.urls import path
 from django.utils import timezone
 from django_filters import rest_framework as filters
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
 from emails.models import AdvancedEmailLogSerializer, EmailLog
 from rest_framework import serializers, status, viewsets
@@ -15,10 +16,16 @@ from rest_framework.response import Response
 
 from management.api.export_utils import build_paginated_export_response, ensure_export_fields
 from management.api.matches import AdvancedUserMatchSerializer
+from management.api.schema import DetailedPaginatedResponseSerializer
 from management.api.scores import score_between_db_update
 from management.api.user_advanced_filter_lists import FILTER_LISTS, get_choices, get_dynamic_userlists
 from management.api.user_report_utils import USER_EXPORT_COLUMN_NAMES, build_user_report_entry
-from management.api.utils_advanced import apply_journey_bucket_fields, filterset_schema_dict, parse_bool_query_param
+from management.api.utils_advanced import (
+    FilterSchemaResponseSerializer,
+    apply_journey_bucket_fields,
+    filterset_schema_dict,
+    parse_bool_query_param,
+)
 from management.controller import (
     delete_user,
     get_base_management_user,
@@ -222,14 +229,45 @@ def _serialize_user_match_previews(user: User):
     }
 
 
+class UserTableStateSerializer(serializers.Serializer):
+    company = serializers.CharField(allow_null=True, required=False)
+    has_match_priority = serializers.BooleanField()
+
+
+class UserMatchWaitingTimeSerializer(serializers.Serializer):
+    number_of_days = serializers.IntegerField(allow_null=True)
+    waiting_time_string = serializers.CharField()
+    first_search = serializers.DateTimeField(allow_null=True, required=False)
+
+
+class UserChatMessagesPageSerializer(serializers.Serializer):
+    results = MessageSerializer(many=True)
+    items_total = serializers.IntegerField()
+    page_size = serializers.IntegerField()
+    pages_total = serializers.IntegerField(required=False)
+    results_total = serializers.IntegerField(required=False)
+    page = serializers.IntegerField()
+    first_page = serializers.IntegerField(required=False)
+    last_page = serializers.IntegerField(required=False)
+    next_page = serializers.IntegerField(required=False, allow_null=True)
+    previous_page = serializers.IntegerField(required=False, allow_null=True)
+
+
+class UserMessagesResponseSerializer(serializers.Serializer):
+    chat = ChatSerializer()
+    messages = UserChatMessagesPageSerializer()
+
+
 class UserTableSerializer(serializers.ModelSerializer):
+    profile = MinimalProfileSerializer(read_only=True)
+    state = UserTableStateSerializer(read_only=True)
+
     class Meta:
         model = User
-        fields = ["uuid", "id", "email", "date_joined", "last_login"]
+        fields = ["uuid", "id", "email", "date_joined", "last_login", "profile", "state"]
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation["profile"] = MinimalProfileSerializer(instance.profile).data
         representation["state"] = {
             "company": instance.state.company,
             "has_match_priority": instance.state.has_match_priority,
@@ -257,13 +295,14 @@ class UserTableSerializer(serializers.ModelSerializer):
 
 
 class AdvancedUserSerializer(serializers.ModelSerializer):
+    profile = MinimalProfileSerializer(read_only=True)
+
     class Meta:
         model = User
-        fields = ["uuid", "id", "email", "date_joined", "last_login"]
+        fields = ["uuid", "id", "email", "date_joined", "last_login", "profile"]
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation["profile"] = MinimalProfileSerializer(instance.profile).data
         representation["is_staff"] = instance.is_staff
         representation["is_superuser"] = instance.is_superuser
         representation["is_matching_user"] = instance.has_perm(ManagementPermission.MATCHING_USER)
@@ -581,6 +620,10 @@ class UserFilter(filters.FilterSet):
         fields = ["uuid", "id", "email"]
 
 
+class PaginatedUserEmailLogResponse(DetailedPaginatedResponseSerializer):
+    results = AdvancedEmailLogSerializer(many=True)
+
+
 class InviteNativeAppTesterRequestSerializer(serializers.Serializer):
     platform = serializers.ChoiceField(choices=["ios", "android"])
     app_invite_url = serializers.CharField()
@@ -593,8 +636,8 @@ class InviteNativeAppTesterRequestSerializer(serializers.Serializer):
 
 
 @extend_schema_view(
-    list=extend_schema(summary="List users"),
-    retrieve=extend_schema(summary="Retrieve user"),
+    list=extend_schema(summary="List users", responses={200: UserTableSerializer(many=True)}),
+    retrieve=extend_schema(summary="Retrieve user", responses={200: AdvancedUserSerializer}),
 )
 class AdvancedUserViewset(viewsets.ModelViewSet):
     queryset = User.objects.all().order_by("-date_joined")
@@ -615,6 +658,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
             management_user = cast(User, self.request.user)
             return management_user.managed_users_queryset(active_only=True).select_related("profile", "state")
 
+    @extend_schema(responses={200: FilterSchemaResponseSerializer})
     @action(detail=False, methods=["get"])
     def get_filter_schema(self, request, include_lookup_expr=False):
         # 1 - retrieve all the filters
@@ -672,6 +716,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         pages["results"] = AdvancedMatchingScoreSerializer(pages["results"], many=True, context={"user": obj}).data
         return Response(pages)
 
+    @extend_schema(responses={200: PreMatchingAppointmentSerializer})
     @action(detail=True, methods=["get"])
     def prematching_appointment(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -773,9 +818,9 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     @extend_schema(
         request=inline_serializer(
             name="MessagesGetRequest",
-            # description='If match_uuid is provided, the chat of the match is returned, otherwise the support user chat',
             fields={"match_uuid": serializers.CharField(required=False)},
-        )
+        ),
+        responses={200: UserMessagesResponseSerializer},
     )
     @action(detail=True, methods=["get"])
     def messages(self, request, pk=None):
@@ -823,7 +868,10 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         return Response({"chat": ChatSerializer(chat).data, "messages": messages})
 
-    @extend_schema(request=inline_serializer(name="SmsRequest", fields={"message": serializers.CharField()}))
+    @extend_schema(
+        request=inline_serializer(name="SmsRequest", fields={"message": serializers.CharField()}),
+        responses={200: SmsSerializer(many=True)},
+    )
     @action(detail=True, methods=["get", "post"])
     def sms(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -885,6 +933,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         return Response(serialized)
 
+    @extend_schema(responses={200: ManagementTaskSerializer(many=True)})
     @action(detail=True, methods=["get", "post"])
     def tasks(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -898,6 +947,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         return Response(ManagementTaskSerializer(tasks, many=True).data)
 
+    @extend_schema(responses={(200, "application/json"): OpenApiTypes.STR})
     @action(detail=True, methods=["get", "post"])
     def notes(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -1347,6 +1397,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         )
         return Response({"msg": "User is now a TIM support user"})
 
+    @extend_schema(responses={200: PaginatedUserEmailLogResponse})
     @action(detail=True, methods=["get"])
     def emails(self, request, pk=None) -> Response:
         self.kwargs["pk"] = pk
@@ -1368,6 +1419,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         return Response(paginated_email_logs)
 
+    @extend_schema(responses={200: UserMatchWaitingTimeSerializer})
     @action(detail=True, methods=["get"])
     def match_waiting_time(self, request, pk=None):
         self.kwargs["pk"] = pk

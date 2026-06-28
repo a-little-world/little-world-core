@@ -7,6 +7,12 @@ from rest_framework.decorators import api_view, authentication_classes, permissi
 from rest_framework.response import Response
 
 from management.actions.registry import execute
+from management.api.schema import (
+    PaginatedSupportTaskResponse,
+    SupportStaffUserEntrySerializer,
+    SupportTaskStatsSerializer,
+    SupportTaskUserSearchEntrySerializer,
+)
 from management.authentication import NativeOnlyJWTAuthentication
 from management.helpers import DetailedPagination, IsAdminOrMatchingUser
 from management.models.support_task import (
@@ -115,6 +121,7 @@ class SupportTaskListQuerySerializer(serializers.Serializer):
     search = serializers.CharField(required=False, allow_blank=True)
 
 
+@extend_schema(responses={200: PaginatedSupportTaskResponse})
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAdminOrMatchingUser])
@@ -198,6 +205,7 @@ def support_task_create(request):
     return Response(SupportTaskSerializer(task).data, status=status.HTTP_201_CREATED)
 
 
+@extend_schema(responses={200: SupportTaskSerializer})
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAdminOrMatchingUser])
@@ -303,6 +311,7 @@ def support_task_action_cancel(request, task_pk):
     return Response(SupportTaskActionSerializer(action).data)
 
 
+@extend_schema(responses={200: SupportTaskStatsSerializer})
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAdminOrMatchingUser])
@@ -318,6 +327,7 @@ def support_task_stats(request):
     )
 
 
+@extend_schema(responses={200: SupportStaffUserEntrySerializer(many=True)})
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAdminOrMatchingUser])
@@ -364,6 +374,7 @@ def support_task_create_manual(request):
     return Response(SupportTaskSerializer(task).data, status=status.HTTP_201_CREATED)
 
 
+@extend_schema(responses={200: SupportTaskUserSearchEntrySerializer(many=True)})
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAdminOrMatchingUser])
