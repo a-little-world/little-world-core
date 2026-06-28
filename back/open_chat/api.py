@@ -160,6 +160,19 @@ def _build_open_chat_bot_summary(bot) -> dict:
     }
 
 
+def _build_open_chat_interaction_state_summary(status) -> dict:
+    latest_finished = value_or(getattr(status, "latest_message_finished", None), None)
+    state = value_or(getattr(status, "state", None), None) or "idle"
+    return {
+        "chat_uuid": value_or(getattr(status, "chat_uuid", None), None),
+        "is_active": bool(value_or(getattr(status, "is_active", None), False)),
+        "state": state,
+        "latest_message_uuid": value_or(getattr(status, "latest_message_uuid", None), None),
+        "latest_message_finished": latest_finished,
+        "source": value_or(getattr(status, "source", None), None),
+    }
+
+
 def _build_open_chat_interaction_summary(interaction) -> dict:
     try:
         raw_payload = interaction.to_dict()
@@ -804,6 +817,50 @@ def open_chat_interactions(request):
 @extend_schema(
     methods=["GET"],
     responses=inline_serializer(
+        name="OpenChatInteractionStateResponse",
+        fields={
+            "chat_uuid": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+            "is_active": serializers.BooleanField(),
+            "state": serializers.CharField(),
+            "latest_message_uuid": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+            "latest_message_finished": serializers.BooleanField(required=False, allow_null=True),
+            "source": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+        },
+    ),
+)
+@api_view(["GET"])
+@permission_classes([HasOpenChatOrManageOpenChatAccess])
+@authentication_classes([SessionAuthentication])
+def open_chat_interaction_state(request, interaction_share_uuid: str):
+    if _parse_uuid(interaction_share_uuid) is None:
+        return Response(
+            {"detail": "Invalid interaction share UUID format."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    target_user_or_response = _resolve_open_chat_target_user(request)
+    if isinstance(target_user_or_response, Response):
+        return target_user_or_response
+    target_user = target_user_or_response
+
+    configuration = OpenChatConfiguration.objects.filter(user=target_user).first()
+    if configuration is None:
+        return Response(
+            {"detail": "Open chat configuration not found for target user."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    def respond(client, _login_user):
+        return Response(
+            _build_open_chat_interaction_state_summary(client.get_shared_interaction_status(interaction_share_uuid))
+        )
+
+    return _open_chat_client_response(configuration, respond)
+
+
+@extend_schema(
+    methods=["GET"],
+    responses=inline_serializer(
         name="OpenChatInteractionDetailResponse",
         fields={
             "interaction_id": serializers.CharField(),
@@ -1087,6 +1144,11 @@ api_urls = [
         "api/matching/open-chat/interactions/",
         open_chat_interactions,
         name="open_chat_interactions",
+    ),
+    path(
+        "api/matching/open-chat/interactions/<str:interaction_share_uuid>/state/",
+        open_chat_interaction_state,
+        name="open_chat_interaction_state",
     ),
     path(
         "api/matching/open-chat/interactions/<str:interaction_uuid>/",

@@ -23,6 +23,7 @@ BOTS_URL = "/api/matching/open-chat/bots/"
 BOT_DETAIL_URL = "/api/matching/open-chat/bots/{bot_identifier}/"
 INTERACTIONS_URL = "/api/matching/open-chat/interactions/"
 INTERACTION_DETAIL_URL = "/api/matching/open-chat/interactions/{interaction_uuid}/"
+INTERACTION_STATE_URL = "/api/matching/open-chat/interactions/{interaction_share_uuid}/state/"
 DELETE_CHAT_URL = "/api/matching/open-chat/chats/{chat_uuid}/"
 AUTOMATION_GENERATE_MESSAGE_REPLIES_URL = "/api/matching/open-chat/automation-triggers/generate-message-replies/"
 AUTOMATION_CLEAR_MESSAGE_REPLIES_URL = "/api/matching/open-chat/automation-triggers/generate-message-replies/clear/"
@@ -748,6 +749,37 @@ class OpenChatConfigurationApiTests(TestCase):
         self.assertEqual(response.data["interaction_id"], interaction_uuid)
         self.assertEqual(response.data["title"], "Detailed interaction")
         mock_client.get_interaction.assert_called_once_with(interaction_uuid)
+
+    @patch("open_chat.api.OpenChatClient")
+    def test_interaction_state_returns_shared_interaction_status(self, mock_build_client):
+        share_uuid = "6ece98ca-8d5c-4791-a198-0b971c0ac0d6"
+        OpenChatConfiguration.objects.create(
+            user=self.authorized_user,
+            open_chat_api_key="authorized-key",
+            open_chat_user="authorized-user",
+            open_chat_host=DEFAULT_HOST,
+        )
+        mock_client = MagicMock()
+        mock_client.get_shared_interaction_status.return_value = SimpleNamespace(
+            chat_uuid="chat-uuid-1",
+            is_active=True,
+            state="active",
+            latest_message_uuid="message-uuid-1",
+            latest_message_finished=False,
+            source="queue",
+        )
+        mock_build_client.return_value = mock_client
+
+        self.api_client.force_authenticate(user=self.authorized_user)
+        response = self.api_client.get(
+            INTERACTION_STATE_URL.format(interaction_share_uuid=share_uuid),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["state"], "active")
+        self.assertTrue(response.data["is_active"])
+        self.assertEqual(response.data["chat_uuid"], "chat-uuid-1")
+        mock_client.get_shared_interaction_status.assert_called_once_with(share_uuid)
 
     def test_delete_chat_deletes_owned_open_chat_chat(self):
         chat = Chat.objects.create(
