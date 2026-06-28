@@ -122,6 +122,8 @@ class RestToolDefinitionTests(SimpleTestCase):
 
         self.assertEqual(definition["name"], QUERY_USERS_REST_TOOL_NAME)
         self.assertIn("/matching/users/?", definition["description"])
+        self.assertIn("/matching/user/", definition["description"])
+        self.assertIn("?tab=chat", definition["description"])
         openapi = json.loads(definition["openapi_source"])
         self.assertIn(USERS_LIST_PATH, openapi["paths"])
         binding_inputs = {binding["input_name"] for binding in definition["param_bindings"]}
@@ -138,6 +140,8 @@ class RestToolDefinitionTests(SimpleTestCase):
 
         self.assertIn("profile.interests", definition["description"])
         self.assertIn("get_user_detail", definition["description"])
+        self.assertIn("/matching/user/", definition["description"])
+        self.assertIn("never `/matching/users/?search=", definition["description"])
 
     def test_build_mgmt_query_matches_rest_tool_definition_includes_panel_link(self):
         spec = next(item for item in MANAGEMENT_GET_TOOL_SPECS if item.name == QUERY_MATCHES_REST_TOOL_NAME)
@@ -160,6 +164,7 @@ class RestToolDefinitionTests(SimpleTestCase):
         self.assertIn("email", censor_paths)
         self.assertIn("profile.first_name", censor_paths)
         self.assertIn("profile.second_name", censor_paths)
+        self.assertIn("/matching/user/", definition["description"])
 
     def test_build_mgmt_query_users_censors_pii_in_paginated_results(self):
         spec = next(item for item in MANAGEMENT_GET_TOOL_SPECS if item.name == QUERY_USERS_REST_TOOL_NAME)

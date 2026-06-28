@@ -98,16 +98,35 @@ _LIST_SLUG_HINT = (
     "combine with field filters for refinement."
 )
 
-_USERS_PANEL_LINK_HINT = (
-    " When you use this tool and answer the user, always include a readable management panel URL with the same "
-    "query parameters you used, e.g. `/matching/users/?list=all&page_size=5`, so staff can open that filtered list immediately."
+# Admin panel browser paths (React basename /matching/ — see UserPanel / UserCard in admin_panel_frontend).
+# API paths use /api/matching/users/…; panel UI paths are different.
+_PANEL_USER_ID = "{numeric_user_id}"
+_USER_DETAIL_BASE = f"/matching/user/{_PANEL_USER_ID}"
+_USER_TAB_HINT = (
+    " Panel user page tabs (append ?tab=… to the user URL): "
+    "profile (default), chat (support messages), emails, calls, matches, stats, notes, actions."
 )
-
+_USER_DIRECT_LINK_HINT = (
+    " When staff need to open ONE user in the admin panel, always link "
+    f"`{_USER_DETAIL_BASE}` using the numeric `id` field from API results — "
+    "never `/matching/users/?search=…` for a known user. "
+    "Example: user id 22 → `/matching/user/22`; view chat → `/matching/user/22?tab=chat`." + _USER_TAB_HINT
+)
+_USERS_LIST_PANEL_LINK_HINT = (
+    " When sharing a filtered cohort (not a single user), link the list view with the same query params, "
+    "e.g. `/matching/users/?list=all&page_size=5`. "
+    "Still add a direct `/matching/user/{id}` link for each specific user you discuss."
+)
+_MATCH_DETAIL_BASE = "/matching/match/{match_id_or_uuid}"
+_MATCH_TAB_HINT = (
+    f" Match page tabs: overview (default), journey, calls, notes, actions — e.g. `{_MATCH_DETAIL_BASE}?tab=notes`."
+)
 _MATCHES_PANEL_LINK_HINT = (
-    " When you use this tool and answer the user, always include a readable management panel URL with the same "
-    "query parameters you used, e.g. `/matching/matches/?list=match_journey_v2__active&page_size=5`, "
-    "so staff can open that filtered list immediately."
+    " For a specific match, link "
+    f"`{_MATCH_DETAIL_BASE}` (id or uuid from API). "
+    "For filtered match lists, use `/matching/matches/?` with the same query params." + _MATCH_TAB_HINT
 )
+_SUPPORT_TASK_DETAIL_BASE = "/matching/support-tasks/{task_id}/"
 
 _USER_MATCH_BUCKETS = ("confirmed", "unconfirmed", "support", "proposed", "old_proposals", "inactive")
 
@@ -222,7 +241,8 @@ MANAGEMENT_GET_TOOL_SPECS: tuple[MgmtGetToolSpec, ...] = (
         " Each result includes profile.interests; interests/hobbies cannot be filtered server-side — "
         "paginate with page_size=5 and inspect rows, or call get_user_detail for one user."
         + _LIST_SLUG_HINT
-        + _USERS_PANEL_LINK_HINT,
+        + _USERS_LIST_PANEL_LINK_HINT
+        + _USER_DIRECT_LINK_HINT,
         USERS_LIST_PATH,
         paginated=True,
     ),
@@ -236,7 +256,8 @@ MANAGEMENT_GET_TOOL_SPECS: tuple[MgmtGetToolSpec, ...] = (
     ),
     MgmtGetToolSpec(
         QUERY_VIDEO_CALLS_REST_TOOL_NAME,
-        "Search and list video calls (LiveKit sessions) with participant and date filters.",
+        "Search and list video calls (LiveKit sessions) with participant and date filters."
+        " Participant user pages: `/matching/user/{participant_numeric_id}`.",
         VIDEO_CALLS_LIST_PATH,
         paginated=True,
     ),
@@ -248,27 +269,32 @@ MANAGEMENT_GET_TOOL_SPECS: tuple[MgmtGetToolSpec, ...] = (
     ),
     MgmtGetToolSpec(
         QUERY_SUPPORT_TASKS_REST_TOOL_NAME,
-        "List support tasks with status, priority, assignee, related user, and search filters.",
+        "List support tasks with status, priority, assignee, related user, and search filters."
+        f" Task detail panel: `{_SUPPORT_TASK_DETAIL_BASE}`; related user: `/matching/user/{{related_user_id}}`.",
         SUPPORT_TASK_LIST_PATH,
         paginated=True,
     ),
     MgmtGetToolSpec(
         QUERY_PREMATCHING_APPOINTMENTS_REST_TOOL_NAME,
-        "List pre-matching appointments with user and date filters.",
+        "List pre-matching appointments with user and date filters."
+        " Each row includes nested user — link `/matching/user/{user.id}` for that learner/volunteer.",
         PREMATCHING_APPOINTMENTS_LIST_PATH,
         paginated=True,
     ),
     MgmtGetToolSpec(
         GET_USER_DETAIL_REST_TOOL_NAME,
         "Retrieve one user's full profile and state by path param `id` (numeric user id, uuid, or email). "
-        "Use for a named/known user or fields not exposed as list filters (interests, description, notes). "
-        "After query_users, pass id/uuid/email from a result row.",
+        "Use for a named/known user or fields not exposed as list filters (interests, description, match buckets). "
+        "After query_users, pass id/uuid/email from a result row."
+        + _USER_DIRECT_LINK_HINT
+        + " Panel profile tab shows onboarding status, interests, languages, and match icons.",
         USERS_DETAIL_PATH,
     ),
     MgmtGetToolSpec(
         GET_MATCH_DETAIL_REST_TOOL_NAME,
         "Retrieve one match's full detail by path param `id` (numeric match id or uuid): participants, stats, "
-        "weekly activity, journey buckets. Use after query_matches when staff ask about a specific match.",
+        "weekly activity, journey buckets. Use after query_matches when staff ask about a specific match."
+        + _MATCHES_PANEL_LINK_HINT,
         MATCHES_DETAIL_PATH,
     ),
     MgmtGetToolSpec(
@@ -283,7 +309,7 @@ MANAGEMENT_GET_TOOL_SPECS: tuple[MgmtGetToolSpec, ...] = (
     ),
     MgmtGetToolSpec(
         GET_SUPPORT_TASK_DETAIL_REST_TOOL_NAME,
-        "Retrieve a single support task by id.",
+        f"Retrieve a single support task by id. Panel: `{_SUPPORT_TASK_DETAIL_BASE}`.",
         SUPPORT_TASK_DETAIL_PATH,
     ),
     MgmtGetToolSpec(
@@ -293,7 +319,9 @@ MANAGEMENT_GET_TOOL_SPECS: tuple[MgmtGetToolSpec, ...] = (
     ),
     MgmtGetToolSpec(
         GET_USER_MESSAGES_REST_TOOL_NAME,
-        "List chat messages for a user; optional match_uuid filter; paginated.",
+        "List chat messages for a user; optional match_uuid filter; paginated."
+        " For staff who want to read or reply in the panel, link `/matching/user/{id}?tab=chat` "
+        "(same numeric id as the path param).",
         USERS_MESSAGES_PATH,
         paginated=True,
     ),
@@ -304,12 +332,12 @@ MANAGEMENT_GET_TOOL_SPECS: tuple[MgmtGetToolSpec, ...] = (
     ),
     MgmtGetToolSpec(
         GET_USER_NOTES_REST_TOOL_NAME,
-        "Retrieve internal state notes for a user.",
+        "Retrieve internal state notes for a user. Panel notes editor: `/matching/user/{id}?tab=notes`.",
         USERS_NOTES_PATH,
     ),
     MgmtGetToolSpec(
         GET_USER_MATCH_WAITING_TIME_REST_TOOL_NAME,
-        "Retrieve match waiting-time metrics for a user.",
+        "Retrieve match waiting-time metrics for a user (also shown on the profile tab).",
         USERS_MATCH_WAITING_TIME_PATH,
     ),
     MgmtGetToolSpec(
@@ -319,18 +347,19 @@ MANAGEMENT_GET_TOOL_SPECS: tuple[MgmtGetToolSpec, ...] = (
     ),
     MgmtGetToolSpec(
         GET_USER_SMS_REST_TOOL_NAME,
-        "Retrieve SMS history for a user.",
+        "Retrieve SMS history for a user."
+        " Sending SMS is done from panel Actions tab: `/matching/user/{id}?tab=actions`.",
         USERS_SMS_PATH,
     ),
     MgmtGetToolSpec(
         GET_USER_EMAILS_REST_TOOL_NAME,
-        "List email logs for a user; paginated.",
+        "List email logs for a user; paginated. Panel email log UI: `/matching/user/{id}?tab=emails`.",
         USERS_EMAILS_PATH,
         paginated=True,
     ),
     MgmtGetToolSpec(
         GET_MATCH_NOTES_REST_TOOL_NAME,
-        "Retrieve internal notes for a match.",
+        f"Retrieve internal notes for a match. Panel: `{_MATCH_DETAIL_BASE}?tab=notes`.",
         MATCHES_NOTES_PATH,
     ),
     MgmtGetToolSpec(
@@ -340,7 +369,7 @@ MANAGEMENT_GET_TOOL_SPECS: tuple[MgmtGetToolSpec, ...] = (
     ),
     MgmtGetToolSpec(
         SUPPORT_TASK_USER_SEARCH_REST_TOOL_NAME,
-        "Quick user lookup for support tasks (max 20 results); requires q query param.",
+        "Quick user lookup for support tasks (max 20 results); requires q query param." + _USER_DIRECT_LINK_HINT,
         SUPPORT_TASK_USER_SEARCH_PATH,
     ),
     MgmtGetToolSpec(

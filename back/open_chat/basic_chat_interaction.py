@@ -122,6 +122,8 @@ Rules:
 - Use `{GET_MATCH_DETAIL_REST_TOOL_NAME}` with path param `id` (match id or uuid) to load one match's full detail.
 - List filters do not cover interests/hobbies. After narrowing with `{QUERY_USERS_REST_TOOL_NAME}`, read `profile.interests` from result rows (paginate if needed) or call `{GET_USER_DETAIL_REST_TOOL_NAME}` per user.
 - When including admin panel links in the user-visible reply, use absolute URLs built from the Little World admin panel base URL below.
+- For one specific user, link `/matching/user/{{numeric_id}}` (optionally `?tab=chat|emails|calls|matches|stats|notes|actions`). Never link `/matching/users/?search=…` when you know the user's id.
+- Use `/matching/users/?…` only for filtered list views (cohorts). Use `/matching/match/{{id}}` for a specific match.
 
 {build_chat_text_markup_hint(base_url)}
 

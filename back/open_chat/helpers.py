@@ -27,8 +27,11 @@ User-visible message formatting (Little World chat text renderer):
 - Emphasis: <bold>text</bold>, <highlight>text</highlight>
 Little World admin panel base URL: {origin}
 When linking to management panel pages, always use absolute URLs with this origin (never relative paths alone).
-Example: <a {{"href": "{origin}/matching/users/?list=all&page_size=5"}}>Open users</a>
-Example: <a {{"href": "{origin}/matching/matches/?list=match_journey_v2__active&page_size=5"}}>Open matches</a>
+Single user (use numeric id from API): {origin}/matching/user/22 or {origin}/matching/user/22?tab=chat
+Filtered user list (cohorts only): {origin}/matching/users/?list=all&page_size=5
+Single match: {origin}/matching/match/{{match_id}}?tab=overview
+Filtered match list: {origin}/matching/matches/?list=match_journey_v2__active&page_size=5
+Never use /matching/users/?search=… when you already know the user's numeric id — use /matching/user/{{id}} instead.
 """.strip()
 
 
