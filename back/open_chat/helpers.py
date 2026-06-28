@@ -14,6 +14,24 @@ FALLBACK_USER_MESSAGE = "Hallo"
 _T = TypeVar("_T")
 
 
+def little_world_panel_base_url() -> str:
+    """Browser-facing origin for admin panel links embedded in chat messages."""
+    return str(settings.BASE_URL).rstrip("/")
+
+
+def build_chat_text_markup_hint(base_url: str | None = None) -> str:
+    origin = (base_url or little_world_panel_base_url()).rstrip("/")
+    return f"""
+User-visible message formatting (Little World chat text renderer):
+- Links: <a {{"href": "https://example.com/path"}}>link label</a> or bare https:// URLs
+- Emphasis: <bold>text</bold>, <highlight>text</highlight>
+Little World admin panel base URL: {origin}
+When linking to management panel pages, always use absolute URLs with this origin (never relative paths alone).
+Example: <a {{"href": "{origin}/matching/users/?list=all&page_size=5"}}>Open users</a>
+Example: <a {{"href": "{origin}/matching/matches/?list=match_journey_v2__active&page_size=5"}}>Open matches</a>
+""".strip()
+
+
 def value_or(value: "_T | Unset", default: _T) -> _T:
     """Return a typed client value, falling back to ``default`` when the field is ``UNSET``."""
     return default if isinstance(value, Unset) else value

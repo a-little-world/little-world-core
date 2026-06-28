@@ -354,6 +354,8 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             interact_kwargs["overrides"]["system_prompt"],
             BASIC_CHAT_INTERACTION_SYSTEM_PROMPT,
         )
+        self.assertIn("http://localhost:8000", interact_kwargs["overrides"]["system_prompt"])
+        self.assertIn("/matching/users/", interact_kwargs["overrides"]["system_prompt"])
         self.assertEqual(interact_kwargs["overrides"]["context"], BASIC_CHAT_INTERACTION_CONTEXT)
         self.assertEqual(interact_kwargs["overrides"]["max_tokens"], DEFAULT_OPEN_CHAT_MAX_TOKENS)
         self.assertEqual(

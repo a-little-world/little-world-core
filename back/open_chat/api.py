@@ -128,6 +128,38 @@ def _get_open_chat_access_user(user_id: int) -> User | None:
     return user
 
 
+def _build_open_chat_bot_summary(bot) -> dict:
+    default_config: dict = {}
+    try:
+        default_config = bot.default_config()
+    except Exception:
+        pass
+
+    bot_data = getattr(bot, "data", None)
+    description = None
+    bot_username = None
+    is_active = None
+    is_public = None
+    if bot_data is not None:
+        description = value_or(getattr(bot_data, "description", None), None)
+        bot_username = value_or(getattr(bot_data, "bot_username", None), None)
+        is_active = value_or(getattr(bot_data, "is_active", None), None)
+        is_public = value_or(getattr(bot_data, "is_public", None), None)
+
+    return {
+        "uuid": bot.uuid or None,
+        "name": bot.name or None,
+        "description": description,
+        "bot_username": bot_username,
+        "bot_user_uuid": bot.bot_user_uuid or None,
+        "is_active": is_active,
+        "is_public": is_public,
+        "is_legacy_contact_bot": bool(getattr(bot, "is_legacy_contact_bot", False)),
+        "model": default_config.get("model"),
+        "default_shared_config": default_config or None,
+    }
+
+
 def _build_open_chat_interaction_summary(interaction) -> dict:
     try:
         raw_payload = interaction.to_dict()
@@ -587,6 +619,141 @@ def open_chat_delete_chat(request, chat_uuid: str):
 @extend_schema(
     methods=["GET"],
     responses=inline_serializer(
+        name="OpenChatBotsResponse",
+        fields={
+            "results": inline_serializer(
+                name="OpenChatBotSummary",
+                many=True,
+                fields={
+                    "uuid": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+                    "name": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+                    "description": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+                    "bot_username": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+                    "bot_user_uuid": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+                    "is_active": serializers.BooleanField(required=False, allow_null=True),
+                    "is_public": serializers.BooleanField(required=False, allow_null=True),
+                    "is_legacy_contact_bot": serializers.BooleanField(),
+                    "model": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+                    "default_shared_config": serializers.JSONField(required=False, allow_null=True),
+                },
+            )
+        },
+    ),
+)
+@api_view(["GET"])
+@permission_classes([HasOpenChatOrManageOpenChatAccess])
+@authentication_classes([SessionAuthentication])
+def open_chat_bots(request):
+    target_user_or_response = _resolve_open_chat_target_user(request)
+    if isinstance(target_user_or_response, Response):
+        return target_user_or_response
+    target_user = target_user_or_response
+
+    configuration = OpenChatConfiguration.objects.filter(user=target_user).first()
+    if configuration is None:
+        return Response(
+            {"detail": "Open chat configuration not found for target user."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    def respond(client, _login_user):
+        bots = [_build_open_chat_bot_summary(bot) for bot in client.list_owned_bots()]
+        return Response({"results": bots})
+
+    return _open_chat_client_response(configuration, respond)
+
+
+class OpenChatBotUpdateSerializer(serializers.Serializer):
+    name = serializers.CharField(required=False, allow_blank=True)
+    description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    is_active = serializers.BooleanField(required=False)
+    is_public = serializers.BooleanField(required=False)
+    default_shared_config = serializers.JSONField(required=False)
+
+
+def _merge_bot_default_shared_config(client, bot_identifier: str, patch: dict | None) -> dict | None:
+    if patch is None:
+        return None
+    existing = client.get_bot(bot_identifier).default_config()
+    return {**existing, **patch}
+
+
+@extend_schema(
+    methods=["PATCH"],
+    request=OpenChatBotUpdateSerializer,
+    responses=inline_serializer(
+        name="OpenChatBotDetailResponse",
+        fields={
+            "uuid": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+            "name": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+            "description": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+            "bot_username": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+            "bot_user_uuid": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+            "is_active": serializers.BooleanField(required=False, allow_null=True),
+            "is_public": serializers.BooleanField(required=False, allow_null=True),
+            "is_legacy_contact_bot": serializers.BooleanField(),
+            "model": serializers.CharField(required=False, allow_blank=True, allow_null=True),
+            "default_shared_config": serializers.JSONField(required=False, allow_null=True),
+        },
+    ),
+)
+@api_view(["PATCH"])
+@permission_classes([HasEditOpenChatConfiguration])
+@authentication_classes([SessionAuthentication])
+def open_chat_bot_detail(request, bot_identifier: str):
+    if not bot_identifier.strip():
+        return Response(
+            {"detail": "Bot identifier is required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    target_user_or_response = _resolve_open_chat_target_user(request)
+    if isinstance(target_user_or_response, Response):
+        return target_user_or_response
+    target_user = target_user_or_response
+
+    configuration = OpenChatConfiguration.objects.filter(user=target_user).first()
+    if configuration is None:
+        return Response(
+            {"detail": "Open chat configuration not found for target user."},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    serializer = OpenChatBotUpdateSerializer(data=request.data, partial=True)
+    serializer.is_valid(raise_exception=True)
+    validated = serializer.validated_data
+    if not validated:
+        return Response(
+            {"detail": "No bot fields provided to update."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    def respond(client, _login_user):
+        update_kwargs: dict = {}
+        if "name" in validated:
+            update_kwargs["name"] = validated["name"]
+        if "description" in validated:
+            update_kwargs["description"] = validated["description"]
+        if "is_active" in validated:
+            update_kwargs["is_active"] = validated["is_active"]
+        if "is_public" in validated:
+            update_kwargs["is_public"] = validated["is_public"]
+        if "default_shared_config" in validated:
+            update_kwargs["default_shared_config"] = _merge_bot_default_shared_config(
+                client,
+                bot_identifier,
+                validated["default_shared_config"],
+            )
+
+        updated = client.update_bot(bot_identifier, **update_kwargs)
+        return Response(_build_open_chat_bot_summary(updated))
+
+    return _open_chat_client_response(configuration, respond)
+
+
+@extend_schema(
+    methods=["GET"],
+    responses=inline_serializer(
         name="OpenChatInteractionsResponse",
         fields={
             "results": inline_serializer(
@@ -905,6 +1072,16 @@ api_urls = [
         "api/matching/open-chat/chats/<str:chat_uuid>/",
         open_chat_delete_chat,
         name="open_chat_delete_chat",
+    ),
+    path(
+        "api/matching/open-chat/bots/",
+        open_chat_bots,
+        name="open_chat_bots",
+    ),
+    path(
+        "api/matching/open-chat/bots/<str:bot_identifier>/",
+        open_chat_bot_detail,
+        name="open_chat_bot_detail",
     ),
     path(
         "api/matching/open-chat/interactions/",

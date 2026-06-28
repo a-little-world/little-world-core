@@ -19,6 +19,8 @@ TEST_CONNECTION_URL = "/api/matching/open-chat/test-connection/"
 ACCESS_USERS_URL = "/api/matching/open-chat-access-users/"
 USER_CONFIGURATION_URL = "/api/matching/open-chat-access-users/{user_id}/configuration/"
 CREATE_MATCHING_URL = "/api/matching/open-chat-access-users/{user_id}/create-matching/"
+BOTS_URL = "/api/matching/open-chat/bots/"
+BOT_DETAIL_URL = "/api/matching/open-chat/bots/{bot_identifier}/"
 INTERACTIONS_URL = "/api/matching/open-chat/interactions/"
 INTERACTION_DETAIL_URL = "/api/matching/open-chat/interactions/{interaction_uuid}/"
 DELETE_CHAT_URL = "/api/matching/open-chat/chats/{chat_uuid}/"
@@ -431,6 +433,156 @@ class OpenChatConfigurationApiTests(TestCase):
         response = self.api_client.post(url, {}, format="json")
         self.assertEqual(response.status_code, 409)
         self.assertTrue(response.data["matching_exists"])
+
+    @patch("open_chat.api.OpenChatClient")
+    def test_bots_returns_owned_bots_for_current_user(self, mock_build_client):
+        OpenChatConfiguration.objects.create(
+            user=self.authorized_user,
+            open_chat_api_key="test-api-key",
+            open_chat_user="test-open-chat-user",
+            open_chat_host=DEFAULT_HOST,
+        )
+        mock_bot = MagicMock()
+        mock_bot.uuid = "bot-uuid-1"
+        mock_bot.name = "support-bot"
+        mock_bot.bot_user_uuid = "bot-user-uuid-1"
+        mock_bot.is_legacy_contact_bot = False
+        mock_bot.data = SimpleNamespace(
+            description="Support assistant",
+            bot_username="support@example.com",
+            is_active=True,
+            is_public=False,
+        )
+        mock_bot.default_config.return_value = {"model": "qwen3-8b-instruct_vllm"}
+        mock_client = MagicMock()
+        mock_client.list_owned_bots.return_value = [mock_bot]
+        mock_build_client.return_value = mock_client
+
+        self.api_client.force_authenticate(user=self.authorized_user)
+        response = self.api_client.get(BOTS_URL)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data["results"]), 1)
+        self.assertEqual(response.data["results"][0]["uuid"], "bot-uuid-1")
+        self.assertEqual(response.data["results"][0]["name"], "support-bot")
+        self.assertEqual(response.data["results"][0]["model"], "qwen3-8b-instruct_vllm")
+        mock_client.login.assert_called_once()
+        mock_client.list_owned_bots.assert_called_once()
+
+    @patch("open_chat.api.OpenChatClient")
+    def test_bot_update_patches_bot_configuration(self, mock_build_client):
+        OpenChatConfiguration.objects.create(
+            user=self.authorized_user,
+            open_chat_api_key="test-api-key",
+            open_chat_user="test-open-chat-user",
+            open_chat_host=DEFAULT_HOST,
+        )
+        mock_updated_bot = MagicMock()
+        mock_updated_bot.uuid = "bot-uuid-1"
+        mock_updated_bot.name = "renamed-bot"
+        mock_updated_bot.bot_user_uuid = "bot-user-uuid-1"
+        mock_updated_bot.is_legacy_contact_bot = False
+        mock_updated_bot.data = SimpleNamespace(
+            description="Updated description",
+            bot_username="support@example.com",
+            is_active=False,
+            is_public=True,
+        )
+        mock_updated_bot.default_config.return_value = {
+            "model": "qwen3-8b-instruct_vllm",
+            "context": 15,
+            "max_tokens": 1024,
+            "temperature": 0.3,
+            "system_prompt": "Updated prompt",
+        }
+        mock_client = MagicMock()
+        mock_client.get_bot.return_value = MagicMock(
+            default_config=lambda: {
+                "model": "qwen3-8b-instruct_vllm",
+                "context": 20,
+                "max_tokens": 2048,
+                "temperature": 0.2,
+                "system_prompt": "Old prompt",
+            }
+        )
+        mock_client.update_bot.return_value = mock_updated_bot
+        mock_build_client.return_value = mock_client
+
+        self.api_client.force_authenticate(user=self.authorized_user)
+        response = self.api_client.patch(
+            BOT_DETAIL_URL.format(bot_identifier="bot-uuid-1"),
+            {
+                "name": "renamed-bot",
+                "description": "Updated description",
+                "is_active": False,
+                "is_public": True,
+                "default_shared_config": {
+                    "context": 15,
+                    "max_tokens": 1024,
+                    "temperature": 0.3,
+                    "system_prompt": "Updated prompt",
+                },
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["name"], "renamed-bot")
+        self.assertEqual(response.data["description"], "Updated description")
+        self.assertFalse(response.data["is_active"])
+        self.assertTrue(response.data["is_public"])
+        self.assertEqual(response.data["default_shared_config"]["context"], 15)
+        mock_client.update_bot.assert_called_once_with(
+            "bot-uuid-1",
+            name="renamed-bot",
+            description="Updated description",
+            is_active=False,
+            is_public=True,
+            default_shared_config={
+                "model": "qwen3-8b-instruct_vllm",
+                "context": 15,
+                "max_tokens": 1024,
+                "temperature": 0.3,
+                "system_prompt": "Updated prompt",
+            },
+        )
+
+    @patch("open_chat.api.OpenChatClient")
+    def test_bots_manager_can_query_other_user_by_uuid(self, mock_build_client):
+        OpenChatConfiguration.objects.create(
+            user=self.view_only_user,
+            open_chat_api_key="view-only-key",
+            open_chat_user="view-only-user",
+            open_chat_host=DEFAULT_HOST,
+        )
+        mock_bot = MagicMock()
+        mock_bot.uuid = "managed-bot"
+        mock_bot.name = "managed-bot"
+        mock_bot.bot_user_uuid = "managed-bot-user"
+        mock_bot.is_legacy_contact_bot = False
+        mock_bot.data = SimpleNamespace(
+            description=None,
+            bot_username=None,
+            is_active=True,
+            is_public=False,
+        )
+        mock_bot.default_config.return_value = {}
+        mock_client = MagicMock()
+        mock_client.list_owned_bots.return_value = [mock_bot]
+        mock_build_client.return_value = mock_client
+
+        self.api_client.force_authenticate(user=self.manager_user)
+        response = self.api_client.get(
+            BOTS_URL,
+            {"user_uuid": str(self.view_only_user.uuid)},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["results"][0]["uuid"], "managed-bot")
+        mock_build_client.assert_called_once_with(
+            base_url=DEFAULT_HOST,
+            auth=PasswordAuth(email="view-only-user", password="view-only-key"),
+        )
 
     @patch("open_chat.api.OpenChatClient")
     def test_interactions_returns_interactions_for_current_user(self, mock_build_client):

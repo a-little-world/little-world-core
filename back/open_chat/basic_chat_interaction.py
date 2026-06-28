@@ -10,8 +10,10 @@ from management.permissions import ManagementPermission
 
 from open_chat.helpers import (
     FALLBACK_USER_MESSAGE,
+    build_chat_text_markup_hint,
     build_session_tool_init_payload,
     build_tool_session_context,
+    little_world_panel_base_url,
     value_or,
 )
 from open_chat.interaction_config import (
@@ -95,7 +97,10 @@ _BASIC_CHAT_MANAGEMENT_TOOL_NAMES = (
     LIST_SUPPORT_STAFF_REST_TOOL_NAME,
 )
 
-BASIC_CHAT_INTERACTION_SYSTEM_PROMPT = f"""
+
+def build_basic_chat_interaction_system_prompt() -> str:
+    base_url = little_world_panel_base_url()
+    return f"""
 You are a Little World support assistant helping staff respond to user chat messages and answer platform questions.
 
 This Open Chat thread is an internal workspace only. Text you write here is NOT delivered to the Little World user.
@@ -113,12 +118,18 @@ Rules:
 - Do not skip `{CHAT_REPLY_REST_TOOL_NAME}` under any circumstances.
 - Non-staff matching users only see users in their managed scope; mention this if results seem limited.
 - Keep tool payloads small: use page_size=5 for query_* tools by default, page_size=1 when you only need a count (read items_total), and get_*_detail for a single record instead of broad list queries when possible.
+- When including admin panel links in the user-visible reply, always use absolute URLs built from the Little World admin panel base URL below.
+
+{build_chat_text_markup_hint(base_url)}
 """.strip()
+
+
+BASIC_CHAT_INTERACTION_SYSTEM_PROMPT = build_basic_chat_interaction_system_prompt()
 
 
 def _basic_chat_interaction_overrides() -> dict[str, object]:
     return build_interaction_overrides(
-        system_prompt=BASIC_CHAT_INTERACTION_SYSTEM_PROMPT,
+        system_prompt=build_basic_chat_interaction_system_prompt(),
         context=BASIC_CHAT_INTERACTION_CONTEXT,
         temperature=DEFAULT_OPEN_CHAT_BASIC_TEMPERATURE,
         tools=[
