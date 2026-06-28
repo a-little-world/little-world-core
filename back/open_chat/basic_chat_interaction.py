@@ -118,10 +118,12 @@ Rules:
 - Do not skip `{CHAT_REPLY_REST_TOOL_NAME}` under any circumstances. The interaction is incomplete until this tool succeeds.
 - Non-staff matching users only see users in their managed scope; mention this if results seem limited.
 - Keep tool payloads small: use page_size=5 for query_* tools by default, page_size=1 when you only need a count (read items_total), and get_*_detail for a single record instead of broad list queries when possible.
+- Before building non-trivial query_* filters, call `{LIST_USER_FILTERS_REST_TOOL_NAME}` (or the matching list_*_filters tool) to read valid filter names and choice values. Pass query params as scalars, never JSON arrays; omit order_by unless you need a non-default sort.
 - Use `{GET_USER_DETAIL_REST_TOOL_NAME}` with path param `id` (numeric id, uuid, or email) to load one user's full profile (including interests).
 - Use `{GET_MATCH_DETAIL_REST_TOOL_NAME}` with path param `id` (match id or uuid) to load one match's full detail.
 - List filters do not cover interests/hobbies. After narrowing with `{QUERY_USERS_REST_TOOL_NAME}`, read `profile.interests` from result rows (paginate if needed) or call `{GET_USER_DETAIL_REST_TOOL_NAME}` per user.
-- When including admin panel links in the user-visible reply, use absolute URLs built from the Little World admin panel base URL below.
+- When including admin panel links, wrap each in `<a {{"href": "...", "target": "_blank"}}>label</a>` using the base URL below. Never paste bare URLs.
+- List links with page_size must use page_size=20 or higher — never below 20.
 - For one specific user, link `/matching/user/{{numeric_id}}` (optionally `?tab=chat|emails|calls|matches|stats|notes|actions`). Never link `/matching/users/?search=…` when you know the user's id.
 - Use `/matching/users/?…` only for filtered list views (cohorts). Use `/matching/match/{{id}}` for a specific match.
 
@@ -165,7 +167,7 @@ def _publish_interaction_chat_message(
 
     payload = {
         "type": "open_chat_interaction",
-        "title": "Tim: This model is small, verify outputs",
+        "title": "Tim: LLMs may hallucinate, always verify outputs and conclusions",
         "interaction_id": interaction_uuid,
         "shared_interaction_url": shared_url,
     }

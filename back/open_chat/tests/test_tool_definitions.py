@@ -121,11 +121,17 @@ class RestToolDefinitionTests(SimpleTestCase):
         definition = build_mgmt_get_rest_tool_definition(spec, "https://app.example.com").build()
 
         self.assertEqual(definition["name"], QUERY_USERS_REST_TOOL_NAME)
+        self.assertIn("list_*_filters", definition["description"])
+        self.assertIn("never JSON arrays", definition["description"])
+        self.assertIn("profile__user_type=learner", definition["description"])
         self.assertIn("/matching/users/?", definition["description"])
         self.assertIn("/matching/user/", definition["description"])
         self.assertIn("?tab=chat", definition["description"])
         openapi = json.loads(definition["openapi_source"])
         self.assertIn(USERS_LIST_PATH, openapi["paths"])
+        params = openapi["paths"][USERS_LIST_PATH]["get"]["parameters"]
+        order_by = next(param for param in params if param["name"] == "order_by")
+        self.assertEqual(order_by["schema"]["type"], "string")
         binding_inputs = {binding["input_name"] for binding in definition["param_bindings"]}
         self.assertIn("list", binding_inputs)
         self.assertIn("search", binding_inputs)

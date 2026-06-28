@@ -39,8 +39,9 @@ def build_chat_reply_rest_tool_definition(api_host: str | None = None) -> RESTTo
             (
                 "Send the final support reply to the Little World user in chat. "
                 "You MUST call this tool exactly once as your last step. "
-                "Pass the complete user-visible reply in the `message` argument "
-                "(may include Little World chat link markup). "
+                "Pass the complete user-visible reply in the `message` argument. "
+                "Wrap links in Little World chat anchor markup with href and target=_blank "
+                "(never bare URLs). "
                 "If you do not call this tool, the user will not receive any response."
             ),
         )

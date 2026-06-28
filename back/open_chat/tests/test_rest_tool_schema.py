@@ -1,7 +1,12 @@
 from client import RESTToolBuilder, reduce_openapi_to_endpoint
 from django.test import SimpleTestCase
 
-from open_chat.rest_tool_schema import SESSION_AUTH_HEADER_PARAMS, bind_openapi_call_params, spectacular_schema
+from open_chat.rest_tool_schema import (
+    SESSION_AUTH_HEADER_PARAMS,
+    bind_openapi_call_params,
+    patch_rest_tool_query_param_schemas,
+    spectacular_schema,
+)
 from open_chat.tool_definitions import CHAT_SEND_PATH, SUPPORT_TASK_ACTION_PATH
 from open_chat.tool_definitions_management import QUERY_USERS_REST_TOOL_NAME, USERS_LIST_PATH
 
@@ -83,3 +88,20 @@ class RestToolSchemaTests(SimpleTestCase):
         self.assertIn("page", binding_inputs)
         self.assertNotIn("Cookie", binding_inputs)
         self.assertNotIn("X-CSRFToken", binding_inputs)
+
+    def test_patch_rest_tool_query_param_schemas_coerces_order_by_to_string(self):
+        _operation_id, reduced_doc = reduce_openapi_to_endpoint(
+            spectacular_schema(),
+            path=USERS_LIST_PATH,
+            method="get",
+            info_title="Test Users List API",
+            extra_parameters=SESSION_AUTH_HEADER_PARAMS,
+        )
+        patch_rest_tool_query_param_schemas(reduced_doc, USERS_LIST_PATH, method="get")
+        params = reduced_doc["paths"][USERS_LIST_PATH]["get"]["parameters"]
+        order_by = next(param for param in params if param["name"] == "order_by")
+        self.assertEqual(order_by["schema"]["type"], "string")
+        self.assertIn("-date_joined", order_by["schema"]["enum"])
+
+        target_groups = next(param for param in params if param["name"] == "profile__target_groups")
+        self.assertEqual(target_groups["schema"]["type"], "string")

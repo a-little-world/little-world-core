@@ -23,15 +23,19 @@ def build_chat_text_markup_hint(base_url: str | None = None) -> str:
     origin = (base_url or little_world_panel_base_url()).rstrip("/")
     return f"""
 User-visible message formatting (Little World chat text renderer):
-- Links: <a {{"href": "https://example.com/path"}}>link label</a> or bare https:// URLs
+- Links: ALWAYS use <a {{"href": "URL", "target": "_blank"}}>link label</a>. Never paste bare URLs — they often fail to render as clickable links (especially on localhost).
 - Emphasis: <bold>text</bold>, <highlight>text</highlight>
 Little World admin panel base URL: {origin}
-When linking to management panel pages, always use absolute URLs with this origin (never relative paths alone).
-Single user (use numeric id from API): {origin}/matching/user/22 or {origin}/matching/user/22?tab=chat
-Filtered user list (cohorts only): {origin}/matching/users/?list=all&page_size=5
-Single match: {origin}/matching/match/{{match_id}}?tab=overview
-Filtered match list: {origin}/matching/matches/?list=match_journey_v2__active&page_size=5
-Never use /matching/users/?search=… when you already know the user's numeric id — use /matching/user/{{id}} instead.
+When linking to management panel pages, use absolute URLs with this origin inside the href attribute (never relative paths alone).
+When a list link includes page_size, never set page_size below 20 (use page_size=20 or omit page_size).
+Admin panel link examples (use this exact syntax in user-visible replies):
+- Single user: <a {{"href": "{origin}/matching/user/22", "target": "_blank"}}>View user profile</a>
+- User chat tab: <a {{"href": "{origin}/matching/user/22?tab=chat", "target": "_blank"}}>Open user chat</a>
+- Onboarded learners list: <a {{"href": "{origin}/matching/users/?profile__user_type=learner&state__is_onboarded=true&page_size=20", "target": "_blank"}}>View onboarded learners</a>
+- Filtered user list: <a {{"href": "{origin}/matching/users/?list=all&page_size=20", "target": "_blank"}}>Open users</a>
+- Single match: <a {{"href": "{origin}/matching/match/{{match_id}}?tab=overview", "target": "_blank"}}>View match</a>
+- Filtered match list: <a {{"href": "{origin}/matching/matches/?list=match_journey_v2__active&page_size=20", "target": "_blank"}}>Open matches</a>
+Path rules: use /matching/user/{{numeric_id}} for one user (never /matching/users/?search=… when you know the id). Use /matching/users/?… only for cohort lists.
 """.strip()
 
 

@@ -106,3 +106,50 @@ def bind_openapi_call_params(
         elif param_in == "query":
             builder = builder.bind_call(param_name).to_query(param_name)
     return builder
+
+
+def patch_rest_tool_query_param_schemas(
+    openapi_doc: dict[str, Any],
+    path: str,
+    method: str = "get",
+) -> dict[str, Any]:
+    """Coerce array query params to strings for Open Chat REST tool calls.
+
+    Open Chat serializes array tool arguments as bracketed strings (e.g. ``[-date_joined]``),
+    which Django rejects. Single string query values work correctly.
+    """
+    path_item = openapi_doc.get("paths", {}).get(path, {})
+    if not isinstance(path_item, dict):
+        return openapi_doc
+    operation = path_item.get(method.strip().lower(), {})
+    if not isinstance(operation, dict):
+        return openapi_doc
+    params = operation.get("parameters", [])
+    if not isinstance(params, list):
+        return openapi_doc
+
+    for param in params:
+        if not isinstance(param, dict) or param.get("in") != "query":
+            continue
+        schema = param.get("schema")
+        if not isinstance(schema, dict) or schema.get("type") != "array":
+            continue
+        items = schema.get("items")
+        if not isinstance(items, dict) or items.get("type") != "string":
+            continue
+
+        new_schema: dict[str, Any] = {"type": "string"}
+        if "enum" in items:
+            new_schema["enum"] = items["enum"]
+        param["schema"] = new_schema
+
+        name = str(param.get("name", ""))
+        if name == "order_by":
+            param["description"] = (
+                "Optional sort field. Omit for the API default (newest first). "
+                "Pass one string such as `-date_joined`, never an array."
+            )
+        elif name == "profile__target_groups":
+            param["description"] = "Filter by one target group. Pass a single choice string, never an array."
+
+    return openapi_doc

@@ -15,6 +15,7 @@ from open_chat.rest_tool_schema import (
     SESSION_AUTH_HEADER_PARAMS,
     allow_local_tool_hosts,
     bind_openapi_call_params,
+    patch_rest_tool_query_param_schemas,
     resolve_api_host,
     spectacular_schema,
 )
@@ -98,6 +99,21 @@ _LIST_SLUG_HINT = (
     "combine with field filters for refinement."
 )
 
+_QUERY_TOOL_USAGE_HINT = (
+    " Call the matching list_*_filters tool first when building non-trivial queries — it lists every filter "
+    "name, valid choice values, and saved list slugs. Pass query params as scalars (strings/numbers/booleans), "
+    "never JSON arrays. Omit order_by unless you need a non-default sort (pass one string such as `-date_joined`). "
+    "For counts use page_size=1 and read items_total; for row data use page_size=5 by default."
+)
+
+_QUERY_USERS_USAGE_HINT = (
+    _QUERY_TOOL_USAGE_HINT + " User filters include profile__user_type=learner|volunteer; state__is_onboarded, "
+    "state__email_authenticated, state__user_form_completed, state__has_match_priority (true/false); "
+    "profile__target_group / profile__target_groups; profile__country_of_residence; profile__job_search; "
+    "state__company; joined_between_after/before; loggedin_between_after/before; search (name/email). "
+    "Example onboarded learners: profile__user_type=learner&state__is_onboarded=true&page_size=1 (count)."
+)
+
 # Admin panel browser paths (React basename /matching/ — see UserPanel / UserCard in admin_panel_frontend).
 # API paths use /api/matching/users/…; panel UI paths are different.
 _PANEL_USER_ID = "{numeric_user_id}"
@@ -114,7 +130,8 @@ _USER_DIRECT_LINK_HINT = (
 )
 _USERS_LIST_PANEL_LINK_HINT = (
     " When sharing a filtered cohort (not a single user), link the list view with the same query params, "
-    "e.g. `/matching/users/?list=all&page_size=5`. "
+    "e.g. `/matching/users/?list=all&page_size=20`. "
+    "Never use page_size below 20 in panel links. "
     "Still add a direct `/matching/user/{id}` link for each specific user you discuss."
 )
 _MATCH_DETAIL_BASE = "/matching/match/{match_id_or_uuid}"
@@ -211,7 +228,9 @@ class MgmtGetToolSpec:
 MANAGEMENT_GET_TOOL_SPECS: tuple[MgmtGetToolSpec, ...] = (
     MgmtGetToolSpec(
         LIST_USER_FILTERS_REST_TOOL_NAME,
-        "List available user filter fields and saved user list slugs (all, needs_matching, journey_v2__*, :dyn:<id>, etc.). "
+        "List available user filter fields, valid choice values, and saved user list slugs "
+        "(all, needs_matching, journey_v2__*, :dyn:<id>, etc.). "
+        "Call this before query_users when filters or list slugs are unclear. "
         "Interests/hobbies are not filterable here — they appear only in query_users rows and get_user_detail.",
         USERS_FILTERS_PATH,
     ),
@@ -240,6 +259,7 @@ MANAGEMENT_GET_TOOL_SPECS: tuple[MgmtGetToolSpec, ...] = (
         "Search and list Little World users with filters, saved lists, search, and pagination."
         " Each result includes profile.interests; interests/hobbies cannot be filtered server-side — "
         "paginate with page_size=5 and inspect rows, or call get_user_detail for one user."
+        + _QUERY_USERS_USAGE_HINT
         + _LIST_SLUG_HINT
         + _USERS_LIST_PANEL_LINK_HINT
         + _USER_DIRECT_LINK_HINT,
@@ -249,6 +269,7 @@ MANAGEMENT_GET_TOOL_SPECS: tuple[MgmtGetToolSpec, ...] = (
     MgmtGetToolSpec(
         QUERY_MATCHES_REST_TOOL_NAME,
         "Search and list matches with filters, saved lists, and pagination."
+        + _QUERY_TOOL_USAGE_HINT
         + _LIST_SLUG_HINT
         + _MATCHES_PANEL_LINK_HINT,
         MATCHES_LIST_PATH,
@@ -257,27 +278,30 @@ MANAGEMENT_GET_TOOL_SPECS: tuple[MgmtGetToolSpec, ...] = (
     MgmtGetToolSpec(
         QUERY_VIDEO_CALLS_REST_TOOL_NAME,
         "Search and list video calls (LiveKit sessions) with participant and date filters."
-        " Participant user pages: `/matching/user/{participant_numeric_id}`.",
+        + _QUERY_TOOL_USAGE_HINT
+        + " Participant user pages: `/matching/user/{participant_numeric_id}`.",
         VIDEO_CALLS_LIST_PATH,
         paginated=True,
     ),
     MgmtGetToolSpec(
         QUERY_SCORES_REST_TOOL_NAME,
-        "Search and list two-user matching scores with score and user filters.",
+        "Search and list two-user matching scores with score and user filters." + _QUERY_TOOL_USAGE_HINT,
         SCORES_LIST_PATH,
         paginated=True,
     ),
     MgmtGetToolSpec(
         QUERY_SUPPORT_TASKS_REST_TOOL_NAME,
         "List support tasks with status, priority, assignee, related user, and search filters."
-        f" Task detail panel: `{_SUPPORT_TASK_DETAIL_BASE}`; related user: `/matching/user/{{related_user_id}}`.",
+        + _QUERY_TOOL_USAGE_HINT
+        + f" Task detail panel: `{_SUPPORT_TASK_DETAIL_BASE}`; related user: `/matching/user/{{related_user_id}}`.",
         SUPPORT_TASK_LIST_PATH,
         paginated=True,
     ),
     MgmtGetToolSpec(
         QUERY_PREMATCHING_APPOINTMENTS_REST_TOOL_NAME,
         "List pre-matching appointments with user and date filters."
-        " Each row includes nested user — link `/matching/user/{user.id}` for that learner/volunteer.",
+        + _QUERY_TOOL_USAGE_HINT
+        + " Each row includes nested user — link `/matching/user/{user.id}` for that learner/volunteer.",
         PREMATCHING_APPOINTMENTS_LIST_PATH,
         paginated=True,
     ),
@@ -459,6 +483,7 @@ def build_mgmt_get_rest_tool_definition(spec: MgmtGetToolSpec, api_host: str | N
         extra_parameters=SESSION_AUTH_HEADER_PARAMS,
         servers=[{"url": resolved_api_host}],
     )
+    reduced_doc = patch_rest_tool_query_param_schemas(reduced_doc, spec.path, method="get")
     builder = (
         RESTToolBuilder(spec.name, description)
         .openapi_inline(reduced_doc)
