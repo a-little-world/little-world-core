@@ -62,4 +62,4 @@ google-api-python-client==2.108.0
 google-auth==2.23.4
 cbor2===5.9.0
 django-simple-reload @ git+https://github.com/tbscode/django-simple-reload.git
-open_chat_client_python @ git+https://github.com/msgmate-io/open-chat-go-python-client.git@main
+open_chat_client_python @ git+https://github.com/msgmate-io/open-chat-go-python-client.git@f1cf8bd97b5edbed5051010d087d90054f161e84

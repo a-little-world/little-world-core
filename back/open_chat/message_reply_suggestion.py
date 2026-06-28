@@ -2,10 +2,7 @@ import logging
 
 from celery import current_app, shared_task
 from chat.models import Message as ChatMessage
-from client import OpenChatClient, PasswordAuth, ToolName
-from client.generated_api.models.little_world_generate_message_reply_suggestion_init import (
-    LittleWorldGenerateMessageReplySuggestionInit,
-)
+from client import OpenChatClient, PasswordAuth
 from django.db.models import Q
 from management import controller
 from management.models.support_task import SupportTask, SupportTaskAction
@@ -14,11 +11,24 @@ from management.permissions import ManagementPermission
 
 from open_chat.helpers import (
     FALLBACK_USER_MESSAGE,
+    build_chat_text_markup_hint,
+    build_session_tool_init_payload,
     build_tool_session_context,
     resolve_open_chat_automation_task_creator_user,
     value_or,
 )
+from open_chat.interaction_config import (
+    DEFAULT_OPEN_CHAT_MESSAGE_CONTEXT,
+    DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS,
+    DEFAULT_OPEN_CHAT_SUGGESTION_TEMPERATURE,
+    build_interaction_overrides,
+)
 from open_chat.models import OpenChatConfiguration
+from open_chat.tool_definitions import (
+    MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME,
+    RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
+    ensure_rest_tool_definitions,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +36,52 @@ RUN_INTERACTION_TASK_NAME = "management.tasks.open_chat_run_message_reply_sugges
 
 # Pre-provisioned Open Chat bot that owns the message-reply-suggestion interaction config.
 SUGGESTION_BOT = "little_world_reply_suggestion"
+MESSAGE_REPLY_SUGGESTION_CONTEXT = DEFAULT_OPEN_CHAT_MESSAGE_CONTEXT
+
+
+def build_message_reply_suggestion_system_prompt() -> str:
+    return f"""
+You are a Little World support assistant helping staff draft replies to user messages.
+
+This Open Chat thread is an internal workspace only. Text you write here is NOT saved as a support reply suggestion.
+
+Your tools:
+- `{RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME}` — load earlier messages in the current conversation for context.
+- `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` — the ONLY way to persist a reply draft on the open support task.
+
+Workflow:
+1. Use `{RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME}` when you need more conversation context.
+2. Draft a helpful support reply based on the latest user message and any context you retrieved.
+3. You MUST finish by calling `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` exactly once with the complete draft
+   in `parameters`, e.g. `{{"message": "<your full suggested reply>"}}`.
+
+Rules:
+- Never treat plain assistant text in this thread as the saved suggestion.
+- Do not skip `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` — if you skip it, nothing is stored on the support task.
+- Put the draft (including any link markup) in the tool's `parameters.message` field, not in assistant text here.
+- If you already used `{RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME}`, still call `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` afterward.
+- When the draft includes admin panel or external links, use the Little World chat markup described below.
+
+{build_chat_text_markup_hint()}
+
+Reminder: your last action must be `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` with the draft in `parameters.message`.
+""".strip()
+
+
+MESSAGE_REPLY_SUGGESTION_SYSTEM_PROMPT = build_message_reply_suggestion_system_prompt()
+
+
+def _message_reply_suggestion_overrides() -> dict[str, object]:
+    return build_interaction_overrides(
+        system_prompt=build_message_reply_suggestion_system_prompt(),
+        context=MESSAGE_REPLY_SUGGESTION_CONTEXT,
+        max_tokens=DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS,
+        temperature=DEFAULT_OPEN_CHAT_SUGGESTION_TEMPERATURE,
+        tools=[
+            RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
+            MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME,
+        ],
+    )
 
 
 def create_or_reuse_support_reply_task_for_message(
@@ -275,34 +331,46 @@ def open_chat_run_message_reply_suggestion_interaction(
             auth=PasswordAuth(email=configuration.open_chat_user, password=configuration.open_chat_api_key),
         )
         login_user = client.login()
+        ensure_rest_tool_definitions(client)
 
+        session_init = build_session_tool_init_payload(
+            api_host=api_host,
+            session_id=session_id,
+            csrf_token=csrf_token,
+        )
         message = (user_message_text or "").strip() or FALLBACK_USER_MESSAGE
         interaction = client.interact(
             bot=SUGGESTION_BOT,
             message=message,
+            share=True,
+            overrides=_message_reply_suggestion_overrides(),
             tool_init={
-                ToolName.LITTLE_WORLD_GENERATE_MESSAGE_REPLY_SUGGESTION: LittleWorldGenerateMessageReplySuggestionInit(
-                    action_id=str(support_action.pk),
-                    api_host=api_host,
-                    csrf_token=csrf_token,
-                    session_id=session_id,
-                    task_pk=str(support_action.task.pk),
-                )
+                MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME: {
+                    **session_init,
+                    "task_pk": support_action.task.pk,
+                },
+                RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME: {
+                    **session_init,
+                    "chat_uuid": chat_uuid,
+                },
             },
         )
         interaction_uuid = interaction.uuid
+        shared_url = interaction.shared_url()
         login_user_name = value_or(login_user.name, "")
         logger.info(
-            "open_chat_run_message_reply_suggestion enqueued login_user=%s support_task_id=%s interaction_uuid=%s",
+            "open_chat_run_message_reply_suggestion enqueued login_user=%s support_task_id=%s interaction_uuid=%s shared_url=%s",
             login_user_name,
             support_action.task.pk,
             interaction_uuid,
+            shared_url,
         )
     except Exception as exc:
         return {"status": "error", "reason": "open_chat_interaction_failed", "detail": str(exc)}
 
     static_parameters = dict(support_action.static_parameters or {})
     static_parameters["interaction_id"] = interaction_uuid
+    static_parameters["shared_interaction_url"] = shared_url
     support_action.static_parameters = static_parameters
     support_action.save(update_fields=["static_parameters"])
 
@@ -315,6 +383,7 @@ def open_chat_run_message_reply_suggestion_interaction(
         "configuration_user_id": configuration.user.pk,
         "login_user_name": login_user_name,
         "interaction_uuid": interaction_uuid,
+        "shared_url": shared_url,
         "support_task_id": support_action.task.pk,
         "support_task_action_id": support_action.pk,
     }
