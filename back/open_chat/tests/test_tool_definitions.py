@@ -17,6 +17,7 @@ from open_chat.tool_definitions import (
     build_message_reply_suggestion_rest_tool_definition,
     build_retrieve_management_permissions_rest_tool_definition,
     build_retrieve_past_messages_rest_tool_definition,
+    ensure_rest_tool_definitions,
     sync_rest_tool_definitions,
 )
 
@@ -140,4 +141,23 @@ class RestToolDefinitionTests(SimpleTestCase):
             ],
         )
         self.assertEqual(client.delete_dynamic_rest_tool.call_count, 4)
+        self.assertEqual(client.save_dynamic_rest_tool.call_count, 4)
+
+    def test_ensure_rest_tool_definitions_creates_only_missing_tools(self):
+        client = MagicMock()
+        client.list_dynamic_rest_tools.return_value = [
+            {"name": CHAT_REPLY_REST_TOOL_NAME},
+            {"name": MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME},
+        ]
+        result = ensure_rest_tool_definitions(client)
+        self.assertEqual(
+            result["created"],
+            [
+                RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
+                RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME,
+            ],
+        )
+        self.assertEqual(
+            result["updated"], sorted([CHAT_REPLY_REST_TOOL_NAME, MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME])
+        )
         self.assertEqual(client.save_dynamic_rest_tool.call_count, 4)

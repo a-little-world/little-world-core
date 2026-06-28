@@ -26,7 +26,11 @@ def build_chat_reply_rest_tool_definition(api_host: str | None = None) -> RESTTo
     return (
         RESTToolBuilder(
             CHAT_REPLY_REST_TOOL_NAME,
-            "Send a support response to a Little World chat conversation.",
+            (
+                "Send the final support reply to the Little World user in chat. "
+                "You MUST call this tool exactly once as your last step with the complete message text. "
+                "If you do not call this tool, the user will not receive any response."
+            ),
         )
         .openapi_endpoint(
             spectacular_schema(),
@@ -52,7 +56,12 @@ def build_message_reply_suggestion_rest_tool_definition(api_host: str | None = N
     return (
         RESTToolBuilder(
             MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME,
-            "Persist a generated support reply draft on an open support task action.",
+            (
+                "Persist the final support reply draft on the open support task action. "
+                "You MUST call this tool exactly once as your last step with the complete draft in "
+                '`parameters`, e.g. {"message": "<full suggested reply>"}. '
+                "If you do not call this tool, no suggestion is saved for the support task."
+            ),
         )
         .openapi_endpoint(
             spectacular_schema(),
@@ -130,6 +139,24 @@ def build_all_rest_tool_definitions(api_host: str | None = None) -> list[RESTToo
         build_retrieve_past_messages_rest_tool_definition(api_host=api_host),
         build_retrieve_management_permissions_rest_tool_definition(api_host=api_host),
     ]
+
+
+def ensure_rest_tool_definitions(client: OpenChatClient) -> dict[str, list[str]]:
+    """Create missing REST tools and refresh interaction-critical tool definitions on Open Chat."""
+    tools = build_all_rest_tool_definitions()
+    existing = {str(row.get("name")) for row in client.list_dynamic_rest_tools() if row.get("name")}
+    created: list[str] = []
+    updated: list[str] = []
+    refresh_names = {CHAT_REPLY_REST_TOOL_NAME, MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}
+    for name, tool in zip(_REST_TOOL_NAMES, tools, strict=True):
+        if name not in existing:
+            client.save_dynamic_rest_tool(tool)
+            created.append(name)
+            continue
+        if name in refresh_names:
+            client.save_dynamic_rest_tool(tool)
+            updated.append(name)
+    return {"created": created, "updated": updated}
 
 
 def sync_rest_tool_definitions(client: OpenChatClient, *, reload: bool = False) -> dict[str, list[str]]:

@@ -19,12 +19,44 @@ from open_chat.tool_definitions import (
     CHAT_REPLY_REST_TOOL_NAME,
     RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME,
     RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
+    ensure_rest_tool_definitions,
 )
 
 logger = logging.getLogger(__name__)
 
 # Pre-provisioned Open Chat bot that owns the live chat-reply interaction config.
 CHAT_REPLY_BOT = "little_world_support_chat"
+BASIC_CHAT_INTERACTION_CONTEXT = 10000
+
+BASIC_CHAT_INTERACTION_SYSTEM_PROMPT = f"""
+You are a Little World support assistant helping staff respond to user chat messages.
+
+This Open Chat thread is an internal workspace only. Text you write here is NOT delivered to the Little World user.
+
+Your tools:
+- `{RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME}` — load earlier messages in the current conversation for context.
+- `{RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME}` — read the acting user's management-panel permissions.
+- `{CHAT_REPLY_REST_TOOL_NAME}` — the ONLY way to send a user-visible reply in Little World chat.
+
+Rules:
+1. Use retrieval tools when you need context or permission checks. Their output is internal reference material.
+2. Never answer the user with plain assistant text in this thread — not even for permission lookups or summaries.
+3. Every user-visible answer MUST be sent by calling `{CHAT_REPLY_REST_TOOL_NAME}` exactly once with the full final message text.
+4. If you already used retrieval tools, still call `{CHAT_REPLY_REST_TOOL_NAME}` afterward with the complete reply.
+5. If you skip `{CHAT_REPLY_REST_TOOL_NAME}`, the user receives nothing.
+""".strip()
+
+
+def _basic_chat_interaction_overrides() -> dict[str, object]:
+    return {
+        "system_prompt": BASIC_CHAT_INTERACTION_SYSTEM_PROMPT,
+        "context": BASIC_CHAT_INTERACTION_CONTEXT,
+        "tools": [
+            RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
+            RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME,
+            CHAT_REPLY_REST_TOOL_NAME,
+        ],
+    }
 
 
 def _publish_interaction_chat_message(
@@ -117,6 +149,7 @@ def open_chat_basic_chat_interaction(
             auth=PasswordAuth(email=configuration.open_chat_user, password=configuration.open_chat_api_key),
         )
         login_user = client.login()
+        ensure_rest_tool_definitions(client)
 
         session_init = build_session_tool_init_payload(
             api_host=api_host,
@@ -128,13 +161,7 @@ def open_chat_basic_chat_interaction(
             bot=CHAT_REPLY_BOT,
             message=message,
             share=True,
-            overrides={
-                "tools": [
-                    CHAT_REPLY_REST_TOOL_NAME,
-                    RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
-                    RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME,
-                ]
-            },
+            overrides=_basic_chat_interaction_overrides(),
             tool_init={
                 CHAT_REPLY_REST_TOOL_NAME: {
                     **session_init,

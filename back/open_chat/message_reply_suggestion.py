@@ -20,6 +20,7 @@ from open_chat.models import OpenChatConfiguration
 from open_chat.tool_definitions import (
     MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME,
     RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
+    ensure_rest_tool_definitions,
 )
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,39 @@ RUN_INTERACTION_TASK_NAME = "management.tasks.open_chat_run_message_reply_sugges
 
 # Pre-provisioned Open Chat bot that owns the message-reply-suggestion interaction config.
 SUGGESTION_BOT = "little_world_reply_suggestion"
+MESSAGE_REPLY_SUGGESTION_CONTEXT = 10000
+
+MESSAGE_REPLY_SUGGESTION_SYSTEM_PROMPT = f"""
+You are a Little World support assistant helping staff draft replies to user messages.
+
+This Open Chat thread is an internal workspace only. Text you write here is NOT saved as a support reply suggestion.
+
+Your tools:
+- `{RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME}` — load earlier messages in the current conversation for context.
+- `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` — the ONLY way to persist a reply draft on the open support task.
+
+Workflow:
+1. Use `{RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME}` when you need more conversation context.
+2. Draft a helpful support reply based on the latest user message and any context you retrieved.
+3. You MUST finish by calling `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` exactly once with the complete draft
+   in `parameters`, e.g. `{{"message": "<your full suggested reply>"}}`.
+
+Rules:
+- Never treat plain assistant text in this thread as the saved suggestion.
+- Do not skip `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` — if you skip it, nothing is stored on the support task.
+- If you already used `{RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME}`, still call `{MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}` afterward.
+""".strip()
+
+
+def _message_reply_suggestion_overrides() -> dict[str, object]:
+    return {
+        "system_prompt": MESSAGE_REPLY_SUGGESTION_SYSTEM_PROMPT,
+        "context": MESSAGE_REPLY_SUGGESTION_CONTEXT,
+        "tools": [
+            RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
+            MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME,
+        ],
+    }
 
 
 def create_or_reuse_support_reply_task_for_message(
@@ -277,6 +311,7 @@ def open_chat_run_message_reply_suggestion_interaction(
             auth=PasswordAuth(email=configuration.open_chat_user, password=configuration.open_chat_api_key),
         )
         login_user = client.login()
+        ensure_rest_tool_definitions(client)
 
         session_init = build_session_tool_init_payload(
             api_host=api_host,
@@ -288,16 +323,11 @@ def open_chat_run_message_reply_suggestion_interaction(
             bot=SUGGESTION_BOT,
             message=message,
             share=True,
-            overrides={
-                "tools": [
-                    MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME,
-                    RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
-                ]
-            },
+            overrides=_message_reply_suggestion_overrides(),
             tool_init={
                 MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME: {
                     **session_init,
-                    "task_pk": str(support_action.task.pk),
+                    "task_pk": support_action.task.pk,
                 },
                 RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME: {
                     **session_init,
