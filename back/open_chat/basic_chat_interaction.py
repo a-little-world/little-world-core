@@ -12,7 +12,6 @@ from open_chat.helpers import (
     FALLBACK_USER_MESSAGE,
     build_session_tool_init_payload,
     build_tool_session_context,
-    interaction_called_tool,
     value_or,
 )
 from open_chat.models import OpenChatConfiguration
@@ -78,7 +77,7 @@ def open_chat_basic_chat_interaction(
     Flow:
     1) ensure recipient exists and has OPEN_CHAT_ACCESS permission
     2) resolve the recipient's OpenChatConfiguration (falling back to the sender's)
-    3) run a chat-reply interaction and publish the result back into the chat
+    3) enqueue a chat-reply interaction and publish the shared link back into the chat
     """
     recipient = User.objects.filter(uuid=recipient_uuid).first()
     if recipient is None:
@@ -148,22 +147,17 @@ def open_chat_basic_chat_interaction(
                 RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME: session_init,
             },
         )
-        try:
-            interaction.wait_until_finished(timeout_seconds=60)
-        except TimeoutError:
-            pass
-
         interaction_uuid = interaction.uuid
+        shared_url = interaction.shared_url()
         login_user_name = value_or(login_user.name, "")
         logger.info(
-            "open_chat_basic_chat_interaction login_user=%s config_owner=%s interaction_uuid=%s",
+            "open_chat_basic_chat_interaction enqueued login_user=%s config_owner=%s interaction_uuid=%s shared_url=%s",
             login_user_name,
             config_owner,
             interaction_uuid,
+            shared_url,
         )
 
-        tool_called = interaction_called_tool(interaction, CHAT_REPLY_REST_TOOL_NAME)
-        shared_url = interaction.shared_url()
         interaction_message_uuid, interaction_message_payload = _publish_interaction_chat_message(
             chat_uuid=chat_uuid,
             sender=sender,
@@ -183,7 +177,6 @@ def open_chat_basic_chat_interaction(
             "login_user_name": login_user_name,
             "interaction_uuid": interaction_uuid,
             "shared_url": shared_url,
-            "tool_called": tool_called,
             "interaction_message_uuid": interaction_message_uuid,
             "interaction_message_payload": interaction_message_payload,
         }
