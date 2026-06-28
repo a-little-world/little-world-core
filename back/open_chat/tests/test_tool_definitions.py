@@ -156,6 +156,33 @@ class RestToolDefinitionTests(SimpleTestCase):
         self.assertIn(USERS_DETAIL_PATH, openapi["paths"])
         binding_inputs = {binding["input_name"] for binding in definition["param_bindings"]}
         self.assertIn("id", binding_inputs)
+        censor_paths = definition["safety_policy"]["response_censor_paths"]
+        self.assertIn("email", censor_paths)
+        self.assertIn("profile.first_name", censor_paths)
+        self.assertIn("profile.second_name", censor_paths)
+
+    def test_build_mgmt_query_users_censors_pii_in_paginated_results(self):
+        spec = next(item for item in MANAGEMENT_GET_TOOL_SPECS if item.name == QUERY_USERS_REST_TOOL_NAME)
+        definition = build_mgmt_get_rest_tool_definition(spec, "https://app.example.com").build()
+
+        censor_paths = definition["safety_policy"]["response_censor_paths"]
+        self.assertIn("results.*.email", censor_paths)
+        self.assertIn("results.*.profile.first_name", censor_paths)
+        self.assertIn("results.*.profile.second_name", censor_paths)
+
+    def test_build_mgmt_query_matches_censors_participant_pii(self):
+        spec = next(item for item in MANAGEMENT_GET_TOOL_SPECS if item.name == QUERY_MATCHES_REST_TOOL_NAME)
+        definition = build_mgmt_get_rest_tool_definition(spec, "https://app.example.com").build()
+
+        censor_paths = definition["safety_policy"]["response_censor_paths"]
+        self.assertIn("results.*.user1.email", censor_paths)
+        self.assertIn("results.*.user2.profile.second_name", censor_paths)
+
+    def test_build_mgmt_list_user_filters_has_no_response_censor_paths(self):
+        spec = next(item for item in MANAGEMENT_GET_TOOL_SPECS if item.name == LIST_USER_FILTERS_REST_TOOL_NAME)
+        definition = build_mgmt_get_rest_tool_definition(spec, "https://app.example.com").build()
+
+        self.assertNotIn("response_censor_paths", definition["safety_policy"])
 
     def test_build_mgmt_get_match_detail_rest_tool_definition(self):
         spec = next(item for item in MANAGEMENT_GET_TOOL_SPECS if item.name == GET_MATCH_DETAIL_REST_TOOL_NAME)
