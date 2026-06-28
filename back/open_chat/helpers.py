@@ -35,9 +35,13 @@ def _create_session_and_csrf_for_user(user: User) -> tuple[str, str]:
     return session.session_key, _get_new_csrf_string()
 
 
+_LOCAL_LOOPBACK_HOSTNAMES = frozenset({"localhost", "127.0.0.1"})
+
+
 def _normalize_base_url_for_open_chat_tool(base_url: str) -> str:
+    """Rewrite loopback hosts so Open Chat (in Docker) can reach the Django backend."""
     parsed = urlparse(base_url)
-    if parsed.hostname != "localhost":
+    if parsed.hostname not in _LOCAL_LOOPBACK_HOSTNAMES:
         return base_url
 
     port = f":{parsed.port}" if parsed.port else ""
@@ -52,11 +56,18 @@ def _normalize_base_url_for_open_chat_tool(base_url: str) -> str:
     return urlunparse(parsed._replace(netloc=normalized_netloc))
 
 
+def open_chat_tool_api_host() -> str:
+    """Resolve the api_host Open Chat uses when calling Django REST tools."""
+    override = getattr(settings, "OPEN_CHAT_TOOL_API_HOST", None)
+    if override:
+        return _normalize_base_url_for_open_chat_tool(str(override).rstrip("/"))
+    return _normalize_base_url_for_open_chat_tool(settings.BASE_URL).rstrip("/")
+
+
 def build_tool_session_context(actor: User) -> tuple[str, str, str]:
     """Create a Django session + CSRF token for ``actor`` and resolve the tool callback host."""
     session_id, csrf_token = _create_session_and_csrf_for_user(actor)
-    api_host = _normalize_base_url_for_open_chat_tool(settings.BASE_URL).rstrip("/")
-    return session_id, csrf_token, api_host
+    return session_id, csrf_token, open_chat_tool_api_host()
 
 
 def build_session_tool_init_payload(
@@ -67,7 +78,7 @@ def build_session_tool_init_payload(
     **fields: str,
 ) -> dict[str, str]:
     return {
-        "api_host": api_host.rstrip("/"),
+        "api_host": _normalize_base_url_for_open_chat_tool(api_host).rstrip("/"),
         "cookie_header": f"sessionid={session_id}; csrftoken={csrf_token}",
         "csrf_token": csrf_token,
         **fields,

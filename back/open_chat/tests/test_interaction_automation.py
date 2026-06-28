@@ -17,6 +17,7 @@ from management.models.user import User
 from management.permissions import ManagementPermission
 
 from open_chat.basic_chat_interaction import (
+    BASIC_CHAT_INTERACTION_CONTEXT,
     BASIC_CHAT_INTERACTION_SYSTEM_PROMPT,
     _basic_chat_interaction_overrides,
     open_chat_basic_chat_interaction,
@@ -28,6 +29,13 @@ from open_chat.message_reply_suggestion import (
     open_chat_run_message_reply_suggestion_interaction,
 )
 from open_chat.models import DEFAULT_OPEN_CHAT_HOST, OpenChatConfiguration
+from open_chat.tool_definitions import CHAT_REPLY_REST_TOOL_NAME
+from open_chat.tool_definitions_management import (
+    LIST_USER_FILTERS_REST_TOOL_NAME,
+    MANAGEMENT_REST_TOOL_NAMES,
+    QUERY_USERS_REST_TOOL_NAME,
+    build_management_tool_init,
+)
 
 
 class UserAdvancedFilterMessageReplyTests(TestCase):
@@ -340,12 +348,14 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             interact_kwargs["overrides"]["system_prompt"],
             BASIC_CHAT_INTERACTION_SYSTEM_PROMPT,
         )
-        self.assertEqual(interact_kwargs["overrides"]["context"], 10000)
+        self.assertEqual(interact_kwargs["overrides"]["context"], BASIC_CHAT_INTERACTION_CONTEXT)
         self.assertEqual(
             interact_kwargs["overrides"]["tools"][-1],
-            "little_world_chat_reply",
+            CHAT_REPLY_REST_TOOL_NAME,
         )
-        chat_reply_init = interact_kwargs["tool_init"]["little_world_chat_reply"]
+        self.assertIn(LIST_USER_FILTERS_REST_TOOL_NAME, interact_kwargs["overrides"]["tools"])
+        self.assertIn(QUERY_USERS_REST_TOOL_NAME, interact_kwargs["overrides"]["tools"])
+        chat_reply_init = interact_kwargs["tool_init"][CHAT_REPLY_REST_TOOL_NAME]
         past_messages_init = interact_kwargs["tool_init"]["little_world_retrieve_past_messages"]
         permissions_init = interact_kwargs["tool_init"]["little_world_retrieve_management_permissions"]
         self.assertEqual(chat_reply_init["chat_uuid"], str(self.chat.uuid))
@@ -354,6 +364,15 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         self.assertIn("csrftoken=", chat_reply_init["cookie_header"])
         self.assertTrue(chat_reply_init["api_host"])
         self.assertNotIn("chat_uuid", permissions_init)
+        management_init = build_management_tool_init(
+            {
+                "api_host": chat_reply_init["api_host"],
+                "cookie_header": chat_reply_init["cookie_header"],
+                "csrf_token": chat_reply_init["csrf_token"],
+            }
+        )
+        for tool_name in MANAGEMENT_REST_TOOL_NAMES:
+            self.assertEqual(interact_kwargs["tool_init"][tool_name], management_init[tool_name])
 
     @patch("open_chat.message_reply_suggestion.ensure_rest_tool_definitions")
     @patch("chat.consumers.messages.NewMessage.send")

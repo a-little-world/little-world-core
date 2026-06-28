@@ -1,12 +1,21 @@
 from client import OpenChatClient, RESTToolBuilder
 
-from open_chat.rest_tool_schema import SESSION_AUTH_HEADER_PARAMS, resolve_api_host, spectacular_schema
+from open_chat.rest_tool_schema import (
+    API_HOST_INIT_FIELD,
+    SESSION_AUTH_HEADER_PARAMS,
+    allow_local_tool_hosts,
+    resolve_api_host,
+    spectacular_schema,
+)
+from open_chat.tool_definitions_management import (
+    MANAGEMENT_REST_TOOL_NAMES,
+    build_all_management_rest_tool_definitions,
+)
 
 CHAT_REPLY_REST_TOOL_NAME = "little_world_chat_reply"
 MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME = "little_world_message_reply_suggestion"
 RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME = "little_world_retrieve_past_messages"
 RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME = "little_world_retrieve_management_permissions"
-API_HOST_INIT_FIELD = "api_host"
 
 CHAT_SEND_PATH = "/api/messages/{chat_uuid}/send/"
 CHAT_MESSAGES_LIST_PATH = "/api/messages/{chat_uuid}/"
@@ -18,12 +27,13 @@ _REST_TOOL_NAMES = (
     MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME,
     RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
     RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME,
+    *MANAGEMENT_REST_TOOL_NAMES,
 )
 
 
 def build_chat_reply_rest_tool_definition(api_host: str | None = None) -> RESTToolBuilder:
     resolved_api_host, hostname = resolve_api_host(api_host)
-    return (
+    builder = (
         RESTToolBuilder(
             CHAT_REPLY_REST_TOOL_NAME,
             (
@@ -46,14 +56,13 @@ def build_chat_reply_rest_tool_definition(api_host: str | None = None) -> RESTTo
         .bind_session_auth()
         .bind_call("message")
         .to_body("text")
-        .allow_hostname_policy(hostname)
-        .enable()
     )
+    return allow_local_tool_hosts(builder, hostname).enable()
 
 
 def build_message_reply_suggestion_rest_tool_definition(api_host: str | None = None) -> RESTToolBuilder:
     resolved_api_host, hostname = resolve_api_host(api_host)
-    return (
+    builder = (
         RESTToolBuilder(
             MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME,
             (
@@ -77,14 +86,13 @@ def build_message_reply_suggestion_rest_tool_definition(api_host: str | None = N
         .bind_session_auth()
         .bind_call("parameters")
         .to_body("parameters")
-        .allow_hostname_policy(hostname)
-        .enable()
     )
+    return allow_local_tool_hosts(builder, hostname).enable()
 
 
 def build_retrieve_past_messages_rest_tool_definition(api_host: str | None = None) -> RESTToolBuilder:
     resolved_api_host, hostname = resolve_api_host(api_host)
-    return (
+    builder = (
         RESTToolBuilder(
             RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
             "List past messages in a Little World chat conversation.",
@@ -105,14 +113,13 @@ def build_retrieve_past_messages_rest_tool_definition(api_host: str | None = Non
         .to_query("page")
         .bind_call("page_size")
         .to_query("page_size")
-        .allow_hostname_policy(hostname)
-        .enable()
     )
+    return allow_local_tool_hosts(builder, hostname).enable()
 
 
 def build_retrieve_management_permissions_rest_tool_definition(api_host: str | None = None) -> RESTToolBuilder:
     resolved_api_host, hostname = resolve_api_host(api_host)
-    return (
+    builder = (
         RESTToolBuilder(
             RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME,
             "Retrieve the current user's Little World management panel permissions.",
@@ -127,9 +134,8 @@ def build_retrieve_management_permissions_rest_tool_definition(api_host: str | N
         )
         .base_url_from_init(API_HOST_INIT_FIELD)
         .bind_session_auth()
-        .allow_hostname_policy(hostname)
-        .enable()
     )
+    return allow_local_tool_hosts(builder, hostname).enable()
 
 
 def build_all_rest_tool_definitions(api_host: str | None = None) -> list[RESTToolBuilder]:
@@ -138,6 +144,7 @@ def build_all_rest_tool_definitions(api_host: str | None = None) -> list[RESTToo
         build_message_reply_suggestion_rest_tool_definition(api_host=api_host),
         build_retrieve_past_messages_rest_tool_definition(api_host=api_host),
         build_retrieve_management_permissions_rest_tool_definition(api_host=api_host),
+        *build_all_management_rest_tool_definitions(api_host=api_host),
     ]
 
 

@@ -21,29 +21,113 @@ from open_chat.tool_definitions import (
     RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
     ensure_rest_tool_definitions,
 )
+from open_chat.tool_definitions_management import (
+    GET_DYNAMIC_USER_LIST_REST_TOOL_NAME,
+    GET_MATCH_DETAIL_REST_TOOL_NAME,
+    GET_MATCH_NOTES_REST_TOOL_NAME,
+    GET_SCORE_DETAIL_REST_TOOL_NAME,
+    GET_SUPPORT_TASK_DETAIL_REST_TOOL_NAME,
+    GET_SUPPORT_TASK_STATS_REST_TOOL_NAME,
+    GET_USER_DETAIL_REST_TOOL_NAME,
+    GET_USER_EMAILS_REST_TOOL_NAME,
+    GET_USER_MATCH_WAITING_TIME_REST_TOOL_NAME,
+    GET_USER_MESSAGES_REST_TOOL_NAME,
+    GET_USER_NOTES_REST_TOOL_NAME,
+    GET_USER_PREMATCHING_APPOINTMENT_REST_TOOL_NAME,
+    GET_USER_SMS_REST_TOOL_NAME,
+    GET_USER_TASKS_REST_TOOL_NAME,
+    GET_VIDEO_CALL_DETAIL_REST_TOOL_NAME,
+    LIST_DYNAMIC_USER_LISTS_REST_TOOL_NAME,
+    LIST_MATCH_FILTERS_REST_TOOL_NAME,
+    LIST_SCORE_FILTERS_REST_TOOL_NAME,
+    LIST_SUPPORT_STAFF_REST_TOOL_NAME,
+    LIST_USER_FILTERS_REST_TOOL_NAME,
+    LIST_VIDEO_CALL_FILTERS_REST_TOOL_NAME,
+    QUERY_MATCHES_REST_TOOL_NAME,
+    QUERY_PREMATCHING_APPOINTMENTS_REST_TOOL_NAME,
+    QUERY_SCORES_REST_TOOL_NAME,
+    QUERY_SUPPORT_TASKS_REST_TOOL_NAME,
+    QUERY_USERS_REST_TOOL_NAME,
+    QUERY_VIDEO_CALLS_REST_TOOL_NAME,
+    SUPPORT_TASK_USER_SEARCH_REST_TOOL_NAME,
+    build_management_tool_init,
+)
 
 logger = logging.getLogger(__name__)
 
 # Pre-provisioned Open Chat bot that owns the live chat-reply interaction config.
 CHAT_REPLY_BOT = "little_world_support_chat"
-BASIC_CHAT_INTERACTION_CONTEXT = 10000
+BASIC_CHAT_INTERACTION_CONTEXT = 16000
+
+_BASIC_CHAT_MANAGEMENT_TOOL_NAMES = (
+    LIST_USER_FILTERS_REST_TOOL_NAME,
+    LIST_MATCH_FILTERS_REST_TOOL_NAME,
+    LIST_VIDEO_CALL_FILTERS_REST_TOOL_NAME,
+    LIST_SCORE_FILTERS_REST_TOOL_NAME,
+    LIST_DYNAMIC_USER_LISTS_REST_TOOL_NAME,
+    QUERY_USERS_REST_TOOL_NAME,
+    QUERY_MATCHES_REST_TOOL_NAME,
+    QUERY_VIDEO_CALLS_REST_TOOL_NAME,
+    QUERY_SCORES_REST_TOOL_NAME,
+    QUERY_SUPPORT_TASKS_REST_TOOL_NAME,
+    QUERY_PREMATCHING_APPOINTMENTS_REST_TOOL_NAME,
+    GET_USER_DETAIL_REST_TOOL_NAME,
+    GET_MATCH_DETAIL_REST_TOOL_NAME,
+    GET_VIDEO_CALL_DETAIL_REST_TOOL_NAME,
+    GET_SCORE_DETAIL_REST_TOOL_NAME,
+    GET_SUPPORT_TASK_DETAIL_REST_TOOL_NAME,
+    GET_DYNAMIC_USER_LIST_REST_TOOL_NAME,
+    GET_USER_MESSAGES_REST_TOOL_NAME,
+    GET_USER_TASKS_REST_TOOL_NAME,
+    GET_USER_NOTES_REST_TOOL_NAME,
+    GET_USER_MATCH_WAITING_TIME_REST_TOOL_NAME,
+    GET_USER_PREMATCHING_APPOINTMENT_REST_TOOL_NAME,
+    GET_USER_SMS_REST_TOOL_NAME,
+    GET_USER_EMAILS_REST_TOOL_NAME,
+    GET_MATCH_NOTES_REST_TOOL_NAME,
+    GET_SUPPORT_TASK_STATS_REST_TOOL_NAME,
+    SUPPORT_TASK_USER_SEARCH_REST_TOOL_NAME,
+    LIST_SUPPORT_STAFF_REST_TOOL_NAME,
+)
 
 BASIC_CHAT_INTERACTION_SYSTEM_PROMPT = f"""
-You are a Little World support assistant helping staff respond to user chat messages.
+You are a Little World support assistant helping staff respond to user chat messages and answer platform questions.
 
 This Open Chat thread is an internal workspace only. Text you write here is NOT delivered to the Little World user.
 
 Your tools:
+Chat and delivery:
 - `{RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME}` — load earlier messages in the current conversation for context.
 - `{RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME}` — read the acting user's management-panel permissions.
 - `{CHAT_REPLY_REST_TOOL_NAME}` — the ONLY way to send a user-visible reply in Little World chat.
 
+Platform discovery (call before querying when you need list slugs or filter fields):
+- `{LIST_USER_FILTERS_REST_TOOL_NAME}` — user filter metadata and saved user list slugs.
+- `{LIST_MATCH_FILTERS_REST_TOOL_NAME}` — match filter metadata and saved match journey list slugs.
+- `{LIST_VIDEO_CALL_FILTERS_REST_TOOL_NAME}` — video call filter fields.
+- `{LIST_SCORE_FILTERS_REST_TOOL_NAME}` — matching-score filter fields.
+- `{LIST_DYNAMIC_USER_LISTS_REST_TOOL_NAME}` — saved manual user lists.
+
+Platform search and detail:
+- `{QUERY_USERS_REST_TOOL_NAME}`, `{QUERY_MATCHES_REST_TOOL_NAME}`, `{QUERY_VIDEO_CALLS_REST_TOOL_NAME}`, `{QUERY_SCORES_REST_TOOL_NAME}`, `{QUERY_SUPPORT_TASKS_REST_TOOL_NAME}`, `{QUERY_PREMATCHING_APPOINTMENTS_REST_TOOL_NAME}` — paginated list/search endpoints.
+- `{GET_USER_DETAIL_REST_TOOL_NAME}`, `{GET_MATCH_DETAIL_REST_TOOL_NAME}`, `{GET_VIDEO_CALL_DETAIL_REST_TOOL_NAME}`, `{GET_SCORE_DETAIL_REST_TOOL_NAME}`, `{GET_SUPPORT_TASK_DETAIL_REST_TOOL_NAME}`, `{GET_DYNAMIC_USER_LIST_REST_TOOL_NAME}` — entity detail; pass path param id (user id may be numeric id, uuid, or email).
+- `{GET_USER_MESSAGES_REST_TOOL_NAME}`, `{GET_USER_TASKS_REST_TOOL_NAME}`, `{GET_USER_NOTES_REST_TOOL_NAME}`, `{GET_USER_MATCH_WAITING_TIME_REST_TOOL_NAME}`, `{GET_USER_PREMATCHING_APPOINTMENT_REST_TOOL_NAME}`, `{GET_USER_SMS_REST_TOOL_NAME}`, `{GET_USER_EMAILS_REST_TOOL_NAME}`, `{GET_MATCH_NOTES_REST_TOOL_NAME}` — user/match sub-resources.
+- `{GET_SUPPORT_TASK_STATS_REST_TOOL_NAME}`, `{SUPPORT_TASK_USER_SEARCH_REST_TOOL_NAME}`, `{LIST_SUPPORT_STAFF_REST_TOOL_NAME}` — support task helpers.
+
+Workflow for platform questions:
+1. Check `{RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME}` if access scope matters.
+2. Call the relevant list_*_filters tool to discover valid list slugs and filter fields.
+3. Run query_* tools with list=<slug> and/or field filters; use page_size=20 by default.
+4. Drill into get_*_detail or sub-resource tools for specifics.
+5. For counts, query with page_size=1 and read items_total from the pagination envelope.
+
 Rules:
-1. Use retrieval tools when you need context or permission checks. Their output is internal reference material.
-2. Never answer the user with plain assistant text in this thread — not even for permission lookups or summaries.
-3. Every user-visible answer MUST be sent by calling `{CHAT_REPLY_REST_TOOL_NAME}` exactly once with the full final message text.
-4. If you already used retrieval tools, still call `{CHAT_REPLY_REST_TOOL_NAME}` afterward with the complete reply.
-5. If you skip `{CHAT_REPLY_REST_TOOL_NAME}`, the user receives nothing.
+1. Use retrieval tools when you need context, permissions, or platform data. Their output is internal reference material.
+2. Non-staff matching users only see users in their managed scope; mention this if results seem limited.
+3. Never answer the user with plain assistant text in this thread — not even for permission lookups or platform summaries.
+4. Every user-visible answer MUST be sent by calling `{CHAT_REPLY_REST_TOOL_NAME}` exactly once with the full final message text.
+5. If you already used retrieval tools, still call `{CHAT_REPLY_REST_TOOL_NAME}` afterward with the complete reply.
+6. If you skip `{CHAT_REPLY_REST_TOOL_NAME}`, the user receives nothing.
 """.strip()
 
 
@@ -54,6 +138,7 @@ def _basic_chat_interaction_overrides() -> dict[str, object]:
         "tools": [
             RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
             RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME,
+            *_BASIC_CHAT_MANAGEMENT_TOOL_NAMES,
             CHAT_REPLY_REST_TOOL_NAME,
         ],
     }
@@ -172,6 +257,7 @@ def open_chat_basic_chat_interaction(
                     "chat_uuid": chat_uuid,
                 },
                 RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME: session_init,
+                **build_management_tool_init(session_init),
             },
         )
         interaction_uuid = interaction.uuid

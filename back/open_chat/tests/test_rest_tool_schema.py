@@ -1,8 +1,9 @@
-from client import reduce_openapi_to_endpoint
+from client import RESTToolBuilder, reduce_openapi_to_endpoint
 from django.test import SimpleTestCase
 
-from open_chat.rest_tool_schema import SESSION_AUTH_HEADER_PARAMS, spectacular_schema
+from open_chat.rest_tool_schema import SESSION_AUTH_HEADER_PARAMS, bind_openapi_call_params, spectacular_schema
 from open_chat.tool_definitions import CHAT_SEND_PATH, SUPPORT_TASK_ACTION_PATH
+from open_chat.tool_definitions_management import QUERY_USERS_REST_TOOL_NAME, USERS_LIST_PATH
 
 
 class RestToolSchemaTests(SimpleTestCase):
@@ -58,3 +59,27 @@ class RestToolSchemaTests(SimpleTestCase):
         schemas = openapi_doc["components"]["schemas"]
         self.assertIn("PatchedSupportTaskActionUpdateRequest", schemas)
         self.assertIn("parameters", schemas["PatchedSupportTaskActionUpdateRequest"]["properties"])
+
+    def test_bind_openapi_call_params_for_users_list(self):
+        operation_id, reduced_doc = reduce_openapi_to_endpoint(
+            spectacular_schema(),
+            path=USERS_LIST_PATH,
+            method="get",
+            info_title="Test Users List API",
+            extra_parameters=SESSION_AUTH_HEADER_PARAMS,
+        )
+        self.assertTrue(operation_id)
+        builder = (
+            RESTToolBuilder(QUERY_USERS_REST_TOOL_NAME, "test")
+            .openapi_inline(reduced_doc)
+            .operation(operation_id)
+            .bind_session_auth()
+        )
+        builder = bind_openapi_call_params(builder, reduced_doc, USERS_LIST_PATH, "get")
+        definition = builder.build()
+        binding_inputs = {binding["input_name"] for binding in definition["param_bindings"]}
+        self.assertIn("list", binding_inputs)
+        self.assertIn("search", binding_inputs)
+        self.assertIn("page", binding_inputs)
+        self.assertNotIn("Cookie", binding_inputs)
+        self.assertNotIn("X-CSRFToken", binding_inputs)
