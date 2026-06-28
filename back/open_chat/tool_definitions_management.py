@@ -109,6 +109,77 @@ _MATCHES_PANEL_LINK_HINT = (
     "so staff can open that filtered list immediately."
 )
 
+_USER_MATCH_BUCKETS = ("confirmed", "unconfirmed", "support", "proposed", "old_proposals", "inactive")
+
+
+def _prefixed(*parts: str) -> str:
+    return ".".join(part for part in parts if part)
+
+
+def _user_identity_paths(prefix: str = "") -> tuple[str, ...]:
+    base = _prefixed(prefix)
+    email = _prefixed(base, "email") if base else "email"
+    first_name = _prefixed(base, "profile.first_name") if base else "profile.first_name"
+    second_name = _prefixed(base, "profile.second_name") if base else "profile.second_name"
+    return (email, first_name, second_name)
+
+
+def _paginated_user_identity_paths(prefix: str = "") -> tuple[str, ...]:
+    row_prefix = _prefixed("results.*", prefix)
+    return _user_identity_paths(row_prefix)
+
+
+def _match_participant_paths(participant: str, *, paginated: bool) -> tuple[str, ...]:
+    prefix = _prefixed("results.*", participant) if paginated else participant
+    return _user_identity_paths(prefix)
+
+
+def _video_call_participant_paths(participant: str, *, paginated: bool) -> tuple[str, ...]:
+    return _match_participant_paths(participant, paginated=paginated)
+
+
+def _support_task_profile_paths(field: str, *, paginated: bool, include_email: bool) -> tuple[str, ...]:
+    prefix = _prefixed("results.*", field) if paginated else field
+    paths: list[str] = [
+        _prefixed(prefix, "first_name"),
+        _prefixed(prefix, "second_name"),
+    ]
+    if include_email:
+        paths.insert(0, _prefixed(prefix, "email"))
+    return tuple(paths)
+
+
+def _support_task_paths(*, paginated: bool) -> tuple[str, ...]:
+    return (
+        *_support_task_profile_paths("related_user_profile", paginated=paginated, include_email=True),
+        *_support_task_profile_paths("assigned_to_profile", paginated=paginated, include_email=False),
+        *_support_task_profile_paths("created_by_profile", paginated=paginated, include_email=False),
+    )
+
+
+def _email_log_participant_paths(role: str) -> tuple[str, ...]:
+    return _user_identity_paths(_prefixed("results.*", role))
+
+
+def _advanced_user_detail_paths(prefix: str = "") -> tuple[str, ...]:
+    paths = list(_user_identity_paths(prefix))
+    base = _prefixed(prefix)
+    for bucket in _USER_MATCH_BUCKETS:
+        paths.append(_prefixed(base, "matches", bucket, "results.*.partner.first_name"))
+    return tuple(paths)
+
+
+def _advanced_user_paths(participant: str, *, paginated: bool) -> tuple[str, ...]:
+    prefix = _prefixed("results.*", participant) if paginated else participant
+    return _advanced_user_detail_paths(prefix)
+
+
+def _top_level_array_identity_paths(*, include_last_name: bool = False) -> tuple[str, ...]:
+    paths = ("*.email", "*.first_name", "*.second_name")
+    if include_last_name:
+        return (*paths, "*.last_name")
+    return paths
+
 
 @dataclass(frozen=True)
 class MgmtGetToolSpec:
@@ -282,6 +353,62 @@ MANAGEMENT_GET_TOOL_SPECS: tuple[MgmtGetToolSpec, ...] = (
 MANAGEMENT_REST_TOOL_NAMES: tuple[str, ...] = tuple(spec.name for spec in MANAGEMENT_GET_TOOL_SPECS)
 
 
+def _censor_paths_for_spec(spec: MgmtGetToolSpec) -> tuple[str, ...]:
+    name = spec.name
+    if name == QUERY_USERS_REST_TOOL_NAME:
+        return _paginated_user_identity_paths()
+    if name == GET_USER_DETAIL_REST_TOOL_NAME:
+        return _advanced_user_detail_paths()
+    if name == QUERY_MATCHES_REST_TOOL_NAME:
+        return (
+            *_match_participant_paths("user1", paginated=True),
+            *_match_participant_paths("user2", paginated=True),
+        )
+    if name == GET_MATCH_DETAIL_REST_TOOL_NAME:
+        return (
+            *_match_participant_paths("user1", paginated=False),
+            *_match_participant_paths("user2", paginated=False),
+        )
+    if name == QUERY_VIDEO_CALLS_REST_TOOL_NAME:
+        return (
+            *_video_call_participant_paths("u1", paginated=True),
+            *_video_call_participant_paths("u2", paginated=True),
+        )
+    if name == GET_VIDEO_CALL_DETAIL_REST_TOOL_NAME:
+        return (
+            *_video_call_participant_paths("u1", paginated=False),
+            *_video_call_participant_paths("u2", paginated=False),
+        )
+    if name == QUERY_SCORES_REST_TOOL_NAME:
+        return (
+            *_advanced_user_paths("user1", paginated=True),
+            *_advanced_user_paths("user2", paginated=True),
+        )
+    if name == GET_SCORE_DETAIL_REST_TOOL_NAME:
+        return (
+            *_advanced_user_paths("user1", paginated=False),
+            *_advanced_user_paths("user2", paginated=False),
+        )
+    if name in {QUERY_SUPPORT_TASKS_REST_TOOL_NAME, GET_SUPPORT_TASK_DETAIL_REST_TOOL_NAME}:
+        return _support_task_paths(paginated=name == QUERY_SUPPORT_TASKS_REST_TOOL_NAME)
+    if name == QUERY_PREMATCHING_APPOINTMENTS_REST_TOOL_NAME:
+        return _advanced_user_paths("user", paginated=True)
+    if name == GET_DYNAMIC_USER_LIST_REST_TOOL_NAME:
+        return ("*.email",)
+    if name == GET_USER_MESSAGES_REST_TOOL_NAME:
+        return ("chat.partner.first_name",)
+    if name == GET_USER_EMAILS_REST_TOOL_NAME:
+        return (
+            *_email_log_participant_paths("sender"),
+            *_email_log_participant_paths("receiver"),
+        )
+    if name == SUPPORT_TASK_USER_SEARCH_REST_TOOL_NAME:
+        return _top_level_array_identity_paths()
+    if name == LIST_SUPPORT_STAFF_REST_TOOL_NAME:
+        return _top_level_array_identity_paths(include_last_name=True)
+    return ()
+
+
 def build_mgmt_get_rest_tool_definition(spec: MgmtGetToolSpec, api_host: str | None = None) -> RESTToolBuilder:
     resolved_api_host, hostname = resolve_api_host(api_host)
     schema = spectacular_schema()
@@ -314,6 +441,9 @@ def build_mgmt_get_rest_tool_definition(spec: MgmtGetToolSpec, api_host: str | N
     builder = allow_local_tool_hosts(builder, hostname)
     if spec.paginated:
         builder = builder.timeout_seconds(30).max_response_body_bytes(512_000)
+    censor_paths = _censor_paths_for_spec(spec)
+    if censor_paths:
+        builder = builder.censor_response_paths(*censor_paths)
     return builder.enable()
 
 
