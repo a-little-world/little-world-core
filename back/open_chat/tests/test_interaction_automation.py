@@ -22,7 +22,9 @@ from open_chat.basic_chat_interaction import (
     _basic_chat_interaction_overrides,
     open_chat_basic_chat_interaction,
 )
+from open_chat.interaction_config import DEFAULT_OPEN_CHAT_MAX_TOKENS, DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS
 from open_chat.message_reply_suggestion import (
+    MESSAGE_REPLY_SUGGESTION_CONTEXT,
     MESSAGE_REPLY_SUGGESTION_SYSTEM_PROMPT,
     _message_reply_suggestion_overrides,
     idempotent_actions__generate_message_replies,
@@ -333,6 +335,10 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
 
         self.assertEqual(result["status"], "ok")
         self.assertEqual(result["configuration_owner"], "recipient")
+        self.assertEqual(result["session_actor_user_id"], self.source_user.pk)
+        self.assertEqual(result["session_actor_email"], self.source_user.email)
+        self.assertEqual(result["session_bot_user_id"], self.admin_user.pk)
+        self.assertEqual(result["session_bot_email"], self.admin_user.email)
         self.assertEqual(result["interaction_uuid"], "7e4b91f9-2bf9-4f10-b650-11a4345acf71")
         self.assertEqual(
             result["shared_url"],
@@ -349,6 +355,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             BASIC_CHAT_INTERACTION_SYSTEM_PROMPT,
         )
         self.assertEqual(interact_kwargs["overrides"]["context"], BASIC_CHAT_INTERACTION_CONTEXT)
+        self.assertEqual(interact_kwargs["overrides"]["max_tokens"], DEFAULT_OPEN_CHAT_MAX_TOKENS)
         self.assertEqual(
             interact_kwargs["overrides"]["tools"][-1],
             CHAT_REPLY_REST_TOOL_NAME,
@@ -364,11 +371,12 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         self.assertIn("csrftoken=", chat_reply_init["cookie_header"])
         self.assertTrue(chat_reply_init["api_host"])
         self.assertNotIn("chat_uuid", permissions_init)
+        self.assertNotEqual(chat_reply_init["cookie_header"], permissions_init["cookie_header"])
         management_init = build_management_tool_init(
             {
-                "api_host": chat_reply_init["api_host"],
-                "cookie_header": chat_reply_init["cookie_header"],
-                "csrf_token": chat_reply_init["csrf_token"],
+                "api_host": permissions_init["api_host"],
+                "cookie_header": permissions_init["cookie_header"],
+                "csrf_token": permissions_init["csrf_token"],
             }
         )
         for tool_name in MANAGEMENT_REST_TOOL_NAMES:
@@ -431,7 +439,8 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             interact_kwargs["overrides"]["system_prompt"],
             MESSAGE_REPLY_SUGGESTION_SYSTEM_PROMPT,
         )
-        self.assertEqual(interact_kwargs["overrides"]["context"], 10000)
+        self.assertEqual(interact_kwargs["overrides"]["context"], MESSAGE_REPLY_SUGGESTION_CONTEXT)
+        self.assertEqual(interact_kwargs["overrides"]["max_tokens"], DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS)
         suggestion_init = interact_kwargs["tool_init"]["little_world_message_reply_suggestion"]
         past_messages_init = interact_kwargs["tool_init"]["little_world_retrieve_past_messages"]
         self.assertEqual(suggestion_init["task_pk"], support_task.pk)

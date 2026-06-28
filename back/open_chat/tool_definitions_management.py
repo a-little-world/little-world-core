@@ -2,6 +2,14 @@ from dataclasses import dataclass
 
 from client import RESTToolBuilder, reduce_openapi_to_endpoint
 
+from open_chat.management_tool_response_examples import (
+    management_tool_response_example,
+    swagger_example_is_trustworthy,
+)
+from open_chat.openapi_response_examples import (
+    append_output_example_to_description,
+    describe_openapi_response_example,
+)
 from open_chat.rest_tool_schema import (
     API_HOST_INIT_FIELD,
     SESSION_AUTH_HEADER_PARAMS,
@@ -90,6 +98,17 @@ _LIST_SLUG_HINT = (
     "combine with field filters for refinement."
 )
 
+_USERS_PANEL_LINK_HINT = (
+    " When you use this tool and answer the user, always include a readable management panel URL with the same "
+    "query parameters you used, e.g. `/matching/users/?list=all&page_size=5`, so staff can open that filtered list immediately."
+)
+
+_MATCHES_PANEL_LINK_HINT = (
+    " When you use this tool and answer the user, always include a readable management panel URL with the same "
+    "query parameters you used, e.g. `/matching/matches/?list=match_journey_v2__active&page_size=5`, "
+    "so staff can open that filtered list immediately."
+)
+
 
 @dataclass(frozen=True)
 class MgmtGetToolSpec:
@@ -127,13 +146,17 @@ MANAGEMENT_GET_TOOL_SPECS: tuple[MgmtGetToolSpec, ...] = (
     ),
     MgmtGetToolSpec(
         QUERY_USERS_REST_TOOL_NAME,
-        "Search and list Little World users with filters, saved lists, search, and pagination." + _LIST_SLUG_HINT,
+        "Search and list Little World users with filters, saved lists, search, and pagination."
+        + _LIST_SLUG_HINT
+        + _USERS_PANEL_LINK_HINT,
         USERS_LIST_PATH,
         paginated=True,
     ),
     MgmtGetToolSpec(
         QUERY_MATCHES_REST_TOOL_NAME,
-        "Search and list matches with filters, saved lists, and pagination." + _LIST_SLUG_HINT,
+        "Search and list matches with filters, saved lists, and pagination."
+        + _LIST_SLUG_HINT
+        + _MATCHES_PANEL_LINK_HINT,
         MATCHES_LIST_PATH,
         paginated=True,
     ),
@@ -255,8 +278,19 @@ MANAGEMENT_REST_TOOL_NAMES: tuple[str, ...] = tuple(spec.name for spec in MANAGE
 
 def build_mgmt_get_rest_tool_definition(spec: MgmtGetToolSpec, api_host: str | None = None) -> RESTToolBuilder:
     resolved_api_host, hostname = resolve_api_host(api_host)
+    schema = spectacular_schema()
+    description = append_output_example_to_description(
+        spec.description,
+        describe_openapi_response_example(
+            schema,
+            path=spec.path,
+            method="get",
+            fallback=management_tool_response_example(spec.path),
+            trust_example=swagger_example_is_trustworthy,
+        ),
+    )
     operation_id, reduced_doc = reduce_openapi_to_endpoint(
-        spectacular_schema(),
+        schema,
         path=spec.path,
         method="get",
         info_title=f"Little World Management {spec.name} API",
@@ -264,7 +298,7 @@ def build_mgmt_get_rest_tool_definition(spec: MgmtGetToolSpec, api_host: str | N
         servers=[{"url": resolved_api_host}],
     )
     builder = (
-        RESTToolBuilder(spec.name, spec.description)
+        RESTToolBuilder(spec.name, description)
         .openapi_inline(reduced_doc)
         .operation(operation_id)
         .base_url_from_init(API_HOST_INIT_FIELD)

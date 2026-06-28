@@ -15,6 +15,7 @@ from management.models.user import User
 
 from open_chat.basic_chat_interaction import CHAT_REPLY_BOT
 from open_chat.helpers import build_session_tool_init_payload, build_tool_session_context, value_or
+from open_chat.interaction_config import DEFAULT_OPEN_CHAT_MAX_TOKENS, DEFAULT_OPEN_CHAT_MESSAGE_CONTEXT
 from open_chat.models import OpenChatConfiguration
 from open_chat.tool_definitions import (
     RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME,
@@ -144,7 +145,8 @@ def _single_tool_interaction_overrides(tool_name: str) -> dict[str, object]:
             f"Call `{tool_name}` exactly once with appropriate arguments.\n"
             "Do not call any other tools."
         ),
-        "context": 8000,
+        "context": DEFAULT_OPEN_CHAT_MESSAGE_CONTEXT,
+        "max_tokens": DEFAULT_OPEN_CHAT_MAX_TOKENS,
         "tools": [tool_name],
     }
 

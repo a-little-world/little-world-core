@@ -16,6 +16,12 @@ from open_chat.helpers import (
     resolve_open_chat_automation_task_creator_user,
     value_or,
 )
+from open_chat.interaction_config import (
+    DEFAULT_OPEN_CHAT_MESSAGE_CONTEXT,
+    DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS,
+    DEFAULT_OPEN_CHAT_SUGGESTION_TEMPERATURE,
+    build_interaction_overrides,
+)
 from open_chat.models import OpenChatConfiguration
 from open_chat.tool_definitions import (
     MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME,
@@ -29,7 +35,7 @@ RUN_INTERACTION_TASK_NAME = "management.tasks.open_chat_run_message_reply_sugges
 
 # Pre-provisioned Open Chat bot that owns the message-reply-suggestion interaction config.
 SUGGESTION_BOT = "little_world_reply_suggestion"
-MESSAGE_REPLY_SUGGESTION_CONTEXT = 10000
+MESSAGE_REPLY_SUGGESTION_CONTEXT = DEFAULT_OPEN_CHAT_MESSAGE_CONTEXT
 
 MESSAGE_REPLY_SUGGESTION_SYSTEM_PROMPT = f"""
 You are a Little World support assistant helping staff draft replies to user messages.
@@ -54,14 +60,16 @@ Rules:
 
 
 def _message_reply_suggestion_overrides() -> dict[str, object]:
-    return {
-        "system_prompt": MESSAGE_REPLY_SUGGESTION_SYSTEM_PROMPT,
-        "context": MESSAGE_REPLY_SUGGESTION_CONTEXT,
-        "tools": [
+    return build_interaction_overrides(
+        system_prompt=MESSAGE_REPLY_SUGGESTION_SYSTEM_PROMPT,
+        context=MESSAGE_REPLY_SUGGESTION_CONTEXT,
+        max_tokens=DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS,
+        temperature=DEFAULT_OPEN_CHAT_SUGGESTION_TEMPERATURE,
+        tools=[
             RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
             MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME,
         ],
-    }
+    )
 
 
 def create_or_reuse_support_reply_task_for_message(
