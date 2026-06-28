@@ -31,6 +31,80 @@ class CreateSupportTaskSerializer(serializers.Serializer):
         return SupportTask.create_of_type(task_type, created_by=created_by, **validated_data)
 
 
+class BulkSupportTaskSerializer(serializers.Serializer):
+    task_ids = serializers.ListField(child=serializers.IntegerField(), min_length=1)
+    action = serializers.ChoiceField(choices=("delete", "complete", "cancel"))
+
+
+def _apply_bulk_support_task_action(task, action, user):
+    if action == "delete":
+        task_id = task.pk
+        task.delete()
+        return task_id
+
+    support_action = task.action
+    if support_action.status != SupportTaskAction.Status.OPEN:
+        raise ValueError("Action already processed")
+
+    if action == "complete":
+        execute(support_action)
+        support_action.resolve(SupportTaskAction.Status.EXECUTED, user)
+    elif action == "cancel":
+        support_action.resolve(SupportTaskAction.Status.CANCELLED, user)
+    else:
+        raise ValueError(f"Unknown action: {action}")
+
+    return task.pk
+
+
+@extend_schema(
+    request=BulkSupportTaskSerializer,
+    responses={
+        200: inline_serializer(
+            name="BulkSupportTaskResponse",
+            fields={
+                "succeeded": serializers.ListField(child=serializers.IntegerField()),
+                "failed": serializers.ListField(
+                    child=inline_serializer(
+                        name="BulkSupportTaskFailure",
+                        fields={
+                            "id": serializers.IntegerField(),
+                            "error": serializers.CharField(),
+                        },
+                    )
+                ),
+            },
+        )
+    },
+)
+@api_view(["POST"])
+@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
+@permission_classes([IsAdminOrMatchingUser])
+def support_task_bulk(request):
+    serializer = BulkSupportTaskSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    task_ids = serializer.validated_data["task_ids"]
+    action = serializer.validated_data["action"]
+
+    tasks = SupportTask.objects.select_related("action").filter(pk__in=task_ids)
+    tasks_by_id = {task.pk: task for task in tasks}
+
+    succeeded = []
+    failed = []
+
+    for task_id in task_ids:
+        task = tasks_by_id.get(task_id)
+        if task is None:
+            failed.append({"id": task_id, "error": "Not found"})
+            continue
+        try:
+            succeeded.append(_apply_bulk_support_task_action(task, action, request.user))
+        except Exception as e:
+            failed.append({"id": task_id, "error": str(e)})
+
+    return Response({"succeeded": succeeded, "failed": failed})
+
+
 class SupportTaskListQuerySerializer(serializers.Serializer):
     sort_by = serializers.ChoiceField(
         choices=("id", "priority", "status", "title", "created_at", "updated_at"),
@@ -316,6 +390,7 @@ def user_search(request):
 
 api_urls = [
     path("api/support_task/", support_task_list),
+    path("api/support_task/bulk/", support_task_bulk),
     path("api/support_task/create/", support_task_create),
     path("api/support_task/create_manual/", support_task_create_manual),
     path("api/support_task/stats/", support_task_stats),

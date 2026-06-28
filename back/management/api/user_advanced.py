@@ -13,12 +13,12 @@ from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 
-from management.api.export_utils import build_paginated_export_response
+from management.api.export_utils import build_paginated_export_response, ensure_export_fields
 from management.api.matches import AdvancedUserMatchSerializer
 from management.api.scores import score_between_db_update
 from management.api.user_advanced_filter_lists import FILTER_LISTS, get_choices, get_dynamic_userlists
 from management.api.user_report_utils import USER_EXPORT_COLUMN_NAMES, build_user_report_entry
-from management.api.utils_advanced import filterset_schema_dict
+from management.api.utils_advanced import apply_journey_bucket_fields, filterset_schema_dict, parse_bool_query_param
 from management.controller import (
     delete_user,
     get_base_management_user,
@@ -62,6 +62,39 @@ user_category_buckets = [
     "journey_v2__user_deleted",
     "journey_v2__marked_unresponsive",
 ]
+
+
+def get_user_bucket_label(bucket_name: str | None) -> str:
+    if not bucket_name or bucket_name == "unknown":
+        return "Unknown"
+    slug = bucket_name.split("__")[-1]
+    return slug.replace("_", " ").strip().title()
+
+
+def determine_user_buckets(user_pk, all_lists: bool = False) -> list[str]:
+    from django.db import connection
+
+    if connection.vendor != "postgresql":
+        return []
+
+    buckets = []
+    base_qs = User.objects.filter(pk=user_pk)
+    if all_lists:
+        names_to_check = [entry.name for entry in FILTER_LISTS + get_dynamic_userlists()]
+    else:
+        names_to_check = user_category_buckets
+
+    bucket_map = {entry.name: entry for entry in FILTER_LISTS + get_dynamic_userlists()}
+    for name in names_to_check:
+        entry = bucket_map.get(name)
+        if entry is None or entry.queryset is None:
+            continue
+        try:
+            if entry.queryset(base_qs).exists():
+                buckets.append(entry.name)
+        except Exception:
+            continue
+    return buckets
 
 
 def get_match_waiting_time(user):
@@ -125,6 +158,8 @@ class ExportUserSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         selected_fields = self.context.get("selected_fields") if hasattr(self, "context") else None
         representation = build_user_report_entry(instance, selected_fields=selected_fields)
+        if selected_fields:
+            return ensure_export_fields(representation, selected_fields)
         return representation
 
 
@@ -201,6 +236,23 @@ class UserTableSerializer(serializers.ModelSerializer):
         }
         representation["waiting_time"] = get_match_waiting_time(instance)
         representation["matches"] = _serialize_user_match_previews(instance)
+
+        context = getattr(self, "context", {})
+        determine_bucket = context.get("determine_bucket", False)
+        all_buckets = context.get("all_buckets", False)
+        if determine_bucket or all_buckets:
+            category_buckets = determine_user_buckets(instance.pk, all_lists=False)
+            all_bucket_names = determine_user_buckets(instance.pk, all_lists=True) if all_buckets else None
+            apply_journey_bucket_fields(
+                representation,
+                category_buckets=category_buckets,
+                all_buckets=all_bucket_names,
+                determine_bucket=determine_bucket,
+                include_all_buckets=all_buckets,
+                label_fn=get_user_bucket_label,
+                primary_from_end=True,
+            )
+
         return representation
 
 
@@ -217,9 +269,14 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
         representation["is_matching_user"] = instance.has_perm(ManagementPermission.MATCHING_USER)
 
         determine_bucket = ("determine_bucket" in self.context) and self.context["determine_bucket"]
+        all_buckets = self.context.get("all_buckets", False)
 
         items_per_page = 50
         user = instance
+        match_bucket_context = {
+            "determine_bucket": determine_bucket,
+            "all_buckets": all_buckets,
+        }
         confirmed_matches = get_paginated_format_v2(Match.get_confirmed_matches(user), items_per_page, 1)
         confirmed_matches["results"] = AdvancedUserMatchSerializer(
             confirmed_matches["results"],
@@ -227,7 +284,7 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
             context={
                 "user": user,
                 "status": "confirmed",
-                "determine_bucket": determine_bucket,
+                **match_bucket_context,
             },
         ).data
 
@@ -238,7 +295,7 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
             context={
                 "user": user,
                 "status": "unconfirmed",
-                "determine_bucket": determine_bucket,
+                **match_bucket_context,
             },
         ).data
 
@@ -249,7 +306,7 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
             context={
                 "user": user,
                 "status": "support",
-                "determine_bucket": determine_bucket,
+                **match_bucket_context,
             },
         ).data
 
@@ -269,7 +326,7 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
             context={
                 "user": user,
                 "status": "inactive",
-                "determine_bucket": determine_bucket,
+                **match_bucket_context,
             },
         ).data
 
@@ -287,31 +344,18 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
         representation["state"] = StateSerializer(instance.state).data
         representation["state"]["random_call_access"] = instance.has_perm(ManagementPermission.USE_RANDOM_CALLS)
 
-        # NOTE:
-        # Some of the filter lists in FILTER_LISTS use JSONField `__contains`
-        # lookups (for example on `profile__lang_skill`). These are only
-        # supported on PostgreSQL and will raise NotSupportedError on SQLite.
-        # To avoid breaking the API in development (SQLite) while keeping the
-        # behaviour in production (PostgreSQL), we only evaluate bucket
-        # membership on PostgreSQL and fall back to "unknown" otherwise.
-        from django.db import connection
-
-        if determine_bucket:
-            if connection.vendor == "postgresql":
-                try:
-                    bucket_map = {entry.name: entry for entry in FILTER_LISTS if entry.name in user_category_buckets}
-                    for bucket in user_category_buckets:
-                        if bucket_map[bucket].queryset(User.objects.filter(pk=instance.pk)).exists():
-                            representation["bucket"] = bucket
-                    if "bucket" not in representation:
-                        representation["bucket"] = "unknown"
-                except (KeyError, AttributeError):
-                    representation["bucket"] = "unknown"
-            else:
-                # On non-PostgreSQL backends (e.g. SQLite in development) we
-                # can't safely run the JSONField `contains` lookups used in
-                # the filter lists, so we just set a sensible default.
-                representation["bucket"] = "unknown"
+        if determine_bucket or all_buckets:
+            category_buckets = determine_user_buckets(instance.pk, all_lists=False)
+            all_bucket_names = determine_user_buckets(instance.pk, all_lists=True) if all_buckets else None
+            apply_journey_bucket_fields(
+                representation,
+                category_buckets=category_buckets,
+                all_buckets=all_bucket_names,
+                determine_bucket=determine_bucket,
+                include_all_buckets=all_buckets,
+                label_fn=get_user_bucket_label,
+                primary_from_end=True,
+            )
 
         return representation
 
@@ -584,10 +628,15 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         )
 
     def get_serializer_context(self):
-        if self.action == "list":
-            return {}
+        request = self.request
+        all_buckets = parse_bool_query_param(request.query_params.get("all_buckets"))
+        determine_bucket = all_buckets or parse_bool_query_param(request.query_params.get("determine_bucket"))
+
         if self.action == "retrieve":
-            return {"determine_bucket": True}
+            determine_bucket = True
+
+        if self.action in {"list", "retrieve"} and (determine_bucket or all_buckets):
+            return {"determine_bucket": determine_bucket, "all_buckets": all_buckets}
         return {}
 
     def get_serializer_class(self):
