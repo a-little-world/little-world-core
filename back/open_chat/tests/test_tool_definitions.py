@@ -45,6 +45,10 @@ class RestToolDefinitionTests(SimpleTestCase):
 
         binding_inputs = {binding["input_name"] for binding in definition["param_bindings"]}
         self.assertEqual(binding_inputs, {"task_pk", "cookie_header", "csrf_token", "parameters"})
+        self.assertIn(
+            "PatchedSupportTaskActionUpdateRequest",
+            json.loads(definition["openapi_source"])["components"]["schemas"],
+        )
 
     def test_build_all_rest_tool_definitions(self):
         definitions = build_all_rest_tool_definitions()

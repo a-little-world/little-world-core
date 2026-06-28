@@ -2,10 +2,7 @@ import logging
 
 from celery import current_app, shared_task
 from chat.models import Message as ChatMessage
-from client import OpenChatClient, PasswordAuth, ToolName
-from client.generated_api.models.little_world_generate_message_reply_suggestion_init import (
-    LittleWorldGenerateMessageReplySuggestionInit,
-)
+from client import OpenChatClient, PasswordAuth
 from django.db.models import Q
 from management import controller
 from management.models.support_task import SupportTask, SupportTaskAction
@@ -19,6 +16,7 @@ from open_chat.helpers import (
     value_or,
 )
 from open_chat.models import OpenChatConfiguration
+from open_chat.tool_definitions import API_HOST_INIT_FIELD, MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -281,14 +279,14 @@ def open_chat_run_message_reply_suggestion_interaction(
             bot=SUGGESTION_BOT,
             message=message,
             share=True,
+            overrides={"tools": [MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME]},
             tool_init={
-                ToolName.LITTLE_WORLD_GENERATE_MESSAGE_REPLY_SUGGESTION: LittleWorldGenerateMessageReplySuggestionInit(
-                    action_id=str(support_action.pk),
-                    api_host=api_host,
-                    csrf_token=csrf_token,
-                    session_id=session_id,
-                    task_pk=str(support_action.task.pk),
-                )
+                MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME: {
+                    API_HOST_INIT_FIELD: api_host.rstrip("/"),
+                    "task_pk": str(support_action.task.pk),
+                    "cookie_header": f"sessionid={session_id}; csrftoken={csrf_token}",
+                    "csrf_token": csrf_token,
+                }
             },
         )
         interaction_uuid = interaction.uuid

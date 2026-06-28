@@ -380,9 +380,15 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         self.assertEqual(interact_kwargs["bot"], "little_world_reply_suggestion")
         self.assertTrue(interact_kwargs["share"])
         self.assertEqual(interact_kwargs["message"], self.source_message.text)
-        [suggestion_init] = list(interact_kwargs["tool_init"].values())
-        self.assertEqual(suggestion_init.task_pk, str(support_task.pk))
-        self.assertEqual(suggestion_init.action_id, str(support_task.action.pk))
+        self.assertEqual(
+            interact_kwargs["overrides"],
+            {"tools": ["little_world_message_reply_suggestion"]},
+        )
+        suggestion_init = interact_kwargs["tool_init"]["little_world_message_reply_suggestion"]
+        self.assertEqual(suggestion_init["task_pk"], str(support_task.pk))
+        self.assertIn("sessionid=", suggestion_init["cookie_header"])
+        self.assertIn("csrftoken=", suggestion_init["cookie_header"])
+        self.assertTrue(suggestion_init["api_host"])
 
         support_action = SupportTaskAction.objects.get(task=support_task)
         self.assertEqual(support_action.static_parameters.get("interaction_id"), "suggestion-interaction-uuid")
