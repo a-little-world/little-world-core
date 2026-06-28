@@ -10,12 +10,17 @@ from management.permissions import ManagementPermission
 
 from open_chat.helpers import (
     FALLBACK_USER_MESSAGE,
+    build_session_tool_init_payload,
     build_tool_session_context,
     interaction_called_tool,
     value_or,
 )
 from open_chat.models import OpenChatConfiguration
-from open_chat.tool_definitions import API_HOST_INIT_FIELD, CHAT_REPLY_REST_TOOL_NAME
+from open_chat.tool_definitions import (
+    CHAT_REPLY_REST_TOOL_NAME,
+    RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME,
+    RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -114,19 +119,33 @@ def open_chat_basic_chat_interaction(
         )
         login_user = client.login()
 
+        session_init = build_session_tool_init_payload(
+            api_host=api_host,
+            session_id=session_id,
+            csrf_token=csrf_token,
+        )
         message = (user_message_text or "").strip() or FALLBACK_USER_MESSAGE
         interaction = client.interact(
             bot=CHAT_REPLY_BOT,
             message=message,
             share=True,
-            overrides={"tools": [CHAT_REPLY_REST_TOOL_NAME]},
+            overrides={
+                "tools": [
+                    CHAT_REPLY_REST_TOOL_NAME,
+                    RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
+                    RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME,
+                ]
+            },
             tool_init={
                 CHAT_REPLY_REST_TOOL_NAME: {
-                    API_HOST_INIT_FIELD: api_host.rstrip("/"),
+                    **session_init,
                     "chat_uuid": chat_uuid,
-                    "cookie_header": f"sessionid={session_id}; csrftoken={csrf_token}",
-                    "csrf_token": csrf_token,
-                }
+                },
+                RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME: {
+                    **session_init,
+                    "chat_uuid": chat_uuid,
+                },
+                RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME: session_init,
             },
         )
         try:

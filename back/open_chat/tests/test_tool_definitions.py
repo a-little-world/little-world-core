@@ -4,13 +4,19 @@ from unittest.mock import MagicMock
 from django.test import SimpleTestCase
 
 from open_chat.tool_definitions import (
+    CHAT_MESSAGES_LIST_PATH,
     CHAT_REPLY_REST_TOOL_NAME,
     CHAT_SEND_PATH,
+    MATCHING_PANEL_ME_PATH,
     MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME,
+    RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME,
+    RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
     SUPPORT_TASK_ACTION_PATH,
     build_all_rest_tool_definitions,
     build_chat_reply_rest_tool_definition,
     build_message_reply_suggestion_rest_tool_definition,
+    build_retrieve_management_permissions_rest_tool_definition,
+    build_retrieve_past_messages_rest_tool_definition,
     sync_rest_tool_definitions,
 )
 
@@ -50,11 +56,42 @@ class RestToolDefinitionTests(SimpleTestCase):
             json.loads(definition["openapi_source"])["components"]["schemas"],
         )
 
+    def test_build_retrieve_past_messages_rest_tool_definition(self):
+        definition = build_retrieve_past_messages_rest_tool_definition("https://app.example.com").build()
+
+        self.assertEqual(definition["name"], RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME)
+        self.assertEqual(definition["operation_id"], "api_messages_list_2")
+
+        openapi = json.loads(definition["openapi_source"])
+        self.assertEqual(openapi["servers"], [{"url": "https://app.example.com"}])
+        self.assertIn(CHAT_MESSAGES_LIST_PATH, openapi["paths"])
+
+        binding_inputs = {binding["input_name"] for binding in definition["param_bindings"]}
+        self.assertEqual(binding_inputs, {"chat_uuid", "cookie_header", "csrf_token", "page", "page_size"})
+        self.assertEqual(definition["safety_policy"]["allow_hosts"], ["app.example.com"])
+
+    def test_build_retrieve_management_permissions_rest_tool_definition(self):
+        definition = build_retrieve_management_permissions_rest_tool_definition("https://app.example.com").build()
+
+        self.assertEqual(definition["name"], RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME)
+        self.assertEqual(definition["operation_id"], "api_matching_me_retrieve")
+
+        openapi = json.loads(definition["openapi_source"])
+        self.assertIn(MATCHING_PANEL_ME_PATH, openapi["paths"])
+
+        binding_inputs = {binding["input_name"] for binding in definition["param_bindings"]}
+        self.assertEqual(binding_inputs, {"cookie_header", "csrf_token"})
+
     def test_build_all_rest_tool_definitions(self):
         definitions = build_all_rest_tool_definitions()
         self.assertEqual(
             [definition.build()["name"] for definition in definitions],
-            [CHAT_REPLY_REST_TOOL_NAME, MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME],
+            [
+                CHAT_REPLY_REST_TOOL_NAME,
+                MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME,
+                RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
+                RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME,
+            ],
         )
 
     def test_sync_rest_tool_definitions_creates_missing_tools(self):
@@ -63,25 +100,44 @@ class RestToolDefinitionTests(SimpleTestCase):
         result = sync_rest_tool_definitions(client, reload=False)
         self.assertEqual(
             result["created"],
-            [CHAT_REPLY_REST_TOOL_NAME, MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME],
+            [
+                CHAT_REPLY_REST_TOOL_NAME,
+                MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME,
+                RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
+                RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME,
+            ],
         )
         self.assertEqual(result["updated"], [])
-        self.assertEqual(client.save_dynamic_rest_tool.call_count, 2)
+        self.assertEqual(client.save_dynamic_rest_tool.call_count, 4)
 
     def test_sync_rest_tool_definitions_reload(self):
         client = MagicMock()
         client.list_dynamic_rest_tools.return_value = [
             {"name": CHAT_REPLY_REST_TOOL_NAME},
             {"name": MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME},
+            {"name": RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME},
+            {"name": RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME},
         ]
         result = sync_rest_tool_definitions(client, reload=True)
         self.assertEqual(
             result["deleted"],
-            [CHAT_REPLY_REST_TOOL_NAME, MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME],
+            sorted(
+                [
+                    CHAT_REPLY_REST_TOOL_NAME,
+                    MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME,
+                    RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
+                    RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME,
+                ]
+            ),
         )
         self.assertEqual(
             result["created"],
-            [CHAT_REPLY_REST_TOOL_NAME, MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME],
+            [
+                CHAT_REPLY_REST_TOOL_NAME,
+                MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME,
+                RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
+                RETRIEVE_MANAGEMENT_PERMISSIONS_REST_TOOL_NAME,
+            ],
         )
-        self.assertEqual(client.delete_dynamic_rest_tool.call_count, 2)
-        self.assertEqual(client.save_dynamic_rest_tool.call_count, 2)
+        self.assertEqual(client.delete_dynamic_rest_tool.call_count, 4)
+        self.assertEqual(client.save_dynamic_rest_tool.call_count, 4)

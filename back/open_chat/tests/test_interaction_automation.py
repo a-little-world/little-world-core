@@ -325,12 +325,25 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         _, interact_kwargs = mock_client.interact.call_args
         self.assertEqual(interact_kwargs["bot"], "little_world_support_chat")
         self.assertTrue(interact_kwargs["share"])
-        self.assertEqual(interact_kwargs["overrides"], {"tools": ["little_world_chat_reply"]})
+        self.assertEqual(
+            interact_kwargs["overrides"],
+            {
+                "tools": [
+                    "little_world_chat_reply",
+                    "little_world_retrieve_past_messages",
+                    "little_world_retrieve_management_permissions",
+                ]
+            },
+        )
         chat_reply_init = interact_kwargs["tool_init"]["little_world_chat_reply"]
+        past_messages_init = interact_kwargs["tool_init"]["little_world_retrieve_past_messages"]
+        permissions_init = interact_kwargs["tool_init"]["little_world_retrieve_management_permissions"]
         self.assertEqual(chat_reply_init["chat_uuid"], str(self.chat.uuid))
+        self.assertEqual(past_messages_init["chat_uuid"], str(self.chat.uuid))
         self.assertIn("sessionid=", chat_reply_init["cookie_header"])
         self.assertIn("csrftoken=", chat_reply_init["cookie_header"])
         self.assertTrue(chat_reply_init["api_host"])
+        self.assertNotIn("chat_uuid", permissions_init)
 
     @patch("chat.consumers.messages.NewMessage.send")
     @patch("open_chat.message_reply_suggestion.OpenChatClient")
@@ -382,10 +395,17 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         self.assertEqual(interact_kwargs["message"], self.source_message.text)
         self.assertEqual(
             interact_kwargs["overrides"],
-            {"tools": ["little_world_message_reply_suggestion"]},
+            {
+                "tools": [
+                    "little_world_message_reply_suggestion",
+                    "little_world_retrieve_past_messages",
+                ]
+            },
         )
         suggestion_init = interact_kwargs["tool_init"]["little_world_message_reply_suggestion"]
+        past_messages_init = interact_kwargs["tool_init"]["little_world_retrieve_past_messages"]
         self.assertEqual(suggestion_init["task_pk"], str(support_task.pk))
+        self.assertEqual(past_messages_init["chat_uuid"], str(self.chat.uuid))
         self.assertIn("sessionid=", suggestion_init["cookie_header"])
         self.assertIn("csrftoken=", suggestion_init["cookie_header"])
         self.assertTrue(suggestion_init["api_host"])

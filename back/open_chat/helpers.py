@@ -59,6 +59,21 @@ def build_tool_session_context(actor: User) -> tuple[str, str, str]:
     return session_id, csrf_token, api_host
 
 
+def build_session_tool_init_payload(
+    *,
+    api_host: str,
+    session_id: str,
+    csrf_token: str,
+    **fields: str,
+) -> dict[str, str]:
+    return {
+        "api_host": api_host.rstrip("/"),
+        "cookie_header": f"sessionid={session_id}; csrftoken={csrf_token}",
+        "csrf_token": csrf_token,
+        **fields,
+    }
+
+
 def interaction_called_tool(interaction: InteractionSession, tool_name: str) -> bool:
     page = interaction.messages(page=1, limit=200)
     for message in value_or(page.rows, []):

@@ -11,12 +11,16 @@ from management.permissions import ManagementPermission
 
 from open_chat.helpers import (
     FALLBACK_USER_MESSAGE,
+    build_session_tool_init_payload,
     build_tool_session_context,
     resolve_open_chat_automation_task_creator_user,
     value_or,
 )
 from open_chat.models import OpenChatConfiguration
-from open_chat.tool_definitions import API_HOST_INIT_FIELD, MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME
+from open_chat.tool_definitions import (
+    MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME,
+    RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -274,19 +278,31 @@ def open_chat_run_message_reply_suggestion_interaction(
         )
         login_user = client.login()
 
+        session_init = build_session_tool_init_payload(
+            api_host=api_host,
+            session_id=session_id,
+            csrf_token=csrf_token,
+        )
         message = (user_message_text or "").strip() or FALLBACK_USER_MESSAGE
         interaction = client.interact(
             bot=SUGGESTION_BOT,
             message=message,
             share=True,
-            overrides={"tools": [MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME]},
+            overrides={
+                "tools": [
+                    MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME,
+                    RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME,
+                ]
+            },
             tool_init={
                 MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME: {
-                    API_HOST_INIT_FIELD: api_host.rstrip("/"),
+                    **session_init,
                     "task_pk": str(support_action.task.pk),
-                    "cookie_header": f"sessionid={session_id}; csrftoken={csrf_token}",
-                    "csrf_token": csrf_token,
-                }
+                },
+                RETRIEVE_PAST_MESSAGES_REST_TOOL_NAME: {
+                    **session_init,
+                    "chat_uuid": chat_uuid,
+                },
             },
         )
         interaction_uuid = interaction.uuid
