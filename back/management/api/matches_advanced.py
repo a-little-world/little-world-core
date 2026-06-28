@@ -7,6 +7,7 @@ from django.urls import path
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django_filters import rest_framework as filters
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
@@ -14,20 +15,158 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from video.models import LivekitSession
 
-from management.api.export_utils import build_paginated_export_response
+from management.api.export_utils import build_paginated_export_response, ensure_export_fields
 from management.api.match_journey_filter_list import (
     MATCH_JOURNEY_FILTERS,
-    determine_match_bucket,
+    determine_match_buckets,
     get_match_bucket_label,
 )
-from management.api.utils_advanced import enrich_report_unmatch_with_user_info, filterset_schema_dict
+from management.api.utils_advanced import (
+    FilterSchemaResponseSerializer,
+    apply_journey_bucket_fields,
+    enrich_report_unmatch_with_user_info,
+    filterset_schema_dict,
+    parse_bool_query_param,
+)
 from management.controller import unmatch_users
 from management.helpers import DetailedPaginationMixin, IsAdminOrMatchingUser
 from management.models.matches import Match
-from management.models.profile import MinimalProfileSerializer
+from management.models.profile import MinimalProfileSerializer, Profile
 from management.models.unconfirmed_matches import MatchType
 from management.models.user import User
 from management.permissions import ManagementPermission
+
+
+def _apply_match_bucket_representation(representation: dict, match_pk: int, context: dict) -> None:
+    determine_bucket = context.get("determine_bucket", True)
+    all_buckets = context.get("all_buckets", False)
+    if not determine_bucket and not all_buckets:
+        return
+
+    category_buckets = determine_match_buckets(match_pk, all_lists=False)
+    all_bucket_names = determine_match_buckets(match_pk, all_lists=True) if all_buckets else None
+    apply_journey_bucket_fields(
+        representation,
+        category_buckets=category_buckets,
+        all_buckets=all_bucket_names,
+        determine_bucket=determine_bucket,
+        include_all_buckets=all_buckets,
+        label_fn=get_match_bucket_label,
+    )
+
+
+MATCH_MESSAGE_EXPORT_FIELDS = frozenset(
+    {
+        "first_message_from_learner",
+        "first_message_from_volunteer",
+        "most_recent_message_from_learner",
+        "most_recent_message_from_volunteer",
+    }
+)
+
+
+def _resolve_match_learner_and_volunteer(match: Match) -> tuple[User | None, User | None]:
+    u1, u2 = match.user1, match.user2
+    u1_type = u1.profile.user_type
+    u2_type = u2.profile.user_type
+    if u1_type == Profile.TypeChoices.LEARNER and u2_type == Profile.TypeChoices.VOLUNTEER:
+        return u1, u2
+    if u2_type == Profile.TypeChoices.LEARNER and u1_type == Profile.TypeChoices.VOLUNTEER:
+        return u2, u1
+    return None, None
+
+
+def _message_created_at(sender: User, recipient: User, *, most_recent: bool):
+    qs = Message.objects.filter(sender=sender, recipient=recipient)
+    if most_recent:
+        return qs.aggregate(ts=Max("created"))["ts"]
+    return qs.order_by("created").values_list("created", flat=True).first()
+
+
+def _match_message_export_fields(match: Match) -> dict[str, str | None]:
+    dt_field = serializers.DateTimeField()
+    empty = dict.fromkeys(MATCH_MESSAGE_EXPORT_FIELDS, None)
+    learner, volunteer = _resolve_match_learner_and_volunteer(match)
+    if learner is None or volunteer is None:
+        return empty
+
+    def _fmt(dt):
+        return None if dt is None else dt_field.to_representation(dt)
+
+    return {
+        "first_message_from_learner": _fmt(_message_created_at(learner, volunteer, most_recent=False)),
+        "first_message_from_volunteer": _fmt(_message_created_at(volunteer, learner, most_recent=False)),
+        "most_recent_message_from_learner": _fmt(_message_created_at(learner, volunteer, most_recent=True)),
+        "most_recent_message_from_volunteer": _fmt(_message_created_at(volunteer, learner, most_recent=True)),
+    }
+
+
+def _apply_match_message_export_fields(target: dict, match: Match, requested_fields: set[str] | None = None) -> None:
+    message_fields = _match_message_export_fields(match)
+    if requested_fields is None:
+        target.update(message_fields)
+        return
+    for field_name in MATCH_MESSAGE_EXPORT_FIELDS:
+        if field_name in requested_fields:
+            target[field_name] = message_fields[field_name]
+
+
+MATCH_UNMATCH_EXPORT_FIELDS = frozenset(
+    {
+        "unmatching_type",
+        "unmatch_reason",
+        "is_manual_unmatch",
+    }
+)
+
+
+def _parse_report_unmatch_user_id(user_id_raw) -> int | None:
+    if user_id_raw in (None, "no unmatcher specified"):
+        return None
+    try:
+        return int(user_id_raw)
+    except (TypeError, ValueError):
+        return None
+
+
+def _is_manual_unmatch(closing_entry: dict, match: Match) -> bool:
+    kind = closing_entry.get("kind")
+    user_id = _parse_report_unmatch_user_id(closing_entry.get("user_id"))
+
+    if kind == "ghosted":
+        return False
+    if kind in ("unmatch", "report", "user_deleted"):
+        if user_id is None:
+            return True
+        return user_id not in (match.user1_id, match.user2_id)
+    return False
+
+
+def _match_unmatch_export_fields(match: Match) -> dict[str, str | bool | None]:
+    empty = dict.fromkeys(MATCH_UNMATCH_EXPORT_FIELDS, None)
+    if match.active:
+        return empty
+
+    entries = match.report_unmatch if isinstance(match.report_unmatch, list) else []
+    if not entries:
+        return empty
+
+    closing_entry = entries[-1]
+    return {
+        "unmatching_type": closing_entry.get("kind"),
+        "unmatch_reason": closing_entry.get("reason"),
+        "is_manual_unmatch": _is_manual_unmatch(closing_entry, match),
+    }
+
+
+def _apply_match_unmatch_export_fields(target: dict, match: Match, requested_fields: set[str] | None = None) -> None:
+    unmatch_fields = _match_unmatch_export_fields(match)
+    if requested_fields is None:
+        target.update(unmatch_fields)
+        return
+    for field_name in MATCH_UNMATCH_EXPORT_FIELDS:
+        if field_name in requested_fields:
+            target[field_name] = unmatch_fields[field_name]
 
 
 class AdvancedMatchSerializer(serializers.ModelSerializer):
@@ -87,13 +226,7 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
         else:
             representation["status"] = "proposed"
 
-        bucket = determine_match_bucket(instance.pk)
-        if bucket is not None:
-            representation["bucket"] = bucket
-            representation["bucket_label"] = get_match_bucket_label(bucket)
-        else:
-            representation["bucket"] = "unknown"
-            representation["bucket_label"] = get_match_bucket_label("unknown")
+        _apply_match_bucket_representation(representation, instance.pk, getattr(self, "context", {}))
 
         return representation
 
@@ -385,13 +518,9 @@ class ExportMatchSerializer(serializers.ModelSerializer):
             if not instance.active:
                 representation["status"] = "reported_or_removed"
 
-            bucket = determine_match_bucket(instance.pk)
-            if bucket is not None:
-                representation["bucket"] = bucket
-                representation["bucket_label"] = get_match_bucket_label(bucket)
-            else:
-                representation["bucket"] = "unknown"
-                representation["bucket_label"] = get_match_bucket_label("unknown")
+            _apply_match_bucket_representation(representation, instance.pk, self.context)
+            _apply_match_message_export_fields(representation, instance)
+            _apply_match_unmatch_export_fields(representation, instance)
             return representation
 
         requested_set = set(requested_fields)
@@ -413,18 +542,24 @@ class ExportMatchSerializer(serializers.ModelSerializer):
             if not instance.active:
                 filtered["status"] = "reported_or_removed"
 
-        if "bucket" in requested_set or "bucket_label" in requested_set:
-            bucket = determine_match_bucket(instance.pk)
-            if bucket is not None:
-                if "bucket" in requested_set:
-                    filtered["bucket"] = bucket
-                if "bucket_label" in requested_set:
-                    filtered["bucket_label"] = get_match_bucket_label(bucket)
-            else:
-                if "bucket" in requested_set:
-                    filtered["bucket"] = "unknown"
-                if "bucket_label" in requested_set:
-                    filtered["bucket_label"] = get_match_bucket_label("unknown")
+        if (
+            "bucket" in requested_set
+            or "bucket_label" in requested_set
+            or "buckets" in requested_set
+            or "bucket_labels" in requested_set
+        ):
+            _apply_match_bucket_representation(filtered, instance.pk, self.context)
+            if "bucket" not in requested_set:
+                filtered.pop("bucket", None)
+            if "bucket_label" not in requested_set:
+                filtered.pop("bucket_label", None)
+            if "buckets" not in requested_set:
+                filtered.pop("buckets", None)
+            if "bucket_labels" not in requested_set:
+                filtered.pop("bucket_labels", None)
+
+        _apply_match_message_export_fields(filtered, instance, requested_set)
+        _apply_match_unmatch_export_fields(filtered, instance, requested_set)
 
         for user_prefix, user in (("user1", instance.user1), ("user2", instance.user2)):
             full_user = self._serialize_export_user(user)
@@ -443,7 +578,7 @@ class ExportMatchSerializer(serializers.ModelSerializer):
                 nested_value = self._get_nested_value(full_user, path[1:])
                 self._set_nested_value(filtered, path, nested_value)
 
-        return filtered
+        return ensure_export_fields(filtered, requested_fields)
 
 
 MATCH_EXPORT_COLUMN_NAMES = (
@@ -461,6 +596,13 @@ MATCH_EXPORT_COLUMN_NAMES = (
     "status",
     "bucket",
     "bucket_label",
+    "first_message_from_learner",
+    "first_message_from_volunteer",
+    "most_recent_message_from_learner",
+    "most_recent_message_from_volunteer",
+    "unmatching_type",
+    "unmatch_reason",
+    "is_manual_unmatch",
     "user1.id",
     "user1.uuid",
     "user1.email",
@@ -546,7 +688,7 @@ class MatchFilter(filters.FilterSet):
 
 @extend_schema_view(
     list=extend_schema(summary="List matches"),
-    retrieve=extend_schema(summary="Retrieve match"),
+    retrieve=extend_schema(summary="Retrieve match", responses={200: AdvancedMatchSerializer}),
 )
 class AdvancedMatchViewset(viewsets.ModelViewSet):
     queryset = Match.objects.all().order_by("-created_at")
@@ -557,6 +699,14 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
     serializer_class = AdvancedMatchSerializer
     pagination_class = DetailedPaginationMixin
     permission_classes = [IsAdminOrMatchingUser]
+
+    def get_serializer_context(self):
+        all_buckets = parse_bool_query_param(self.request.query_params.get("all_buckets"))
+        determine_bucket_param = self.request.query_params.get("determine_bucket")
+        determine_bucket = (
+            parse_bool_query_param(determine_bucket_param) if determine_bucket_param is not None else True
+        )
+        return {"determine_bucket": determine_bucket, "all_buckets": all_buckets}
 
     def get_queryset(self):
         user = self.request.user
@@ -582,6 +732,7 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
         return True, Response(status=200)
 
+    @extend_schema(responses={200: FilterSchemaResponseSerializer})
     @action(detail=False, methods=["get"])
     def get_filter_schema(self, request, include_lookup_expr=False):
         # 1 - retrieve all the filters
@@ -652,6 +803,7 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
         obj.save()
         return Response({"msg": "Match completed off plattform set"})
 
+    @extend_schema(responses={(200, "application/json"): OpenApiTypes.STR})
     @action(detail=True, methods=["get", "post"])
     def notes(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -692,11 +844,15 @@ def matches_export(request):
         queryset = queryset.select_related(*select_related_fields)
 
     queryset = MatchFilter(request.query_params, queryset=queryset).qs
+    all_buckets = parse_bool_query_param(request.query_params.get("all_buckets"))
+    determine_bucket_param = request.query_params.get("determine_bucket")
+    determine_bucket = parse_bool_query_param(determine_bucket_param) if determine_bucket_param is not None else True
     return build_paginated_export_response(
         request,
         queryset,
         ExportMatchSerializer,
         allowed_fields=MATCH_EXPORT_COLUMN_NAMES,
+        extra_serializer_context={"determine_bucket": determine_bucket, "all_buckets": all_buckets},
     )
 
 

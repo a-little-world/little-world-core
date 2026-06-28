@@ -11,7 +11,7 @@ from rest_framework.response import Response
 from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS
 from management.api.scores import instantly_possible_matches
 from management.api.user_advanced import AdvancedUserSerializer
-from management.api.utils_advanced import filterset_schema_dict
+from management.api.utils_advanced import FilterSchemaResponseSerializer, filterset_schema_dict
 from management.helpers import DetailedPaginationMixin, IsAdminOrMatchingUser
 from management.models.scores import TwoUserMatchingScore
 from management.models.user import User
@@ -101,6 +101,7 @@ class TwoUserMatchingScoreViewset(viewsets.ModelViewSet):
             managed_users = management_user.managed_users_queryset(active_only=False)
             return TwoUserMatchingScore.objects.filter(Q(user1__in=managed_users) | Q(user2__in=managed_users))
 
+    @extend_schema(responses={200: FilterSchemaResponseSerializer})
     @action(detail=False, methods=["get"])
     def get_filter_schema(self, request, include_lookup_expr=False):
         # 1 - retrieve all the filters

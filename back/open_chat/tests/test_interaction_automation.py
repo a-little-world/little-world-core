@@ -16,12 +16,28 @@ from management.models.support_task import SupportTask, SupportTaskAction
 from management.models.user import User
 from management.permissions import ManagementPermission
 
-from open_chat.basic_chat_interaction import open_chat_basic_chat_interaction
+from open_chat.basic_chat_interaction import (
+    BASIC_CHAT_INTERACTION_CONTEXT,
+    BASIC_CHAT_INTERACTION_SYSTEM_PROMPT,
+    _basic_chat_interaction_overrides,
+    open_chat_basic_chat_interaction,
+)
+from open_chat.interaction_config import DEFAULT_OPEN_CHAT_MAX_TOKENS, DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS
 from open_chat.message_reply_suggestion import (
+    MESSAGE_REPLY_SUGGESTION_CONTEXT,
+    MESSAGE_REPLY_SUGGESTION_SYSTEM_PROMPT,
+    _message_reply_suggestion_overrides,
     idempotent_actions__generate_message_replies,
     open_chat_run_message_reply_suggestion_interaction,
 )
 from open_chat.models import DEFAULT_OPEN_CHAT_HOST, OpenChatConfiguration
+from open_chat.tool_definitions import CHAT_REPLY_REST_TOOL_NAME
+from open_chat.tool_definitions_management import (
+    LIST_USER_FILTERS_REST_TOOL_NAME,
+    MANAGEMENT_REST_TOOL_NAMES,
+    QUERY_USERS_REST_TOOL_NAME,
+    build_management_tool_init,
+)
 
 
 class UserAdvancedFilterMessageReplyTests(TestCase):
@@ -293,18 +309,18 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             result["processed_messages"],
         )
 
+    @patch("open_chat.basic_chat_interaction.ensure_rest_tool_definitions")
     @patch("chat.consumers.messages.NewMessage.send")
     @patch("open_chat.basic_chat_interaction.OpenChatClient")
-    def test_basic_chat_interaction_runs_chat_reply_flow(self, mock_client_cls, _mock_new_message_send):
+    def test_basic_chat_interaction_runs_chat_reply_flow(
+        self, mock_client_cls, _mock_new_message_send, mock_ensure_tools
+    ):
         mock_client = MagicMock()
         mock_client.login.return_value = SimpleNamespace(name="Admin Open Chat")
         mock_interaction = MagicMock()
         mock_interaction.uuid = "7e4b91f9-2bf9-4f10-b650-11a4345acf71"
         mock_interaction.shared_url.return_value = (
             "http://localhost:1984/interaction/7e4b91f9-2bf9-4f10-b650-11a4345acf71"
-        )
-        mock_interaction.messages.return_value = SimpleNamespace(
-            rows=[SimpleNamespace(tool_calls=[{"name": "little_world__chat_reply"}])]
         )
         mock_client.interact.return_value = mock_interaction
         mock_client_cls.return_value = mock_client
@@ -319,16 +335,61 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
 
         self.assertEqual(result["status"], "ok")
         self.assertEqual(result["configuration_owner"], "recipient")
+        self.assertEqual(result["session_actor_user_id"], self.source_user.pk)
+        self.assertEqual(result["session_actor_email"], self.source_user.email)
+        self.assertEqual(result["session_bot_user_id"], self.admin_user.pk)
+        self.assertEqual(result["session_bot_email"], self.admin_user.email)
         self.assertEqual(result["interaction_uuid"], "7e4b91f9-2bf9-4f10-b650-11a4345acf71")
-        self.assertTrue(result["tool_called"])
+        self.assertEqual(
+            result["shared_url"],
+            "http://localhost:1984/interaction/7e4b91f9-2bf9-4f10-b650-11a4345acf71",
+        )
+        mock_interaction.wait_until_finished.assert_not_called()
+        mock_ensure_tools.assert_called_once_with(mock_client)
         _, interact_kwargs = mock_client.interact.call_args
         self.assertEqual(interact_kwargs["bot"], "little_world_support_chat")
-        [chat_reply_init] = list(interact_kwargs["tool_init"].values())
-        self.assertEqual(chat_reply_init.chat_uuid, str(self.chat.uuid))
+        self.assertTrue(interact_kwargs["share"])
+        self.assertEqual(interact_kwargs["overrides"], _basic_chat_interaction_overrides())
+        self.assertEqual(
+            interact_kwargs["overrides"]["system_prompt"],
+            BASIC_CHAT_INTERACTION_SYSTEM_PROMPT,
+        )
+        self.assertIn("http://localhost:8000", interact_kwargs["overrides"]["system_prompt"])
+        self.assertIn("/matching/users/", interact_kwargs["overrides"]["system_prompt"])
+        self.assertEqual(interact_kwargs["overrides"]["context"], BASIC_CHAT_INTERACTION_CONTEXT)
+        self.assertEqual(interact_kwargs["overrides"]["max_tokens"], DEFAULT_OPEN_CHAT_MAX_TOKENS)
+        self.assertEqual(
+            interact_kwargs["overrides"]["tools"][-1],
+            CHAT_REPLY_REST_TOOL_NAME,
+        )
+        self.assertIn(LIST_USER_FILTERS_REST_TOOL_NAME, interact_kwargs["overrides"]["tools"])
+        self.assertIn(QUERY_USERS_REST_TOOL_NAME, interact_kwargs["overrides"]["tools"])
+        chat_reply_init = interact_kwargs["tool_init"][CHAT_REPLY_REST_TOOL_NAME]
+        past_messages_init = interact_kwargs["tool_init"]["little_world_retrieve_past_messages"]
+        permissions_init = interact_kwargs["tool_init"]["little_world_retrieve_management_permissions"]
+        self.assertEqual(chat_reply_init["chat_uuid"], str(self.chat.uuid))
+        self.assertEqual(past_messages_init["chat_uuid"], str(self.chat.uuid))
+        self.assertIn("sessionid=", chat_reply_init["cookie_header"])
+        self.assertIn("csrftoken=", chat_reply_init["cookie_header"])
+        self.assertTrue(chat_reply_init["api_host"])
+        self.assertNotIn("chat_uuid", permissions_init)
+        self.assertNotEqual(chat_reply_init["cookie_header"], permissions_init["cookie_header"])
+        management_init = build_management_tool_init(
+            {
+                "api_host": permissions_init["api_host"],
+                "cookie_header": permissions_init["cookie_header"],
+                "csrf_token": permissions_init["csrf_token"],
+            }
+        )
+        for tool_name in MANAGEMENT_REST_TOOL_NAMES:
+            self.assertEqual(interact_kwargs["tool_init"][tool_name], management_init[tool_name])
 
+    @patch("open_chat.message_reply_suggestion.ensure_rest_tool_definitions")
     @patch("chat.consumers.messages.NewMessage.send")
     @patch("open_chat.message_reply_suggestion.OpenChatClient")
-    def test_run_message_reply_suggestion_uses_suggestion_tool(self, mock_client_cls, _mock_new_message_send):
+    def test_run_message_reply_suggestion_uses_suggestion_tool(
+        self, mock_client_cls, _mock_new_message_send, mock_ensure_tools
+    ):
         support_task = SupportTask.create_of_type(
             "support_reply",
             static_parameters={
@@ -350,6 +411,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         mock_client.login.return_value = SimpleNamespace(name="Admin Open Chat")
         mock_interaction = MagicMock()
         mock_interaction.uuid = "suggestion-interaction-uuid"
+        mock_interaction.shared_url.return_value = "http://localhost:1984/interaction/suggestion-interaction-uuid"
         mock_client.interact.return_value = mock_interaction
         mock_client_cls.return_value = mock_client
 
@@ -364,16 +426,37 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         )
 
         self.assertEqual(result["status"], "ok")
+        self.assertEqual(
+            result["shared_url"],
+            "http://localhost:1984/interaction/suggestion-interaction-uuid",
+        )
         mock_interaction.wait_until_finished.assert_not_called()
+        mock_ensure_tools.assert_called_once_with(mock_client)
         _, interact_kwargs = mock_client.interact.call_args
         self.assertEqual(interact_kwargs["bot"], "little_world_reply_suggestion")
+        self.assertTrue(interact_kwargs["share"])
         self.assertEqual(interact_kwargs["message"], self.source_message.text)
-        [suggestion_init] = list(interact_kwargs["tool_init"].values())
-        self.assertEqual(suggestion_init.task_pk, str(support_task.pk))
-        self.assertEqual(suggestion_init.action_id, str(support_task.action.pk))
+        self.assertEqual(interact_kwargs["overrides"], _message_reply_suggestion_overrides())
+        self.assertEqual(
+            interact_kwargs["overrides"]["system_prompt"],
+            MESSAGE_REPLY_SUGGESTION_SYSTEM_PROMPT,
+        )
+        self.assertEqual(interact_kwargs["overrides"]["context"], MESSAGE_REPLY_SUGGESTION_CONTEXT)
+        self.assertEqual(interact_kwargs["overrides"]["max_tokens"], DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS)
+        suggestion_init = interact_kwargs["tool_init"]["little_world_message_reply_suggestion"]
+        past_messages_init = interact_kwargs["tool_init"]["little_world_retrieve_past_messages"]
+        self.assertEqual(suggestion_init["task_pk"], support_task.pk)
+        self.assertEqual(past_messages_init["chat_uuid"], str(self.chat.uuid))
+        self.assertIn("sessionid=", suggestion_init["cookie_header"])
+        self.assertIn("csrftoken=", suggestion_init["cookie_header"])
+        self.assertTrue(suggestion_init["api_host"])
 
         support_action = SupportTaskAction.objects.get(task=support_task)
         self.assertEqual(support_action.static_parameters.get("interaction_id"), "suggestion-interaction-uuid")
+        self.assertEqual(
+            support_action.static_parameters.get("shared_interaction_url"),
+            "http://localhost:1984/interaction/suggestion-interaction-uuid",
+        )
 
     def test_run_message_reply_suggestion_skips_when_action_not_open(self):
         support_task = SupportTask.create_of_type(
@@ -447,6 +530,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         mock_client.login.return_value = SimpleNamespace(name="Admin Open Chat")
         mock_interaction = MagicMock()
         mock_interaction.uuid = "recipient-session-interaction"
+        mock_interaction.shared_url.return_value = "http://localhost:1984/interaction/recipient-session-interaction"
         mock_client.interact.return_value = mock_interaction
         mock_client_cls.return_value = mock_client
 

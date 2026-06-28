@@ -1,5 +1,5 @@
 from django.urls import path
-from drf_spectacular.utils import extend_schema, inline_serializer
+from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -50,22 +50,7 @@ def get_matching_panel_user_data(user: User) -> dict:
     return MatchingPanelUserSerializer(payload).data
 
 
-@extend_schema(
-    responses=inline_serializer(
-        name="MatchingPanelUserResponse",
-        fields={
-            "id": serializers.IntegerField(),
-            "uuid": serializers.UUIDField(),
-            "email": serializers.EmailField(),
-            "first_name": serializers.CharField(),
-            "last_name": serializers.CharField(),
-            "is_staff": serializers.BooleanField(),
-            "is_superuser": serializers.BooleanField(),
-            "is_matching_user": serializers.BooleanField(),
-            "can_edit_management_permissions": serializers.BooleanField(),
-        },
-    ),
-)
+@extend_schema(responses=MatchingPanelUserSerializer)
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
 @authentication_classes([SessionAuthentication])
