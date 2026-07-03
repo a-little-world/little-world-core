@@ -211,7 +211,9 @@ class RestToolDefinitionTests(SimpleTestCase):
     def test_sync_rest_tool_definitions_creates_missing_tools(self):
         client = MagicMock()
         client.list_dynamic_rest_tools.return_value = []
+
         result = sync_rest_tool_definitions(client, reload=False)
+
         self.assertEqual(result["created"], list(_ALL_REST_TOOL_NAMES))
         self.assertEqual(result["updated"], [])
         self.assertEqual(client.save_dynamic_rest_tool.call_count, len(_ALL_REST_TOOL_NAMES))
@@ -219,7 +221,9 @@ class RestToolDefinitionTests(SimpleTestCase):
     def test_sync_rest_tool_definitions_reload(self):
         client = MagicMock()
         client.list_dynamic_rest_tools.return_value = [{"name": name} for name in _CORE_REST_TOOL_NAMES]
+
         result = sync_rest_tool_definitions(client, reload=True)
+
         self.assertEqual(result["deleted"], sorted(_CORE_REST_TOOL_NAMES))
         self.assertEqual(result["created"], list(_ALL_REST_TOOL_NAMES))
         self.assertEqual(client.delete_dynamic_rest_tool.call_count, len(_CORE_REST_TOOL_NAMES))
@@ -231,7 +235,9 @@ class RestToolDefinitionTests(SimpleTestCase):
             {"name": CHAT_REPLY_REST_TOOL_NAME},
             {"name": MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME},
         ]
+
         result = ensure_rest_tool_definitions(client)
+
         self.assertEqual(
             result["created"],
             [
