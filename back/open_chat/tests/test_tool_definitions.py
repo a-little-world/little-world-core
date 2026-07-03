@@ -60,7 +60,8 @@ class RestToolDefinitionTests(SimpleTestCase):
 
         binding_inputs = {binding["input_name"] for binding in definition["param_bindings"]}
         self.assertEqual(binding_inputs, {"chat_uuid", "cookie_header", "csrf_token", "message"})
-        self.assertEqual(definition["safety_policy"]["allow_hosts"], ["app.example.com"])
+        self.assertNotIn("allow_hosts", definition["safety_policy"])
+        self.assertTrue(definition["safety_policy"]["allow_private_ips"])
 
     def test_build_message_reply_suggestion_rest_tool_definition(self):
         definition = build_message_reply_suggestion_rest_tool_definition("https://app.example.com").build()
@@ -92,7 +93,8 @@ class RestToolDefinitionTests(SimpleTestCase):
 
         binding_inputs = {binding["input_name"] for binding in definition["param_bindings"]}
         self.assertEqual(binding_inputs, {"chat_uuid", "cookie_header", "csrf_token", "page", "page_size"})
-        self.assertEqual(definition["safety_policy"]["allow_hosts"], ["app.example.com"])
+        self.assertNotIn("allow_hosts", definition["safety_policy"])
+        self.assertTrue(definition["safety_policy"]["allow_private_ips"])
 
     def test_build_retrieve_management_permissions_rest_tool_definition(self):
         definition = build_retrieve_management_permissions_rest_tool_definition("https://app.example.com").build()
