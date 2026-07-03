@@ -21,6 +21,7 @@ from management.api.match_journey_filter_list import (
     determine_match_buckets,
     get_match_bucket_label,
 )
+from management.api.user_advanced_filter import _match_success_units
 from management.api.utils_advanced import (
     FilterSchemaResponseSerializer,
     apply_journey_bucket_fields,
@@ -227,6 +228,7 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
             representation["status"] = "proposed"
 
         _apply_match_bucket_representation(representation, instance.pk, getattr(self, "context", {}))
+        representation["video_call_success_units"] = _match_success_units(instance)
 
         return representation
 
@@ -521,6 +523,7 @@ class ExportMatchSerializer(serializers.ModelSerializer):
             _apply_match_bucket_representation(representation, instance.pk, self.context)
             _apply_match_message_export_fields(representation, instance)
             _apply_match_unmatch_export_fields(representation, instance)
+            representation["video_call_success_units"] = _match_success_units(instance)
             return representation
 
         requested_set = set(requested_fields)
@@ -560,6 +563,9 @@ class ExportMatchSerializer(serializers.ModelSerializer):
 
         _apply_match_message_export_fields(filtered, instance, requested_set)
         _apply_match_unmatch_export_fields(filtered, instance, requested_set)
+
+        if "video_call_success_units" in requested_set:
+            filtered["video_call_success_units"] = _match_success_units(instance)
 
         for user_prefix, user in (("user1", instance.user1), ("user2", instance.user2)):
             full_user = self._serialize_export_user(user)
@@ -603,6 +609,7 @@ MATCH_EXPORT_COLUMN_NAMES = (
     "unmatching_type",
     "unmatch_reason",
     "is_manual_unmatch",
+    "video_call_success_units",
     "user1.id",
     "user1.uuid",
     "user1.email",
