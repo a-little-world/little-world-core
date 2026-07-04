@@ -172,6 +172,10 @@ class RestToolDefinitionTests(SimpleTestCase):
         self.assertIn("email", censor_paths)
         self.assertIn("profile.first_name", censor_paths)
         self.assertIn("profile.second_name", censor_paths)
+        self.assertIn("state.past_emails", censor_paths)
+        self.assertIn("profile.description", censor_paths)
+        self.assertIn("matches.*.results.*.chat.newest_message.text", censor_paths)
+        self.assertNotIn("state.notes", censor_paths)
         self.assertIn("/matching/user/", definition["description"])
 
     def test_build_mgmt_query_users_censors_pii_in_paginated_results(self):
@@ -182,6 +186,8 @@ class RestToolDefinitionTests(SimpleTestCase):
         self.assertIn("results.*.email", censor_paths)
         self.assertIn("results.*.profile.first_name", censor_paths)
         self.assertIn("results.*.profile.second_name", censor_paths)
+        self.assertIn("results.*.state.past_emails", censor_paths)
+        self.assertIn("results.*.profile.description", censor_paths)
 
     def test_build_mgmt_query_matches_censors_participant_pii(self):
         spec = next(item for item in MANAGEMENT_GET_TOOL_SPECS if item.name == QUERY_MATCHES_REST_TOOL_NAME)

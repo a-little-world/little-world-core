@@ -7,7 +7,6 @@ from django.db.models.functions import Concat
 from django.urls import path
 from django.utils import timezone
 from django_filters import rest_framework as filters
-from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
 from emails.models import AdvancedEmailLogSerializer, EmailLog
 from rest_framework import serializers, status, viewsets
@@ -947,7 +946,11 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         return Response(ManagementTaskSerializer(tasks, many=True).data)
 
-    @extend_schema(responses={(200, "application/json"): OpenApiTypes.STR})
+    @extend_schema(
+        responses={
+            200: inline_serializer(name="UserNotesResponse", fields={"notes": serializers.CharField()}),
+        }
+    )
     @action(detail=True, methods=["get", "post"])
     def notes(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -957,12 +960,12 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if request.method == "POST":
             _os.notes = request.data["notes"]
             _os.save()
-            return Response(_os.notes)
+            return Response({"notes": _os.notes or ""})
         else:
             if not _os.notes:
                 _os.notes = ""
                 _os.save()
-            return Response(_os.notes)
+            return Response({"notes": _os.notes or ""})
 
     @extend_schema(
         request=inline_serializer(

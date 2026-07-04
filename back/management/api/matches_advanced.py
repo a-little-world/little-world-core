@@ -7,7 +7,6 @@ from django.urls import path
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django_filters import rest_framework as filters
-from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
@@ -810,7 +809,11 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
         obj.save()
         return Response({"msg": "Match completed off plattform set"})
 
-    @extend_schema(responses={(200, "application/json"): OpenApiTypes.STR})
+    @extend_schema(
+        responses={
+            200: inline_serializer(name="MatchNotesResponse", fields={"notes": serializers.CharField()}),
+        }
+    )
     @action(detail=True, methods=["get", "post"])
     def notes(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -819,12 +822,12 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
         if request.method == "POST":
             obj.notes = request.data["notes"]
             obj.save()
-            return Response(obj.notes)
+            return Response({"notes": obj.notes or ""})
         else:
             if not obj.notes:
                 obj.notes = ""
                 obj.save()
-            return Response(obj.notes)
+            return Response({"notes": obj.notes or ""})
 
 
 @api_view(["GET"])

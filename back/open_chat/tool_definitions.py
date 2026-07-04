@@ -117,6 +117,7 @@ def build_retrieve_past_messages_rest_tool_definition(api_host: str | None = Non
         .bind_call("page_size")
         .to_query("page_size")
     )
+    builder = builder.censor_response_paths("results.*.text")
     return allow_local_tool_hosts(builder, hostname).enable()
 
 
@@ -138,6 +139,7 @@ def build_retrieve_management_permissions_rest_tool_definition(api_host: str | N
         .base_url_from_init(API_HOST_INIT_FIELD)
         .bind_session_auth()
     )
+    builder = builder.censor_response_paths("email", "first_name", "last_name")
     return allow_local_tool_hosts(builder, hostname).enable()
 
 
