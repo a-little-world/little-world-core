@@ -1545,13 +1545,21 @@ def automatic_emails_m043_m044_m045():
     # Send 10 x Video Call Emails
     for match in matches_video_call_m045:
         send_email_background.delay(
-            "automatic-emails-m045", user_id=match.user1.id, match_id=match.pk, emulated_send=emulated_send
+            "automatic-emails-m045",
+            user_id=match.get_learner().id,
+            match_id=match.pk,
+            emulated_send=emulated_send,
+            context={"share_story_url": settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER},
         )
         send_email_background.delay(
-            "automatic-emails-m045", user_id=match.user2.id, match_id=match.pk, emulated_send=emulated_send
+            "automatic-emails-m045",
+            user_id=match.get_volunteer().id,
+            match_id=match.pk,
+            emulated_send=emulated_send,
+            context={"share_story_url": settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_VOLUNTEER},
         )
-        report["m045_send_to"].append([str(match.uuid), match.user1.id])
-        report["m045_send_to"].append([str(match.uuid), match.user2.id])
+        report["m045_send_to"].append([str(match.uuid), match.get_learner().id])
+        report["m045_send_to"].append([str(match.uuid), match.get_volunteer().id])
         match.auto_email_m043_send = True
         match.auto_email_m044_send = True
         match.auto_email_m045_send = True
@@ -1587,6 +1595,7 @@ def automatic_emails_m043_m044_m045():
 
     # Send 8x Video Call Emails
     for match in matches_video_call_m044:
+        # uses share_story_url internally automaticly
         send_email_background.delay(
             "automatic-emails-m044", user_id=match.user1.id, match_id=match.pk, emulated_send=emulated_send
         )
