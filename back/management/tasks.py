@@ -1631,8 +1631,22 @@ def automatic_emails_m043_m044_m045():
 
     # Send 5x Video Call Emails
     for match in matches_video_call_m043:
-        send_email_background.delay("automatic-emails-m043", user_id=match.user1.id, emulated_send=emulated_send)
-        send_email_background.delay("automatic-emails-m043", user_id=match.user2.id, emulated_send=emulated_send)
+        send_email_background.delay(
+            "automatic-emails-m043",
+            user_id=match.get_learner().id,
+            emulated_send=emulated_send,
+            context={"post_videocall_survey_url": settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER},
+        )
+
+        send_email_background.delay(
+            "automatic-emails-m043",
+            user_id=match.get_volunteer().id,
+            emulated_send=emulated_send,
+            context={
+                "post_videocall_survey_url": settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_VOLUNTEER,
+            },
+        )
+        # TODO: add survey for both!
         report["m043_send_to"].append([str(match.uuid), match.user1.id])
         report["m043_send_to"].append([str(match.uuid), match.user2.id])
         match.auto_email_m043_send = True

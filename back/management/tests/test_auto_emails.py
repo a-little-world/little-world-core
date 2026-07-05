@@ -1259,9 +1259,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
 
         # Check the redirect URL is the Google Form
         redirect_url = response.url
-        expected_google_form_base = (
-            "https://docs.google.com/forms/d/e/1FAIpQLScZpHVBkd9oXMTXGwH6aIUS8-Ep3LGbmHzx0wKYTA0fDpzJtQ/viewform"
-        )
+        expected_google_form_base = settings.GOOGLE_FORM_STILL_IN_CONTACT_MATCH_FORM1.slit("?")[0]
         assert redirect_url.startswith(expected_google_form_base), (
             f"Expected redirect to Google Form. Got: {redirect_url}"
         )

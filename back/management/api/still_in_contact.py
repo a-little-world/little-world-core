@@ -18,7 +18,10 @@ def get_redirect_url(redirect_slug: str, user_uuid: str, match_uuid: str) -> (bo
         # used by 'automatic-emails-m032' and 'automatic-emails-m033' and 'automatic-emails-m042'
         return (
             True,
-            f"https://docs.google.com/forms/d/e/1FAIpQLScZpHVBkd9oXMTXGwH6aIUS8-Ep3LGbmHzx0wKYTA0fDpzJtQ/viewform?entry.1868418501={user_uuid}&entry.1064841735={match_uuid}",
+            settings.GOOGLE_FORM_STILL_IN_CONTACT_MATCH_FORM1.format(
+                user_uuid=user_uuid,
+                match_uuid=match_uuid,
+            ),
         )
     else:
         return False, "info-screen"

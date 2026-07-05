@@ -1006,6 +1006,25 @@ ENABLE_E2E_TEST_APIS = bool_env("DJ_ENABLE_E2E_TEST_APIS", "false")
 E2E_TEST_APIS_ENABLED = ENABLE_E2E_TEST_APIS and IS_CI and DJANGO_TESTING
 
 
+## Google Forms URLs
+GOOGLE_FORM_MATCH_REMOVED_NO_CONTACT = (
+    "https://docs.google.com/forms/d/e/1FAIpQLSdR9ZwNPra9Lt7SCsqiTR2E_xA4FIj4i2JAuKGp8bA-6Wj7xQ/viewform"
+)
+GOOGLE_FORM_MATCH_REMOVED_GHOSTED = (
+    "https://docs.google.com/forms/d/e/1FAIpQLSck918AL9dST6Dqp9DtOvtBC0-3BWJfB2pPZc31DUjCSWEOyg/viewform"
+)
+GOOGLE_FORM_STILL_IN_CONTACT_MATCH_FORM1 = "https://docs.google.com/forms/d/e/1FAIpQLScZpHVBkd9oXMTXGwH6aIUS8-Ep3LGbmHzx0wKYTA0fDpzJtQ/viewform?entry.1868418501={user_uuid}&entry.1064841735={match_uuid}"
+GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_VOLUNTEER = (
+    "https://docs.google.com/forms/d/e/1FAIpQLSeRiEUt9ZHNsPWeHlRMJSrR6jAagGO-u8jKZlJdJ3SvQqKgpA/viewform"
+)
+GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER = (
+    "https://docs.google.com/forms/d/e/1FAIpQLScLdpyDzaf_JS9hWE6ok6_xENc34RbPv7Wg--Qb1NhqFl8cjQ/viewform?usp=header"
+)
+GOOGLE_FORM_SHARE_STORY_URL = (
+    "https://docs.google.com/forms/d/e/1FAIpQLSct9CPNv-8wjV1WMg9tPfm7RyqBeZgkFOAz0qABIqu4uRdSTg/viewform"
+)
+
+
 ## Auto E-Mails:
 # Note: There are some additional base emails that cannot be disabled via env flag
 # TODO: Enable all per default in the future
