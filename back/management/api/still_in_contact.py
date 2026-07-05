@@ -14,6 +14,11 @@ from management.views.main_frontend import info_card
 def get_redirect_url(redirect_slug: str, user_uuid: str, match_uuid: str) -> (bool, str):
     if redirect_slug == "info-screen":
         return False, "info-screen"
+    elif redirect_slug == "share-story":
+        return (
+            True,
+            settings.GOOGLE_FORM_SHARE_STORY_URL,
+        )
     elif redirect_slug == "match-form1":
         # used by 'automatic-emails-m032' and 'automatic-emails-m033' and 'automatic-emails-m042'
         return (

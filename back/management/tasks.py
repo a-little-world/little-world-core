@@ -1088,6 +1088,119 @@ def automatic_emails_m031_m032_m033_m042():
 
 
 @shared_task
+def automatic_emails_m053_m054_m055():
+    """
+    Match milestone emails based on weeks since match creation:
+    - automatic-emails-m053: 5 weeks after match created (confirmed, active)
+    - automatic-emails-m054: 8 weeks after match created (confirmed, active)
+    - automatic-emails-m055: 10 weeks after match created (confirmed, active)
+    """
+    from django.conf import settings
+    from emails.api.template_lookup import still_in_contact_yes_url
+
+    from management.models.matches import Match, MatchType
+
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M053_M054_M055)
+
+    redirect_slugs_m053_m055 = {
+        "redirect_slug_no": "info-screen",
+        "redirect_slug_yes": "match-form1",
+    }
+
+    redirect_slugs_m054 = {
+        "redirect_slug_no": "info-screen",
+        "redirect_slug_yes": "share-story",
+    }
+
+    # 1 - automatic-emails-m053
+    matches_m053 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        created_at__lte=dj_timezone.now() - timedelta(weeks=5),
+        created_at__gt=dj_timezone.now() - timedelta(weeks=8),
+        auto_email_m053_send=False,
+        support_matching=False,
+    )
+    matches_m053_uuids = [str(uuid) for uuid in matches_m053.values_list("uuid", flat=True)]
+    for match in matches_m053:
+        for user in (match.user1, match.user2):
+            send_email_background.delay(
+                "automatic-emails-m053",
+                user_id=user.id,
+                match_id=match.pk,
+                emulated_send=emulated_send,
+                context={
+                    **redirect_slugs_m053_m055,
+                    "five_week_survey_url": still_in_contact_yes_url(user, match, redirect_slugs_m053_m055),
+                },
+            )
+
+        match.auto_email_m053_send = True
+        match.save()
+
+    # 2 - automatic-emails-m054
+    matches_m054 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        created_at__lte=dj_timezone.now() - timedelta(weeks=8),
+        created_at__gt=dj_timezone.now() - timedelta(weeks=10),
+        auto_email_m054_send=False,
+        support_matching=False,
+    )
+    matches_m054_uuids = [str(uuid) for uuid in matches_m054.values_list("uuid", flat=True)]
+    for match in matches_m054:
+        for user in (match.user1, match.user2):
+            send_email_background.delay(
+                "automatic-emails-m054",
+                user_id=user.id,
+                match_id=match.pk,
+                emulated_send=emulated_send,
+                context={
+                    **redirect_slugs_m054,
+                    "share_story_url": still_in_contact_yes_url(user, match, redirect_slugs_m054),
+                },
+            )
+
+        match.auto_email_m054_send = True
+        match.save()
+
+    # 3 - automatic-emails-m055
+    matches_m055 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        created_at__lte=dj_timezone.now() - timedelta(weeks=10),
+        auto_email_m055_send=False,
+        support_matching=False,
+    )
+    matches_m055_uuids = [str(uuid) for uuid in matches_m055.values_list("uuid", flat=True)]
+    for match in matches_m055:
+        for user in (match.user1, match.user2):
+            send_email_background.delay(
+                "automatic-emails-m055",
+                user_id=user.id,
+                match_id=match.pk,
+                emulated_send=emulated_send,
+                context={
+                    **redirect_slugs_m053_m055,
+                    "completed_match_poll_url": still_in_contact_yes_url(user, match, redirect_slugs_m053_m055),
+                },
+            )
+
+        match.auto_email_m055_send = True
+        match.save()
+
+    return {
+        "status": "sent",
+        "matches_m053": matches_m053_uuids,
+        "matches_m054": matches_m054_uuids,
+        "matches_m055": matches_m055_uuids,
+    }
+
+
+@shared_task
 def automatic_emails_u072_u073_u074():
     """
     TODO: check about u071
@@ -1272,10 +1385,6 @@ def daily_auto_email_report():
             "enabled": settings.ENABLE_AUTO_EMAILS__M043_M044_M045,
             "emulated": settings.EMULATE_AUTO_EMAILS__M043_M044_M045,
         },
-        "AUTOMATIC_EMAILS__U053_U054": {
-            "enabled": settings.ENABLE_AUTO_EMAILS__U053_U054,
-            "emulated": settings.EMULATE_AUTO_EMAILS__U053_U054,
-        },
         "AUTOMATIC_EMAILS__U051_U071": {
             "enabled": settings.ENABLE_AUTO_EMAILS__U051_U071,
             "emulated": settings.EMULATE_AUTO_EMAILS__U051_U071,
@@ -1287,6 +1396,14 @@ def daily_auto_email_report():
         "AUTOMATIC_EMAILS__M051": {
             "enabled": settings.ENABLE_AUTO_EMAILS__M051,
             "emulated": settings.EMULATE_AUTO_EMAILS__M051,
+        },
+        "AUTOMATIC_EMAILS__U053_U054": {
+            "enabled": settings.ENABLE_AUTO_EMAILS__U053_U054,
+            "emulated": settings.EMULATE_AUTO_EMAILS__U053_U054,
+        },
+        "AUTOMATIC_EMAILS__M053_M054_M055": {
+            "enabled": settings.ENABLE_AUTO_EMAILS__M053_M054_M055,
+            "emulated": settings.EMULATE_AUTO_EMAILS__M053_M054_M055,
         },
     }
 
@@ -1323,6 +1440,9 @@ def daily_auto_email_report():
         "automatic-emails-m044",
         "automatic-emails-m045",
         "automatic-emails-m051",
+        "automatic-emails-m053",
+        "automatic-emails-m054",
+        "automatic-emails-m055",
         "automatic-emails-fm021",
         "automatic-emails-fm022",
     ]
