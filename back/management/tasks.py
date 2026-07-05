@@ -760,6 +760,7 @@ def automatic_emails_m012_m013_m014():
 
     for template, (days, two_days_reminder, seven_days_reminder, fourteen_days_reminder) in reminder.items():
         matches = Match.objects.filter(
+            active=True,
             confirmed=True,
             match_type=MatchType.STANDARD,
             total_messages_counter=0,
@@ -815,7 +816,7 @@ def automatic_emails_m023():
     from django.conf import settings
     from django.db.models import Max
 
-    from management.models.matches import Match
+    from management.models.matches import Match, MatchType
 
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M023)
 
@@ -849,7 +850,12 @@ def automatic_emails_m023():
         if not last_message:
             continue
 
-        active_match = Match.get_match(last_message.sender, last_message.recipient).order_by("-created_at").first()
+        active_match = (
+            Match.get_match(last_message.sender, last_message.recipient)
+            .filter(confirmed=True, match_type=MatchType.STANDARD)
+            .order_by("-created_at")
+            .first()
+        )
         if not active_match:
             continue
 
@@ -907,9 +913,14 @@ def automatic_emails_m024_m025():
         if not last_message:
             continue
 
-        from management.models.matches import Match
+        from management.models.matches import Match, MatchType
 
-        active_match = Match.get_match(last_message.sender, last_message.recipient).order_by("-created_at").first()
+        active_match = (
+            Match.get_match(last_message.sender, last_message.recipient)
+            .filter(confirmed=True, match_type=MatchType.STANDARD)
+            .order_by("-created_at")
+            .first()
+        )
         if not active_match:
             continue
 
@@ -939,12 +950,15 @@ def automatic_emails_m031_m032_m033_m042():
     """
     from django.conf import settings
 
-    from management.models.matches import Match
+    from management.models.matches import Match, MatchType
 
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M031_M032_M033_M042)
 
     # 1 - automatic-emails-m031
     matches_m031 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
         first_interaction_at__isnull=False,
         first_interaction_at__lte=dj_timezone.now() - timedelta(days=7),
         first_interaction_at__gt=dj_timezone.now() - timedelta(days=14),
@@ -971,6 +985,9 @@ def automatic_emails_m031_m032_m033_m042():
 
     # 2 - automatic-emails-m032
     matches_m032 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
         first_interaction_at__isnull=False,
         first_interaction_at__lte=dj_timezone.now() - timedelta(days=14),
         first_interaction_at__gt=dj_timezone.now() - timedelta(days=21),
@@ -1000,6 +1017,9 @@ def automatic_emails_m031_m032_m033_m042():
 
     # 3 - automatic-emails-m033
     matches_m033 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
         first_interaction_at__isnull=False,
         first_interaction_at__lte=dj_timezone.now() - timedelta(days=21),
         first_interaction_at__gt=dj_timezone.now() - timedelta(days=30),
@@ -1029,6 +1049,9 @@ def automatic_emails_m031_m032_m033_m042():
 
     # 4 - automatic-emails-m042
     matches_m042 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
         first_interaction_at__isnull=False,
         first_interaction_at__lte=dj_timezone.now() - timedelta(days=30),
         total_mutal_video_calls_counter=0,
@@ -1849,7 +1872,7 @@ def automatic_emails_fm021_fm022__ghosted_matches():
     from video.models import LivekitSession
 
     from management.api.report_unmatch import process_report_unmatch
-    from management.models.matches import Match
+    from management.models.matches import Match, MatchType
 
     time_15days_ago = timezone.now() - timedelta(days=15)
     time_3weeks_ago = timezone.now() - timedelta(weeks=3)
@@ -1863,11 +1886,12 @@ def automatic_emails_fm021_fm022__ghosted_matches():
     }
     # Matches that started interacting in the last 3 weeks & haven't had a mutual video call
     matches_in_ko_with_single_party_contact = Match.objects.filter(
+        active=True,
         confirmed=True,
+        match_type=MatchType.STANDARD,
         completed=False,  # dont even consider removing completed matches!
         completed_off_plattform=False,
         support_matching=False,
-        active=True,
         auto_email_fm021_send=False,
         auto_email_fm022_send=False,
         is_ghosted_match=False,
