@@ -7,7 +7,6 @@ from django.urls import path
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django_filters import rest_framework as filters
-from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action, api_view, permission_classes
@@ -21,6 +20,7 @@ from management.api.match_journey_filter_list import (
     determine_match_buckets,
     get_match_bucket_label,
 )
+from management.api.user_advanced_filter import _match_success_units
 from management.api.utils_advanced import (
     FilterSchemaResponseSerializer,
     apply_journey_bucket_fields,
@@ -227,6 +227,7 @@ class AdvancedMatchSerializer(serializers.ModelSerializer):
             representation["status"] = "proposed"
 
         _apply_match_bucket_representation(representation, instance.pk, getattr(self, "context", {}))
+        representation["video_call_success_units"] = _match_success_units(instance)
 
         return representation
 
@@ -521,6 +522,7 @@ class ExportMatchSerializer(serializers.ModelSerializer):
             _apply_match_bucket_representation(representation, instance.pk, self.context)
             _apply_match_message_export_fields(representation, instance)
             _apply_match_unmatch_export_fields(representation, instance)
+            representation["video_call_success_units"] = _match_success_units(instance)
             return representation
 
         requested_set = set(requested_fields)
@@ -560,6 +562,9 @@ class ExportMatchSerializer(serializers.ModelSerializer):
 
         _apply_match_message_export_fields(filtered, instance, requested_set)
         _apply_match_unmatch_export_fields(filtered, instance, requested_set)
+
+        if "video_call_success_units" in requested_set:
+            filtered["video_call_success_units"] = _match_success_units(instance)
 
         for user_prefix, user in (("user1", instance.user1), ("user2", instance.user2)):
             full_user = self._serialize_export_user(user)
@@ -603,6 +608,7 @@ MATCH_EXPORT_COLUMN_NAMES = (
     "unmatching_type",
     "unmatch_reason",
     "is_manual_unmatch",
+    "video_call_success_units",
     "user1.id",
     "user1.uuid",
     "user1.email",
@@ -803,7 +809,11 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
         obj.save()
         return Response({"msg": "Match completed off plattform set"})
 
-    @extend_schema(responses={(200, "application/json"): OpenApiTypes.STR})
+    @extend_schema(
+        responses={
+            200: inline_serializer(name="MatchNotesResponse", fields={"notes": serializers.CharField()}),
+        }
+    )
     @action(detail=True, methods=["get", "post"])
     def notes(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -812,12 +822,12 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
         if request.method == "POST":
             obj.notes = request.data["notes"]
             obj.save()
-            return Response(obj.notes)
+            return Response({"notes": obj.notes or ""})
         else:
             if not obj.notes:
                 obj.notes = ""
                 obj.save()
-            return Response(obj.notes)
+            return Response({"notes": obj.notes or ""})
 
 
 @api_view(["GET"])

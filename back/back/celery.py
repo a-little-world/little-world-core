@@ -130,6 +130,16 @@ if settings.ENABLE_AUTO_EMAILS__M031_M032_M033_M042:
         }
     )
 
+if settings.ENABLE_AUTO_EMAILS__M053_M054_M055:
+    auto_emails.update(
+        {
+            "automatic-emails-m053-m054-m055": {
+                "task": "management.tasks.automatic_emails_m053_m054_m055",
+                "schedule": 60.0 * 60.0 * 6.0,  # every 6 hours
+            }
+        }
+    )
+
 if settings.ENABLE_AUTO_EMAILS__U072_U073_U074:
     auto_emails.update(
         {

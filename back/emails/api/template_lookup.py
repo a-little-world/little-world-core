@@ -70,7 +70,9 @@ def link_url(user=None, match=None, context={"link_url": "Not set"}):
 
 
 def share_story_url(user=None, match=None, context={"share_story_url": "Not set"}):
-    return context["share_story_url"]
+    if context.get("share_story_url") != "Not set":
+        return context["share_story_url"]
+    return settings.GOOGLE_FORM_SHARE_STORY_URL
 
 
 def completed_match_poll_url(user=None, match=None, context={"completed_match_poll_url": "Not set"}):
@@ -225,7 +227,7 @@ def match_removed_fm011_no_contact_url(user, match, **kwargs):
     Used by 'automatic-emails-fm011'
     """
     # TODO: Form implies 'contact eingeschaften'
-    return "https://docs.google.com/forms/d/e/1FAIpQLSdR9ZwNPra9Lt7SCsqiTR2E_xA4FIj4i2JAuKGp8bA-6Wj7xQ/viewform"
+    return settings.GOOGLE_FORM_MATCH_REMOVED_NO_CONTACT
 
 
 def match_removed_fm021_ghosted_url(user, match, **kwargs):
@@ -233,7 +235,7 @@ def match_removed_fm021_ghosted_url(user, match, **kwargs):
     Send if a match was auto removed cause no contact was started after 15 days
     Used by 'automatic-emails-fm021'
     """
-    return "https://docs.google.com/forms/d/e/1FAIpQLSck918AL9dST6Dqp9DtOvtBC0-3BWJfB2pPZc31DUjCSWEOyg/viewform"
+    return settings.GOOGLE_FORM_MATCH_REMOVED_GHOSTED
 
 
 def beta_tester_email(user=None, match=None, context={"beta_tester_email": None}):

@@ -36,6 +36,8 @@ class MatchingPanelUserApiTests(TestCase):
         self.assertEqual(response.data["first_name"], self.matcher.profile.first_name)
         self.assertEqual(response.data["last_name"], self.matcher.profile.second_name)
         self.assertTrue(response.data["is_matching_user"])
+        self.assertFalse(response.data["can_edit_management_permissions"])
+        self.assertFalse(response.data["can_grant_apply_management_permissions"])
         self.assertIn("permissions", response.data)
 
     def test_get_matching_panel_user_data_matches_serializer(self):
