@@ -335,7 +335,7 @@ class TestAutomaticEmails_m023(TestCase):
         assert len(result2["inactive_chats"]) == 0
 
     def test_m023_sends_with_match_id(self):
-        match = Match.objects.create(user1=self.valid_user_1, user2=self.valid_user_2, active=True)
+        match = Match.objects.create(user1=self.valid_user_1, user2=self.valid_user_2, active=True, confirmed=True)
 
         automatic_emails_m023()
 
@@ -510,6 +510,7 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
         self.valid_match_m031 = Match.objects.create(
             user1=self.valid_user_m031_1,
             user2=self.valid_user_m031_2,
+            confirmed=True,
             first_interaction_at=dj_timezone.now() - timedelta(days=8),
             total_mutal_video_calls_counter=0,
             auto_email_m031_send=False,
@@ -519,6 +520,7 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
         self.valid_match_m032 = Match.objects.create(
             user1=self.valid_user_m032_1,
             user2=self.valid_user_m032_2,
+            confirmed=True,
             first_interaction_at=dj_timezone.now() - timedelta(days=15),
             total_mutal_video_calls_counter=0,
             auto_email_m031_send=True,  # m031 already sent
@@ -529,6 +531,7 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
         self.valid_match_m033 = Match.objects.create(
             user1=self.valid_user_m033_1,
             user2=self.valid_user_m033_2,
+            confirmed=True,
             first_interaction_at=dj_timezone.now() - timedelta(days=22),
             total_mutal_video_calls_counter=0,
             auto_email_m031_send=True,  # m031 already sent
@@ -540,6 +543,7 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
         self.invalid_match_recent = Match.objects.create(
             user1=self.invalid_user_recent_1,
             user2=self.invalid_user_recent_2,
+            confirmed=True,
             first_interaction_at=dj_timezone.now() - timedelta(days=5),
             total_mutal_video_calls_counter=0,
             auto_email_m031_send=False,
@@ -549,6 +553,7 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
         self.invalid_match_video = Match.objects.create(
             user1=self.invalid_user_video_1,
             user2=self.invalid_user_video_2,
+            confirmed=True,
             first_interaction_at=dj_timezone.now() - timedelta(days=10),
             total_mutal_video_calls_counter=1,  # Has video calls
             auto_email_m031_send=False,
@@ -1396,7 +1401,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
 
         # Check the redirect URL is the Google Form
         redirect_url = response.url
-        expected_google_form_base = settings.GOOGLE_FORM_STILL_IN_CONTACT_MATCH_FORM1.slit("?")[0]
+        expected_google_form_base = settings.GOOGLE_FORM_STILL_IN_CONTACT_MATCH_FORM1.split("?")[0]
         assert redirect_url.startswith(expected_google_form_base), (
             f"Expected redirect to Google Form. Got: {redirect_url}"
         )
