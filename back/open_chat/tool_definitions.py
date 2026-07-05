@@ -117,6 +117,7 @@ def build_retrieve_past_messages_rest_tool_definition(api_host: str | None = Non
         .bind_call("page_size")
         .to_query("page_size")
     )
+    builder = builder.censor_response_paths("results.*.text")
     return allow_local_tool_hosts(builder, hostname).enable()
 
 
@@ -138,6 +139,7 @@ def build_retrieve_management_permissions_rest_tool_definition(api_host: str | N
         .base_url_from_init(API_HOST_INIT_FIELD)
         .bind_session_auth()
     )
+    builder = builder.censor_response_paths("email", "first_name", "last_name")
     return allow_local_tool_hosts(builder, hostname).enable()
 
 
@@ -155,6 +157,7 @@ def ensure_rest_tool_definitions(client: OpenChatClient) -> dict[str, list[str]]
     """Create missing REST tools and refresh interaction-critical tool definitions on Open Chat."""
     tools = build_all_rest_tool_definitions()
     existing = {str(row.get("name")) for row in client.list_dynamic_rest_tools() if row.get("name")}
+
     created: list[str] = []
     updated: list[str] = []
     refresh_names = {CHAT_REPLY_REST_TOOL_NAME, MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME}
@@ -172,6 +175,7 @@ def ensure_rest_tool_definitions(client: OpenChatClient) -> dict[str, list[str]]
 def sync_rest_tool_definitions(client: OpenChatClient, *, reload: bool = False) -> dict[str, list[str]]:
     tools = build_all_rest_tool_definitions()
     existing = {str(row.get("name")) for row in client.list_dynamic_rest_tools() if row.get("name")}
+
     result = {"created": [], "updated": [], "deleted": []}
 
     if reload:

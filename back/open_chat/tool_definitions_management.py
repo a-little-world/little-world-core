@@ -145,33 +145,95 @@ _MATCHES_PANEL_LINK_HINT = (
 )
 _SUPPORT_TASK_DETAIL_BASE = "/matching/support-tasks/{task_id}/"
 
-_USER_MATCH_BUCKETS = ("confirmed", "unconfirmed", "support", "proposed", "old_proposals", "inactive")
+# Structured identity fields plus profile.description (users often put their full name there).
+# state.notes and dedicated notes/task tools stay uncensored — staff-only internal context.
+_PROFILE_PII = ("first_name", "second_name", "phone_mobile", "description", "job_skill_description")
+_STATE_PII = ("past_emails",)
+_STATE_SENSITIVE = ("email_auth_pin", "email_auth_hash", "auto_login_api_token", "prematch_booking_code")
+
+# Tools that return no end-user PII (filters, stats, metrics without identity, internal notes/tasks).
+_TOOLS_WITHOUT_PII_CENSOR: frozenset[str] = frozenset(
+    {
+        LIST_USER_FILTERS_REST_TOOL_NAME,
+        LIST_MATCH_FILTERS_REST_TOOL_NAME,
+        LIST_VIDEO_CALL_FILTERS_REST_TOOL_NAME,
+        LIST_SCORE_FILTERS_REST_TOOL_NAME,
+        LIST_DYNAMIC_USER_LISTS_REST_TOOL_NAME,
+        GET_USER_MATCH_WAITING_TIME_REST_TOOL_NAME,
+        GET_USER_PREMATCHING_APPOINTMENT_REST_TOOL_NAME,
+        GET_SUPPORT_TASK_STATS_REST_TOOL_NAME,
+        GET_USER_NOTES_REST_TOOL_NAME,
+        GET_MATCH_NOTES_REST_TOOL_NAME,
+        GET_USER_TASKS_REST_TOOL_NAME,
+    }
+)
 
 
 def _prefixed(*parts: str) -> str:
     return ".".join(part for part in parts if part)
 
 
+def _profile_pii_paths(prefix: str) -> tuple[str, ...]:
+    base = _prefixed(prefix)
+    return tuple(_prefixed(base, f"profile.{field}") for field in _PROFILE_PII)
+
+
+def _flat_profile_pii_paths(prefix: str) -> tuple[str, ...]:
+    """Profile fields on objects that expose them flat (chat.partner, support profiles)."""
+    base = _prefixed(prefix)
+    return tuple(_prefixed(base, field) for field in _PROFILE_PII)
+
+
+def _state_pii_paths(prefix: str) -> tuple[str, ...]:
+    base = _prefixed(prefix)
+    paths = [_prefixed(base, f"state.{field}") for field in _STATE_PII]
+    paths.extend(_prefixed(base, f"state.{field}") for field in _STATE_SENSITIVE)
+    return tuple(paths)
+
+
 def _user_identity_paths(prefix: str = "") -> tuple[str, ...]:
     base = _prefixed(prefix)
     email = _prefixed(base, "email") if base else "email"
-    first_name = _prefixed(base, "profile.first_name") if base else "profile.first_name"
-    second_name = _prefixed(base, "profile.second_name") if base else "profile.second_name"
-    return (email, first_name, second_name)
+    return (email, *_profile_pii_paths(prefix), *_state_pii_paths(prefix))
 
 
-def _paginated_user_identity_paths(prefix: str = "") -> tuple[str, ...]:
+def _match_embedded_pii_paths(prefix: str) -> tuple[str, ...]:
+    base = _prefixed(prefix)
+    partner = _prefixed(base, "matches.*.results.*.partner")
+    chat_partner = _prefixed(base, "matches.*.results.*.chat.partner")
+    paths: list[str] = []
+    for field in _PROFILE_PII:
+        paths.append(_prefixed(partner, field))
+        paths.append(_prefixed(chat_partner, field))
+    paths.append(_prefixed(base, "matches.*.results.*.chat.newest_message.text"))
+    paths.append(_prefixed(base, "matches.*.results.*.report_unmatch.*.user_first_name"))
+    return tuple(paths)
+
+
+def _full_user_tree_paths(prefix: str = "") -> tuple[str, ...]:
+    return (*_user_identity_paths(prefix), *_match_embedded_pii_paths(prefix))
+
+
+def _paginated_full_user_tree_paths(prefix: str = "") -> tuple[str, ...]:
     row_prefix = _prefixed("results.*", prefix)
-    return _user_identity_paths(row_prefix)
+    return _full_user_tree_paths(row_prefix)
 
 
 def _match_participant_paths(participant: str, *, paginated: bool) -> tuple[str, ...]:
     prefix = _prefixed("results.*", participant) if paginated else participant
-    return _user_identity_paths(prefix)
+    return (
+        *_user_identity_paths(prefix),
+        _prefixed(prefix, "report_unmatch.*.user_first_name"),
+    )
 
 
 def _video_call_participant_paths(participant: str, *, paginated: bool) -> tuple[str, ...]:
     return _match_participant_paths(participant, paginated=paginated)
+
+
+def _nested_user_paths(participant: str, *, paginated: bool) -> tuple[str, ...]:
+    prefix = _prefixed("results.*", participant) if paginated else participant
+    return _full_user_tree_paths(prefix)
 
 
 def _support_task_profile_paths(field: str, *, paginated: bool, include_email: bool) -> tuple[str, ...]:
@@ -186,28 +248,31 @@ def _support_task_profile_paths(field: str, *, paginated: bool, include_email: b
 
 
 def _support_task_paths(*, paginated: bool) -> tuple[str, ...]:
+    prefix = "results.*" if paginated else ""
+    base = _prefixed(prefix)
+    if base:
+        task_fields = (_prefixed(base, "action.parameters.message"),)
+    else:
+        task_fields = ("action.parameters.message",)
     return (
         *_support_task_profile_paths("related_user_profile", paginated=paginated, include_email=True),
         *_support_task_profile_paths("assigned_to_profile", paginated=paginated, include_email=False),
         *_support_task_profile_paths("created_by_profile", paginated=paginated, include_email=False),
+        *task_fields,
     )
 
 
 def _email_log_participant_paths(role: str) -> tuple[str, ...]:
-    return _user_identity_paths(_prefixed("results.*", role))
+    base = _prefixed("results.*", role)
+    return (_prefixed(base, "email"), *_profile_pii_paths(base))
 
 
-def _advanced_user_detail_paths(prefix: str = "") -> tuple[str, ...]:
-    paths = list(_user_identity_paths(prefix))
-    base = _prefixed(prefix)
-    for bucket in _USER_MATCH_BUCKETS:
-        paths.append(_prefixed(base, "matches", bucket, "results.*.partner.first_name"))
-    return tuple(paths)
-
-
-def _advanced_user_paths(participant: str, *, paginated: bool) -> tuple[str, ...]:
-    prefix = _prefixed("results.*", participant) if paginated else participant
-    return _advanced_user_detail_paths(prefix)
+def _user_messages_paths() -> tuple[str, ...]:
+    return (
+        *_flat_profile_pii_paths("chat.partner"),
+        "chat.newest_message.text",
+        "messages.results.*.text",
+    )
 
 
 def _top_level_array_identity_paths(*, include_last_name: bool = False) -> tuple[str, ...]:
@@ -409,9 +474,9 @@ MANAGEMENT_REST_TOOL_NAMES: tuple[str, ...] = tuple(spec.name for spec in MANAGE
 def _censor_paths_for_spec(spec: MgmtGetToolSpec) -> tuple[str, ...]:
     name = spec.name
     if name == QUERY_USERS_REST_TOOL_NAME:
-        return _paginated_user_identity_paths()
+        return _paginated_full_user_tree_paths()
     if name == GET_USER_DETAIL_REST_TOOL_NAME:
-        return _advanced_user_detail_paths()
+        return _full_user_tree_paths()
     if name == QUERY_MATCHES_REST_TOOL_NAME:
         return (
             *_match_participant_paths("user1", paginated=True),
@@ -434,27 +499,30 @@ def _censor_paths_for_spec(spec: MgmtGetToolSpec) -> tuple[str, ...]:
         )
     if name == QUERY_SCORES_REST_TOOL_NAME:
         return (
-            *_advanced_user_paths("user1", paginated=True),
-            *_advanced_user_paths("user2", paginated=True),
+            *_nested_user_paths("user1", paginated=True),
+            *_nested_user_paths("user2", paginated=True),
         )
     if name == GET_SCORE_DETAIL_REST_TOOL_NAME:
         return (
-            *_advanced_user_paths("user1", paginated=False),
-            *_advanced_user_paths("user2", paginated=False),
+            *_nested_user_paths("user1", paginated=False),
+            *_nested_user_paths("user2", paginated=False),
         )
     if name in {QUERY_SUPPORT_TASKS_REST_TOOL_NAME, GET_SUPPORT_TASK_DETAIL_REST_TOOL_NAME}:
         return _support_task_paths(paginated=name == QUERY_SUPPORT_TASKS_REST_TOOL_NAME)
     if name == QUERY_PREMATCHING_APPOINTMENTS_REST_TOOL_NAME:
-        return _advanced_user_paths("user", paginated=True)
+        return _nested_user_paths("user", paginated=True)
     if name == GET_DYNAMIC_USER_LIST_REST_TOOL_NAME:
         return ("*.email",)
     if name == GET_USER_MESSAGES_REST_TOOL_NAME:
-        return ("chat.partner.first_name",)
+        return _user_messages_paths()
     if name == GET_USER_EMAILS_REST_TOOL_NAME:
         return (
             *_email_log_participant_paths("sender"),
             *_email_log_participant_paths("receiver"),
+            "results.*.data",
         )
+    if name == GET_USER_SMS_REST_TOOL_NAME:
+        return ("*.message",)
     if name == SUPPORT_TASK_USER_SEARCH_REST_TOOL_NAME:
         return _top_level_array_identity_paths()
     if name == LIST_SUPPORT_STAFF_REST_TOOL_NAME:

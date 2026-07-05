@@ -79,6 +79,10 @@ var config = function (env) {
           include: [path.resolve(__dirname, "apps/admin_panel_frontend/src")],
         },
         {
+          test: /\.(md|mdx)$/,
+          type: "asset/source",
+        },
+        {
           test: /\.svg$/,
           use: [
             {

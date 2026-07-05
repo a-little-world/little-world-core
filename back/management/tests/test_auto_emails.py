@@ -10,6 +10,7 @@ from django.db.models import Q
 from django.test import TestCase, override_settings
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone as dj_timezone
+from emails.api.template_lookup import still_in_contact_yes_url
 from freezegun import freeze_time
 from video.models import LivekitSession
 
@@ -26,6 +27,7 @@ from management.tasks import (
     automatic_emails_m024_m025,
     automatic_emails_m031_m032_m033_m042,
     automatic_emails_m043_m044_m045,
+    automatic_emails_m053_m054_m055,
     automatic_emails_u023_u024_u025,
     automatic_emails_u051_u071,
     automatic_emails_u072_u073_u074,
@@ -333,7 +335,7 @@ class TestAutomaticEmails_m023(TestCase):
         assert len(result2["inactive_chats"]) == 0
 
     def test_m023_sends_with_match_id(self):
-        match = Match.objects.create(user1=self.valid_user_1, user2=self.valid_user_2, active=True)
+        match = Match.objects.create(user1=self.valid_user_1, user2=self.valid_user_2, active=True, confirmed=True)
 
         automatic_emails_m023()
 
@@ -508,6 +510,7 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
         self.valid_match_m031 = Match.objects.create(
             user1=self.valid_user_m031_1,
             user2=self.valid_user_m031_2,
+            confirmed=True,
             first_interaction_at=dj_timezone.now() - timedelta(days=8),
             total_mutal_video_calls_counter=0,
             auto_email_m031_send=False,
@@ -517,6 +520,7 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
         self.valid_match_m032 = Match.objects.create(
             user1=self.valid_user_m032_1,
             user2=self.valid_user_m032_2,
+            confirmed=True,
             first_interaction_at=dj_timezone.now() - timedelta(days=15),
             total_mutal_video_calls_counter=0,
             auto_email_m031_send=True,  # m031 already sent
@@ -527,6 +531,7 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
         self.valid_match_m033 = Match.objects.create(
             user1=self.valid_user_m033_1,
             user2=self.valid_user_m033_2,
+            confirmed=True,
             first_interaction_at=dj_timezone.now() - timedelta(days=22),
             total_mutal_video_calls_counter=0,
             auto_email_m031_send=True,  # m031 already sent
@@ -538,6 +543,7 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
         self.invalid_match_recent = Match.objects.create(
             user1=self.invalid_user_recent_1,
             user2=self.invalid_user_recent_2,
+            confirmed=True,
             first_interaction_at=dj_timezone.now() - timedelta(days=5),
             total_mutal_video_calls_counter=0,
             auto_email_m031_send=False,
@@ -547,6 +553,7 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
         self.invalid_match_video = Match.objects.create(
             user1=self.invalid_user_video_1,
             user2=self.invalid_user_video_2,
+            confirmed=True,
             first_interaction_at=dj_timezone.now() - timedelta(days=10),
             total_mutal_video_calls_counter=1,  # Has video calls
             auto_email_m031_send=False,
@@ -647,6 +654,141 @@ class TestAutomaticEmails_m031_m032_m033_m042(TestCase):
         assert str(self.invalid_match_video.uuid) not in matches_m031, (
             f"Invalid match video: {self.invalid_match_video.uuid}"
         )
+
+
+class TestAutomaticEmails_m053_m054_m055(TestCase):
+    """Test for match milestone emails at 5, 8, and 10 weeks after match creation."""
+
+    def setUp(self):
+        settings.DJANGO_TESTING = True
+
+        with freeze_time(dj_timezone.now() - timedelta(weeks=20)):
+            self.valid_user_m053_1 = create_test_user(33000, None, "Test123!", "m053-valid-user1@test.de")
+            self.valid_user_m053_2 = create_test_user(33001, None, "Test123!", "m053-valid-user2@test.de")
+
+            self.valid_user_m054_1 = create_test_user(33002, None, "Test123!", "m054-valid-user1@test.de")
+            self.valid_user_m054_2 = create_test_user(33003, None, "Test123!", "m054-valid-user2@test.de")
+
+            self.valid_user_m055_1 = create_test_user(33004, None, "Test123!", "m055-valid-user1@test.de")
+            self.valid_user_m055_2 = create_test_user(33005, None, "Test123!", "m055-valid-user2@test.de")
+
+            self.invalid_user_recent_1 = create_test_user(33006, None, "Test123!", "m053-invalid-recent1@test.de")
+            self.invalid_user_recent_2 = create_test_user(33007, None, "Test123!", "m053-invalid-recent2@test.de")
+
+            self.invalid_user_unconfirmed_1 = create_test_user(33008, None, "Test123!", "m053-invalid-unconf1@test.de")
+            self.invalid_user_unconfirmed_2 = create_test_user(33009, None, "Test123!", "m053-invalid-unconf2@test.de")
+
+        self.valid_match_m053 = Match.objects.create(
+            user1=self.valid_user_m053_1,
+            user2=self.valid_user_m053_2,
+            confirmed=True,
+            auto_email_m053_send=False,
+        )
+        Match.objects.filter(pk=self.valid_match_m053.pk).update(created_at=dj_timezone.now() - timedelta(weeks=6))
+
+        self.valid_match_m054 = Match.objects.create(
+            user1=self.valid_user_m054_1,
+            user2=self.valid_user_m054_2,
+            confirmed=True,
+            auto_email_m053_send=True,
+            auto_email_m054_send=False,
+        )
+        Match.objects.filter(pk=self.valid_match_m054.pk).update(created_at=dj_timezone.now() - timedelta(weeks=9))
+
+        self.valid_match_m055 = Match.objects.create(
+            user1=self.valid_user_m055_1,
+            user2=self.valid_user_m055_2,
+            confirmed=True,
+            auto_email_m053_send=True,
+            auto_email_m054_send=True,
+            auto_email_m055_send=False,
+        )
+        Match.objects.filter(pk=self.valid_match_m055.pk).update(created_at=dj_timezone.now() - timedelta(weeks=11))
+
+        self.invalid_match_recent = Match.objects.create(
+            user1=self.invalid_user_recent_1,
+            user2=self.invalid_user_recent_2,
+            confirmed=True,
+            auto_email_m053_send=False,
+        )
+        Match.objects.filter(pk=self.invalid_match_recent.pk).update(created_at=dj_timezone.now() - timedelta(weeks=3))
+
+        self.invalid_match_unconfirmed = Match.objects.create(
+            user1=self.invalid_user_unconfirmed_1,
+            user2=self.invalid_user_unconfirmed_2,
+            confirmed=False,
+            auto_email_m053_send=False,
+        )
+        Match.objects.filter(pk=self.invalid_match_unconfirmed.pk).update(
+            created_at=dj_timezone.now() - timedelta(weeks=6)
+        )
+
+    def test_identifies_correct_matches(self):
+        result = automatic_emails_m053_m054_m055()
+
+        matches_m053 = list(result["matches_m053"])
+        matches_m054 = list(result["matches_m054"])
+        matches_m055 = list(result["matches_m055"])
+
+        assert str(self.valid_match_m053.uuid) in matches_m053
+        assert str(self.valid_match_m054.uuid) in matches_m054
+        assert str(self.valid_match_m055.uuid) in matches_m055
+
+        assert str(self.invalid_match_recent.uuid) not in matches_m053
+        assert str(self.invalid_match_unconfirmed.uuid) not in matches_m053
+
+    def test_sets_flags_after_sending(self):
+        automatic_emails_m053_m054_m055()
+
+        self.valid_match_m053.refresh_from_db()
+        self.valid_match_m054.refresh_from_db()
+        self.valid_match_m055.refresh_from_db()
+
+        assert self.valid_match_m053.auto_email_m053_send is True
+        assert self.valid_match_m054.auto_email_m054_send is True
+        assert self.valid_match_m055.auto_email_m055_send is True
+
+    def test_does_not_resend(self):
+        result1 = automatic_emails_m053_m054_m055()
+        assert len(result1["matches_m053"]) > 0
+        assert len(result1["matches_m054"]) > 0
+        assert len(result1["matches_m055"]) > 0
+
+        result2 = automatic_emails_m053_m054_m055()
+        assert len(result2["matches_m053"]) == 0
+        assert len(result2["matches_m054"]) == 0
+        assert len(result2["matches_m055"]) == 0
+
+    @patch("management.tasks.send_email_background")
+    def test_passes_redirect_context(self, mock_send_email):
+        automatic_emails_m053_m054_m055()
+
+        m053_calls = [call for call in mock_send_email.delay.call_args_list if call.args[0] == "automatic-emails-m053"]
+        m054_calls = [call for call in mock_send_email.delay.call_args_list if call.args[0] == "automatic-emails-m054"]
+        m055_calls = [call for call in mock_send_email.delay.call_args_list if call.args[0] == "automatic-emails-m055"]
+
+        assert len(m053_calls) == 2
+        assert len(m054_calls) == 2
+        assert len(m055_calls) == 2
+
+        assert m053_calls[0].kwargs["context"]["redirect_slug_no"] == "info-screen"
+        assert m053_calls[0].kwargs["context"]["redirect_slug_yes"] == "match-form1"
+        assert "five_week_survey_url" in m053_calls[0].kwargs["context"]
+        assert m054_calls[0].kwargs["context"] == {
+            "redirect_slug_no": "info-screen",
+            "redirect_slug_yes": "share-story",
+            "share_story_url": still_in_contact_yes_url(
+                self.valid_match_m054.user1,
+                self.valid_match_m054,
+                {
+                    "redirect_slug_no": "info-screen",
+                    "redirect_slug_yes": "share-story",
+                },
+            ),
+        }
+        assert m055_calls[0].kwargs["context"]["redirect_slug_no"] == "info-screen"
+        assert m055_calls[0].kwargs["context"]["redirect_slug_yes"] == "match-form1"
+        assert "completed_match_poll_url" in m055_calls[0].kwargs["context"]
 
 
 class TestAutomaticEmails_u072_u073_u074(TestCase):
@@ -1259,9 +1401,7 @@ class TestAutomaticEmails_m032_m033_m042_EmailContent(TestCase):
 
         # Check the redirect URL is the Google Form
         redirect_url = response.url
-        expected_google_form_base = (
-            "https://docs.google.com/forms/d/e/1FAIpQLScZpHVBkd9oXMTXGwH6aIUS8-Ep3LGbmHzx0wKYTA0fDpzJtQ/viewform"
-        )
+        expected_google_form_base = settings.GOOGLE_FORM_STILL_IN_CONTACT_MATCH_FORM1.split("?")[0]
         assert redirect_url.startswith(expected_google_form_base), (
             f"Expected redirect to Google Form. Got: {redirect_url}"
         )
