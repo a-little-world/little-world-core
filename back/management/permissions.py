@@ -42,3 +42,22 @@ MANAGEMENT_PERMISSION_LABELS: dict[ManagementPermission, str] = {
 }
 
 MANAGEMENT_PERMISSION_DEFINITIONS = [(perm.codename, label) for perm, label in MANAGEMENT_PERMISSION_LABELS.items()]
+
+
+def user_can_edit_management_permissions(user) -> bool:
+    return bool(user.is_staff or user.has_perm(ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS))
+
+
+def user_can_grant_apply_management_permissions(user) -> bool:
+    return bool(user.is_staff)
+
+
+def user_can_manage_user_management_permissions(actor, target) -> bool:
+    if actor.is_staff:
+        return True
+    if actor.has_management_access(target):
+        return True
+    return bool(
+        actor.has_perm(ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS)
+        and target.has_perm(ManagementPermission.MATCHING_USER)
+    )
