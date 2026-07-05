@@ -6,6 +6,7 @@ class ManagementConfig(AppConfig):
     name = "management"
 
     def ready(self) -> None:
+        # Ensure drf-spectacular discovers custom OpenAPI extensions.
         from management.actions.registry import autodiscover
 
         autodiscover()
