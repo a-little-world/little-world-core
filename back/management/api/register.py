@@ -3,21 +3,18 @@ from datetime import datetime
 from typing import Optional
 
 import django.contrib.auth.password_validation as pw_validation
-from django.conf import settings
 from django.contrib.auth import login
 from django.core import exceptions
 from django.db import transaction
 from django.utils import translation
 from drf_spectacular.utils import extend_schema
-from rest_framework import serializers, status
+from rest_framework import serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from translations import get_translation
 
-from management.api.app_integrity import verify_play_integrity_token
-from management.api.native_auth import get_and_delete_challenge
+from management.api.native_auth import enforce_android_integrity, enforce_ios_integrity
 from management.api.user import get_user_data
-from management.integrity.apple import verify_apple_attestation
 from management.meta_capi import build_event, build_user_data, has_marketing_consent
 from management.meta_capi_queue import queue_meta_event_once
 from management.models.profile import Profile
@@ -45,6 +42,7 @@ class RegistrationDataNative(RegistrationData):
     key_id: Optional[str] = None
     attestation_object: Optional[str] = None
     integrity_token: Optional[str] = None
+    bypass_token: Optional[str] = None
 
 
 class RegistrationSerializer(serializers.Serializer):
@@ -133,15 +131,17 @@ class RegistationSerializerNative(RegistrationSerializer):
     key_id = serializers.CharField(max_length=255, required=False)
     integrity_token = serializers.CharField(required=False)
     attestation_object = serializers.CharField(required=False)
+    bypass_token = serializers.CharField(required=False)
 
     def create(self, validated_data):
         # Password same validation happens in 'validate()' we need only one password now
         return RegistrationDataNative(
             **{field.name: getattr(self.get_registration_data(), field.name) for field in fields(RegistrationData)},
             challenge_id=validated_data["challenge_id"],
-            key_id=validated_data["key_id"] if "key_id" in validated_data else None,
-            attestation_object=validated_data["attestation_object"] if "attestation_object" in validated_data else None,
-            integrity_token=validated_data["integrity_token"] if "integrity_token" in validated_data else None,
+            key_id=validated_data.get("key_id"),
+            attestation_object=validated_data.get("attestation_object"),
+            integrity_token=validated_data.get("integrity_token"),
+            bypass_token=validated_data.get("bypass_token"),
         )
 
     def get_registration_data(self) -> RegistrationData:
@@ -149,7 +149,7 @@ class RegistationSerializerNative(RegistrationSerializer):
             {
                 k: v
                 for k, v in self.validated_data.items()
-                if k not in ["challenge_id", "key_id", "attestation_object", "integrity_token"]
+                if k not in ["challenge_id", "key_id", "attestation_object", "integrity_token", "bypass_token"]
             }
         )
 
@@ -229,12 +229,11 @@ class RegisterAndroid(APIView):
         # The types are secure, we checked that using the 'Registration Serializer'
         registration_data = serializer.save()
 
-        challenge_id = registration_data.challenge_id
-        integrity_token = registration_data.integrity_token
-        challenge = get_and_delete_challenge(challenge_id).encode("utf-8")
-
-        if not verify_play_integrity_token(integrity_token, request_hash=challenge):
-            return Response({"detail": "Invalid integrity token or request hash"}, status=status.HTTP_400_BAD_REQUEST)
+        enforce_android_integrity(
+            bypass_token=registration_data.bypass_token,
+            integrity_token=registration_data.integrity_token,
+            challenge_id=registration_data.challenge_id,
+        )
 
         user_data = common_register(request, serializer.get_registration_data())
         with_tokens = user_data_with_tokens(user_data, request.user)
@@ -261,12 +260,13 @@ class RegisterIOS(APIView):
         serializer.is_valid(raise_exception=True)
         # The types are secure, we checked that using the 'Registration Serializer'
         registration_data = serializer.save()
-        key_id = registration_data.key_id
-        challenge_id = registration_data.challenge_id
-        attestation_object = registration_data.attestation_object
-        challenge_bytes = get_and_delete_challenge(challenge_id).encode("utf-8")
 
-        verify_apple_attestation(key_id, challenge_bytes, attestation_object, settings.IS_PROD)
+        enforce_ios_integrity(
+            bypass_token=registration_data.bypass_token,
+            key_id=registration_data.key_id,
+            challenge_id=registration_data.challenge_id,
+            attestation_object=registration_data.attestation_object,
+        )
 
         user_data = common_register(request, serializer.get_registration_data())
         with_tokens = user_data_with_tokens(user_data, request.user)

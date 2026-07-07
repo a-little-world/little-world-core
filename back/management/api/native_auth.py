@@ -6,6 +6,7 @@ from django.core.cache import cache
 from django.urls import path
 from rest_framework import serializers, status
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.exceptions import MethodNotAllowed, ValidationError
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
@@ -25,6 +26,7 @@ class NativeAuthAndroidSerializer(serializers.Serializer):
     password = serializers.CharField(required=True)
     challenge_id = serializers.CharField(required=True)
     integrity_token = serializers.CharField(required=True)
+    bypass_token = serializers.CharField(required=False)
 
 
 class NativeAuthIosSerializer(serializers.Serializer):
@@ -33,6 +35,7 @@ class NativeAuthIosSerializer(serializers.Serializer):
     key_id = serializers.CharField(max_length=255, required=True)
     challenge_id = serializers.CharField(required=True)
     attestation_object = serializers.CharField(required=True)
+    bypass_token = serializers.CharField(required=False)
 
 
 class NativeAuthWebSerializer(serializers.Serializer):
@@ -50,13 +53,12 @@ def native_auth_android(request):
 
     email = serializer.validated_data["email"]
     password = serializer.validated_data["password"]
-    integrity_token = serializer.validated_data["integrity_token"]
-    challenge_id = serializer.validated_data["challenge_id"]
 
-    challenge = get_and_delete_challenge(challenge_id)
-
-    if not verify_play_integrity_token(integrity_token, request_hash=challenge):
-        return Response({"detail": "Invalid integrity token or request hash"}, status=status.HTTP_400_BAD_REQUEST)
+    enforce_android_integrity(
+        bypass_token=serializer.validated_data.get("bypass_token"),
+        integrity_token=serializer.validated_data["integrity_token"],
+        challenge_id=serializer.validated_data["challenge_id"],
+    )
 
     return native_auth_common_login(email=email.lower(), password=password)
 
@@ -71,14 +73,12 @@ def native_auth_ios(request):
 
     email = serializer.validated_data["email"]
     password = serializer.validated_data["password"]
-    key_id = serializer.validated_data["key_id"]
-    challenge_id = serializer.validated_data["challenge_id"]
-    attestation_object = serializer.validated_data["attestation_object"]
 
-    challenge_bytes = get_and_delete_challenge(challenge_id).encode("utf-8")
-
-    verify_apple_attestation(
-        key_id=key_id, challenge_bytes=challenge_bytes, attestation_raw=attestation_object, is_prod=settings.IS_PROD
+    enforce_ios_integrity(
+        bypass_token=serializer.validated_data.get("bypass_token"),
+        key_id=serializer.validated_data["key_id"],
+        challenge_id=serializer.validated_data["challenge_id"],
+        attestation_object=serializer.validated_data["attestation_object"],
     )
 
     return native_auth_common_login(email=email.lower(), password=password)
@@ -88,23 +88,13 @@ def native_auth_ios(request):
 @permission_classes([])
 @authentication_classes([])
 def native_auth_web(request):
-    if settings.IS_PROD:
-        return Response(
-            {"detail": "Invalid integrity token or request hash"}, status=status.HTTP_405_METHOD_NOT_ALLOWED
-        )
-
     serializer = NativeAuthWebSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
 
     email = serializer.validated_data["email"]
     password = serializer.validated_data["password"]
-    bypass_token = serializer.validated_data["bypass_token"]
 
-    bypass_integrity_check = settings.NATIVE_APP_INTEGRITY_ALLOW_BYPASS and (
-        bypass_token == settings.NATIVE_APP_INTEGRITY_BYPASS_TOKEN
-    )
-    if not bypass_integrity_check:
-        return Response({"detail": "Invalid integrity check bypass token"}, status=status.HTTP_400_BAD_REQUEST)
+    enforce_web_integrity(serializer.validated_data["bypass_token"])
 
     return native_auth_common_login(email=email.lower(), password=password)
 
@@ -143,16 +133,11 @@ class NativeTokenAndroidRefreshView(TokenRefreshView):
         except TokenError as exc:  # includes ExpiredSignatureError etc
             raise InvalidToken(str(exc))
 
-        integrity_token = request.data.get("integrity_token")
-        challenge_id = request.data.get("challenge_id")
-
-        challenge = get_and_delete_challenge(challenge_id)
-
-        if not integrity_token or not challenge:
-            return Response({"detail": "Missing integrity token or request hash"}, status=status.HTTP_400_BAD_REQUEST)
-
-        if not verify_play_integrity_token(integrity_token, request_hash=challenge):
-            return Response({"detail": "Invalid integrity token or request hash"}, status=status.HTTP_400_BAD_REQUEST)
+        enforce_android_integrity(
+            bypass_token=request.data.get("bypass_token"),
+            integrity_token=request.data.get("integrity_token"),
+            challenge_id=request.data.get("challenge_id"),
+        )
 
         client = refresh.get("client")
         if client != "native":
@@ -179,14 +164,11 @@ class NativeTokenIosRefreshView(TokenRefreshView):
         except TokenError as exc:  # includes ExpiredSignatureError etc
             raise InvalidToken(str(exc))
 
-        key_id = request.data.get("key_id")
-        attestation_object = request.data.get("attestation_object")
-        challenge_id = request.data.get("challenge_id")
-
-        challenge_bytes = get_and_delete_challenge(challenge_id).encode("utf-8")
-
-        verify_apple_attestation(
-            key_id=key_id, challenge_bytes=challenge_bytes, attestation_raw=attestation_object, is_prod=settings.IS_PROD
+        enforce_ios_integrity(
+            bypass_token=request.data.get("bypass_token"),
+            key_id=request.data.get("key_id"),
+            challenge_id=request.data.get("challenge_id"),
+            attestation_object=request.data.get("attestation_object"),
         )
 
         client = refresh.get("client")
@@ -214,18 +196,7 @@ class NativeTokenWebRefreshView(TokenRefreshView):
         except TokenError as exc:  # includes ExpiredSignatureError etc
             raise InvalidToken(str(exc))
 
-        if settings.IS_PROD:
-            return Response(
-                {"detail": "Invalid integrity token or request hash"}, status=status.HTTP_405_METHOD_NOT_ALLOWED
-            )
-
-        bypass_token = request.data.get("bypass_token")
-
-        bypass_integrity_check = settings.NATIVE_APP_INTEGRITY_ALLOW_BYPASS and (
-            bypass_token == settings.NATIVE_APP_INTEGRITY_BYPASS_TOKEN
-        )
-        if not bypass_integrity_check:
-            return Response({"detail": "Invalid integrity check bypass token"}, status=status.HTTP_400_BAD_REQUEST)
+        enforce_web_integrity(request.data.get("bypass_token"))
 
         client = refresh.get("client")
         if client != "native":
@@ -243,6 +214,57 @@ def get_and_delete_challenge(challenge_id) -> str:
     cache.delete(cache_key)
 
     return challenge
+
+
+def can_bypass_integrity_check(bypass_token: str | None) -> bool:
+    if not bypass_token:
+        return False
+    if not settings.NATIVE_APP_INTEGRITY_ALLOW_BYPASS:
+        raise ValidationError({"detail": "Integrity check bypass is not allowed"})
+    if bypass_token != settings.NATIVE_APP_INTEGRITY_BYPASS_TOKEN:
+        raise ValidationError({"detail": "Invalid integrity check bypass token"})
+    return True
+
+
+def enforce_android_integrity(bypass_token: str | None, integrity_token: str | None, challenge_id: str | None) -> None:
+    if can_bypass_integrity_check(bypass_token):
+        return
+
+    if not integrity_token or not challenge_id:
+        raise ValidationError({"detail": "Missing integrity token or challenge"})
+
+    challenge = get_and_delete_challenge(challenge_id)
+
+    if not verify_play_integrity_token(integrity_token, request_hash=challenge):
+        raise ValidationError({"detail": "Invalid integrity token or request hash"})
+
+
+def enforce_ios_integrity(
+    bypass_token: str | None,
+    key_id: str | None,
+    challenge_id: str | None,
+    attestation_object: str | None,
+) -> None:
+    if can_bypass_integrity_check(bypass_token):
+        return
+
+    if not key_id or not challenge_id or not attestation_object:
+        raise ValidationError({"detail": "Missing attestation fields"})
+
+    challenge_bytes = get_and_delete_challenge(challenge_id).encode("utf-8")
+
+    verify_apple_attestation(
+        key_id=key_id,
+        challenge_bytes=challenge_bytes,
+        attestation_raw=attestation_object,
+        is_prod=settings.IS_PROD,
+    )
+
+
+def enforce_web_integrity(bypass_token: str | None) -> None:
+    if settings.IS_PROD:
+        raise MethodNotAllowed(method="POST", detail="Invalid integrity token or request hash")
+    can_bypass_integrity_check(bypass_token)
 
 
 api_urls = [
