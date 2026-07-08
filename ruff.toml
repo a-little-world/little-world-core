@@ -1,5 +1,5 @@
 line-length = 120
-exclude = ["*/migrations/*", "*/_cookie_consent_repo/*", "*/venv/*"]
+exclude = ["*/migrations/*", "*/_cookie_consent_repo/*", "*/venv/*", "dev/postgres_data/*"]
 
 [lint]
 extend-select = ["I"]

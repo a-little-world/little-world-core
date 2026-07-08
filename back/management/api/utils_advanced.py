@@ -57,6 +57,41 @@ def enrich_report_unmatch_with_user_info(report_unmatch_list, match_instance):
     return enriched_list
 
 
+def parse_bool_query_param(value) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    return str(value).lower() in {"true", "1", "yes", "on"}
+
+
+def apply_journey_bucket_fields(
+    representation: dict,
+    *,
+    category_buckets: list[str],
+    all_buckets: list[str] | None,
+    determine_bucket: bool,
+    include_all_buckets: bool,
+    label_fn,
+    primary_from_end: bool = False,
+) -> None:
+    if not determine_bucket and not include_all_buckets:
+        return
+
+    if determine_bucket:
+        if category_buckets:
+            primary = category_buckets[-1] if primary_from_end else category_buckets[0]
+        else:
+            primary = "unknown"
+        representation["bucket"] = primary
+        representation["bucket_label"] = label_fn(primary)
+
+    if include_all_buckets:
+        buckets = all_buckets if all_buckets is not None else category_buckets
+        representation["buckets"] = buckets
+        representation["bucket_labels"] = [label_fn(name) for name in buckets]
+
+
 class CustomResetPasswordRequestTokenViewSet(ResetPasswordRequestTokenViewSet):
     @extend_schema(
         request=ChangeEmailSerializer,
@@ -97,6 +132,17 @@ class DynamicFilterSerializer(serializers.Serializer):
     description = serializers.CharField(required=False)
     choices = serializers.ListField(child=serializers.DictField(), required=False)
     lookup_expr = serializers.ListField(child=serializers.CharField(), required=False)
+
+
+class SavedListEntrySerializer(serializers.Serializer):
+    slug = serializers.CharField(required=False)
+    name = serializers.CharField()
+    description = serializers.CharField(required=False, allow_blank=True)
+
+
+class FilterSchemaResponseSerializer(serializers.Serializer):
+    filters = DynamicFilterSerializer(many=True)
+    lists = SavedListEntrySerializer(many=True)
 
 
 def filterset_schema_dict(filterset, include_lookup_expr=False, view_key="/api/matching/users/", request=None):

@@ -148,12 +148,18 @@ class NewMessage(MessageBase):
     meta_chat_obj: Optional[dict] = (
         None  # holds additional 'chatObject' such that the frontend can hidrate it if it's not present
     )
+    sender_is_self: bool = False
     type: str = MessageTypes.new_message.value
 
     def build_redux_action(self):
         return {
             "action": "addMessage",
-            "payload": {"message": self.message, "chatId": self.chat_id, "metaChatObj": self.meta_chat_obj},
+            "payload": {
+                "message": self.message,
+                "chatId": self.chat_id,
+                "metaChatObj": self.meta_chat_obj,
+                "senderIsSelf": self.sender_is_self,
+            },
         }
 
 

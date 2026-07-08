@@ -31,6 +31,9 @@ if [ "$EMPHIRIAL" = "1" ]; then
     python3 manage.py shell --command 'from management.random_test_users import create_abunch_of_users; create_abunch_of_users()'
 fi
 
+# Ensure management permissions and base support account permissions at startup.
+python3 manage.py shell --command 'from django.apps import apps; from django.contrib.auth.management import create_permissions; app_config = apps.get_app_config("management"); create_permissions(app_config, verbosity=0); from management.controller import get_base_management_user; get_base_management_user()'
+
 
 if [ "$BUILD_TYPE" = "development" ] && [ "$DJ_USE_DEBUG_TOOLBAR" = "1" ]; then
     python3 -Xfrozen_modules=off -m debugpy --listen 0.0.0.0:5678 -m uvicorn back.asgi:application --reload --port 8000 --host 0.0.0.0

@@ -70,16 +70,20 @@ FROM ghcr.io/tbscode/tims-packages/alpine-django-python:latest AS backend
 
 ARG DEVELOPMENT
 ENV DEVELOPMENT=${DEVELOPMENT:-false}
+ARG TESTING
+ENV TESTING=${TESTING:-false}
 
 RUN apk add gettext
 RUN apk add --update --no-cache py3-numpy
 
 COPY ./back/requirements.txt /tmp/requirements.txt
 COPY ./back/requirements.dev.txt /tmp/requirements.dev.txt
+COPY ./back/requirements.tests.txt /tmp/requirements.tests.txt
 
 
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 RUN if [ "$DEVELOPMENT" = "true" ]; then pip install --no-cache-dir -r /tmp/requirements.dev.txt; fi
+RUN if [ "$DEVELOPMENT" = "true" ] || [ "$TESTING" = "true" ]; then pip install --no-cache-dir -r /tmp/requirements.tests.txt; fi
 RUN pip cache purge
 
 WORKDIR /back

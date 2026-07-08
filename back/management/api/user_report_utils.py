@@ -109,137 +109,209 @@ def get_latest_support_chat_messages(user):
     return last_user_to_support_message, last_support_to_user_reply
 
 
-def build_user_report_entry(user):
-    all_matches = Match.objects.filter(
-        (Q(user1=user) | Q(user2=user)),
-        support_matching=False,
-    ).order_by("-created_at")
+def build_user_report_entry(user, selected_fields=None):
+    selected_field_set = set(selected_fields) if selected_fields else None
 
-    total_matches = all_matches.count()
-    active_matches = all_matches.filter(active=True).count()
+    def include(field_name):
+        return selected_field_set is None or field_name in selected_field_set
 
-    match_status = []
-    if active_matches > 0:
-        match_status.append("Active")
-    if all_matches.filter(confirmed=True).exists():
-        match_status.append("Confirmed")
-    if all_matches.filter(completed=True).exists():
-        match_status.append("Completed")
-    if not match_status:
-        match_status = ["No matches"]
+    result = {}
 
-    match_details = []
-    for match in all_matches:
-        status = "Confirmed" if match.confirmed else "Pending Confirmation"
-        other_username = match.user2.username if match.user1 == user else match.user1.username
-        confirmation_parts = []
-        if match.confirmed_by == match.user1:
-            confirmation_parts.append(f"{match.user1.username} confirmed")
-        elif match.confirmed_by == match.user2:
-            confirmation_parts.append(f"{match.user2.username} confirmed")
-        else:
-            confirmation_parts.append("Both confirmed" if match.confirmed else "No one confirmed")
-        match_details.append(
-            {
-                "other_username": other_username,
-                "status": status,
-                "confirmation": ", ".join(confirmation_parts),
-            }
+    if include("user_id"):
+        result["user_id"] = user.id
+    if include("vorname"):
+        result["vorname"] = user.profile.first_name if user.profile else ""
+    if include("nachname"):
+        result["nachname"] = user.profile.second_name if user.profile else ""
+    if include("email"):
+        result["email"] = user.email
+    if include("date_joined"):
+        result["date_joined"] = user.date_joined.isoformat() if user.date_joined else None
+    if include("last_login"):
+        result["last_login"] = user.last_login.isoformat() if user.last_login else None
+    if include("user_type"):
+        result["user_type"] = user.profile.user_type if user.profile else None
+    if include("german_language_level"):
+        result["german_language_level"] = get_german_language_level(user)
+
+    if include("user_journey_path"):
+        raw_path = user.state.user_journey_path or []
+        result["user_journey_path"] = group_user_journey_by_date(raw_path)
+
+    if include("expired_proposals_count"):
+        result["expired_proposals_count"] = (
+            ProposedMatch.objects.filter(
+                Q(user1=user) | Q(user2=user),
+                expired=True,
+                closed=True,
+            )
+            .exclude(match_type="temporary")
+            .count()
         )
 
-    video_calls_as_u1 = LivekitSession.objects.filter(u1=user, both_have_been_active=True)
-    video_calls_as_u2 = LivekitSession.objects.filter(u2=user, both_have_been_active=True)
-    video_calls = video_calls_as_u1.union(video_calls_as_u2)
+    all_matches = None
 
-    total_video_calls = video_calls.count()
-    total_video_time_seconds_user = 0
-    video_call_details = []
+    def get_all_matches():
+        nonlocal all_matches
+        if all_matches is None:
+            all_matches = Match.objects.filter(
+                (Q(user1=user) | Q(user2=user)),
+                support_matching=False,
+            ).order_by("-created_at")
+        return all_matches
 
-    for call in video_calls:
-        other_user = call.u1 if call.u1 != user else call.u2
-        active_status = "Active" if call.is_active else "Inactive"
+    if include("total_matches"):
+        result["total_matches"] = get_all_matches().count()
 
-        if call.end_time:
-            duration = call.end_time - call.created_at
-            total_video_time_seconds_user += duration.total_seconds()
-            video_call_details.append(
+    if include("active_matches"):
+        result["active_matches"] = get_all_matches().filter(active=True).count()
+
+    if include("match_status"):
+        active_matches = get_all_matches().filter(active=True).count()
+        match_status = []
+        if active_matches > 0:
+            match_status.append("Active")
+        if get_all_matches().filter(confirmed=True).exists():
+            match_status.append("Confirmed")
+        if get_all_matches().filter(completed=True).exists():
+            match_status.append("Completed")
+        if not match_status:
+            match_status = ["No matches"]
+        result["match_status"] = ", ".join(match_status)
+
+    if include("match_details"):
+        match_details = []
+        for match in get_all_matches():
+            status = "Confirmed" if match.confirmed else "Pending Confirmation"
+            other_username = match.user2.username if match.user1 == user else match.user1.username
+            confirmation_parts = []
+            if match.confirmed_by == match.user1:
+                confirmation_parts.append(f"{match.user1.username} confirmed")
+            elif match.confirmed_by == match.user2:
+                confirmation_parts.append(f"{match.user2.username} confirmed")
+            else:
+                confirmation_parts.append("Both confirmed" if match.confirmed else "No one confirmed")
+            match_details.append(
                 {
-                    "other_username": other_user.username,
-                    "duration_seconds": duration.total_seconds(),
-                    "status": active_status,
+                    "other_username": other_username,
+                    "status": status,
+                    "confirmation": ", ".join(confirmation_parts),
                 }
             )
-        else:
-            video_call_details.append({"other_username": other_user.username, "status": active_status})
+        result["match_details"] = match_details
 
-    most_recent_match = all_matches.first()
-    video_calls_with_recent_match = 0
-    messages_with_recent_match = 0
+    video_calls = None
+    total_video_time_seconds_user = None
 
-    if most_recent_match:
-        other_user = most_recent_match.user2 if most_recent_match.user1 == user else most_recent_match.user1
-        video_calls_with_recent_match = LivekitSession.objects.filter(
-            (Q(u1=user, u2=other_user) | Q(u1=other_user, u2=user)),
-            both_have_been_active=True,
-        ).count()
-        messages_with_recent_match = Message.objects.filter(
-            Q(sender=user, recipient=other_user) | Q(sender=other_user, recipient=user)
-        ).count()
+    def get_video_calls():
+        nonlocal video_calls
+        if video_calls is None:
+            video_calls_as_u1 = LivekitSession.objects.filter(u1=user, both_have_been_active=True)
+            video_calls_as_u2 = LivekitSession.objects.filter(u2=user, both_have_been_active=True)
+            video_calls = video_calls_as_u1.union(video_calls_as_u2)
+        return video_calls
 
-    last_message = Message.objects.filter(recipient=user).order_by("-created").first()
-    messages_sent = Message.objects.filter(sender=user).count()
-    messages_received = Message.objects.filter(recipient=user).count()
-    last_user_to_support_message, last_support_to_user_reply = get_latest_support_chat_messages(user)
+    def get_total_video_time_seconds():
+        nonlocal total_video_time_seconds_user
+        if total_video_time_seconds_user is None:
+            total_video_time_seconds_user = 0
+            for call in get_video_calls():
+                if call.end_time:
+                    duration = call.end_time - call.created_at
+                    total_video_time_seconds_user += duration.total_seconds()
+        return total_video_time_seconds_user
 
-    raw_path = user.state.user_journey_path or []
-    grouped_journey = group_user_journey_by_date(raw_path)
+    if include("total_video_calls"):
+        result["total_video_calls"] = get_video_calls().count()
 
-    total_video_time_minutes = round(total_video_time_seconds_user / 60, 2)
-    total_video_time_hhmm = seconds_to_hhmm(total_video_time_seconds_user)
-    expired_proposals_count = (
-        ProposedMatch.objects.filter(
-            Q(user1=user) | Q(user2=user),
-            expired=True,
-            closed=True,
+    if include("video_call_details"):
+        video_call_details = []
+        for call in get_video_calls():
+            other_user = call.u1 if call.u1 != user else call.u2
+            active_status = "Active" if call.is_active else "Inactive"
+
+            if call.end_time:
+                duration = call.end_time - call.created_at
+                video_call_details.append(
+                    {
+                        "other_username": other_user.username,
+                        "duration_seconds": duration.total_seconds(),
+                        "status": active_status,
+                    }
+                )
+            else:
+                video_call_details.append({"other_username": other_user.username, "status": active_status})
+        result["video_call_details"] = video_call_details
+
+    if include("total_video_time_minutes"):
+        result["total_video_time_minutes"] = round(get_total_video_time_seconds() / 60, 2)
+
+    if include("total_video_time_hhmm"):
+        result["total_video_time_hhmm"] = seconds_to_hhmm(get_total_video_time_seconds())
+
+    if include("video_calls_with_most_recent_match") or include("messages_with_most_recent_match"):
+        most_recent_match = get_all_matches().first()
+        other_user = (
+            most_recent_match.user2
+            if most_recent_match and most_recent_match.user1 == user
+            else (most_recent_match.user1 if most_recent_match else None)
         )
-        .exclude(match_type="temporary")
-        .count()
-    )
-    german_language_level = get_german_language_level(user)
 
-    return {
-        "user_id": user.id,
-        "vorname": user.profile.first_name if user.profile else "",
-        "nachname": user.profile.second_name if user.profile else "",
-        "email": user.email,
-        "date_joined": (user.date_joined.isoformat() if user.date_joined else None),
-        "last_login": (user.last_login.isoformat() if user.last_login else None),
-        "german_language_level": german_language_level,
-        "user_type": (user.profile.user_type if user.profile else None),
-        "expired_proposals_count": expired_proposals_count,
-        "user_journey_path": grouped_journey,
-        "match_status": ", ".join(match_status),
-        "total_matches": total_matches,
-        "active_matches": active_matches,
-        "match_details": match_details,
-        "video_call_details": video_call_details,
-        "total_video_calls": total_video_calls,
-        "total_video_time_minutes": total_video_time_minutes,
-        "total_video_time_hhmm": total_video_time_hhmm,
-        "messages_sent": messages_sent,
-        "messages_received": messages_received,
-        "video_calls_with_most_recent_match": video_calls_with_recent_match,
-        "messages_with_most_recent_match": messages_with_recent_match,
-        "last_message_received": datetime_to_readable_utc(last_message.created if last_message else None),
-        "last_user_to_support_message": last_user_to_support_message.text if last_user_to_support_message else None,
-        "last_user_to_support_message_time": datetime_to_readable_utc(
-            last_user_to_support_message.created if last_user_to_support_message else None
-        ),
-        "last_support_to_user_reply": last_support_to_user_reply.text if last_support_to_user_reply else None,
-        "last_support_to_user_reply_time": datetime_to_readable_utc(
-            last_support_to_user_reply.created if last_support_to_user_reply else None
-        ),
-    }
+        if include("video_calls_with_most_recent_match"):
+            result["video_calls_with_most_recent_match"] = (
+                LivekitSession.objects.filter(
+                    (Q(u1=user, u2=other_user) | Q(u1=other_user, u2=user)),
+                    both_have_been_active=True,
+                ).count()
+                if other_user
+                else 0
+            )
+
+        if include("messages_with_most_recent_match"):
+            result["messages_with_most_recent_match"] = (
+                Message.objects.filter(
+                    Q(sender=user, recipient=other_user) | Q(sender=other_user, recipient=user)
+                ).count()
+                if other_user
+                else 0
+            )
+
+    if include("messages_sent"):
+        result["messages_sent"] = Message.objects.filter(sender=user).count()
+
+    if include("messages_received"):
+        result["messages_received"] = Message.objects.filter(recipient=user).count()
+
+    if include("last_message_received"):
+        last_message = Message.objects.filter(recipient=user).order_by("-created").first()
+        result["last_message_received"] = datetime_to_readable_utc(last_message.created if last_message else None)
+
+    if (
+        include("last_user_to_support_message")
+        or include("last_user_to_support_message_time")
+        or include("last_support_to_user_reply")
+        or include("last_support_to_user_reply_time")
+    ):
+        last_user_to_support_message, last_support_to_user_reply = get_latest_support_chat_messages(user)
+
+        if include("last_user_to_support_message"):
+            result["last_user_to_support_message"] = (
+                last_user_to_support_message.text if last_user_to_support_message else None
+            )
+        if include("last_user_to_support_message_time"):
+            result["last_user_to_support_message_time"] = datetime_to_readable_utc(
+                last_user_to_support_message.created if last_user_to_support_message else None
+            )
+        if include("last_support_to_user_reply"):
+            result["last_support_to_user_reply"] = (
+                last_support_to_user_reply.text if last_support_to_user_reply else None
+            )
+        if include("last_support_to_user_reply_time"):
+            result["last_support_to_user_reply_time"] = datetime_to_readable_utc(
+                last_support_to_user_reply.created if last_support_to_user_reply else None
+            )
+
+    return result
 
 
 # Must match keys returned by build_user_report_entry (used for lightweight export header discovery).

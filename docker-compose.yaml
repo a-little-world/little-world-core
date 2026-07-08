@@ -92,7 +92,8 @@ services:
       DJ_USE_DEBUG_TOOLBAR: ${DJ_USE_DEBUG_TOOLBAR:-0}
     env_file:
       - ./dev/envs/dev.env
-      - ./dev/envs/local_dev.env
+      - path: ./.env
+        required: false
     volumes:
       - ./back/:/back/
       - ./front/env_apps/:/front/env_apps/
@@ -101,6 +102,8 @@ services:
       - ./front/webpack-stats/cookie_banner_frontend/:/front/webpack-stats/cookie_banner_frontend/
     depends_on:
       - redis
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
   redis:
     profiles:
       [

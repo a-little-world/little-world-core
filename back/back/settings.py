@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import sys
 import uuid
 from datetime import timedelta
 
@@ -140,6 +141,10 @@ COOKIE_CONSENT_NAME = "backend_cookie_consent"
 USE_WHITENOISE = os.environ.get("DJ_USE_WHITENOISE", "false").lower() in ("true", "1", "t")
 
 EMPHIRIAL = os.environ.get("EMPHIRIAL", "0") == "1"
+IS_TEST_ENV = bool_env("DJANGO_TESTING", "false")
+IS_TEST_COMMAND = len(sys.argv) > 1 and sys.argv[1] == "test"
+OPEN_CHAT_BOOTSTRAP_ENABLED_DEFAULT = (not IS_TEST_ENV) and (not IS_TEST_COMMAND)
+ENABLE_OPEN_CHAT_BOOTSTRAP_IN_TESTS = bool_env("DJ_ENABLE_OPEN_CHAT_BOOTSTRAP_IN_TESTS", "false")
 
 USE_LANDINGPAGE_REDIRECT = os.environ.get("DJ_USE_LANDINGPAGE_REDIRECT", "false").lower() in ("true", "1", "t")
 LANDINGPAGE_REDIRECT_URL = os.environ.get("DJ_LANDINGPAGE_REDIRECT_URL", "https://home.little-world.com")
@@ -214,6 +219,7 @@ INSTALLED_APPS = [
     "emails",  # Manageing logging and sending emails
     "cookie_consent",  # Our cookie consent management system
     "management",  # Main backend application
+    "open_chat",  # Open Chat integration (configuration, interactions, automations)
     "chat",  # Our chat
     "patenmatch",  # pathenmatch api
     "corsheaders",
@@ -994,7 +1000,7 @@ SIMPLE_JWT = {
         days=SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_DAYS,
     ),
 }
-DJANGO_TESTING = bool_env("DJANGO_TESTING", "false")
+DJANGO_TESTING = IS_TEST_ENV
 IS_CI = bool_env("CI", "false")
 ENABLE_E2E_TEST_APIS = bool_env("DJ_ENABLE_E2E_TEST_APIS", "false")
 E2E_TEST_APIS_ENABLED = ENABLE_E2E_TEST_APIS and IS_CI and DJANGO_TESTING
@@ -1079,3 +1085,36 @@ PUSH_NOTIFICATIONS_SETTINGS = {
     "UNIQUE_REG_ID": True,
     "GCM_DEVICE_MODEL": "management.MobileDevice",
 }
+
+CREATE_OPEN_CHAT_AUTOMATION_USER = bool_env(
+    "DJ_CREATE_OPEN_CHAT_AUTOMATION_USER",
+    "true" if OPEN_CHAT_BOOTSTRAP_ENABLED_DEFAULT else "false",
+)
+OPEN_CHAT_AUTOMATION_USER_EMAIL = os.environ.get(
+    "DJ_OPEN_CHAT_AUTOMATION_USER_EMAIL",
+    "tim+open-chat@little-world.com",
+)
+OPEN_CHAT_AUTOMATION_USER_PASSWORD = os.environ.get(
+    "DJ_OPEN_CHAT_AUTOMATION_USER_PASSWORD",
+    "Test123!",
+)
+
+CREATE_DEFAULT_OPEN_CHAT_CONFIGURATION = bool_env(
+    "DJ_CREATE_DEFAULT_OPEN_CHAT_CONFIGURATION",
+    "true" if OPEN_CHAT_BOOTSTRAP_ENABLED_DEFAULT else "false",
+)
+
+if (IS_TEST_ENV or IS_TEST_COMMAND) and not ENABLE_OPEN_CHAT_BOOTSTRAP_IN_TESTS:
+    CREATE_OPEN_CHAT_AUTOMATION_USER = False
+    CREATE_DEFAULT_OPEN_CHAT_CONFIGURATION = False
+
+DEFAULT_OPEN_CHAT_CONFIGURATION = {
+    "open_chat_api_key": os.environ.get("DJ_DEFAULT_OPEN_CHAT_API_KEY", "password"),
+    "open_chat_user": os.environ.get("DJ_DEFAULT_OPEN_CHAT_USER", "admin"),
+    "open_chat_host": os.environ.get("DJ_DEFAULT_OPEN_CHAT_HOST", "http://host.docker.internal:1984"),
+}
+
+
+OPEN_CHAT_ENABLE_AUTOMATION_MESSAGE_REPLY_SUGGESTION = bool_env(
+    "DJ_OPEN_CHAT_ENABLE_AUTOMATION_MESSAGE_REPLY_SUGGESTION", "false"
+)

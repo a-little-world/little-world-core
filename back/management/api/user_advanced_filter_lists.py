@@ -5,6 +5,7 @@ from typing import List
 from management.api.user_advanced_filter import (
     EXTRA__fh_aachen_learners_scoring,
     EXTRA__fh_aachen_users,
+    EXTRA__learners_no_match_scoring,
     EXTRA__learners_with_activity_in_last3weeks,
     EXTRA__lingoda_learners_scoring,
     EXTRA__lingoda_users,
@@ -18,6 +19,7 @@ from management.api.user_advanced_filter import (
     get_quality_match_query_set,
     get_user_with_message_to_admin,
     get_user_with_message_to_admin_that_are_read_but_not_replied,
+    get_user_with_message_to_admin_that_are_read_or_not_read_but_not_replied,
     get_users_with_company,
     get_volunteers_booked_onboarding_call_but_never_visited,
     logged_in_within_3weeks,
@@ -130,6 +132,11 @@ PANEL_V1_FILTER_LISTS = [
     FilterListEntry("highquality_matching", None, get_quality_match_query_set),
     FilterListEntry("message_reply_required", None, get_user_with_message_to_admin),
     FilterListEntry("read_message_but_not_replied", None, get_user_with_message_to_admin_that_are_read_but_not_replied),
+    FilterListEntry(
+        "read_or_not_read_but_not_replied",
+        None,
+        get_user_with_message_to_admin_that_are_read_or_not_read_but_not_replied,
+    ),
     FilterListEntry("users_with_company", None, get_users_with_company),
     FilterListEntry("users_with_open_tasks", None, users_with_open_tasks),
     FilterListEntry("users_with_open_proposals", None, users_with_open_proposals),
@@ -280,6 +287,7 @@ USER_JOURNEY_FILTER_LISTS = [
         "EXTRA__fh_aachen_learners_scoring", "FH Aachen learners for scoring", EXTRA__fh_aachen_learners_scoring
     ),
     FilterListEntry("EXTRA__refugee_learners_scoring", "Refugee learners for scoring", EXTRA__refugee_learners_scoring),
+    FilterListEntry("EXTRA__learners_no_match_scoring", None, EXTRA__learners_no_match_scoring),
     FilterListEntry(
         "EXTRA__learners_with_activity_in_last3weeks",
         "Learners with activity in the last 3 weeks",

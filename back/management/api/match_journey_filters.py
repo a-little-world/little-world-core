@@ -13,6 +13,10 @@ from django.db.models import (
 from django.db.models.functions import ExtractDay, Greatest
 from django.utils import timezone
 
+from management.api.user_advanced_filter import (
+    MATCH_SUCCESS_UNITS_TARGET,
+    _match_success_units,
+)
 from management.models.matches import Match
 from management.models.unconfirmed_matches import MatchType, ProposedMatch
 
@@ -319,3 +323,27 @@ def support_matching(qs=Match.objects.all()):
     [Special] Matches that are support matching.
     """
     return qs.filter(support_matching=True)
+
+
+def EXTRA__suggestion_match_completed_on_plattform(qs=Match.objects.all()):
+    """
+    Non-support matches that reached 8 on-platform video-call success units.
+    """
+    candidate_matches = qs.filter(
+        support_matching=False,
+        completed_off_plattform=False,
+    ).select_related("user1", "user2")
+
+    completed_match_ids = []
+    for match in candidate_matches.iterator(chunk_size=500):
+        if _match_success_units(match) >= MATCH_SUCCESS_UNITS_TARGET:
+            completed_match_ids.append(match.pk)
+
+    return qs.filter(id__in=completed_match_ids)
+
+
+def EXTRA__suggestion_match_completed_off_plattform(qs=Match.objects.all()):
+    """
+    Non-support matches marked as completed off platform.
+    """
+    return qs.filter(support_matching=False, completed_off_plattform=True)

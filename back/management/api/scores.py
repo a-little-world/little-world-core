@@ -842,7 +842,7 @@ def burst_calculate_matching_scores_v2(request):
     if scoring_list == "default":
         user_list = needs_matching(
             qs=managed_users,
-            learner_atleast_searching_for_x_days=5,
+            learner_atleast_searching_for_x_days=-1,
             exclude_non_german_residents=True,
         )
     else:
