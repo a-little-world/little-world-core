@@ -46,7 +46,7 @@ class AuthenticateRoomParams(serializers.Serializer):
 
 async def create_livekit_room(room_name):
     lkapi = livekit_api.LiveKitAPI(
-        url=settings.LIVEKIT_URL,
+        url=settings.LIVEKIT_INTERNAL_URL,
         api_key=settings.LIVEKIT_API_KEY,
         api_secret=settings.LIVEKIT_API_SECRET,
     )
