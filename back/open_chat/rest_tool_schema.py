@@ -53,16 +53,13 @@ def resolve_api_host(api_host: str | None = None) -> tuple[str, str]:
     return resolved, hostname
 
 
-_LOCAL_TOOL_HOSTNAMES = frozenset({"localhost", "127.0.0.1", "host.docker.internal"})
-
-
 def allow_local_tool_hosts(builder: Any, hostname: str) -> Any:
-    """Allow Open Chat REST tool callbacks from common local dev hostnames."""
-    host = hostname.strip().lower()
-    if host in _LOCAL_TOOL_HOSTNAMES:
-        allowed = sorted({host, *_LOCAL_TOOL_HOSTNAMES})
-        return builder.allow_hosts(*allowed).allow_private_ips(True)
-    return builder.allow_hosts(host).allow_private_ips(False)
+    """Apply REST tool safety policy that accepts callbacks from any api_host.
+
+    Open Chat only checks ``allow_hosts`` when the list is non-empty, so omit it.
+    ``allow_private_ips`` is required for Docker service names (e.g. little-world-backend).
+    """
+    return builder.allow_private_ips(True)
 
 
 _SESSION_AUTH_HEADER_NAMES = frozenset({"Cookie", "X-CSRFToken"})

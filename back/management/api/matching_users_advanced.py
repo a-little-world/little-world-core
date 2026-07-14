@@ -8,7 +8,12 @@ from rest_framework import serializers, viewsets
 from management.helpers import DetailedPaginationMixin, IsAdminOrMatchingUser
 from management.models.profile import MinimalProfileSerializer
 from management.models.user import User
-from management.permissions import MANAGEMENT_PERMISSION_LABELS, ManagementPermission
+from management.permissions import (
+    MANAGEMENT_PERMISSION_LABELS,
+    ManagementPermission,
+    user_can_edit_management_permissions,
+    user_can_grant_apply_management_permissions,
+)
 
 
 class MatchingUserFilter(filters.FilterSet):
@@ -103,8 +108,9 @@ class MatchingUsersViewSet(viewsets.ReadOnlyModelViewSet):
 
     def list(self, request, *args, **kwargs):
         response = super().list(request, *args, **kwargs)
-        response.data["can_edit_management_permissions"] = request.user.has_perm(
-            ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS
+        response.data["can_edit_management_permissions"] = user_can_edit_management_permissions(request.user)
+        response.data["can_grant_apply_management_permissions"] = user_can_grant_apply_management_permissions(
+            request.user
         )
         return response
 

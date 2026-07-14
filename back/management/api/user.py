@@ -11,6 +11,7 @@ from django.http import HttpResponseRedirect
 from django.urls import path
 from django.utils import timezone
 from django_rest_passwordreset.signals import reset_password_token_created
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema, inline_serializer
 from ipware import get_client_ip as get_ip
 from rest_framework import authentication, permissions, serializers, status
@@ -63,6 +64,7 @@ class VerifyEmail(APIView):
     # we will enforce authentication for 'post' though
     permission_classes = []
     authentication_classes = [SessionAuthentication, NativeOnlyJWTAuthentication]
+    serializer_class = serializers.Serializer
 
     def get(self, request, **kwargs):
         """
@@ -165,6 +167,7 @@ class AutoLoginSerializer(serializers.Serializer):
 class LoginApi(APIView):
     permission_classes = []
     authentication_classes = []
+    serializer_class = LoginSerializer
 
     @extend_schema(
         request=LoginSerializer(many=False),
@@ -241,6 +244,7 @@ class LogoutApi(APIView):
         NativeOnlyJWTAuthentication,
     ]
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = serializers.Serializer
 
     @utils.track_event(
         name="User Logged out", event_type=Event.EventTypeChoices.REQUEST, tags=["frontend", "log-out", "sensitive"]
@@ -266,7 +270,7 @@ class CheckPasswordApi(APIView):
     authentication_classes = [authentication.SessionAuthentication, NativeOnlyJWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(request=CheckPwSerializer(many=False))
+    @extend_schema(request=CheckPwSerializer(many=False), responses={200: None, 400: None})
     def post(self, request):
         serializer = CheckPwSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -298,6 +302,7 @@ class ChangePasswordApi(APIView):
         NativeOnlyJWTAuthentication,
     ]
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = ChangePasswordSerializer
 
     @extend_schema(request=ChangePasswordSerializer(many=False))
     def post(self, request):
@@ -345,6 +350,7 @@ class ChangeEmailApi(APIView):
         NativeOnlyJWTAuthentication,
     ]
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = ChangeEmailSerializer
 
     @extend_schema(request=ChangeEmailSerializer(many=False))
     def post(self, request):
@@ -403,7 +409,7 @@ class ConfirmMatchesApi(APIView):
     ]
     permission_classes = [permissions.IsAuthenticated]
 
-    @extend_schema(request=ConfirmMatchesSerializer(many=False))
+    @extend_schema(request=ConfirmMatchesSerializer(many=False), responses={200: OpenApiTypes.STR})
     def post(self, request):
         serializer = ConfirmMatchesSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -461,6 +467,7 @@ class SearchingStateApiSerializer(serializers.Serializer):
 class UpdateSearchingStateApi(APIView):
     authentication_classes = [authentication.SessionAuthentication, NativeOnlyJWTAuthentication]
     permission_classes = [permissions.IsAuthenticated]
+    serializer_class = SearchingStateApiSerializer
 
     @extend_schema(request=SearchingStateApiSerializer(many=False))
     def post(self, request, **kwargs):
@@ -514,6 +521,7 @@ class UnmatchSelfSerializer(serializers.Serializer):
         return validated_data
 
 
+@extend_schema(request=None, responses={200: OpenApiTypes.STR})
 @login_required
 @api_view(["POST"])
 def resend_verification_mail(request):
@@ -535,6 +543,7 @@ def password_reset_token_created(sender, instance, reset_password_token, *args, 
     reset_password_token.user.send_email("reset-password", context={"reset_password_url": reset_password_url})
 
 
+@extend_schema(request=None, responses={302: None})
 @login_required
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
@@ -547,6 +556,13 @@ def still_active_callback(request):
     return HttpResponseRedirect(redirect_to="/app/chat")
 
 
+@extend_schema(
+    request=None,
+    responses=inline_serializer(
+        name="DeleteAccountResponse",
+        fields={"success": serializers.BooleanField()},
+    ),
+)
 @login_required
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
@@ -662,6 +678,7 @@ def user_profile(request):
         return Response({"error": str(e)}, status=400)
 
 
+@extend_schema(auth=[], responses={200: OpenApiTypes.BOOL})
 @api_view(["GET"])
 @permission_classes([AllowAny])
 @authentication_classes([silent(SessionAuthentication), silent(NativeOnlyJWTAuthentication)])
@@ -698,6 +715,24 @@ def get_self_onboarding_step_rank(request) -> int | None:
     return SELF_ONBOARDING_STEP_TO_RANK.get(step_id)
 
 
+@extend_schema(
+    request=None,
+    parameters=[
+        OpenApiParameter(
+            name="self_onboarding_step_id",
+            location=OpenApiParameter.QUERY,
+            required=True,
+            type=OpenApiTypes.STR,
+        )
+    ],
+    responses=inline_serializer(
+        name="SelfOnboardingUpdateResponse",
+        fields={
+            "completed": serializers.BooleanField(),
+            "message": serializers.CharField(),
+        },
+    ),
+)
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])

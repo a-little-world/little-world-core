@@ -760,6 +760,7 @@ def automatic_emails_m012_m013_m014():
 
     for template, (days, two_days_reminder, seven_days_reminder, fourteen_days_reminder) in reminder.items():
         matches = Match.objects.filter(
+            active=True,
             confirmed=True,
             match_type=MatchType.STANDARD,
             total_messages_counter=0,
@@ -815,7 +816,7 @@ def automatic_emails_m023():
     from django.conf import settings
     from django.db.models import Max
 
-    from management.models.matches import Match
+    from management.models.matches import Match, MatchType
 
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M023)
 
@@ -849,7 +850,12 @@ def automatic_emails_m023():
         if not last_message:
             continue
 
-        active_match = Match.get_match(last_message.sender, last_message.recipient).order_by("-created_at").first()
+        active_match = (
+            Match.get_match(last_message.sender, last_message.recipient)
+            .filter(confirmed=True, match_type=MatchType.STANDARD)
+            .order_by("-created_at")
+            .first()
+        )
         if not active_match:
             continue
 
@@ -907,9 +913,14 @@ def automatic_emails_m024_m025():
         if not last_message:
             continue
 
-        from management.models.matches import Match
+        from management.models.matches import Match, MatchType
 
-        active_match = Match.get_match(last_message.sender, last_message.recipient).order_by("-created_at").first()
+        active_match = (
+            Match.get_match(last_message.sender, last_message.recipient)
+            .filter(confirmed=True, match_type=MatchType.STANDARD)
+            .order_by("-created_at")
+            .first()
+        )
         if not active_match:
             continue
 
@@ -939,12 +950,15 @@ def automatic_emails_m031_m032_m033_m042():
     """
     from django.conf import settings
 
-    from management.models.matches import Match
+    from management.models.matches import Match, MatchType
 
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M031_M032_M033_M042)
 
     # 1 - automatic-emails-m031
     matches_m031 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
         first_interaction_at__isnull=False,
         first_interaction_at__lte=dj_timezone.now() - timedelta(days=7),
         first_interaction_at__gt=dj_timezone.now() - timedelta(days=14),
@@ -971,6 +985,9 @@ def automatic_emails_m031_m032_m033_m042():
 
     # 2 - automatic-emails-m032
     matches_m032 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
         first_interaction_at__isnull=False,
         first_interaction_at__lte=dj_timezone.now() - timedelta(days=14),
         first_interaction_at__gt=dj_timezone.now() - timedelta(days=21),
@@ -1000,6 +1017,9 @@ def automatic_emails_m031_m032_m033_m042():
 
     # 3 - automatic-emails-m033
     matches_m033 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
         first_interaction_at__isnull=False,
         first_interaction_at__lte=dj_timezone.now() - timedelta(days=21),
         first_interaction_at__gt=dj_timezone.now() - timedelta(days=30),
@@ -1029,6 +1049,9 @@ def automatic_emails_m031_m032_m033_m042():
 
     # 4 - automatic-emails-m042
     matches_m042 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
         first_interaction_at__isnull=False,
         first_interaction_at__lte=dj_timezone.now() - timedelta(days=30),
         total_mutal_video_calls_counter=0,
@@ -1061,6 +1084,119 @@ def automatic_emails_m031_m032_m033_m042():
         "matches_m032": matches_m032_uuids,
         "matches_m033": matches_m033_uuids,
         "matches_m042": matches_m042_uuids,
+    }
+
+
+@shared_task
+def automatic_emails_m053_m054_m055():
+    """
+    Match milestone emails based on weeks since match creation:
+    - automatic-emails-m053: 5 weeks after match created (confirmed, active)
+    - automatic-emails-m054: 8 weeks after match created (confirmed, active)
+    - automatic-emails-m055: 10 weeks after match created (confirmed, active)
+    """
+    from django.conf import settings
+    from emails.api.template_lookup import still_in_contact_yes_url
+
+    from management.models.matches import Match, MatchType
+
+    emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M053_M054_M055)
+
+    redirect_slugs_m053_m055 = {
+        "redirect_slug_no": "info-screen",
+        "redirect_slug_yes": "match-form1",
+    }
+
+    redirect_slugs_m054 = {
+        "redirect_slug_no": "info-screen",
+        "redirect_slug_yes": "share-story",
+    }
+
+    # 1 - automatic-emails-m053
+    matches_m053 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        created_at__lte=dj_timezone.now() - timedelta(weeks=5),
+        created_at__gt=dj_timezone.now() - timedelta(weeks=8),
+        auto_email_m053_send=False,
+        support_matching=False,
+    )
+    matches_m053_uuids = [str(uuid) for uuid in matches_m053.values_list("uuid", flat=True)]
+    for match in matches_m053:
+        for user in (match.user1, match.user2):
+            send_email_background.delay(
+                "automatic-emails-m053",
+                user_id=user.id,
+                match_id=match.pk,
+                emulated_send=emulated_send,
+                context={
+                    **redirect_slugs_m053_m055,
+                    "five_week_survey_url": still_in_contact_yes_url(user, match, redirect_slugs_m053_m055),
+                },
+            )
+
+        match.auto_email_m053_send = True
+        match.save()
+
+    # 2 - automatic-emails-m054
+    matches_m054 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        created_at__lte=dj_timezone.now() - timedelta(weeks=8),
+        created_at__gt=dj_timezone.now() - timedelta(weeks=10),
+        auto_email_m054_send=False,
+        support_matching=False,
+    )
+    matches_m054_uuids = [str(uuid) for uuid in matches_m054.values_list("uuid", flat=True)]
+    for match in matches_m054:
+        for user in (match.user1, match.user2):
+            send_email_background.delay(
+                "automatic-emails-m054",
+                user_id=user.id,
+                match_id=match.pk,
+                emulated_send=emulated_send,
+                context={
+                    **redirect_slugs_m054,
+                    "share_story_url": still_in_contact_yes_url(user, match, redirect_slugs_m054),
+                },
+            )
+
+        match.auto_email_m054_send = True
+        match.save()
+
+    # 3 - automatic-emails-m055
+    matches_m055 = Match.objects.filter(
+        active=True,
+        confirmed=True,
+        match_type=MatchType.STANDARD,
+        created_at__lte=dj_timezone.now() - timedelta(weeks=10),
+        auto_email_m055_send=False,
+        support_matching=False,
+    )
+    matches_m055_uuids = [str(uuid) for uuid in matches_m055.values_list("uuid", flat=True)]
+    for match in matches_m055:
+        for user in (match.user1, match.user2):
+            send_email_background.delay(
+                "automatic-emails-m055",
+                user_id=user.id,
+                match_id=match.pk,
+                emulated_send=emulated_send,
+                context={
+                    **redirect_slugs_m053_m055,
+                    "completed_match_poll_url": still_in_contact_yes_url(user, match, redirect_slugs_m053_m055),
+                },
+            )
+
+        match.auto_email_m055_send = True
+        match.save()
+
+    return {
+        "status": "sent",
+        "matches_m053": matches_m053_uuids,
+        "matches_m054": matches_m054_uuids,
+        "matches_m055": matches_m055_uuids,
     }
 
 
@@ -1249,10 +1385,6 @@ def daily_auto_email_report():
             "enabled": settings.ENABLE_AUTO_EMAILS__M043_M044_M045,
             "emulated": settings.EMULATE_AUTO_EMAILS__M043_M044_M045,
         },
-        "AUTOMATIC_EMAILS__U053_U054": {
-            "enabled": settings.ENABLE_AUTO_EMAILS__U053_U054,
-            "emulated": settings.EMULATE_AUTO_EMAILS__U053_U054,
-        },
         "AUTOMATIC_EMAILS__U051_U071": {
             "enabled": settings.ENABLE_AUTO_EMAILS__U051_U071,
             "emulated": settings.EMULATE_AUTO_EMAILS__U051_U071,
@@ -1264,6 +1396,14 @@ def daily_auto_email_report():
         "AUTOMATIC_EMAILS__M051": {
             "enabled": settings.ENABLE_AUTO_EMAILS__M051,
             "emulated": settings.EMULATE_AUTO_EMAILS__M051,
+        },
+        "AUTOMATIC_EMAILS__U053_U054": {
+            "enabled": settings.ENABLE_AUTO_EMAILS__U053_U054,
+            "emulated": settings.EMULATE_AUTO_EMAILS__U053_U054,
+        },
+        "AUTOMATIC_EMAILS__M053_M054_M055": {
+            "enabled": settings.ENABLE_AUTO_EMAILS__M053_M054_M055,
+            "emulated": settings.EMULATE_AUTO_EMAILS__M053_M054_M055,
         },
     }
 
@@ -1300,6 +1440,9 @@ def daily_auto_email_report():
         "automatic-emails-m044",
         "automatic-emails-m045",
         "automatic-emails-m051",
+        "automatic-emails-m053",
+        "automatic-emails-m054",
+        "automatic-emails-m055",
         "automatic-emails-fm021",
         "automatic-emails-fm022",
     ]
@@ -1545,13 +1688,21 @@ def automatic_emails_m043_m044_m045():
     # Send 10 x Video Call Emails
     for match in matches_video_call_m045:
         send_email_background.delay(
-            "automatic-emails-m045", user_id=match.user1.id, match_id=match.pk, emulated_send=emulated_send
+            "automatic-emails-m045",
+            user_id=match.get_learner().id,
+            match_id=match.pk,
+            emulated_send=emulated_send,
+            context={"share_story_url": settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER},
         )
         send_email_background.delay(
-            "automatic-emails-m045", user_id=match.user2.id, match_id=match.pk, emulated_send=emulated_send
+            "automatic-emails-m045",
+            user_id=match.get_volunteer().id,
+            match_id=match.pk,
+            emulated_send=emulated_send,
+            context={"share_story_url": settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_VOLUNTEER},
         )
-        report["m045_send_to"].append([str(match.uuid), match.user1.id])
-        report["m045_send_to"].append([str(match.uuid), match.user2.id])
+        report["m045_send_to"].append([str(match.uuid), match.get_learner().id])
+        report["m045_send_to"].append([str(match.uuid), match.get_volunteer().id])
         match.auto_email_m043_send = True
         match.auto_email_m044_send = True
         match.auto_email_m045_send = True
@@ -1587,6 +1738,7 @@ def automatic_emails_m043_m044_m045():
 
     # Send 8x Video Call Emails
     for match in matches_video_call_m044:
+        # uses share_story_url internally automaticly
         send_email_background.delay(
             "automatic-emails-m044", user_id=match.user1.id, match_id=match.pk, emulated_send=emulated_send
         )
@@ -1631,8 +1783,22 @@ def automatic_emails_m043_m044_m045():
 
     # Send 5x Video Call Emails
     for match in matches_video_call_m043:
-        send_email_background.delay("automatic-emails-m043", user_id=match.user1.id, emulated_send=emulated_send)
-        send_email_background.delay("automatic-emails-m043", user_id=match.user2.id, emulated_send=emulated_send)
+        send_email_background.delay(
+            "automatic-emails-m043",
+            user_id=match.get_learner().id,
+            emulated_send=emulated_send,
+            context={"post_videocall_survey_url": settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER},
+        )
+
+        send_email_background.delay(
+            "automatic-emails-m043",
+            user_id=match.get_volunteer().id,
+            emulated_send=emulated_send,
+            context={
+                "post_videocall_survey_url": settings.GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_VOLUNTEER,
+            },
+        )
+        # TODO: add survey for both!
         report["m043_send_to"].append([str(match.uuid), match.user1.id])
         report["m043_send_to"].append([str(match.uuid), match.user2.id])
         match.auto_email_m043_send = True
@@ -1826,7 +1992,7 @@ def automatic_emails_fm021_fm022__ghosted_matches():
     from video.models import LivekitSession
 
     from management.api.report_unmatch import process_report_unmatch
-    from management.models.matches import Match
+    from management.models.matches import Match, MatchType
 
     time_15days_ago = timezone.now() - timedelta(days=15)
     time_3weeks_ago = timezone.now() - timedelta(weeks=3)
@@ -1840,11 +2006,12 @@ def automatic_emails_fm021_fm022__ghosted_matches():
     }
     # Matches that started interacting in the last 3 weeks & haven't had a mutual video call
     matches_in_ko_with_single_party_contact = Match.objects.filter(
+        active=True,
         confirmed=True,
+        match_type=MatchType.STANDARD,
         completed=False,  # dont even consider removing completed matches!
         completed_off_plattform=False,
         support_matching=False,
-        active=True,
         auto_email_fm021_send=False,
         auto_email_fm022_send=False,
         is_ghosted_match=False,
