@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from chat.models import Chat, Message
+from chat.models import Message
 from django.db import connection
 from django.db.models import Case, Count, F, OuterRef, Q, Subquery, When
 from django.db.models.functions import Extract
@@ -244,10 +244,7 @@ def get_user_with_message_to_admin(qs=User.objects.all()):
     """
     Users who have an unread message to the admin user
     """
-    admin = controller.get_base_management_user()
-    unread_messages = Message.objects.filter(recipient=admin, read=False).order_by("created")
-    unread_senders_ids = unread_messages.values("sender")
-    return qs.filter(id__in=Subquery(unread_senders_ids))
+    return _get_users_with_message_to_admin_not_replied(qs=qs, require_read=False)
 
 
 def user_recent_activity(
@@ -339,26 +336,57 @@ def get_volunteers_booked_onboarding_call_but_never_visited(qs=User.objects.all(
     ).order_by("-date_joined")
 
 
+def _get_users_with_message_to_recipient_not_replied(
+    qs=User.objects.all(),
+    *,
+    recipient_user,
+    require_read: bool | None = None,
+):
+    """
+    Users whose latest message in their dialog with ``recipient_user`` was sent by them.
+    Optionally filter by read-status of that latest user->recipient message:
+    - require_read=False => unread and not replied
+    - require_read=True => read and not replied
+    - require_read=None => read or unread and not replied
+    """
+    messages_with_recipient = Message.objects.filter(
+        Q(sender_id=OuterRef("pk"), recipient=recipient_user) | Q(sender=recipient_user, recipient_id=OuterRef("pk"))
+    ).order_by("-created", "-id")
+
+    users_in_dialog = qs.annotate(
+        _last_message_sender_id=Subquery(messages_with_recipient.values("sender_id")[:1]),
+        _last_message_read=Subquery(messages_with_recipient.values("read")[:1]),
+    ).filter(
+        _last_message_sender_id=F("pk"),
+    )
+    if require_read is True:
+        users_in_dialog = users_in_dialog.filter(_last_message_read=True)
+    elif require_read is False:
+        users_in_dialog = users_in_dialog.filter(_last_message_read=False)
+
+    return users_in_dialog.order_by("-date_joined")
+
+
+def _get_users_with_message_to_admin_not_replied(qs=User.objects.all(), require_read: bool | None = None):
+    return _get_users_with_message_to_recipient_not_replied(
+        qs=qs,
+        recipient_user=controller.get_base_management_user(),
+        require_read=require_read,
+    )
+
+
 def get_user_with_message_to_admin_that_are_read_but_not_replied(qs=User.objects.all()):
     """
     Read messages to the management user that have not been replied to
     """
-    admin_pk = controller.get_base_management_user()
-    Chat.objects.filter(Q(u1=admin_pk) | Q(u2=admin_pk))
-    last_message_per_user = (
-        Message.objects.filter(
-            (Q(sender_id=OuterRef("id"), recipient_id=admin_pk) | Q(sender_id=admin_pk, recipient_id=OuterRef("id")))
-        )
-        .order_by("created")
-        .values("created")[:1]
-    )
-    users_in_dialog_with_management_user = qs.annotate(
-        last_message_id=Subquery(last_message_per_user.values("id")[:1])
-    ).filter(
-        Q(last_message_id__in=Message.objects.filter(sender_id=F("id"), recipient_id=admin_pk, read=True))
-        | Q(last_message_id__in=Message.objects.filter(sender_id=admin_pk, recipient_id=F("id"), read=False))
-    )
-    return users_in_dialog_with_management_user
+    return _get_users_with_message_to_admin_not_replied(qs=qs, require_read=True)
+
+
+def get_user_with_message_to_admin_that_are_read_or_not_read_but_not_replied(qs=User.objects.all()):
+    """
+    Read or unread messages to the management user where the latest message has not been replied to yet.
+    """
+    return _get_users_with_message_to_admin_not_replied(qs=qs, require_read=None)
 
 
 def users_with_open_proposals(qs=User.objects.all()):
@@ -458,6 +486,18 @@ def EXTRA__refugee_learners_scoring(qs=User.objects.all()):
     needs_matching_users = needs_matching(qs).filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
 
     return refugee_learners.order_by().union(needs_matching_users.order_by()).order_by("-date_joined")
+
+
+def EXTRA__learners_no_match_scoring(qs=User.objects.all()):
+    """
+    (Maddy) EXTRA Scoring list for learners that have no match yet
+    """
+    learners = needs_matching(qs).filter(profile__user_type=Profile.TypeChoices.LEARNER)
+    learners_with_active_match = get_active_match_query_set(learners).values("pk")
+    learners = learners.exclude(pk__in=learners_with_active_match)
+    needs_matching_users = needs_matching(qs).filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
+
+    return learners.order_by().union(needs_matching_users.order_by()).order_by("-date_joined")
 
 
 def EXTRA__learners_with_activity_in_last3weeks(qs=User.objects.all(), days_ago=21):

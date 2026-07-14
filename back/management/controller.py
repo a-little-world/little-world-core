@@ -21,12 +21,6 @@ from management.models.state import State
 from management.models.unconfirmed_matches import MatchType, ProposedMatch
 from management.models.user import User, UserSerializer
 from management.permissions import ManagementPermission
-from management.tasks import (
-    create_default_banners,
-    create_default_community_events,
-    create_default_cookie_groups,
-    fill_base_management_user_tim_profile,
-)
 
 
 class UserNotFoundErr(Exception):
@@ -184,6 +178,7 @@ def create_user(
     newsletter_subscribed=False,
     send_verification_mail=True,
     send_welcome_notification=True,
+    auto_apply_user_access_permission=True,
 ):
     """
     This should be used when creating a new user, it may throw validations errors!
@@ -275,6 +270,15 @@ def create_user(
         # At the moment all our users get the same management user
         # in the future there might be a process to assign different management users to different users
         base_management_user.grant_management_access(usr, granted_by=base_management_user)
+
+    if auto_apply_user_access_permission:
+        managers_with_full_access = User.objects.filter(
+            user_permissions__codename=ManagementPermission.RECEIVES_FULL_USER_ACCESS.codename,
+            user_permissions__content_type__app_label="management",
+            user_permissions__content_type__model="state",
+        ).distinct()
+        for manager in managers_with_full_access:
+            manager.grant_management_access(usr, granted_by=base_management_user)
 
     return usr
 
@@ -470,12 +474,29 @@ def is_base_management_user(user: User) -> bool:
     return user.email == settings.MATCHING_USER_MAIL
 
 
+def ensure_base_management_user_permissions(user: User) -> None:
+    required_permissions = (
+        ManagementPermission.MATCHING_USER,
+        ManagementPermission.OPEN_CHAT_ACCESS,
+        ManagementPermission.EDIT_OPEN_CHAT_CONFIGURATION,
+        ManagementPermission.USE_RANDOM_CALLS,
+        ManagementPermission.CAN_SEND_SUPPORT_MESSAGE_REPLIES,
+        ManagementPermission.IS_MAIN_SUPPORT_ACCOUNT,
+    )
+    for permission in required_permissions:
+        if not user.has_perm(permission):
+            user.grant_permission(permission)
+
+
 def get_base_management_user():
     """
     Always returns the BASE_MANAGEMENT_USER user
     """
     try:
-        return get_user_by_email(settings.MATCHING_USER_MAIL)
+        user = get_user_by_email(settings.MATCHING_USER_MAIL)
+        if not getattr(settings, "IS_TEST_COMMAND", False):
+            ensure_base_management_user_permissions(user)
+        return user
     except UserNotFoundErr:
         return create_base_admin_and_add_standart_db_values()
 
@@ -498,8 +519,7 @@ def create_base_admin_and_add_standart_db_values():
 
     def update_profile():
         usr_tim = get_user_by_email(settings.MATCHING_USER_MAIL)
-        if not usr_tim.has_perm(ManagementPermission.MATCHING_USER):
-            usr_tim.grant_permission(ManagementPermission.MATCHING_USER)
+        ensure_base_management_user_permissions(usr_tim)
         usr_tim.state.email_authenticated = True
         usr_tim.state.save()
         usr_tim.state.set_user_form_completed()  # Admin doesn't have to fill the userform
@@ -520,10 +540,20 @@ def create_base_admin_and_add_standart_db_values():
     transaction.on_commit(update_profile)
     # The tim user should always get the matching permission
 
+    if getattr(settings, "IS_TEST_COMMAND", False):
+        return usr_tim
+
     # Now we create some default database elements that should be part of all setups!
 
     # Create default cookie groups and community events
     # This is done as celery task in the background!
+    from management.tasks import (
+        create_default_banners,
+        create_default_community_events,
+        create_default_cookie_groups,
+        fill_base_management_user_tim_profile,
+    )
+
     create_default_cookie_groups.delay()
     create_default_community_events.delay()
     create_default_banners.delay()
@@ -533,7 +563,8 @@ def create_base_admin_and_add_standart_db_values():
 
     create_default_random_call_lobby()
 
-    create_open_chat_automation_user()
+    open_chat_automation_user = create_open_chat_automation_user()
+    ensure_base_management_open_chat_setup(open_chat_automation_user)
 
     return usr_tim
 
@@ -556,13 +587,54 @@ def create_open_chat_automation_user():
         )
         print(f"Open chat automation user {user.email} newly created!")
 
+    user.grant_permission(ManagementPermission.MATCHING_USER)
     user.grant_permission(ManagementPermission.OPEN_CHAT_ACCESS)
     user.grant_permission(ManagementPermission.EDIT_OPEN_CHAT_CONFIGURATION)
+    user.grant_permission(ManagementPermission.MANAGE_OPEN_CHAT_ACCESS)
     user.state.email_authenticated = True
     user.state.save()
     user.state.set_user_form_completed()
 
     return user
+
+
+def ensure_base_management_open_chat_setup(open_chat_automation_user: User | None = None):
+    """
+    If enabled via env flags, ensure the base management user has:
+    1) a default Open Chat configuration
+    2) a support matching with the Open Chat automation user
+    """
+    if not settings.CREATE_OPEN_CHAT_AUTOMATION_USER:
+        return None
+    if not settings.CREATE_DEFAULT_OPEN_CHAT_CONFIGURATION:
+        return None
+
+    from open_chat.models import OpenChatConfiguration
+
+    base_management_user = get_base_management_user()
+    config_defaults = dict(settings.DEFAULT_OPEN_CHAT_CONFIGURATION)
+
+    OpenChatConfiguration.objects.get_or_create(
+        user=base_management_user,
+        defaults=config_defaults,
+    )
+
+    automation_user = open_chat_automation_user or create_open_chat_automation_user()
+    if automation_user is None or automation_user.pk == base_management_user.pk:
+        return automation_user
+
+    if not Match.get_match(base_management_user, automation_user).exists():
+        match_users(
+            {base_management_user, automation_user},
+            send_notification=False,
+            send_message=False,
+            send_email=False,
+            set_unconfirmed=False,
+            set_to_idle=False,
+            set_received_first_match=False,
+        )
+
+    return automation_user
 
 
 def delete_user(user, management_user=None, send_deletion_email=False):

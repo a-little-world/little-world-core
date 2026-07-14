@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import sys
 import uuid
 from datetime import timedelta
 
@@ -140,6 +141,10 @@ COOKIE_CONSENT_NAME = "backend_cookie_consent"
 USE_WHITENOISE = os.environ.get("DJ_USE_WHITENOISE", "false").lower() in ("true", "1", "t")
 
 EMPHIRIAL = os.environ.get("EMPHIRIAL", "0") == "1"
+IS_TEST_ENV = bool_env("DJANGO_TESTING", "false")
+IS_TEST_COMMAND = len(sys.argv) > 1 and sys.argv[1] == "test"
+OPEN_CHAT_BOOTSTRAP_ENABLED_DEFAULT = (not IS_TEST_ENV) and (not IS_TEST_COMMAND)
+ENABLE_OPEN_CHAT_BOOTSTRAP_IN_TESTS = bool_env("DJ_ENABLE_OPEN_CHAT_BOOTSTRAP_IN_TESTS", "false")
 
 USE_LANDINGPAGE_REDIRECT = os.environ.get("DJ_USE_LANDINGPAGE_REDIRECT", "false").lower() in ("true", "1", "t")
 LANDINGPAGE_REDIRECT_URL = os.environ.get("DJ_LANDINGPAGE_REDIRECT_URL", "https://home.little-world.com")
@@ -214,6 +219,7 @@ INSTALLED_APPS = [
     "emails",  # Manageing logging and sending emails
     "cookie_consent",  # Our cookie consent management system
     "management",  # Main backend application
+    "open_chat",  # Open Chat integration (configuration, interactions, automations)
     "chat",  # Our chat
     "patenmatch",  # pathenmatch api
     "corsheaders",
@@ -994,10 +1000,29 @@ SIMPLE_JWT = {
         days=SIMPLE_JWT_REFRESH_TOKEN_LIFETIME_DAYS,
     ),
 }
-DJANGO_TESTING = bool_env("DJANGO_TESTING", "false")
+DJANGO_TESTING = IS_TEST_ENV
 IS_CI = bool_env("CI", "false")
 ENABLE_E2E_TEST_APIS = bool_env("DJ_ENABLE_E2E_TEST_APIS", "false")
 E2E_TEST_APIS_ENABLED = ENABLE_E2E_TEST_APIS and IS_CI and DJANGO_TESTING
+
+
+## Google Forms URLs
+GOOGLE_FORM_MATCH_REMOVED_NO_CONTACT = (
+    "https://docs.google.com/forms/d/e/1FAIpQLSdR9ZwNPra9Lt7SCsqiTR2E_xA4FIj4i2JAuKGp8bA-6Wj7xQ/viewform"
+)
+GOOGLE_FORM_MATCH_REMOVED_GHOSTED = (
+    "https://docs.google.com/forms/d/e/1FAIpQLSck918AL9dST6Dqp9DtOvtBC0-3BWJfB2pPZc31DUjCSWEOyg/viewform"
+)
+GOOGLE_FORM_STILL_IN_CONTACT_MATCH_FORM1 = "https://docs.google.com/forms/d/e/1FAIpQLScZpHVBkd9oXMTXGwH6aIUS8-Ep3LGbmHzx0wKYTA0fDpzJtQ/viewform?entry.1868418501={user_uuid}&entry.1064841735={match_uuid}"
+GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_VOLUNTEER = (
+    "https://docs.google.com/forms/d/e/1FAIpQLSeRiEUt9ZHNsPWeHlRMJSrR6jAagGO-u8jKZlJdJ3SvQqKgpA/viewform"
+)
+GOOGLE_FORM_COMPLETED_X_VIDEO_CALLS_LEARNER = (
+    "https://docs.google.com/forms/d/e/1FAIpQLScLdpyDzaf_JS9hWE6ok6_xENc34RbPv7Wg--Qb1NhqFl8cjQ/viewform?usp=header"
+)
+GOOGLE_FORM_SHARE_STORY_URL = (
+    "https://docs.google.com/forms/d/e/1FAIpQLSct9CPNv-8wjV1WMg9tPfm7RyqBeZgkFOAz0qABIqu4uRdSTg/viewform"
+)
 
 
 ## Auto E-Mails:
@@ -1027,17 +1052,20 @@ EMULATE_AUTO_EMAILS__U081_U082_U083_U084 = bool_env("DJ_EMULATE_AUTO_EMAILS__U08
 ENABLE_AUTO_EMAILS__M043_M044_M045 = bool_env("DJ_ENABLE_AUTO_EMAILS__M042_M043_M044", "false")
 EMULATE_AUTO_EMAILS__M043_M044_M045 = bool_env("DJ_EMULATE_AUTO_EMAILS__M042_M043_M044", "true")
 
-ENABLE_AUTO_EMAILS__U053_U054 = bool_env("DJ_ENABLE_AUTO_EMAILS__U053_U054", "false")
-EMULATE_AUTO_EMAILS__U053_U054 = bool_env("DJ_EMULATE_AUTO_EMAILS__U053_U054", "true")
-
 ENABLE_AUTO_EMAILS__U051_U071 = bool_env("DJ_ENABLE_AUTO_EMAILS__U051_U071", "false")
 EMULATE_AUTO_EMAILS__U051_U071 = bool_env("DJ_EMULATE_AUTO_EMAILS__U051_U071", "true")
 
 ENABLE_AUTO_EMAILS__FM021_FM022 = bool_env("DJ_ENABLE_AUTO_EMAILS__FM021_FM022", "false")
 EMULATE_AUTO_EMAILS__FM021_FM022 = bool_env("DJ_EMULATE_AUTO_EMAILS__FM021_FM022", "true")
 
+ENABLE_AUTO_EMAILS__U053_U054 = bool_env("DJ_ENABLE_AUTO_EMAILS__U053_U054", "false")
+EMULATE_AUTO_EMAILS__U053_U054 = bool_env("DJ_EMULATE_AUTO_EMAILS__U053_U054", "true")
+
 ENABLE_AUTO_EMAILS__M051 = bool_env("DJ_ENABLE_AUTO_EMAILS__M051", "false")
 EMULATE_AUTO_EMAILS__M051 = bool_env("DJ_EMULATE_AUTO_EMAILS__M051", "true")
+
+ENABLE_AUTO_EMAILS__M053_M054_M055 = bool_env("DJ_ENABLE_AUTO_EMAILS__M053_M054_M055", "false")
+EMULATE_AUTO_EMAILS__M053_M054_M055 = bool_env("DJ_EMULATE_AUTO_EMAILS__M053_M054_M055", "true")
 
 ENABLE_AUTO_EMAIL_LOGS = (
     ENABLE_AUTO_EMAILS__U023_U024_U025
@@ -1052,6 +1080,7 @@ ENABLE_AUTO_EMAIL_LOGS = (
     or ENABLE_AUTO_EMAILS__U051_U071
     or ENABLE_AUTO_EMAILS__FM021_FM022
     or ENABLE_AUTO_EMAILS__M051
+    or ENABLE_AUTO_EMAILS__M053_M054_M055
 )
 
 ENABLE_DAILY_SMS_REPORT = bool_env("DJ_ENABLE_DAILY_SMS_REPORT", "false")
@@ -1082,7 +1111,7 @@ PUSH_NOTIFICATIONS_SETTINGS = {
 
 CREATE_OPEN_CHAT_AUTOMATION_USER = bool_env(
     "DJ_CREATE_OPEN_CHAT_AUTOMATION_USER",
-    "true" if EMPHIRIAL else "false",
+    "true" if OPEN_CHAT_BOOTSTRAP_ENABLED_DEFAULT else "false",
 )
 OPEN_CHAT_AUTOMATION_USER_EMAIL = os.environ.get(
     "DJ_OPEN_CHAT_AUTOMATION_USER_EMAIL",
@@ -1091,4 +1120,25 @@ OPEN_CHAT_AUTOMATION_USER_EMAIL = os.environ.get(
 OPEN_CHAT_AUTOMATION_USER_PASSWORD = os.environ.get(
     "DJ_OPEN_CHAT_AUTOMATION_USER_PASSWORD",
     "Test123!",
+)
+OPEN_CHAT_TOOL_API_HOST = os.environ.get("DJ_OPEN_CHAT_TOOL_API_HOST", "").strip() or None
+
+CREATE_DEFAULT_OPEN_CHAT_CONFIGURATION = bool_env(
+    "DJ_CREATE_DEFAULT_OPEN_CHAT_CONFIGURATION",
+    "true" if OPEN_CHAT_BOOTSTRAP_ENABLED_DEFAULT else "false",
+)
+
+if (IS_TEST_ENV or IS_TEST_COMMAND) and not ENABLE_OPEN_CHAT_BOOTSTRAP_IN_TESTS:
+    CREATE_OPEN_CHAT_AUTOMATION_USER = False
+    CREATE_DEFAULT_OPEN_CHAT_CONFIGURATION = False
+
+DEFAULT_OPEN_CHAT_CONFIGURATION = {
+    "open_chat_api_key": os.environ.get("DJ_DEFAULT_OPEN_CHAT_API_KEY", "password"),
+    "open_chat_user": os.environ.get("DJ_DEFAULT_OPEN_CHAT_USER", "admin"),
+    "open_chat_host": os.environ.get("DJ_DEFAULT_OPEN_CHAT_HOST", "http://host.docker.internal:1984"),
+}
+
+
+OPEN_CHAT_ENABLE_AUTOMATION_MESSAGE_REPLY_SUGGESTION = bool_env(
+    "DJ_OPEN_CHAT_ENABLE_AUTOMATION_MESSAGE_REPLY_SUGGESTION", "false"
 )

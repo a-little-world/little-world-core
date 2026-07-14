@@ -7,7 +7,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from video.models import LivekitSession
 
-from management.api.utils_advanced import filterset_schema_dict
+from management.api.utils_advanced import FilterSchemaResponseSerializer, filterset_schema_dict
 from management.helpers import DetailedPaginationMixin, IsAdminOrMatchingUser
 from management.models.profile import MinimalProfileSerializer
 from management.models.user import User
@@ -30,6 +30,18 @@ def _format_session_duration(created_at, end_time):
         return f"{hours} hour{'s' if hours != 1 else ''}, {minutes} minutes ({seconds}s)"
 
     return f"{minutes} minutes ({seconds}s)"
+
+
+def _video_call_success_units(created_at, end_time):
+    if not created_at or not end_time:
+        return 0
+
+    call_duration_seconds = (end_time - created_at).total_seconds()
+    if call_duration_seconds < 25 * 60:
+        return 0
+    if call_duration_seconds < 55 * 60:
+        return 1
+    return 2 + int((call_duration_seconds - 55 * 60) // (25 * 60))
 
 
 class AdvancedLivekitSessionSerializer(serializers.ModelSerializer):
@@ -77,6 +89,7 @@ class AdvancedLivekitSessionSerializer(serializers.ModelSerializer):
         representation["u1_was_active"] = instance.u1_was_active
         representation["u2_was_active"] = instance.u2_was_active
         representation["duration"] = _format_session_duration(instance.created_at, instance.end_time)
+        representation["success_units"] = _video_call_success_units(instance.created_at, instance.end_time)
         return representation
 
 
@@ -84,6 +97,12 @@ class LivekitSessionFilter(filters.FilterSet):
     u1 = filters.ModelChoiceFilter(field_name="u1", queryset=User.objects.all(), help_text="Filter for u1")
 
     u2 = filters.ModelChoiceFilter(field_name="u2", queryset=User.objects.all(), help_text="Filter for u2")
+
+    call_type = filters.ChoiceFilter(
+        method="filter_by_call_type",
+        choices=(("random", "Random call"), ("standard", "Standard")),
+        help_text="Filter sessions by call type",
+    )
 
     user_id = filters.NumberFilter(
         method="filter_by_user", help_text="Filter sessions by user id (returns calls where user is u1 or u2)"
@@ -108,6 +127,13 @@ class LivekitSessionFilter(filters.FilterSet):
             return queryset.none()
         return queryset.filter(Q(u1_id=user1_id, u2_id=user2_id) | Q(u1_id=user2_id, u2_id=user1_id))
 
+    def filter_by_call_type(self, queryset, name, value):
+        if value == "random":
+            return queryset.filter(random_call_session=True)
+        if value == "standard":
+            return queryset.filter(random_call_session=False)
+        return queryset
+
     created_between = filters.DateFromToRangeFilter(
         field_name="created_at", help_text="Range filter for when the session was created, accepts string datetimes"
     )
@@ -117,6 +143,10 @@ class LivekitSessionFilter(filters.FilterSet):
     )
 
     active = filters.BooleanFilter(field_name="is_active", help_text="Filter for active sessions")
+
+    both_have_been_active = filters.BooleanFilter(
+        field_name="both_have_been_active", help_text="Filter for sessions where both users were active"
+    )
 
     order_by = filters.OrderingFilter(
         fields=(
@@ -168,6 +198,7 @@ class AdvancedVideoCallsViewset(viewsets.ModelViewSet):
             return False, Response({"msg": "You are not allowed to access this user!"}, status=401)
         return True, None
 
+    @extend_schema(responses={200: FilterSchemaResponseSerializer})
     @action(detail=False, methods=["get"])
     def get_filter_schema(self, request, include_lookup_expr=False):
         # 1 - retrieve all the filters

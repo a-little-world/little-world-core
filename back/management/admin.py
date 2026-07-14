@@ -18,7 +18,7 @@ from management.models import (
     newsletter,
     post_call_review,
     pre_matching_appointment,
-    question_deck,
+    question_cards,
     scores,
     short_links,
     sms,
@@ -364,19 +364,20 @@ class SessionAdmin(admin.ModelAdmin):
     list_display = ["session_key", "_session_data", "expire_date"]
 
 
-@admin.register(question_deck.QuestionCardsDeck)
-class QuestionCardDeckAdmin(admin.ModelAdmin):
-    list_display = ("uuid", "user")
-
-
-@admin.register(question_deck.QuestionCardCategories)
+@admin.register(question_cards.QuestionCardCategory)
 class QuestionCardCategoryAdmin(admin.ModelAdmin):
-    list_display = ("uuid", "ref_id", "content")
+    list_display = ("uuid", "sort_order", "content")
 
 
-@admin.register(question_deck.QuestionCard)
+@admin.register(question_cards.QuestionCard)
 class QuestionCardAdmin(admin.ModelAdmin):
-    list_display = ("uuid", "ref_id", "category", "content")
+    list_display = ("uuid", "sort_order", "category", "is_active", "content")
+
+
+@admin.register(question_cards.UserQuestionCardPreference)
+class UserQuestionCardPreferenceAdmin(admin.ModelAdmin):
+    list_display = ("user", "card", "kind", "created_at")
+    list_filter = ("kind",)
 
 
 @admin.register(scores.TwoUserMatchingScore)

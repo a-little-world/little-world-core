@@ -192,7 +192,7 @@ class Register(APIView):
         # The types are secure, we checked that using the 'Registration Serializer'
         registration_data = serializer.save()
 
-        data = common_register(request, registration_data)
+        _usr, data = common_register(request, registration_data, is_native=False)
 
         if registration_data.user_type == Profile.TypeChoices.VOLUNTEER and has_marketing_consent(
             request, request.user
@@ -254,8 +254,8 @@ class RegisterAndroid(APIView):
         if not verify_play_integrity_token(integrity_token, request_hash=challenge):
             return Response({"detail": "Invalid integrity token or request hash"}, status=status.HTTP_400_BAD_REQUEST)
 
-        user_data = common_register(request, serializer.get_registration_data())
-        with_tokens = user_data_with_tokens(user_data, request.user)
+        usr, user_data = common_register(request, serializer.get_registration_data(), is_native=True)
+        with_tokens = user_data_with_tokens(user_data, usr)
 
         return Response(with_tokens)
 
@@ -286,8 +286,8 @@ class RegisterIOS(APIView):
 
         verify_apple_attestation(key_id, challenge_bytes, attestation_object, settings.IS_PROD)
 
-        user_data = common_register(request, serializer.get_registration_data())
-        with_tokens = user_data_with_tokens(user_data, request.user)
+        usr, user_data = common_register(request, serializer.get_registration_data(), is_native=True)
+        with_tokens = user_data_with_tokens(user_data, usr)
 
         return Response(with_tokens)
 
@@ -325,24 +325,24 @@ class RegisterWebNative(APIView):
         if not bypass_integrity_check:
             return Response({"detail": "Invalid integrity check bypass token"}, status=status.HTTP_400_BAD_REQUEST)
 
-        user_data = common_register(request, serializer.get_registration_data())
-        with_tokens = user_data_with_tokens(user_data, request.user)
+        usr, user_data = common_register(request, serializer.get_registration_data(), is_native=True)
+        with_tokens = user_data_with_tokens(user_data, usr)
 
         return Response(with_tokens)
 
-
-def common_register(request, registration_data):
+def common_register(request, registration_data, is_native):
     # create_user will trow seralization error per default
     # also performs registration, send email etc...
     usr = controller.create_user(
         **{k: getattr(registration_data, k) for k in registration_data.__annotations__}, send_verification_mail=True
     )
 
-    login(request, usr)
+    if not is_native:
+        login(request, usr)
 
     with translation.override("tag"):
         data = get_user_data(usr)
-        return data
+        return usr, data
 
 
 def user_data_with_tokens(user_data, user):

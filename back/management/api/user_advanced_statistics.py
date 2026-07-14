@@ -33,8 +33,45 @@ from management.models.matches import Match
 from management.models.profile import Profile
 from management.models.short_links import ShortLinkClick
 from management.models.state import State
-from management.models.unconfirmed_matches import ProposedMatch
+from management.models.unconfirmed_matches import MatchType, ProposedMatch
 from management.models.user import User
+from management.permissions import ManagementPermission
+
+
+def _get_accessible_users(caller):
+    users = User.objects.all()
+    if not caller.is_staff:
+        users = users.filter(id__in=caller.managed_users_queryset(active_only=False).values("id"))
+    return users
+
+
+def _parse_date_input(value, default):
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if not value:
+        return default
+    return datetime.strptime(value, "%Y-%m-%d").date()
+
+
+def _inclusive_datetime_range(start_date, end_date):
+    return datetime.combine(start_date, time.min), datetime.combine(end_date, time.max)
+
+
+def _count_non_support_messages(message_queryset):
+    return (
+        message_queryset.exclude(
+            Q(sender__is_staff=True)
+            | Q(recipient__is_staff=True)
+            | Q(sender__user_permissions__codename=ManagementPermission.MATCHING_USER.codename)
+            | Q(recipient__user_permissions__codename=ManagementPermission.MATCHING_USER.codename)
+            | Q(sender__groups__permissions__codename=ManagementPermission.MATCHING_USER.codename)
+            | Q(recipient__groups__permissions__codename=ManagementPermission.MATCHING_USER.codename)
+        )
+        .distinct()
+        .count()
+    )
 
 
 @extend_schema(
@@ -406,6 +443,100 @@ def livekit_session_statistics(request):
     return Response(data)
 
 
+@extend_schema(
+    request=inline_serializer(
+        name="StatisticsHighlightsRequest",
+        fields={
+            "start_date": serializers.DateField(default=date.today() - timedelta(days=30)),
+            "end_date": serializers.DateField(default=date.today()),
+        },
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
+def statistics_highlights(request):
+    today = date.today()
+    start_date = _parse_date_input(request.data.get("start_date"), today - timedelta(days=30))
+    end_date = _parse_date_input(request.data.get("end_date"), today)
+    start_datetime, end_datetime = _inclusive_datetime_range(start_date, end_date)
+
+    accessible_users = _get_accessible_users(request.user)
+    accessible_user_ids = accessible_users.values("id")
+
+    users_registered_in_range = accessible_users.filter(date_joined__range=[start_datetime, end_datetime])
+    registrations = users_registered_in_range.count()
+    registered_volunteers = users_registered_in_range.filter(
+        profile__user_type=Profile.TypeChoices.VOLUNTEER,
+    ).count()
+    registered_learners = users_registered_in_range.filter(
+        profile__user_type=Profile.TypeChoices.LEARNER,
+    ).count()
+    onboarded_volunteers = users_registered_in_range.filter(
+        state__is_onboarded=True,
+        profile__user_type=Profile.TypeChoices.VOLUNTEER,
+    ).count()
+    onboarded_learners = users_registered_in_range.filter(
+        state__is_onboarded=True,
+        profile__user_type=Profile.TypeChoices.LEARNER,
+    ).count()
+
+    match_proposals_made = (
+        ProposedMatch.objects.filter(
+            Q(user1__in=accessible_user_ids) | Q(user2__in=accessible_user_ids),
+            potential_matching_created_at__range=[start_datetime, end_datetime],
+        )
+        .exclude(match_type=MatchType.TEMPORARY)
+        .count()
+    )
+
+    matches_in_range = Match.objects.filter(
+        Q(user1__in=accessible_user_ids) | Q(user2__in=accessible_user_ids),
+        created_at__range=[start_datetime, end_datetime],
+    ).exclude(match_type=MatchType.TEMPORARY)
+
+    new_matches = matches_in_range.filter(support_matching=False).count()
+    match_cluster_sums = get_match_bucket_statistics_cluster(matches_in_range)
+    ongoing_matches = match_cluster_sums["ongoing-matching"]
+    completed_matches = match_cluster_sums["finished-matching"]
+
+    both_active_video_calls = LivekitSession.objects.filter(
+        u1__in=accessible_user_ids,
+        u2__in=accessible_user_ids,
+        both_have_been_active=True,
+        created_at__range=[start_datetime, end_datetime],
+    )
+    total_video_duration = both_active_video_calls.filter(end_time__isnull=False).aggregate(
+        duration=Sum(F("end_time") - F("created_at"))
+    )["duration"]
+    total_video_duration_minutes = round(total_video_duration.total_seconds() / 60.0, 2) if total_video_duration else 0
+
+    message_queryset = Message.objects.filter(
+        sender__in=accessible_user_ids,
+        recipient__in=accessible_user_ids,
+        created__range=[start_datetime, end_datetime],
+    )
+    messages_sent = _count_non_support_messages(message_queryset)
+
+    return Response(
+        {
+            "start_date": start_date,
+            "end_date": end_date,
+            "registrations": registrations,
+            "registered_volunteers": registered_volunteers,
+            "registered_learners": registered_learners,
+            "onboarded_volunteers": onboarded_volunteers,
+            "onboarded_learners": onboarded_learners,
+            "match_proposals_made": match_proposals_made,
+            "new_matches": new_matches,
+            "ongoing_matches": ongoing_matches,
+            "completed_matches": completed_matches,
+            "video_calls_both_active": both_active_video_calls.count(),
+            "video_call_duration_minutes_both_active": total_video_duration_minutes,
+            "messages_sent_excluding_support": messages_sent,
+        }
+    )
+
+
 def get_bucket_statistics(pre_filtered_users, selected_filters=None, filter_lists=FILTER_LISTS):
     """
     Calculate bucket statistics for a given set of users and filters.
@@ -505,6 +636,7 @@ def get_bucket_statistics(pre_filtered_users, selected_filters=None, filter_list
             "start_date": serializers.DateField(default=date(2021, 1, 1), required=False),
             "end_date": serializers.DateField(default=date.today(), required=False),
             "volunteers_only": serializers.BooleanField(default=False, required=False),
+            "include_too_low_german_level": serializers.BooleanField(default=True, required=False),
         },
     ),
 )
@@ -533,6 +665,15 @@ def bucket_statistics(request):
     volunteers_only = request.data.get("volunteers_only", False)
     if volunteers_only:
         pre_filtered_users = pre_filtered_users.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
+
+    include_too_low_german_level = request.data.get("include_too_low_german_level", True)
+    if not include_too_low_german_level:
+        pre_filtered_users = pre_filtered_users.exclude(
+            profile__user_type=Profile.TypeChoices.LEARNER,
+            profile__lang_skill__contains=[
+                {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
+            ],
+        )
 
     # Get selected filters from request
     selected_filters = request.data.get("selected_filters", None)
@@ -2376,6 +2517,7 @@ api_urls = [
     ),
     path("api/matching/users/statistics/messages_send/", message_statistics),
     path("api/matching/users/statistics/video_calls/", livekit_session_statistics),
+    path("api/matching/users/statistics/highlights/", statistics_highlights),
     path("api/matching/users/statistics/video_call_summary/<int:user_id>/", user_video_call_summary),
     path("api/matching/users/statistics/user_journey_buckets/", bucket_statistics),
     path("api/matching/users/statistics/match_journey_buckets/", match_bucket_statistics),

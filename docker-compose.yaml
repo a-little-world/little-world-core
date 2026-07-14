@@ -92,7 +92,8 @@ services:
       DJ_USE_DEBUG_TOOLBAR: ${DJ_USE_DEBUG_TOOLBAR:-0}
     env_file:
       - ./dev/envs/dev.env
-      - ./dev/envs/local_dev.env
+      - path: ./.env
+        required: false
     volumes:
       - ./back/:/back/
       - ./front/env_apps/:/front/env_apps/
@@ -101,6 +102,13 @@ services:
       - ./front/webpack-stats/cookie_banner_frontend/:/front/webpack-stats/cookie_banner_frontend/
     depends_on:
       - redis
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      default:
+      open-chat-lw-shared:
+        aliases:
+          - little-world-backend
   redis:
     profiles:
       [
@@ -138,3 +146,8 @@ services:
       - ./dev/scripts/init_db.sh:/docker-entrypoint-initdb.d/init_db.sh:ro
       - ./dev/db_backup/:/docker-entrypoint-initdb.d/db_backup/
     command: ["postgres", "-c", "max_connections=1000"]
+
+networks:
+  open-chat-lw-shared:
+    name: open-chat-lw-shared
+    driver: bridge

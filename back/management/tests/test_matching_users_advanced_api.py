@@ -89,6 +89,7 @@ class MatchingUsersAdvancedApiTests(TestCase):
         response = self.api_client.get("/api/matching/matching_users/")
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.data["can_edit_management_permissions"])
+        self.assertFalse(response.data["can_grant_apply_management_permissions"])
 
     def test_list_returns_only_matching_users_for_staff(self):
         self.api_client.force_authenticate(user=self.staff_user)
@@ -98,12 +99,45 @@ class MatchingUsersAdvancedApiTests(TestCase):
         result_ids = {row["id"] for row in response.data["results"]}
         self.assertEqual(result_ids, {self.matching_user_a.id, self.matching_user_b.id})
         self.assertNotIn(self.non_matching_user.id, result_ids)
+        self.assertTrue(response.data["can_edit_management_permissions"])
+        self.assertTrue(response.data["can_grant_apply_management_permissions"])
+
+    def test_staff_can_grant_apply_management_permissions(self):
+        self.api_client.force_authenticate(user=self.staff_user)
+        response = self.api_client.post(
+            f"/api/matching/users/{self.matching_user_b.id}/permissions/add/",
+            {"permission": ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(self.matching_user_b.has_perm(ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS))
+
+    def test_apply_permission_holder_cannot_grant_apply_management_permissions(self):
+        self.api_client.force_authenticate(user=self.matching_user_a)
+        response = self.api_client.post(
+            f"/api/matching/users/{self.matching_user_b.id}/permissions/add/",
+            {"permission": ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(self.matching_user_b.has_perm(ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS))
+
+    def test_apply_permission_holder_can_grant_other_management_permissions(self):
+        self.api_client.force_authenticate(user=self.matching_user_a)
+        response = self.api_client.post(
+            f"/api/matching/users/{self.matching_user_b.id}/permissions/add/",
+            {"permission": ManagementPermission.USE_RANDOM_CALLS},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(self.matching_user_b.has_perm(ManagementPermission.USE_RANDOM_CALLS))
 
     def test_list_includes_management_permissions(self):
         self.api_client.force_authenticate(user=self.matching_user_a)
         response = self.api_client.get("/api/matching/matching_users/")
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data["can_edit_management_permissions"])
+        self.assertFalse(response.data["can_grant_apply_management_permissions"])
 
         matcher_a = next(row for row in response.data["results"] if row["id"] == self.matching_user_a.id)
         enabled_codenames = {perm["codename"] for perm in matcher_a["permissions"] if perm["enabled"]}

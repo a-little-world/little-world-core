@@ -2,7 +2,6 @@ from datetime import datetime, time
 from typing import Literal, cast
 
 from chat.models import Chat, ChatSerializer, Message, MessageSerializer
-from django.core.paginator import InvalidPage
 from django.db.models import CharField, Max, Q, Value
 from django.db.models.functions import Concat
 from django.urls import path
@@ -11,20 +10,27 @@ from django_filters import rest_framework as filters
 from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
 from emails.models import AdvancedEmailLogSerializer, EmailLog
 from rest_framework import serializers, status, viewsets
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 
+from management.api.export_utils import build_paginated_export_response, ensure_export_fields
 from management.api.matches import AdvancedUserMatchSerializer
+from management.api.schema import DetailedPaginatedResponseSerializer
 from management.api.scores import score_between_db_update
 from management.api.user_advanced_filter_lists import FILTER_LISTS, get_choices, get_dynamic_userlists
 from management.api.user_report_utils import USER_EXPORT_COLUMN_NAMES, build_user_report_entry
-from management.api.utils_advanced import filterset_schema_dict
-from management.controller import delete_user, make_tim_support_user
-from management.helpers import (
-    DetailedPagination,
-    DetailedPaginationMixin,
-    IsAdminOrMatchingUser,
+from management.api.utils_advanced import (
+    FilterSchemaResponseSerializer,
+    apply_journey_bucket_fields,
+    filterset_schema_dict,
+    parse_bool_query_param,
 )
+from management.controller import (
+    delete_user,
+    get_base_management_user,
+    make_tim_support_user,
+)
+from management.helpers import DetailedPagination, DetailedPaginationMixin, IsAdminOrMatchingUser
 from management.helpers.detailed_pagination import get_paginated_format_v2
 from management.models.dynamic_user_list import DynamicUserList
 from management.models.management_tasks import ManagementTaskSerializer, MangementTask
@@ -37,9 +43,16 @@ from management.models.profile import MinimalProfileSerializer, Profile
 from management.models.scores import TwoUserMatchingScore
 from management.models.sms import SmsModel, SmsSerializer
 from management.models.state import State, StateSerializer
+from management.models.support_task import SupportTask, SupportTaskAction
 from management.models.unconfirmed_matches import ProposedMatch, serialize_proposed_matches
 from management.models.user import User
-from management.permissions import MANAGEMENT_PERMISSION_LABELS, ManagementPermission
+from management.permissions import (
+    MANAGEMENT_PERMISSION_LABELS,
+    ManagementPermission,
+    user_can_edit_management_permissions,
+    user_can_grant_apply_management_permissions,
+    user_can_manage_user_management_permissions,
+)
 from management.tasks import matching_algo_v2
 
 user_category_buckets = [
@@ -61,6 +74,39 @@ user_category_buckets = [
     "journey_v2__user_deleted",
     "journey_v2__marked_unresponsive",
 ]
+
+
+def get_user_bucket_label(bucket_name: str | None) -> str:
+    if not bucket_name or bucket_name == "unknown":
+        return "Unknown"
+    slug = bucket_name.split("__")[-1]
+    return slug.replace("_", " ").strip().title()
+
+
+def determine_user_buckets(user_pk, all_lists: bool = False) -> list[str]:
+    from django.db import connection
+
+    if connection.vendor != "postgresql":
+        return []
+
+    buckets = []
+    base_qs = User.objects.filter(pk=user_pk)
+    if all_lists:
+        names_to_check = [entry.name for entry in FILTER_LISTS + get_dynamic_userlists()]
+    else:
+        names_to_check = user_category_buckets
+
+    bucket_map = {entry.name: entry for entry in FILTER_LISTS + get_dynamic_userlists()}
+    for name in names_to_check:
+        entry = bucket_map.get(name)
+        if entry is None or entry.queryset is None:
+            continue
+        try:
+            if entry.queryset(base_qs).exists():
+                buckets.append(entry.name)
+        except Exception:
+            continue
+    return buckets
 
 
 def get_match_waiting_time(user):
@@ -122,7 +168,10 @@ class ExportUserSerializer(serializers.ModelSerializer):
         fields = ["id", "email", "uuid"]
 
     def to_representation(self, instance):
-        representation = build_user_report_entry(instance)
+        selected_fields = self.context.get("selected_fields") if hasattr(self, "context") else None
+        representation = build_user_report_entry(instance, selected_fields=selected_fields)
+        if selected_fields:
+            return ensure_export_fields(representation, selected_fields)
         return representation
 
 
@@ -132,19 +181,146 @@ class ListUserSerializer(serializers.ModelSerializer):
         fields = ["id", "email", "date_joined", "last_login"]
 
 
-class AdvancedUserSerializer(serializers.ModelSerializer):
+def _serialize_user_match_preview_row(user):
+    return {
+        "id": str(user.uuid),
+        "partner": {
+            "id": user.id,
+            "has_match_priority": user.state.has_match_priority,
+            **MinimalProfileSerializer(user.profile).data,
+        },
+    }
+
+
+def _serialize_user_match_previews(user: User):
+    preview_limit = 3
+    confirmed_matches = Match.get_confirmed_matches(user).select_related(
+        "user1__profile",
+        "user1__state",
+        "user2__profile",
+        "user2__state",
+    )[:preview_limit]
+    unconfirmed_matches = Match.get_unconfirmed_matches(user).select_related(
+        "user1__profile",
+        "user1__state",
+        "user2__profile",
+        "user2__state",
+    )[:preview_limit]
+    proposed_matches = ProposedMatch.get_open_proposals(user).select_related(
+        "user1__profile",
+        "user1__state",
+        "user2__profile",
+        "user2__state",
+    )[:preview_limit]
+
+    def _partner_from_match(match):
+        return match.user2 if match.user1_id == user.id else match.user1
+
+    def _partner_from_proposal(proposal):
+        return proposal.user2 if proposal.user1_id == user.id else proposal.user1
+
+    return {
+        "confirmed": {
+            "results": [_serialize_user_match_preview_row(_partner_from_match(match)) for match in confirmed_matches]
+        },
+        "unconfirmed": {
+            "results": [_serialize_user_match_preview_row(_partner_from_match(match)) for match in unconfirmed_matches]
+        },
+        "proposed": {
+            "results": [
+                _serialize_user_match_preview_row(_partner_from_proposal(proposal)) for proposal in proposed_matches
+            ]
+        },
+    }
+
+
+class UserTableStateSerializer(serializers.Serializer):
+    company = serializers.CharField(allow_null=True, required=False)
+    has_match_priority = serializers.BooleanField()
+
+
+class UserMatchWaitingTimeSerializer(serializers.Serializer):
+    number_of_days = serializers.IntegerField(allow_null=True)
+    waiting_time_string = serializers.CharField()
+    first_search = serializers.DateTimeField(allow_null=True, required=False)
+
+
+class UserChatMessagesPageSerializer(serializers.Serializer):
+    results = MessageSerializer(many=True)
+    items_total = serializers.IntegerField()
+    page_size = serializers.IntegerField()
+    pages_total = serializers.IntegerField(required=False)
+    results_total = serializers.IntegerField(required=False)
+    page = serializers.IntegerField()
+    first_page = serializers.IntegerField(required=False)
+    last_page = serializers.IntegerField(required=False)
+    next_page = serializers.IntegerField(required=False, allow_null=True)
+    previous_page = serializers.IntegerField(required=False, allow_null=True)
+
+
+class UserMessagesResponseSerializer(serializers.Serializer):
+    chat = ChatSerializer()
+    messages = UserChatMessagesPageSerializer()
+
+
+class UserTableSerializer(serializers.ModelSerializer):
+    profile = MinimalProfileSerializer(read_only=True)
+    state = UserTableStateSerializer(read_only=True)
+
     class Meta:
         model = User
-        fields = ["uuid", "id", "email", "date_joined", "last_login"]
+        fields = ["uuid", "id", "email", "date_joined", "last_login", "profile", "state"]
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
-        representation["profile"] = MinimalProfileSerializer(instance.profile).data
+        representation["state"] = {
+            "company": instance.state.company,
+            "has_match_priority": instance.state.has_match_priority,
+        }
+        representation["waiting_time"] = get_match_waiting_time(instance)
+        representation["matches"] = _serialize_user_match_previews(instance)
+
+        context = getattr(self, "context", {})
+        determine_bucket = context.get("determine_bucket", False)
+        all_buckets = context.get("all_buckets", False)
+        if determine_bucket or all_buckets:
+            category_buckets = determine_user_buckets(instance.pk, all_lists=False)
+            all_bucket_names = determine_user_buckets(instance.pk, all_lists=True) if all_buckets else None
+            apply_journey_bucket_fields(
+                representation,
+                category_buckets=category_buckets,
+                all_buckets=all_bucket_names,
+                determine_bucket=determine_bucket,
+                include_all_buckets=all_buckets,
+                label_fn=get_user_bucket_label,
+                primary_from_end=True,
+            )
+
+        return representation
+
+
+class AdvancedUserSerializer(serializers.ModelSerializer):
+    profile = MinimalProfileSerializer(read_only=True)
+
+    class Meta:
+        model = User
+        fields = ["uuid", "id", "email", "date_joined", "last_login", "profile"]
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation["is_staff"] = instance.is_staff
+        representation["is_superuser"] = instance.is_superuser
+        representation["is_matching_user"] = instance.has_perm(ManagementPermission.MATCHING_USER)
 
         determine_bucket = ("determine_bucket" in self.context) and self.context["determine_bucket"]
+        all_buckets = self.context.get("all_buckets", False)
 
         items_per_page = 50
         user = instance
+        match_bucket_context = {
+            "determine_bucket": determine_bucket,
+            "all_buckets": all_buckets,
+        }
         confirmed_matches = get_paginated_format_v2(Match.get_confirmed_matches(user), items_per_page, 1)
         confirmed_matches["results"] = AdvancedUserMatchSerializer(
             confirmed_matches["results"],
@@ -152,7 +328,7 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
             context={
                 "user": user,
                 "status": "confirmed",
-                "determine_bucket": determine_bucket,
+                **match_bucket_context,
             },
         ).data
 
@@ -163,7 +339,7 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
             context={
                 "user": user,
                 "status": "unconfirmed",
-                "determine_bucket": determine_bucket,
+                **match_bucket_context,
             },
         ).data
 
@@ -174,7 +350,7 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
             context={
                 "user": user,
                 "status": "support",
-                "determine_bucket": determine_bucket,
+                **match_bucket_context,
             },
         ).data
 
@@ -194,7 +370,7 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
             context={
                 "user": user,
                 "status": "inactive",
-                "determine_bucket": determine_bucket,
+                **match_bucket_context,
             },
         ).data
 
@@ -212,31 +388,18 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
         representation["state"] = StateSerializer(instance.state).data
         representation["state"]["random_call_access"] = instance.has_perm(ManagementPermission.USE_RANDOM_CALLS)
 
-        # NOTE:
-        # Some of the filter lists in FILTER_LISTS use JSONField `__contains`
-        # lookups (for example on `profile__lang_skill`). These are only
-        # supported on PostgreSQL and will raise NotSupportedError on SQLite.
-        # To avoid breaking the API in development (SQLite) while keeping the
-        # behaviour in production (PostgreSQL), we only evaluate bucket
-        # membership on PostgreSQL and fall back to "unknown" otherwise.
-        from django.db import connection
-
-        if determine_bucket:
-            if connection.vendor == "postgresql":
-                try:
-                    bucket_map = {entry.name: entry for entry in FILTER_LISTS if entry.name in user_category_buckets}
-                    for bucket in user_category_buckets:
-                        if bucket_map[bucket].queryset(User.objects.filter(pk=instance.pk)).exists():
-                            representation["bucket"] = bucket
-                    if "bucket" not in representation:
-                        representation["bucket"] = "unknown"
-                except (KeyError, AttributeError):
-                    representation["bucket"] = "unknown"
-            else:
-                # On non-PostgreSQL backends (e.g. SQLite in development) we
-                # can't safely run the JSONField `contains` lookups used in
-                # the filter lists, so we just set a sensible default.
-                representation["bucket"] = "unknown"
+        if determine_bucket or all_buckets:
+            category_buckets = determine_user_buckets(instance.pk, all_lists=False)
+            all_bucket_names = determine_user_buckets(instance.pk, all_lists=True) if all_buckets else None
+            apply_journey_bucket_fields(
+                representation,
+                category_buckets=category_buckets,
+                all_buckets=all_bucket_names,
+                determine_bucket=determine_bucket,
+                include_all_buckets=all_buckets,
+                label_fn=get_user_bucket_label,
+                primary_from_end=True,
+            )
 
         return representation
 
@@ -462,6 +625,10 @@ class UserFilter(filters.FilterSet):
         fields = ["uuid", "id", "email"]
 
 
+class PaginatedUserEmailLogResponse(DetailedPaginatedResponseSerializer):
+    results = AdvancedEmailLogSerializer(many=True)
+
+
 class InviteNativeAppTesterRequestSerializer(serializers.Serializer):
     platform = serializers.ChoiceField(choices=["ios", "android"])
     app_invite_url = serializers.CharField()
@@ -474,13 +641,14 @@ class InviteNativeAppTesterRequestSerializer(serializers.Serializer):
 
 
 @extend_schema_view(
-    list=extend_schema(summary="List users"),
-    retrieve=extend_schema(summary="Retrieve user"),
+    list=extend_schema(summary="List users", responses={200: UserTableSerializer(many=True)}),
+    retrieve=extend_schema(summary="Retrieve user", responses={200: AdvancedUserSerializer}),
 )
 class AdvancedUserViewset(viewsets.ModelViewSet):
     queryset = User.objects.all().order_by("-date_joined")
 
     filter_backends = (filters.DjangoFilterBackend,)
+
     filterset_class = UserFilter
 
     serializer_class = AdvancedUserSerializer
@@ -490,11 +658,12 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     def get_queryset(self):
         is_staff = self.request.user.is_staff
         if is_staff:
-            return User.objects.all()
+            return User.objects.all().select_related("profile", "state")
         else:
             management_user = cast(User, self.request.user)
-            return management_user.managed_users_queryset(active_only=True)
+            return management_user.managed_users_queryset(active_only=True).select_related("profile", "state")
 
+    @extend_schema(responses={200: FilterSchemaResponseSerializer})
     @action(detail=False, methods=["get"])
     def get_filter_schema(self, request, include_lookup_expr=False):
         # 1 - retrieve all the filters
@@ -508,15 +677,20 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         )
 
     def get_serializer_context(self):
-        if self.action == "list":
-            return {}
+        request = self.request
+        all_buckets = parse_bool_query_param(request.query_params.get("all_buckets"))
+        determine_bucket = all_buckets or parse_bool_query_param(request.query_params.get("determine_bucket"))
+
         if self.action == "retrieve":
-            return {"determine_bucket": True}
+            determine_bucket = True
+
+        if self.action in {"list", "retrieve"} and (determine_bucket or all_buckets):
+            return {"determine_bucket": determine_bucket, "all_buckets": all_buckets}
         return {}
 
     def get_serializer_class(self):
         if self.action == "list":
-            return AdvancedUserSerializer
+            return UserTableSerializer
         if self.action == "retrieve":
             return AdvancedUserSerializer
         return AdvancedUserSerializer
@@ -547,6 +721,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         pages["results"] = AdvancedMatchingScoreSerializer(pages["results"], many=True, context={"user": obj}).data
         return Response(pages)
 
+    @extend_schema(responses={200: PreMatchingAppointmentSerializer})
     @action(detail=True, methods=["get"])
     def prematching_appointment(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -603,6 +778,27 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         except KeyError:
             return None
 
+    def _get_management_permission_target_user(self, pk) -> User:
+        try:
+            return User.objects.select_related("profile", "state").get(pk=pk)
+        except (User.DoesNotExist, ValueError, TypeError):
+            from rest_framework.exceptions import NotFound
+
+            raise NotFound from None
+
+    def _check_management_permission_target_access(self, request, target: User):
+        if not user_can_edit_management_permissions(request.user):
+            return Response(
+                {"msg": "You are not allowed to manage management permissions!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if not user_can_manage_user_management_permissions(request.user, target):
+            return Response(
+                {"msg": "You are not allowed to access this user!"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        return None
+
     @extend_schema(
         request=inline_serializer(
             name="MarkReadMessageRequest",
@@ -648,9 +844,9 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     @extend_schema(
         request=inline_serializer(
             name="MessagesGetRequest",
-            # description='If match_uuid is provided, the chat of the match is returned, otherwise the support user chat',
             fields={"match_uuid": serializers.CharField(required=False)},
-        )
+        ),
+        responses={200: UserMessagesResponseSerializer},
     )
     @action(detail=True, methods=["get"])
     def messages(self, request, pk=None):
@@ -698,7 +894,10 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         return Response({"chat": ChatSerializer(chat).data, "messages": messages})
 
-    @extend_schema(request=inline_serializer(name="SmsRequest", fields={"message": serializers.CharField()}))
+    @extend_schema(
+        request=inline_serializer(name="SmsRequest", fields={"message": serializers.CharField()}),
+        responses={200: SmsSerializer(many=True)},
+    )
     @action(detail=True, methods=["get", "post"])
     def sms(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -726,16 +925,41 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         self.kwargs["pk"] = pk
         obj = self.get_object()
 
-        has_access, res = self.check_management_user_access(obj, request)
-        if not has_access:
-            return res
+        if not request.user.has_perm(ManagementPermission.CAN_SEND_SUPPORT_MESSAGE_REPLIES):
+            return Response(
+                {"msg": "You are not allowed to send support message replies!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if not request.user.is_staff and not request.user.has_management_access(obj):
+            return Response({"msg": "You are not allowed to access this user!"}, status=status.HTTP_401_UNAUTHORIZED)
 
-        message = obj.message(request.data["message"], sender=request.user)
+        reply_message = request.data["message"]
+        base_management_user = get_base_management_user()
+        message = obj.message(reply_message, sender=base_management_user)
+
+        open_support_reply_action = (
+            SupportTaskAction.objects.select_related("task")
+            .filter(
+                action_type="support_reply",
+                status=SupportTaskAction.Status.OPEN,
+                task__status__in=[SupportTask.Status.NEW, SupportTask.Status.IN_PROGRESS],
+            )
+            .filter(Q(static_parameters__recipient_user_id=obj.pk) | Q(task__related_user_id=obj.pk))
+            .order_by("-task_id")
+            .first()
+        )
+        if open_support_reply_action is not None:
+            updated_parameters = dict(open_support_reply_action.parameters or {})
+            updated_parameters["message"] = reply_message
+            open_support_reply_action.parameters = updated_parameters
+            open_support_reply_action.save(update_fields=["parameters"], changed_by=request.user)
+            open_support_reply_action.resolve(SupportTaskAction.Status.EXECUTED, request.user)
 
         serialized = MessageSerializer(message).data
 
         return Response(serialized)
 
+    @extend_schema(responses={200: ManagementTaskSerializer(many=True)})
     @action(detail=True, methods=["get", "post"])
     def tasks(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -749,6 +973,11 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         return Response(ManagementTaskSerializer(tasks, many=True).data)
 
+    @extend_schema(
+        responses={
+            200: inline_serializer(name="UserNotesResponse", fields={"notes": serializers.CharField()}),
+        }
+    )
     @action(detail=True, methods=["get", "post"])
     def notes(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -758,12 +987,12 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if request.method == "POST":
             _os.notes = request.data["notes"]
             _os.save()
-            return Response(_os.notes)
+            return Response({"notes": _os.notes or ""})
         else:
             if not _os.notes:
                 _os.notes = ""
                 _os.save()
-            return Response(_os.notes)
+            return Response({"notes": _os.notes or ""})
 
     @extend_schema(
         request=inline_serializer(
@@ -860,20 +1089,11 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     )
     @action(detail=True, methods=["post"])
     def permissions(self, request, pk=None, action=None):
-        self.kwargs["pk"] = pk
-        obj = self.get_object()
+        obj = self._get_management_permission_target_user(pk)
 
-        if not request.user.has_perm(ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS):
-            return Response(
-                {"msg": "You are not allowed to apply management permissions!"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        if not request.user.is_staff and not request.user.has_management_access(obj):
-            return Response(
-                {"msg": "You are not allowed to access this user!"},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+        access_error = self._check_management_permission_target_access(request, obj)
+        if access_error is not None:
+            return access_error
 
         raw_permission = request.data.get("permission", "")
         raw_action = action or ""
@@ -884,16 +1104,13 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if permission == ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS and raw_action == "add":
+        if (
+            permission == ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS
+            and not user_can_grant_apply_management_permissions(request.user)
+        ):
             return Response(
-                {"msg": "APPLY_MANAGEMENT_PERMISSIONS can never be added."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if permission == ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS and raw_action == "remove":
-            return Response(
-                {"msg": "APPLY_MANAGEMENT_PERMISSIONS can never be removed."},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"msg": "Only staff can grant or revoke apply_management_permissions."},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         if (
@@ -933,20 +1150,11 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def permissions_list(self, request, pk=None):
-        self.kwargs["pk"] = pk
-        obj = self.get_object()
+        obj = self._get_management_permission_target_user(pk)
 
-        if not request.user.has_perm(ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS):
-            return Response(
-                {"msg": "You are not allowed to view management permissions!"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        if not request.user.is_staff and not request.user.has_management_access(obj):
-            return Response(
-                {"msg": "You are not allowed to access this user!"},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+        access_error = self._check_management_permission_target_access(request, obj)
+        if access_error is not None:
+            return access_error
 
         permissions = []
         for permission in ManagementPermission:
@@ -1013,6 +1221,67 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
     @extend_schema(
         request=inline_serializer(
+            name="UpdateUserProfileFieldsRequest",
+            fields={
+                "user_type": serializers.ChoiceField(choices=Profile.TypeChoices.choices, required=False),
+                "country_of_residence": serializers.ChoiceField(
+                    choices=Profile.CountryChoices.choices,
+                    required=False,
+                ),
+            },
+        )
+    )
+    @action(detail=True, methods=["post"])
+    def update_profile_fields(self, request, pk=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+
+        if not request.user.has_perm(ManagementPermission.MATCHING_USER):
+            return Response(
+                {"msg": "You are not allowed to update matching profile fields!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        has_access, res = self.check_management_user_access(obj, request)
+        if not has_access:
+            return res
+
+        serializer = inline_serializer(
+            name="UpdateUserProfileFieldsSerializer",
+            fields={
+                "user_type": serializers.ChoiceField(choices=Profile.TypeChoices.choices, required=False),
+                "country_of_residence": serializers.ChoiceField(
+                    choices=Profile.CountryChoices.choices,
+                    required=False,
+                ),
+            },
+            data=request.data,
+        )
+        serializer.is_valid(raise_exception=True)
+
+        update_fields = []
+        profile = obj.profile
+        for field in ("user_type", "country_of_residence"):
+            if field in serializer.validated_data:
+                setattr(profile, field, serializer.validated_data[field])
+                update_fields.append(field)
+
+        if not update_fields:
+            return Response(
+                {"msg": "No profile fields provided."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        profile.save(update_fields=update_fields)
+        return Response(
+            {
+                "success": True,
+                "profile": MinimalProfileSerializer(profile).data,
+            }
+        )
+
+    @extend_schema(
+        request=inline_serializer(
             name="MarkPrematchingCallCompletedRequest",
             fields={"had_prematching_call": serializers.BooleanField(default=True)},
         )
@@ -1067,6 +1336,12 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     def delete_user(self, request, pk=None):
         self.kwargs["pk"] = pk
         obj = self.get_object()
+
+        if not request.user.has_perm(ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS):
+            return Response(
+                {"msg": "You are not allowed to delete users!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         has_access, res = self.check_management_user_access(obj, request)
         if not has_access:
@@ -1131,6 +1406,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         )
         return Response({"msg": "User is now a TIM support user"})
 
+    @extend_schema(responses={200: PaginatedUserEmailLogResponse})
     @action(detail=True, methods=["get"])
     def emails(self, request, pk=None) -> Response:
         self.kwargs["pk"] = pk
@@ -1152,31 +1428,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         return Response(paginated_email_logs)
 
-    @action(detail=False, methods=["get"])
-    def export(self, request):
-        if request.query_params.get("export_columns_only", "").lower() in ("1", "true", "yes"):
-            return Response([{name: None for name in USER_EXPORT_COLUMN_NAMES}])
-
-        queryset = self.filter_queryset(self.get_queryset()).select_related("profile", "state")
-
-        try:
-            page = int(request.query_params.get("page", 1))
-        except (TypeError, ValueError):
-            page = 1
-        try:
-            page_size = int(request.query_params.get("page_size", DetailedPagination.page_size))
-        except (TypeError, ValueError):
-            page_size = DetailedPagination.page_size
-        page_size = min(max(page_size, 1), DetailedPagination.max_page_size)
-
-        try:
-            paginated = get_paginated_format_v2(queryset, page_size, page)
-        except InvalidPage:
-            return Response([])
-
-        serializer = ExportUserSerializer(paginated["results"], many=True)
-        return Response(serializer.data)
-
+    @extend_schema(responses={200: UserMatchWaitingTimeSerializer})
     @action(detail=True, methods=["get"])
     def match_waiting_time(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -1185,8 +1437,27 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         return Response(get_match_waiting_time(obj))
 
 
+@api_view(["GET"])
+@permission_classes([IsAdminOrMatchingUser])
+def users_export(request):
+    if request.user.is_staff:
+        queryset = User.objects.all()
+    else:
+        management_user = cast(User, request.user)
+        queryset = management_user.managed_users_queryset(active_only=True)
+
+    queryset = UserFilter(request.query_params, queryset=queryset).qs.select_related("profile", "state")
+    return build_paginated_export_response(
+        request,
+        queryset,
+        ExportUserSerializer,
+        export_columns_only_fields=USER_EXPORT_COLUMN_NAMES,
+        allowed_fields=USER_EXPORT_COLUMN_NAMES,
+    )
+
+
 viewset_actions = [
-    path("api/matching/users_export/", AdvancedUserViewset.as_view({"get": "export"})),
+    path("api/matching/users_export/", users_export),
     path(
         "api/matching/users/<pk>/scores/",
         AdvancedUserViewset.as_view({"get": "scores"}),
@@ -1286,6 +1557,10 @@ viewset_actions = [
     path(
         "api/matching/users/<pk>/invite_native_app_tester/",
         AdvancedUserViewset.as_view({"post": "invite_native_app_tester"}),
+    ),
+    path(
+        "api/matching/users/<pk>/update_profile_fields/",
+        AdvancedUserViewset.as_view({"post": "update_profile_fields"}),
     ),
 ]
 

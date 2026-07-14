@@ -1,5 +1,5 @@
 from django.urls import path
-from drf_spectacular.utils import extend_schema, inline_serializer
+from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -8,7 +8,12 @@ from rest_framework.response import Response
 from management.api.matching_users_advanced import ManagementPermissionRowSerializer
 from management.helpers import IsAdminOrMatchingUser
 from management.models.user import User
-from management.permissions import MANAGEMENT_PERMISSION_LABELS, ManagementPermission
+from management.permissions import (
+    MANAGEMENT_PERMISSION_LABELS,
+    ManagementPermission,
+    user_can_edit_management_permissions,
+    user_can_grant_apply_management_permissions,
+)
 
 
 class MatchingPanelUserSerializer(serializers.Serializer):
@@ -21,6 +26,7 @@ class MatchingPanelUserSerializer(serializers.Serializer):
     is_superuser = serializers.BooleanField()
     is_matching_user = serializers.BooleanField()
     can_edit_management_permissions = serializers.BooleanField()
+    can_grant_apply_management_permissions = serializers.BooleanField()
     permissions = ManagementPermissionRowSerializer(many=True)
 
 
@@ -44,28 +50,14 @@ def get_matching_panel_user_data(user: User) -> dict:
         "is_staff": user.is_staff,
         "is_superuser": user.is_superuser,
         "is_matching_user": user.has_perm(ManagementPermission.MATCHING_USER),
-        "can_edit_management_permissions": user.has_perm(ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS),
+        "can_edit_management_permissions": user_can_edit_management_permissions(user),
+        "can_grant_apply_management_permissions": user_can_grant_apply_management_permissions(user),
         "permissions": ManagementPermissionRowSerializer(permissions, many=True).data,
     }
     return MatchingPanelUserSerializer(payload).data
 
 
-@extend_schema(
-    responses=inline_serializer(
-        name="MatchingPanelUserResponse",
-        fields={
-            "id": serializers.IntegerField(),
-            "uuid": serializers.UUIDField(),
-            "email": serializers.EmailField(),
-            "first_name": serializers.CharField(),
-            "last_name": serializers.CharField(),
-            "is_staff": serializers.BooleanField(),
-            "is_superuser": serializers.BooleanField(),
-            "is_matching_user": serializers.BooleanField(),
-            "can_edit_management_permissions": serializers.BooleanField(),
-        },
-    ),
-)
+@extend_schema(responses=MatchingPanelUserSerializer)
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
 @authentication_classes([SessionAuthentication])

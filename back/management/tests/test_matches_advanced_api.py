@@ -5,7 +5,7 @@ from django.test import TestCase
 from rest_framework.test import APIRequestFactory, force_authenticate
 from video.models import LivekitSession
 
-from management.api.matches_advanced import AdvancedMatchViewset
+from management.api.matches_advanced import AdvancedMatchViewset, matches_export
 from management.models.matches import Match
 from management.models.user import User
 
@@ -23,7 +23,7 @@ class AdvancedMatchViewsetTests(TestCase):
         self.factory = APIRequestFactory(enforce_csrf_checks=True)
         self.view = AdvancedMatchViewset.as_view({"get": "retrieve"})
         self.list_view = AdvancedMatchViewset.as_view({"get": "list"})
-        self.export_view = AdvancedMatchViewset.as_view({"get": "export"})
+        self.export_view = matches_export
 
         self.staff_user = self._create_user("staff")
         self.staff_user.is_staff = True

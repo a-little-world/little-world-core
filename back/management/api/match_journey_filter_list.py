@@ -2,6 +2,8 @@ import inspect
 from dataclasses import dataclass
 
 from management.api.match_journey_filters import (
+    EXTRA__suggestion_match_completed_off_plattform,
+    EXTRA__suggestion_match_completed_on_plattform,
     all_matches,
     completed_match,
     contact_stopped,
@@ -179,6 +181,16 @@ MATCH_JOURNEY_FILTERS = [
         None,
         support_matching,
     ),
+    FilterListEntry(
+        "EXTRA__suggestion_match_completed_on_plattform",
+        "Non-support matches that reached 8 on-platform video-call units",
+        EXTRA__suggestion_match_completed_on_plattform,
+    ),
+    FilterListEntry(
+        "EXTRA__suggestion_match_completed_off_plattform",
+        "Non-support matches marked as completed off platform",
+        EXTRA__suggestion_match_completed_off_plattform,
+    ),
 ]
 
 
@@ -200,29 +212,51 @@ def get_match_bucket_label(bucket_name: str | None) -> str:
     return slug.replace("_", " ").strip().title()
 
 
-def determine_match_bucket(match_pk):
+MATCH_JOURNEY_CATEGORY_BUCKETS = [
+    "special__support_matching",
+    "match_journey_v2__unviewed",
+    "match_journey_v2__one_user_viewed",
+    "match_journey_v2__confirmed_no_contact",
+    "match_journey_v2__confirmed_single_party_contact",
+    "match_journey_v2__first_contact",
+    "match_journey_v2__match_ongoing",
+    "match_journey_v2__completed_match",
+    "match_journey_v2__match_free_play",
+    "match_journey_v2__never_confirmed",
+    "match_journey_v2__no_contact",
+    "match_journey_v2__user_ghosted",
+    "match_journey_v2__contact_stopped",
+    "match_journey_v2__reported_or_removed",
+]
+
+# Proposal filters operate on ProposedMatch and ignore the incoming Match queryset.
+MATCH_BUCKET_SKIP_LISTS = frozenset(
+    {
+        "match_journey_v2__proposed_matches",
+        "match_journey_v2__expired_proposals",
+    }
+)
+
+
+def _match_bucket_entry_applies(entry: FilterListEntry, match_pk: int) -> bool:
+    if entry.queryset is None or entry.name in MATCH_BUCKET_SKIP_LISTS:
+        return False
     try:
-        match_categorie_buckets = [
-            "special__support_matching",
-            "match_journey_v2__unviewed",
-            "match_journey_v2__one_user_viewed",
-            "match_journey_v2__confirmed_no_contact",
-            "match_journey_v2__confirmed_single_party_contact",
-            "match_journey_v2__first_contact",
-            "match_journey_v2__match_ongoing",
-            "match_journey_v2__completed_match",
-            "match_journey_v2__match_free_play",
-            "match_journey_v2__never_confirmed",
-            "match_journey_v2__no_contact",
-            "match_journey_v2__user_ghosted",
-            "match_journey_v2__contact_stopped",
-            "match_journey_v2__reported_or_removed",
-        ]
-        bucket_map = {entry.name: entry for entry in MATCH_JOURNEY_FILTERS if entry.name in match_categorie_buckets}
-        for bucket in match_categorie_buckets:
-            if bucket_map[bucket].queryset(Match.objects.filter(pk=match_pk, match_type=MatchType.STANDARD)).exists():
-                return bucket
-        return None
-    except Exception as e:
-        print(e)
-        return None
+        return entry.queryset(Match.objects.filter(pk=match_pk, match_type=MatchType.STANDARD)).exists()
+    except Exception:
+        return False
+
+
+def determine_match_buckets(match_pk, all_lists: bool = False) -> list[str]:
+    bucket_names = [entry.name for entry in MATCH_JOURNEY_FILTERS] if all_lists else MATCH_JOURNEY_CATEGORY_BUCKETS
+    bucket_map = {entry.name: entry for entry in MATCH_JOURNEY_FILTERS}
+    return [
+        name
+        for name in bucket_names
+        if (entry := bucket_map.get(name)) and _match_bucket_entry_applies(entry, match_pk)
+    ]
+
+
+def determine_match_bucket(match_pk):
+    buckets = determine_match_buckets(match_pk, all_lists=False)
+    return buckets[0] if buckets else None
