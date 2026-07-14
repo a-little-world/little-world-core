@@ -3,12 +3,13 @@ from datetime import datetime
 from typing import Optional
 
 import django.contrib.auth.password_validation as pw_validation
+from django.conf import settings
 from django.contrib.auth import login
 from django.core import exceptions
 from django.db import transaction
 from django.utils import translation
 from drf_spectacular.utils import extend_schema
-from rest_framework import serializers
+from rest_framework import serializers, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from translations import get_translation
@@ -192,7 +193,8 @@ class Register(APIView):
         # The types are secure, we checked that using the 'Registration Serializer'
         registration_data = serializer.save()
 
-        data = common_register(request, registration_data)
+        user, data = common_register(request, registration_data)
+        login(request, user)
 
         if registration_data.user_type == Profile.TypeChoices.VOLUNTEER and has_marketing_consent(
             request, request.user
@@ -253,8 +255,8 @@ class RegisterAndroid(APIView):
             challenge_id=registration_data.challenge_id,
         )
 
-        user_data = common_register(request, serializer.get_registration_data())
-        with_tokens = user_data_with_tokens(user_data, request.user)
+        user, user_data = common_register(request, serializer.get_registration_data())
+        with_tokens = user_data_with_tokens(user_data, user)
 
         return Response(with_tokens)
 
@@ -286,8 +288,8 @@ class RegisterIOS(APIView):
             attestation_object=registration_data.attestation_object,
         )
 
-        user_data = common_register(request, serializer.get_registration_data())
-        with_tokens = user_data_with_tokens(user_data, request.user)
+        user, user_data = common_register(request, serializer.get_registration_data())
+        with_tokens = user_data_with_tokens(user_data, user)
 
         return Response(with_tokens)
 
@@ -325,8 +327,8 @@ class RegisterWebNative(APIView):
         if not bypass_integrity_check:
             return Response({"detail": "Invalid integrity check bypass token"}, status=status.HTTP_400_BAD_REQUEST)
 
-        user_data = common_register(request, serializer.get_registration_data())
-        with_tokens = user_data_with_tokens(user_data, request.user)
+        user, user_data = common_register(request, serializer.get_registration_data())
+        with_tokens = user_data_with_tokens(user_data, user)
 
         return Response(with_tokens)
 
@@ -338,11 +340,9 @@ def common_register(request, registration_data):
         **{k: getattr(registration_data, k) for k in registration_data.__annotations__}, send_verification_mail=True
     )
 
-    login(request, usr)
-
     with translation.override("tag"):
         data = get_user_data(usr)
-        return data
+        return usr, data
 
 
 def user_data_with_tokens(user_data, user):
