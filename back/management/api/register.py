@@ -330,6 +330,7 @@ class RegisterWebNative(APIView):
 
         return Response(with_tokens)
 
+
 def common_register(request, registration_data, is_native):
     # create_user will trow seralization error per default
     # also performs registration, send email etc...
