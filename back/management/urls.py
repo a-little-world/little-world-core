@@ -182,6 +182,7 @@ api_routes = [
     path("api/register/", register.Register.as_view()),
     path("api/register/android", register.RegisterAndroid.as_view()),
     path("api/register/ios", register.RegisterIOS.as_view()),
+    *([path("api/register/web", register.RegisterWebNative.as_view())] if not settings.IS_PROD else []),
     path(
         "api/cookies/cookie_banner.js",
         cookies.get_dynamic_cookie_banner_js,
