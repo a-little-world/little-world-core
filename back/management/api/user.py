@@ -424,21 +424,32 @@ class ConfirmMatchesApi(APIView):
         try:
             # In order to keep things working while we deploy the new strategy this api will also populate all db-fileds required for the new strategy
             # This is a little more involved than it has to be, this will once finished be replaced by 'ConfirmMatchesApi2'
+            confirmed_matches = []
             for match_uuid in params.matches:
                 partner = get_user_by_uuid(match_uuid)
-
-                from management.models.matches import Match
 
                 match = Match.get_match(request.user, partner)
                 assert match.exists()
                 match = match.first()
                 assert match is not None
                 match.confirm(request.user)
+                confirmed_matches.append(match)
 
         except Exception as e:
             raise serializers.ValidationError({"matches": str(e)})
 
-        return Response(get_translation("api.user_matches_successfully_confirmed"))
+        from management.api.matches import AdvancedUserMatchSerializer
+
+        return Response(
+            {
+                "message": get_translation("api.user_matches_successfully_confirmed"),
+                "matches": AdvancedUserMatchSerializer(
+                    confirmed_matches,
+                    many=True,
+                    context={"user": request.user},
+                ).data,
+            }
+        )
 
 
 @dataclass

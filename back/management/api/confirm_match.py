@@ -24,6 +24,7 @@ class ConfirmMatchSerializer(serializers.Serializer):
     unconfirmed_match_hash = serializers.CharField(required=False, allow_blank=False)
     confirm = serializers.BooleanField()
     deny_reason = serializers.CharField(required=False, allow_null=True, allow_blank=True)
+    confirm_message = serializers.CharField(required=False, allow_blank=False, max_length=500)
 
     def validate(self, attrs):
         if not attrs.get("unconfirmed_match_uuid") and not attrs.get("unconfirmed_match_hash"):
@@ -72,6 +73,31 @@ def confirm_match(request):
         unconfirmed_match.save()
 
         partner = unconfirmed_match.get_partner(request.user)
+        confirm_message = data.get("confirm_message")
+
+        if confirm_message:
+            from chat.consumers.messages import NewMessage
+            from chat.models import Chat, ChatSerializer, Message, MessageSerializer
+
+            chat = Chat.get_or_create_chat(request.user, partner)
+            matching.total_messages_counter += 1
+            matching.latest_interaction_at = timezone.now()
+            if matching.first_interaction_at is None:
+                matching.first_interaction_at = matching.latest_interaction_at
+            matching.save()
+
+            message = Message.objects.create(
+                chat=chat,
+                sender=request.user,
+                recipient=partner,
+                text=confirm_message,
+            )
+
+            NewMessage(
+                message=MessageSerializer(message).data,
+                chat_id=str(chat.uuid),
+                meta_chat_obj=ChatSerializer(chat, context={"user": partner}).data,
+            ).send(str(partner.uuid))
 
         msg = get_translation("confirm_match.match_confirmed")
 
