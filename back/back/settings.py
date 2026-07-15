@@ -167,7 +167,7 @@ LIVEKIT_WEBHOOK_SECRET = os.environ.get("DJ_LIVEKIT_WEBHOOK_SECRET", "")
 LIVEKIT_URL = os.environ.get("DJ_LIVEKIT_URL", "")
 # Server-side URL for backend->LiveKit API calls; differs from LIVEKIT_URL (browser-facing)
 # only in local docker dev. Defaults to LIVEKIT_URL so prod (single cloud URL) is unaffected.
-LIVEKIT_INTERNAL_URL = os.environ.get("DJ_LIVEKIT_INTERNAL_URL", "") or LIVEKIT_URL
+LIVEKIT_INTERNAL_URL = os.environ.get("DJ_LIVEKIT_INTERNAL_URL", LIVEKIT_URL)
 
 MATOMO_TOKEN_AUTH = os.environ.get("DJ_MATOMO_TOKEN_AUTH", "")
 MATOMO_URL = os.environ.get("DJ_MATOMO_URL", "")
