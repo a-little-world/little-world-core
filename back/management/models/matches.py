@@ -80,6 +80,10 @@ class Match(models.Model):
     # YES - case confirm email 'automatic-emails-m051'
     auto_email_m051_send = models.BooleanField(default=False, null=False, blank=False)
 
+    auto_email_m053_send = models.BooleanField(default=False, null=False, blank=False)
+    auto_email_m054_send = models.BooleanField(default=False, null=False, blank=False)
+    auto_email_m055_send = models.BooleanField(default=False, null=False, blank=False)
+
     match_type = models.CharField(
         max_length=20,
         choices=MatchType.choices,

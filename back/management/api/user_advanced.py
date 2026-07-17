@@ -7,7 +7,6 @@ from django.db.models.functions import Concat
 from django.urls import path
 from django.utils import timezone
 from django_filters import rest_framework as filters
-from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, extend_schema_view, inline_serializer
 from emails.models import AdvancedEmailLogSerializer, EmailLog
 from rest_framework import serializers, status, viewsets
@@ -47,7 +46,13 @@ from management.models.state import State, StateSerializer
 from management.models.support_task import SupportTask, SupportTaskAction
 from management.models.unconfirmed_matches import ProposedMatch, serialize_proposed_matches
 from management.models.user import User
-from management.permissions import MANAGEMENT_PERMISSION_LABELS, ManagementPermission
+from management.permissions import (
+    MANAGEMENT_PERMISSION_LABELS,
+    ManagementPermission,
+    user_can_edit_management_permissions,
+    user_can_grant_apply_management_permissions,
+    user_can_manage_user_management_permissions,
+)
 from management.tasks import matching_algo_v2
 
 user_category_buckets = [
@@ -773,6 +778,27 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         except KeyError:
             return None
 
+    def _get_management_permission_target_user(self, pk) -> User:
+        try:
+            return User.objects.select_related("profile", "state").get(pk=pk)
+        except (User.DoesNotExist, ValueError, TypeError):
+            from rest_framework.exceptions import NotFound
+
+            raise NotFound from None
+
+    def _check_management_permission_target_access(self, request, target: User):
+        if not user_can_edit_management_permissions(request.user):
+            return Response(
+                {"msg": "You are not allowed to manage management permissions!"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if not user_can_manage_user_management_permissions(request.user, target):
+            return Response(
+                {"msg": "You are not allowed to access this user!"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        return None
+
     @extend_schema(
         request=inline_serializer(
             name="MarkReadMessageRequest",
@@ -947,7 +973,11 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
         return Response(ManagementTaskSerializer(tasks, many=True).data)
 
-    @extend_schema(responses={(200, "application/json"): OpenApiTypes.STR})
+    @extend_schema(
+        responses={
+            200: inline_serializer(name="UserNotesResponse", fields={"notes": serializers.CharField()}),
+        }
+    )
     @action(detail=True, methods=["get", "post"])
     def notes(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -957,12 +987,12 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if request.method == "POST":
             _os.notes = request.data["notes"]
             _os.save()
-            return Response(_os.notes)
+            return Response({"notes": _os.notes or ""})
         else:
             if not _os.notes:
                 _os.notes = ""
                 _os.save()
-            return Response(_os.notes)
+            return Response({"notes": _os.notes or ""})
 
     @extend_schema(
         request=inline_serializer(
@@ -1059,20 +1089,11 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     )
     @action(detail=True, methods=["post"])
     def permissions(self, request, pk=None, action=None):
-        self.kwargs["pk"] = pk
-        obj = self.get_object()
+        obj = self._get_management_permission_target_user(pk)
 
-        if not request.user.has_perm(ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS):
-            return Response(
-                {"msg": "You are not allowed to apply management permissions!"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        if not request.user.is_staff and not request.user.has_management_access(obj):
-            return Response(
-                {"msg": "You are not allowed to access this user!"},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+        access_error = self._check_management_permission_target_access(request, obj)
+        if access_error is not None:
+            return access_error
 
         raw_permission = request.data.get("permission", "")
         raw_action = action or ""
@@ -1083,16 +1104,13 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if permission == ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS and raw_action == "add":
+        if (
+            permission == ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS
+            and not user_can_grant_apply_management_permissions(request.user)
+        ):
             return Response(
-                {"msg": "APPLY_MANAGEMENT_PERMISSIONS can never be added."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if permission == ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS and raw_action == "remove":
-            return Response(
-                {"msg": "APPLY_MANAGEMENT_PERMISSIONS can never be removed."},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"msg": "Only staff can grant or revoke apply_management_permissions."},
+                status=status.HTTP_403_FORBIDDEN,
             )
 
         if (
@@ -1132,20 +1150,11 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["get"])
     def permissions_list(self, request, pk=None):
-        self.kwargs["pk"] = pk
-        obj = self.get_object()
+        obj = self._get_management_permission_target_user(pk)
 
-        if not request.user.has_perm(ManagementPermission.APPLY_MANAGEMENT_PERMISSIONS):
-            return Response(
-                {"msg": "You are not allowed to view management permissions!"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        if not request.user.is_staff and not request.user.has_management_access(obj):
-            return Response(
-                {"msg": "You are not allowed to access this user!"},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+        access_error = self._check_management_permission_target_access(request, obj)
+        if access_error is not None:
+            return access_error
 
         permissions = []
         for permission in ManagementPermission:
@@ -1431,13 +1440,15 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
 def users_export(request):
+    # select_related must be applied before UserFilter: some EXTRA lists use
+    # QuerySet.union(), and Django does not allow select_related() afterwards.
     if request.user.is_staff:
-        queryset = User.objects.all()
+        queryset = User.objects.all().select_related("profile", "state")
     else:
         management_user = cast(User, request.user)
-        queryset = management_user.managed_users_queryset(active_only=True)
+        queryset = management_user.managed_users_queryset(active_only=True).select_related("profile", "state")
 
-    queryset = UserFilter(request.query_params, queryset=queryset).qs.select_related("profile", "state")
+    queryset = UserFilter(request.query_params, queryset=queryset).qs
     return build_paginated_export_response(
         request,
         queryset,

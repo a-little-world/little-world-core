@@ -60,7 +60,8 @@ class RestToolDefinitionTests(SimpleTestCase):
 
         binding_inputs = {binding["input_name"] for binding in definition["param_bindings"]}
         self.assertEqual(binding_inputs, {"chat_uuid", "cookie_header", "csrf_token", "message"})
-        self.assertEqual(definition["safety_policy"]["allow_hosts"], ["app.example.com"])
+        self.assertNotIn("allow_hosts", definition["safety_policy"])
+        self.assertTrue(definition["safety_policy"]["allow_private_ips"])
 
     def test_build_message_reply_suggestion_rest_tool_definition(self):
         definition = build_message_reply_suggestion_rest_tool_definition("https://app.example.com").build()
@@ -92,7 +93,8 @@ class RestToolDefinitionTests(SimpleTestCase):
 
         binding_inputs = {binding["input_name"] for binding in definition["param_bindings"]}
         self.assertEqual(binding_inputs, {"chat_uuid", "cookie_header", "csrf_token", "page", "page_size"})
-        self.assertEqual(definition["safety_policy"]["allow_hosts"], ["app.example.com"])
+        self.assertNotIn("allow_hosts", definition["safety_policy"])
+        self.assertTrue(definition["safety_policy"]["allow_private_ips"])
 
     def test_build_retrieve_management_permissions_rest_tool_definition(self):
         definition = build_retrieve_management_permissions_rest_tool_definition("https://app.example.com").build()
@@ -170,6 +172,10 @@ class RestToolDefinitionTests(SimpleTestCase):
         self.assertIn("email", censor_paths)
         self.assertIn("profile.first_name", censor_paths)
         self.assertIn("profile.second_name", censor_paths)
+        self.assertIn("state.past_emails", censor_paths)
+        self.assertIn("profile.description", censor_paths)
+        self.assertIn("matches.*.results.*.chat.newest_message.text", censor_paths)
+        self.assertNotIn("state.notes", censor_paths)
         self.assertIn("/matching/user/", definition["description"])
 
     def test_build_mgmt_query_users_censors_pii_in_paginated_results(self):
@@ -180,6 +186,8 @@ class RestToolDefinitionTests(SimpleTestCase):
         self.assertIn("results.*.email", censor_paths)
         self.assertIn("results.*.profile.first_name", censor_paths)
         self.assertIn("results.*.profile.second_name", censor_paths)
+        self.assertIn("results.*.state.past_emails", censor_paths)
+        self.assertIn("results.*.profile.description", censor_paths)
 
     def test_build_mgmt_query_matches_censors_participant_pii(self):
         spec = next(item for item in MANAGEMENT_GET_TOOL_SPECS if item.name == QUERY_MATCHES_REST_TOOL_NAME)
@@ -211,7 +219,9 @@ class RestToolDefinitionTests(SimpleTestCase):
     def test_sync_rest_tool_definitions_creates_missing_tools(self):
         client = MagicMock()
         client.list_dynamic_rest_tools.return_value = []
+
         result = sync_rest_tool_definitions(client, reload=False)
+
         self.assertEqual(result["created"], list(_ALL_REST_TOOL_NAMES))
         self.assertEqual(result["updated"], [])
         self.assertEqual(client.save_dynamic_rest_tool.call_count, len(_ALL_REST_TOOL_NAMES))
@@ -219,7 +229,9 @@ class RestToolDefinitionTests(SimpleTestCase):
     def test_sync_rest_tool_definitions_reload(self):
         client = MagicMock()
         client.list_dynamic_rest_tools.return_value = [{"name": name} for name in _CORE_REST_TOOL_NAMES]
+
         result = sync_rest_tool_definitions(client, reload=True)
+
         self.assertEqual(result["deleted"], sorted(_CORE_REST_TOOL_NAMES))
         self.assertEqual(result["created"], list(_ALL_REST_TOOL_NAMES))
         self.assertEqual(client.delete_dynamic_rest_tool.call_count, len(_CORE_REST_TOOL_NAMES))
@@ -231,7 +243,9 @@ class RestToolDefinitionTests(SimpleTestCase):
             {"name": CHAT_REPLY_REST_TOOL_NAME},
             {"name": MESSAGE_REPLY_SUGGESTION_REST_TOOL_NAME},
         ]
+
         result = ensure_rest_tool_definitions(client)
+
         self.assertEqual(
             result["created"],
             [
