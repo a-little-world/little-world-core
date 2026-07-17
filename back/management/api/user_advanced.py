@@ -1,7 +1,7 @@
 from datetime import datetime, time
 from typing import Literal, cast
 
-from chat.models import Chat, ChatSerializer, Message, MessageSerializer
+from chat.models import Chat, ChatConnections, ChatSerializer, Message, MessageSerializer
 from django.db.models import CharField, Max, Q, Value
 from django.db.models.functions import Concat
 from django.urls import path
@@ -81,6 +81,13 @@ def get_user_bucket_label(bucket_name: str | None) -> str:
         return "Unknown"
     slug = bucket_name.split("__")[-1]
     return slug.replace("_", " ").strip().title()
+
+
+def serialize_user_last_seen(user) -> str | None:
+    last_seen = getattr(user, "last_online", None)
+    if last_seen is None:
+        last_seen = ChatConnections.get_last_seen_for_user(user)
+    return last_seen.isoformat() if last_seen else None
 
 
 def determine_user_buckets(user_pk, all_lists: bool = False) -> list[str]:
@@ -266,10 +273,14 @@ class UserMessagesResponseSerializer(serializers.Serializer):
 class UserTableSerializer(serializers.ModelSerializer):
     profile = MinimalProfileSerializer(read_only=True)
     state = UserTableStateSerializer(read_only=True)
+    last_seen = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["uuid", "id", "email", "date_joined", "last_login", "profile", "state"]
+        fields = ["uuid", "id", "email", "date_joined", "last_login", "last_seen", "profile", "state"]
+
+    def get_last_seen(self, obj):
+        return serialize_user_last_seen(obj)
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -301,10 +312,14 @@ class UserTableSerializer(serializers.ModelSerializer):
 
 class AdvancedUserSerializer(serializers.ModelSerializer):
     profile = MinimalProfileSerializer(read_only=True)
+    last_seen = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["uuid", "id", "email", "date_joined", "last_login", "profile"]
+        fields = ["uuid", "id", "email", "date_joined", "last_login", "last_seen", "profile"]
+
+    def get_last_seen(self, obj):
+        return serialize_user_last_seen(obj)
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -658,10 +673,15 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     def get_queryset(self):
         is_staff = self.request.user.is_staff
         if is_staff:
-            return User.objects.all().select_related("profile", "state")
+            queryset = User.objects.all().select_related("profile", "state")
         else:
             management_user = cast(User, self.request.user)
-            return management_user.managed_users_queryset(active_only=True).select_related("profile", "state")
+            queryset = management_user.managed_users_queryset(active_only=True).select_related("profile", "state")
+
+        if self.action == "list":
+            queryset = queryset.annotate(last_online=Max("chatconnections__last_seen"))
+
+        return queryset
 
     @extend_schema(responses={200: FilterSchemaResponseSerializer})
     @action(detail=False, methods=["get"])
