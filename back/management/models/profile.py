@@ -889,6 +889,7 @@ class MinimalProfileSerializer(serializers.ModelSerializer):
             "country_of_residence",
             "job_search",
             "job_skill_description",
+            "availability",
         ]
 
 

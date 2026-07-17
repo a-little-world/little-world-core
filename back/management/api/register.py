@@ -47,6 +47,11 @@ class RegistrationDataNative(RegistrationData):
     integrity_token: Optional[str] = None
 
 
+@dataclass
+class RegistrationDataNativeWeb(RegistrationData):
+    bypass_token: str = ""
+
+
 class RegistrationSerializer(serializers.Serializer):
     email = serializers.EmailField(
         required=True,
@@ -128,7 +133,7 @@ class RegistrationSerializer(serializers.Serializer):
         return super(RegistrationSerializer, self).validate(data)
 
 
-class RegistationSerializerNative(RegistrationSerializer):
+class RegistrationSerializerNative(RegistrationSerializer):
     challenge_id = serializers.CharField(required=True)
     key_id = serializers.CharField(max_length=255, required=False)
     integrity_token = serializers.CharField(required=False)
@@ -154,6 +159,19 @@ class RegistationSerializerNative(RegistrationSerializer):
         )
 
 
+class RegistrationSerializerNativeWeb(RegistrationSerializer):
+    bypass_token = serializers.CharField(required=False)
+
+    def create(self, validated_data):
+        return RegistrationDataNativeWeb(
+            **{field.name: getattr(self.get_registration_data(), field.name) for field in fields(RegistrationData)},
+            bypass_token=validated_data.get("bypass_token", ""),
+        )
+
+    def get_registration_data(self) -> RegistrationData:
+        return super().create({k: v for k, v in self.validated_data.items() if k not in ["bypass_token"]})
+
+
 class Register(APIView):
     """
     Register a user by post request
@@ -174,7 +192,7 @@ class Register(APIView):
         # The types are secure, we checked that using the 'Registration Serializer'
         registration_data = serializer.save()
 
-        data = common_register(request, registration_data)
+        _usr, data = common_register(request, registration_data, is_native=False)
 
         if registration_data.user_type == Profile.TypeChoices.VOLUNTEER and has_marketing_consent(
             request, request.user
@@ -221,10 +239,10 @@ class RegisterAndroid(APIView):
     @extend_schema(
         description="Little World Registration API called with data from the registration form",
         methods=["POST"],
-        request=RegistationSerializerNative(many=False),
+        request=RegistrationSerializerNative(many=False),
     )
     def post(self, request) -> Optional[Response]:
-        serializer = RegistationSerializerNative(data=request.data)
+        serializer = RegistrationSerializerNative(data=request.data)
         serializer.is_valid(raise_exception=True)
         # The types are secure, we checked that using the 'Registration Serializer'
         registration_data = serializer.save()
@@ -236,8 +254,8 @@ class RegisterAndroid(APIView):
         if not verify_play_integrity_token(integrity_token, request_hash=challenge):
             return Response({"detail": "Invalid integrity token or request hash"}, status=status.HTTP_400_BAD_REQUEST)
 
-        user_data = common_register(request, serializer.get_registration_data())
-        with_tokens = user_data_with_tokens(user_data, request.user)
+        usr, user_data = common_register(request, serializer.get_registration_data(), is_native=True)
+        with_tokens = user_data_with_tokens(user_data, usr)
 
         return Response(with_tokens)
 
@@ -254,10 +272,10 @@ class RegisterIOS(APIView):
     @extend_schema(
         description="Little World Registration API called with data from the registration form",
         methods=["POST"],
-        request=RegistationSerializerNative(many=False),
+        request=RegistrationSerializerNative(many=False),
     )
     def post(self, request) -> Optional[Response]:
-        serializer = RegistationSerializerNative(data=request.data)
+        serializer = RegistrationSerializerNative(data=request.data)
         serializer.is_valid(raise_exception=True)
         # The types are secure, we checked that using the 'Registration Serializer'
         registration_data = serializer.save()
@@ -268,24 +286,64 @@ class RegisterIOS(APIView):
 
         verify_apple_attestation(key_id, challenge_bytes, attestation_object, settings.IS_PROD)
 
-        user_data = common_register(request, serializer.get_registration_data())
-        with_tokens = user_data_with_tokens(user_data, request.user)
+        usr, user_data = common_register(request, serializer.get_registration_data(), is_native=True)
+        with_tokens = user_data_with_tokens(user_data, usr)
 
         return Response(with_tokens)
 
 
-def common_register(request, registration_data):
+class RegisterWebNative(APIView):
+    """
+    Register a user by post request
+    """
+
+    authentication_classes = []  # No authentication required, only cors checks
+    permission_classes = []  # Everyone can acess this api
+    required_args = ["email", "first_name", "second_name", "password1", "password2", "birth_year", "user_type"]
+
+    @extend_schema(
+        description="Little World Registration API called with data from the registration form",
+        methods=["POST"],
+        request=RegistrationSerializerNativeWeb(many=False),
+    )
+    def post(self, request) -> Optional[Response]:
+        if settings.IS_PROD:
+            return Response(
+                {"detail": "This endpoint is disabled in production environments"},
+                status=status.HTTP_405_METHOD_NOT_ALLOWED,
+            )
+
+        serializer = RegistrationSerializerNativeWeb(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        # The types are secure, we checked that using the 'RegistrationSerializerNativeWeb'
+        registration_data = serializer.save()
+        bypass_token = registration_data.bypass_token
+
+        bypass_integrity_check = settings.NATIVE_APP_INTEGRITY_ALLOW_BYPASS and (
+            bypass_token == settings.NATIVE_APP_INTEGRITY_BYPASS_TOKEN
+        )
+        if not bypass_integrity_check:
+            return Response({"detail": "Invalid integrity check bypass token"}, status=status.HTTP_400_BAD_REQUEST)
+
+        usr, user_data = common_register(request, serializer.get_registration_data(), is_native=True)
+        with_tokens = user_data_with_tokens(user_data, usr)
+
+        return Response(with_tokens)
+
+
+def common_register(request, registration_data, is_native):
     # create_user will trow seralization error per default
     # also performs registration, send email etc...
     usr = controller.create_user(
         **{k: getattr(registration_data, k) for k in registration_data.__annotations__}, send_verification_mail=True
     )
 
-    login(request, usr)
+    if not is_native:
+        login(request, usr)
 
     with translation.override("tag"):
         data = get_user_data(usr)
-        return data
+        return usr, data
 
 
 def user_data_with_tokens(user_data, user):
