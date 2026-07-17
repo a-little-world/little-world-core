@@ -1460,13 +1460,15 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
 def users_export(request):
+    # select_related must be applied before UserFilter: some EXTRA lists use
+    # QuerySet.union(), and Django does not allow select_related() afterwards.
     if request.user.is_staff:
-        queryset = User.objects.all()
+        queryset = User.objects.all().select_related("profile", "state")
     else:
         management_user = cast(User, request.user)
-        queryset = management_user.managed_users_queryset(active_only=True)
+        queryset = management_user.managed_users_queryset(active_only=True).select_related("profile", "state")
 
-    queryset = UserFilter(request.query_params, queryset=queryset).qs.select_related("profile", "state")
+    queryset = UserFilter(request.query_params, queryset=queryset).qs
     return build_paginated_export_response(
         request,
         queryset,
