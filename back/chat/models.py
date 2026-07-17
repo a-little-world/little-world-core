@@ -252,3 +252,7 @@ class ChatConnections(models.Model):
     @classmethod
     def is_user_online(cls, user):
         return cls.objects.filter(user=user, is_online=True).exists()
+
+    @classmethod
+    def get_last_seen_for_user(cls, user):
+        return cls.objects.filter(user=user).aggregate(last_seen=Max("last_seen"))["last_seen"]
