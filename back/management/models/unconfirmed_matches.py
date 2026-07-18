@@ -7,6 +7,87 @@ from django.dispatch import receiver
 from django.utils import timezone
 
 from management.models.profile import Profile, ProposalProfileSerializer
+from management.validators import DAYS, SLOTS
+
+DAY_LABELS_DE = {
+    "mo": "Montag",
+    "tu": "Dienstag",
+    "we": "Mittwoch",
+    "th": "Donnerstag",
+    "fr": "Freitag",
+    "sa": "Samstag",
+    "su": "Sonntag",
+}
+
+
+def _group_consecutive_slots(slots):
+    ordered = [slot for slot in SLOTS if slot in slots]
+    if not ordered:
+        return []
+
+    groups = [[ordered[0]]]
+    for slot in ordered[1:]:
+        if SLOTS.index(slot) == SLOTS.index(groups[-1][-1]) + 1:
+            groups[-1].append(slot)
+        else:
+            groups.append([slot])
+    return groups
+
+
+def _format_slot_range(slots):
+    start_hour, _ = slots[0].split("_")
+    _, end_hour = slots[-1].split("_")
+    return f"{start_hour}-{end_hour} Uhr"
+
+
+def _get_overlap_candidates(availability1, availability2, lookahead_days=7):
+    if not isinstance(availability1, dict) or not isinstance(availability2, dict):
+        return []
+
+    today = timezone.localdate()
+    best_per_date = {}
+
+    for offset in range(1, lookahead_days + 1):
+        overlap_date = today + timedelta(days=offset)
+        day = DAYS[overlap_date.weekday()]
+        overlapping_slots = [
+            slot for slot in SLOTS if slot in availability1.get(day, []) and slot in availability2.get(day, [])
+        ]
+        if not overlapping_slots:
+            continue
+
+        for slot_group in _group_consecutive_slots(overlapping_slots):
+            candidate = {
+                "day": day,
+                "day_offset": offset,
+                "slot_count": len(slot_group),
+                "slots": slot_group,
+                "overlap_date": overlap_date,
+            }
+            existing = best_per_date.get(overlap_date)
+            if existing is None or candidate["slot_count"] > existing["slot_count"]:
+                best_per_date[overlap_date] = candidate
+
+    return list(best_per_date.values())
+
+
+def _select_overlap_candidates(candidates, max_suggestions=2):
+    ranked = sorted(candidates, key=lambda item: (-item["slot_count"], item["day_offset"]))
+    return sorted(ranked[:max_suggestions], key=lambda item: item["day_offset"])
+
+
+def format_suggested_availability_overlap(availability1, availability2, max_suggestions=2):
+    candidates = _select_overlap_candidates(
+        _get_overlap_candidates(availability1, availability2),
+        max_suggestions=max_suggestions,
+    )
+    lines = []
+    for candidate in candidates:
+        lines.append(
+            f"• {DAY_LABELS_DE[candidate['day']]} ({candidate['overlap_date']:%d.%m.}), "
+            f"{_format_slot_range(candidate['slots'])}"
+        )
+    return "\n".join(lines)
 
 
 class MatchType(models.TextChoices):

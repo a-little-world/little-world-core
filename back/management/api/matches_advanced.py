@@ -386,36 +386,35 @@ def _match_weekly_activity_retrieve_extra(match: Match) -> dict:
     current_week = max(((now - match_start).days // 7) + 1, 1)
     weeks_to_show = max(current_week, desired_duration_weeks)
 
-    activity_by_week = {
-        week: {
+    def _empty_week(week: int) -> dict:
+        return {
             "week": week,
             "start_at": dt_field.to_representation(match_start + timedelta(weeks=week - 1)),
             "end_at": dt_field.to_representation(match_start + timedelta(weeks=week)),
             "messages": 0,
+            "messages_user1": 0,
+            "messages_user2": 0,
             "video_calls": 0,
         }
-        for week in range(1, weeks_to_show + 1)
-    }
+
+    activity_by_week = {week: _empty_week(week) for week in range(1, weeks_to_show + 1)}
 
     def _week_for_timestamp(timestamp):
         return max(((timestamp - match_start).days // 7) + 1, 1)
 
-    message_timestamps = Message.objects.filter(
+    user1_id = match.user1_id
+    user2_id = match.user2_id
+    message_rows = Message.objects.filter(
         Q(sender=match.user1, recipient=match.user2) | Q(sender=match.user2, recipient=match.user1)
-    ).values_list("created", flat=True)
-    for timestamp in message_timestamps:
+    ).values_list("created", "sender_id")
+    for timestamp, sender_id in message_rows:
         week = _week_for_timestamp(timestamp)
-        activity_by_week.setdefault(
-            week,
-            {
-                "week": week,
-                "start_at": dt_field.to_representation(match_start + timedelta(weeks=week - 1)),
-                "end_at": dt_field.to_representation(match_start + timedelta(weeks=week)),
-                "messages": 0,
-                "video_calls": 0,
-            },
-        )
-        activity_by_week[week]["messages"] += 1
+        activity = activity_by_week.setdefault(week, _empty_week(week))
+        activity["messages"] += 1
+        if sender_id == user1_id:
+            activity["messages_user1"] += 1
+        elif sender_id == user2_id:
+            activity["messages_user2"] += 1
 
     video_timestamps = LivekitSession.objects.filter(
         Q(u1=match.user1, u2=match.user2) | Q(u1=match.user2, u2=match.user1),
@@ -423,17 +422,8 @@ def _match_weekly_activity_retrieve_extra(match: Match) -> dict:
     ).values_list("created_at", flat=True)
     for timestamp in video_timestamps:
         week = _week_for_timestamp(timestamp)
-        activity_by_week.setdefault(
-            week,
-            {
-                "week": week,
-                "start_at": dt_field.to_representation(match_start + timedelta(weeks=week - 1)),
-                "end_at": dt_field.to_representation(match_start + timedelta(weeks=week)),
-                "messages": 0,
-                "video_calls": 0,
-            },
-        )
-        activity_by_week[week]["video_calls"] += 1
+        activity = activity_by_week.setdefault(week, _empty_week(week))
+        activity["video_calls"] += 1
 
     weekly_activity = [
         {
