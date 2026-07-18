@@ -159,6 +159,9 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
             )
         else:
             cls.automation_user = cls.admin_user
+        # Automation is granted MATCHING_USER in production so it can use the panel;
+        # support-reply creation must still accept its messages.
+        cls.automation_user.user_permissions.add(matching_user_permission)
 
         cls.source_user = User.objects.create_user(
             email="open-chat-source@test.de",
@@ -307,6 +310,41 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
                 "status": "skipped_matching_user_permission",
             },
             result["processed_messages"],
+        )
+
+    @patch("open_chat.message_reply_suggestion.current_app.send_task")
+    def test_create_support_reply_accepts_open_chat_automation_sender(self, mock_send_task):
+        from open_chat.message_reply_suggestion import create_or_reuse_support_reply_task_for_message
+
+        mock_send_task.return_value = MagicMock(id="interaction-task-id")
+        if self.automation_user.pk == self.admin_user.pk:
+            self.skipTest("Automation user is the same as admin in this settings fixture")
+
+        chat = Chat.objects.create(u1=self.admin_user, u2=self.automation_user, is_temporary=False)
+        message = ChatMessage.objects.create(
+            chat=chat,
+            sender=self.automation_user,
+            recipient=self.admin_user,
+            text="Automation hello",
+            read=False,
+        )
+
+        result = create_or_reuse_support_reply_task_for_message(
+            latest_message=message,
+            source_user=self.automation_user,
+            target_user=self.admin_user,
+            created_by_user=self.automation_user,
+            assigned_to_user=self.admin_user,
+            configuration_user_uuid=str(self.admin_user.uuid),
+            enqueue_interaction=True,
+        )
+
+        self.assertEqual(result["status"], "created_and_enqueued")
+        self.assertTrue(
+            SupportTaskAction.objects.filter(
+                action_type="support_reply",
+                static_parameters__message_uuid=str(message.uuid),
+            ).exists()
         )
 
     @patch("open_chat.basic_chat_interaction.ensure_rest_tool_definitions")

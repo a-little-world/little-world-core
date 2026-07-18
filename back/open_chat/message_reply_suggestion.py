@@ -2,6 +2,7 @@ import logging
 
 from celery import current_app, shared_task
 from chat.models import Message as ChatMessage
+from django.conf import settings
 from django.db.models import Q
 from management import controller
 from management.models.support_task import SupportTask, SupportTaskAction
@@ -84,6 +85,20 @@ def _message_reply_suggestion_overrides() -> dict[str, object]:
     )
 
 
+def _is_skipped_matching_staff_sender(user: User) -> bool:
+    """Matching-panel staff senders should not create support-reply tasks.
+
+    The dedicated Open Chat automation user also has MATCHING_USER so it can use
+    the panel, but it is the intended sender when testing support-reply flows.
+    """
+    if not user.has_perm(ManagementPermission.MATCHING_USER):
+        return False
+    automation_email = (settings.OPEN_CHAT_AUTOMATION_USER_EMAIL or "").strip().lower()
+    if automation_email and (user.email or "").strip().lower() == automation_email:
+        return False
+    return True
+
+
 def create_or_reuse_support_reply_task_for_message(
     *,
     latest_message: ChatMessage,
@@ -94,7 +109,7 @@ def create_or_reuse_support_reply_task_for_message(
     configuration_user_uuid: str | None = None,
     enqueue_interaction: bool = True,
 ) -> dict:
-    if source_user.has_perm(ManagementPermission.MATCHING_USER):
+    if _is_skipped_matching_staff_sender(source_user):
         return {
             "source_user_uuid": str(source_user.uuid),
             "status": "skipped_matching_user_permission",
