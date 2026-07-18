@@ -4,16 +4,17 @@ import logging
 from celery import shared_task
 from chat.models import Chat
 from chat.models import Message as ChatMessage
-from client import OpenChatClient, PasswordAuth
 from management.models.user import User
 from management.permissions import ManagementPermission
 
 from open_chat.helpers import (
     FALLBACK_USER_MESSAGE,
     build_chat_text_markup_hint,
+    build_open_chat_client,
     build_session_tool_init_payload,
     build_tool_session_context,
     little_world_panel_base_url,
+    rewrite_open_chat_url_for_browser,
     value_or,
 )
 from open_chat.interaction_config import (
@@ -237,10 +238,7 @@ def open_chat_basic_chat_interaction(
     actor_session_id, actor_csrf_token, api_host = build_tool_session_context(session_actor)
     bot_session_id, bot_csrf_token, _ = build_tool_session_context(recipient)
     try:
-        client = OpenChatClient(
-            base_url=configuration.open_chat_host,
-            auth=PasswordAuth(email=configuration.open_chat_user, password=configuration.open_chat_api_key),
-        )
+        client = build_open_chat_client(configuration)
         login_user = client.login()
         ensure_rest_tool_definitions(client)
 
@@ -274,7 +272,10 @@ def open_chat_basic_chat_interaction(
             },
         )
         interaction_uuid = interaction.uuid
-        shared_url = interaction.shared_url()
+        shared_url = rewrite_open_chat_url_for_browser(
+            interaction.shared_url(),
+            configuration,
+        )
         login_user_name = value_or(login_user.name, "")
         logger.info(
             "open_chat_basic_chat_interaction enqueued login_user=%s config_owner=%s session_actor=%s session_bot=%s interaction_uuid=%s shared_url=%s",
@@ -291,7 +292,7 @@ def open_chat_basic_chat_interaction(
             sender=sender,
             recipient=recipient,
             interaction_uuid=interaction_uuid,
-            shared_url=shared_url,
+            shared_url=shared_url or "",
         )
 
         return {

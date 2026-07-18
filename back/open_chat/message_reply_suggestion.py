@@ -2,7 +2,7 @@ import logging
 
 from celery import current_app, shared_task
 from chat.models import Message as ChatMessage
-from client import OpenChatClient, PasswordAuth
+from django.conf import settings
 from django.db.models import Q
 from management import controller
 from management.models.support_task import SupportTask, SupportTaskAction
@@ -12,9 +12,11 @@ from management.permissions import ManagementPermission
 from open_chat.helpers import (
     FALLBACK_USER_MESSAGE,
     build_chat_text_markup_hint,
+    build_open_chat_client,
     build_session_tool_init_payload,
     build_tool_session_context,
     resolve_open_chat_automation_task_creator_user,
+    rewrite_open_chat_url_for_browser,
     value_or,
 )
 from open_chat.interaction_config import (
@@ -84,6 +86,20 @@ def _message_reply_suggestion_overrides() -> dict[str, object]:
     )
 
 
+def _is_skipped_matching_staff_sender(user: User) -> bool:
+    """Matching-panel staff senders should not create support-reply tasks.
+
+    The dedicated Open Chat automation user also has MATCHING_USER so it can use
+    the panel, but it is the intended sender when testing support-reply flows.
+    """
+    if not user.has_perm(ManagementPermission.MATCHING_USER):
+        return False
+    automation_email = (settings.OPEN_CHAT_AUTOMATION_USER_EMAIL or "").strip().lower()
+    if automation_email and (user.email or "").strip().lower() == automation_email:
+        return False
+    return True
+
+
 def create_or_reuse_support_reply_task_for_message(
     *,
     latest_message: ChatMessage,
@@ -94,7 +110,7 @@ def create_or_reuse_support_reply_task_for_message(
     configuration_user_uuid: str | None = None,
     enqueue_interaction: bool = True,
 ) -> dict:
-    if source_user.has_perm(ManagementPermission.MATCHING_USER):
+    if _is_skipped_matching_staff_sender(source_user):
         return {
             "source_user_uuid": str(source_user.uuid),
             "status": "skipped_matching_user_permission",
@@ -326,10 +342,7 @@ def open_chat_run_message_reply_suggestion_interaction(
 
     session_id, csrf_token, api_host = build_tool_session_context(support_action.task.created_by or recipient)
     try:
-        client = OpenChatClient(
-            base_url=configuration.open_chat_host,
-            auth=PasswordAuth(email=configuration.open_chat_user, password=configuration.open_chat_api_key),
-        )
+        client = build_open_chat_client(configuration)
         login_user = client.login()
         ensure_rest_tool_definitions(client)
 
@@ -356,7 +369,10 @@ def open_chat_run_message_reply_suggestion_interaction(
             },
         )
         interaction_uuid = interaction.uuid
-        shared_url = interaction.shared_url()
+        shared_url = rewrite_open_chat_url_for_browser(
+            interaction.shared_url(),
+            configuration,
+        )
         login_user_name = value_or(login_user.name, "")
         logger.info(
             "open_chat_run_message_reply_suggestion enqueued login_user=%s support_task_id=%s interaction_uuid=%s shared_url=%s",
