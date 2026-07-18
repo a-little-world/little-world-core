@@ -22,6 +22,7 @@ from open_chat.basic_chat_interaction import (
     _basic_chat_interaction_overrides,
     open_chat_basic_chat_interaction,
 )
+from open_chat.helpers import rewrite_open_chat_url_for_browser
 from open_chat.interaction_config import DEFAULT_OPEN_CHAT_MAX_TOKENS, DEFAULT_OPEN_CHAT_SUGGESTION_MAX_TOKENS
 from open_chat.message_reply_suggestion import (
     MESSAGE_REPLY_SUGGESTION_CONTEXT,
@@ -357,11 +358,14 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         mock_client.login.return_value = SimpleNamespace(name="Admin Open Chat")
         mock_interaction = MagicMock()
         mock_interaction.uuid = "7e4b91f9-2bf9-4f10-b650-11a4345acf71"
-        mock_interaction.shared_url.return_value = (
-            "http://localhost:1984/interaction/7e4b91f9-2bf9-4f10-b650-11a4345acf71"
-        )
+        raw_shared_url = "http://localhost:1984/interaction/7e4b91f9-2bf9-4f10-b650-11a4345acf71"
+        mock_interaction.shared_url.return_value = raw_shared_url
         mock_client.interact.return_value = mock_interaction
         mock_client_cls.return_value = mock_client
+        expected_shared_url = rewrite_open_chat_url_for_browser(
+            raw_shared_url,
+            SimpleNamespace(open_chat_host=DEFAULT_OPEN_CHAT_HOST),
+        )
 
         result = open_chat_basic_chat_interaction(
             chat_uuid=str(self.chat.uuid),
@@ -378,10 +382,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         self.assertEqual(result["session_bot_user_id"], self.admin_user.pk)
         self.assertEqual(result["session_bot_email"], self.admin_user.email)
         self.assertEqual(result["interaction_uuid"], "7e4b91f9-2bf9-4f10-b650-11a4345acf71")
-        self.assertEqual(
-            result["shared_url"],
-            "http://localhost:1984/interaction/7e4b91f9-2bf9-4f10-b650-11a4345acf71",
-        )
+        self.assertEqual(result["shared_url"], expected_shared_url)
         mock_interaction.wait_until_finished.assert_not_called()
         mock_ensure_tools.assert_called_once_with(mock_client)
         _, interact_kwargs = mock_client.interact.call_args
@@ -449,9 +450,14 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         mock_client.login.return_value = SimpleNamespace(name="Admin Open Chat")
         mock_interaction = MagicMock()
         mock_interaction.uuid = "suggestion-interaction-uuid"
-        mock_interaction.shared_url.return_value = "http://localhost:1984/interaction/suggestion-interaction-uuid"
+        raw_shared_url = "http://localhost:1984/interaction/suggestion-interaction-uuid"
+        mock_interaction.shared_url.return_value = raw_shared_url
         mock_client.interact.return_value = mock_interaction
         mock_client_cls.return_value = mock_client
+        expected_shared_url = rewrite_open_chat_url_for_browser(
+            raw_shared_url,
+            SimpleNamespace(open_chat_host=DEFAULT_OPEN_CHAT_HOST),
+        )
 
         result = open_chat_run_message_reply_suggestion_interaction(
             configuration_user_uuid=str(self.admin_user.uuid),
@@ -464,10 +470,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         )
 
         self.assertEqual(result["status"], "ok")
-        self.assertEqual(
-            result["shared_url"],
-            "http://localhost:1984/interaction/suggestion-interaction-uuid",
-        )
+        self.assertEqual(result["shared_url"], expected_shared_url)
         mock_interaction.wait_until_finished.assert_not_called()
         mock_ensure_tools.assert_called_once_with(mock_client)
         _, interact_kwargs = mock_client.interact.call_args
@@ -493,7 +496,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
         self.assertEqual(support_action.static_parameters.get("interaction_id"), "suggestion-interaction-uuid")
         self.assertEqual(
             support_action.static_parameters.get("shared_interaction_url"),
-            "http://localhost:1984/interaction/suggestion-interaction-uuid",
+            expected_shared_url,
         )
 
     def test_run_message_reply_suggestion_skips_when_action_not_open(self):

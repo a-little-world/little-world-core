@@ -11,6 +11,7 @@ from management.models.user import User
 from management.permissions import ManagementPermission
 from rest_framework.test import APIClient
 
+from open_chat.helpers import resolve_open_chat_frontend_host
 from open_chat.models import DEFAULT_OPEN_CHAT_HOST, OpenChatConfiguration
 
 API_URL = "/api/matching/open-chat-configuration/"
@@ -29,6 +30,16 @@ AUTOMATION_CLEAR_MESSAGE_REPLIES_URL = "/api/matching/open-chat/automation-trigg
 IDEMPOTENT_ACTIONS_URL = "/api/matching/open-chat/idempotent-actions/"
 REST_TOOLS_SYNC_URL = "/api/matching/open-chat/rest-tools/sync/"
 DEFAULT_HOST = DEFAULT_OPEN_CHAT_HOST
+
+
+def _configuration_response(payload: dict) -> dict:
+    """POST/PUT summary responses include the resolved browser iframe host."""
+    return {
+        **payload,
+        "open_chat_frontend_host": resolve_open_chat_frontend_host(
+            SimpleNamespace(open_chat_host=payload["open_chat_host"])
+        ),
+    }
 
 
 class OpenChatConfigurationApiTests(TestCase):
@@ -162,7 +173,7 @@ class OpenChatConfigurationApiTests(TestCase):
         }
         response = self.api_client.post(API_URL, payload, format="json")
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.data, payload)
+        self.assertEqual(response.data, _configuration_response(payload))
         configuration = OpenChatConfiguration.objects.get(user=self.authorized_user)
         self.assertEqual(configuration.open_chat_api_key, payload["open_chat_api_key"])
         self.assertEqual(configuration.open_chat_user, payload["open_chat_user"])
@@ -225,7 +236,7 @@ class OpenChatConfigurationApiTests(TestCase):
         }
         response = self.api_client.put(API_URL, payload, format="json")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data, payload)
+        self.assertEqual(response.data, _configuration_response(payload))
         configuration = OpenChatConfiguration.objects.get(user=self.authorized_user)
         self.assertEqual(configuration.open_chat_api_key, payload["open_chat_api_key"])
         self.assertEqual(configuration.open_chat_user, payload["open_chat_user"])
@@ -320,11 +331,13 @@ class OpenChatConfigurationApiTests(TestCase):
         self.assertIn(self.manager_user.email, by_email)
         self.assertEqual(
             by_email[self.view_only_user.email]["configuration"],
-            {
-                "open_chat_api_key": "view-only-key",
-                "open_chat_user": "view-only-user",
-                "open_chat_host": DEFAULT_HOST,
-            },
+            _configuration_response(
+                {
+                    "open_chat_api_key": "view-only-key",
+                    "open_chat_user": "view-only-user",
+                    "open_chat_host": DEFAULT_HOST,
+                }
+            ),
         )
         self.assertIsNone(by_email[self.authorized_user.email]["configuration"])
         self.assertNotIn(self.unauthorized_user.email, by_email)
@@ -354,7 +367,7 @@ class OpenChatConfigurationApiTests(TestCase):
 
         response = self.api_client.post(create_url, payload, format="json")
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.data, payload)
+        self.assertEqual(response.data, _configuration_response(payload))
 
         update_payload = {
             "open_chat_api_key": "managed-key-updated",
@@ -363,7 +376,7 @@ class OpenChatConfigurationApiTests(TestCase):
         }
         response = self.api_client.put(create_url, update_payload, format="json")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data, update_payload)
+        self.assertEqual(response.data, _configuration_response(update_payload))
 
         configuration = OpenChatConfiguration.objects.get(user=self.authorized_user)
         self.assertEqual(configuration.open_chat_api_key, update_payload["open_chat_api_key"])
