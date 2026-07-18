@@ -2,7 +2,6 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from chat.models import Chat
-from client import PasswordAuth
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.test import TestCase
@@ -12,6 +11,7 @@ from management.models.user import User
 from management.permissions import ManagementPermission
 from rest_framework.test import APIClient
 
+from open_chat.helpers import resolve_open_chat_frontend_host
 from open_chat.models import DEFAULT_OPEN_CHAT_HOST, OpenChatConfiguration
 
 API_URL = "/api/matching/open-chat-configuration/"
@@ -30,6 +30,16 @@ AUTOMATION_CLEAR_MESSAGE_REPLIES_URL = "/api/matching/open-chat/automation-trigg
 IDEMPOTENT_ACTIONS_URL = "/api/matching/open-chat/idempotent-actions/"
 REST_TOOLS_SYNC_URL = "/api/matching/open-chat/rest-tools/sync/"
 DEFAULT_HOST = DEFAULT_OPEN_CHAT_HOST
+
+
+def _configuration_response(payload: dict) -> dict:
+    """POST/PUT summary responses include the resolved browser iframe host."""
+    return {
+        **payload,
+        "open_chat_frontend_host": resolve_open_chat_frontend_host(
+            SimpleNamespace(open_chat_host=payload["open_chat_host"])
+        ),
+    }
 
 
 class OpenChatConfigurationApiTests(TestCase):
@@ -163,7 +173,7 @@ class OpenChatConfigurationApiTests(TestCase):
         }
         response = self.api_client.post(API_URL, payload, format="json")
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.data, payload)
+        self.assertEqual(response.data, _configuration_response(payload))
         configuration = OpenChatConfiguration.objects.get(user=self.authorized_user)
         self.assertEqual(configuration.open_chat_api_key, payload["open_chat_api_key"])
         self.assertEqual(configuration.open_chat_user, payload["open_chat_user"])
@@ -226,7 +236,7 @@ class OpenChatConfigurationApiTests(TestCase):
         }
         response = self.api_client.put(API_URL, payload, format="json")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data, payload)
+        self.assertEqual(response.data, _configuration_response(payload))
         configuration = OpenChatConfiguration.objects.get(user=self.authorized_user)
         self.assertEqual(configuration.open_chat_api_key, payload["open_chat_api_key"])
         self.assertEqual(configuration.open_chat_user, payload["open_chat_user"])
@@ -274,7 +284,7 @@ class OpenChatConfigurationApiTests(TestCase):
         response = self.api_client.post(TEST_CONNECTION_URL, {}, format="json")
         self.assertEqual(response.status_code, 404)
 
-    @patch("open_chat.api.OpenChatClient")
+    @patch("open_chat.api.build_open_chat_client")
     def test_test_connection_success(self, mock_build_client):
         OpenChatConfiguration.objects.create(
             user=self.authorized_user,
@@ -291,10 +301,11 @@ class OpenChatConfigurationApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.data["success"])
         self.assertEqual(response.data["user_name"], "Test User")
-        mock_build_client.assert_called_once_with(
-            base_url=DEFAULT_HOST,
-            auth=PasswordAuth(email="test-open-chat-user", password="test-api-key"),
-        )
+        mock_build_client.assert_called_once()
+        configuration = mock_build_client.call_args.args[0]
+        self.assertEqual(configuration.open_chat_host, DEFAULT_HOST)
+        self.assertEqual(configuration.open_chat_user, "test-open-chat-user")
+        self.assertEqual(configuration.open_chat_api_key, "test-api-key")
         mock_client.login.assert_called_once()
 
     def test_access_users_requires_manage_permission(self):
@@ -320,11 +331,13 @@ class OpenChatConfigurationApiTests(TestCase):
         self.assertIn(self.manager_user.email, by_email)
         self.assertEqual(
             by_email[self.view_only_user.email]["configuration"],
-            {
-                "open_chat_api_key": "view-only-key",
-                "open_chat_user": "view-only-user",
-                "open_chat_host": DEFAULT_HOST,
-            },
+            _configuration_response(
+                {
+                    "open_chat_api_key": "view-only-key",
+                    "open_chat_user": "view-only-user",
+                    "open_chat_host": DEFAULT_HOST,
+                }
+            ),
         )
         self.assertIsNone(by_email[self.authorized_user.email]["configuration"])
         self.assertNotIn(self.unauthorized_user.email, by_email)
@@ -354,7 +367,7 @@ class OpenChatConfigurationApiTests(TestCase):
 
         response = self.api_client.post(create_url, payload, format="json")
         self.assertEqual(response.status_code, 201)
-        self.assertEqual(response.data, payload)
+        self.assertEqual(response.data, _configuration_response(payload))
 
         update_payload = {
             "open_chat_api_key": "managed-key-updated",
@@ -363,7 +376,7 @@ class OpenChatConfigurationApiTests(TestCase):
         }
         response = self.api_client.put(create_url, update_payload, format="json")
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data, update_payload)
+        self.assertEqual(response.data, _configuration_response(update_payload))
 
         configuration = OpenChatConfiguration.objects.get(user=self.authorized_user)
         self.assertEqual(configuration.open_chat_api_key, update_payload["open_chat_api_key"])
@@ -435,7 +448,7 @@ class OpenChatConfigurationApiTests(TestCase):
         self.assertEqual(response.status_code, 409)
         self.assertTrue(response.data["matching_exists"])
 
-    @patch("open_chat.api.OpenChatClient")
+    @patch("open_chat.api.build_open_chat_client")
     def test_bots_returns_owned_bots_for_current_user(self, mock_build_client):
         OpenChatConfiguration.objects.create(
             user=self.authorized_user,
@@ -470,7 +483,7 @@ class OpenChatConfigurationApiTests(TestCase):
         mock_client.login.assert_called_once()
         mock_client.list_owned_bots.assert_called_once()
 
-    @patch("open_chat.api.OpenChatClient")
+    @patch("open_chat.api.build_open_chat_client")
     def test_bot_update_patches_bot_configuration(self, mock_build_client):
         OpenChatConfiguration.objects.create(
             user=self.authorized_user,
@@ -548,7 +561,7 @@ class OpenChatConfigurationApiTests(TestCase):
             },
         )
 
-    @patch("open_chat.api.OpenChatClient")
+    @patch("open_chat.api.build_open_chat_client")
     def test_bots_manager_can_query_other_user_by_uuid(self, mock_build_client):
         OpenChatConfiguration.objects.create(
             user=self.view_only_user,
@@ -580,12 +593,13 @@ class OpenChatConfigurationApiTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["results"][0]["uuid"], "managed-bot")
-        mock_build_client.assert_called_once_with(
-            base_url=DEFAULT_HOST,
-            auth=PasswordAuth(email="view-only-user", password="view-only-key"),
-        )
+        mock_build_client.assert_called_once()
+        configuration = mock_build_client.call_args.args[0]
+        self.assertEqual(configuration.open_chat_host, DEFAULT_HOST)
+        self.assertEqual(configuration.open_chat_user, "view-only-user")
+        self.assertEqual(configuration.open_chat_api_key, "view-only-key")
 
-    @patch("open_chat.api.OpenChatClient")
+    @patch("open_chat.api.build_open_chat_client")
     def test_interactions_returns_interactions_for_current_user(self, mock_build_client):
         OpenChatConfiguration.objects.create(
             user=self.authorized_user,
@@ -617,7 +631,7 @@ class OpenChatConfigurationApiTests(TestCase):
         mock_client.login.assert_called_once()
         mock_client.get_interactions.assert_called()
 
-    @patch("open_chat.api.OpenChatClient")
+    @patch("open_chat.api.build_open_chat_client")
     def test_interactions_manager_can_query_other_user_by_uuid(self, mock_build_client):
         OpenChatConfiguration.objects.create(
             user=self.view_only_user,
@@ -648,12 +662,13 @@ class OpenChatConfigurationApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["results"][0]["interaction_id"], "42")
         self.assertEqual(response.data["results"][0]["title"], "Managed interaction")
-        mock_build_client.assert_called_once_with(
-            base_url=DEFAULT_HOST,
-            auth=PasswordAuth(email="view-only-user", password="view-only-key"),
-        )
+        mock_build_client.assert_called_once()
+        configuration = mock_build_client.call_args.args[0]
+        self.assertEqual(configuration.open_chat_host, DEFAULT_HOST)
+        self.assertEqual(configuration.open_chat_user, "view-only-user")
+        self.assertEqual(configuration.open_chat_api_key, "view-only-key")
 
-    @patch("open_chat.api.OpenChatClient")
+    @patch("open_chat.api.build_open_chat_client")
     def test_interactions_non_manager_ignores_other_user_uuid(self, mock_build_client):
         OpenChatConfiguration.objects.create(
             user=self.authorized_user,
@@ -681,12 +696,13 @@ class OpenChatConfigurationApiTests(TestCase):
             {"user_uuid": str(self.view_only_user.uuid)},
         )
         self.assertEqual(response.status_code, 200)
-        mock_build_client.assert_called_once_with(
-            base_url=DEFAULT_HOST,
-            auth=PasswordAuth(email="authorized-user", password="authorized-key"),
-        )
+        mock_build_client.assert_called_once()
+        configuration = mock_build_client.call_args.args[0]
+        self.assertEqual(configuration.open_chat_host, DEFAULT_HOST)
+        self.assertEqual(configuration.open_chat_user, "authorized-user")
+        self.assertEqual(configuration.open_chat_api_key, "authorized-key")
 
-    @patch("open_chat.api.OpenChatClient")
+    @patch("open_chat.api.build_open_chat_client")
     def test_interactions_manage_only_user_can_query_other_user(self, mock_build_client):
         OpenChatConfiguration.objects.create(
             user=self.view_only_user,
@@ -717,7 +733,7 @@ class OpenChatConfigurationApiTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["results"][0]["interaction_id"], "interaction-manage-only")
 
-    @patch("open_chat.api.OpenChatClient")
+    @patch("open_chat.api.build_open_chat_client")
     def test_interaction_detail_returns_interaction(self, mock_build_client):
         interaction_uuid = "6ece98ca-8d5c-4791-a198-0b971c0ac0d6"
         OpenChatConfiguration.objects.create(
@@ -750,7 +766,7 @@ class OpenChatConfigurationApiTests(TestCase):
         self.assertEqual(response.data["title"], "Detailed interaction")
         mock_client.get_interaction.assert_called_once_with(interaction_uuid)
 
-    @patch("open_chat.api.OpenChatClient")
+    @patch("open_chat.api.build_open_chat_client")
     def test_interaction_state_returns_shared_interaction_status(self, mock_build_client):
         share_uuid = "6ece98ca-8d5c-4791-a198-0b971c0ac0d6"
         OpenChatConfiguration.objects.create(
@@ -1016,7 +1032,7 @@ class OpenChatConfigurationApiTests(TestCase):
         self.assertEqual(response.status_code, 404)
 
     @patch("open_chat.api.sync_rest_tool_definitions")
-    @patch("open_chat.api.OpenChatClient")
+    @patch("open_chat.api.build_open_chat_client")
     def test_sync_rest_tools_creates_or_updates(self, mock_build_client, mock_sync_tools):
         OpenChatConfiguration.objects.create(
             user=self.authorized_user,
@@ -1042,7 +1058,7 @@ class OpenChatConfigurationApiTests(TestCase):
         mock_sync_tools.assert_called_once_with(mock_client, reload=False)
 
     @patch("open_chat.api.sync_rest_tool_definitions")
-    @patch("open_chat.api.OpenChatClient")
+    @patch("open_chat.api.build_open_chat_client")
     def test_sync_rest_tools_reload(self, mock_build_client, mock_sync_tools):
         OpenChatConfiguration.objects.create(
             user=self.authorized_user,
