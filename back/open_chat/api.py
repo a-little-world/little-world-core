@@ -16,7 +16,12 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
 
-from open_chat.helpers import build_open_chat_client, value_or
+from open_chat.helpers import (
+    build_open_chat_client,
+    resolve_open_chat_frontend_host,
+    rewrite_open_chat_url_for_browser,
+    value_or,
+)
 from open_chat.message_reply_suggestion import idempotent_actions__generate_message_replies
 from open_chat.models import OpenChatConfiguration
 from open_chat.permissions import (
@@ -30,9 +35,19 @@ from open_chat.tool_definitions import sync_rest_tool_definitions
 
 
 class OpenChatConfigurationSummarySerializer(serializers.ModelSerializer):
+    open_chat_frontend_host = serializers.SerializerMethodField()
+
     class Meta:
         model = OpenChatConfiguration
-        fields = ["open_chat_api_key", "open_chat_user", "open_chat_host"]
+        fields = [
+            "open_chat_api_key",
+            "open_chat_user",
+            "open_chat_host",
+            "open_chat_frontend_host",
+        ]
+
+    def get_open_chat_frontend_host(self, configuration: OpenChatConfiguration) -> str:
+        return resolve_open_chat_frontend_host(configuration)
 
 
 class OpenChatAccessUserSerializer(serializers.ModelSerializer):
@@ -58,6 +73,7 @@ class OpenChatAccessUserSerializer(serializers.ModelSerializer):
 
 
 class OpenChatConfigurationSerializer(serializers.ModelSerializer):
+    open_chat_frontend_host = serializers.SerializerMethodField()
     matching_exists = serializers.SerializerMethodField()
     matching_user_uuid = serializers.SerializerMethodField()
     matching_user_id = serializers.SerializerMethodField()
@@ -68,6 +84,7 @@ class OpenChatConfigurationSerializer(serializers.ModelSerializer):
             "open_chat_api_key",
             "open_chat_user",
             "open_chat_host",
+            "open_chat_frontend_host",
             "matching_exists",
             "matching_user_uuid",
             "matching_user_id",
@@ -77,6 +94,9 @@ class OpenChatConfigurationSerializer(serializers.ModelSerializer):
             "open_chat_user": {"required": True},
             "open_chat_host": {"required": True},
         }
+
+    def get_open_chat_frontend_host(self, configuration: OpenChatConfiguration) -> str:
+        return resolve_open_chat_frontend_host(configuration)
 
     def _get_matching_partner(self, configuration: OpenChatConfiguration) -> User | None:
         if hasattr(self, "_matching_partner"):
@@ -172,7 +192,7 @@ def _build_open_chat_interaction_state_summary(status) -> dict:
     }
 
 
-def _build_open_chat_interaction_summary(interaction) -> dict:
+def _build_open_chat_interaction_summary(interaction, configuration=None) -> dict:
     try:
         raw_payload = interaction.to_dict()
     except Exception:
@@ -182,6 +202,7 @@ def _build_open_chat_interaction_summary(interaction) -> dict:
     partner = value_or(interaction.partner, None)
     partner_name = value_or(partner.name, "") if partner is not None else ""
     title = partner_name or (f"Interaction {interaction_id}" if interaction_id else "Interaction")
+    shared_url = value_or(interaction.shared_interaction_url, None)
 
     return {
         "interaction_id": interaction_id,
@@ -189,7 +210,10 @@ def _build_open_chat_interaction_summary(interaction) -> dict:
         "created": None,
         "updated": None,
         "status": value_or(interaction.chat_type, None),
-        "shared_interaction_url": value_or(interaction.shared_interaction_url, None),
+        "shared_interaction_url": rewrite_open_chat_url_for_browser(
+            shared_url,
+            configuration,
+        ),
         "raw": raw_payload,
     }
 
@@ -803,7 +827,8 @@ def open_chat_interactions(request):
 
     def respond(client, _login_user):
         interactions = [
-            _build_open_chat_interaction_summary(item) for item in value_or(client.get_interactions().rows, [])
+            _build_open_chat_interaction_summary(item, configuration)
+            for item in value_or(client.get_interactions().rows, [])
         ]
         return Response({"results": interactions})
 
@@ -896,7 +921,12 @@ def open_chat_interaction_detail(request, interaction_uuid: str):
         )
 
     def respond(client, _login_user):
-        return Response(_build_open_chat_interaction_summary(client.get_interaction(interaction_uuid)))
+        return Response(
+            _build_open_chat_interaction_summary(
+                client.get_interaction(interaction_uuid),
+                configuration,
+            )
+        )
 
     return _open_chat_client_response(configuration, respond)
 

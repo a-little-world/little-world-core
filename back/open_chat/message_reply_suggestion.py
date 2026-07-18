@@ -16,6 +16,7 @@ from open_chat.helpers import (
     build_session_tool_init_payload,
     build_tool_session_context,
     resolve_open_chat_automation_task_creator_user,
+    rewrite_open_chat_url_for_browser,
     value_or,
 )
 from open_chat.interaction_config import (
@@ -368,7 +369,10 @@ def open_chat_run_message_reply_suggestion_interaction(
             },
         )
         interaction_uuid = interaction.uuid
-        shared_url = interaction.shared_url()
+        shared_url = rewrite_open_chat_url_for_browser(
+            interaction.shared_url(),
+            configuration,
+        )
         login_user_name = value_or(login_user.name, "")
         logger.info(
             "open_chat_run_message_reply_suggestion enqueued login_user=%s support_task_id=%s interaction_uuid=%s shared_url=%s",

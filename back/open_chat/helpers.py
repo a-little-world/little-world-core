@@ -57,6 +57,43 @@ def _looks_like_open_chat_access_token(value: str) -> bool:
     return str(parsed) == value.lower()
 
 
+def resolve_open_chat_frontend_host(configuration=None) -> str:
+    """Return the browser-facing Open Chat origin.
+
+    Prefers ``DJ_DEFAULT_OPEN_CHAT_FRONTEND_HOST`` when set; otherwise uses the
+    configuration's ``open_chat_host`` (server-side / Docker DNS host).
+    """
+    override = (getattr(settings, "DEFAULT_OPEN_CHAT_FRONTEND_HOST", None) or "").strip()
+    if override:
+        return override.rstrip("/")
+    if configuration is not None:
+        return str(configuration.open_chat_host).rstrip("/")
+    return str(settings.DEFAULT_OPEN_CHAT_CONFIGURATION["open_chat_host"]).rstrip("/")
+
+
+def rewrite_open_chat_url_for_browser(raw_url: str | None, configuration=None) -> str | None:
+    """Rewrite an Open Chat URL's origin for browser/iframe use."""
+    if not raw_url:
+        return raw_url
+    frontend_host = resolve_open_chat_frontend_host(configuration)
+    try:
+        parsed = urlparse(raw_url)
+        frontend = urlparse(frontend_host if "://" in frontend_host else f"http://{frontend_host}")
+    except ValueError:
+        return raw_url
+    if not parsed.scheme or not parsed.netloc:
+        return raw_url
+    frontend_netloc = frontend.netloc or frontend.path
+    if not frontend_netloc:
+        return raw_url
+    return urlunparse(
+        parsed._replace(
+            scheme=frontend.scheme or parsed.scheme or "http",
+            netloc=frontend_netloc,
+        )
+    )
+
+
 def little_world_panel_base_url() -> str:
     """Browser-facing origin for admin panel links embedded in chat messages."""
     return str(settings.BASE_URL).rstrip("/")

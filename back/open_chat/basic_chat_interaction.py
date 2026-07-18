@@ -14,6 +14,7 @@ from open_chat.helpers import (
     build_session_tool_init_payload,
     build_tool_session_context,
     little_world_panel_base_url,
+    rewrite_open_chat_url_for_browser,
     value_or,
 )
 from open_chat.interaction_config import (
@@ -271,7 +272,10 @@ def open_chat_basic_chat_interaction(
             },
         )
         interaction_uuid = interaction.uuid
-        shared_url = interaction.shared_url()
+        shared_url = rewrite_open_chat_url_for_browser(
+            interaction.shared_url(),
+            configuration,
+        )
         login_user_name = value_or(login_user.name, "")
         logger.info(
             "open_chat_basic_chat_interaction enqueued login_user=%s config_owner=%s session_actor=%s session_bot=%s interaction_uuid=%s shared_url=%s",
@@ -288,7 +292,7 @@ def open_chat_basic_chat_interaction(
             sender=sender,
             recipient=recipient,
             interaction_uuid=interaction_uuid,
-            shared_url=shared_url,
+            shared_url=shared_url or "",
         )
 
         return {
