@@ -1,7 +1,6 @@
 import uuid as uuid_lib
 
 from chat.models import Chat
-from client import OpenChatClient, PasswordAuth
 from django.conf import settings
 from django.db.models import Q
 from django.urls import path
@@ -17,7 +16,7 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
 
-from open_chat.helpers import value_or
+from open_chat.helpers import build_open_chat_client, value_or
 from open_chat.message_reply_suggestion import idempotent_actions__generate_message_replies
 from open_chat.models import OpenChatConfiguration
 from open_chat.permissions import (
@@ -198,10 +197,7 @@ def _build_open_chat_interaction_summary(interaction) -> dict:
 def _open_chat_client_response(configuration, operation) -> Response:
     """Authenticate against the user's Open Chat host and map any client failure to a 502 response."""
     try:
-        client = OpenChatClient(
-            base_url=configuration.open_chat_host,
-            auth=PasswordAuth(email=configuration.open_chat_user, password=configuration.open_chat_api_key),
-        )
+        client = build_open_chat_client(configuration)
         login_user = client.login()
         return operation(client, login_user)
     except Exception as exc:

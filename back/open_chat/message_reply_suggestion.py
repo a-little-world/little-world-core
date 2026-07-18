@@ -2,7 +2,6 @@ import logging
 
 from celery import current_app, shared_task
 from chat.models import Message as ChatMessage
-from client import OpenChatClient, PasswordAuth
 from django.db.models import Q
 from management import controller
 from management.models.support_task import SupportTask, SupportTaskAction
@@ -12,6 +11,7 @@ from management.permissions import ManagementPermission
 from open_chat.helpers import (
     FALLBACK_USER_MESSAGE,
     build_chat_text_markup_hint,
+    build_open_chat_client,
     build_session_tool_init_payload,
     build_tool_session_context,
     resolve_open_chat_automation_task_creator_user,
@@ -326,10 +326,7 @@ def open_chat_run_message_reply_suggestion_interaction(
 
     session_id, csrf_token, api_host = build_tool_session_context(support_action.task.created_by or recipient)
     try:
-        client = OpenChatClient(
-            base_url=configuration.open_chat_host,
-            auth=PasswordAuth(email=configuration.open_chat_user, password=configuration.open_chat_api_key),
-        )
+        client = build_open_chat_client(configuration)
         login_user = client.login()
         ensure_rest_tool_definitions(client)
 

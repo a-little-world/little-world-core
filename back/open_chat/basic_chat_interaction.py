@@ -4,13 +4,13 @@ import logging
 from celery import shared_task
 from chat.models import Chat
 from chat.models import Message as ChatMessage
-from client import OpenChatClient, PasswordAuth
 from management.models.user import User
 from management.permissions import ManagementPermission
 
 from open_chat.helpers import (
     FALLBACK_USER_MESSAGE,
     build_chat_text_markup_hint,
+    build_open_chat_client,
     build_session_tool_init_payload,
     build_tool_session_context,
     little_world_panel_base_url,
@@ -237,10 +237,7 @@ def open_chat_basic_chat_interaction(
     actor_session_id, actor_csrf_token, api_host = build_tool_session_context(session_actor)
     bot_session_id, bot_csrf_token, _ = build_tool_session_context(recipient)
     try:
-        client = OpenChatClient(
-            base_url=configuration.open_chat_host,
-            auth=PasswordAuth(email=configuration.open_chat_user, password=configuration.open_chat_api_key),
-        )
+        client = build_open_chat_client(configuration)
         login_user = client.login()
         ensure_rest_tool_definitions(client)
 

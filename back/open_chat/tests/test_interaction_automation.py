@@ -311,7 +311,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
 
     @patch("open_chat.basic_chat_interaction.ensure_rest_tool_definitions")
     @patch("chat.consumers.messages.NewMessage.send")
-    @patch("open_chat.basic_chat_interaction.OpenChatClient")
+    @patch("open_chat.basic_chat_interaction.build_open_chat_client")
     def test_basic_chat_interaction_runs_chat_reply_flow(
         self, mock_client_cls, _mock_new_message_send, mock_ensure_tools
     ):
@@ -386,7 +386,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
 
     @patch("open_chat.message_reply_suggestion.ensure_rest_tool_definitions")
     @patch("chat.consumers.messages.NewMessage.send")
-    @patch("open_chat.message_reply_suggestion.OpenChatClient")
+    @patch("open_chat.message_reply_suggestion.build_open_chat_client")
     def test_run_message_reply_suggestion_uses_suggestion_tool(
         self, mock_client_cls, _mock_new_message_send, mock_ensure_tools
     ):
@@ -505,7 +505,7 @@ class OpenChatInteractionAutomationTaskTests(TestCase):
 
     @patch("open_chat.helpers._create_session_and_csrf_for_user")
     @patch("chat.consumers.messages.NewMessage.send")
-    @patch("open_chat.message_reply_suggestion.OpenChatClient")
+    @patch("open_chat.message_reply_suggestion.build_open_chat_client")
     def test_message_reply_suggestion_tool_init_uses_open_chat_task_creator_session(
         self, mock_client_cls, _mock_new_message_send, mock_create_session
     ):
