@@ -416,6 +416,87 @@ class RandomCallsTests(TestCase):
         self.assertIsNone(response.data["matching"])
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_explicit_rejection_prevents_rematching_same_pair(self):
+        """
+        After a deliberate reject (rejected_at set), the same two users must not be rematched
+        in this lobby. A third user should still be matchable with either of them.
+        """
+        from management.models.profile import Profile
+        from video.tasks import random_call_lobby_perform_matching
+
+        user3 = self.create_multiple_users(1)[0]
+        for user in (self.user1, self.user2, user3):
+            user.profile.user_type = Profile.TypeChoices.LEARNER
+            user.profile.save()
+
+        self.client.force_authenticate(user=self.user1)
+        self.client.post(f"{self.lobby_api_url}/join")
+        self.client.force_authenticate(user=self.user2)
+        self.client.post(f"{self.lobby_api_url}/join")
+
+        matching = RandomCallMatching.objects.get(lobby=self.lobby)
+        rejected_pair = frozenset((matching.u1_id, matching.u2_id))
+
+        self.client.force_authenticate(user=matching.u1)
+        response = self.client.post(f"{self.lobby_api_url}/match/{matching.uuid}/reject")
+        self.assertEqual(response.status_code, 200)
+        matching.refresh_from_db()
+        self.assertTrue(matching.rejected)
+        self.assertIsNotNone(matching.rejected_at)
+
+        # Only the rejected pair remains in the lobby — rematching must not recreate it.
+        result = random_call_lobby_perform_matching(str(self.lobby.uuid))
+        self.assertEqual(result["matchings"], [])
+        self.assertEqual(RandomCallMatching.objects.filter(lobby=self.lobby).count(), 1)
+
+        # A third learner joins; matching should prefer a pair that is not the rejected one.
+        self.client.force_authenticate(user=user3)
+        self.client.post(f"{self.lobby_api_url}/join")
+        random_call_lobby_perform_matching(str(self.lobby.uuid))
+
+        new_matching = (
+            RandomCallMatching.objects.filter(lobby=self.lobby).exclude(uuid=matching.uuid).order_by("-pk").first()
+        )
+        self.assertIsNotNone(new_matching)
+        self.assertNotEqual(frozenset((new_matching.u1_id, new_matching.u2_id)), rejected_pair)
+        self.assertIn(user3.id, (new_matching.u1_id, new_matching.u2_id))
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_timeout_rejection_allows_rematching_same_pair(self):
+        """
+        System timeout rejections leave rejected_at NULL and must not permanently block the pair.
+        """
+        from management.models.profile import Profile
+        from video.tasks import cleanup_if_not_accepted, random_call_lobby_perform_matching
+
+        for user in (self.user1, self.user2):
+            user.profile.user_type = Profile.TypeChoices.LEARNER
+            user.profile.save()
+
+        self.client.force_authenticate(user=self.user1)
+        self.client.post(f"{self.lobby_api_url}/join")
+        self.client.force_authenticate(user=self.user2)
+        self.client.post(f"{self.lobby_api_url}/join")
+
+        matching = RandomCallMatching.objects.get(lobby=self.lobby)
+        original_pair = frozenset((matching.u1_id, matching.u2_id))
+
+        cleanup_if_not_accepted(str(matching.uuid))
+        matching.refresh_from_db()
+        self.assertTrue(matching.rejected)
+        self.assertTrue(matching.expired)
+        self.assertIsNone(matching.rejected_at)
+
+        result = random_call_lobby_perform_matching(str(self.lobby.uuid))
+        self.assertEqual(len(result["matchings"]), 1)
+
+        new_matching = (
+            RandomCallMatching.objects.filter(lobby=self.lobby).exclude(uuid=matching.uuid).order_by("-pk").first()
+        )
+        self.assertIsNotNone(new_matching)
+        self.assertEqual(frozenset((new_matching.u1_id, new_matching.u2_id)), original_pair)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_concurrent_users_matching(self):
         """
         Test matching with 7 concurrent users.
