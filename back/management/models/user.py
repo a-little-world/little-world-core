@@ -312,6 +312,9 @@ class User(AbstractUser):
         self,
         msg,
         sender=None,
+        file=None,
+        *,
+        apply_delivery_side_effects=False,
         auto_mark_read=False,
         send_message_incoming=True,
         parsable_message=True,
@@ -321,6 +324,8 @@ class User(AbstractUser):
         Sends the users a chat message
         theoreticly this could be used to send a message from any sender
         """
+        from chat.helpers import create_and_deliver_message
+
         from ..controller import get_base_management_user
 
         if not sender:
@@ -328,6 +333,19 @@ class User(AbstractUser):
             sender = get_base_management_user()
 
         chat = Chat.get_or_create_chat(sender, self)
+
+        if apply_delivery_side_effects:
+            return create_and_deliver_message(
+                chat=chat,
+                sender=sender,
+                recipient=self,
+                text=msg,
+                file=file,
+                auto_mark_read=auto_mark_read,
+                send_websocket=(not auto_mark_read) or send_message_incoming,
+                send_websocket_to_sender=send_message_incoming_to_sender,
+            )
+
         message = Message.objects.create(
             chat=chat,
             sender=sender,

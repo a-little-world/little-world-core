@@ -704,13 +704,20 @@ def automatic_emails_u023_u024_u025():
     ]
     users_sended = []
     for stage, days, three_days_reminder, seven_days_reminder, fourteen_days_reminder in reminder_stages:
-        users = User.objects.filter(
-            state__user_form_completed_at__lte=dj_timezone.now() - timedelta(days=days),
-            state__is_onboarded=False,
-            state__user_form_completed_3_days_reminder_send=three_days_reminder,
-            state__user_form_completed_7_days_reminder_send=seven_days_reminder,
-            state__user_form_completed_14_days_reminder_send=fourteen_days_reminder,
-        ).select_related("profile")
+        users = (
+            User.objects.filter(
+                state__user_form_completed_at__lte=dj_timezone.now() - timedelta(days=days),
+                state__is_onboarded=False,
+                state__user_form_completed_3_days_reminder_send=three_days_reminder,
+                state__user_form_completed_7_days_reminder_send=seven_days_reminder,
+                state__user_form_completed_14_days_reminder_send=fourteen_days_reminder,
+            )
+            .filter(
+                # Volunteers receive emails regardless of country; learners only if they live in Germany
+                Q(profile__user_type=Profile.TypeChoices.VOLUNTEER) | Q(profile__country_of_residence="DE")
+            )
+            .select_related("profile")
+        )
         user_prematching_join = PreMatchingAppointment.objects.filter(user__in=users)
         users = users.exclude(id__in=user_prematching_join.values_list("user", flat=True))
 
@@ -872,18 +879,26 @@ def automatic_emails_m023():
 @shared_task
 def automatic_emails_m024_m025():
     """
-    Notify user when they didn't respond to a chat message for 7 days
+    Notify users when one person hasn't responded to the first chat message for 7 days.
+    Only applies at the start of a conversation — once both users have sent a message, this no longer triggers.
     """
     from chat.models import Chat
     from django.conf import settings
-    from django.db.models import Max
+    from django.db.models import Count, F, Min, Q
 
     emulated_send = bool(settings.DJANGO_TESTING) or bool(settings.EMULATE_AUTO_EMAILS__M024_M025)
 
-    # get all chats, excluding admin and matching users
     chats = (
-        Chat.objects.annotate(last_message_at=Max("message__created"))
-        .filter(last_message_at__lte=dj_timezone.now() - timedelta(days=7), seven_days_inactive_email_send=False)
+        Chat.objects.annotate(
+            first_message_at=Min("message__created"),
+            u1_message_count=Count("message", filter=Q(message__sender=F("u1"))),
+            u2_message_count=Count("message", filter=Q(message__sender=F("u2"))),
+        )
+        .filter(
+            first_message_at__lte=dj_timezone.now() - timedelta(days=7),
+            seven_days_inactive_email_send=False,
+        )
+        .filter(Q(u1_message_count=0) | Q(u2_message_count=0))
         .exclude(
             Q(u1__is_staff=True)
             | Q(u2__is_staff=True)
@@ -903,20 +918,21 @@ def automatic_emails_m024_m025():
     inactive_chats = []
 
     for chat in chats:
-        # the chat is for seven days inactive, set the respective flag
+        first_message = chat.get_messages().order_by("created").first()
+        if not first_message:
+            continue
+
+        non_responder = chat.u1 if chat.u1_message_count == 0 else chat.u2
+        initiator = chat.u2 if non_responder == chat.u1 else chat.u1
+
         chat.seven_days_inactive_email_send = True
         chat.save()
         inactive_chats.append(chat)
 
-        last_message = chat.get_newest_message()
-
-        if not last_message:
-            continue
-
         from management.models.matches import Match, MatchType
 
         active_match = (
-            Match.get_match(last_message.sender, last_message.recipient)
+            Match.get_match(initiator, non_responder)
             .filter(confirmed=True, match_type=MatchType.STANDARD)
             .order_by("-created_at")
             .first()
@@ -927,7 +943,7 @@ def automatic_emails_m024_m025():
         # send email to the user that received the last message
         send_email_background.delay(
             "automatic-emails-m024",
-            user_id=last_message.recipient.id,
+            user_id=non_responder.id,
             match_id=active_match.pk,
             emulated_send=emulated_send,
         )
@@ -935,7 +951,7 @@ def automatic_emails_m024_m025():
         # send email to the person that was ghosted
         send_email_background.delay(
             "automatic-emails-m025",
-            user_id=last_message.sender.id,
+            user_id=initiator.id,
             match_id=active_match.pk,
             emulated_send=emulated_send,
         )
