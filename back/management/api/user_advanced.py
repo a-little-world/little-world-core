@@ -1,6 +1,7 @@
 from datetime import datetime, time
 from typing import Literal, cast
 
+from chat.helpers import MatchSendForbidden, MessageSendValidationError
 from chat.models import Chat, ChatConnections, ChatSerializer, Message, MessageSerializer
 from django.db.models import CharField, Max, Q, Value
 from django.db.models.functions import Concat
@@ -830,13 +831,17 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         self.kwargs["pk"] = pk
         obj = self.get_object()
 
-        message_id = request.data["message_id"]
+        message_id = request.data.get("message_id")
 
         has_access, res = self.check_management_user_access(obj, request)
         if not has_access:
             return res
 
-        message = Message.objects.get(uuid=message_id)
+        try:
+            message = Message.objects.get(uuid=message_id)
+        except (Message.DoesNotExist, Exception):
+            return Response({"msg": "Message not found."}, status=status.HTTP_404_NOT_FOUND)
+
         message.read = True
         message.save()
 
@@ -850,13 +855,19 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         self.kwargs["pk"] = pk
         obj = self.get_object()
 
-        message_id = request.data["message_id"]
+        message_id = request.data.get("message_id")
 
         has_access, res = self.check_management_user_access(obj, request)
         if not has_access:
             return res
 
-        message = Message.objects.get(uuid=message_id)
+        try:
+            message = Message.objects.get(uuid=message_id)
+        except (Message.DoesNotExist, Exception):
+            return Response({"msg": "Message not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if message.read:
+            return Response({"msg": "Only unread messages can be deleted."}, status=status.HTTP_400_BAD_REQUEST)
         message.delete()
 
         return Response({"msg": "Message deleted"})
@@ -953,9 +964,27 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if not request.user.is_staff and not request.user.has_management_access(obj):
             return Response({"msg": "You are not allowed to access this user!"}, status=status.HTTP_401_UNAUTHORIZED)
 
-        reply_message = request.data["message"]
+        reply_message = request.data.get("message", "")
+        uploaded_file = request.FILES.get("file")
+        if not reply_message.strip() and not uploaded_file:
+            return Response({"msg": "Message or file is required."}, status=status.HTTP_400_BAD_REQUEST)
+
         base_management_user = get_base_management_user()
-        message = obj.message(reply_message, sender=base_management_user)
+        try:
+            message = obj.message(
+                reply_message,
+                sender=base_management_user,
+                file=uploaded_file,
+                apply_delivery_side_effects=True,
+            )
+        except MessageSendValidationError as exc:
+            return Response({"msg": exc.message}, status=status.HTTP_400_BAD_REQUEST)
+        except MatchSendForbidden:
+            return Response({"msg": "No matching found for this user."}, status=status.HTTP_403_FORBIDDEN)
+
+        stored_reply_message = reply_message.strip()
+        if not stored_reply_message and uploaded_file is not None:
+            stored_reply_message = f"[Attachment: {uploaded_file.name}]"
 
         open_support_reply_action = (
             SupportTaskAction.objects.select_related("task")
@@ -970,7 +999,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         )
         if open_support_reply_action is not None:
             updated_parameters = dict(open_support_reply_action.parameters or {})
-            updated_parameters["message"] = reply_message
+            updated_parameters["message"] = stored_reply_message
             open_support_reply_action.parameters = updated_parameters
             open_support_reply_action.save(update_fields=["parameters"], changed_by=request.user)
             open_support_reply_action.resolve(SupportTaskAction.Status.EXECUTED, request.user)
@@ -1522,7 +1551,7 @@ viewset_actions = [
     ),
     path(
         "api/matching/users/<pk>/delete_message/",
-        AdvancedUserViewset.as_view({"get": "delete_message"}),
+        AdvancedUserViewset.as_view({"post": "delete_message"}),
     ),
     path(
         "api/matching/users/<pk>/request_score_update/",

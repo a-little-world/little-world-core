@@ -1,13 +1,26 @@
 from unittest.mock import patch
 
+from chat.helpers import MessageSendValidationError, process_message_attachment
+from chat.models import Message
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from rest_framework.test import APIClient
 
+from management.controller import get_base_management_user
+from management.models.matches import Match
 from management.models.support_task import SupportTask, SupportTaskAction
 from management.models.user import User
 from management.permissions import ManagementPermission
+
+
+class MessageSendHelperTests(TestCase):
+    def test_process_message_attachment_rejects_oversized_file(self):
+        oversized_file = SimpleUploadedFile("large.pdf", b"x" * (3 * 1024 * 1024 + 1), content_type="application/pdf")
+
+        with self.assertRaises(MessageSendValidationError):
+            process_message_attachment(oversized_file, "caption")
 
 
 class AdvancedUserMessageReplyTests(TestCase):
@@ -79,6 +92,14 @@ class AdvancedUserMessageReplyTests(TestCase):
         )
         cls.reply_manager_with_access.grant_management_access(cls.target_user, granted_by=cls.support_user)
 
+        base_management_user = get_base_management_user()
+        Match.objects.create(
+            user1=base_management_user,
+            user2=cls.target_user,
+            support_matching=True,
+            active=True,
+        )
+
     def _build_open_support_reply_task(self) -> SupportTask:
         return SupportTask.create_of_type(
             "support_reply",
@@ -97,8 +118,9 @@ class AdvancedUserMessageReplyTests(TestCase):
             related_user=self.target_user,
         )
 
+    @patch("chat.helpers.send_email_background.delay")
     @patch("chat.consumers.messages.NewMessage.send")
-    def test_message_reply_updates_and_closes_open_support_reply_task(self, _mock_new_message_send):
+    def test_message_reply_updates_and_closes_open_support_reply_task(self, _mock_new_message_send, _mock_email):
         support_task = self._build_open_support_reply_task()
         endpoint = f"/api/matching/users/{self.target_user.pk}/message_reply/"
 
@@ -114,8 +136,38 @@ class AdvancedUserMessageReplyTests(TestCase):
         self.assertEqual(support_action.status, SupportTaskAction.Status.EXECUTED)
         self.assertEqual(support_task.status, SupportTask.Status.COMPLETED)
 
+    @patch("chat.helpers.send_email_background.delay")
     @patch("chat.consumers.messages.NewMessage.send")
-    def test_message_reply_requires_can_send_support_message_replies_permission(self, _mock_new_message_send):
+    def test_message_reply_with_attachment(self, _mock_new_message_send, _mock_email):
+        support_task = self._build_open_support_reply_task()
+        endpoint = f"/api/matching/users/{self.target_user.pk}/message_reply/"
+        uploaded_file = SimpleUploadedFile("support-note.pdf", b"pdf-bytes", content_type="application/pdf")
+
+        client = APIClient()
+        client.force_authenticate(user=self.support_user)
+        response = client.post(
+            endpoint,
+            {"message": "Please see the attached note", "file": uploaded_file},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        support_action = SupportTaskAction.objects.get(task=support_task)
+        self.assertEqual(support_action.parameters.get("message"), "Please see the attached note")
+        self.assertEqual(support_action.status, SupportTaskAction.Status.EXECUTED)
+
+        created_message = Message.objects.order_by("-pk").first()
+        self.assertIsNotNone(created_message)
+        assert created_message is not None
+        self.assertTrue(created_message.parsable_message)
+        self.assertIn("AttachmentWidget", created_message.text)
+        self.assertIsNotNone(created_message.attachments)
+
+    @patch("chat.helpers.send_email_background.delay")
+    @patch("chat.consumers.messages.NewMessage.send")
+    def test_message_reply_requires_can_send_support_message_replies_permission(
+        self, _mock_new_message_send, _mock_email
+    ):
         support_task = self._build_open_support_reply_task()
         endpoint = f"/api/matching/users/{self.target_user.pk}/message_reply/"
 
@@ -128,8 +180,11 @@ class AdvancedUserMessageReplyTests(TestCase):
         self.assertEqual(support_action.status, SupportTaskAction.Status.OPEN)
         self.assertEqual(support_action.parameters.get("message"), "")
 
+    @patch("chat.helpers.send_email_background.delay")
     @patch("chat.consumers.messages.NewMessage.send")
-    def test_message_reply_allows_non_staff_manager_with_permission_and_access(self, _mock_new_message_send):
+    def test_message_reply_allows_non_staff_manager_with_permission_and_access(
+        self, _mock_new_message_send, _mock_email
+    ):
         endpoint = f"/api/matching/users/{self.target_user.pk}/message_reply/"
 
         client = APIClient()
@@ -138,8 +193,9 @@ class AdvancedUserMessageReplyTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
 
+    @patch("chat.helpers.send_email_background.delay")
     @patch("chat.consumers.messages.NewMessage.send")
-    def test_message_reply_blocks_non_staff_manager_without_user_access(self, _mock_new_message_send):
+    def test_message_reply_blocks_non_staff_manager_without_user_access(self, _mock_new_message_send, _mock_email):
         endpoint = f"/api/matching/users/{self.target_user.pk}/message_reply/"
 
         client = APIClient()

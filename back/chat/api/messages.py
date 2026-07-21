@@ -1,23 +1,19 @@
-import json
 import uuid as uuid_lib
 
 from celery import current_app
 from django.conf import settings
 from django.db.models import Q
-from django.utils import timezone
 from drf_spectacular.utils import extend_schema
 from management.helpers import DetailedPaginationMixin, UserStaffRestricedModelViewsetMixin
-from management.models.matches import Match
 from management.models.user import User
-from management.tasks import send_email_background
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from video.models import LivekitSession
 
-from chat.models import Chat, ChatSerializer, Message, MessageAttachment, MessageSerializer
+from chat.helpers import MatchSendForbidden, MessageSendValidationError, create_and_deliver_message
+from chat.models import Chat, Message, MessageSerializer
 
 
 class StandardResultsSetPagination(PageNumberPagination):
@@ -151,124 +147,23 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
         serializer.is_valid(raise_exception=True)
 
         partner = chat.get_partner(request.user)
-
-        # Check if the users are still matched, otherwise no new messages can be sent.
-        # Temporary chats (e.g. random call) have no Match; allow sending and skip match updates.
-        if not chat.is_temporary:
-            # TODO: @tbscode check if we want to record also 'temporary_match' data.
-            match = Match.get_match(request.user, partner)
-            if not match.exists():
-                # TODO: @tbscode make duble sure this cannot bypass access restrictions
-                return self.resp_chat_403
-            match = match.first()
-            if match is None:
-                return self.resp_chat_403
-            # Update match data
-            match.total_messages_counter += 1
-            match.latest_interaction_at = timezone.now()
-            if match.first_interaction_at is None:
-                match.first_interaction_at = timezone.now()
-            match.save()
-
-        # Email notification logic - check if recipient should be notified
-        creation_time = timezone.now()
-        recipient_was_email_notified = False
-
-        # Simplified notification check - only get the latest one
-        latest_notified_message = (
-            Message.objects.filter(
-                recipient=partner,
-                recipient_notified=True,
-            )
-            .order_by("-created")
-            .first()
-        )
-
-        def notify_recipient_email():
-            send_email_background.delay("new-messages", user_id=partner.pk)
-
-        def recipient_in_active_video_call():
-            return (
-                LivekitSession.objects.filter(
-                    is_active=True,
-                )
-                .filter(
-                    Q(u1=partner, u1_active=True) | Q(u2=partner, u2_active=True),
-                )
-                .exists()
-            )
-
-        if latest_notified_message:
-            # Min 5 min delay between notifications!
-            time_since_last_notif = (creation_time - latest_notified_message.created).total_seconds()
-            if time_since_last_notif > 300 and not recipient_in_active_video_call():
-                recipient_was_email_notified = True
-                notify_recipient_email()
-        else:
-            if not recipient_in_active_video_call():
-                recipient_was_email_notified = True
-                notify_recipient_email()
-
         message_text = serializer.validated_data.get("text", "")
+        file = serializer.validated_data.get("file")
 
-        # Optimize: Streamlined attachment processing
-        attachment = None
-        final_message_text = message_text
-        is_parsable = False
+        try:
+            message = create_and_deliver_message(
+                chat=chat,
+                sender=request.user,
+                recipient=partner,
+                text=message_text,
+                file=file,
+            )
+        except MessageSendValidationError as exc:
+            return Response({"error": exc.message}, status=400)
+        except MatchSendForbidden:
+            return self.resp_chat_403
 
-        if "file" in serializer.validated_data and serializer.validated_data["file"]:
-            file = serializer.validated_data["file"]
-
-            # Quick validation without redundant checks
-            if file.size > 3 * 1024 * 1024:  # 3MB limit
-                return Response({"error": "File size too large. Maximum size is 3MB."}, status=400)
-
-            if not file.name or "." not in file.name:
-                return Response({"error": "Invalid file format. File must have a valid extension."}, status=400)
-
-            # Create attachment
-            attachment = MessageAttachment.objects.create(file=file)
-            if not attachment or not attachment.file:
-                return Response({"error": "Failed to process file attachment."}, status=400)
-
-            # Simplified file type detection and widget creation
-            file_extension = file.name.split(".")[-1].lower()
-            is_image = file_extension in ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "ico", "webp"]
-
-            # Optimized widget creation - pre-escape values
-            escaped_title = json.dumps("Image" if is_image else file.name)
-            escaped_caption = json.dumps(message_text)
-            escaped_attachment_link = json.dumps(attachment.file.url)
-
-            if is_image:
-                final_message_text = f'<AttachmentWidget {{"attachmentTitle": {escaped_title}, "attachmentLink": null, "imageSrc": {escaped_attachment_link}, "caption": {escaped_caption}}} ></AttachmentWidget>'
-            else:
-                final_message_text = f'<AttachmentWidget {{"attachmentTitle": {escaped_title}, "attachmentLink": {escaped_attachment_link}, "imageSrc": null, "caption": {escaped_caption}}} ></AttachmentWidget>'
-
-            is_parsable = True
-
-        # Create message - single database operation
-        message = Message.objects.create(
-            chat=chat,
-            sender=request.user,
-            recipient=partner,
-            recipient_notified=recipient_was_email_notified,
-            text=final_message_text,
-            attachments=attachment,
-            parsable_message=is_parsable,
-        )
-
-        # Optimize: Use existing serialized data instead of re-serializing
         serialized_message = self.get_serializer(message).data
-
-        # Send websocket message
-        from chat.consumers.messages import NewMessage
-
-        NewMessage(
-            message=serialized_message,
-            chat_id=str(chat.uuid),
-            meta_chat_obj=ChatSerializer(chat, context={"user": partner}).data,
-        ).send(str(partner.uuid))
 
         if (
             settings.OPEN_CHAT_ENABLE_AUTOMATION_MESSAGE_REPLY_SUGGESTION
@@ -282,7 +177,7 @@ class MessagesModelViewSet(UserStaffRestricedModelViewsetMixin, viewsets.ModelVi
                     "message_uuid": str(message.uuid),
                     "sender_uuid": str(request.user.uuid),
                     "recipient_uuid": str(partner.uuid),
-                    "user_message_text": final_message_text,
+                    "user_message_text": message.text,
                 },
             )
 
