@@ -17,6 +17,7 @@ from management.api import (
     firebase,
     help,
     journey_overview,
+    match_proposal_stats,
     matches,
     notifications,
     options,
@@ -157,6 +158,7 @@ api_routes = [
     *short_links_api_urls,
     *slack.api_routes,
     *ai.api_routes,
+    *match_proposal_stats.api_urls,
     *user_advanced_api_urls,
     *matches_advanced_api_urls,
     *matches_advanced_statistics_api_urls,
@@ -180,6 +182,7 @@ api_routes = [
     path("api/register/", register.Register.as_view()),
     path("api/register/android", register.RegisterAndroid.as_view()),
     path("api/register/ios", register.RegisterIOS.as_view()),
+    *([path("api/register/web", register.RegisterWebNative.as_view())] if not settings.IS_PROD else []),
     path(
         "api/cookies/cookie_banner.js",
         cookies.get_dynamic_cookie_banner_js,

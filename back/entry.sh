@@ -2,7 +2,12 @@
 # "rediss://:$DJ_REDIS_PASSWORD@$DJ_REDIS_HOST:DJ_REDIS_PORT"
 
 if [ "$BUILD_TYPE" != "staging" ]; then
-    celery -A back worker --loglevel=info &
+    if [ "$BUILD_TYPE" = "development" ] && [ "$DJ_USE_AUTO_RELOAD" = "1" ]; then
+        # Owns the Celery worker and restarts it when /back/**/*.py changes.
+        python3 /back/entries/celery_worker_reloader.py &
+    else
+        celery -A back worker --loglevel=info &
+    fi
 fi
 
 if [ "$BUILD_TYPE" = "deployment" ]; then

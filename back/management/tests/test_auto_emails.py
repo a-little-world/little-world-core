@@ -426,6 +426,27 @@ class TestAutomaticEmails_m024_m025(TestCase):
 
         self.invalid_chat_no_messages = Chat.objects.create(u1=self.no_msg_user_1, u2=self.no_msg_user_2)
 
+        # Both users exchanged messages but have been inactive 7+ days — should be excluded
+        with freeze_time(dj_timezone.now() - timedelta(days=14)):
+            self.replied_user_1 = create_test_user(31010, None, "Test123!", "m024-replied-user1@test.de")
+            self.replied_user_2 = create_test_user(31011, None, "Test123!", "m024-replied-user2@test.de")
+
+        self.invalid_chat_both_replied = Chat.objects.create(u1=self.replied_user_1, u2=self.replied_user_2)
+        with freeze_time(dj_timezone.now() - timedelta(days=10)):
+            Message.objects.create(
+                chat=self.invalid_chat_both_replied,
+                sender=self.replied_user_1,
+                recipient=self.replied_user_2,
+                text="First message",
+            )
+        with freeze_time(dj_timezone.now() - timedelta(days=8)):
+            Message.objects.create(
+                chat=self.invalid_chat_both_replied,
+                sender=self.replied_user_2,
+                recipient=self.replied_user_1,
+                text="Reply",
+            )
+
     def test_m024_m025_identifies_inactive_chats(self):
         result = automatic_emails_m024_m025()
 
@@ -442,6 +463,9 @@ class TestAutomaticEmails_m024_m025(TestCase):
         # Verify other chats weren't affected
         self.invalid_chat_recent.refresh_from_db()
         assert self.invalid_chat_recent.seven_days_inactive_email_send is False
+
+        self.invalid_chat_both_replied.refresh_from_db()
+        assert self.invalid_chat_both_replied.seven_days_inactive_email_send is False
 
     def test_m024_m025_excludes_staff_and_matching_users(self):
         result = automatic_emails_m024_m025()

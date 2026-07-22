@@ -1141,6 +1141,11 @@ DEFAULT_OPEN_CHAT_CONFIGURATION = {
     "open_chat_host": os.environ.get("DJ_DEFAULT_OPEN_CHAT_HOST", "http://host.docker.internal:1984"),
 }
 
+# Browser/iframe origin for Open Chat. Empty → fall back to each config's open_chat_host.
+# In Docker, open_chat_host is often a compose DNS name (e.g. open-chat-go-backend) that
+# browsers cannot resolve; set this to http://localhost:1984 for local admin iframes.
+DEFAULT_OPEN_CHAT_FRONTEND_HOST = os.environ.get("DJ_DEFAULT_OPEN_CHAT_FRONTEND_HOST", "").strip() or None
+
 
 OPEN_CHAT_ENABLE_AUTOMATION_MESSAGE_REPLY_SUGGESTION = bool_env(
     "DJ_OPEN_CHAT_ENABLE_AUTOMATION_MESSAGE_REPLY_SUGGESTION", "false"

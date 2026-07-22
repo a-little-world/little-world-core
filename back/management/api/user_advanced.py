@@ -1,7 +1,8 @@
 from datetime import datetime, time
 from typing import Literal, cast
 
-from chat.models import Chat, ChatSerializer, Message, MessageSerializer
+from chat.helpers import MatchSendForbidden, MessageSendValidationError
+from chat.models import Chat, ChatConnections, ChatSerializer, Message, MessageSerializer
 from django.db.models import CharField, Max, Q, Value
 from django.db.models.functions import Concat
 from django.urls import path
@@ -81,6 +82,13 @@ def get_user_bucket_label(bucket_name: str | None) -> str:
         return "Unknown"
     slug = bucket_name.split("__")[-1]
     return slug.replace("_", " ").strip().title()
+
+
+def serialize_user_last_seen(user) -> str | None:
+    last_seen = getattr(user, "last_online", None)
+    if last_seen is None:
+        last_seen = ChatConnections.get_last_seen_for_user(user)
+    return last_seen.isoformat() if last_seen else None
 
 
 def determine_user_buckets(user_pk, all_lists: bool = False) -> list[str]:
@@ -266,10 +274,14 @@ class UserMessagesResponseSerializer(serializers.Serializer):
 class UserTableSerializer(serializers.ModelSerializer):
     profile = MinimalProfileSerializer(read_only=True)
     state = UserTableStateSerializer(read_only=True)
+    last_seen = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["uuid", "id", "email", "date_joined", "last_login", "profile", "state"]
+        fields = ["uuid", "id", "email", "date_joined", "last_login", "last_seen", "profile", "state"]
+
+    def get_last_seen(self, obj):
+        return serialize_user_last_seen(obj)
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -301,10 +313,14 @@ class UserTableSerializer(serializers.ModelSerializer):
 
 class AdvancedUserSerializer(serializers.ModelSerializer):
     profile = MinimalProfileSerializer(read_only=True)
+    last_seen = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ["uuid", "id", "email", "date_joined", "last_login", "profile"]
+        fields = ["uuid", "id", "email", "date_joined", "last_login", "last_seen", "profile"]
+
+    def get_last_seen(self, obj):
+        return serialize_user_last_seen(obj)
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
@@ -658,10 +674,15 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
     def get_queryset(self):
         is_staff = self.request.user.is_staff
         if is_staff:
-            return User.objects.all().select_related("profile", "state")
+            queryset = User.objects.all().select_related("profile", "state")
         else:
             management_user = cast(User, self.request.user)
-            return management_user.managed_users_queryset(active_only=True).select_related("profile", "state")
+            queryset = management_user.managed_users_queryset(active_only=True).select_related("profile", "state")
+
+        if self.action == "list":
+            queryset = queryset.annotate(last_online=Max("chatconnections__last_seen"))
+
+        return queryset
 
     @extend_schema(responses={200: FilterSchemaResponseSerializer})
     @action(detail=False, methods=["get"])
@@ -810,13 +831,17 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         self.kwargs["pk"] = pk
         obj = self.get_object()
 
-        message_id = request.data["message_id"]
+        message_id = request.data.get("message_id")
 
         has_access, res = self.check_management_user_access(obj, request)
         if not has_access:
             return res
 
-        message = Message.objects.get(uuid=message_id)
+        try:
+            message = Message.objects.get(uuid=message_id)
+        except (Message.DoesNotExist, Exception):
+            return Response({"msg": "Message not found."}, status=status.HTTP_404_NOT_FOUND)
+
         message.read = True
         message.save()
 
@@ -830,13 +855,19 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         self.kwargs["pk"] = pk
         obj = self.get_object()
 
-        message_id = request.data["message_id"]
+        message_id = request.data.get("message_id")
 
         has_access, res = self.check_management_user_access(obj, request)
         if not has_access:
             return res
 
-        message = Message.objects.get(uuid=message_id)
+        try:
+            message = Message.objects.get(uuid=message_id)
+        except (Message.DoesNotExist, Exception):
+            return Response({"msg": "Message not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if message.read:
+            return Response({"msg": "Only unread messages can be deleted."}, status=status.HTTP_400_BAD_REQUEST)
         message.delete()
 
         return Response({"msg": "Message deleted"})
@@ -933,9 +964,27 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         if not request.user.is_staff and not request.user.has_management_access(obj):
             return Response({"msg": "You are not allowed to access this user!"}, status=status.HTTP_401_UNAUTHORIZED)
 
-        reply_message = request.data["message"]
+        reply_message = request.data.get("message", "")
+        uploaded_file = request.FILES.get("file")
+        if not reply_message.strip() and not uploaded_file:
+            return Response({"msg": "Message or file is required."}, status=status.HTTP_400_BAD_REQUEST)
+
         base_management_user = get_base_management_user()
-        message = obj.message(reply_message, sender=base_management_user)
+        try:
+            message = obj.message(
+                reply_message,
+                sender=base_management_user,
+                file=uploaded_file,
+                apply_delivery_side_effects=True,
+            )
+        except MessageSendValidationError as exc:
+            return Response({"msg": exc.message}, status=status.HTTP_400_BAD_REQUEST)
+        except MatchSendForbidden:
+            return Response({"msg": "No matching found for this user."}, status=status.HTTP_403_FORBIDDEN)
+
+        stored_reply_message = reply_message.strip()
+        if not stored_reply_message and uploaded_file is not None:
+            stored_reply_message = f"[Attachment: {uploaded_file.name}]"
 
         open_support_reply_action = (
             SupportTaskAction.objects.select_related("task")
@@ -950,7 +999,7 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
         )
         if open_support_reply_action is not None:
             updated_parameters = dict(open_support_reply_action.parameters or {})
-            updated_parameters["message"] = reply_message
+            updated_parameters["message"] = stored_reply_message
             open_support_reply_action.parameters = updated_parameters
             open_support_reply_action.save(update_fields=["parameters"], changed_by=request.user)
             open_support_reply_action.resolve(SupportTaskAction.Status.EXECUTED, request.user)
@@ -1440,13 +1489,15 @@ class AdvancedUserViewset(viewsets.ModelViewSet):
 @api_view(["GET"])
 @permission_classes([IsAdminOrMatchingUser])
 def users_export(request):
+    # select_related must be applied before UserFilter: some EXTRA lists use
+    # QuerySet.union(), and Django does not allow select_related() afterwards.
     if request.user.is_staff:
-        queryset = User.objects.all()
+        queryset = User.objects.all().select_related("profile", "state")
     else:
         management_user = cast(User, request.user)
-        queryset = management_user.managed_users_queryset(active_only=True)
+        queryset = management_user.managed_users_queryset(active_only=True).select_related("profile", "state")
 
-    queryset = UserFilter(request.query_params, queryset=queryset).qs.select_related("profile", "state")
+    queryset = UserFilter(request.query_params, queryset=queryset).qs
     return build_paginated_export_response(
         request,
         queryset,
@@ -1500,7 +1551,7 @@ viewset_actions = [
     ),
     path(
         "api/matching/users/<pk>/delete_message/",
-        AdvancedUserViewset.as_view({"get": "delete_message"}),
+        AdvancedUserViewset.as_view({"post": "delete_message"}),
     ),
     path(
         "api/matching/users/<pk>/request_score_update/",

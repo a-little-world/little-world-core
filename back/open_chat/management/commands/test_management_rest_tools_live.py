@@ -5,16 +5,23 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from client import OpenChatClient, PasswordAuth
 from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.test import Client
 from management.models.user import User
 
 from open_chat.basic_chat_interaction import CHAT_REPLY_BOT
-from open_chat.helpers import build_session_tool_init_payload, build_tool_session_context, value_or
+from open_chat.helpers import (
+    build_open_chat_client,
+    build_session_tool_init_payload,
+    build_tool_session_context,
+    value_or,
+)
+
+if TYPE_CHECKING:
+    from client import OpenChatClient
 from open_chat.interaction_config import DEFAULT_OPEN_CHAT_MAX_TOKENS, DEFAULT_OPEN_CHAT_MESSAGE_CONTEXT
 from open_chat.models import OpenChatConfiguration
 from open_chat.tool_definitions import (
@@ -302,10 +309,7 @@ class Command(BaseCommand):
         timeout: int,
     ) -> int:
         self.stdout.write(self.style.MIGRATE_HEADING("\nOpen Chat interaction checks (one tool per interaction)"))
-        client = OpenChatClient(
-            base_url=configuration.open_chat_host,
-            auth=PasswordAuth(email=configuration.open_chat_user, password=configuration.open_chat_api_key),
-        )
+        client = build_open_chat_client(configuration)
         client.login()
 
         if skip_sync:
