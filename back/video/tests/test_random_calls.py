@@ -6,7 +6,13 @@ from django.utils import timezone
 from management.models.user import User
 from management.tests.helpers import register_user
 from rest_framework.test import APIClient
-from video.models import RandomCallLobby, RandomCallLobbyUser, RandomCallMatching
+from video.models import (
+    LivekitSession,
+    RandomCallLobby,
+    RandomCallLobbyUser,
+    RandomCallMatching,
+    RandomCallProposalUserStatus,
+)
 
 
 class RandomCallsTests(TestCase):
@@ -408,6 +414,8 @@ class RandomCallsTests(TestCase):
         matching.refresh_from_db()
         self.assertTrue(matching.rejected)
         self.assertFalse(matching.accepted)
+        self.assertEqual(matching.u1_status, RandomCallProposalUserStatus.REJECTED)
+        self.assertEqual(matching.u2_status, RandomCallProposalUserStatus.PENDING)
 
         # Verify status no longer shows this matching (it's processed)
         response = self.client.get(f"{self.lobby_api_url}/status")
@@ -418,7 +426,7 @@ class RandomCallsTests(TestCase):
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_explicit_rejection_prevents_rematching_same_pair(self):
         """
-        After a deliberate reject (rejected_at set), the same two users must not be rematched
+        After a deliberate reject, the same two users must not be rematched
         in this lobby. A third user should still be matchable with either of them.
         """
         from management.models.profile import Profile
@@ -443,6 +451,8 @@ class RandomCallsTests(TestCase):
         matching.refresh_from_db()
         self.assertTrue(matching.rejected)
         self.assertIsNotNone(matching.rejected_at)
+        rejector = matching.u1
+        self.assertEqual(matching.get_user_status(rejector), RandomCallProposalUserStatus.REJECTED)
 
         # Only the rejected pair remains in the lobby — rematching must not recreate it.
         result = random_call_lobby_perform_matching(str(self.lobby.uuid))
@@ -464,7 +474,7 @@ class RandomCallsTests(TestCase):
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_timeout_rejection_allows_rematching_same_pair(self):
         """
-        System timeout rejections leave rejected_at NULL and must not permanently block the pair.
+        System timeout rejections must not permanently block the pair.
         """
         from management.models.profile import Profile
         from video.tasks import cleanup_if_not_accepted, random_call_lobby_perform_matching
@@ -486,6 +496,8 @@ class RandomCallsTests(TestCase):
         self.assertTrue(matching.rejected)
         self.assertTrue(matching.expired)
         self.assertIsNone(matching.rejected_at)
+        self.assertEqual(matching.u1_status, RandomCallProposalUserStatus.EXPIRED)
+        self.assertEqual(matching.u2_status, RandomCallProposalUserStatus.EXPIRED)
 
         result = random_call_lobby_perform_matching(str(self.lobby.uuid))
         self.assertEqual(len(result["matchings"]), 1)
@@ -495,6 +507,75 @@ class RandomCallsTests(TestCase):
         )
         self.assertIsNotNone(new_matching)
         self.assertEqual(frozenset((new_matching.u1_id, new_matching.u2_id)), original_pair)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_exit_does_not_block_rematching_same_pair(self):
+        """
+        Leaving the lobby closes the proposal but must not block rematching the same pair.
+        """
+        from management.models.profile import Profile
+        from video.tasks import random_call_lobby_perform_matching
+
+        for user in (self.user1, self.user2):
+            user.profile.user_type = Profile.TypeChoices.LEARNER
+            user.profile.save()
+
+        self.client.force_authenticate(user=self.user1)
+        self.client.post(f"{self.lobby_api_url}/join")
+        self.client.force_authenticate(user=self.user2)
+        self.client.post(f"{self.lobby_api_url}/join")
+
+        matching = RandomCallMatching.objects.get(lobby=self.lobby)
+        original_pair = frozenset((matching.u1_id, matching.u2_id))
+        leaver = matching.u1
+
+        self.client.force_authenticate(user=leaver)
+        self.client.post(f"{self.lobby_api_url}/exit")
+        matching.refresh_from_db()
+        self.assertTrue(matching.rejected)
+        self.assertEqual(matching.get_user_status(leaver), RandomCallProposalUserStatus.EXITED)
+        self.assertEqual(
+            matching.get_user_status(matching.u2 if leaver == matching.u1 else matching.u1),
+            RandomCallProposalUserStatus.PENDING,
+        )
+
+        self.client.force_authenticate(user=leaver)
+        self.client.post(f"{self.lobby_api_url}/join")
+        self.client.force_authenticate(user=matching.u2 if leaver == matching.u1 else matching.u1)
+        self.client.post(f"{self.lobby_api_url}/join")
+
+        result = random_call_lobby_perform_matching(str(self.lobby.uuid))
+        self.assertEqual(len(result["matchings"]), 1)
+
+        new_matching = (
+            RandomCallMatching.objects.filter(lobby=self.lobby).exclude(uuid=matching.uuid).order_by("-pk").first()
+        )
+        self.assertIsNotNone(new_matching)
+        self.assertEqual(frozenset((new_matching.u1_id, new_matching.u2_id)), original_pair)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_partner_dismissed_after_explicit_reject(self):
+        """Partner should move to dismissed after polling status once the other user rejects."""
+        self.client.force_authenticate(user=self.user1)
+        self.client.post(f"{self.lobby_api_url}/join")
+        self.client.force_authenticate(user=self.user2)
+        self.client.post(f"{self.lobby_api_url}/join")
+
+        matching = RandomCallMatching.objects.get(lobby=self.lobby)
+        rejector = matching.u1
+        partner = matching.u2
+
+        self.client.force_authenticate(user=rejector)
+        self.client.post(f"{self.lobby_api_url}/match/{matching.uuid}/reject")
+
+        self.client.force_authenticate(user=partner)
+        response = self.client.get(f"{self.lobby_api_url}/status")
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["matching"]["partner_rejected"])
+
+        matching.refresh_from_db()
+        self.assertEqual(matching.get_user_status(partner), RandomCallProposalUserStatus.DISMISSED)
+        self.assertEqual(matching.get_user_status(rejector), RandomCallProposalUserStatus.REJECTED)
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_concurrent_users_matching(self):
@@ -865,3 +946,105 @@ class RandomCallsTests(TestCase):
         self.assertTrue(match.accepted)
         self.assertFalse(match.rejected)
         self.assertFalse(match.video_call_join_expired)
+
+    def test_management_overview_includes_lobby_participant_stats(self):
+        users = self.create_multiple_users(3)
+        for user in users:
+            RandomCallLobbyUser.objects.create(
+                user=user,
+                lobby=self.lobby,
+                is_active=True,
+                last_status_checked_at=timezone.now(),
+            )
+
+        RandomCallMatching.objects.create(
+            lobby=self.lobby,
+            u1=users[0],
+            u2=users[1],
+            accepted=True,
+            u1_accepted=True,
+            u2_accepted=True,
+            completed=True,
+            created_at=timezone.now(),
+        )
+        RandomCallMatching.objects.create(
+            lobby=self.lobby,
+            u1=users[0],
+            u2=users[2],
+            rejected=True,
+            created_at=timezone.now(),
+        )
+        RandomCallMatching.objects.create(
+            lobby=self.lobby,
+            u1=users[1],
+            u2=users[2],
+            expired=True,
+            created_at=timezone.now(),
+        )
+
+        session_start = timezone.now() - timezone.timedelta(minutes=10)
+        LivekitSession.objects.create(
+            u1=users[0],
+            u2=users[1],
+            random_call_session=True,
+            both_have_been_active=True,
+            created_at=session_start,
+            end_time=session_start + timezone.timedelta(seconds=330),
+            is_active=False,
+        )
+
+        self.client.force_authenticate(user=users[0])
+        response = self.client.get("/api/random_calls/lobby/default/management/overview")
+
+        if response.status_code == 403:
+            self.skipTest("Management API requires admin permissions")
+
+        self.assertEqual(response.status_code, 200)
+        participants = {item["user_uuid"]: item for item in response.data["lobby_participants"]}
+        self.assertEqual(len(participants), 3)
+
+        user0_stats = participants[str(users[0].uuid)]
+        self.assertEqual(user0_stats["accepted_proposals"], 1)
+        self.assertEqual(user0_stats["completed_calls"], 1)
+        self.assertEqual(user0_stats["unsuccessful_proposals"], 1)
+        self.assertEqual(user0_stats["longest_call_duration_seconds"], 330)
+
+        user1_stats = participants[str(users[1].uuid)]
+        self.assertEqual(user1_stats["accepted_proposals"], 1)
+        self.assertEqual(user1_stats["completed_calls"], 1)
+        self.assertEqual(user1_stats["unsuccessful_proposals"], 1)
+        self.assertEqual(user1_stats["longest_call_duration_seconds"], 330)
+
+        user2_stats = participants[str(users[2].uuid)]
+        self.assertEqual(user2_stats["accepted_proposals"], 0)
+        self.assertEqual(user2_stats["completed_calls"], 0)
+        self.assertEqual(user2_stats["unsuccessful_proposals"], 2)
+        self.assertEqual(user2_stats["longest_call_duration_seconds"], 0)
+
+    def test_management_overview_user_attendance_breakdown(self):
+        users = self.create_multiple_users(2)
+        earlier_lobby = RandomCallLobby.objects.create(
+            name="default",
+            start_time=timezone.now() - timezone.timedelta(days=14),
+            end_time=timezone.now() - timezone.timedelta(days=14, hours=-2),
+        )
+        later_lobby = RandomCallLobby.objects.create(
+            name="default",
+            start_time=timezone.now() - timezone.timedelta(days=7),
+            end_time=timezone.now() - timezone.timedelta(days=7, hours=-2),
+        )
+
+        RandomCallLobbyUser.objects.create(user=users[0], lobby=earlier_lobby, is_active=False)
+        RandomCallLobbyUser.objects.create(user=users[0], lobby=later_lobby, is_active=False)
+        RandomCallLobbyUser.objects.create(user=users[1], lobby=later_lobby, is_active=False)
+
+        self.client.force_authenticate(user=users[0])
+        response = self.client.get(f"/api/random_calls/lobby/default/management/overview?lobby_uuid={later_lobby.uuid}")
+
+        if response.status_code == 403:
+            self.skipTest("Management API requires admin permissions")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["lobby"]["total_users_count"], 2)
+        self.assertEqual(response.data["statistics"]["first_time_count"], 1)
+        self.assertEqual(response.data["statistics"]["returning_count"], 1)

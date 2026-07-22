@@ -2,9 +2,10 @@ import random
 from datetime import timedelta
 
 from celery import shared_task
+from django.db.models import Q
 from django.utils import timezone
 
-from video.models import RandomCallLobby, RandomCallLobbyUser, RandomCallMatching
+from video.models import RandomCallLobby, RandomCallLobbyUser, RandomCallMatching, RandomCallProposalUserStatus
 from video.services.livekit_session_correction import process_unusually_long_sessions
 
 
@@ -59,14 +60,12 @@ def random_call_lobby_perform_matching(lobby_uuid):
     )
 
     # 5 - build the set of explicitly-rejected pairings in this lobby so they are skipped during selection.
-    #     rejected=True can also be set by the system (proposal timeout, user leaving lobby, join expiry).
-    #     Only deliberate user rejections set rejected_at; system rejections leave it NULL.
-    #     Using rejected_at__isnull=False ensures we only block rematching after deliberate rejections.
+    #     Only per-user `rejected` status blocks rematching (not exit, timeout, or join expiry).
     rejected_pairs = {
         frozenset(pair)
-        for pair in RandomCallMatching.objects.filter(
-            lobby=lobby, rejected=True, rejected_at__isnull=False
-        ).values_list("u1_id", "u2_id")
+        for pair in RandomCallMatching.objects.filter(lobby=lobby)
+        .filter(Q(u1_status=RandomCallProposalUserStatus.REJECTED) | Q(u2_status=RandomCallProposalUserStatus.REJECTED))
+        .values_list("u1_id", "u2_id")
     }
 
     # 6 - select a valid pair from all non-rejected combinations.
@@ -149,6 +148,8 @@ def cleanup_if_not_accepted(match_uuid):
         auto_rejected_match = True
         match.expired = True
         match.rejected = True
+        match.u1_status = RandomCallProposalUserStatus.EXPIRED
+        match.u2_status = RandomCallProposalUserStatus.EXPIRED
         match.save()
     # TODO: websocket event for this change!
     return {"match_uuid": match_uuid, "auto_rejected_match": auto_rejected_match}

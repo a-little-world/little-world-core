@@ -133,12 +133,32 @@ class RandomCallLobbyUser(models.Model):
     lobby = models.ForeignKey("video.RandomCallLobby", on_delete=models.CASCADE, related_name="lobby_users")
 
 
+class RandomCallProposalUserStatus(models.TextChoices):
+    PENDING = "pending", "Pending"
+    ACCEPTED = "accepted", "Accepted"
+    REJECTED = "rejected", "Rejected"
+    EXITED = "exited", "Exited"
+    EXPIRED = "expired", "Expired"
+    DISMISSED = "dismissed", "Dismissed"
+
+
 class RandomCallMatching(models.Model):
     uuid = models.UUIDField(default=uuid4, editable=False, unique=True)
     lobby = models.ForeignKey("video.RandomCallLobby", on_delete=models.CASCADE, related_name="lobby_matchings")
 
     u1 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u1_randomcall_session")
     u2 = models.ForeignKey("management.User", on_delete=models.CASCADE, related_name="u2_randomcall_session")
+
+    u1_status = models.CharField(
+        max_length=20,
+        choices=RandomCallProposalUserStatus.choices,
+        default=RandomCallProposalUserStatus.PENDING,
+    )
+    u2_status = models.CharField(
+        max_length=20,
+        choices=RandomCallProposalUserStatus.choices,
+        default=RandomCallProposalUserStatus.PENDING,
+    )
 
     u1_accepted = models.BooleanField(default=False)
     u2_accepted = models.BooleanField(default=False)
@@ -185,6 +205,21 @@ class RandomCallMatching(models.Model):
         return self.accepted or self.rejected
 
     in_session = models.BooleanField(default=False)
+
+    def is_u1(self, user):
+        return self.u1_id == user.id
+
+    def get_user_status(self, user):
+        return self.u1_status if self.is_u1(user) else self.u2_status
+
+    def get_partner_status(self, user):
+        return self.u2_status if self.is_u1(user) else self.u1_status
+
+    def set_user_status(self, user, status):
+        if self.is_u1(user):
+            self.u1_status = status
+        else:
+            self.u2_status = status
 
     @classmethod
     def get_or_create_match(cls, user1, user2):
