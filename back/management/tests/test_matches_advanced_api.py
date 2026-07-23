@@ -91,7 +91,11 @@ class AdvancedMatchViewsetTests(TestCase):
             both_have_been_active=True,
             is_active=False,
         )
-        LivekitSession.objects.filter(pk=session.pk).update(end_time=timezone.now())
+        call_time = timezone.now()
+        LivekitSession.objects.filter(pk=session.pk).update(
+            created_at=call_time,
+            end_time=call_time,
+        )
 
         request = self.factory.get(f"/api/matching/matches/{self.match.uuid}/")
         force_authenticate(request, user=self.staff_user)
@@ -102,9 +106,9 @@ class AdvancedMatchViewsetTests(TestCase):
         assert response.data["user1_last_message_at"] is not None
         assert response.data["user2_last_message_at"] is not None
         assert response.data["last_video_call_at"] is not None
-        assert response.data["average_video_call_duration_seconds"] is None
-        assert response.data["median_video_call_duration_seconds"] is None
-        assert response.data["total_video_call_duration_seconds"] is None
+        assert response.data["average_video_call_duration_seconds"] == 0
+        assert response.data["median_video_call_duration_seconds"] == 0
+        assert response.data["total_video_call_duration_seconds"] == 0
 
     def test_retrieve_average_video_call_duration_seconds_for_both_active_calls(self):
         now = timezone.now()
