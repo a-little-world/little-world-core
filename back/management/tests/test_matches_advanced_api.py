@@ -1,7 +1,9 @@
+from datetime import timedelta
 from uuid import uuid4
 
 from chat.models import Chat, Message
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIRequestFactory, force_authenticate
 from video.models import LivekitSession
 
@@ -22,6 +24,7 @@ class AdvancedMatchViewsetTests(TestCase):
     def setUp(self):
         self.factory = APIRequestFactory(enforce_csrf_checks=True)
         self.view = AdvancedMatchViewset.as_view({"get": "retrieve"})
+        self.weekly_activity_details_view = AdvancedMatchViewset.as_view({"get": "weekly_activity_details"})
         self.list_view = AdvancedMatchViewset.as_view({"get": "list"})
         self.export_view = matches_export
 
@@ -49,6 +52,9 @@ class AdvancedMatchViewsetTests(TestCase):
         assert response.data["last_video_call_at"] is None
         assert response.data["user1_last_message_at"] is None
         assert response.data["user2_last_message_at"] is None
+        assert response.data["average_video_call_duration_seconds"] is None
+        assert response.data["median_video_call_duration_seconds"] is None
+        assert response.data["total_video_call_duration_seconds"] is None
 
     def test_list_does_not_include_match_stats_only_fields(self):
         request = self.factory.get("/api/matching/matches/")
@@ -61,6 +67,9 @@ class AdvancedMatchViewsetTests(TestCase):
         assert results
         sample = next(r for r in results if r["uuid"] == str(self.match.uuid))
         assert "user1_last_message_at" not in sample
+        assert "average_video_call_duration_seconds" not in sample
+        assert "median_video_call_duration_seconds" not in sample
+        assert "total_video_call_duration_seconds" not in sample
 
     def test_retrieve_includes_match_stats_timestamps_when_present(self):
         chat = Chat.get_or_create_chat(self.staff_user, self.other_user)
@@ -92,6 +101,92 @@ class AdvancedMatchViewsetTests(TestCase):
         assert response.data["user1_last_message_at"] is not None
         assert response.data["user2_last_message_at"] is not None
         assert response.data["last_video_call_at"] is not None
+        assert response.data["average_video_call_duration_seconds"] is None
+        assert response.data["median_video_call_duration_seconds"] is None
+        assert response.data["total_video_call_duration_seconds"] is None
+
+    def test_retrieve_average_video_call_duration_seconds_for_both_active_calls(self):
+        now = timezone.now()
+        LivekitSession.objects.create(
+            u1=self.staff_user,
+            u2=self.other_user,
+            both_have_been_active=True,
+            is_active=False,
+            created_at=now - timedelta(minutes=40),
+            end_time=now - timedelta(minutes=10),
+        )
+        LivekitSession.objects.create(
+            u1=self.staff_user,
+            u2=self.other_user,
+            both_have_been_active=True,
+            is_active=False,
+            created_at=now - timedelta(minutes=20),
+            end_time=now,
+        )
+
+        request = self.factory.get(f"/api/matching/matches/{self.match.uuid}/")
+        force_authenticate(request, user=self.staff_user)
+
+        response = self.view(request, pk=str(self.match.uuid))
+
+        assert response.status_code == 200
+        assert response.data["average_video_call_duration_seconds"] == 1500
+        assert response.data["median_video_call_duration_seconds"] == 1500
+        assert response.data["total_video_call_duration_seconds"] == 3000
+
+    def test_weekly_activity_details_requires_week_parameter(self):
+        request = self.factory.get(f"/api/matching/matches/{self.match.uuid}/weekly_activity_details/")
+        force_authenticate(request, user=self.staff_user)
+
+        response = self.weekly_activity_details_view(request, pk=str(self.match.uuid))
+
+        assert response.status_code == 400
+        assert response.data["msg"] == "week query parameter is required"
+
+    def test_weekly_activity_details_returns_calls_and_messages_oldest_first(self):
+        match_start = self.match.created_at
+        chat = Chat.get_or_create_chat(self.staff_user, self.other_user)
+
+        first_message = Message.objects.create(
+            chat=chat,
+            sender=self.staff_user,
+            recipient=self.other_user,
+            text="first",
+        )
+        second_message = Message.objects.create(
+            chat=chat,
+            sender=self.other_user,
+            recipient=self.staff_user,
+            text="second",
+        )
+        Message.objects.filter(pk=first_message.pk).update(created=match_start + timedelta(days=1))
+        Message.objects.filter(pk=second_message.pk).update(created=match_start + timedelta(days=2))
+
+        call_start = match_start + timedelta(days=3)
+        LivekitSession.objects.create(
+            u1=self.staff_user,
+            u2=self.other_user,
+            both_have_been_active=True,
+            is_active=False,
+            created_at=call_start,
+            end_time=call_start + timedelta(minutes=30),
+        )
+
+        request = self.factory.get(
+            f"/api/matching/matches/{self.match.uuid}/weekly_activity_details/?week=1",
+        )
+        force_authenticate(request, user=self.staff_user)
+
+        response = self.weekly_activity_details_view(request, pk=str(self.match.uuid))
+
+        assert response.status_code == 200
+        assert response.data["week"] == 1
+        assert len(response.data["messages"]) == 2
+        assert response.data["messages"][0]["sender_id"] == self.staff_user.id
+        assert response.data["messages"][1]["sender_id"] == self.other_user.id
+        assert len(response.data["video_calls"]) == 1
+        assert response.data["video_calls"][0]["duration_seconds"] == 1800
+        assert response.data["video_calls"][0]["end_time"] is not None
 
     def test_retrieve_unknown_match_by_uuid_returns_404(self):
         missing_uuid = uuid4()

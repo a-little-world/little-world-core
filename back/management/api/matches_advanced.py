@@ -1,7 +1,8 @@
+import statistics
 from datetime import timedelta
 
 from chat.models import Message
-from django.db.models import Max, Q
+from django.db.models import F, Max, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.urls import path
 from django.utils import timezone
@@ -251,17 +252,29 @@ def _match_stats_retrieve_extra(match: Match) -> dict:
     last_msg_u2_at = Message.objects.filter(sender=u2, recipient=u1).aggregate(ts=Max("created"))["ts"]
 
     pair_q = Q(u1=u1, u2=u2) | Q(u1=u2, u2=u1)
-    last_video_at = (
-        LivekitSession.objects.filter(pair_q, both_have_been_active=True)
-        .order_by("-created_at")
-        .values_list("created_at", flat=True)
-        .first()
+    both_active_sessions = LivekitSession.objects.filter(pair_q, both_have_been_active=True, end_time__isnull=False)
+    last_video_at = both_active_sessions.order_by("-created_at").values_list("created_at", flat=True).first()
+    total_video_duration = both_active_sessions.aggregate(duration=Sum(F("end_time") - F("created_at")))["duration"]
+    session_count = both_active_sessions.count()
+    duration_seconds_list = [
+        max(int((session.end_time - session.created_at).total_seconds()), 0)
+        for session in both_active_sessions.only("created_at", "end_time")
+    ]
+    average_video_call_duration_seconds = (
+        round(total_video_duration.total_seconds() / session_count) if total_video_duration and session_count else None
     )
+    median_video_call_duration_seconds = (
+        round(statistics.median(duration_seconds_list)) if duration_seconds_list else None
+    )
+    total_video_call_duration_seconds = sum(duration_seconds_list) if duration_seconds_list else None
 
     return {
         "last_video_call_at": _format_datetime_for_json(last_video_at),
         "user1_last_message_at": _format_datetime_for_json(last_msg_u1_at),
         "user2_last_message_at": _format_datetime_for_json(last_msg_u2_at),
+        "average_video_call_duration_seconds": average_video_call_duration_seconds,
+        "median_video_call_duration_seconds": median_video_call_duration_seconds,
+        "total_video_call_duration_seconds": total_video_call_duration_seconds,
     }
 
 
@@ -443,6 +456,66 @@ def _match_weekly_activity_retrieve_extra(match: Match) -> dict:
     journey.update(_match_journey_stages(match, current_week, desired_duration_weeks))
 
     return {"journey": journey}
+
+
+def _match_week_bounds(match: Match, week: int) -> tuple:
+    if week < 1:
+        raise ValueError("week must be >= 1")
+    match_start = match.created_at
+    return match_start + timedelta(weeks=week - 1), match_start + timedelta(weeks=week)
+
+
+def _match_weekly_activity_details(match: Match, week: int) -> dict:
+    """
+    Read-only call/message breakdown for one journey week (retrieve action only).
+    """
+    dt_field = serializers.DateTimeField()
+    start_at, end_at = _match_week_bounds(match, week)
+
+    message_rows = (
+        Message.objects.filter(
+            Q(sender=match.user1, recipient=match.user2) | Q(sender=match.user2, recipient=match.user1),
+            created__gte=start_at,
+            created__lt=end_at,
+        )
+        .select_related("sender__profile")
+        .order_by("created")
+    )
+    messages = [
+        {
+            "created_at": dt_field.to_representation(row.created),
+            "sender_id": row.sender_id,
+            "sender_name": row.sender.profile.first_name,
+        }
+        for row in message_rows
+    ]
+
+    video_calls = []
+    sessions = LivekitSession.objects.filter(
+        Q(u1=match.user1, u2=match.user2) | Q(u1=match.user2, u2=match.user1),
+        both_have_been_active=True,
+        created_at__gte=start_at,
+        created_at__lt=end_at,
+    ).order_by("created_at")
+    for session in sessions:
+        duration_seconds = None
+        if session.end_time is not None:
+            duration_seconds = max(int((session.end_time - session.created_at).total_seconds()), 0)
+        video_calls.append(
+            {
+                "created_at": dt_field.to_representation(session.created_at),
+                "end_time": dt_field.to_representation(session.end_time) if session.end_time else None,
+                "duration_seconds": duration_seconds,
+            }
+        )
+
+    return {
+        "week": week,
+        "start_at": dt_field.to_representation(start_at),
+        "end_at": dt_field.to_representation(end_at),
+        "video_calls": video_calls,
+        "messages": messages,
+    }
 
 
 class ExportMatchSerializer(serializers.ModelSerializer):
@@ -791,6 +864,24 @@ class AdvancedMatchViewset(viewsets.ModelViewSet):
         data.update(_match_weekly_activity_retrieve_extra(instance))
         return Response(data)
 
+    @extend_schema(summary="Retrieve weekly activity details for a match")
+    @action(detail=True, methods=["get"])
+    def weekly_activity_details(self, request, pk=None):
+        self.kwargs["pk"] = pk
+        obj = self.get_object()
+
+        week_raw = request.query_params.get("week")
+        if week_raw is None:
+            return Response({"msg": "week query parameter is required"}, status=400)
+        try:
+            week = int(week_raw)
+        except (TypeError, ValueError):
+            return Response({"msg": "week must be an integer"}, status=400)
+        if week < 1:
+            return Response({"msg": "week must be >= 1"}, status=400)
+
+        return Response(_match_weekly_activity_details(obj, week))
+
     @action(detail=True, methods=["post"])
     def set_completed_off_plattform(self, request, pk=None):
         self.kwargs["pk"] = pk
@@ -861,6 +952,10 @@ api_urls = [
     path("api/matching/matches_export/", matches_export),
     path("api/matching/matches/filters/", AdvancedMatchViewset.as_view({"get": "get_filter_schema"})),
     path("api/matching/matches/<pk>/", AdvancedMatchViewset.as_view({"get": "retrieve"})),
+    path(
+        "api/matching/matches/<pk>/weekly_activity_details/",
+        AdvancedMatchViewset.as_view({"get": "weekly_activity_details"}),
+    ),
     path("api/matching/matches/<pk>/resolve/", AdvancedMatchViewset.as_view({"post": "resolve_match"})),
     path(
         "api/matching/matches/<pk>/completed_off_plattform/",
