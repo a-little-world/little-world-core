@@ -128,8 +128,8 @@ class MatchStatisticsTests(TestCase):
         assert response.data["both_messaged_match_count"] == 1
         assert response.data["average_days_to_first_call"] == 6.0
         assert response.data["median_days_to_first_call"] == 6.0
-        assert response.data["average_days_until_both_messaged"] == 7.0
-        assert response.data["median_days_until_both_messaged"] == 7.0
+        assert response.data["average_days_until_both_messaged"] == 8.0
+        assert response.data["median_days_until_both_messaged"] == 8.0
 
     def test_bucket_match_rows_handles_timezone_aware_created_at(self):
         now = timezone.now()

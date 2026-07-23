@@ -85,12 +85,13 @@ class AdvancedMatchViewsetTests(TestCase):
             recipient=self.staff_user,
             text="yo",
         )
-        LivekitSession.objects.create(
+        session = LivekitSession.objects.create(
             u1=self.staff_user,
             u2=self.other_user,
             both_have_been_active=True,
             is_active=False,
         )
+        LivekitSession.objects.filter(pk=session.pk).update(end_time=timezone.now())
 
         request = self.factory.get(f"/api/matching/matches/{self.match.uuid}/")
         force_authenticate(request, user=self.staff_user)
@@ -107,19 +108,23 @@ class AdvancedMatchViewsetTests(TestCase):
 
     def test_retrieve_average_video_call_duration_seconds_for_both_active_calls(self):
         now = timezone.now()
-        LivekitSession.objects.create(
+        first_session = LivekitSession.objects.create(
             u1=self.staff_user,
             u2=self.other_user,
             both_have_been_active=True,
             is_active=False,
+        )
+        LivekitSession.objects.filter(pk=first_session.pk).update(
             created_at=now - timedelta(minutes=40),
             end_time=now - timedelta(minutes=10),
         )
-        LivekitSession.objects.create(
+        second_session = LivekitSession.objects.create(
             u1=self.staff_user,
             u2=self.other_user,
             both_have_been_active=True,
             is_active=False,
+        )
+        LivekitSession.objects.filter(pk=second_session.pk).update(
             created_at=now - timedelta(minutes=20),
             end_time=now,
         )
@@ -163,13 +168,16 @@ class AdvancedMatchViewsetTests(TestCase):
         Message.objects.filter(pk=second_message.pk).update(created=match_start + timedelta(days=2))
 
         call_start = match_start + timedelta(days=3)
-        LivekitSession.objects.create(
+        call_end = call_start + timedelta(minutes=30)
+        session = LivekitSession.objects.create(
             u1=self.staff_user,
             u2=self.other_user,
             both_have_been_active=True,
             is_active=False,
+        )
+        LivekitSession.objects.filter(pk=session.pk).update(
             created_at=call_start,
-            end_time=call_start + timedelta(minutes=30),
+            end_time=call_end,
         )
 
         request = self.factory.get(
