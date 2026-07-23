@@ -22,6 +22,7 @@ from management.api.match_journey_filters import (
     no_contact,
     ongoing_matches,
     only_non_support_matching,
+    organic_match,
     reported_or_removed_match,
     sucess_matches,
     support_matching,
@@ -75,6 +76,11 @@ MATCH_JOURNEY_FILTERS = [
         "match_journey_v2__only_non_support_matching",
         None,
         only_non_support_matching,
+    ),
+    FilterListEntry(
+        "match_journey_v2__organic_match",
+        "Random call matches",
+        organic_match,
     ),
     FilterListEntry(
         "match_journey_v2__proposed_matches",
@@ -208,12 +214,16 @@ def get_match_bucket_label(bucket_name: str | None) -> str:
     if bucket_name == "unknown":
         return "Unknown"
 
+    if bucket_name == "match_journey_v2__organic_match":
+        return "Organic Match"
+
     slug = bucket_name.split("__")[-1]
     return slug.replace("_", " ").strip().title()
 
 
 MATCH_JOURNEY_CATEGORY_BUCKETS = [
     "special__support_matching",
+    "match_journey_v2__organic_match",
     "match_journey_v2__unviewed",
     "match_journey_v2__one_user_viewed",
     "match_journey_v2__confirmed_no_contact",
@@ -237,12 +247,21 @@ MATCH_BUCKET_SKIP_LISTS = frozenset(
     }
 )
 
+MATCH_BUCKET_NON_STANDARD_LISTS = frozenset(
+    {
+        "match_journey_v2__organic_match",
+    }
+)
+
 
 def _match_bucket_entry_applies(entry: FilterListEntry, match_pk: int) -> bool:
     if entry.queryset is None or entry.name in MATCH_BUCKET_SKIP_LISTS:
         return False
     try:
-        return entry.queryset(Match.objects.filter(pk=match_pk, match_type=MatchType.STANDARD)).exists()
+        scoped_matches = Match.objects.filter(pk=match_pk)
+        if entry.name not in MATCH_BUCKET_NON_STANDARD_LISTS:
+            scoped_matches = scoped_matches.filter(match_type=MatchType.STANDARD)
+        return entry.queryset(scoped_matches).exists()
     except Exception:
         return False
 
