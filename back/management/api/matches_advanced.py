@@ -261,7 +261,9 @@ def _match_stats_retrieve_extra(match: Match) -> dict:
         for session in both_active_sessions.only("created_at", "end_time")
     ]
     average_video_call_duration_seconds = (
-        round(total_video_duration.total_seconds() / session_count) if total_video_duration and session_count else None
+        round(total_video_duration.total_seconds() / session_count)
+        if total_video_duration is not None and session_count
+        else None
     )
     median_video_call_duration_seconds = (
         round(statistics.median(duration_seconds_list)) if duration_seconds_list else None
