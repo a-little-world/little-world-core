@@ -39,6 +39,13 @@ def only_non_support_matching(qs=Match.objects.all()):
     return qs.filter(support_matching=False)
 
 
+def organic_match(qs=Match.objects.all()):
+    """
+    [Match-Journey] Random call matches.
+    """
+    return qs.filter(support_matching=False, match_type=MatchType.RANDOM_CALL)
+
+
 def match_unviewed(qs=Match.objects.all(), mutal_ghosted_days=DAYS_UNTILL_GHOSTED):
     """
     [Match-Journey] (Pre-Matching) Matches that are active and not yet confirmed by both users.
