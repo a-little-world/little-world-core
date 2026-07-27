@@ -148,8 +148,11 @@ def cleanup_if_not_accepted(match_uuid):
         auto_rejected_match = True
         match.expired = True
         match.rejected = True
-        match.u1_status = RandomCallProposalUserStatus.EXPIRED
-        match.u2_status = RandomCallProposalUserStatus.EXPIRED
+        # Preserve prior actions (e.g. accepted); only pending users become expired.
+        if match.u1_status == RandomCallProposalUserStatus.PENDING:
+            match.u1_status = RandomCallProposalUserStatus.EXPIRED
+        if match.u2_status == RandomCallProposalUserStatus.PENDING:
+            match.u2_status = RandomCallProposalUserStatus.EXPIRED
         match.save()
     # TODO: websocket event for this change!
     return {"match_uuid": match_uuid, "auto_rejected_match": auto_rejected_match}

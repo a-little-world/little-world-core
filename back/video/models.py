@@ -134,12 +134,13 @@ class RandomCallLobbyUser(models.Model):
 
 
 class RandomCallProposalUserStatus(models.TextChoices):
+    """Per-user action on a proposal. Acknowledgment lives on u*_confirmed_rejection."""
+
     PENDING = "pending", "Pending"
     ACCEPTED = "accepted", "Accepted"
     REJECTED = "rejected", "Rejected"
     EXITED = "exited", "Exited"
     EXPIRED = "expired", "Expired"
-    DISMISSED = "dismissed", "Dismissed"
 
 
 class RandomCallMatching(models.Model):

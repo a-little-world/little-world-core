@@ -140,11 +140,6 @@ def join_random_call_lobby(request, lobby_uuid):
 # pnpm dlx eas-cli build --platform ios --profile development-device --local
 
 
-def _shadow_set_user_status(matching, user, status):
-    """Write proposal user status in parallel with legacy fields (shadow mode)."""
-    matching.set_user_status(user, status)
-
-
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
@@ -242,7 +237,6 @@ def get_random_call_lobby_status(request, lobby_uuid):
             else:
                 matching.u2_confirmed_rejection = True
             matching.both_confirmed_rejection = True
-            _shadow_set_user_status(matching, request.user, RandomCallProposalUserStatus.DISMISSED)
             matching.save()
             # in this case we still return the matchin
 
@@ -255,10 +249,6 @@ def get_random_call_lobby_status(request, lobby_uuid):
             matching.both_confirmed_rejection = True
             matching.u1_confirmed_rejection = True
             matching.u2_confirmed_rejection = True
-            if matching.u1_status == RandomCallProposalUserStatus.PENDING:
-                matching.u1_status = RandomCallProposalUserStatus.DISMISSED
-            if matching.u2_status == RandomCallProposalUserStatus.PENDING:
-                matching.u2_status = RandomCallProposalUserStatus.DISMISSED
             matching.save()
 
         # rejections must be viewed before re-match handled via 'both_confirmed_rejection' flag

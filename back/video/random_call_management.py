@@ -96,6 +96,8 @@ class RandomCallMatchSerializer(serializers.Serializer):
     u2_user_type = serializers.ChoiceField(choices=Profile.TypeChoices.choices, required=True)
     u1_accepted = serializers.BooleanField()
     u2_accepted = serializers.BooleanField()
+    u1_status = serializers.CharField()
+    u2_status = serializers.CharField()
     accepted = serializers.BooleanField()
     rejected = serializers.BooleanField()
     expired = serializers.BooleanField()
@@ -344,6 +346,8 @@ def get_lobby_management_overview(request, lobby_name="default"):
             "u2_user_type": match.u2.profile.user_type,
             "u1_accepted": match.u1_accepted,
             "u2_accepted": match.u2_accepted,
+            "u1_status": match.u1_status,
+            "u2_status": match.u2_status,
             "accepted": match.accepted,
             "rejected": match.rejected,
             "expired": match.expired,

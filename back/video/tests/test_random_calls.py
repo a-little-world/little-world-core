@@ -509,6 +509,32 @@ class RandomCallsTests(TestCase):
         self.assertEqual(frozenset((new_matching.u1_id, new_matching.u2_id)), original_pair)
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
+    def test_timeout_preserves_accepted_user_status(self):
+        """If one user accepted before timeout, their status stays accepted; the other expires."""
+        from video.tasks import cleanup_if_not_accepted
+
+        self.client.force_authenticate(user=self.user1)
+        self.client.post(f"{self.lobby_api_url}/join")
+        self.client.force_authenticate(user=self.user2)
+        self.client.post(f"{self.lobby_api_url}/join")
+
+        matching = RandomCallMatching.objects.get(lobby=self.lobby)
+        self.client.force_authenticate(user=matching.u1)
+        response = self.client.post(f"{self.lobby_api_url}/match/{matching.uuid}/accept")
+        self.assertEqual(response.status_code, 200)
+
+        matching.refresh_from_db()
+        self.assertEqual(matching.u1_status, RandomCallProposalUserStatus.ACCEPTED)
+        self.assertEqual(matching.u2_status, RandomCallProposalUserStatus.PENDING)
+
+        cleanup_if_not_accepted(str(matching.uuid))
+        matching.refresh_from_db()
+        self.assertTrue(matching.expired)
+        self.assertTrue(matching.rejected)
+        self.assertEqual(matching.u1_status, RandomCallProposalUserStatus.ACCEPTED)
+        self.assertEqual(matching.u2_status, RandomCallProposalUserStatus.EXPIRED)
+
+    @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_exit_does_not_block_rematching_same_pair(self):
         """
         Leaving the lobby closes the proposal but must not block rematching the same pair.
@@ -554,8 +580,11 @@ class RandomCallsTests(TestCase):
         self.assertEqual(frozenset((new_matching.u1_id, new_matching.u2_id)), original_pair)
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
-    def test_partner_dismissed_after_explicit_reject(self):
-        """Partner should move to dismissed after polling status once the other user rejects."""
+    def test_partner_acknowledges_rejection_without_overwriting_status(self):
+        """
+        Partner polling after an explicit reject sets confirmed_rejection but leaves
+        u*_status as the action (pending for the partner, rejected for the rejector).
+        """
         self.client.force_authenticate(user=self.user1)
         self.client.post(f"{self.lobby_api_url}/join")
         self.client.force_authenticate(user=self.user2)
@@ -574,8 +603,13 @@ class RandomCallsTests(TestCase):
         self.assertTrue(response.data["matching"]["partner_rejected"])
 
         matching.refresh_from_db()
-        self.assertEqual(matching.get_user_status(partner), RandomCallProposalUserStatus.DISMISSED)
+        self.assertEqual(matching.get_user_status(partner), RandomCallProposalUserStatus.PENDING)
         self.assertEqual(matching.get_user_status(rejector), RandomCallProposalUserStatus.REJECTED)
+        if matching.is_u1(partner):
+            self.assertTrue(matching.u1_confirmed_rejection)
+        else:
+            self.assertTrue(matching.u2_confirmed_rejection)
+        self.assertTrue(matching.both_confirmed_rejection)
 
     @override_settings(CELERY_TASK_ALWAYS_EAGER=True)
     def test_concurrent_users_matching(self):
