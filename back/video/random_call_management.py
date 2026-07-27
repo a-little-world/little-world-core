@@ -17,6 +17,7 @@ from rest_framework.decorators import (
 from rest_framework.response import Response
 
 from video.models import (
+    LivekitSession,
     RandomCallLobby,
     RandomCallLobbyUser,
     RandomCallMatching,
@@ -95,6 +96,8 @@ class RandomCallMatchSerializer(serializers.Serializer):
     u2_user_type = serializers.ChoiceField(choices=Profile.TypeChoices.choices, required=True)
     u1_accepted = serializers.BooleanField()
     u2_accepted = serializers.BooleanField()
+    u1_status = serializers.CharField()
+    u2_status = serializers.CharField()
     accepted = serializers.BooleanField()
     rejected = serializers.BooleanField()
     expired = serializers.BooleanField()
@@ -112,6 +115,162 @@ class RandomCallTaskSerializer(serializers.Serializer):
     result = serializers.CharField(allow_null=True)
     traceback = serializers.CharField(allow_null=True)
     worker = serializers.CharField(allow_null=True)
+
+
+class RandomCallLobbyParticipantProfileSerializer(serializers.Serializer):
+    first_name = serializers.CharField()
+    image_type = serializers.CharField()
+    avatar_config = serializers.JSONField()
+    image = serializers.CharField(allow_null=True, required=False)
+
+
+class RandomCallLobbyParticipantSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    user_uuid = serializers.CharField()
+    user_name = serializers.CharField()
+    user_type = serializers.ChoiceField(choices=Profile.TypeChoices.choices, required=True)
+    is_active = serializers.BooleanField()
+    completed_calls = serializers.IntegerField()
+    unsuccessful_proposals = serializers.IntegerField()
+    accepted_proposals = serializers.IntegerField()
+    longest_call_duration_seconds = serializers.IntegerField()
+    profile = RandomCallLobbyParticipantProfileSerializer()
+
+
+def _classify_lobby_match(match, *, active_lobby_user_ids, proposal_stale_threshold):
+    u1_in_lobby = match.u1_id in active_lobby_user_ids
+    u2_in_lobby = match.u2_id in active_lobby_user_ids
+
+    is_expired = match.expired or (not match.is_processed and (not u1_in_lobby or not u2_in_lobby))
+
+    is_dangling_open = (
+        not match.accepted
+        and not match.rejected
+        and not match.expired
+        and not match.completed
+        and (match.created_at is None or match.created_at <= proposal_stale_threshold)
+    )
+
+    if match.accepted:
+        return "accepted"
+    if is_expired:
+        return "expired"
+    if match.rejected:
+        return "rejected"
+    if is_dangling_open:
+        return "dangling"
+    if not match.is_processed:
+        return "pending"
+    return "pending"
+
+
+def _serialize_lobby_participant_profile(profile):
+    return {
+        "first_name": profile.first_name,
+        "image_type": profile.image_type,
+        "avatar_config": profile.avatar_config,
+        "image": profile.image.url if profile.image else None,
+    }
+
+
+def _build_completed_match_durations(completed_matches):
+    if not completed_matches:
+        return {}
+
+    user_ids = set()
+    for match in completed_matches:
+        user_ids.add(match.u1_id)
+        user_ids.add(match.u2_id)
+
+    sessions = LivekitSession.objects.filter(
+        random_call_session=True,
+        both_have_been_active=True,
+        u1_id__in=user_ids,
+        u2_id__in=user_ids,
+        end_time__isnull=False,
+    )
+
+    pair_durations = {}
+    for session in sessions:
+        pair_key = (min(session.u1_id, session.u2_id), max(session.u1_id, session.u2_id))
+        duration = int((session.end_time - session.created_at).total_seconds())
+        pair_durations[pair_key] = max(pair_durations.get(pair_key, 0), duration)
+
+    match_durations = {}
+    for match in completed_matches:
+        pair_key = (min(match.u1_id, match.u2_id), max(match.u1_id, match.u2_id))
+        match_durations[match.pk] = pair_durations.get(pair_key, 0)
+
+    return match_durations
+
+
+def _build_lobby_participants(all_lobby_users, all_matches, active_lobby_user_ids, proposal_stale_threshold):
+    participants = {}
+    for lobby_user in all_lobby_users.select_related("user", "user__profile"):
+        user = lobby_user.user
+        participants[user.pk] = {
+            "user_id": user.pk,
+            "user_uuid": str(user.uuid),
+            "user_name": f"{user.profile.first_name}",
+            "user_type": user.profile.user_type,
+            "is_active": lobby_user.is_active,
+            "completed_calls": 0,
+            "unsuccessful_proposals": 0,
+            "accepted_proposals": 0,
+            "longest_call_duration_seconds": 0,
+            "profile": _serialize_lobby_participant_profile(user.profile),
+        }
+
+    completed_matches = [match for match in all_matches if match.completed]
+    match_durations = _build_completed_match_durations(completed_matches)
+
+    for match in all_matches:
+        category = _classify_lobby_match(
+            match,
+            active_lobby_user_ids=active_lobby_user_ids,
+            proposal_stale_threshold=proposal_stale_threshold,
+        )
+
+        for user in (match.u1, match.u2):
+            if user.pk not in participants:
+                continue
+
+            if category == "accepted":
+                participants[user.pk]["accepted_proposals"] += 1
+                if match.completed:
+                    participants[user.pk]["completed_calls"] += 1
+                    duration = match_durations.get(match.pk, 0)
+                    participants[user.pk]["longest_call_duration_seconds"] = max(
+                        participants[user.pk]["longest_call_duration_seconds"],
+                        duration,
+                    )
+            elif category in ("rejected", "expired"):
+                participants[user.pk]["unsuccessful_proposals"] += 1
+
+    return sorted(participants.values(), key=lambda participant: participant["user_name"].lower())
+
+
+def _compute_user_attendance_breakdown(all_lobby_users, lobby):
+    participant_user_ids = list(all_lobby_users.values_list("user_id", flat=True))
+    total = len(participant_user_ids)
+
+    if total == 0:
+        return {"first_time_count": 0, "returning_count": 0}
+
+    if lobby.start_time is None:
+        return {"first_time_count": total, "returning_count": 0}
+
+    returning_user_ids = set(
+        RandomCallLobbyUser.objects.filter(
+            user_id__in=participant_user_ids,
+            lobby__start_time__lt=lobby.start_time,
+        ).values_list("user_id", flat=True)
+    )
+    returning_count = len(returning_user_ids)
+    return {
+        "first_time_count": total - returning_count,
+        "returning_count": returning_count,
+    }
 
 
 @api_view(["GET"])
@@ -174,6 +333,7 @@ def get_lobby_management_overview(request, lobby_name="default"):
     dangling_matches = []
 
     proposal_stale_threshold = now - timedelta(seconds=lobby.match_proposal_timeout)
+    active_lobby_user_ids = set(active_lobby_users.values_list("user_id", flat=True))
 
     for match in all_matches:
         match_data = {
@@ -186,6 +346,8 @@ def get_lobby_management_overview(request, lobby_name="default"):
             "u2_user_type": match.u2.profile.user_type,
             "u1_accepted": match.u1_accepted,
             "u2_accepted": match.u2_accepted,
+            "u1_status": match.u1_status,
+            "u2_status": match.u2_status,
             "accepted": match.accepted,
             "rejected": match.rejected,
             "expired": match.expired,
@@ -194,32 +356,21 @@ def get_lobby_management_overview(request, lobby_name="default"):
             "created_at": match.created_at,
         }
 
-        # Check if match is expired (users left lobby without accepting/rejecting)
-        u1_in_lobby = active_lobby_users.filter(user=match.u1).exists()
-        u2_in_lobby = active_lobby_users.filter(user=match.u2).exists()
-
-        # Check if match is expired first (before checking accepted/rejected)
-        is_expired = match.expired or (not match.is_processed and (not u1_in_lobby or not u2_in_lobby))
-
-        is_dangling_open = (
-            not match.accepted
-            and not match.rejected
-            and not match.expired
-            and not match.completed
-            and (match.created_at is None or match.created_at <= proposal_stale_threshold)
+        category = _classify_lobby_match(
+            match,
+            active_lobby_user_ids=active_lobby_user_ids,
+            proposal_stale_threshold=proposal_stale_threshold,
         )
 
-        if match.accepted:
+        if category == "accepted":
             accepted_matches.append(match_data)
-        elif is_expired:
-            # Match is expired (either timeout or users left lobby)
+        elif category == "expired":
             expired_matches.append(match_data)
-        elif match.rejected:
+        elif category == "rejected":
             rejected_matches.append(match_data)
-        elif is_dangling_open:
+        elif category == "dangling":
             dangling_matches.append(match_data)
-        elif not match.is_processed:
-            # Match is pending and both users still in lobby
+        elif category == "pending":
             pending_matches.append(match_data)
 
     # 7 - Calculate statistics
@@ -230,6 +381,7 @@ def get_lobby_management_overview(request, lobby_name="default"):
         "rejected_count": len(rejected_matches),
         "expired_count": len(expired_matches),
         "dangling_count": len(dangling_matches),
+        **_compute_user_attendance_breakdown(all_lobby_users, lobby),
     }
 
     # 8 - Build response using serializers following the pattern from the codebase
@@ -243,10 +395,18 @@ def get_lobby_management_overview(request, lobby_name="default"):
         "total_users_count": all_lobby_users.count(),
     }
 
+    lobby_participants = _build_lobby_participants(
+        all_lobby_users,
+        all_matches,
+        active_lobby_user_ids,
+        proposal_stale_threshold,
+    )
+
     # Serialize all data following the pattern from the existing codebase
     response_data = {
         "lobby": RandomCallLobbyManagementSerializer(lobby_data).data,
         "active_users": RandomCallUserSerializer(active_users_data, many=True).data,
+        "lobby_participants": RandomCallLobbyParticipantSerializer(lobby_participants, many=True).data,
         "match_proposals": {
             "pending": RandomCallMatchSerializer(pending_matches, many=True).data,
             "accepted": RandomCallMatchSerializer(accepted_matches, many=True).data,

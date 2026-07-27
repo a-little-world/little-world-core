@@ -404,6 +404,12 @@ class AdvancedUserSerializer(serializers.ModelSerializer):
         representation["state"] = StateSerializer(instance.state).data
         representation["state"]["random_call_access"] = instance.has_perm(ManagementPermission.USE_RANDOM_CALLS)
 
+        from video.models import RandomCallLobbyUser
+
+        representation["random_call_lobby_count"] = (
+            RandomCallLobbyUser.objects.filter(user=instance).values("lobby_id").distinct().count()
+        )
+
         if determine_bucket or all_buckets:
             category_buckets = determine_user_buckets(instance.pk, all_lists=False)
             all_bucket_names = determine_user_buckets(instance.pk, all_lists=True) if all_buckets else None
