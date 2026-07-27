@@ -30,6 +30,7 @@ from video.models import (
     RandomCallLobby,
     RandomCallLobbyUser,
     RandomCallMatching,
+    RandomCallProposalUserStatus,
     RandomCallSession,
 )
 from video.tasks import (
@@ -158,8 +159,10 @@ def exit_random_call_lobby(request, lobby_uuid):
         Q(u1=request.user) | Q(u2=request.user), lobby=lobby, accepted=False, rejected=False
     )
     if matching.exists():
-        # - auto reject all existing matchings
-        matching.update(accepted=False, rejected=True)
+        for open_matching in matching:
+            open_matching.rejected = True
+            open_matching.set_user_status(request.user, RandomCallProposalUserStatus.EXITED)
+            open_matching.save(update_fields=["rejected", "u1_status", "u2_status"])
     sessions = LivekitSession.objects.filter(Q(u1=request.user) | Q(u2=request.user), random_call_session=True)
     if sessions.exists():
         # - auto reject all existing sessions
@@ -305,8 +308,10 @@ def accept_random_call_match(request, lobby_uuid, match_uuid):
     # 5 - set the user's acceptance
     if match.u1 == request.user:
         match.u1_accepted = True
+        match.u1_status = RandomCallProposalUserStatus.ACCEPTED
     else:
         match.u2_accepted = True
+        match.u2_status = RandomCallProposalUserStatus.ACCEPTED
 
     # 6 - check if both users accepted
     if match.u1_accepted and match.u2_accepted:
@@ -353,8 +358,10 @@ def reject_random_call_match(request, lobby_uuid, match_uuid):
     # 'confirm' happens implicity when the rejection is fetched once by the other user via /status
     if match.u1 == request.user:
         match.u1_confirmed_rejection = True
+        match.u1_status = RandomCallProposalUserStatus.REJECTED
     else:
         match.u2_confirmed_rejection = True
+        match.u2_status = RandomCallProposalUserStatus.REJECTED
     match.save()
 
     return Response(
