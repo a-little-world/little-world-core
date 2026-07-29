@@ -643,37 +643,27 @@ def get_bucket_statistics(pre_filtered_users, selected_filters=None, filter_list
 @api_view(["POST"])
 @permission_classes([IsAdminOrMatchingUser])
 def bucket_statistics(request):
+    from management.analytics.cohorts import CohortSpec, apply_cohort
+
     today = date.today()
     start_date = request.data.get("start_date", "2022-01-01")
     end_date = request.data.get("end_date", today)
 
-    if isinstance(end_date, str):
-        end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
-    else:
-        end_date_obj = end_date
-    end_date_inclusive = datetime.combine(end_date_obj, datetime.max.time())
-    end_date = end_date_inclusive
-
-    # Get pre-filtered users based on permissions and date range
+    # Get pre-filtered users based on permissions, then apply signup cohort gates once.
     pre_filtered_users = User.objects.all()
     if not request.user.is_staff:
         pre_filtered_users = pre_filtered_users.filter(
             id__in=request.user.managed_users_queryset(active_only=False).values("id")
         )
-    pre_filtered_users = pre_filtered_users.filter(date_joined__range=[start_date, end_date])
-
-    volunteers_only = request.data.get("volunteers_only", False)
-    if volunteers_only:
-        pre_filtered_users = pre_filtered_users.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
-
-    include_too_low_german_level = request.data.get("include_too_low_german_level", True)
-    if not include_too_low_german_level:
-        pre_filtered_users = pre_filtered_users.exclude(
-            profile__user_type=Profile.TypeChoices.LEARNER,
-            profile__lang_skill__contains=[
-                {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
-            ],
-        )
+    pre_filtered_users = apply_cohort(
+        pre_filtered_users,
+        CohortSpec(
+            start_date=start_date,
+            end_date=end_date,
+            volunteers_only=request.data.get("volunteers_only", False),
+            include_too_low_german_level=request.data.get("include_too_low_german_level", True),
+        ),
+    )
 
     # Get selected filters from request
     selected_filters = request.data.get("selected_filters", None)

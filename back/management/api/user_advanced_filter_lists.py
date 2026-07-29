@@ -2,6 +2,7 @@ import inspect
 from dataclasses import dataclass
 from typing import List
 
+from management.analytics.queries import learners_ineligible_for_onboarding
 from management.api.user_advanced_filter import (
     EXTRA__fh_aachen_learners_scoring,
     EXTRA__fh_aachen_users,
@@ -208,6 +209,11 @@ USER_JOURNEY_FILTER_LISTS = [
     FilterListEntry("journey_v2__never_active_or_deleted", None, never_active_or_deleted),
     FilterListEntry("journey_v2__email_verified", None, email_verified),
     FilterListEntry("journey_v2__user_form_completed", None, user_form_completed),
+    FilterListEntry(
+        "signup__invalid_german_level",
+        "Form-complete learners ineligible for onboarding due to German level (A0, not onboarded, no appointment)",
+        learners_ineligible_for_onboarding,
+    ),
     FilterListEntry("journey_v2__booked_onboarding_call", None, booked_onboarding_call),
     FilterListEntry("journey_v2__self_onboarding_started", None, self_onboarding_started_no_booked_call),
     FilterListEntry("journey_v2__onboarding_incomplete", None, onboarding_incomplete),
