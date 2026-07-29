@@ -2,7 +2,6 @@ import inspect
 from dataclasses import dataclass
 from typing import List
 
-from management.analytics.queries import learners_ineligible_for_onboarding
 from management.api.user_advanced_filter import (
     EXTRA__fh_aachen_learners_scoring,
     EXTRA__fh_aachen_users,
@@ -78,6 +77,7 @@ from management.api.user_journey_filters import (
     user_created,
     user_deleted,
     user_form_completed,
+    user_form_completed_awaiting_onboarding,
     user_searching,
     users_with_duplicate_automatic_emails_29_01_2026,
     volunteers_with_completed_match_no_ongoing,
@@ -85,6 +85,20 @@ from management.api.user_journey_filters import (
 from management.models.dynamic_user_list import DynamicUserList
 
 GITHUB_API_SOURCE_ROOT = "https://github.com/a-little-world/little-world-core/blob/main/back/management/api"
+
+
+def _analytics_queryset(attr: str):
+    """Lazy wrapper to avoid circular import with ``management.analytics.queries``."""
+
+    def fn(qs=None):
+        from management.analytics import queries as aq
+        from management.models.user import User
+
+        return getattr(aq, attr)(User.objects.all() if qs is None else qs)
+
+    fn.__name__ = attr
+    fn.__qualname__ = attr
+    return fn
 
 
 def get_queryset_source_reference(queryset: callable) -> dict:
@@ -210,9 +224,50 @@ USER_JOURNEY_FILTER_LISTS = [
     FilterListEntry("journey_v2__email_verified", None, email_verified),
     FilterListEntry("journey_v2__user_form_completed", None, user_form_completed),
     FilterListEntry(
+        "signup__form_completed_awaiting_onboarding",
+        "Form completed, awaiting onboarding (includes A0 German learners)",
+        user_form_completed_awaiting_onboarding,
+    ),
+    # Signup funnel stage reaches (lazy — avoids circular import with analytics.queries)
+    FilterListEntry(
+        "signup__stage_active_adjusted",
+        "Active registered (not deleted; may be unverified)",
+        _analytics_queryset("users_active_adjusted"),
+    ),
+    FilterListEntry(
+        "signup__stage_email_verified", "Email verified (stage reach)", _analytics_queryset("users_who_verified_email")
+    ),
+    FilterListEntry(
+        "signup__stage_form_completed", "Form completed (stage reach)", _analytics_queryset("users_who_completed_form")
+    ),
+    FilterListEntry(
+        "signup__stage_eligible_for_onboarding",
+        "Eligible for onboarding (form complete, not ineligible)",
+        _analytics_queryset("users_eligible_for_onboarding"),
+    ),
+    FilterListEntry(
+        "signup__stage_onboarding_started",
+        "Onboarding started (stage reach)",
+        _analytics_queryset("users_who_started_onboarding"),
+    ),
+    FilterListEntry(
+        "signup__stage_onboarded", "Onboarded (stage reach)", _analytics_queryset("users_who_are_onboarded")
+    ),
+    # Ineligibility reason subsets
+    FilterListEntry(
+        "signup__ineligible_a0_german",
+        "Form-complete learners ineligible due to A0 German",
+        _analytics_queryset("learners_ineligible_for_onboarding_due_to_a0_german"),
+    ),
+    FilterListEntry(
+        "signup__ineligible_outside_germany",
+        "Form-complete learners ineligible due to residence outside Germany",
+        _analytics_queryset("learners_ineligible_for_onboarding_due_to_residence_outside_germany"),
+    ),
+    FilterListEntry(
         "signup__invalid_german_level",
-        "Form-complete learners ineligible for onboarding due to German level (A0, not onboarded, no appointment)",
-        learners_ineligible_for_onboarding,
+        "Union of active onboarding-ineligibility reasons (A0 German + outside Germany)",
+        _analytics_queryset("learners_ineligible_for_onboarding"),
     ),
     FilterListEntry("journey_v2__booked_onboarding_call", None, booked_onboarding_call),
     FilterListEntry("journey_v2__self_onboarding_started", None, self_onboarding_started_no_booked_call),

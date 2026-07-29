@@ -2,7 +2,9 @@ from django.test import SimpleTestCase
 
 from management.analytics.catalog import SIGNUP_FUNNEL_CATALOG
 from management.analytics.funnels import (
+    FUNNEL_ALLOWED_ROLES,
     SIGNUP_FUNNEL,
+    FunnelMode,
     assert_funnel_steps_in_catalog,
     funnel_steps_with_disallowed_roles,
 )
@@ -13,42 +15,46 @@ class SignupFunnelAnalyticsStructureTests(SimpleTestCase):
     def test_every_funnel_step_is_in_catalog(self):
         assert_funnel_steps_in_catalog(SIGNUP_FUNNEL)
 
+    def test_funnel_is_stage_mode(self):
+        self.assertEqual(SIGNUP_FUNNEL.mode, FunnelMode.STAGE)
+
     def test_funnel_list_ids_order(self):
         self.assertEqual(
             SIGNUP_FUNNEL.list_ids(),
             [
                 "all",
-                "journey_v2__never_active_or_deleted",
-                "journey_v2__email_verified",
-                "journey_v2__user_form_completed",
-                "signup__invalid_german_level",
-                "journey_v2__booked_onboarding_call",
-                "journey_v2__self_onboarding_started",
-                "journey_v2__no_show",
+                "signup__stage_active_adjusted",
+                "signup__stage_email_verified",
+                "signup__stage_form_completed",
+                "signup__stage_eligible_for_onboarding",
+                "signup__stage_onboarding_started",
+                "signup__stage_onboarded",
             ],
         )
 
-    def test_german_step_is_dropout_not_segment(self):
-        entry = SIGNUP_FUNNEL_CATALOG["signup__invalid_german_level"]
-        self.assertEqual(entry.role, CatalogRole.DROPOUT)
-
-    def test_global_german_segment_still_in_catalog_but_not_a_funnel_step(self):
-        entry = SIGNUP_FUNNEL_CATALOG["journey_v2__too_low_german_level"]
-        self.assertEqual(entry.role, CatalogRole.SEGMENT)
-        self.assertNotIn("journey_v2__too_low_german_level", SIGNUP_FUNNEL.list_ids())
-        self.assertNotIn("signup__blocked_german_level", SIGNUP_FUNNEL.list_ids())
-
-    def test_no_show_is_dropout(self):
-        entry = SIGNUP_FUNNEL_CATALOG["journey_v2__no_show"]
-        self.assertEqual(entry.role, CatalogRole.DROPOUT)
-        self.assertIn("no-show", entry.description.lower())
-
-    def test_no_segment_steps_in_funnel(self):
-        """Segments must not appear as funnel subtract steps."""
+    def test_funnel_allows_only_baseline_and_stage(self):
+        self.assertEqual(
+            FUNNEL_ALLOWED_ROLES,
+            frozenset({CatalogRole.BASELINE, CatalogRole.STAGE}),
+        )
         self.assertEqual(funnel_steps_with_disallowed_roles(SIGNUP_FUNNEL), [])
 
-    def test_display_meta_includes_merge_key_and_new_german_step(self):
+    def test_ineligibility_subsets_in_catalog_not_in_funnel(self):
+        for list_id in (
+            "signup__ineligible_a0_german",
+            "signup__ineligible_outside_germany",
+            "signup__invalid_german_level",
+        ):
+            self.assertIn(list_id, SIGNUP_FUNNEL_CATALOG)
+            self.assertEqual(SIGNUP_FUNNEL_CATALOG[list_id].role, CatalogRole.DROPOUT)
+            self.assertNotIn(list_id, SIGNUP_FUNNEL.list_ids())
+
+    def test_eligible_stage_is_stage_role(self):
+        entry = SIGNUP_FUNNEL_CATALOG["signup__stage_eligible_for_onboarding"]
+        self.assertEqual(entry.role, CatalogRole.STAGE)
+
+    def test_display_meta_matches_stage_labels(self):
         meta = SIGNUP_FUNNEL.display_meta()
-        self.assertEqual(meta["Onboarding started"]["label"], "Onboarding started")
-        self.assertEqual(meta["signup__invalid_german_level"]["label"], "Language-eligible (B1+ German)")
-        self.assertEqual(meta["journey_v2__no_show"]["label"], "Onboarded users")
+        self.assertEqual(meta["signup__stage_form_completed"]["label"], "Form completed")
+        self.assertEqual(meta["signup__stage_eligible_for_onboarding"]["label"], "Eligible for onboarding")
+        self.assertEqual(meta["signup__stage_onboarded"]["label"], "Onboarded")

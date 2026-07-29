@@ -1,21 +1,28 @@
-"""Server-owned signup funnel shape (display vs subtract).
+"""Server-owned signup funnel shape.
 
-Chart bars still use dropout-style subtraction on the frontend for now.
-``display_label`` is what the bar represents after subtraction — not the
-membership query name (e.g. ``no_show`` → \"Onboarded users\").
+This funnel uses **stage semantics**: each bar is the membership count of that
+stage (users who reached it). Labels match queries. No arithmetic subtraction.
+
+Ineligibility reason subsets live in the catalog for drill-down / future
+composition; they are not funnel steps.
 """
 
 from dataclasses import dataclass
+from enum import StrEnum
 
 from management.analytics.catalog import SIGNUP_FUNNEL_CATALOG
 from management.analytics.roles import CatalogRole
 
-# Roles allowed as funnel subtract / baseline steps.
-# SEGMENT is intentionally excluded — segments belong in CohortSpec only.
+
+class FunnelMode(StrEnum):
+    STAGE = "stage"  # bar = membership count (nested reaches)
+    DROPOUT = "dropout"  # bar = remaining after subtracting membership (legacy)
+
+
+# Stage funnel: only baseline + stage. Dropouts/segments belong in catalog only.
 FUNNEL_ALLOWED_ROLES = frozenset(
     {
         CatalogRole.BASELINE,
-        CatalogRole.DROPOUT,
         CatalogRole.STAGE,
     }
 )
@@ -40,6 +47,7 @@ class FunnelStep:
 class SignupFunnelDefinition:
     id: str
     title: str
+    mode: FunnelMode
     steps: tuple[FunnelStep, ...]
     merge_groups: tuple[FunnelMergeGroup, ...] = ()
 
@@ -65,72 +73,45 @@ class SignupFunnelDefinition:
 SIGNUP_FUNNEL = SignupFunnelDefinition(
     id="user-signup-funnel",
     title="User Signup Funnel",
+    mode=FunnelMode.STAGE,
     steps=(
         FunnelStep(
             list_id="all",
             display_label="Total registered users",
-            description=(
-                "Signup-date cohort baseline (100%). "
-                "⚠ Snapshot semantics: users classified by current state, not state at signup date. "
-                "See migration plan commit 4 for event-based transitions."
-            ),
+            description="Signup-date cohort baseline (100%). Current-state snapshot.",
         ),
         FunnelStep(
-            list_id="journey_v2__never_active_or_deleted",
-            display_label="Registered users (adjusted)",
-            description="Remaining after removing deactivated, deleted, and never-verified signups.",
+            list_id="signup__stage_active_adjusted",
+            display_label="Active registered users",
+            description="Active accounts that are not deleted (may still be unverified).",
         ),
         FunnelStep(
-            list_id="journey_v2__email_verified",
-            display_label="Email verified (form incomplete)",
-            description="Remaining after removing users stuck at verified-email with form still unfilled.",
+            list_id="signup__stage_email_verified",
+            display_label="Email verified",
+            description="Active, non-deleted users who verified their email.",
         ),
         FunnelStep(
-            list_id="journey_v2__user_form_completed",
+            list_id="signup__stage_form_completed",
             display_label="Form completed",
+            description="Users who completed the registration form (includes A0 / outside-DE).",
+        ),
+        FunnelStep(
+            list_id="signup__stage_eligible_for_onboarding",
+            display_label="Eligible for onboarding",
             description=(
-                "Remaining after removing users who completed the form but have not yet started "
-                "onboarding. Note: this query already excludes A0 German learners (they appear in "
-                "the next step instead)."
+                "Form-complete users not blocked by an active ineligibility reason "
+                "(A0 German or residence outside Germany, unless force_match_eligible=True)."
             ),
         ),
         FunnelStep(
-            list_id="signup__invalid_german_level",
-            display_label="Language-eligible (B1+ German)",
-            description=(
-                "Remaining after removing form-complete learners ineligible for onboarding "
-                "(A0 German, not onboarded, no appointment). "
-                "True partition of form-complete users — not the global A0 segment."
-            ),
-        ),
-        FunnelStep(
-            list_id="journey_v2__booked_onboarding_call",
-            display_label="Booked call",
-            description="Bucket membership: future onboarding call booked (merged into Onboarding started).",
-        ),
-        FunnelStep(
-            list_id="journey_v2__self_onboarding_started",
-            display_label="Self-onboarding started",
-            description="Bucket membership: self-onboarding started (merged into Onboarding started).",
-        ),
-        FunnelStep(
-            list_id="journey_v2__no_show",
-            display_label="Onboarded users",
-            description=(
-                "Remaining after subtracting no-shows (users with a past appointment who never "
-                "onboarded). The membership query is no-shows; the bar shows who is onboarded."
-            ),
-        ),
-    ),
-    merge_groups=(
-        FunnelMergeGroup(
-            list_ids=(
-                "journey_v2__booked_onboarding_call",
-                "journey_v2__self_onboarding_started",
-            ),
-            merge_key="Onboarding started",
+            list_id="signup__stage_onboarding_started",
             display_label="Onboarding started",
-            description="Booked call + self-onboarding combined for one funnel step.",
+            description="Users who booked a call, started self-onboarding, or finished onboarding.",
+        ),
+        FunnelStep(
+            list_id="signup__stage_onboarded",
+            display_label="Onboarded",
+            description="Users who completed onboarding.",
         ),
     ),
 )
@@ -145,10 +126,7 @@ def assert_funnel_steps_in_catalog(funnel: SignupFunnelDefinition = SIGNUP_FUNNE
 def funnel_steps_with_disallowed_roles(
     funnel: SignupFunnelDefinition = SIGNUP_FUNNEL,
 ) -> list[str]:
-    """Return list_ids whose catalog role is not allowed as a funnel step.
-
-    Segments must never appear here — they belong in CohortSpec only.
-    """
+    """Return list_ids whose catalog role is not allowed as a funnel step."""
     bad: list[str] = []
     for list_id in funnel.list_ids():
         entry = SIGNUP_FUNNEL_CATALOG[list_id]
