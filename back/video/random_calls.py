@@ -605,18 +605,10 @@ class RandomCallMatchHistorySerializer(serializers.Serializer):
             current_user_requested = instance.u2_matching_requested
             partner_requested = instance.u1_matching_requested
 
-        # Get session information
-        from video.models import LivekitSession
-
-        session = (
-            LivekitSession.objects.filter(
-                Q(u1=instance.u1, u2=instance.u2) | Q(u1=instance.u2, u2=instance.u1),
-                both_have_been_active=True,
-                random_call_session=True,
-            )
-            .order_by("-created_at")
-            .first()
-        )
+        # Session data is batch-loaded in the view to avoid N+1 queries.
+        session_by_pair = self.context.get("session_by_pair", {})
+        pair_key = (min(instance.u1_id, instance.u2_id), max(instance.u1_id, instance.u2_id))
+        session = session_by_pair.get(pair_key)
 
         # Calculate duration if session exists
         duration = None
@@ -772,12 +764,42 @@ def get_user_random_call_history(request):
 
     unique_matches = {}
     for match in matches:
-        user_pair = (min(match.u1.id, match.u2.id), max(match.u1.id, match.u2.id))
+        user_pair = (min(match.u1_id, match.u2_id), max(match.u1_id, match.u2_id))
         if user_pair not in unique_matches:
             unique_matches[user_pair] = match
 
+    unique_match_list = list(unique_matches.values())
+    pair_keys = set(unique_matches.keys())
+
+    session_by_pair = {}
+    if pair_keys:
+        # Exact pair filter avoids the over-broad u1_id__in ∩ u2_id__in cartesian result
+        # (which would also fetch sessions between partners who never matched with the user).
+        pair_filter = Q()
+        for left_id, right_id in pair_keys:
+            pair_filter |= Q(u1_id=left_id, u2_id=right_id) | Q(u1_id=right_id, u2_id=left_id)
+
+        sessions = (
+            LivekitSession.objects.filter(
+                pair_filter,
+                both_have_been_active=True,
+                random_call_session=True,
+            )
+            .only("u1_id", "u2_id", "created_at", "end_time")
+            .order_by("-created_at")
+            .iterator(chunk_size=100)
+        )
+        for session in sessions:
+            pair_key = (min(session.u1_id, session.u2_id), max(session.u1_id, session.u2_id))
+            if pair_key in pair_keys and pair_key not in session_by_pair:
+                session_by_pair[pair_key] = session
+                if len(session_by_pair) == len(pair_keys):
+                    break
+
     serializer = RandomCallMatchHistorySerializer(
-        list(unique_matches.values()), many=True, context={"request": request}
+        unique_match_list,
+        many=True,
+        context={"request": request, "session_by_pair": session_by_pair},
     )
     return Response(serializer.data)
 
