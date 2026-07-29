@@ -64,9 +64,13 @@ def email_verified(qs=User.objects.all()):
     )
 
 
-def user_form_completed(qs=User.objects.all()):
+def user_form_completed_excluding_a0_german(qs=User.objects.all()):
     """
-    (Sign-Up) User has filled form, but still has to have a prematching call
+    (Sign-Up) User has filled form and is awaiting onboarding, excluding A0 German learners.
+
+    A0 learners are excluded because other journey lists handle them separately.
+    For signup-funnel analytics that need all form-complete users, use
+    ``user_form_completed_awaiting_onboarding`` instead.
     """
     return qs.filter(
         is_active=True,
@@ -80,6 +84,25 @@ def user_form_completed(qs=User.objects.all()):
             {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
         ],
     )
+
+
+def user_form_completed_awaiting_onboarding(qs=User.objects.all()):
+    """
+    (Sign-Up) User has filled form and is awaiting onboarding — includes all users
+    (learners and volunteers), including A0 German learners.
+    """
+    return qs.filter(
+        is_active=True,
+        state__user_form_state=State.UserFormStateChoices.FILLED,
+        state__email_authenticated=True,
+        state__unresponsive=False,
+        state__is_onboarded=False,
+        prematchingappointment__isnull=True,
+    )
+
+
+# Backward-compatible alias — existing list IDs and callers keep the same behaviour.
+user_form_completed = user_form_completed_excluding_a0_german
 
 
 def never_active_or_deleted(qs=User.objects.all()):
