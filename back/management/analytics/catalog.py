@@ -1,5 +1,5 @@
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 from django.db.models import QuerySet
 
@@ -37,7 +37,7 @@ SIGNUP_FUNNEL_CATALOG: dict[str, CatalogEntry] = {
         role=CatalogRole.STAGE,
         queryset=q.users_active_adjusted,
         description="Active accounts that are not deleted (may still be unverified).",
-        display_name="Active registered users",
+        display_name="Adjusted registered users",
     ),
     "signup__stage_email_verified": CatalogEntry(
         list_id="signup__stage_email_verified",
@@ -64,7 +64,7 @@ SIGNUP_FUNNEL_CATALOG: dict[str, CatalogEntry] = {
         list_id="signup__stage_onboarding_started",
         role=CatalogRole.STAGE,
         queryset=q.users_who_started_onboarding,
-        description="Users who booked a call, started self-onboarding, or are already onboarded.",
+        description="Users who booked a call, started self-onboarding (includes already onboarded).",
         display_name="Onboarding started",
     ),
     "signup__stage_onboarded": CatalogEntry(
