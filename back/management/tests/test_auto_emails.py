@@ -156,8 +156,11 @@ class TestAutomaticEmails_m12_m13_m14(TestCase):
         with freeze_time(dj_timezone.now() - timedelta(days=15)):
             self.valid_user_m14 = create_test_user(20002, None, "Test123!", "email-test-valid-025@test.de")
 
-        with freeze_time(dj_timezone.now() - timedelta(days=4)):
+        # Too recent for m012 (< 2 days) — unconfirmed is fine now, age is what excludes it
+        with freeze_time(dj_timezone.now() - timedelta(days=1)):
             self.invalid_user_m12 = create_test_user(20003, None, "Test123!", "email-test-invalid-023@test.de")
+
+        with freeze_time(dj_timezone.now() - timedelta(days=4)):
             self.invalid_user_m13 = create_test_user(20004, None, "Test123!", "email-test-invalid-024@test.de")
             self.invalid_user_m14 = create_test_user(20005, None, "Test123!", "email-test-invalid-025@test.de")
 
@@ -177,6 +180,7 @@ class TestAutomaticEmails_m12_m13_m14(TestCase):
         confirm_all_matches_and_set_reminder_status(self.valid_user_m13, True, True, False, False)
         confirm_all_matches_and_set_reminder_status(self.valid_user_m14, True, True, True, False)
 
+        # Unconfirmed matches are eligible; this one is only invalid because it's too recent
         confirm_all_matches_and_set_reminder_status(self.invalid_user_m12, False, False, False, False)
         confirm_all_matches_and_set_reminder_status(self.invalid_user_m13, True, True, False, False)
         confirm_all_matches_and_set_reminder_status(self.invalid_user_m14, True, False, False, True)
