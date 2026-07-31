@@ -5,7 +5,6 @@ from typing import List
 from management.api.user_advanced_filter import (
     EXTRA__fh_aachen_learners_scoring,
     EXTRA__fh_aachen_users,
-    EXTRA__learners_no_match_scoring,
     EXTRA__learners_with_activity_in_last3weeks,
     EXTRA__lingoda_learners_scoring,
     EXTRA__lingoda_users,
@@ -348,7 +347,6 @@ USER_JOURNEY_FILTER_LISTS = [
         "EXTRA__fh_aachen_learners_scoring", "FH Aachen learners for scoring", EXTRA__fh_aachen_learners_scoring
     ),
     FilterListEntry("EXTRA__refugee_learners_scoring", "Refugee learners for scoring", EXTRA__refugee_learners_scoring),
-    FilterListEntry("EXTRA__learners_no_match_scoring", None, EXTRA__learners_no_match_scoring),
     FilterListEntry(
         "EXTRA__learners_with_activity_in_last3weeks",
         "Learners with activity in the last 3 weeks",

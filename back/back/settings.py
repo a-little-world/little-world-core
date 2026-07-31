@@ -513,7 +513,7 @@ elif EXTERNAL_S3 or ((not DOCS_BUILD and (IS_PROD or IS_STAGE)) and (not USE_WHI
 
     AWS_STATIC_ROOT = "static"
     # STATIC_ROOT = os.path.join(BASE_DIR, 'static/')
-    STATIC_URL = "{}/{}/".format(AWS_S3_CUSTOM_DOMAIN, AWS_STATIC_ROOT)
+    STATIC_URL = f"{AWS_S3_CUSTOM_DOMAIN}/{AWS_STATIC_ROOT}/"
     print("AWS URL", STATIC_URL)
 
     # STATIC_ROOT = os.path.join(BASE_DIR, 'static')

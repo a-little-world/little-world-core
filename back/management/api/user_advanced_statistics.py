@@ -1440,7 +1440,8 @@ def kpi_dashboard_statistics_searching_users(request):
 
     from management.api.match_journey_filters import matching_proposals
     from management.api.user_journey_filters import (
-        first_search_v2,
+        first_search_learners,
+        first_search_volunteers,
         get_user_involved,
         user_searching_again,
     )
@@ -1451,13 +1452,10 @@ def kpi_dashboard_statistics_searching_users(request):
             id__in=request.user.managed_users_queryset(active_only=False).values("id")
         )
 
+    first_search_volunteers = first_search_volunteers(pre_filtered_users).count()
+    first_search_learners = first_search_learners(pre_filtered_users).count()
+
     users_with_proposals = get_user_involved(matching_proposals(), pre_filtered_users)
-
-    fs1 = first_search_v2(pre_filtered_users, require_min_lang_level=True).exclude(id__in=users_with_proposals)
-
-    first_search_volunteers = fs1.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER).count()
-    first_search_learners = fs1.filter(profile__user_type=Profile.TypeChoices.LEARNER).count()
-
     searching_again = user_searching_again(pre_filtered_users).exclude(id__in=users_with_proposals)
     searching_again_volunteers = searching_again.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER).count()
     searching_again_learners = searching_again.filter(profile__user_type=Profile.TypeChoices.LEARNER).count()
