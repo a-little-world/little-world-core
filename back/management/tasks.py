@@ -748,7 +748,8 @@ def automatic_emails_u023_u024_u025():
 @shared_task
 def automatic_emails_m012_m013_m014():
     """
-    Confirmed match between users but no interaction yet (no messages or video calls)
+    Active match between users but no interaction yet (no messages or video calls).
+    Includes matches not yet confirmed by both users (e.g. after proposal accept).
     """
     from django.conf import settings
 
@@ -768,7 +769,6 @@ def automatic_emails_m012_m013_m014():
     for template, (days, two_days_reminder, seven_days_reminder, fourteen_days_reminder) in reminder.items():
         matches = Match.objects.filter(
             active=True,
-            confirmed=True,
             match_type=MatchType.STANDARD,
             total_messages_counter=0,
             total_mutal_video_calls_counter=0,
@@ -859,7 +859,7 @@ def automatic_emails_m023():
 
         active_match = (
             Match.get_match(last_message.sender, last_message.recipient)
-            .filter(confirmed=True, match_type=MatchType.STANDARD)
+            .filter(match_type=MatchType.STANDARD)
             .order_by("-created_at")
             .first()
         )
@@ -880,7 +880,7 @@ def automatic_emails_m023():
 def automatic_emails_m024_m025():
     """
     Notify users when one person hasn't responded to the first chat message for 7 days.
-    Only applies at the start of a conversation — once both users have sent a message, this no longer triggers.
+    Only applies at the start of a conversation - once both users have sent a message, this no longer triggers.
     """
     from chat.models import Chat
     from django.conf import settings
@@ -933,7 +933,7 @@ def automatic_emails_m024_m025():
 
         active_match = (
             Match.get_match(initiator, non_responder)
-            .filter(confirmed=True, match_type=MatchType.STANDARD)
+            .filter(match_type=MatchType.STANDARD)
             .order_by("-created_at")
             .first()
         )
@@ -973,7 +973,6 @@ def automatic_emails_m031_m032_m033_m042():
     # 1 - automatic-emails-m031
     matches_m031 = Match.objects.filter(
         active=True,
-        confirmed=True,
         match_type=MatchType.STANDARD,
         first_interaction_at__isnull=False,
         first_interaction_at__lte=dj_timezone.now() - timedelta(days=7),
@@ -1002,7 +1001,6 @@ def automatic_emails_m031_m032_m033_m042():
     # 2 - automatic-emails-m032
     matches_m032 = Match.objects.filter(
         active=True,
-        confirmed=True,
         match_type=MatchType.STANDARD,
         first_interaction_at__isnull=False,
         first_interaction_at__lte=dj_timezone.now() - timedelta(days=14),
@@ -1034,7 +1032,6 @@ def automatic_emails_m031_m032_m033_m042():
     # 3 - automatic-emails-m033
     matches_m033 = Match.objects.filter(
         active=True,
-        confirmed=True,
         match_type=MatchType.STANDARD,
         first_interaction_at__isnull=False,
         first_interaction_at__lte=dj_timezone.now() - timedelta(days=21),
@@ -1066,7 +1063,6 @@ def automatic_emails_m031_m032_m033_m042():
     # 4 - automatic-emails-m042
     matches_m042 = Match.objects.filter(
         active=True,
-        confirmed=True,
         match_type=MatchType.STANDARD,
         first_interaction_at__isnull=False,
         first_interaction_at__lte=dj_timezone.now() - timedelta(days=30),
@@ -2023,7 +2019,6 @@ def automatic_emails_fm021_fm022__ghosted_matches():
     # Matches that started interacting in the last 3 weeks & haven't had a mutual video call
     matches_in_ko_with_single_party_contact = Match.objects.filter(
         active=True,
-        confirmed=True,
         match_type=MatchType.STANDARD,
         completed=False,  # dont even consider removing completed matches!
         completed_off_plattform=False,

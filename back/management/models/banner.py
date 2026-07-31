@@ -1,4 +1,3 @@
-from colorfield.fields import ColorField
 from django.db import models
 from django.db.models import Q
 from django.utils.translation import gettext_lazy as _
@@ -11,13 +10,17 @@ from management.models import custom_banner_event_filters
 class Banner(models.Model):
     name = models.CharField(max_length=255, help_text=_("Internal name for the banner"))
 
-    active = models.BooleanField(default=True, help_text=_("Whether the banner is currently active"))
+    active = models.BooleanField(default=False, help_text=_("Whether the banner is currently active"))
 
     title = models.CharField(max_length=255, blank=True, help_text=_("Heading text"))
 
     text = models.TextField(blank=True, help_text=_("Main text content"))
 
-    text_color = ColorField(default="#000000")
+    text_color = models.CharField(
+        max_length=255,
+        default="#000000",
+        help_text=_("Any CSS color value, e.g. #000000, rgba(0,0,0,0.5), red, or currentColor."),
+    )
 
     background = models.CharField(
         max_length=255,
@@ -31,12 +34,26 @@ class Banner(models.Model):
 
     cta_1_text = models.CharField(max_length=100, blank=True, help_text=_("Cta 1 text"))
 
+    cta_1_color = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text=_("Cta 1 color — any CSS color (e.g. #000000, rgba(0,0,0,0.5), red)."),
+    )
+
     cta_2_url = models.CharField(max_length=255, blank=True, help_text=_("Cta 2 URL"))
 
     cta_2_text = models.CharField(max_length=100, blank=True, help_text=_("Cta 2 text"))
 
+    cta_2_color = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text=_("Cta 2 color — any CSS color (e.g. #000000, rgba(0,0,0,0.5), red)."),
+    )
+
     image = models.ImageField(
-        upload_to=PathRename("banner_pics/"),
+        upload_to=PathRename("banner_pics/", unique=True),
         blank=True,
         help_text=_(
             "Upload landscape-oriented banner images with a 16:9 aspect ratio, minimum resolution of 1920 x 1080 pixels, and maximum file size of 2 MB. Use high-quality JPEG or PNG files, ensuring the image is sharp, clear, and allows for text overlay. Keep critical content centered to accommodate potential cropping across different devices."
@@ -116,8 +133,10 @@ class BannerSerializer(serializers.ModelSerializer):
             "background",
             "cta_1_url",
             "cta_1_text",
+            "cta_1_color",
             "cta_2_url",
             "cta_2_text",
+            "cta_2_color",
             "type",
             "image",
             "image_alt",
