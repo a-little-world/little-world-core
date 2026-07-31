@@ -1099,7 +1099,14 @@ SKIP_EMAIL_VERIFICATION_COMPANIES = [] + EXTRA_SKIP_EMAIL_VERIFICATION_COMPANIES
 
 # Match Priority Settings
 EXTRA_MATCH_PRIORITY_COMPANIES = string_list_env("DJ_EXTRA_MATCH_PRIORITY_COMPANIES", ["odoo-eip-fms"])
-MATCH_PRIORITY_COMPANIES = ["accenture", "generali", "lingoda", "fh-aachen", "dl-ukr"] + EXTRA_MATCH_PRIORITY_COMPANIES
+MATCH_PRIORITY_COMPANIES = [
+    "accenture",
+    "generali",
+    "lingoda",
+    "fh-aachen",
+    "dl-ukr",
+    "clubdialog",
+] + EXTRA_MATCH_PRIORITY_COMPANIES
 
 # Scoring Related Settings
 SCORES_DISABLED_TIME_OVERLAP = ["fh-aachen"]
