@@ -266,6 +266,26 @@ def first_search_v1(qs=User.objects.all()):
     )
 
 
+def exclude_match_ineligible_learners(qs=User.objects.all()):
+    """
+    Exclude learners blocked from matching by A0 German or residence outside Germany.
+
+    ``force_match_eligible=True`` learners bypass both checks.
+    """
+    return qs.exclude(
+        Q(profile__user_type=Profile.TypeChoices.LEARNER)
+        & Q(state__force_match_eligible=False)
+        & (
+            Q(
+                profile__lang_skill__contains=[
+                    {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
+                ]
+            )
+            | ~Q(profile__country_of_residence=Profile.CountryChoices.GERMANY)
+        )
+    )
+
+
 def first_search_v2(qs=User.objects.all(), require_min_lang_level=True):
     """
     (Sign-Up) User is doing first search i.e.: has no 'non-support' match
@@ -297,11 +317,7 @@ def first_search_v2(qs=User.objects.all(), require_min_lang_level=True):
     )
 
     if require_min_lang_level:
-        qs = qs.exclude(
-            profile__lang_skill__contains=[
-                {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
-            ],
-        )
+        qs = exclude_match_ineligible_learners(qs)
     return qs
 
 
@@ -309,16 +325,14 @@ def first_search_volunteers(qs=User.objects.all()):
     """
     (Sign-Up) VOLUNTEERS User is doing first search i.e.: has no 'non-support' match
     """
-    fs = first_search_v1(qs)
-    return fs.filter(profile__user_type=Profile.TypeChoices.VOLUNTEER, is_active=True)
+    return first_search_v2(qs).filter(profile__user_type=Profile.TypeChoices.VOLUNTEER)
 
 
 def first_search_learners(qs=User.objects.all()):
     """
     (Sign-Up) LEARNERS User is doing first search i.e.: has no 'non-support' match
     """
-    fs = first_search_v1(qs)
-    return fs.filter(profile__user_type=Profile.TypeChoices.LEARNER, is_active=True)
+    return first_search_v2(qs).filter(profile__user_type=Profile.TypeChoices.LEARNER)
 
 
 def user_searching(qs=User.objects.all()):
