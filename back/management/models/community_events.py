@@ -1,6 +1,7 @@
 from back.utils import get_options_serializer
 from django.db import models
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework import serializers
 from translations import get_translation
 
@@ -56,7 +57,11 @@ class CommunityEvent(models.Model):
             if filter_func and filter_func(user):
                 extra_events.append(event.id)
         extra_events_qs = cls.objects.filter(id__in=extra_events)
-        return non_filter_events | extra_events_qs
+        events = non_filter_events | extra_events_qs
+        return events.exclude(
+            frequency=cls.EventFrequencyChoices.ONCE,
+            end_time__lt=timezone.now(),
+        )
 
     @classmethod
     def get_all_active_events(cls, order_by="time"):

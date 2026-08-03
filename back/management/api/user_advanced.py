@@ -506,13 +506,13 @@ class UserFilter(filters.FilterSet):
 
     profile__target_group = filters.ChoiceFilter(
         field_name="profile__target_group",
-        choices=Profile.TargetGroupChoices2.choices,
+        choices=Profile.TARGET_GROUP_VOLUNTEER_CHOICES,
         help_text="Filter for target group",
     )
 
     profile__target_groups = filters.MultipleChoiceFilter(
         field_name="profile__target_groups",
-        choices=Profile.TargetGroupChoices2.choices,
+        choices=Profile.TARGET_GROUP_LEARNER_CHOICES,
         help_text="Filter for users based on target groups",
         method="filter_target_groups",
     )
