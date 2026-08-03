@@ -30,7 +30,7 @@ def base_lang_skill():
 
 
 @deconstructible
-class PathRename(object):
+class PathRename:
     def __init__(self, sub_path):
         self.path = sub_path
 
@@ -116,14 +116,22 @@ class Profile(models.Model):
         REFUGEE = "refugee", get_translation("profile.target_group.refugee")
         STUDENT = "student", get_translation("profile.target_group.student")
         WORKER = "worker", get_translation("profile.target_group.worker")
+        OTHER = "other", get_translation("profile.target_group.other")
+
+    TARGET_GROUP_VOLUNTEER_CHOICES = [choice for choice in TargetGroupChoices2.choices if choice[0] != "other"]
+
+    TARGET_GROUP_LEARNER_CHOICES = [
+        *TARGET_GROUP_VOLUNTEER_CHOICES,
+        (TargetGroupChoices2.OTHER.value, TargetGroupChoices2.OTHER.label),
+    ]
 
     target_group = models.CharField(
-        choices=TargetGroupChoices2.choices,
+        choices=TARGET_GROUP_VOLUNTEER_CHOICES,
         default=TargetGroupChoices2.ANY,
         max_length=255,
     )
 
-    target_groups = MultiSelectField(choices=TargetGroupChoices2.choices, max_choices=20, max_length=1000, blank=True)  # type: ignore
+    target_groups = MultiSelectField(choices=TARGET_GROUP_LEARNER_CHOICES, max_choices=20, max_length=1000, blank=True)  # type: ignore
 
     # DEPRICATED!!! replaced with 'partner_gender'
     class ParterSexChoice(models.TextChoices):
@@ -656,7 +664,7 @@ class Profile(models.Model):
 class ProfileSerializer(serializers.ModelSerializer):
     options = serializers.SerializerMethodField()
     interests = serializers.MultipleChoiceField(choices=Profile.InterestChoices.choices)
-    target_groups = serializers.MultipleChoiceField(choices=Profile.TargetGroupChoices2.choices)
+    target_groups = serializers.MultipleChoiceField(choices=Profile.TARGET_GROUP_LEARNER_CHOICES)
     image = serializers.ImageField(max_length=None, allow_empty_file=True, allow_null=True, required=False)
 
     def get_options(self, obj):
