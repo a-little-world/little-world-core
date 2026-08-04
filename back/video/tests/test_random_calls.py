@@ -676,7 +676,7 @@ class RandomCallsTests(TestCase):
         # Note: This assumes the user has admin permissions or we authenticate as admin
         # For testing purposes, we'll authenticate as the first user which should have access
         self.client.force_authenticate(user=users[0])
-        mgmt_response = self.client.get("/api/random_calls/lobby/default/management/overview")
+        mgmt_response = self.client.get("/api/random_calls/analytics/lobby/default/session")
 
         # If management API requires admin permissions, skip this test or use admin user
         if mgmt_response.status_code == 403:
@@ -691,10 +691,12 @@ class RandomCallsTests(TestCase):
         self.assertEqual(mgmt_data["lobby"]["total_users_count"], 7)
 
         # Verify statistics
-        self.assertEqual(mgmt_data["statistics"]["total_matches"], 3)
-        self.assertEqual(mgmt_data["statistics"]["pending_count"], 3, "All matches should be pending initially")
-        self.assertEqual(mgmt_data["statistics"]["accepted_count"], 0)
-        self.assertEqual(mgmt_data["statistics"]["rejected_count"], 0)
+        self.assertEqual(mgmt_data["proposal_statistics"]["total_matches"], 3)
+        self.assertEqual(
+            mgmt_data["proposal_statistics"]["pending_count"], 3, "All matches should be pending initially"
+        )
+        self.assertEqual(mgmt_data["proposal_statistics"]["accepted_count"], 0)
+        self.assertEqual(mgmt_data["proposal_statistics"]["rejected_count"], 0)
 
         # Verify active users count matches reality
         active_users = mgmt_data["active_users"]
@@ -770,7 +772,7 @@ class RandomCallsTests(TestCase):
 
         # Get management overview
         self.client.force_authenticate(user=users[0])
-        mgmt_response = self.client.get("/api/random_calls/lobby/default/management/overview")
+        mgmt_response = self.client.get("/api/random_calls/analytics/lobby/default/session")
 
         if mgmt_response.status_code == 403:
             self.skipTest("Management API requires admin permissions")
@@ -778,9 +780,9 @@ class RandomCallsTests(TestCase):
         mgmt_data = mgmt_response.data
 
         # Verify match categorization
-        self.assertEqual(mgmt_data["statistics"]["accepted_count"], 1, "Should have 1 accepted match")
-        self.assertEqual(mgmt_data["statistics"]["rejected_count"], 1, "Should have 1 rejected match")
-        self.assertEqual(mgmt_data["statistics"]["pending_count"], 1, "Should have 1 pending match")
+        self.assertEqual(mgmt_data["proposal_statistics"]["accepted_count"], 1, "Should have 1 accepted match")
+        self.assertEqual(mgmt_data["proposal_statistics"]["rejected_count"], 1, "Should have 1 rejected match")
+        self.assertEqual(mgmt_data["proposal_statistics"]["pending_count"], 1, "Should have 1 pending match")
 
         # Verify individual user states for accepted match
         self.client.force_authenticate(user=match1.u1)
@@ -824,7 +826,7 @@ class RandomCallsTests(TestCase):
 
         # Get management overview
         self.client.force_authenticate(user=users[0] if users[0] != match1.u1 else users[1])
-        mgmt_response = self.client.get("/api/random_calls/lobby/default/management/overview")
+        mgmt_response = self.client.get("/api/random_calls/analytics/lobby/default/session")
 
         if mgmt_response.status_code == 403:
             self.skipTest("Management API requires admin permissions")
@@ -833,7 +835,7 @@ class RandomCallsTests(TestCase):
 
         # Verify the match with exited user is marked as expired
         self.assertGreaterEqual(
-            mgmt_data["statistics"]["expired_count"], 1, "Should have at least 1 expired match after user exit"
+            mgmt_data["proposal_statistics"]["expired_count"], 1, "Should have at least 1 expired match after user exit"
         )
 
         # Verify active users count decreased
@@ -914,7 +916,7 @@ class RandomCallsTests(TestCase):
         # Use a user that's still active
         active_user = match1.u1  # From accepted match, should still be in lobby
         self.client.force_authenticate(user=active_user)
-        mgmt_response = self.client.get("/api/random_calls/lobby/default/management/overview")
+        mgmt_response = self.client.get("/api/random_calls/analytics/lobby/default/session")
 
         if mgmt_response.status_code == 403:
             self.skipTest("Management API requires admin permissions")
@@ -922,9 +924,9 @@ class RandomCallsTests(TestCase):
         mgmt_data = mgmt_response.data
 
         # Verify statistics reflect all actions
-        self.assertEqual(mgmt_data["statistics"]["total_matches"], 3)
-        self.assertEqual(mgmt_data["statistics"]["accepted_count"], 1, "Should have 1 accepted match")
-        self.assertEqual(mgmt_data["statistics"]["rejected_count"], 1, "Should have 1 rejected match")
+        self.assertEqual(mgmt_data["proposal_statistics"]["total_matches"], 3)
+        self.assertEqual(mgmt_data["proposal_statistics"]["accepted_count"], 1, "Should have 1 accepted match")
+        self.assertEqual(mgmt_data["proposal_statistics"]["rejected_count"], 1, "Should have 1 rejected match")
 
         # Verify active user count (7 initial - 2 exits = 5)
         self.assertEqual(mgmt_data["lobby"]["active_users_count"], 5)
@@ -1028,7 +1030,7 @@ class RandomCallsTests(TestCase):
         )
 
         self.client.force_authenticate(user=users[0])
-        response = self.client.get("/api/random_calls/lobby/default/management/overview")
+        response = self.client.get("/api/random_calls/analytics/lobby/default/session")
 
         if response.status_code == 403:
             self.skipTest("Management API requires admin permissions")
@@ -1073,12 +1075,12 @@ class RandomCallsTests(TestCase):
         RandomCallLobbyUser.objects.create(user=users[1], lobby=later_lobby, is_active=False)
 
         self.client.force_authenticate(user=users[0])
-        response = self.client.get(f"/api/random_calls/lobby/default/management/overview?lobby_uuid={later_lobby.uuid}")
+        response = self.client.get(f"/api/random_calls/analytics/lobby/default/session?lobby_uuid={later_lobby.uuid}")
 
         if response.status_code == 403:
             self.skipTest("Management API requires admin permissions")
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["lobby"]["total_users_count"], 2)
-        self.assertEqual(response.data["statistics"]["first_time_count"], 1)
-        self.assertEqual(response.data["statistics"]["returning_count"], 1)
+        self.assertEqual(response.data["snapshot"]["first_time_users"], 1)
+        self.assertEqual(response.data["snapshot"]["returning_users"], 1)
