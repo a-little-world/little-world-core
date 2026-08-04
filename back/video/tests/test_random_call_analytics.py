@@ -6,16 +6,33 @@ from django.test import TestCase
 from django.utils import timezone
 from management.models.profile import Profile
 from management.models.user import User
-from video.analytics.lobbies import annotate_lobby_metrics, filtered_lobby_queryset
+from video.analytics.display_time import parse_analytics_datetime_bound
+from video.analytics.instance_detail import build_lobby_instance_detail
+from video.analytics.lobbies import annotate_lobby_metrics, apply_lobby_ordering, filtered_lobby_queryset
 from video.analytics.queries import (
+    PROPOSAL_BUCKET_FIELDS,
+    build_completed_call_durations,
+    build_lobby_participants,
     classify_proposal_bucket,
     compute_user_attendance_breakdown,
-    count_proposal_buckets,
-    proposal_bucket_counts_sum_to_total,
     proposal_stale_threshold_for_lobby,
 )
-from video.analytics.snapshots import build_snapshots, lobby_display_day_date
-from video.models import RandomCallLobby, RandomCallLobbyUser, RandomCallMatching, RandomCallProposalUserStatus
+from video.analytics.snapshots import (
+    assert_sql_python_proposal_buckets_strict,
+    build_snapshots,
+    lobby_display_day_date,
+    lobby_instance_snapshot_to_dict,
+)
+from video.livekit_webhook import _matching_for_completed_random_call
+from video.lobby_resolution import InvalidLobbyUuid, resolve_lobby_instance
+from video.models import (
+    LivekitSession,
+    RandomCallLobby,
+    RandomCallLobbyUser,
+    RandomCallMatching,
+    RandomCallProposalUserStatus,
+)
+from video.random_calls import is_lobby_active
 
 BERLIN = ZoneInfo("Europe/Berlin")
 
@@ -39,11 +56,39 @@ class RandomCallAnalyticsTests(TestCase):
             end_time=end_time,
         )
 
-    def _assert_bucket_invariant(self, counts: dict[str, int]):
-        self.assertTrue(
-            proposal_bucket_counts_sum_to_total(counts),
-            f"Bucket sum mismatch: {counts}",
+    def _create_admin_user(self, suffix: str = "admin") -> User:
+        user = User.objects.create_user(
+            email=f"rc_admin_{suffix}@example.com",
+            password="Test123!",
+            first_name=f"Admin{suffix}",
+            last_name="Test",
+            is_staff=True,
         )
+        return user
+
+    def _create_livekit_session(self, **kwargs) -> LivekitSession:
+        created_at = kwargs.pop("created_at", None)
+        session = LivekitSession.objects.create(**kwargs)
+        if created_at is not None:
+            LivekitSession.objects.filter(pk=session.pk).update(created_at=created_at)
+            session.refresh_from_db()
+        return session
+
+    def _classify_all_buckets(self, proposals, lobby, *, active_lobby_user_ids=None, as_of=None):
+        stale = proposal_stale_threshold_for_lobby(lobby, as_of=as_of)
+        counts = {bucket: 0 for bucket in PROPOSAL_BUCKET_FIELDS}
+        for proposal in proposals:
+            bucket = classify_proposal_bucket(
+                proposal,
+                active_lobby_user_ids=active_lobby_user_ids,
+                proposal_stale_threshold=stale,
+            )
+            counts[bucket] += 1
+        counts["total"] = len(proposals)
+        return counts
+
+    def _assert_classifier_bucket_invariant(self, counts: dict[str, int]):
+        self.assertEqual(sum(counts[bucket] for bucket in PROPOSAL_BUCKET_FIELDS), counts["total"])
 
     def test_zero_attendance_lobby_included_with_zero_metrics(self):
         lobby = self._create_lobby(
@@ -60,7 +105,7 @@ class RandomCallAnalyticsTests(TestCase):
         self.assertEqual(snap.returning_users, 0)
         self.assertEqual(snap.proposals_total, 0)
         self.assertEqual(snap.completed_calls, 0)
-        self._assert_bucket_invariant(
+        self._assert_classifier_bucket_invariant(
             {
                 "accepted": snap.proposals_accepted,
                 "rejected": snap.proposals_rejected,
@@ -118,6 +163,26 @@ class RandomCallAnalyticsTests(TestCase):
         self.assertEqual(snap.proposals_pending, 0)
         self.assertEqual(snap.proposals_dangling, 0)
 
+        # Legacy orphan row (completed without accepted) buckets into SQL expired.
+        RandomCallMatching.objects.create(
+            lobby=lobby,
+            u1=learner,
+            u2=volunteer,
+            completed=True,
+            accepted=False,
+        )
+        annotated_after = annotate_lobby_metrics(RandomCallLobby.objects.filter(pk=lobby.pk)).get()
+        self.assertEqual(annotated_after.proposals_total, 4)
+        self.assertEqual(annotated_after.proposals_expired, 2)
+        self.assertEqual(annotated_after.completed_calls, 1)
+
+        snap_after = build_snapshots(annotate_lobby_metrics(RandomCallLobby.objects.filter(pk=lobby.pk)))[lobby.uuid]
+        self.assertEqual(snap_after.bucket_mismatch, 0)
+        assert_sql_python_proposal_buckets_strict(
+            annotate_lobby_metrics(RandomCallLobby.objects.filter(pk=lobby.pk)).get(),
+            open_buckets={"pending": snap_after.proposals_pending, "dangling": snap_after.proposals_dangling},
+        )
+
     def test_timeout_proposal_not_double_counted(self):
         """cleanup_if_not_accepted sets both expired and rejected — counts as expired only."""
         learner = self._create_user("timeout_learner")
@@ -136,10 +201,10 @@ class RandomCallAnalyticsTests(TestCase):
             u2_status=RandomCallProposalUserStatus.EXPIRED,
         )
 
-        counts = count_proposal_buckets([proposal], lobby=lobby)
+        counts = self._classify_all_buckets([proposal], lobby=lobby)
         self.assertEqual(counts["expired"], 1)
         self.assertEqual(counts["rejected"], 0)
-        self._assert_bucket_invariant(counts)
+        self._assert_classifier_bucket_invariant(counts)
 
         snap = build_snapshots(annotate_lobby_metrics(RandomCallLobby.objects.filter(pk=lobby.pk)))[lobby.uuid]
         self.assertEqual(snap.proposals_expired, 1)
@@ -162,10 +227,10 @@ class RandomCallAnalyticsTests(TestCase):
             u2_status=RandomCallProposalUserStatus.EXPIRED,
         )
 
-        counts = count_proposal_buckets([proposal], lobby=lobby)
+        counts = self._classify_all_buckets([proposal], lobby=lobby)
         self.assertEqual(counts["expired"], 1)
         self.assertEqual(counts["rejected"], 0)
-        self._assert_bucket_invariant(counts)
+        self._assert_classifier_bucket_invariant(counts)
 
     def test_exit_counts_as_expired_not_rejected(self):
         learner = self._create_user("exit_learner")
@@ -183,10 +248,10 @@ class RandomCallAnalyticsTests(TestCase):
             u2_status=RandomCallProposalUserStatus.PENDING,
         )
 
-        counts = count_proposal_buckets([proposal], lobby=lobby)
+        counts = self._classify_all_buckets([proposal], lobby=lobby)
         self.assertEqual(counts["expired"], 1)
         self.assertEqual(counts["rejected"], 0)
-        self._assert_bucket_invariant(counts)
+        self._assert_classifier_bucket_invariant(counts)
 
     def test_explicit_reject_counts_as_rejected(self):
         learner = self._create_user("reject_learner")
@@ -205,10 +270,10 @@ class RandomCallAnalyticsTests(TestCase):
             u2_status=RandomCallProposalUserStatus.PENDING,
         )
 
-        counts = count_proposal_buckets([proposal], lobby=lobby)
+        counts = self._classify_all_buckets([proposal], lobby=lobby)
         self.assertEqual(counts["rejected"], 1)
         self.assertEqual(counts["expired"], 0)
-        self._assert_bucket_invariant(counts)
+        self._assert_classifier_bucket_invariant(counts)
 
     def test_dangling_open_proposal(self):
         learner = self._create_user("dangling_learner")
@@ -233,9 +298,9 @@ class RandomCallAnalyticsTests(TestCase):
             "dangling",
         )
 
-        counts = count_proposal_buckets([proposal], lobby=lobby)
+        counts = self._classify_all_buckets([proposal], lobby=lobby)
         self.assertEqual(counts["dangling"], 1)
-        self._assert_bucket_invariant(counts)
+        self._assert_classifier_bucket_invariant(counts)
 
         snap = build_snapshots(annotate_lobby_metrics(RandomCallLobby.objects.filter(pk=lobby.pk)))[lobby.uuid]
         self.assertEqual(snap.proposals_dangling, 1)
@@ -293,7 +358,7 @@ class RandomCallAnalyticsTests(TestCase):
         with self.assertRaises(ValueError):
             build_snapshots(RandomCallLobby.objects.filter(pk=lobby.pk))
 
-    def test_lobby_session_snapshot_alignment(self):
+    def test_lobby_instance_snapshot_alignment(self):
         users = [self._create_user(f"overview_u{i}") for i in range(2)]
         earlier = self._create_lobby(
             name="default",
@@ -316,20 +381,139 @@ class RandomCallAnalyticsTests(TestCase):
         from rest_framework.test import APIClient
 
         client = APIClient()
-        client.force_authenticate(user=users[0])
-        response = client.get(f"/api/random_calls/analytics/lobby/default/session?lobby_uuid={later.uuid}")
-        if response.status_code == 403:
-            self.skipTest("Management API requires admin permissions")
+        client.force_authenticate(user=self._create_admin_user("alignment"))
+        response = client.get(f"/api/random_calls/analytics/lobby/default/instance?lobby_uuid={later.uuid}")
 
         self.assertEqual(response.status_code, 200)
-        session_snapshot = response.data["snapshot"]
-        self.assertEqual(session_snapshot["first_time_users"], snapshot.first_time_users)
-        self.assertEqual(session_snapshot["returning_users"], snapshot.returning_users)
-        self.assertEqual(session_snapshot["completed_calls"], snapshot.completed_calls)
-        self.assertEqual(session_snapshot["proposals_accepted"], snapshot.proposals_accepted)
-        self.assertEqual(session_snapshot["first_time_users"], 1)
-        self.assertEqual(session_snapshot["returning_users"], 1)
-        self.assertEqual(session_snapshot["completed_calls"], 1)
+        instance_snapshot = response.data["snapshot"]
+        self.assertEqual(instance_snapshot["first_time_users"], snapshot.first_time_users)
+        self.assertEqual(instance_snapshot["returning_users"], snapshot.returning_users)
+        self.assertEqual(instance_snapshot["completed_calls"], snapshot.completed_calls)
+        self.assertEqual(instance_snapshot["proposals_accepted"], snapshot.proposals_accepted)
+        self.assertEqual(instance_snapshot["first_time_users"], 1)
+        self.assertEqual(instance_snapshot["returning_users"], 1)
+        self.assertEqual(instance_snapshot["completed_calls"], 1)
+
+    def test_finished_lobby_list_and_detail_snapshots_match(self):
+        """Finished lobbies must not reclassify open proposals using inactive-user heuristics."""
+        learner = self._create_user("finished_learner")
+        volunteer = self._create_user("finished_volunteer")
+        lobby = self._create_lobby(
+            start_time=timezone.now() - timezone.timedelta(days=3),
+            end_time=timezone.now() - timezone.timedelta(days=3) + timezone.timedelta(hours=2),
+        )
+        RandomCallLobbyUser.objects.create(user=learner, lobby=lobby, is_active=False)
+        RandomCallLobbyUser.objects.create(user=volunteer, lobby=lobby, is_active=False)
+        RandomCallMatching.objects.create(
+            lobby=lobby,
+            u1=learner,
+            u2=volunteer,
+            created_at=lobby.start_time + timezone.timedelta(minutes=10),
+        )
+
+        list_snapshot = lobby_instance_snapshot_to_dict(
+            build_snapshots(annotate_lobby_metrics(RandomCallLobby.objects.filter(pk=lobby.pk)))[lobby.uuid]
+        )
+        detail = build_lobby_instance_detail(lobby)
+        self.assertEqual(detail["snapshot"], list_snapshot)
+        self.assertEqual(list_snapshot["proposals_dangling"], 1)
+        self.assertEqual(list_snapshot["bucket_mismatch"], 0)
+        stats = detail["proposal_statistics"]
+        self.assertEqual(stats["dangling_count"], len(detail["match_proposals"]["dangling"]))
+        self.assertEqual(stats["expired_count"], len(detail["match_proposals"]["expired"]))
+
+    def test_completed_call_duration_scoped_to_lobby_and_proposal(self):
+        learner = self._create_user("duration_learner")
+        volunteer = self._create_user("duration_volunteer")
+        now = timezone.now()
+        lobby = self._create_lobby(
+            start_time=now - timezone.timedelta(hours=2),
+            end_time=now - timezone.timedelta(minutes=30),
+        )
+        accepted_at = now - timezone.timedelta(hours=1, minutes=30)
+        completed_at = now - timezone.timedelta(hours=1)
+        proposal = RandomCallMatching.objects.create(
+            lobby=lobby,
+            u1=learner,
+            u2=volunteer,
+            accepted=True,
+            completed=True,
+            accepted_at=accepted_at,
+            completed_at=completed_at,
+        )
+        RandomCallLobbyUser.objects.create(user=learner, lobby=lobby, is_active=False)
+        RandomCallLobbyUser.objects.create(user=volunteer, lobby=lobby, is_active=False)
+
+        # Old call between the same pair — must not affect this lobby's stats.
+        old_start = now - timezone.timedelta(days=21)
+        self._create_livekit_session(
+            u1=learner,
+            u2=volunteer,
+            random_call_session=True,
+            both_have_been_active=True,
+            created_at=old_start,
+            end_time=old_start + timezone.timedelta(seconds=9999),
+            is_active=False,
+        )
+
+        in_lobby_start = accepted_at + timezone.timedelta(minutes=1)
+        self._create_livekit_session(
+            u1=learner,
+            u2=volunteer,
+            random_call_session=True,
+            both_have_been_active=True,
+            created_at=in_lobby_start,
+            end_time=in_lobby_start + timezone.timedelta(seconds=240),
+            is_active=False,
+        )
+
+        durations = build_completed_call_durations([proposal], lobby=lobby)
+        self.assertEqual(durations[proposal.pk], 240)
+
+        participants = build_lobby_participants(
+            RandomCallLobbyUser.objects.filter(lobby=lobby),
+            [proposal],
+            lobby,
+            set(),
+            as_of=now,
+        )
+        learner_row = next(row for row in participants if row["user_id"] == learner.pk)
+        self.assertEqual(learner_row["longest_call_duration_seconds"], 240)
+
+    def test_call_duration_includes_time_after_lobby_end(self):
+        """A call may start before lobby.end_time and finish after it — duration is not capped at lobby end."""
+        learner = self._create_user("late_call_learner")
+        volunteer = self._create_user("late_call_volunteer")
+        lobby_end = timezone.now() - timezone.timedelta(minutes=45)
+        lobby = self._create_lobby(
+            start_time=lobby_end - timezone.timedelta(hours=2),
+            end_time=lobby_end,
+        )
+        accepted_at = lobby_end - timezone.timedelta(minutes=10)
+        completed_at = lobby_end + timezone.timedelta(minutes=20)
+        proposal = RandomCallMatching.objects.create(
+            lobby=lobby,
+            u1=learner,
+            u2=volunteer,
+            accepted=True,
+            completed=True,
+            accepted_at=accepted_at,
+            completed_at=completed_at,
+        )
+
+        session_start = lobby_end - timezone.timedelta(minutes=8)
+        self._create_livekit_session(
+            u1=learner,
+            u2=volunteer,
+            random_call_session=True,
+            both_have_been_active=True,
+            created_at=session_start,
+            end_time=session_start + timezone.timedelta(minutes=28),
+            is_active=False,
+        )
+
+        durations = build_completed_call_durations([proposal], lobby=lobby)
+        self.assertEqual(durations[proposal.pk], 28 * 60)
 
     def test_list_lobby_analytics_api(self):
         learner = self._create_user("api_learner", Profile.TypeChoices.LEARNER)
@@ -346,13 +530,11 @@ class RandomCallAnalyticsTests(TestCase):
         from rest_framework.test import APIClient
 
         client = APIClient()
-        client.force_authenticate(user=learner)
+        client.force_authenticate(user=self._create_admin_user("list_api"))
         response = client.get(
             "/api/random_calls/analytics/lobbies",
             {"lobby_name": "default"},
         )
-        if response.status_code == 403:
-            self.skipTest("Management API requires admin permissions")
 
         self.assertEqual(response.status_code, 200)
         self.assertGreaterEqual(response.data["count"], 1)
@@ -361,6 +543,7 @@ class RandomCallAnalyticsTests(TestCase):
         self.assertEqual(row["proposals_total"], 1)
         self.assertEqual(row["proposals_accepted"], 1)
         self.assertEqual(row["completed_calls"], 1)
+        self.assertTrue(row["proposals_are_final"])
         self.assertEqual(
             row["proposals_accepted"]
             + row["proposals_rejected"]
@@ -369,3 +552,227 @@ class RandomCallAnalyticsTests(TestCase):
             + row["proposals_dangling"],
             row["proposals_total"],
         )
+
+    def test_list_lobby_analytics_proposals_are_final_flag(self):
+        live_lobby = self._create_lobby(
+            name="default",
+            start_time=timezone.now() - timezone.timedelta(hours=1),
+            end_time=timezone.now() + timezone.timedelta(hours=1),
+        )
+        finished_lobby = self._create_lobby(
+            name="default",
+            start_time=timezone.now() - timezone.timedelta(hours=3),
+            end_time=timezone.now() - timezone.timedelta(hours=1),
+        )
+
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+        client.force_authenticate(user=self._create_admin_user("list_proposals_final"))
+        response = client.get("/api/random_calls/analytics/lobbies", {"lobby_name": "default"})
+
+        self.assertEqual(response.status_code, 200)
+        rows = {item["lobby_uuid"]: item for item in response.data["results"]}
+        self.assertFalse(rows[str(live_lobby.uuid)]["proposals_are_final"])
+        self.assertTrue(rows[str(finished_lobby.uuid)]["proposals_are_final"])
+
+    def test_resolve_lobby_instance_requires_matching_name_for_uuid(self):
+        lobby = self._create_lobby(name="default")
+        self.assertIsNone(resolve_lobby_instance("other", lobby_uuid=str(lobby.uuid)))
+        self.assertEqual(resolve_lobby_instance("default", lobby_uuid=str(lobby.uuid)), lobby)
+
+    def test_parse_analytics_datetime_bound_uses_berlin_for_date_only(self):
+        berlin_midnight = parse_analytics_datetime_bound("2026-01-01")
+        self.assertEqual(berlin_midnight.tzinfo, BERLIN)
+        self.assertEqual(berlin_midnight.hour, 0)
+
+        lobby = self._create_lobby(
+            name="default",
+            start_time=datetime(2026, 1, 1, 0, 30, tzinfo=BERLIN),
+            end_time=datetime(2026, 1, 1, 2, 0, tzinfo=BERLIN),
+        )
+        qs = filtered_lobby_queryset(
+            lobby_name="default",
+            from_dt=parse_analytics_datetime_bound("2026-01-01"),
+            to_dt=parse_analytics_datetime_bound("2026-01-01", end_of_day=True),
+        )
+        self.assertTrue(qs.filter(pk=lobby.pk).exists())
+
+    def test_total_users_counts_distinct_users(self):
+        learner = self._create_user("distinct_learner")
+        volunteer = self._create_user("distinct_volunteer")
+        lobby = self._create_lobby(
+            start_time=timezone.now() - timezone.timedelta(hours=2),
+            end_time=timezone.now() + timezone.timedelta(hours=1),
+        )
+        RandomCallLobbyUser.objects.create(user=learner, lobby=lobby, is_active=True)
+        RandomCallLobbyUser.objects.create(user=volunteer, lobby=lobby, is_active=False)
+
+        snap = build_snapshots(annotate_lobby_metrics(RandomCallLobby.objects.filter(pk=lobby.pk)))[lobby.uuid]
+        self.assertEqual(snap.total_users, 2)
+
+    def test_apply_lobby_ordering_includes_pk_tiebreaker(self):
+        qs = apply_lobby_ordering(RandomCallLobby.objects.none(), "total_users")
+        self.assertEqual(list(qs.query.order_by), ["total_users", "-pk"])
+
+    def test_invalid_lobby_uuid_returns_400(self):
+        from rest_framework.test import APIClient
+
+        user = self._create_admin_user("invalid_uuid")
+        client = APIClient()
+        client.force_authenticate(user=user)
+        response = client.get("/api/random_calls/analytics/lobby/default/instance?lobby_uuid=not-a-uuid")
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.data["error"], "Invalid lobby_uuid")
+
+    def test_resolve_lobby_instance_rejects_malformed_uuid(self):
+        with self.assertRaises(InvalidLobbyUuid):
+            resolve_lobby_instance("default", lobby_uuid="abc")
+
+    def test_is_lobby_active_handles_null_times(self):
+        lobby = RandomCallLobby.objects.create(name="default")
+        self.assertFalse(is_lobby_active(lobby))
+
+    def test_detail_endpoint_handles_null_lobby_times(self):
+        learner = self._create_user("null_times_learner")
+        lobby = RandomCallLobby.objects.create(name="default")
+        RandomCallLobbyUser.objects.create(user=learner, lobby=lobby, is_active=True)
+
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+        client.force_authenticate(user=self._create_admin_user("null_times"))
+        response = client.get(f"/api/random_calls/analytics/lobby/default/instance?lobby_uuid={lobby.uuid}")
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data["lobby"]["is_active"])
+
+    def test_webhook_completion_scoped_to_accepted_lobby_matching(self):
+        learner = self._create_user("wh_learner")
+        volunteer = self._create_user("wh_volunteer")
+        old_lobby = self._create_lobby(
+            start_time=timezone.now() - timezone.timedelta(days=14),
+            end_time=timezone.now() - timezone.timedelta(days=14) + timezone.timedelta(hours=2),
+        )
+        new_lobby = self._create_lobby(
+            start_time=timezone.now() - timezone.timedelta(hours=2),
+            end_time=timezone.now() + timezone.timedelta(hours=1),
+        )
+        old_match = RandomCallMatching.objects.create(
+            lobby=old_lobby,
+            u1=learner,
+            u2=volunteer,
+            accepted=True,
+            completed=False,
+            accepted_at=old_lobby.start_time + timezone.timedelta(minutes=5),
+        )
+        new_match = RandomCallMatching.objects.create(
+            lobby=new_lobby,
+            u1=learner,
+            u2=volunteer,
+            accepted=True,
+            completed=False,
+            accepted_at=new_lobby.start_time + timezone.timedelta(minutes=5),
+        )
+        session_created_at = new_lobby.start_time + timezone.timedelta(minutes=10)
+        matching = _matching_for_completed_random_call(
+            learner,
+            volunteer,
+            session_created_at=session_created_at,
+        )
+        self.assertEqual(matching.pk, new_match.pk)
+        RandomCallMatching.objects.filter(pk=matching.pk).update(
+            completed=True,
+            completed_at=timezone.now(),
+        )
+        old_match.refresh_from_db()
+        new_match.refresh_from_db()
+        self.assertFalse(old_match.completed)
+        self.assertTrue(new_match.completed)
+
+    def test_list_api_legacy_orphan_row_returns_200(self):
+        learner = self._create_user("legacy_list_learner")
+        volunteer = self._create_user("legacy_list_volunteer")
+        lobby = self._create_lobby(
+            name="default",
+            start_time=timezone.now() - timezone.timedelta(days=2),
+            end_time=timezone.now() - timezone.timedelta(days=2) + timezone.timedelta(hours=2),
+        )
+        RandomCallMatching.objects.create(
+            lobby=lobby,
+            u1=learner,
+            u2=volunteer,
+            completed=True,
+            accepted=False,
+        )
+
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+        client.force_authenticate(user=self._create_admin_user("legacy_list"))
+        response = client.get("/api/random_calls/analytics/lobbies", {"lobby_name": "default"})
+        self.assertEqual(response.status_code, 200)
+        row = next(item for item in response.data["results"] if item["lobby_uuid"] == str(lobby.uuid))
+        self.assertEqual(row["bucket_mismatch"], 0)
+        self.assertEqual(row["proposals_expired"], 1)
+
+    def test_detail_live_lobby_inactive_user_returns_200(self):
+        learner = self._create_user("live_inactive_learner")
+        volunteer = self._create_user("live_inactive_volunteer")
+        lobby = self._create_lobby(
+            start_time=timezone.now() - timezone.timedelta(minutes=30),
+            end_time=timezone.now() + timezone.timedelta(hours=1),
+        )
+        RandomCallLobbyUser.objects.create(user=learner, lobby=lobby, is_active=False)
+        RandomCallLobbyUser.objects.create(user=volunteer, lobby=lobby, is_active=True)
+        RandomCallMatching.objects.create(
+            lobby=lobby,
+            u1=learner,
+            u2=volunteer,
+            created_at=timezone.now() - timezone.timedelta(minutes=5),
+        )
+
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+        client.force_authenticate(user=self._create_admin_user("live_inactive"))
+        response = client.get(f"/api/random_calls/analytics/lobby/default/instance?lobby_uuid={lobby.uuid}")
+        self.assertEqual(response.status_code, 200)
+        snapshot = response.data["snapshot"]
+        self.assertIsNotNone(snapshot)
+        self.assertFalse(snapshot["proposals_are_final"])
+        self.assertIn("first_time_users", snapshot)
+        stats = response.data["proposal_statistics"]
+        for key in ("pending", "accepted", "rejected", "expired", "dangling"):
+            self.assertEqual(
+                stats[f"{key}_count"],
+                len(response.data["match_proposals"][key]),
+                key,
+            )
+
+    def test_detail_live_lobby_exposes_attendance_snapshot(self):
+        returning_user = self._create_user("live_returning")
+        first_time_user = self._create_user("live_first_time")
+        earlier_lobby = self._create_lobby(
+            start_time=timezone.now() - timezone.timedelta(days=14),
+            end_time=timezone.now() - timezone.timedelta(days=14, hours=-2),
+        )
+        live_lobby = self._create_lobby(
+            start_time=timezone.now() - timezone.timedelta(minutes=30),
+            end_time=timezone.now() + timezone.timedelta(hours=1),
+        )
+        RandomCallLobbyUser.objects.create(user=returning_user, lobby=earlier_lobby, is_active=False)
+        RandomCallLobbyUser.objects.create(user=returning_user, lobby=live_lobby, is_active=True)
+        RandomCallLobbyUser.objects.create(user=first_time_user, lobby=live_lobby, is_active=True)
+
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+        client.force_authenticate(user=self._create_admin_user("live_attendance"))
+        response = client.get(f"/api/random_calls/analytics/lobby/default/instance?lobby_uuid={live_lobby.uuid}")
+        self.assertEqual(response.status_code, 200)
+        snapshot = response.data["snapshot"]
+        self.assertIsNotNone(snapshot)
+        self.assertFalse(snapshot["proposals_are_final"])
+        self.assertEqual(snapshot["first_time_users"], 1)
+        self.assertEqual(snapshot["returning_users"], 1)
+        self.assertEqual(snapshot["completed_calls"], 0)

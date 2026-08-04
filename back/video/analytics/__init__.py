@@ -1,1 +1,1 @@
-"""Random call analytics — membership queries and occurrence snapshots."""
+"""Random call analytics — membership queries and lobby instance snapshots."""

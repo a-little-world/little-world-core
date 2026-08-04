@@ -15,7 +15,7 @@ from video.analytics.queries import (
 )
 from video.models import RandomCallLobby, RandomCallLobbyUser, RandomCallMatching
 
-# Annotation names — must match LobbyOccurrenceSnapshot fields read in snapshots.build_snapshots.
+# Annotation names — must match LobbyInstanceSnapshot fields read in snapshots.build_snapshots.
 ANNOT_TOTAL_USERS = "total_users"
 ANNOT_LEARNER_COUNT = "learner_count"
 ANNOT_VOLUNTEER_COUNT = "volunteer_count"
@@ -72,16 +72,6 @@ def filtered_lobby_queryset(
     return qs
 
 
-def _lobby_user_count_subquery(**filter_kwargs) -> Subquery:
-    return Subquery(
-        RandomCallLobbyUser.objects.filter(lobby_id=OuterRef("pk"), **filter_kwargs)
-        .values("lobby_id")
-        .annotate(_cnt=Count("id"))
-        .values("_cnt")[:1],
-        output_field=IntegerField(),
-    )
-
-
 def _lobby_user_distinct_count_subquery(**filter_kwargs) -> Subquery:
     return Subquery(
         RandomCallLobbyUser.objects.filter(lobby_id=OuterRef("pk"), **filter_kwargs)
@@ -110,14 +100,14 @@ def _proposal_count_subquery(*, bucket_q: Q | None = None, **filter_kwargs) -> S
 def annotate_lobby_metrics(qs: QuerySet[RandomCallLobby]) -> QuerySet[RandomCallLobby]:
     """Attach sortable per-lobby counts via separate subqueries (no join fan-out).
 
-    Proposal bucket counts use mutually exclusive filters (status-first). Pending and
-    dangling are filled in by ``build_snapshots`` because dangling needs per-lobby
-    stale thresholds.
+    Proposal bucket counts use mutually exclusive SQL filters (status-first) for
+    accepted, rejected, and expired. Pending and dangling are computed in Python
+    in ``build_snapshots`` because dangling needs per-lobby stale thresholds.
     """
     zero = IntegerField()
     return qs.annotate(
         **{
-            ANNOT_TOTAL_USERS: Coalesce(_lobby_user_count_subquery(), 0, output_field=zero),
+            ANNOT_TOTAL_USERS: Coalesce(_lobby_user_distinct_count_subquery(), 0, output_field=zero),
             ANNOT_LEARNER_COUNT: Coalesce(
                 _lobby_user_distinct_count_subquery(user__profile__user_type=Profile.TypeChoices.LEARNER),
                 0,
@@ -144,7 +134,11 @@ def annotate_lobby_metrics(qs: QuerySet[RandomCallLobby]) -> QuerySet[RandomCall
                 0,
                 output_field=zero,
             ),
-            ANNOT_COMPLETED_CALLS: Coalesce(_proposal_count_subquery(completed=True), 0, output_field=zero),
+            ANNOT_COMPLETED_CALLS: Coalesce(
+                _proposal_count_subquery(completed=True, accepted=True),
+                0,
+                output_field=zero,
+            ),
         }
     )
 
@@ -154,4 +148,4 @@ def apply_lobby_ordering(qs: QuerySet[RandomCallLobby], ordering: str | None = N
     if ordering not in ALLOWED_LOBBY_ORDERING:
         allowed = ", ".join(sorted(ALLOWED_LOBBY_ORDERING))
         raise ValueError(f"Invalid ordering '{ordering}'. Allowed: {allowed}")
-    return qs.order_by(ordering)
+    return qs.order_by(ordering, "-pk")

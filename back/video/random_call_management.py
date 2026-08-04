@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+from django.db import transaction
 from django.db.models import Q
 from django.urls import path
 from django.utils import timezone
@@ -15,6 +16,7 @@ from rest_framework.decorators import (
 )
 from rest_framework.response import Response
 
+from video.lobby_resolution import InvalidLobbyUuid, resolve_lobby_instance
 from video.models import (
     RandomCallLobby,
     RandomCallLobbyUser,
@@ -22,33 +24,6 @@ from video.models import (
     RandomCallProposalUserStatus,
 )
 from video.random_calls import is_lobby_active
-
-
-def _resolve_management_lobby(lobby_name: str):
-    """
-    Same lobby resolution as the management overview: active lobby for name,
-    else most recent finished lobby with that name.
-    """
-    now = timezone.now()
-    lobby = (
-        RandomCallLobby.objects.filter(
-            name=lobby_name,
-            start_time__lte=now,
-            end_time__gte=now,
-        )
-        .order_by("-id")
-        .first()
-    )
-    if lobby is None:
-        lobby = (
-            RandomCallLobby.objects.filter(
-                name=lobby_name,
-                end_time__lt=now,
-            )
-            .order_by("-end_time")
-            .first()
-        )
-    return lobby
 
 
 class RandomCallTaskSerializer(serializers.Serializer):
@@ -80,24 +55,30 @@ def clear_user_random_call_proposals(request, lobby_name="default"):
 
     user_uuid = serializer.validated_data["user_uuid"]
 
+    lobby = resolve_lobby_instance(lobby_name)
+    if lobby is None:
+        return Response({"error": "Lobby not found"}, status=404)
+
     matches_qs = RandomCallMatching.objects.filter(
         Q(u1__uuid=user_uuid) | Q(u2__uuid=user_uuid),
+        lobby=lobby,
         accepted=False,
         rejected=False,
         expired=False,
         completed=False,
     )
     match_ids = list(matches_qs.values_list("pk", flat=True))
-    if match_ids:
-        updated_count = RandomCallMatching.objects.filter(pk__in=match_ids).update(expired=True)
-        RandomCallMatching.objects.filter(pk__in=match_ids, u1_status=RandomCallProposalUserStatus.PENDING).update(
-            u1_status=RandomCallProposalUserStatus.EXPIRED
-        )
-        RandomCallMatching.objects.filter(pk__in=match_ids, u2_status=RandomCallProposalUserStatus.PENDING).update(
-            u2_status=RandomCallProposalUserStatus.EXPIRED
-        )
-    else:
-        updated_count = 0
+    with transaction.atomic():
+        if match_ids:
+            updated_count = RandomCallMatching.objects.filter(pk__in=match_ids).update(expired=True)
+            RandomCallMatching.objects.filter(pk__in=match_ids, u1_status=RandomCallProposalUserStatus.PENDING).update(
+                u1_status=RandomCallProposalUserStatus.EXPIRED
+            )
+            RandomCallMatching.objects.filter(pk__in=match_ids, u2_status=RandomCallProposalUserStatus.PENDING).update(
+                u2_status=RandomCallProposalUserStatus.EXPIRED
+            )
+        else:
+            updated_count = 0
 
     return Response(
         {
@@ -120,7 +101,7 @@ def clear_dangling_random_call_proposals(request, lobby_name="default"):
     Dangling = not accepted, not rejected, not expired, not completed, and
     created_at is older than lobby.match_proposal_timeout (or created_at is null).
     """
-    lobby = _resolve_management_lobby(lobby_name)
+    lobby = resolve_lobby_instance(lobby_name)
     if lobby is None:
         return Response({"error": "Lobby not found"}, status=404)
 
@@ -135,16 +116,17 @@ def clear_dangling_random_call_proposals(request, lobby_name="default"):
         completed=False,
     ).filter(Q(created_at__lte=proposal_stale_threshold) | Q(created_at__isnull=True))
     match_ids = list(matches_qs.values_list("pk", flat=True))
-    if match_ids:
-        updated_count = RandomCallMatching.objects.filter(pk__in=match_ids).update(expired=True)
-        RandomCallMatching.objects.filter(pk__in=match_ids, u1_status=RandomCallProposalUserStatus.PENDING).update(
-            u1_status=RandomCallProposalUserStatus.EXPIRED
-        )
-        RandomCallMatching.objects.filter(pk__in=match_ids, u2_status=RandomCallProposalUserStatus.PENDING).update(
-            u2_status=RandomCallProposalUserStatus.EXPIRED
-        )
-    else:
-        updated_count = 0
+    with transaction.atomic():
+        if match_ids:
+            updated_count = RandomCallMatching.objects.filter(pk__in=match_ids).update(expired=True)
+            RandomCallMatching.objects.filter(pk__in=match_ids, u1_status=RandomCallProposalUserStatus.PENDING).update(
+                u1_status=RandomCallProposalUserStatus.EXPIRED
+            )
+            RandomCallMatching.objects.filter(pk__in=match_ids, u2_status=RandomCallProposalUserStatus.PENDING).update(
+                u2_status=RandomCallProposalUserStatus.EXPIRED
+            )
+        else:
+            updated_count = 0
 
     return Response(
         {
@@ -318,42 +300,6 @@ def end_lobby(request, lobby_name="default"):
     )
 
 
-def _get_lobby_for_tasks(lobby_name, lobby_uuid=None):
-    """
-    Resolve the lobby to use for task filtering.
-    - If lobby_uuid is given: return that lobby instance (404 if not found).
-    - Else: return the active lobby with that name, or the most recent past one.
-    """
-    if lobby_uuid:
-        return RandomCallLobby.objects.get(uuid=lobby_uuid)
-
-    now = timezone.now()
-    # Active lobby
-    lobby = (
-        RandomCallLobby.objects.filter(
-            name=lobby_name,
-            start_time__lte=now,
-            end_time__gte=now,
-        )
-        .order_by("-id")
-        .first()
-    )
-    if lobby is not None:
-        return lobby
-    # Most recent past lobby
-    lobby = (
-        RandomCallLobby.objects.filter(
-            name=lobby_name,
-            end_time__lt=now,
-        )
-        .order_by("-end_time")
-        .first()
-    )
-    if lobby is None:
-        raise RandomCallLobby.DoesNotExist
-    return lobby
-
-
 @api_view(["GET"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAdminOrMatchingUser])
@@ -385,8 +331,10 @@ def get_random_call_tasks(request, lobby_name="default"):
     task_name_filter = request.query_params.get("task_name", None)
 
     try:
-        lobby = _get_lobby_for_tasks(lobby_name, lobby_uuid=lobby_uuid_param)
-    except RandomCallLobby.DoesNotExist:
+        lobby = resolve_lobby_instance(lobby_name, lobby_uuid=lobby_uuid_param)
+    except InvalidLobbyUuid:
+        return Response({"error": "Invalid lobby_uuid"}, status=400)
+    if lobby is None:
         return Response({"error": "Lobby not found"}, status=404)
 
     lobby_uuid_str = str(lobby.uuid)

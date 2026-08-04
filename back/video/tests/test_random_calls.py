@@ -79,6 +79,15 @@ class RandomCallsTests(TestCase):
             users.append(user)
         return users
 
+    def _create_admin_user(self, suffix: str = "admin") -> User:
+        return User.objects.create_user(
+            email=f"rc_mgmt_admin_{suffix}@example.com",
+            password="Test123!",
+            first_name=f"Admin{suffix}",
+            last_name="Test",
+            is_staff=True,
+        )
+
     def test_setup(self):
         """Verify that users and lobby are created correctly."""
         self.assertTrue(User.objects.filter(pk=self.user1.pk).exists())
@@ -673,14 +682,8 @@ class RandomCallsTests(TestCase):
             self.client.post(f"{self.lobby_api_url}/join")
 
         # Get management overview
-        # Note: This assumes the user has admin permissions or we authenticate as admin
-        # For testing purposes, we'll authenticate as the first user which should have access
-        self.client.force_authenticate(user=users[0])
-        mgmt_response = self.client.get("/api/random_calls/analytics/lobby/default/session")
-
-        # If management API requires admin permissions, skip this test or use admin user
-        if mgmt_response.status_code == 403:
-            self.skipTest("Management API requires admin permissions")
+        self.client.force_authenticate(user=self._create_admin_user("state_consistency"))
+        mgmt_response = self.client.get("/api/random_calls/analytics/lobby/default/instance")
 
         self.assertEqual(mgmt_response.status_code, 200)
         mgmt_data = mgmt_response.data
@@ -771,12 +774,10 @@ class RandomCallsTests(TestCase):
         match3 = matchings[2]
 
         # Get management overview
-        self.client.force_authenticate(user=users[0])
-        mgmt_response = self.client.get("/api/random_calls/analytics/lobby/default/session")
+        self.client.force_authenticate(user=self._create_admin_user("match_states"))
+        mgmt_response = self.client.get("/api/random_calls/analytics/lobby/default/instance")
 
-        if mgmt_response.status_code == 403:
-            self.skipTest("Management API requires admin permissions")
-
+        self.assertEqual(mgmt_response.status_code, 200)
         mgmt_data = mgmt_response.data
 
         # Verify match categorization
@@ -825,12 +826,10 @@ class RandomCallsTests(TestCase):
         self.client.post(f"{self.lobby_api_url}/exit")
 
         # Get management overview
-        self.client.force_authenticate(user=users[0] if users[0] != match1.u1 else users[1])
-        mgmt_response = self.client.get("/api/random_calls/analytics/lobby/default/session")
+        self.client.force_authenticate(user=self._create_admin_user("user_exit"))
+        mgmt_response = self.client.get("/api/random_calls/analytics/lobby/default/instance")
 
-        if mgmt_response.status_code == 403:
-            self.skipTest("Management API requires admin permissions")
-
+        self.assertEqual(mgmt_response.status_code, 200)
         mgmt_data = mgmt_response.data
 
         # Verify the match with exited user is marked as expired
@@ -913,14 +912,10 @@ class RandomCallsTests(TestCase):
         self.client.post(f"{self.lobby_api_url}/exit")
 
         # Phase 7: Get management overview and verify all states
-        # Use a user that's still active
-        active_user = match1.u1  # From accepted match, should still be in lobby
-        self.client.force_authenticate(user=active_user)
-        mgmt_response = self.client.get("/api/random_calls/analytics/lobby/default/session")
+        self.client.force_authenticate(user=self._create_admin_user("full_flow"))
+        mgmt_response = self.client.get("/api/random_calls/analytics/lobby/default/instance")
 
-        if mgmt_response.status_code == 403:
-            self.skipTest("Management API requires admin permissions")
-
+        self.assertEqual(mgmt_response.status_code, 200)
         mgmt_data = mgmt_response.data
 
         # Verify statistics reflect all actions
@@ -1029,11 +1024,8 @@ class RandomCallsTests(TestCase):
             is_active=False,
         )
 
-        self.client.force_authenticate(user=users[0])
-        response = self.client.get("/api/random_calls/analytics/lobby/default/session")
-
-        if response.status_code == 403:
-            self.skipTest("Management API requires admin permissions")
+        self.client.force_authenticate(user=self._create_admin_user("participant_stats"))
+        response = self.client.get("/api/random_calls/analytics/lobby/default/instance")
 
         self.assertEqual(response.status_code, 200)
         participants = {item["user_uuid"]: item for item in response.data["lobby_participants"]}
@@ -1074,11 +1066,8 @@ class RandomCallsTests(TestCase):
         RandomCallLobbyUser.objects.create(user=users[0], lobby=later_lobby, is_active=False)
         RandomCallLobbyUser.objects.create(user=users[1], lobby=later_lobby, is_active=False)
 
-        self.client.force_authenticate(user=users[0])
-        response = self.client.get(f"/api/random_calls/analytics/lobby/default/session?lobby_uuid={later_lobby.uuid}")
-
-        if response.status_code == 403:
-            self.skipTest("Management API requires admin permissions")
+        self.client.force_authenticate(user=self._create_admin_user("attendance_breakdown"))
+        response = self.client.get(f"/api/random_calls/analytics/lobby/default/instance?lobby_uuid={later_lobby.uuid}")
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["lobby"]["total_users_count"], 2)

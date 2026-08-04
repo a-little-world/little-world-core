@@ -1,14 +1,17 @@
-"""Per-lobby occurrence snapshots — batch primitive for random-call analytics."""
+"""Per-lobby instance snapshots — batch primitive for random-call analytics."""
 
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime
 from uuid import UUID
 
-from django.db.models import QuerySet
+from django.db.models import Min, QuerySet
+from django.utils import timezone
 
+from video.analytics.display_time import DISPLAY_TZ
 from video.analytics.lobbies import (
     ANNOT_COMPLETED_CALLS,
     ANNOT_LEARNER_COUNT,
@@ -20,9 +23,14 @@ from video.analytics.lobbies import (
     ANNOT_VOLUNTEER_COUNT,
     annotate_lobby_metrics,
 )
-from video.analytics.queries import batch_count_proposal_buckets_by_lobby, proposal_bucket_counts_sum_to_total
-from video.analytics.timezone import DISPLAY_TZ
-from video.models import RandomCallLobby, RandomCallLobbyUser
+from video.analytics.queries import (
+    batch_count_pending_dangling_by_lobby,
+    count_pending_dangling_buckets,
+    proposal_bucket_mismatch,
+)
+from video.models import RandomCallLobby, RandomCallLobbyUser, RandomCallMatching
+
+logger = logging.getLogger(__name__)
 
 _REQUIRED_ANNOTATIONS = (
     ANNOT_TOTAL_USERS,
@@ -37,7 +45,7 @@ _REQUIRED_ANNOTATIONS = (
 
 
 @dataclass(frozen=True)
-class LobbyOccurrenceSnapshot:
+class LobbyInstanceSnapshot:
     lobby_uuid: UUID
     lobby_name: str
     start_time: datetime | None
@@ -60,6 +68,9 @@ class LobbyOccurrenceSnapshot:
     learner_count: int
     volunteer_count: int
 
+    bucket_mismatch: int = 0
+    proposals_are_final: bool = False
+
 
 def lobby_display_day_date(start_time: datetime | None) -> tuple[str | None, date | None]:
     if start_time is None:
@@ -69,6 +80,11 @@ def lobby_display_day_date(start_time: datetime | None) -> tuple[str | None, dat
 
 
 def _batch_user_attendance_breakdown(lobbies: list[RandomCallLobby]) -> dict[int, dict[str, int]]:
+    """First-time vs returning per lobby.
+
+    Returning means the user attended any prior lobby instance (any lobby name)
+    with an earlier ``start_time`` — consistent with ``compute_user_attendance_breakdown``.
+    """
     if not lobbies:
         return {}
 
@@ -82,16 +98,15 @@ def _batch_user_attendance_breakdown(lobbies: list[RandomCallLobby]) -> dict[int
         participants_by_lobby[lobby_id].add(user_id)
         all_user_ids.add(user_id)
 
-    user_start_times: dict[int, list[datetime]] = defaultdict(list)
+    user_first_seen: dict[int, datetime] = {}
     if all_user_ids:
         for row in (
             RandomCallLobbyUser.objects.filter(user_id__in=all_user_ids)
-            .select_related("lobby")
-            .values("user_id", "lobby__start_time")
+            .values("user_id")
+            .annotate(first_seen=Min("lobby__start_time"))
         ):
-            start_time = row["lobby__start_time"]
-            if start_time is not None:
-                user_start_times[row["user_id"]].append(start_time)
+            if row["first_seen"] is not None:
+                user_first_seen[row["user_id"]] = row["first_seen"]
 
     breakdown: dict[int, dict[str, int]] = {}
     for lobby in lobbies:
@@ -104,7 +119,9 @@ def _batch_user_attendance_breakdown(lobbies: list[RandomCallLobby]) -> dict[int
             breakdown[lobby.pk] = {"first_time_users": total, "returning_users": 0}
             continue
 
-        returning = sum(1 for user_id in users if any(t < lobby.start_time for t in user_start_times.get(user_id, [])))
+        returning = sum(
+            1 for user_id in users if user_id in user_first_seen and user_first_seen[user_id] < lobby.start_time
+        )
         breakdown[lobby.pk] = {
             "first_time_users": total - returning,
             "returning_users": returning,
@@ -121,12 +138,107 @@ def _read_annotation(lobby: RandomCallLobby, name: str) -> int:
     return int(getattr(lobby, name))
 
 
-def build_snapshots(lobby_qs: QuerySet[RandomCallLobby]) -> dict[UUID, LobbyOccurrenceSnapshot]:
+def assert_sql_python_proposal_buckets_strict(
+    lobby: RandomCallLobby,
+    *,
+    open_buckets: dict[str, int],
+) -> None:
+    """Hard invariant for tests and future materialization jobs — not used on GET."""
+    accepted = _read_annotation(lobby, ANNOT_PROPOSALS_ACCEPTED)
+    rejected = _read_annotation(lobby, ANNOT_PROPOSALS_REJECTED)
+    expired = _read_annotation(lobby, ANNOT_PROPOSALS_EXPIRED)
+    total = _read_annotation(lobby, ANNOT_PROPOSALS_TOTAL)
+    pending = open_buckets["pending"]
+    dangling = open_buckets["dangling"]
+    mismatch = proposal_bucket_mismatch(
+        sql_accepted=accepted,
+        sql_rejected=rejected,
+        sql_expired=expired,
+        sql_total=total,
+        pending=pending,
+        dangling=dangling,
+    )
+    if mismatch != 0:
+        raise ValueError(
+            f"SQL/Python proposal bucket invariant failed for lobby {lobby.uuid}: "
+            f"sql_accepted={accepted}, sql_rejected={rejected}, sql_expired={expired}, "
+            f"pending={pending}, dangling={dangling}, total={total}, mismatch={mismatch}"
+        )
+
+
+def _merge_proposal_buckets(lobby: RandomCallLobby, *, open_buckets: dict[str, int]) -> tuple[dict[str, int], int]:
+    accepted = _read_annotation(lobby, ANNOT_PROPOSALS_ACCEPTED)
+    rejected = _read_annotation(lobby, ANNOT_PROPOSALS_REJECTED)
+    expired = _read_annotation(lobby, ANNOT_PROPOSALS_EXPIRED)
+    total = _read_annotation(lobby, ANNOT_PROPOSALS_TOTAL)
+    pending = open_buckets["pending"]
+    dangling = open_buckets["dangling"]
+    mismatch = proposal_bucket_mismatch(
+        sql_accepted=accepted,
+        sql_rejected=rejected,
+        sql_expired=expired,
+        sql_total=total,
+        pending=pending,
+        dangling=dangling,
+    )
+
+    buckets = {
+        "accepted": accepted,
+        "rejected": rejected,
+        "expired": expired,
+        "pending": pending,
+        "dangling": dangling,
+        "total": total,
+    }
+    return buckets, mismatch
+
+
+def _snapshot_from_lobby_row(
+    lobby: RandomCallLobby,
+    *,
+    attendance: dict[str, int],
+    open_buckets: dict[str, int],
+    as_of: datetime,
+) -> LobbyInstanceSnapshot:
+    buckets, mismatch = _merge_proposal_buckets(lobby, open_buckets=open_buckets)
+
+    day, snapshot_date = lobby_display_day_date(lobby.start_time)
+    proposals_are_final = lobby.end_time is not None and lobby.end_time < as_of
+    return LobbyInstanceSnapshot(
+        lobby_uuid=lobby.uuid,
+        lobby_name=lobby.name or "",
+        start_time=lobby.start_time,
+        end_time=lobby.end_time,
+        day=day,
+        date=snapshot_date,
+        total_users=_read_annotation(lobby, ANNOT_TOTAL_USERS),
+        first_time_users=attendance["first_time_users"],
+        returning_users=attendance["returning_users"],
+        proposals_total=buckets["total"],
+        proposals_accepted=buckets["accepted"],
+        proposals_rejected=buckets["rejected"],
+        proposals_expired=buckets["expired"],
+        proposals_pending=buckets["pending"],
+        proposals_dangling=buckets["dangling"],
+        completed_calls=_read_annotation(lobby, ANNOT_COMPLETED_CALLS),
+        learner_count=_read_annotation(lobby, ANNOT_LEARNER_COUNT),
+        volunteer_count=_read_annotation(lobby, ANNOT_VOLUNTEER_COUNT),
+        bucket_mismatch=mismatch,
+        proposals_are_final=proposals_are_final,
+    )
+
+
+def build_snapshots(
+    lobby_qs: QuerySet[RandomCallLobby],
+    *,
+    as_of: datetime | None = None,
+) -> dict[UUID, LobbyInstanceSnapshot]:
     """Build snapshots for every lobby in *lobby_qs* (typically one paginated page).
 
-    *lobby_qs* must already carry annotations from ``annotate_lobby_metrics``.
-    First-time / returning counts and open proposal buckets are computed in a second pass.
+    Persisted-truth only: SQL accepted/rejected/expired/total plus Python pending/dangling
+    with no live-user heuristics.
     """
+    as_of = as_of or timezone.now()
     lobbies = list(lobby_qs)
     if not lobbies:
         return {}
@@ -139,53 +251,57 @@ def build_snapshots(lobby_qs: QuerySet[RandomCallLobby]) -> dict[UUID, LobbyOccu
             )
 
     attendance = _batch_user_attendance_breakdown(lobbies)
-    proposal_buckets = batch_count_proposal_buckets_by_lobby(lobbies)
-    snapshots: dict[UUID, LobbyOccurrenceSnapshot] = {}
+    open_buckets_by_lobby = batch_count_pending_dangling_by_lobby(lobbies, as_of=as_of)
+    snapshots: dict[UUID, LobbyInstanceSnapshot] = {}
+    mismatched_uuids: list[str] = []
 
     for lobby in lobbies:
-        day, snapshot_date = lobby_display_day_date(lobby.start_time)
         att = attendance[lobby.pk]
-        buckets = proposal_buckets[lobby.pk]
-        if not proposal_bucket_counts_sum_to_total(buckets):
-            raise ValueError(
-                f"Proposal bucket invariant failed for lobby {lobby.uuid}: "
-                f"accepted={buckets['accepted']}, rejected={buckets['rejected']}, "
-                f"expired={buckets['expired']}, pending={buckets['pending']}, "
-                f"dangling={buckets['dangling']}, total={buckets['total']}"
-            )
+        open_buckets = open_buckets_by_lobby[lobby.pk]
+        snapshot = _snapshot_from_lobby_row(lobby, attendance=att, open_buckets=open_buckets, as_of=as_of)
+        snapshots[lobby.uuid] = snapshot
+        if snapshot.bucket_mismatch != 0:
+            mismatched_uuids.append(str(lobby.uuid))
 
-        snapshots[lobby.uuid] = LobbyOccurrenceSnapshot(
-            lobby_uuid=lobby.uuid,
-            lobby_name=lobby.name or "",
-            start_time=lobby.start_time,
-            end_time=lobby.end_time,
-            day=day,
-            date=snapshot_date,
-            total_users=_read_annotation(lobby, ANNOT_TOTAL_USERS),
-            first_time_users=att["first_time_users"],
-            returning_users=att["returning_users"],
-            proposals_total=buckets["total"],
-            proposals_accepted=buckets["accepted"],
-            proposals_rejected=buckets["rejected"],
-            proposals_expired=buckets["expired"],
-            proposals_pending=buckets["pending"],
-            proposals_dangling=buckets["dangling"],
-            completed_calls=_read_annotation(lobby, ANNOT_COMPLETED_CALLS),
-            learner_count=_read_annotation(lobby, ANNOT_LEARNER_COUNT),
-            volunteer_count=_read_annotation(lobby, ANNOT_VOLUNTEER_COUNT),
+    if mismatched_uuids:
+        logger.info(
+            "Proposal bucket mismatch for %s lobby instance(s): %s",
+            len(mismatched_uuids),
+            ", ".join(mismatched_uuids),
         )
 
     return snapshots
 
 
-def build_snapshot_for_lobby(lobby: RandomCallLobby) -> LobbyOccurrenceSnapshot | None:
-    """Single-lobby convenience wrapper around ``build_snapshots``."""
+def build_snapshot_for_lobby(
+    lobby: RandomCallLobby,
+    *,
+    proposals: list[RandomCallMatching] | None = None,
+    as_of: datetime | None = None,
+) -> LobbyInstanceSnapshot | None:
+    """Single-lobby persisted snapshot (SQL buckets + Python pending/dangling only)."""
+    as_of = as_of or timezone.now()
     annotated = annotate_lobby_metrics(RandomCallLobby.objects.filter(pk=lobby.pk))
-    return build_snapshots(annotated).get(lobby.uuid)
+    lobby_row = annotated.first()
+    if lobby_row is None:
+        return None
+
+    if proposals is None:
+        proposals = list(RandomCallMatching.objects.filter(lobby=lobby))
+
+    open_buckets = count_pending_dangling_buckets(proposals, lobby=lobby, as_of=as_of)
+    attendance = _batch_user_attendance_breakdown([lobby_row])[lobby_row.pk]
+    snapshot = _snapshot_from_lobby_row(lobby_row, attendance=attendance, open_buckets=open_buckets, as_of=as_of)
+    if snapshot.bucket_mismatch != 0:
+        logger.info(
+            "Proposal bucket mismatch for lobby instance %s",
+            lobby_row.uuid,
+        )
+    return snapshot
 
 
-def lobby_session_snapshot_to_dict(snapshot: LobbyOccurrenceSnapshot) -> dict:
-    """Serialize a lobby session snapshot for API responses (analytics list + session detail)."""
+def lobby_instance_snapshot_to_dict(snapshot: LobbyInstanceSnapshot) -> dict:
+    """Serialize a lobby instance snapshot for API responses (analytics list + instance detail)."""
     return {
         "lobby_uuid": str(snapshot.lobby_uuid),
         "lobby_name": snapshot.lobby_name,
@@ -205,4 +321,6 @@ def lobby_session_snapshot_to_dict(snapshot: LobbyOccurrenceSnapshot) -> dict:
         "completed_calls": snapshot.completed_calls,
         "learner_count": snapshot.learner_count,
         "volunteer_count": snapshot.volunteer_count,
+        "bucket_mismatch": snapshot.bucket_mismatch,
+        "proposals_are_final": snapshot.proposals_are_final,
     }
