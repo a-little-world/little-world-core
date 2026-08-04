@@ -19,6 +19,7 @@ from video.models import (
     RandomCallLobby,
     RandomCallLobbyUser,
     RandomCallMatching,
+    RandomCallProposalUserStatus,
 )
 from video.random_calls import is_lobby_active
 
@@ -79,13 +80,24 @@ def clear_user_random_call_proposals(request, lobby_name="default"):
 
     user_uuid = serializer.validated_data["user_uuid"]
 
-    updated_count = RandomCallMatching.objects.filter(
+    matches_qs = RandomCallMatching.objects.filter(
         Q(u1__uuid=user_uuid) | Q(u2__uuid=user_uuid),
         accepted=False,
         rejected=False,
         expired=False,
         completed=False,
-    ).update(expired=True)
+    )
+    match_ids = list(matches_qs.values_list("pk", flat=True))
+    if match_ids:
+        updated_count = RandomCallMatching.objects.filter(pk__in=match_ids).update(expired=True)
+        RandomCallMatching.objects.filter(pk__in=match_ids, u1_status=RandomCallProposalUserStatus.PENDING).update(
+            u1_status=RandomCallProposalUserStatus.EXPIRED
+        )
+        RandomCallMatching.objects.filter(pk__in=match_ids, u2_status=RandomCallProposalUserStatus.PENDING).update(
+            u2_status=RandomCallProposalUserStatus.EXPIRED
+        )
+    else:
+        updated_count = 0
 
     return Response(
         {
@@ -115,17 +127,24 @@ def clear_dangling_random_call_proposals(request, lobby_name="default"):
     now = timezone.now()
     proposal_stale_threshold = now - timedelta(seconds=lobby.match_proposal_timeout)
 
-    updated_count = (
-        RandomCallMatching.objects.filter(
-            lobby=lobby,
-            accepted=False,
-            rejected=False,
-            expired=False,
-            completed=False,
+    matches_qs = RandomCallMatching.objects.filter(
+        lobby=lobby,
+        accepted=False,
+        rejected=False,
+        expired=False,
+        completed=False,
+    ).filter(Q(created_at__lte=proposal_stale_threshold) | Q(created_at__isnull=True))
+    match_ids = list(matches_qs.values_list("pk", flat=True))
+    if match_ids:
+        updated_count = RandomCallMatching.objects.filter(pk__in=match_ids).update(expired=True)
+        RandomCallMatching.objects.filter(pk__in=match_ids, u1_status=RandomCallProposalUserStatus.PENDING).update(
+            u1_status=RandomCallProposalUserStatus.EXPIRED
         )
-        .filter(Q(created_at__lte=proposal_stale_threshold) | Q(created_at__isnull=True))
-        .update(expired=True)
-    )
+        RandomCallMatching.objects.filter(pk__in=match_ids, u2_status=RandomCallProposalUserStatus.PENDING).update(
+            u2_status=RandomCallProposalUserStatus.EXPIRED
+        )
+    else:
+        updated_count = 0
 
     return Response(
         {

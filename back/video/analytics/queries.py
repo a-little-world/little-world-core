@@ -2,11 +2,127 @@
 
 from __future__ import annotations
 
+from collections import defaultdict
+from datetime import datetime, timedelta
 from typing import Literal
 
-from video.models import LivekitSession, RandomCallLobby, RandomCallLobbyUser, RandomCallMatching
+from django.db.models import Q
+from django.utils import timezone
+
+from video.models import (
+    LivekitSession,
+    RandomCallLobby,
+    RandomCallLobbyUser,
+    RandomCallMatching,
+    RandomCallProposalUserStatus,
+)
 
 ProposalCategory = Literal["accepted", "expired", "rejected", "dangling", "pending"]
+
+PROPOSAL_BUCKET_FIELDS = ("accepted", "rejected", "expired", "pending", "dangling")
+
+_TERMINAL_EXPIRED_STATUSES = (
+    RandomCallProposalUserStatus.EXPIRED,
+    RandomCallProposalUserStatus.EXITED,
+)
+
+
+def open_proposal_q() -> Q:
+    return Q(accepted=False, completed=False)
+
+
+def expired_proposal_bucket_q() -> Q:
+    """Mutually exclusive expired bucket (status-first, boolean fallback for admin clears)."""
+    return open_proposal_q() & (
+        Q(expired=True) | Q(u1_status__in=_TERMINAL_EXPIRED_STATUSES) | Q(u2_status__in=_TERMINAL_EXPIRED_STATUSES)
+    )
+
+
+def rejected_proposal_bucket_q() -> Q:
+    """Mutually exclusive rejected bucket — excludes expired-bucket rows (e.g. timeouts)."""
+    not_expired = (
+        ~Q(expired=True) & ~Q(u1_status__in=_TERMINAL_EXPIRED_STATUSES) & ~Q(u2_status__in=_TERMINAL_EXPIRED_STATUSES)
+    )
+    return (
+        open_proposal_q()
+        & not_expired
+        & (
+            Q(u1_status=RandomCallProposalUserStatus.REJECTED)
+            | Q(u2_status=RandomCallProposalUserStatus.REJECTED)
+            | Q(rejected=True, rejected_at__isnull=False)
+        )
+    )
+
+
+def accepted_proposal_bucket_q() -> Q:
+    return Q(accepted=True)
+
+
+def proposal_stale_threshold_for_lobby(lobby: RandomCallLobby, *, as_of: datetime | None = None) -> datetime:
+    """Reference time for dangling: lobby end if finished, otherwise now."""
+    as_of = as_of or timezone.now()
+    reference = as_of
+    if lobby.end_time is not None and lobby.end_time < as_of:
+        reference = lobby.end_time
+    return reference - timedelta(seconds=lobby.match_proposal_timeout)
+
+
+def _proposal_is_expired_bucket(
+    proposal: RandomCallMatching,
+    *,
+    active_lobby_user_ids: set[int] | None,
+) -> bool:
+    if proposal.accepted:
+        return False
+    if proposal.expired:
+        return True
+    if proposal.u1_status in _TERMINAL_EXPIRED_STATUSES or proposal.u2_status in _TERMINAL_EXPIRED_STATUSES:
+        return True
+    if active_lobby_user_ids is not None and not proposal.is_processed:
+        u1_in_lobby = proposal.u1_id in active_lobby_user_ids
+        u2_in_lobby = proposal.u2_id in active_lobby_user_ids
+        if not u1_in_lobby or not u2_in_lobby:
+            return True
+    return False
+
+
+def _proposal_is_rejected_bucket(proposal: RandomCallMatching) -> bool:
+    if proposal.accepted or _proposal_is_expired_bucket(proposal, active_lobby_user_ids=None):
+        return False
+    if (
+        proposal.u1_status == RandomCallProposalUserStatus.REJECTED
+        or proposal.u2_status == RandomCallProposalUserStatus.REJECTED
+    ):
+        return True
+    return bool(proposal.rejected and proposal.rejected_at is not None)
+
+
+def _proposal_is_dangling(proposal: RandomCallMatching, *, proposal_stale_threshold: datetime) -> bool:
+    if proposal.accepted or proposal.completed:
+        return False
+    if _proposal_is_expired_bucket(proposal, active_lobby_user_ids=None):
+        return False
+    if _proposal_is_rejected_bucket(proposal):
+        return False
+    return proposal.created_at is None or proposal.created_at <= proposal_stale_threshold
+
+
+def classify_proposal_bucket(
+    proposal: RandomCallMatching,
+    *,
+    active_lobby_user_ids: set[int] | None = None,
+    proposal_stale_threshold: datetime,
+) -> ProposalCategory:
+    """Assign each proposal to exactly one mutually exclusive bucket."""
+    if proposal.accepted:
+        return "accepted"
+    if _proposal_is_expired_bucket(proposal, active_lobby_user_ids=active_lobby_user_ids):
+        return "expired"
+    if _proposal_is_rejected_bucket(proposal):
+        return "rejected"
+    if _proposal_is_dangling(proposal, proposal_stale_threshold=proposal_stale_threshold):
+        return "dangling"
+    return "pending"
 
 
 def classify_proposal(
@@ -15,30 +131,59 @@ def classify_proposal(
     active_lobby_user_ids: set[int],
     proposal_stale_threshold,
 ) -> ProposalCategory:
-    u1_in_lobby = proposal.u1_id in active_lobby_user_ids
-    u2_in_lobby = proposal.u2_id in active_lobby_user_ids
-
-    is_expired = proposal.expired or (not proposal.is_processed and (not u1_in_lobby or not u2_in_lobby))
-
-    is_dangling_open = (
-        not proposal.accepted
-        and not proposal.rejected
-        and not proposal.expired
-        and not proposal.completed
-        and (proposal.created_at is None or proposal.created_at <= proposal_stale_threshold)
+    """Classify a proposal for live session views (always passes active user context)."""
+    return classify_proposal_bucket(
+        proposal,
+        active_lobby_user_ids=active_lobby_user_ids,
+        proposal_stale_threshold=proposal_stale_threshold,
     )
 
-    if proposal.accepted:
-        return "accepted"
-    if is_expired:
-        return "expired"
-    if proposal.rejected:
-        return "rejected"
-    if is_dangling_open:
-        return "dangling"
-    if not proposal.is_processed:
-        return "pending"
-    return "pending"
+
+def count_proposal_buckets(
+    proposals,
+    *,
+    lobby: RandomCallLobby,
+    active_lobby_user_ids: set[int] | None = None,
+    as_of: datetime | None = None,
+) -> dict[str, int]:
+    stale_threshold = proposal_stale_threshold_for_lobby(lobby, as_of=as_of)
+    counts = {bucket: 0 for bucket in PROPOSAL_BUCKET_FIELDS}
+    for proposal in proposals:
+        bucket = classify_proposal_bucket(
+            proposal,
+            active_lobby_user_ids=active_lobby_user_ids,
+            proposal_stale_threshold=stale_threshold,
+        )
+        counts[bucket] += 1
+    counts["total"] = len(proposals)
+    return counts
+
+
+def batch_count_proposal_buckets_by_lobby(
+    lobbies: list[RandomCallLobby],
+    *,
+    as_of: datetime | None = None,
+) -> dict[int, dict[str, int]]:
+    if not lobbies:
+        return {}
+
+    lobby_ids = [lobby.pk for lobby in lobbies]
+    proposals_by_lobby: dict[int, list[RandomCallMatching]] = defaultdict(list)
+    for proposal in RandomCallMatching.objects.filter(lobby_id__in=lobby_ids):
+        proposals_by_lobby[proposal.lobby_id].append(proposal)
+
+    return {
+        lobby.pk: count_proposal_buckets(
+            proposals_by_lobby.get(lobby.pk, []),
+            lobby=lobby,
+            as_of=as_of,
+        )
+        for lobby in lobbies
+    }
+
+
+def proposal_bucket_counts_sum_to_total(counts: dict[str, int]) -> bool:
+    return sum(counts[bucket] for bucket in PROPOSAL_BUCKET_FIELDS) == counts["total"]
 
 
 def serialize_lobby_participant_profile(profile):

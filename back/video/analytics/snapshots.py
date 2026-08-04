@@ -20,6 +20,7 @@ from video.analytics.lobbies import (
     ANNOT_VOLUNTEER_COUNT,
     annotate_lobby_metrics,
 )
+from video.analytics.queries import batch_count_proposal_buckets_by_lobby, proposal_bucket_counts_sum_to_total
 from video.analytics.timezone import DISPLAY_TZ
 from video.models import RandomCallLobby, RandomCallLobbyUser
 
@@ -52,6 +53,8 @@ class LobbyOccurrenceSnapshot:
     proposals_accepted: int
     proposals_rejected: int
     proposals_expired: int
+    proposals_pending: int
+    proposals_dangling: int
     completed_calls: int
 
     learner_count: int
@@ -122,7 +125,7 @@ def build_snapshots(lobby_qs: QuerySet[RandomCallLobby]) -> dict[UUID, LobbyOccu
     """Build snapshots for every lobby in *lobby_qs* (typically one paginated page).
 
     *lobby_qs* must already carry annotations from ``annotate_lobby_metrics``.
-    First-time / returning counts are computed in a second pass for the materialized rows only.
+    First-time / returning counts and open proposal buckets are computed in a second pass.
     """
     lobbies = list(lobby_qs)
     if not lobbies:
@@ -136,11 +139,21 @@ def build_snapshots(lobby_qs: QuerySet[RandomCallLobby]) -> dict[UUID, LobbyOccu
             )
 
     attendance = _batch_user_attendance_breakdown(lobbies)
+    proposal_buckets = batch_count_proposal_buckets_by_lobby(lobbies)
     snapshots: dict[UUID, LobbyOccurrenceSnapshot] = {}
 
     for lobby in lobbies:
         day, snapshot_date = lobby_display_day_date(lobby.start_time)
         att = attendance[lobby.pk]
+        buckets = proposal_buckets[lobby.pk]
+        if not proposal_bucket_counts_sum_to_total(buckets):
+            raise ValueError(
+                f"Proposal bucket invariant failed for lobby {lobby.uuid}: "
+                f"accepted={buckets['accepted']}, rejected={buckets['rejected']}, "
+                f"expired={buckets['expired']}, pending={buckets['pending']}, "
+                f"dangling={buckets['dangling']}, total={buckets['total']}"
+            )
+
         snapshots[lobby.uuid] = LobbyOccurrenceSnapshot(
             lobby_uuid=lobby.uuid,
             lobby_name=lobby.name or "",
@@ -151,10 +164,12 @@ def build_snapshots(lobby_qs: QuerySet[RandomCallLobby]) -> dict[UUID, LobbyOccu
             total_users=_read_annotation(lobby, ANNOT_TOTAL_USERS),
             first_time_users=att["first_time_users"],
             returning_users=att["returning_users"],
-            proposals_total=_read_annotation(lobby, ANNOT_PROPOSALS_TOTAL),
-            proposals_accepted=_read_annotation(lobby, ANNOT_PROPOSALS_ACCEPTED),
-            proposals_rejected=_read_annotation(lobby, ANNOT_PROPOSALS_REJECTED),
-            proposals_expired=_read_annotation(lobby, ANNOT_PROPOSALS_EXPIRED),
+            proposals_total=buckets["total"],
+            proposals_accepted=buckets["accepted"],
+            proposals_rejected=buckets["rejected"],
+            proposals_expired=buckets["expired"],
+            proposals_pending=buckets["pending"],
+            proposals_dangling=buckets["dangling"],
             completed_calls=_read_annotation(lobby, ANNOT_COMPLETED_CALLS),
             learner_count=_read_annotation(lobby, ANNOT_LEARNER_COUNT),
             volunteer_count=_read_annotation(lobby, ANNOT_VOLUNTEER_COUNT),
@@ -185,6 +200,8 @@ def lobby_session_snapshot_to_dict(snapshot: LobbyOccurrenceSnapshot) -> dict:
         "proposals_accepted": snapshot.proposals_accepted,
         "proposals_rejected": snapshot.proposals_rejected,
         "proposals_expired": snapshot.proposals_expired,
+        "proposals_pending": snapshot.proposals_pending,
+        "proposals_dangling": snapshot.proposals_dangling,
         "completed_calls": snapshot.completed_calls,
         "learner_count": snapshot.learner_count,
         "volunteer_count": snapshot.volunteer_count,

@@ -55,6 +55,8 @@ class LobbySessionSnapshotSerializer(serializers.Serializer):
     proposals_accepted = serializers.IntegerField()
     proposals_rejected = serializers.IntegerField()
     proposals_expired = serializers.IntegerField()
+    proposals_pending = serializers.IntegerField()
+    proposals_dangling = serializers.IntegerField()
     completed_calls = serializers.IntegerField()
     learner_count = serializers.IntegerField()
     volunteer_count = serializers.IntegerField()

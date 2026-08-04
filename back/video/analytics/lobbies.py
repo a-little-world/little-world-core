@@ -4,10 +4,15 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from django.db.models import Count, IntegerField, OuterRef, QuerySet, Subquery
+from django.db.models import Count, IntegerField, OuterRef, Q, QuerySet, Subquery
 from django.db.models.functions import Coalesce
 from management.models.profile import Profile
 
+from video.analytics.queries import (
+    accepted_proposal_bucket_q,
+    expired_proposal_bucket_q,
+    rejected_proposal_bucket_q,
+)
 from video.models import RandomCallLobby, RandomCallLobbyUser, RandomCallMatching
 
 # Annotation names — must match LobbyOccurrenceSnapshot fields read in snapshots.build_snapshots.
@@ -87,9 +92,14 @@ def _lobby_user_distinct_count_subquery(**filter_kwargs) -> Subquery:
     )
 
 
-def _proposal_count_subquery(**filter_kwargs) -> Subquery:
+def _proposal_count_subquery(*, bucket_q: Q | None = None, **filter_kwargs) -> Subquery:
+    proposal_filter = Q(lobby_id=OuterRef("pk"))
+    if bucket_q is not None:
+        proposal_filter &= bucket_q
+    if filter_kwargs:
+        proposal_filter &= Q(**filter_kwargs)
     return Subquery(
-        RandomCallMatching.objects.filter(lobby_id=OuterRef("pk"), **filter_kwargs)
+        RandomCallMatching.objects.filter(proposal_filter)
         .values("lobby_id")
         .annotate(_cnt=Count("id"))
         .values("_cnt")[:1],
@@ -98,7 +108,12 @@ def _proposal_count_subquery(**filter_kwargs) -> Subquery:
 
 
 def annotate_lobby_metrics(qs: QuerySet[RandomCallLobby]) -> QuerySet[RandomCallLobby]:
-    """Attach sortable per-lobby counts via separate subqueries (no join fan-out)."""
+    """Attach sortable per-lobby counts via separate subqueries (no join fan-out).
+
+    Proposal bucket counts use mutually exclusive filters (status-first). Pending and
+    dangling are filled in by ``build_snapshots`` because dangling needs per-lobby
+    stale thresholds.
+    """
     zero = IntegerField()
     return qs.annotate(
         **{
@@ -114,9 +129,21 @@ def annotate_lobby_metrics(qs: QuerySet[RandomCallLobby]) -> QuerySet[RandomCall
                 output_field=zero,
             ),
             ANNOT_PROPOSALS_TOTAL: Coalesce(_proposal_count_subquery(), 0, output_field=zero),
-            ANNOT_PROPOSALS_ACCEPTED: Coalesce(_proposal_count_subquery(accepted=True), 0, output_field=zero),
-            ANNOT_PROPOSALS_REJECTED: Coalesce(_proposal_count_subquery(rejected=True), 0, output_field=zero),
-            ANNOT_PROPOSALS_EXPIRED: Coalesce(_proposal_count_subquery(expired=True), 0, output_field=zero),
+            ANNOT_PROPOSALS_ACCEPTED: Coalesce(
+                _proposal_count_subquery(bucket_q=accepted_proposal_bucket_q()),
+                0,
+                output_field=zero,
+            ),
+            ANNOT_PROPOSALS_REJECTED: Coalesce(
+                _proposal_count_subquery(bucket_q=rejected_proposal_bucket_q()),
+                0,
+                output_field=zero,
+            ),
+            ANNOT_PROPOSALS_EXPIRED: Coalesce(
+                _proposal_count_subquery(bucket_q=expired_proposal_bucket_q()),
+                0,
+                output_field=zero,
+            ),
             ANNOT_COMPLETED_CALLS: Coalesce(_proposal_count_subquery(completed=True), 0, output_field=zero),
         }
     )
