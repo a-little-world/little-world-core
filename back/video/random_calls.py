@@ -31,7 +31,6 @@ from video.models import (
     RandomCallLobbyUser,
     RandomCallMatching,
     RandomCallProposalUserStatus,
-    RandomCallSession,
 )
 from video.tasks import (
     cleanup_inactive_lobby_users,
@@ -62,21 +61,19 @@ async def create_livekit_room(room_name):
 
 
 def is_lobby_active(lobby):
-    if lobby.start_time > timezone.now():
+    if lobby.start_time is None or lobby.end_time is None:
         return False
-    if lobby.end_time < timezone.now():
+    now = timezone.now()
+    if lobby.start_time > now:
+        return False
+    if lobby.end_time < now:
         return False
     return True
 
 
-def get_pending_random_call_matching_qs_for_user(user, lobby):
-    """
-    Shared "pending random call match" queryset used by both user-facing and management endpoints.
-    Keep this in one place so both views evaluate the same rows.
-    """
-    return RandomCallMatching.objects.filter(
-        Q(u1=user) | Q(u2=user),
-        lobby=lobby,
+def open_pending_random_call_match_q() -> Q:
+    """Shared open-pending proposal filter for user-facing and admin views."""
+    return Q(
         rejected=False,
         both_requested_room_token=False,
         completed=False,
@@ -84,7 +81,19 @@ def get_pending_random_call_matching_qs_for_user(user, lobby):
         in_session=False,
         expired=False,
         video_call_join_expired=False,
-    ).order_by("-pk")
+    )
+
+
+def get_pending_random_call_matching_qs_for_user(user, lobby):
+    """
+    Shared "pending random call match" queryset used by both user-facing and management endpoints.
+    Keep this in one place so both views evaluate the same rows.
+    """
+    return (
+        RandomCallMatching.objects.filter(Q(u1=user) | Q(u2=user), lobby=lobby)
+        .filter(open_pending_random_call_match_q())
+        .order_by("-pk")
+    )
 
 
 def get_accepted_matchings_expired_join_qs_for_user(user, lobby):
@@ -109,28 +118,12 @@ def join_random_call_lobby(request, lobby_uuid):
     if not is_lobby_active(lobby):
         return Response("Lobby is not active", status=400)
     # 2 - check if the user is already in the lobby
-    user_in_lobby = RandomCallLobbyUser.objects.filter(user=request.user, lobby=lobby, is_active=True)
-    already_in_lobby = False
-    if user_in_lobby.exists():
-        already_in_lobby = True
-        user_in_lobby = user_in_lobby.first()
-        user_in_lobby.last_status_checked_at = timezone.now()
-        user_in_lobby.is_active = True
-        user_in_lobby.save()
-    # 3 - if the user is not in the lobby, add them or reactivate them
-    if not user_in_lobby:
-        # Check if user has an inactive entry
-        inactive_entry = RandomCallLobbyUser.objects.filter(user=request.user, lobby=lobby, is_active=False).first()
-        if inactive_entry:
-            # Reactivate the existing entry
-            inactive_entry.is_active = True
-            inactive_entry.last_status_checked_at = timezone.now()
-            inactive_entry.save()
-        else:
-            # Create new entry
-            RandomCallLobbyUser.objects.create(
-                user=request.user, lobby=lobby, last_status_checked_at=timezone.now(), is_active=True
-            )
+    already_in_lobby = RandomCallLobbyUser.objects.filter(user=request.user, lobby=lobby, is_active=True).exists()
+    RandomCallLobbyUser.objects.update_or_create(
+        user=request.user,
+        lobby=lobby,
+        defaults={"is_active": True, "last_status_checked_at": timezone.now()},
+    )
     # 4 - a-new user joined so start the celery task that performs the matching
     random_call_lobby_perform_matching.apply_async(args=[str(lobby.uuid)])
     cleanup_inactive_lobby_users.apply_async(args=[str(lobby.uuid)], countdown=12)
@@ -372,29 +365,6 @@ def reject_random_call_match(request, lobby_uuid, match_uuid):
     )
 
 
-@api_view(["GET"])
-@authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
-@permission_classes([IsAuthenticated])
-def get_random_call_status(request, random_call_session_id):
-    # 1 - retrieve the random call session
-    random_call_session = RandomCallSession.objects.get(uuid=random_call_session_id)
-    if not random_call_session.exists():
-        return Response("Random call session does not exist", status=400)
-    # 2 - check if the requesting user is part of the random call session
-    user_in_random_call_session = RandomCallLobbyUser.objects.filter(
-        user=request.user, random_call_session=random_call_session
-    )
-    if not user_in_random_call_session.exists():
-        return Response("You are not part of the random call session", status=400)
-    # 3 - check if the random call session is active
-    if not random_call_session.active:
-        return Response("Random call session is not active", status=400)
-    # 4 - check the random call session status
-    # TODO: calculate remaining time, and possibly other status events
-    # TODO: or atleast pass a session end time of sorts
-    return Response({"random_call_session": str(random_call_session.uuid), "status": random_call_session.status})
-
-
 @api_view(["POST"])
 @authentication_classes([SessionAuthentication, NativeOnlyJWTAuthentication])
 @permission_classes([IsAuthenticated])
@@ -575,7 +545,9 @@ class RandomCallLobbySerializer(serializers.Serializer):
         # Add calculated status based on current time
         rep["status"] = is_lobby_active(instance)
         # Add count of active users in the lobby
-        rep["active_users_count"] = RandomCallLobbyUser.objects.filter(lobby=instance, is_active=True).count()
+        rep["active_users_count"] = (
+            RandomCallLobbyUser.objects.filter(lobby=instance, is_active=True).values("user_id").distinct().count()
+        )
         return rep
 
 
