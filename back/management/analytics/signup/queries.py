@@ -100,14 +100,23 @@ def learners_ineligible_for_onboarding(qs: QuerySet) -> QuerySet:
     """Union of active onboarding-ineligibility reasons (A0 German + outside Germany).
 
     ``force_match_eligible=True`` learners are never included — they bypass checks.
+
+    Unions ``.values("id")`` rather than OR-ing the reason querysets: both traverse
+    multi-valued relations, and OR-combining them reuses joins in ways that widen the
+    result (conventions §6). ``.order_by()`` strips any inherited ordering — SQLite
+    rejects ``ORDER BY`` inside a compound statement, so an ordered input would raise
+    there while working on Postgres.
     """
     if not _ONBOARDING_INELIGIBILITY_REASONS:
         return qs.none()
 
-    combined = _ONBOARDING_INELIGIBILITY_REASONS[0](qs)
+    def reason_ids(reason) -> QuerySet:
+        return reason(qs).order_by().values("id")
+
+    id_qs = reason_ids(_ONBOARDING_INELIGIBILITY_REASONS[0])
     for reason in _ONBOARDING_INELIGIBILITY_REASONS[1:]:
-        combined = combined | reason(qs)
-    return qs.filter(id__in=combined).distinct()
+        id_qs = id_qs.union(reason_ids(reason))
+    return qs.filter(id__in=id_qs)
 
 
 # ---------------------------------------------------------------------------

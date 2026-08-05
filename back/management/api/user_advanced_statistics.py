@@ -21,7 +21,7 @@ from video.models import LivekitSession
 
 from management.api.match_journey_filter_list import MATCH_JOURNEY_FILTERS, get_match_list_by_name
 from management.api.user_advanced import get_match_waiting_time
-from management.api.user_advanced_filter_lists import FILTER_LISTS, USER_JOURNEY_FILTER_LISTS, get_list_by_name
+from management.api.user_advanced_filter_lists import FILTER_LISTS, get_list_by_name
 from management.api.user_report_utils import (
     build_user_report_entry,
     group_user_journey_by_date,
@@ -56,7 +56,15 @@ def _parse_date_input(value, default):
 
 
 def _inclusive_datetime_range(start_date, end_date):
-    return datetime.combine(start_date, time.min), datetime.combine(end_date, time.max)
+    """Closed date range in the analytics display timezone.
+
+    Delegates to ``analytics.core.display_time`` so every endpoint in this module agrees
+    on what a same-day range means (conventions §10). Previously built naive bounds, which
+    were interpreted in the project default timezone under ``USE_TZ``.
+    """
+    from management.analytics.core.display_time import inclusive_range
+
+    return inclusive_range(start_date, end_date)
 
 
 def _count_non_support_messages(message_queryset):
@@ -537,6 +545,87 @@ def statistics_highlights(request):
     )
 
 
+# Baseline for the match journey buckets. Not yet in the analytics registry — the match
+# domain package is the next slice; until then this is the one place the ID is named.
+MATCH_JOURNEY_BASELINE_LIST_ID = "match_journey_v2__all"
+
+
+def _compute_bucket_statistics(pre_filtered_qs, selected_entries, baseline_list_id, exclude_intersection_check):
+    """Count each selected list over ``pre_filtered_qs`` and cross-check the partition.
+
+    Shared by the user and match bucket endpoints. ``baseline_list_id`` is the canonical
+    catalog ID of the funnel's denominator (``registry.baseline_list_id``); legacy aliases
+    for it are recognised, so a caller may send either form. Nothing here hardcodes a
+    list name — that is what let the two endpoints drift into near-duplicates.
+
+    ``missing_ids`` is baseline members that appear in no other selected bucket, and is
+    empty when the baseline was not requested.
+
+    Args:
+        pre_filtered_qs: cohort-filtered queryset the buckets are counted over
+        selected_entries: FilterListEntry objects, in the order the response should list them
+        baseline_list_id: canonical list ID of the baseline bucket
+        exclude_intersection_check: list names to skip in the pairwise overlap report
+
+    Returns:
+        dict: buckets, missing_ids, intersecting_ids_lists
+    """
+    from management.analytics.registry import is_baseline
+
+    buckets = []
+    list_ids = {}
+    baseline_names = set()
+    non_baseline_ids = set()
+
+    query_logger = QueryLogger()
+    last_query_log_index = 0
+
+    with connection.execute_wrapper(query_logger):
+        for i, entry in enumerate(selected_entries):
+            queryset = entry.queryset(qs=pre_filtered_qs)
+            count = queryset.count()
+            duration = sum(query["duration"] for query in query_logger.queries[last_query_log_index:])
+            last_query_log_index = len(query_logger.queries)
+
+            buckets.append(
+                {
+                    "name": entry.name,
+                    "description": entry.resolved_description(),
+                    "count": count,
+                    "id": i,
+                    "query_duration": duration,
+                }
+            )
+
+            ids = set(queryset.values_list("id", flat=True))
+            list_ids[entry.name] = ids
+
+            if is_baseline(entry.name, baseline_list_id):
+                baseline_names.add(entry.name)
+            else:
+                non_baseline_ids.update(ids)
+
+    intersecting_ids_lists = {}
+    intersection_check_lists = [
+        entry.name
+        for entry in selected_entries
+        if entry.name not in exclude_intersection_check and entry.name not in baseline_names
+    ]
+    for position, list_name in enumerate(intersection_check_lists):
+        for other_list_name in intersection_check_lists[position + 1 :]:
+            intersecting_ids = list_ids[list_name] & list_ids[other_list_name]
+            if intersecting_ids:
+                intersecting_ids_lists[f"{list_name}---{other_list_name}"] = sorted(intersecting_ids)
+
+    baseline_ids = set().union(*(list_ids[name] for name in baseline_names)) if baseline_names else set()
+
+    return {
+        "buckets": buckets,
+        "missing_ids": sorted(baseline_ids - non_baseline_ids),
+        "intersecting_ids_lists": intersecting_ids_lists,
+    }
+
+
 def get_bucket_statistics(pre_filtered_users, selected_filters=None, filter_lists=FILTER_LISTS):
     """
     Calculate bucket statistics for a given set of users and filters.
@@ -549,92 +638,43 @@ def get_bucket_statistics(pre_filtered_users, selected_filters=None, filter_list
     Returns:
         dict: Contains buckets, missing_ids, and intersecting_ids_lists
     """
+    from management.analytics.registry import SIGNUP_FUNNEL, baseline_list_id
+
     if selected_filters is None:
         selected_filters = [entry.name for entry in filter_lists]
 
-    user_buckets = []
-    selected_filters_list = []
-    pre_filtered_uj_lists = {entry.name: entry for entry in filter_lists if entry.name in selected_filters}
+    # Caller order is preserved: bucket "id" is the index and the chart reads it as the
+    # funnel step order.
+    entries_by_name = {entry.name: entry for entry in filter_lists}
+    selected_entries = [entries_by_name[name] for name in selected_filters]
 
-    for filter_name in selected_filters:
-        filter_list_entry = pre_filtered_uj_lists[filter_name]
-        selected_filters_list.append(filter_list_entry)
-
-    query_logger = QueryLogger()
-    last_query_log_index = 0
-    user_list_ids = {}
-    all_ids_set = set()
-
-    with connection.execute_wrapper(query_logger):
-        for i, filter_list in enumerate(selected_filters_list):
-            queryset = filter_list.queryset(qs=pre_filtered_users)
-            count = queryset.count()
-            duration = sum([query["duration"] for query in query_logger.queries[last_query_log_index:]])
-            last_query_log_index = len(query_logger.queries) - 1
-
-            user_buckets.append(
-                {
-                    "name": filter_list.name,
-                    "description": filter_list.description,
-                    "count": count,
-                    "id": i,
-                    "query_duration": duration,
-                }
-            )
-
-            user_list_ids[filter_list.name] = {
-                "ids": queryset.values_list("id", flat=True),
-            }
-
-            if filter_list.name != "all":
-                all_ids_set.update(user_list_ids[filter_list.name]["ids"])
-
-    # Calculate intersecting IDs
-    exclude_intersection_check = [
-        "all",
-        "needs_matching",
-        "match_journey_v2__proposed_matches",
-        "match_journey_v2__expired_proposals",
-    ]
-
-    intersecting_ids_lists = {}
-    intersection_check_lists = [
-        list_name for list_name in selected_filters if list_name not in exclude_intersection_check
-    ]
-    intersection_check_lists_not_processed = intersection_check_lists.copy()
-
-    for list_name in intersection_check_lists:
-        intersection_check_lists_not_processed.remove(list_name)
-        for other_list_name in intersection_check_lists_not_processed:
-            if list_name != other_list_name:
-                intersecting_ids = set(user_list_ids[list_name]["ids"]).intersection(
-                    user_list_ids[other_list_name]["ids"]
-                )
-                if len(intersecting_ids) > 0:
-                    intersecting_ids_lists[f"{list_name}---{other_list_name}"] = intersecting_ids
-
-    all_ids = set(user_list_ids["all"]["ids"])
-    missing_ids = all_ids.difference(all_ids_set)
-
-    return {
-        "buckets": user_buckets,
-        "missing_ids": list(missing_ids),
-        "intersecting_ids_lists": intersecting_ids_lists,
-    }
+    return _compute_bucket_statistics(
+        pre_filtered_qs=pre_filtered_users,
+        selected_entries=selected_entries,
+        baseline_list_id=baseline_list_id(SIGNUP_FUNNEL),
+        exclude_intersection_check=[
+            "needs_matching",
+            "match_journey_v2__proposed_matches",
+            "match_journey_v2__expired_proposals",
+        ],
+    )
 
 
 @extend_schema(
     request=inline_serializer(
         name="BucketStatisticsCountOverTimeRequest",
         fields={
+            # Choices come from FILTER_LISTS, which is what the view can actually serve —
+            # USER_JOURNEY_FILTER_LISTS omitted the baseline, so the schema rejected the
+            # one value every funnel request must send.
             "selected_filters": serializers.ListField(
                 child=serializers.ChoiceField(
-                    choices=[entry.name for entry in USER_JOURNEY_FILTER_LISTS],
+                    choices=[entry.name for entry in FILTER_LISTS],
                 ),
                 required=True,
             ),
-            "start_date": serializers.DateField(default=date(2021, 1, 1), required=False),
-            "end_date": serializers.DateField(default=date.today(), required=False),
+            "start_date": serializers.DateField(default=date(2022, 1, 1), required=False),
+            "end_date": serializers.DateField(required=False),
             "volunteers_only": serializers.BooleanField(default=False, required=False),
             "include_too_low_german_level": serializers.BooleanField(default=True, required=False),
         },
@@ -643,21 +683,31 @@ def get_bucket_statistics(pre_filtered_users, selected_filters=None, filter_list
 @api_view(["POST"])
 @permission_classes([IsAdminOrMatchingUser])
 def bucket_statistics(request):
-    from management.analytics.cohorts import CohortSpec, apply_cohort
+    from management.analytics.core import display_time
+    from management.analytics.signup.cohorts import SignupCohort, apply_cohort
 
-    today = date.today()
-    start_date = request.data.get("start_date", "2022-01-01")
-    end_date = request.data.get("end_date", today)
+    # The view owns parsing and validation; the cohort owns query semantics (conventions §11).
+    try:
+        start_date = _parse_date_input(request.data.get("start_date"), date(2022, 1, 1))
+        end_date = _parse_date_input(request.data.get("end_date"), display_time.today())
+    except (TypeError, ValueError):
+        return Response({"detail": "start_date and end_date must be YYYY-MM-DD."}, status=400)
+
+    if start_date > end_date:
+        return Response({"detail": "start_date must not be after end_date."}, status=400)
+
+    selected_filters = request.data.get("selected_filters", None)
+    if selected_filters is not None:
+        servable = {entry.name for entry in FILTER_LISTS}
+        unknown = sorted(set(selected_filters) - servable)
+        if unknown:
+            return Response({"detail": f"Unknown selected_filters: {unknown}"}, status=400)
 
     # Get pre-filtered users based on permissions, then apply signup cohort gates once.
-    pre_filtered_users = User.objects.all()
-    if not request.user.is_staff:
-        pre_filtered_users = pre_filtered_users.filter(
-            id__in=request.user.managed_users_queryset(active_only=False).values("id")
-        )
+    pre_filtered_users = _get_accessible_users(request.user)
     pre_filtered_users = apply_cohort(
         pre_filtered_users,
-        CohortSpec(
+        SignupCohort(
             start_date=start_date,
             end_date=end_date,
             volunteers_only=request.data.get("volunteers_only", False),
@@ -665,10 +715,6 @@ def bucket_statistics(request):
         ),
     )
 
-    # Get selected filters from request
-    selected_filters = request.data.get("selected_filters", None)
-
-    # Get bucket statistics using the extracted function
     stats = get_bucket_statistics(
         pre_filtered_users=pre_filtered_users, selected_filters=selected_filters, filter_lists=FILTER_LISTS
     )
@@ -691,74 +737,28 @@ def get_match_bucket_statistics(pre_filtered_matches, selected_filters=None, fil
     if selected_filters is None:
         selected_filters = [entry.name for entry in filter_lists]
 
-    if "match_journey_v2__all" not in selected_filters:
-        selected_filters.append("match_journey_v2__all")
+    # missing_ids is only meaningful against the baseline, so request it unconditionally.
+    # Once the match analytics domain lands this becomes registry.baseline_list_id(MATCH_FUNNEL).
+    baseline = MATCH_JOURNEY_BASELINE_LIST_ID
+    selected = list(selected_filters)
+    if baseline not in selected:
+        selected.append(baseline)
 
-    query_logger = QueryLogger()
-    last_query_log_index = 0
-    all_ids_set = set()
-    user_list_ids = {}
+    # Response order follows filter_lists, not the caller — unlike the user endpoint.
+    # Unknown names are dropped rather than raising, which is also pre-existing behaviour.
+    selected_entries = [entry for entry in filter_lists if entry.name in selected]
 
-    with connection.execute_wrapper(query_logger):
-        match_buckets = []
-        selected_filters_list = [entry for entry in filter_lists if entry.name in selected_filters]
-
-        for i, filter_list in enumerate(selected_filters_list):
-            queryset = filter_list.queryset(qs=pre_filtered_matches)
-            count = queryset.count()
-            duration = sum([query["duration"] for query in query_logger.queries[last_query_log_index:]])
-            last_query_log_index = len(query_logger.queries) - 1
-
-            match_buckets.append(
-                {
-                    "name": filter_list.name,
-                    "description": filter_list.description,
-                    "count": count,
-                    "id": i,
-                    "query_duration": duration,
-                }
-            )
-
-            user_list_ids[filter_list.name] = {
-                "ids": queryset.values_list("id", flat=True),
-            }
-
-            if filter_list.name != "match_journey_v2__all":
-                all_ids_set.update(user_list_ids[filter_list.name]["ids"])
-
-    # Calculate intersecting IDs
-    exclude_intersection_check = [
-        "all",
-        "needs_matching",
-        "match_journey_v2__all",
-        "match_journey_v2__proposed_matches",
-        "match_journey_v2__expired_proposals",
-    ]
-
-    intersecting_ids_lists = {}
-    intersection_check_lists = [
-        list_name for list_name in selected_filters if list_name not in exclude_intersection_check
-    ]
-    intersection_check_lists_not_processed = intersection_check_lists.copy()
-
-    for list_name in intersection_check_lists:
-        intersection_check_lists_not_processed.remove(list_name)
-        for other_list_name in intersection_check_lists_not_processed:
-            if list_name != other_list_name:
-                intersecting_ids = set(user_list_ids[list_name]["ids"]).intersection(
-                    user_list_ids[other_list_name]["ids"]
-                )
-                if len(intersecting_ids) > 0:
-                    intersecting_ids_lists[f"{list_name}---{other_list_name}"] = intersecting_ids
-
-    all_ids = set(user_list_ids["match_journey_v2__all"]["ids"])
-    missing_ids = all_ids.difference(all_ids_set)
-
-    return {
-        "buckets": match_buckets,
-        "intersecting_ids_lists": intersecting_ids_lists,
-        "missing_ids": list(missing_ids),
-    }
+    return _compute_bucket_statistics(
+        pre_filtered_qs=pre_filtered_matches,
+        selected_entries=selected_entries,
+        baseline_list_id=baseline,
+        exclude_intersection_check=[
+            "all",
+            "needs_matching",
+            "match_journey_v2__proposed_matches",
+            "match_journey_v2__expired_proposals",
+        ],
+    )
 
 
 @extend_schema(

@@ -83,26 +83,44 @@ from management.api.user_journey_filters import (
 )
 from management.models.dynamic_user_list import DynamicUserList
 
-GITHUB_API_SOURCE_ROOT = "https://github.com/a-little-world/little-world-core/blob/main/back/management/api"
+GITHUB_SOURCE_ROOT = "https://github.com/a-little-world/little-world-core/blob/main"
 
 
 def _analytics_queryset(attr: str):
-    """Lazy wrapper to avoid circular import with ``management.analytics.queries``."""
+    """Lazy wrapper to avoid a circular import with ``management.analytics.signup.queries``.
+
+    ``_analytics_attr`` lets ``get_queryset_source_reference`` resolve the real query
+    function at request time, so the admin "view source" link points at the query
+    definition instead of at this wrapper.
+    """
 
     def fn(qs=None):
-        from management.analytics import queries as aq
+        from management.analytics.signup import queries as aq
         from management.models.user import User
 
         return getattr(aq, attr)(User.objects.all() if qs is None else qs)
 
     fn.__name__ = attr
     fn.__qualname__ = attr
+    fn._analytics_attr = attr
     return fn
+
+
+def _unwrap_analytics_queryset(queryset: callable) -> callable:
+    """Resolve a ``_analytics_queryset`` wrapper to the query function it calls."""
+    attr = getattr(queryset, "_analytics_attr", None)
+    if attr is None:
+        return queryset
+    from management.analytics.signup import queries as aq
+
+    return getattr(aq, attr, queryset)
 
 
 def get_queryset_source_reference(queryset: callable) -> dict:
     if queryset is None:
         return {"source_file": None, "source_line": None, "source_url": None}
+
+    queryset = _unwrap_analytics_queryset(queryset)
 
     try:
         source_line = inspect.getsourcelines(queryset)[1]
@@ -112,10 +130,22 @@ def get_queryset_source_reference(queryset: callable) -> dict:
     module_name = getattr(queryset, "__module__", "")
     source_file = f"back/{module_name.replace('.', '/')}.py" if module_name else None
     source_url = None
-    if source_file and source_line and source_file.startswith("back/management/api/"):
-        source_url = f"{GITHUB_API_SOURCE_ROOT}/{source_file.removeprefix('back/management/api/')}#L{source_line}"
+    if source_file and source_line:
+        source_url = f"{GITHUB_SOURCE_ROOT}/{source_file}#L{source_line}"
 
     return {"source_file": source_file, "source_line": source_line, "source_url": source_url}
+
+
+def _catalog_description(list_id: str) -> str | None:
+    """Description from the analytics catalog, which owns it for every ID it defines.
+
+    Lazy import: the analytics registry imports the query modules this one does, and
+    resolution only happens at request time.
+    """
+    from management.analytics.registry import get_catalog_entry
+
+    entry = get_catalog_entry(list_id)
+    return entry.description if entry else None
 
 
 @dataclass
@@ -124,14 +154,26 @@ class FilterListEntry:
     description: str | None
     queryset: callable = None
 
+    def resolved_description(self) -> str | None:
+        """Catalog first (conventions §4), then the hardcoded value, then the docstring.
+
+        The catalog wins so a description added here cannot silently diverge from the
+        canonical one; ``assert_all_domains_strict`` rejects hardcoding both.
+        """
+        catalog_description = _catalog_description(self.name)
+        if catalog_description is not None:
+            return catalog_description
+        if self.description is not None:
+            return self.description
+        if self.queryset and self.queryset.__doc__:
+            return self.queryset.__doc__.strip()
+        return None
+
     def to_dict(self):
-        description = self.description
-        if description is None and self.queryset and self.queryset.__doc__:
-            description = self.queryset.__doc__.strip()
         source_reference = get_queryset_source_reference(self.queryset)
         return {
             "name": self.name,
-            "description": description,
+            "description": self.resolved_description(),
             **source_reference,
         }
 
@@ -222,52 +264,36 @@ USER_JOURNEY_FILTER_LISTS = [
     FilterListEntry("journey_v2__never_active_or_deleted", None, never_active_or_deleted),
     FilterListEntry("journey_v2__email_verified", None, email_verified),
     FilterListEntry("journey_v2__user_form_completed", None, user_form_completed),
+    # Signup analytics lists. Descriptions are omitted deliberately: the analytics catalog
+    # owns display_name/description (conventions §4) and `resolved_description` reads it.
+    # Querysets are lazy wrappers to avoid importing the analytics package at module load.
+    FilterListEntry("signup__all", None, _analytics_queryset("users_all")),
+    FilterListEntry("signup__form_completed_awaiting_onboarding", None, user_form_completed_awaiting_onboarding),
+    # Stage reaches
+    FilterListEntry("signup__stage_active_adjusted", None, _analytics_queryset("users_active_adjusted")),
+    FilterListEntry("signup__stage_email_verified", None, _analytics_queryset("users_who_verified_email")),
+    FilterListEntry("signup__stage_form_completed", None, _analytics_queryset("users_who_completed_form")),
     FilterListEntry(
-        "signup__form_completed_awaiting_onboarding",
-        "Form completed, awaiting onboarding (includes A0 German learners)",
-        user_form_completed_awaiting_onboarding,
+        "signup__stage_eligible_for_onboarding", None, _analytics_queryset("users_eligible_for_onboarding")
     ),
-    # Signup funnel stage reaches (lazy — avoids circular import with analytics.queries)
-    FilterListEntry(
-        "signup__stage_active_adjusted",
-        "Active registered (not deleted; may be unverified)",
-        _analytics_queryset("users_active_adjusted"),
-    ),
-    FilterListEntry(
-        "signup__stage_email_verified", "Email verified (stage reach)", _analytics_queryset("users_who_verified_email")
-    ),
-    FilterListEntry(
-        "signup__stage_form_completed", "Form completed (stage reach)", _analytics_queryset("users_who_completed_form")
-    ),
-    FilterListEntry(
-        "signup__stage_eligible_for_onboarding",
-        "Eligible for onboarding (form complete, not ineligible)",
-        _analytics_queryset("users_eligible_for_onboarding"),
-    ),
-    FilterListEntry(
-        "signup__stage_onboarding_started",
-        "Onboarding started (stage reach)",
-        _analytics_queryset("users_who_started_onboarding"),
-    ),
-    FilterListEntry(
-        "signup__stage_onboarded", "Onboarded (stage reach)", _analytics_queryset("users_who_are_onboarded")
-    ),
+    FilterListEntry("signup__stage_onboarding_started", None, _analytics_queryset("users_who_started_onboarding")),
+    FilterListEntry("signup__stage_onboarded", None, _analytics_queryset("users_who_are_onboarded")),
     # Ineligibility reason subsets
     FilterListEntry(
         "signup__ineligible_a0_german",
-        "Form-complete learners ineligible due to A0 German",
+        None,
         _analytics_queryset("learners_ineligible_for_onboarding_due_to_a0_german"),
     ),
     FilterListEntry(
         "signup__ineligible_outside_germany",
-        "Form-complete learners ineligible due to residence outside Germany",
+        None,
         _analytics_queryset("learners_ineligible_for_onboarding_due_to_residence_outside_germany"),
     ),
     FilterListEntry(
-        "signup__invalid_german_level",
-        "Union of active onboarding-ineligibility reasons (A0 German + outside Germany)",
-        _analytics_queryset("learners_ineligible_for_onboarding"),
+        "signup__ineligible_for_onboarding", None, _analytics_queryset("learners_ineligible_for_onboarding")
     ),
+    # Legacy alias for signup__ineligible_for_onboarding — see registry.LEGACY_ALIASES.
+    FilterListEntry("signup__invalid_german_level", None, _analytics_queryset("learners_ineligible_for_onboarding")),
     FilterListEntry("journey_v2__booked_onboarding_call", None, booked_onboarding_call),
     FilterListEntry("journey_v2__self_onboarding_started", None, self_onboarding_started_no_booked_call),
     FilterListEntry("journey_v2__onboarding_incomplete", None, onboarding_incomplete),
