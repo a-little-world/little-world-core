@@ -21,7 +21,26 @@ from video.models import (
 
 logger = logging.getLogger(__name__)
 
-# TODO: add auto update to 'total_mutal_video_calls_counter'
+
+def _mark_session_participant_active(session, room, user):
+    if user == room.u1:
+        session.u1_active = True
+        session.u1_was_active = True
+        session.both_have_been_active = session.both_have_been_active or session.u2_active
+    elif user == room.u2:
+        session.u2_active = True
+        session.u2_was_active = True
+        session.both_have_been_active = session.both_have_been_active or session.u1_active
+
+
+def _bump_match_mutual_video_call_counter(room):
+    """Count a mutual video call as soon as both participants have joined."""
+    match = Match.get_match(room.u1, room.u2).first()
+    if match is None:
+        return
+    match.total_mutal_video_calls_counter += 1
+    match.latest_interaction_at = timezone.now()
+    match.save(update_fields=["total_mutal_video_calls_counter", "latest_interaction_at", "updated_at"])
 
 
 def process_webhook_random_call__participant_joined(data, event, participant_id, user, room_id, room):
@@ -30,14 +49,7 @@ def process_webhook_random_call__participant_joined(data, event, participant_id,
     session = None
     if active_session.exists():
         session = active_session.first()
-        if user == room.u1:
-            session.u1_active = True
-            session.u1_was_active = True
-            session.both_have_been_active = session.both_have_been_active or session.u2_active
-        elif user == room.u2:
-            session.u2_active = True
-            session.u2_was_active = True
-            session.both_have_been_active = session.both_have_been_active or session.u1_active
+        _mark_session_participant_active(session, room, user)
     else:
         # TODO: Here we additionally want to create a 'RandomCallSession' DB Object!
         session = LivekitSession.objects.create(
@@ -64,16 +76,11 @@ def process_webhook_classic_call__participant_joined(data, event, participant_id
     # 4 - we determine if a session is already active for that room
     active_session = LivekitSession.objects.filter(room=room, is_active=True)
     session = None
+    already_mutual = False
     if active_session.exists():
         session = active_session.first()
-        if user == room.u1:
-            session.u1_active = True
-            session.u1_was_active = True
-            session.both_have_been_active = session.both_have_been_active or session.u2_active
-        elif user == room.u2:
-            session.u2_active = True
-            session.u2_was_active = True
-            session.both_have_been_active = session.both_have_been_active or session.u1_active
+        already_mutual = session.both_have_been_active
+        _mark_session_participant_active(session, room, user)
     else:
         session = LivekitSession.objects.create(
             room=room,
@@ -90,6 +97,8 @@ def process_webhook_classic_call__participant_joined(data, event, participant_id
     if session is not None:
         session.webhook_events.add(event)
         session.save()
+        if session.both_have_been_active and not already_mutual:
+            _bump_match_mutual_video_call_counter(room)
         # 5 - send 'NewActiveCall' event to the partner of the user that joined
         partner = room.u1 if user == room.u2 else room.u2
         NewActiveCallRoom(call_room=SerializeLivekitSession(session, context={"user": partner}).data).send(
@@ -124,12 +133,7 @@ def process_webhook_classic_call__participant_left(data, event, participant_id, 
             if session.both_have_been_active:
                 # 1 - send 'CallEnded' event to the partner of the user that left
                 # TOOD: do we want a minimum time threshold for a call to be considered 'ended/successful'?
-                partner = room.u1 if user == room.u2 else room.u2
-                # update the 'counters' on the Match object
-                match = Match.get_match(room.u1, room.u2).first()
-                match.total_mutal_video_calls_counter += 1
-                match.latest_interaction_at = timezone.now()
-                match.save()
+                # Mutual video call counter is bumped when both become active (on join), not on leave.
                 call_duration = session.end_time - session.created_at
 
                 try:
