@@ -34,9 +34,9 @@ from management.analytics.registry import (
     is_baseline,
     resolve_list_id,
 )
-from management.analytics.signup.catalog import CATALOG
-from management.analytics.signup.cohorts import SignupCohort, apply_cohort
-from management.analytics.signup.funnels import SIGNUP_FUNNEL
+from management.analytics.user_journey.catalog import CATALOG
+from management.analytics.user_journey.cohorts import SignupCohort, apply_cohort
+from management.analytics.user_journey.funnels import SIGNUP_FUNNEL
 from management.models.matches import Match
 from management.models.user import User
 

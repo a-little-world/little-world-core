@@ -1,13 +1,19 @@
-"""Clean membership names for signup-funnel analytics.
+"""Cumulative stage-reach queries — the ``signup__`` namespace.
+
+Each query counts everyone who **reached at least** that stage, so the stages nest:
+`active ⊇ email verified ⊇ form completed ⊇ eligible`. That nesting is what makes the
+bar chart monotonic, and it is the reason these cannot be reused as partition cells —
+see ``queries/state.py`` for the mutually exclusive versions.
 
 Queries are single-purpose membership functions. Composition (unions, stage gates,
-funnel order) lives in catalog / funnels — not inside these querysets.
+funnel order) lives in catalog / funnels, not inside these querysets.
 
-Semantics today: **current-state snapshot** of a signup-date cohort.
+Semantics: **current-state snapshot** of a signup-date cohort.
 """
 
 from django.db.models import Q, QuerySet
 
+from management.analytics.user_journey.queries import traits
 from management.api.user_advanced_filter import all_users
 from management.api.user_journey_filters import (
     booked_onboarding_call,
@@ -20,8 +26,6 @@ from management.api.user_journey_filters import (
     user_form_completed_awaiting_onboarding,
     user_form_completed_excluding_a0_german,
 )
-from management.models.profile import Profile
-from management.models.state import State
 
 # ---------------------------------------------------------------------------
 # Baseline / legacy stuck buckets (still used by journey lists & other charts)
@@ -40,45 +44,43 @@ users_with_self_onboarding_started = self_onboarding_started_no_booked_call
 # Global segment (cohort trait — not a funnel step)
 learners_with_german_level_a0 = too_low_german_level
 
+
 # ---------------------------------------------------------------------------
-# Trait predicates (composable building blocks)
+# Ineligibility (context + shared reason predicates)
 # ---------------------------------------------------------------------------
+
+
+def _form_complete_awaiting_onboarding(qs: QuerySet) -> QuerySet:
+    """Context the funnel asks its ineligibility questions in.
+
+    Deliberately *not* shared with the partition. The funnel needs a cumulative gate
+    (verified, form filled, not yet onboarded); the partition needs mutually exclusive
+    cells and applies its own context. Only the reason predicates are shared.
+    """
+    return qs.filter(
+        Q(is_active=True)
+        & traits.is_learner()
+        & Q(
+            state__user_form_state=traits.FILLED,
+            state__email_authenticated=True,
+            state__unresponsive=False,
+            state__is_onboarded=False,
+            state__force_match_eligible=False,
+            # Multi-valued relation, but `isnull=True` matches zero joined rows, so this
+            # cannot fan out and the OR below stays safe (conventions §6).
+            prematchingappointment__isnull=True,
+        )
+    )
 
 
 def learners_not_residing_in_germany(qs: QuerySet) -> QuerySet:
     """Learners whose country of residence is set and is not Germany."""
-    return qs.filter(
-        profile__user_type=Profile.TypeChoices.LEARNER,
-        profile__country_of_residence__isnull=False,
-    ).exclude(profile__country_of_residence=Profile.CountryChoices.GERMANY)
-
-
-def _learners_form_complete_awaiting_onboarding_not_force_eligible(qs: QuerySet) -> QuerySet:
-    """Shared base for onboarding-ineligibility reason subsets."""
-    return qs.filter(
-        is_active=True,
-        profile__user_type=Profile.TypeChoices.LEARNER,
-        state__user_form_state=State.UserFormStateChoices.FILLED,
-        state__email_authenticated=True,
-        state__unresponsive=False,
-        state__is_onboarded=False,
-        state__force_match_eligible=False,
-        prematchingappointment__isnull=True,
-    )
-
-
-# ---------------------------------------------------------------------------
-# Ineligibility reason subsets (form-complete context + one reason)
-# ---------------------------------------------------------------------------
+    return qs.filter(traits.is_learner() & traits.resides_outside_germany())
 
 
 def learners_ineligible_for_onboarding_due_to_a0_german(qs: QuerySet) -> QuerySet:
     """Form-complete learners blocked from onboarding by A0 German level."""
-    return _learners_form_complete_awaiting_onboarding_not_force_eligible(qs).filter(
-        profile__lang_skill__contains=[
-            {"lang": Profile.LanguageChoices.GERMAN, "level": Profile.LanguageSkillChoices.LEVEL_0}
-        ],
-    )
+    return _form_complete_awaiting_onboarding(qs).filter(traits.has_a0_german())
 
 
 def learners_ineligible_for_onboarding_due_to_residence_outside_germany(qs: QuerySet) -> QuerySet:
@@ -86,37 +88,29 @@ def learners_ineligible_for_onboarding_due_to_residence_outside_germany(qs: Quer
 
     Learners with ``force_match_eligible=True`` are excluded (they bypass this check).
     """
-    return learners_not_residing_in_germany(_learners_form_complete_awaiting_onboarding_not_force_eligible(qs))
-
-
-# Reasons currently composing the onboarding-eligibility gate.
-_ONBOARDING_INELIGIBILITY_REASONS = (
-    learners_ineligible_for_onboarding_due_to_a0_german,
-    learners_ineligible_for_onboarding_due_to_residence_outside_germany,
-)
+    return _form_complete_awaiting_onboarding(qs).filter(traits.resides_outside_germany())
 
 
 def learners_ineligible_for_onboarding(qs: QuerySet) -> QuerySet:
-    """Union of active onboarding-ineligibility reasons (A0 German + outside Germany).
+    """Union of the active onboarding-ineligibility reasons.
 
-    ``force_match_eligible=True`` learners are never included — they bypass checks.
+    Reasons come from ``traits.INELIGIBILITY_REASONS``, so the funnel gate and the
+    partition's ``current__signup_ineligible`` bucket can never answer "is this learner
+    blocked?" differently.
 
-    Unions ``.values("id")`` rather than OR-ing the reason querysets: both traverse
-    multi-valued relations, and OR-combining them reuses joins in ways that widen the
-    result (conventions §6). ``.order_by()`` strips any inherited ordering — SQLite
-    rejects ``ORDER BY`` inside a compound statement, so an ordered input would raise
-    there while working on Postgres.
+    The reasons are ``Q`` objects OR-ed inside one ``filter()`` rather than separate
+    querysets combined afterwards. Every reason reads single-valued ``profile`` columns,
+    so this adds no join and cannot widen the result the way OR-ing two independently
+    filtered querysets does (conventions §6).
     """
-    if not _ONBOARDING_INELIGIBILITY_REASONS:
+    reasons = list(traits.INELIGIBILITY_REASONS.values())
+    if not reasons:
         return qs.none()
 
-    def reason_ids(reason) -> QuerySet:
-        return reason(qs).order_by().values("id")
-
-    id_qs = reason_ids(_ONBOARDING_INELIGIBILITY_REASONS[0])
-    for reason in _ONBOARDING_INELIGIBILITY_REASONS[1:]:
-        id_qs = id_qs.union(reason_ids(reason))
-    return qs.filter(id__in=id_qs)
+    combined = reasons[0]
+    for reason in reasons[1:]:
+        combined |= reason
+    return _form_complete_awaiting_onboarding(qs).filter(combined)
 
 
 # ---------------------------------------------------------------------------
@@ -128,8 +122,9 @@ def users_active_adjusted(qs: QuerySet) -> QuerySet:
     """Active registered accounts that are not deleted.
 
     Does **not** require email verification — that is the next funnel stage.
-    (Previously this excluded never-verified users via ``never_active_or_deleted``,
-    which made it nearly identical to ``users_who_verified_email``.)
+    Unresponsive users are kept: they did reach this stage, and a cumulative funnel
+    counts reach, not current standing. (``state.live_users`` excludes them because a
+    partition needs somewhere exclusive to put them.)
     """
     return qs.filter(is_active=True).exclude(id__in=user_deleted(qs))
 
@@ -140,16 +135,16 @@ def users_who_verified_email(qs: QuerySet) -> QuerySet:
 
 
 def users_who_completed_form(qs: QuerySet) -> QuerySet:
-    """Users who completed the registration form (includes A0 / outside-DE learners)."""
-    return users_who_verified_email(qs).filter(
-        state__user_form_state=State.UserFormStateChoices.FILLED,
-    )
+    """Users who completed the registration form (includes A0 / outside-DE learners).
+
+    Built on ``users_who_verified_email`` so the stage nests inside the one before it.
+    """
+    return users_who_verified_email(qs).filter(state__user_form_state=traits.FILLED)
 
 
 def users_eligible_for_onboarding(qs: QuerySet) -> QuerySet:
     """Form-complete users who are not blocked by an active ineligibility reason."""
-    completed = users_who_completed_form(qs)
-    return completed.exclude(id__in=learners_ineligible_for_onboarding(qs))
+    return users_who_completed_form(qs).exclude(id__in=learners_ineligible_for_onboarding(qs))
 
 
 def users_who_started_onboarding(qs: QuerySet) -> QuerySet:

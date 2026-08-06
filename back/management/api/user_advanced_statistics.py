@@ -549,6 +549,10 @@ def statistics_highlights(request):
 # domain package is the next slice; until then this is the one place the ID is named.
 MATCH_JOURNEY_BASELINE_LIST_ID = "match_journey_v2__all"
 
+# The partition ``user_journey_v5_statistics`` serves. Resolved through the registry so a
+# second journey needs a route, not a second copy of the view.
+USER_JOURNEY_V5_ID = "user-journey-v5"
+
 
 def _compute_bucket_statistics(pre_filtered_qs, selected_entries, baseline_list_id, exclude_intersection_check):
     """Count each selected list over ``pre_filtered_qs`` and cross-check the partition.
@@ -684,7 +688,7 @@ def get_bucket_statistics(pre_filtered_users, selected_filters=None, filter_list
 @permission_classes([IsAdminOrMatchingUser])
 def bucket_statistics(request):
     from management.analytics.core import display_time
-    from management.analytics.signup.cohorts import SignupCohort, apply_cohort
+    from management.analytics.user_journey.cohorts import SignupCohort, apply_cohort
 
     # The view owns parsing and validation; the cohort owns query semantics (conventions §11).
     try:
@@ -720,6 +724,78 @@ def bucket_statistics(request):
     )
 
     return Response(stats)
+
+
+@extend_schema(
+    request=inline_serializer(
+        name="UserJourneyV5Request",
+        fields={
+            "start_date": serializers.DateField(default=date(2022, 1, 1), required=False),
+            "end_date": serializers.DateField(default=date.today(), required=False),
+            "volunteers_only": serializers.BooleanField(default=False, required=False),
+        },
+    ),
+    responses=inline_serializer(
+        name="UserJourneyV5Response",
+        fields={
+            "definition": serializers.DictField(
+                help_text="Phases, bucket order, labels and descriptions, owned by the server."
+            ),
+            "counts": serializers.DictField(child=serializers.IntegerField()),
+            "baseline_count": serializers.IntegerField(),
+            "summed_count": serializers.IntegerField(),
+            "balanced": serializers.BooleanField(
+                help_text="False when buckets overlap or leave baseline users unclaimed."
+            ),
+            "uncovered_count": serializers.IntegerField(),
+            "overlap_counts": serializers.DictField(child=serializers.IntegerField()),
+        },
+    ),
+)
+@api_view(["POST"])
+@permission_classes([IsAdminOrMatchingUser])
+def user_journey_v5_statistics(request):
+    """Current-state partition of a signup cohort, with the display metadata to render it.
+
+    The response carries the journey definition, so the admin panel holds no bucket
+    titles, descriptions or ordering of its own — that duplication is what let V4's
+    ``buckets.ts`` drift from the queries (conventions §4).
+
+    Partition failures are reported, not raised: ``balanced`` is false and the offending
+    IDs are logged and sampled in the payload, but the counts still render (§8).
+    """
+    from management.analytics.core import display_time
+    from management.analytics.registry import ALL_CATALOG, compute_partition, get_partition
+    from management.analytics.user_journey.cohorts import PartitionCohort
+
+    partition = get_partition(USER_JOURNEY_V5_ID)
+    if partition is None:
+        return Response({"detail": f"Unknown partition {USER_JOURNEY_V5_ID!r}."}, status=500)
+
+    try:
+        start_date = _parse_date_input(request.data.get("start_date"), date(2022, 1, 1))
+        end_date = _parse_date_input(request.data.get("end_date"), display_time.today())
+    except (TypeError, ValueError):
+        return Response({"detail": "start_date and end_date must be YYYY-MM-DD."}, status=400)
+
+    if start_date > end_date:
+        return Response({"detail": "start_date must not be after end_date."}, status=400)
+
+    cohort = PartitionCohort(
+        start_date=start_date,
+        end_date=end_date,
+        volunteers_only=request.data.get("volunteers_only", False),
+    )
+    result = compute_partition(partition, cohort.apply(_get_accessible_users(request.user)))
+
+    return Response(
+        {
+            "definition": partition.as_payload(ALL_CATALOG),
+            "start_date": start_date,
+            "end_date": end_date,
+            **result,
+        }
+    )
 
 
 def get_match_bucket_statistics(pre_filtered_matches, selected_filters=None, filter_lists=MATCH_JOURNEY_FILTERS):
@@ -2508,6 +2584,7 @@ api_urls = [
     path("api/matching/users/statistics/highlights/", statistics_highlights),
     path("api/matching/users/statistics/video_call_summary/<int:user_id>/", user_video_call_summary),
     path("api/matching/users/statistics/user_journey_buckets/", bucket_statistics),
+    path("api/matching/users/statistics/user_journey_v5/", user_journey_v5_statistics),
     path("api/matching/users/statistics/match_journey_buckets/", match_bucket_statistics),
     path("api/matching/users/statistics/user_signup_loss/", user_signup_loss_statistics),
     path("api/matching/users/statistics/match_quality/", match_quality_statistics),

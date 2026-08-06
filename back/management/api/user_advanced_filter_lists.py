@@ -1,6 +1,5 @@
 import inspect
 from dataclasses import dataclass
-from typing import List
 
 from management.api.user_advanced_filter import (
     EXTRA__fh_aachen_learners_scoring,
@@ -76,7 +75,6 @@ from management.api.user_journey_filters import (
     user_created,
     user_deleted,
     user_form_completed,
-    user_form_completed_awaiting_onboarding,
     user_searching,
     users_with_duplicate_automatic_emails_29_01_2026,
     volunteers_with_completed_match_no_ongoing,
@@ -86,34 +84,44 @@ from management.models.dynamic_user_list import DynamicUserList
 GITHUB_SOURCE_ROOT = "https://github.com/a-little-world/little-world-core/blob/main"
 
 
-def _analytics_queryset(attr: str):
-    """Lazy wrapper to avoid a circular import with ``management.analytics.signup.queries``.
+def _catalog_queryset(list_id: str):
+    """Serve a list straight from the analytics catalog entry that defines it.
 
-    ``_analytics_attr`` lets ``get_queryset_source_reference`` resolve the real query
-    function at request time, so the admin "view source" link points at the query
-    definition instead of at this wrapper.
+    The catalog is the only place an analytics query is named. Entries built this way
+    therefore cannot disagree with it — which is what
+    ``registry.catalog_keys_disagreeing_with_filter_lists`` had to police back when the
+    filter list named the query a second time.
+
+    Resolution is deferred to call time to avoid a circular import: the analytics
+    catalog imports query functions from this module's neighbours.
     """
 
     def fn(qs=None):
-        from management.analytics.signup import queries as aq
+        from management.analytics.registry import get_catalog_entry
         from management.models.user import User
 
-        return getattr(aq, attr)(User.objects.all() if qs is None else qs)
+        return get_catalog_entry(list_id).queryset(User.objects.all() if qs is None else qs)
 
-    fn.__name__ = attr
-    fn.__qualname__ = attr
-    fn._analytics_attr = attr
+    fn.__name__ = list_id
+    fn.__qualname__ = list_id
+    fn._catalog_list_id = list_id
     return fn
 
 
 def _unwrap_analytics_queryset(queryset: callable) -> callable:
-    """Resolve a ``_analytics_queryset`` wrapper to the query function it calls."""
-    attr = getattr(queryset, "_analytics_attr", None)
-    if attr is None:
-        return queryset
-    from management.analytics.signup import queries as aq
+    """Resolve a catalog wrapper to the query function it ultimately calls.
 
-    return getattr(aq, attr, queryset)
+    Keeps the admin "view source" link pointing at the query definition
+    (``queries/funnel.py``, ``queries/state.py``) rather than at the wrapper.
+    """
+    list_id = getattr(queryset, "_catalog_list_id", None)
+    if list_id is None:
+        return queryset
+
+    from management.analytics.registry import get_catalog_entry
+
+    entry = get_catalog_entry(list_id)
+    return entry.queryset if entry else queryset
 
 
 def get_queryset_source_reference(queryset: callable) -> dict:
@@ -264,36 +272,8 @@ USER_JOURNEY_FILTER_LISTS = [
     FilterListEntry("journey_v2__never_active_or_deleted", None, never_active_or_deleted),
     FilterListEntry("journey_v2__email_verified", None, email_verified),
     FilterListEntry("journey_v2__user_form_completed", None, user_form_completed),
-    # Signup analytics lists. Descriptions are omitted deliberately: the analytics catalog
-    # owns display_name/description (conventions §4) and `resolved_description` reads it.
-    # Querysets are lazy wrappers to avoid importing the analytics package at module load.
-    FilterListEntry("signup__all", None, _analytics_queryset("users_all")),
-    FilterListEntry("signup__form_completed_awaiting_onboarding", None, user_form_completed_awaiting_onboarding),
-    # Stage reaches
-    FilterListEntry("signup__stage_active_adjusted", None, _analytics_queryset("users_active_adjusted")),
-    FilterListEntry("signup__stage_email_verified", None, _analytics_queryset("users_who_verified_email")),
-    FilterListEntry("signup__stage_form_completed", None, _analytics_queryset("users_who_completed_form")),
-    FilterListEntry(
-        "signup__stage_eligible_for_onboarding", None, _analytics_queryset("users_eligible_for_onboarding")
-    ),
-    FilterListEntry("signup__stage_onboarding_started", None, _analytics_queryset("users_who_started_onboarding")),
-    FilterListEntry("signup__stage_onboarded", None, _analytics_queryset("users_who_are_onboarded")),
-    # Ineligibility reason subsets
-    FilterListEntry(
-        "signup__ineligible_a0_german",
-        None,
-        _analytics_queryset("learners_ineligible_for_onboarding_due_to_a0_german"),
-    ),
-    FilterListEntry(
-        "signup__ineligible_outside_germany",
-        None,
-        _analytics_queryset("learners_ineligible_for_onboarding_due_to_residence_outside_germany"),
-    ),
-    FilterListEntry(
-        "signup__ineligible_for_onboarding", None, _analytics_queryset("learners_ineligible_for_onboarding")
-    ),
     # Legacy alias for signup__ineligible_for_onboarding — see registry.LEGACY_ALIASES.
-    FilterListEntry("signup__invalid_german_level", None, _analytics_queryset("learners_ineligible_for_onboarding")),
+    FilterListEntry("signup__invalid_german_level", None, _catalog_queryset("signup__ineligible_for_onboarding")),
     FilterListEntry("journey_v2__booked_onboarding_call", None, booked_onboarding_call),
     FilterListEntry("journey_v2__self_onboarding_started", None, self_onboarding_started_no_booked_call),
     FilterListEntry("journey_v2__onboarding_incomplete", None, onboarding_incomplete),
@@ -400,10 +380,66 @@ USER_JOURNEY_FILTER_LISTS = [
     ),
 ]
 
-FILTER_LISTS = PANEL_V1_FILTER_LISTS + USER_JOURNEY_FILTER_LISTS
+# User journey V5. One entry per key in ``management.analytics.journey.catalog.CATALOG``;
+# the catalog owns the query, label and description, so nothing is repeated here.
+# Every servable ID from ``management.analytics.user_journey.catalog``.
+#
+# Listed rather than derived: importing the catalog here is circular, because the
+# analytics queries still import legacy filters out of ``management.api`` and that
+# package's ``__init__`` pulls this module back in. (Untangling that layering — analytics
+# should not depend on the API layer at all — is worth doing, but not in this change.)
+#
+# Only the IDs are repeated, never the queries: ``_catalog_queryset`` resolves each one
+# through the catalog at call time, and ``registry.catalog_keys_not_servable`` fails the
+# registry test the moment a catalog key is missing from this tuple.
+#
+# Descriptions stay ``None`` — the catalog owns display_name/description (conventions §4)
+# and ``resolved_description`` reads it from there.
+ANALYTICS_LIST_IDS = (
+    # signup__ — cumulative stage reach
+    "signup__all",
+    "signup__stage_active_adjusted",
+    "signup__stage_email_verified",
+    "signup__stage_form_completed",
+    "signup__stage_eligible_for_onboarding",
+    "signup__stage_onboarding_started",
+    "signup__stage_onboarded",
+    "signup__ineligible_a0_german",
+    "signup__ineligible_outside_germany",
+    "signup__ineligible_for_onboarding",
+    "signup__form_completed_awaiting_onboarding",
+    # current__ — mutually exclusive current state
+    "current__signup_created",
+    "current__signup_email_verified",
+    "current__signup_form_completed",
+    "current__signup_onboarding_booked",
+    "current__signup_self_onboarding",
+    "current__signup_no_show",
+    "current__signup_ineligible",
+    "current__active_first_search",
+    "current__active_search_blocked",
+    "current__active_proposed",
+    "current__active_match_takeoff",
+    "current__active_match_ongoing",
+    "current__active_searching_again",
+    "current__success_match_completed",
+    "current__success_free_play",
+    "current__lapsed_unmatched",
+    "current__lapsed_failed_matching",
+    "current__lapsed_gave_up",
+    "current__past_unresponsive",
+    "current__past_deleted_after_success",
+    "current__past_deleted",
+    "current__record_incomplete",
+    "current__failed_match_reasons",
+)
+
+ANALYTICS_FILTER_LISTS = [FilterListEntry(list_id, None, _catalog_queryset(list_id)) for list_id in ANALYTICS_LIST_IDS]
+
+FILTER_LISTS = PANEL_V1_FILTER_LISTS + USER_JOURNEY_FILTER_LISTS + ANALYTICS_FILTER_LISTS
 
 
-def get_dynamic_userlists() -> List[FilterListEntry]:
+def get_dynamic_userlists() -> list[FilterListEntry]:
     return [
         FilterListEntry(":dyn:" + str(dyn_user_list.id), dyn_user_list.name)
         for dyn_user_list in DynamicUserList.objects.all()

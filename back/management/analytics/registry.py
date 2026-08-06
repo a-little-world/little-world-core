@@ -5,13 +5,23 @@ Single lookup point for the API: `get_catalog_entry` resolves legacy IDs, and
 inherits by registering here (see ``dev/docs/analytics_conventions.md`` §8).
 """
 
+import logging
+
 from management.analytics.core.catalog import CatalogEntry
 from management.analytics.core.funnels import FUNNEL_ALLOWED_ROLES, FunnelDefinition
 from management.analytics.core.roles import CatalogRole
-from management.analytics.signup import queries as signup_q
-from management.analytics.signup.catalog import CATALOG as SIGNUP_CATALOG
-from management.analytics.signup.funnels import SIGNUP_FUNNEL
+from management.analytics.user_journey.catalog import CATALOG as USER_JOURNEY_CATALOG
+from management.analytics.user_journey.catalog import DOMAIN_PREFIXES as USER_JOURNEY_PREFIXES
+from management.analytics.user_journey.funnels import SIGNUP_FUNNEL
+from management.analytics.user_journey.partitions import (
+    PARTITION_ALLOWED_ROLES,
+    USER_JOURNEY_V5,
+    PartitionDefinition,
+)
+from management.analytics.user_journey.queries import funnel as signup_q
 from management.models.user import User
+
+logger = logging.getLogger(__name__)
 
 _USER = User
 
@@ -95,12 +105,23 @@ LEGACY_CATALOG: dict[str, CatalogEntry] = {
     ),
 }
 
-ALL_CATALOG: dict[str, CatalogEntry] = {**SIGNUP_CATALOG, **LEGACY_CATALOG}
+ALL_CATALOG: dict[str, CatalogEntry] = {**USER_JOURNEY_CATALOG, **LEGACY_CATALOG}
 
 ALL_FUNNELS: tuple[FunnelDefinition, ...] = (SIGNUP_FUNNEL,)
 
+ALL_PARTITIONS: tuple[PartitionDefinition, ...] = (USER_JOURNEY_V5,)
+
+# Domain → the ID namespaces it owns. A domain may own several: ``user_journey`` keeps
+# cumulative funnel stages under ``signup__`` and current-state cells under ``current__``
+# because conflating the two is the likeliest way to misread these numbers (§3).
+# The prefix is a namespace the domain claims, not a restatement of its name, so
+# ``assert_all_domains_strict`` checks that no two domains claim the same one.
+DOMAIN_PREFIXES: dict[str, tuple[str, ...]] = {
+    "user_journey": USER_JOURNEY_PREFIXES,
+}
+
 DOMAIN_CATALOGS: dict[str, dict[str, CatalogEntry]] = {
-    "signup": SIGNUP_CATALOG,
+    "user_journey": USER_JOURNEY_CATALOG,
 }
 
 
@@ -162,8 +183,151 @@ def funnel_steps_with_mismatched_base_model(funnel: FunnelDefinition) -> list[st
 
 
 def catalog_keys_with_bad_prefix(domain: str, catalog: dict[str, CatalogEntry]) -> list[str]:
-    prefix = f"{domain}__"
-    return [key for key in catalog if not key.startswith(prefix)]
+    """Keys that do not sit in one of the namespaces the domain declares."""
+    prefixes = DOMAIN_PREFIXES.get(domain, (f"{domain}__",))
+    return [key for key in catalog if not key.startswith(prefixes)]
+
+
+def prefixes_claimed_by_multiple_domains() -> dict[str, list[str]]:
+    """Prefix → domains claiming it. Non-empty means two domains can define the same key."""
+    claims: dict[str, list[str]] = {}
+    for domain, prefixes in DOMAIN_PREFIXES.items():
+        for prefix in prefixes:
+            claims.setdefault(prefix, []).append(domain)
+    return {prefix: domains for prefix, domains in claims.items() if len(domains) > 1}
+
+
+# ---------------------------------------------------------------------------
+# Partitions
+# ---------------------------------------------------------------------------
+
+
+def get_partition(partition_id: str) -> PartitionDefinition | None:
+    return next((p for p in ALL_PARTITIONS if p.id == partition_id), None)
+
+
+def partition_buckets_missing_from_catalog(partition: PartitionDefinition) -> list[str]:
+    return [list_id for list_id in partition.all_list_ids() if list_id not in ALL_CATALOG]
+
+
+def partition_buckets_with_disallowed_roles(partition: PartitionDefinition) -> list[str]:
+    """Bucket IDs whose catalog role is not a valid partition cell.
+
+    This is the check that keeps a ``SEGMENT`` out of a partition. V4's
+    ``journey_v2__too_low_german_level`` was a cohort trait counted as a state, so it
+    overlapped every other bucket by construction.
+    """
+    return [
+        list_id
+        for list_id in partition.bucket_ids()
+        if (entry := ALL_CATALOG.get(list_id)) is not None and entry.role not in PARTITION_ALLOWED_ROLES
+    ]
+
+
+def partition_buckets_with_mismatched_base_model(partition: PartitionDefinition) -> list[str]:
+    return [
+        list_id
+        for list_id in partition.all_list_ids()
+        if (entry := ALL_CATALOG.get(list_id)) is not None and entry.base_model is not partition.base_model
+    ]
+
+
+def assert_partition_valid_strict(partition: PartitionDefinition) -> None:
+    """Structural checks only — no database access. See ``compute_partition`` for the data check."""
+    missing = partition_buckets_missing_from_catalog(partition)
+    if missing:
+        raise AssertionError(f"Partition {partition.id!r} buckets missing from catalog: {missing}")
+
+    bad_roles = partition_buckets_with_disallowed_roles(partition)
+    if bad_roles:
+        raise AssertionError(f"Partition {partition.id!r} buckets with disallowed roles: {bad_roles}")
+
+    bad_models = partition_buckets_with_mismatched_base_model(partition)
+    if bad_models:
+        raise AssertionError(f"Partition {partition.id!r} buckets with mismatched base_model: {bad_models}")
+
+    baseline = ALL_CATALOG[partition.baseline_list_id]
+    if baseline.role is not CatalogRole.BASELINE:
+        raise AssertionError(
+            f"Partition {partition.id!r} baseline {partition.baseline_list_id!r} has role {baseline.role}"
+        )
+
+    duplicates = sorted({bid for bid in partition.bucket_ids() if partition.bucket_ids().count(bid) > 1})
+    if duplicates:
+        raise AssertionError(f"Partition {partition.id!r} lists the same bucket twice: {duplicates}")
+
+
+# How many offending IDs a GET response carries. The full set goes to the log.
+PARTITION_ID_SAMPLE_LIMIT = 50
+
+
+def compute_partition(partition: PartitionDefinition, qs, *, sample_limit: int = PARTITION_ID_SAMPLE_LIMIT) -> dict:
+    """Count every bucket over ``qs`` and check that they partition the baseline.
+
+    Two things can break and both are reported rather than raised, because one bad row
+    must not take down the page (conventions §8): ``overlaps`` when a user is claimed by
+    two buckets, and ``uncovered`` when a baseline member is claimed by none. The counts
+    are still correct per bucket when either is non-empty, so the caller can render.
+
+    IDs are materialised in Python because the overlap check is pairwise set
+    intersection; this is an admin analytics path over one signup cohort, not a hot read.
+    """
+    baseline_entry = ALL_CATALOG[partition.baseline_list_id]
+    baseline_ids = set(baseline_entry.queryset(qs).values_list("id", flat=True))
+
+    bucket_ids: dict[str, set[int]] = {}
+    for list_id in partition.bucket_ids():
+        bucket_ids[list_id] = set(ALL_CATALOG[list_id].queryset(qs).values_list("id", flat=True))
+
+    ordered = partition.bucket_ids()
+    overlaps: dict[str, list[int]] = {}
+    for position, name in enumerate(ordered):
+        for other in ordered[position + 1 :]:
+            shared = bucket_ids[name] & bucket_ids[other]
+            if shared:
+                overlaps[f"{name}---{other}"] = sorted(shared)
+
+    covered: set[int] = set().union(*bucket_ids.values()) if bucket_ids else set()
+    uncovered = sorted(baseline_ids - covered)
+    outside = sorted(covered - baseline_ids)
+
+    balanced = not overlaps and not uncovered and not outside
+    if not balanced:
+        logger.warning(
+            "Partition %s does not balance: %d uncovered, %d outside baseline, overlapping pairs %s",
+            partition.id,
+            len(uncovered),
+            len(outside),
+            {pair: ids for pair, ids in overlaps.items()},
+        )
+
+    return {
+        "partition_id": partition.id,
+        "baseline_list_id": partition.baseline_list_id,
+        "baseline_count": len(baseline_ids),
+        "counts": {list_id: len(ids) for list_id, ids in bucket_ids.items()},
+        "summed_count": sum(len(ids) for ids in bucket_ids.values()),
+        "balanced": balanced,
+        "uncovered_count": len(uncovered),
+        "uncovered_ids": uncovered[:sample_limit],
+        "outside_baseline_count": len(outside),
+        "outside_baseline_ids": outside[:sample_limit],
+        "overlap_counts": {pair: len(ids) for pair, ids in overlaps.items()},
+        "overlap_ids": {pair: ids[:sample_limit] for pair, ids in overlaps.items()},
+    }
+
+
+def assert_partition_balances_strict(partition: PartitionDefinition, qs) -> None:
+    """Raise if the partition does not balance over ``qs``. For tests and batch jobs only."""
+    result = compute_partition(partition, qs)
+    if result["balanced"]:
+        return
+    raise AssertionError(
+        f"Partition {partition.id!r} does not balance over {result['baseline_count']} baseline users: "
+        f"{result['uncovered_count']} uncovered {result['uncovered_ids']}, "
+        f"{result['outside_baseline_count']} outside baseline {result['outside_baseline_ids']}, "
+        f"overlaps {result['overlap_ids']}"
+    )
 
 
 def _filter_list_entries() -> dict[str, object]:
@@ -238,19 +402,34 @@ def assert_all_domains_strict() -> None:
     """Every check a registered domain inherits. Raises on the first violation.
 
     Called from ``management.tests.test_signup_funnel_analytics``; adding a domain to
-    ``DOMAIN_CATALOGS`` / ``ALL_FUNNELS`` is enough to be covered.
+    ``DOMAIN_CATALOGS`` / ``ALL_FUNNELS`` / ``ALL_PARTITIONS`` is enough to be covered.
+
+    Structural only — it does not touch the database, so it is safe at import time and in
+    ``SimpleTestCase``. The data-level partition check is ``assert_partition_balances_strict``.
     """
     for domain, catalog in DOMAIN_CATALOGS.items():
         bad_keys = catalog_keys_with_bad_prefix(domain, catalog)
         if bad_keys:
-            raise AssertionError(f"Domain {domain!r} catalog keys with bad prefix: {bad_keys}")
+            prefixes = DOMAIN_PREFIXES.get(domain, (f"{domain}__",))
+            raise AssertionError(f"Domain {domain!r} catalog keys outside its namespaces {prefixes}: {bad_keys}")
+
+    contested = prefixes_claimed_by_multiple_domains()
+    if contested:
+        raise AssertionError(f"ID prefixes claimed by more than one domain: {contested}")
 
     for funnel in ALL_FUNNELS:
         assert_funnel_valid_strict(funnel)
 
-    overlap = set(SIGNUP_CATALOG) & set(LEGACY_CATALOG)
-    if overlap:
-        raise AssertionError(f"LEGACY_CATALOG overlaps SIGNUP_CATALOG: {sorted(overlap)}")
+    for partition in ALL_PARTITIONS:
+        assert_partition_valid_strict(partition)
+
+    domain_keys = [set(catalog) for catalog in DOMAIN_CATALOGS.values()] + [set(LEGACY_CATALOG)]
+    seen: set[str] = set()
+    for keys in domain_keys:
+        collisions = seen & keys
+        if collisions:
+            raise AssertionError(f"Catalog keys defined in more than one domain: {sorted(collisions)}")
+        seen |= keys
 
     for alias, canonical in LEGACY_ALIASES.items():
         if canonical not in ALL_CATALOG:
